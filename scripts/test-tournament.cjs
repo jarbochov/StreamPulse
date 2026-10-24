@@ -511,6 +511,58 @@ test('Tournament Service: Variable bracket sizes, manual scoring, series best-of
         assert.equal(fgcMatch.entrant1.score, 2, 'Game score should advance to 2');
         assert.equal(fgcMatch.entrant1.rounds, 0);
         assert.equal(fgcMatch.pendingWinner, 'Daigo', 'Target score reached -> pendingWinner should be Daigo');
+
+        // 17. Entrant color customization and propagation across matches
+        const colorTourney = service.createTournament({
+            title: 'Color Test Tournament',
+            format: 'single',
+            entrants: ['SonicFox', 'Go1', 'Dekillsage', 'HookGangGod'],
+            bestOf: 3
+        });
+        const cMatch = colorTourney.matches[0];
+        assert.ok(cMatch.entrant1.name === 'SonicFox');
+        // Update SonicFox color to custom purple
+        service.updateMatchScore(cMatch.id, { entrant: 'SonicFox', color: '#8b5cf6' });
+        assert.equal(cMatch.entrant1.color, '#8b5cf6');
+        // Advance SonicFox to finals
+        service.updateMatchScore(cMatch.id, { entrant1Score: 2 });
+        service.advanceTournamentMatch(cMatch.id, 'SonicFox');
+        const colorFinalsMatch = colorTourney.matches.find(m => m.round === 2);
+        assert.ok(colorFinalsMatch);
+        assert.equal(colorFinalsMatch.entrant1.name, 'SonicFox');
+        assert.equal(colorFinalsMatch.entrant1.color, '#8b5cf6', 'Entrant color should propagate to downstream bracket matches');
+
+        // 18. Separation of Esports Tournament and Poll Tournament
+        const esportsTourney = service.createTournament({
+            title: 'Pro Championship 2026',
+            format: 'single',
+            entrants: ['Alpha', 'Beta'],
+            bestOf: 5,
+            isPoll: false
+        });
+        const pollTourney = service.createTournament({
+            title: 'Chat Community Bracket',
+            format: 'single',
+            entrants: ['Option A', 'Option B'],
+            bestOf: 3,
+            isPoll: true
+        });
+
+        assert.equal(service.getTournament().title, 'Pro Championship 2026');
+        assert.equal(service.getPollTournament().title, 'Chat Community Bracket');
+        assert.notEqual(service.getTournament().id, service.getPollTournament().id);
+
+        // Update score in poll tournament
+        const pMatch = pollTourney.matches[0];
+        service.updateMatchScore(pMatch.id, { entrant1Score: 2, isPoll: true });
+        assert.equal(service.getPollTournament().matches[0].entrant1.score, 2);
+        assert.equal(service.getTournament().matches[0].entrant1.score, 0, 'Actual tournament match should not be modified by poll tournament score');
+
+        // Reset poll tournament
+        service.resetTournament({ isPoll: true });
+        assert.equal(service.getPollTournament(), null);
+        assert.ok(service.getTournament(), 'Actual tournament must survive poll tournament reset');
+        assert.equal(service.getTournament().title, 'Pro Championship 2026');
     } finally {
         service.destroy();
         fs.rmSync(tmpDir, { recursive: true, force: true });

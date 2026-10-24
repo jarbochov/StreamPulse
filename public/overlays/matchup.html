@@ -1669,7 +1669,7 @@
                                             <div class="race-runner-name">${esc(c.name)}</div>
                                             ${showTags && c.tag ? `<div class="race-runner-tag">${esc(c.tag)}</div>` : ''}
                                         </div>
-                                        ${target > 0 ? renderPipsHtml(c, target, c.color) : ''}
+                                        ${renderPipsHtml(c, target, c.color)}
                                     </div>
                                     <div class="race-timer-hero">
                                         ${clockOff ? '' : `<div class="race-timer-digits"${isFin ? '' : ' data-live="' + i + '"'}>${timeStr}</div>${badgeHtml}`}
@@ -1997,7 +1997,7 @@
             const side = (p, cls) => `
                 <div class="ang-side ${cls}" style="--c: ${p.color || (cls === 'l' ? 'var(--p1-color)' : 'var(--p2-color)')};">
                     <div style="min-width:0;"><div class="ang-name">${esc(p.name)}</div>${showTags && p.tag ? `<div class="ang-tag">${esc(p.tag)}</div>` : ''}</div>
-                    ${showPips ? renderPipsHtml(p, target, '#fff') : ''}
+                    ${renderPipsHtml(p, target, '#fff')}
                     <div class="ang-score">${p.score}</div>
                 </div>`;
             container.innerHTML = `
@@ -2124,8 +2124,8 @@
                 competitorCount: 2,
                 roundsBestOf: match.roundsBestOf || tournament.roundsBestOf || 0,
                 competitors: [
-                    { id: 'c1', name: e1Name, tag: match.entrant1?.tag || '', color: customP1Color || '#ef4444', score: s1, rounds: match.entrant1?.rounds || 0 },
-                    { id: 'c2', name: e2Name, tag: match.entrant2?.tag || '', color: customP2Color || '#3b82f6', score: s2, rounds: match.entrant2?.rounds || 0 }
+                    { id: 'c1', name: e1Name, tag: match.entrant1?.tag || '', color: customP1Color || match.entrant1?.color || '#ef4444', score: s1, rounds: match.entrant1?.rounds || 0 },
+                    { id: 'c2', name: e2Name, tag: match.entrant2?.tag || '', color: customP2Color || match.entrant2?.color || '#3b82f6', score: s2, rounds: match.entrant2?.rounds || 0 }
                 ],
                 format: tournament.scoringType === 'points' ? 'points' : 'bestOf',
                 bestOf,

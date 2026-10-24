@@ -126,6 +126,29 @@ test('tournament overlay renders tree layout, active HUD layout, theme presets, 
         const roundPips = await page.$$('.match-round-pip');
         assert.ok(roundPips.length > 0, 'Match card should display diamond round pips when ?roundpips=1 and roundsBestOf > 0');
 
+        // 13. Entrant color accents and dots
+        await page.evaluate(() => {
+            window.renderTournament({
+                id: 'color-test',
+                title: 'Color Overlay Test',
+                format: 'single',
+                bracketSize: 2,
+                matches: [
+                    {
+                        id: 'm_1_1',
+                        round: 1,
+                        entrant1: { name: 'Player Red', color: '#ff2255', score: 1 },
+                        entrant2: { name: 'Player Blue', color: '#2255ff', score: 0 },
+                        status: 'ACTIVE'
+                    }
+                ]
+            });
+        });
+        const e1Border = await page.$eval('.entrant-row', el => el.style.borderLeft);
+        assert.ok(e1Border.includes('255, 34, 85') || e1Border.includes('#ff2255'), 'Entrant row should display custom left border color');
+        const colorDot = await page.$('.entrant-color-dot');
+        assert.ok(colorDot, 'Entrant row should display color dot');
+
     } finally {
         if (browser) await browser.close();
     }

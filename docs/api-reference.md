@@ -242,6 +242,20 @@ IGDB operations use the configured Twitch client credentials. Missing credential
 - **Restore Draft Checkpoint**: `POST /api/tournament/drafts/restore` — Resumes an in-progress bracket draft: `{ "id": "draft-1" }`.
 - **Delete Draft Checkpoint**: `DELETE /api/tournament/drafts/:id` — Deletes an in-progress draft checkpoint.
 
+### Audience Poll Tournament Endpoints (`/api/polls/tournament/*`)
+Dedicated endpoints managing audience chat brackets in Poll Manager, completely isolated from esports tournaments:
+- `GET /api/polls/tournament` — Returns active poll tournament bracket.
+- `POST /api/polls/tournament/create` — Creates an audience voting tournament: `{ "title": "Chat RPG Tournament", "entrants": ["Chrono", "Final Fantasy"], "format": "single", "bestOf": 3 }`.
+- `POST /api/polls/tournament/start-match` — Launches the active match as a live chat poll.
+- `POST /api/polls/tournament/advance` — Advances winner in the poll tournament: `{ "matchId": "m_1_1", "winner": "Chrono" }`.
+- `POST /api/polls/tournament/score` — Manually updates score or entrant color in poll tournament.
+- `POST /api/polls/tournament/select-match` — Sets active match: `{ "matchId": "m_1_2" }`.
+- `POST /api/polls/tournament/reset-match` — Clears score of a match.
+- `POST /api/polls/tournament/rollback` — Rolls back completed match and downstream matches: `{ "matchId": "m_1_1" }`.
+- `POST /api/polls/tournament/settings` — Updates poll tournament title or settings.
+- `POST /api/polls/tournament/reset` — Resets active poll tournament.
+- `GET /api/polls/tournament/history` — Returns archived poll tournaments history.
+
 ---
 
 ## 2.5 Matchup Scoreboard & Versus Endpoints

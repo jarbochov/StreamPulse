@@ -54,6 +54,12 @@ Open **Tools -> Poll Manager** (`/polls.html`):
 
 StreamPulse includes an advanced **Tournament Bracket** engine designed for community showdowns, esports competitions, retro game tournaments, and interactive viewer brackets. Tournaments can be managed from either **Versus** (`/versus.html`) for esports/manual brackets or **Poll Manager** (`/polls.html`) for audience chat brackets.
 
+- **Dedicated & Isolated Tournament State**: Esports tournaments (`/api/tournament/*`) and Audience Chat tournaments (`/api/polls/tournament/*`) maintain completely independent lifecycles, states, and history. Running an audience bracket in Poll Manager never modifies or overwrites an active esports bracket in Versus.
+- **Overlay Routing by Source**: `/overlays/tournament.html` defaults to the active esports tournament, while `/overlays/tournament.html?source=poll` monitors the audience chat bracket in real-time.
+- **Entrant Color Customization**: Broadcasters can customize competitor colors directly from the Tournament Match HUD or the Versus competitor cards. Colors persist across the entire bracket, propagate automatically to downstream matches, and render as luminous accent borders and dots on both `/tournament.html` and `/matchup.html`.
+- **Independent Score Pips vs. Round Pips**: Score pips (`?pips=1` or `?pips=0`) and round pips (`?roundpips=1` or `?roundpips=0`) are completely independent ("either or"). Streamers can choose to display round pips alone without score pips (`?pips=0&roundpips=1`), both, or neither.
+- **Strict Round Logic & Auto-Advancement**: If rounds are configured (e.g. Best of 3 rounds, target 2), reaching target rounds immediately awards +1 game win and clears rounds to 0-0. Competitor round counts are strictly capped below the target, preventing invalid states like `3/2 rounds`. When rounds are Off (`roundsBestOf: 0`), round steppers are cleanly disabled.
+
 ### Flexible Tournament Capabilities:
 - **Participant Scaling & Non-Multiples of 2 (2 to 32 Entrants)**: Enter any number of competitors, including odd or non-power-of-2 numbers (e.g. 3, 5, 6, 7, 9, 11, 13).
   - **Single Elimination with Clean BYEs**: Top seeds automatically receive 1st Round **BYEs** that cleanly advance directly to the subsequent round slot without ghost matches, fake scores, or confusing voting prompts. The overlay highlights these as sleek `1st Round BYE` cards.

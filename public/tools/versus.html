@@ -84,7 +84,10 @@
                             <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.75rem; align-items: center;">
                                 <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; text-align: right;">
                                     <div>
-                                        <div id="t-entrant-1" style="font-weight: 800; font-size: 0.95rem;">Player 1</div>
+                                        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.35rem;">
+                                            <input type="color" id="t-color-input-1" value="#ef4444" style="width: 20px; height: 20px; border: none; cursor: pointer; border-radius: 4px;" onchange="saveTournamentEntrantColor(1, this.value)" title="Change Player 1 color">
+                                            <div id="t-entrant-1" style="font-weight: 800; font-size: 0.95rem;">Player 1</div>
+                                        </div>
                                         <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.25rem; margin-top: 0.15rem;">
                                             <input type="text" id="t-tag-input-1" class="form-control" style="font-size: 0.7rem; padding: 0.15rem 0.35rem; max-width: 100px; height: 22px; text-align: right;" placeholder="Tag / Character" onchange="saveTournamentEntrantTag(1, this.value)">
                                             <div id="t-tag-1" style="display: none; font-size: 0.7rem; color: var(--text-muted); font-weight: 700;"></div>
@@ -107,7 +110,10 @@
                                         <button type="button" class="score-btn" onclick="stepTourneyScore(2, 1)">+</button>
                                     </div>
                                     <div>
-                                        <div id="t-entrant-2" style="font-weight: 800; font-size: 0.95rem;">Player 2</div>
+                                        <div style="display: flex; align-items: center; justify-content: flex-start; gap: 0.35rem;">
+                                            <div id="t-entrant-2" style="font-weight: 800; font-size: 0.95rem;">Player 2</div>
+                                            <input type="color" id="t-color-input-2" value="#3b82f6" style="width: 20px; height: 20px; border: none; cursor: pointer; border-radius: 4px;" onchange="saveTournamentEntrantColor(2, this.value)" title="Change Player 2 color">
+                                        </div>
                                         <div style="display: flex; align-items: center; justify-content: flex-start; gap: 0.25rem; margin-top: 0.15rem;">
                                             <input type="text" id="t-tag-input-2" class="form-control" style="font-size: 0.7rem; padding: 0.15rem 0.35rem; max-width: 100px; height: 22px; text-align: left;" placeholder="Tag / Character" onchange="saveTournamentEntrantTag(2, this.value)">
                                             <div id="t-tag-2" style="display: none; font-size: 0.7rem; color: var(--text-muted); font-weight: 700;"></div>
@@ -1418,7 +1424,12 @@
             if (sourceSelect && sourceSelect.value !== 'auto') urlParams.set('source', sourceSelect.value);
             if (pipStyleSelect && pipStyleSelect.value !== 'circle') urlParams.set('pipstyle', pipStyleSelect.value);
             if (centerCheck && !centerCheck.checked) urlParams.set('center', '0');
-            ['title', 'phase', 'clock', 'tags', 'details', 'pips', 'banner', 'roundpips'].forEach(k => { const el = $('matchup-opt-' + k); if (el && !el.checked) urlParams.set(k, '0'); });
+            ['title', 'phase', 'clock', 'tags', 'details', 'pips', 'banner'].forEach(k => { const el = $('matchup-opt-' + k); if (el && !el.checked) urlParams.set(k, '0'); });
+            const roundPipsEl = $('matchup-opt-roundpips');
+            if (roundPipsEl) {
+                if (roundPipsEl.checked) urlParams.set('roundpips', '1');
+                else urlParams.set('roundpips', '0');
+            }
             if (showEstCheck && !showEstCheck.checked) urlParams.set('showest', '0');
             if (fitCheck && fitCheck.checked) urlParams.set('fit', 'content');
             if (confettiCheck && !confettiCheck.checked) urlParams.set('confetti', '0');
@@ -1925,7 +1936,7 @@
             const target = tourneyActive
                 ? (activeMatch?.targetScore || activeTourneyData?.targetScore || (activeTourneyData?.bestOf > 0 ? Math.ceil(activeTourneyData.bestOf / 2) : 0))
                 : (m.targetScore || (m.bestOf > 0 ? Math.ceil(m.bestOf / 2) : 0));
-            const roundTarget = (effectiveRoundsBestOf > 0 ? Math.ceil(effectiveRoundsBestOf / 2) : 2);
+            const roundTarget = (effectiveRoundsBestOf > 0 ? Math.ceil(effectiveRoundsBestOf / 2) : 0);
 
             grid.style.gridTemplateColumns = competitorsToRender.length > 2 ? 'repeat(2, 1fr)' : '1fr 1fr';
 
@@ -1936,7 +1947,9 @@
                 const gamePips = target > 0
                     ? Array.from({ length: target }, (_, p) => p < (c.score || 0) ? '●' : '○').join(' ')
                     : ((c.score || 0) > 0 ? '● '.repeat(c.score).trim() : '○');
-                const roundPips = Array.from({ length: roundTarget }, (_, p) => p < (c.rounds || 0) ? '◆' : '◇').join(' ');
+                const roundPips = roundTarget > 0
+                    ? Array.from({ length: roundTarget }, (_, p) => p < (c.rounds || 0) ? '◆' : '◇').join(' ')
+                    : '';
                 const isRace = !tourneyActive && m.clock && m.clock.enabled !== false && m.clock.mode === 'race';
                 const timerObj = c.timer || { elapsed: 0, isRunning: false, finished: false };
                 const pad = n => String(n).padStart(2, '0');
@@ -2010,17 +2023,26 @@
                                 <div style="font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.3rem;">
                                     Rounds in Game
                                 </div>
-                                <div class="score-stepper">
-                                    <button type="button" class="score-btn" onclick="stepMatchupRound(${i}, -1)">-</button>
-                                    <input type="number" class="score-val-input" min="0" value="${c.rounds || 0}" onchange="setMatchupRoundDirect(${i}, this.value)">
-                                    <button type="button" class="score-btn" onclick="stepMatchupRound(${i}, 1)">+</button>
-                                </div>
-                                <div style="font-size: 0.82rem; letter-spacing: 0.12rem; color: #ffd700; margin-top: 0.35rem; font-weight: 800;">
-                                    ${roundPips}
-                                </div>
-                                <div style="font-size: 0.65rem; font-weight: 700; color: var(--text-muted); margin-top: 0.15rem;">
-                                    ${c.rounds || 0} / ${roundTarget} ROUNDS
-                                </div>
+                                ${roundTarget > 0 ? `
+                                    <div class="score-stepper">
+                                        <button type="button" class="score-btn" onclick="stepMatchupRound(${i}, -1)">-</button>
+                                        <input type="number" class="score-val-input" min="0" max="${roundTarget - 1}" value="${Math.min(roundTarget - 1, c.rounds || 0)}" onchange="setMatchupRoundDirect(${i}, this.value)">
+                                        <button type="button" class="score-btn" onclick="stepMatchupRound(${i}, 1)">+</button>
+                                    </div>
+                                    <div style="font-size: 0.82rem; letter-spacing: 0.12rem; color: #ffd700; margin-top: 0.35rem; font-weight: 800;">
+                                        ${roundPips}
+                                    </div>
+                                    <div style="font-size: 0.65rem; font-weight: 700; color: var(--text-muted); margin-top: 0.15rem;">
+                                        ${Math.min(roundTarget - 1, c.rounds || 0)} / ${roundTarget} ROUNDS
+                                    </div>
+                                ` : `
+                                    <div style="font-size: 0.72rem; color: var(--text-muted); padding: 0.45rem 0; font-style: italic;">
+                                        Rounds Off
+                                    </div>
+                                    <div style="font-size: 0.62rem; color: var(--text-muted);">
+                                        (Enable in format settings)
+                                    </div>
+                                `}
                             </div>
                         </div>
                     </div>
@@ -2060,6 +2082,28 @@
         }
 
         async function updateCompetitorColor(index, color) {
+            if (isTournamentMatchActive()) {
+                const activeMatch = getTourneyActiveMatch();
+                if (activeMatch) {
+                    const entrantName = index === 0 ? (activeMatch.entrant1?.name || activeMatch.entrants?.[0]) : (activeMatch.entrant2?.name || activeMatch.entrants?.[1]);
+                    try {
+                        const res = await fetch('/api/tournament/score', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ matchId: activeMatch.id, entrant: entrantName, color })
+                        });
+                        const data = await res.json();
+                        if (data.status === 'ok') {
+                            activeTourneyData = data.tournament;
+                            renderTournamentStudio(activeTourneyData);
+                            if (activeMatchupData) renderMatchupStudio(activeMatchupData);
+                            return;
+                        }
+                    } catch (e) {
+                        console.error('Failed to update tournament entrant color:', e);
+                    }
+                }
+            }
             if (!activeMatchupData || !activeMatchupData.competitors[index]) return;
             activeMatchupData.competitors[index].color = color;
             saveMatchupSettings();
@@ -2250,6 +2294,21 @@
             const fmtVal = $('matchup-format')?.value || 'bestOf-5';
             if (fmtVal === 'firstTo-custom') {
                 payload.targetScore = parseInt($('matchup-target-input')?.value, 10) || 5;
+            }
+
+            if (isTournamentMatchActive()) {
+                try {
+                    await fetch('/api/tournament/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            title: payload.title,
+                            roundsBestOf: payload.roundsBestOf
+                        })
+                    });
+                } catch (e) {
+                    console.warn('Failed to sync settings to active tournament:', e);
+                }
             }
 
             try {
@@ -3393,6 +3452,10 @@
 
                 if ($('t-entrant-1')) $('t-entrant-1').textContent = e1;
                 if ($('t-entrant-2')) $('t-entrant-2').textContent = e2;
+                if ($('t-color-input-1')) $('t-color-input-1').value = activeMatch.entrant1?.color || '#ef4444';
+                if ($('t-color-input-2')) $('t-color-input-2').value = activeMatch.entrant2?.color || '#3b82f6';
+                if ($('t-tag-input-1')) $('t-tag-input-1').value = t1;
+                if ($('t-tag-input-2')) $('t-tag-input-2').value = t2;
                 if ($('t-tag-1')) {
                     $('t-tag-1').textContent = t1 ? `[${t1}]` : '';
                     $('t-tag-1').style.display = t1 ? 'block' : 'none';
@@ -3729,6 +3792,32 @@
                 }
             } catch {
                 toast('Error saving tag');
+            }
+        }
+
+        async function saveTournamentEntrantColor(entrantIdx, val) {
+            if (!activeTourneyData) return;
+            const activeMatch = (activeTourneyData.matches || []).find(m => m.id === activeTourneyData.activeMatchId) ||
+                                (activeTourneyData.matches || []).find(m => !m.isBye && !m.winner);
+            if (!activeMatch) return;
+            const body = { matchId: activeMatch.id };
+            if (entrantIdx === 1) body.entrant1Color = val;
+            else if (entrantIdx === 2) body.entrant2Color = val;
+            try {
+                const res = await fetch('/api/tournament/score', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    activeTourneyData = data.tournament;
+                    renderTournamentStudio(activeTourneyData);
+                    if (activeMatchupData) renderMatchupStudio(activeMatchupData);
+                    toast('Color updated');
+                }
+            } catch {
+                toast('Error saving color');
             }
         }
 

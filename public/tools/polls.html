@@ -590,7 +590,7 @@
         // URL display initialization
         const baseUrl = window.location.origin;
         $('url-poll-overlay').value = `${baseUrl}/overlays/poll.html`;
-        $('url-tourney-overlay').value = `${baseUrl}/overlays/tournament.html`;
+        $('url-tourney-overlay').value = `${baseUrl}/overlays/tournament.html?source=poll`;
 
         function updatePollOverlayUrl() {
             const origin = window.location.origin;
@@ -673,7 +673,7 @@
             }
 
             const qs = urlParams.toString();
-            const fullUrl = `${origin}/overlays/tournament.html${qs ? `?${qs}` : ''}`;
+            const fullUrl = `${origin}/overlays/tournament.html?source=poll${qs ? `&${qs}` : ''}`;
             if ($('url-tourney-overlay')) $('url-tourney-overlay').value = fullUrl;
             if ($('btn-open-tourney-overlay')) $('btn-open-tourney-overlay').href = fullUrl;
 
@@ -681,6 +681,7 @@
             const previewIframe = $('tourney-preview-iframe');
             if (previewIframe) {
                 const previewParams = new URLSearchParams(urlParams);
+                previewParams.set('source', 'poll');
                 previewParams.set('preview', '1');
                 const targetSrc = `/overlays/tournament.html?${previewParams.toString()}`;
                 if (previewIframe.getAttribute('src') !== targetSrc) {
@@ -1232,7 +1233,7 @@
             };
 
             try {
-                const res = await fetch('/api/tournament/create', {
+                const res = await fetch('/api/polls/tournament/create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -1451,7 +1452,7 @@
             const s2 = parseInt($('e2-score-input').value, 10) || 0;
             const details = $('match-details-input').value.trim();
             try {
-                const res = await fetch('/api/tournament/score', {
+                const res = await fetch('/api/polls/tournament/score', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ matchId: m.id, entrant1Score: s1, entrant2Score: s2, matchDetails: details })
@@ -1474,7 +1475,7 @@
             if (!m) return;
             const details = $('match-details-input').value.trim();
             try {
-                const res = await fetch('/api/tournament/score', {
+                const res = await fetch('/api/polls/tournament/score', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ matchId: m.id, matchDetails: details })
@@ -1491,7 +1492,7 @@
 
         async function selectTournamentMatch(matchId) {
             try {
-                const res = await fetch('/api/tournament/select-match', {
+                const res = await fetch('/api/polls/tournament/select-match', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ matchId })
@@ -1511,7 +1512,7 @@
             if (!m) return;
             if (!confirm(`Reset scores and winner for ${m.roundName}?`)) return;
             try {
-                const res = await fetch('/api/tournament/reset-match', {
+                const res = await fetch('/api/polls/tournament/reset-match', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ matchId: m.id })
@@ -1547,7 +1548,7 @@
 
         async function startTournamentMatchById(matchId) {
             try {
-                const res = await fetch('/api/tournament/start-match', {
+                const res = await fetch('/api/polls/tournament/start-match', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ matchId })
@@ -1573,7 +1574,7 @@
             if (!winner || winner === 'TBD' || winner === 'BYE') return;
 
             try {
-                const res = await fetch('/api/tournament/advance', {
+                const res = await fetch('/api/polls/tournament/advance', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ matchId: m.id, winner })
@@ -1592,7 +1593,7 @@
         async function resetCurrentTournament() {
             if (!confirm('Are you sure you want to end and reset this tournament?')) return;
             try {
-                await fetch('/api/tournament/reset', { method: 'POST' });
+                await fetch('/api/polls/tournament/reset', { method: 'POST' });
                 activeTourneyData = null;
                 renderTournamentStudio(null);
                 toast('Tournament reset.');
@@ -1603,7 +1604,7 @@
 
         async function loadTournament() {
             try {
-                const res = await fetch('/api/tournament');
+                const res = await fetch('/api/polls/tournament');
                 const data = await res.json();
                 activeTourneyData = data.tournament;
                 renderTournamentStudio(activeTourneyData);
@@ -1678,7 +1679,7 @@
                         if (msg.data && msg.data.tournamentMatchId) {
                             loadTournament();
                         }
-                    } else if (msg.type === 'tournament-update') {
+                    } else if (msg.type === 'poll-tournament-update') {
                         activeTourneyData = msg.data;
                         renderTournamentStudio(activeTourneyData);
                     }

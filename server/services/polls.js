@@ -127,6 +127,8 @@ function createPollService({
     let tournamentHistory = [];
     let tournamentPresets = [...DEFAULT_TOURNAMENT_PRESETS];
     let tournamentDrafts = [];
+    let activePollTournament = null;
+    let pollTournamentHistory = [];
     let pollTimer = null;
     let voters = new Map(); // userId -> { choiceId, weight }
 
@@ -152,6 +154,12 @@ function createPollService({
             }
             if (Array.isArray(data.tournamentDrafts)) {
                 tournamentDrafts = data.tournamentDrafts.slice(0, 30);
+            }
+            if (data.pollTournament) {
+                activePollTournament = data.pollTournament;
+            }
+            if (Array.isArray(data.pollTournamentHistory)) {
+                pollTournamentHistory = data.pollTournamentHistory.slice(0, 30);
             }
             if (data.active && data.active.status === 'ACTIVE') {
                 const elapsed = Math.floor((Date.now() - Date.parse(data.active.startedAt || Date.now())) / 1000);
@@ -183,7 +191,9 @@ function createPollService({
                 tournament: activeTournament,
                 tournamentHistory: tournamentHistory.slice(0, 30),
                 tournamentPresets,
-                tournamentDrafts: tournamentDrafts.slice(0, 30)
+                tournamentDrafts: tournamentDrafts.slice(0, 30),
+                pollTournament: activePollTournament,
+                pollTournamentHistory: pollTournamentHistory.slice(0, 30)
             };
             fs.writeFileSync(filePath, JSON.stringify(payload, null, 2));
         } catch (err) {
@@ -218,8 +228,20 @@ function createPollService({
         activePoll.isTie = isTie;
 
         // If part of active tournament match, synchronize match votes
-        if (activePoll.tournamentMatchId && activeTournament && Array.isArray(activeTournament.matches)) {
-            const match = activeTournament.matches.find(m => m.id === activePoll.tournamentMatchId);
+        if (activePoll.tournamentMatchId) {
+            const pollMatch = activePollTournament?.matches?.find(m => m.id === activePoll.tournamentMatchId);
+            if (pollMatch && pollMatch.status === 'ACTIVE') {
+                if (pollMatch.entrant1 && activePoll.choices[0]) {
+                    pollMatch.entrant1.votes = activePoll.choices[0].votes;
+                    pollMatch.entrant1.percent = Math.round(activePoll.choices[0].percent);
+                }
+                if (pollMatch.entrant2 && activePoll.choices[1]) {
+                    pollMatch.entrant2.votes = activePoll.choices[1].votes;
+                    pollMatch.entrant2.percent = Math.round(activePoll.choices[1].percent);
+                }
+                broadcastPollTournamentUpdate();
+            }
+            const match = activeTournament?.matches?.find(m => m.id === activePoll.tournamentMatchId);
             if (match && match.status === 'ACTIVE') {
                 if (match.entrant1 && activePoll.choices[0]) {
                     match.entrant1.votes = activePoll.choices[0].votes;
@@ -286,6 +308,11 @@ function createPollService({
     function broadcastTournamentUpdate() {
         if (!activeTournament) return;
         broadcastToOverlays('tournament-update', activeTournament);
+    }
+
+    function broadcastPollTournamentUpdate() {
+        if (!activePollTournament) return;
+        broadcastToOverlays('poll-tournament-update', activePollTournament);
     }
 
     function startTimer() {
@@ -421,26 +448,30 @@ function createPollService({
         broadcastToOverlays('poll-update', payload);
 
         // Handle linked tournament match cleanly
-        if (finishedPoll.tournamentMatchId && activeTournament && Array.isArray(activeTournament.matches)) {
-            const match = activeTournament.matches.find(m => m.id === finishedPoll.tournamentMatchId);
-            if (status === 'COMPLETED' && finishedPoll.winner && !finishedPoll.isTie && (finishedPoll.totalVotes || 0) > 0) {
-                advanceTournamentMatch(finishedPoll.tournamentMatchId, finishedPoll.winner);
-            } else if (status === 'TERMINATED') {
-                if (match) {
-                    match.status = 'PENDING';
-                    match.winner = null;
-                    if (match.entrant1) { match.entrant1.votes = 0; match.entrant1.percent = 0; }
-                    if (match.entrant2) { match.entrant2.votes = 0; match.entrant2.percent = 0; }
-                    broadcastTournamentUpdate();
+        if (finishedPoll.tournamentMatchId) {
+            const isPollTourney = Boolean(activePollTournament?.matches?.some(m => m.id === finishedPoll.tournamentMatchId));
+            const targetTourney = isPollTourney ? activePollTournament : activeTournament;
+            const broadcastFn = isPollTourney ? broadcastPollTournamentUpdate : broadcastTournamentUpdate;
+            if (targetTourney && Array.isArray(targetTourney.matches)) {
+                const match = targetTourney.matches.find(m => m.id === finishedPoll.tournamentMatchId);
+                if (status === 'COMPLETED' && finishedPoll.winner && !finishedPoll.isTie && (finishedPoll.totalVotes || 0) > 0) {
+                    advanceTournamentMatch(finishedPoll.tournamentMatchId, finishedPoll.winner, { isPoll: isPollTourney });
+                } else if (status === 'TERMINATED') {
+                    if (match) {
+                        match.status = 'PENDING';
+                        match.winner = null;
+                        if (match.entrant1) { match.entrant1.votes = 0; match.entrant1.percent = 0; }
+                        if (match.entrant2) { match.entrant2.votes = 0; match.entrant2.percent = 0; }
+                        broadcastFn();
+                    }
+                } else {
+                    if (match) {
+                        match.status = 'PENDING';
+                        match.winner = null;
+                        broadcastFn();
+                    }
+                    log(`[Polls] Tournament match poll "${finishedPoll.title}" completed with 0 votes or tie — match retained for resolution.`);
                 }
-            } else {
-                // Completed but zero votes or tie — leave match in pending/active state without false auto-advance
-                if (match) {
-                    match.status = 'PENDING';
-                    match.winner = null;
-                    broadcastTournamentUpdate();
-                }
-                log(`[Polls] Tournament match poll "${finishedPoll.title}" completed with 0 votes or tie — match retained for resolution.`);
             }
         }
 
@@ -624,7 +655,8 @@ function createPollService({
         if (typeof item === 'object') {
             const name = String(item.name || '').trim();
             const tag = String(item.tag || '').trim();
-            return name ? { name, tag } : null;
+            const color = String(item.color || '').trim();
+            return name ? { name, tag, ...(color ? { color } : {}) } : null;
         }
         const raw = String(item).trim();
         if (!raw) return null;
@@ -683,8 +715,10 @@ function createPollService({
                 if (e1 && e2) {
                     const e1Name = typeof e1 === 'object' ? e1.name : e1;
                     const e1Tag = typeof e1 === 'object' ? (e1.tag || '') : '';
+                    const e1Color = typeof e1 === 'object' ? (e1.color || '') : '';
                     const e2Name = typeof e2 === 'object' ? e2.name : e2;
                     const e2Tag = typeof e2 === 'object' ? (e2.tag || '') : '';
+                    const e2Color = typeof e2 === 'object' ? (e2.color || '') : '';
                     matches.push({
                         id: `rr_1_${r + 1}_${matches.length + 1}`,
                         round: r + 1,
@@ -692,8 +726,8 @@ function createPollService({
                         bracket: 'roundRobin',
                         matchIndex: matches.length,
                         leg: 1,
-                        entrant1: { name: e1Name, tag: e1Tag, seed: entrants.findIndex(x => (typeof x === 'object' ? x.name : x) === e1Name) + 1, score: 0, rounds: 0, votes: 0, percent: 0 },
-                        entrant2: { name: e2Name, tag: e2Tag, seed: entrants.findIndex(x => (typeof x === 'object' ? x.name : x) === e2Name) + 1, score: 0, rounds: 0, votes: 0, percent: 0 },
+                        entrant1: { name: e1Name, tag: e1Tag, color: e1Color, seed: entrants.findIndex(x => (typeof x === 'object' ? x.name : x) === e1Name) + 1, score: 0, rounds: 0, votes: 0, percent: 0 },
+                        entrant2: { name: e2Name, tag: e2Tag, color: e2Color, seed: entrants.findIndex(x => (typeof x === 'object' ? x.name : x) === e2Name) + 1, score: 0, rounds: 0, votes: 0, percent: 0 },
                         entrants: [e1Name, e2Name],
                         scores: [0, 0],
                         targetScore,
@@ -722,8 +756,10 @@ function createPollService({
                     if (e1 && e2) {
                         const e1Name = typeof e1 === 'object' ? e1.name : e1;
                         const e1Tag = typeof e1 === 'object' ? (e1.tag || '') : '';
+                        const e1Color = typeof e1 === 'object' ? (e1.color || '') : '';
                         const e2Name = typeof e2 === 'object' ? e2.name : e2;
                         const e2Tag = typeof e2 === 'object' ? (e2.tag || '') : '';
+                        const e2Color = typeof e2 === 'object' ? (e2.color || '') : '';
                         matches.push({
                             id: `rr_2_${r + 1}_${matches.length + 1}`,
                             round: numRounds + r + 1,
@@ -731,8 +767,8 @@ function createPollService({
                             bracket: 'roundRobin',
                             matchIndex: matches.length,
                             leg: 2,
-                            entrant1: { name: e1Name, tag: e1Tag, seed: entrants.findIndex(x => (typeof x === 'object' ? x.name : x) === e1Name) + 1, score: 0, rounds: 0, votes: 0, percent: 0 },
-                            entrant2: { name: e2Name, tag: e2Tag, seed: entrants.findIndex(x => (typeof x === 'object' ? x.name : x) === e2Name) + 1, score: 0, rounds: 0, votes: 0, percent: 0 },
+                            entrant1: { name: e1Name, tag: e1Tag, color: e1Color, seed: entrants.findIndex(x => (typeof x === 'object' ? x.name : x) === e1Name) + 1, score: 0, rounds: 0, votes: 0, percent: 0 },
+                            entrant2: { name: e2Name, tag: e2Tag, color: e2Color, seed: entrants.findIndex(x => (typeof x === 'object' ? x.name : x) === e2Name) + 1, score: 0, rounds: 0, votes: 0, percent: 0 },
                             entrants: [e1Name, e2Name],
                             scores: [0, 0],
                             targetScore,
@@ -833,7 +869,8 @@ function createPollService({
         pointsPerWin,
         pointsPerDraw,
         pointsPerLoss = 0,
-        allowDraws = true
+        allowDraws = true,
+        isPoll = false
     } = {}) {
         const cleanEntrants = (Array.isArray(entrants) ? entrants : [])
             .map(parseEntrant)
@@ -860,6 +897,7 @@ function createPollService({
             const standings = rawEntrants.map((e, idx) => ({
                 name: e.name,
                 tag: e.tag || '',
+                color: e.color || '',
                 seed: idx + 1,
                 played: 0,
                 won: 0,
@@ -871,8 +909,8 @@ function createPollService({
                 points: 0
             }));
 
-            activeTournament = {
-                id: `tourney-${Date.now().toString(36)}`,
+            const tourneyObj = {
+                id: `tourney-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
                 title: title || 'StreamPulse Tournament',
                 format: 'roundRobin',
                 progressionMode,
@@ -898,12 +936,21 @@ function createPollService({
                 createdAt: new Date().toISOString(),
                 matches: rrMatches,
                 entrantsList: rawEntrants.map(e => e.tag ? `${e.name} [${e.tag}]` : e.name),
-                standings
+                standings,
+                isPoll: Boolean(isPoll)
             };
 
-            save();
-            broadcastTournamentUpdate();
-            return activeTournament;
+            if (isPoll) {
+                activePollTournament = tourneyObj;
+                save();
+                broadcastPollTournamentUpdate();
+                return activePollTournament;
+            } else {
+                activeTournament = tourneyObj;
+                save();
+                broadcastTournamentUpdate();
+                return activeTournament;
+            }
         }
 
         // Determine smallest power of 2 >= cleanEntrants.length (between 2 and 32)
@@ -937,8 +984,8 @@ function createPollService({
 
             for (let m = 0; m < mCount; m++) {
                 const id = `m_${r + 1}_${m + 1}`;
-                let entrant1 = { name: 'TBD', tag: '', seed: 0, score: 0, votes: 0, percent: 0 };
-                let entrant2 = { name: 'TBD', tag: '', seed: 0, score: 0, votes: 0, percent: 0 };
+                let entrant1 = { name: 'TBD', tag: '', color: '', seed: 0, score: 0, votes: 0, percent: 0 };
+                let entrant2 = { name: 'TBD', tag: '', color: '', seed: 0, score: 0, votes: 0, percent: 0 };
 
                 if (r === 0) {
                     const pair = seedPairs[m];
@@ -949,6 +996,7 @@ function createPollService({
                     entrant1 = {
                         name: e1?.name || `Seed ${s1}`,
                         tag: e1?.tag || '',
+                        color: e1?.color || (m % 2 === 0 ? '#ef4444' : '#3b82f6'),
                         seed: s1,
                         score: 0,
                         votes: 0,
@@ -957,6 +1005,7 @@ function createPollService({
                     entrant2 = {
                         name: e2?.name || `Seed ${s2}`,
                         tag: e2?.tag || '',
+                        color: e2?.color || (m % 2 === 0 ? '#3b82f6' : '#ef4444'),
                         seed: s2,
                         score: 0,
                         votes: 0,
@@ -1145,8 +1194,8 @@ function createPollService({
             if (m.entrant2 && m.entrant2.rounds === undefined) m.entrant2.rounds = 0;
         });
 
-        activeTournament = {
-            id: `tourney-${Date.now().toString(36)}`,
+        const elimTourneyObj = {
+            id: `tourney-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
             title: title || 'StreamPulse Tournament',
             format,
             progressionMode,
@@ -1165,21 +1214,32 @@ function createPollService({
             champion: null,
             createdAt: new Date().toISOString(),
             matches: allMatches,
-            entrantsList: cleanEntrants.filter(e => e.name !== 'BYE').map(e => e.tag ? `${e.name} [${e.tag}]` : e.name)
+            entrantsList: cleanEntrants.filter(e => e.name !== 'BYE').map(e => e.tag ? `${e.name} [${e.tag}]` : e.name),
+            isPoll: Boolean(isPoll)
         };
 
-        save();
-        broadcastTournamentUpdate();
-        return activeTournament;
+        if (isPoll) {
+            activePollTournament = elimTourneyObj;
+            save();
+            broadcastPollTournamentUpdate();
+            return activePollTournament;
+        } else {
+            activeTournament = elimTourneyObj;
+            save();
+            broadcastTournamentUpdate();
+            return activeTournament;
+        }
     }
 
-    function getTournament() {
-        return activeTournament;
+    function getTournament({ isPoll = false } = {}) {
+        return isPoll ? activePollTournament : activeTournament;
     }
 
-    function startTournamentMatch(matchId) {
-        if (!activeTournament) throw new Error('No active tournament');
-        const match = activeTournament.matches.find(m => m.id === matchId);
+    function startTournamentMatch(matchId, { isPoll = false } = {}) {
+        const isPollTourney = isPoll || Boolean(activePollTournament?.matches?.some(m => m.id === matchId));
+        const targetTourney = isPollTourney ? activePollTournament : activeTournament;
+        if (!targetTourney) throw new Error('No active tournament');
+        const match = targetTourney.matches.find(m => m.id === matchId);
         if (!match) throw new Error(`Match ${matchId} not found`);
 
         if (match.isBye || match.entrant1?.name === 'BYE' || match.entrant2?.name === 'BYE') {
@@ -1191,28 +1251,30 @@ function createPollService({
         }
 
         match.status = 'ACTIVE';
-        activeTournament.activeMatchId = match.id;
-        activeTournament.status = 'IN_PROGRESS';
+        targetTourney.activeMatchId = match.id;
+        targetTourney.status = 'IN_PROGRESS';
 
         // Launch native poll for matchup
         const poll = createPoll({
-            title: `${activeTournament.title} — ${match.roundName}: ${match.entrant1.name} vs ${match.entrant2.name}`,
+            title: `${targetTourney.title} — ${match.roundName}: ${match.entrant1.name} vs ${match.entrant2.name}`,
             choices: [match.entrant1.name, match.entrant2.name],
-            duration: activeTournament.matchDuration,
-            blind: activeTournament.blind,
-            subMultiplier: activeTournament.subMultiplier,
+            duration: targetTourney.matchDuration,
+            blind: targetTourney.blind,
+            subMultiplier: targetTourney.subMultiplier,
             tournamentMatchId: match.id,
             celebration: { sound: '', confetti: true }
         });
 
         save();
-        broadcastTournamentUpdate();
+        if (isPollTourney) broadcastPollTournamentUpdate();
+        else broadcastTournamentUpdate();
         return { match, poll };
     }
-
-    function advanceTournamentMatch(matchId, winnerName) {
-        if (!activeTournament) return null;
-        const match = activeTournament.matches.find(m => m.id === matchId);
+    function advanceTournamentMatch(matchId, winnerName, { isPoll = false } = {}) {
+        const isPollTourney = isPoll || Boolean(activePollTournament?.matches?.some(m => m.id === matchId));
+        const targetTourney = isPollTourney ? activePollTournament : activeTournament;
+        if (!targetTourney) return null;
+        const match = targetTourney.matches.find(m => m.id === matchId);
         if (!match) return null;
 
         const wName = String(winnerName || match.entrant1?.name || '').trim();
@@ -1238,26 +1300,27 @@ function createPollService({
         }
 
         // Advance winner to next match
-        if (activeTournament.format === 'roundRobin') {
-            recalculateRoundRobinStandings(activeTournament);
-            const nextPending = activeTournament.matches.find(m => m.status === 'PENDING');
-            activeTournament.activeMatchId = nextPending ? nextPending.id : null;
+        if (targetTourney.format === 'roundRobin') {
+            recalculateRoundRobinStandings(targetTourney);
+            const nextPending = targetTourney.matches.find(m => m.status === 'PENDING');
+            targetTourney.activeMatchId = nextPending ? nextPending.id : null;
             if (!nextPending) {
-                activeTournament.status = 'COMPLETED';
-                activeTournament.champion = activeTournament.standings?.[0]?.name || null;
-                tournamentHistory.unshift({ ...activeTournament });
-                if (tournamentHistory.length > 20) tournamentHistory.length = 20;
+                targetTourney.status = 'COMPLETED';
+                targetTourney.champion = targetTourney.standings?.[0]?.name || null;
+                const hist = isPollTourney ? pollTournamentHistory : tournamentHistory;
+                hist.unshift({ ...targetTourney });
+                if (hist.length > 20) hist.length = 20;
 
-                log(`[Tournament] Round Robin completed! Champion: "${activeTournament.champion}"!`);
+                log(`[Tournament] Round Robin completed! Champion: "${targetTourney.champion}"!`);
                 try {
                     onAlert({
                         type: 'poll_end',
-                        title: `${activeTournament.title} Champion`,
-                        winner: activeTournament.champion,
+                        title: `${targetTourney.title} Champion`,
+                        winner: targetTourney.champion,
                         votes: 0,
                         percent: 100,
                         total_votes: 0,
-                        user: activeTournament.champion,
+                        user: targetTourney.champion,
                         celebration: { confetti: true }
                     });
                 } catch (err) {
@@ -1265,36 +1328,37 @@ function createPollService({
                 }
             }
         } else if (match.nextMatchId) {
-            const nextMatch = activeTournament.matches.find(m => m.id === match.nextMatchId);
+            const nextMatch = targetTourney.matches.find(m => m.id === match.nextMatchId);
             if (nextMatch) {
-                const targetObj = { name: wName, tag: winnerObj?.tag || '', seed: winnerObj?.seed || 0, score: 0, votes: 0, percent: 0 };
+                const targetObj = { name: wName, tag: winnerObj?.tag || '', color: winnerObj?.color || '', seed: winnerObj?.seed || 0, score: 0, rounds: 0, votes: 0, percent: 0 };
                 if (match.nextSlot === 1) nextMatch.entrant1 = targetObj;
                 else nextMatch.entrant2 = targetObj;
                 nextMatch.entrants = [nextMatch.entrant1?.name || 'TBD', nextMatch.entrant2?.name || 'TBD'];
             }
-            const nextPlayable = activeTournament.matches.find(m =>
+            const nextPlayable = targetTourney.matches.find(m =>
                 !m.isBye && m.status === 'PENDING' &&
                 m.entrant1?.name && m.entrant1.name !== 'TBD' && m.entrant1.name !== 'BYE' &&
                 m.entrant2?.name && m.entrant2.name !== 'TBD' && m.entrant2.name !== 'BYE'
             );
-            activeTournament.activeMatchId = nextPlayable ? nextPlayable.id : null;
+            targetTourney.activeMatchId = nextPlayable ? nextPlayable.id : null;
         } else {
             // Grand Finals completed! Crown tournament champion!
-            activeTournament.status = 'COMPLETED';
-            activeTournament.champion = wName;
-            activeTournament.endedAt = new Date().toISOString();
-            const historyItem = JSON.parse(JSON.stringify(activeTournament));
-            const alreadyArchived = tournamentHistory.length > 0 && tournamentHistory[0].id === historyItem.id;
+            targetTourney.status = 'COMPLETED';
+            targetTourney.champion = wName;
+            targetTourney.endedAt = new Date().toISOString();
+            const historyItem = JSON.parse(JSON.stringify(targetTourney));
+            const hist = isPollTourney ? pollTournamentHistory : tournamentHistory;
+            const alreadyArchived = hist.length > 0 && hist[0].id === historyItem.id;
             if (!alreadyArchived) {
-                tournamentHistory.unshift(historyItem);
-                if (tournamentHistory.length > 30) tournamentHistory.length = 30;
+                hist.unshift(historyItem);
+                if (hist.length > 30) hist.length = 30;
             }
 
-            log(`[Tournament] Champion crowned: "${wName}" in "${activeTournament.title}"!`);
+            log(`[Tournament] Champion crowned: "${wName}" in "${targetTourney.title}"!`);
             try {
                 onAlert({
                     type: 'poll_end',
-                    title: `${activeTournament.title} Champion`,
+                    title: `${targetTourney.title} Champion`,
                     winner: wName,
                     votes: (match.entrant1?.votes || 0) + (match.entrant2?.votes || 0),
                     percent: 100,
@@ -1308,27 +1372,34 @@ function createPollService({
         }
 
         // Handle double elimination loser routing
-        if (activeTournament.format === 'double' && loserObj && loserObj.name !== 'BYE' && loserObj.name !== 'TBD') {
+        if (targetTourney.format === 'double' && loserObj && loserObj.name !== 'BYE' && loserObj.name !== 'TBD') {
             if (match.id === 'm_1_1') {
-                const lb = activeTournament.matches.find(m => m.id === 'lb_1_1');
-                if (lb) lb.entrant1 = { ...loserObj, votes: 0, percent: 0 };
+                const lb = targetTourney.matches.find(m => m.id === 'lb_1_1');
+                if (lb) lb.entrant1 = { ...loserObj, rounds: 0, votes: 0, percent: 0 };
             } else if (match.id === 'm_1_2') {
-                const lb = activeTournament.matches.find(m => m.id === 'lb_1_1');
-                if (lb) lb.entrant2 = { ...loserObj, votes: 0, percent: 0 };
+                const lb = targetTourney.matches.find(m => m.id === 'lb_1_1');
+                if (lb) lb.entrant2 = { ...loserObj, rounds: 0, votes: 0, percent: 0 };
             } else if (match.id === 'm_2_1') {
-                const lbf = activeTournament.matches.find(m => m.id === 'lb_2_1');
-                if (lbf) lbf.entrant2 = { ...loserObj, votes: 0, percent: 0 };
+                const lbf = targetTourney.matches.find(m => m.id === 'lb_2_1');
+                if (lbf) lbf.entrant2 = { ...loserObj, rounds: 0, votes: 0, percent: 0 };
             }
         }
 
         save();
-        broadcastTournamentUpdate();
-        return activeTournament;
+        if (isPollTourney) broadcastPollTournamentUpdate();
+        else broadcastTournamentUpdate();
+        return targetTourney;
     }
 
-    function updateMatchScore(matchId, { entrant1Score, entrant2Score, entrant, score, winner, matchDetails, entrant1Tag, entrant2Tag, entrant1Rounds, entrant2Rounds, rounds, roundDelta } = {}) {
-        if (!activeTournament) throw new Error('No active tournament');
-        const match = activeTournament.matches.find(m => m.id === matchId);
+    function updateMatchScore(matchId, {
+        entrant1Score, entrant2Score, entrant, score, winner, matchDetails,
+        entrant1Tag, entrant2Tag, entrant1Rounds, entrant2Rounds, rounds, roundDelta,
+        entrant1Color, entrant2Color, color, isPoll = false
+    } = {}) {
+        const isPollTourney = isPoll || Boolean(activePollTournament?.matches?.some(m => m.id === matchId));
+        const targetTourney = isPollTourney ? activePollTournament : activeTournament;
+        if (!targetTourney) throw new Error('No active tournament');
+        const match = targetTourney.matches.find(m => m.id === matchId);
         if (!match) throw new Error(`Match ${matchId} not found`);
 
         if (entrant !== undefined && score !== undefined) {
@@ -1339,6 +1410,28 @@ function createPollService({
         if (entrant !== undefined && rounds !== undefined) {
             if (match.entrant1?.name === entrant) entrant1Rounds = rounds;
             else if (match.entrant2?.name === entrant) entrant2Rounds = rounds;
+        }
+
+        if (entrant !== undefined && color !== undefined) {
+            if (match.entrant1?.name === entrant) entrant1Color = color;
+            else if (match.entrant2?.name === entrant) entrant2Color = color;
+        }
+
+        if (entrant1Color !== undefined && match.entrant1) {
+            match.entrant1.color = String(entrant1Color).trim();
+            const e1Name = match.entrant1.name;
+            targetTourney.matches.forEach(m => {
+                if (m.entrant1 && m.entrant1.name === e1Name) m.entrant1.color = match.entrant1.color;
+                if (m.entrant2 && m.entrant2.name === e1Name) m.entrant2.color = match.entrant1.color;
+            });
+        }
+        if (entrant2Color !== undefined && match.entrant2) {
+            match.entrant2.color = String(entrant2Color).trim();
+            const e2Name = match.entrant2.name;
+            targetTourney.matches.forEach(m => {
+                if (m.entrant1 && m.entrant1.name === e2Name) m.entrant1.color = match.entrant2.color;
+                if (m.entrant2 && m.entrant2.name === e2Name) m.entrant2.color = match.entrant2.color;
+            });
         }
 
         if (entrant1Score !== undefined) {
@@ -1367,7 +1460,7 @@ function createPollService({
         }
 
         // Automatic game score advancement when rounds target is achieved
-        const rb = Number(match.roundsBestOf || activeTournament.roundsBestOf) || 0;
+        const rb = Number(match.roundsBestOf || targetTourney.roundsBestOf) || 0;
         const targetRounds = rb > 0 ? Math.ceil(rb / 2) : 0;
         if (targetRounds > 0) {
             if ((match.entrant1?.rounds || 0) >= targetRounds) {
@@ -1380,8 +1473,15 @@ function createPollService({
                 match.entrant2.rounds = 0;
                 match.entrant2.score = (match.entrant2.score || 0) + 1;
                 if (Array.isArray(match.scores)) match.scores[1] = match.entrant2.score;
+            } else {
+                if (match.entrant1) match.entrant1.rounds = Math.min(targetRounds - 1, match.entrant1.rounds || 0);
+                if (match.entrant2) match.entrant2.rounds = Math.min(targetRounds - 1, match.entrant2.rounds || 0);
             }
+        } else {
+            if (match.entrant1) match.entrant1.rounds = 0;
+            if (match.entrant2) match.entrant2.rounds = 0;
         }
+
         if (entrant1Tag !== undefined && match.entrant1) {
             match.entrant1.tag = String(entrant1Tag).trim();
         }
@@ -1392,12 +1492,11 @@ function createPollService({
             match.matchDetails = String(matchDetails).trim();
         }
 
-        activeTournament.activeMatchId = match.id;
+        targetTourney.activeMatchId = match.id;
         if (match.status === 'PENDING') {
             match.status = 'ACTIVE';
         }
 
-        // Reaching the target score only flags a pending winner; the operator confirms the advance.
         match.pendingWinner = null;
         if (!winner && match.targetScore > 0) {
             if (match.entrant1.score >= match.targetScore && match.entrant1.name !== 'TBD') match.pendingWinner = match.entrant1.name;
@@ -1405,41 +1504,45 @@ function createPollService({
         }
 
         if (winner) {
-            advanceTournamentMatch(match.id, winner);
+            advanceTournamentMatch(match.id, winner, { isPoll: isPollTourney });
         } else {
             save();
-            broadcastTournamentUpdate();
+            if (isPollTourney) broadcastPollTournamentUpdate();
+            else broadcastTournamentUpdate();
         }
 
-        return { match, tournament: activeTournament, autoAdvanced: Boolean(winner) };
+        return { match, tournament: targetTourney, autoAdvanced: Boolean(winner) };
     }
 
-    function selectActiveMatch(matchId) {
-        if (!activeTournament) throw new Error('No active tournament');
-        const match = activeTournament.matches.find(m => m.id === matchId);
+    function selectActiveMatch(matchId, { isPoll = false } = {}) {
+        const isPollTourney = isPoll || Boolean(activePollTournament?.matches?.some(m => m.id === matchId));
+        const targetTourney = isPollTourney ? activePollTournament : activeTournament;
+        if (!targetTourney) throw new Error('No active tournament');
+        const match = targetTourney.matches.find(m => m.id === matchId);
         if (!match) throw new Error(`Match ${matchId} not found`);
 
-        activeTournament.activeMatchId = match.id;
+        targetTourney.activeMatchId = match.id;
         if (match.status === 'PENDING' && match.entrant1?.name !== 'TBD' && match.entrant2?.name !== 'TBD') {
             match.status = 'ACTIVE';
         }
         save();
-        broadcastTournamentUpdate();
-        return { match, tournament: activeTournament };
+        if (isPollTourney) broadcastPollTournamentUpdate();
+        else broadcastTournamentUpdate();
+        return { match, tournament: targetTourney };
     }
 
-    function cascadeClearDownstream(startMatchId, oldWinnerName) {
-        if (!activeTournament || !Array.isArray(activeTournament.matches)) return;
+    function cascadeClearDownstream(startMatchId, oldWinnerName, targetTourney = activeTournament) {
+        if (!targetTourney || !Array.isArray(targetTourney.matches)) return;
         const visited = new Set();
 
         function clearStep(mId, winnerName) {
             if (!mId || visited.has(mId)) return;
             visited.add(mId);
 
-            const current = activeTournament.matches.find(m => m.id === mId);
+            const current = targetTourney.matches.find(m => m.id === mId);
             if (!current) return;
 
-            const downstreams = activeTournament.matches.filter(m =>
+            const downstreams = targetTourney.matches.filter(m =>
                 m.id !== current.id && !visited.has(m.id) &&
                 (m.id === current.nextMatchId ||
                 (winnerName && (m.entrant1?.name === winnerName || m.entrant2?.name === winnerName)))
@@ -1449,25 +1552,25 @@ function createPollService({
                 const nextWinner = ds.winner;
                 if (ds.id === current.nextMatchId) {
                     if (current.nextSlot === 1 || ds.entrant1?.name === winnerName) {
-                        ds.entrant1 = { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 };
+                        ds.entrant1 = { name: 'TBD', seed: 0, score: 0, rounds: 0, votes: 0, percent: 0 };
                     }
                     if (current.nextSlot === 2 || ds.entrant2?.name === winnerName) {
-                        ds.entrant2 = { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 };
+                        ds.entrant2 = { name: 'TBD', seed: 0, score: 0, rounds: 0, votes: 0, percent: 0 };
                     }
                 } else if (winnerName) {
                     if (ds.entrant1?.name === winnerName) {
-                        ds.entrant1 = { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 };
+                        ds.entrant1 = { name: 'TBD', seed: 0, score: 0, rounds: 0, votes: 0, percent: 0 };
                     }
                     if (ds.entrant2?.name === winnerName) {
-                        ds.entrant2 = { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 };
+                        ds.entrant2 = { name: 'TBD', seed: 0, score: 0, rounds: 0, votes: 0, percent: 0 };
                     }
                 }
                 ds.entrants = [ds.entrant1?.name || 'TBD', ds.entrant2?.name || 'TBD'];
                 ds.status = 'PENDING';
                 ds.winner = null;
                 ds.scores = [0, 0];
-                if (ds.entrant1) { ds.entrant1.score = 0; ds.entrant1.votes = 0; ds.entrant1.percent = 0; }
-                if (ds.entrant2) { ds.entrant2.score = 0; ds.entrant2.votes = 0; ds.entrant2.percent = 0; }
+                if (ds.entrant1) { ds.entrant1.score = 0; ds.entrant1.rounds = 0; ds.entrant1.votes = 0; ds.entrant1.percent = 0; }
+                if (ds.entrant2) { ds.entrant2.score = 0; ds.entrant2.rounds = 0; ds.entrant2.votes = 0; ds.entrant2.percent = 0; }
 
                 clearStep(ds.id, nextWinner);
             }
@@ -1475,104 +1578,126 @@ function createPollService({
 
         clearStep(startMatchId, oldWinnerName);
 
-        // Always reset champion if Grand Finals was reset or champion matched oldWinnerName
-        if (activeTournament.champion && (activeTournament.champion === oldWinnerName || !activeTournament.matches.some(m => m.roundName === 'Grand Finals' && m.status === 'COMPLETED'))) {
-            activeTournament.champion = null;
-            if (activeTournament.status === 'COMPLETED') {
-                activeTournament.status = 'IN_PROGRESS';
+        if (targetTourney.champion && (targetTourney.champion === oldWinnerName || !targetTourney.matches.some(m => m.roundName === 'Grand Finals' && m.status === 'COMPLETED'))) {
+            targetTourney.champion = null;
+            if (targetTourney.status === 'COMPLETED') {
+                targetTourney.status = 'IN_PROGRESS';
             }
         }
     }
 
-    function rollbackTournamentMatch(matchId) {
-        if (!activeTournament) throw new Error('No active tournament');
-        const match = activeTournament.matches.find(m => m.id === matchId);
+    function rollbackTournamentMatch(matchId, { isPoll = false } = {}) {
+        const isPollTourney = isPoll || Boolean(activePollTournament?.matches?.some(m => m.id === matchId));
+        const targetTourney = isPollTourney ? activePollTournament : activeTournament;
+        if (!targetTourney) throw new Error('No active tournament');
+        const match = targetTourney.matches.find(m => m.id === matchId);
         if (!match) throw new Error(`Match ${matchId} not found`);
 
         const oldWinner = match.winner;
         match.status = 'ACTIVE';
         match.winner = null;
-        if (match.entrant1) { match.entrant1.score = 0; match.entrant1.votes = 0; match.entrant1.percent = 0; }
-        if (match.entrant2) { match.entrant2.score = 0; match.entrant2.votes = 0; match.entrant2.percent = 0; }
+        if (match.entrant1) { match.entrant1.score = 0; match.entrant1.rounds = 0; match.entrant1.votes = 0; match.entrant1.percent = 0; }
+        if (match.entrant2) { match.entrant2.score = 0; match.entrant2.rounds = 0; match.entrant2.votes = 0; match.entrant2.percent = 0; }
         match.scores = [0, 0];
 
-        cascadeClearDownstream(match.id, oldWinner);
+        cascadeClearDownstream(match.id, oldWinner, targetTourney);
 
-        activeTournament.activeMatchId = match.id;
-        activeTournament.status = 'IN_PROGRESS';
+        targetTourney.activeMatchId = match.id;
+        targetTourney.status = 'IN_PROGRESS';
         save();
-        broadcastTournamentUpdate();
-        return { match, tournament: activeTournament };
+        if (isPollTourney) broadcastPollTournamentUpdate();
+        else broadcastTournamentUpdate();
+        return { match, tournament: targetTourney };
     }
 
-    function resetMatch(matchId) {
-        if (!activeTournament) throw new Error('No active tournament');
-        const match = activeTournament.matches.find(m => m.id === matchId);
+    function resetMatch(matchId, { isPoll = false } = {}) {
+        const isPollTourney = isPoll || Boolean(activePollTournament?.matches?.some(m => m.id === matchId));
+        const targetTourney = isPollTourney ? activePollTournament : activeTournament;
+        if (!targetTourney) throw new Error('No active tournament');
+        const match = targetTourney.matches.find(m => m.id === matchId);
         if (!match) throw new Error(`Match ${matchId} not found`);
 
         const oldWinner = match.winner;
         match.status = 'PENDING';
         match.winner = null;
-        if (match.entrant1) { match.entrant1.score = 0; match.entrant1.votes = 0; match.entrant1.percent = 0; }
-        if (match.entrant2) { match.entrant2.score = 0; match.entrant2.votes = 0; match.entrant2.percent = 0; }
+        if (match.entrant1) { match.entrant1.score = 0; match.entrant1.rounds = 0; match.entrant1.votes = 0; match.entrant1.percent = 0; }
+        if (match.entrant2) { match.entrant2.score = 0; match.entrant2.rounds = 0; match.entrant2.votes = 0; match.entrant2.percent = 0; }
         match.scores = [0, 0];
 
-        cascadeClearDownstream(match.id, oldWinner);
+        cascadeClearDownstream(match.id, oldWinner, targetTourney);
 
         save();
-        broadcastTournamentUpdate();
-        return { match, tournament: activeTournament };
+        if (isPollTourney) broadcastPollTournamentUpdate();
+        else broadcastTournamentUpdate();
+        return { match, tournament: targetTourney };
     }
 
-    function updateTournamentSettings(settings = {}) {
-        if (!activeTournament) throw new Error('No active tournament');
-        if (settings.title) activeTournament.title = String(settings.title).trim();
-        if (settings.progressionMode) activeTournament.progressionMode = settings.progressionMode;
-        if (settings.scoringType) activeTournament.scoringType = settings.scoringType;
+    function updateTournamentSettings(settings = {}, { isPoll = false } = {}) {
+        if (settings.isPoll !== undefined) isPoll = Boolean(settings.isPoll);
+        const targetTourney = isPoll ? activePollTournament : activeTournament;
+        if (!targetTourney) throw new Error('No active tournament');
+        if (settings.title) targetTourney.title = String(settings.title).trim();
+        if (settings.progressionMode) targetTourney.progressionMode = settings.progressionMode;
+        if (settings.scoringType) targetTourney.scoringType = settings.scoringType;
         if (settings.bestOf !== undefined) {
-            activeTournament.bestOf = Number(settings.bestOf) || 0;
-            const targetScore = activeTournament.bestOf > 0 ? Math.ceil(activeTournament.bestOf / 2) : 0;
-            activeTournament.targetScore = targetScore;
-            activeTournament.matches.forEach(m => {
-                m.bestOf = activeTournament.bestOf;
+            targetTourney.bestOf = Number(settings.bestOf) || 0;
+            const targetScore = targetTourney.bestOf > 0 ? Math.ceil(targetTourney.bestOf / 2) : 0;
+            targetTourney.targetScore = targetScore;
+            targetTourney.matches.forEach(m => {
+                m.bestOf = targetTourney.bestOf;
                 m.targetScore = targetScore;
             });
         }
-        if (settings.matchDuration !== undefined) activeTournament.matchDuration = Number(settings.matchDuration) || 60;
-        if (settings.blind !== undefined) activeTournament.blind = Boolean(settings.blind);
+        if (settings.roundsBestOf !== undefined) {
+            const rb = Math.max(0, parseInt(settings.roundsBestOf, 10) || 0);
+            targetTourney.roundsBestOf = rb;
+            targetTourney.matches.forEach(m => {
+                m.roundsBestOf = rb;
+            });
+        }
+        if (settings.matchDuration !== undefined) targetTourney.matchDuration = Number(settings.matchDuration) || 60;
+        if (settings.blind !== undefined) targetTourney.blind = Boolean(settings.blind);
         save();
-        broadcastTournamentUpdate();
-        return activeTournament;
+        if (isPoll) broadcastPollTournamentUpdate();
+        else broadcastTournamentUpdate();
+        return targetTourney;
     }
 
-    function resetTournament({ saveToHistory = true } = {}) {
-        if (!activeTournament) return { ok: true };
+    function resetTournament({ isPoll = false, saveToHistory = true } = {}) {
+        const targetTourney = isPoll ? activePollTournament : activeTournament;
+        if (!targetTourney) return { ok: true };
         if (activePoll && activePoll.tournamentMatchId) {
             finishPoll('TERMINATED');
         }
         if (saveToHistory) {
-            const hasStarted = activeTournament.matches?.some(m => m.status === 'COMPLETED' || m.status === 'ACTIVE') || activeTournament.status === 'COMPLETED';
+            const hasStarted = targetTourney.matches?.some(m => m.status === 'COMPLETED' || m.status === 'ACTIVE') || targetTourney.status === 'COMPLETED';
             if (hasStarted) {
                 const historyItem = {
-                    ...JSON.parse(JSON.stringify(activeTournament)),
-                    id: activeTournament.id || `th_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-                    endedAt: activeTournament.endedAt || new Date().toISOString()
+                    ...JSON.parse(JSON.stringify(targetTourney)),
+                    id: targetTourney.id || `th_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                    endedAt: targetTourney.endedAt || new Date().toISOString()
                 };
-                const alreadyArchived = tournamentHistory.length > 0 && tournamentHistory[0].id === historyItem.id;
+                const hist = isPoll ? pollTournamentHistory : tournamentHistory;
+                const alreadyArchived = hist.length > 0 && hist[0].id === historyItem.id;
                 if (!alreadyArchived) {
-                    tournamentHistory.unshift(historyItem);
-                    if (tournamentHistory.length > 30) tournamentHistory.length = 30;
+                    hist.unshift(historyItem);
+                    if (hist.length > 30) hist.length = 30;
                 }
             }
         }
-        activeTournament = null;
+        if (isPoll) {
+            activePollTournament = null;
+            broadcastToOverlays('poll-tournament-update', null);
+        } else {
+            activeTournament = null;
+            broadcastToOverlays('tournament-update', null);
+        }
         save();
-        broadcastToOverlays('tournament-update', null);
         return { ok: true };
     }
 
-    function getTournamentHistory() {
-        return tournamentHistory;
+    function getTournamentHistory({ isPoll = false } = {}) {
+        return isPoll ? pollTournamentHistory : tournamentHistory;
     }
 
     function restoreTournament(id) {
@@ -1711,6 +1836,8 @@ function createPollService({
         // Tournaments
         createTournament,
         getTournament,
+        getPollTournament: () => activePollTournament,
+        broadcastPollTournamentUpdate,
         startTournamentMatch,
         advanceTournamentMatch,
         updateMatchScore,

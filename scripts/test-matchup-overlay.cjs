@@ -72,6 +72,12 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         const pipsHidden = await page.$('.pip');
         assert.equal(pipsHidden, null, 'Pips should be hidden when ?pips=0 is set');
 
+        // 7b. Independent: Show round pips without score pips (?pips=0&roundpips=1)
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=top&pips=0&roundpips=1`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.topbar-panel');
+        const roundPipEl = await page.$('.pip-round');
+        assert.ok(roundPipEl, 'Round pips should be visible when ?pips=0&roundpips=1 is set');
+
         // 8. Toggle: Hide character tags (?tags=0)
         await page.goto(`${OVERLAY_URL}?preview=1&layout=top&tags=0`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('.topbar-panel');

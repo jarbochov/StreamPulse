@@ -1051,21 +1051,23 @@
             const totalVotes = (Number(e1.votes) || 0) + (Number(e2.votes) || 0);
             const e1Pct = totalVotes > 0 ? Math.round(((Number(e1.votes) || 0) / totalVotes) * 100) : 50;
 
-            function renderPips(score) {
+            function renderPips(score, color) {
                 if (!targetScore) return '';
                 let pips = '<div class="win-pips" title="Game wins">';
                 for (let i = 0; i < targetScore; i++) {
-                    pips += `<span class="win-pip${i < score ? ' won' : ''}"></span>`;
+                    const isWon = i < score;
+                    pips += `<span class="win-pip${isWon ? ' won' : ''}" style="${isWon && color ? `background:${color};border-color:${color};box-shadow:0 0 6px ${color};` : ''}"></span>`;
                 }
                 pips += '</div>';
                 return pips;
             }
 
-            function renderHudRoundPips(rounds) {
+            function renderHudRoundPips(rounds, color) {
                 if (!showRoundPips || !targetRounds) return '';
                 let p = '<div class="match-round-pips" style="margin-top:0.25rem;" title="Rounds won">';
                 for (let i = 0; i < targetRounds; i++) {
-                    p += `<span class="match-round-pip${i < rounds ? ' won' : ''}"></span>`;
+                    const isWon = i < rounds;
+                    p += `<span class="match-round-pip${isWon ? ' won' : ''}" style="${isWon && color ? `background:${color};border-color:${color};box-shadow:0 0 6px ${color};` : ''}"></span>`;
                 }
                 p += '</div>';
                 return p;
@@ -1079,23 +1081,23 @@
                             <span>${activeMatch.matchDetails ? esc(activeMatch.matchDetails) : esc(tournament.title)}</span>
                         </div>
                         <div class="hud-match-grid">
-                            <div class="hud-entrant e1">
+                            <div class="hud-entrant e1" style="${e1.color ? `border-left: 4px solid ${e1.color};` : ''}">
                                 <div class="hud-score-display">${isVote ? (e1.votes || 0) : (showScoresParam ? (e1.score || 0) : '')}</div>
                                 <div>
-                                    <div class="hud-entrant-name">${esc(e1.name)}</div>
+                                    <div class="hud-entrant-name" style="${e1.color ? `color:${e1.color};` : ''}">${esc(e1.name)}</div>
                                     ${showTags && e1.tag ? `<div class="hud-entrant-tag">${esc(e1.tag)}</div>` : ''}
-                                    ${!isVote && targetScore > 0 ? renderPips(e1.score || 0) : ''}
-                                    ${!isVote && targetRounds > 0 ? renderHudRoundPips(e1.rounds || 0) : ''}
+                                    ${!isVote && targetScore > 0 ? renderPips(e1.score || 0, e1.color) : ''}
+                                    ${!isVote && targetRounds > 0 ? renderHudRoundPips(e1.rounds || 0, e1.color) : ''}
                                 </div>
                             </div>
                             <div class="hud-vs-pill">VS</div>
-                            <div class="hud-entrant e2">
+                            <div class="hud-entrant e2" style="${e2.color ? `border-right: 4px solid ${e2.color};` : ''}">
                                 <div class="hud-score-display">${isVote ? (e2.votes || 0) : (showScoresParam ? (e2.score || 0) : '')}</div>
                                 <div>
-                                    <div class="hud-entrant-name">${esc(e2.name)}</div>
+                                    <div class="hud-entrant-name" style="${e2.color ? `color:${e2.color};` : ''}">${esc(e2.name)}</div>
                                     ${showTags && e2.tag ? `<div class="hud-entrant-tag">${esc(e2.tag)}</div>` : ''}
-                                    ${!isVote && targetScore > 0 ? renderPips(e2.score || 0) : ''}
-                                    ${!isVote && targetRounds > 0 ? renderHudRoundPips(e2.rounds || 0) : ''}
+                                    ${!isVote && targetScore > 0 ? renderPips(e2.score || 0, e2.color) : ''}
+                                    ${!isVote && targetRounds > 0 ? renderHudRoundPips(e2.rounds || 0, e2.color) : ''}
                                 </div>
                             </div>
                         </div>
@@ -1121,11 +1123,12 @@
                 roundsMap.set(r, matches.filter(m => m.round === r));
             }
 
-            function renderMatchRoundPips(roundsWon, rTarget) {
+            function renderMatchRoundPips(roundsWon, rTarget, color) {
                 if (!showRoundPips || !rTarget || rTarget <= 0) return '';
                 let p = '<div class="match-round-pips" title="Rounds won">';
                 for (let i = 0; i < rTarget; i++) {
-                    p += `<span class="match-round-pip${i < roundsWon ? ' won' : ''}"></span>`;
+                    const isWon = i < roundsWon;
+                    p += `<span class="match-round-pip${isWon ? ' won' : ''}" style="${isWon && color ? `background:${color};border-color:${color};box-shadow:0 0 6px ${color};` : ''}"></span>`;
                 }
                 p += '</div>';
                 return p;
@@ -1207,15 +1210,16 @@
                         <div class="match-card${isActive ? ' active' : ''}${isCompleted ? ' completed' : ''}" data-match-id="${match.id}">
                             ${showBadges && isActive ? `<span class="match-card-badge">${isVote ? 'Voting' : 'Live'}</span>` : ''}
                             
-                            <div class="entrant-row${e1Winner ? ' winner' : ''}${e1Loser ? ' loser' : ''}">
+                            <div class="entrant-row${e1Winner ? ' winner' : ''}${e1Loser ? ' loser' : ''}" style="${e1.color ? `border-left: 3px solid ${e1.color};` : ''}">
                                 ${isActive && isVote ? `<div class="vote-fill-bar" style="width: ${e1.percent || 0}%;"></div>` : ''}
                                 <div class="entrant-info">
+                                    ${e1.color ? `<span class="entrant-color-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${e1.color}; flex-shrink:0;"></span>` : ''}
                                     ${showSeeds && e1.seed > 0 ? `<span class="seed-pill">#${e1.seed}</span>` : ''}
                                     <span class="entrant-name">${esc(e1.name)}</span>
                                     ${showTags && e1.tag ? `<span class="entrant-tag">${esc(e1.tag)}</span>` : ''}
                                 </div>
                                 <div class="entrant-score-box">
-                                    ${rTarget > 0 ? renderMatchRoundPips(e1.rounds || 0, rTarget) : ''}
+                                    ${rTarget > 0 ? renderMatchRoundPips(e1.rounds || 0, rTarget, e1.color) : ''}
                                     ${showScoresParam ? `
                                         ${isVote ? (isActive || isCompleted ? `<span class="score-badge">${e1.votes || 0}</span><span class="entrant-pct">${e1.percent || 0}%</span>` : '') : `
                                             <span class="score-badge">${e1.score || 0}</span>
@@ -1224,15 +1228,16 @@
                                 </div>
                             </div>
 
-                            <div class="entrant-row${e2Winner ? ' winner' : ''}${e2Loser ? ' loser' : ''}">
+                            <div class="entrant-row${e2Winner ? ' winner' : ''}${e2Loser ? ' loser' : ''}" style="${e2.color ? `border-left: 3px solid ${e2.color};` : ''}">
                                 ${isActive && isVote ? `<div class="vote-fill-bar" style="width: ${e2.percent || 0}%;"></div>` : ''}
                                 <div class="entrant-info">
+                                    ${e2.color ? `<span class="entrant-color-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${e2.color}; flex-shrink:0;"></span>` : ''}
                                     ${showSeeds && e2.seed > 0 ? `<span class="seed-pill">#${e2.seed}</span>` : ''}
                                     <span class="entrant-name">${esc(e2.name)}</span>
                                     ${showTags && e2.tag ? `<span class="entrant-tag">${esc(e2.tag)}</span>` : ''}
                                 </div>
                                 <div class="entrant-score-box">
-                                    ${rTarget > 0 ? renderMatchRoundPips(e2.rounds || 0, rTarget) : ''}
+                                    ${rTarget > 0 ? renderMatchRoundPips(e2.rounds || 0, rTarget, e2.color) : ''}
                                     ${showScoresParam ? `
                                         ${isVote ? (isActive || isCompleted ? `<span class="score-badge">${e2.votes || 0}</span><span class="entrant-pct">${e2.percent || 0}%</span>` : '') : `
                                             <span class="score-badge">${e2.score || 0}</span>
@@ -1479,6 +1484,10 @@
             requestAnimationFrame(frame);
         }
 
+        const tourneySource = (params.get('source') || 'tournament').toLowerCase(); // 'tournament' | 'poll'
+        const tourneyEndpoint = tourneySource === 'poll' ? '/api/polls/tournament' : '/api/tournament';
+        const tourneyWsEvent = tourneySource === 'poll' ? 'poll-tournament-update' : 'tournament-update';
+
         // Fetch initial tournament data
         async function loadInitial() {
             if (forceSample) {
@@ -1486,7 +1495,7 @@
                 return;
             }
             try {
-                const res = await fetch('/api/tournament');
+                const res = await fetch(tourneyEndpoint);
                 const data = await res.json();
                 if (data.tournament) {
                     currentTournament = data.tournament;
@@ -1507,7 +1516,7 @@
 
             ws.onopen = () => {
                 if (window.self === window.top && !isPreview) {
-                    ws.send(JSON.stringify({ type: 'overlay-source', key: 'tournament' }));
+                    ws.send(JSON.stringify({ type: 'overlay-source', key: tourneySource === 'poll' ? 'tournament-poll' : 'tournament' }));
                 }
             };
 
@@ -1515,7 +1524,7 @@
                 if (forceSample) return;
                 try {
                     const msg = JSON.parse(event.data);
-                    if (msg.type === 'tournament-update') {
+                    if (msg.type === tourneyWsEvent) {
                         currentTournament = msg.data;
                         renderTournament(currentTournament);
                     } else if (msg.type === 'poll-update' && currentTournament) {

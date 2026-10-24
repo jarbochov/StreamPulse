@@ -282,8 +282,118 @@ function createTwitchRoutes({
         }
 
         // --- Tournament Bracket Endpoints ---
+        // --- Poll Tournament (Audience Chat Bracket) Routes ---
+        if ((pathname === '/api/polls/tournament' || (pathname === '/api/tournament' && url.searchParams.get('source') === 'poll')) && req.method === 'GET') {
+            const tournament = pollService ? pollService.getTournament({ isPoll: true }) : null;
+            sendJson(res, { status: 'ok', tournament });
+            return true;
+        }
+
+        if (pathname === '/api/polls/tournament/create' && req.method === 'POST') {
+            if (!pollService) { sendError(res, 501, 'Native polls not available'); return true; }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const tournament = pollService.createTournament(body, { isPoll: true });
+                sendJson(res, { status: 'ok', tournament });
+            } catch (err) { sendError(res, 400, err.message); }
+            return true;
+        }
+
+        if (pathname === '/api/polls/tournament/start-match' && req.method === 'POST') {
+            if (!pollService) { sendError(res, 501, 'Native polls not available'); return true; }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const result = pollService.startTournamentMatch(body.matchId, { isPoll: true });
+                sendJson(res, { status: 'ok', ...result });
+            } catch (err) { sendError(res, 400, err.message); }
+            return true;
+        }
+
+        if (pathname === '/api/polls/tournament/advance' && req.method === 'POST') {
+            if (!pollService) { sendError(res, 501, 'Native polls not available'); return true; }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const tournament = pollService.advanceTournamentMatch(body.matchId, body.winner, { isPoll: true });
+                sendJson(res, { status: 'ok', tournament });
+            } catch (err) { sendError(res, 400, err.message); }
+            return true;
+        }
+
+        if (pathname === '/api/polls/tournament/score' && req.method === 'POST') {
+            if (!pollService) { sendError(res, 501, 'Native polls not available'); return true; }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const result = pollService.updateMatchScore(body.matchId, { ...body, isPoll: true });
+                sendJson(res, { status: 'ok', ...result });
+            } catch (err) { sendError(res, 400, err.message); }
+            return true;
+        }
+
+        if (pathname === '/api/polls/tournament/select-match' && req.method === 'POST') {
+            if (!pollService) { sendError(res, 501, 'Native polls not available'); return true; }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const result = pollService.selectActiveMatch(body.matchId, { isPoll: true });
+                sendJson(res, { status: 'ok', ...result });
+            } catch (err) { sendError(res, 400, err.message); }
+            return true;
+        }
+
+        if (pathname === '/api/polls/tournament/reset-match' && req.method === 'POST') {
+            if (!pollService) { sendError(res, 501, 'Native polls not available'); return true; }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const result = pollService.resetMatch(body.matchId, { isPoll: true });
+                sendJson(res, { status: 'ok', ...result });
+            } catch (err) { sendError(res, 400, err.message); }
+            return true;
+        }
+
+        if (pathname === '/api/polls/tournament/rollback' && req.method === 'POST') {
+            if (!pollService) { sendError(res, 501, 'Native polls not available'); return true; }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const result = pollService.rollbackTournamentMatch(body.matchId, { isPoll: true });
+                sendJson(res, { status: 'ok', ...result });
+            } catch (err) { sendError(res, 400, err.message); }
+            return true;
+        }
+
+        if (pathname === '/api/polls/tournament/settings' && req.method === 'POST') {
+            if (!pollService) { sendError(res, 501, 'Native polls not available'); return true; }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const tournament = pollService.updateTournamentSettings({ ...body, isPoll: true });
+                sendJson(res, { status: 'ok', tournament });
+            } catch (err) { sendError(res, 400, err.message); }
+            return true;
+        }
+
+        if (pathname === '/api/polls/tournament/reset' && req.method === 'POST') {
+            if (!pollService) { sendError(res, 501, 'Native polls not available'); return true; }
+            const result = pollService.resetTournament({ isPoll: true });
+            sendJson(res, { status: 'ok', ...result });
+            return true;
+        }
+
+        if (pathname === '/api/polls/tournament/history' && req.method === 'GET') {
+            const history = pollService ? pollService.getTournamentHistory({ isPoll: true }) : [];
+            sendJson(res, { status: 'ok', history });
+            return true;
+        }
+
+        // --- Actual Esports Tournament (Versus & Tournament Studio) Routes ---
         if (pathname === '/api/tournament' && req.method === 'GET') {
-            const tournament = pollService ? pollService.getTournament() : null;
+            const isPoll = url.searchParams.get('source') === 'poll';
+            const tournament = pollService ? pollService.getTournament({ isPoll }) : null;
             sendJson(res, { status: 'ok', tournament });
             return true;
         }
@@ -296,7 +406,8 @@ function createTwitchRoutes({
             try {
                 const raw = await readRequestBody(req);
                 const body = raw ? JSON.parse(raw) : {};
-                const tournament = pollService.createTournament(body);
+                const isPoll = body.isPoll === true;
+                const tournament = pollService.createTournament(body, { isPoll });
                 sendJson(res, { status: 'ok', tournament });
             } catch (err) {
                 sendError(res, 400, err.message);
