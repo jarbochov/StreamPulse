@@ -5,6 +5,8 @@ const { readRequestBody, sendJson, sendText, sendError, escapeHtml } = require('
 
 function createTwitchRoutes({
     twitchService,
+    pollService = null,
+    matchupService = null,
     getTwitchClientId = () => '',
     getTwitchClientSecret = () => '',
     getBroadcasterId = () => '',
@@ -153,7 +155,733 @@ function createTwitchRoutes({
 
         // --- 3. Polls ---
         if (pathname === '/api/polls/latest' && req.method === 'GET') {
-            sendJson(res, { status: 'ok', poll: twitchService.getLatestPoll() });
+            const poll = pollService ? pollService.getLatestPoll() : twitchService.getLatestPoll();
+            sendJson(res, { status: 'ok', poll });
+            return true;
+        }
+
+        if (pathname === '/api/polls/active' && req.method === 'GET') {
+            const poll = pollService ? pollService.getActivePoll() : null;
+            sendJson(res, { status: 'ok', poll });
+            return true;
+        }
+
+        if (pathname === '/api/polls/history' && req.method === 'GET') {
+            const history = pollService ? pollService.getHistory() : [];
+            sendJson(res, { status: 'ok', history });
+            return true;
+        }
+
+        if (pathname === '/api/polls/history' && req.method === 'DELETE') {
+            if (pollService) pollService.clearHistory();
+            sendJson(res, { status: 'ok', cleared: true });
+            return true;
+        }
+
+        if (pathname === '/api/polls/create' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const poll = pollService.createPoll(body);
+                sendJson(res, { status: 'ok', poll });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/polls/end' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            const poll = pollService.finishPoll('COMPLETED');
+            sendJson(res, { status: 'ok', poll });
+            return true;
+        }
+
+        if (pathname === '/api/polls/cancel' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            const poll = pollService.cancelPoll();
+            sendJson(res, { status: 'ok', poll });
+            return true;
+        }
+
+        if (pathname === '/api/polls/extend' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const poll = pollService.extendPoll(body?.seconds || 30);
+                sendJson(res, { status: 'ok', poll });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/polls/vote' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const voted = pollService.castVote(body);
+                sendJson(res, { status: 'ok', voted });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        // --- Saved Poll Presets / Templates ---
+        if (pathname === '/api/polls/presets' && req.method === 'GET') {
+            const presets = pollService ? pollService.getPresets() : [];
+            sendJson(res, { status: 'ok', presets });
+            return true;
+        }
+
+        if (pathname === '/api/polls/presets' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const preset = pollService.savePreset(body);
+                sendJson(res, { status: 'ok', preset });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        const mPresetDelete = pathname.match(/^\/api\/polls\/presets\/([^/]+)$/);
+        if (mPresetDelete && req.method === 'DELETE') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            const id = decodeURIComponent(mPresetDelete[1]);
+            const result = pollService.deletePreset(id);
+            sendJson(res, { status: 'ok', ...result });
+            return true;
+        }
+
+        // --- Tournament Bracket Endpoints ---
+        if (pathname === '/api/tournament' && req.method === 'GET') {
+            const tournament = pollService ? pollService.getTournament() : null;
+            sendJson(res, { status: 'ok', tournament });
+            return true;
+        }
+
+        if (pathname === '/api/tournament/create' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const tournament = pollService.createTournament(body);
+                sendJson(res, { status: 'ok', tournament });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/tournament/start-match' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const result = pollService.startTournamentMatch(body.matchId);
+                sendJson(res, { status: 'ok', ...result });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/tournament/advance' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const tournament = pollService.advanceTournamentMatch(body.matchId, body.winner);
+                sendJson(res, { status: 'ok', tournament });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/tournament/score' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const result = pollService.updateMatchScore(body.matchId, body);
+                sendJson(res, { status: 'ok', ...result });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/tournament/select-match' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const result = pollService.selectActiveMatch(body.matchId);
+                sendJson(res, { status: 'ok', ...result });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/tournament/reset-match' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const result = pollService.resetMatch(body.matchId);
+                sendJson(res, { status: 'ok', ...result });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/tournament/rollback' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const result = pollService.rollbackTournamentMatch(body.matchId);
+                sendJson(res, { status: 'ok', ...result });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/tournament/drafts' && req.method === 'GET') {
+            const drafts = pollService ? pollService.getTournamentDrafts() : [];
+            sendJson(res, { status: 'ok', drafts });
+            return true;
+        }
+
+        if (pathname === '/api/tournament/drafts/save' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const item = pollService.saveTournamentDraft(body.name);
+                sendJson(res, { status: 'ok', draft: item, drafts: pollService.getTournamentDrafts() });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/tournament/drafts/restore' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const result = pollService.restoreTournamentDraft(body.id);
+                sendJson(res, { status: 'ok', ...result });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname.startsWith('/api/tournament/drafts/') && req.method === 'DELETE') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            const id = decodeURIComponent(pathname.replace('/api/tournament/drafts/', ''));
+            const result = pollService.deleteTournamentDraft(id);
+            sendJson(res, { status: 'ok', ...result, drafts: pollService.getTournamentDrafts() });
+            return true;
+        }
+
+        if (pathname === '/api/tournament/settings' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const tournament = pollService.updateTournamentSettings(body);
+                sendJson(res, { status: 'ok', tournament });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/tournament/reset' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            const result = pollService.resetTournament();
+            sendJson(res, { status: 'ok', ...result });
+            return true;
+        }
+
+        if (pathname === '/api/tournament/history' && req.method === 'GET') {
+            const history = pollService ? pollService.getTournamentHistory() : [];
+            sendJson(res, { status: 'ok', history });
+            return true;
+        }
+
+        if (pathname === '/api/tournament/history/restore' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const tournament = pollService.restoreTournament(body.id);
+                sendJson(res, { status: 'ok', tournament });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname.startsWith('/api/tournament/history/') && req.method === 'DELETE') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            const id = decodeURIComponent(pathname.replace('/api/tournament/history/', ''));
+            const result = pollService.deleteTournamentHistory(id);
+            sendJson(res, { status: 'ok', ...result, history: pollService.getTournamentHistory() });
+            return true;
+        }
+
+        if (pathname === '/api/tournament/history/clear' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            const result = pollService.clearTournamentHistory();
+            sendJson(res, { status: 'ok', ...result, history: [] });
+            return true;
+        }
+
+        if (pathname === '/api/tournament/presets' && req.method === 'GET') {
+            const presets = pollService ? pollService.getTournamentPresets() : [];
+            sendJson(res, { status: 'ok', presets });
+            return true;
+        }
+
+        if (pathname === '/api/tournament/presets' && req.method === 'POST') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const item = pollService.saveTournamentPreset(body);
+                sendJson(res, { status: 'ok', preset: item, presets: pollService.getTournamentPresets() });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname.startsWith('/api/tournament/presets/') && req.method === 'DELETE') {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            const id = decodeURIComponent(pathname.replace('/api/tournament/presets/', ''));
+            const result = pollService.deleteTournamentPreset(id);
+            sendJson(res, { status: 'ok', ...result, presets: pollService.getTournamentPresets() });
+            return true;
+        }
+
+        // --- Matchup Scoreboard & Versus Endpoints ---
+        if (pathname === '/api/matchup' && req.method === 'GET') {
+            const matchup = matchupService ? matchupService.getMatchup() : null;
+            sendJson(res, { status: 'ok', matchup });
+            return true;
+        }
+
+        if (pathname === '/api/matchup' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const matchup = matchupService.updateMatchup(body);
+                sendJson(res, { status: 'ok', matchup });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/matchup/score' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const target = body.competitorId !== undefined ? body.competitorId : (body.index !== undefined ? body.index : body.id);
+                const result = matchupService.updateScore(target, body);
+                sendJson(res, { status: 'ok', ...result });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/matchup/swap' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const matchup = matchupService.swapSides();
+                sendJson(res, { status: 'ok', matchup });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/matchup/reset-scores' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const matchup = matchupService.resetScores();
+                sendJson(res, { status: 'ok', matchup });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/matchup/reset' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const matchup = matchupService.resetMatchup();
+                sendJson(res, { status: 'ok', matchup });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        // Match Clock & Stopwatch Endpoints
+        if (pathname === '/api/matchup/clock/start' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            const clock = matchupService.startClock();
+            sendJson(res, { status: 'ok', clock, matchup: matchupService.getMatchup() });
+            return true;
+        }
+
+        if (pathname === '/api/matchup/clock/pause' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            const clock = matchupService.pauseClock();
+            sendJson(res, { status: 'ok', clock, matchup: matchupService.getMatchup() });
+            return true;
+        }
+
+        if (pathname === '/api/matchup/clock/reset' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const clock = matchupService.resetClock(body.seconds !== undefined ? body.seconds : body.duration);
+                sendJson(res, { status: 'ok', clock, matchup: matchupService.getMatchup() });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/matchup/clock/set' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const clock = matchupService.setClockMode(body);
+                sendJson(res, { status: 'ok', clock, matchup: matchupService.getMatchup() });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/matchup/queue' && req.method === 'GET') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            const data = matchupService.getQueue();
+            sendJson(res, { status: 'ok', ...data });
+            return true;
+        }
+
+        if (pathname === '/api/matchup/queue' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                if (Array.isArray(body.queue)) {
+                    const queue = matchupService.setQueue(body.queue);
+                    sendJson(res, { status: 'ok', queue, matchup: matchupService.getMatchup() });
+                } else {
+                    const queue = matchupService.addToQueue(body);
+                    sendJson(res, { status: 'ok', queue, matchup: matchupService.getMatchup() });
+                }
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/matchup/presets' && req.method === 'GET') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            const presets = matchupService.getPresets();
+            sendJson(res, { status: 'ok', presets });
+            return true;
+        }
+
+        if (pathname === '/api/matchup/presets' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const presets = matchupService.savePreset(body);
+                sendJson(res, { status: 'ok', presets });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/matchup/presets/load' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const matchup = matchupService.loadPreset(body.id);
+                sendJson(res, { status: 'ok', matchup });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname.startsWith('/api/matchup/presets/') && req.method === 'DELETE') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const id = decodeURIComponent(pathname.replace('/api/matchup/presets/', ''));
+                const presets = matchupService.deletePreset(id);
+                sendJson(res, { status: 'ok', presets });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/matchup/history' && req.method === 'GET') {
+            const history = matchupService ? matchupService.getHistory() : [];
+            sendJson(res, { status: 'ok', history });
+            return true;
+        }
+
+        if (pathname === '/api/matchup/history/restore' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const matchup = matchupService.restoreHistoryItem(body.id);
+                sendJson(res, { status: 'ok', matchup });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname.startsWith('/api/matchup/history/') && req.method === 'DELETE') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const id = decodeURIComponent(pathname.replace('/api/matchup/history/', ''));
+                const history = matchupService.deleteHistoryItem(id);
+                sendJson(res, { status: 'ok', history });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/matchup/history/clear' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const history = matchupService.clearHistory();
+                sendJson(res, { status: 'ok', history });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/matchup/queue/select' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const id = body.id !== undefined ? body.id : body.index;
+                const matchup = matchupService.selectQueueMatch(id);
+                sendJson(res, { status: 'ok', matchup });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/matchup/queue/next' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const matchup = matchupService.nextQueueMatch();
+                sendJson(res, { status: 'ok', matchup });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/matchup/queue/prev' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const matchup = matchupService.prevQueueMatch();
+                sendJson(res, { status: 'ok', matchup });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname.startsWith('/api/matchup/queue/') && req.method === 'DELETE') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const id = decodeURIComponent(pathname.replace('/api/matchup/queue/', ''));
+                const queue = matchupService.deleteQueueMatch(id);
+                sendJson(res, { status: 'ok', queue });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
             return true;
         }
 

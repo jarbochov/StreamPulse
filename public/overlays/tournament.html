@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Tournament Bracket Overlay</title>
+    <style>
+        :root {
+            --tourney-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Roboto, sans-serif;
+            --tourney-text: #f0f6fc;
+            --tourney-muted: #8b949e;
+            --tourney-accent: #58a6ff;
+            --tourney-winner: #3fb950;
+            --tourney-bg: rgba(13, 17, 23, 0.92);
+            --tourney-card-bg: rgba(22, 27, 34, 0.88);
+            --tourney-border: #30363d;
+            --tourney-radius: 10px;
+            --tourney-backdrop: blur(12px);
+            --tourney-text-shadow: none;
+            --tourney-scale: 1;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: transparent;
+            font-family: var(--tourney-font);
+            color: var(--tourney-text);
+        }
+
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: clamp(0.5rem, 2vmin, 1.5rem);
+        }
+
+        /* Confetti Canvas */
+        #confetti-canvas {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        .tournament-stage {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 1600px;
+            transition: transform 0.2s ease;
+        }
+
+        /* Themes */
+        .theme-glass {
+            --tourney-bg: rgba(13, 17, 23, 0.65);
+            --tourney-card-bg: rgba(22, 27, 34, 0.65);
+            --tourney-backdrop: blur(18px);
+            --tourney-border: rgba(255, 255, 255, 0.15);
+        }
+
+        .theme-solid {
+            --tourney-bg: #0d1117;
+            --tourney-card-bg: #161b22;
+            --tourney-backdrop: none;
+            --tourney-border: #30363d;
+        }
+
+        .theme-transparent {
+            --tourney-bg: transparent;
+            --tourney-card-bg: rgba(0, 0, 0, 0.55);
+            --tourney-backdrop: none;
+            --tourney-border: rgba(255, 255, 255, 0.12);
+            --tourney-text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95);
+        }
+
+        .theme-pill {
+            --tourney-radius: 24px;
+        }
+
+        .theme-neon {
+            --tourney-bg: rgba(9, 13, 22, 0.94);
+            --tourney-card-bg: rgba(15, 23, 42, 0.9);
+            --tourney-border: #38bdf8;
+            --tourney-accent: #38bdf8;
+        }
+
+        .theme-retro {
+            --tourney-bg: rgba(15, 10, 30, 0.94);
+            --tourney-card-bg: rgba(30, 18, 55, 0.9);
+            --tourney-border: #ec4899;
+            --tourney-accent: #06b6d4;
+        }
+
+        .theme-championship, .theme-gold {
+            --tourney-bg: rgba(22, 17, 8, 0.94);
+            --tourney-card-bg: rgba(35, 28, 12, 0.9);
+            --tourney-border: #ffd700;
+            --tourney-accent: #ffd700;
+        }
+
+        .theme-cyber {
+            --tourney-bg: rgba(6, 10, 20, 0.94);
+            --tourney-card-bg: rgba(12, 20, 36, 0.9);
+            --tourney-border: #00f0ff;
+            --tourney-accent: #ff0055;
+        }
+
+        .theme-fgc-evo {
+            --tourney-bg: linear-gradient(180deg, #161b22 0%, #0a0d14 100%);
+            --tourney-card-bg: #121824;
+            --tourney-border: #f59e0b;
+            --tourney-accent: #ffd700;
+            --tourney-winner: #10b981;
+        }
+
+        .theme-clean-light {
+            --tourney-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            --tourney-text: #1f2328;
+            --tourney-muted: #656d76;
+            --tourney-accent: #0969da;
+            --tourney-winner: #1a7f37;
+            --tourney-bg: #ffffff;
+            --tourney-card-bg: #f6f8fa;
+            --tourney-border: #d0d7de;
+        }
+
+        .theme-minimal-dark {
+            --tourney-bg: #000000;
+            --tourney-card-bg: #0d1117;
+            --tourney-border: #21262d;
+            --tourney-accent: #58a6ff;
+        }
+
+        .theme-border {
+            --tourney-border: #58a6ff;
+            --tourney-card-bg: #0d1117;
+            --tourney-radius: 8px;
+        }
+
+        /* Spacing Variations */
+        .spacing-compact {
+            --round-min-width: 170px;
+            --round-gap: clamp(0.5rem, 1.2vw, 1.2rem);
+            --match-gap: clamp(0.4rem, 1vh, 0.9rem);
+        }
+
+        .spacing-spacious {
+            --round-min-width: 250px;
+            --round-gap: clamp(1.5rem, 3.5vw, 3.5rem);
+            --match-gap: clamp(1.2rem, 2.5vh, 2.5rem);
+        }
+
+        /* Line Styles */
+        .lines-glow .match-card.active {
+            box-shadow: 0 0 28px rgba(88, 166, 255, 0.6), inset 0 0 12px rgba(88, 166, 255, 0.2);
+        }
+
+        .lines-solid .match-card {
+            border-width: 2px;
+        }
+
+        .lines-minimal .match-card {
+            border-style: solid;
+            border-width: 1px;
+            box-shadow: none;
+        }
+
+        /* Round Header Variations */
+        .roundheaders-pill .round-header {
+            display: inline-block;
+            background: rgba(88, 166, 255, 0.14);
+            color: var(--tourney-accent);
+            border: 1px solid rgba(88, 166, 255, 0.25);
+            padding: 0.18rem 0.65rem;
+            border-radius: 999px;
+            margin: 0 auto 0.4rem;
+        }
+
+        .roundheaders-hidden .round-header {
+            display: none;
+        }
+
+        /* Header */
+        .tournament-header {
+            text-align: center;
+            margin-bottom: clamp(1rem, 3cqi, 1.75rem);
+            background: var(--tourney-bg);
+            backdrop-filter: var(--tourney-backdrop);
+            -webkit-backdrop-filter: var(--tourney-backdrop);
+            border: 1px solid var(--tourney-border);
+            border-radius: var(--tourney-radius);
+            padding: 0.75rem 2rem;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.35rem;
+            text-shadow: var(--tourney-text-shadow);
+        }
+
+        .tournament-title {
+            font-size: calc(clamp(1.1rem, 3.2cqi, 1.45rem) * var(--tourney-scale));
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: var(--tourney-text);
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .tournament-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: calc(0.72rem * var(--tourney-scale));
+            color: var(--tourney-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 700;
+        }
+
+        .meta-pill {
+            background: rgba(88, 166, 255, 0.12);
+            color: var(--tourney-accent);
+            border: 1px solid rgba(88, 166, 255, 0.25);
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        /* Bracket Tree View (Default Layout) */
+        .bracket-tree {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: clamp(1rem, 2.5vw, 2.5rem);
+            width: 100%;
+            position: relative;
+        }
+
+        .bracket-round {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            gap: clamp(0.75rem, 1.8vh, 1.75rem);
+            min-width: 210px;
+            flex: 1;
+            max-width: 320px;
+        }
+
+        .round-header {
+            font-size: calc(0.75rem * var(--tourney-scale));
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--tourney-muted);
+            text-align: center;
+            margin-bottom: 0.4rem;
+        }
+
+        /* Match Card */
+        .match-card {
+            background: var(--tourney-card-bg);
+            backdrop-filter: var(--tourney-backdrop);
+            -webkit-backdrop-filter: var(--tourney-backdrop);
+            border: 1px solid var(--tourney-border);
+            border-radius: var(--tourney-radius);
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+            transition: all 0.25s ease;
+            position: relative;
+        }
+
+        .match-card.active {
+            border-color: var(--tourney-accent);
+            box-shadow: 0 0 24px rgba(88, 166, 255, 0.35);
+            animation: match-pulse 2s infinite alternate;
+        }
+
+        @keyframes match-pulse {
+            from { border-color: rgba(88, 166, 255, 0.6); }
+            to { border-color: rgba(88, 166, 255, 1); }
+        }
+
+        .match-card.completed {
+            border-color: rgba(56, 139, 253, 0.2);
+        }
+
+        .match-card.bye-card {
+            opacity: 0.72;
+            border-style: dashed;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .match-card.bye-card .entrant-row {
+            background: transparent;
+            padding: 0.65rem 0.75rem;
+        }
+
+        .bye-badge {
+            font-size: 0.62rem;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 0.15rem 0.45rem;
+            border-radius: 9999px;
+            background: rgba(88, 166, 255, 0.15);
+            color: var(--tourney-accent);
+            border: 1px solid rgba(88, 166, 255, 0.3);
+            white-space: nowrap;
+        }
+
+        /* Round Robin Standings Table */
+        .rr-stage {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            width: 100%;
+        }
+
+        .rr-standings-card {
+            background: rgba(22, 27, 34, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        .rr-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+        }
+
+        .rr-table th {
+            text-align: left;
+            padding: 0.6rem 0.85rem;
+            background: rgba(13, 17, 23, 0.7);
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--tourney-muted);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .rr-table td {
+            padding: 0.65rem 0.85rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .rr-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .rr-table tr.leader {
+            background: rgba(63, 185, 80, 0.08);
+        }
+
+        .rr-table tr.leader td:first-child {
+            color: var(--tourney-winner);
+            font-weight: 800;
+        }
+
+        .rr-rank-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            font-weight: 800;
+            font-size: 0.75rem;
+        }
+
+        .leader .rr-rank-badge {
+            background: #f59e0b;
+            color: #0d1117;
+        }
+
+        .match-card-badge {
+            position: absolute;
+            top: -1px;
+            right: 8px;
+            background: var(--tourney-accent);
+            color: #0d1117;
+            font-size: 0.62rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            padding: 0.15rem 0.45rem;
+            border-radius: 0 0 4px 4px;
+            z-index: 2;
+        }
+
+        .entrant-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.52rem 0.75rem;
+            position: relative;
+            background: rgba(13, 17, 23, 0.35);
+            transition: background 0.2s;
+        }
+
+        .entrant-row:first-child {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .entrant-row.winner {
+            background: rgba(63, 185, 80, 0.12);
+        }
+
+        .entrant-row.winner .entrant-name {
+            font-weight: 700;
+            color: var(--tourney-winner);
+        }
+
+        .entrant-row.winner .score-badge {
+            background: var(--tourney-winner);
+            color: #0d1117;
+            font-weight: 800;
+        }
+
+        .entrant-row.loser {
+            opacity: 0.45;
+        }
+
+        .entrant-info {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            z-index: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .seed-pill {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--tourney-muted);
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 3px;
+            padding: 0.1rem 0.35rem;
+            flex-shrink: 0;
+        }
+
+        .entrant-name {
+            font-size: calc(0.85rem * var(--tourney-scale));
+            color: var(--tourney-text);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+
+        .entrant-score-box {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            z-index: 1;
+            flex-shrink: 0;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .score-badge {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--tourney-text);
+            font-size: calc(0.78rem * var(--tourney-scale));
+            font-weight: 700;
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            min-width: 22px;
+            text-align: center;
+        }
+
+        .win-pips {
+            display: inline-flex;
+            gap: 3px;
+            align-items: center;
+        }
+
+        .win-pip {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .win-pip.won {
+            background: var(--tourney-accent);
+            box-shadow: 0 0 6px var(--tourney-accent);
+        }
+
+        .entrant-pct {
+            font-size: 0.72rem;
+            color: var(--tourney-muted);
+        }
+
+        /* Live vote percentage fill on active match */
+        .vote-fill-bar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            background: rgba(88, 166, 255, 0.22);
+            transition: width 0.3s ease;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .entrant-row.winner .vote-fill-bar {
+            background: rgba(63, 185, 80, 0.28);
+        }
+
+        /* ========================================================
+           LAYOUT MODE: ACTIVE MATCHUP HUD (Esports Lower Third)
+           ======================================================== */
+        .hud-stage {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 820px;
+        }
+
+        .match-hud-card {
+            width: 100%;
+            background: var(--tourney-bg);
+            backdrop-filter: var(--tourney-backdrop);
+            -webkit-backdrop-filter: var(--tourney-backdrop);
+            border: 1px solid var(--tourney-border);
+            border-radius: var(--tourney-radius);
+            box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
+            padding: 0.85rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+            position: relative;
+            overflow: hidden;
+            text-shadow: var(--tourney-text-shadow);
+        }
+
+        .hud-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--tourney-muted);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 0.4rem;
+        }
+
+        .hud-match-grid {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .hud-entrant {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            min-width: 0;
+        }
+
+        .hud-entrant.e2 {
+            flex-direction: row-reverse;
+            text-align: right;
+        }
+
+        .hud-entrant-name {
+            font-size: calc(clamp(1rem, 2.5cqi, 1.25rem) * var(--tourney-scale));
+            font-weight: 800;
+            color: var(--tourney-text);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .hud-score-display {
+            background: var(--tourney-card-bg);
+            border: 1px solid var(--tourney-border);
+            border-radius: 8px;
+            padding: 0.35rem 0.85rem;
+            font-size: calc(clamp(1.2rem, 3.2cqi, 1.6rem) * var(--tourney-scale));
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            color: var(--tourney-accent);
+            min-width: 48px;
+            text-align: center;
+        }
+
+        .hud-vs-pill {
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: var(--tourney-muted);
+            background: rgba(255, 255, 255, 0.08);
+            padding: 0.25rem 0.65rem;
+            border-radius: 999px;
+            text-transform: uppercase;
+        }
+
+        .hud-vote-bar-wrap {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+            overflow: hidden;
+            display: flex;
+        }
+
+        .hud-vote-fill {
+            height: 100%;
+            background: var(--tourney-accent);
+            transition: width 0.3s ease;
+        }
+
+        /* Champion Display */
+        .champion-card {
+            background: linear-gradient(135deg, rgba(210, 153, 34, 0.2), rgba(210, 153, 34, 0.05));
+            border: 2px solid #d29922;
+            border-radius: 12px;
+            padding: 1.25rem 2.5rem;
+            text-align: center;
+            box-shadow: 0 0 32px rgba(210, 153, 34, 0.35);
+            animation: champion-glow 3s infinite alternate;
+            margin-top: 1rem;
+        }
+
+        @keyframes champion-glow {
+            from { box-shadow: 0 0 20px rgba(210, 153, 34, 0.25); }
+            to { box-shadow: 0 0 45px rgba(210, 153, 34, 0.55); }
+        }
+
+        .champion-title {
+            font-size: 0.78rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #d29922;
+            margin-bottom: 0.4rem;
+        }
+
+        .champion-name {
+            font-size: calc(1.8rem * var(--tourney-scale));
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+        }
+
+        /* Placeholder */
+        .empty-placeholder {
+            background: var(--tourney-bg);
+            border: 1px dashed var(--tourney-border);
+            border-radius: 12px;
+            padding: 2.5rem;
+            text-align: center;
+            color: var(--tourney-muted);
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="confetti-canvas"></canvas>
+
+    <div class="tournament-stage" id="stage">
+        <div id="tournament-container">
+            <div class="empty-placeholder">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-bottom: 0.6rem; opacity: 0.6;"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                <p>Waiting for Tournament Bracket...</p>
+                <span style="font-size: 0.8rem; opacity: 0.7;">Create and start a bracket in Poll Studio</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="/overlay-visibility.js" data-key="tournament"></script>
+    <script src="/js/url-params.js"></script>
+    <script src="/js/overlay-theme.js"></script>
+
+    <script>
+        const params = (typeof overlayParams === 'function') ? overlayParams() : new URLSearchParams(window.location.search);
+        const stage = document.getElementById('stage');
+        const container = document.getElementById('tournament-container');
+        const confettiCanvas = document.getElementById('confetti-canvas');
+        let currentTournament = null;
+        let lastCelebratedChampion = null;
+
+        // Custom parameters
+        const forceSample = params.get('sample') === '1';
+        const isPreview = params.get('preview') === '1' || params.get('sample') === '1';
+        const layoutMode = (params.get('layout') || params.get('mode') || 'tree').toLowerCase(); // 'tree' | 'active' | 'hud' | 'compact'
+        const showScoresParam = params.get('showscores') !== '0';
+        const enableConfetti = params.get('confetti') !== '0' && params.get('confetti') !== 'false';
+        const scaleVal = parseFloat(params.get('scale') || params.get('fontscale') || '1');
+        const customAccent = params.get('accent');
+        const customWinner = params.get('winner');
+
+        if (scaleVal && Number.isFinite(scaleVal) && scaleVal > 0) {
+            document.documentElement.style.setProperty('--tourney-scale', scaleVal);
+        }
+        if (customAccent) document.documentElement.style.setProperty('--tourney-accent', customAccent);
+        if (customWinner) document.documentElement.style.setProperty('--tourney-winner', customWinner);
+
+        // Styling via ?overlay=hash... or ?bg=... or ?theme=...
+        function applyStyling() {
+            let overlayVal = (params.get('overlay') || params.get('theme') || '').trim();
+            const bgVal = (params.get('bg') || '').trim();
+            const hashVal = (window.location.hash || '').replace(/^#/, '').trim();
+
+            if (!overlayVal && hashVal && !hashVal.includes('=')) {
+                overlayVal = hashVal;
+            }
+
+            if (overlayVal === 'glass') document.body.classList.add('theme-glass');
+            else if (overlayVal === 'solid') document.body.classList.add('theme-solid');
+            else if (overlayVal === 'transparent' || overlayVal === 'clean' || overlayVal === 'none') document.body.classList.add('theme-transparent');
+            else if (overlayVal === 'pill') document.body.classList.add('theme-pill');
+            else if (overlayVal === 'neon') document.body.classList.add('theme-neon');
+            else if (overlayVal === 'retro') document.body.classList.add('theme-retro');
+            else if (overlayVal === 'championship' || overlayVal === 'gold') document.body.classList.add('theme-championship');
+            else if (overlayVal === 'cyber' || overlayVal === 'cyberpunk') document.body.classList.add('theme-cyber');
+            else if (overlayVal === 'fgc-evo' || overlayVal === 'evo') document.body.classList.add('theme-fgc-evo');
+            else if (overlayVal === 'clean-light' || overlayVal === 'light') document.body.classList.add('theme-clean-light');
+            else if (overlayVal === 'minimal-dark' || overlayVal === 'dark') document.body.classList.add('theme-minimal-dark');
+            else if (overlayVal === 'border') document.body.classList.add('theme-border');
+
+            const spacing = (params.get('spacing') || '').toLowerCase();
+            if (spacing === 'compact') document.body.classList.add('spacing-compact');
+            else if (spacing === 'spacious') document.body.classList.add('spacing-spacious');
+
+            const lines = (params.get('lines') || '').toLowerCase();
+            if (lines) document.body.classList.add('lines-' + lines);
+
+            const rh = (params.get('roundheaders') || '').toLowerCase();
+            if (rh) document.body.classList.add('roundheaders-' + rh);
+
+            const col = bgVal || overlayVal;
+            if (col) {
+                let clean = col;
+                if (/^[0-9a-fA-F]{3,8}$/.test(clean)) clean = '#' + clean;
+                if (/^#[0-9a-fA-F]{3,8}$/.test(clean) || /^rgba?\(.+\)$/.test(clean) || /^[a-zA-Z]{3,20}$/.test(clean)) {
+                    document.documentElement.style.setProperty('--tourney-bg', clean);
+                }
+            }
+        }
+        applyStyling();
+
+        // Sample Tournament for OBS layout & wizard preview
+        const SAMPLE_TOURNAMENT = {
+            id: 'sample-tourney',
+            title: 'Retro Community Championship',
+            format: 'single',
+            bracketSize: 8,
+            roundCount: 3,
+            progressionMode: 'manual',
+            bestOf: 3,
+            targetScore: 2,
+            status: 'IN_PROGRESS',
+            activeMatchId: 'm_2_1',
+            matches: [
+                // Round 1
+                { id: 'm_1_1', round: 1, roundName: 'Quarterfinals', entrant1: { name: 'Chrono Trigger', seed: 1, score: 2 }, entrant2: { name: 'Secret of Mana', seed: 8, score: 0 }, scores: [2, 0], status: 'COMPLETED', winner: 'Chrono Trigger', bestOf: 3, targetScore: 2 },
+                { id: 'm_1_2', round: 1, roundName: 'Quarterfinals', entrant1: { name: 'EarthBound', seed: 4, score: 2 }, entrant2: { name: 'Super Mario RPG', seed: 5, score: 1 }, scores: [2, 1], status: 'COMPLETED', winner: 'EarthBound', bestOf: 3, targetScore: 2 },
+                { id: 'm_1_3', round: 1, roundName: 'Quarterfinals', entrant1: { name: 'Final Fantasy VI', seed: 2, score: 2 }, entrant2: { name: 'Breath of Fire II', seed: 7, score: 0 }, scores: [2, 0], status: 'COMPLETED', winner: 'Final Fantasy VI', bestOf: 3, targetScore: 2 },
+                { id: 'm_1_4', round: 1, roundName: 'Quarterfinals', entrant1: { name: 'Lufia II', seed: 3, score: 2 }, entrant2: { name: 'Dragon Quest V', seed: 6, score: 1 }, scores: [2, 1], status: 'COMPLETED', winner: 'Lufia II', bestOf: 3, targetScore: 2 },
+                // Round 2 (Semifinals)
+                { id: 'm_2_1', round: 2, roundName: 'Semifinals', entrant1: { name: 'Chrono Trigger', seed: 1, score: 1 }, entrant2: { name: 'EarthBound', seed: 4, score: 1 }, scores: [1, 1], status: 'ACTIVE', matchDetails: 'Game 3 · Decider', bestOf: 3, targetScore: 2 },
+                { id: 'm_2_2', round: 2, roundName: 'Semifinals', entrant1: { name: 'Final Fantasy VI', seed: 2, score: 0 }, entrant2: { name: 'Lufia II', seed: 3, score: 0 }, scores: [0, 0], status: 'PENDING', bestOf: 3, targetScore: 2 },
+                // Finals
+                { id: 'm_3_1', round: 3, roundName: 'Grand Finals', entrant1: { name: 'TBD', seed: 0, score: 0 }, entrant2: { name: 'TBD', seed: 0, score: 0 }, scores: [0, 0], status: 'PENDING', bestOf: 3, targetScore: 2 }
+            ]
+        };
+
+        function esc(str) {
+            return String(str || '').replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
+        function renderTournament(tournament) {
+            if (!tournament || !Array.isArray(tournament.matches)) {
+                if (isPreview) {
+                    tournament = SAMPLE_TOURNAMENT;
+                } else {
+                    container.innerHTML = `
+                        <div class="empty-placeholder">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-bottom: 0.6rem; opacity: 0.6;"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                            <p>No active tournament bracket</p>
+                            <span style="font-size: 0.8rem; opacity: 0.7;">Open Poll Studio to launch a tournament</span>
+                        </div>
+                    `;
+                    return;
+                }
+            }
+
+            currentTournament = tournament;
+            const matches = tournament.matches;
+
+            // Trigger Champion celebration once
+            if (tournament.status === 'COMPLETED' && tournament.champion && lastCelebratedChampion !== tournament.champion) {
+                lastCelebratedChampion = tournament.champion;
+                if (enableConfetti) burstConfetti();
+            }
+
+            // Check layout mode: HUD / Active match vs Bracket Tree
+            if (layoutMode === 'active' || layoutMode === 'hud' || layoutMode === 'match') {
+                renderActiveMatchHud(tournament);
+            } else if (tournament.format === 'roundRobin') {
+                renderRoundRobinView(tournament);
+            } else {
+                renderBracketTree(tournament);
+            }
+        }
+
+        // Render Esports Lower-Third / Active Match HUD
+        function renderActiveMatchHud(tournament) {
+            const matches = tournament.matches || [];
+            let activeMatch = matches.find(m => m.id === tournament.activeMatchId) ||
+                              matches.find(m => m.status === 'ACTIVE') ||
+                              matches.find(m => m.status === 'PENDING' && m.entrant1?.name !== 'TBD' && m.entrant2?.name !== 'TBD') ||
+                              matches[matches.length - 1];
+
+            if (!activeMatch) {
+                container.innerHTML = '<div class="empty-placeholder">No active matchup to display.</div>';
+                return;
+            }
+
+            const e1 = activeMatch.entrant1 || { name: 'TBD', seed: 0, score: 0, votes: 0 };
+            const e2 = activeMatch.entrant2 || { name: 'TBD', seed: 0, score: 0, votes: 0 };
+            const bestOf = activeMatch.bestOf || tournament.bestOf || 0;
+            const targetScore = activeMatch.targetScore || (bestOf > 0 ? Math.ceil(bestOf / 2) : 0);
+            const isVote = tournament.progressionMode === 'vote';
+            const totalVotes = (Number(e1.votes) || 0) + (Number(e2.votes) || 0);
+            const e1Pct = totalVotes > 0 ? Math.round(((Number(e1.votes) || 0) / totalVotes) * 100) : 50;
+
+            function renderPips(score) {
+                if (!targetScore) return '';
+                let pips = '<div class="win-pips">';
+                for (let i = 0; i < targetScore; i++) {
+                    pips += `<span class="win-pip${i < score ? ' won' : ''}"></span>`;
+                }
+                pips += '</div>';
+                return pips;
+            }
+
+            container.innerHTML = `
+                <div class="hud-stage">
+                    <div class="match-hud-card">
+                        <div class="hud-header">
+                            <span>${esc(activeMatch.roundName)} ${bestOf > 0 ? `· Best of ${bestOf}` : ''}</span>
+                            <span>${activeMatch.matchDetails ? esc(activeMatch.matchDetails) : esc(tournament.title)}</span>
+                        </div>
+                        <div class="hud-match-grid">
+                            <div class="hud-entrant e1">
+                                <div class="hud-score-display">${isVote ? (e1.votes || 0) : (e1.score || 0)}</div>
+                                <div>
+                                    <div class="hud-entrant-name">${esc(e1.name)}</div>
+                                    ${!isVote && targetScore > 0 ? renderPips(e1.score || 0) : ''}
+                                </div>
+                            </div>
+                            <div class="hud-vs-pill">VS</div>
+                            <div class="hud-entrant e2">
+                                <div class="hud-score-display">${isVote ? (e2.votes || 0) : (e2.score || 0)}</div>
+                                <div>
+                                    <div class="hud-entrant-name">${esc(e2.name)}</div>
+                                    ${!isVote && targetScore > 0 ? renderPips(e2.score || 0) : ''}
+                                </div>
+                            </div>
+                        </div>
+                        ${isVote ? `
+                            <div class="hud-vote-bar-wrap">
+                                <div class="hud-vote-fill" style="width: ${e1Pct}%;"></div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render Visual Bracket Tree
+        function renderBracketTree(tournament) {
+            const matches = tournament.matches || [];
+            const maxRound = Math.max(...matches.map(m => m.round || 1));
+            const formatLabel = tournament.format === 'double' ? 'Double Elimination' : 'Single Elimination';
+            const modeLabel = tournament.progressionMode === 'manual' ? (tournament.bestOf > 0 ? `Best of ${tournament.bestOf}` : 'Scored Bracket') : 'Chat Vote';
+
+            const roundsMap = new Map();
+            for (let r = 1; r <= maxRound; r++) {
+                roundsMap.set(r, matches.filter(m => m.round === r));
+            }
+
+            let html = `
+                <div class="tournament-header">
+                    <div class="tournament-title">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                        ${esc(tournament.title)}
+                    </div>
+                    <div class="tournament-meta">
+                        <span class="meta-pill">${formatLabel}</span>
+                        <span class="meta-pill">${modeLabel}</span>
+                        <span>${tournament.entrantCount || tournament.bracketSize} Participants</span>
+                        ${tournament.status === 'COMPLETED' ? '<span style="color: var(--tourney-winner);">Finished</span>' : '<span>In Progress</span>'}
+                    </div>
+                </div>
+            `;
+
+            // If Champion declared
+            if (tournament.status === 'COMPLETED' && tournament.champion) {
+                html += `
+                    <div class="champion-card">
+                        <div class="champion-title">Tournament Champion</div>
+                        <div class="champion-name">${esc(tournament.champion)}</div>
+                    </div>
+                `;
+            }
+
+            // Bracket Tree Columns
+            html += `<div class="bracket-tree">`;
+            for (let r = 1; r <= maxRound; r++) {
+                const roundMatches = roundsMap.get(r) || [];
+                const roundTitle = roundMatches[0]?.roundName || `Round ${r}`;
+
+                html += `
+                    <div class="bracket-round">
+                        <div class="round-header">${esc(roundTitle)}</div>
+                `;
+
+                for (const match of roundMatches) {
+                    if (match.isBye) {
+                        const real = match.entrant1?.name !== 'BYE' ? match.entrant1 : match.entrant2;
+                        html += `
+                            <div class="match-card bye-card" data-match-id="${match.id}">
+                                <div class="entrant-row winner">
+                                    <div class="entrant-info">
+                                        ${real?.seed > 0 ? `<span class="seed-pill">#${real.seed}</span>` : ''}
+                                        <span class="entrant-name">${esc(real?.name || 'BYE')}</span>
+                                    </div>
+                                    <span class="bye-badge">1st Round BYE</span>
+                                </div>
+                            </div>
+                        `;
+                        continue;
+                    }
+
+                    const isActive = match.status === 'ACTIVE' || match.id === tournament.activeMatchId;
+                    const isCompleted = match.status === 'COMPLETED';
+                    const hasWinner = match.winner;
+
+                    const e1 = match.entrant1 || { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 };
+                    const e2 = match.entrant2 || { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 };
+
+                    const e1Winner = isCompleted && hasWinner === e1.name;
+                    const e2Winner = isCompleted && hasWinner === e2.name;
+                    const e1Loser = isCompleted && hasWinner && hasWinner !== e1.name;
+                    const e2Loser = isCompleted && hasWinner && hasWinner !== e2.name;
+
+                    const isVote = tournament.progressionMode === 'vote';
+
+                    html += `
+                        <div class="match-card${isActive ? ' active' : ''}${isCompleted ? ' completed' : ''}" data-match-id="${match.id}">
+                            ${isActive ? `<span class="match-card-badge">${isVote ? 'Voting' : 'Live'}</span>` : ''}
+                            
+                            <div class="entrant-row${e1Winner ? ' winner' : ''}${e1Loser ? ' loser' : ''}">
+                                ${isActive && isVote ? `<div class="vote-fill-bar" style="width: ${e1.percent || 0}%;"></div>` : ''}
+                                <div class="entrant-info">
+                                    ${e1.seed > 0 ? `<span class="seed-pill">#${e1.seed}</span>` : ''}
+                                    <span class="entrant-name">${esc(e1.name)}</span>
+                                </div>
+                                <div class="entrant-score-box">
+                                    ${showScoresParam ? `
+                                        ${isVote ? (isActive || isCompleted ? `<span class="score-badge">${e1.votes || 0}</span><span class="entrant-pct">${e1.percent || 0}%</span>` : '') : `
+                                            <span class="score-badge">${e1.score || 0}</span>
+                                        `}
+                                    ` : ''}
+                                </div>
+                            </div>
+
+                            <div class="entrant-row${e2Winner ? ' winner' : ''}${e2Loser ? ' loser' : ''}">
+                                ${isActive && isVote ? `<div class="vote-fill-bar" style="width: ${e2.percent || 0}%;"></div>` : ''}
+                                <div class="entrant-info">
+                                    ${e2.seed > 0 ? `<span class="seed-pill">#${e2.seed}</span>` : ''}
+                                    <span class="entrant-name">${esc(e2.name)}</span>
+                                </div>
+                                <div class="entrant-score-box">
+                                    ${showScoresParam ? `
+                                        ${isVote ? (isActive || isCompleted ? `<span class="score-badge">${e2.votes || 0}</span><span class="entrant-pct">${e2.percent || 0}%</span>` : '') : `
+                                            <span class="score-badge">${e2.score || 0}</span>
+                                        `}
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                html += `</div>`;
+            }
+            html += `</div>`;
+
+            container.innerHTML = html;
+        }
+
+        // Render Round Robin View (Standings Table + Match Schedule)
+        function renderRoundRobinView(tournament) {
+            const standings = tournament.standings || [];
+            const matches = tournament.matches || [];
+
+            let html = `
+                <div class="tournament-header">
+                    <div class="tournament-title">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                        ${esc(tournament.title)}
+                    </div>
+                    <div class="tournament-meta">
+                        <span class="meta-pill">Round Robin (All vs All)</span>
+                        <span class="meta-pill">${tournament.bestOf > 0 ? `Best of ${tournament.bestOf}` : 'Scored'}</span>
+                        <span>${tournament.entrantCount || standings.length} Participants</span>
+                        ${tournament.status === 'COMPLETED' ? '<span style="color: var(--tourney-winner);">Finished</span>' : '<span>In Progress</span>'}
+                    </div>
+                </div>
+            `;
+
+            if (tournament.status === 'COMPLETED' && tournament.champion) {
+                html += `
+                    <div class="champion-card">
+                        <div class="champion-title">Tournament Champion</div>
+                        <div class="champion-name">${esc(tournament.champion)}</div>
+                    </div>
+                `;
+            }
+
+            html += `
+                <div class="rr-stage">
+                    <div class="rr-standings-card">
+                        <table class="rr-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 3.5rem;">Rank</th>
+                                    <th>Participant</th>
+                                    <th style="text-align:center; width: 4.5rem;">Played</th>
+                                    <th style="text-align:center; width: 4.5rem;">W - L</th>
+                                    <th style="text-align:right; width: 5rem;">Points</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${standings.map((s, idx) => `
+                                    <tr class="${idx === 0 && (s.won > 0 || tournament.status === 'COMPLETED') ? 'leader' : ''}">
+                                        <td><span class="rr-rank-badge">${idx + 1}</span></td>
+                                        <td style="font-weight: 700;">${esc(s.name)}</td>
+                                        <td style="text-align:center;">${s.played}</td>
+                                        <td style="text-align:center; font-family: monospace;">${s.won} - ${s.lost}</td>
+                                        <td style="text-align:right; font-weight: 800; color: var(--tourney-accent);">${s.points}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Match list -->
+                    <div class="bracket-tree" style="flex-wrap: wrap; gap: 0.75rem;">
+            `;
+
+            const maxRound = Math.max(...matches.map(m => m.round || 1));
+            for (let r = 1; r <= maxRound; r++) {
+                const rMatches = matches.filter(m => m.round === r);
+                html += `
+                    <div class="bracket-round" style="min-width: 240px; flex: 1;">
+                        <div class="round-header">Round ${r}</div>
+                `;
+                for (const match of rMatches) {
+                    const isActive = match.status === 'ACTIVE' || match.id === tournament.activeMatchId;
+                    const isCompleted = match.status === 'COMPLETED';
+                    const hasWinner = match.winner;
+                    const e1 = match.entrant1 || { name: 'TBD', score: 0 };
+                    const e2 = match.entrant2 || { name: 'TBD', score: 0 };
+                    const e1Winner = isCompleted && hasWinner === e1.name;
+                    const e2Winner = isCompleted && hasWinner === e2.name;
+
+                    html += `
+                        <div class="match-card${isActive ? ' active' : ''}${isCompleted ? ' completed' : ''}" data-match-id="${match.id}">
+                            ${isActive ? '<span class="match-card-badge">Live</span>' : ''}
+                            <div class="entrant-row${e1Winner ? ' winner' : ''}">
+                                <div class="entrant-info">
+                                    <span class="entrant-name">${esc(e1.name)}</span>
+                                </div>
+                                <div class="entrant-score-box">
+                                    <span class="score-badge">${e1.score || 0}</span>
+                                </div>
+                            </div>
+                            <div class="entrant-row${e2Winner ? ' winner' : ''}">
+                                <div class="entrant-info">
+                                    <span class="entrant-name">${esc(e2.name)}</span>
+                                </div>
+                                <div class="entrant-score-box">
+                                    <span class="score-badge">${e2.score || 0}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                html += `</div>`;
+            }
+
+            html += `</div></div>`;
+            container.innerHTML = html;
+        }
+
+        // Particle Confetti
+        function burstConfetti() {
+            const ctx = confettiCanvas.getContext('2d');
+            const w = confettiCanvas.width = window.innerWidth;
+            const h = confettiCanvas.height = window.innerHeight;
+            const count = 75;
+            const pieces = [];
+            const colors = ['#f59e0b', '#3b82f6', '#10b981', '#ec4899', '#8b5cf6', '#ef4444'];
+
+            for (let i = 0; i < count; i++) {
+                pieces.push({
+                    x: w / 2,
+                    y: h * 0.4,
+                    vx: (Math.random() - 0.5) * 16,
+                    vy: (Math.random() - 0.7) * 18,
+                    size: Math.random() * 8 + 5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    rot: Math.random() * 360,
+                    vRot: (Math.random() - 0.5) * 12
+                });
+            }
+
+            let start = Date.now();
+            function frame() {
+                const elapsed = Date.now() - start;
+                if (elapsed > 4000) {
+                    ctx.clearRect(0, 0, w, h);
+                    return;
+                }
+                ctx.clearRect(0, 0, w, h);
+                pieces.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.35;
+                    p.rot += p.vRot;
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate((p.rot * Math.PI) / 180);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+                    ctx.restore();
+                });
+                requestAnimationFrame(frame);
+            }
+            requestAnimationFrame(frame);
+        }
+
+        // Fetch initial tournament data
+        async function loadInitial() {
+            if (forceSample) {
+                renderTournament(SAMPLE_TOURNAMENT);
+                return;
+            }
+            try {
+                const res = await fetch('/api/tournament');
+                const data = await res.json();
+                if (data.tournament) {
+                    currentTournament = data.tournament;
+                    renderTournament(currentTournament);
+                    return;
+                }
+            } catch (err) {
+                console.warn('[Tournament Overlay] Error fetching initial state:', err);
+            }
+            if (isPreview) renderTournament(SAMPLE_TOURNAMENT);
+        }
+        loadInitial();
+
+        // WebSocket Connection
+        function connectWs() {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${proto}//${location.host}/ws`);
+
+            ws.onopen = () => {
+                if (window.self === window.top && !isPreview) {
+                    ws.send(JSON.stringify({ type: 'overlay-source', key: 'tournament' }));
+                }
+            };
+
+            ws.onmessage = (event) => {
+                if (forceSample) return;
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.type === 'tournament-update') {
+                        currentTournament = msg.data;
+                        renderTournament(currentTournament);
+                    } else if (msg.type === 'poll-update' && currentTournament) {
+                        const poll = msg.data;
+                        if (poll && poll.tournamentMatchId) {
+                            const match = currentTournament.matches.find(m => m.id === poll.tournamentMatchId);
+                            if (match && poll.choices && poll.choices.length >= 2) {
+                                match.entrant1.votes = poll.choices[0].votes;
+                                match.entrant1.percent = poll.choices[0].percent;
+                                match.entrant2.votes = poll.choices[1].votes;
+                                match.entrant2.percent = poll.choices[1].percent;
+                                renderTournament(currentTournament);
+                            }
+                        }
+                    }
+                } catch { /* ignore parse error */ }
+            };
+
+            ws.onclose = () => setTimeout(connectWs, 2000);
+        }
+        connectWs();
+    </script>
+</body>
+</html>

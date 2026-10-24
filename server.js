@@ -56,6 +56,8 @@ const { createSessionRoutes } = require('./server/routes/session');
 const { createOverlayRoutes } = require('./server/routes/overlays');
 const { createOverlayService, TEXT_SOURCE_TYPES, TEXT_SOURCE_EXTS, TEXT_SOURCE_MAX_BYTES, CUSTOM_OVERLAY_ELEMENT_TYPES } = require('./server/services/overlays');
 const { createClipService, normalizeClipCandidateConfig, DEFAULT_CLIP_CANDIDATE_CONFIG } = require('./server/services/clips');
+const { createPollService } = require('./server/services/polls');
+const { createMatchupService } = require('./server/services/matchup');
 const { safeWriteFileSync, escapeHtml } = require('./server/routes/helpers');
 const { createCrmService } = require('./server/services/crm');
 const { createCrmRoutes } = require('./server/routes/crm');
@@ -200,7 +202,9 @@ const wsService = createOverlayWsServer({
     getViewerSummary: () => getViewerSummary(),
     buildGoalsSnapshot: () => buildGoalsSnapshot(),
     buildTimersSnapshot: () => buildTimersSnapshot(),
-    getLatestPoll: () => twitchService.getLatestPoll(),
+    getLatestPoll: () => (pollService ? pollService.getLatestPoll() : twitchService.getLatestPoll()),
+    getTournament: () => (pollService ? pollService.getTournament() : null),
+    getMatchup: () => (matchupService ? matchupService.getMatchup() : null),
     listOverlayVisibility: () => listOverlayVisibility(),
     log: console.log
 });
@@ -234,6 +238,7 @@ const ssnService = createSsnService({
     processSSNViewerUpdate: (msg) => processSSNViewerUpdate(msg),
     chatbot: () => chatbot,
     alertEngine: () => alertEngine,
+    pollService: () => pollService,
     takeoverPages: (kind, name, dur) => takeoverPages(kind, name, dur),
     addClipCandidate: (reason, details, ts, score) => addClipCandidate(reason, details, ts, score),
     getClipCandidateConfig: () => CLIP_CANDIDATE_CONFIG,
@@ -477,7 +482,10 @@ const twitchService = createTwitchService({
         safeWriteFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
     },
     onStreamInfoChange: (category) => refreshGameInfo(category),
-    onPollUpdate: (pollData) => broadcastToOverlays('poll-update', pollData),
+    onPollUpdate: (pollData) => {
+        if (pollService && pollService.getActivePoll()) return;
+        broadcastToOverlays('poll-update', pollData);
+    },
     onTakeover: (action, title, duration, poll) => takeoverPages(action, title, duration, poll),
     onViewerCountUpdate: () => fetchViewerCount()
 });
@@ -1277,6 +1285,20 @@ const alertEngine = createAlertEngine({
     log: message => console.log(message)
 });
 
+const pollService = createPollService({
+    dataDir: DATA_DIR,
+    broadcastToOverlays,
+    onTakeover: (action, title, duration, poll) => takeoverPages(action, title, duration, poll),
+    onAlert: (event) => alertEngine.evaluate(event, { isTest: false }),
+    getTwitchPoll: () => twitchService.getLatestPoll()
+});
+
+const matchupService = createMatchupService({
+    dataDir: DATA_DIR,
+    broadcastToOverlays,
+    onAlert: (event) => alertEngine.evaluate(event, { isTest: false })
+});
+
 
 // ============================================================================
 // HTTP SERVER
@@ -1354,6 +1376,8 @@ const crmService = createCrmService({
 
 const handleTwitchRoutes = createTwitchRoutes({
     twitchService,
+    pollService,
+    matchupService,
     getTwitchClientId: () => TWITCH_CLIENT_ID,
     getTwitchClientSecret: () => TWITCH_CLIENT_SECRET,
     getBroadcasterId: () => BROADCASTER_ID,
@@ -1472,7 +1496,7 @@ function buildStatusSnapshot() {
     const goalsSnapshot = buildGoalsSnapshot();
     return {
         customVars: variablesStore.list(),
-        poll: twitchService.getLatestPoll(),
+        poll: (pollService ? pollService.getLatestPoll() : twitchService.getLatestPoll()),
         processStartedAt: PROCESS_STARTED_AT,
         uptime: process.uptime(),
         memory: process.memoryUsage(),
@@ -1941,6 +1965,8 @@ function stopServer({ preserveSession = false } = {}) {
         attempt(() => chatbot.stop());
         attempt(() => alertEngine.stop());
         attempt(() => overlayService.stop());
+        attempt(() => pollService.destroy());
+        attempt(() => matchupService.destroy());
         for (const wait of [() => sessionService.waitForPendingEnd(), () => backupService.waitForIdle()]) {
             try { await wait(); } catch (err) {
                 errors.push(err);

@@ -1,0 +1,1695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matchup Scoreboard Overlay — StreamPulse</title>
+    <link rel="stylesheet" href="/overlay-theme.css">
+    <style>
+        :root {
+            --matchup-scale: 1;
+            --matchup-bg: rgba(13, 17, 23, 0.92);
+            --matchup-border: rgba(255, 255, 255, 0.12);
+            --matchup-text: #f0f6fc;
+            --matchup-muted: #8b949e;
+            --matchup-accent: #58a6ff;
+            --matchup-winner: #3fb950;
+            --matchup-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            --p1-color: #ef4444;
+            --p2-color: #3b82f6;
+            --p3-color: #10b981;
+            --p4-color: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            width: 100%;
+            height: 100%;
+            min-height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: transparent;
+            font-family: var(--matchup-font);
+            color: var(--matchup-text);
+            display: flex;
+            align-items: var(--matchup-valign, flex-start);
+            justify-content: var(--matchup-align, center);
+            font-size: calc(14px * var(--matchup-scale));
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Layout Positions & Alignments */
+        body.layout-top {
+            --matchup-valign: flex-start;
+        }
+
+        body.layout-bottom {
+            --matchup-valign: flex-end;
+        }
+
+        body.layout-compact {
+            --matchup-valign: flex-start;
+            --matchup-align: flex-start;
+        }
+
+        body.layout-versus {
+            --matchup-valign: center;
+            --matchup-align: center;
+        }
+
+        body.layout-pillar,
+        body.layout-vertical {
+            --matchup-valign: flex-start;
+            --matchup-align: flex-start;
+        }
+
+        #stage {
+            width: 100%;
+            display: flex;
+            justify-content: var(--matchup-align, center);
+            align-items: var(--matchup-valign, flex-start);
+            padding: var(--matchup-padding, 0.4rem);
+            transition: opacity 0.3s ease;
+        }
+
+        #stage.hidden {
+            display: none !important;
+        }
+
+        #matchup-container {
+            container-type: inline-size;
+            display: flex;
+            flex-direction: column;
+            width: var(--matchup-width, 100%);
+            max-width: var(--matchup-max-width, 1200px);
+            align-items: center;
+        }
+
+        /* Auto-Fit / Tight Content Box Mode (?fit=content or ?fit=1) */
+        body.fit-content #stage {
+            padding: 0;
+            width: max-content;
+            height: max-content;
+        }
+        body.fit-content #matchup-container {
+            width: max-content !important;
+            max-width: 100% !important;
+        }
+
+        /* Themes */
+        .theme-glass .matchup-panel,
+        .theme-glass .fgc-side,
+        .theme-glass .split-corner-card,
+        .theme-glass .minimal-bar {
+            background: rgba(13, 17, 23, 0.65) !important;
+            backdrop-filter: blur(14px) saturate(180%);
+            -webkit-backdrop-filter: blur(14px) saturate(180%);
+            border-color: rgba(255, 255, 255, 0.18) !important;
+        }
+
+        .theme-solid .matchup-panel,
+        .theme-solid .fgc-side,
+        .theme-solid .split-corner-card,
+        .theme-solid .minimal-bar {
+            background: #0d1117 !important;
+            border-color: #30363d !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+        }
+
+        .theme-transparent .matchup-panel,
+        .theme-transparent .fgc-side,
+        .theme-transparent .split-corner-card,
+        .theme-transparent .minimal-bar {
+            background: transparent !important;
+            border-color: transparent !important;
+            box-shadow: none !important;
+        }
+
+        .theme-pill .matchup-panel,
+        .theme-pill .minimal-bar {
+            border-radius: 9999px !important;
+            padding-left: 1.5rem !important;
+            padding-right: 1.5rem !important;
+        }
+
+        .theme-neon .matchup-panel,
+        .theme-neon .fgc-side,
+        .theme-neon .split-corner-card,
+        .theme-neon .minimal-bar {
+            border-color: var(--matchup-accent) !important;
+            box-shadow: 0 0 16px rgba(88, 166, 255, 0.35), inset 0 0 10px rgba(88, 166, 255, 0.15);
+        }
+
+        .theme-retro .matchup-panel,
+        .theme-retro .fgc-side,
+        .theme-retro .split-corner-card,
+        .theme-retro .minimal-bar {
+            border-radius: 0 !important;
+            border: 3px solid #ffcc00 !important;
+            box-shadow: 4px 4px 0 #000, 0 0 0 2px #000;
+            image-rendering: pixelated;
+        }
+
+        .theme-fgc-evo .matchup-panel,
+        .theme-fgc-evo .fgc-side,
+        .theme-fgc-evo .split-corner-card,
+        .theme-fgc-evo .minimal-bar {
+            background: linear-gradient(180deg, #1b222d 0%, #0a0e14 100%) !important;
+            border-color: rgba(255, 255, 255, 0.2) !important;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75), 0 0 20px rgba(0, 0, 0, 0.5) !important;
+        }
+
+        .theme-cyber .matchup-panel,
+        .theme-cyber .fgc-side,
+        .theme-cyber .split-corner-card,
+        .theme-cyber .minimal-bar {
+            background: #050811 !important;
+            border-color: #00f0ff !important;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.35), inset 0 0 15px rgba(0, 240, 255, 0.1) !important;
+        }
+
+        .theme-championship .matchup-panel,
+        .theme-championship .fgc-side,
+        .theme-championship .split-corner-card,
+        .theme-championship .minimal-bar,
+        .theme-gold .matchup-panel,
+        .theme-gold .fgc-side,
+        .theme-gold .split-corner-card,
+        .theme-gold .minimal-bar {
+            background: linear-gradient(180deg, #1f1a0e 0%, #0d0b06 100%) !important;
+            border-color: #ffd700 !important;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.35), inset 0 0 10px rgba(255, 215, 0, 0.15) !important;
+        }
+        .theme-championship .match-phase-badge,
+        .theme-gold .match-phase-badge,
+        .theme-championship .score-box,
+        .theme-gold .score-box {
+            color: #ffd700 !important;
+        }
+
+        .theme-clean-light .matchup-panel,
+        .theme-clean-light .fgc-side,
+        .theme-clean-light .split-corner-card,
+        .theme-clean-light .minimal-bar {
+            background: #ffffff !important;
+            border-color: #d0d7de !important;
+            color: #1f2328 !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+        }
+        .theme-clean-light .competitor-name {
+            color: #1f2328 !important;
+        }
+        .theme-clean-light .score-box {
+            background: #f6f8fa !important;
+            color: #1f2328 !important;
+            border-color: #d0d7de !important;
+        }
+
+        .theme-minimal-dark .matchup-panel,
+        .theme-minimal-dark .fgc-side,
+        .theme-minimal-dark .split-corner-card,
+        .theme-minimal-dark .minimal-bar {
+            background: #000000 !important;
+            border-color: #222222 !important;
+            box-shadow: none !important;
+        }
+
+        .theme-border .matchup-panel,
+        .theme-border .fgc-side,
+        .theme-border .split-corner-card,
+        .theme-border .minimal-bar {
+            border: 3px solid var(--matchup-accent) !important;
+            border-radius: 8px !important;
+        }
+
+        /* ----------------------------------------------------
+           MODERN FGC (EVO / FIGHTING GAME) LAYOUT (?layout=fgc)
+           ---------------------------------------------------- */
+        .fgc-panel {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 1200px;
+            gap: 1.5rem;
+            position: relative;
+        }
+
+        .fgc-side {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            background: linear-gradient(180deg, #161b22 0%, #0d1117 100%);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            height: 3.4rem;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .fgc-side.p1 {
+            clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 100%, 0 100%);
+            padding-left: 1rem;
+            padding-right: 0.5rem;
+            justify-content: flex-end;
+            border-left: 5px solid var(--p1-color);
+        }
+
+        .fgc-side.p2 {
+            clip-path: polygon(18px 0, 100% 0, 100% 100%, 0 100%);
+            padding-right: 1rem;
+            padding-left: 0.5rem;
+            justify-content: flex-start;
+            border-right: 5px solid var(--p2-color);
+        }
+
+        .fgc-side.winner {
+            background: linear-gradient(180deg, rgba(63, 185, 80, 0.25) 0%, #0d1117 100%);
+            box-shadow: 0 0 24px rgba(63, 185, 80, 0.4);
+        }
+
+        .fgc-name-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+            min-width: 0;
+        }
+
+        .fgc-side.p1 .fgc-name-wrap {
+            text-align: right;
+            margin-right: 0.85rem;
+        }
+
+        .fgc-side.p2 .fgc-name-wrap {
+            text-align: left;
+            margin-left: 0.85rem;
+        }
+
+        .fgc-player-name {
+            font-size: 1.25rem;
+            font-weight: 900;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            color: #ffffff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .fgc-char-badge {
+            display: inline-block;
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 0.1rem 0.4rem;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--matchup-muted);
+            align-self: flex-start;
+        }
+
+        .fgc-side.p1 .fgc-char-badge {
+            align-self: flex-end;
+        }
+
+        .fgc-score-counter {
+            font-size: 1.75rem;
+            font-weight: 900;
+            font-family: 'Impact', 'Montserrat', var(--matchup-font);
+            width: 3.2rem;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.5);
+            color: #ffffff;
+            letter-spacing: -0.02em;
+        }
+
+        .fgc-side.p1 .fgc-score-counter {
+            border-left: 1px solid rgba(255, 255, 255, 0.12);
+            margin-left: 0.6rem;
+        }
+
+        .fgc-side.p2 .fgc-score-counter {
+            border-right: 1px solid rgba(255, 255, 255, 0.12);
+            margin-right: 0.6rem;
+        }
+
+        /* ----------------------------------------------------
+           DUAL CORNER SPLIT LAYOUT (?layout=split)
+           ---------------------------------------------------- */
+        .split-stage {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            gap: 1rem;
+            position: relative;
+        }
+
+        .split-corner-card {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: var(--matchup-bg);
+            border: 1px solid var(--matchup-border);
+            border-radius: 10px;
+            padding: 0.55rem 0.85rem;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            flex: 0 1 auto;
+            max-width: 48%;
+        }
+
+        .split-corner-card.p1 {
+            border-left: 5px solid var(--p1-color);
+        }
+
+        .split-corner-card.p2 {
+            border-right: 5px solid var(--p2-color);
+            flex-direction: row-reverse;
+            text-align: right;
+        }
+
+        /* ----------------------------------------------------
+           MINIMAL CENTER-LESS LAYOUT (?layout=minimal)
+           ---------------------------------------------------- */
+        .minimal-bar {
+            display: flex;
+            align-items: center;
+            background: var(--matchup-bg);
+            border: 1px solid var(--matchup-border);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+        }
+
+        .minimal-side {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 0.45rem 0.85rem;
+        }
+
+        .minimal-side.p1 {
+            border-right: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .center-divider {
+            width: 1px;
+            background: var(--matchup-border);
+            align-self: stretch;
+        }
+
+        /* ----------------------------------------------------
+           1. TOP BAR / FIGHTING GAME SCOREBOARD LAYOUT
+           ---------------------------------------------------- */
+        .topbar-panel {
+            background: var(--matchup-bg);
+            border: 1px solid var(--matchup-border);
+            border-radius: 12px;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+            display: flex;
+            align-items: stretch;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .topbar-competitor {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            padding: 0.6rem 1rem;
+            gap: 0.85rem;
+            position: relative;
+            min-width: 0;
+            transition: background 0.3s ease;
+        }
+
+        .topbar-competitor.c1 {
+            justify-content: flex-end;
+            text-align: right;
+            border-right: 1px solid var(--matchup-border);
+        }
+
+        .topbar-competitor.c2 {
+            justify-content: flex-start;
+            text-align: left;
+        }
+
+        .competitor-accent-strip {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+        }
+
+        .topbar-competitor.c1 .competitor-accent-strip {
+            left: 0;
+        }
+
+        .topbar-competitor.c2 .competitor-accent-strip {
+            right: 0;
+        }
+
+        .competitor-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+            min-width: 0;
+        }
+
+        .competitor-name {
+            font-size: 1.15rem;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            color: var(--matchup-text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.2;
+        }
+
+        .competitor-tag {
+            font-size: 0.76rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--matchup-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Score Boxes */
+        .score-box {
+            font-size: 1.55rem;
+            font-weight: 900;
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+            min-width: 2.2rem;
+            height: 2.5rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 8px;
+            padding: 0 0.5rem;
+            color: #fff;
+            flex-shrink: 0;
+            transition: all 0.25s ease;
+        }
+
+        .topbar-competitor.winner .score-box {
+            background: var(--matchup-winner);
+            border-color: #2ea043;
+            box-shadow: 0 0 16px rgba(63, 185, 80, 0.4);
+        }
+
+        /* Win Pips (● ● ○) */
+        .pips-container {
+            display: flex;
+            gap: 0.25rem;
+            align-items: center;
+        }
+
+        .pip {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            transition: all 0.3s ease;
+        }
+
+        .pip.pip-bar {
+            width: 5px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        .pip-digit-badge {
+            font-size: 0.8rem;
+            font-weight: 800;
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            padding: 0.15rem 0.45rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .pip.won {
+            background: #fff;
+            border-color: #fff;
+            box-shadow: 0 0 6px rgba(255, 255, 255, 0.7);
+        }
+
+        .topbar-competitor.c1 .pip.won,
+        .pillar-competitor.c1 .pip.won {
+            background: var(--p1-color);
+            border-color: var(--p1-color);
+            box-shadow: 0 0 8px var(--p1-color);
+        }
+
+        .topbar-competitor.c2 .pip.won,
+        .pillar-competitor.c2 .pip.won {
+            background: var(--p2-color);
+            border-color: var(--p2-color);
+            box-shadow: 0 0 8px var(--p2-color);
+        }
+
+        /* ----------------------------------------------------
+           VERTICAL PILLAR / SIDEBAR LAYOUT (?layout=pillar)
+           ---------------------------------------------------- */
+        .pillar-panel {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 320px;
+            background: var(--matchup-bg);
+            border: 1px solid var(--matchup-border);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        .pillar-competitor {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            gap: 0.75rem;
+            position: relative;
+        }
+        .pillar-competitor.c1 {
+            border-bottom: 1px solid var(--matchup-border);
+            border-left: 4px solid var(--p1-color);
+        }
+        .pillar-competitor.c2 {
+            border-left: 4px solid var(--p2-color);
+        }
+        .pillar-center-bar {
+            padding: 0.35rem 1rem;
+            background: rgba(0, 0, 0, 0.35);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--matchup-border);
+        }
+
+        /* Center Header Badge */
+        .topbar-center-badge {
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0.45rem 1.1rem;
+            background: rgba(0, 0, 0, 0.28);
+            border-left: 1px solid var(--matchup-border);
+            border-right: 1px solid var(--matchup-border);
+            min-width: 150px;
+            text-align: center;
+        }
+
+        .match-phase-badge {
+            font-size: 0.72rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--matchup-accent);
+            line-height: 1.1;
+        }
+
+        .match-title-badge {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--matchup-text);
+            margin-top: 0.15rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 220px;
+        }
+
+        .match-details-badge {
+            font-size: 0.68rem;
+            color: var(--matchup-muted);
+            margin-top: 0.1rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 220px;
+        }
+
+        /* ----------------------------------------------------
+           2. 3 & 4 COMPETITOR GRID BAR
+           ---------------------------------------------------- */
+        .multi-competitor-grid {
+            display: grid;
+            grid-template-columns: repeat(var(--col-count, 3), 1fr);
+            width: 100%;
+        }
+
+        .multi-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.6rem 0.85rem;
+            gap: 0.5rem;
+            border-right: 1px solid var(--matchup-border);
+            position: relative;
+        }
+
+        .multi-card:last-child {
+            border-right: none;
+        }
+
+        /* ----------------------------------------------------
+           3. ESPORTS LOWER-THIRD HUD LAYOUT (?layout=bottom)
+           ---------------------------------------------------- */
+        .bottom-hud-card {
+            background: var(--matchup-bg);
+            border: 1px solid var(--matchup-border);
+            border-radius: 12px;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
+            padding: 0.75rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            width: 100%;
+        }
+
+        .hud-top-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 0.35rem;
+        }
+
+        .hud-grid {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+
+        .vs-divider {
+            font-size: 0.75rem;
+            font-weight: 900;
+            color: var(--matchup-muted);
+            letter-spacing: 0.05em;
+            padding: 0.2rem 0.6rem;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 9999px;
+            flex-shrink: 0;
+        }
+
+        /* ----------------------------------------------------
+           4. COMPACT / CORNER SCORE BUG LAYOUT (?layout=compact)
+           ---------------------------------------------------- */
+        .compact-bug {
+            background: var(--matchup-bg);
+            border: 1px solid var(--matchup-border);
+            border-radius: 8px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            width: fit-content;
+            min-width: 200px;
+        }
+
+        .compact-header {
+            font-size: 0.68rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--matchup-accent);
+            padding: 0.25rem 0.6rem;
+            background: rgba(0, 0, 0, 0.3);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .compact-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.35rem 0.6rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            gap: 0.6rem;
+        }
+
+        .compact-row:last-child {
+            border-bottom: none;
+        }
+
+        .compact-name-block {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            min-width: 0;
+        }
+
+        .compact-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .compact-score {
+            font-weight: 800;
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            font-size: 0.95rem;
+        }
+
+        /* ----------------------------------------------------
+           5. VERSUS SCREEN CARD LAYOUT (?layout=versus)
+           ---------------------------------------------------- */
+        .versus-card-stage {
+            background: var(--matchup-bg);
+            border: 1px solid var(--matchup-border);
+            border-radius: 16px;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+            padding: 2rem 2.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+            max-width: 720px;
+            width: 100%;
+        }
+
+        .versus-card-grid {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2rem;
+            width: 100%;
+        }
+
+        .versus-side {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 0.4rem;
+        }
+
+        .versus-big-name {
+            font-size: 1.6rem;
+            font-weight: 900;
+            color: #fff;
+            line-height: 1.1;
+        }
+
+        .versus-big-score {
+            font-size: 3rem;
+            font-weight: 900;
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            line-height: 1;
+            margin-top: 0.3rem;
+        }
+
+        .versus-badge-big {
+            font-size: 1.5rem;
+            font-weight: 900;
+            letter-spacing: 0.1em;
+            color: var(--matchup-accent);
+            text-shadow: 0 0 16px rgba(88, 166, 255, 0.5);
+        }
+
+        /* Winner Announcement Glow */
+        .winner-banner {
+            background: linear-gradient(90deg, transparent, rgba(63, 185, 80, 0.25), transparent);
+            border-top: 1px solid var(--matchup-winner);
+            border-bottom: 1px solid var(--matchup-winner);
+            color: #fff;
+            padding: 0.35rem 1rem;
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            width: 100%;
+        }
+
+        /* ----------------------------------------------------
+           MATCH CLOCK & STOPWATCH STYLES (EVO & GDQ)
+           ---------------------------------------------------- */
+        .fgc-clock-box {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #000000;
+            border: 2px solid #ffd700;
+            border-radius: 6px;
+            padding: 0.1rem 0.55rem;
+            box-shadow: 0 0 14px rgba(255, 215, 0, 0.4);
+            min-width: 50px;
+            line-height: 1;
+        }
+
+        .fgc-clock-digits {
+            font-size: 1.45rem;
+            font-weight: 900;
+            font-family: 'Impact', 'Arial Black', -apple-system, sans-serif;
+            color: #ffd700;
+            letter-spacing: -0.02em;
+            text-shadow: 0 0 8px rgba(255, 215, 0, 0.7);
+        }
+
+        .fgc-clock-box.clock-low .fgc-clock-digits {
+            color: #ff3333;
+            text-shadow: 0 0 12px rgba(255, 51, 51, 0.9);
+            animation: pulse-clock 0.6s infinite alternate;
+        }
+
+        .fgc-clock-box.clock-over .fgc-clock-digits {
+            color: #6e7681;
+        }
+
+        .fgc-clock-est {
+            font-size: 0.55rem;
+            font-weight: 800;
+            color: #8b949e;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        @keyframes pulse-clock {
+            from { transform: scale(1); }
+            to { transform: scale(1.08); }
+        }
+
+        .clock-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            background: rgba(0, 0, 0, 0.78);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 999px;
+            padding: 0.18rem 0.55rem;
+            font-size: 0.8rem;
+            font-weight: 800;
+            color: #ffd700;
+            white-space: nowrap;
+        }
+
+        .clock-pill.clock-low {
+            color: #ff4d4f;
+            border-color: #ff4d4f;
+            animation: pulse-clock 0.6s infinite alternate;
+        }
+
+        .clock-pill .clock-est {
+            font-size: 0.68rem;
+            color: #8b949e;
+            font-weight: 600;
+        }
+
+        .clock-pill.clock-over {
+            color: #6e7681;
+        }
+
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body class="layout-top">
+    <canvas id="confetti-canvas"></canvas>
+
+    <div id="stage">
+        <div id="matchup-container" class="matchup-panel"></div>
+    </div>
+
+    <script src="/overlay-visibility.js" data-key="matchup"></script>
+    <script src="/js/url-params.js"></script>
+    <script src="/js/overlay-theme.js"></script>
+
+    <script>
+        const params = (typeof overlayParams === 'function') ? overlayParams() : new URLSearchParams(window.location.search);
+        const stage = document.getElementById('stage');
+        const container = document.getElementById('matchup-container');
+        const confettiCanvas = document.getElementById('confetti-canvas');
+
+        // Parameter configuration
+        const forceSample = params.get('sample') === '1';
+        const isPreview = params.get('preview') === '1' || params.get('sample') === '1';
+        const sourceMode = (params.get('source') || 'auto').toLowerCase(); // 'auto' | 'tournament' | 'matchup'
+        const layout = (params.get('layout') || params.get('mode') || 'top').toLowerCase(); // 'top' | 'fgc' | 'split' | 'minimal' | 'bottom' | 'compact' | 'versus' | 'pillar' | 'vertical'
+        const showCenter = params.get('center') !== '0';
+        const showPips = params.get('pips') !== '0';
+        const pipStyle = (params.get('pipstyle') || params.get('pips_style') || 'circle').toLowerCase(); // 'circle' | 'bar' | 'digit'
+        const showTags = params.get('tags') !== '0';
+        const showDetails = params.get('details') !== '0';
+        const enableConfetti = params.get('confetti') !== '0' && params.get('confetti') !== 'false';
+        const scaleVal = parseFloat(params.get('scale') || params.get('fontscale') || '1');
+        const customAccent = params.get('accent');
+        const customWinner = params.get('winner');
+        const customP1Color = params.get('p1color');
+        const customP2Color = params.get('p2color');
+        const alignParam = params.get('align');
+        const valignParam = params.get('valign');
+        const fitParam = params.get('fit');
+
+        document.body.className = `layout-${layout}`;
+        if (fitParam === 'content' || fitParam === '1' || fitParam === 'tight') {
+            document.body.classList.add('fit-content');
+        }
+
+        if (alignParam === 'left') document.documentElement.style.setProperty('--matchup-align', 'flex-start');
+        else if (alignParam === 'right') document.documentElement.style.setProperty('--matchup-align', 'flex-end');
+        else if (alignParam === 'center') document.documentElement.style.setProperty('--matchup-align', 'center');
+
+        if (valignParam === 'top') document.documentElement.style.setProperty('--matchup-valign', 'flex-start');
+        else if (valignParam === 'bottom') document.documentElement.style.setProperty('--matchup-valign', 'flex-end');
+        else if (valignParam === 'center') document.documentElement.style.setProperty('--matchup-valign', 'center');
+
+        if (scaleVal && Number.isFinite(scaleVal) && scaleVal > 0) {
+            document.documentElement.style.setProperty('--matchup-scale', scaleVal);
+        }
+        if (customAccent) document.documentElement.style.setProperty('--matchup-accent', customAccent);
+        if (customWinner) document.documentElement.style.setProperty('--matchup-winner', customWinner);
+        if (customP1Color) document.documentElement.style.setProperty('--p1-color', customP1Color);
+        if (customP2Color) document.documentElement.style.setProperty('--p2-color', customP2Color);
+
+        // Styling via ?overlay=theme or ?bg=hex
+        function applyStyling() {
+            let overlayVal = (params.get('overlay') || params.get('theme') || '').trim();
+            const bgVal = (params.get('bg') || '').trim();
+            const hashVal = (window.location.hash || '').replace(/^#/, '').trim();
+
+            if (!overlayVal && hashVal && !hashVal.includes('=')) {
+                overlayVal = hashVal;
+            }
+
+            if (overlayVal === 'glass') document.body.classList.add('theme-glass');
+            else if (overlayVal === 'solid') document.body.classList.add('theme-solid');
+            else if (overlayVal === 'transparent' || overlayVal === 'clean' || overlayVal === 'none') document.body.classList.add('theme-transparent');
+            else if (overlayVal === 'pill') document.body.classList.add('theme-pill');
+            else if (overlayVal === 'neon') document.body.classList.add('theme-neon');
+            else if (overlayVal === 'retro') document.body.classList.add('theme-retro');
+            else if (overlayVal === 'fgc-evo' || overlayVal === 'evo') document.body.classList.add('theme-fgc-evo');
+            else if (overlayVal === 'cyber' || overlayVal === 'cyberpunk') document.body.classList.add('theme-cyber');
+            else if (overlayVal === 'championship' || overlayVal === 'gold') document.body.classList.add('theme-championship');
+            else if (overlayVal === 'clean-light' || overlayVal === 'light') document.body.classList.add('theme-clean-light');
+            else if (overlayVal === 'minimal-dark' || overlayVal === 'dark') document.body.classList.add('theme-minimal-dark');
+            else if (overlayVal === 'border' || overlayVal === 'arcade') document.body.classList.add('theme-border');
+
+            const col = bgVal || overlayVal;
+            if (col) {
+                let clean = col;
+                if (/^[0-9a-fA-F]{3,8}$/.test(clean)) clean = '#' + clean;
+                if (/^#[0-9a-fA-F]{3,8}$/.test(clean) || /^rgba?\(.+\)$/.test(clean) || /^[a-zA-Z]{3,20}$/.test(clean)) {
+                    document.documentElement.style.setProperty('--matchup-bg', clean);
+                    document.body.classList.add('theme-custom');
+                }
+            }
+        }
+        applyStyling();
+
+        // Sample Data for OBS Studio positioning and URL wizard
+        const SAMPLE_MATCHUP = {
+            id: 'sample-matchup',
+            title: 'Street Fighter 6',
+            phase: 'Grand Finals',
+            details: 'First to 5 (FT5) · Metro City Decider',
+            competitorCount: 2,
+            competitors: [
+                { id: 'c1', name: 'Daigo', tag: 'Ken', color: '#ef4444', score: 4 },
+                { id: 'c2', name: 'Justin Wong', tag: 'Chun-Li', color: '#3b82f6', score: 3 }
+            ],
+            format: 'bestOf',
+            bestOf: 9,
+            targetScore: 5,
+            status: 'ACTIVE',
+            winner: null
+        };
+
+        let currentMatchup = null;
+        let lastCelebratedWinner = null;
+
+        function esc(str) {
+            return String(str || '').replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
+        function formatClockTime(seconds, isStopwatch = false) {
+            const s = Math.max(0, parseInt(seconds, 10) || 0);
+            const m = Math.floor(s / 60);
+            const remS = s % 60;
+            if (m >= 60) {
+                const h = Math.floor(m / 60);
+                const remM = m % 60;
+                return `${h}:${String(remM).padStart(2, '0')}:${String(remS).padStart(2, '0')}`;
+            }
+            if (isStopwatch || m > 0) {
+                return `${String(m).padStart(2, '0')}:${String(remS).padStart(2, '0')}`;
+            }
+            return String(s);
+        }
+
+        function renderClockHtml(m, styleType = 'badge') {
+            const clock = m?.clock;
+            if (!clock || clock.enabled === false) return '';
+            const isStopwatch = clock.mode === 'stopwatch';
+            const displayVal = isStopwatch ? formatClockTime(clock.elapsed, true) : (clock.remaining !== undefined ? formatClockTime(clock.remaining, clock.duration >= 60) : '99');
+            const isLow = !isStopwatch && clock.remaining !== undefined && clock.remaining <= 10 && clock.remaining > 0;
+            const isOver = !isStopwatch && clock.remaining === 0;
+
+            if (styleType === 'fgc-center') {
+                return `
+                    <div class="fgc-clock-box${isLow ? ' clock-low' : ''}${isOver ? ' clock-over' : ''}${clock.isRunning ? ' clock-running' : ''}" title="${isStopwatch ? 'Speedrun Timer' : 'Round Timer'}">
+                        <span class="fgc-clock-digits">${displayVal}</span>
+                        ${clock.estimate ? `<span class="fgc-clock-est">EST ${esc(clock.estimate)}</span>` : ''}
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="clock-pill${isLow ? ' clock-low' : ''}${isOver ? ' clock-over' : ''}${clock.isRunning ? ' clock-running' : ''}" title="${isStopwatch ? 'Speedrun Stopwatch' : 'Round Countdown'}">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span class="clock-val">${displayVal}</span>
+                    ${clock.estimate ? `<span class="clock-est">/ ${esc(clock.estimate)}</span>` : ''}
+                </div>
+            `;
+        }
+
+        function renderPipsHtml(score, target, color) {
+            if (!showPips || !target || target <= 0) return '';
+            if (pipStyle === 'digit' || pipStyle === 'number') {
+                return `<div class="pip-digit-badge" style="${color ? `color:${color};` : ''}">${score} / ${target}</div>`;
+            }
+            const isBar = pipStyle === 'bar' || pipStyle === 'block';
+            let html = '<div class="pips-container">';
+            for (let i = 0; i < target; i++) {
+                html += `<span class="pip${isBar ? ' pip-bar' : ''}${i < score ? ' won' : ''}" style="${i < score && color ? `background:${color};border-color:${color};box-shadow:0 0 6px ${color};` : ''}"></span>`;
+            }
+            html += '</div>';
+            return html;
+        }
+
+        function renderMatchup(m) {
+            if (!m || !Array.isArray(m.competitors) || m.competitors.length < 2) {
+                if (isPreview) {
+                    m = SAMPLE_MATCHUP;
+                } else {
+                    stage.classList.add('hidden');
+                    return;
+                }
+            }
+
+            stage.classList.remove('hidden');
+            currentMatchup = m;
+
+            // Winner celebration
+            if (m.status === 'COMPLETED' && m.winner && m.winner !== lastCelebratedWinner) {
+                lastCelebratedWinner = m.winner;
+                if (enableConfetti) burstConfetti();
+            } else if (m.status === 'ACTIVE') {
+                lastCelebratedWinner = null;
+            }
+
+            const count = m.competitorCount || m.competitors.length;
+            const target = m.targetScore || (m.bestOf > 0 ? Math.ceil(m.bestOf / 2) : 0);
+
+            // Select Layout
+            if (layout === 'fgc' || layout === 'evo') {
+                renderFgcBar(m, target, count);
+            } else if (layout === 'split') {
+                renderSplitCorners(m, target);
+            } else if (layout === 'minimal') {
+                renderMinimalBar(m, target);
+            } else if (layout === 'pillar' || layout === 'vertical') {
+                renderPillar(m, target);
+            } else if (layout === 'bottom') {
+                renderBottomHud(m, target);
+            } else if (layout === 'compact' || layout === 'corner') {
+                renderCompactBug(m, target);
+            } else if (layout === 'versus' || layout === 'card') {
+                renderVersusCard(m, target);
+            } else {
+                renderTopBar(m, target, count);
+            }
+        }
+
+        // 1b. VERTICAL PILLAR LAYOUT
+        function renderPillar(m, target) {
+            const p1 = m.competitors[0] || { name: 'Player 1', tag: '', score: 0, color: '#ef4444' };
+            const p2 = m.competitors[1] || { name: 'Player 2', tag: '', score: 0, color: '#3b82f6' };
+            const p1Won = m.winner === p1.name;
+            const p2Won = m.winner === p2.name;
+
+            container.innerHTML = `
+                <div class="pillar-panel">
+                    ${showCenter ? `
+                        <div class="pillar-center-bar">
+                            <span class="match-phase-badge">${esc(m.phase || (target > 0 ? `First to ${target}` : 'Match'))}</span>
+                            ${m.title ? `<span style="font-size: 0.72rem; color: var(--matchup-muted); font-weight: 600;">${esc(m.title)}</span>` : ''}
+                        </div>
+                    ` : ''}
+                    <div class="pillar-competitor c1${p1Won ? ' winner' : ''}">
+                        <div class="competitor-meta">
+                            <div class="competitor-name">${esc(p1.name)}</div>
+                            ${showTags && p1.tag ? `<div class="competitor-tag">${esc(p1.tag)}</div>` : ''}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.6rem;">
+                            ${renderPipsHtml(p1.score, target, p1.color || 'var(--p1-color)')}
+                            <div class="score-box">${p1.score}</div>
+                        </div>
+                    </div>
+                    <div class="pillar-competitor c2${p2Won ? ' winner' : ''}">
+                        <div class="competitor-meta">
+                            <div class="competitor-name">${esc(p2.name)}</div>
+                            ${showTags && p2.tag ? `<div class="competitor-tag">${esc(p2.tag)}</div>` : ''}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.6rem;">
+                            ${renderPipsHtml(p2.score, target, p2.color || 'var(--p2-color)')}
+                            <div class="score-box">${p2.score}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 1. TOP BAR / FIGHTING GAME SCOREBOARD LAYOUT
+        function renderTopBar(m, target, count) {
+            if (count > 2) {
+                renderMultiTopBar(m, target, count);
+                return;
+            }
+
+            const p1 = m.competitors[0] || { name: 'Player 1', tag: '', score: 0, color: '#ef4444' };
+            const p2 = m.competitors[1] || { name: 'Player 2', tag: '', score: 0, color: '#3b82f6' };
+            const p1Won = m.winner === p1.name;
+            const p2Won = m.winner === p2.name;
+
+            container.innerHTML = `
+                <div class="topbar-panel">
+                    <!-- Player 1 -->
+                    <div class="topbar-competitor c1${p1Won ? ' winner' : ''}">
+                        <div class="competitor-accent-strip" style="background: ${p1.color || 'var(--p1-color)'};"></div>
+                        <div class="competitor-meta">
+                            <div class="competitor-name">${esc(p1.name)}</div>
+                            ${showTags && p1.tag ? `<div class="competitor-tag">${esc(p1.tag)}</div>` : ''}
+                        </div>
+                        ${renderPipsHtml(p1.score, target, p1.color || 'var(--p1-color)')}
+                        <div class="score-box" id="p1-score">${p1.score}</div>
+                    </div>
+
+                    <!-- Center Badge (toggleable via ?center=0) -->
+                    ${showCenter ? `
+                        <div class="topbar-center-badge">
+                            ${renderClockHtml(m, 'badge')}
+                            <div class="match-phase-badge">${esc(m.phase || (target > 0 ? `First to ${target}` : 'Match'))}</div>
+                            ${m.title ? `<div class="match-title-badge">${esc(m.title)}</div>` : ''}
+                            ${showDetails && m.details ? `<div class="match-details-badge">${esc(m.details)}</div>` : ''}
+                        </div>
+                    ` : (renderClockHtml(m, 'badge') || '<div class="center-divider"></div>')}
+
+                    <!-- Player 2 -->
+                    <div class="topbar-competitor c2${p2Won ? ' winner' : ''}">
+                        <div class="competitor-accent-strip" style="background: ${p2.color || 'var(--p2-color)'};"></div>
+                        <div class="score-box" id="p2-score">${p2.score}</div>
+                        ${renderPipsHtml(p2.score, target, p2.color || 'var(--p2-color)')}
+                        <div class="competitor-meta">
+                            <div class="competitor-name">${esc(p2.name)}</div>
+                            ${showTags && p2.tag ? `<div class="competitor-tag">${esc(p2.tag)}</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+                ${m.status === 'COMPLETED' && m.winner ? `
+                    <div class="winner-banner">Winner: ${esc(m.winner)}</div>
+                ` : ''}
+            `;
+        }
+
+        // 1B. MODERN FGC / EVO ANGULAR SLANTED SCOREBOARD
+        function renderFgcBar(m, target, count) {
+            const p1 = m.competitors[0] || { name: 'Player 1', tag: '', score: 0, color: '#ef4444' };
+            const p2 = m.competitors[1] || { name: 'Player 2', tag: '', score: 0, color: '#3b82f6' };
+            const p1Won = m.winner === p1.name;
+            const p2Won = m.winner === p2.name;
+
+            container.innerHTML = `
+                <div class="fgc-panel">
+                    <!-- Player 1 Side -->
+                    <div class="fgc-side p1${p1Won ? ' winner' : ''}" style="--p1-color: ${p1.color || '#ef4444'};">
+                        <div class="fgc-name-wrap">
+                            <div class="fgc-player-name">${esc(p1.name)}</div>
+                            ${showTags && p1.tag ? `<span class="fgc-char-badge">${esc(p1.tag)}</span>` : ''}
+                        </div>
+                        ${renderPipsHtml(p1.score, target, p1.color || '#ef4444')}
+                        <div class="fgc-score-counter" id="p1-score">${p1.score}</div>
+                    </div>
+
+                    <!-- Center Badge (optional via ?center=1/0) -->
+                    ${showCenter ? `
+                        <div class="topbar-center-badge" style="flex: 0 0 auto; gap: 0.25rem;">
+                            ${renderClockHtml(m, 'fgc-center')}
+                            <div class="match-phase-badge">${esc(m.phase || (target > 0 ? `FT${target}` : 'FGC'))}</div>
+                            ${m.title ? `<div class="match-title-badge">${esc(m.title)}</div>` : ''}
+                            ${showDetails && m.details ? `<div class="match-details-badge">${esc(m.details)}</div>` : ''}
+                        </div>
+                    ` : renderClockHtml(m, 'fgc-center')}
+
+                    <!-- Player 2 Side -->
+                    <div class="fgc-side p2${p2Won ? ' winner' : ''}" style="--p2-color: ${p2.color || '#3b82f6'};">
+                        <div class="fgc-score-counter" id="p2-score">${p2.score}</div>
+                        ${renderPipsHtml(p2.score, target, p2.color || '#3b82f6')}
+                        <div class="fgc-name-wrap">
+                            <div class="fgc-player-name">${esc(p2.name)}</div>
+                            ${showTags && p2.tag ? `<span class="fgc-char-badge">${esc(p2.tag)}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+                ${m.status === 'COMPLETED' && m.winner ? `
+                    <div class="winner-banner">Winner: ${esc(m.winner)}</div>
+                ` : ''}
+            `;
+        }
+
+        // 1C. DUAL CORNER SPLIT LAYOUT (100% Open Center)
+        function renderSplitCorners(m, target) {
+            const p1 = m.competitors[0] || { name: 'Player 1', tag: '', score: 0, color: '#ef4444' };
+            const p2 = m.competitors[1] || { name: 'Player 2', tag: '', score: 0, color: '#3b82f6' };
+            const p1Won = m.winner === p1.name;
+            const p2Won = m.winner === p2.name;
+
+            container.innerHTML = `
+                <div class="split-stage">
+                    <!-- Top-Left Corner (P1) -->
+                    <div class="split-corner-card p1${p1Won ? ' winner' : ''}" style="--p1-color: ${p1.color || '#ef4444'};">
+                        <div class="score-box" id="p1-score">${p1.score}</div>
+                        ${renderPipsHtml(p1.score, target, p1.color || '#ef4444')}
+                        <div class="competitor-meta">
+                            <div class="competitor-name">${esc(p1.name)}</div>
+                            ${showTags && p1.tag ? `<div class="competitor-tag">${esc(p1.tag)}</div>` : ''}
+                        </div>
+                    </div>
+
+                    ${renderClockHtml(m, 'pill')}
+
+                    <!-- Top-Right Corner (P2) -->
+                    <div class="split-corner-card p2${p2Won ? ' winner' : ''}" style="--p2-color: ${p2.color || '#3b82f6'};">
+                        <div class="score-box" id="p2-score">${p2.score}</div>
+                        ${renderPipsHtml(p2.score, target, p2.color || '#3b82f6')}
+                        <div class="competitor-meta">
+                            <div class="competitor-name">${esc(p2.name)}</div>
+                            ${showTags && p2.tag ? `<div class="competitor-tag">${esc(p2.tag)}</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+                ${m.status === 'COMPLETED' && m.winner ? `
+                    <div class="winner-banner" style="position:fixed; top:4.5rem; left:50%; transform:translateX(-50%);">Winner: ${esc(m.winner)}</div>
+                ` : ''}
+            `;
+        }
+
+        // 1D. MINIMAL CENTER-LESS SCORE BUG (Names & Scores Touching Only)
+        function renderMinimalBar(m, target) {
+            const p1 = m.competitors[0] || { name: 'Player 1', tag: '', score: 0, color: '#ef4444' };
+            const p2 = m.competitors[1] || { name: 'Player 2', tag: '', score: 0, color: '#3b82f6' };
+            const p1Won = m.winner === p1.name;
+            const p2Won = m.winner === p2.name;
+
+            container.innerHTML = `
+                <div class="minimal-bar">
+                    <!-- P1 -->
+                    <div class="minimal-side p1${p1Won ? ' winner' : ''}">
+                        <span class="compact-dot" style="background: ${p1.color || 'var(--p1-color)'};"></span>
+                        <div class="competitor-meta" style="text-align:right;">
+                            <div class="competitor-name" style="font-size:1rem;">${esc(p1.name)}</div>
+                            ${showTags && p1.tag ? `<div class="competitor-tag">${esc(p1.tag)}</div>` : ''}
+                        </div>
+                        ${renderPipsHtml(p1.score, target, p1.color)}
+                        <div class="score-box" style="font-size:1.2rem; min-width:2rem; height:2.2rem;">${p1.score}</div>
+                    </div>
+
+                    <!-- P2 -->
+                    <div class="minimal-side p2${p2Won ? ' winner' : ''}">
+                        <div class="score-box" style="font-size:1.2rem; min-width:2rem; height:2.2rem;">${p2.score}</div>
+                        ${renderPipsHtml(p2.score, target, p2.color)}
+                        <div class="competitor-meta" style="text-align:left;">
+                            <div class="competitor-name" style="font-size:1rem;">${esc(p2.name)}</div>
+                            ${showTags && p2.tag ? `<div class="competitor-tag">${esc(p2.tag)}</div>` : ''}
+                        </div>
+                        <span class="compact-dot" style="background: ${p2.color || 'var(--p2-color)'};"></span>
+                    </div>
+                </div>
+                ${m.status === 'COMPLETED' && m.winner ? `
+                    <div class="winner-banner">Winner: ${esc(m.winner)}</div>
+                ` : ''}
+            `;
+        }
+
+        // 3-4 Player Top Bar
+        function renderMultiTopBar(m, target, count) {
+            container.style.setProperty('--col-count', count);
+            container.innerHTML = `
+                <div class="topbar-panel" style="flex-direction: column;">
+                    <div class="compact-header" style="justify-content: center; gap: 0.75rem;">
+                        <span>${esc(m.title || 'Versus')}</span>
+                        <span>·</span>
+                        <span>${esc(m.phase || (target > 0 ? `Target: ${target}` : 'Scores'))}</span>
+                    </div>
+                    <div class="multi-competitor-grid">
+                        ${m.competitors.map((c, i) => `
+                            <div class="multi-card${m.winner === c.name ? ' winner' : ''}">
+                                <div style="display:flex; align-items:center; gap:0.4rem; min-width:0;">
+                                    <span class="compact-dot" style="background: ${c.color || '#fff'};"></span>
+                                    <div style="min-width:0;">
+                                        <div class="competitor-name" style="font-size:0.95rem;">${esc(c.name)}</div>
+                                        ${showTags && c.tag ? `<div class="competitor-tag" style="font-size:0.7rem;">${esc(c.tag)}</div>` : ''}
+                                    </div>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:0.4rem;">
+                                    ${renderPipsHtml(c.score, target, c.color)}
+                                    <div class="score-box" style="font-size:1.15rem; min-width:1.8rem; height:2rem;">${c.score}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 2. ESPORTS LOWER-THIRD HUD
+        function renderBottomHud(m, target) {
+            const comps = m.competitors;
+            container.innerHTML = `
+                <div class="bottom-hud-card">
+                    <div class="hud-top-meta">
+                        <span style="color:var(--matchup-accent);">${esc(m.phase || 'Matchup')}</span>
+                        <span>${esc(m.title || 'Esports')} ${m.details ? `· ${esc(m.details)}` : ''}</span>
+                    </div>
+                    <div class="hud-grid">
+                        ${comps.map((c, idx) => `
+                            <div class="hud-competitor-side" style="flex:1; display:flex; align-items:center; justify-content:${idx === 0 ? 'flex-end' : 'flex-start'}; gap:0.75rem;">
+                                ${idx === 0 ? `
+                                    <div style="text-align:right;">
+                                        <div class="competitor-name">${esc(c.name)}</div>
+                                        ${showTags && c.tag ? `<div class="competitor-tag">${esc(c.tag)}</div>` : ''}
+                                    </div>
+                                    ${renderPipsHtml(c.score, target, c.color)}
+                                    <div class="score-box">${c.score}</div>
+                                ` : `
+                                    <div class="score-box">${c.score}</div>
+                                    ${renderPipsHtml(c.score, target, c.color)}
+                                    <div>
+                                        <div class="competitor-name">${esc(c.name)}</div>
+                                        ${showTags && c.tag ? `<div class="competitor-tag">${esc(c.tag)}</div>` : ''}
+                                    </div>
+                                `}
+                            </div>
+                            ${idx < comps.length - 1 && comps.length === 2 ? '<div class="vs-divider">VS</div>' : ''}
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 3. COMPACT / CORNER SCORE BUG
+        function renderCompactBug(m, target) {
+            container.innerHTML = `
+                <div class="compact-bug">
+                    <div class="compact-header">
+                        <span>${esc(m.phase || m.title || 'Scoreboard')}</span>
+                        <span>${target > 0 ? `FT${target}` : ''}</span>
+                    </div>
+                    ${m.competitors.map(c => `
+                        <div class="compact-row">
+                            <div class="compact-name-block">
+                                <span class="compact-dot" style="background: ${c.color || '#fff'};"></span>
+                                <span style="font-weight:700; font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(c.name)}</span>
+                                ${showTags && c.tag ? `<span style="font-size:0.68rem; color:var(--matchup-muted);">(${esc(c.tag)})</span>` : ''}
+                            </div>
+                            <div style="display:flex; align-items:center; gap:0.35rem;">
+                                ${renderPipsHtml(c.score, target, c.color)}
+                                <span class="compact-score">${c.score}</span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // 4. VERSUS CARD SCREEN
+        function renderVersusCard(m, target) {
+            const p1 = m.competitors[0] || { name: 'Player 1', tag: '', score: 0 };
+            const p2 = m.competitors[1] || { name: 'Player 2', tag: '', score: 0 };
+
+            container.innerHTML = `
+                <div class="versus-card-stage">
+                    <div class="compact-header" style="background:none; font-size:0.85rem;">
+                        <span>${esc(m.title || 'Versus Showdown')}</span>
+                        <span>${esc(m.phase || '')}</span>
+                    </div>
+                    <div class="versus-card-grid">
+                        <div class="versus-side">
+                            <div class="versus-big-name" style="color: ${p1.color || 'var(--p1-color)'};">${esc(p1.name)}</div>
+                            ${showTags && p1.tag ? `<div class="competitor-tag">${esc(p1.tag)}</div>` : ''}
+                            <div class="versus-big-score">${p1.score}</div>
+                            ${renderPipsHtml(p1.score, target, p1.color)}
+                        </div>
+
+                        <div class="versus-badge-big">VS</div>
+
+                        <div class="versus-side">
+                            <div class="versus-big-name" style="color: ${p2.color || 'var(--p2-color)'};">${esc(p2.name)}</div>
+                            ${showTags && p2.tag ? `<div class="competitor-tag">${esc(p2.tag)}</div>` : ''}
+                            <div class="versus-big-score">${p2.score}</div>
+                            ${renderPipsHtml(p2.score, target, p2.color)}
+                        </div>
+                    </div>
+                    ${showDetails && m.details ? `
+                        <div style="font-size:0.75rem; color:var(--matchup-muted);">${esc(m.details)}</div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        // Particle Confetti
+        function burstConfetti() {
+            if (!enableConfetti || !confettiCanvas) return;
+            const ctx = confettiCanvas.getContext('2d');
+            confettiCanvas.width = window.innerWidth;
+            confettiCanvas.height = window.innerHeight;
+
+            const particles = [];
+            const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#ffffff'];
+
+            for (let i = 0; i < 90; i++) {
+                particles.push({
+                    x: confettiCanvas.width / 2 + (Math.random() - 0.5) * 300,
+                    y: layout === 'bottom' ? confettiCanvas.height - 80 : 80,
+                    vx: (Math.random() - 0.5) * 12,
+                    vy: layout === 'bottom' ? -Math.random() * 12 - 4 : Math.random() * 10 + 2,
+                    size: Math.random() * 8 + 4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    rot: Math.random() * 360,
+                    vrot: (Math.random() - 0.5) * 10,
+                    alpha: 1
+                });
+            }
+
+            let start = performance.now();
+            function frame(time) {
+                const elapsed = time - start;
+                ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+
+                let alive = false;
+                for (const p of particles) {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.25; // gravity
+                    p.rot += p.vrot;
+                    p.alpha = Math.max(0, 1 - elapsed / 2400);
+
+                    if (p.alpha > 0) {
+                        alive = true;
+                        ctx.save();
+                        ctx.globalAlpha = p.alpha;
+                        ctx.translate(p.x, p.y);
+                        ctx.rotate((p.rot * Math.PI) / 180);
+                        ctx.fillStyle = p.color;
+                        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                        ctx.restore();
+                    }
+                }
+
+                if (alive && elapsed < 2600) {
+                    requestAnimationFrame(frame);
+                } else {
+                    ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+                }
+            }
+            requestAnimationFrame(frame);
+        }
+
+        // Auto State Resolver (Tournament vs Standalone Matchup)
+        let activeTournamentData = null;
+        let standaloneMatchupData = null;
+
+        function convertTournamentMatchToMatchup(tournament, match) {
+            if (!tournament || !match) return null;
+            const e1Name = match.entrant1?.name || (match.entrants && match.entrants[0]) || 'Player 1';
+            const e2Name = match.entrant2?.name || (match.entrants && match.entrants[1]) || 'Player 2';
+            const s1 = match.entrant1?.score ?? (Array.isArray(match.scores) ? (match.scores[0] ?? 0) : ((match.scores && match.scores[e1Name]) ?? 0));
+            const s2 = match.entrant2?.score ?? (Array.isArray(match.scores) ? (match.scores[1] ?? 0) : ((match.scores && match.scores[e2Name]) ?? 0));
+            const bestOf = match.bestOf || tournament.bestOf || 3;
+            const targetScore = match.targetScore || tournament.targetScore || (bestOf > 0 ? Math.ceil(bestOf / 2) : 0);
+
+            return {
+                id: match.id,
+                title: tournament.title || tournament.name || 'Tournament Showdown',
+                phase: match.roundName || `Round ${match.round || 1}`,
+                details: match.matchDetails || match.details || `${tournament.format === 'roundRobin' ? 'Round Robin' : 'Bracket'} · Best of ${bestOf}`,
+                competitorCount: 2,
+                competitors: [
+                    { id: 'c1', name: e1Name, tag: '', color: customP1Color || '#ef4444', score: s1 },
+                    { id: 'c2', name: e2Name, tag: '', color: customP2Color || '#3b82f6', score: s2 }
+                ],
+                format: tournament.scoringType === 'points' ? 'points' : 'bestOf',
+                bestOf,
+                targetScore,
+                status: match.status === 'COMPLETED' ? 'COMPLETED' : (match.winner ? 'COMPLETED' : 'ACTIVE'),
+                winner: match.winner || null,
+                clock: standaloneMatchupData?.clock || null,
+                isTournament: true
+            };
+        }
+
+        function isTourneyValid(t) {
+            return t && (t.status === 'IN_PROGRESS' || t.status === 'READY' || t.status === 'ACTIVE' || t.status === 'COMPLETED') && Array.isArray(t.matches) && t.matches.length > 0;
+        }
+
+        function resolveActiveState() {
+            if (forceSample) {
+                renderMatchup(SAMPLE_MATCHUP);
+                return;
+            }
+
+            if (sourceMode === 'tournament') {
+                if (isTourneyValid(activeTournamentData)) {
+                    const match = activeTournamentData.matches.find(m => m.id === activeTournamentData.activeMatchId) ||
+                                  activeTournamentData.matches.find(m => !m.isBye && !m.winner && m.status === 'ACTIVE') ||
+                                  activeTournamentData.matches.find(m => !m.isBye && !m.winner && m.entrant1?.name !== 'TBD' && m.entrant2?.name !== 'TBD') ||
+                                  activeTournamentData.matches[0];
+                    if (match) {
+                        renderMatchup(convertTournamentMatchToMatchup(activeTournamentData, match));
+                        return;
+                    }
+                }
+                if (isPreview) {
+                    renderMatchup(SAMPLE_MATCHUP);
+                } else {
+                    stage.classList.add('hidden');
+                }
+                return;
+            }
+
+            if (sourceMode === 'auto') {
+                // If tournament is active, show tournament's active match!
+                if (isTourneyValid(activeTournamentData)) {
+                    const match = activeTournamentData.matches.find(m => m.id === activeTournamentData.activeMatchId) ||
+                                  activeTournamentData.matches.find(m => !m.isBye && !m.winner && m.status === 'ACTIVE') ||
+                                  activeTournamentData.matches.find(m => !m.isBye && !m.winner && m.entrant1?.name !== 'TBD' && m.entrant2?.name !== 'TBD');
+                    if (match) {
+                        renderMatchup(convertTournamentMatchToMatchup(activeTournamentData, match));
+                        return;
+                    }
+                }
+            }
+
+            // Standalone matchup fallback
+            if (standaloneMatchupData) {
+                renderMatchup(standaloneMatchupData);
+            } else if (isPreview) {
+                renderMatchup(SAMPLE_MATCHUP);
+            } else {
+                stage.classList.add('hidden');
+            }
+        }
+
+        // Initial Data Fetch
+        async function loadInitial() {
+            try {
+                const [matchupRes, tourneyRes] = await Promise.all([
+                    fetch('/api/matchup').catch(() => null),
+                    fetch('/api/tournament').catch(() => null)
+                ]);
+
+                if (matchupRes && matchupRes.ok) {
+                    const mData = await matchupRes.json();
+                    if (mData && mData.matchup) standaloneMatchupData = mData.matchup;
+                }
+                if (tourneyRes && tourneyRes.ok) {
+                    const tData = await tourneyRes.json();
+                    if (tData && tData.tournament) activeTournamentData = tData.tournament;
+                }
+            } catch (err) {
+                console.warn('Could not fetch initial matchup or tournament data:', err);
+            }
+            resolveActiveState();
+        }
+        loadInitial();
+
+        // WebSocket Connection
+        function connectWs() {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${proto}//${location.host}/ws`);
+
+            ws.onopen = () => {
+                if (window.self === window.top && !isPreview) {
+                    ws.send(JSON.stringify({ type: 'overlay-source', key: 'matchup' }));
+                }
+            };
+
+            ws.onmessage = (event) => {
+                if (forceSample) return;
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.type === 'matchup-update') {
+                        standaloneMatchupData = msg.data;
+                        resolveActiveState();
+                    } else if (msg.type === 'tournament-update') {
+                        activeTournamentData = msg.data;
+                        resolveActiveState();
+                    }
+                } catch { /* ignore parse error */ }
+            };
+
+            ws.onclose = () => setTimeout(connectWs, 2000);
+        }
+        connectWs();
+    </script>
+</body>
+</html>

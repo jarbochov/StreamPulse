@@ -1,0 +1,2280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Poll Studio &amp; Tournaments</title>
+    <link rel="stylesheet" href="/admin.css">
+    <link rel="stylesheet" href="/css/poll-studio.css">
+    <script src="/appearance.js"></script>
+    <script src="/js/poll-widget.js"></script>
+</head>
+<body>
+    <header class="header">
+        <h1>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            StreamPulse <span>Poll Studio</span>
+            <span class="badge-studio">Controller</span>
+        </h1>
+        <div id="main-nav" class="nav"></div>
+    </header>
+    <script src="/nav.js"></script>
+
+    <main class="container">
+        <!-- Competitions Studio Banner -->
+        <div style="background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.9rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+            <div style="font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span>Managing chat audience polls here. Looking for manual scoring, esports brackets, fighting game scoreboards, or fight cards?</span>
+            </div>
+            <a href="/competitions.html" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.6rem; text-decoration: none; white-space: nowrap;">
+                Open Competitions Studio &rarr;
+            </a>
+        </div>
+
+        <div class="layout-grid">
+            <!-- Left Column: Controls & Active Monitors -->
+            <div class="controls-col">
+                <!-- Navigation Tabs -->
+                <div class="studio-tabs">
+                    <button type="button" class="studio-tab-btn active" id="tab-btn-poll" onclick="switchTab('poll')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                        Standard Poll
+                    </button>
+                    <button type="button" class="studio-tab-btn" id="tab-btn-tourney" onclick="switchTab('tourney')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                        Audience Poll Tournament
+                    </button>
+                    <button type="button" class="studio-tab-btn" id="tab-btn-templates" onclick="switchTab('templates')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                        Templates &amp; History
+                    </button>
+                </div>
+
+                <!-- Active Poll Card (Always visible when a poll is running) -->
+                <div id="active-poll-card" class="card active-poll-card" style="display: none;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                        <h2 style="margin-bottom: 0;">
+                            <span style="display: inline-flex; align-items: center; gap: 0.4rem;">
+                                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #3fb950; animation: nav-pulse 2s infinite;"></span>
+                                Live Poll Running
+                            </span>
+                        </h2>
+                        <span id="active-timer-badge" class="poll-timer-badge">0:00</span>
+                    </div>
+
+                    <h3 id="active-poll-title" style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.85rem; color: var(--text);"></h3>
+                    
+                    <div id="active-choices-list"></div>
+
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.75rem; font-size: 0.75rem; color: var(--text-muted);">
+                        <span id="active-total-votes">0 total votes</span>
+                        <span id="active-features-tag"></span>
+                    </div>
+
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.6rem; background: var(--bg-inset); padding: 0.4rem 0.6rem; border-radius: 6px;">
+                        Chatters vote by typing option numbers (e.g. <code>1</code>, <code>2</code>) or <code>!vote &lt;n&gt;</code> in chat.
+                    </div>
+
+                    <div class="live-actions-bar">
+                        <button type="button" class="btn-primary" style="flex: 1;" id="btn-end-poll" onclick="endActivePoll()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h2"/><path d="M18 9h2a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-2"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>
+                            Crown Winner &amp; End
+                        </button>
+                        <button type="button" class="btn-secondary" id="btn-extend-poll-30" onclick="extendActivePoll(30)" title="Add 30 seconds">
+                            +30s
+                        </button>
+                        <button type="button" class="btn-secondary" id="btn-extend-poll-60" onclick="extendActivePoll(60)" title="Add 1 minute">
+                            +1m
+                        </button>
+                        <button type="button" class="btn-danger" id="btn-cancel-poll" onclick="cancelActivePoll()" title="Stop and discard poll immediately">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                            Stop &amp; Cancel
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tab 1: Standard Poll Panel -->
+                <div id="panel-poll">
+                    <div class="card">
+                        <h2>
+                            <span>Create a Poll</span>
+                            <div style="display: flex; gap: 0.35rem;">
+                                <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="pullFromGamePlan()">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
+                                    From Game Plan
+                                </button>
+                                <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="pullFromChatters()">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                    From Chatters
+                                </button>
+                            </div>
+                        </h2>
+
+                        <!-- Quick Load Preset -->
+                        <div class="form-group" style="margin-bottom: 0.75rem;">
+                            <label for="preset-select" style="font-size: 0.75rem; color: var(--text-muted);">Saved Templates</label>
+                            <select id="preset-select" class="form-control" onchange="loadSelectedPreset(this.value)">
+                                <option value="">-- Load a saved poll template --</option>
+                            </select>
+                        </div>
+
+                        <form id="poll-create-form" onsubmit="event.preventDefault(); launchPoll();">
+                            <div class="form-group">
+                                <label for="poll-question">Poll Question</label>
+                                <input type="text" id="poll-question" class="form-control" placeholder="e.g. Which game should we play next?" required autocomplete="off">
+                            </div>
+
+                            <div class="form-group">
+                                <label style="display: flex; justify-content: space-between;">
+                                    <span>Choices (2–10 options)</span>
+                                    <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal;">Viewers vote via chat</span>
+                                </label>
+                                <div id="choices-container"></div>
+                                <button type="button" class="btn-secondary" id="btn-add-choice" style="width: 100%; margin-top: 0.35rem;" onclick="addChoiceField()">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                    Add Option
+                                </button>
+                            </div>
+
+                            <div class="card-section">
+                                <div class="micro-heading">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                    Duration
+                                </div>
+                                <div class="duration-chips" id="duration-chips">
+                                    <button type="button" class="chip-btn" data-dur="30">30s</button>
+                                    <button type="button" class="chip-btn active" data-dur="60">60s</button>
+                                    <button type="button" class="chip-btn" data-dur="90">90s</button>
+                                    <button type="button" class="chip-btn" data-dur="120">2m</button>
+                                    <button type="button" class="chip-btn" data-dur="300">5m</button>
+                                    <button type="button" class="chip-btn" data-dur="600">10m</button>
+                                    <button type="button" class="chip-btn" data-dur="900">15m</button>
+                                    <button type="button" class="chip-btn" data-dur="0">Manual</button>
+                                </div>
+                            </div>
+
+                            <div class="card-section">
+                                <div class="micro-heading">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                    Voting Spice &amp; Rules
+                                </div>
+
+                                <div class="toggle-row">
+                                    <div class="toggle-info">
+                                        <div class="toggle-title">Blind Voting ("Fog of War")</div>
+                                        <div class="toggle-desc">Conceals vote percentages until time expires for a dramatic reveal.</div>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="poll-blind">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="toggle-row">
+                                    <div class="toggle-info">
+                                        <div class="toggle-title">Natural Keyword Voting</div>
+                                        <div class="toggle-desc">Allows viewers to vote by typing words from choice titles in chat (e.g. "elden").</div>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="poll-keywords" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="toggle-row">
+                                    <div class="toggle-info">
+                                        <div class="toggle-title">Subscriber 2× Multiplier</div>
+                                        <div class="toggle-desc">Subscribers and channel members' votes count double.</div>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="poll-sub-multiplier">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="card-section">
+                                <div class="micro-heading">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                                    Victory Celebration
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="celebration-sound">Winner Sound</label>
+                                    <select id="celebration-sound" class="form-control">
+                                        <option value="">Default Celebration Chime</option>
+                                        <option value="/audio/fanfare.mp3">Trumpet Fanfare</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label style="display: flex; justify-content: space-between;">
+                                        <span>Volume</span>
+                                        <span id="volume-val">75%</span>
+                                    </label>
+                                    <input type="range" id="celebration-volume" min="0" max="100" value="75" style="width: 100%;" oninput="document.getElementById('volume-val').textContent = this.value + '%'">
+                                </div>
+
+                                <div class="toggle-row">
+                                    <div class="toggle-info">
+                                        <div class="toggle-title">Confetti Particle Burst</div>
+                                        <div class="toggle-desc">Fires particle confetti across the overlay when the winner is revealed.</div>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="celebration-confetti" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 0.6rem; margin-top: 1.25rem;">
+                                <button type="submit" class="btn-primary" style="flex: 1;">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                    Launch Live Poll
+                                </button>
+                                <button type="button" class="btn-secondary" onclick="saveCurrentAsTemplate()">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                    Save Template
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Tournament Bracket Panel -->
+                <div id="panel-tourney" style="display: none;">
+                    <!-- Active Tournament Controller -->
+                    <div id="active-tournament-card" class="card" style="display: none;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                            <h2 style="margin-bottom: 0;">
+                                <span style="display: inline-flex; align-items: center; gap: 0.4rem;">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                                    <span id="tourney-card-title">Tournament</span>
+                                </span>
+                            </h2>
+                            <div style="display: flex; gap: 0.35rem;">
+                                <span id="tourney-mode-badge" class="badge-studio">Chat Vote</span>
+                                <span id="tourney-format-badge" class="badge-studio">Single Elim</span>
+                            </div>
+                        </div>
+
+                        <!-- Active Match Controller -->
+                        <div id="tourney-match-controller" class="tournament-match-box active" style="margin-top: 0.75rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                                <div>
+                                    <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--accent);" id="current-match-round">Match</span>
+                                    <span id="current-match-series" style="font-size: 0.72rem; color: var(--text-muted); margin-left: 0.3rem;"></span>
+                                </div>
+                                <span id="current-match-status" class="poll-timer-badge">Ready</span>
+                            </div>
+                            
+                            <div class="match-entrants-grid">
+                                <div class="entrant-badge-block" id="entrant1-box">
+                                    <div style="font-size: 0.9rem; font-weight: 700;" id="entrant1-name">Entrant 1</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;" id="entrant1-votes">0 votes (0%)</div>
+                                    
+                                    <!-- Manual Score Stepper for Entrant 1 -->
+                                    <div class="score-stepper" id="e1-stepper" style="display: none;">
+                                        <button type="button" class="score-btn" onclick="stepScore(1, -1)">-</button>
+                                        <input type="number" id="e1-score-input" class="score-val-input" min="0" value="0" onchange="applyManualScoreInput()">
+                                        <button type="button" class="score-btn" onclick="stepScore(1, 1)">+</button>
+                                    </div>
+                                </div>
+
+                                <div class="vs-divider">VS</div>
+
+                                <div class="entrant-badge-block" id="entrant2-box">
+                                    <div style="font-size: 0.9rem; font-weight: 700;" id="entrant2-name">Entrant 2</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;" id="entrant2-votes">0 votes (0%)</div>
+
+                                    <!-- Manual Score Stepper for Entrant 2 -->
+                                    <div class="score-stepper" id="e2-stepper" style="display: none;">
+                                        <button type="button" class="score-btn" onclick="stepScore(2, -1)">-</button>
+                                        <input type="number" id="e2-score-input" class="score-val-input" min="0" value="0" onchange="applyManualScoreInput()">
+                                        <button type="button" class="score-btn" onclick="stepScore(2, 1)">+</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Optional Match Details (e.g. Map / Game #) -->
+                            <div style="margin: 0.6rem 0 0.4rem;">
+                                <input type="text" id="match-details-input" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.55rem;" placeholder="Match details (e.g. Game 3 · Smashville or Tiebreaker)" onchange="saveMatchDetails()">
+                            </div>
+
+                            <div style="display: flex; gap: 0.4rem; margin-top: 0.6rem;" id="match-actions-bar">
+                                <button type="button" class="btn-primary" style="flex: 1;" id="btn-start-match" onclick="startCurrentTournamentMatch()">
+                                    Start Match Vote
+                                </button>
+                                <button type="button" class="btn-secondary" id="btn-advance-e1" onclick="advanceSpecificEntrant(1)" title="Advance Entrant 1">
+                                    Advance #1
+                                </button>
+                                <button type="button" class="btn-secondary" id="btn-advance-e2" onclick="advanceSpecificEntrant(2)" title="Advance Entrant 2">
+                                    Advance #2
+                                </button>
+                                <button type="button" class="btn-danger" id="btn-reset-match" onclick="resetCurrentMatch()" title="Reset this match's scores">
+                                    Reset Match
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Bracket Tree Preview in Studio -->
+                        <div class="card-section">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                <div class="micro-heading" style="margin-bottom: 0;">Bracket Matches</div>
+                                <span style="font-size: 0.72rem; color: var(--text-muted);">Click any match to score or inspect</span>
+                            </div>
+                            <div id="bracket-studio-view" class="bracket-mini-preview"></div>
+                        </div>
+
+                        <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 0.72rem; color: var(--text-muted);" id="tourney-progress-text"></span>
+                            <button type="button" class="btn-danger" style="font-size: 0.75rem; padding: 0.25rem 0.65rem;" onclick="resetCurrentTournament()">
+                                Reset Tournament
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Create Tournament Form -->
+                    <div id="create-tournament-card" class="card">
+                        <h2>Create Tournament Bracket</h2>
+                        <form id="tourney-create-form" onsubmit="event.preventDefault(); launchTournament();">
+                            <div class="form-group">
+                                <label for="tourney-title">Tournament Title</label>
+                                <input type="text" id="tourney-title" class="form-control" placeholder="e.g. Retro Game Championship" required autocomplete="off">
+                            </div>
+
+                            <!-- Progression Mode: Chat Vote vs Manual Scored -->
+                            <div class="form-group">
+                                <label>Tournament Progression Mode</label>
+                                <div class="segmented-control">
+                                    <button type="button" class="segmented-btn active" id="btn-mode-vote" onclick="setCreateTourneyMode('vote')">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                        Audience Chat Vote
+                                    </button>
+                                    <button type="button" class="segmented-btn" id="btn-mode-manual" onclick="setCreateTourneyMode('manual')">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 15h6"/></svg>
+                                        Manual Scored Bracket
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Manual Scored Settings -->
+                            <div id="group-manual-settings" style="display: none; background: var(--bg-inset); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 0.85rem;">
+                                <div class="micro-heading" style="margin-bottom: 0.4rem;">Manual Scoring Options</div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="tourney-bestof">Series Format</label>
+                                    <select id="tourney-bestof" class="form-control">
+                                        <option value="0">Free Points (Open score tally, e.g. 10 - 7)</option>
+                                        <option value="1">Single Game (Best of 1)</option>
+                                        <option value="3" selected>Best of 3 (First to 2 wins)</option>
+                                        <option value="5">Best of 5 (First to 3 wins)</option>
+                                        <option value="7">Best of 7 (First to 4 wins)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Audience Chat Vote Settings -->
+                            <div id="group-vote-settings" style="display: block;">
+                                <div class="form-group">
+                                    <label for="tourney-duration">Match Vote Duration</label>
+                                    <select id="tourney-duration" class="form-control">
+                                        <option value="30">30 seconds per match</option>
+                                        <option value="60" selected>60 seconds per match</option>
+                                        <option value="90">90 seconds per match</option>
+                                        <option value="120">2 minutes per match</option>
+                                        <option value="300">5 minutes per match</option>
+                                        <option value="0">Manual (Open until crowned)</option>
+                                    </select>
+                                </div>
+
+                                <div class="toggle-row" style="margin-bottom: 0.85rem;">
+                                    <div class="toggle-info">
+                                        <div class="toggle-title">Blind Voting on Matchups</div>
+                                        <div class="toggle-desc">Conceal matchup vote counts until match concludes.</div>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="tourney-blind">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="tourney-format">Elimination Format</label>
+                                <select id="tourney-format" class="form-control" onchange="updateEntrantsCalc()">
+                                    <option value="single">Single Elimination (Fast, high stakes)</option>
+                                    <option value="roundRobin">Round Robin (All vs All · Best for 3–8 players)</option>
+                                    <option value="double">Double Elimination (Winners &amp; Losers Bracket)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                                    <label style="margin-bottom: 0;">Participants (Any number from 2 to 32)</label>
+                                    <span id="tourney-entrants-pill" class="badge-studio" style="font-size: 0.68rem;">0 seeds</span>
+                                </div>
+                                <textarea id="tourney-entrants" class="form-control" rows="8" placeholder="Chrono Trigger&#10;Final Fantasy VI&#10;EarthBound&#10;Secret of Mana&#10;Super Mario RPG&#10;Lufia II&#10;Breath of Fire II&#10;Dragon Quest V" required oninput="updateEntrantsCalc()"></textarea>
+                                
+                                <div style="display: flex; gap: 0.35rem; margin-top: 0.4rem; flex-wrap: wrap;">
+                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="fillSampleEntrants(3)">3 Seeds</button>
+                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="fillSampleEntrants(4)">4 Seeds</button>
+                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="fillSampleEntrants(5)">5 Seeds</button>
+                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="fillSampleEntrants(8)">8 Seeds</button>
+                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="fillSampleEntrants(16)">16 Seeds</button>
+                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="pullTourneyFromGamePlan()">From Game Plan</button>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn-primary" style="margin-top: 1rem;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                                Create Tournament Bracket
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Competitions & Versus Redirect Card -->
+                <div id="panel-matchup" style="display: none;">
+                    <div class="card" style="text-align: center; padding: 2.5rem 1.5rem;">
+                        <div style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; background: rgba(88, 166, 255, 0.15); border: 1px solid var(--accent); margin-bottom: 1rem; color: var(--accent);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="2"/><line x1="16" y1="10" x2="16" y2="14"/><line x1="14" y1="12" x2="18" y2="12"/></svg>
+                        </div>
+                        <h2 style="margin-bottom: 0.5rem;">Competitions &amp; Versus Studio</h2>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); max-width: 440px; margin: 0 auto 1.25rem;">
+                            Matchup scoreboards, fighting game HUDs, side swapping, and exhibition fight cards have moved to their own dedicated Competitions Studio.
+                        </p>
+                        <a href="/competitions.html" class="btn-primary" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1.2rem; font-size: 0.88rem; text-decoration: none;">
+                            Open Competitions Studio &rarr;
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Tab 4: Templates & History Panel -->
+                <div id="panel-templates" style="display: none;">
+                    <div class="card">
+                        <h2>Saved Templates</h2>
+                        <div id="templates-list" style="margin-top: 0.5rem;"></div>
+                    </div>
+
+                    <div class="card">
+                        <h2>
+                            <span>Poll History</span>
+                            <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="clearPollHistory()">
+                                Clear
+                            </button>
+                        </h2>
+                        <div id="poll-history-list" style="max-height: 480px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Live Previews & OBS Links -->
+            <div class="preview-col">
+                <!-- Preview Switcher -->
+                <div class="card">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                        <h2 style="margin-bottom: 0;">Live Overlay Preview</h2>
+                        <div style="display: flex; gap: 0.35rem;">
+                            <button type="button" class="btn-secondary" id="btn-preview-poll" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="setPreviewMode('poll')">
+                                Poll
+                            </button>
+                            <button type="button" class="btn-secondary" id="btn-preview-tourney" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="setPreviewMode('tourney')">
+                                Tournament
+                            </button>
+                            <button type="button" class="btn-secondary" id="btn-preview-matchup" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="setPreviewMode('matchup')">
+                                Matchup
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="poll-preview-box" class="preview-container" style="height: 320px; overflow: hidden; padding: 0.5rem; position: relative;">
+                        <iframe id="poll-preview-iframe" src="/overlays/poll.html?preview=1" style="width: 100%; height: 100%; border: none; background: transparent;"></iframe>
+                    </div>
+                    <div id="tourney-preview-box" class="preview-container" style="display: none; height: 320px; overflow: auto; padding: 0.5rem;">
+                        <iframe id="tourney-preview-iframe" src="/overlays/tournament.html" style="width: 100%; height: 100%; border: none; background: #0d1117;"></iframe>
+                    </div>
+                    <div id="matchup-preview-box" class="preview-container" style="display: none; height: 320px; overflow: auto; padding: 0.5rem;">
+                        <iframe id="matchup-preview-iframe" src="/overlays/matchup.html?preview=1" style="width: 100%; height: 100%; border: none; background: transparent;"></iframe>
+                    </div>
+
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; text-align: center;">
+                        Mounts on custom overlays via the <b>Poll widget</b> or dedicated browser sources below.
+                    </div>
+                </div>
+
+                <!-- OBS Browser Source URLs -->
+                <div class="card">
+                    <h2>OBS Browser Source Links</h2>
+                    
+                    <div style="margin-bottom: 1.25rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <div style="font-size: 0.78rem; font-weight: 700; color: var(--text);">Live Poll Overlay</div>
+                            <a id="btn-open-poll-overlay" href="/overlays/poll.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open ↗</a>
+                        </div>
+                        <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
+                            <input type="text" class="form-control" id="url-poll-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
+                            <button type="button" class="btn-secondary" onclick="copyUrl('url-poll-overlay', this)">Copy</button>
+                        </div>
+
+                        <!-- URL Options Customizer -->
+                        <div style="background: var(--bg-inset); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border);">
+                            <div class="micro-heading" style="margin-bottom: 0.5rem;">Overlay Options</div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.6rem;">
+                                <div>
+                                    <label for="poll-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme / Container (?overlay=)</label>
+                                    <select id="poll-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updatePollOverlayUrl()">
+                                        <option value="card" selected>Dark Card (?overlay=card)</option>
+                                        <option value="glass">Frosted Glass (?overlay=glass)</option>
+                                        <option value="solid">Opaque Solid (?overlay=solid)</option>
+                                        <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
+                                        <option value="pill">Pill Capsule (?overlay=pill)</option>
+                                        <option value="neon">Cyber Neon (?overlay=neon)</option>
+                                        <option value="retro">Retro Arcade (?overlay=retro)</option>
+                                        <option value="custom">Custom Color / Hash...</option>
+                                    </select>
+                                </div>
+                                <div id="poll-opt-custom-bg-wrap" style="display: none;">
+                                    <label for="poll-opt-custom-bg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Hex Color / Hash</label>
+                                    <div style="display: flex; gap: 0.3rem; align-items: center;">
+                                        <input type="text" id="poll-opt-custom-bg" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; font-family: monospace;" placeholder="161b22" value="161b22" oninput="updatePollOverlayUrl()">
+                                        <input type="color" id="poll-opt-color-picker" value="#161b22" style="width: 28px; height: 28px; padding: 1px; border: none; cursor: pointer; border-radius: 4px;" oninput="$('poll-opt-custom-bg').value = this.value.replace('#',''); updatePollOverlayUrl();">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="margin-bottom: 0.2rem;">
+                                <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                    <input type="checkbox" id="poll-opt-howtovote" onchange="updatePollOverlayUrl()">
+                                    <span>Show "How to vote" instructions at bottom (<code>?howtovote=1</code>)</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <div style="font-size: 0.78rem; font-weight: 700; color: var(--text);">Tournament Bracket Overlay</div>
+                            <a id="btn-open-tourney-overlay" href="/overlays/tournament.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open ↗</a>
+                        </div>
+                        <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
+                            <input type="text" class="form-control" id="url-tourney-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
+                            <button type="button" class="btn-secondary" onclick="copyUrl('url-tourney-overlay', this)">Copy</button>
+                        </div>
+
+                        <!-- Tournament URL Options Customizer -->
+                        <div style="background: var(--bg-inset); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border);">
+                            <div class="micro-heading" style="margin-bottom: 0.5rem;">Tournament Overlay Options</div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.6rem;">
+                                <div>
+                                    <label for="tourney-opt-layout" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Layout (?layout=)</label>
+                                    <select id="tourney-opt-layout" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                        <option value="tree" selected>Full Bracket Tree (?layout=tree)</option>
+                                        <option value="active">Active Match Lower-Third HUD (?layout=active)</option>
+                                        <option value="compact">Compact Overview (?layout=compact)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="tourney-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme / Container (?overlay=)</label>
+                                    <select id="tourney-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                        <option value="card" selected>Dark Card (?overlay=card)</option>
+                                        <option value="glass">Frosted Glass (?overlay=glass)</option>
+                                        <option value="solid">Opaque Solid (?overlay=solid)</option>
+                                        <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
+                                        <option value="pill">Pill Capsule (?overlay=pill)</option>
+                                        <option value="neon">Cyber Neon (?overlay=neon)</option>
+                                        <option value="retro">Retro Arcade (?overlay=retro)</option>
+                                        <option value="custom">Custom Color / Hash...</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div id="tourney-opt-custom-bg-wrap" style="display: none; margin-bottom: 0.6rem;">
+                                <label for="tourney-opt-custom-bg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Hex Color / Hash</label>
+                                <div style="display: flex; gap: 0.3rem; align-items: center;">
+                                    <input type="text" id="tourney-opt-custom-bg" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; font-family: monospace;" placeholder="0d1117" value="0d1117" oninput="updateTourneyOverlayUrl()">
+                                    <input type="color" id="tourney-opt-color-picker" value="#0d1117" style="width: 28px; height: 28px; padding: 1px; border: none; cursor: pointer; border-radius: 4px;" oninput="$('tourney-opt-custom-bg').value = this.value.replace('#',''); updateTourneyOverlayUrl();">
+                                </div>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.2rem;">
+                                <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                    <input type="checkbox" id="tourney-opt-scores" checked onchange="updateTourneyOverlayUrl()">
+                                    <span>Show Match Scores &amp; Series Pips (<code>?showscores=1</code>)</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Matchup Scoreboard Overlay URL -->
+                    <div style="margin-top: 1.25rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <div style="font-size: 0.78rem; font-weight: 700; color: var(--text);">Matchup Scoreboard Overlay</div>
+                            <a id="btn-open-matchup-overlay" href="/overlays/matchup.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open ↗</a>
+                        </div>
+                        <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
+                            <input type="text" class="form-control" id="url-matchup-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
+                            <button type="button" class="btn-secondary" onclick="copyUrl('url-matchup-overlay', this)">Copy</button>
+                        </div>
+
+                        <!-- Matchup URL Options Customizer -->
+                        <div style="background: var(--bg-inset); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border);">
+                            <div class="micro-heading" style="margin-bottom: 0.5rem;">Matchup Overlay Options</div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.6rem;">
+                                <div>
+                                    <label for="matchup-opt-layout" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Layout (?layout=)</label>
+                                    <select id="matchup-opt-layout" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                        <option value="top" selected>Fighting Game Top Bar (?layout=top)</option>
+                                        <option value="fgc">Modern FGC (EVO Style) (?layout=fgc)</option>
+                                        <option value="split">Dual Corner Split (Open Center) (?layout=split)</option>
+                                        <option value="minimal">Minimal / Center-Less (?layout=minimal)</option>
+                                        <option value="bottom">Esports Lower-Third HUD (?layout=bottom)</option>
+                                        <option value="compact">Compact Score Bug (?layout=compact)</option>
+                                        <option value="versus">Versus Screen Card (?layout=versus)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="matchup-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme (?overlay=)</label>
+                                    <select id="matchup-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                        <option value="card" selected>Dark Card (?overlay=card)</option>
+                                        <option value="fgc-evo">EVO Championship (?overlay=fgc-evo)</option>
+                                        <option value="cyber">Cyberpunk Neon (?overlay=cyber)</option>
+                                        <option value="glass">Frosted Glass (?overlay=glass)</option>
+                                        <option value="solid">Opaque Solid (?overlay=solid)</option>
+                                        <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
+                                        <option value="pill">Pill Capsule (?overlay=pill)</option>
+                                        <option value="neon">Cyber Neon (?overlay=neon)</option>
+                                        <option value="retro">Retro Arcade (?overlay=retro)</option>
+                                        <option value="custom">Custom Color / Hash...</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div id="matchup-opt-custom-bg-wrap" style="display: none; margin-bottom: 0.6rem;">
+                                <label for="matchup-opt-custom-bg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Hex Color / Hash</label>
+                                <div style="display: flex; gap: 0.3rem; align-items: center;">
+                                    <input type="text" id="matchup-opt-custom-bg" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; font-family: monospace;" placeholder="0d1117" value="0d1117" oninput="updateMatchupOverlayUrl()">
+                                    <input type="color" id="matchup-opt-color-picker" value="#0d1117" style="width: 28px; height: 28px; padding: 1px; border: none; cursor: pointer; border-radius: 4px;" oninput="$('matchup-opt-custom-bg').value = this.value.replace('#',''); updateMatchupOverlayUrl();">
+                                </div>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.2rem;">
+                                <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                    <input type="checkbox" id="matchup-opt-center" checked onchange="updateMatchupOverlayUrl()">
+                                    <span>Show Center Phase Badge (<code>?center=1</code>)</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                    <input type="checkbox" id="matchup-opt-pips" checked onchange="updateMatchupOverlayUrl()">
+                                    <span>Show Series Win Pips (<code>?pips=1</code>)</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                    <input type="checkbox" id="matchup-opt-tags" checked onchange="updateMatchupOverlayUrl()">
+                                    <span>Show Character / Sub-Tags (<code>?tags=1</code>)</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        const $ = id => document.getElementById(id);
+        const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        function toast(msg) { const t = $('toast'); if (!t) return; t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2400); }
+
+        let activePollData = null;
+        let activeTourneyData = null;
+        let activeMatchupData = null;
+        let savedPresetsList = [];
+        let selectedDuration = 60;
+        let choiceCount = 0;
+        const maxChoices = 10;
+        let pollSocket = null;
+        let activeTab = 'poll';
+        let previewMode = 'poll';
+
+        // URL display initialization
+        const baseUrl = window.location.origin;
+        $('url-poll-overlay').value = `${baseUrl}/overlays/poll.html`;
+        $('url-tourney-overlay').value = `${baseUrl}/overlays/tournament.html`;
+        $('url-matchup-overlay').value = `${baseUrl}/overlays/matchup.html`;
+
+        function updatePollOverlayUrl() {
+            const origin = window.location.origin;
+            const themeSelect = $('poll-opt-theme');
+            const customBgWrap = $('poll-opt-custom-bg-wrap');
+            const customBgInput = $('poll-opt-custom-bg');
+            const howToVoteCheck = $('poll-opt-howtovote');
+
+            if (!themeSelect) return;
+            const theme = themeSelect.value;
+            if (theme === 'custom') {
+                customBgWrap.style.display = 'block';
+            } else {
+                customBgWrap.style.display = 'none';
+            }
+
+            const urlParams = new URLSearchParams();
+            if (theme === 'custom') {
+                const hex = customBgInput.value.trim().replace(/^#/, '');
+                if (hex) urlParams.set('overlay', hex);
+            } else if (theme !== 'card') {
+                urlParams.set('overlay', theme);
+            }
+
+            if (howToVoteCheck && howToVoteCheck.checked) {
+                urlParams.set('howtovote', '1');
+            }
+
+            const qs = urlParams.toString();
+            const fullUrl = `${origin}/overlays/poll.html${qs ? `?${qs}` : ''}`;
+            if ($('url-poll-overlay')) $('url-poll-overlay').value = fullUrl;
+            if ($('btn-open-poll-overlay')) $('btn-open-poll-overlay').href = fullUrl;
+
+            // Live preview iframe update
+            const previewIframe = $('poll-preview-iframe');
+            if (previewIframe) {
+                const previewParams = new URLSearchParams(urlParams);
+                previewParams.set('preview', '1');
+                const targetSrc = `/overlays/poll.html?${previewParams.toString()}`;
+                if (previewIframe.getAttribute('src') !== targetSrc) {
+                    previewIframe.src = targetSrc;
+                }
+            }
+        }
+
+        function updateTourneyOverlayUrl() {
+            const origin = window.location.origin;
+            const layoutSelect = $('tourney-opt-layout');
+            const themeSelect = $('tourney-opt-theme');
+            const customBgWrap = $('tourney-opt-custom-bg-wrap');
+            const customBgInput = $('tourney-opt-custom-bg');
+            const scoresCheck = $('tourney-opt-scores');
+
+            if (!themeSelect) return;
+            const theme = themeSelect.value;
+            if (theme === 'custom') {
+                customBgWrap.style.display = 'block';
+            } else {
+                customBgWrap.style.display = 'none';
+            }
+
+            const urlParams = new URLSearchParams();
+            if (layoutSelect && layoutSelect.value !== 'tree') {
+                urlParams.set('layout', layoutSelect.value);
+            }
+            if (theme === 'custom') {
+                const hex = customBgInput.value.trim().replace(/^#/, '');
+                if (hex) urlParams.set('overlay', hex);
+            } else if (theme !== 'card') {
+                urlParams.set('overlay', theme);
+            }
+
+            if (scoresCheck && !scoresCheck.checked) {
+                urlParams.set('showscores', '0');
+            }
+
+            const qs = urlParams.toString();
+            const fullUrl = `${origin}/overlays/tournament.html${qs ? `?${qs}` : ''}`;
+            if ($('url-tourney-overlay')) $('url-tourney-overlay').value = fullUrl;
+            if ($('btn-open-tourney-overlay')) $('btn-open-tourney-overlay').href = fullUrl;
+
+            // Live preview iframe update
+            const previewIframe = $('tourney-preview-iframe');
+            if (previewIframe) {
+                const previewParams = new URLSearchParams(urlParams);
+                previewParams.set('preview', '1');
+                const targetSrc = `/overlays/tournament.html?${previewParams.toString()}`;
+                if (previewIframe.getAttribute('src') !== targetSrc) {
+                    previewIframe.src = targetSrc;
+                }
+            }
+        }
+
+        function updateMatchupOverlayUrl() {
+            const origin = window.location.origin;
+            const layoutSelect = $('matchup-opt-layout');
+            const themeSelect = $('matchup-opt-theme');
+            const customBgWrap = $('matchup-opt-custom-bg-wrap');
+            const customBgInput = $('matchup-opt-custom-bg');
+            const pipsCheck = $('matchup-opt-pips');
+            const tagsCheck = $('matchup-opt-tags');
+
+            if (!themeSelect) return;
+            const theme = themeSelect.value;
+            if (theme === 'custom') {
+                customBgWrap.style.display = 'block';
+            } else {
+                customBgWrap.style.display = 'none';
+            }
+
+            const urlParams = new URLSearchParams();
+            if (layoutSelect && layoutSelect.value !== 'top') {
+                urlParams.set('layout', layoutSelect.value);
+            }
+            if (theme === 'custom') {
+                const hex = customBgInput.value.trim().replace(/^#/, '');
+                if (hex) urlParams.set('overlay', hex);
+            } else if (theme !== 'card') {
+                urlParams.set('overlay', theme);
+            }
+
+            if (pipsCheck && !pipsCheck.checked) {
+                urlParams.set('pips', '0');
+            }
+            if (tagsCheck && !tagsCheck.checked) {
+                urlParams.set('tags', '0');
+            }
+            const centerCheck = $('matchup-opt-center');
+            if (centerCheck && !centerCheck.checked) {
+                urlParams.set('center', '0');
+            }
+
+            const qs = urlParams.toString();
+            const fullUrl = `${origin}/overlays/matchup.html${qs ? `?${qs}` : ''}`;
+            if ($('url-matchup-overlay')) $('url-matchup-overlay').value = fullUrl;
+            if ($('btn-open-matchup-overlay')) $('btn-open-matchup-overlay').href = fullUrl;
+
+            // Live preview iframe update
+            const previewIframe = $('matchup-preview-iframe');
+            if (previewIframe) {
+                const previewParams = new URLSearchParams(urlParams);
+                previewParams.set('preview', '1');
+                const targetSrc = `/overlays/matchup.html?${previewParams.toString()}`;
+                if (previewIframe.getAttribute('src') !== targetSrc) {
+                    previewIframe.src = targetSrc;
+                }
+            }
+        }
+
+        function updatePreview() {
+            updatePollOverlayUrl();
+            updateTourneyOverlayUrl();
+            updateMatchupOverlayUrl();
+        }
+
+        function copyUrl(inputId, btn) {
+            const input = $(inputId);
+            navigator.clipboard.writeText(input.value).then(() => {
+                const prev = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => { btn.textContent = prev; }, 1500);
+            });
+        }
+
+        // Tab Switching
+        function switchTab(tab) {
+            activeTab = tab;
+            $('tab-btn-poll').classList.toggle('active', tab === 'poll');
+            $('tab-btn-tourney').classList.toggle('active', tab === 'tourney');
+            $('tab-btn-matchup').classList.toggle('active', tab === 'matchup');
+            $('tab-btn-templates').classList.toggle('active', tab === 'templates');
+
+            $('panel-poll').style.display = tab === 'poll' ? 'block' : 'none';
+            $('panel-tourney').style.display = tab === 'tourney' ? 'block' : 'none';
+            $('panel-matchup').style.display = tab === 'matchup' ? 'block' : 'none';
+            $('panel-templates').style.display = tab === 'templates' ? 'block' : 'none';
+
+            if (tab === 'tourney') setPreviewMode('tourney');
+            else if (tab === 'matchup') setPreviewMode('matchup');
+            else if (tab === 'poll') setPreviewMode('poll');
+        }
+
+        function setPreviewMode(mode) {
+            previewMode = mode;
+            $('btn-preview-poll').classList.toggle('btn-primary', mode === 'poll');
+            $('btn-preview-poll').classList.toggle('btn-secondary', mode !== 'poll');
+            $('btn-preview-tourney').classList.toggle('btn-primary', mode === 'tourney');
+            $('btn-preview-tourney').classList.toggle('btn-secondary', mode !== 'tourney');
+            $('btn-preview-matchup').classList.toggle('btn-primary', mode === 'matchup');
+            $('btn-preview-matchup').classList.toggle('btn-secondary', mode !== 'matchup');
+
+            $('poll-preview-box').style.display = mode === 'poll' ? 'flex' : 'none';
+            $('tourney-preview-box').style.display = mode === 'tourney' ? 'block' : 'none';
+            $('matchup-preview-box').style.display = mode === 'matchup' ? 'block' : 'none';
+        }
+
+        // Choices management (Up to 10 choices)
+        function addChoiceField(initialValue = '') {
+            if (choiceCount >= maxChoices) return;
+            choiceCount++;
+            const container = $('choices-container');
+            const row = document.createElement('div');
+            row.className = 'choice-row';
+            row.dataset.id = String(choiceCount);
+            row.innerHTML = `
+                <span class="choice-num">${choiceCount}</span>
+                <input type="text" class="form-control choice-input" placeholder="Option ${choiceCount}" value="${esc(initialValue)}" required autocomplete="off">
+                ${choiceCount > 2 ? `
+                    <button type="button" class="choice-del-btn" onclick="removeChoiceField(this)" title="Remove option">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                ` : '<div style="width: 26px;"></div>'}
+            `;
+            container.appendChild(row);
+            updateAddButtonState();
+            row.querySelector('.choice-input').addEventListener('input', updatePreview);
+            updatePreview();
+        }
+
+        function removeChoiceField(btn) {
+            if (choiceCount <= 2) return;
+            const row = btn.closest('.choice-row');
+            row.remove();
+            choiceCount--;
+            reindexChoices();
+            updateAddButtonState();
+            updatePreview();
+        }
+
+        function reindexChoices() {
+            const rows = $('choices-container').querySelectorAll('.choice-row');
+            choiceCount = rows.length;
+            rows.forEach((r, idx) => {
+                const num = idx + 1;
+                r.dataset.id = String(num);
+                r.querySelector('.choice-num').textContent = num;
+                r.querySelector('.choice-input').placeholder = `Option ${num}`;
+            });
+        }
+
+        function updateAddButtonState() {
+            const btn = $('btn-add-choice');
+            if (!btn) return;
+            btn.disabled = choiceCount >= maxChoices;
+            btn.style.opacity = choiceCount >= maxChoices ? '0.5' : '1';
+        }
+
+        // Duration Chips
+        const chips = document.querySelectorAll('#duration-chips .chip-btn');
+        chips.forEach(btn => {
+            btn.addEventListener('click', () => {
+                chips.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedDuration = parseInt(btn.dataset.dur, 10);
+                updatePreview();
+            });
+        });
+
+        // Pull from Game Plan
+        async function pullFromGamePlan() {
+            try {
+                const res = await fetch('/api/game-plan');
+                const plan = await res.json();
+                const tonight = (plan.items || []).filter(i => i.list === 'tonight' || i.period === '@today');
+                const pool = tonight.length >= 2 ? tonight : (plan.items || []);
+
+                if (pool.length < 2) {
+                    toast('Need at least 2 games in Game Plan to pull from!');
+                    return;
+                }
+
+                $('poll-question').value = 'Which game should we play next?';
+                $('choices-container').innerHTML = '';
+                choiceCount = 0;
+                pool.slice(0, 4).forEach(item => {
+                    addChoiceField(item.title);
+                });
+                toast(`Loaded ${Math.min(4, pool.length)} games from Game Plan!`);
+            } catch (err) {
+                toast('Could not fetch Game Plan data.');
+            }
+        }
+
+        // Pull from Active Chatters
+        async function pullFromChatters() {
+            try {
+                const res = await fetch('/api/stats');
+                const stats = await res.json();
+                const chatters = (stats.chatters || []).map(c => c.name || c.user || c.chatname).filter(Boolean);
+                if (chatters.length < 2) {
+                    toast('Need at least 2 active chatters to populate poll!');
+                    return;
+                }
+                $('poll-question').value = 'Who is your champion tonight?';
+                $('choices-container').innerHTML = '';
+                choiceCount = 0;
+                chatters.slice(0, 4).forEach(name => {
+                    addChoiceField(name);
+                });
+                toast(`Loaded ${Math.min(4, chatters.length)} active chatters!`);
+            } catch (err) {
+                toast('Could not load chatter list.');
+            }
+        }
+
+        // Live Poll Monitor Renderer
+        function renderActivePollMonitor(poll) {
+            const card = $('active-poll-card');
+            if (!poll || poll.status !== 'ACTIVE') {
+                card.style.display = 'none';
+                return;
+            }
+            card.style.display = 'block';
+            $('active-poll-title').textContent = poll.title;
+
+            const timerBadge = $('active-timer-badge');
+            if (poll.duration > 0) {
+                const rem = Math.max(0, Number(poll.remainingSeconds) || 0);
+                timerBadge.textContent = `${Math.floor(rem / 60)}:${String(rem % 60).padStart(2, '0')}`;
+                timerBadge.style.color = rem <= 10 ? 'var(--danger, #ef4444)' : 'var(--accent)';
+            } else {
+                timerBadge.textContent = 'OPEN / MANUAL';
+                timerBadge.style.color = 'var(--accent)';
+            }
+
+            $('active-total-votes').textContent = `${poll.totalVotes || 0} total vote${poll.totalVotes !== 1 ? 's' : ''}`;
+            const tags = [];
+            if (poll.blind) tags.push('Blind');
+            if (poll.settings?.keywordVoting) tags.push('Keywords');
+            if (poll.settings?.subMultiplier > 1) tags.push(`Subs ${poll.settings.subMultiplier}×`);
+            $('active-features-tag').textContent = tags.join(' · ');
+
+            const list = $('active-choices-list');
+            list.innerHTML = (poll.choices || []).map((c, i) => {
+                const pct = Math.round(c.percent || 0);
+                const isWinner = poll.winner && poll.winner === c.title;
+                return `
+                    <div class="live-choice-bar${isWinner ? ' winner' : ''}">
+                        <div class="live-choice-header">
+                            <span><b>${i + 1}.</b> ${esc(c.title)}</span>
+                            <span>${poll.blind ? '??' : `${c.votes} (${pct}%)`}</span>
+                        </div>
+                        <div class="live-choice-track">
+                            <div class="live-choice-fill" style="width: ${poll.blind ? '0%' : pct + '%'};"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Preview box renderer
+        function updatePreview() {
+            const box = $('poll-preview-box');
+            if (!box) return;
+
+            if (activePollData && activePollData.status === 'ACTIVE') {
+                window.PollWidget.render(box, { poll: { previewMode: 'live' } }, activePollData);
+                return;
+            }
+
+            const q = $('poll-question').value.trim() || 'Which game should we play next?';
+            const inputs = $('choices-container').querySelectorAll('.choice-input');
+            const choices = [];
+            inputs.forEach((inp, idx) => {
+                choices.push({ id: String(idx + 1), title: inp.value.trim() || `Option ${idx + 1}`, votes: idx === 0 ? 12 : 6, percent: idx === 0 ? 67 : 33 });
+            });
+
+            const previewPoll = {
+                id: 'preview',
+                title: q,
+                status: 'ACTIVE',
+                duration: selectedDuration,
+                startedAt: new Date().toISOString(),
+                remainingSeconds: selectedDuration,
+                totalVotes: 18,
+                blind: $('poll-blind').checked,
+                choices
+            };
+
+            window.PollWidget.render(box, { poll: { previewMode: 'live' } }, previewPoll, { preview: true });
+        }
+
+        // Launch Poll
+        async function launchPoll() {
+            const title = $('poll-question').value.trim();
+            const inputs = $('choices-container').querySelectorAll('.choice-input');
+            const choices = [...inputs].map(inp => inp.value.trim()).filter(Boolean);
+
+            if (!title) { toast('Please enter a poll question.'); return; }
+            if (choices.length < 2) { toast('Please enter at least 2 choices.'); return; }
+
+            const payload = {
+                title,
+                choices,
+                duration: selectedDuration,
+                blind: $('poll-blind').checked,
+                keywordVoting: $('poll-keywords').checked,
+                subMultiplier: $('poll-sub-multiplier').checked ? 2 : 1,
+                celebration: {
+                    sound: $('celebration-sound').value,
+                    volume: Number($('celebration-volume').value) || 75,
+                    confetti: $('celebration-confetti').checked
+                }
+            };
+
+            try {
+                const res = await fetch('/api/polls/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    activePollData = data.poll;
+                    renderActivePollMonitor(activePollData);
+                    updatePreview();
+                    toast('Live poll started!');
+                } else {
+                    toast(data.error || 'Failed to start poll');
+                }
+            } catch (err) {
+                toast('Server error starting poll.');
+            }
+        }
+
+        async function endActivePoll() {
+            try {
+                const res = await fetch('/api/polls/end', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    toast('Poll concluded and winner crowned!');
+                    activePollData = null;
+                    renderActivePollMonitor(null);
+                    loadHistory();
+                    loadTournament();
+                }
+            } catch (err) {
+                toast('Failed to conclude poll.');
+            }
+        }
+
+        async function extendActivePoll(seconds = 30) {
+            try {
+                const res = await fetch('/api/polls/extend', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ seconds })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    activePollData = data.poll;
+                    renderActivePollMonitor(activePollData);
+                    toast(`Extended poll by +${seconds}s!`);
+                }
+            } catch (err) {
+                toast('Failed to extend poll.');
+            }
+        }
+
+        async function cancelActivePoll() {
+            if (!confirm('Are you sure you want to stop and cancel this poll?')) return;
+            try {
+                const res = await fetch('/api/polls/cancel', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    toast('Poll cancelled.');
+                    activePollData = null;
+                    renderActivePollMonitor(null);
+                    updatePreview();
+                    loadTournament();
+                }
+            } catch (err) {
+                toast('Failed to cancel poll.');
+            }
+        }
+
+        // Templates Management
+        async function loadPresets() {
+            try {
+                const res = await fetch('/api/polls/presets');
+                const data = await res.json();
+                savedPresetsList = data.presets || [];
+
+                // Populate select
+                const sel = $('preset-select');
+                sel.innerHTML = '<option value="">-- Load a saved poll template --</option>' +
+                    savedPresetsList.map(p => `<option value="${p.id}">${esc(p.title)} (${p.choices.length} options)</option>`).join('');
+
+                // Populate templates list in tab 3
+                const list = $('templates-list');
+                if (list) {
+                    if (savedPresetsList.length === 0) {
+                        list.innerHTML = '<div style="color: var(--text-muted); font-size: 0.8rem;">No saved templates yet.</div>';
+                    } else {
+                        list.innerHTML = savedPresetsList.map(p => `
+                            <div class="history-item">
+                                <div>
+                                    <div class="history-title">${esc(p.title)}</div>
+                                    <div class="history-meta">${p.choices.length} choices · ${p.duration > 0 ? p.duration + 's' : 'Manual'} ${p.blind ? '· Blind' : ''}</div>
+                                </div>
+                                <div style="display: flex; gap: 0.35rem;">
+                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.5rem;" onclick="applyPresetById('${p.id}')">Load</button>
+                                    <button type="button" class="btn-danger" style="font-size: 0.72rem; padding: 0.2rem 0.45rem;" onclick="deletePresetById('${p.id}')">Delete</button>
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+                }
+            } catch (err) {
+                console.warn('Error loading presets:', err);
+            }
+        }
+
+        function loadSelectedPreset(id) {
+            if (!id) return;
+            applyPresetById(id);
+        }
+
+        function applyPresetById(id) {
+            const p = savedPresetsList.find(x => x.id === id);
+            if (!p) return;
+            $('poll-question').value = p.title;
+            $('choices-container').innerHTML = '';
+            choiceCount = 0;
+            p.choices.forEach(c => addChoiceField(c));
+
+            $('poll-blind').checked = !!p.blind;
+            $('poll-keywords').checked = p.keywordVoting !== false;
+            $('poll-sub-multiplier').checked = p.subMultiplier > 1;
+
+            chips.forEach(b => {
+                b.classList.toggle('active', parseInt(b.dataset.dur, 10) === p.duration);
+            });
+            selectedDuration = p.duration;
+
+            switchTab('poll');
+            updatePreview();
+            toast(`Loaded template: "${p.title}"`);
+        }
+
+        async function saveCurrentAsTemplate() {
+            const title = $('poll-question').value.trim();
+            const inputs = $('choices-container').querySelectorAll('.choice-input');
+            const choices = [...inputs].map(inp => inp.value.trim()).filter(Boolean);
+
+            if (!title) { toast('Please enter a poll title.'); return; }
+            if (choices.length < 2) { toast('Please enter at least 2 choices.'); return; }
+
+            const payload = {
+                title,
+                choices,
+                duration: selectedDuration,
+                blind: $('poll-blind').checked,
+                keywordVoting: $('poll-keywords').checked,
+                subMultiplier: $('poll-sub-multiplier').checked ? 2 : 1
+            };
+
+            try {
+                const res = await fetch('/api/polls/presets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    toast('Template saved!');
+                    loadPresets();
+                }
+            } catch {
+                toast('Failed to save template.');
+            }
+        }
+
+        async function deletePresetById(id) {
+            if (!confirm('Delete this template?')) return;
+            try {
+                await fetch(`/api/polls/presets/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                toast('Template deleted.');
+                loadPresets();
+            } catch {
+                toast('Failed to delete template.');
+            }
+        }
+
+        // --- Tournament Studio Actions ---
+        let currentCreateTourneyMode = 'vote';
+
+        function setCreateTourneyMode(mode) {
+            currentCreateTourneyMode = mode;
+            $('btn-mode-vote').classList.toggle('active', mode === 'vote');
+            $('btn-mode-manual').classList.toggle('active', mode === 'manual');
+            $('group-vote-settings').style.display = mode === 'vote' ? 'block' : 'none';
+            $('group-manual-settings').style.display = mode === 'manual' ? 'block' : 'none';
+        }
+
+        function updateEntrantsCalc() {
+            const text = $('tourney-entrants').value.trim();
+            const entrants = text ? text.split('\n').map(s => s.trim()).filter(Boolean) : [];
+            const count = entrants.length;
+            const pill = $('tourney-entrants-pill');
+            if (!pill) return;
+            if (count < 2) {
+                pill.textContent = `${count} seed${count === 1 ? '' : 's'} (min 2)`;
+                pill.style.color = 'var(--text-muted)';
+                return;
+            }
+            const format = $('tourney-format')?.value;
+            if (format === 'roundRobin') {
+                const totalMatches = (count * (count - 1)) / 2;
+                pill.textContent = `${count} entrants · Round Robin (${totalMatches} matches)`;
+                pill.style.color = 'var(--accent)';
+                return;
+            }
+            let bracketSize = 2;
+            while (bracketSize < count && bracketSize < 32) {
+                bracketSize *= 2;
+            }
+            const byes = bracketSize - count;
+            pill.textContent = byes > 0
+                ? `${count} entrants · ${bracketSize}-bracket (${byes} BYE${byes === 1 ? '' : 's'})`
+                : `${count} entrants · ${bracketSize}-bracket (Full)`;
+            pill.style.color = 'var(--accent)';
+        }
+
+        function fillSampleEntrants(count = 8) {
+            const samples = [
+                'Chrono Trigger', 'Final Fantasy VI', 'EarthBound', 'Secret of Mana',
+                'Super Mario RPG', 'Lufia II', 'Breath of Fire II', 'Dragon Quest V',
+                'Golden Sun', 'Xenogears', 'Suikoden II', 'Grandia',
+                'Star Ocean', 'Wild Arms', 'Valkyrie Profile', 'Phantasy Star IV'
+            ];
+            $('tourney-entrants').value = samples.slice(0, count).join('\n');
+            if (!$('tourney-title').value.trim()) {
+                $('tourney-title').value = `Retro RPG Championship (${count} Seeds)`;
+            }
+            updateEntrantsCalc();
+        }
+
+        async function pullTourneyFromGamePlan() {
+            try {
+                const res = await fetch('/api/game-plan');
+                const plan = await res.json();
+                const games = (plan.items || []).map(i => i.title).filter(Boolean);
+                if (games.length < 2) {
+                    toast('Need at least 2 games in Game Plan for a tournament!');
+                    return;
+                }
+                const count = Math.min(games.length, 32);
+                $('tourney-entrants').value = games.slice(0, count).join('\n');
+                $('tourney-title').value = `Game Plan Tournament (${count} Games)`;
+                updateEntrantsCalc();
+                toast(`Loaded ${count} games from Game Plan!`);
+            } catch {
+                toast('Could not fetch Game Plan data.');
+            }
+        }
+
+        async function launchTournament() {
+            const title = $('tourney-title').value.trim();
+            const format = $('tourney-format').value;
+            const text = $('tourney-entrants').value.trim();
+            const entrants = text.split('\n').map(s => s.trim()).filter(Boolean);
+
+            if (!title) { toast('Please enter a tournament title.'); return; }
+            if (entrants.length < 2) { toast('Please enter at least 2 participants.'); return; }
+
+            const isManual = currentCreateTourneyMode === 'manual';
+            const payload = {
+                title,
+                format,
+                entrants,
+                progressionMode: currentCreateTourneyMode,
+                scoringType: isManual ? 'bestOf' : 'points',
+                bestOf: isManual ? (parseInt($('tourney-bestof').value, 10) || 0) : 0,
+                matchDuration: !isManual ? (parseInt($('tourney-duration').value, 10) || 60) : 0,
+                blind: !isManual ? $('tourney-blind').checked : false
+            };
+
+            try {
+                const res = await fetch('/api/tournament/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    activeTourneyData = data.tournament;
+                    renderTournamentStudio(activeTourneyData);
+                    setPreviewMode('tourney');
+                    toast('Tournament bracket launched!');
+                } else {
+                    toast(data.error || 'Failed to create tournament');
+                }
+            } catch {
+                toast('Server error creating tournament.');
+            }
+        }
+
+        function getCurrentMatch() {
+            if (!activeTourneyData) return null;
+            const matches = activeTourneyData.matches || [];
+            return matches.find(m => m.id === activeTourneyData.activeMatchId && !m.isBye) ||
+                   matches.find(m => m.status === 'ACTIVE' && !m.isBye) ||
+                   matches.find(m => m.status === 'PENDING' && !m.isBye && m.entrant1?.name && m.entrant2?.name && m.entrant1.name !== 'TBD' && m.entrant2.name !== 'TBD' && m.entrant1.name !== 'BYE' && m.entrant2.name !== 'BYE') ||
+                   matches.find(m => !m.isBye) ||
+                   matches[0];
+        }
+
+        function renderTournamentStudio(t) {
+            const card = $('active-tournament-card');
+            const createCard = $('create-tournament-card');
+
+            if (!t) {
+                card.style.display = 'none';
+                createCard.style.display = 'block';
+                return;
+            }
+
+            card.style.display = 'block';
+            createCard.style.display = 'none';
+            $('tourney-card-title').textContent = t.title;
+            $('tourney-mode-badge').textContent = t.progressionMode === 'manual' ? 'Manual Scored' : 'Chat Vote';
+            $('tourney-format-badge').textContent = t.format === 'double' ? 'Double Elim' : 'Single Elim';
+
+            const matches = t.matches || [];
+            const currentMatch = getCurrentMatch();
+            const isManual = t.progressionMode === 'manual';
+
+            const e1Stepper = $('e1-stepper');
+            const e2Stepper = $('e2-stepper');
+            const detailsInput = $('match-details-input');
+            const btnStart = $('btn-start-match');
+            const btnAdv1 = $('btn-advance-e1');
+            const btnAdv2 = $('btn-advance-e2');
+            const btnReset = $('btn-reset-match');
+
+            if (currentMatch && t.status !== 'COMPLETED') {
+                $('current-match-round').textContent = currentMatch.roundName;
+
+                if (isManual) {
+                    if (t.bestOf > 0) {
+                        const target = t.targetScore || Math.ceil(t.bestOf / 2);
+                        $('current-match-series').textContent = `Best of ${t.bestOf} (First to ${target} wins)`;
+                    } else {
+                        $('current-match-series').textContent = 'Free Points';
+                    }
+                } else {
+                    $('current-match-series').textContent = 'Chat Vote Match';
+                }
+
+                if (currentMatch.status === 'COMPLETED') {
+                    $('current-match-status').textContent = `Winner: ${currentMatch.winner || 'TBD'}`;
+                    $('current-match-status').style.color = '#3fb950';
+                } else if (currentMatch.status === 'ACTIVE') {
+                    $('current-match-status').textContent = isManual ? 'Scoring In Progress' : 'Voting Live';
+                    $('current-match-status').style.color = '#3fb950';
+                } else {
+                    $('current-match-status').textContent = 'Ready';
+                    $('current-match-status').style.color = 'var(--accent)';
+                }
+
+                $('entrant1-name').textContent = currentMatch.entrant1?.name || 'TBD';
+                $('entrant2-name').textContent = currentMatch.entrant2?.name || 'TBD';
+
+                if (isManual) {
+                    if (e1Stepper) e1Stepper.style.display = 'flex';
+                    if (e2Stepper) e2Stepper.style.display = 'flex';
+                    $('e1-score-input').value = currentMatch.entrant1?.score ?? (currentMatch.scores ? currentMatch.scores[0] : 0);
+                    $('e2-score-input').value = currentMatch.entrant2?.score ?? (currentMatch.scores ? currentMatch.scores[1] : 0);
+
+                    const target = t.targetScore || (t.bestOf ? Math.ceil(t.bestOf / 2) : 0);
+                    if (target > 0) {
+                        const s1 = currentMatch.entrant1?.score || 0;
+                        const s2 = currentMatch.entrant2?.score || 0;
+                        const pips1 = Array.from({ length: target }, (_, i) => i < s1 ? '●' : '○').join(' ');
+                        const pips2 = Array.from({ length: target }, (_, i) => i < s2 ? '●' : '○').join(' ');
+                        $('entrant1-votes').textContent = `${pips1} (${s1} of ${target} wins)`;
+                        $('entrant2-votes').textContent = `${pips2} (${s2} of ${target} wins)`;
+                    } else {
+                        $('entrant1-votes').textContent = `${currentMatch.entrant1?.score || 0} pts`;
+                        $('entrant2-votes').textContent = `${currentMatch.entrant2?.score || 0} pts`;
+                    }
+
+                    if (detailsInput) detailsInput.value = currentMatch.matchDetails || '';
+                    if (btnStart) btnStart.style.display = 'none';
+                    if (btnAdv1) {
+                        btnAdv1.style.display = 'inline-block';
+                        btnAdv1.textContent = `Advance ${currentMatch.entrant1?.name ? currentMatch.entrant1.name.slice(0, 12) : '#1'}`;
+                    }
+                    if (btnAdv2) {
+                        btnAdv2.style.display = 'inline-block';
+                        btnAdv2.textContent = `Advance ${currentMatch.entrant2?.name ? currentMatch.entrant2.name.slice(0, 12) : '#2'}`;
+                    }
+                    if (btnReset) btnReset.style.display = 'inline-block';
+                } else {
+                    if (e1Stepper) e1Stepper.style.display = 'none';
+                    if (e2Stepper) e2Stepper.style.display = 'none';
+                    $('entrant1-votes').textContent = `${currentMatch.entrant1?.votes || 0} votes (${currentMatch.entrant1?.percent || 0}%)`;
+                    $('entrant2-votes').textContent = `${currentMatch.entrant2?.votes || 0} votes (${currentMatch.entrant2?.percent || 0}%)`;
+
+                    if (btnStart) {
+                        btnStart.style.display = 'inline-block';
+                        if (currentMatch.status === 'ACTIVE') {
+                            btnStart.textContent = 'Crown Winner & Advance';
+                        } else {
+                            btnStart.textContent = 'Start Match Vote';
+                        }
+                    }
+                    if (btnAdv1) {
+                        btnAdv1.style.display = 'inline-block';
+                        btnAdv1.textContent = `Advance ${currentMatch.entrant1?.name ? currentMatch.entrant1.name.slice(0, 12) : '#1'}`;
+                    }
+                    if (btnAdv2) {
+                        btnAdv2.style.display = 'inline-block';
+                        btnAdv2.textContent = `Advance ${currentMatch.entrant2?.name ? currentMatch.entrant2.name.slice(0, 12) : '#2'}`;
+                    }
+                    if (btnReset) btnReset.style.display = 'inline-block';
+                }
+            } else if (t.status === 'COMPLETED') {
+                $('current-match-round').textContent = 'Tournament Finished!';
+                $('current-match-series').textContent = '';
+                $('current-match-status').textContent = 'Champion Crowned';
+                $('current-match-status').style.color = '#3fb950';
+                $('entrant1-name').textContent = t.champion || 'Champion';
+                $('entrant1-votes').textContent = 'Grand Champion';
+                $('entrant2-name').textContent = 'Concluded';
+                $('entrant2-votes').textContent = 'All matches finished';
+                if (e1Stepper) e1Stepper.style.display = 'none';
+                if (e2Stepper) e2Stepper.style.display = 'none';
+                if (btnStart) btnStart.style.display = 'none';
+                if (btnAdv1) btnAdv1.style.display = 'none';
+                if (btnAdv2) btnAdv2.style.display = 'none';
+                if (btnReset) btnReset.style.display = 'none';
+            }
+
+            // Render mini bracket tree view in studio
+            const treeView = $('bracket-studio-view');
+            treeView.innerHTML = matches.map(m => {
+                if (m.isBye) {
+                    const real = m.entrant1?.name !== 'BYE' ? m.entrant1 : m.entrant2;
+                    return `
+                        <div class="tournament-match-box completed" style="margin-bottom: 0.5rem; padding: 0.45rem 0.75rem; font-size: 0.8rem; opacity: 0.7; border-style: dashed;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                <span style="font-weight: 700; color: var(--text-muted); font-size: 0.72rem;">${esc(m.roundName)}</span>
+                                <span class="badge-studio" style="font-size: 0.65rem; background: rgba(88,166,255,0.15); color: var(--accent);">BYE</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="color: #3fb950; font-weight: 700;">${esc(real?.name || m.winner || 'Advanced')}</span>
+                                <span style="font-size: 0.72rem; color: var(--text-muted);">1st Round BYE</span>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const isAct = m.id === (currentMatch ? currentMatch.id : t.activeMatchId);
+                const isComp = m.status === 'COMPLETED';
+                const e1Score = m.entrant1?.score ?? (m.scores ? m.scores[0] : 0);
+                const e2Score = m.entrant2?.score ?? (m.scores ? m.scores[1] : 0);
+                const scoreBadge = isManual
+                    ? `<span class="badge-studio" style="font-size: 0.72rem; font-family: monospace;">${e1Score} - ${e2Score}</span>`
+                    : `<span style="font-size: 0.72rem; color: ${isAct ? 'var(--accent)' : (isComp ? '#3fb950' : 'var(--text-muted)')}; font-weight: 700;">${m.status}</span>`;
+
+                return `
+                    <div class="tournament-match-box clickable${isAct ? ' active' : ''}${isComp ? ' completed' : ''}" style="margin-bottom: 0.5rem; padding: 0.45rem 0.75rem; font-size: 0.8rem; cursor: pointer;" onclick="selectTournamentMatch('${m.id}')" title="Click to score or control match">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                            <span style="font-weight: 700; color: var(--text-muted); font-size: 0.72rem;">${esc(m.roundName)}${m.matchDetails ? ` · ${esc(m.matchDetails)}` : ''}</span>
+                            ${scoreBadge}
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="${m.winner === m.entrant1?.name ? 'color: #3fb950; font-weight: 700;' : ''}">${esc(m.entrant1?.name || 'TBD')}</span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted); padding: 0 0.4rem;">vs</span>
+                            <span style="${m.winner === m.entrant2?.name ? 'color: #3fb950; font-weight: 700;' : ''}">${esc(m.entrant2?.name || 'TBD')}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Progress text
+            const completedCount = matches.filter(m => m.status === 'COMPLETED').length;
+            $('tourney-progress-text').textContent = `${completedCount} of ${matches.length} matches completed`;
+        }
+
+        function stepScore(entrantIdx, delta) {
+            const input = entrantIdx === 1 ? $('e1-score-input') : $('e2-score-input');
+            if (!input) return;
+            let val = parseInt(input.value, 10) || 0;
+            val = Math.max(0, val + delta);
+            input.value = val;
+            applyManualScoreInput();
+        }
+
+        async function applyManualScoreInput() {
+            const m = getCurrentMatch();
+            if (!m) return;
+            const s1 = parseInt($('e1-score-input').value, 10) || 0;
+            const s2 = parseInt($('e2-score-input').value, 10) || 0;
+            const details = $('match-details-input').value.trim();
+            try {
+                const res = await fetch('/api/tournament/score', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ matchId: m.id, entrant1Score: s1, entrant2Score: s2, matchDetails: details })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    activeTourneyData = data.tournament;
+                    renderTournamentStudio(activeTourneyData);
+                    if (data.autoAdvanced) {
+                        toast(`Match complete! ${data.match.winner} advanced to next round.`);
+                    }
+                }
+            } catch {
+                toast('Error updating score.');
+            }
+        }
+
+        async function saveMatchDetails() {
+            const m = getCurrentMatch();
+            if (!m) return;
+            const details = $('match-details-input').value.trim();
+            try {
+                const res = await fetch('/api/tournament/score', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ matchId: m.id, matchDetails: details })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    activeTourneyData = data.tournament;
+                    renderTournamentStudio(activeTourneyData);
+                }
+            } catch {
+                toast('Error saving match details.');
+            }
+        }
+
+        async function selectTournamentMatch(matchId) {
+            try {
+                const res = await fetch('/api/tournament/select-match', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ matchId })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    activeTourneyData = data.tournament;
+                    renderTournamentStudio(activeTourneyData);
+                }
+            } catch {
+                toast('Failed to select match.');
+            }
+        }
+
+        async function resetCurrentMatch() {
+            const m = getCurrentMatch();
+            if (!m) return;
+            if (!confirm(`Reset scores and winner for ${m.roundName}?`)) return;
+            try {
+                const res = await fetch('/api/tournament/reset-match', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ matchId: m.id })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    activeTourneyData = data.tournament;
+                    renderTournamentStudio(activeTourneyData);
+                    toast('Match reset.');
+                }
+            } catch {
+                toast('Failed to reset match.');
+            }
+        }
+
+        function startCurrentTournamentMatch() {
+            const m = getCurrentMatch();
+            if (!m) return;
+            if (m.status === 'ACTIVE') {
+                endActivePoll();
+            } else {
+                startTournamentMatchById(m.id);
+            }
+        }
+
+        async function startTournamentMatchById(matchId) {
+            try {
+                const res = await fetch('/api/tournament/start-match', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ matchId })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    activePollData = data.poll;
+                    renderActivePollMonitor(activePollData);
+                    loadTournament();
+                    toast('Match vote started in chat!');
+                } else {
+                    toast(data.error || 'Failed to start match');
+                }
+            } catch {
+                toast('Server error starting match.');
+            }
+        }
+
+        async function advanceSpecificEntrant(slot) {
+            const m = getCurrentMatch();
+            if (!m) return;
+            const winner = slot === 1 ? m.entrant1?.name : m.entrant2?.name;
+            if (!winner || winner === 'TBD' || winner === 'BYE') return;
+
+            try {
+                const res = await fetch('/api/tournament/advance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ matchId: m.id, winner })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    activeTourneyData = data.tournament;
+                    renderTournamentStudio(activeTourneyData);
+                    toast(`Advanced ${winner}!`);
+                }
+            } catch {
+                toast('Failed to advance winner.');
+            }
+        }
+
+        async function resetCurrentTournament() {
+            if (!confirm('Are you sure you want to end and reset this tournament?')) return;
+            try {
+                await fetch('/api/tournament/reset', { method: 'POST' });
+                activeTourneyData = null;
+                renderTournamentStudio(null);
+                toast('Tournament reset.');
+            } catch {
+                toast('Failed to reset tournament.');
+            }
+        }
+
+        async function loadTournament() {
+            try {
+                const res = await fetch('/api/tournament');
+                const data = await res.json();
+                activeTourneyData = data.tournament;
+                renderTournamentStudio(activeTourneyData);
+            } catch (err) {
+                console.warn('Error loading tournament:', err);
+            }
+        }
+
+        // --- Matchup Scoreboard / Versus Studio Functions ---
+        async function loadMatchup() {
+            try {
+                const res = await fetch('/api/matchup');
+                if (res.ok) {
+                    const data = await res.json();
+                    activeMatchupData = data.matchup;
+                    renderMatchupStudio(activeMatchupData);
+                }
+            } catch (err) {
+                console.warn('Error loading matchup:', err);
+            }
+        }
+
+        function renderMatchupStudio(m) {
+            if (!m) return;
+            activeMatchupData = m;
+
+            if ($('matchup-title')) $('matchup-title').value = m.title || '';
+            if ($('matchup-phase')) $('matchup-phase').value = m.phase || '';
+            if ($('matchup-details')) $('matchup-details').value = m.details || '';
+            if ($('matchup-competitor-count')) $('matchup-competitor-count').value = String(m.competitorCount || 2);
+
+            // Format dropdown selection
+            const fmtSelect = $('matchup-format');
+            const targetRow = $('matchup-custom-target-row');
+            if (fmtSelect) {
+                if (m.format === 'points') {
+                    fmtSelect.value = 'points';
+                    if (targetRow) targetRow.style.display = 'none';
+                } else if (m.format === 'firstTo') {
+                    if (m.targetScore === 10) {
+                        fmtSelect.value = 'firstTo-10';
+                        if (targetRow) targetRow.style.display = 'none';
+                    } else {
+                        fmtSelect.value = 'firstTo-custom';
+                        if (targetRow) targetRow.style.display = 'block';
+                        $('matchup-target-input').value = m.targetScore || 5;
+                    }
+                } else {
+                    fmtSelect.value = `bestOf-${m.bestOf || 5}`;
+                    if (targetRow) targetRow.style.display = 'none';
+                }
+            }
+
+            // Render Competitors Grid
+            const grid = $('matchup-competitors-grid');
+            if (!grid) return;
+
+            const target = m.targetScore || (m.bestOf > 0 ? Math.ceil(m.bestOf / 2) : 0);
+            grid.style.gridTemplateColumns = m.competitors.length > 2 ? 'repeat(2, 1fr)' : '1fr 1fr';
+
+            grid.innerHTML = m.competitors.map((c, i) => {
+                const isWinner = m.status === 'COMPLETED' && m.winner === c.name;
+                const pips = target > 0 ? Array.from({ length: target }, (_, p) => p < c.score ? '●' : '○').join(' ') : '';
+
+                return `
+                    <div class="matchup-competitor-card${isWinner ? ' winner' : ''}">
+                        <div class="matchup-card-strip" style="background: ${c.color || '#fff'};"></div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">
+                                Player ${i + 1}${isWinner ? ' · WINNER' : ''}
+                            </span>
+                            <div style="display: flex; align-items: center; gap: 0.35rem;">
+                                <input type="color" value="${c.color || '#fff'}" style="width: 22px; height: 22px; border: none; cursor: pointer; border-radius: 4px;" onchange="updateCompetitorColor(${i}, this.value)" title="Change player color">
+                                <button type="button" class="btn-secondary" style="font-size: 0.68rem; padding: 0.15rem 0.45rem;" onclick="stepMatchupScore(${i}, 1)">+ Win</button>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;">
+                            <input type="text" class="form-control" style="font-size: 0.8rem; padding: 0.3rem 0.5rem;" value="${esc(c.name)}" placeholder="Player ${i + 1} Name" onchange="updateCompetitorName(${i}, this.value)">
+                            <input type="text" class="form-control" style="font-size: 0.8rem; padding: 0.3rem 0.5rem;" value="${esc(c.tag)}" placeholder="Character / Tag" onchange="updateCompetitorTag(${i}, this.value)">
+                        </div>
+
+                        <div class="matchup-score-hero">
+                            <div class="score-stepper">
+                                <button type="button" class="score-btn" onclick="stepMatchupScore(${i}, -1)">-</button>
+                                <input type="number" class="score-val-input" min="0" value="${c.score || 0}" onchange="setMatchupScoreDirect(${i}, this.value)">
+                                <button type="button" class="score-btn" onclick="stepMatchupScore(${i}, 1)">+</button>
+                            </div>
+                            <div style="text-align: right;">
+                                ${target > 0 ? `<div style="font-size: 0.85rem; letter-spacing: 0.15rem; color: ${c.color || '#fff'}; line-height: 1.1;">${pips}</div>` : ''}
+                                <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">
+                                    ${c.score || 0} ${target > 0 ? `/ ${target} wins` : 'pts'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Render Fight Card / Exhibition Queue
+            renderMatchupQueue(m.queue || [], m.activeQueueIndex ?? 0);
+        }
+
+        function renderMatchupQueue(queue, activeQueueIndex) {
+            const container = $('matchup-queue-container');
+            if (!container) return;
+
+            if (!queue || queue.length === 0) {
+                container.innerHTML = `
+                    <div style="padding: 1rem; text-align: center; color: var(--text-muted); background: var(--bg-inset); border-radius: 6px; font-size: 0.78rem;">
+                        No matches in the fight card queue. Add matches to easily step through an exhibition card or tournament schedule.
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = queue.map((item, idx) => {
+                const isActive = idx === activeQueueIndex;
+                const c1 = (item.competitors && item.competitors[0]) || { name: 'Player 1', score: 0 };
+                const c2 = (item.competitors && item.competitors[1]) || { name: 'Player 2', score: 0 };
+                const isCompleted = item.status === 'COMPLETED';
+
+                let statusBadge = '';
+                if (isActive) {
+                    statusBadge = '<span class="matchup-queue-status live">Live Now</span>';
+                } else if (isCompleted) {
+                    statusBadge = '<span class="matchup-queue-status completed">Done</span>';
+                } else {
+                    statusBadge = '<span class="matchup-queue-status upcoming">Queued</span>';
+                }
+
+                return `
+                    <div class="matchup-queue-item${isActive ? ' active' : ''}">
+                        <div class="matchup-queue-meta">
+                            <span class="matchup-queue-idx">#${idx + 1}</span>
+                            <div style="display: flex; flex-direction: column; min-width: 0;">
+                                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                    <span style="font-size: 0.75rem; font-weight: 700; color: ${isActive ? 'var(--accent)' : 'var(--text)'};">
+                                        ${esc(item.title || 'Exhibition Match')}
+                                    </span>
+                                    ${item.phase ? `<span style="font-size: 0.7rem; color: var(--text-muted);">· ${esc(item.phase)}</span>` : ''}
+                                    ${statusBadge}
+                                </div>
+                                <div class="matchup-queue-names">
+                                    <span>${esc(c1.name)}${c1.tag ? ` <span class="matchup-queue-tag">(${esc(c1.tag)})</span>` : ''}</span>
+                                    <span style="color: var(--text-muted); font-size: 0.75rem; font-weight: 800;">${c1.score ?? 0} — ${c2.score ?? 0}</span>
+                                    <span>${esc(c2.name)}${c2.tag ? ` <span class="matchup-queue-tag">(${esc(c2.tag)})</span>` : ''}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.35rem;">
+                            ${!isActive ? `
+                                <button type="button" class="btn-secondary" style="font-size: 0.68rem; padding: 0.15rem 0.45rem;" onclick="selectMatchupQueue('${item.id}')" title="Load this match to overlay">
+                                    Load
+                                </button>
+                            ` : ''}
+                            <button type="button" class="btn-secondary" style="font-size: 0.68rem; padding: 0.15rem 0.45rem; color: #ef4444;" onclick="deleteMatchupQueue('${item.id}')" title="Delete from fight card">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleAddMatchupQueueModal(show) {
+            const drawer = $('matchup-add-queue-drawer');
+            if (drawer) drawer.style.display = show ? 'block' : 'none';
+        }
+
+        async function submitAddMatchupQueue() {
+            const title = ($('queue-add-title')?.value || '').trim() || 'Exhibition Match';
+            const phase = ($('queue-add-phase')?.value || '').trim() || 'Match';
+            const p1Name = ($('queue-add-p1-name')?.value || '').trim() || 'Player 1';
+            const p1Tag = ($('queue-add-p1-tag')?.value || '').trim();
+            const p2Name = ($('queue-add-p2-name')?.value || '').trim() || 'Player 2';
+            const p2Tag = ($('queue-add-p2-tag')?.value || '').trim();
+            const loadImmediately = $('queue-add-load-now')?.checked || false;
+
+            const newMatch = {
+                title,
+                phase,
+                competitors: [
+                    { name: p1Name, tag: p1Tag, score: 0 },
+                    { name: p2Name, tag: p2Tag, score: 0 }
+                ]
+            };
+
+            try {
+                const res = await fetch('/api/matchup/queue', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ match: newMatch, loadImmediately })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    if ($('queue-add-title')) $('queue-add-title').value = '';
+                    if ($('queue-add-phase')) $('queue-add-phase').value = '';
+                    if ($('queue-add-p1-name')) $('queue-add-p1-name').value = '';
+                    if ($('queue-add-p1-tag')) $('queue-add-p1-tag').value = '';
+                    if ($('queue-add-p2-name')) $('queue-add-p2-name').value = '';
+                    if ($('queue-add-p2-tag')) $('queue-add-p2-tag').value = '';
+                    toggleAddMatchupQueueModal(false);
+                    if (data.matchup) renderMatchupStudio(data.matchup);
+                    toast('Match added to fight card!');
+                }
+            } catch {
+                toast('Error adding match to queue');
+            }
+        }
+
+        async function selectMatchupQueue(id) {
+            try {
+                const res = await fetch('/api/matchup/queue/select', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    if (data.matchup) renderMatchupStudio(data.matchup);
+                    toast('Loaded fight from queue');
+                }
+            } catch {
+                toast('Error selecting queue match');
+            }
+        }
+
+        async function stepMatchupQueue(direction) {
+            const endpoint = direction > 0 ? '/api/matchup/queue/next' : '/api/matchup/queue/prev';
+            try {
+                const res = await fetch(endpoint, { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    if (data.matchup) renderMatchupStudio(data.matchup);
+                    toast(direction > 0 ? 'Advanced to next match' : 'Returned to previous match');
+                }
+            } catch {
+                toast('Error stepping queue');
+            }
+        }
+
+        async function deleteMatchupQueue(id) {
+            try {
+                const res = await fetch(`/api/matchup/queue/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    loadMatchup();
+                    toast('Match removed from queue');
+                }
+            } catch {
+                toast('Error deleting match');
+            }
+        }
+
+        async function stepMatchupScore(index, delta) {
+            try {
+                const res = await fetch('/api/matchup/score', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ index, delta })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    renderMatchupStudio(data.matchup);
+                    if (data.matchup.status === 'COMPLETED' && data.matchup.winner) {
+                        toast(`Set won by ${data.matchup.winner}!`);
+                    }
+                }
+            } catch {
+                toast('Error updating score');
+            }
+        }
+
+        async function setMatchupScoreDirect(index, scoreVal) {
+            const score = Math.max(0, parseInt(scoreVal, 10) || 0);
+            try {
+                const res = await fetch('/api/matchup/score', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ index, score })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    renderMatchupStudio(data.matchup);
+                }
+            } catch {
+                toast('Error setting score');
+            }
+        }
+
+        async function updateCompetitorName(index, name) {
+            if (!activeMatchupData || !activeMatchupData.competitors[index]) return;
+            activeMatchupData.competitors[index].name = name.trim();
+            saveMatchupSettings();
+        }
+
+        async function updateCompetitorTag(index, tag) {
+            if (!activeMatchupData || !activeMatchupData.competitors[index]) return;
+            activeMatchupData.competitors[index].tag = tag.trim();
+            saveMatchupSettings();
+        }
+
+        async function updateCompetitorColor(index, color) {
+            if (!activeMatchupData || !activeMatchupData.competitors[index]) return;
+            activeMatchupData.competitors[index].color = color;
+            saveMatchupSettings();
+        }
+
+        async function changeMatchupCompetitorCount(countVal) {
+            const count = parseInt(countVal, 10) || 2;
+            try {
+                const res = await fetch('/api/matchup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ competitorCount: count })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    renderMatchupStudio(data.matchup);
+                    toast(`Updated to ${count} competitors`);
+                }
+            } catch {
+                toast('Error updating competitor count');
+            }
+        }
+
+        async function changeMatchupFormat(fmtVal) {
+            const targetRow = $('matchup-custom-target-row');
+            let format = 'bestOf';
+            let bestOf = 5;
+            let targetScore = 3;
+
+            if (fmtVal === 'points') {
+                format = 'points';
+                bestOf = 0;
+                targetScore = 0;
+                if (targetRow) targetRow.style.display = 'none';
+            } else if (fmtVal.startsWith('bestOf-')) {
+                format = 'bestOf';
+                bestOf = parseInt(fmtVal.replace('bestOf-', ''), 10) || 5;
+                targetScore = Math.ceil(bestOf / 2);
+                if (targetRow) targetRow.style.display = 'none';
+            } else if (fmtVal === 'firstTo-10') {
+                format = 'firstTo';
+                targetScore = 10;
+                bestOf = 0;
+                if (targetRow) targetRow.style.display = 'none';
+            } else if (fmtVal === 'firstTo-custom') {
+                format = 'firstTo';
+                targetScore = parseInt($('matchup-target-input').value, 10) || 5;
+                bestOf = 0;
+                if (targetRow) targetRow.style.display = 'block';
+            }
+
+            try {
+                const res = await fetch('/api/matchup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ format, bestOf, targetScore })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    renderMatchupStudio(data.matchup);
+                }
+            } catch {
+                toast('Error updating format');
+            }
+        }
+
+        async function saveMatchupSettings() {
+            if (!activeMatchupData) return;
+            const payload = {
+                title: $('matchup-title').value.trim(),
+                phase: $('matchup-phase').value.trim(),
+                details: $('matchup-details').value.trim(),
+                competitors: activeMatchupData.competitors
+            };
+            const fmtVal = $('matchup-format').value;
+            if (fmtVal === 'firstTo-custom') {
+                payload.targetScore = parseInt($('matchup-target-input').value, 10) || 5;
+            }
+
+            try {
+                const res = await fetch('/api/matchup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    renderMatchupStudio(data.matchup);
+                }
+            } catch {
+                toast('Error saving matchup');
+            }
+        }
+
+        async function swapMatchupSides() {
+            try {
+                const res = await fetch('/api/matchup/swap', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    renderMatchupStudio(data.matchup);
+                    toast('Swapped P1 ⇄ P2');
+                }
+            } catch {
+                toast('Error swapping sides');
+            }
+        }
+
+        async function resetMatchupScores() {
+            if (!confirm('Reset all scores back to 0-0?')) return;
+            try {
+                const res = await fetch('/api/matchup/reset-scores', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    renderMatchupStudio(data.matchup);
+                    toast('Scores reset to 0-0');
+                }
+            } catch {
+                toast('Error resetting scores');
+            }
+        }
+
+        // History
+        async function loadHistory() {
+            try {
+                const res = await fetch('/api/polls/history');
+                const data = await res.json();
+                const list = $('poll-history-list');
+                const items = data.history || [];
+
+                if (!items.length) {
+                    list.innerHTML = '<div style="color:var(--text-muted); font-size:0.8rem; text-align:center; padding:1.5rem 0;">No completed polls yet.</div>';
+                    return;
+                }
+
+                list.innerHTML = items.map(p => `
+                    <div class="history-item">
+                        <div>
+                            <div class="history-title">${esc(p.title)}</div>
+                            <div class="history-meta">${p.totalVotes} total votes · ${p.choices?.length || 0} choices</div>
+                        </div>
+                        <div style="text-align: right; display: flex; align-items: center; gap: 0.5rem;">
+                            ${p.winner ? `<span class="badge-pill badge-winner">${esc(p.winner)}</span>` : '<span class="badge-pill" style="background:var(--bg-inset); color:var(--text-muted);">Tie / None</span>'}
+                            <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.5rem;" onclick="rerunPoll(${esc(JSON.stringify(p))})">Re-run</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.warn('Error loading history:', err);
+            }
+        }
+
+        function rerunPoll(poll) {
+            $('poll-question').value = poll.title;
+            $('choices-container').innerHTML = '';
+            choiceCount = 0;
+            (poll.choices || []).forEach(c => addChoiceField(c.title));
+            switchTab('poll');
+            updatePreview();
+            toast('Loaded past poll into form!');
+        }
+
+        async function clearPollHistory() {
+            if (!confirm('Clear all poll history?')) return;
+            try {
+                await fetch('/api/polls/history', { method: 'DELETE' });
+                loadHistory();
+                toast('Poll history cleared.');
+            } catch (err) {
+                toast('Failed to clear history.');
+            }
+        }
+
+        // WebSocket for Live Push
+        function connectWs() {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            pollSocket = new WebSocket(`${proto}//${location.host}/ws`);
+
+            pollSocket.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.type === 'poll-update') {
+                        activePollData = msg.data;
+                        renderActivePollMonitor(activePollData);
+                        updatePreview();
+                        if (msg.data && msg.data.tournamentMatchId) {
+                            loadTournament();
+                        }
+                    } else if (msg.type === 'tournament-update') {
+                        activeTourneyData = msg.data;
+                        renderTournamentStudio(activeTourneyData);
+                    } else if (msg.type === 'matchup-update') {
+                        activeMatchupData = msg.data;
+                        renderMatchupStudio(activeMatchupData);
+                    }
+                } catch { /* ignore parse error */ }
+            };
+
+            pollSocket.onclose = () => setTimeout(connectWs, 2000);
+        }
+
+        // Init page
+        (async () => {
+            addChoiceField('Zelda: Tears of the Kingdom');
+            addChoiceField('Elden Ring');
+            addChoiceField('Metroid Prime Remastered');
+
+            try {
+                const res = await fetch('/api/polls/active');
+                const data = await res.json();
+                if (data.active && data.poll) {
+                    activePollData = data.poll;
+                    renderActivePollMonitor(activePollData);
+                }
+            } catch {}
+
+            loadPresets();
+            loadTournament();
+            loadMatchup();
+            loadHistory();
+            updateEntrantsCalc();
+            updatePreview();
+            connectWs();
+        })();
+    </script>
+</body>
+</html>

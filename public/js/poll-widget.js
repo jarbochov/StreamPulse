@@ -42,7 +42,7 @@
         const cfg = settings(input);
         const end = Date.parse(poll?.endedAt);
         const available = poll && Array.isArray(poll.choices) && poll.choices.length >= 2
-            && poll.choices.slice(0, 5).every(choice => choice && typeof choice === 'object')
+            && poll.choices.slice(0, 10).every(choice => choice && typeof choice === 'object')
             && (poll.status === 'ACTIVE' || (['COMPLETED', 'TERMINATED', 'ARCHIVED'].includes(poll.status)
                 && cfg.resultsSeconds > 0 && Number.isFinite(end) && now < end + cfg.resultsSeconds * 1000));
         const isSample = preview && (cfg.previewMode === 'sample' || (cfg.previewMode === 'auto' && !available));
@@ -50,21 +50,23 @@
         else if (!available) return null;
         const active = poll.status === 'ACTIVE';
         const ended = ['COMPLETED', 'TERMINATED', 'ARCHIVED'].includes(poll.status);
-        const choices = poll.choices.slice(0, 5).map((choice, i) => ({
+        const choices = poll.choices.slice(0, 10).map((choice, i) => ({
             id: String(choice.id ?? i), title: String(choice.title || ''),
             votes: Math.floor(number(choice.votes, 0, 0, Number.MAX_SAFE_INTEGER))
         }));
         const total = choices.reduce((sum, choice) => sum + choice.votes, 0);
         const max = Math.max(...choices.map(choice => choice.votes));
         const tied = max > 0 && choices.filter(choice => choice.votes === max).length > 1;
+        const isBlind = Boolean(poll.blind && active);
         const duration = number(poll.duration, 0, 0, 86400);
         const start = Date.parse(poll.startedAt);
         const remaining = active && Number.isFinite(start) ? Math.max(0, Math.ceil(duration - (now - start) / 1000)) : 0;
         return {
-            title: String(poll.title || 'Poll'), active, total, remaining, sample: isSample,
-            label: active ? (remaining > 0 ? 'Live' : 'Closing') : !max ? 'No votes' : tied ? 'Tie' : 'Results',
+            title: String(poll.title || 'Poll'), active, total, remaining, sample: isSample, blind: isBlind,
+            celebration: poll.settings?.celebration,
+            label: isBlind ? 'Blind Voting' : active ? (remaining > 0 ? 'Live' : 'Closing') : !max ? 'No votes' : tied ? 'Tie' : 'Results',
             choices: choices.map(choice => ({
-                ...choice, percent: total ? choice.votes / total * 100 : 0,
+                ...choice, percent: isBlind ? 0 : (total ? choice.votes / total * 100 : 0),
                 winner: ended && max > 0 && choice.votes === max
             }))
         };
@@ -157,17 +159,86 @@
             text(r.name, choice.title);
             r.name.title = choice.title;
             const metrics = [];
-            if (cfg.showVotes) metrics.push(String(choice.votes));
-            if (cfg.showPercent) metrics.push(`${Math.round(choice.percent)}%`);
+            if (data.blind) {
+                metrics.push('??');
+            } else {
+                if (cfg.showVotes) metrics.push(String(choice.votes));
+                if (cfg.showPercent) metrics.push(`${Math.round(choice.percent)}%`);
+            }
             text(r.metric, metrics.join(' / '));
             r.metric.hidden = !metrics.length;
-            r.fill.style.width = `${choice.percent}%`;
+            r.fill.style.width = data.blind ? '0%' : `${choice.percent}%`;
             r.track.setAttribute('aria-label', choice.title);
             r.track.setAttribute('aria-valuenow', String(Math.round(choice.percent)));
         });
         text(footer, data
             ? [data.sample ? 'Sample' : '', data.label, cfg.showTotal ? `${data.total} votes` : ''].filter(Boolean).join(' · ')
-            : 'Start a Twitch poll, or select sample data in Poll preview.');
+            : 'Start a stream poll, or select sample data in Poll preview.');
+
+        if (data && !data.active && !data.sample && data.choices.some(c => c.winner)) {
+            const celebrationKey = `${poll.id}-${poll.endedAt}`;
+            if (record.lastCelebration !== celebrationKey) {
+                record.lastCelebration = celebrationKey;
+                triggerCelebration(node, data.celebration || cfg.celebration);
+            }
+        }
+    }
+
+    function triggerCelebration(node, celebration = {}) {
+        if (!node || !celebration) return;
+        try {
+            if (celebration.sound) {
+                const audio = new Audio(celebration.sound);
+                audio.volume = Math.max(0, Math.min(1, (Number(celebration.volume) || 75) / 100));
+                audio.play().catch(() => {});
+            }
+        } catch {}
+
+        if (celebration.confetti !== false && typeof window !== 'undefined') {
+            try {
+                let canvas = node.querySelector('.sp-poll-confetti');
+                if (!canvas) {
+                    canvas = document.createElement('canvas');
+                    canvas.className = 'sp-poll-confetti';
+                    canvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;width:100%;height:100%;z-index:10;';
+                    if (window.getComputedStyle(node).position === 'static') node.style.position = 'relative';
+                    node.appendChild(canvas);
+                }
+                canvas.width = node.offsetWidth || 300;
+                canvas.height = node.offsetHeight || 150;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    const colors = ['#f43f5e', '#ec4899', '#a855f7', '#3b82f6', '#10b981', '#fbbf24'];
+                    const particles = [];
+                    for (let i = 0; i < 40; i++) {
+                        particles.push({
+                            x: canvas.width / 2, y: canvas.height * 0.8,
+                            vx: (Math.random() - 0.5) * 8, vy: -Math.random() * 6 - 3,
+                            color: colors[Math.floor(Math.random() * colors.length)],
+                            size: Math.random() * 4 + 3, alpha: 1
+                        });
+                    }
+                    let frame = 0;
+                    function anim() {
+                        if (frame++ > 60 || !particles.length) {
+                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                            return;
+                        }
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        for (let i = particles.length - 1; i >= 0; i--) {
+                            const p = particles[i];
+                            p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.alpha -= 0.016;
+                            if (p.alpha <= 0) { particles.splice(i, 1); continue; }
+                            ctx.globalAlpha = p.alpha;
+                            ctx.fillStyle = p.color;
+                            ctx.fillRect(p.x, p.y, p.size, p.size * 0.6);
+                        }
+                        requestAnimationFrame(anim);
+                    }
+                    anim();
+                }
+            } catch {}
+        }
     }
 
     const api = { settings, sample, model, render };

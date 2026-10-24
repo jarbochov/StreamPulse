@@ -350,6 +350,7 @@ function createSsnService({
     processSSNViewerUpdate = () => {},
     chatbot = null,
     alertEngine = null,
+    pollService = null,
     takeoverPages = () => {},
     addClipCandidate = () => {},
     getClipCandidateConfig = () => ({}),
@@ -390,6 +391,7 @@ function createSsnService({
 
     const resolveAlertEngine = () => (typeof alertEngine === 'function' ? alertEngine() : alertEngine);
     const resolveChatbot = () => (typeof chatbot === 'function' ? chatbot() : chatbot);
+    const resolvePollService = () => (typeof pollService === 'function' ? pollService() : pollService);
 
     async function cacheEmote(name, url) {
         if (emoteCache.has(name)) return;
@@ -856,6 +858,20 @@ function createSsnService({
                     }
                 }
             }
+        }
+
+        if (resolvePollService()) {
+            const contentImage = contentImageHtml(msg.contentimg);
+            const messageHtml = [msg.chatmessage, contentImage].filter(Boolean).join(' ');
+            const plainText = messageHtml ? messageHtml.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '') : '';
+            resolvePollService().handleChatMessage({
+                chatname,
+                userId: msg.userId || msg.mid || chatname.toLowerCase(),
+                message: plainText.trim(),
+                subscriber: Boolean(msg.hasMembership || msg.subscriber || msg.isSub),
+                isSub: Boolean(msg.hasMembership || msg.subscriber || msg.isSub),
+                membership: msg.membership || msg.hasMembership
+            });
         }
 
         // Excluded users appear in chat log but not in stats/overlay

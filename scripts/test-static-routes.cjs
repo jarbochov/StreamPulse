@@ -59,7 +59,16 @@ const server = http.createServer((req, res) => {
         '/api/music/overlay': { visible: true },
         '/api/chatbot': { settings: {}, commands: [], messages: [], quotes: [], triggers: [] },
         '/api/chatbot/log': [],
-        '/api/chatbot/usage': {}
+        '/api/chatbot/usage': {},
+        '/api/polls/active': { status: 'ok', poll: null },
+        '/api/polls/history': { status: 'ok', history: [] },
+        '/api/polls/presets': { status: 'ok', presets: [] },
+        '/api/tournament': { status: 'ok', tournament: null },
+        '/api/tournament/history': { status: 'ok', history: [] },
+        '/api/tournament/presets': { status: 'ok', presets: [] },
+        '/api/matchup': { status: 'ok', matchup: null, queue: [] },
+        '/api/matchup/presets': { status: 'ok', presets: [] },
+        '/api/matchup/history': { status: 'ok', history: [] }
     };
     if (Object.hasOwn(fixtures, url.pathname)) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -90,6 +99,9 @@ const legacyUrlsToTest = [
     '/countdown.html',
     '/stopwatch.html',
     '/custom-overlay.html',
+    '/tournament.html',
+    '/matchup.html',
+    '/poll.html',
 
     // Editors & Studios
     '/credits-editor.html',
@@ -110,6 +122,9 @@ const legacyUrlsToTest = [
     '/milestone-url-wizard.html',
 
     // Tools
+    '/polls.html',
+    '/competitions.html',
+    '/tournaments.html',
     '/chatbot.html',
     '/commands.html',
     '/alerts.html',
@@ -156,6 +171,8 @@ const structuredUrlsToTest = [
     '/overlays/music.html',
     '/overlays/randomizer.html',
     '/overlays/credits.html',
+    '/overlays/tournament.html',
+    '/overlays/poll.html',
     '/editors/randomizer-editor.html',
     '/editors/timers-editor.html',
     '/tools/chatbot.html',

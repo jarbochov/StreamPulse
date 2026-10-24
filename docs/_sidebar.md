@@ -10,6 +10,7 @@
   * [Overlay URL Wizards](overlay-wizards.md)
   * [Credits Studio](credits-guide.md)
   * [Choice Randomizer](randomizer-guide.md)
+  * [Polls, Tournaments & Matchups](polls-guide.md)
   * [Game Plan](game-plan-guide.md)
   * [Community Directory](community-guide.md)
   * [Alerts & Alert Queue](alerts-guide.md)

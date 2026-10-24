@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Poll Overlay</title>
+    <style>
+        :root {
+            --poll-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Roboto, sans-serif;
+            --poll-text: #f0f6fc;
+            --poll-muted: #8b949e;
+            --poll-accent: #58a6ff;
+            --poll-winner: #3fb950;
+            --poll-track: rgba(255, 255, 255, 0.12);
+            --poll-bg: rgba(13, 17, 23, 0.92);
+            --poll-border: #30363d;
+            --poll-radius: 14px;
+            --poll-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+            --poll-font-scale: 1;
+            --poll-backdrop: blur(12px);
+            --poll-text-shadow: none;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: transparent;
+            font-family: var(--poll-font);
+            color: var(--poll-text);
+        }
+
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: clamp(0.5rem, 2vmin, 1.5rem);
+        }
+
+        /* Confetti Canvas */
+        .confetti-canvas {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* Overlay Stage & Positioning */
+        .poll-stage {
+            width: 100%;
+            max-width: 600px;
+            container-type: inline-size;
+            container-name: poll-stage;
+            display: flex;
+            flex-direction: column;
+            transition: opacity 0.35s ease, transform 0.35s ease;
+        }
+
+        .poll-stage.hidden {
+            opacity: 0;
+            transform: translateY(12px);
+            pointer-events: none;
+        }
+
+        /* Main Poll Card */
+        .poll-card {
+            background: var(--poll-bg);
+            backdrop-filter: var(--poll-backdrop);
+            -webkit-backdrop-filter: var(--poll-backdrop);
+            border: 1px solid var(--poll-border);
+            border-radius: var(--poll-radius);
+            box-shadow: var(--poll-shadow);
+            padding: clamp(0.75rem, 3.5cqi, 1.35rem);
+            display: flex;
+            flex-direction: column;
+            gap: clamp(0.6rem, 2.8cqi, 1rem);
+            text-shadow: var(--poll-text-shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Theme Variations */
+        .poll-card.theme-glass {
+            background: rgba(13, 17, 23, 0.65);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border-color: rgba(255, 255, 255, 0.18);
+        }
+
+        .poll-card.theme-solid {
+            background: #0d1117;
+            border-color: #30363d;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
+
+        .poll-card.theme-transparent {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            --poll-text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95), 0 1px 3px rgba(0, 0, 0, 0.9);
+            padding: 0.25rem;
+        }
+
+        .poll-card.theme-transparent .choice-track {
+            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .poll-card.theme-pill {
+            border-radius: 28px;
+            padding-left: 1.5rem;
+            padding-right: 1.5rem;
+        }
+
+        .poll-card.theme-neon {
+            background: rgba(9, 13, 22, 0.92);
+            border-color: #38bdf8;
+            box-shadow: 0 0 24px rgba(56, 189, 248, 0.3), inset 0 0 16px rgba(56, 189, 248, 0.1);
+        }
+
+        .poll-card.theme-retro {
+            background: rgba(15, 10, 30, 0.94);
+            border: 2px solid #ec4899;
+            box-shadow: 0 0 20px rgba(236, 72, 153, 0.35);
+        }
+
+        /* Header Bar */
+        .poll-header {
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+        }
+
+        .poll-status-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .status-left {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .poll-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.18rem 0.55rem;
+            border-radius: 6px;
+            font-size: calc(clamp(0.65rem, 2.2cqi, 0.75rem) * var(--poll-font-scale));
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .poll-badge.badge-live {
+            background: rgba(63, 185, 80, 0.16);
+            color: #3fb950;
+            border: 1px solid rgba(63, 185, 80, 0.3);
+        }
+
+        .poll-badge.badge-ended {
+            background: rgba(88, 166, 255, 0.16);
+            color: #58a6ff;
+            border: 1px solid rgba(88, 166, 255, 0.3);
+        }
+
+        .poll-badge.badge-blind {
+            background: rgba(167, 139, 250, 0.16);
+            color: #a78bfa;
+            border: 1px solid rgba(167, 139, 250, 0.3);
+        }
+
+        .status-pulse-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #3fb950;
+            display: inline-block;
+            animation: pulse-dot 1.8s infinite ease-in-out;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.35); opacity: 0.5; }
+        }
+
+        .poll-timer {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: calc(clamp(0.72rem, 2.4cqi, 0.85rem) * var(--poll-font-scale));
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: var(--poll-accent);
+            background: rgba(88, 166, 255, 0.1);
+            padding: 0.18rem 0.5rem;
+            border-radius: 6px;
+            border: 1px solid rgba(88, 166, 255, 0.2);
+        }
+
+        .poll-votes-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: calc(clamp(0.68rem, 2.2cqi, 0.78rem) * var(--poll-font-scale));
+            font-weight: 600;
+            color: var(--poll-muted);
+            margin-left: auto;
+        }
+
+        .poll-title {
+            font-size: calc(clamp(0.95rem, 3.8cqi, 1.25rem) * var(--poll-font-scale));
+            font-weight: 800;
+            line-height: 1.25;
+            letter-spacing: -0.015em;
+            color: var(--poll-text);
+            word-break: break-word;
+        }
+
+        /* Choices List */
+        .poll-choices {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(0.45rem, 1.8cqi, 0.75rem);
+        }
+
+        .choice-row {
+            display: flex;
+            flex-direction: column;
+            gap: 0.32rem;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .choice-row[data-winner="true"] .choice-name {
+            color: var(--poll-winner);
+            font-weight: 800;
+        }
+
+        .choice-row[data-winner="true"] .choice-fill {
+            background: var(--poll-winner);
+            box-shadow: 0 0 12px rgba(63, 185, 80, 0.4);
+        }
+
+        .choice-row[data-winner="true"] .choice-num {
+            background: var(--poll-winner);
+            color: #0d1117;
+            font-weight: 800;
+        }
+
+        .choice-meta-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            font-size: calc(clamp(0.78rem, 2.8cqi, 0.92rem) * var(--poll-font-scale));
+            line-height: 1.2;
+        }
+
+        .choice-left {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .choice-num {
+            flex-shrink: 0;
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--poll-muted);
+            font-size: 0.72rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .choice-name {
+            font-weight: 600;
+            color: var(--poll-text);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .winner-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #0d1117;
+            background: var(--poll-winner);
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            margin-left: 0.3rem;
+            flex-shrink: 0;
+        }
+
+        .choice-metrics {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            flex-shrink: 0;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .choice-percent {
+            font-weight: 700;
+            color: var(--poll-text);
+        }
+
+        .choice-votes {
+            font-size: 0.75em;
+            color: var(--poll-muted);
+        }
+
+        /* Progress Bar */
+        .choice-track {
+            width: 100%;
+            height: clamp(6px, 1.8cqi, 10px);
+            background: var(--poll-track);
+            border-radius: 999px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .choice-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--poll-accent);
+            border-radius: inherit;
+            transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Optional How-To-Vote Footer Bar */
+        .poll-how-to-vote {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding-top: 0.55rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: calc(clamp(0.68rem, 2.2cqi, 0.78rem) * var(--poll-font-scale));
+            color: var(--poll-muted);
+            line-height: 1.3;
+        }
+
+        .how-to-vote-icon {
+            flex-shrink: 0;
+            color: var(--poll-accent);
+        }
+
+        .how-to-vote-text {
+            flex: 1;
+        }
+
+        .how-to-vote-text code {
+            font-family: inherit;
+            font-weight: 700;
+            color: var(--poll-text);
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.1rem 0.3rem;
+            border-radius: 3px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .choice-fill, .poll-stage {
+                transition: none !important;
+            }
+            .status-pulse-dot {
+                animation: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="confetti-canvas" class="confetti-canvas"></canvas>
+
+    <div id="poll-stage" class="poll-stage hidden">
+        <div id="poll-card" class="poll-card">
+            <!-- Header -->
+            <div class="poll-header">
+                <div class="poll-status-row">
+                    <div class="status-left">
+                        <div id="poll-badge" class="poll-badge badge-live">
+                            <span class="status-pulse-dot"></span>
+                            <span id="poll-badge-text">LIVE POLL</span>
+                        </div>
+                        <div id="poll-timer" class="poll-timer" style="display: none;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            <span id="poll-timer-text">0:00</span>
+                        </div>
+                    </div>
+                    <div id="poll-votes-badge" class="poll-votes-badge">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+                        <span id="poll-votes-count">0 votes</span>
+                    </div>
+                </div>
+
+                <h1 id="poll-title" class="poll-title"></h1>
+            </div>
+
+            <!-- Choices Rows -->
+            <div id="poll-choices" class="poll-choices"></div>
+
+            <!-- Optional Chat Voting Instructions Footer -->
+            <div id="poll-how-to-vote" class="poll-how-to-vote" style="display: none;">
+                <svg class="how-to-vote-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <div id="poll-how-to-vote-text" class="how-to-vote-text"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Core Scripts -->
+    <script src="/overlay-visibility.js" data-key="poll"></script>
+    <script src="/js/url-params.js"></script>
+    <script src="/js/overlay-theme.js"></script>
+
+    <script>
+        const params = (typeof overlayParams === 'function') ? overlayParams() : new URLSearchParams(window.location.search);
+        const stage = document.getElementById('poll-stage');
+        const card = document.getElementById('poll-card');
+        const titleEl = document.getElementById('poll-title');
+        const badgeEl = document.getElementById('poll-badge');
+        const badgeText = document.getElementById('poll-badge-text');
+        const timerEl = document.getElementById('poll-timer');
+        const timerText = document.getElementById('poll-timer-text');
+        const votesCountEl = document.getElementById('poll-votes-count');
+        const choicesEl = document.getElementById('poll-choices');
+        const howToVoteEl = document.getElementById('poll-how-to-vote');
+        const howToVoteText = document.getElementById('poll-how-to-vote-text');
+        const confettiCanvas = document.getElementById('confetti-canvas');
+
+        // URL Parameters
+        const isPreview = params.get('preview') === '1' || params.get('preview') === 'true' || params.get('sample') === '1';
+        const resultsSeconds = Math.max(0, parseInt(params.get('results') || '15', 10));
+        const customAccent = params.get('accent');
+        const customWinner = params.get('winner');
+        const customTrack = params.get('track');
+        const align = (params.get('align') || '').toLowerCase();
+        const valign = (params.get('valign') || '').toLowerCase();
+        const fontScale = parseFloat(params.get('fontscale') || params.get('scale') || '1');
+        const enableConfetti = params.get('confetti') !== '0' && params.get('confetti') !== 'false';
+
+        // How-To-Vote parameter logic
+        const howToVoteParam = params.get('howtovote') ?? params.get('instructions') ?? params.get('votehelp');
+        const isHowToVoteExplicitFalse = howToVoteParam === '0' || howToVoteParam === 'false' || howToVoteParam === 'none' || howToVoteParam === 'hide';
+        const showHowToVote = !isHowToVoteExplicitFalse && (howToVoteParam === '1' || howToVoteParam === 'true' || howToVoteParam === '' || (howToVoteParam !== null && typeof howToVoteParam === 'string'));
+        const customInstructionText = (showHowToVote && howToVoteParam && howToVoteParam !== '1' && howToVoteParam !== 'true') ? howToVoteParam : null;
+
+        // Alignment & Scaling
+        if (align === 'left' || align === 'start') {
+            document.body.style.justifyContent = 'flex-start';
+        } else if (align === 'right' || align === 'end') {
+            document.body.style.justifyContent = 'flex-end';
+        }
+
+        if (valign === 'top' || valign === 'start') {
+            document.body.style.alignItems = 'flex-start';
+        } else if (valign === 'bottom' || valign === 'end') {
+            document.body.style.alignItems = 'flex-end';
+        }
+
+        if (fontScale && Number.isFinite(fontScale) && fontScale > 0) {
+            document.documentElement.style.setProperty('--poll-font-scale', fontScale);
+        }
+
+        if (customAccent) document.documentElement.style.setProperty('--poll-accent', customAccent);
+        if (customWinner) document.documentElement.style.setProperty('--poll-winner', customWinner);
+        if (customTrack) document.documentElement.style.setProperty('--poll-track', customTrack);
+
+        // Styling via ?overlay=hash... or ?bg=...
+        function applyOverlayStyling() {
+            let overlayVal = (params.get('overlay') || params.get('theme') || '').trim();
+            const bgVal = (params.get('bg') || '').trim();
+            const hashVal = (window.location.hash || '').replace(/^#/, '').trim();
+
+            if (!overlayVal && hashVal && !hashVal.includes('=')) {
+                overlayVal = hashVal;
+            }
+
+            // Theme classes
+            if (overlayVal === 'glass') {
+                card.classList.add('theme-glass');
+            } else if (overlayVal === 'solid') {
+                card.classList.add('theme-solid');
+            } else if (overlayVal === 'transparent' || overlayVal === 'none' || overlayVal === 'clean') {
+                card.classList.add('theme-transparent');
+            } else if (overlayVal === 'pill') {
+                card.classList.add('theme-pill');
+            } else if (overlayVal === 'neon') {
+                card.classList.add('theme-neon');
+            } else if (overlayVal === 'retro') {
+                card.classList.add('theme-retro');
+            }
+
+            // Color detection (hex without #, hex with #, rgba, or CSS color name)
+            const colorCandidate = bgVal || overlayVal;
+            if (colorCandidate) {
+                let col = colorCandidate;
+                if (/^[0-9a-fA-F]{3,8}$/.test(col)) {
+                    col = '#' + col;
+                }
+                if (/^#[0-9a-fA-F]{3,8}$/.test(col) || /^rgba?\(.+\)$/.test(col) || /^[a-zA-Z]{3,20}$/.test(col)) {
+                    document.documentElement.style.setProperty('--poll-bg', col);
+                }
+            }
+        }
+        applyOverlayStyling();
+
+        // Sample Poll Data for OBS layout preview
+        const SAMPLE_POLL = {
+            id: 'sample-poll',
+            title: 'Which retro game should we speedrun next?',
+            status: 'ACTIVE',
+            duration: 180,
+            keywordVoting: true,
+            startedAt: new Date(Date.now() - 45000).toISOString(),
+            endedAt: null,
+            choices: [
+                { id: '1', title: 'Chrono Trigger (Any% Glitched)', votes: 28 },
+                { id: '2', title: 'Super Mario World (11 Exit)', votes: 19 },
+                { id: '3', title: 'Mega Man X (100%)', votes: 14 },
+                { id: '4', title: 'Castlevania: Symphony of the Night', votes: 7 }
+            ]
+        };
+
+        let currentPoll = null;
+        let countdownTimer = null;
+        let fadeOutTimer = null;
+        let lastCelebratedPollId = null;
+
+        // Render Poll State
+        function renderPoll(poll) {
+            if (!poll || !Array.isArray(poll.choices) || poll.choices.length < 2) {
+                if (isPreview) {
+                    poll = SAMPLE_POLL;
+                } else {
+                    stage.classList.add('hidden');
+                    return;
+                }
+            }
+
+            currentPoll = poll;
+            const active = poll.status === 'ACTIVE';
+            const completed = poll.status === 'COMPLETED' || poll.status === 'ARCHIVED' || poll.status === 'TERMINATED';
+            const isBlind = Boolean(poll.blind && active);
+
+            // Calculate votes and percentages
+            const totalVotes = poll.choices.reduce((sum, c) => sum + (Number(c.votes) || 0), 0);
+            const maxVotes = Math.max(...poll.choices.map(c => Number(c.votes) || 0));
+
+            // Status Badge & Timer
+            if (active) {
+                stage.classList.remove('hidden');
+                clearTimeout(fadeOutTimer);
+
+                if (isBlind) {
+                    badgeEl.className = 'poll-badge badge-blind';
+                    badgeText.textContent = 'BLIND VOTING';
+                } else {
+                    badgeEl.className = 'poll-badge badge-live';
+                    badgeText.textContent = 'LIVE POLL';
+                }
+
+                // Countdown Timer
+                const duration = Number(poll.duration) || 0;
+                if (duration > 0 && poll.startedAt) {
+                    timerEl.style.display = 'inline-flex';
+                    updateRemainingTimer(poll);
+                } else {
+                    timerEl.style.display = 'none';
+                }
+            } else if (completed) {
+                badgeEl.className = 'poll-badge badge-ended';
+                badgeText.textContent = 'FINAL RESULTS';
+                timerEl.style.display = 'none';
+
+                // Confetti & Celebration
+                if (lastCelebratedPollId !== poll.id && maxVotes > 0) {
+                    lastCelebratedPollId = poll.id;
+                    if (enableConfetti) triggerConfetti();
+                    triggerSound(poll.settings?.celebration?.sound, poll.settings?.celebration?.volume);
+                }
+
+                // OBS auto-hide after resultsSeconds
+                if (!isPreview && resultsSeconds > 0) {
+                    clearTimeout(fadeOutTimer);
+                    fadeOutTimer = setTimeout(() => {
+                        stage.classList.add('hidden');
+                    }, resultsSeconds * 1000);
+                }
+            } else {
+                stage.classList.add('hidden');
+                return;
+            }
+
+            // Total votes count
+            votesCountEl.textContent = isBlind ? 'Votes hidden' : `${totalVotes.toLocaleString()} ${totalVotes === 1 ? 'vote' : 'votes'}`;
+
+            // Title
+            titleEl.textContent = poll.title || poll.question || 'Live Community Poll';
+
+            // Choices List
+            choicesEl.innerHTML = '';
+            poll.choices.forEach((choice, index) => {
+                const votes = Number(choice.votes) || 0;
+                const percent = (totalVotes > 0 && !isBlind) ? Math.round((votes / totalVotes) * 100) : 0;
+                const isWinner = completed && maxVotes > 0 && votes === maxVotes;
+
+                const row = document.createElement('div');
+                row.className = 'choice-row';
+                row.dataset.winner = String(isWinner);
+
+                let metricText = '';
+                if (isBlind) {
+                    metricText = '??';
+                } else {
+                    metricText = `${percent}%`;
+                }
+
+                row.innerHTML = `
+                    <div class="choice-meta-bar">
+                        <div class="choice-left">
+                            <span class="choice-num">${index + 1}</span>
+                            <span class="choice-name" title="${esc(choice.title)}">${esc(choice.title)}</span>
+                            ${isWinner ? `
+                                <span class="winner-tag">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M6 9H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h2"/><path d="M18 9h2a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-2"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>
+                                    WINNER
+                                </span>
+                            ` : ''}
+                        </div>
+                        <div class="choice-metrics">
+                            <span class="choice-percent">${metricText}</span>
+                            ${!isBlind ? `<span class="choice-votes">(${votes})</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="choice-track" role="progressbar" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100">
+                        <div class="choice-fill" style="width: ${percent}%;"></div>
+                    </div>
+                `;
+                choicesEl.appendChild(row);
+            });
+
+            // How To Vote Bottom Bar
+            if (showHowToVote && active) {
+                howToVoteEl.style.display = 'flex';
+                if (customInstructionText) {
+                    howToVoteText.textContent = customInstructionText;
+                } else {
+                    const count = poll.choices.length;
+                    const isKeywords = Boolean(poll.keywordVoting || (poll.settings && poll.settings.keywordVoting));
+                    if (isKeywords) {
+                        let sampleKw = '';
+                        for (const c of poll.choices) {
+                            const words = String(c.title || '').trim().split(/\s+/).filter(w => w.length >= 3 && !/^\d+$/.test(w));
+                            if (words.length) {
+                                sampleKw = words[0].toLowerCase().replace(/[^a-z0-9]/gi, '');
+                                if (sampleKw) break;
+                            }
+                        }
+                        const exampleText = sampleKw ? ` or title keyword (e.g. "<code>${esc(sampleKw)}</code>")` : ' or title keyword';
+                        howToVoteText.innerHTML = `Vote in chat: type <code>1</code>–<code>${count}</code>, <code>!vote &lt;number&gt;</code>${exampleText}`;
+                    } else {
+                        howToVoteText.innerHTML = `Vote in chat: type <code>1</code>–<code>${count}</code> or <code>!vote &lt;number&gt;</code>`;
+                    }
+                }
+            } else {
+                howToVoteEl.style.display = 'none';
+            }
+        }
+
+        function updateRemainingTimer(poll) {
+            const start = Date.parse(poll.startedAt);
+            const duration = Number(poll.duration) || 0;
+            if (!Number.isFinite(start) || duration <= 0) {
+                timerEl.style.display = 'none';
+                return;
+            }
+
+            const elapsed = Math.floor((Date.now() - start) / 1000);
+            const remaining = Math.max(0, duration - elapsed);
+            const m = Math.floor(remaining / 60);
+            const s = remaining % 60;
+            timerText.textContent = `${m}:${String(s).padStart(2, '0')}`;
+        }
+
+        // Live ticking timer
+        setInterval(() => {
+            if (currentPoll && currentPoll.status === 'ACTIVE') {
+                updateRemainingTimer(currentPoll);
+            }
+        }, 1000);
+
+        function esc(str) {
+            return String(str || '').replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
+        // Confetti Fireworks Particle System
+        function triggerConfetti() {
+            const canvas = confettiCanvas;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const colors = ['#58a6ff', '#3fb950', '#f0883e', '#ec4899', '#a78bfa', '#facc15'];
+            const particles = [];
+            const count = Math.min(80, Math.floor(window.innerWidth / 15));
+
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: canvas.width * (0.3 + Math.random() * 0.4),
+                    y: canvas.height * 0.65,
+                    vx: (Math.random() - 0.5) * 16,
+                    vy: -Math.random() * 12 - 6,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    size: Math.random() * 7 + 4,
+                    alpha: 1,
+                    rotation: Math.random() * Math.PI * 2,
+                    rotSpeed: (Math.random() - 0.5) * 0.2
+                });
+            }
+
+            let frames = 0;
+            function animate() {
+                if (frames++ > 110 || !particles.length) {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    return;
+                }
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.25; // gravity
+                    p.rotation += p.rotSpeed;
+                    p.alpha -= 0.012;
+
+                    if (p.alpha <= 0 || p.y > canvas.height) {
+                        particles.splice(i, 1);
+                        continue;
+                    }
+
+                    ctx.save();
+                    ctx.globalAlpha = p.alpha;
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate(p.rotation);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.65);
+                    ctx.restore();
+                }
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        function triggerSound(soundUrl, volume) {
+            if (!soundUrl) return;
+            try {
+                const audio = new Audio(soundUrl);
+                audio.volume = Math.max(0, Math.min(1, (Number(volume) || 75) / 100));
+                audio.play().catch(() => {});
+            } catch {}
+        }
+
+        // Fetch Initial Poll State
+        async function fetchInitialPoll() {
+            try {
+                const res = await fetch('/api/polls/active', { cache: 'no-store' });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.poll) {
+                        renderPoll(data.poll);
+                        return;
+                    }
+                }
+            } catch {}
+
+            if (isPreview) {
+                renderPoll(SAMPLE_POLL);
+            } else {
+                stage.classList.add('hidden');
+            }
+        }
+
+        // Real-Time WebSocket Connection
+        function connectWebSocket() {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${proto}//${location.host}`);
+
+            ws.onopen = () => {
+                if (window.self === window.top && !isPreview) {
+                    ws.send(JSON.stringify({ type: 'overlay-source', key: 'poll' }));
+                }
+            };
+
+            ws.onmessage = event => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.type === 'poll-update') {
+                        renderPoll(msg.data);
+                    }
+                } catch {}
+            };
+
+            ws.onclose = () => {
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onerror = () => {
+                ws.close();
+            };
+        }
+
+        fetchInitialPoll();
+        connectWebSocket();
+    </script>
+</body>
+</html>

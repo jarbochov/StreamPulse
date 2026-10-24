@@ -18,7 +18,8 @@ const TRIGGERS = {
     timer: 'Timer finished',
     goal: 'Goal reached',
     chat_word: 'Chat word or hashtag',
-    chat_command: 'Chat bot command'
+    chat_command: 'Chat bot command',
+    poll_end: 'Poll completed / winner'
 };
 const ANIM_IN = ['none', 'fade', 'pop', 'zoom', 'bounce', 'flip', 'spin', 'slide-left', 'slide-right', 'slide-up', 'slide-down'];
 const ANIM_OUT = ['none', 'fade', 'pop', 'zoom', 'slide-left', 'slide-right', 'slide-up', 'slide-down'];
@@ -172,6 +173,7 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
             case 'bits': case 'donation': case 'raid': case 'redeem': return Number(ev.amount) || 0;
             case 'gift': return Number(ev.count) || 1;
             case 'sub': case 'resub': case 'milestone': return Number(ev.months) || 0;
+            case 'poll_end': return Number(ev.votes ?? ev.total_votes) || 0;
             default: return Number(ev.amount) || 0;
         }
     }
@@ -264,6 +266,11 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
             name: ev.name || '',
             keyword: ev.keyword || '',
             command: ev.command || '',
+            winner: ev.winner || '',
+            poll_title: ev.title || '',
+            votes: ev.votes ?? '',
+            percent: ev.percent ?? '',
+            total_votes: ev.total_votes ?? '',
             target,
             args: ev.args || ''
         };

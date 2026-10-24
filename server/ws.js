@@ -9,6 +9,8 @@ function createOverlayWsServer({
     buildGoalsSnapshot = () => ({}),
     buildTimersSnapshot = () => ({}),
     getLatestPoll = () => null,
+    getTournament = () => null,
+    getMatchup = () => null,
     listOverlayVisibility = () => [],
     log = console.log
 } = {}) {
@@ -36,6 +38,10 @@ function createOverlayWsServer({
             ws.send(JSON.stringify({ type: 'timers-snapshot', data: buildTimersSnapshot() }));
             const curPoll = getLatestPoll();
             if (curPoll) ws.send(JSON.stringify({ type: 'poll-update', data: curPoll }));
+            const curTournament = getTournament();
+            if (curTournament) ws.send(JSON.stringify({ type: 'tournament-update', data: curTournament }));
+            const curMatchup = getMatchup();
+            if (curMatchup) ws.send(JSON.stringify({ type: 'matchup-update', data: curMatchup }));
 
             // Send current overlay visibility state
             for (const entry of (listOverlayVisibility() || []).filter(o => !o.visible)) {

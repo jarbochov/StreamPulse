@@ -550,7 +550,8 @@
         trophy: '<svg class="ico" viewBox="0 0 24 24"><path d="M6 9H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h2"/><path d="M18 9h2a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-2"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>',
         message: '<svg class="ico" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
         sparkles: '<svg class="ico" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>',
-        command: '<svg class="ico" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>'
+        command: '<svg class="ico" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>',
+        poll: '<svg class="ico" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>'
     };
 
     const TRIGGERS = {
@@ -566,7 +567,8 @@
         timer: 'Timer finished',
         goal: 'Goal reached',
         chat_word: 'Chat word or hashtag',
-        chat_command: 'Chat bot command'
+        chat_command: 'Chat bot command',
+        poll_end: 'Poll completed / winner'
     };
 
     const TRIGGER_META = {
@@ -582,24 +584,27 @@
         timer: { label: 'Timer Finished', icon: ICONS.clock, color: '#38bdf8' },
         goal: { label: 'Goal Reached', icon: ICONS.trophy, color: '#fbbf24' },
         chat_word: { label: 'Chat Word / #Tag', icon: ICONS.message, color: '#a3e635' },
-        chat_command: { label: 'Chat Command', icon: ICONS.command, color: '#0ea5e9' }
+        chat_command: { label: 'Chat Command', icon: ICONS.command, color: '#0ea5e9' },
+        poll_end: { label: 'Poll Winner', icon: ICONS.poll, color: '#10b981' }
     };
 
     const ANIM_IN = ['pop', 'fade', 'zoom', 'bounce', 'flip', 'spin', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'none'];
     const ANIM_OUT = ['fade', 'pop', 'zoom', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'none'];
-    const AMOUNT_LABEL = { bits: 'Bits', donation: 'Amount', raid: 'Viewers', redeem: 'Point cost', gift: 'Number of gifts', sub: 'Months', resub: 'Months' };
+    const AMOUNT_LABEL = { bits: 'Bits', donation: 'Amount', raid: 'Viewers', redeem: 'Point cost', gift: 'Number of gifts', sub: 'Months', resub: 'Months', poll_end: 'Winning votes' };
     const TOKENS = {
         follow: ['user'], sub: ['user', 'tier'], resub: ['user', 'months', 'streak', 'tier', 'message'], milestone: ['user', 'months', 'streak', 'tier'],
         gift: ['user', 'count', 'recipient', 'tier'], bits: ['user', 'amount', 'message'], donation: ['user', 'amount', 'message'], raid: ['user', 'viewers'],
         redeem: ['user', 'reward', 'amount'], timer: ['name'], goal: ['name', 'amount'], chat_word: ['user', 'keyword', 'message'],
-        chat_command: ['user', 'command', 'target', 'args', 'message']
+        chat_command: ['user', 'command', 'target', 'args', 'message'],
+        poll_end: ['winner', 'poll_title', 'votes', 'percent', 'total_votes', 'user']
     };
     const DEFAULT_TITLE = {
         follow: '{{alert.user}} just followed!', sub: '{{alert.user}} subscribed!', resub: '{{alert.user}} resubscribed for {{alert.months}} months!',
         milestone: '{{alert.user}} — {{alert.months}} months!', gift: '{{alert.user}} gifted {{alert.count}} subs!', bits: '{{alert.user}} cheered {{alert.amount}} bits!',
         donation: '{{alert.user}} donated {{alert.amount}}!', raid: '{{alert.user}} is raiding with {{alert.viewers}}!', redeem: '{{alert.user}} redeemed {{alert.reward}}',
         timer: '{{alert.name}} is done!', goal: 'Goal reached: {{alert.name}}', chat_word: '{{alert.user}} said {{alert.keyword}}',
-        chat_command: '!{{alert.command}} used by {{alert.user}}!'
+        chat_command: '!{{alert.command}} used by {{alert.user}}!',
+        poll_end: 'Poll Winner: {{alert.winner}}!'
     };
 
     let cfg = { settings: { enabled: true, gapSeconds: 2 }, rules: [] };

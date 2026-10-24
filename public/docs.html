@@ -253,8 +253,90 @@
                         { param: 'progresscolor', type: 'string', default: '58A6FF', desc: 'Progress bar fill color.', example: '?progresscolor=3FB950' },
                         { param: 'titlecolor', type: 'string', default: 'F8FAFC', desc: 'Overlay title color.', example: '?titlecolor=FDE68A' }
                     ]
+                },
+                {
+                    name: 'randomizer.html / wheel.html — Choice Randomizer Overlay',
+                    items: [
+                        { param: 'mode', type: 'string', default: 'preset default', desc: 'Display mode: "wheel" (spinning wheel), "roller" (slot machine), or "deck" (card reveal).', example: '?mode=roller' },
+                        { param: 'preset', type: 'string', default: 'active preset', desc: 'Name of the saved preset from Choice Randomizer Studio.', example: '?preset=Community%20Games' },
+                        { param: 'suspense', type: 'number', default: 'preset default', desc: 'Suspense hold time in seconds before revealing the winner (0–12s).', example: '?suspense=3' },
+                        { param: 'duration', type: 'number', default: 'preset default', desc: 'Total spin animation duration in seconds.', example: '?duration=5' },
+                        { param: 'autohide', type: 'number', default: '0 (disabled)', desc: 'Seconds to wait before automatically hiding the winning card. 0 keeps card on screen.', example: '?autohide=10' },
+                        { param: 'theme', type: 'string', default: 'preset default', desc: 'Color theme preset: "default", "streamer", "retro", "neon", or custom.', example: '?theme=neon' },
+                        { param: 'scale', type: 'number', default: '1.0', desc: 'Scale factor for overlay graphics and typography.', example: '?scale=1.2' },
+                        { param: 'winHeader', type: 'string', default: 'preset default', desc: 'Custom headline text shown on the winning celebration card.', example: '?winHeader=The%20Winner%20Is!' },
+                        { param: 'winSub', type: 'string', default: 'preset default', desc: 'Custom subtitle text shown on the winning celebration card.', example: '?winSub=Next%20Game%20Tonight' },
+                        { param: 'preview', type: 'boolean', default: 'false', desc: 'Render mock winning card for OBS scene layout positioning.', example: '?preview=true' }
+                    ]
+                },
+                {
+                    name: 'music.html — Music Overlay',
+                    items: [
+                        { param: 'layout', type: 'string', default: 'full', desc: 'Layout mode: "full" (art + track details), "art" (album cover only), or "mini" (compact bar).', example: '?layout=mini' },
+                        { param: 'theme', type: 'string', default: 'glass', desc: 'Visual style: "glass", "solid", "scrim", "bordered", or "minimal".', example: '?theme=solid' },
+                        { param: 'fontScale', type: 'number', default: '1.0', desc: 'Font size multiplier for track, artist, and album labels.', example: '?fontScale=1.2' },
+                        { param: 'label', type: 'string', default: 'Now Playing', desc: 'Custom heading text shown above the song title.', example: '?label=Vibing%20To' },
+                        { param: 'artBlur', type: 'number', default: '20', desc: 'Background blur in pixels when using ambient cover glow.', example: '?artBlur=12' },
+                        { param: 'artBrightness', type: 'number', default: '0.4', desc: 'Background brightness multiplier (0.0 to 1.0) for cover glow backdrop.', example: '?artBrightness=0.6' },
+                        { param: 'persist', type: 'boolean', default: 'false', desc: 'Art mode only: keep track information permanently visible below album art.', example: '?persist=true' }
+                    ]
+                },
+                {
+                    name: 'game-plan.html — Game Plan Overlay',
+                    items: [
+                        { param: 'view', type: 'string', default: 'strip', desc: 'Layout style: "strip" (horizontal cards), "grid", "list", or "kanban" (status columns).', example: '?view=grid' },
+                        { param: 'list', type: 'string', default: 'all', desc: 'List filter: "scheduled", "backlog", "played", or a custom collection ID.', example: '?list=scheduled' },
+                        { param: 'period', type: 'string', default: 'all', desc: 'Period token: "@today", "@tomorrow", "@this-week", "@upcoming", or "@unscheduled".', example: '?period=@today' },
+                        { param: 'max', type: 'number', default: '6', desc: 'Maximum number of game cards to render.', example: '?max=4' },
+                        { param: 'covers', type: 'boolean', default: 'true', desc: 'Show or hide game box artwork from IGDB.', example: '?covers=false' },
+                        { param: 'coverFit', type: 'string', default: 'cover', desc: 'Artwork fit: "cover" (fill & crop), "contain" (letterbox), or "natural".', example: '?coverFit=contain' },
+                        { param: 'coverScale', type: 'number', default: '100', desc: 'Artwork scale multiplier percentage.', example: '?coverScale=110' },
+                        { param: 'notes', type: 'boolean', default: 'true', desc: 'Show or hide streamer notes and tags under each game.', example: '?notes=false' },
+                        { param: 'status', type: 'boolean', default: 'true', desc: 'Show or hide status badges (e.g. Tonight, Next, Completed).', example: '?status=false' }
+                    ]
+                },
+                {
+                    name: 'viewers.html — Viewer Counter Overlay',
+                    items: [
+                        { param: 'mode', type: 'string', default: 'current', desc: 'Count mode: "current", "peak", "average", or "combined" (shows current and peak).', example: '?mode=combined' },
+                        { param: 'layout', type: 'string', default: 'badge', desc: 'Display layout: "badge", "pill", "stat", or "minimal".', example: '?layout=pill' },
+                        { param: 'align', type: 'string', default: 'left', desc: 'Text alignment: "left", "center", or "right".', example: '?align=center' },
+                        { param: 'label', type: 'string', default: 'Viewers', desc: 'Custom label text shown alongside the number.', example: '?label=Watching%20Now' }
+                    ]
+                },
+                {
+                    name: 'milestones.html — Milestone Achievements Overlay',
+                    items: [
+                        { param: 'mode', type: 'string', default: 'single', desc: 'Display mode: "single" (active achievement), "streak" (stream streak), or "all".', example: '?mode=streak' },
+                        { param: 'theme', type: 'string', default: 'glass', desc: 'Visual theme: "glass", "badge", or "minimal".', example: '?theme=badge' },
+                        { param: 'goal', type: 'string', default: 'first enabled', desc: 'Specific goal or milestone ID to track.', example: '?goal=stream-100' }
+                    ]
                 }
             ]
+        },
+        {
+            id: 'polls',
+            group: 'Overlays & Features',
+            title: 'Poll Studio & Audience Voting',
+            custom: true
+        },
+        {
+            id: 'competitions',
+            group: 'Overlays & Features',
+            title: 'Competitions Studio & Matchups',
+            custom: true
+        },
+        {
+            id: 'randomizer',
+            group: 'Overlays & Features',
+            title: 'Choice Randomizer',
+            custom: true
+        },
+        {
+            id: 'promo-creator',
+            group: 'Overlays & Features',
+            title: 'Promo Creator',
+            custom: true
         },
         {
             id: 'timers',
@@ -265,7 +347,7 @@
         {
             id: 'music',
             group: 'Overlays & Features',
-            title: 'Music Now-Playing (Beta)',
+            title: 'Music Now-Playing',
             custom: true
         },
         {
@@ -283,7 +365,7 @@
         {
             id: 'alerts',
             group: 'Overlays & Features',
-            title: 'Alerts (Beta)',
+            title: 'Alerts & Alert Queue',
             custom: true
         },
         {
@@ -301,7 +383,7 @@
         {
             id: 'chatbot',
             group: 'Overlays & Features',
-            title: 'Chat Bot & Variables (Beta)',
+            title: 'Chat Bot & Variables',
             custom: true
         },
         {
@@ -584,6 +666,11 @@
         if (groupName.includes('stats.html')) return '/stats.html?';
         if (groupName.includes('hashtags.html')) return '/hashtags.html?';
         if (groupName.includes('countdown.html')) return '/countdown.html?';
+        if (groupName.includes('randomizer.html')) return '/randomizer.html?';
+        if (groupName.includes('music.html')) return '/music.html?';
+        if (groupName.includes('game-plan.html')) return '/game-plan.html?';
+        if (groupName.includes('viewers.html')) return '/viewers.html?';
+        if (groupName.includes('milestones.html')) return '/milestones.html?';
         if (groupName.includes('export')) return '/api/export?';
         return '?';
     }
@@ -655,7 +742,7 @@
                     <span class="chevron">▶</span>
                 </div>
                 <div class="card-body">
-                    <div class="detail-text">• <strong>Credits Roll</strong> — scrolling credits with subs, followers, chatters, emotes, hashtags, raids, gifters and cheerers, plus fade-style text sections<br>• <strong>Custom Overlays</strong> — visual canvas editor with transparent webcam cutouts, WebGL shaders, live placeholders, QR codes and assets<br>• <strong>Choice Randomizer</strong> — interactive slot roller and spinning wheel overlays with celebration cards and active chatter pool<br>• <strong>Music Overlay</strong> — Apple Music, Spotify and VLC now-playing<br>• <strong>Named Timers</strong> — countdowns and stopwatches with pause/resume and Companion endpoints<br>• <strong>Goals + Viewer Tracking</strong> — single and rotating goal overlays<br>• <strong>Game Plan</strong> — Scheduled/Backlog/Played and custom lists with IGDB art<br>• <strong>Sessions &amp; Highlights</strong> — searchable chat logs (<code>AND</code>, <code>OR</code>, <code>"exact phrase"</code>, <code>user:name</code>), pins, TSV/TXT/PDF exports<br>• <strong>Clip Candidates (Beta)</strong> — notable events and chat spikes with Twitch clip links<br>• <strong>Hashtag Tracking</strong> — live overlays plus moderation<br>• <strong>Backup &amp; Restore</strong> — ZIP backups including the live session, custom overlays and Game Plan<br>• <strong>Updater</strong> — check for and install the latest stable release from the Manage menu (Git checkout with Git and npm required; data is backed up first)<br><br><em>Hashtags tip:</em> they suit smaller streams. For larger communities use the ban/purge moderation tools or disable hashtags.</div>
+                    <div class="detail-text">• <strong>Credits Roll</strong> — scrolling credits with subs, followers, chatters, emotes, hashtags, raids, gifters and cheerers, plus fade-style text sections<br>• <strong>Custom Overlays</strong> — visual canvas editor with transparent webcam cutouts, WebGL shaders, live placeholders, QR codes and assets<br>• <strong>Choice Randomizer</strong> — interactive slot roller, spinning wheel, and card deck with elimination mode, dynamic odds, and chatter pool<br>• <strong>Poll Studio &amp; Audience Voting</strong> — multi-platform chat voting, blind mode, subscriber vote multiplier, confetti celebration, and winner fanfare<br>• <strong>Competitions Studio &amp; Matchups</strong> — esports tournament brackets (single/double elim, round robin, non-power-of-2 BYEs), versus scoreboards (1v1 to 4P), side swapping, Fight Card queue, and self-sizing overlays<br>• <strong>Promo Creator</strong> — multi-format announcements (1:1, 16:9, 9:16) with 23 animated procedural patterns, IGDB artwork, and seamless MP4/PNG export<br>• <strong>Music Overlay</strong> — Apple Music, Spotify and VLC now-playing<br>• <strong>Named Timers</strong> — countdowns and stopwatches with pause/resume and Companion endpoints<br>• <strong>Goals + Viewer Tracking</strong> — single and rotating goal overlays<br>• <strong>Game Plan</strong> — Scheduled/Backlog/Played and custom lists with IGDB art<br>• <strong>Sessions &amp; Highlights</strong> — searchable chat logs (<code>AND</code>, <code>OR</code>, <code>"exact phrase"</code>, <code>user:name</code>), pins, TSV/TXT/PDF exports<br>• <strong>Clip Candidates (Beta)</strong> — notable events and chat spikes with Twitch clip links<br>• <strong>Hashtag Tracking</strong> — live overlays plus moderation<br>• <strong>Backup &amp; Restore</strong> — ZIP backups including the live session, custom overlays and Game Plan<br>• <strong>Updater</strong> — check for and install the latest stable release from the Manage menu (Git checkout with Git and npm required; data is backed up first)<br><br><em>Hashtags tip:</em> they suit smaller streams. For larger communities use the ban/purge moderation tools or disable hashtags.</div>
                 </div>
             </div>`;
 
@@ -988,14 +1075,291 @@
         <div class="card-body"><div class="detail-text">
             Alerts turn stream events into on-screen pop-ups. Each <strong>rule</strong> says <em>when</em> (a trigger and optional conditions) and <em>what</em> (one or more variants, plus optional timer or HTTP actions). Manage rules at <a href="/alerts.html">Alerts</a>.<br><br>
             <strong>Showing them:</strong> add an <strong>Alert box</strong> element in the <a href="/custom-overlays.html">custom overlay editor</a> and use that overlay as a browser source. Style the box there; each rule controls the text, image/GIF/video, sound, volume, duration and animations. Use several boxes and the box's "Only show certain alerts" filter to route, for example, raids elsewhere.<br><br>
-            <strong>Triggers:</strong> follow, new sub, resub, sub milestone/anniversary, gifted subs (one alert per gifter batch), bits, donation, raid, channel point redeem, timer finished, goal reached, and chat words/#hashtags.<br><br>
+            <strong>Triggers:</strong> follow, new sub, resub, sub milestone/anniversary, gifted subs (one alert per gifter batch), bits, donation, raid, channel point redeem, timer finished, goal reached, poll completed / winner (<code>poll_end</code>), and chat words/#hashtags.<br><br>
             <strong>Thresholds:</strong> when several rules match, the one with the highest minimum wins, so you can stack tiers. A milestone rule (listed months or every N months) replaces the plain resub alert. Milestones only fire from resub events, so an anniversary is never guessed.<br><br>
             <strong>Variants:</strong> add several and pick random (never the same twice in a row), weighted, or in order.<br><br>
-            <strong>Placeholders</strong> in titles and messages: <code>{{alert.user}}</code> <code>{{alert.amount}}</code> <code>{{alert.count}}</code> <code>{{alert.months}}</code> <code>{{alert.streak}}</code> <code>{{alert.tier}}</code> <code>{{alert.message}}</code> <code>{{alert.reward}}</code> <code>{{alert.viewers}}</code> <code>{{alert.name}}</code> <code>{{alert.recipient}}</code> <code>{{alert.keyword}}</code>.<br><br>
+            <strong>Placeholders</strong> in titles and messages: <code>{{alert.user}}</code> <code>{{alert.amount}}</code> <code>{{alert.count}}</code> <code>{{alert.months}}</code> <code>{{alert.streak}}</code> <code>{{alert.tier}}</code> <code>{{alert.message}}</code> <code>{{alert.reward}}</code> <code>{{alert.viewers}}</code> <code>{{alert.name}}</code> <code>{{alert.recipient}}</code> <code>{{alert.keyword}}</code>, plus poll tokens <code>{{winner}}</code> <code>{{poll_title}}</code> <code>{{votes}}</code> <code>{{percent}}</code> <code>{{total_votes}}</code>.<br><br>
             <strong>Queue:</strong> alerts play one at a time with a configurable gap. You can skip, clear, pause and resume from the Alerts page. The <a href="/alert-queue.html">Event queue</a> page lists the latest 100 real events (including ones that matched no rule) with a replay button, and fits as an OBS dock (View → Docks → Custom Browser Docks, <code>http://localhost:3000/alert-queue.html</code>). Simulations and Test buttons never run timer or HTTP actions.<br><br>
             <strong>Not included yet:</strong> watch streaks and hype trains (they need Twitch EventSub), and OBS control actions.
         </div></div>
     </div>`;
+
+            case 'polls': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Two Ways to Poll: StreamPulse Native &amp; Twitch API</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        StreamPulse supports two first-class poll modes for your broadcast:
+                        <br><br>
+                        • <strong>StreamPulse Native Polls &amp; Tournaments:</strong> Multi-platform chat voting (Twitch, YouTube, Kick via SocialStream Ninja). Zero setup or affiliate requirements. Up to 10 choices, Blind Mode ("Fog of War"), victory fanfare, canvas confetti bursts, Single/Double Elimination tournament brackets, and subscriber vote weighting. Managed directly from <a href="/polls.html" style="color:var(--accent);">Poll Studio</a>.<br>
+                        • <strong>Twitch API Polls:</strong> Run through Twitch's official creator dashboard or chat commands. Viewers vote natively in the Twitch web interface and mobile app, supporting Channel Points for extra votes. StreamPulse captures the active poll via the Twitch API and renders it in your custom overlay using the <strong>Poll element</strong> or <strong>Compact Poll preset</strong>.
+                    </div>
+                    <div class="detail-label">Poll Studio Controller URL</div>
+                    <div class="url-box"><code>${BASE}/polls.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/polls.html')">Copy</button></div>
+                    <div class="detail-label">Dedicated Live Poll Overlay URL</div>
+                    <div class="url-box"><code>${BASE}/poll.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/poll.html')">Copy</button></div>
+                    <div class="detail-label">Tournament Overlay URL</div>
+                    <div class="url-box"><code>${BASE}/tournament.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/tournament.html')">Copy</button></div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Dedicated Poll Overlay &amp; OBS Customization Parameters</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        The dedicated poll overlay (<code>/poll.html</code>) mounts as an OBS browser source. It displays active polls with dynamic percentage fill bars, live vote counts, countdown timer, celebration confetti, and automatically fades out when no poll is active.
+                        <br><br>
+                        <strong>Customization Parameters:</strong>
+                        <br>
+                        • <code>?overlay=hash...</code>: Theme preset (<code>card</code>, <code>glass</code>, <code>solid</code>, <code>transparent</code>, <code>pill</code>, <code>neon</code>, <code>retro</code>) or custom hex/hash color (e.g. <code>?overlay=161b22</code>, <code>?overlay=#0d1117</code>, <code>/poll.html#161b22</code>).<br>
+                        • <code>?howtovote=1</code>: Optional chat voting instructions banner docked at the bottom (e.g. <em>"Vote in chat: type 1–4 or !vote &lt;number&gt;"</em>). Pass <code>?howtovote=0</code> to hide, or custom text (<code>?howtovote=Type+1-4+in+chat</code>).<br>
+                        • <code>?accent=&lt;color&gt;</code>: Progress bar and active status accent color (e.g. <code>?accent=%2358a6ff</code>).<br>
+                        • <code>?winner=&lt;color&gt;</code>: Crowned winning option highlight color (e.g. <code>?winner=%233fb950</code>).<br>
+                        • <code>?font=&lt;name&gt;</code> &amp; <code>?scale=&lt;multiplier&gt;</code>: Custom font family and scale factor.<br>
+                        • <code>?results=&lt;seconds&gt;</code>: How many seconds completed results stay on screen before auto-fading (default 15s; <code>0</code> holds until next poll).<br>
+                        • <code>?preview=1</code>: Displays sample poll data permanently for positioning and framing in OBS Studio.
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Poll Studio Controls &amp; Stopping an Open Poll</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        The <a href="/polls.html" style="color:var(--accent);">Poll Studio</a> provides hands-on controls for standard polls, templates, and tournaments:
+                        <br><br>
+                        • <strong>Dynamic Choices (2–10 options):</strong> Configure up to 10 choices with custom labels or 1-click pull from Game Plan / active chatters.<br>
+                        • <strong>Duration Chips:</strong> 30s, 60s, 90s, 2m, 5m, 10m, 15m, or Manual (open-ended). Extend running polls by +30s or +1m with quick action buttons.<br>
+                        • <strong>Stopping an Open Poll:</strong>
+                          <br>&nbsp;&nbsp;&nbsp;&nbsp;– <em>Crown Winner &amp; End:</em> Immediately concludes voting, calculates percentages, triggers celebration audio &amp; confetti, and dispatches a <code>poll_end</code> alert.
+                          <br>&nbsp;&nbsp;&nbsp;&nbsp;– <em>Stop &amp; Cancel:</em> Immediately halts and discards the active poll without crowning a winner.
+                        <br>
+                        • <strong>Saved Templates:</strong> Save frequently used poll questions and options as reusable templates to launch with 1 click.
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Tournament Bracket Polls (Single &amp; Double Elimination)</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        Poll Studio features a dedicated <strong>Tournament Bracket</strong> mode for community competitions and game showdowns:
+                        <br><br>
+                        • <strong>Bracket Sizes &amp; Formats:</strong> 4, 8, or 16 seeds in Single Elimination or Double Elimination (with Winners and Losers Brackets).<br>
+                        • <strong>Automatic Seeding:</strong> Standard tournament seeding pairs (1 vs 8, 4 vs 5, 2 vs 7, 3 vs 6).<br>
+                        • <strong>Matchup Voting:</strong> Each matchup runs as a live head-to-head chat poll with live vote fill bars updating directly on the bracket overlay.<br>
+                        • <strong>Winner Advancement:</strong> Concluding a match advances the winner into the next bracket round, while losers in double elimination route into the Losers Bracket.<br>
+                        • <strong>Dedicated Tournament Overlay:</strong> Broadcast the full visual bracket tree live in OBS via <code>${BASE}/overlays/tournament.html</code> with glowing active matchup highlights and champion ceremony.
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Multi-Platform Chat Voting</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        Viewers can vote directly through any connected chat stream:
+                        <br><br>
+                        • <strong>Direct Digit Numbers:</strong> Typing <code>1</code> through <code>10</code> directly in chat.<br>
+                        • <strong>Vote Commands:</strong> Typing <code>!vote 1</code>, <code>!vote 2</code>, or <code>!vote &lt;title&gt;</code>.<br>
+                        • <strong>Natural Keyword Recognition:</strong> When enabled, typing key words from a choice title automatically casts a vote.<br>
+                        • <strong>Vote Changing:</strong> Viewers can change their vote before the poll closes; previous votes are automatically subtracted and transferred.<br>
+                        • <strong>Subscriber Bonus Multiplier:</strong> Award channel subscribers weighted voting power (e.g. 2× votes).
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Polls &amp; Tournament HTTP API</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <table>
+                        <tr><th>Endpoint</th><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>/api/polls/latest</code></td><td>GET</td><td>Returns current active or most recently finished poll state.</td></tr>
+                        <tr><td><code>/api/polls/active</code></td><td>GET</td><td>Returns active running poll, or <code>{ active: false }</code>.</td></tr>
+                        <tr><td><code>/api/polls/history</code></td><td>GET</td><td>Returns list of previous poll results.</td></tr>
+                        <tr><td><code>/api/polls/create</code></td><td>POST</td><td>Create and start a poll: <code>{ title, choices, duration, blind, keywords, subMultiplier, celebration }</code>.</td></tr>
+                        <tr><td><code>/api/polls/end</code></td><td>POST</td><td>Immediately conclude poll and crown the winner.</td></tr>
+                        <tr><td><code>/api/polls/extend</code></td><td>POST</td><td>Add voting seconds to active poll: <code>{ seconds: 30 }</code>.</td></tr>
+                        <tr><td><code>/api/polls/cancel</code></td><td>POST</td><td>Cancel active poll without crowning a winner.</td></tr>
+                        <tr><td><code>/api/polls/presets</code></td><td>GET / POST</td><td>List or save reusable poll templates.</td></tr>
+                        <tr><td><code>/api/tournament</code></td><td>GET</td><td>Get current active tournament bracket state.</td></tr>
+                        <tr><td><code>/api/tournament/create</code></td><td>POST</td><td>Launch a tournament: <code>{ title, format, entrants, matchDuration, blind }</code>.</td></tr>
+                        <tr><td><code>/api/tournament/start-match</code></td><td>POST</td><td>Start live voting for a tournament match: <code>{ matchId }</code>.</td></tr>
+                        <tr><td><code>/api/tournament/advance</code></td><td>POST</td><td>Advance matchup winner into the next bracket node.</td></tr>
+                        <tr><td><code>/api/tournament/reset</code></td><td>POST</td><td>Reset and end active tournament.</td></tr>
+                    </table>
+                </div>
+            </div>`;
+
+            case 'competitions': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Competitions Studio: Esports Brackets &amp; Versus Matchups</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        The <a href="/competitions.html" style="color:var(--accent);">Competitions Studio</a> (Tools ▾ → Competitions Studio) is StreamPulse's dedicated controller for community game nights, esports competitions, fighting game sets, and speedrun showdowns. It separates competitive tournament scoring from audience chat polls while keeping them connected when desired.
+                    </div>
+                    <div class="detail-label">Competitions Studio Controller URL</div>
+                    <div class="url-box"><code>${BASE}/competitions.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/competitions.html')">Copy</button></div>
+                    <div class="detail-label">Responsive Matchup Scoreboard Overlay URL</div>
+                    <div class="url-box"><code>${BASE}/matchup.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/matchup.html')">Copy</button></div>
+                    <div class="detail-label">Tournament Bracket Overlay URL</div>
+                    <div class="url-box"><code>${BASE}/tournament.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/tournament.html')">Copy</button></div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Tournament Bracket Formats &amp; Non-Power-of-2 BYEs</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        StreamPulse supports 2 to 32 participants across multiple competitive bracket models:
+                        <br><br>
+                        • <strong>Single Elimination with Clean BYEs:</strong> Enter any number of competitors (even odd numbers like 3, 5, 6, 7, 9, 11). Top seeds automatically receive 1st Round BYEs that advance directly to the subsequent round slot without ghost matches or fake scores.<br>
+                        • <strong>Double Elimination:</strong> Full Winners and Losers bracket progression with Grand Finals reset capabilities.<br>
+                        • <strong>Round Robin (All vs All):</strong> Ideal for 3 to 8 players. Every competitor plays every other competitor; the studio and overlay provide an auto-updating Standings Table with Played, W-L records, and points.<br>
+                        • <strong>Series Scoring &amp; Auto-Advancement:</strong> Configure Free Points, Best of 1, Best of 3, Best of 5, or Best of 7. Reaching the series target score automatically advances the winner to their next bracket slot.
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Versus Scoreboard, Side Swapping &amp; Fight Cards</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        For exhibition matches, fighting game sets, or casual challenges outside of a tournament:
+                        <br><br>
+                        • <strong>2 to 4 Competitors / Teams:</strong> Switch instantly between 1v1 duels, 3-way triple threats, and 4-player free-for-all showdowns.<br>
+                        • <strong>Side Swapping (P1 ⇄ P2):</strong> 1-click swap for Player 1 and Player 2 names, character tags, custom colors, and current scores.<br>
+                        • <strong>Fight Card Exhibition Queue:</strong> Line up a sequence of exhibition matches for your broadcast. Step forward or backward with 1 click, or load any match directly to the live broadcast overlay.<br>
+                        • <strong>Configuration Presets:</strong> Save and reload rules and templates (includes built-in Street Fighter 6 FT10, Tekken 8 BO5, Smash Ultimate BO3, and Mario Kart 4P FFA defaults).
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Matchup Overlay Parameters &amp; Self-Sizing</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        Unlike fixed full-screen overlays, <code>/matchup.html</code> dynamically conforms to your OBS browser source dimensions (e.g. 700×70, 1100×90, 420×360):
+                        <br><br>
+                        • <code>?fit=content</code>: Shrinkwraps the container tightly around content with zero dead whitespace.<br>
+                        • <code>?layout=</code>: <code>top</code> (fighting game bar), <code>fgc</code> (EVO style), <code>split</code> (open center for webcams/timers), <code>pillar</code> (vertical sidebar stack), <code>minimal</code> (center-less score strip), <code>bottom</code> (lower-third HUD), <code>compact</code> (score bug), <code>versus</code> (matchup intro card).<br>
+                        • <code>?overlay=</code>: Theme preset (<code>card</code>, <code>championship</code>, <code>fgc-evo</code>, <code>cyber</code>, <code>glass</code>, <code>clean-light</code>, <code>minimal-dark</code>, <code>border</code>, <code>solid</code>, <code>transparent</code>, <code>pill</code>, <code>neon</code>, <code>retro</code>) or custom hex color hash.<br>
+                        • <code>?source=auto</code>: Automatically mirrors the active tournament match when a tournament is running; falls back to exhibition matches when idle.<br>
+                        • <code>?pipstyle=circle|bar|digit</code>: Pip format: dots (<code>circle</code>), rectangular segmented bars (<code>bar</code>), or numerical counter (<code>digit</code>).<br>
+                        • <code>?p1color=</code> &amp; <code>?p2color=</code>: Custom player or team accent color overrides.<br>
+                        • <code>?center=0</code>: Completely removes the center badge for a clean open-center layout.<br>
+                        • <code>?confetti=0</code>: Silences victory particle celebration.
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Competitions HTTP API Reference</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <table>
+                        <tr><th>Endpoint</th><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>/api/matchup</code></td><td>GET / POST</td><td>Get or update current matchup scoreboard state.</td></tr>
+                        <tr><td><code>/api/matchup/score</code></td><td>POST</td><td>Increment, decrement, or set competitor score.</td></tr>
+                        <tr><td><code>/api/matchup/swap</code></td><td>POST</td><td>Swap Player 1 and Player 2 sides and metadata.</td></tr>
+                        <tr><td><code>/api/matchup/reset-scores</code></td><td>POST</td><td>Reset scores to 0 for next set while preserving names.</td></tr>
+                        <tr><td><code>/api/matchup/presets</code></td><td>GET / POST</td><td>List or save matchup configuration presets.</td></tr>
+                        <tr><td><code>/api/matchup/presets/load</code></td><td>POST</td><td>Load a matchup preset directly to live scoreboard: <code>{ id }</code>.</td></tr>
+                        <tr><td><code>/api/matchup/queue</code></td><td>GET / POST</td><td>List fight card queue or add new match with persisted competitor names.</td></tr>
+                        <tr><td><code>/api/matchup/queue/next</code></td><td>POST</td><td>Advance to next match in fight card queue.</td></tr>
+                        <tr><td><code>/api/matchup/queue/prev</code></td><td>POST</td><td>Step back to previous match in fight card queue.</td></tr>
+                        <tr><td><code>/api/tournament</code></td><td>GET</td><td>Get current active tournament bracket state.</td></tr>
+                        <tr><td><code>/api/tournament/score</code></td><td>POST</td><td>Update match score, details, or crown winner.</td></tr>
+                        <tr><td><code>/api/tournament/select-match</code></td><td>POST</td><td>Focus a match as active in studio and live HUD overlay.</td></tr>
+                        <tr><td><code>/api/tournament/advance</code></td><td>POST</td><td>Manually advance winner to next bracket slot.</td></tr>
+                        <tr><td><code>/api/tournament/presets</code></td><td>GET / POST</td><td>List or save tournament configuration presets.</td></tr>
+                        <tr><td><code>/api/tournament/history</code></td><td>GET / DELETE / POST</td><td>List, delete, restore, or clear archived completed tournament brackets.</td></tr>
+                        <tr><td><code>/api/matchup/history</code></td><td>GET / DELETE / POST</td><td>List, delete, restore, or clear past completed matchup fight sets.</td></tr>
+                    </table>
+                </div>
+            </div>`;
+
+            case 'randomizer': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Choice Randomizer Studio</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        The <a href="/randomizer-editor.html" style="color:var(--accent);">Choice Randomizer Studio</a> (Overlays ▾ → Choice Randomizer) turns choices into exciting on-screen audience reveals:
+                        <br><br>
+                        • <strong>3 Interactive Modes:</strong> Spinning Wheel of Fortune (<code>mode=wheel</code>), Slot Machine Roller (<code>mode=roller</code>), and Physical Card Deck (<code>mode=deck</code>).<br>
+                        • <strong>Active Chatter Pool:</strong> 1-click button populates choices from users who have chatted during the active session.<br>
+                        • <strong>Elimination Mode:</strong> Automatically removes winners from future spins, with remaining choice odds dynamically recalculated in real time.<br>
+                        • <strong>Suspense &amp; Audio:</strong> Adjustable suspense delay (0–12s), victory fanfare sound cues, and custom celebration cards.<br>
+                        • <strong>Roll History:</strong> Retains past winners with configurable history limits (5 to 100 entries).
+                    </div>
+                    <div class="detail-label">OBS Overlay URL</div>
+                    <div class="url-box"><code>${BASE}/randomizer.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/randomizer.html')">Copy</button></div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Randomizer API</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <table>
+                        <tr><th>Endpoint</th><th>Method</th><th>Description</th></tr>
+                        <tr><td><code>/api/randomizer/spin</code></td><td>POST</td><td>Trigger a spin animation with active preset options.</td></tr>
+                        <tr><td><code>/api/randomizer/clear</code></td><td>POST</td><td>Dismiss and hide the current winning card display.</td></tr>
+                        <tr><td><code>/api/randomizer/presets</code></td><td>GET</td><td>List all saved choice presets.</td></tr>
+                        <tr><td><code>/api/randomizer/eliminate</code></td><td>POST</td><td>Manually eliminate an item from the pool.</td></tr>
+                        <tr><td><code>/api/randomizer/restore</code></td><td>POST</td><td>Restore all eliminated choices back to the active pool.</td></tr>
+                    </table>
+                </div>
+            </div>`;
+
+            case 'promo-creator': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Promo Creator Studio</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        The <a href="/promo-creator.html" style="color:var(--accent);">Promo Creator</a> (Tools ▾ → Promo Creator) generates branded broadcast graphics and promotional social announcements:
+                        <br><br>
+                        • <strong>Multi-Format Canvases:</strong> Design once for <strong>Square (1:1, 1080×1080)</strong> for Instagram/Bluesky, <strong>Landscape (16:9, 1920×1080)</strong> for Twitter/X and OBS slides, and <strong>Portrait (9:16, 1080×1920)</strong> for TikTok and Instagram Stories.<br>
+                        • <strong>Shared Content Architecture:</strong> Text, Image, and QR elements share headlines and messaging across formats while allowing independent per-format positioning, scaling, and typography.<br>
+                        • <strong>23 Animated Procedural Patterns:</strong> Geometric dot matrices, waves, hex grids, circuits, and diagonal stripes with configurable loop duration, speed, direction, opacity, and palette.<br>
+                        • <strong>IGDB Artwork Search:</strong> Instant game artwork lookup: insert official high-res game covers and concept art directly onto your promotional banners.<br>
+                        • <strong>Export Engine:</strong> Download single high-res PNGs, export an all-format ZIP bundle, or render seamless looping MP4 videos directly in the browser.<br>
+                        • <strong>Scene Bundle Sharing:</strong> Import and export complete design templates with all embedded assets for quick reuse.
+                    </div>
+                    <div class="detail-label">Studio URL</div>
+                    <div class="url-box"><code>${BASE}/promo-creator.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/promo-creator.html')">Copy</button></div>
+                </div>
+            </div>`;
 
             case 'timers': return `
     <div class="card open">
@@ -1201,6 +1565,10 @@
                             <tr><td>Shutdown</td><td><code>/api/shutdown</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/shutdown')">Copy URL</button></td></tr>
                             <tr><td>Status Check</td><td><code>/api/status</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/status')">Copy URL</button></td></tr>
                             <tr><td>Spin Randomizer</td><td><code>/api/randomizer/spin</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/randomizer/spin')">Copy URL</button></td></tr>
+                            <tr><td>Clear Randomizer Card</td><td><code>/api/randomizer/clear</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/randomizer/clear')">Copy URL</button></td></tr>
+                            <tr><td>End Poll / Crown Winner</td><td><code>/api/polls/end</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/polls/end')">Copy URL</button></td></tr>
+                            <tr><td>Extend Poll (+30s)</td><td><code>/api/polls/extend</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/polls/extend')">Copy URL</button></td></tr>
+                            <tr><td>Toggle Video Playback</td><td><code>/api/videos/toggle</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/videos/toggle')">Copy URL</button></td></tr>
                         </table>
                     </div>
                 </div>`;

@@ -51,6 +51,7 @@ Existing studio guides remain available at their original addresses. They combin
 - [Custom Overlay Studio](custom-overlays.md)
 - [Credits Studio](credits-guide.md)
 - [Choice Randomizer](randomizer-guide.md)
+- [Live Polls & Poll Studio](polls-guide.md)
 - [Game Plan](game-plan-guide.md)
 - [Community Directory](community-guide.md)
 - [Alerts & Alert Queue](alerts-guide.md)

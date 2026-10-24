@@ -143,6 +143,9 @@
             <button type="button" data-overlay-choice="hashtags" aria-pressed="false">Hashtags</button>
             <button type="button" data-overlay-choice="goals" aria-pressed="false">Goals</button>
             <button type="button" data-overlay-choice="viewers" aria-pressed="false">Viewer Count</button>
+            <button type="button" data-overlay-choice="polls" aria-pressed="false">Polls</button>
+            <button type="button" data-overlay-choice="tournament" aria-pressed="false">Tournament</button>
+            <button type="button" data-overlay-choice="matchup" aria-pressed="false">Matchup</button>
             <span style="color:var(--border); align-self:center; margin:0 0.25rem;">|</span>
             <a href="/milestone-url-wizard.html" class="picker-link">Milestones ↗</a>
             <a href="/game-plan-url-wizard.html" class="picker-link">Game Plan ↗</a>
@@ -341,6 +344,160 @@
                     </div>
                 </section>
 
+                <section class="card overlay-config" data-overlay="polls" hidden>
+                    <h2>Live Polls</h2>
+                    <div class="form-row">
+                        <label for="poll-theme">Container / Theme</label>
+                        <select id="poll-theme">
+                            <option value="card" selected>Dark Card (?overlay=card)</option>
+                            <option value="glass">Frosted Glass (?overlay=glass)</option>
+                            <option value="solid">Opaque Solid (?overlay=solid)</option>
+                            <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
+                            <option value="pill">Pill Capsule (?overlay=pill)</option>
+                            <option value="neon">Cyber Neon (?overlay=neon)</option>
+                            <option value="retro">Retro Arcade (?overlay=retro)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="poll-howtovote">How to vote</label>
+                        <select id="poll-howtovote">
+                            <option value="" selected>Default (Hidden / Optional)</option>
+                            <option value="1">Show bottom instructions (?howtovote=1)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="poll-results">Results hold (seconds)</label>
+                        <input id="poll-results" type="number" min="0" step="1" placeholder="15">
+                    </div>
+                    <p class="hint">Launch and manage live chat votes or tournament brackets in <a href="/polls.html">Poll Studio</a>.</p>
+                </section>
+
+                <section class="card overlay-config" data-overlay="tournament" hidden>
+                    <h2>Tournament Bracket</h2>
+                    <div class="form-row">
+                        <label for="tourney-layout">Bracket Layout</label>
+                        <select id="tourney-layout">
+                            <option value="tree" selected>Full Bracket Tree (?layout=tree)</option>
+                            <option value="active">Active Match Lower-Third HUD (?layout=active)</option>
+                            <option value="compact">Compact Overview (?layout=compact)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="tourney-theme">Container / Theme</label>
+                        <select id="tourney-theme">
+                            <option value="card" selected>Dark Card (?overlay=card)</option>
+                            <option value="glass">Frosted Glass (?overlay=glass)</option>
+                            <option value="solid">Opaque Solid (?overlay=solid)</option>
+                            <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
+                            <option value="pill">Pill Capsule (?overlay=pill)</option>
+                            <option value="neon">Cyber Neon (?overlay=neon)</option>
+                            <option value="retro">Retro Arcade (?overlay=retro)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="tourney-showscores">Match Scores &amp; Series Pips</label>
+                        <select id="tourney-showscores">
+                            <option value="1" selected>Show Scores &amp; Series Pips (?showscores=1)</option>
+                            <option value="0">Hide Scores (?showscores=0)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="tourney-confetti">Champion Celebration Fanfare</label>
+                        <select id="tourney-confetti">
+                            <option value="1" selected>Enabled (?confetti=1)</option>
+                            <option value="0">Disabled (?confetti=0)</option>
+                        </select>
+                    </div>
+                    <p class="hint">Launch and control tournament brackets, seedings, and manual scoring in <a href="/competitions.html">Competitions Studio</a> (or <a href="/polls.html">Poll Studio</a> for audience brackets).</p>
+                </section>
+
+                <section class="card overlay-config" data-overlay="matchup" hidden>
+                    <h2>Matchup Scoreboard</h2>
+                    <div class="form-row">
+                        <label for="matchup-layout">Display Layout</label>
+                        <select id="matchup-layout">
+                            <option value="top" selected>Fighting Game Top Bar (?layout=top)</option>
+                            <option value="fgc">Modern FGC (EVO Style) (?layout=fgc)</option>
+                            <option value="split">Dual Corner Split (Open Center) (?layout=split)</option>
+                            <option value="pillar">Vertical Pillar Stack (?layout=pillar)</option>
+                            <option value="minimal">Minimal / Center-Less (?layout=minimal)</option>
+                            <option value="bottom">Esports Lower-Third HUD (?layout=bottom)</option>
+                            <option value="compact">Compact Score Bug (?layout=compact)</option>
+                            <option value="versus">Versus Screen Card (?layout=versus)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="matchup-theme">Container / Theme</label>
+                        <select id="matchup-theme">
+                            <option value="card" selected>Dark Card (?overlay=card)</option>
+                            <option value="championship">Championship Gold (?overlay=championship)</option>
+                            <option value="fgc-evo">EVO Championship (?overlay=fgc-evo)</option>
+                            <option value="cyber">Cyberpunk Neon (?overlay=cyber)</option>
+                            <option value="glass">Frosted Glass (?overlay=glass)</option>
+                            <option value="clean-light">Clean Light (?overlay=clean-light)</option>
+                            <option value="minimal-dark">Minimal Dark (?overlay=minimal-dark)</option>
+                            <option value="border">Border Framing (?overlay=border)</option>
+                            <option value="solid">Opaque Solid (?overlay=solid)</option>
+                            <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
+                            <option value="pill">Pill Capsule (?overlay=pill)</option>
+                            <option value="neon">Cyber Neon (?overlay=neon)</option>
+                            <option value="retro">Retro Arcade (?overlay=retro)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="matchup-source">Data Source</label>
+                        <select id="matchup-source">
+                            <option value="auto" selected>Auto: Active Tournament Match, else Exhibition (?source=auto)</option>
+                            <option value="matchup">Exhibition Matchup Only (?source=matchup)</option>
+                            <option value="tournament">Tournament Bracket Match Only (?source=tournament)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="matchup-pipstyle">Series Pip Style</label>
+                        <select id="matchup-pipstyle">
+                            <option value="circle" selected>Round Dot Pips (?pipstyle=circle)</option>
+                            <option value="bar">Segmented Rectangular Bars (?pipstyle=bar)</option>
+                            <option value="digit">Numeric Digit (?pipstyle=digit)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="matchup-fit">Self-Sizing Content Box</label>
+                        <select id="matchup-fit">
+                            <option value="0" selected>Full Canvas / Browser Source Bounds</option>
+                            <option value="1">Tight Content Box (?fit=content)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="matchup-center">Center Phase Badge</label>
+                        <select id="matchup-center">
+                            <option value="1" selected>Show Center Badge (?center=1)</option>
+                            <option value="0">Hide Center Badge (?center=0)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="matchup-pips">Series Win Pips</label>
+                        <select id="matchup-pips">
+                            <option value="1" selected>Show Series Pips (?pips=1)</option>
+                            <option value="0">Hide Series Pips (?pips=0)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="matchup-tags">Character / Sub-Tags</label>
+                        <select id="matchup-tags">
+                            <option value="1" selected>Show Sub-Tags (?tags=1)</option>
+                            <option value="0">Hide Sub-Tags (?tags=0)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="matchup-confetti">Victory Celebration Fanfare</label>
+                        <select id="matchup-confetti">
+                            <option value="1" selected>Enabled (?confetti=1)</option>
+                            <option value="0">Disabled (?confetti=0)</option>
+                        </select>
+                    </div>
+                    <p class="hint">Track scores, swap sides, run Fight Cards, and manage presets in <a href="/competitions.html">Competitions Studio</a>.</p>
+                </section>
+
                 <section class="card" id="appearance-card">
                     <h2>Appearance (all overlays)</h2>
                     <p class="hint" style="margin-left:0;">Leave a field empty to use the saved theme. These apply to the selected overlay's URL only.</p>
@@ -521,6 +678,36 @@
                             </div>
                             <a id="viewer-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
                         </div>
+                        <div class="url-item" data-overlay="polls" hidden>
+                            <div class="url-heading">
+                                <h3>Live Poll Overlay</h3>
+                                <div style="display:flex; gap:0.4rem;">
+                                    <button class="button" data-copy="polls-url">Copy</button>
+                                    <a class="button" data-open="polls-url" target="_blank" rel="noopener noreferrer">Open ↗</a>
+                                </div>
+                            </div>
+                            <a id="polls-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+                        </div>
+                        <div class="url-item" data-overlay="tournament" hidden>
+                            <div class="url-heading">
+                                <h3>Tournament Bracket Overlay</h3>
+                                <div style="display:flex; gap:0.4rem;">
+                                    <button class="button" data-copy="tourney-url">Copy</button>
+                                    <a class="button" data-open="tourney-url" target="_blank" rel="noopener noreferrer">Open ↗</a>
+                                </div>
+                            </div>
+                            <a id="tourney-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+                        </div>
+                        <div class="url-item" data-overlay="matchup" hidden>
+                            <div class="url-heading">
+                                <h3>Matchup Scoreboard Overlay</h3>
+                                <div style="display:flex; gap:0.4rem;">
+                                    <button class="button" data-copy="matchup-url">Copy</button>
+                                    <a class="button" data-open="matchup-url" target="_blank" rel="noopener noreferrer">Open ↗</a>
+                                </div>
+                            </div>
+                            <a id="matchup-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+                        </div>
                     </div>
                 </section>
             </div>
@@ -536,6 +723,9 @@
                     <tr data-overlay="hashtags" hidden><td>Hashtags</td><td><code>view</code> <code>sort</code> <code>columns</code> <code>size</code> <code>limit</code> <code>min</code> <code>range</code> <code>days</code> <code>date</code> <code>from</code> <code>to</code> <code>title</code> <code>duration</code> <code>refresh</code> <code>counts</code> <code>weight</code> <code>scroll</code></td><td>Choose scroll, grid or cloud, the data window (including session), sorting, and view-specific options.</td></tr>
                     <tr data-overlay="goals" hidden><td>Goal</td><td><code>goal</code> <code>mode</code> <code>layout</code> <code>align</code> <code>ids</code> <code>interval</code> <code>skipcompleted</code> <code>pausecomplete</code> <code>showlabel</code></td><td>Select layout (card, bar, pill, minimal), horizontal alignment, one goal or cycle a subset, and override cycle behavior or the type label.</td></tr>
                     <tr data-overlay="viewers" hidden><td>Viewer Count</td><td><code>layout</code> <code>align</code> <code>label</code></td><td>Select layout (card, pill, badge, minimal, stacked), horizontal alignment, and label override.</td></tr>
+                    <tr data-overlay="polls" hidden><td>Polls</td><td><code>overlay</code> <code>howtovote</code> <code>results</code> <code>preview</code></td><td>Select container theme or hex color hash, toggle bottom voting instructions footer, results display hold, and preview.</td></tr>
+                    <tr data-overlay="tournament" hidden><td>Tournament</td><td><code>layout</code> <code>overlay</code> <code>theme</code> <code>showscores</code> <code>confetti</code> <code>scale</code> <code>preview</code></td><td>Select layout (tree bracket, active match HUD, compact), container theme / hex hash, score display, fanfare, and preview.</td></tr>
+                    <tr data-overlay="matchup" hidden><td>Matchup</td><td><code>layout</code> <code>overlay</code> <code>theme</code> <code>source</code> <code>pipstyle</code> <code>fit</code> <code>pips</code> <code>tags</code> <code>center</code> <code>confetti</code> <code>scale</code> <code>preview</code></td><td>Track match points and series wins between 2 to 4 competitors or teams (fighting games, esports sets, races).</td></tr>
                     <tr><td>All overlays</td><td><code>font</code> <code>weight</code> <code>fontscale</code> <code>align</code> <code>text</code> <code>accent</code> <code>bg</code> <code>outline</code></td><td>Override the saved theme font, scale, canvas alignment, text, accent and background colors, and text outline (use <code>none</code> to remove it).</td></tr>
                 </tbody>
             </table>
@@ -557,6 +747,9 @@
         'stats-view', 'stats-range', 'stats-days', 'stats-date', 'stats-from', 'stats-to', 'stats-limit', 'stats-refresh',
         'goal-layout', 'goal-single', 'goal-showlabel', 'goal-interval', 'goal-skipcompleted', 'goal-pausecomplete',
         'viewer-layout', 'viewer-label',
+        'poll-theme', 'poll-howtovote', 'poll-results',
+        'tourney-layout', 'tourney-theme', 'tourney-showscores', 'tourney-confetti',
+        'matchup-layout', 'matchup-theme', 'matchup-source', 'matchup-pipstyle', 'matchup-fit', 'matchup-center', 'matchup-pips', 'matchup-tags', 'matchup-confetti',
         'ap-font', 'ap-weight', 'ap-fontscale', 'ap-align', 'ap-text', 'ap-accent', 'ap-bg', 'ap-outline'
     ];
 
@@ -686,7 +879,8 @@
             stats: 'Stats',
             hashtags: 'Hashtags',
             goals: 'Goals',
-            viewers: 'Viewer Count'
+            viewers: 'Viewer Count',
+            polls: 'Live Polls'
         };
         const titleEl = $('preview-overlay-title');
         if (titleEl) titleEl.textContent = titleMap[currentOverlay] || 'Overlay';
@@ -709,6 +903,23 @@
         } else if (currentOverlay === 'viewers') {
             const el = $('viewer-url');
             if (el) url = el.href;
+        } else if (currentOverlay === 'polls' || currentOverlay === 'poll') {
+            const el = $('polls-url');
+            if (el) url = el.href;
+        } else if (currentOverlay === 'tournament') {
+            const el = $('tourney-url');
+            if (el && el.href) {
+                const u = new URL(el.href);
+                u.searchParams.set('preview', '1');
+                url = u.toString();
+            }
+        } else if (currentOverlay === 'matchup') {
+            const el = $('matchup-url');
+            if (el && el.href) {
+                const u = new URL(el.href);
+                u.searchParams.set('preview', '1');
+                url = u.toString();
+            }
         }
 
         const openBtn = $('preview-open-btn');
@@ -812,6 +1023,45 @@
         setUrl('viewer-url', buildUrl('/viewers.html', {
             layout: viewerLayout !== 'card' ? viewerLayout : '',
             label: $('viewer-label').value.trim()
+        }));
+
+        const pollTheme = $('poll-theme').value;
+        setUrl('polls-url', buildUrl('/poll.html', {
+            overlay: pollTheme !== 'card' ? pollTheme : '',
+            howtovote: $('poll-howtovote').value || '',
+            results: numberValue('poll-results', 0)
+        }));
+
+        const tourneyLayout = $('tourney-layout') ? $('tourney-layout').value : 'tree';
+        const tourneyTheme = $('tourney-theme') ? $('tourney-theme').value : 'card';
+        const tourneyScores = $('tourney-showscores') ? $('tourney-showscores').value : '1';
+        const tourneyConfetti = $('tourney-confetti') ? $('tourney-confetti').value : '1';
+        setUrl('tourney-url', buildUrl('/tournament.html', {
+            layout: tourneyLayout !== 'tree' ? tourneyLayout : '',
+            overlay: tourneyTheme !== 'card' ? tourneyTheme : '',
+            showscores: tourneyScores === '0' ? '0' : '',
+            confetti: tourneyConfetti === '0' ? '0' : ''
+        }));
+
+        const matchupLayout = $('matchup-layout') ? $('matchup-layout').value : 'top';
+        const matchupTheme = $('matchup-theme') ? $('matchup-theme').value : 'card';
+        const matchupSource = $('matchup-source') ? $('matchup-source').value : 'auto';
+        const matchupPipStyle = $('matchup-pipstyle') ? $('matchup-pipstyle').value : 'circle';
+        const matchupFit = $('matchup-fit') ? $('matchup-fit').value : '0';
+        const matchupCenter = $('matchup-center') ? $('matchup-center').value : '1';
+        const matchupPips = $('matchup-pips') ? $('matchup-pips').value : '1';
+        const matchupTags = $('matchup-tags') ? $('matchup-tags').value : '1';
+        const matchupConfetti = $('matchup-confetti') ? $('matchup-confetti').value : '1';
+        setUrl('matchup-url', buildUrl('/matchup.html', {
+            layout: matchupLayout !== 'top' ? matchupLayout : '',
+            overlay: matchupTheme !== 'card' ? matchupTheme : '',
+            source: matchupSource !== 'auto' ? matchupSource : '',
+            pipstyle: matchupPipStyle !== 'circle' ? matchupPipStyle : '',
+            fit: matchupFit === '1' ? 'content' : '',
+            center: matchupCenter === '0' ? '0' : '',
+            pips: matchupPips === '0' ? '0' : '',
+            tags: matchupTags === '0' ? '0' : '',
+            confetti: matchupConfetti === '0' ? '0' : ''
         }));
 
         updateLivePreview();
@@ -929,6 +1179,39 @@
         }
     });
 
+    $('tourney-layout')?.addEventListener('change', () => {
+        const layout = $('tourney-layout').value;
+        const chips = document.querySelectorAll('.preset-chips .preset-chip');
+        if (layout === 'active') {
+            const barBtn = Array.from(chips).find(c => c.textContent.includes('800×120') || c.textContent.includes('600×160'));
+            if (barBtn) applyPresetSize(800, 140, barBtn);
+        } else if (layout === 'tree') {
+            const treeBtn = Array.from(chips).find(c => c.textContent.includes('1280×720') || c.textContent.includes('960×540'));
+            if (treeBtn) applyPresetSize(1280, 720, treeBtn);
+        }
+    });
+
+    $('matchup-layout')?.addEventListener('change', () => {
+        const layout = $('matchup-layout').value;
+        const chips = document.querySelectorAll('.preset-chips .preset-chip');
+        if (layout === 'bottom') {
+            const barBtn = Array.from(chips).find(c => c.textContent.includes('800×120') || c.textContent.includes('600×160'));
+            if (barBtn) applyPresetSize(800, 140, barBtn);
+        } else if (layout === 'top') {
+            const topBtn = Array.from(chips).find(c => c.textContent.includes('1280×720') || c.textContent.includes('960×540'));
+            if (topBtn) applyPresetSize(1100, 100, topBtn);
+        } else if (layout === 'pillar') {
+            const pillarBtn = Array.from(chips).find(c => c.textContent.includes('480×65') || c.textContent.includes('600×160'));
+            if (pillarBtn) applyPresetSize(420, 360, pillarBtn);
+        } else if (layout === 'compact') {
+            const compactBtn = Array.from(chips).find(c => c.textContent.includes('220×65') || c.textContent.includes('480×65'));
+            if (compactBtn) applyPresetSize(280, 140, compactBtn);
+        } else if (layout === 'versus') {
+            const vsBtn = Array.from(chips).find(c => c.textContent.includes('600×160') || c.textContent.includes('800×120'));
+            if (vsBtn) applyPresetSize(720, 480, vsBtn);
+        }
+    });
+
     document.querySelectorAll('[data-color-for]').forEach(picker => {
         picker.addEventListener('input', () => {
             const target = $(picker.dataset.colorFor);
@@ -978,7 +1261,7 @@
     refreshUrls();
     loadGoals();
     const requested = new URLSearchParams(location.search).get('overlay');
-    selectOverlay(['credits', 'stats', 'hashtags', 'goals', 'viewers'].includes(requested) ? requested : 'credits');
+    selectOverlay(['credits', 'stats', 'hashtags', 'goals', 'viewers', 'polls', 'poll', 'tournament', 'matchup'].includes(requested) ? (requested === 'poll' ? 'polls' : requested) : 'credits');
     window.addEventListener('resize', updatePreviewSize);
     updatePreviewSize();
     </script>

@@ -95,6 +95,8 @@
             { label: 'Milestones', href: '/milestone-url-wizard.html' }
         ]},
         { label: 'Tools ▾', children: [
+            { label: 'Poll Studio', href: '/polls.html' },
+            { label: 'Competitions Studio', href: '/competitions.html' },
             { label: 'Promo Creator', href: '/promo-creator.html' },
             { label: 'Chat Bot', href: '/chatbot.html', module: 'chatbot' },
             { label: 'Alerts & SFX', href: '/alerts.html' },
@@ -122,6 +124,7 @@
     const currentPath = window.location.pathname;
 
     const pageParentMap = {
+        '/tournaments.html': '/competitions.html',
         '/custom-overlay-editor.html': '/custom-overlays.html',
         '/alert-queue.html': '/alerts.html',
         '/commands.html': '/chatbot.html',
@@ -174,6 +177,8 @@
         list.push({ label: 'Overlay Assets', href: '/assets.html', group: 'Editors & Studios' });
 
         // 3. Stream Tools & Automation
+        list.push({ label: 'Poll Studio', href: '/polls.html', group: 'Stream Tools' });
+        list.push({ label: 'Competitions Studio', href: '/competitions.html', group: 'Stream Tools' });
         list.push({ label: 'Promo Creator', href: '/promo-creator.html', group: 'Stream Tools' });
         list.push({ label: 'Chat Bot', href: '/chatbot.html', group: 'Stream Tools', module: 'chatbot' });
         list.push({ label: 'Alerts & SFX', href: '/alerts.html', group: 'Stream Tools' });

@@ -37,6 +37,10 @@ With the Companion module connected, you can bind the following actions to any S
 - **Game Plan Rundown**:
   - `Play Now`: Marks a game as active and syncs your Twitch category automatically.
   - `Advance Game`: Finishes the current game and queues the next game in your lineup.
+- **Live Polls**:
+  - `End Poll / Crown Winner`: Concludes active poll and triggers celebrations.
+  - `Extend Poll`: Adds +30 seconds of voting time to active poll.
+  - `Cancel Poll`: Aborts active poll without crowning a winner.
 - **Chat Bot & Alerts**:
   - `Run Bot Command`: Silently triggers custom chatbot commands or webhooks.
   - `Test Alert`: Simulates subscriber, bit, or raid alerts on stream.

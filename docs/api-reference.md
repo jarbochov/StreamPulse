@@ -116,6 +116,232 @@ IGDB operations use the configured Twitch client credentials. Missing credential
 
 ---
 
+## 2.5. Native Polls & Poll Studio Endpoints
+
+### Get Latest Poll Status
+- **Endpoint**: `GET /api/polls/latest`
+- **Description**: Returns the active running poll or the most recently concluded poll state, including choice votes, winner, and timing.
+
+### Get Active Running Poll
+- **Endpoint**: `GET /api/polls/active`
+- **Description**: Returns the active poll if currently running, or `{ "active": false }`.
+
+### Get Poll History
+- **Endpoint**: `GET /api/polls/history`
+- **Description**: Returns an array of past poll records, total votes, winners, and completion timestamps.
+
+### Create and Start Poll
+- **Endpoint**: `POST /api/polls/create`
+- **Description**: Launches a native poll.
+- **Body**:
+  ```json
+  {
+    "title": "Which adventure next?",
+    "choices": ["Zelda", "Mario", "Metroid"],
+    "duration": 60,
+    "blind": false,
+    "keywords": true,
+    "subMultiplier": 2,
+    "celebration": {
+      "sound": true,
+      "soundUrl": "",
+      "volume": 0.8,
+      "confetti": true
+    }
+  }
+  ```
+
+### Conclude Poll / Crown Winner
+- **Endpoint**: `POST /api/polls/end`
+- **Description**: Immediately ends active voting, calculates percentages, triggers celebration effects, and broadcasts results across WebSockets.
+
+### Extend Poll Duration
+- **Endpoint**: `POST /api/polls/extend`
+- **Description**: Adds extra seconds to a running poll.
+- **Body**: `{ "seconds": 30 }` (default is 30 seconds).
+
+### Cancel Active Poll
+- **Endpoint**: `POST /api/polls/cancel`
+- **Description**: Immediately cancels the active poll without crowning a winner.
+
+### Submit Chat or Manual Vote
+- **Endpoint**: `POST /api/polls/vote`
+- **Description**: Casts a vote for a user.
+- **Body**: `{ "user": "StreamerFan", "choice": 1, "isSubscriber": true }`.
+
+### Get Active Tournament State
+- **Endpoint**: `GET /api/tournament`
+- **Description**: Returns the active tournament bracket tree, rounds, matches, scoring settings, and champion state.
+
+### Create Tournament Bracket
+- **Endpoint**: `POST /api/tournament/create`
+- **Description**: Generates an adaptive single or double elimination bracket (2 to 32 participants) with automatic seedings and BYE allocation.
+- **Body**:
+  ```json
+  {
+    "title": "Retro RPG Championship",
+    "format": "single",
+    "entrants": ["Chrono Trigger", "Final Fantasy VI", "EarthBound", "Secret of Mana"],
+    "progressionMode": "manual",
+    "scoringType": "bestOf",
+    "bestOf": 3
+  }
+  ```
+
+### Start Match Voting
+- **Endpoint**: `POST /api/tournament/start-match`
+- **Description**: Starts an interactive chat poll for the specified match in audience vote mode.
+- **Body**: `{ "matchId": "m_1_1" }`.
+
+### Update Match Score or Notes
+- **Endpoint**: `POST /api/tournament/score`
+- **Description**: Updates competitor scores, sets custom match notes (e.g. Map/Game #), or crowns a match winner. In best-of series, reaching the required target score automatically advances the competitor to the next round.
+- **Body**: `{ "matchId": "m_1_1", "entrant1Score": 2, "entrant2Score": 1, "matchDetails": "Game 3 · Decider" }`.
+
+### Select Active Match
+- **Endpoint**: `POST /api/tournament/select-match`
+- **Description**: Focuses a match as the active matchup in Poll Studio and the Esports Lower-Third Match HUD overlay (`?layout=active`).
+- **Body**: `{ "matchId": "m_1_1" }`.
+
+### Reset Match
+- **Endpoint**: `POST /api/tournament/reset-match`
+- **Description**: Resets a match's scores, status, and downstream bracket advancement.
+- **Body**: `{ "matchId": "m_1_1" }`.
+
+### Update Tournament Settings
+- **Endpoint**: `POST /api/tournament/settings`
+- **Description**: Updates tournament title, best-of format, or progression mode.
+- **Body**: `{ "title": "Updated Championship", "bestOf": 5 }`.
+
+### Advance Winner
+- **Endpoint**: `POST /api/tournament/advance`
+- **Description**: Manually advances a specific competitor to the next round slot.
+- **Body**: `{ "matchId": "m_1_1", "winner": "Chrono Trigger" }`.
+
+### Rollback Tournament Match Advancement
+- **Endpoint**: `POST /api/tournament/rollback`
+- **Description**: Reverts a completed match back to active status, clears its winner and scores, and recursively resets all downstream matches that depended on that match back to `TBD` and `PENDING`.
+- **Body**: `{ "matchId": "m_1_1" }`.
+
+### Reset Tournament
+- **Endpoint**: `POST /api/tournament/reset`
+- **Description**: Completely terminates and resets the active tournament bracket.
+
+### Tournament Presets, History & Drafts
+- **Get Presets**: `GET /api/tournament/presets` — Returns saved tournament configuration presets.
+- **Save Preset**: `POST /api/tournament/presets` — Saves current or provided tournament setup: `{ "name": "8-Player Double Elim", "tournament": { ... } }`.
+- **Load Preset**: `POST /api/tournament/presets/load` — Loads a tournament preset: `{ "id": "preset-1" }`.
+- **Delete Preset**: `DELETE /api/tournament/presets/:id` — Deletes a saved tournament preset.
+- **Get History**: `GET /api/tournament/history` — Returns list of archived completed tournament brackets.
+- **Restore Tournament**: `POST /api/tournament/history/restore` — Restores a past completed tournament bracket to live studio: `{ "id": "th-1" }`.
+- **Delete History Record**: `DELETE /api/tournament/history/:id` — Deletes an archived tournament record.
+- **Clear History**: `POST /api/tournament/history/clear` — Clears all archived tournament history.
+- **Get Drafts**: `GET /api/tournament/drafts` — Returns list of in-progress saved bracket draft checkpoints.
+- **Save Draft Checkpoint**: `POST /api/tournament/drafts/save` — Saves active tournament state as a named draft: `{ "name": "Mid-Tournament Checkpoint" }`.
+- **Restore Draft Checkpoint**: `POST /api/tournament/drafts/restore` — Resumes an in-progress bracket draft: `{ "id": "draft-1" }`.
+- **Delete Draft Checkpoint**: `DELETE /api/tournament/drafts/:id` — Deletes an in-progress draft checkpoint.
+
+---
+
+## 2.5 Matchup Scoreboard & Versus Endpoints
+
+Dedicated scoreboard system for fighting games, speedrun races, multi-player showdowns, and sports matches between 2, 3, or 4 competitors.
+
+### Get Matchup State
+- **Endpoint**: `GET /api/matchup`
+- **Description**: Returns active matchup state including competitor names, sub-tags, colors, scores, game format, target score, and active winner status.
+
+### Update Matchup Settings
+- **Endpoint**: `POST /api/matchup`
+- **Description**: Updates match title, phase, sub-details, series format (`points`, `bestOf`, `firstTo`), target score, competitor count (2, 3, or 4), or competitor metadata.
+- **Body**:
+  ```json
+  {
+    "title": "Capcom Pro Tour - Grand Finals",
+    "phase": "Grand Finals",
+    "details": "Best of 5 · First to 3",
+    "format": "bestOf",
+    "targetScore": 3,
+    "competitors": [
+      { "id": "c1", "name": "Daigo", "tag": "Ryu", "color": "#e5534b", "score": 2 },
+      { "id": "c2", "name": "Justin Wong", "tag": "Chun-Li", "color": "#58a6ff", "score": 1 }
+    ]
+  }
+  ```
+
+### Increment or Set Competitor Score
+- **Endpoint**: `POST /api/matchup/score`
+- **Description**: Adjusts a competitor's score by a delta (`+1` or `-1`) or sets an absolute score. Reaching the required series target in Best-of / First-to formats automatically declares the set winner, triggers audio fanfare, and spawns celebratory confetti.
+- **Body**: `{ "competitorId": "c1", "delta": 1 }` or `{ "competitorId": "c1", "score": 3 }`.
+
+### Swap Player Sides (P1 ⇄ P2)
+- **Endpoint**: `POST /api/matchup/swap`
+- **Description**: Instantly swaps Player 1 and Player 2 names, character/sub-tags, custom team colors, and current scores. Ideal for fighting game side swaps (P1 side vs P2 side).
+
+### Reset Matchup Scores
+- **Endpoint**: `POST /api/matchup/reset-scores`
+- **Description**: Resets all competitor scores to 0 and clears the winner state while keeping names, character tags, and format configuration intact for the next game or set.
+
+### Reset Matchup
+- **Endpoint**: `POST /api/matchup/reset`
+- **Description**: Resets the entire matchup scoreboard back to initial default state.
+
+### Matchup Fight Card / Exhibition Queue
+- **Endpoint**: `GET /api/matchup/queue`
+- **Description**: Returns all scheduled matches in the fight card queue and the current active queue index.
+
+### Add Match to Queue
+- **Endpoint**: `POST /api/matchup/queue`
+- **Description**: Appends a new match to the fight card queue with optional immediate load.
+- **Body**:
+  ```json
+  {
+    "match": {
+      "title": "Street Fighter 6",
+      "phase": "Exhibition #1",
+      "competitors": [
+        { "name": "Player 1", "tag": "Ken", "score": 0 },
+        { "name": "Player 2", "tag": "Ryu", "score": 0 }
+      ]
+    },
+    "loadImmediately": false
+  }
+  ```
+
+### Step / Select Queue Match
+- **Endpoint**: `POST /api/matchup/queue/select` (Body: `{ "id": "queue-1" }`), `POST /api/matchup/queue/next`, `POST /api/matchup/queue/prev`
+- **Description**: Advances, steps back, or directly loads a scheduled match from the fight card queue into the live scoreboard overlay.
+
+### Delete Queue Match
+- **Endpoint**: `DELETE /api/matchup/queue/:id`
+- **Description**: Removes a scheduled match from the fight card queue.
+
+### Matchup Presets & History
+- **Get Presets**: `GET /api/matchup/presets` — Returns saved matchup configuration presets.
+- **Save Preset**: `POST /api/matchup/presets` — Saves current or provided configuration as a named preset: `{ "name": "SF6 FT10", "matchup": { ... } }`.
+- **Load Preset**: `POST /api/matchup/presets/load` — Loads a preset directly to live scoreboard: `{ "id": "preset-1" }`.
+- **Delete Preset**: `DELETE /api/matchup/presets/:id` — Deletes a saved preset.
+- **Get History**: `GET /api/matchup/history` — Returns list of completed fight sets and exhibition results.
+- **Restore Matchup**: `POST /api/matchup/history/restore` — Restores a past fight set to the live scoreboard: `{ "id": "mh-1" }`.
+- **Delete History Record**: `DELETE /api/matchup/history/:id` — Deletes an archived matchup record.
+- **Clear History**: `POST /api/matchup/history/clear` — Clears all matchup history.
+
+### Match Clocks & Timers
+Dual-mode match clocks (EVO fighting game round timer or GDQ marathon stopwatch) integrated with the live matchup scoreboard.
+- **Start Clock**: `POST /api/matchup/clock/start` — Resumes or starts the active match clock.
+- **Pause Clock**: `POST /api/matchup/clock/pause` — Pauses the match clock (auto-triggered when set winner condition is met).
+- **Reset Clock**: `POST /api/matchup/clock/reset` — Resets the clock to configured mode duration or zero: `{ "seconds": 99 }`.
+- **Set Clock Mode & Settings**: `POST /api/matchup/clock/set` — Configures mode and parameters:
+  ```json
+  {
+    "mode": "countdown",
+    "duration": 99,
+    "estimate": "45:00"
+  }
+  ```
+
+---
+
 ## 3. Named Timers Endpoints
 
 ### Adjust / Toggle Timer

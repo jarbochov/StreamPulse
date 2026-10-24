@@ -165,6 +165,8 @@ function createStaticRouter(options) {
         // Bare / opens dashboard, but with query parameters serves credits for OBS backward compatibility
         if (pathname === '/') {
             pathname = url.search ? '/credits.html' : '/dashboard.html';
+        } else if (pathname === '/tournaments.html') {
+            pathname = '/competitions.html';
         }
 
         let filePath = null;
