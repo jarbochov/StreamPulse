@@ -7,7 +7,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- Versus Studio: scoreboard, speedrun race clocks and manual brackets split from Poll Studio, with Save Progress snapshots, event-log history, per-element overlay toggles (title, phase, clock, tags, details, pips), a two-column Overlays tab with sticky live preview, and manual bracket winner confirmation.
+- Versus Studio: scoreboard, speedrun race clocks and manual brackets split from Poll Studio, with Save Progress snapshots, event-log history, per-element overlay toggles (title, phase, clock, tags, details, pips), an Overlays tab with per-type tabs (scoreboard, match HUD, bracket tree) and a sticky live preview, and manual bracket winner confirmation.
 - Randomizer elimination mode for every weighting mode: selected choices are removed until restored, with per-choice take-out and a collapsible History panel showing what was selected and removed.
 - Promo Creator under Tools: build reusable social promos with Text, Image, QR, Shape and Icon elements, layers, undo/redo and independent square, landscape and portrait layouts. Includes themes, 20 patterns with scale, motion and gradient animation, a configurable accent bar and vignette, IGDB artwork, and PNG ZIP or seamless MP4 export.
 - Custom overlay Poll element and 400 × 150 Compact poll preset: adaptive 2–5-choice result bars, native Twitch vote counts/percentages, remaining-time countdown, configurable completed-result duration, and preview-only fictional samples.

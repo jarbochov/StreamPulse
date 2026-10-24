@@ -401,6 +401,11 @@
 
                 <!-- Tab 3: Overlays & Live Preview Panel (Full Width Studio) -->
                 <div id="panel-overlays" style="display: none;">
+                    <div class="studio-tabs" style="margin-bottom: 1rem;">
+                        <button type="button" class="studio-tab-btn" id="btn-prev-matchup" onclick="setPreviewMode('matchup')">Versus Scoreboard</button>
+                        <button type="button" class="studio-tab-btn" id="btn-prev-tourney-hud" onclick="setPreviewMode('tourney-hud')">Active Match HUD</button>
+                        <button type="button" class="studio-tab-btn" id="btn-prev-tourney-tree" onclick="setPreviewMode('tourney-tree')">Bracket Tree</button>
+                    </div>
                     <div class="ov-layout">
                     <div class="card ov-preview" style="margin-bottom: 1rem;">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
@@ -408,17 +413,7 @@
                                 <h2 style="margin-bottom: 0.15rem;">Live Overlay Preview</h2>
                                 <p class="hint" style="margin: 0;">Interactive real-time preview of your scoreboards, HUDs, and tournament brackets.</p>
                             </div>
-                            <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
-                                <button type="button" class="btn-secondary btn-primary" id="btn-prev-matchup" style="font-size: 0.72rem; padding: 0.25rem 0.65rem;" onclick="setPreviewMode('matchup')">
-                                    Matchup Scoreboard
-                                </button>
-                                <button type="button" class="btn-secondary" id="btn-prev-tourney-tree" style="font-size: 0.72rem; padding: 0.25rem 0.65rem;" onclick="setPreviewMode('tourney-tree')">
-                                    Bracket Tree
-                                </button>
-                                <button type="button" class="btn-secondary" id="btn-prev-tourney-hud" style="font-size: 0.72rem; padding: 0.25rem 0.65rem;" onclick="setPreviewMode('tourney-hud')">
-                                    Active Match HUD
-                                </button>
-                            </div>
+                            
                         </div>
 
                         <!-- Global Canvas Backdrop & Sample Data Bar -->
@@ -584,7 +579,7 @@
                         </div>
 
                         <!-- Matchup Scoreboard Overlay URL -->
-                        <div style="margin-bottom: 1.5rem;">
+                        <div id="ov-sec-matchup" style="margin-bottom: 1.5rem;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                                 <div style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Matchup Scoreboard Overlay</div>
                                 <a id="btn-open-matchup-overlay" href="/overlays/matchup.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open &nearr;</a>
@@ -689,7 +684,7 @@
                         </div>
 
                         <!-- Active Tournament Match HUD Overlay URL -->
-                        <div style="margin-bottom: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                        <div id="ov-sec-hud" style="display:none; margin-bottom: 1.5rem;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                                 <div>
                                     <span style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Active Tournament Match HUD</span>
@@ -707,7 +702,7 @@
                         </div>
 
                         <!-- Tournament Bracket Overlay URL -->
-                        <div style="padding-top: 1rem; border-top: 1px solid var(--border);">
+                        <div id="ov-sec-tree" style="display:none;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                                 <div style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Tournament Bracket Overlay</div>
                                 <a id="btn-open-tourney-overlay" href="/overlays/tournament.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open &nearr;</a>
@@ -1098,9 +1093,13 @@
 
         function setPreviewMode(mode) {
             previewMode = mode;
-            $('btn-prev-matchup')?.classList.toggle('btn-primary', mode === 'matchup');
-            $('btn-prev-tourney-tree')?.classList.toggle('btn-primary', mode === 'tourney-tree');
-            $('btn-prev-tourney-hud')?.classList.toggle('btn-primary', mode === 'tourney-hud');
+            $('btn-prev-matchup')?.classList.toggle('active', mode === 'matchup');
+            $('btn-prev-tourney-tree')?.classList.toggle('active', mode === 'tourney-tree');
+            $('btn-prev-tourney-hud')?.classList.toggle('active', mode === 'tourney-hud');
+            if ($('ov-sec-matchup')) $('ov-sec-matchup').style.display = mode === 'matchup' ? 'block' : 'none';
+            if ($('ov-sec-hud')) $('ov-sec-hud').style.display = mode === 'tourney-hud' ? 'block' : 'none';
+            if ($('ov-sec-tree')) $('ov-sec-tree').style.display = mode === 'tourney-tree' ? 'block' : 'none';
+            try { localStorage.setItem('versus-overlay-tab', mode); } catch (e) {}
 
             const isMatchupLike = mode === 'matchup' || mode === 'tourney-hud';
             if ($('matchup-preview-box')) $('matchup-preview-box').style.display = isMatchupLike ? 'block' : 'none';
