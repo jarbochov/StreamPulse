@@ -178,7 +178,9 @@ Renders the tournament bracket with flexible layouts, responsive auto-scaling, s
 | `?showstatus=1\|0` | `1` | Show or hide tournament status indicator (Live, In Progress, Completed). |
 | `?showrounds=1\|0` | `1` | Show or hide round header labels ("Round of 16", "Semifinals", "Grand Finals"). |
 | `?showscores=1\|0` | `1` | Show or hide numerical scores and series win pips on match cards. |
-| `?roundpips=1\|0` | `1` | Show or hide diamond round pips (`◆ ◇`) in match cards and active match HUD. |
+| `?pipstyle=circle\|diamond\|bar\|digit` | `circle` | Pip presentation format: round dots (`circle`), diamonds (`diamond`), segmented rectangular bars (`bar`), or numerical indicator (`digit`). |
+| `?roundpips=1\|0` | `1` | Show or hide round pips in match cards and active match HUD. |
+| `?roundpipstyle=diamond\|circle\|bar\|digit` | `diamond` | Round pip presentation format: diamonds (`diamond`), round dots (`circle`), segmented rectangular bars (`bar`), or numerical indicator (`digit`). Sized equally to game score pips (8px). |
 | `?showseeds=1\|0` | `1` | Show or hide entrant seed numbers (`#1`, `#2`) on bracket cards. |
 | `?showtags=1\|0` | `1` | Show or hide competitor player/character tags (`[Ryu]`, `[Ken]`). |
 | `?showbadges=1\|0` | `1` | Show or hide match card live/upcoming status badges. |
@@ -222,7 +224,7 @@ Unlike traditional full-screen overlays locked to 1920×1080 canvases, `/matchup
 | `?layout=top\|fgc\|split\|race\|pillar\|minimal\|bottom\|compact\|angular\|versus` | `top` | Display layout style (Fighting game top bar, modern FGC EVO style, dual corner split with open center, speedrun race, vertical pillar stack, minimal center-less strip, lower-third HUD, compact bug, angular slash banner, or versus intro card). |
 | `?overlay=<theme\|hash>` | `card` | Container styling theme (`card`, `championship`, `fgc-evo`, `cyber`, `glass`, `clean-light`, `minimal-dark`, `border`, `solid`, `transparent`, `pill`, `neon`, `retro`, `ember`, `aurora`, `ocean`, `sunset`, `violet`, `forest`) or custom hex color (e.g. `?overlay=0d1117`). |
 | `?source=auto\|matchup\|tournament` | `auto` | Data source binding: automatically display active tournament match during brackets, or lock to standalone matchup. |
-| `?pipstyle=circle\|bar\|digit` | `circle` | Pip presentation format: round dots (`circle`), segmented rectangular bars (`bar`), or numerical indicator (`digit`). |
+| `?pipstyle=circle\|diamond\|bar\|digit` | `circle` | Pip presentation format: round dots (`circle`), diamonds (`diamond`), segmented rectangular bars (`bar`), or numerical indicator (`digit`). |
 | `?fit=content` | off | Shrinkwrap container to fit tightly within the OBS browser source without canvas margins. |
 | `?p1color=<hex>` | default | Custom theme accent color override for Player 1 / Left team. |
 | `?p2color=<hex>` | default | Custom theme accent color override for Player 2 / Right team. |
@@ -231,7 +233,8 @@ Unlike traditional full-screen overlays locked to 1920×1080 canvases, `/matchup
 | `?title=1\|0` | `1` | Show or hide event / game title. |
 | `?center=1\|0` | `1` | Show or hide the center match phase badge. Set `?center=0` to create completely center-less overlays that leave the middle of your screen 100% clear. |
 | `?pips=1\|0` | `1` | Show or hide series win pips (`● ● ○`). |
-| `?roundpips=1\|0` | `1` | Show or hide diamond round pips (`◆ ◇`) alongside or stacked with game score pips. |
+| `?roundpips=1\|0` | `1` | Show or hide round pips alongside or stacked with game score pips. |
+| `?roundpipstyle=diamond\|circle\|bar\|digit` | `diamond` | Round pip presentation format: diamonds (`diamond`), round dots (`circle`), segmented rectangular bars (`bar`), or numerical indicator (`digit`). Sized equally to game score pips (8px). |
 | `?tags=1\|0` | `1` | Show or hide competitor character/sub-tags. |
 | `?details=1\|0` | `1` | Show or hide match phase badge and series subtitle. |
 | `?confetti=1\|0` | `1` | Enable or disable confetti burst when a set winner is crowned (`?confetti=0` silences confetti). |

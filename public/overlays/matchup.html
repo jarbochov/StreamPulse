@@ -633,7 +633,7 @@
             box-shadow: 0 0 16px rgba(63, 185, 80, 0.4);
         }
 
-        /* Win Pips (● ● ○) */
+        /* Win Pips (● ● ○) & Round Pips (◆ ◆ ◇) */
         .pips-container {
             display: flex;
             gap: 0.25rem;
@@ -647,22 +647,50 @@
             background: rgba(255, 255, 255, 0.2);
             border: 1px solid rgba(255, 255, 255, 0.35);
             transition: all 0.3s ease;
+            box-sizing: border-box;
         }
 
-        .pips-stack { display:inline-flex; flex-direction:column; gap:.25rem; align-items:center; justify-content:center; }
-        .pip.pip-round {
-            width: 6px;
-            height: 6px;
-            transform: rotate(45deg);
-            border-radius: 1px;
-            margin: 1px 2px;
-            opacity: 0.9;
+        .pip.pip-circle {
+            border-radius: 50%;
+            transform: none;
         }
-        .pip.pip-round.pip-bar { width:4px; height:8px; transform:none; border-radius:1px; }
+
+        .pip.pip-diamond {
+            border-radius: 1px;
+            transform: rotate(45deg);
+            margin: 1px 2px;
+        }
+
         .pip.pip-bar {
             width: 5px;
             height: 12px;
             border-radius: 2px;
+            transform: none;
+        }
+
+        .pips-stack { display:inline-flex; flex-direction:column; gap:.25rem; align-items:center; justify-content:center; }
+        .pip.pip-round {
+            width: 8px;
+            height: 8px;
+            opacity: 0.95;
+            box-sizing: border-box;
+        }
+        .pip.pip-round.pip-circle {
+            border-radius: 50%;
+            transform: none;
+            margin: 0;
+        }
+        .pip.pip-round.pip-diamond {
+            border-radius: 1px;
+            transform: rotate(45deg);
+            margin: 1px 2px;
+        }
+        .pip.pip-round.pip-bar {
+            width: 5px;
+            height: 12px;
+            border-radius: 2px;
+            transform: none;
+            margin: 0;
         }
 
         .pip-digit-badge {
@@ -1312,7 +1340,8 @@
         const showCenter = params.get('center') !== '0';
         const showPips = params.get('pips') !== '0';
         const showRoundPips = params.get('roundpips') === '1' || (showPips && params.get('roundpips') !== '0' && params.get('rounds') !== '0' && params.get('showrounds') !== '0');
-        const pipStyle = (params.get('pipstyle') || params.get('pips_style') || 'circle').toLowerCase(); // 'circle' | 'bar' | 'digit'
+        const pipStyle = (params.get('pipstyle') || params.get('pips_style') || 'circle').toLowerCase(); // 'circle' | 'diamond' | 'bar' | 'digit'
+        const roundPipStyle = (params.get('roundpipstyle') || params.get('round_pipstyle') || 'diamond').toLowerCase(); // 'diamond' | 'circle' | 'bar' | 'digit'
         const showTags = params.get('tags') !== '0';
         const showDetails = params.get('details') !== '0';
         const showClock = params.get('clock') !== '0';
@@ -1527,7 +1556,10 @@
 
             if (!hasGamePips && !hasRounds) return '';
 
-            if (pipStyle === 'digit' || pipStyle === 'number') {
+            const isGameDigit = pipStyle === 'digit' || pipStyle === 'number';
+            const isRoundDigit = roundPipStyle === 'digit' || roundPipStyle === 'number';
+
+            if (isGameDigit && isRoundDigit) {
                 const roundsSub = hasRounds
                     ? `<span class="pip-digit-rounds" style="font-size:0.7em;opacity:0.85;margin-left:0.35rem;font-weight:700;">◆ ${roundsWon}/${roundTarget}</span>`
                     : '';
@@ -1537,21 +1569,29 @@
                 return `<div class="pip-digit-badge" style="${color ? `color:${color};` : ''}">${score} / ${target}${roundsSub}</div>`;
             }
 
-            const isBar = pipStyle === 'bar' || pipStyle === 'block';
+            const gamePipClass = (pipStyle === 'bar' || pipStyle === 'block') ? ' pip-bar' : (pipStyle === 'diamond' || pipStyle === 'diamonds' ? ' pip-diamond' : ' pip-circle');
+            const roundPipClass = (roundPipStyle === 'circle' || roundPipStyle === 'circles') ? ' pip-circle' : ((roundPipStyle === 'bar' || roundPipStyle === 'block') ? ' pip-bar' : ' pip-diamond');
+
             const mkGames = () => {
                 if (!hasGamePips) return '';
+                if (isGameDigit) {
+                    return `<div class="pip-digit-badge" style="${color ? `color:${color};` : ''}">${score} / ${target}</div>`;
+                }
                 let h = `<div class="pips-container">`;
                 for (let i = 0; i < target; i++) {
-                    h += `<span class="pip${isBar ? ' pip-bar' : ''}${i < score ? ' won' : ''}" style="${i < score && color ? `background:${color};border-color:${color};box-shadow:0 0 6px ${color};` : ''}"></span>`;
+                    h += `<span class="pip${gamePipClass}${i < score ? ' won' : ''}" style="${i < score && color ? `background:${color};border-color:${color};box-shadow:0 0 6px ${color};` : ''}"></span>`;
                 }
                 return h + '</div>';
             };
 
             const mkRounds = () => {
                 if (!hasRounds) return '';
+                if (isRoundDigit) {
+                    return `<div class="pip-digit-badge pip-digit-rounds" style="font-size:0.75rem;${color ? `color:${color};` : ''}">◆ ${roundsWon} / ${roundTarget}</div>`;
+                }
                 let h = `<div class="pips-container pips-rounds-container" title="Rounds won (${roundsWon}/${roundTarget})">`;
                 for (let i = 0; i < roundTarget; i++) {
-                    h += `<span class="pip pip-round${i < roundsWon ? ' won' : ''}" style="${i < roundsWon && color ? `background:${color};border-color:${color};box-shadow:0 0 6px ${color};` : ''}"></span>`;
+                    h += `<span class="pip pip-round${roundPipClass}${i < roundsWon ? ' won' : ''}" style="${i < roundsWon && color ? `background:${color};border-color:${color};box-shadow:0 0 6px ${color};` : ''}"></span>`;
                 }
                 return h + '</div>';
             };

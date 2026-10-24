@@ -126,6 +126,32 @@ test('tournament overlay renders tree layout, active HUD layout, theme presets, 
         const roundPips = await page.$$('.match-round-pip');
         assert.ok(roundPips.length > 0, 'Match card should display diamond round pips when ?roundpips=1 and roundsBestOf > 0');
 
+        // 12b. Score pip diamonds in tournament HUD (?pipstyle=diamond) & equal size (8px)
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=hud&pipstyle=diamond`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.win-pip.pip-diamond');
+        const winPipDiamonds = await page.$$('.win-pip.pip-diamond');
+        assert.ok(winPipDiamonds.length >= 2, 'HUD win pips should receive pip-diamond class when ?pipstyle=diamond');
+        const winPipSize = await page.$eval('.win-pip', el => ({ w: getComputedStyle(el).width, h: getComputedStyle(el).height }));
+        assert.equal(winPipSize.w, '8px', 'Tournament win pip width should be 8px');
+        assert.equal(winPipSize.h, '8px', 'Tournament win pip height should be 8px');
+
+        // 12c. Round pip options in tournament (?roundpipstyle=circle, bar, digit) & equal size (8px)
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=tree&roundpips=1&roundpipstyle=circle`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.match-round-pip.pip-circle');
+        const tourneyRoundCircleSize = await page.$eval('.match-round-pip.pip-circle', el => ({ w: getComputedStyle(el).width, h: getComputedStyle(el).height }));
+        assert.equal(tourneyRoundCircleSize.w, '8px', 'Tournament round pip width should be 8px (equal size)');
+        assert.equal(tourneyRoundCircleSize.h, '8px', 'Tournament round pip height should be 8px (equal size)');
+
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=tree&roundpips=1&roundpipstyle=bar`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.match-round-pip.pip-bar');
+
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=hud&roundpips=1&roundpipstyle=digit`, { waitUntil: 'domcontentloaded' });
+        const hudRoundsBadge = await page.$('.score-badge');
+        assert.ok(hudRoundsBadge, 'Tournament HUD should render digit rounds badge with ?roundpipstyle=digit');
+
+        // Return to tree layout for tree assertions
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=tree&roundpips=1`, { waitUntil: 'domcontentloaded' });
+
         // 13. Entrant color accents and dots
         await page.evaluate(() => {
             window.renderTournament({

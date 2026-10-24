@@ -150,6 +150,39 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         const roundPips = await page.$$('.pip-round');
         assert.ok(roundPips.length > 0, 'Matchup overlay should render diamond round pips');
 
+        // 20. Pip Style: Diamonds for score pips (?pipstyle=diamond)
+        await page.goto(`${OVERLAY_URL}?preview=1&pipstyle=diamond`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.pip.pip-diamond');
+        const pipDiamonds = await page.$$('.pip.pip-diamond');
+        assert.ok(pipDiamonds.length >= 2, 'Score pips should receive pip-diamond class when ?pipstyle=diamond');
+
+        // 21. Equal sizing for score pips and round pips (both 8px x 8px)
+        await page.goto(`${OVERLAY_URL}?preview=1&roundpips=1`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.pip');
+        await page.waitForSelector('.pip.pip-round');
+        const gamePipSize = await page.$eval('.pip:not(.pip-round)', el => ({ w: getComputedStyle(el).width, h: getComputedStyle(el).height }));
+        const roundPipSize = await page.$eval('.pip.pip-round', el => ({ w: getComputedStyle(el).width, h: getComputedStyle(el).height }));
+        assert.equal(gamePipSize.w, '8px', 'Game pip width should be 8px');
+        assert.equal(gamePipSize.h, '8px', 'Game pip height should be 8px');
+        assert.equal(roundPipSize.w, '8px', 'Round pip width should be 8px (equal size)');
+        assert.equal(roundPipSize.h, '8px', 'Round pip height should be 8px (equal size)');
+
+        // 22. Round pip options (?roundpipstyle=circle, bar, digit)
+        await page.goto(`${OVERLAY_URL}?preview=1&roundpips=1&roundpipstyle=circle`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.pip.pip-round.pip-circle');
+        const roundCircles = await page.$$('.pip.pip-round.pip-circle');
+        assert.ok(roundCircles.length > 0, 'Should render circle round pips with ?roundpipstyle=circle');
+
+        await page.goto(`${OVERLAY_URL}?preview=1&roundpips=1&roundpipstyle=bar`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.pip.pip-round.pip-bar');
+        const roundBars = await page.$$('.pip.pip-round.pip-bar');
+        assert.ok(roundBars.length > 0, 'Should render bar round pips with ?roundpipstyle=bar');
+
+        await page.goto(`${OVERLAY_URL}?preview=1&roundpips=1&roundpipstyle=digit`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.pip-digit-rounds');
+        const digitRoundText = await page.$eval('.pip-digit-rounds', el => el.textContent.trim());
+        assert.ok(digitRoundText.includes('/'), 'Should render numeric round counter with ?roundpipstyle=digit');
+
     } finally {
         if (browser) await browser.close();
     }

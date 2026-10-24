@@ -81,44 +81,88 @@
                                 <div style="font-size: 0.72rem; color: var(--text-muted);" id="tourney-series-label">Best of 3 (First to 2)</div>
                             </div>
 
-                            <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.75rem; align-items: center;">
-                                <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; text-align: right;">
-                                    <div>
-                                        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.35rem;">
-                                            <input type="color" id="t-color-input-1" value="#ef4444" style="width: 20px; height: 20px; border: none; cursor: pointer; border-radius: 4px;" onchange="saveTournamentEntrantColor(1, this.value)" title="Change Player 1 color">
-                                            <div id="t-entrant-1" style="font-weight: 800; font-size: 0.95rem;">Player 1</div>
+                            <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.75rem; align-items: stretch;">
+                                <!-- Player 1 Card -->
+                                <div style="background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.65rem;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; margin-bottom: 0.5rem;">
+                                        <div style="display: flex; align-items: center; gap: 0.35rem; min-width: 0;">
+                                            <input type="color" id="t-color-input-1" value="#ef4444" style="width: 22px; height: 22px; border: none; cursor: pointer; border-radius: 4px; flex-shrink: 0;" onchange="saveTournamentEntrantColor(1, this.value)" title="Change Player 1 color">
+                                            <div id="t-entrant-1" style="font-weight: 800; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Player 1</div>
                                         </div>
-                                        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.25rem; margin-top: 0.15rem;">
-                                            <input type="text" id="t-tag-input-1" class="form-control" style="font-size: 0.7rem; padding: 0.15rem 0.35rem; max-width: 100px; height: 22px; text-align: right;" placeholder="Tag / Character" onchange="saveTournamentEntrantTag(1, this.value)">
+                                        <div style="display: flex; align-items: center; gap: 0.25rem;">
+                                            <input type="text" id="t-tag-input-1" class="form-control" style="font-size: 0.7rem; padding: 0.15rem 0.35rem; max-width: 110px; height: 22px; text-align: right;" placeholder="Tag / Character" onchange="saveTournamentEntrantTag(1, this.value)">
                                             <div id="t-tag-1" style="display: none; font-size: 0.7rem; color: var(--text-muted); font-weight: 700;"></div>
                                         </div>
-                                        <div id="t-score-pips-1" style="font-size: 0.75rem; letter-spacing: 0.1rem; color: var(--accent); margin-top: 0.2rem;">○ ○</div>
                                     </div>
-                                    <div class="score-stepper">
-                                        <button type="button" class="score-btn" onclick="stepTourneyScore(1, -1)">-</button>
-                                        <input type="number" id="t-score-input-1" class="score-val-input" min="0" value="0" onchange="setTourneyScoreDirect(1, this.value)">
-                                        <button type="button" class="score-btn" onclick="stepTourneyScore(1, 1)">+</button>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; border-top: 1px solid var(--border); padding-top: 0.45rem;">
+                                        <!-- Games Column -->
+                                        <div style="display: flex; flex-direction: column; align-items: center; border-right: 1px solid var(--border); padding-right: 0.35rem;">
+                                            <div style="font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem;">Games Won</div>
+                                            <div class="score-stepper">
+                                                <button type="button" class="score-btn" onclick="stepTourneyScore(1, -1)">-</button>
+                                                <input type="number" id="t-score-input-1" class="score-val-input" min="0" value="0" onchange="setTourneyScoreDirect(1, this.value)">
+                                                <button type="button" class="score-btn" onclick="stepTourneyScore(1, 1)">+</button>
+                                            </div>
+                                            <div id="t-score-pips-1" style="font-size: 0.78rem; letter-spacing: 0.1rem; color: var(--accent); margin-top: 0.25rem; font-weight: 800;">○ ○</div>
+                                            <div id="t-score-label-1" style="font-size: 0.62rem; font-weight: 700; color: var(--text-muted); margin-top: 0.1rem;">0 / 2 GAMES</div>
+                                        </div>
+                                        <!-- Rounds Column -->
+                                        <div style="display: flex; flex-direction: column; align-items: center; padding-left: 0.35rem;">
+                                            <div style="font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem;">Rounds in Game</div>
+                                            <div id="t-round-controls-1" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+                                                <div class="score-stepper">
+                                                    <button type="button" class="score-btn" onclick="stepTourneyRound(1, -1)">-</button>
+                                                    <input type="number" id="t-round-input-1" class="score-val-input" min="0" value="0" onchange="setTourneyRoundDirect(1, this.value)">
+                                                    <button type="button" class="score-btn" onclick="stepTourneyRound(1, 1)">+</button>
+                                                </div>
+                                                <div id="t-round-pips-1" style="font-size: 0.78rem; letter-spacing: 0.1rem; color: #ffd700; margin-top: 0.25rem; font-weight: 800; text-align: center;">◇ ◇</div>
+                                                <div id="t-round-label-1" style="font-size: 0.62rem; font-weight: 700; color: var(--text-muted); margin-top: 0.1rem; text-align: center;">0 / 2 ROUNDS</div>
+                                            </div>
+                                            <div id="t-round-off-1" style="display: none; font-size: 0.7rem; color: var(--text-muted); font-style: italic; padding: 0.4rem 0;">Rounds Off</div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div style="font-size: 0.78rem; font-weight: 800; color: var(--text-muted); padding: 0 0.4rem;">VS</div>
+                                <div style="align-self: center; font-size: 0.82rem; font-weight: 800; color: var(--text-muted); padding: 0 0.35rem; text-align: center;">VS</div>
 
-                                <div style="display: flex; align-items: center; justify-content: flex-start; gap: 0.5rem; text-align: left;">
-                                    <div class="score-stepper">
-                                        <button type="button" class="score-btn" onclick="stepTourneyScore(2, -1)">-</button>
-                                        <input type="number" id="t-score-input-2" class="score-val-input" min="0" value="0" onchange="setTourneyScoreDirect(2, this.value)">
-                                        <button type="button" class="score-btn" onclick="stepTourneyScore(2, 1)">+</button>
-                                    </div>
-                                    <div>
-                                        <div style="display: flex; align-items: center; justify-content: flex-start; gap: 0.35rem;">
-                                            <div id="t-entrant-2" style="font-weight: 800; font-size: 0.95rem;">Player 2</div>
-                                            <input type="color" id="t-color-input-2" value="#3b82f6" style="width: 20px; height: 20px; border: none; cursor: pointer; border-radius: 4px;" onchange="saveTournamentEntrantColor(2, this.value)" title="Change Player 2 color">
-                                        </div>
-                                        <div style="display: flex; align-items: center; justify-content: flex-start; gap: 0.25rem; margin-top: 0.15rem;">
-                                            <input type="text" id="t-tag-input-2" class="form-control" style="font-size: 0.7rem; padding: 0.15rem 0.35rem; max-width: 100px; height: 22px; text-align: left;" placeholder="Tag / Character" onchange="saveTournamentEntrantTag(2, this.value)">
+                                <!-- Player 2 Card -->
+                                <div style="background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.65rem;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; margin-bottom: 0.5rem;">
+                                        <div style="display: flex; align-items: center; gap: 0.25rem;">
+                                            <input type="text" id="t-tag-input-2" class="form-control" style="font-size: 0.7rem; padding: 0.15rem 0.35rem; max-width: 110px; height: 22px; text-align: left;" placeholder="Tag / Character" onchange="saveTournamentEntrantTag(2, this.value)">
                                             <div id="t-tag-2" style="display: none; font-size: 0.7rem; color: var(--text-muted); font-weight: 700;"></div>
                                         </div>
-                                        <div id="t-score-pips-2" style="font-size: 0.75rem; letter-spacing: 0.1rem; color: var(--accent); margin-top: 0.2rem;">○ ○</div>
+                                        <div style="display: flex; align-items: center; gap: 0.35rem; min-width: 0; justify-content: flex-end;">
+                                            <div id="t-entrant-2" style="font-weight: 800; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Player 2</div>
+                                            <input type="color" id="t-color-input-2" value="#3b82f6" style="width: 22px; height: 22px; border: none; cursor: pointer; border-radius: 4px; flex-shrink: 0;" onchange="saveTournamentEntrantColor(2, this.value)" title="Change Player 2 color">
+                                        </div>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; border-top: 1px solid var(--border); padding-top: 0.45rem;">
+                                        <!-- Games Column -->
+                                        <div style="display: flex; flex-direction: column; align-items: center; border-right: 1px solid var(--border); padding-right: 0.35rem;">
+                                            <div style="font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem;">Games Won</div>
+                                            <div class="score-stepper">
+                                                <button type="button" class="score-btn" onclick="stepTourneyScore(2, -1)">-</button>
+                                                <input type="number" id="t-score-input-2" class="score-val-input" min="0" value="0" onchange="setTourneyScoreDirect(2, this.value)">
+                                                <button type="button" class="score-btn" onclick="stepTourneyScore(2, 1)">+</button>
+                                            </div>
+                                            <div id="t-score-pips-2" style="font-size: 0.78rem; letter-spacing: 0.1rem; color: var(--accent); margin-top: 0.25rem; font-weight: 800;">○ ○</div>
+                                            <div id="t-score-label-2" style="font-size: 0.62rem; font-weight: 700; color: var(--text-muted); margin-top: 0.1rem;">0 / 2 GAMES</div>
+                                        </div>
+                                        <!-- Rounds Column -->
+                                        <div style="display: flex; flex-direction: column; align-items: center; padding-left: 0.35rem;">
+                                            <div style="font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem;">Rounds in Game</div>
+                                            <div id="t-round-controls-2" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+                                                <div class="score-stepper">
+                                                    <button type="button" class="score-btn" onclick="stepTourneyRound(2, -1)">-</button>
+                                                    <input type="number" id="t-round-input-2" class="score-val-input" min="0" value="0" onchange="setTourneyRoundDirect(2, this.value)">
+                                                    <button type="button" class="score-btn" onclick="stepTourneyRound(2, 1)">+</button>
+                                                </div>
+                                                <div id="t-round-pips-2" style="font-size: 0.78rem; letter-spacing: 0.1rem; color: #ffd700; margin-top: 0.25rem; font-weight: 800; text-align: center;">◇ ◇</div>
+                                                <div id="t-round-label-2" style="font-size: 0.62rem; font-weight: 700; color: var(--text-muted); margin-top: 0.1rem; text-align: center;">0 / 2 ROUNDS</div>
+                                            </div>
+                                            <div id="t-round-off-2" style="display: none; font-size: 0.7rem; color: var(--text-muted); font-style: italic; padding: 0.4rem 0;">Rounds Off</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -600,6 +644,16 @@
                                 <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Pips:</span>
                                 <select id="prev-ctrl-pipstyle" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onPreviewOptionChange('pipstyle', this.value)">
                                     <option value="circle">Circles (●)</option>
+                                    <option value="diamond">Diamonds (◆)</option>
+                                    <option value="bar">Bars (▮)</option>
+                                    <option value="digit">Digits (1/2)</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Rounds:</span>
+                                <select id="prev-ctrl-roundpipstyle" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onPreviewOptionChange('roundpipstyle', this.value)">
+                                    <option value="diamond">Diamonds (◆)</option>
+                                    <option value="circle">Circles (●)</option>
                                     <option value="bar">Bars (▮)</option>
                                     <option value="digit">Digits (1/2)</option>
                                 </select>
@@ -688,6 +742,24 @@
                                 <select id="prev-ctrl-tourney-tags" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
                                     <option value="1">Show Tags</option>
                                     <option value="0">Hide Tags</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Pips:</span>
+                                <select id="prev-ctrl-tourney-pipstyle" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
+                                    <option value="circle">Circles (●)</option>
+                                    <option value="diamond">Diamonds (◆)</option>
+                                    <option value="bar">Bars (▮)</option>
+                                    <option value="digit">Digits (1/2)</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Rounds:</span>
+                                <select id="prev-ctrl-tourney-roundpipstyle" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
+                                    <option value="diamond">Diamonds (◆)</option>
+                                    <option value="circle">Circles (●)</option>
+                                    <option value="bar">Bars (▮)</option>
+                                    <option value="digit">Digits (1/2)</option>
                                 </select>
                             </div>
                             <div style="display: flex; align-items: center; gap: 0.3rem;">
@@ -796,11 +868,21 @@
                                         </select>
                                     </div>
                                     <div>
-                                        <label for="matchup-opt-pipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Pip Style (?pipstyle=)</label>
+                                        <label for="matchup-opt-pipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Score Pip Style (?pipstyle=)</label>
                                         <select id="matchup-opt-pipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
                                             <option value="circle" selected>Circles (● ● ○)</option>
+                                            <option value="diamond">Diamonds (◆ ◆ ◇)</option>
                                             <option value="bar">Rectangular Bars (▮ ▮ ▯)</option>
                                             <option value="digit">Numeric Counter (2 / 3)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="matchup-opt-roundpipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Round Pip Style (?roundpipstyle=)</label>
+                                        <select id="matchup-opt-roundpipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                            <option value="diamond" selected>Diamonds (◆ ◆ ◇)</option>
+                                            <option value="circle">Circles (● ● ○)</option>
+                                            <option value="bar">Rectangular Bars (▮ ▮ ▯)</option>
+                                            <option value="digit">Numeric Counter (1 / 2)</option>
                                         </select>
                                     </div>
                                 </div>
@@ -922,6 +1004,24 @@
                                             <option value="glow" selected>Luminous Glow Lines</option>
                                             <option value="solid">Solid Connectors</option>
                                             <option value="minimal">Minimal Lines</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-pipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Score Pip Style (?pipstyle=)</label>
+                                        <select id="tourney-opt-pipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncTourneyOptFromMain('pipstyle', this.value)">
+                                            <option value="circle" selected>Circles (● ● ○)</option>
+                                            <option value="diamond">Diamonds (◆ ◆ ◇)</option>
+                                            <option value="bar">Rectangular Bars (▮ ▮ ▯)</option>
+                                            <option value="digit">Numeric Counter (2 / 3)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-roundpipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Round Pip Style (?roundpipstyle=)</label>
+                                        <select id="tourney-opt-roundpipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncTourneyOptFromMain('roundpipstyle', this.value)">
+                                            <option value="diamond" selected>Diamonds (◆ ◆ ◇)</option>
+                                            <option value="circle">Circles (● ● ○)</option>
+                                            <option value="bar">Rectangular Bars (▮ ▮ ▯)</option>
+                                            <option value="digit">Numeric Counter (1 / 2)</option>
                                         </select>
                                     </div>
                                 </div>
@@ -1208,6 +1308,8 @@
             if (key === 'rounds' && $('prev-ctrl-tourney-rounds')) $('prev-ctrl-tourney-rounds').value = val;
             if (key === 'seeds' && $('prev-ctrl-tourney-seeds')) $('prev-ctrl-tourney-seeds').value = val;
             if (key === 'tags' && $('prev-ctrl-tourney-tags')) $('prev-ctrl-tourney-tags').value = val;
+            if (key === 'pipstyle' && $('prev-ctrl-tourney-pipstyle')) $('prev-ctrl-tourney-pipstyle').value = val;
+            if (key === 'roundpipstyle' && $('prev-ctrl-tourney-roundpipstyle')) $('prev-ctrl-tourney-roundpipstyle').value = val;
             if (key === 'fit') {
                 tourneyFitWholeBracket = val === '1';
                 const btn = $('btn-tourney-fit-toggle');
@@ -1300,6 +1402,7 @@
             if (opt === 'theme' && $('matchup-opt-theme')) $('matchup-opt-theme').value = val;
             if (opt === 'clockstyle' && $('matchup-opt-clockstyle')) $('matchup-opt-clockstyle').value = val;
             if (opt === 'pipstyle' && $('matchup-opt-pipstyle')) $('matchup-opt-pipstyle').value = val;
+            if (opt === 'roundpipstyle' && $('matchup-opt-roundpipstyle')) $('matchup-opt-roundpipstyle').value = val;
             if (opt === 'fit' && $('matchup-opt-fit')) $('matchup-opt-fit').checked = val === 'content';
             updateMatchupOverlayUrl();
         }
@@ -1314,6 +1417,8 @@
             if ($('tourney-opt-rounds') && $('prev-ctrl-tourney-rounds')) $('tourney-opt-rounds').checked = $('prev-ctrl-tourney-rounds').value === '1';
             if ($('tourney-opt-seeds') && $('prev-ctrl-tourney-seeds')) $('tourney-opt-seeds').checked = $('prev-ctrl-tourney-seeds').value === '1';
             if ($('tourney-opt-tags') && $('prev-ctrl-tourney-tags')) $('tourney-opt-tags').checked = $('prev-ctrl-tourney-tags').value === '1';
+            if ($('tourney-opt-pipstyle') && $('prev-ctrl-tourney-pipstyle')) $('tourney-opt-pipstyle').value = $('prev-ctrl-tourney-pipstyle').value;
+            if ($('tourney-opt-roundpipstyle') && $('prev-ctrl-tourney-roundpipstyle')) $('tourney-opt-roundpipstyle').value = $('prev-ctrl-tourney-roundpipstyle').value;
             updateTourneyOverlayUrl();
         }
 
@@ -1371,6 +1476,11 @@
             if (titleSelect && String(titleSelect.value) === '0') urlParams.set('showtitle', '0');
             if (roundsSelect && String(roundsSelect.value) === '0') urlParams.set('showrounds', '0');
 
+            const tourneyPipStyleSelect = $('prev-ctrl-tourney-pipstyle') || $('tourney-opt-pipstyle');
+            if (tourneyPipStyleSelect && tourneyPipStyleSelect.value !== 'circle') urlParams.set('pipstyle', tourneyPipStyleSelect.value);
+            const tourneyRoundPipStyleSelect = $('prev-ctrl-tourney-roundpipstyle') || $('tourney-opt-roundpipstyle');
+            if (tourneyRoundPipStyleSelect && tourneyRoundPipStyleSelect.value !== 'diamond') urlParams.set('roundpipstyle', tourneyRoundPipStyleSelect.value);
+
             const formatCheck = $('prev-ctrl-tourney-format') ? $('prev-ctrl-tourney-format').value === '1' : ($('tourney-opt-format')?.checked ?? true);
             if (!formatCheck) urlParams.set('showformat', '0');
             const seedsCheck = $('prev-ctrl-tourney-seeds') ? $('prev-ctrl-tourney-seeds').value === '1' : ($('tourney-opt-seeds')?.checked ?? true);
@@ -1410,6 +1520,7 @@
             const clockStyleSelect = $('matchup-opt-clockstyle');
             const sourceSelect = $('matchup-opt-source');
             const pipStyleSelect = $('matchup-opt-pipstyle');
+            const roundPipStyleSelect = $('matchup-opt-roundpipstyle');
             const centerCheck = $('matchup-opt-center');
             const fitCheck = $('matchup-opt-fit');
             const confettiCheck = $('matchup-opt-confetti');
@@ -1419,6 +1530,7 @@
             if ($('prev-ctrl-theme') && themeSelect) $('prev-ctrl-theme').value = themeSelect.value;
             if ($('prev-ctrl-clockstyle') && clockStyleSelect) $('prev-ctrl-clockstyle').value = clockStyleSelect.value;
             if ($('prev-ctrl-pipstyle') && pipStyleSelect) $('prev-ctrl-pipstyle').value = pipStyleSelect.value;
+            if ($('prev-ctrl-roundpipstyle') && roundPipStyleSelect) $('prev-ctrl-roundpipstyle').value = roundPipStyleSelect.value;
             if ($('prev-ctrl-fit') && fitCheck) $('prev-ctrl-fit').value = fitCheck.checked ? 'content' : 'full';
 
             const urlParams = new URLSearchParams();
@@ -1427,6 +1539,7 @@
             if (clockStyleSelect && clockStyleSelect.value && clockStyleSelect.value !== 'badge') urlParams.set('clockstyle', clockStyleSelect.value);
             if (sourceSelect && sourceSelect.value !== 'auto') urlParams.set('source', sourceSelect.value);
             if (pipStyleSelect && pipStyleSelect.value !== 'circle') urlParams.set('pipstyle', pipStyleSelect.value);
+            if (roundPipStyleSelect && roundPipStyleSelect.value !== 'diamond') urlParams.set('roundpipstyle', roundPipStyleSelect.value);
             if (centerCheck && !centerCheck.checked) urlParams.set('center', '0');
             ['title', 'phase', 'clock', 'tags', 'details', 'pips', 'banner'].forEach(k => { const el = $('matchup-opt-' + k); if (el && !el.checked) urlParams.set(k, '0'); });
             const roundPipsEl = $('matchup-opt-roundpips');
@@ -3449,10 +3562,15 @@
                 const t2 = activeMatch.entrant2?.tag || '';
                 const s1 = activeMatch.entrant1?.score ?? (activeMatch.scores?.[0] ?? (activeMatch.scores?.[e1] ?? 0));
                 const s2 = activeMatch.entrant2?.score ?? (activeMatch.scores?.[1] ?? (activeMatch.scores?.[e2] ?? 0));
+                const r1 = activeMatch.entrant1?.rounds || 0;
+                const r2 = activeMatch.entrant2?.rounds || 0;
                 const target = activeMatch.targetScore || Math.ceil((activeMatch.bestOf || 3) / 2);
+                const rb = Number(activeMatch.roundsBestOf || t.roundsBestOf) || 0;
+                const roundTarget = rb > 0 ? Math.ceil(rb / 2) : 0;
 
                 if ($('tourney-round-label')) $('tourney-round-label').textContent = activeMatch.roundName || `Round ${activeMatch.round || 1}`;
-                if ($('tourney-series-label')) $('tourney-series-label').textContent = t.format === 'roundRobin' ? 'Round Robin' : (activeMatch.bestOf > 0 ? `Best of ${activeMatch.bestOf} (First to ${target})` : 'Free Points');
+                const seriesText = t.format === 'roundRobin' ? 'Round Robin' : (activeMatch.bestOf > 0 ? `Best of ${activeMatch.bestOf} (First to ${target})` : 'Free Points');
+                if ($('tourney-series-label')) $('tourney-series-label').textContent = roundTarget > 0 ? `${seriesText} · Bo${rb} Rounds (First to ${roundTarget})` : seriesText;
 
                 if ($('t-entrant-1')) $('t-entrant-1').textContent = e1;
                 if ($('t-entrant-2')) $('t-entrant-2').textContent = e2;
@@ -3470,6 +3588,8 @@
                 }
                 if ($('t-score-input-1')) $('t-score-input-1').value = s1;
                 if ($('t-score-input-2')) $('t-score-input-2').value = s2;
+                if ($('t-score-label-1')) $('t-score-label-1').textContent = target > 0 ? `${s1} / ${target} GAMES` : `${s1} GAMES`;
+                if ($('t-score-label-2')) $('t-score-label-2').textContent = target > 0 ? `${s2} / ${target} GAMES` : `${s2} GAMES`;
                 if ($('tourney-match-details')) $('tourney-match-details').value = activeMatch.matchDetails || activeMatch.details || '';
 
                 if ($('t-score-pips-1')) {
@@ -3477,6 +3597,41 @@
                 }
                 if ($('t-score-pips-2')) {
                     $('t-score-pips-2').textContent = target > 0 ? Array.from({ length: target }, (_, i) => i < s2 ? '●' : '○').join(' ') : `${s2} pts`;
+                }
+
+                // Rounds controls and pips
+                const rControls1 = $('t-round-controls-1');
+                const rControls2 = $('t-round-controls-2');
+                const rOff1 = $('t-round-off-1');
+                const rOff2 = $('t-round-off-2');
+
+                if (roundTarget > 0) {
+                    if (rControls1) rControls1.style.display = 'flex';
+                    if (rControls2) rControls2.style.display = 'flex';
+                    if (rOff1) rOff1.style.display = 'none';
+                    if (rOff2) rOff2.style.display = 'none';
+
+                    if ($('t-round-input-1')) {
+                        $('t-round-input-1').value = Math.min(roundTarget - 1, r1);
+                        $('t-round-input-1').max = roundTarget - 1;
+                    }
+                    if ($('t-round-input-2')) {
+                        $('t-round-input-2').value = Math.min(roundTarget - 1, r2);
+                        $('t-round-input-2').max = roundTarget - 1;
+                    }
+                    if ($('t-round-pips-1')) {
+                        $('t-round-pips-1').textContent = Array.from({ length: roundTarget }, (_, i) => i < r1 ? '◆' : '◇').join(' ');
+                    }
+                    if ($('t-round-pips-2')) {
+                        $('t-round-pips-2').textContent = Array.from({ length: roundTarget }, (_, i) => i < r2 ? '◆' : '◇').join(' ');
+                    }
+                    if ($('t-round-label-1')) $('t-round-label-1').textContent = `${Math.min(roundTarget - 1, r1)} / ${roundTarget} ROUNDS`;
+                    if ($('t-round-label-2')) $('t-round-label-2').textContent = `${Math.min(roundTarget - 1, r2)} / ${roundTarget} ROUNDS`;
+                } else {
+                    if (rControls1) rControls1.style.display = 'none';
+                    if (rControls2) rControls2.style.display = 'none';
+                    if (rOff1) rOff1.style.display = 'block';
+                    if (rOff2) rOff2.style.display = 'block';
                 }
             }
 
@@ -3493,17 +3648,22 @@
                     const s1 = m.entrant1?.score ?? (m.scores?.[0] ?? (m.scores?.[e1] ?? 0));
                     const s2 = m.entrant2?.score ?? (m.scores?.[1] ?? (m.scores?.[e2] ?? 0));
                     const isCompleted = Boolean(m.winner && !isBye);
+                    const mRb = Number(m.roundsBestOf || t.roundsBestOf) || 0;
+                    const mr1 = m.entrant1?.rounds || 0;
+                    const mr2 = m.entrant2?.rounds || 0;
+                    const hasMRounds = mRb > 0 || mr1 > 0 || mr2 > 0;
+                    const roundBadge = hasMRounds ? `<span style="color: var(--accent); margin-left: 0.45rem; font-size: 0.68rem; font-weight: 700;">(Rounds: ${mr1} — ${mr2})</span>` : '';
 
                     return `
                         <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0.65rem; margin-bottom: 0.35rem; background: ${isCur ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-card)'}; border: 1px solid ${isCur ? 'var(--accent)' : 'var(--border)'}; border-radius: 6px; font-size: 0.75rem; cursor: pointer;" onclick="selectTourneyMatchDirect('${m.id}')">
                             <div style="display: flex; flex-direction: column; min-width: 0;">
                                 <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                    <span style="font-weight: 800; color: ${isCur ? 'var(--accent)' : 'var(--text)'};">${esc(m.roundName || `R${m.round}`)}</span>
+                                    <span style="font-weight: 800; color: ${isCur ? 'var(--accent)' : 'var(--text)'};">${esc(m.roundName || `R${m.round}`)}</span>${mRb > 0 ? ` <span style="font-size:0.62rem;opacity:0.8;font-weight:600;">(Bo${mRb} Rds)</span>` : ''}
                                     ${m.pendingWinner && !m.winner ? `<span class="badge-studio" style="font-size: 0.6rem; padding: 0.05rem 0.35rem;">${esc(m.pendingWinner)} reached target</span>` : ''}<span style="color: var(--text-muted); font-size: 0.72rem;">${esc(e1)}${t1Str} ${isBye ? '(BYE)' : `vs ${esc(e2)}${t2Str}`}</span>
                                     ${isCur ? '<span class="badge-studio" style="font-size: 0.6rem; padding: 0.05rem 0.35rem;">Live</span>' : ''}
                                 </div>
                                 <div style="font-size: 0.72rem; margin-top: 0.15rem;">
-                                    ${isBye ? '<span style="color: #3fb950; font-weight: 700;">ADVANCED (BYE)</span>' : (m.winner ? `<span style="color: #3fb950; font-weight: 800;">Winner: ${esc(m.winner)} (${s1} - ${s2})</span>` : `<span style="color: var(--text-muted); font-weight: 600;">Score: ${s1} — ${s2}</span>`)}
+                                    ${isBye ? '<span style="color: #3fb950; font-weight: 700;">ADVANCED (BYE)</span>' : (m.winner ? `<span style="color: #3fb950; font-weight: 800;">Winner: ${esc(m.winner)} (${s1} - ${s2})</span>${roundBadge}` : `<span style="color: var(--text-muted); font-weight: 600;">Score: ${s1} — ${s2}</span>${roundBadge}`)}
                                 </div>
                             </div>
                             <div style="display: flex; align-items: center; gap: 0.35rem;">
@@ -3977,6 +4137,65 @@
                 }
             } catch {
                 toast('Error setting score');
+            }
+        }
+
+        async function stepTourneyRound(entrantIdx, roundDelta) {
+            if (!activeTourneyData) return;
+            const activeMatch = (activeTourneyData.matches || []).find(m => m.id === activeTourneyData.activeMatchId) ||
+                                (activeTourneyData.matches || []).find(m => !m.isBye && !m.winner);
+            if (!activeMatch) return;
+            const entrantName = entrantIdx === 1 ? (activeMatch.entrant1?.name || activeMatch.entrants?.[0]) : (activeMatch.entrant2?.name || activeMatch.entrants?.[1]);
+            if (!entrantName || entrantName === 'TBD' || entrantName === 'BYE') return;
+
+            try {
+                const res = await fetch('/api/tournament/score', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        matchId: activeMatch.id,
+                        entrant: entrantName,
+                        roundDelta
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    activeTourneyData = data.tournament;
+                    renderTournamentStudio(activeTourneyData);
+                    if (activeMatchupData) renderMatchupStudio(activeMatchupData);
+                }
+            } catch {
+                toast('Error updating tournament rounds');
+            }
+        }
+
+        async function setTourneyRoundDirect(entrantIdx, roundVal) {
+            if (!activeTourneyData) return;
+            const activeMatch = (activeTourneyData.matches || []).find(m => m.id === activeTourneyData.activeMatchId) ||
+                                (activeTourneyData.matches || []).find(m => !m.isBye && !m.winner);
+            if (!activeMatch) return;
+            const entrantName = entrantIdx === 1 ? (activeMatch.entrant1?.name || activeMatch.entrants?.[0]) : (activeMatch.entrant2?.name || activeMatch.entrants?.[1]);
+            if (!entrantName || entrantName === 'TBD' || entrantName === 'BYE') return;
+            const rounds = Math.max(0, parseInt(roundVal, 10) || 0);
+
+            try {
+                const res = await fetch('/api/tournament/score', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        matchId: activeMatch.id,
+                        entrant: entrantName,
+                        rounds
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    activeTourneyData = data.tournament;
+                    renderTournamentStudio(activeTourneyData);
+                    if (activeMatchupData) renderMatchupStudio(activeMatchupData);
+                }
+            } catch {
+                toast('Error setting tournament rounds');
             }
         }
 
