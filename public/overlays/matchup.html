@@ -1311,6 +1311,12 @@
             } else {
                 renderTopBar(m, target, count);
             }
+            if (showClock && m.clock && m.clock.enabled !== false && !container.querySelector('.clock-pill, .fgc-clock-box')) {
+                const wrap = document.createElement('div');
+                wrap.style.cssText = 'display:flex;justify-content:center;margin-top:0.5rem;';
+                wrap.innerHTML = renderClockHtml(m, 'pill');
+                container.appendChild(wrap);
+            }
         }
 
         // SPEEDRUN RACE LAYOUT

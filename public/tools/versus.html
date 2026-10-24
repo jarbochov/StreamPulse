@@ -232,6 +232,7 @@
                                     <span class="micro-heading" style="margin-bottom: 0;">Match Clock &amp; Speedrun Timers</span>
                                 </div>
                                 <div style="display: flex; gap: 0.3rem; flex-wrap: wrap;" id="clock-mode-chips">
+                                    <button type="button" class="preset-chip-btn" id="chip-clk-none" onclick="setClockPreset('none', 0)">None</button>
                                     <button type="button" class="preset-chip-btn active" id="chip-clk-99" onclick="setClockPreset('countdown', 99)">99s EVO</button>
                                     <button type="button" class="preset-chip-btn" id="chip-clk-60" onclick="setClockPreset('countdown', 60)">60s Tekken</button>
                                     <button type="button" class="preset-chip-btn" id="chip-clk-stopwatch" onclick="setClockPreset('stopwatch', 0)">Stopwatch</button>
@@ -1267,7 +1268,7 @@
 
         async function setClockPreset(mode, duration) {
             try {
-                const body = { mode };
+                const body = mode === 'none' ? { enabled: false } : { mode, enabled: true };
                 if (mode === 'countdown') {
                     body.duration = duration;
                 } else if (mode === 'stopwatch') {
@@ -1285,7 +1286,7 @@
                     if (activeMatchupData && activeMatchupData.clock) activeMatchupData.clock = data.clock;
                     syncClockStudioUi(data.clock);
                     if (activeMatchupData) renderMatchupStudio(activeMatchupData);
-                    toast(`Clock set to ${mode === 'countdown' ? duration + 's countdown' : (mode === 'race' ? 'Speedrun Battle (GDQ)' : 'Stopwatch')}`);
+                    toast(mode === 'none' ? 'Clock hidden' : `Clock set to ${mode === 'countdown' ? duration + 's countdown' : (mode === 'race' ? 'Speedrun Battle (GDQ)' : 'Stopwatch')}`);
                 }
             } catch {
                 toast('Error setting clock');
@@ -1337,14 +1338,16 @@
                 toggleBtn.classList.toggle('btn-secondary', clk.isRunning);
             }
 
+            const off = clk.enabled === false;
+            $('chip-clk-none')?.classList.toggle('active', off);
             const c99 = $('chip-clk-99');
             const c60 = $('chip-clk-60');
             const cSw = $('chip-clk-stopwatch');
             const cRc = $('chip-clk-race');
-            if (c99) c99.classList.toggle('active', clk.mode === 'countdown' && clk.duration === 99);
-            if (c60) c60.classList.toggle('active', clk.mode === 'countdown' && clk.duration === 60);
-            if (cSw) cSw.classList.toggle('active', clk.mode === 'stopwatch');
-            if (cRc) cRc.classList.toggle('active', clk.mode === 'race');
+            if (c99) c99.classList.toggle('active', !off && clk.mode === 'countdown' && clk.duration === 99);
+            if (c60) c60.classList.toggle('active', !off && clk.mode === 'countdown' && clk.duration === 60);
+            if (cSw) cSw.classList.toggle('active', !off && clk.mode === 'stopwatch');
+            if (cRc) cRc.classList.toggle('active', !off && clk.mode === 'race');
 
             const raceCtrl = $('clock-race-controls');
             if (raceCtrl) raceCtrl.style.display = clk.mode === 'race' ? 'block' : 'none';
@@ -1372,7 +1375,12 @@
                         }
                         syncClockStudioUi(activeMatchupData.clock);
                         if (activeMatchupData.clock.mode === 'race') {
-                            renderMatchupStudio(activeMatchupData);
+                            (activeMatchupData.competitors || []).forEach((c, i) => {
+                                const el = document.querySelector(`[data-runner-timer="${i}"]`);
+                                if (!el || !c.timer || c.timer.finished) return;
+                                const e = Math.floor(c.timer.elapsed || 0);
+                                el.textContent = String(Math.floor(e / 60)).padStart(2, '0') + ':' + String(e % 60).padStart(2, '0');
+                            });
                         }
                     }, 1000);
                 }
@@ -1597,7 +1605,7 @@
                 const timerObj = c.timer || { elapsed: 0, isRunning: false, finished: false };
                 const pad = n => String(n).padStart(2, '0');
                 const mElapsed = Math.floor((timerObj.elapsed || 0) / 60);
-                const sElapsed = (timerObj.elapsed || 0) % 60;
+                const sElapsed = Math.floor((timerObj.elapsed || 0) % 60);
                 const formattedTime = `${pad(mElapsed)}:${pad(sElapsed)}`;
 
                 return `
@@ -1620,7 +1628,7 @@
                         ${isRace ? `
                             <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.65rem; margin-top: 0.45rem;">
                                 <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.35rem;">
-                                    <div style="font-size: 1.15rem; font-weight: 900; font-family: monospace; color: ${timerObj.finished ? '#3fb950' : (timerObj.isRunning ? '#38bdf8' : '#e6edf3')};">
+                                    <div data-runner-timer="${i}" style="font-size: 1.15rem; font-weight: 900; font-family: monospace; color: ${timerObj.finished ? '#3fb950' : (timerObj.isRunning ? '#38bdf8' : '#e6edf3')};">
                                         ${timerObj.finished ? (timerObj.finishTime || formattedTime) : formattedTime}
                                     </div>
                                     <div>
