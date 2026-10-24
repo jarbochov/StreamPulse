@@ -536,10 +536,24 @@
 
                             <!-- Speedrun Battle Race Controls -->
                             <div id="clock-race-controls" style="display: none; border-top: 1px solid var(--border); margin-top: 0.6rem; padding-top: 0.6rem;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.4rem;">
-                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                        <label for="race-est-input" style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 0;">Target EST:</label>
-                                        <input type="text" id="race-est-input" class="form-control" style="width: 100px; font-size: 0.75rem; padding: 0.2rem 0.4rem; font-family: monospace;" placeholder="45:00" onchange="saveRaceEstimate(this.value)">
+                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.45rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <label for="race-est-input" style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 0;">Target EST:</label>
+                                            <input type="text" id="race-est-input" class="form-control" style="width: 96px; font-size: 0.75rem; padding: 0.2rem 0.4rem; font-family: monospace;" placeholder="45:00" onchange="saveRaceEstimate(this.value)">
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <label for="race-timers-mode-select" style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 0;">Overlay Display:</label>
+                                            <select id="race-timers-mode-select" class="form-control" style="font-size: 0.74rem; padding: 0.2rem 0.45rem; height: 28px;" onchange="setRunnerTimersMode(this.value)" title="Choose whether overlays show only the main clock while running (revealing runner finish times + time delta on finish) or live runner clocks at all times">
+                                                <option value="finish" selected>Overall Clock Only — Reveal on Finish</option>
+                                                <option value="always">Overall Clock + Live Runner Timers</option>
+                                                <option value="off">Overall Clock Only — Never Show Runner Times</option>
+                                            </select>
+                                        </div>
+                                        <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: var(--text); cursor: pointer; margin-bottom: 0;">
+                                            <input type="checkbox" id="race-show-splits-check" checked onchange="setRaceShowSplits(this.checked)">
+                                            <span>Show Split Deltas (+00:12.65)</span>
+                                        </label>
                                     </div>
                                     <div style="display: flex; gap: 0.35rem; align-items: center;">
                                         <button type="button" class="btn-primary btn-sm" style="background: #238636; border-color: #2ea043; color: #fff; font-weight: 700;" onclick="startAllRunnersRace()">
@@ -554,7 +568,7 @@
                                     </div>
                                 </div>
                                 <div style="font-size: 0.72rem; color: var(--text-muted);">
-                                    Each runner has their own timer below. Click "Finish / Split" on a runner card when they complete their run.
+                                    Click <strong>Finish / Split</strong> on each runner card below as they complete the run — 1st place reveals their winning time, and subsequent finishers reveal their final time plus the <code>+delta</code> difference behind 1st place.
                                 </div>
                             </div>
                         </div>
@@ -773,6 +787,21 @@
                                     <option value="bottom">Bottom Dock</option>
                                     <option value="pill">Floating Pill</option>
                                     <option value="fgc">EVO Big</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;" title="Speedrun Runner Timer Display Mode">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Runners:</span>
+                                <select id="prev-ctrl-runnertimers" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onPreviewOptionChange('runnertimers', this.value)">
+                                    <option value="finish">Reveal on Finish</option>
+                                    <option value="always">Always Show Live</option>
+                                    <option value="off">Off (Main Clock Only)</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;" title="Show Speedrun Split Deltas (+00:12.65)">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Deltas:</span>
+                                <select id="prev-ctrl-splits" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onPreviewOptionChange('splits', this.value)">
+                                    <option value="1">Show Deltas (+00:12.65)</option>
+                                    <option value="0">Times Only</option>
                                 </select>
                             </div>
                             <div style="display: flex; align-items: center; gap: 0.3rem;">
@@ -1023,6 +1052,14 @@
                                         </select>
                                     </div>
                                     <div>
+                                        <label for="matchup-opt-runnertimers" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Speedrun Runner Timers (?runnertimers=)</label>
+                                        <select id="matchup-opt-runnertimers" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                            <option value="finish" selected>Overall Clock Only — Reveal on Finish</option>
+                                            <option value="always">Overall Clock + Live Runner Timers</option>
+                                            <option value="off">Overall Clock Only — Never Show Runner Times</option>
+                                        </select>
+                                    </div>
+                                    <div>
                                         <label for="matchup-opt-source" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Data Source (?source=)</label>
                                         <select id="matchup-opt-source" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
                                             <option value="auto" selected>Auto: Tournament when on, else Versus</option>
@@ -1116,6 +1153,10 @@
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="matchup-opt-roundpips" checked onchange="updateMatchupOverlayUrl()">
                                         <span>Show round pips (<code>?roundpips=1</code>, diamond pips)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="matchup-opt-splits" checked onchange="updateMatchupOverlayUrl()">
+                                        <span>Show speedrun split deltas (<code>?splits=1</code>, e.g. +00:12.65 behind 1st)</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="matchup-opt-fit" onchange="updateMatchupOverlayUrl()">
@@ -1633,11 +1674,13 @@
             }
             if (opt === 'theme' && $('matchup-opt-theme')) $('matchup-opt-theme').value = val;
             if (opt === 'clockstyle' && $('matchup-opt-clockstyle')) $('matchup-opt-clockstyle').value = val;
+            if (opt === 'runnertimers' && $('matchup-opt-runnertimers')) $('matchup-opt-runnertimers').value = val;
             if (opt === 'pipstyle' && $('matchup-opt-pipstyle')) $('matchup-opt-pipstyle').value = val;
             if (opt === 'roundpipstyle' && $('matchup-opt-roundpipstyle')) $('matchup-opt-roundpipstyle').value = val;
             if (opt === 'scale' && $('matchup-opt-scale')) $('matchup-opt-scale').value = val;
             if (opt === 'fit' && $('matchup-opt-fit')) $('matchup-opt-fit').checked = val === 'content';
             if (opt === 'gap' && $('matchup-opt-gap')) $('matchup-opt-gap').value = val;
+            if (opt === 'splits' && $('matchup-opt-splits')) $('matchup-opt-splits').checked = val === '1';
             updateMatchupOverlayUrl();
         }
 
@@ -1760,6 +1803,7 @@
             if ($('tourney-preview-iframe')) {
                 $('tourney-preview-iframe').src = `/overlays/tournament.html?${previewParams.toString()}`;
             }
+            saveVersusOverlayPrefs();
         }
 
         function setCreateTourneyLogo(url) {
@@ -1854,6 +1898,7 @@
             const layoutSelect = $('matchup-opt-layout');
             const themeSelect = $('matchup-opt-theme');
             const clockStyleSelect = $('matchup-opt-clockstyle');
+            const runnerTimersSelect = $('matchup-opt-runnertimers');
             const sourceSelect = $('matchup-opt-source');
             const pipStyleSelect = $('matchup-opt-pipstyle');
             const roundPipStyleSelect = $('matchup-opt-roundpipstyle');
@@ -1864,10 +1909,13 @@
             const fitCheck = $('matchup-opt-fit');
             const confettiCheck = $('matchup-opt-confetti');
             const showEstCheck = $('matchup-opt-showest');
+            const splitsCheck = $('matchup-opt-splits');
 
             if ($('prev-ctrl-layout') && layoutSelect) $('prev-ctrl-layout').value = layoutSelect.value;
             if ($('prev-ctrl-theme') && themeSelect) $('prev-ctrl-theme').value = themeSelect.value;
             if ($('prev-ctrl-clockstyle') && clockStyleSelect) $('prev-ctrl-clockstyle').value = clockStyleSelect.value;
+            if ($('prev-ctrl-runnertimers') && runnerTimersSelect) $('prev-ctrl-runnertimers').value = runnerTimersSelect.value;
+            if ($('prev-ctrl-splits') && splitsCheck) $('prev-ctrl-splits').value = splitsCheck.checked ? '1' : '0';
             if ($('prev-ctrl-pipstyle') && pipStyleSelect) $('prev-ctrl-pipstyle').value = pipStyleSelect.value;
             if ($('prev-ctrl-roundpipstyle') && roundPipStyleSelect) $('prev-ctrl-roundpipstyle').value = roundPipStyleSelect.value;
             if ($('prev-ctrl-scale') && scaleSelect) $('prev-ctrl-scale').value = scaleSelect.value;
@@ -1878,6 +1926,7 @@
             if (layoutSelect && layoutSelect.value !== 'top') urlParams.set('layout', layoutSelect.value);
             if (themeSelect && themeSelect.value !== 'card') urlParams.set('overlay', themeSelect.value);
             if (clockStyleSelect && clockStyleSelect.value && clockStyleSelect.value !== 'badge') urlParams.set('clockstyle', clockStyleSelect.value);
+            if (runnerTimersSelect && runnerTimersSelect.value && runnerTimersSelect.value !== 'finish') urlParams.set('runnertimers', runnerTimersSelect.value);
             if (sourceSelect && sourceSelect.value !== 'auto') urlParams.set('source', sourceSelect.value);
             if (pipStyleSelect && pipStyleSelect.value !== 'circle') urlParams.set('pipstyle', pipStyleSelect.value);
             if (roundPipStyleSelect && roundPipStyleSelect.value !== 'diamond') urlParams.set('roundpipstyle', roundPipStyleSelect.value);
@@ -1891,6 +1940,7 @@
                 if (roundPipsEl.checked) urlParams.set('roundpips', '1');
                 else urlParams.set('roundpips', '0');
             }
+            if (splitsCheck && !splitsCheck.checked) urlParams.set('splits', '0');
             if (showEstCheck && !showEstCheck.checked) urlParams.set('showest', '0');
             if (fitCheck && fitCheck.checked) urlParams.set('fit', 'content');
             if (confettiCheck && !confettiCheck.checked) urlParams.set('confetti', '0');
@@ -1916,6 +1966,114 @@
                 previewParams.set('preview', '1');
                 previewParams.set('sample', previewUseSample ? '1' : '0');
                 previewIframe.src = `/overlays/matchup.html?${previewParams.toString()}`;
+            }
+            saveVersusOverlayPrefs();
+        }
+
+        const VERSUS_OVERLAY_PREFS_KEY = 'streampulse_versus_overlay_prefs';
+        let isRestoringVersusPrefs = false;
+
+        function saveVersusOverlayPrefs() {
+            if (isRestoringVersusPrefs) return;
+            try {
+                const prefs = {
+                    matchup: {
+                        layout: $('matchup-opt-layout')?.value,
+                        theme: $('matchup-opt-theme')?.value,
+                        clockstyle: $('matchup-opt-clockstyle')?.value,
+                        runnertimers: $('matchup-opt-runnertimers')?.value,
+                        source: $('matchup-opt-source')?.value,
+                        pipstyle: $('matchup-opt-pipstyle')?.value,
+                        roundpipstyle: $('matchup-opt-roundpipstyle')?.value,
+                        scale: $('matchup-opt-scale')?.value,
+                        width: $('matchup-opt-width')?.value,
+                        gap: $('matchup-opt-gap')?.value,
+                        center: $('matchup-opt-center')?.checked,
+                        title: $('matchup-opt-title')?.checked,
+                        phase: $('matchup-opt-phase')?.checked,
+                        banner: $('matchup-opt-banner')?.checked,
+                        clock: $('matchup-opt-clock')?.checked,
+                        showest: $('matchup-opt-showest')?.checked,
+                        tags: $('matchup-opt-tags')?.checked,
+                        details: $('matchup-opt-details')?.checked,
+                        pips: $('matchup-opt-pips')?.checked,
+                        roundpips: $('matchup-opt-roundpips')?.checked,
+                        splits: $('matchup-opt-splits')?.checked,
+                        fit: $('matchup-opt-fit')?.checked,
+                        confetti: $('matchup-opt-confetti')?.checked,
+                    },
+                    tourney: {
+                        theme: $('tourney-opt-theme')?.value,
+                        spacing: $('tourney-opt-spacing')?.value,
+                        lines: $('tourney-opt-lines')?.value,
+                        pipstyle: $('tourney-opt-pipstyle')?.value,
+                        roundpipstyle: $('tourney-opt-roundpipstyle')?.value,
+                        gap: $('tourney-opt-gap')?.value,
+                        logosize: $('tourney-opt-logosize')?.value,
+                        showlogo: $('tourney-opt-showlogo')?.checked,
+                        highlight: $('tourney-opt-highlight')?.checked,
+                        center: $('tourney-opt-center')?.checked,
+                        title: $('tourney-opt-title')?.checked,
+                        format: $('tourney-opt-format')?.checked,
+                        mode: $('tourney-opt-mode')?.checked,
+                        entrants: $('tourney-opt-entrants')?.checked,
+                        scores: $('tourney-opt-scores')?.checked,
+                        rounds: $('tourney-opt-rounds')?.checked,
+                        seeds: $('tourney-opt-seeds')?.checked,
+                        tags: $('tourney-opt-tags')?.checked,
+                        badges: $('tourney-opt-badges')?.checked,
+                        champion: $('tourney-opt-champion')?.checked,
+                        fit: $('tourney-opt-fit')?.checked,
+                        tourneyFitWholeBracket: typeof tourneyFitWholeBracket !== 'undefined' ? tourneyFitWholeBracket : false,
+                    }
+                };
+                localStorage.setItem(VERSUS_OVERLAY_PREFS_KEY, JSON.stringify(prefs));
+            } catch { /* ignore storage errors */ }
+        }
+
+        function restoreVersusOverlayPrefs() {
+            try {
+                const raw = localStorage.getItem(VERSUS_OVERLAY_PREFS_KEY);
+                if (!raw) return;
+                const prefs = JSON.parse(raw);
+                isRestoringVersusPrefs = true;
+                if (prefs.matchup) {
+                    const m = prefs.matchup;
+                    if (m.layout !== undefined && $('matchup-opt-layout')) $('matchup-opt-layout').value = m.layout;
+                    if (m.theme !== undefined && $('matchup-opt-theme')) $('matchup-opt-theme').value = m.theme;
+                    if (m.clockstyle !== undefined && $('matchup-opt-clockstyle')) $('matchup-opt-clockstyle').value = m.clockstyle;
+                    if (m.runnertimers !== undefined && $('matchup-opt-runnertimers')) $('matchup-opt-runnertimers').value = m.runnertimers;
+                    if (m.source !== undefined && $('matchup-opt-source')) $('matchup-opt-source').value = m.source;
+                    if (m.pipstyle !== undefined && $('matchup-opt-pipstyle')) $('matchup-opt-pipstyle').value = m.pipstyle;
+                    if (m.roundpipstyle !== undefined && $('matchup-opt-roundpipstyle')) $('matchup-opt-roundpipstyle').value = m.roundpipstyle;
+                    if (m.scale !== undefined && $('matchup-opt-scale')) $('matchup-opt-scale').value = m.scale;
+                    if (m.width !== undefined && $('matchup-opt-width')) $('matchup-opt-width').value = m.width;
+                    if (m.gap !== undefined && $('matchup-opt-gap')) $('matchup-opt-gap').value = m.gap;
+                    ['center', 'title', 'phase', 'banner', 'clock', 'showest', 'tags', 'details', 'pips', 'roundpips', 'splits', 'fit', 'confetti'].forEach(k => {
+                        const el = $('matchup-opt-' + k);
+                        if (el && m[k] !== undefined) el.checked = Boolean(m[k]);
+                    });
+                }
+                if (prefs.tourney) {
+                    const t = prefs.tourney;
+                    if (t.theme !== undefined && $('tourney-opt-theme')) $('tourney-opt-theme').value = t.theme;
+                    if (t.spacing !== undefined && $('tourney-opt-spacing')) $('tourney-opt-spacing').value = t.spacing;
+                    if (t.lines !== undefined && $('tourney-opt-lines')) $('tourney-opt-lines').value = t.lines;
+                    if (t.pipstyle !== undefined && $('tourney-opt-pipstyle')) $('tourney-opt-pipstyle').value = t.pipstyle;
+                    if (t.roundpipstyle !== undefined && $('tourney-opt-roundpipstyle')) $('tourney-opt-roundpipstyle').value = t.roundpipstyle;
+                    if (t.gap !== undefined && $('tourney-opt-gap')) $('tourney-opt-gap').value = t.gap;
+                    if (t.logosize !== undefined && $('tourney-opt-logosize')) $('tourney-opt-logosize').value = t.logosize;
+                    ['showlogo', 'highlight', 'center', 'title', 'format', 'mode', 'entrants', 'scores', 'rounds', 'seeds', 'tags', 'badges', 'champion', 'fit'].forEach(k => {
+                        const el = $('tourney-opt-' + k);
+                        if (el && t[k] !== undefined) el.checked = Boolean(t[k]);
+                    });
+                    if (t.tourneyFitWholeBracket !== undefined && typeof tourneyFitWholeBracket !== 'undefined') {
+                        tourneyFitWholeBracket = Boolean(t.tourneyFitWholeBracket);
+                        if ($('tourney-opt-fit')) $('tourney-opt-fit').checked = tourneyFitWholeBracket;
+                    }
+                }
+            } catch { /* ignore parse error */ } finally {
+                isRestoringVersusPrefs = false;
             }
         }
 
@@ -2052,6 +2210,12 @@
             const noticeEl = $('clock-off-notice');
             if (noticeEl) noticeEl.style.display = off ? 'block' : 'none';
             if ($('race-est-input') && clk.estimate) $('race-est-input').value = clk.estimate;
+            if ($('race-timers-mode-select') && clk.runnerTimersMode) {
+                $('race-timers-mode-select').value = (clk.runnerTimersMode === 'always' || clk.runnerTimersMode === 'off') ? clk.runnerTimersMode : 'finish';
+            }
+            if ($('race-show-splits-check') && clk.showSplits !== undefined) {
+                $('race-show-splits-check').checked = clk.showSplits !== false;
+            }
 
             // Update individual runner timers in the DOM
             if (activeMatchupData && Array.isArray(activeMatchupData.competitors)) {
@@ -2221,6 +2385,59 @@
                 }
             } catch {
                 toast('Error saving estimate');
+            }
+        }
+
+        async function setRunnerTimersMode(modeVal) {
+            const runnerTimersMode = (modeVal === 'always' || modeVal === 'off') ? modeVal : 'finish';
+            try {
+                const res = await fetch('/api/matchup/clock/set', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ runnerTimersMode })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    if (activeMatchupData && activeMatchupData.clock) activeMatchupData.clock = data.clock;
+                    if ($('matchup-opt-runnertimers')) {
+                        $('matchup-opt-runnertimers').value = runnerTimersMode;
+                        updateMatchupOverlayUrl();
+                    }
+                    if ($('race-timers-mode-select')) $('race-timers-mode-select').value = runnerTimersMode;
+                    if (activeMatchupData) renderMatchupStudio(activeMatchupData);
+                    const msg = runnerTimersMode === 'finish'
+                        ? 'Overlays set to Overall Clock Only — runner times reveal on finish'
+                        : (runnerTimersMode === 'off'
+                            ? 'Overlays set to Overall Clock Only — runner times hidden'
+                            : 'Overlays set to always show live runner timers');
+                    toast(msg);
+                }
+            } catch {
+                toast('Error updating runner timer display mode');
+            }
+        }
+
+        async function setRaceShowSplits(checked) {
+            const showSplits = Boolean(checked);
+            try {
+                const res = await fetch('/api/matchup/clock/set', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ showSplits })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    if (activeMatchupData && activeMatchupData.clock) activeMatchupData.clock = data.clock;
+                    if ($('matchup-opt-splits')) {
+                        $('matchup-opt-splits').checked = showSplits;
+                        updateMatchupOverlayUrl();
+                    }
+                    if ($('race-show-splits-check')) $('race-show-splits-check').checked = showSplits;
+                    if (activeMatchupData) renderMatchupStudio(activeMatchupData);
+                    toast(showSplits ? 'Speedrun split deltas enabled (+00:12.65)' : 'Speedrun split deltas hidden (finish times only)');
+                }
+            } catch {
+                toast('Error updating speedrun splits setting');
             }
         }
 
@@ -2472,7 +2689,11 @@
                                         ${timerObj.finished ? (timerObj.finishTime || formattedTime) : formattedTime}
                                     </div>
                                     <div>
-                                        ${timerObj.finished ? `<span class="badge-studio" style="background: rgba(63,185,80,0.15); color: #3fb950; font-size: 0.65rem;">${timerObj.delta ? timerObj.delta : '1ST FINISHER'}</span>` : (timerObj.isRunning ? '<span class="badge-studio" style="background: rgba(56,189,248,0.15); color: #38bdf8; font-size: 0.65rem;">RUNNING</span>' : '<span class="badge-studio" style="font-size: 0.65rem;">READY</span>')}
+                                        ${timerObj.finished ? (
+                                            (timerObj.place === 1 || timerObj.delta === 'WINNER' || !timerObj.delta)
+                                                ? '<span class="badge-studio" style="background: rgba(63,185,80,0.18); color: #4ade80; border: 1px solid rgba(63,185,80,0.45); font-size: 0.65rem;">1ST · WINNER</span>'
+                                                : `<span class="badge-studio" style="background: rgba(239,68,68,0.18); color: #fca5a5; border: 1px solid rgba(239,68,68,0.45); font-size: 0.65rem;">${timerObj.place ? (timerObj.place === 2 ? '2ND' : (timerObj.place === 3 ? '3RD' : timerObj.place + 'TH')) + ' · ' : ''}${esc(timerObj.delta)}</span>`
+                                        ) : (timerObj.isRunning ? '<span class="badge-studio" style="background: rgba(56,189,248,0.15); color: #38bdf8; font-size: 0.65rem;">RUNNING</span>' : '<span class="badge-studio" style="font-size: 0.65rem;">READY</span>')}
                                     </div>
                                 </div>
                                 <div style="display: flex; gap: 0.35rem; align-items: center;">
@@ -5181,11 +5402,13 @@
         }
 
         // Start everything
+        restoreVersusOverlayPrefs();
         loadMatchup();
         loadTournament();
         loadTournamentDrafts();
         loadTournamentPresets();
         updateMatchupOverlayUrl();
+        updateTourneyOverlayUrl();
         applyViewportScale();
         connectWs();
         try {

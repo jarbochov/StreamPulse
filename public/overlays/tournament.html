@@ -141,6 +141,74 @@
             --tourney-border: #d0d7de;
         }
 
+        .theme-clean-light .entrant-row {
+            background: #ffffff;
+        }
+        .theme-clean-light .entrant-row:first-child {
+            border-bottom: 1px solid var(--tourney-border);
+        }
+        .theme-clean-light .entrant-row.winner {
+            background: rgba(26, 127, 55, 0.12);
+        }
+        .theme-clean-light .seed-pill {
+            background: rgba(0, 0, 0, 0.06);
+            color: var(--tourney-muted);
+        }
+        .theme-clean-light .score-badge {
+            background: rgba(0, 0, 0, 0.06);
+            color: var(--tourney-text);
+        }
+        .theme-clean-light .win-pip:not(.won),
+        .theme-clean-light .match-round-pip:not(.won) {
+            background: rgba(0, 0, 0, 0.12);
+            border-color: rgba(0, 0, 0, 0.25);
+        }
+        .theme-clean-light .win-pip.won {
+            background: var(--tourney-winner);
+            border-color: var(--tourney-winner);
+            box-shadow: 0 0 6px rgba(26, 127, 55, 0.4);
+        }
+        .theme-clean-light .rr-standings-card {
+            background: #ffffff;
+            border-color: var(--tourney-border);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+        .theme-clean-light .rr-table th {
+            background: #f6f8fa;
+            border-bottom: 1px solid var(--tourney-border);
+            color: var(--tourney-muted);
+        }
+        .theme-clean-light .rr-table td {
+            border-bottom: 1px solid var(--tourney-border);
+            color: var(--tourney-text);
+        }
+        .theme-clean-light .rr-rank-badge {
+            background: rgba(0, 0, 0, 0.06);
+            color: var(--tourney-text);
+        }
+        .theme-clean-light .hud-header {
+            border-bottom: 1px solid var(--tourney-border);
+        }
+        .theme-clean-light .hud-vs-pill {
+            background: rgba(0, 0, 0, 0.06);
+        }
+        .theme-clean-light .hud-vote-bar-wrap {
+            background: rgba(0, 0, 0, 0.08);
+        }
+        .theme-clean-light .bracket-line {
+            stroke: rgba(0, 0, 0, 0.2);
+        }
+        .theme-clean-light .lines-solid .bracket-line {
+            stroke: rgba(0, 0, 0, 0.35);
+        }
+        .theme-clean-light .lines-minimal .bracket-line {
+            stroke: rgba(0, 0, 0, 0.15);
+        }
+        .theme-clean-light .champion-name {
+            color: #1f2328;
+            text-shadow: none;
+        }
+
         .theme-minimal-dark {
             --tourney-bg: #000000;
             --tourney-card-bg: #0d1117;

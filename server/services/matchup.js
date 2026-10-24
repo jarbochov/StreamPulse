@@ -30,7 +30,9 @@ function createDefaultMatchup() {
         winner: null,
         clock: {
             enabled: true,
-            mode: 'countdown', // 'countdown' | 'stopwatch'
+            mode: 'countdown', // 'countdown' | 'stopwatch' | 'race'
+            runnerTimersMode: 'finish', // 'finish' (overall clock only, reveal runner finish times) | 'always' (show live runner clocks) | 'off' (overall clock only, no runner timers)
+            showSplits: true, // true (show +delta splits behind 1st) | false (show finish times only)
             duration: 99,
             remaining: 99,
             elapsed: 0,
@@ -99,7 +101,7 @@ function createDefaultMatchup() {
                 bestOf: 1,
                 targetScore: 1,
                 competitorCount: 2,
-                clock: { enabled: true, mode: 'stopwatch', duration: 0, remaining: 0, elapsed: 0, isRunning: false, estimate: '45:00' },
+                clock: { enabled: true, mode: 'race', runnerTimersMode: 'finish', showSplits: true, duration: 0, remaining: 0, elapsed: 0, isRunning: false, estimate: '45:00' },
                 competitors: [
                     { id: 'c1', name: 'Runner 1', tag: 'PB 42:15', color: '#10b981', score: 0 },
                     { id: 'c2', name: 'Runner 2', tag: 'PB 43:30', color: '#3b82f6', score: 0 }
@@ -325,7 +327,7 @@ function createMatchupService({
             });
         }
 
-        if (activeMatchup.targetScore > 0) {
+        if ((data.format !== undefined || data.bestOf !== undefined || data.targetScore !== undefined) && activeMatchup.targetScore > 0) {
             activeMatchup.competitors.forEach(c => {
                 c.score = Math.min(activeMatchup.targetScore, Math.max(0, Number(c.score) || 0));
             });
@@ -365,7 +367,7 @@ function createMatchupService({
             const d = parseInt(delta, 10) || 0;
             comp.score = Math.min(maxAllowedForComp, Math.max(0, (comp.score || 0) + d));
         } else if (score !== undefined) {
-            comp.score = Math.min(maxAllowedForComp, Math.max(0, parseInt(score, 10) || 0));
+            comp.score = Math.max(0, parseInt(score, 10) || 0);
         }
         const seriesDecided = maxGameScore > 0 && activeMatchup.competitors.some(c => (Number(c.score) || 0) >= maxGameScore);
         const rb = Number(activeMatchup.roundsBestOf) || 0;
@@ -711,6 +713,8 @@ function createMatchupService({
             activeMatchup.clock = {
                 enabled: true,
                 mode: 'countdown',
+                runnerTimersMode: 'finish',
+                showSplits: true,
                 duration: 99,
                 remaining: 99,
                 elapsed: 0,
@@ -719,6 +723,12 @@ function createMatchupService({
                 estimate: '',
                 split: ''
             };
+        }
+        if (!activeMatchup.clock.runnerTimersMode) {
+            activeMatchup.clock.runnerTimersMode = 'finish';
+        }
+        if (activeMatchup.clock.showSplits === undefined) {
+            activeMatchup.clock.showSplits = true;
         }
     }
 
@@ -837,6 +847,13 @@ function createMatchupService({
         if (params.mode && (params.mode === 'countdown' || params.mode === 'stopwatch' || params.mode === 'race')) {
             activeMatchup.clock.mode = params.mode;
         }
+        if (params.runnerTimersMode !== undefined) {
+            const rtm = String(params.runnerTimersMode).toLowerCase();
+            activeMatchup.clock.runnerTimersMode = (rtm === 'always' || rtm === 'live') ? 'always' : ((rtm === 'off' || rtm === 'none') ? 'off' : 'finish');
+        }
+        if (params.showSplits !== undefined) {
+            activeMatchup.clock.showSplits = Boolean(params.showSplits);
+        }
         if (params.duration !== undefined) {
             const d = Math.max(0, Number(params.duration) || 0);
             activeMatchup.clock.duration = d;
@@ -890,10 +907,33 @@ function createMatchupService({
                     isRunning: false,
                     finished: false,
                     finishTime: null,
+                    finishSeconds: null,
+                    place: null,
+                    deltaSeconds: null,
                     delta: null
                 };
             }
         }
+    }
+
+    function recomputeRacePlacements() {
+        const comps = activeMatchup.competitors || [];
+        const finishers = comps
+            .filter(c => c.timer && c.timer.finished)
+            .sort((a, b) => (a.timer.finishSeconds ?? a.timer.elapsed ?? 0) - (b.timer.finishSeconds ?? b.timer.elapsed ?? 0));
+        if (!finishers.length) return;
+        const firstSec = finishers[0].timer.finishSeconds ?? finishers[0].timer.elapsed ?? 0;
+        finishers.forEach((c, idx) => {
+            c.timer.place = idx + 1;
+            const sec = c.timer.finishSeconds ?? c.timer.elapsed ?? 0;
+            const diff = Math.max(0, sec - firstSec);
+            c.timer.deltaSeconds = Math.round(diff * 100) / 100;
+            if (idx === 0) {
+                c.timer.delta = 'WINNER';
+            } else {
+                c.timer.delta = `+${formatPrecise(diff)}`;
+            }
+        });
     }
 
     function findRaceCompetitor(compIdentifier) {
@@ -965,6 +1005,9 @@ function createMatchupService({
             c.timer.isRunning = false;
             c.timer.finished = false;
             c.timer.finishTime = null;
+            c.timer.finishSeconds = null;
+            c.timer.place = null;
+            c.timer.deltaSeconds = null;
             c.timer.delta = null;
         }
         stopTicker();
@@ -983,18 +1026,16 @@ function createMatchupService({
         // A runner that was never started cannot finish.
         if (!comp.timer.isRunning && !(comp.timer.elapsed > 0)) return activeMatchup;
 
+        const otherFinishers = activeMatchup.competitors.filter(c => c !== comp && c.timer?.finished);
         comp.timer.finished = true;
         comp.timer.isRunning = false;
+        comp.timer.finishSeconds = Math.round((comp.timer.elapsed || 0) * 100) / 100;
         comp.timer.finishTime = formatPrecise(comp.timer.elapsed);
         logEvent('finish', `${comp.name} finished ${comp.timer.finishTime}`);
 
-        const otherFinishers = activeMatchup.competitors.filter(c => c !== comp && c.timer?.finished);
-        if (otherFinishers.length > 0) {
-            const firstFinisher = otherFinishers.reduce((min, cur) => cur.timer.elapsed < min.timer.elapsed ? cur : min, otherFinishers[0]);
-            const diff = comp.timer.elapsed - firstFinisher.timer.elapsed;
-            comp.timer.delta = diff > 0 ? `+${formatPrecise(diff)}` : null;
-        } else {
-            comp.timer.delta = 'WINNER';
+        recomputeRacePlacements();
+
+        if (otherFinishers.length === 0) {
             if (activeMatchup.format === 'bestOf' || activeMatchup.format === 'firstTo') {
                 comp.score += 1;
                 checkWinnerCondition();
@@ -1033,7 +1074,11 @@ function createMatchupService({
         if (comp.timer.finished) {
             comp.timer.finished = false;
             comp.timer.finishTime = null;
+            comp.timer.finishSeconds = null;
+            comp.timer.place = null;
+            comp.timer.deltaSeconds = null;
             comp.timer.delta = null;
+            recomputeRacePlacements();
         }
         comp.timer.isRunning = !comp.timer.isRunning;
         syncRaceClockState();
@@ -1055,7 +1100,11 @@ function createMatchupService({
         comp.timer.isRunning = false;
         comp.timer.finished = false;
         comp.timer.finishTime = null;
+        comp.timer.finishSeconds = null;
+        comp.timer.place = null;
+        comp.timer.deltaSeconds = null;
         comp.timer.delta = null;
+        recomputeRacePlacements();
         syncRaceClockState();
 
         save();

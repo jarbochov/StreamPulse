@@ -682,6 +682,67 @@
                     previewIframe.src = targetSrc;
                 }
             }
+            savePollsOverlayPrefs();
+        }
+
+        const POLLS_OVERLAY_PREFS_KEY = 'streampulse_polls_overlay_prefs';
+        let isRestoringPollsPrefs = false;
+
+        function savePollsOverlayPrefs() {
+            if (isRestoringPollsPrefs) return;
+            try {
+                const prefs = {
+                    poll: {
+                        theme: $('poll-opt-theme')?.value,
+                        customBg: $('poll-opt-custom-bg')?.value,
+                        howtovote: $('poll-opt-howtovote')?.checked,
+                    },
+                    tourney: {
+                        layout: $('tourney-opt-layout')?.value,
+                        theme: $('tourney-opt-theme')?.value,
+                        customBg: $('tourney-opt-custom-bg')?.value,
+                        spacing: $('tourney-opt-spacing')?.value,
+                        lines: $('tourney-opt-lines')?.value,
+                        logosize: $('tourney-opt-logosize')?.value,
+                        showlogo: $('tourney-opt-showlogo')?.checked,
+                        scores: $('tourney-opt-scores')?.checked,
+                        title: $('tourney-opt-title')?.checked,
+                        rounds: $('tourney-opt-rounds')?.checked,
+                        fit: $('tourney-opt-fit')?.checked,
+                    }
+                };
+                localStorage.setItem(POLLS_OVERLAY_PREFS_KEY, JSON.stringify(prefs));
+            } catch { /* ignore storage errors */ }
+        }
+
+        function restorePollsOverlayPrefs() {
+            try {
+                const raw = localStorage.getItem(POLLS_OVERLAY_PREFS_KEY);
+                if (!raw) return;
+                const prefs = JSON.parse(raw);
+                isRestoringPollsPrefs = true;
+                if (prefs.poll) {
+                    const p = prefs.poll;
+                    if (p.theme !== undefined && $('poll-opt-theme')) $('poll-opt-theme').value = p.theme;
+                    if (p.customBg !== undefined && $('poll-opt-custom-bg')) $('poll-opt-custom-bg').value = p.customBg;
+                    if (p.howtovote !== undefined && $('poll-opt-howtovote')) $('poll-opt-howtovote').checked = Boolean(p.howtovote);
+                }
+                if (prefs.tourney) {
+                    const t = prefs.tourney;
+                    if (t.layout !== undefined && $('tourney-opt-layout')) $('tourney-opt-layout').value = t.layout;
+                    if (t.theme !== undefined && $('tourney-opt-theme')) $('tourney-opt-theme').value = t.theme;
+                    if (t.customBg !== undefined && $('tourney-opt-custom-bg')) $('tourney-opt-custom-bg').value = t.customBg;
+                    if (t.spacing !== undefined && $('tourney-opt-spacing')) $('tourney-opt-spacing').value = t.spacing;
+                    if (t.lines !== undefined && $('tourney-opt-lines')) $('tourney-opt-lines').value = t.lines;
+                    if (t.logosize !== undefined && $('tourney-opt-logosize')) $('tourney-opt-logosize').value = t.logosize;
+                    ['showlogo', 'scores', 'title', 'rounds', 'fit'].forEach(k => {
+                        const el = $('tourney-opt-' + k);
+                        if (el && t[k] !== undefined) el.checked = Boolean(t[k]);
+                    });
+                }
+            } catch { /* ignore parse error */ } finally {
+                isRestoringPollsPrefs = false;
+            }
         }
 
         function updateTourneyOverlayUrl() {
@@ -744,6 +805,7 @@
                     previewIframe.src = targetSrc;
                 }
             }
+            savePollsOverlayPrefs();
         }
 
         function setCreatePollTourneyLogo(url) {
@@ -1843,6 +1905,7 @@
 
         // Init page
         (async () => {
+            restorePollsOverlayPrefs();
             addChoiceField('Zelda: Tears of the Kingdom');
             addChoiceField('Elden Ring');
             addChoiceField('Metroid Prime Remastered');
@@ -1860,6 +1923,8 @@
             loadTournament();
             loadHistory();
             updateEntrantsCalc();
+            updatePollOverlayUrl();
+            updateTourneyOverlayUrl();
             updatePreview();
             connectWs();
             try {

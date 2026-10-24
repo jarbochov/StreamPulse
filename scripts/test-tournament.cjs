@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { createPollService } = require('../server/services/polls.js');
+const { createMatchupService } = require('../server/services/matchup.js');
 
 function scoreAndAdvance(svc, id, o) {
     const r = svc.updateMatchScore(id, o);
@@ -593,8 +594,73 @@ test('Tournament Service: Variable bracket sizes, manual scoring, series best-of
         // Disable live highlight on bracket via settings
         const hlRes = service.updateTournamentSettings({ highlightLive: false });
         assert.equal(hlRes.highlightLive, false, 'updateTournamentSettings should update highlightLive to false');
+
+        // 20. Companion-style tournament scoring via entrantIndex + delta / roundDelta
+        service.updateMatchScore(mA.id, { entrantIndex: 0, delta: 1 });
+        assert.equal(mA.entrant1.score, 1, 'entrantIndex 0 + delta 1 should increment entrant1 score');
+        service.updateMatchScore(mA.id, { entrantIndex: 1, delta: 2 });
+        assert.equal(mA.entrant2.score, 2, 'entrantIndex 1 + delta 2 should increment entrant2 score');
     } finally {
         service.destroy();
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
+test('Matchup Service: Speedrun race clock runnerTimersMode (finish vs always) and finish delta calculation', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-matchup-test-'));
+    const muService = createMatchupService({
+        dataDir: tmpDir,
+        broadcastToOverlays: () => {},
+        onAlert: () => {},
+        log: () => {},
+        error: () => {}
+    });
+
+    try {
+        // Default runnerTimersMode is 'finish'
+        let m = muService.getMatchup();
+        assert.equal(m.clock.runnerTimersMode, 'finish');
+
+        // Switch to speedrun race mode with runnerTimersMode: 'finish'
+        let clk = muService.setClockMode({ enabled: true, mode: 'race', runnerTimersMode: 'finish', estimate: '45:00' });
+        assert.equal(clk.mode, 'race');
+        assert.equal(clk.runnerTimersMode, 'finish');
+        m = muService.getMatchup();
+
+        // Simulate Runner 1 finishing at 2512.80s (41:52.80) and Runner 2 finishing at 2525.45s (42:05.45)
+        m.competitors[0].timer = { elapsed: 2512.80, isRunning: true, startedAt: Date.now() - 1000, finished: false, finishTime: null };
+        m.competitors[1].timer = { elapsed: 2525.45, isRunning: true, startedAt: Date.now() - 1000, finished: false, finishTime: null };
+
+        // Runner 1 finishes first
+        m = muService.finishCompetitorRace(0);
+        assert.equal(m.competitors[0].timer.finished, true);
+        assert.equal(m.competitors[0].timer.place, 1);
+        assert.equal(m.competitors[0].timer.delta, 'WINNER');
+        assert.equal(m.competitors[0].timer.deltaSeconds, 0);
+
+        // Runner 2 finishes second (+12.65s behind Runner 1)
+        m = muService.finishCompetitorRace(1);
+        assert.equal(m.competitors[1].timer.finished, true);
+        assert.equal(m.competitors[1].timer.place, 2);
+        assert.ok(m.competitors[1].timer.delta.startsWith('+00:12.'), `Expected +00:12.xx delta, got ${m.competitors[1].timer.delta}`);
+        assert.ok(Math.abs(m.competitors[1].timer.deltaSeconds - 12.65) < 0.5);
+
+        // Switching runnerTimersMode to 'always' and back to 'finish'
+        clk = muService.setClockMode({ runnerTimersMode: 'always' });
+        assert.equal(clk.runnerTimersMode, 'always');
+        clk = muService.setClockMode({ runnerTimersMode: 'finish' });
+        assert.equal(clk.runnerTimersMode, 'finish');
+
+        // Resetting all race timers clears placements and deltas
+        m = muService.resetAllRace();
+        assert.equal(m.competitors[0].timer.finished, false);
+        assert.equal(m.competitors[0].timer.place, null);
+        assert.equal(m.competitors[0].timer.delta, null);
+        assert.equal(m.competitors[1].timer.finished, false);
+        assert.equal(m.competitors[1].timer.place, null);
+        assert.equal(m.competitors[1].timer.delta, null);
+    } finally {
+        muService.destroy();
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }
 });

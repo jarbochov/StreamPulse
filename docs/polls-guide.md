@@ -98,12 +98,13 @@ StreamPulse includes an advanced **Tournament Bracket** engine designed for comm
 For broadcasts featuring fighting games (Street Fighter, Smash, Tekken), speedrun races, Mario Kart showdowns, or 1v1 to 4-player casual sets, StreamPulse provides a standalone **Matchup Scoreboard** in **Tools -> Versus** (`/versus.html`). It tracks match points, series win pips, and competitor side positions without requiring an elimination bracket.
 
 ### Key Matchup Features:
-- **Speedrun Battle (GDQ Race Mode) with Multi-Runner Clocks**:
-  - **Synchronized Master Clock**: One-click **Sync Start All Runners** launches all runner clocks simultaneously (`/api/matchup/clock/race/start-all`).
+- **Speedrun Battle (GDQ Race Mode) with Master Clock & Reveal-on-Finish Deltas**:
+  - **Synchronized Master Clock**: One-click **Sync Start All Runners** launches the master race clock and all runner clocks simultaneously (`/api/matchup/clock/race/start-all`).
+  - **Main Clock Only — Reveal on Finish (+Delta) (`runnerTimersMode: 'finish'`)**: By default, only the master race clock ticks on stream while runners are actively playing. When a runner finishes (`Finish / Split`), their individual finish time is revealed (`1st · 41:52.80`), and every subsequent finisher reveals their final time plus their exact time difference behind 1st place (`2nd · 42:05.45 (+00:12.65)`). Can also be switched to **Always Show Live Runner Timers** (`?runnertimers=always`).
+  - **Works Across Every Scoreboard Layout**: Standard scoreboard layouts (`top`, `fgc`, `split`, `pillar`, `minimal`, `bottom`, `compact`, `angular`, `versus`) preserve their chosen design during speedrun races—showing the main race clock in the center/dock and popping in `.runner-finish-pill` placement & delta badges on each competitor's side as soon as they finish.
   - **Individual Runner Split Cards**: Each runner has independent split controls (`Finish / Split`, `Toggle`, `Reset`).
-  - **Live Delta Badges**: The first runner to finish is awarded the green `WINNER` badge; subsequent finishers display exact positive split deltas (`+MM:SS.ss`) on stream.
   - **Target EST Display**: Set and display the estimated target time (`Target EST: 45:00`).
-  - **Dedicated GDQ Race Layout**: Responsive multi-runner overlay layout (`?layout=race`) supporting 2, 3, or 4 runners with individual split clocks, runner tags, and status cards.
+  - **Dedicated GDQ Race Layout**: Responsive multi-runner overlay layout (`?layout=race`) supporting 2, 3, or 4 runners with a prominent Master Race Clock bar, runner tags, and finish/delta reveal cards.
 - **Active Tournament Match Binding on Versus Scoreboard**: When an esports tournament is currently active, the Matchup Scoreboard (`/versus.html`) displays the tournament's active match with a dedicated match control banner. Broadcasters can switch matches with previous/next buttons or a dropdown selector, record match ties/draws, advance winners, and toggle between tournament matches and standalone exhibition sets with 1 click.
 - **Separated Game Pips & Round Pips**: Game/set wins and rounds-within-a-game are clearly separated into distinct visual docks in the studio, each featuring its own steppers, direct number inputs, and distinct pips (`● ● ○` for games, `◆ ◇` for rounds).
 - **Match Clock Styles & Modes (EVO, GDQ, Bottom Dock & None)**:
@@ -245,6 +246,8 @@ Unlike traditional full-screen overlays locked to 1920×1080 canvases, `/matchup
 | `?p1color=<hex>` | default | Custom theme accent color override for Player 1 / Left team. |
 | `?p2color=<hex>` | default | Custom theme accent color override for Player 2 / Right team. |
 | `?clockstyle=badge\|bottom\|pill\|fgc` | `badge` | Match clock styling presentation: center integrated badge, bottom dock timer (`00:00 / 45:00`), floating pill, or EVO big digits. |
+| `?runnertimers=finish\|always\|off` | `finish` | Speedrun race timer display mode: `finish` shows only the Master Race Clock during the run and reveals each runner's final time upon finishing; `always` shows live ticking timers for every runner at all times; `off` displays only the master overall clock and never shows runner timer boxes. |
+| `?splits=1\|0` | `1` | Show (`1`) or hide (`0`) speedrun split deltas (`+00:12.65` time difference behind 1st place) on finished runners across race and scoreboard layouts. |
 | `?showest=1\|0` | `1` | Show or hide target EST timer (e.g. `00:00 / 45:00`) on clock displays. |
 | `?title=1\|0` | `1` | Show or hide event / game title. |
 | `?center=1\|0` | `1` | Show or hide the center match phase badge. Set `?center=0` to create completely center-less overlays that leave the middle of your screen 100% clear. |

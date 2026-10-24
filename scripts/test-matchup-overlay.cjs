@@ -1,4 +1,5 @@
 'use strict';
+/* global renderMatchup, currentMatchup, updateMatchupOverlayUrl, updateTourneyOverlayUrl, localStorage */
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -247,6 +248,134 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         await page.waitForSelector('.topbar-panel');
         const gap240 = await page.$eval('.topbar-panel', el => getComputedStyle(el).gap);
         assert.equal(gap240, '240px', '.topbar-panel computed gap should be 240px for ?gap=240px');
+
+        // 28. Speedrun Race Layout (?layout=race) with Master Race Clock and Reveal-on-Finish (?runnertimers=finish) vs Always (?runnertimers=always)
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=race&runnertimers=finish`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.race-panel');
+        await page.waitForSelector('.race-master-bar');
+        const masterClockExists = await page.$('.race-master-clock-digits');
+        assert.ok(masterClockExists, 'Speedrun race layout should render the Master Race Clock in the header');
+
+        // Inject a live race state where Runner 1 has finished (1st place) and Runner 2 is still running
+        await page.evaluate(() => {
+            renderMatchup({
+                title: 'Super Metroid Any%',
+                phase: 'Finals Race',
+                format: 'bestOf',
+                bestOf: 1,
+                targetScore: 1,
+                clock: {
+                    enabled: true,
+                    mode: 'race',
+                    runnerTimersMode: 'finish',
+                    elapsed: 2530.40,
+                    isRunning: true,
+                    estimate: '45:00'
+                },
+                competitors: [
+                    {
+                        id: 'c1',
+                        name: 'Zoast',
+                        tag: 'PB 41:16',
+                        color: '#10b981',
+                        score: 1,
+                        timer: { elapsed: 2512.80, isRunning: false, finished: true, finishTime: '41:52.80', finishSeconds: 2512.80, place: 1, delta: 'WINNER', deltaSeconds: 0 }
+                    },
+                    {
+                        id: 'c2',
+                        name: 'Behemoth',
+                        tag: 'PB 41:45',
+                        color: '#3b82f6',
+                        score: 0,
+                        timer: { elapsed: 2530.40, isRunning: true, finished: false, finishTime: null, place: null, delta: null }
+                    }
+                ]
+            });
+        });
+
+        const unfinHero = await page.$('.race-runner-card:not(.finished) .race-timer-hero');
+        assert.equal(unfinHero, null, 'In runnertimers=finish mode, an active un-finished runner hides their individual timer until finish');
+        const finishedHeroText = await page.$eval('.race-runner-card.finished .race-timer-digits', el => el.textContent.trim());
+        assert.equal(finishedHeroText, '41:52.80', 'Finished runner should reveal their official finish time');
+
+        // Now finish Runner 2 (+12.65s behind Runner 1) and verify delta is displayed
+        await page.evaluate(() => {
+            currentMatchup.competitors[1].timer = {
+                elapsed: 2525.45,
+                isRunning: false,
+                finished: true,
+                finishTime: '42:05.45',
+                finishSeconds: 2525.45,
+                place: 2,
+                delta: '+00:12.65',
+                deltaSeconds: 12.65
+            };
+            renderMatchup(currentMatchup);
+        });
+        const unfinAfterBothFinish = await page.$('.race-runner-card:not(.finished) .race-timer-hero');
+        assert.equal(unfinAfterBothFinish, null, 'Once both runners finish, both runners are marked finished');
+        const deltaBadges = await page.$$eval('.race-finish-badge', els => els.map(e => e.textContent.trim()));
+        assert.ok(deltaBadges.some(t => t.includes('+00:12.65')), 'Second finisher should display +00:12.65 time difference behind 1st place');
+
+        // 29. Speedrun Clock with Runner Timers OFF (?runnertimers=off)
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=race&runnertimers=off`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.race-panel');
+        await page.waitForSelector('.race-master-bar');
+        const heroBoxesOff = await page.$$('.race-timer-hero');
+        assert.equal(heroBoxesOff.length, 0, 'In runnertimers=off mode, no runner timer boxes should be rendered');
+
+        // 30. Speedrun Clock with Splits DELTAS OFF (?splits=0)
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=race&splits=0`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.race-panel');
+        const badgesNoSplits = await page.$$eval('.race-finish-badge', els => els.map(e => e.textContent.trim()));
+        assert.ok(badgesNoSplits.length >= 1, 'Finished runner should still show a finish badge');
+        assert.ok(!badgesNoSplits.some(t => t.includes('+00:12.65')), 'When ?splits=0 is set, delta differences behind 1st place should be hidden');
+
+        // 30b. Scoreboard layout (top) with Splits ON vs OFF
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=top&splits=0`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.topbar-panel');
+        await page.evaluate(() => {
+            renderMatchup({
+                competitors: [
+                    { name: 'Runner1', score: 1, timer: { finished: true, elapsed: 2500, finishTime: '41:40.00', place: 1 } },
+                    { name: 'Runner2', score: 0, timer: { finished: true, elapsed: 2510, finishTime: '41:50.00', place: 2, delta: '+00:10.00' } }
+                ],
+                clock: { enabled: true, mode: 'race', showSplits: false }
+            });
+        });
+        const pillDeltaTags = await page.$$('.runner-delta-tag');
+        assert.equal(pillDeltaTags.length, 0, 'Scoreboard runner pill should omit delta tag when showSplits is false');
+
+        // 31. Theme clean-light contrast verification
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=top&overlay=clean-light`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.topbar-panel');
+        const bodyClassList = await page.$eval('body', el => Array.from(el.classList));
+        assert.ok(bodyClassList.includes('theme-clean-light'), 'Body should have theme-clean-light');
+        const compTextColor = await page.$eval('.topbar-competitor.c1 .competitor-name', el => getComputedStyle(el).color);
+        assert.ok(compTextColor.includes('31, 35, 40') || compTextColor.includes('rgb('), 'Text should be high-contrast dark in clean-light theme');
+
+        // 32. Verify versus tool persists overlay prefs to localStorage
+        const VERSUS_TOOL_URL = 'file://' + path.resolve(__dirname, '../public/tools/versus.html');
+        await page.goto(VERSUS_TOOL_URL, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#matchup-opt-layout');
+
+        // Modify checkboxes and selects
+        await page.evaluate(() => {
+            document.getElementById('matchup-opt-layout').value = 'race';
+            document.getElementById('matchup-opt-splits').checked = false;
+            document.getElementById('matchup-opt-roundpips').checked = false;
+            document.getElementById('tourney-opt-highlight').checked = false;
+            updateMatchupOverlayUrl();
+            updateTourneyOverlayUrl();
+        });
+
+        const storedRaw = await page.evaluate(() => localStorage.getItem('streampulse_versus_overlay_prefs'));
+        assert.ok(storedRaw, 'versus overlay options should be persisted to localStorage');
+        const stored = JSON.parse(storedRaw);
+        assert.equal(stored.matchup.layout, 'race');
+        assert.equal(stored.matchup.splits, false);
+        assert.equal(stored.matchup.roundpips, false);
+        assert.equal(stored.tourney.highlight, false);
 
     } finally {
         if (browser) await browser.close();

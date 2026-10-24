@@ -1407,7 +1407,7 @@ function createPollService({
     }
 
     function updateMatchScore(matchId, {
-        entrant1Score, entrant2Score, entrant, score, winner, matchDetails,
+        entrant1Score, entrant2Score, entrant, entrantIndex, delta, score, winner, matchDetails,
         entrant1Tag, entrant2Tag, entrant1Rounds, entrant2Rounds, rounds, roundDelta,
         entrant1Color, entrant2Color, color, preserveActiveMatch = false, isPoll = false
     } = {}) {
@@ -1416,6 +1416,19 @@ function createPollService({
         if (!targetTourney) throw new Error('No active tournament');
         const match = targetTourney.matches.find(m => m.id === matchId);
         if (!match) throw new Error(`Match ${matchId} not found`);
+
+        if (entrant === undefined && (entrantIndex === 0 || entrantIndex === 1)) {
+            entrant = entrantIndex === 0 ? match.entrant1?.name : match.entrant2?.name;
+        }
+
+        if (delta !== undefined && (entrantIndex === 0 || entrantIndex === 1 || entrant !== undefined)) {
+            const d = parseInt(delta, 10) || 0;
+            if (entrantIndex === 0 || (entrant && match.entrant1?.name === entrant)) {
+                entrant1Score = Math.max(0, (match.entrant1?.score || 0) + d);
+            } else if (entrantIndex === 1 || (entrant && match.entrant2?.name === entrant)) {
+                entrant2Score = Math.max(0, (match.entrant2?.score || 0) + d);
+            }
+        }
 
         if (entrant !== undefined && score !== undefined) {
             if (match.entrant1?.name === entrant) entrant1Score = score;

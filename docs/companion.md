@@ -38,9 +38,17 @@ With the Companion module connected, you can bind the following actions to any S
   - `Play Now`: Marks a game as active and syncs your Twitch category automatically.
   - `Advance Game`: Finishes the current game and queues the next game in your lineup.
 - **Live Polls**:
-  - `End Poll / Crown Winner`: Concludes active poll and triggers celebrations.
-  - `Extend Poll`: Adds +30 seconds of voting time to active poll.
-  - `Cancel Poll`: Aborts active poll without crowning a winner.
+  - `Polls: start poll (preset or custom)`: Launch an audience poll from a saved template dropdown or custom question, comma-separated choices, duration, blind voting toggle, and 2x subscriber multiplier.
+  - `Polls: end / extend / cancel active poll`: Conclude the active poll & crown the winner, add voting time (`+30s` or custom seconds), or cancel/dismiss the poll.
+- **Versus & Speedrun Studio**:
+  - `Versus: change game or round score`: Increment or decrement Game Score (`delta`) or Round in Game (`roundDelta`) for Competitors 1–4.
+  - `Versus: clock / speedrun race control`: Start, pause, or reset the match clock; sync-start, pause, or reset all speedrun race runners; switch clock modes (`race`, `countdown`, `stopwatch`, `none`); switch Speedrun Runner Timer Display between **Overall Clock Only — Reveal on Finish** (`timers_finish`), **Always Show Live Runner Timers** (`timers_always`), and **Overall Clock Only — Never Show Runner Times** (`timers_off`); or toggle Speedrun Split Deltas (`splits_toggle`, `splits_on`, `splits_off`).
+  - `Versus: runner finish / toggle / reset`: Lock a runner's finish split & reveal their placement/delta (`finish`), start/pause an individual runner (`toggle`), or reset a runner (`reset`) for Runners 1–4.
+  - `Versus: swap sides / reset scores / queue / presets`: Swap P1 and P2 sides, reset scores & rounds (`0-0`), save a snapshot to match history, advance/rewind the matchup queue, or load a saved Matchup Preset.
+- **Tournaments (Esports Brackets & Poll Tournaments)**:
+  - `Tournament: change match game or round score`: Adjust Game Score (`delta`) or Round in Game (`roundDelta`) for Entrant 1 or Entrant 2 on the active (or selected) bracket match.
+  - `Tournament: confirm & advance match winner`: Confirm and advance the winning entrant (`Auto / Target Met`, `Entrant 1`, `Entrant 2`, or `Draw / Tie`) to the next round.
+  - `Tournament: match selection, highlight & bracket control`: Cycle to the next/previous ready match, pin a specific match as live, unpin the live match for concurrent multi-station play, toggle the live bracket highlight glow (`highlightLive`), reset match scores, rollback/reopen a completed match, or launch an audience poll vote for the active Poll Tournament match.
 - **Chat Bot & Alerts**:
   - `Run Bot Command`: Silently triggers custom chatbot commands or webhooks.
   - `Test Alert`: Simulates subscriber, bit, or raid alerts on stream.
@@ -49,10 +57,9 @@ With the Companion module connected, you can bind the following actions to any S
 
 ## 3. Dynamic Feedbacks & Variables
 
-The StreamPulse module exposes live variables that display directly on your Stream Deck buttons:
-- `$(streampulse:randomizer_last_mode)` and `$(streampulse:randomizer_last_duration)`: Last-used Randomizer mode and spin duration in seconds. `$(streampulse:randomizer_remaining)`, `$(streampulse:randomizer_removed)` and `$(streampulse:randomizer_elimination)`: choices left, choices removed and elimination mode for the last-used preset.
-- `$(streampulse:viewers)`: Current live viewer count.
-- `$(streampulse:session_time)`: Formatted stream uptime (HH:MM:SS).
-- `$(streampulse:now_playing)`: Currently active game title or music track.
-- `$(streampulse:timer_remaining)`: Active countdown time remaining.
-- `$(streampulse:last_follower)`: Username of the most recent follower.
+The StreamPulse module exposes live variables and boolean feedbacks that update your Stream Deck buttons in real time:
+- **Polls**: `$(streampulse:poll_active)`, `$(streampulse:poll_title)`, `$(streampulse:poll_total_votes)`, `$(streampulse:poll_remaining)`, `$(streampulse:poll_leader)`, `$(streampulse:poll_winner)`, plus the `Polls: poll actively running` (`poll_active`) feedback.
+- **Versus & Speedrun**: `$(streampulse:matchup_title)`, `$(streampulse:matchup_phase)`, `$(streampulse:matchup_clock)`, `$(streampulse:matchup_runner_timers_mode)`, `$(streampulse:matchup_c1_name)`, `$(streampulse:matchup_c1_score)`, `$(streampulse:matchup_c1_rounds)`, `$(streampulse:matchup_c1_time)`, `$(streampulse:matchup_c1_delta)`, `$(streampulse:matchup_c1_place)` (and `c2` equivalents), plus `matchup_clock_running`, `matchup_runner_finished` (Runners 1–4), and `matchup_win_ready` feedbacks.
+- **Tournaments**: `$(streampulse:tournament_title)`, `$(streampulse:tournament_status)`, `$(streampulse:tournament_format)`, `$(streampulse:tournament_round)`, `$(streampulse:tournament_e1_name)`, `$(streampulse:tournament_e1_score)`, `$(streampulse:tournament_e1_rounds)`, `$(streampulse:tournament_e2_name)`, `$(streampulse:tournament_e2_score)`, `$(streampulse:tournament_e2_rounds)`, `$(streampulse:tournament_pending_winner)`, `$(streampulse:tournament_champion)`, plus `tournament_active` and `tournament_win_ready` (lights up green when an entrant meets `targetScore` and is ready to advance).
+- **Randomizer**: `$(streampulse:randomizer_last_mode)` and `$(streampulse:randomizer_last_duration)`: Last-used Randomizer mode and spin duration in seconds. `$(streampulse:randomizer_remaining)`, `$(streampulse:randomizer_removed)` and `$(streampulse:randomizer_elimination)`: choices left, choices removed and elimination mode for the last-used preset.
+- **Stream & Session**: `$(streampulse:viewers)`, `$(streampulse:stream_uptime)`, `$(streampulse:track)`, `$(streampulse:latest_follow)`.
