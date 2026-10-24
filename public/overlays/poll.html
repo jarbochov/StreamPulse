@@ -136,6 +136,18 @@
             box-shadow: 0 0 20px rgba(236, 72, 153, 0.35);
         }
 
+        .poll-card.theme-championship { background: rgba(20,14,4,0.94); border-color: #facc15; box-shadow: 0 0 22px rgba(250,204,21,0.28); }
+        .poll-card.theme-cyber { background: rgba(10,4,24,0.94); border-color: #22d3ee; box-shadow: 0 0 22px rgba(217,70,239,0.28); }
+        .poll-card.theme-clean-light { background: rgba(255,255,255,0.96); border-color: #cbd5e1; box-shadow: 0 0 22px rgba(15,23,42,0.28); }
+        .poll-card.theme-minimal-dark { background: #000; border-color: #27272a; box-shadow: 0 0 22px rgba(0,0,0,0.28); }
+        .poll-card.theme-ember { background: rgba(28,10,4,0.94); border-color: #f97316; box-shadow: 0 0 22px rgba(249,115,22,0.28); }
+        .poll-card.theme-aurora { background: rgba(4,20,24,0.94); border-color: #2dd4bf; box-shadow: 0 0 22px rgba(45,212,191,0.28); }
+        .poll-card.theme-ocean { background: rgba(4,14,32,0.94); border-color: #38bdf8; box-shadow: 0 0 22px rgba(56,189,248,0.28); }
+        .poll-card.theme-sunset { background: rgba(30,8,20,0.94); border-color: #fb7185; box-shadow: 0 0 22px rgba(251,113,133,0.28); }
+        .poll-card.theme-violet { background: rgba(18,8,34,0.94); border-color: #a78bfa; box-shadow: 0 0 22px rgba(167,139,250,0.28); }
+        .poll-card.theme-forest { background: rgba(6,22,12,0.94); border-color: #4ade80; box-shadow: 0 0 22px rgba(74,222,128,0.28); }
+        .poll-card.theme-clean-light { color: #0f172a; }
+
         /* Header Bar */
         .poll-header {
             display: flex;
@@ -516,6 +528,8 @@
                 card.classList.add('theme-neon');
             } else if (overlayVal === 'retro') {
                 card.classList.add('theme-retro');
+            } else if (['championship', 'cyber', 'clean-light', 'minimal-dark', 'ember', 'aurora', 'ocean', 'sunset', 'violet', 'forest'].includes(overlayVal)) {
+                card.classList.add('theme-' + overlayVal);
             }
 
             // Color detection (hex without #, hex with #, rgba, or CSS color name)
