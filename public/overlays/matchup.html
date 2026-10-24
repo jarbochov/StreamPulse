@@ -1233,8 +1233,13 @@
             bestOf: 9,
             targetScore: 5,
             status: 'ACTIVE',
-            winner: null
+            winner: null,
+            clock: { enabled: true, mode: layout === 'race' ? 'race' : 'stopwatch', duration: 99, remaining: 99, elapsed: 754.32, isRunning: true, estimate: '18:30' }
         };
+        if (layout === 'race') {
+            SAMPLE_MATCHUP.competitors[0].timer = { elapsed: 754.32, isRunning: true, finished: false };
+            SAMPLE_MATCHUP.competitors[1].timer = { elapsed: 771.9, isRunning: true, finished: false };
+        }
 
         let currentMatchup = null;
         let lastCelebratedWinner = null;

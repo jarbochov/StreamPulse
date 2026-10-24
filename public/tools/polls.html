@@ -419,20 +419,19 @@
 
                 <!-- Tab 3: Overlays & Live Preview Panel (Full Width) -->
                 <div id="panel-overlays" style="display: none;">
-                    <div class="card" style="margin-bottom: 1rem;">
+                    <div class="studio-tabs" style="margin-bottom: 1rem;">
+                        <button type="button" class="studio-tab-btn" id="btn-preview-poll" onclick="setPreviewMode('poll')">Standard Poll</button>
+                        <button type="button" class="studio-tab-btn" id="btn-preview-tree" onclick="setPreviewMode('tree')">Bracket Tree</button>
+                        <button type="button" class="studio-tab-btn" id="btn-preview-tourney" onclick="setPreviewMode('active')">Active Match HUD</button>
+                    </div>
+                    <div class="ov-layout">
+                    <div class="card ov-preview" style="margin-bottom: 1rem;">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
                             <div>
                                 <h2 style="margin-bottom: 0.15rem;">Live Overlay Preview</h2>
                                 <p class="hint" style="margin: 0;">Interactive real-time preview of your audience poll and tournament overlays.</p>
                             </div>
-                            <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
-                                <button type="button" class="btn-secondary btn-primary" id="btn-preview-poll" style="font-size: 0.72rem; padding: 0.25rem 0.65rem;" onclick="setPreviewMode('poll')">
-                                    Standard Poll
-                                </button>
-                                <button type="button" class="btn-secondary" id="btn-preview-tourney" style="font-size: 0.72rem; padding: 0.25rem 0.65rem;" onclick="setPreviewMode('tourney')">
-                                    Tournament Bracket
-                                </button>
-                            </div>
+                            
                         </div>
 
                         <div id="poll-preview-box" class="preview-container" style="height: 340px; overflow: hidden; padding: 0.5rem; position: relative; background: #050811; border: 1px solid var(--border); border-radius: 8px;">
@@ -448,13 +447,13 @@
                     </div>
 
                     <!-- OBS Browser Source URLs -->
-                    <div class="card">
+                    <div class="card ov-links">
                         <div style="margin-bottom: 1rem;">
                             <h2 style="margin-bottom: 0.15rem;">OBS Browser Source Links</h2>
                             <p class="hint" style="margin: 0;">Embed live audience voting directly into your OBS scenes.</p>
                         </div>
                         
-                        <div style="margin-bottom: 1.5rem;">
+                        <div id="ov-sec-poll" style="margin-bottom: 1.5rem;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                                 <div style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Live Poll Overlay</div>
                                 <a id="btn-open-poll-overlay" href="/overlays/poll.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open &nearr;</a>
@@ -478,7 +477,7 @@
                                             <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
                                             <option value="pill">Pill Capsule (?overlay=pill)</option>
                                             <option value="neon">Cyber Neon (?overlay=neon)</option>
-                                            <option value="retro">Retro Arcade (?overlay=retro)</option>
+                                            <option value="retro">Retro Arcade (?overlay=retro)</option><option value="championship">Championship Gold</option><option value="cyber">Cyberpunk</option><option value="clean-light">Clean Light</option><option value="minimal-dark">OLED Black</option><option value="ember">Ember (?overlay=ember)</option><option value="aurora">Aurora (?overlay=aurora)</option><option value="ocean">Ocean (?overlay=ocean)</option><option value="sunset">Sunset (?overlay=sunset)</option><option value="violet">Violet (?overlay=violet)</option><option value="forest">Forest (?overlay=forest)</option>
                                             <option value="custom">Custom Color / Hash...</option>
                                         </select>
                                     </div>
@@ -500,7 +499,7 @@
                             </div>
                         </div>
 
-                        <div>
+                        <div id="ov-sec-tourney" style="display:none;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                                 <div style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Audience Tournament Bracket Overlay</div>
                                 <a id="btn-open-tourney-overlay" href="/overlays/tournament.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open &nearr;</a>
@@ -524,6 +523,14 @@
                                         </select>
                                     </div>
                                     <div>
+                                        <label for="tourney-opt-spacing" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Spacing (?spacing=)</label>
+                                        <select id="tourney-opt-spacing" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()"><option value="normal">Normal</option><option value="compact">Compact</option><option value="spacious">Spacious</option></select>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-lines" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket lines (?lines=)</label>
+                                        <select id="tourney-opt-lines" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()"><option value="glow">Luminous glow</option><option value="solid">Solid</option></select>
+                                    </div>
+                                    <div>
                                         <label for="tourney-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme / Container (?overlay=)</label>
                                         <select id="tourney-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
                                             <option value="card" selected>Dark Card (?overlay=card)</option>
@@ -532,7 +539,7 @@
                                             <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
                                             <option value="pill">Pill Capsule (?overlay=pill)</option>
                                             <option value="neon">Cyber Neon (?overlay=neon)</option>
-                                            <option value="retro">Retro Arcade (?overlay=retro)</option>
+                                            <option value="retro">Retro Arcade (?overlay=retro)</option><option value="championship">Championship Gold</option><option value="cyber">Cyberpunk</option><option value="clean-light">Clean Light</option><option value="minimal-dark">OLED Black</option><option value="ember">Ember (?overlay=ember)</option><option value="aurora">Aurora (?overlay=aurora)</option><option value="ocean">Ocean (?overlay=ocean)</option><option value="sunset">Sunset (?overlay=sunset)</option><option value="violet">Violet (?overlay=violet)</option><option value="forest">Forest (?overlay=forest)</option>
                                         </select>
                                     </div>
                                 </div>
@@ -543,12 +550,22 @@
                                         <span>Show Match Scores &amp; Votes (<code>?showscores=1</code>)</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-title" checked onchange="updateTourneyOverlayUrl()">
+                                        <span>Show tournament title header (<code>?showtitle=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-rounds" checked onchange="updateTourneyOverlayUrl()">
+                                        <span>Show round name headers (<code>?showrounds=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="tourney-opt-fit" checked onchange="updateTourneyOverlayUrl()">
                                         <span>Auto-fit whole bracket to screen (<code>?fit=1</code>)</span>
                                     </label>
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
                     </div>
                 </div>
     </main>
@@ -642,6 +659,11 @@
                 urlParams.set('overlay', theme);
             }
 
+            const spacingEl = $('tourney-opt-spacing'), linesEl = $('tourney-opt-lines');
+            if (spacingEl && spacingEl.value !== 'normal') urlParams.set('spacing', spacingEl.value);
+            if (linesEl && linesEl.value !== 'glow') urlParams.set('lines', linesEl.value);
+            if ($('tourney-opt-title') && !$('tourney-opt-title').checked) urlParams.set('showtitle', '0');
+            if ($('tourney-opt-rounds') && !$('tourney-opt-rounds').checked) urlParams.set('showrounds', '0');
             if (scoresCheck && !scoresCheck.checked) {
                 urlParams.set('showscores', '0');
             }
@@ -708,13 +730,18 @@
 
         function setPreviewMode(mode) {
             previewMode = mode;
-            $('btn-preview-poll')?.classList.toggle('btn-primary', mode === 'poll');
-            $('btn-preview-poll')?.classList.toggle('btn-secondary', mode !== 'poll');
-            $('btn-preview-tourney')?.classList.toggle('btn-primary', mode === 'tourney');
-            $('btn-preview-tourney')?.classList.toggle('btn-secondary', mode !== 'tourney');
-
-            if ($('poll-preview-box')) $('poll-preview-box').style.display = mode === 'poll' ? 'flex' : 'none';
-            if ($('tourney-preview-box')) $('tourney-preview-box').style.display = mode === 'tourney' ? 'block' : 'none';
+            const isTourney = mode !== 'poll';
+            $('btn-preview-poll')?.classList.toggle('active', mode === 'poll');
+            $('btn-preview-tree')?.classList.toggle('active', mode === 'tree');
+            $('btn-preview-tourney')?.classList.toggle('active', mode === 'active');
+            if ($('poll-preview-box')) $('poll-preview-box').style.display = isTourney ? 'none' : 'flex';
+            if ($('tourney-preview-box')) $('tourney-preview-box').style.display = isTourney ? 'block' : 'none';
+            if ($('ov-sec-poll')) $('ov-sec-poll').style.display = isTourney ? 'none' : 'block';
+            if ($('ov-sec-tourney')) $('ov-sec-tourney').style.display = isTourney ? 'block' : 'none';
+            if (isTourney && $('tourney-opt-layout')) {
+                $('tourney-opt-layout').value = mode === 'active' ? 'active' : 'tree';
+                updateTourneyOverlayUrl();
+            }
         }
 
         // Choices management (Up to 10 choices)
