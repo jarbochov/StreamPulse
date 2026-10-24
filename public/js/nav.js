@@ -114,6 +114,7 @@
         ]},
         { label: 'System ▾', children: [
             { label: 'Config', href: '/config-editor.html' },
+            { label: 'Appearance', href: '/config-editor.html#appearance' },
             { label: 'Twitch Connect', href: '/twitch-connect.html' },
             { label: 'Backup & Restore', href: '/backup.html' },
             { label: 'System Update', href: '/update.html' }
@@ -198,6 +199,7 @@
 
         // 5. System & Settings
         list.push({ label: 'System Config', href: '/config-editor.html', group: 'System & Settings' });
+        list.push({ label: 'Appearance & Accent Color', href: '/config-editor.html#appearance', group: 'System & Settings' });
         list.push({ label: 'Twitch Connect', href: '/twitch-connect.html', group: 'System & Settings' });
         list.push({ label: 'Backup & Restore', href: '/backup.html', group: 'System & Settings' });
         list.push({ label: 'System Update', href: '/update.html', group: 'System & Settings' });

@@ -858,6 +858,12 @@
     if (['general', 'lifecycle', 'modules', 'connection', 'appearance'].includes(initialTab)) {
         switchTab(initialTab);
     }
+    window.addEventListener('hashchange', () => {
+        const tab = location.hash.replace('#', '');
+        if (['general', 'lifecycle', 'modules', 'connection', 'appearance'].includes(tab)) {
+            switchTab(tab);
+        }
+    });
 
     loadConfig();
     </script>
