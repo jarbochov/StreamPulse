@@ -377,6 +377,27 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         assert.equal(stored.matchup.roundpips, false);
         assert.equal(stored.tourney.highlight, false);
 
+        // 33. Estimated time is marked as EST and not as a division slash (/ 45:00)
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=top&clockstyle=badge&showest=1`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.topbar-panel');
+        await page.evaluate(() => {
+            renderMatchup({
+                competitors: [{ name: 'P1', score: 0 }, { name: 'P2', score: 0 }],
+                clock: { enabled: true, mode: 'stopwatch', elapsed: 120, estimate: '45:00' }
+            });
+        });
+        const estText = await page.$eval('.clock-est', el => el.textContent.trim());
+        assert.ok(estText.includes('EST'), 'Estimated time should be explicitly marked as EST');
+        assert.ok(!estText.startsWith('/'), 'Estimated time should not be formatted as a division slash or fraction');
+        assert.ok(estText.includes('45:00'), 'Estimated time should include the estimate value');
+
+        // Check bottom dock clock as well
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=top&clockstyle=bottom&showest=1`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.clock-dock-pill');
+        const dockEstText = await page.$eval('.clock-dock-pill .clock-est', el => el.textContent.trim());
+        assert.ok(dockEstText.includes('EST'), 'Bottom dock estimated time should be marked as EST');
+        assert.ok(!dockEstText.startsWith('/'), 'Bottom dock estimated time should not be formatted as a division slash');
+
     } finally {
         if (browser) await browser.close();
     }

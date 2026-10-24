@@ -1285,9 +1285,22 @@
         }
 
         .clock-pill .clock-est {
-            font-size: 0.68rem;
-            color: #8b949e;
-            font-weight: 600;
+            font-size: 0.72rem;
+            color: var(--matchup-muted);
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            margin-left: 0.35rem;
+        }
+
+        .clock-pill .clock-est .clock-est-label {
+            font-size: 0.58rem;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--matchup-muted);
+            opacity: 0.85;
         }
 
         .clock-pill.clock-over {
@@ -1329,9 +1342,22 @@
         }
 
         .clock-dock-pill .clock-est {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: var(--matchup-muted);
             font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            margin-left: 0.45rem;
+        }
+
+        .clock-dock-pill .clock-est .clock-est-label {
+            font-size: 0.62rem;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--matchup-muted);
+            opacity: 0.85;
         }
 
         .split-center-header {
@@ -2119,7 +2145,12 @@
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                             <span class="clock-label" style="font-size:0.62rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:var(--matchup-muted);">TIME</span>
                             <span class="clock-val"${isStopwatch ? ' data-live="clock"' : ''} style="font-family:monospace; font-weight:900; font-size:1.15rem;">${displayVal}</span>
-                            ${(showEst && clock.estimate) ? `<span class="clock-est" style="font-size:0.85rem; color:var(--matchup-muted); font-weight:700;">/ ${esc(clock.estimate)}</span>` : ''}
+                            ${(showEst && clock.estimate) ? `
+                                <span class="clock-est" title="Estimated Time">
+                                    <span class="clock-est-label">EST</span>
+                                    <span>${esc(clock.estimate)}</span>
+                                </span>
+                            ` : ''}
                         </div>
                     </div>
                 `;
@@ -2138,7 +2169,12 @@
                 <div class="clock-pill${isLow ? ' clock-low' : ''}${isOver ? ' clock-over' : ''}${clock.isRunning ? ' clock-running' : ''}" title="${isStopwatch ? 'Speedrun Stopwatch' : 'Round Countdown'}">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     <span class="clock-val"${isStopwatch ? ' data-live="clock"' : ''}>${displayVal}</span>
-                    ${(showEst && clock.estimate) ? `<span class="clock-est">/ ${esc(clock.estimate)}</span>` : ''}
+                    ${(showEst && clock.estimate) ? `
+                        <span class="clock-est" title="Estimated Time">
+                            <span class="clock-est-label">EST</span>
+                            <span>${esc(clock.estimate)}</span>
+                        </span>
+                    ` : ''}
                 </div>
             `;
         }

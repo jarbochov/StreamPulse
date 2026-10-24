@@ -109,7 +109,7 @@ For broadcasts featuring fighting games (Street Fighter, Smash, Tekken), speedru
 - **Separated Game Pips & Round Pips**: Game/set wins and rounds-within-a-game are clearly separated into distinct visual docks in the studio, each featuring its own steppers, direct number inputs, and distinct pips (`● ● ○` for games, `◆ ◇` for rounds).
 - **Match Clock Styles & Modes (EVO, GDQ, Bottom Dock & None)**:
   - **Round Countdown Timer**: Authentic fighting game clock (99s EVO / 60s Tekken) with amber LED digits that pulse red with high-urgency glow when under 10 seconds.
-  - **Speedrun Stopwatch**: Marathon/GDQ-style elapsed runtime clock (`MM:SS` or `HH:MM:SS`) with optional target estimate display (e.g. `/ EST 45:00`).
+  - **Speedrun Stopwatch**: Marathon/GDQ-style elapsed runtime clock (`MM:SS` or `HH:MM:SS`) with optional target estimate display (e.g. `EST 45:00`).
   - **Clock Styles**: Choose from integrated center badge (`clockstyle=badge`), bottom dock timer (`clockstyle=bottom`), floating pill (`clockstyle=pill`), or EVO big digits (`clockstyle=fgc`).
   - **Hide Clock (`None`)**: Instantly hides the clock across broadcast overlays and studio controls when timers aren't required.
   - **Auto-Pause on Set Win**: Concluding a set automatically pauses the match clock to capture exact final clear times.
@@ -245,10 +245,10 @@ Unlike traditional full-screen overlays locked to 1920×1080 canvases, `/matchup
 | `?padding=<padding>` | `clamp(...)` | Custom stage padding (e.g. `?padding=8px`). |
 | `?p1color=<hex>` | default | Custom theme accent color override for Player 1 / Left team. |
 | `?p2color=<hex>` | default | Custom theme accent color override for Player 2 / Right team. |
-| `?clockstyle=badge\|bottom\|pill\|fgc` | `badge` | Match clock styling presentation: center integrated badge, bottom dock timer (`00:00 / 45:00`), floating pill, or EVO big digits. |
+| `?clockstyle=badge\|bottom\|pill\|fgc` | `badge` | Match clock styling presentation: center integrated badge, bottom dock timer, floating pill, or EVO big digits. |
 | `?runnertimers=finish\|always\|off` | `finish` | Speedrun race timer display mode: `finish` shows only the Master Race Clock during the run and reveals each runner's final time upon finishing; `always` shows live ticking timers for every runner at all times; `off` displays only the master overall clock and never shows runner timer boxes. |
 | `?splits=1\|0` | `1` | Show (`1`) or hide (`0`) speedrun split deltas (`+00:12.65` time difference behind 1st place) on finished runners across race and scoreboard layouts. |
-| `?showest=1\|0` | `1` | Show or hide target EST timer (e.g. `00:00 / 45:00`) on clock displays. |
+| `?showest=1\|0` | `1` | Show or hide target estimated time (e.g. `EST 45:00`) on clock displays. |
 | `?title=1\|0` | `1` | Show or hide event / game title. |
 | `?center=1\|0` | `1` | Show or hide the center match phase badge. Set `?center=0` to create completely center-less overlays that leave the middle of your screen 100% clear. |
 | `?gap=intact\|<px>` | `auto` | Keep center spacing intact (`?gap=intact` for `160px`) or set custom opponent spacing (`?gap=80px`, `?gap=240px`, `?gap=360px`) when `?center=0` or across split/HUD layouts. |

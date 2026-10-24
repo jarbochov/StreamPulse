@@ -1136,7 +1136,7 @@
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="matchup-opt-showest" checked onchange="updateMatchupOverlayUrl()">
-                                        <span>Show target EST / total time (<code>?showest=1</code>, e.g. 00:00 / 45:00)</span>
+                                        <span>Show target estimated time (<code>?showest=1</code>, e.g. EST 45:00)</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="matchup-opt-tags" checked onchange="updateMatchupOverlayUrl()">
@@ -2178,9 +2178,9 @@
 
             if (modeEl) {
                 if (clk.mode === 'race') {
-                    modeEl.textContent = clk.estimate ? `Speedrun Battle · Est ${clk.estimate}` : 'Speedrun Battle';
+                    modeEl.textContent = clk.estimate ? `Speedrun Battle · EST ${clk.estimate}` : 'Speedrun Battle';
                 } else if (clk.mode === 'stopwatch') {
-                    modeEl.textContent = clk.estimate ? `Stopwatch · Est ${clk.estimate}` : 'Stopwatch';
+                    modeEl.textContent = clk.estimate ? `Stopwatch · EST ${clk.estimate}` : 'Stopwatch';
                 } else {
                     modeEl.textContent = 'Countdown';
                 }
