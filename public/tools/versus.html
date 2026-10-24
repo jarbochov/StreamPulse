@@ -760,6 +760,7 @@
                                     <option value="bottom">Lower-Third HUD</option>
                                     <option value="compact">Compact Score Bug</option>
                                     <option value="angular">Angular Slash (Esports)</option>
+                                    <option value="pill">Pill Capsule</option>
                                     <option value="versus">Versus Screen Card</option>
                                     <option value="pod">Single Player Pod</option>
                                     <option value="clock">Clock Only</option>
@@ -1028,7 +1029,7 @@
                                 
                                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem; margin-bottom: 0.6rem;">
                                     <div>
-                                        <label for="matchup-opt-layout" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Layout (?layout=)</label>
+                                        <label for="matchup-opt-layout" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Layout / Pod Shape (?layout=)</label>
                                         <select id="matchup-opt-layout" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
                                             <option value="top" selected>Fighting Game Top Bar (?layout=top)</option>
                                             <option value="fgc">Modern FGC (EVO Style) (?layout=fgc)</option>
@@ -1039,6 +1040,7 @@
                                             <option value="bottom">Esports Lower-Third HUD (?layout=bottom)</option>
                                             <option value="compact">Compact Score Bug (?layout=compact)</option>
                                             <option value="angular">Angular Slash (?layout=angular)</option>
+                                            <option value="pill">Pill Capsule (?layout=pill)</option>
                                             <option value="versus">Versus Screen Card (?layout=versus)</option>
                                             <option value="pod">Single Player Pod (?layout=pod)</option>
                                             <option value="clock">Master Clock Only (?layout=clock)</option>
@@ -1786,11 +1788,15 @@
                 else if (val === 'angular') setPreviewViewport(1100, 100, $('chip-vp-topbar'));
                 else if (val === 'versus') setPreviewViewport(1280, 720, $('chip-vp-169'));
                 else if (val === 'pod') setPreviewViewport(380, 90, $('chip-vp-bug'));
+                else if (val === 'pill') setPreviewViewport(420, 100, $('chip-vp-bug'));
                 else if (val === 'clock') setPreviewViewport(460, 110, $('chip-vp-bug'));
             }
             if (opt === 'player') {
                 if ($('matchup-opt-player')) $('matchup-opt-player').value = val;
-                if (['1', '2', '3', '4'].includes(val)) setPreviewViewport(380, 90, $('chip-vp-bug'));
+                if (['1', '2', '3', '4'].includes(val)) {
+                    if ($('matchup-opt-layout')?.value === 'pillar') setPreviewViewport(160, 240, $('chip-vp-pillar'));
+                    else setPreviewViewport(380, 90, $('chip-vp-bug'));
+                }
                 else if (val === 'none') setPreviewViewport(460, 110, $('chip-vp-bug'));
             }
             if (opt === 'theme' && $('matchup-opt-theme')) $('matchup-opt-theme').value = val;

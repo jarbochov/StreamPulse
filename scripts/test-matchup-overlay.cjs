@@ -667,6 +667,43 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         });
         assert.ok(glassPod.bg.includes('rgba(13, 17, 23, 0.65)'), 'Single player pod should have frosted glass background in glass theme');
 
+        // 41. Individual Player Pod Layout Styling (?player=1&layout=...)
+        // 41a. Angular Slash Pod (?player=1&layout=angular)
+        await page.goto(`${OVERLAY_URL}?preview=1&player=1&layout=angular`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.single-player-pod.pod-angular');
+        const hasPodAngular = await page.$eval('.single-player-pod', el => el.classList.contains('pod-angular'));
+        assert.ok(hasPodAngular, 'Player pod should receive .pod-angular class when layout=angular');
+
+        // 41b. Modern FGC Pod (?player=2&layout=fgc)
+        await page.goto(`${OVERLAY_URL}?preview=1&player=2&layout=fgc`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.single-player-pod.pod-fgc');
+        const hasPodFgc = await page.$eval('.single-player-pod', el => el.classList.contains('pod-fgc'));
+        assert.ok(hasPodFgc, 'Player pod should receive .pod-fgc class when layout=fgc');
+
+        // 41c. Compact Score Bug Pod (?player=3&layout=compact)
+        await page.goto(`${OVERLAY_URL}?preview=1&player=3&layout=compact`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.single-player-pod.pod-compact');
+        const hasPodCompact = await page.$eval('.single-player-pod', el => el.classList.contains('pod-compact'));
+        assert.ok(hasPodCompact, 'Player pod should receive .pod-compact class when layout=compact');
+
+        // 41d. Minimal Pod (?player=4&layout=minimal)
+        await page.goto(`${OVERLAY_URL}?preview=1&player=4&layout=minimal`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.single-player-pod.pod-minimal');
+        const hasPodMinimal = await page.$eval('.single-player-pod', el => el.classList.contains('pod-minimal'));
+        assert.ok(hasPodMinimal, 'Player pod should receive .pod-minimal class when layout=minimal');
+
+        // 41e. Vertical Pillar Pod (?player=1&layout=pillar)
+        await page.goto(`${OVERLAY_URL}?preview=1&player=1&layout=pillar`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.single-player-pod.pod-pillar');
+        const pillarDirection = await page.$eval('.single-player-pod', el => getComputedStyle(el).flexDirection);
+        assert.equal(pillarDirection, 'column', 'Pillar layout pod should have flex-direction column');
+
+        // 41f. Pill Capsule Pod (?player=1&layout=pill)
+        await page.goto(`${OVERLAY_URL}?preview=1&player=1&layout=pill`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.single-player-pod.pod-pill');
+        const pillRadius = await page.$eval('.single-player-pod', el => getComputedStyle(el).borderRadius);
+        assert.equal(pillRadius, '9999px', 'Pill layout pod should have 9999px border-radius');
+
     } finally {
         if (browser) await browser.close();
     }

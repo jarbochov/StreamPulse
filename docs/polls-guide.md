@@ -380,6 +380,15 @@ Control live polls, tournament matchups, and scoreboard sets directly from your 
 - **Save Progress** snapshots the live matchup (scores, clocks, runner times and event log) into History at any time; Restore resumes it.
 - Completed matches are recorded with final times, deltas and a timestamped event log. Completed tournaments remain active and reviewable across both Versus and Tournament Manager until explicitly reset or cleared.
 - Matchup overlay URLs accept `title=0`, `phase=0`, `clock=0`, `tags=0`, `details=0`, `pips=0` and `center=0` to hide individual elements; the Overlays tab has a toggle for each.
+- **Individual Competitor Score Pods & Layout Shaping**: Broadcasters can filter the matchup overlay to individual competitor scorecards using `?player=1..4` (or `?player=1,2` / `?player=none` for master clock only). Layout options actively shape the visual geometry of player pods:
+  - `?layout=angular`: 10-degree slanted esports card with counter-skewed text.
+  - `?layout=fgc`: EVO-style chamfered corner polygon.
+  - `?layout=compact`: Dense, micro HUD score bug for webcam or corner placement.
+  - `?layout=minimal`: Translucent ticker with an accent underline.
+  - `?layout=pillar` (or `vertical`): Vertical card stacking avatar, name, and score.
+  - `?layout=pill`: Full capsule border radius.
+  - `?layout=top` / `?layout=pod`: Classic horizontal score pod.
+  All 18 overlay themes and custom accent colors (`?accent=`, `?badgecolor=`) apply seamlessly across individual pods.
 - All overlay customization checkboxes and live overlay preview settings (active preview sub-tab, canvas backdrop grid/dark mode, sample data toggle, whole bracket fit toggle, and selected resolution/aspect viewport chips) are automatically persisted in `localStorage`, maintaining your exact preview and framing when switching between studio tabs or reloading.
 - Confetti celebration is opt-in (`?confetti=1`, turned off by default) on bracket overlays.
 

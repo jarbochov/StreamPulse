@@ -1051,6 +1051,99 @@
         }
 
         /* ----------------------------------------------------
+           Pod Layout Variations (?layout=angular|fgc|compact|minimal|pillar|pill)
+           ---------------------------------------------------- */
+        .single-player-pod.pod-angular {
+            transform: skewX(-10deg);
+            border-radius: 4px;
+            padding-left: clamp(0.9rem, 2.5cqw, 1.4rem);
+            padding-right: clamp(0.9rem, 2.5cqw, 1.4rem);
+        }
+        .single-player-pod.pod-angular > * {
+            transform: skewX(10deg);
+        }
+
+        .single-player-pod.pod-fgc {
+            clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 100%, 0 100%);
+            border-radius: 0;
+            padding-right: clamp(1.2rem, 3cqw, 1.8rem);
+        }
+        .single-player-pod.pod-fgc .score-box {
+            border-radius: 0;
+        }
+
+        .single-player-pod.pod-compact {
+            padding: clamp(0.25rem, 0.8cqw, 0.4rem) clamp(0.45rem, 1.4cqw, 0.75rem);
+            gap: clamp(0.35rem, 1cqw, 0.55rem);
+            min-width: clamp(120px, 20cqw, 240px);
+            border-radius: 6px;
+        }
+        .single-player-pod.pod-compact .competitor-name {
+            font-size: clamp(0.82rem, 1.6cqw, 1rem);
+        }
+        .single-player-pod.pod-compact .score-box {
+            min-width: clamp(22px, 3cqw, 30px);
+            height: clamp(22px, 3cqw, 30px);
+            font-size: clamp(0.85rem, 1.6cqw, 1.1rem);
+        }
+
+        .single-player-pod.pod-minimal {
+            background: rgba(13, 17, 23, 0.45);
+            border: none;
+            border-bottom: 3px solid var(--matchup-accent);
+            border-radius: 0;
+            box-shadow: none;
+            padding: clamp(0.3rem, 1cqw, 0.5rem) clamp(0.6rem, 2cqw, 1rem);
+        }
+
+        .single-player-pod.pod-pillar,
+        .single-player-pod.pod-vertical {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            min-width: clamp(80px, 15cqw, 140px);
+            max-width: clamp(110px, 18cqw, 180px);
+            padding: clamp(0.6rem, 1.8cqw, 1rem) clamp(0.5rem, 1.5cqw, 0.85rem);
+            gap: clamp(0.3rem, 1cqw, 0.5rem);
+        }
+        .single-player-pod.pod-pillar .competitor-meta,
+        .single-player-pod.pod-vertical .competitor-meta {
+            align-items: center;
+            width: 100%;
+        }
+        .single-player-pod.pod-pillar .competitor-accent-strip,
+        .single-player-pod.pod-vertical .competitor-accent-strip {
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: auto;
+            width: 100%;
+            height: 4px;
+        }
+        .single-player-pod.pod-pillar .score-box,
+        .single-player-pod.pod-vertical .score-box {
+            font-size: clamp(1.2rem, 2.8cqw, 1.6rem);
+            min-width: clamp(34px, 4cqw, 46px);
+            height: clamp(34px, 4cqw, 46px);
+        }
+
+        .single-player-pod.pod-bottom {
+            border-radius: 4px;
+            border-top: 3px solid var(--matchup-accent);
+        }
+
+        .single-player-pod.pod-race {
+            border-left: 4px solid var(--matchup-accent);
+            background: linear-gradient(90deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.85));
+        }
+
+        .single-player-pod.pod-pill {
+            border-radius: 9999px;
+            padding-left: clamp(1rem, 2.5cqw, 1.5rem);
+            padding-right: clamp(1rem, 2.5cqw, 1.5rem);
+        }
+
+        /* ----------------------------------------------------
            Master Clock / Match Phase Only Panel (?player=none / ?layout=clock)
            ---------------------------------------------------- */
         .master-clock-panel {
@@ -2465,9 +2558,10 @@
             const slotLabel = `P${idx + 1}`;
             const runnerTimerHtml = renderRunnerInlineTimerHtml(m, comp, idx);
             const pipsHtml = renderPipsHtml(comp, target, compColor);
+            const podLayoutClass = (layout && !['pod', 'single', 'top'].includes(layout)) ? ` pod-${layout}` : '';
 
             container.innerHTML = `
-                <div class="single-player-pod${isWinner ? ' winner' : ''}">
+                <div class="single-player-pod${podLayoutClass}${isWinner ? ' winner' : ''}">
                     <div class="competitor-accent-strip" style="background: ${compColor};"></div>
                     <div class="player-slot-pill" style="background: color-mix(in srgb, ${compColor} 20%, transparent); color: ${compColor}; border: 1px solid color-mix(in srgb, ${compColor} 45%, transparent);">
                         ${comp.seed ? `#${comp.seed}` : slotLabel}
