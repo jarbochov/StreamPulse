@@ -720,6 +720,7 @@
         // Tab Switching
         function switchTab(tab) {
             activeTab = tab;
+            try { localStorage.setItem('polls-active-tab', tab); } catch {}
             $('tab-btn-poll')?.classList.toggle('active', tab === 'poll');
             $('tab-btn-tourney')?.classList.toggle('active', tab === 'tourney');
             $('tab-btn-overlays')?.classList.toggle('active', tab === 'overlays');
@@ -1713,6 +1714,10 @@
             updateEntrantsCalc();
             updatePreview();
             connectWs();
+            try {
+                const saved = localStorage.getItem('polls-active-tab');
+                if (saved && saved !== 'poll' && $('tab-btn-' + saved)) switchTab(saved);
+            } catch {}
         })();
     </script>
 </body>

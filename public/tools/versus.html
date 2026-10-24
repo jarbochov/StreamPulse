@@ -930,6 +930,7 @@
 
         function switchTab(tab) {
             activeTab = tab;
+            try { localStorage.setItem('versus-active-tab', tab); } catch {}
             $('tab-btn-tourney')?.classList.toggle('active', tab === 'tourney');
             $('tab-btn-matchup')?.classList.toggle('active', tab === 'matchup');
             $('tab-btn-overlays')?.classList.toggle('active', tab === 'overlays');
@@ -3325,6 +3326,10 @@
         updateMatchupOverlayUrl();
         applyViewportScale();
         connectWs();
+        try {
+            const saved = localStorage.getItem('versus-active-tab');
+            if (saved && $('tab-btn-' + saved)) switchTab(saved);
+        } catch {}
     </script>
 </body>
 </html>
