@@ -763,3 +763,13 @@ input:checked + .slider:before {
     color: var(--text-muted);
     margin-bottom: 0.25rem;
 }
+
+/* Overlays tab: options left, sticky live preview right */
+.ov-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 1rem; align-items: start; }
+.ov-layout .ov-links { order: 1; }
+.ov-layout .ov-preview { order: 2; position: sticky; top: 1rem; margin-bottom: 0 !important; }
+@media (max-width: 1100px) {
+    .ov-layout { grid-template-columns: minmax(0, 1fr); }
+    .ov-layout .ov-preview { order: 1; position: static; margin-bottom: 1rem !important; }
+    .ov-layout .ov-links { order: 2; }
+}
