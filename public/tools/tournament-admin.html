@@ -69,6 +69,10 @@
             border-color: var(--accent);
             box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35), 0 8px 24px -8px rgba(59, 130, 246, 0.25);
         }
+        .match-admin-card.is-win-ready {
+            border-color: #22c55e;
+            box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.45), 0 10px 28px -8px rgba(34, 197, 94, 0.35);
+        }
         .match-admin-card.is-completed {
             opacity: 0.9;
             background: var(--bg-inset);
@@ -93,6 +97,33 @@
         .entrant-admin-box.is-winner {
             border-color: rgba(63, 185, 80, 0.55);
             background: rgba(63, 185, 80, 0.08);
+        }
+        .entrant-admin-box.is-win-ready {
+            border-color: rgba(34, 197, 94, 0.7);
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.14), rgba(16, 185, 129, 0.06));
+        }
+        @keyframes pulseWinReady {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55), 0 4px 14px rgba(22, 163, 74, 0.35); }
+            50% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0), 0 4px 20px rgba(22, 163, 74, 0.6); }
+        }
+        .win-ready-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.18), rgba(22, 163, 74, 0.1));
+            border: 1px solid rgba(34, 197, 94, 0.55);
+            border-radius: 8px;
+            padding: 0.5rem 0.65rem;
+        }
+        .btn-advance-prominent {
+            background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+            border-color: #4ade80 !important;
+            color: #fff !important;
+            font-weight: 800 !important;
+            letter-spacing: 0.02em;
+            animation: pulseWinReady 2s infinite;
         }
         .entrant-top-bar {
             display: flex;
@@ -544,9 +575,15 @@
             const canScore = state === 'playable';
             const isWinner1 = m.winner && m.winner === e1;
             const isWinner2 = m.winner && m.winner === e2;
+            const isWinReady1 = canScore && target > 0 && s1 >= target;
+            const isWinReady2 = canScore && target > 0 && s2 >= target;
+            const isMatchWinReady = isWinReady1 || isWinReady2;
+            const readyWinnerName = isWinReady1 ? e1 : (isWinReady2 ? e2 : null);
 
             let statusBadge = '';
-            if (isPinned) {
+            if (isMatchWinReady) {
+                statusBadge = `<span class="status-pill completed" style="background: rgba(34, 197, 94, 0.22); border-color: rgba(34, 197, 94, 0.55); color: #4ade80;">Win Target Met</span>`;
+            } else if (isPinned) {
                 statusBadge = `<span class="status-pill pinned">Pinned Live</span>`;
             } else if (state === 'playable') {
                 statusBadge = `<span class="status-pill playable">Playable</span>`;
@@ -570,15 +607,19 @@
                 ? Array.from({ length: roundTarget }, (_, i) => i < r2 ? '◆' : '◇').join(' ')
                 : '◇ ◇';
 
-            function renderEntrantBox(idx, name, tag, color, score, rounds, gamePips, roundPips, isWinner) {
+            function renderEntrantBox(idx, name, tag, color, score, rounds, gamePips, roundPips, isWinner, isWinReady, otherWinReady) {
+                const maxGameAllowed = target > 0 ? (otherWinReady ? Math.max(0, target - 1) : target) : '';
+                const canStepGameUp = canScore && !isMatchWinReady && (target <= 0 || score < target);
+                const canStepRoundUp = canScore && !isMatchWinReady;
                 return `
-                    <div class="entrant-admin-box ${isWinner ? 'is-winner' : ''}">
+                    <div class="entrant-admin-box ${isWinner ? 'is-winner' : ''} ${isWinReady ? 'is-win-ready' : ''}">
                         <div class="entrant-top-bar">
                             <div style="display: flex; align-items: center; gap: 0.4rem; min-width: 0; flex: 1;">
                                 <input type="color" value="${esc(color)}" style="width: 22px; height: 22px; border: none; border-radius: 4px; cursor: pointer; flex-shrink: 0;" onchange="updateEntrantMeta('${m.id}', ${idx}, 'color', this.value)" ${!canScore ? 'disabled' : ''} title="Change entrant color">
                                 <div style="font-weight: 800; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${name === 'TBD' ? 'var(--text-muted)' : 'var(--text)'};">
                                     ${esc(name)}
                                 </div>
+                                ${isWinReady ? `<span class="status-pill completed" style="font-size: 0.58rem; padding: 0.08rem 0.38rem;">Winner Ready</span>` : ''}
                             </div>
                             <input type="text" class="form-control" style="font-size: 0.68rem; padding: 0.12rem 0.4rem; height: 22px; max-width: 125px; text-align: right;" placeholder="Tag / Character" value="${esc(tag)}" onchange="updateEntrantMeta('${m.id}', ${idx}, 'tag', this.value)" ${!canScore ? 'disabled' : ''}>
                         </div>
@@ -588,12 +629,12 @@
                             <div class="scoring-col games-col">
                                 <div class="scoring-col-label">Games Won</div>
                                 <div class="score-stepper" style="gap: 0.2rem;">
-                                    <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepScore('${m.id}', ${idx}, -1)" ${!canScore ? 'disabled' : ''}>-</button>
-                                    <input type="number" class="score-val-input" style="width: 42px; height: 26px; font-size: 0.85rem;" min="0" value="${score}" onchange="setScoreDirect('${m.id}', ${idx}, this.value)" ${!canScore ? 'disabled' : ''}>
-                                    <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepScore('${m.id}', ${idx}, 1)" ${!canScore ? 'disabled' : ''}>+</button>
+                                    <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepScore('${m.id}', ${idx}, -1)" ${!canScore || score <= 0 ? 'disabled' : ''}>-</button>
+                                    <input type="number" class="score-val-input" style="width: 42px; height: 26px; font-size: 0.85rem;" min="0" ${maxGameAllowed !== '' ? `max="${maxGameAllowed}"` : ''} value="${score}" onchange="setScoreDirect('${m.id}', ${idx}, this.value)" ${!canScore ? 'disabled' : ''}>
+                                    <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepScore('${m.id}', ${idx}, 1)" ${!canStepGameUp ? 'disabled' : ''} title="${isMatchWinReady ? 'Series win target already reached' : 'Add game win'}">+</button>
                                 </div>
-                                <div class="pips-preview" style="color: var(--accent);">${gamePips}</div>
-                                <div class="sub-count-label">${target > 0 ? `${score} / ${target} GAMES` : `${score} GAMES`}</div>
+                                <div class="pips-preview" style="color: ${isWinReady ? '#4ade80' : 'var(--accent)'};">${gamePips}</div>
+                                <div class="sub-count-label" style="${isWinReady ? 'color: #4ade80; font-weight: 800;' : ''}">${target > 0 ? `${score} / ${target} GAMES` : `${score} GAMES`}</div>
                             </div>
 
                             <!-- Rounds in Game Column -->
@@ -601,9 +642,9 @@
                                 <div class="scoring-col-label">Rounds in Game</div>
                                 ${roundTarget > 0 ? `
                                     <div class="score-stepper" style="gap: 0.2rem;">
-                                        <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepRound('${m.id}', ${idx}, -1)" ${!canScore ? 'disabled' : ''}>-</button>
-                                        <input type="number" class="score-val-input" style="width: 42px; height: 26px; font-size: 0.85rem;" min="0" max="${Math.max(0, roundTarget - 1)}" value="${Math.min(Math.max(0, roundTarget - 1), rounds)}" onchange="setRoundDirect('${m.id}', ${idx}, this.value)" ${!canScore ? 'disabled' : ''}>
-                                        <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepRound('${m.id}', ${idx}, 1)" ${!canScore ? 'disabled' : ''}>+</button>
+                                        <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepRound('${m.id}', ${idx}, -1)" ${!canScore || rounds <= 0 ? 'disabled' : ''}>-</button>
+                                        <input type="number" class="score-val-input" style="width: 42px; height: 26px; font-size: 0.85rem;" min="0" max="${Math.max(0, roundTarget - 1)}" value="${Math.min(Math.max(0, roundTarget - 1), rounds)}" onchange="setRoundDirect('${m.id}', ${idx}, this.value)" ${!canStepRoundUp ? 'disabled' : ''}>
+                                        <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepRound('${m.id}', ${idx}, 1)" ${!canStepRoundUp ? 'disabled' : ''} title="${isMatchWinReady ? 'Series win target already reached' : 'Add round win'}">+</button>
                                     </div>
                                     <div class="pips-preview" style="color: #ffd700;">${roundPips}</div>
                                     <div class="sub-count-label">${Math.min(Math.max(0, roundTarget - 1), rounds)} / ${roundTarget} ROUNDS</div>
@@ -622,7 +663,7 @@
             }
 
             return `
-                <div class="match-admin-card ${isPinned ? 'is-pinned' : ''} ${state === 'completed' ? 'is-completed' : ''}">
+                <div class="match-admin-card ${isPinned ? 'is-pinned' : ''} ${isMatchWinReady ? 'is-win-ready' : ''} ${state === 'completed' ? 'is-completed' : ''}">
                     <div class="match-admin-header">
                         <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
                             <span style="font-size: 0.78rem; font-weight: 800; color: var(--accent); text-transform: uppercase;">${esc(m.roundName || ('Round ' + m.round))}</span>
@@ -643,8 +684,20 @@
                         </div>
                     </div>
 
-                    ${renderEntrantBox(1, e1, t1, c1, s1, r1, gamePips1, roundPips1, isWinner1)}
-                    ${renderEntrantBox(2, e2, t2, c2, s2, r2, gamePips2, roundPips2, isWinner2)}
+                    ${renderEntrantBox(1, e1, t1, c1, s1, r1, gamePips1, roundPips1, isWinner1, isWinReady1, isWinReady2)}
+                    ${renderEntrantBox(2, e2, t2, c2, s2, r2, gamePips2, roundPips2, isWinner2, isWinReady2, isWinReady1)}
+
+                    ${isMatchWinReady ? `
+                        <div class="win-ready-banner">
+                            <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.76rem; font-weight: 800; color: #4ade80;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                <span>${esc(readyWinnerName)} reached ${target} game${target === 1 ? '' : 's'} (${s1}&ndash;${s2})</span>
+                            </div>
+                            <button type="button" class="btn-primary btn-sm btn-advance-prominent" style="font-size: 0.75rem; padding: 0.32rem 0.75rem;" onclick="advanceMatch('${m.id}')">
+                                Confirm &amp; Advance ${esc(readyWinnerName)} &rarr;
+                            </button>
+                        </div>
+                    ` : ''}
 
                     <!-- Footer / Station Note & Advancement -->
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; padding-top: 0.15rem;">
@@ -654,14 +707,16 @@
                                 <button type="button" class="btn-secondary btn-sm" style="font-size: 0.68rem; padding: 0.25rem 0.45rem;" onclick="resetMatchScore('${m.id}')" title="Reset this match's scores and rounds to 0-0">
                                     Reset
                                 </button>
-                                ${allowDraws ? `
+                                ${allowDraws && !isMatchWinReady ? `
                                     <button type="button" class="btn-secondary btn-sm" style="font-size: 0.68rem; padding: 0.25rem 0.45rem;" onclick="recordDraw('${m.id}')">
                                         Draw
                                     </button>
                                 ` : ''}
-                                <button type="button" class="btn-primary btn-sm" style="font-size: 0.7rem; padding: 0.25rem 0.55rem; white-space: nowrap;" onclick="advanceMatch('${m.id}')">
-                                    Advance Winner &rarr;
-                                </button>
+                                ${!isMatchWinReady ? `
+                                    <button type="button" class="btn-primary btn-sm" style="font-size: 0.7rem; padding: 0.25rem 0.55rem; white-space: nowrap;" onclick="advanceMatch('${m.id}')">
+                                        Advance Winner &rarr;
+                                    </button>
+                                ` : ''}
                             </div>
                         ` : (state === 'completed' ? `
                             <span style="font-size: 0.72rem; font-weight: 800; color: #3fb950; white-space: nowrap;">

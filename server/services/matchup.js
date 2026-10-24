@@ -325,6 +325,12 @@ function createMatchupService({
             });
         }
 
+        if (activeMatchup.targetScore > 0) {
+            activeMatchup.competitors.forEach(c => {
+                c.score = Math.min(activeMatchup.targetScore, Math.max(0, Number(c.score) || 0));
+            });
+        }
+
         checkWinnerCondition();
         save();
         broadcastUpdate();
@@ -352,36 +358,40 @@ function createMatchupService({
         }
 
         const comp = activeMatchup.competitors[idx];
+        const maxGameScore = Number(activeMatchup.targetScore) > 0 ? Number(activeMatchup.targetScore) : 0;
+        const maxAllowedForComp = maxGameScore > 0 ? maxGameScore : Infinity;
+
         if (delta !== undefined) {
             const d = parseInt(delta, 10) || 0;
-            comp.score = Math.max(0, (comp.score || 0) + d);
+            comp.score = Math.min(maxAllowedForComp, Math.max(0, (comp.score || 0) + d));
         } else if (score !== undefined) {
-            comp.score = Math.max(0, parseInt(score, 10) || 0);
+            comp.score = Math.min(maxAllowedForComp, Math.max(0, parseInt(score, 10) || 0));
         }
+        const seriesDecided = maxGameScore > 0 && activeMatchup.competitors.some(c => (Number(c.score) || 0) >= maxGameScore);
         const rb = Number(activeMatchup.roundsBestOf) || 0;
         const targetRounds = rb > 0 ? Math.ceil(rb / 2) : 0;
         if (roundDelta !== undefined) {
             const rd = parseInt(roundDelta, 10) || 0;
-            if (targetRounds > 0) {
+            if (targetRounds > 0 && (!seriesDecided || rd < 0)) {
                 comp.rounds = Math.max(0, (comp.rounds || 0) + rd);
                 logEvent('round', `${comp.name} rounds ${comp.rounds}`);
                 if (comp.rounds >= targetRounds) {
                     activeMatchup.competitors.forEach(c => { c.rounds = 0; });
-                    comp.score = (comp.score || 0) + 1;
+                    comp.score = Math.min(maxAllowedForComp, (comp.score || 0) + 1);
                     logEvent('game', `${comp.name} won the game`);
                 } else {
                     comp.rounds = Math.min(targetRounds - 1, comp.rounds);
                 }
-            } else {
+            } else if (seriesDecided || targetRounds === 0) {
                 comp.rounds = 0;
             }
         } else if (rounds !== undefined) {
-            if (targetRounds > 0) {
+            if (targetRounds > 0 && !seriesDecided) {
                 comp.rounds = Math.max(0, parseInt(rounds, 10) || 0);
                 logEvent('round', `${comp.name} rounds ${comp.rounds}`);
                 if (comp.rounds >= targetRounds) {
                     activeMatchup.competitors.forEach(c => { c.rounds = 0; });
-                    comp.score = (comp.score || 0) + 1;
+                    comp.score = Math.min(maxAllowedForComp, (comp.score || 0) + 1);
                     logEvent('game', `${comp.name} won the game`);
                 } else {
                     comp.rounds = Math.min(targetRounds - 1, comp.rounds);
@@ -390,6 +400,7 @@ function createMatchupService({
                 comp.rounds = 0;
             }
         } else {
+            if (seriesDecided) activeMatchup.competitors.forEach(c => { c.rounds = 0; });
             logEvent('score', `${comp.name} score ${comp.score}`);
         }
 

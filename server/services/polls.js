@@ -1443,44 +1443,56 @@ function createPollService({
             });
         }
 
+        const maxGameScore = Number(match.targetScore || targetTourney.targetScore) || 0;
+
         if (entrant1Score !== undefined) {
-            const s1 = Math.max(0, parseInt(entrant1Score, 10) || 0);
+            let s1 = Math.max(0, parseInt(entrant1Score, 10) || 0);
+            if (maxGameScore > 0) s1 = Math.min(maxGameScore, s1);
             if (match.entrant1) match.entrant1.score = s1;
             if (Array.isArray(match.scores)) match.scores[0] = s1;
         }
         if (entrant2Score !== undefined) {
-            const s2 = Math.max(0, parseInt(entrant2Score, 10) || 0);
+            let s2 = Math.max(0, parseInt(entrant2Score, 10) || 0);
+            if (maxGameScore > 0) s2 = Math.min(maxGameScore, s2);
             if (match.entrant2) match.entrant2.score = s2;
             if (Array.isArray(match.scores)) match.scores[1] = s2;
         }
+        const seriesDecided = maxGameScore > 0 && (
+            (match.entrant1?.score || 0) >= maxGameScore ||
+            (match.entrant2?.score || 0) >= maxGameScore
+        );
         if (entrant1Rounds !== undefined && match.entrant1) {
-            match.entrant1.rounds = Math.max(0, parseInt(entrant1Rounds, 10) || 0);
+            match.entrant1.rounds = seriesDecided ? 0 : Math.max(0, parseInt(entrant1Rounds, 10) || 0);
         }
         if (entrant2Rounds !== undefined && match.entrant2) {
-            match.entrant2.rounds = Math.max(0, parseInt(entrant2Rounds, 10) || 0);
+            match.entrant2.rounds = seriesDecided ? 0 : Math.max(0, parseInt(entrant2Rounds, 10) || 0);
         }
         if (roundDelta !== undefined && entrant !== undefined) {
             const rd = parseInt(roundDelta, 10) || 0;
-            if (match.entrant1?.name === entrant) {
-                match.entrant1.rounds = Math.max(0, (match.entrant1.rounds || 0) + rd);
-            } else if (match.entrant2?.name === entrant) {
-                match.entrant2.rounds = Math.max(0, (match.entrant2.rounds || 0) + rd);
+            if (!seriesDecided || rd < 0) {
+                if (match.entrant1?.name === entrant) {
+                    match.entrant1.rounds = Math.max(0, (match.entrant1.rounds || 0) + rd);
+                } else if (match.entrant2?.name === entrant) {
+                    match.entrant2.rounds = Math.max(0, (match.entrant2.rounds || 0) + rd);
+                }
             }
         }
 
         // Automatic game score advancement when rounds target is achieved
         const rb = Number(match.roundsBestOf || targetTourney.roundsBestOf) || 0;
         const targetRounds = rb > 0 ? Math.ceil(rb / 2) : 0;
-        if (targetRounds > 0) {
+        if (targetRounds > 0 && !seriesDecided) {
             if ((match.entrant1?.rounds || 0) >= targetRounds) {
                 match.entrant1.rounds = 0;
                 if (match.entrant2) match.entrant2.rounds = 0;
-                match.entrant1.score = (match.entrant1.score || 0) + 1;
+                const nextS1 = (match.entrant1.score || 0) + 1;
+                match.entrant1.score = maxGameScore > 0 ? Math.min(maxGameScore, nextS1) : nextS1;
                 if (Array.isArray(match.scores)) match.scores[0] = match.entrant1.score;
             } else if ((match.entrant2?.rounds || 0) >= targetRounds) {
                 if (match.entrant1) match.entrant1.rounds = 0;
                 match.entrant2.rounds = 0;
-                match.entrant2.score = (match.entrant2.score || 0) + 1;
+                const nextS2 = (match.entrant2.score || 0) + 1;
+                match.entrant2.score = maxGameScore > 0 ? Math.min(maxGameScore, nextS2) : nextS2;
                 if (Array.isArray(match.scores)) match.scores[1] = match.entrant2.score;
             } else {
                 if (match.entrant1) match.entrant1.rounds = Math.min(targetRounds - 1, match.entrant1.rounds || 0);
@@ -1671,12 +1683,28 @@ function createPollService({
             targetTourney.matches.forEach(m => {
                 m.bestOf = targetTourney.bestOf;
                 m.targetScore = targetScore;
+                if (targetScore > 0 && !m.winner) {
+                    if (m.entrant1) m.entrant1.score = Math.min(targetScore, m.entrant1.score || 0);
+                    if (m.entrant2) m.entrant2.score = Math.min(targetScore, m.entrant2.score || 0);
+                    if (Array.isArray(m.scores)) {
+                        m.scores[0] = Math.min(targetScore, m.scores[0] || 0);
+                        m.scores[1] = Math.min(targetScore, m.scores[1] || 0);
+                    }
+                }
             });
         } else if (settings.targetScore !== undefined) {
             const targetScore = Number(settings.targetScore) || 0;
             targetTourney.targetScore = targetScore;
             targetTourney.matches.forEach(m => {
                 m.targetScore = targetScore;
+                if (targetScore > 0 && !m.winner) {
+                    if (m.entrant1) m.entrant1.score = Math.min(targetScore, m.entrant1.score || 0);
+                    if (m.entrant2) m.entrant2.score = Math.min(targetScore, m.entrant2.score || 0);
+                    if (Array.isArray(m.scores)) {
+                        m.scores[0] = Math.min(targetScore, m.scores[0] || 0);
+                        m.scores[1] = Math.min(targetScore, m.scores[1] || 0);
+                    }
+                }
             });
         }
         if (settings.roundsBestOf !== undefined) {

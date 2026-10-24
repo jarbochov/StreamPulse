@@ -221,6 +221,11 @@ test('Tournament Service: Variable bracket sizes, manual scoring, series best-of
         assert.equal(res.autoAdvanced, false, 'Reaching target does not auto-advance');
         assert.equal(res.match.pendingWinner, 'Daigo');
         assert.equal(res.match.status, 'ACTIVE');
+
+        // Attempting to exceed targetScore (e.g. 3/2 games in a Bo3) clamps to targetScore (2)
+        const clampRes = service.updateMatchScore(m1.id, { entrant1Score: 5 });
+        assert.equal(clampRes.match.entrant1.score, 2, 'Game score must clamp to targetScore (2) and never allow 3/2 games');
+
         service.advanceTournamentMatch(m1.id, 'Daigo');
         assert.equal(res.match.status, 'COMPLETED');
         assert.equal(res.match.winner, 'Daigo');
