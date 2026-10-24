@@ -2253,7 +2253,7 @@
         const valignParam = (params.get('valign') || params.get('v_align') || '').trim().toLowerCase();
         const sideParam = (params.get('side') || '').trim().toLowerCase(); // 'left' | 'right'
         const mirrorRaw = (params.get('mirror') || params.get('flip') || params.get('reflect') || params.get('reverse') || '').trim().toLowerCase();
-        const isMirrored = (mirrorRaw === '1' || mirrorRaw === 'true' || mirrorRaw === 'yes' || mirrorRaw === 'on' || sideParam === 'right' || (alignParam === 'right' && mirrorRaw !== '0' && mirrorRaw !== 'false' && mirrorRaw !== 'off'));
+        const isMirrored = (mirrorRaw === '1' || mirrorRaw === 'true' || mirrorRaw === 'yes' || mirrorRaw === 'on' || sideParam === 'right');
         const fitParam = params.get('fit');
 
         document.body.className = `layout-${layout}`;

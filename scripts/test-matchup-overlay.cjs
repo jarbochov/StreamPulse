@@ -704,9 +704,9 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         const pillRadius = await page.$eval('.single-player-pod', el => getComputedStyle(el).borderRadius);
         assert.equal(pillRadius, '9999px', 'Pill layout pod should have 9999px border-radius');
 
-        // 42. Pod Alignment, Mirroring, and Reflection (?side=right, ?mirror=1, ?align=right)
-        // 42a. Mirror Pod with ?side=right
-        await page.goto(`${OVERLAY_URL}?preview=1&player=1&side=right`, { waitUntil: 'domcontentloaded' });
+        // 42. Pod Mirroring and Reflection (?mirror=1)
+        // 42a. Mirror Pod with ?mirror=1
+        await page.goto(`${OVERLAY_URL}?preview=1&player=1&mirror=1`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('.single-player-pod.mirrored');
         const podFlexDir = await page.$eval('.single-player-pod', el => getComputedStyle(el).flexDirection);
         const metaTextAlign = await page.$eval('.single-player-pod .competitor-meta', el => getComputedStyle(el).textAlign);
@@ -719,38 +719,29 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         const isAngularMirrored = await page.$eval('.single-player-pod', el => el.classList.contains('pod-angular') && el.classList.contains('mirrored'));
         assert.ok(isAngularMirrored, 'Angular pod should have both .pod-angular and .mirrored classes');
 
-        // 42c. Auto-mirroring with align=right (?player=3&align=right)
-        await page.goto(`${OVERLAY_URL}?preview=1&player=3&align=right`, { waitUntil: 'domcontentloaded' });
-        await page.waitForSelector('.single-player-pod.mirrored');
-        const autoMirrored = await page.$eval('.single-player-pod', el => el.classList.contains('mirrored'));
-        assert.ok(autoMirrored, 'Pod should auto-mirror when align=right without explicit mirror=0');
-
-        // 42d. Explicit un-mirrored with align=right (?player=4&align=right&mirror=0)
-        await page.goto(`${OVERLAY_URL}?preview=1&player=4&align=right&mirror=0`, { waitUntil: 'domcontentloaded' });
-        await page.waitForSelector('.single-player-pod');
-        const unmirroredOnRight = await page.$eval('.single-player-pod', el => el.classList.contains('mirrored'));
-        assert.equal(unmirroredOnRight, false, 'Pod should NOT be mirrored when mirror=0 is explicitly passed');
-
-        // 42e. Versus Studio options: Right Side Mirrored dropdown and persistence
+        // 42c. Versus Studio: Mirror checkbox toggles ?mirror=1 and persists across reloads
         const VERSUS_URL = 'file://' + path.resolve(__dirname, '../public/tools/versus.html');
         await page.goto(VERSUS_URL, { waitUntil: 'domcontentloaded' });
         await page.evaluate(() => {
             switchTab('overlays');
-            const alignSel = document.getElementById('matchup-opt-align');
-            if (alignSel) {
-                alignSel.value = 'right-mirrored';
-                alignSel.dispatchEvent(new Event('change'));
+            const mirrorCheck = document.getElementById('matchup-opt-mirror');
+            if (mirrorCheck) {
+                mirrorCheck.checked = true;
+                mirrorCheck.dispatchEvent(new Event('change'));
             }
         });
-        const matchupUrlAfterAlign = await page.$eval('#url-matchup-overlay', el => el.value);
-        assert.ok(matchupUrlAfterAlign.includes('align=right'), 'Matchup overlay URL should include align=right');
-        assert.ok(matchupUrlAfterAlign.includes('mirror=1'), 'Matchup overlay URL should include mirror=1');
+        const matchupUrlAfterMirror = await page.$eval('#url-matchup-overlay', el => el.value);
+        assert.ok(matchupUrlAfterMirror.includes('mirror=1'), 'Matchup overlay URL should include mirror=1 when mirror is checked');
+
+        // Check preview toolbar mirror checkbox stayed in sync
+        const toolbarMirrorChecked = await page.$eval('#prev-ctrl-mirror', el => el.checked);
+        assert.equal(toolbarMirrorChecked, true, 'Preview toolbar mirror checkbox should be in sync');
 
         // Persistence across reload
         await page.reload({ waitUntil: 'domcontentloaded' });
         await page.evaluate(() => switchTab('overlays'));
-        const persistedAlign = await page.$eval('#matchup-opt-align', el => el.value);
-        assert.equal(persistedAlign, 'right-mirrored', 'Pod alignment setting should persist in localStorage across reloads');
+        const persistedMirror = await page.$eval('#matchup-opt-mirror', el => el.checked);
+        assert.equal(persistedMirror, true, 'Pod mirror setting should persist in localStorage across reloads');
 
     } finally {
         if (browser) await browser.close();

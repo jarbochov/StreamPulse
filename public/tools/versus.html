@@ -779,16 +779,11 @@
                                     <option value="none">Clock Only</option>
                                 </select>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 0.3rem;" title="Align & Mirror Pod Orientation">
-                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Side:</span>
-                                <select id="prev-ctrl-align" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onPreviewOptionChange('align', this.value)">
-                                    <option value="" selected>Auto</option>
-                                    <option value="left">Left (Standard)</option>
-                                    <option value="right-mirrored">Right (Mirrored)</option>
-                                    <option value="right-standard">Right (Standard)</option>
-                                    <option value="mirror-only">Mirrored Only</option>
-                                    <option value="center">Center</option>
-                                </select>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;" title="Mirror / Reflect Pod Layout (?mirror=1)">
+                                <label style="display: flex; align-items: center; gap: 0.25rem; font-size: 0.72rem; color: var(--text-muted); cursor: pointer; margin: 0;">
+                                    <input type="checkbox" id="prev-ctrl-mirror" onchange="onPreviewOptionChange('mirror', this.checked ? '1' : '0')">
+                                    <span style="font-weight: 700; text-transform: uppercase;">Mirror</span>
+                                </label>
                             </div>
                             <div style="display: flex; align-items: center; gap: 0.3rem;">
                                 <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Theme:</span>
@@ -1071,17 +1066,6 @@
                                         </select>
                                     </div>
                                     <div>
-                                        <label for="matchup-opt-align" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Pod Alignment & Mirror (?align= / ?mirror=)</label>
-                                        <select id="matchup-opt-align" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                            <option value="" selected>Default (Standard / Auto)</option>
-                                            <option value="left">Left Side — Standard (?align=left)</option>
-                                            <option value="right-mirrored">Right Side — Mirrored (?align=right&mirror=1)</option>
-                                            <option value="right-standard">Right Side — Standard Unmirrored (?align=right&mirror=0)</option>
-                                            <option value="mirror-only">Mirrored / Reflected Elements (?mirror=1)</option>
-                                            <option value="center">Center (?align=center)</option>
-                                        </select>
-                                    </div>
-                                    <div>
                                         <label for="matchup-opt-accent" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Accent Color (?accent=)</label>
                                         <div style="display: flex; align-items: center; gap: 0.4rem;">
                                             <input type="color" id="matchup-opt-accent-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-accent').value = this.value; updateMatchupOverlayUrl();">
@@ -1231,6 +1215,10 @@
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="matchup-opt-fit" onchange="updateMatchupOverlayUrl()">
                                         <span>Auto-fit tight bounding box (<code>?fit=content</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="matchup-opt-mirror" onchange="updateMatchupOverlayUrl()">
+                                        <span>Mirror / reflect pod layout (<code>?mirror=1</code>)</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="matchup-opt-confetti" checked onchange="updateMatchupOverlayUrl()">
@@ -1830,7 +1818,7 @@
             if (opt === 'fit' && $('matchup-opt-fit')) $('matchup-opt-fit').checked = val === 'content';
             if (opt === 'gap' && $('matchup-opt-gap')) $('matchup-opt-gap').value = val;
             if (opt === 'splits' && $('matchup-opt-splits')) $('matchup-opt-splits').checked = val === '1';
-            if (opt === 'align' && $('matchup-opt-align')) $('matchup-opt-align').value = val;
+            if (opt === 'mirror' && $('matchup-opt-mirror')) $('matchup-opt-mirror').checked = val === '1';
             updateMatchupOverlayUrl();
         }
 
@@ -2085,14 +2073,14 @@
             const confettiCheck = $('matchup-opt-confetti');
             const showEstCheck = $('matchup-opt-showest');
             const splitsCheck = $('matchup-opt-splits');
+            const mirrorCheck = $('matchup-opt-mirror');
             const playerSelect = $('matchup-opt-player');
-            const alignSelect = $('matchup-opt-align');
             const accentInput = $('matchup-opt-accent');
             const badgeColorInput = $('matchup-opt-badgecolor');
 
             if ($('prev-ctrl-layout') && layoutSelect) $('prev-ctrl-layout').value = layoutSelect.value;
             if ($('prev-ctrl-player') && playerSelect) $('prev-ctrl-player').value = playerSelect.value;
-            if ($('prev-ctrl-align') && alignSelect) $('prev-ctrl-align').value = alignSelect.value;
+            if ($('prev-ctrl-mirror') && mirrorCheck) $('prev-ctrl-mirror').checked = mirrorCheck.checked;
             if ($('prev-ctrl-theme') && themeSelect) $('prev-ctrl-theme').value = themeSelect.value;
             if ($('prev-ctrl-clockstyle') && clockStyleSelect) $('prev-ctrl-clockstyle').value = clockStyleSelect.value;
             if ($('prev-ctrl-runnertimers') && runnerTimersSelect) $('prev-ctrl-runnertimers').value = runnerTimersSelect.value;
@@ -2106,22 +2094,7 @@
             const urlParams = new URLSearchParams();
             if (layoutSelect && layoutSelect.value !== 'top') urlParams.set('layout', layoutSelect.value);
             if (playerSelect && playerSelect.value) urlParams.set('player', playerSelect.value);
-            if (alignSelect && alignSelect.value) {
-                const aVal = alignSelect.value;
-                if (aVal === 'left') {
-                    urlParams.set('align', 'left');
-                } else if (aVal === 'right-mirrored') {
-                    urlParams.set('align', 'right');
-                    urlParams.set('mirror', '1');
-                } else if (aVal === 'right-standard') {
-                    urlParams.set('align', 'right');
-                    urlParams.set('mirror', '0');
-                } else if (aVal === 'mirror-only') {
-                    urlParams.set('mirror', '1');
-                } else if (aVal === 'center') {
-                    urlParams.set('align', 'center');
-                }
-            }
+            if (mirrorCheck && mirrorCheck.checked) urlParams.set('mirror', '1');
             if (themeSelect && themeSelect.value !== 'card') urlParams.set('overlay', themeSelect.value);
             if (accentInput && accentInput.value.trim()) urlParams.set('accent', accentInput.value.trim());
             if (badgeColorInput && badgeColorInput.value.trim()) urlParams.set('badgecolor', badgeColorInput.value.trim());
@@ -2188,7 +2161,6 @@
                     matchup: {
                         layout: $('matchup-opt-layout')?.value,
                         player: $('matchup-opt-player')?.value,
-                        align: $('matchup-opt-align')?.value,
                         accent: $('matchup-opt-accent')?.value,
                         badgecolor: $('matchup-opt-badgecolor')?.value,
                         theme: $('matchup-opt-theme')?.value,
@@ -2212,6 +2184,7 @@
                         roundpips: $('matchup-opt-roundpips')?.checked,
                         splits: $('matchup-opt-splits')?.checked,
                         fit: $('matchup-opt-fit')?.checked,
+                        mirror: $('matchup-opt-mirror')?.checked,
                         confetti: $('matchup-opt-confetti')?.checked,
                     },
                     tourney: {
@@ -2270,7 +2243,6 @@
                     const m = prefs.matchup;
                     if (m.layout !== undefined && $('matchup-opt-layout')) $('matchup-opt-layout').value = m.layout;
                     if (m.player !== undefined && $('matchup-opt-player')) $('matchup-opt-player').value = m.player;
-                    if (m.align !== undefined && $('matchup-opt-align')) $('matchup-opt-align').value = m.align;
                     if (m.accent !== undefined && $('matchup-opt-accent')) {
                         $('matchup-opt-accent').value = m.accent;
                         syncColorPicker('matchup-opt-accent', 'matchup-opt-accent-picker');
@@ -2288,7 +2260,7 @@
                     if (m.scale !== undefined && $('matchup-opt-scale')) $('matchup-opt-scale').value = m.scale;
                     if (m.width !== undefined && $('matchup-opt-width')) $('matchup-opt-width').value = m.width;
                     if (m.gap !== undefined && $('matchup-opt-gap')) $('matchup-opt-gap').value = m.gap;
-                    ['center', 'title', 'phase', 'banner', 'clock', 'showest', 'tags', 'details', 'pips', 'roundpips', 'splits', 'fit', 'confetti'].forEach(k => {
+                    ['center', 'title', 'phase', 'banner', 'clock', 'showest', 'tags', 'details', 'pips', 'roundpips', 'splits', 'fit', 'mirror', 'confetti'].forEach(k => {
                         const el = $('matchup-opt-' + k);
                         if (el && m[k] !== undefined) el.checked = Boolean(m[k]);
                     });
