@@ -1293,6 +1293,13 @@
             }
         }
 
+        let studioTickN = 0;
+        function fmtStudioMs(sec) {
+            const t = Math.max(0, sec || 0), w = Math.floor(t), p = n => String(n).padStart(2, '0');
+            const h = Math.floor(w / 3600), m = Math.floor((w % 3600) / 60);
+            return `${h > 0 ? h + ':' + p(m) : p(m)}:${p(w % 60)}.${p(Math.floor(t * 100) % 100)}`;
+        }
+
         function syncClockStudioUi(clk) {
             if (!clk) return;
             const digitsEl = $('studio-clock-digits');
@@ -1306,7 +1313,7 @@
                     const m = Math.floor((totalSec % 3600) / 60);
                     const s = totalSec % 60;
                     const pad = (n) => String(n).padStart(2, '0');
-                    digitsEl.textContent = h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+                    digitsEl.textContent = fmtStudioMs(totalSec);
                     digitsEl.style.color = '#38bdf8';
                 } else if (clk.mode === 'stopwatch') {
                     const totalSec = clk.elapsed || 0;
@@ -1314,7 +1321,7 @@
                     const m = Math.floor((totalSec % 3600) / 60);
                     const s = totalSec % 60;
                     const pad = (n) => String(n).padStart(2, '0');
-                    digitsEl.textContent = h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+                    digitsEl.textContent = fmtStudioMs(totalSec);
                     digitsEl.style.color = '#38bdf8';
                 } else {
                     digitsEl.textContent = String(clk.remaining ?? clk.duration ?? 99);
@@ -1362,27 +1369,27 @@
                             return;
                         }
                         if (activeMatchupData.clock.mode === 'stopwatch' || activeMatchupData.clock.mode === 'race') {
-                            activeMatchupData.clock.elapsed = (activeMatchupData.clock.elapsed || 0) + 1;
+                            activeMatchupData.clock.elapsed = (activeMatchupData.clock.elapsed || 0) + 0.1;
                             if (activeMatchupData.clock.mode === 'race' && Array.isArray(activeMatchupData.competitors)) {
                                 activeMatchupData.competitors.forEach(c => {
                                     if (c.timer && c.timer.isRunning && !c.timer.finished) {
-                                        c.timer.elapsed = (c.timer.elapsed || 0) + 1;
+                                        c.timer.elapsed = (c.timer.elapsed || 0) + 0.1;
                                     }
                                 });
                             }
                         } else if (activeMatchupData.clock.remaining > 0) {
-                            activeMatchupData.clock.remaining -= 1;
+                            studioTickN = (studioTickN || 0) + 1;
+                            if (studioTickN % 10 === 0) activeMatchupData.clock.remaining -= 1;
                         }
                         syncClockStudioUi(activeMatchupData.clock);
                         if (activeMatchupData.clock.mode === 'race') {
                             (activeMatchupData.competitors || []).forEach((c, i) => {
                                 const el = document.querySelector(`[data-runner-timer="${i}"]`);
                                 if (!el || !c.timer || c.timer.finished) return;
-                                const e = Math.floor(c.timer.elapsed || 0);
-                                el.textContent = String(Math.floor(e / 60)).padStart(2, '0') + ':' + String(e % 60).padStart(2, '0');
+                                el.textContent = fmtStudioMs(c.timer.elapsed || 0);
                             });
                         }
-                    }, 1000);
+                    }, 100);
                 }
             } else {
                 if (studioClockTicker) {
@@ -1606,7 +1613,7 @@
                 const pad = n => String(n).padStart(2, '0');
                 const mElapsed = Math.floor((timerObj.elapsed || 0) / 60);
                 const sElapsed = Math.floor((timerObj.elapsed || 0) % 60);
-                const formattedTime = `${pad(mElapsed)}:${pad(sElapsed)}`;
+                const formattedTime = `${pad(mElapsed)}:${pad(sElapsed)}.${pad(Math.floor((timerObj.elapsed || 0) * 100) % 100)}`;
 
                 return `
                     <div class="matchup-competitor-card${isWinner ? ' winner' : ''}">
