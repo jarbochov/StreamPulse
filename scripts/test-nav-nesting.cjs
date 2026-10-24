@@ -172,6 +172,43 @@ test('nav bar nests Tournament Manager inside Versus dropdown and handles comple
         assert.ok(pollUrlGenerated.includes('pipstyle=diamond'), 'URL should include pipstyle=diamond');
         assert.ok(pollUrlGenerated.includes('confetti=1'), 'URL should include confetti=1 when checked');
 
+        // 5. Quick Switcher (Command Palette) de-duplication
+        await page.goto(VERSUS_URL, { waitUntil: 'domcontentloaded' });
+        await page.addScriptTag({ path: NAV_JS_PATH });
+        await page.evaluate(() => {
+            window.toggleCommandPalette();
+            const input = document.getElementById('nav-palette-input');
+            input.value = 'versus';
+            input.dispatchEvent(new Event('input'));
+        });
+
+        const versusResults = await page.evaluate(() => {
+            const items = Array.from(document.querySelectorAll('.nav-palette-item')).map(el => ({
+                label: el.querySelector('span:first-child')?.textContent?.trim(),
+                href: el.getAttribute('href')
+            }));
+            return items.filter(it => it.href === '/versus.html');
+        });
+        assert.equal(versusResults.length, 1, 'Quick switcher should have exactly 1 result for /versus.html without duplicates');
+        assert.equal(versusResults[0].label, 'Versus Studio');
+
+        // Test tournament query
+        await page.evaluate(() => {
+            const input = document.getElementById('nav-palette-input');
+            input.value = 'tournament';
+            input.dispatchEvent(new Event('input'));
+        });
+
+        const tourneyResults = await page.evaluate(() => {
+            const items = Array.from(document.querySelectorAll('.nav-palette-item')).map(el => ({
+                label: el.querySelector('span:first-child')?.textContent?.trim(),
+                href: el.getAttribute('href')
+            }));
+            return items.filter(it => it.href === '/tournament-admin.html');
+        });
+        assert.equal(tourneyResults.length, 1, 'Quick switcher should have exactly 1 result for /tournament-admin.html without duplicates');
+        assert.equal(tourneyResults[0].label, 'Tournament Manager');
+
     } finally {
         if (browser) await browser.close();
     }

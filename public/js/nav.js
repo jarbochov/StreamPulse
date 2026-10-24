@@ -195,10 +195,8 @@
 
         // 3. Stream Tools & Automation
         list.push({ label: 'Poll Manager', href: '/polls.html', group: 'Stream Tools', module: 'polls' });
-        list.push({ label: 'Versus', href: '/versus.html', group: 'Stream Tools', module: 'versus' });
-        list.push({ label: 'Versus Studio', href: '/versus.html', group: 'Stream Tools', module: 'versus' });
-        list.push({ label: 'Tournament Manager', href: '/tournament-admin.html', group: 'Stream Tools', module: 'versus' });
-        list.push({ label: 'Tournament Multi-Match Scorekeeper', href: '/tournament-admin.html', group: 'Stream Tools', module: 'versus' });
+        list.push({ label: 'Versus Studio', href: '/versus.html', group: 'Stream Tools', module: 'versus', keywords: 'versus matchup scoreboard fight card fightcard' });
+        list.push({ label: 'Tournament Manager', href: '/tournament-admin.html', group: 'Stream Tools', module: 'versus', keywords: 'tournament bracket scorekeeper elimination round robin' });
         list.push({ label: 'Promo Creator', href: '/promo-creator.html', group: 'Stream Tools' });
         list.push({ label: 'Chat Bot', href: '/chatbot.html', group: 'Stream Tools', module: 'chatbot' });
         list.push({ label: 'Alerts & SFX', href: '/alerts.html', group: 'Stream Tools' });
@@ -328,6 +326,7 @@
         const label = item.label.toLowerCase();
         const group = item.group.toLowerCase();
         const href = item.href.toLowerCase();
+        const keywords = (item.keywords || '').toLowerCase();
 
         // Exact match
         if (label === q) return 100;
@@ -337,6 +336,8 @@
         if (label.includes(' ' + q)) return 85;
         // Substring inside label
         if (label.includes(q)) return 70;
+        // Keywords match
+        if (keywords && (keywords === q || keywords.startsWith(q) || keywords.includes(' ' + q) || keywords.includes(q))) return 65;
         // Group match
         if (group.startsWith(q)) return 50;
         if (group.includes(q)) return 40;
@@ -442,6 +443,9 @@
             openCommandPalette();
         }
     }
+
+    window.openCommandPalette = openCommandPalette;
+    window.toggleCommandPalette = toggleCommandPalette;
 
     let lastStatusData = null;
 
