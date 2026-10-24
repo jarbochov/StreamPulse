@@ -706,7 +706,7 @@
                                 <button type="button" class="btn-secondary" onclick="copyUrl('url-tourney-hud', this)">Copy</button>
                             </div>
                             <div style="font-size: 0.72rem; color: var(--text-muted);">
-                                Displays the currently active match from your running tournament using the layout, theme, and pips selected above.
+                                Shows the active bracket match. Layout, theme and pips come from the preview controls on the right; element toggles (clock, banner, tags) are on the <a href="#" onclick="setPreviewMode('matchup'); return false;" style="color: var(--accent);">Versus Scoreboard</a> tab and apply to this URL too.
                             </div>
                         </div>
 
@@ -1162,6 +1162,7 @@
 
             const previewParams = new URLSearchParams(urlParams);
             previewParams.set('preview', '1');
+            previewParams.set('fit', '1');
             previewParams.set('sample', previewUseSample ? '1' : '0');
 
             if ($('tourney-preview-iframe')) {

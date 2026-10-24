@@ -841,6 +841,8 @@
             const autoFit = params.get('fit') === '1' || params.get('autoscale') === '1' || params.get('fit') === 'all';
             if (autoFit) {
                 stage.style.transform = '';
+                stage.style.width = 'max-content';
+                stage.style.maxWidth = 'none';
                 const winW = window.innerWidth;
                 const winH = window.innerHeight;
                 const stageW = stage.scrollWidth || stage.offsetWidth;
