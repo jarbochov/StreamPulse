@@ -855,6 +855,8 @@ function createPollService({
 
     function createTournament({
         title,
+        logo = '',
+        logoSize = '',
         format = 'single',
         entrants = [],
         progressionMode = 'vote',
@@ -915,6 +917,8 @@ function createPollService({
             const tourneyObj = {
                 id: `tourney-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
                 title: title || 'StreamPulse Tournament',
+                logo: String(logo || '').trim(),
+                logoSize: String(logoSize || '').trim(),
                 format: 'roundRobin',
                 progressionMode,
                 scoringType,
@@ -1201,6 +1205,8 @@ function createPollService({
         const elimTourneyObj = {
             id: `tourney-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
             title: title || 'StreamPulse Tournament',
+            logo: String(logo || '').trim(),
+            logoSize: String(logoSize || '').trim(),
             format,
             progressionMode,
             scoringType,
@@ -1672,6 +1678,8 @@ function createPollService({
         const targetTourney = isPoll ? activePollTournament : activeTournament;
         if (!targetTourney) throw new Error('No active tournament');
         if (settings.title) targetTourney.title = String(settings.title).trim();
+        if (settings.logo !== undefined) targetTourney.logo = String(settings.logo || '').trim();
+        if (settings.logoSize !== undefined) targetTourney.logoSize = String(settings.logoSize || '').trim();
         if (settings.progressionMode) targetTourney.progressionMode = settings.progressionMode;
         if (settings.scoringType) targetTourney.scoringType = settings.scoringType;
         if (settings.bestOf !== undefined) {

@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/admin.css">
     <link rel="stylesheet" href="/css/poll-studio.css">
     <script src="/appearance.js"></script>
+    <script src="/js/image-picker.js"></script>
     <style>
         @keyframes pulseWinReady {
             0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55), 0 4px 14px rgba(22, 163, 74, 0.35); }
@@ -89,11 +90,16 @@
                     <!-- Active Tournament Running Monitor -->
                     <div id="active-tourney-card" class="card active-poll-card" style="display: none;">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.65rem; flex-wrap: wrap; gap: 0.5rem;">
-                            <h2 style="margin-bottom: 0;">
+                            <h2 style="margin-bottom: 0; display: inline-flex; align-items: center; gap: 0.45rem;">
                                 <span class="live-dot"></span>
+                                <img id="tourney-active-logo-thumb" src="" alt="" style="display: none; height: 22px; width: auto; max-width: 72px; object-fit: contain; border-radius: 3px;">
                                 <span id="tourney-active-title">Live Tournament</span>
                             </h2>
                             <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
+                                <button type="button" class="btn-secondary btn-sm" id="btn-live-tourney-logo" onclick="pickLiveTourneyLogo()" title="Choose or change header logo from Asset Library (displayed above title on Bracket view)" style="display: inline-flex; align-items: center; gap: 0.3rem;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                    <span id="btn-live-tourney-logo-label">Bracket Logo…</span>
+                                </button>
                                 <a href="/tournament-admin.html" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem;" title="Open dedicated multi-match scorekeeper &amp; station admin page">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
                                     Multi-Match Admin &nearr;
@@ -311,9 +317,26 @@
                         </div>
 
                         <form id="form-create-tourney" onsubmit="handleCreateTournament(event)">
-                            <div class="form-group">
-                                <label for="tourney-title">Tournament Name / Title</label>
-                                <input type="text" id="tourney-title" class="form-control" placeholder="e.g. Street Fighter 6 Showdown or Mario Kart Cup" required>
+                            <div style="display: grid; grid-template-columns: 1.6fr 1fr; gap: 0.75rem; align-items: end; margin-bottom: 0.75rem;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="tourney-title">Tournament Name / Title</label>
+                                    <input type="text" id="tourney-title" class="form-control" placeholder="e.g. Street Fighter 6 Showdown or Mario Kart Cup" required>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span>Bracket Header Logo (Above Title)</span>
+                                        <span style="font-size: 0.68rem; color: var(--text-muted); font-weight: 400;">Optional</span>
+                                    </label>
+                                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                        <input type="hidden" id="tourney-create-logo" value="">
+                                        <img id="tourney-create-logo-thumb" src="" alt="" style="display: none; height: 28px; width: auto; max-width: 72px; object-fit: contain; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-inset); padding: 2px;">
+                                        <button type="button" class="btn-secondary btn-sm" onclick="pickCreateTourneyLogo()" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; height: 34px;">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                            <span id="tourney-create-logo-btn-text">Choose from Asset Library…</span>
+                                        </button>
+                                        <button type="button" id="tourney-create-logo-clear" class="btn-secondary btn-sm" onclick="setCreateTourneyLogo('')" style="display: none; height: 34px; padding: 0 0.5rem;" title="Remove logo">&times;</button>
+                                    </div>
+                                </div>
                             </div>
 
                             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
@@ -897,6 +920,10 @@
                                 </select>
                             </div>
                             <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <button type="button" class="btn-secondary btn-sm" id="btn-prev-tourney-logo" onclick="pickOverlayTourneyLogo()" title="Choose Header Logo from Asset Library (shown above Tournament Title)">
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -1px; margin-right: 0.2rem;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                    <span id="btn-prev-tourney-logo-text">Logo…</span>
+                                </button>
                                 <button type="button" class="btn-secondary btn-sm" id="btn-tourney-fit-toggle" onclick="toggleTourneyFitWholeBracket()">
                                     Fit Whole Bracket: OFF
                                 </button>
@@ -1196,8 +1223,33 @@
                                             <option value="360px">Extra Wide Split (360px)</option>
                                         </select>
                                     </div>
+                                    <div style="grid-column: span 2;">
+                                        <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Header Logo Above Title (?logo=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <img id="tourney-opt-logo-thumb" src="" alt="" style="display: none; height: 28px; width: auto; max-width: 68px; object-fit: contain; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-card); padding: 2px;">
+                                            <input type="text" id="tourney-opt-logo" class="form-control" placeholder="Choose from Asset Library or paste image URL..." style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncTourneyOverlayLogoUi(this.value); updateTourneyOverlayUrl();">
+                                            <button type="button" class="btn-secondary btn-sm" onclick="pickOverlayTourneyLogo()" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 0.3rem; height: 30px;">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                                Asset Library…
+                                            </button>
+                                            <button type="button" id="tourney-opt-logo-clear" class="btn-secondary btn-sm" onclick="setOverlayTourneyLogo('')" style="display: none; height: 30px; padding: 0 0.45rem;" title="Remove logo">&times;</button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-logosize" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Header Logo Size (?logosize=)</label>
+                                        <select id="tourney-opt-logosize" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <option value="36px">Compact (36px)</option>
+                                            <option value="56px" selected>Standard (56px)</option>
+                                            <option value="80px">Large (80px)</option>
+                                            <option value="110px">Extra Large Banner (110px)</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-showlogo" checked onchange="updateTourneyOverlayUrl()">
+                                        <span>Show Header Logo Above Title (<code>?showlogo=1</code>)</span>
+                                    </label>
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="tourney-opt-highlight" checked onchange="updateTourneyOverlayUrl()">
                                         <span>Highlight Live Match on Bracket (<code>?highlight=1</code>)</span>
@@ -1680,6 +1732,12 @@
             });
             const highlightEl = $('tourney-opt-highlight');
             if (highlightEl && !highlightEl.checked) urlParams.set('highlight', '0');
+            const showLogoEl = $('tourney-opt-showlogo');
+            if (showLogoEl && !showLogoEl.checked) urlParams.set('showlogo', '0');
+            const logoInput = $('tourney-opt-logo');
+            if (logoInput && logoInput.value.trim()) urlParams.set('logo', logoInput.value.trim());
+            const logoSizeEl = $('tourney-opt-logosize');
+            if (logoSizeEl && logoSizeEl.value && logoSizeEl.value !== '56px') urlParams.set('logosize', logoSizeEl.value);
             const centerEl = $('tourney-opt-center');
             if (centerEl && !centerEl.checked) urlParams.set('center', '0');
             const gapEl = $('tourney-opt-gap');
@@ -1692,6 +1750,9 @@
             if ($('btn-open-tourney-overlay')) $('btn-open-tourney-overlay').href = fullUrl;
 
             const previewParams = new URLSearchParams(urlParams);
+            if (!previewParams.get('logo') && activeTourneyData?.logo) {
+                previewParams.set('logo', activeTourneyData.logo);
+            }
             previewParams.set('preview', '1');
             previewParams.set('fit', '1');
             previewParams.set('sample', previewUseSample ? '1' : '0');
@@ -1699,6 +1760,93 @@
             if ($('tourney-preview-iframe')) {
                 $('tourney-preview-iframe').src = `/overlays/tournament.html?${previewParams.toString()}`;
             }
+        }
+
+        function setCreateTourneyLogo(url) {
+            const clean = (url || '').trim();
+            if ($('tourney-create-logo')) $('tourney-create-logo').value = clean;
+            const thumb = $('tourney-create-logo-thumb');
+            const btnText = $('tourney-create-logo-btn-text');
+            const clearBtn = $('tourney-create-logo-clear');
+            if (thumb) {
+                thumb.src = clean;
+                thumb.style.display = clean ? 'block' : 'none';
+            }
+            if (btnText) {
+                const friendly = clean ? decodeURIComponent(clean.split('/').pop()).replace(/^[a-z0-9]{6,}-/, '') : '';
+                btnText.textContent = clean ? (friendly || 'Change Logo…') : 'Choose from Asset Library…';
+            }
+            if (clearBtn) clearBtn.style.display = clean ? 'inline-flex' : 'none';
+        }
+
+        function pickCreateTourneyLogo() {
+            if (!window.ImagePicker) {
+                toast('Image Picker not loaded');
+                return;
+            }
+            window.ImagePicker.open({
+                value: $('tourney-create-logo')?.value || '',
+                onPick: (url) => {
+                    setCreateTourneyLogo(url);
+                    setOverlayTourneyLogo(url, false);
+                }
+            });
+        }
+
+        function syncTourneyOverlayLogoUi(url) {
+            const clean = (url || '').trim();
+            const thumb = $('tourney-opt-logo-thumb');
+            const clearBtn = $('tourney-opt-logo-clear');
+            const prevBtnText = $('btn-prev-tourney-logo-text');
+            if (thumb) {
+                thumb.src = clean;
+                thumb.style.display = clean ? 'block' : 'none';
+            }
+            if (clearBtn) clearBtn.style.display = clean ? 'inline-flex' : 'none';
+            if (prevBtnText) prevBtnText.textContent = clean ? 'Logo: Set' : 'Logo…';
+        }
+
+        async function setOverlayTourneyLogo(url, syncLive = true) {
+            const clean = (url || '').trim();
+            if ($('tourney-opt-logo')) $('tourney-opt-logo').value = clean;
+            syncTourneyOverlayLogoUi(clean);
+            updateTourneyOverlayUrl();
+            if (syncLive && activeTourneyData) {
+                try {
+                    const res = await fetch('/api/tournament/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ logo: clean })
+                    });
+                    const data = await res.json();
+                    if (data.status === 'ok') {
+                        activeTourneyData = data.tournament;
+                        renderTournamentStudio(activeTourneyData);
+                    }
+                } catch {}
+            }
+        }
+
+        function pickOverlayTourneyLogo() {
+            if (!window.ImagePicker) return;
+            window.ImagePicker.open({
+                value: $('tourney-opt-logo')?.value || activeTourneyData?.logo || '',
+                onPick: (url) => {
+                    setOverlayTourneyLogo(url, true);
+                    toast(url ? 'Bracket header logo updated' : 'Bracket header logo cleared');
+                }
+            });
+        }
+
+        function pickLiveTourneyLogo() {
+            if (!window.ImagePicker) return;
+            window.ImagePicker.open({
+                value: activeTourneyData?.logo || $('tourney-opt-logo')?.value || '',
+                onPick: async (url) => {
+                    await setOverlayTourneyLogo(url, true);
+                    toast(url ? 'Tournament bracket logo updated!' : 'Tournament bracket logo removed');
+                }
+            });
         }
 
         function updateMatchupOverlayUrl() {
@@ -3899,6 +4047,19 @@
             if (createCard) createCard.style.display = 'none';
 
             if ($('tourney-active-title')) $('tourney-active-title').textContent = t.title || 'Live Tournament';
+            const liveLogoThumb = $('tourney-active-logo-thumb');
+            const liveLogoLabel = $('btn-live-tourney-logo-label');
+            if (liveLogoThumb) {
+                liveLogoThumb.src = t.logo || '';
+                liveLogoThumb.style.display = t.logo ? 'block' : 'none';
+            }
+            if (liveLogoLabel) {
+                liveLogoLabel.textContent = t.logo ? 'Change Logo…' : 'Bracket Logo…';
+            }
+            if (t.logo !== undefined && $('tourney-opt-logo') && !$('tourney-opt-logo').value) {
+                $('tourney-opt-logo').value = t.logo || '';
+                syncTourneyOverlayLogoUi(t.logo || '');
+            }
             if ($('tourney-live-series-select')) {
                 if (t.scoringType === 'points' || (!t.bestOf && !t.targetScore)) {
                     $('tourney-live-series-select').value = 'points';
@@ -4507,6 +4668,7 @@
 
             const payload = {
                 title,
+                logo: ($('tourney-create-logo')?.value || $('tourney-opt-logo')?.value || '').trim(),
                 format,
                 entrants,
                 scoringType,

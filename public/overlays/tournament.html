@@ -296,6 +296,23 @@
             text-shadow: var(--tourney-text-shadow);
         }
 
+        .tournament-logo-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            margin-bottom: 0.2rem;
+        }
+
+        .tournament-logo {
+            display: block;
+            width: auto;
+            max-width: min(380px, 75vw);
+            max-height: calc(56px * var(--tourney-scale));
+            object-fit: contain;
+            filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.45));
+        }
+
         .tournament-title {
             font-size: calc(clamp(1.1rem, 3.2cqi, 1.45rem) * var(--tourney-scale));
             font-weight: 800;
@@ -901,6 +918,9 @@
         const layoutMode = (params.get('layout') || params.get('mode') || 'tree').toLowerCase(); // 'tree' | 'active' | 'hud' | 'compact'
         const showScoresParam = params.get('showscores') !== '0' && params.get('scores') !== '0';
         const showTitle = params.get('showtitle') !== '0' && params.get('title') !== '0' && params.get('header') !== '0';
+        const showLogo = params.get('showlogo') !== '0' && params.get('logo') !== '0';
+        const paramLogo = (params.get('logo') && params.get('logo') !== '0' && params.get('logo') !== '1') ? params.get('logo').trim() : '';
+        const paramLogoSize = (params.get('logosize') || '').trim();
         const showMeta = params.get('showmeta') !== '0' && params.get('meta') !== '0';
         const showFormat = params.get('showformat') !== '0' && params.get('format') !== '0';
         const showMode = params.get('showmode') !== '0' && params.get('mode') !== '0';
@@ -1268,13 +1288,25 @@
                 return p;
             }
 
-            let html = showTitle ? `
+            const logoUrl = showLogo ? (paramLogo || tournament.logo || '') : '';
+            const rawLogoSize = paramLogoSize || tournament.logoSize || '56px';
+            const logoHeightCss = /^\d+$/.test(rawLogoSize) ? `${rawLogoSize}px` : rawLogoSize;
+            const hasHeaderContent = showTitle || Boolean(logoUrl);
+
+            let html = hasHeaderContent ? `
                 <div class="tournament-header">
+                    ${logoUrl ? `
+                    <div class="tournament-logo-wrap">
+                        <img src="${esc(logoUrl)}" alt="" class="tournament-logo" style="max-height: calc(${esc(logoHeightCss)} * var(--tourney-scale));" onload="if (typeof adjustScaleAndFit === 'function') adjustScaleAndFit();" onerror="this.parentElement.style.display='none'">
+                    </div>
+                    ` : ''}
+                    ${showTitle ? `
                     <div class="tournament-title">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                        ${!logoUrl ? `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>` : ''}
                         ${esc(tournament.title)}
                     </div>
-                    ${showMeta ? `
+                    ` : ''}
+                    ${showTitle && showMeta ? `
                     <div class="tournament-meta">
                         ${showFormat ? `<span class="meta-pill">${formatLabel}</span>` : ''}
                         ${showMode ? `<span class="meta-pill">${modeLabel}</span>` : ''}
@@ -1461,13 +1493,25 @@
             const standings = tournament.standings || [];
             const matches = tournament.matches || [];
 
-            let html = showTitle ? `
+            const logoUrl = showLogo ? (paramLogo || tournament.logo || '') : '';
+            const rawLogoSize = paramLogoSize || tournament.logoSize || '56px';
+            const logoHeightCss = /^\d+$/.test(rawLogoSize) ? `${rawLogoSize}px` : rawLogoSize;
+            const hasHeaderContent = showTitle || Boolean(logoUrl);
+
+            let html = hasHeaderContent ? `
                 <div class="tournament-header">
+                    ${logoUrl ? `
+                    <div class="tournament-logo-wrap">
+                        <img src="${esc(logoUrl)}" alt="" class="tournament-logo" style="max-height: calc(${esc(logoHeightCss)} * var(--tourney-scale));" onload="if (typeof adjustScaleAndFit === 'function') adjustScaleAndFit();" onerror="this.parentElement.style.display='none'">
+                    </div>
+                    ` : ''}
+                    ${showTitle ? `
                     <div class="tournament-title">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                        ${!logoUrl ? `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>` : ''}
                         ${esc(tournament.title)}
                     </div>
-                    ${showMeta ? `
+                    ` : ''}
+                    ${showTitle && showMeta ? `
                     <div class="tournament-meta">
                         ${showFormat ? `<span class="meta-pill">Round Robin (All vs All)</span>` : ''}
                         ${showMode ? `<span class="meta-pill">${tournament.bestOf > 0 ? `Best of ${tournament.bestOf}` : 'Scored'}</span>` : ''}
@@ -1630,6 +1674,13 @@
             const fallbackSample = getFallbackSample();
             if (forceSample) {
                 renderTournament(fallbackSample);
+                try {
+                    const res = await fetch(tourneyEndpoint);
+                    const data = await res.json();
+                    if (data.tournament && (data.tournament.logo || data.tournament.logoSize)) {
+                        renderTournament({ ...fallbackSample, logo: data.tournament.logo || '', logoSize: data.tournament.logoSize || '' });
+                    }
+                } catch {}
                 return;
             }
             try {
