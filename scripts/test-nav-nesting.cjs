@@ -44,7 +44,7 @@ test('nav bar nests Tournament Manager inside Versus dropdown and handles comple
         assert.ok(navSubmenuData, 'Navigation should render .dropdown-submenu in Tools dropdown');
         assert.ok(navSubmenuData.parentText.includes('Versus'), 'Submenu parent toggle should be Versus');
         assert.equal(navSubmenuData.items.length, 2, 'Submenu should have 2 nested children');
-        assert.equal(navSubmenuData.items[0].label, 'Versus Studio');
+        assert.equal(navSubmenuData.items[0].label, 'Versus');
         assert.equal(navSubmenuData.items[0].href, '/versus.html');
         assert.equal(navSubmenuData.items[1].label, 'Tournament Manager');
         assert.equal(navSubmenuData.items[1].href, '/tournament-admin.html');
@@ -190,7 +190,7 @@ test('nav bar nests Tournament Manager inside Versus dropdown and handles comple
             return items.filter(it => it.href === '/versus.html');
         });
         assert.equal(versusResults.length, 1, 'Quick switcher should have exactly 1 result for /versus.html without duplicates');
-        assert.equal(versusResults[0].label, 'Versus Studio');
+        assert.equal(versusResults[0].label, 'Versus');
 
         // Test tournament query
         await page.evaluate(() => {

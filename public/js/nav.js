@@ -110,7 +110,7 @@
         { label: 'Tools ▾', children: [
             { label: 'Poll Manager', href: '/polls.html', module: 'polls' },
             { label: 'Versus', href: '/versus.html', module: 'versus', children: [
-                { label: 'Versus Studio', href: '/versus.html' },
+                { label: 'Versus', href: '/versus.html' },
                 { label: 'Tournament Manager', href: '/tournament-admin.html' }
             ]},
             { label: 'Promo Creator', href: '/promo-creator.html' },
@@ -195,7 +195,7 @@
 
         // 3. Stream Tools & Automation
         list.push({ label: 'Poll Manager', href: '/polls.html', group: 'Stream Tools', module: 'polls' });
-        list.push({ label: 'Versus Studio', href: '/versus.html', group: 'Stream Tools', module: 'versus', keywords: 'versus matchup scoreboard fight card fightcard' });
+        list.push({ label: 'Versus', href: '/versus.html', group: 'Stream Tools', module: 'versus', keywords: 'versus studio matchup scoreboard fight card fightcard' });
         list.push({ label: 'Tournament Manager', href: '/tournament-admin.html', group: 'Stream Tools', module: 'versus', keywords: 'tournament bracket scorekeeper elimination round robin' });
         list.push({ label: 'Promo Creator', href: '/promo-creator.html', group: 'Stream Tools' });
         list.push({ label: 'Chat Bot', href: '/chatbot.html', group: 'Stream Tools', module: 'chatbot' });
