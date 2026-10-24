@@ -7,11 +7,11 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- Versus & Tournament Studio: Scoreboard and bracket management supporting Single/Double Elimination and Round Robin with configurable legs/points/draws, nested navigation submenu under Versus, completed tournament review retention, multi-match concurrent scoring (`/tournament-admin.html`), custom tournament logo (`?logo=`), custom accents and center match badge colors (`?accent=`, `?badgecolor=`), 4-player layout filtering and floating pods (`?player=1..4|none`), opt-in victory confetti (`?confetti=1`), speedrun race clocks with Master Clock and finish delta reveals, matched audience poll bracket overlay customizer, theme and `localStorage` persistence, and broadcast overlays.
-- Poll Manager: Native multi-platform chat polls, dedicated audience voting tournaments separate from esports brackets with blind mode and subscriber multipliers, modular enable/disable toggle in Config Editor, presets, and broadcast overlays.
-- Randomizer Elimination Mode: Weight-based choice randomizer with optional choice elimination until restored, Companion controls, and collapsible history logging.
-- Promo Creator: Reusable social promos under Tools with multi-layer text, images, QR codes, shapes, patterns, animations, and MP4/PNG export.
-- Custom Overlay Poll Element: Compact poll element with real-time Twitch vote counts, percentage bars, countdown timer, and completed-result duration.
+- Versus & Tournament Studio: Scoreboards, elimination and round-robin brackets, multi-match scorekeeper, speedrun battle clocks, and broadcast overlays.
+- Poll Manager: Chat polls, audience voting brackets, and broadcast overlays.
+- Randomizer Elimination Mode: Weight-based choice randomizer with elimination and restoration.
+- Promo Creator: Social promo generator with multi-layer layout, animations, and image export.
+- Custom Overlay Poll Element: Real-time Twitch poll widget for custom overlays.
 
 ## [0.13.2] - 2026-10-19
 
