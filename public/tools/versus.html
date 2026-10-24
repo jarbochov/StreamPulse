@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StreamPulse — Versus Studio</title>
+    <title>StreamPulse — Versus</title>
     <link rel="stylesheet" href="/admin.css">
     <link rel="stylesheet" href="/css/poll-studio.css">
     <script src="/appearance.js"></script>
@@ -12,7 +12,7 @@
     <header class="header">
         <h1>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
-            StreamPulse <span>Versus Studio</span>
+            StreamPulse <span>Versus</span>
             <span class="badge-studio">Esports &amp; Versus</span>
         </h1>
         <div id="main-nav" class="nav"></div>
@@ -59,16 +59,16 @@
                                 <span id="tourney-active-title">Live Tournament</span>
                             </h2>
                             <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
-                                <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="saveTourneyDraftPrompt()" title="Save in-progress checkpoint draft">
+                                <button type="button" class="btn-secondary btn-sm" onclick="saveTourneyDraftPrompt()" title="Save in-progress checkpoint draft">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Draft
                                 </button>
-                                <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="toggleDraftsModal(true)" title="View saved in-progress tournament drafts">
+                                <button type="button" class="btn-secondary btn-sm" onclick="toggleDraftsModal(true)" title="View saved in-progress tournament drafts">
                                     Drafts (<span id="drafts-count">0</span>)
                                 </button>
-                                <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="resetTournamentActiveMatch()">
+                                <button type="button" class="btn-secondary btn-sm" onclick="resetTournamentActiveMatch()">
                                     Reset Match
                                 </button>
-                                <button type="button" class="btn-danger" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="endTournament()">
+                                <button type="button" class="btn-danger btn-sm" onclick="endTournament()">
                                     End Tournament
                                 </button>
                             </div>
@@ -111,7 +111,7 @@
 
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid var(--border);">
                                 <input type="text" id="tourney-match-details" class="form-control" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; max-width: 280px;" placeholder="Match notes (e.g. Map / Game 3)" onchange="saveTournamentMatchDetails(this.value)">
-                                <button type="button" class="btn-primary" style="font-size: 0.75rem; padding: 0.25rem 0.75rem;" onclick="advanceActiveTournamentMatch()">
+                                <button type="button" class="btn-primary btn-sm" onclick="advanceActiveTournamentMatch()">
                                     Advance Winner &rarr;
                                 </button>
                             </div>
@@ -129,7 +129,7 @@
                     <div class="card" id="card-create-tourney">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
                             <h2 style="margin-bottom: 0;">Create Tournament Bracket</h2>
-                            <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="switchTab('presets')">
+                            <button type="button" class="btn-secondary btn-sm" onclick="switchTab('presets')">
                                 Presets &rarr;
                             </button>
                         </div>
@@ -200,13 +200,13 @@
                                 </span>
                             </h2>
                             <div style="display: flex; gap: 0.35rem;">
-                                <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="swapMatchupSides()" title="Swap Player 1 &amp; Player 2 sides">
+                                <button type="button" class="btn-secondary btn-sm" onclick="swapMatchupSides()" title="Swap Player 1 &amp; Player 2 sides">
                                     Swap P1 &harr; P2
                                 </button>
-                                <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="saveMatchupProgress()" title="Save a snapshot of the current match, clocks and log to History">
+                                <button type="button" class="btn-secondary btn-sm" onclick="saveMatchupProgress()" title="Save a snapshot of the current match, clocks and log to History">
                                     Save Progress
                                 </button>
-                                <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="resetMatchupScores()" title="Reset scores back to 0-0 without clearing names">
+                                <button type="button" class="btn-secondary btn-sm" onclick="resetMatchupScores()" title="Reset scores back to 0-0 without clearing names">
                                     Reset Scores (0-0)
                                 </button>
                             </div>
@@ -241,10 +241,10 @@
                                     <span id="studio-clock-mode-label" style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Countdown</span>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 0.35rem;">
-                                    <button type="button" class="btn-primary" id="btn-clock-toggle" style="font-size: 0.75rem; padding: 0.2rem 0.65rem;" onclick="toggleMatchClock()">
+                                    <button type="button" class="btn-primary btn-sm" id="btn-clock-toggle" onclick="toggleMatchClock()">
                                         Start Clock
                                     </button>
-                                    <button type="button" class="btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.55rem;" onclick="resetMatchClock()">
+                                    <button type="button" class="btn-secondary btn-sm" onclick="resetMatchClock()">
                                         Reset
                                     </button>
                                 </div>
@@ -258,13 +258,13 @@
                                         <input type="text" id="race-est-input" class="form-control" style="width: 100px; font-size: 0.75rem; padding: 0.2rem 0.4rem; font-family: monospace;" placeholder="45:00" onchange="saveRaceEstimate(this.value)">
                                     </div>
                                     <div style="display: flex; gap: 0.35rem; align-items: center;">
-                                        <button type="button" class="btn-primary" style="font-size: 0.75rem; padding: 0.22rem 0.7rem; background: #238636; border-color: #2ea043; color: #fff; font-weight: 700;" onclick="startAllRunnersRace()">
+                                        <button type="button" class="btn-primary btn-sm" style="background: #238636; border-color: #2ea043; color: #fff; font-weight: 700;" onclick="startAllRunnersRace()">
                                             Sync Start All Runners
                                         </button>
-                                        <button type="button" class="btn-secondary" style="font-size: 0.75rem; padding: 0.22rem 0.55rem;" onclick="pauseAllRunnersRace()">
+                                        <button type="button" class="btn-secondary btn-sm" onclick="pauseAllRunnersRace()">
                                             Pause All
                                         </button>
-                                        <button type="button" class="btn-secondary" style="font-size: 0.75rem; padding: 0.22rem 0.55rem;" onclick="resetAllRunnersRace()">
+                                        <button type="button" class="btn-secondary btn-sm" onclick="resetAllRunnersRace()">
                                             Reset All
                                         </button>
                                     </div>
@@ -345,13 +345,13 @@
                                     <div style="font-size: 0.75rem; color: var(--text-muted);">Step through a series of matches or sets with 1 click without creating a bracket.</div>
                                 </div>
                                 <div style="display: flex; gap: 0.35rem; align-items: center;">
-                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="stepMatchupQueue(-1)" title="Go to previous match in queue">
+                                    <button type="button" class="btn-secondary btn-sm" onclick="stepMatchupQueue(-1)" title="Go to previous match in queue">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Prev
                                     </button>
-                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="stepMatchupQueue(1)" title="Advance to next match in queue">
+                                    <button type="button" class="btn-secondary btn-sm" onclick="stepMatchupQueue(1)" title="Advance to next match in queue">
                                         Next <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                                     </button>
-                                    <button type="button" class="btn-primary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="toggleAddMatchupQueueModal(true)" title="Add a new match to the queue">
+                                    <button type="button" class="btn-primary btn-sm" onclick="toggleAddMatchupQueueModal(true)" title="Add a new match to the queue">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> + Add Match
                                     </button>
                                 </div>
@@ -361,7 +361,7 @@
                             <div id="matchup-add-queue-drawer" style="display: none; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; margin-bottom: 0.75rem;">
                                 <div style="font-size: 0.78rem; font-weight: 700; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
                                     <span>Add Match to Fight Card</span>
-                                    <button type="button" class="btn-secondary" style="font-size: 0.68rem; padding: 0.1rem 0.4rem;" onclick="toggleAddMatchupQueueModal(false)">Cancel</button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="toggleAddMatchupQueueModal(false)">Cancel</button>
                                 </div>
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
                                     <div>
@@ -394,7 +394,7 @@
                                         <input type="checkbox" id="queue-add-load-now">
                                         <span>Load and activate immediately</span>
                                     </label>
-                                    <button type="button" class="btn-primary" style="font-size: 0.75rem; padding: 0.25rem 0.7rem;" onclick="submitAddMatchupQueue()">Add Match</button>
+                                    <button type="button" class="btn-primary btn-sm" onclick="submitAddMatchupQueue()">Add Match</button>
                                 </div>
                             </div>
 
@@ -428,10 +428,10 @@
                                 <span id="prev-mode-label" style="font-weight: 700; color: var(--text);">Matchup Scoreboard Preview</span>
                             </div>
                             <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
-                                <button type="button" class="btn-secondary" id="prev-btn-bg" style="font-size: 0.7rem; padding: 0.2rem 0.55rem;" onclick="togglePreviewBackdrop()" title="Toggle dark background vs checkerboard transparency grid">
+                                <button type="button" class="btn-secondary btn-sm" id="prev-btn-bg" onclick="togglePreviewBackdrop()" title="Toggle dark background vs checkerboard transparency grid">
                                     Canvas: Dark
                                 </button>
-                                <button type="button" class="btn-secondary" id="prev-btn-sample" style="font-size: 0.7rem; padding: 0.2rem 0.55rem;" onclick="togglePreviewSampleData()" title="Toggle sample data to preview populated layouts immediately">
+                                <button type="button" class="btn-secondary btn-sm" id="prev-btn-sample" onclick="togglePreviewSampleData()" title="Toggle sample data to preview populated layouts immediately">
                                     Sample: ON
                                 </button>
                             </div>
@@ -543,7 +543,7 @@
                                 </select>
                             </div>
                             <div style="display: flex; align-items: center; gap: 0.3rem;">
-                                <button type="button" class="btn-secondary" id="btn-tourney-fit-toggle" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="toggleTourneyFitWholeBracket()">
+                                <button type="button" class="btn-secondary btn-sm" id="btn-tourney-fit-toggle" onclick="toggleTourneyFitWholeBracket()">
                                     Fit Whole Bracket: OFF
                                 </button>
                             </div>
@@ -587,7 +587,7 @@
                         <div id="ov-sec-matchup" style="margin-bottom: 1.5rem;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                                 <div style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Matchup Scoreboard Overlay</div>
-                                <a id="btn-open-matchup-overlay" href="/overlays/matchup.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open &nearr;</a>
+                                <a id="btn-open-matchup-overlay" href="/overlays/matchup.html" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none;">Open &nearr;</a>
                             </div>
                             <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
                                 <input type="text" class="form-control" id="url-matchup-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
@@ -699,7 +699,7 @@
                                     <span style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Active Tournament Match HUD</span>
                                     <span class="badge-studio" style="font-size: 0.65rem; margin-left: 0.3rem;">Unified with Matchup</span>
                                 </div>
-                                <a id="btn-open-tourney-hud" href="/overlays/matchup.html?source=tournament" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open &nearr;</a>
+                                <a id="btn-open-tourney-hud" href="/overlays/matchup.html?source=tournament" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none;">Open &nearr;</a>
                             </div>
                             <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.5rem;">
                                 <input type="text" class="form-control" id="url-tourney-hud" readonly style="font-family: monospace; font-size: 0.75rem;">
@@ -714,7 +714,7 @@
                         <div id="ov-sec-tree" style="display:none;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                                 <div style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Tournament Bracket Overlay</div>
-                                <a id="btn-open-tourney-overlay" href="/overlays/tournament.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open &nearr;</a>
+                                <a id="btn-open-tourney-overlay" href="/overlays/tournament.html" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none;">Open &nearr;</a>
                             </div>
                             <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
                                 <input type="text" class="form-control" id="url-tourney-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
@@ -798,7 +798,7 @@
                                 <h2 style="margin-bottom: 0.15rem;">Tournament Presets</h2>
                                 <p class="hint" style="margin: 0;">Pre-built bracket rules and entrant seedings.</p>
                             </div>
-                            <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="saveCurrentTournamentAsPreset()">
+                            <button type="button" class="btn-secondary btn-sm" onclick="saveCurrentTournamentAsPreset()">
                                 + Save Current as Preset
                             </button>
                         </div>
@@ -811,7 +811,7 @@
                                 <h2 style="margin-bottom: 0.15rem;">Matchup Presets</h2>
                                 <p class="hint" style="margin: 0;">Game profiles, series rules, and competitor setups.</p>
                             </div>
-                            <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="saveCurrentMatchupAsPreset()">
+                            <button type="button" class="btn-secondary btn-sm" onclick="saveCurrentMatchupAsPreset()">
                                 + Save Current as Preset
                             </button>
                         </div>
@@ -827,7 +827,7 @@
                                 <h2 style="margin-bottom: 0.15rem;">Tournament Bracket History</h2>
                                 <p class="hint" style="margin: 0;">Review past brackets, inspect completed results, or restore tournaments.</p>
                             </div>
-                            <button type="button" class="btn-danger" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="clearAllTournamentHistory()">
+                            <button type="button" class="btn-danger btn-sm" onclick="clearAllTournamentHistory()">
                                 Clear History
                             </button>
                         </div>
@@ -840,7 +840,7 @@
                                 <h2 style="margin-bottom: 0.15rem;">Matchup &amp; Versus History</h2>
                                 <p class="hint" style="margin: 0;">Past completed fight sets and exhibition outcomes.</p>
                             </div>
-                            <button type="button" class="btn-danger" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="clearAllMatchupHistory()">
+                            <button type="button" class="btn-danger btn-sm" onclick="clearAllMatchupHistory()">
                                 Clear History
                             </button>
                         </div>
@@ -857,7 +857,7 @@
                     <h3 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--text);">Saved Tournament Checkpoints</h3>
                     <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Resume an in-progress bracket or restore paused tournament states.</div>
                 </div>
-                <button type="button" class="btn-secondary" onclick="toggleDraftsModal(false)" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">Close &times;</button>
+                <button type="button" class="btn-secondary btn-sm" onclick="toggleDraftsModal(false)">Close &times;</button>
             </div>
             <div id="drafts-modal-body" style="padding: 1.25rem; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 0.5rem;"></div>
             <div style="padding: 0.75rem 1.25rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; align-items: center; background: var(--bg-inset);">
@@ -874,7 +874,7 @@
                     <h3 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--text);">Edit Tournament Preset</h3>
                     <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Update preset rules, format, or entrant seeds.</div>
                 </div>
-                <button type="button" class="btn-secondary" onclick="closeEditTournamentPresetModal()" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">&times;</button>
+                <button type="button" class="btn-secondary btn-sm" onclick="closeEditTournamentPresetModal()">&times;</button>
             </div>
             <form id="form-edit-preset" onsubmit="submitEditTournamentPreset(event)" style="padding: 1.25rem; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 0.75rem;">
                 <input type="hidden" id="edit-preset-id">
@@ -925,7 +925,7 @@
                     <h3 id="inspect-modal-title" style="margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--text);">Tournament Bracket Result</h3>
                     <div id="inspect-modal-subtitle" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;"></div>
                 </div>
-                <button type="button" class="btn-secondary" onclick="closeBracketInspectModal()" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">
+                <button type="button" class="btn-secondary btn-sm" onclick="closeBracketInspectModal()">
                     Close &times;
                 </button>
             </div>
@@ -1641,13 +1641,13 @@
                                     </div>
                                 </div>
                                 <div style="display: flex; gap: 0.35rem; align-items: center;">
-                                    <button type="button" class="btn-primary" style="font-size: 0.72rem; padding: 0.2rem 0.5rem; background: #238636; border-color: #2ea043; color: #fff;" onclick="finishRunnerRace(${i})" ${timerObj.finished ? 'disabled' : ''}>
+                                    <button type="button" class="btn-primary btn-sm" style="background: #238636; border-color: #2ea043; color: #fff;" onclick="finishRunnerRace(${i})" ${timerObj.finished ? 'disabled' : ''}>
                                         Finish / Split
                                     </button>
-                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.45rem;" onclick="toggleRunnerRace(${i})">
+                                    <button type="button" class="btn-secondary btn-sm" onclick="toggleRunnerRace(${i})">
                                         ${timerObj.isRunning ? 'Pause' : 'Start'}
                                     </button>
-                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.45rem;" onclick="resetRunnerRace(${i})">
+                                    <button type="button" class="btn-secondary btn-sm" onclick="resetRunnerRace(${i})">
                                         Reset
                                     </button>
                                 </div>
@@ -1910,11 +1910,11 @@
                         </div>
                         <div style="display: flex; align-items: center; gap: 0.35rem;">
                             ${!isActive ? `
-                                <button type="button" class="btn-secondary" style="font-size: 0.68rem; padding: 0.15rem 0.45rem;" onclick="selectMatchupQueue('${item.id}')" title="Load this match to overlay">
+                                <button type="button" class="btn-secondary btn-sm" onclick="selectMatchupQueue('${item.id}')" title="Load this match to overlay">
                                     Load
                                 </button>
                             ` : ''}
-                            <button type="button" class="btn-secondary" style="font-size: 0.68rem; padding: 0.15rem 0.45rem; color: #ef4444;" onclick="deleteMatchupQueue('${item.id}')" title="Delete from fight card">
+                            <button type="button" class="btn-secondary btn-sm" onclick="deleteMatchupQueue('${item.id}')" title="Delete from fight card">
                                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                             </button>
                         </div>
@@ -2034,10 +2034,10 @@
                         </div>
                     </div>
                     <div style="display: flex; gap: 0.35rem;">
-                        <button type="button" class="btn-primary" style="font-size: 0.7rem; padding: 0.15rem 0.55rem;" onclick="loadMatchupPreset('${p.id}')">
+                        <button type="button" class="btn-primary btn-sm" onclick="loadMatchupPreset('${p.id}')">
                             Load
                         </button>
-                        <button type="button" class="btn-secondary" style="font-size: 0.7rem; padding: 0.15rem 0.45rem; color: #ef4444;" onclick="deleteMatchupPreset('${p.id}')">
+                        <button type="button" class="btn-secondary btn-sm" onclick="deleteMatchupPreset('${p.id}')">
                             &times;
                         </button>
                     </div>
@@ -2314,21 +2314,21 @@
                             </div>
                         </div>
                         <div style="display: flex; gap: 0.35rem; align-items: center;">
-                            <button type="button" class="btn-secondary" style="font-size: 0.7rem; padding: 0.18rem 0.55rem;" onclick="loadTournamentPresetToForm('${p.id}')" title="Load into Create Form">
+                            <button type="button" class="btn-secondary btn-sm" onclick="loadTournamentPresetToForm('${p.id}')" title="Load into Create Form">
                                 Load to Form
                             </button>
-                            <button type="button" class="btn-primary" style="font-size: 0.7rem; padding: 0.18rem 0.55rem;" onclick="launchTournamentPresetDirect('${p.id}')" title="Launch tournament immediately">
+                            <button type="button" class="btn-primary btn-sm" onclick="launchTournamentPresetDirect('${p.id}')" title="Launch tournament immediately">
                                 Launch
                             </button>
                             ${isCustom ? `
-                                <button type="button" class="btn-secondary" style="font-size: 0.7rem; padding: 0.18rem 0.5rem;" onclick="openEditTournamentPresetModal('${p.id}')" title="Edit preset rules and seeds">
+                                <button type="button" class="btn-secondary btn-sm" onclick="openEditTournamentPresetModal('${p.id}')" title="Edit preset rules and seeds">
                                     Edit
                                 </button>
-                                <button type="button" class="btn-secondary" style="font-size: 0.7rem; padding: 0.18rem 0.45rem; color: #ef4444;" onclick="deleteTournamentPreset('${p.id}')" title="Delete preset">
+                                <button type="button" class="btn-secondary btn-sm" onclick="deleteTournamentPreset('${p.id}')" title="Delete preset">
                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                 </button>
                             ` : `
-                                <button type="button" class="btn-secondary" style="font-size: 0.7rem; padding: 0.18rem 0.5rem;" onclick="duplicateBuiltInTournamentPreset('${p.id}')" title="Duplicate to custom preset">
+                                <button type="button" class="btn-secondary btn-sm" onclick="duplicateBuiltInTournamentPreset('${p.id}')" title="Duplicate to custom preset">
                                     Duplicate
                                 </button>
                             `}
@@ -2589,13 +2589,13 @@
                                 </div>
                             </div>
                             <div style="display: flex; gap: 0.35rem; align-items: center;">
-                                <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.6rem;" onclick="inspectTournamentBracket('${item.id}')">
+                                <button type="button" class="btn-secondary btn-sm" onclick="inspectTournamentBracket('${item.id}')">
                                     Inspect Bracket
                                 </button>
-                                <button type="button" class="btn-primary" style="font-size: 0.72rem; padding: 0.2rem 0.6rem;" onclick="restoreTournamentFromHistory('${item.id}')" title="Restore this tournament to live studio">
+                                <button type="button" class="btn-primary btn-sm" onclick="restoreTournamentFromHistory('${item.id}')" title="Restore this tournament to live studio">
                                     Restore
                                 </button>
-                                <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.45rem; color: #ef4444;" onclick="deleteTournamentHistoryItem('${item.id}')" title="Delete record">
+                                <button type="button" class="btn-secondary btn-sm" onclick="deleteTournamentHistoryItem('${item.id}')" title="Delete record">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                 </button>
                             </div>
@@ -2818,10 +2818,10 @@
                                 ${(item.log || []).length ? `<details style="margin-top:0.3rem;"><summary style="font-size:0.7rem;color:var(--text-muted);cursor:pointer;">Event log (${item.log.length})</summary><div style="font-size:0.7rem;color:var(--text-muted);max-height:140px;overflow:auto;margin-top:0.25rem;">${item.log.map(l => `<div>${new Date(l.ts).toLocaleTimeString()} &middot; ${esc(l.text)}</div>`).join('')}</div></details>` : ''}
                             </div>
                             <div style="display: flex; gap: 0.35rem; align-items: center;">
-                                <button type="button" class="btn-primary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="restoreMatchupFromHistory('${item.id}')" title="Restore this matchup to active scoreboard">
+                                <button type="button" class="btn-primary btn-sm" onclick="restoreMatchupFromHistory('${item.id}')" title="Restore this matchup to active scoreboard">
                                     Restore
                                 </button>
-                                <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.45rem; color: #ef4444;" onclick="deleteMatchupHistoryItem('${item.id}')" title="Delete record">
+                                <button type="button" class="btn-secondary btn-sm" onclick="deleteMatchupHistoryItem('${item.id}')" title="Delete record">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                 </button>
                             </div>
@@ -2979,12 +2979,12 @@
                             </div>
                             <div style="display: flex; align-items: center; gap: 0.35rem;">
                                 ${isCompleted ? `
-                                    <button type="button" class="btn-secondary" style="font-size: 0.68rem; padding: 0.15rem 0.45rem; color: #f59e0b; display: inline-flex; align-items: center; gap: 0.25rem;" onclick="rollbackTourneyMatch('${m.id}', event)" title="Undo winner and cascade reset downstream matches">
+                                    <button type="button" class="btn-secondary btn-sm" style="color: #f59e0b; display: inline-flex; align-items: center; gap: 0.25rem;" onclick="rollbackTourneyMatch('${m.id}', event)" title="Undo winner and cascade reset downstream matches">
                                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg> Undo / Edit
                                     </button>
                                 ` : ''}
                                 ${!isCur && !isBye && e1 !== 'TBD' && e2 !== 'TBD' ? `
-                                    <button type="button" class="btn-secondary" style="font-size: 0.68rem; padding: 0.15rem 0.45rem;" onclick="event.stopPropagation(); selectTourneyMatchDirect('${m.id}')">Select</button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="event.stopPropagation(); selectTourneyMatchDirect('${m.id}')">Select</button>
                                 ` : ''}
                             </div>
                         </div>
@@ -3065,10 +3065,10 @@
                             </div>
                         </div>
                         <div style="display: flex; gap: 0.35rem; align-items: center;">
-                            <button type="button" class="btn-primary" style="font-size: 0.72rem; padding: 0.2rem 0.65rem;" onclick="restoreTourneyDraft('${d.id}')">
+                            <button type="button" class="btn-primary btn-sm" onclick="restoreTourneyDraft('${d.id}')">
                                 Resume Bracket
                             </button>
-                            <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.45rem; color: #ef4444;" onclick="deleteTourneyDraft('${d.id}')" title="Delete checkpoint">
+                            <button type="button" class="btn-secondary btn-sm" onclick="deleteTourneyDraft('${d.id}')" title="Delete checkpoint">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                             </button>
                         </div>

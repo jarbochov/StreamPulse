@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StreamPulse — Poll Studio &amp; Tournaments</title>
+    <title>StreamPulse — Poll Manager &amp; Tournaments</title>
     <link rel="stylesheet" href="/admin.css">
     <link rel="stylesheet" href="/css/poll-studio.css">
     <script src="/appearance.js"></script>
@@ -13,7 +13,7 @@
     <header class="header">
         <h1>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-            StreamPulse <span>Poll Studio</span>
+            StreamPulse <span>Poll Manager</span>
             <span class="badge-studio">Controller</span>
         </h1>
         <div id="main-nav" class="nav"></div>
@@ -95,11 +95,11 @@
                         <h2>
                             <span>Create a Poll</span>
                             <div style="display: flex; gap: 0.35rem;">
-                                <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="pullFromGamePlan()">
+                                <button type="button" class="btn-secondary btn-sm" onclick="pullFromGamePlan()">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
                                     From Game Plan
                                 </button>
-                                <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="pullFromChatters()">
+                                <button type="button" class="btn-secondary btn-sm" onclick="pullFromChatters()">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                                     From Chatters
                                 </button>
@@ -324,7 +324,7 @@
 
                         <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
                             <span style="font-size: 0.72rem; color: var(--text-muted);" id="tourney-progress-text"></span>
-                            <button type="button" class="btn-danger" style="font-size: 0.75rem; padding: 0.25rem 0.65rem;" onclick="resetCurrentTournament()">
+                            <button type="button" class="btn-danger btn-sm" onclick="resetCurrentTournament()">
                                 Reset Tournament
                             </button>
                         </div>
@@ -382,12 +382,12 @@
                                 <textarea id="tourney-entrants" class="form-control" rows="8" placeholder="Chrono Trigger&#10;Final Fantasy VI&#10;EarthBound&#10;Secret of Mana&#10;Super Mario RPG&#10;Lufia II&#10;Breath of Fire II&#10;Dragon Quest V" required oninput="updateEntrantsCalc()"></textarea>
                                 
                                 <div style="display: flex; gap: 0.35rem; margin-top: 0.4rem; flex-wrap: wrap;">
-                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="fillSampleEntrants(3)">3 Seeds</button>
-                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="fillSampleEntrants(4)">4 Seeds</button>
-                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="fillSampleEntrants(5)">5 Seeds</button>
-                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="fillSampleEntrants(8)">8 Seeds</button>
-                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="fillSampleEntrants(16)">16 Seeds</button>
-                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="pullTourneyFromGamePlan()">From Game Plan</button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="fillSampleEntrants(3)">3 Seeds</button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="fillSampleEntrants(4)">4 Seeds</button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="fillSampleEntrants(5)">5 Seeds</button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="fillSampleEntrants(8)">8 Seeds</button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="fillSampleEntrants(16)">16 Seeds</button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="pullTourneyFromGamePlan()">From Game Plan</button>
                                 </div>
                             </div>
 
@@ -409,7 +409,7 @@
                     <div class="card">
                         <h2>
                             <span>Poll History</span>
-                            <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="clearPollHistory()">
+                            <button type="button" class="btn-secondary btn-sm" onclick="clearPollHistory()">
                                 Clear
                             </button>
                         </h2>
@@ -456,7 +456,7 @@
                         <div id="ov-sec-poll" style="margin-bottom: 1.5rem;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                                 <div style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Live Poll Overlay</div>
-                                <a id="btn-open-poll-overlay" href="/overlays/poll.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open &nearr;</a>
+                                <a id="btn-open-poll-overlay" href="/overlays/poll.html" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none;">Open &nearr;</a>
                             </div>
                             <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
                                 <input type="text" class="form-control" id="url-poll-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
@@ -502,7 +502,7 @@
                         <div id="ov-sec-tourney" style="display:none;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                                 <div style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Audience Tournament Bracket Overlay</div>
-                                <a id="btn-open-tourney-overlay" href="/overlays/tournament.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open &nearr;</a>
+                                <a id="btn-open-tourney-overlay" href="/overlays/tournament.html" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none;">Open &nearr;</a>
                             </div>
                             <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
                                 <input type="text" class="form-control" id="url-tourney-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
@@ -717,11 +717,13 @@
             if ($('panel-overlays')) $('panel-overlays').style.display = tab === 'overlays' ? 'block' : 'none';
             if ($('panel-templates')) $('panel-templates').style.display = tab === 'templates' ? 'block' : 'none';
 
+            if ($('poll-steps')) $('poll-steps').style.display = (tab === 'poll' || tab === 'tourney') ? '' : 'none';
             if (tab === 'tourney') {
                 loadTournament();
-                setPreviewMode('tourney');
             } else if (tab === 'poll') {
                 setPreviewMode('poll');
+            } else if (tab === 'overlays') {
+                setPreviewMode(['poll', 'tree', 'active'].includes(previewMode) ? previewMode : 'poll');
             } else if (tab === 'templates') {
                 loadPresets();
                 loadHistory();
@@ -1056,8 +1058,8 @@
                                     <div class="history-meta">${p.choices.length} choices · ${p.duration > 0 ? p.duration + 's' : 'Manual'} ${p.blind ? '· Blind' : ''}</div>
                                 </div>
                                 <div style="display: flex; gap: 0.35rem;">
-                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.5rem;" onclick="applyPresetById('${p.id}')">Load</button>
-                                    <button type="button" class="btn-danger" style="font-size: 0.72rem; padding: 0.2rem 0.45rem;" onclick="deletePresetById('${p.id}')">Delete</button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="applyPresetById('${p.id}')">Load</button>
+                                    <button type="button" class="btn-danger btn-sm" onclick="deletePresetById('${p.id}')">Delete</button>
                                 </div>
                             </div>
                         `).join('');
@@ -1239,7 +1241,7 @@
                 if (data.status === 'ok') {
                     activeTourneyData = data.tournament;
                     renderTournamentStudio(activeTourneyData);
-                    setPreviewMode('tourney');
+                    setPreviewMode('tree');
                     toast('Tournament bracket launched!');
                 } else {
                     toast(data.error || 'Failed to create tournament');
@@ -1631,7 +1633,7 @@
                         </div>
                         <div style="text-align: right; display: flex; align-items: center; gap: 0.5rem;">
                             ${p.winner ? `<span class="badge-pill badge-winner">${esc(p.winner)}</span>` : '<span class="badge-pill" style="background:var(--bg-inset); color:var(--text-muted);">Tie / None</span>'}
-                            <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.5rem;" onclick="rerunPoll(${esc(JSON.stringify(p))})">Re-run</button>
+                            <button type="button" class="btn-secondary btn-sm" onclick="rerunPoll(${esc(JSON.stringify(p))})">Re-run</button>
                         </div>
                     </div>
                 `).join('');

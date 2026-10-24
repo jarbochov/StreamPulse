@@ -116,7 +116,7 @@ IGDB operations use the configured Twitch client credentials. Missing credential
 
 ---
 
-## 2.5. Native Polls & Poll Studio Endpoints
+## 2.5. Native Polls & Poll Manager Endpoints
 
 ### Get Latest Poll Status
 - **Endpoint**: `GET /api/polls/latest`
@@ -200,7 +200,7 @@ IGDB operations use the configured Twitch client credentials. Missing credential
 
 ### Select Active Match
 - **Endpoint**: `POST /api/tournament/select-match`
-- **Description**: Focuses a match as the active matchup in Poll Studio and the Esports Lower-Third Match HUD overlay (`?layout=active`).
+- **Description**: Focuses a match as the active matchup in Poll Manager and the Esports Lower-Third Match HUD overlay (`?layout=active`).
 - **Body**: `{ "matchId": "m_1_1" }`.
 
 ### Reset Match
