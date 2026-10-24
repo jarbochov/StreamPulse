@@ -1084,6 +1084,18 @@ function createPollService({
         const winnerObj = isEntrant1Winner ? match.entrant1 : match.entrant2;
         const loserObj = isEntrant1Winner ? match.entrant2 : match.entrant1;
 
+        // Cleanly conclude any running match poll linked to this match
+        if (activePoll && activePoll.tournamentMatchId === match.id && activePoll.status === 'ACTIVE') {
+            activePoll.status = 'COMPLETED';
+            activePoll.winner = wName;
+            activePoll.endedAt = new Date().toISOString();
+            const payload = getPublicPayload(activePoll);
+            activePoll = null;
+            voters.clear();
+            save();
+            broadcastToOverlays('poll-update', payload);
+        }
+
         // Advance winner to next match
         if (activeTournament.format === 'roundRobin') {
             recalculateRoundRobinStandings(activeTournament);
@@ -1408,7 +1420,10 @@ function createPollService({
     }
 
     function getTournamentPresets() {
-        return tournamentPresets;
+        return tournamentPresets.map(p => ({
+            ...p,
+            isBuiltIn: DEFAULT_TOURNAMENT_PRESETS.some(b => b.id === p.id)
+        }));
     }
 
     function saveTournamentPreset(preset = {}) {
@@ -1417,7 +1432,8 @@ function createPollService({
         const entrants = Array.isArray(preset.entrants) ? preset.entrants.map(e => String(e).trim()).filter(Boolean) : [];
         if (entrants.length < 2) throw new Error('Preset requires at least 2 entrants');
 
-        const id = preset.id || `tp-preset-${Date.now().toString(36)}`;
+        const isBuiltIn = DEFAULT_TOURNAMENT_PRESETS.some(b => b.id === preset.id);
+        const id = (preset.id && !isBuiltIn) ? preset.id : `preset-tourney-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
         const existingIdx = tournamentPresets.findIndex(p => p.id === id);
         const item = {
             id,
@@ -1428,12 +1444,32 @@ function createPollService({
             scoringType: preset.scoringType || 'bestOf',
             bestOf: Number(preset.bestOf) || 3,
             matchDuration: Number(preset.matchDuration) || 120,
-            entrants
+            entrants,
+            isCustom: true
         };
         if (existingIdx >= 0) tournamentPresets[existingIdx] = item;
         else tournamentPresets.push(item);
         save();
         return item;
+    }
+
+    function updateTournamentPreset(id, updates = {}) {
+        const existingIdx = tournamentPresets.findIndex(p => p.id === id);
+        if (existingIdx === -1) throw new Error(`Preset ${id} not found`);
+        const p = tournamentPresets[existingIdx];
+        if (updates.name !== undefined && String(updates.name).trim()) p.name = String(updates.name).trim();
+        if (updates.title !== undefined && String(updates.title).trim()) p.title = String(updates.title).trim();
+        if (updates.format !== undefined) p.format = updates.format;
+        if (updates.progressionMode !== undefined) p.progressionMode = updates.progressionMode;
+        if (updates.scoringType !== undefined) p.scoringType = updates.scoringType;
+        if (updates.bestOf !== undefined) p.bestOf = Number(updates.bestOf) || 3;
+        if (updates.matchDuration !== undefined) p.matchDuration = Number(updates.matchDuration) || 120;
+        if (Array.isArray(updates.entrants) && updates.entrants.length >= 2) {
+            p.entrants = updates.entrants.map(e => String(e).trim()).filter(Boolean);
+        }
+        p.isCustom = true;
+        save();
+        return p;
     }
 
     function deleteTournamentPreset(id) {
@@ -1509,6 +1545,7 @@ function createPollService({
         clearTournamentHistory,
         getTournamentPresets,
         saveTournamentPreset,
+        updateTournamentPreset,
         deleteTournamentPreset,
         getTournamentDrafts,
         saveTournamentDraft,

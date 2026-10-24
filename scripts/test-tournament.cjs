@@ -410,6 +410,34 @@ test('Tournament Service: Variable bracket sizes, manual scoring, series best-of
         assert.equal(deleteSuccess.ok, true);
         assert.ok(!service.getTournamentDrafts().some(d => d.id === draft.id));
 
+        // 15. Tournament Presets Management (Editing, Deleting, and isBuiltIn flags)
+        const allPresets = service.getTournamentPresets();
+        assert.ok(allPresets.length > 0, 'Should load default tournament presets');
+        assert.equal(allPresets[0].isBuiltIn, true, 'Default preset should be flagged isBuiltIn');
+
+        const newPreset = service.saveTournamentPreset({
+            name: 'Speedrun Invitational',
+            title: 'SGDQ Invitational',
+            entrants: ['Runner A', 'Runner B', 'Runner C', 'Runner D'],
+            format: 'single',
+            bestOf: 3
+        });
+        assert.ok(newPreset.id);
+        assert.equal(newPreset.name, 'Speedrun Invitational');
+        assert.equal(newPreset.isCustom, true);
+
+        // Update preset
+        const updatedPreset = service.updateTournamentPreset(newPreset.id, {
+            name: 'Speedrun Championship 2026',
+            bestOf: 5
+        });
+        assert.equal(updatedPreset.name, 'Speedrun Championship 2026');
+        assert.equal(updatedPreset.bestOf, 5);
+
+        // Delete preset
+        const delPresetRes = service.deleteTournamentPreset(newPreset.id);
+        assert.equal(delPresetRes.ok, true);
+        assert.ok(!service.getTournamentPresets().some(p => p.id === newPreset.id));
     } finally {
         service.destroy();
         fs.rmSync(tmpDir, { recursive: true, force: true });

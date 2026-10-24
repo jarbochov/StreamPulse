@@ -32,24 +32,25 @@
             </a>
         </div>
 
-        <div class="layout-grid">
-            <!-- Left Column: Controls & Active Monitors -->
-            <div class="controls-col">
-                <!-- Navigation Tabs -->
-                <div class="studio-tabs">
-                    <button type="button" class="studio-tab-btn active" id="tab-btn-poll" onclick="switchTab('poll')">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                        Standard Poll
-                    </button>
-                    <button type="button" class="studio-tab-btn" id="tab-btn-tourney" onclick="switchTab('tourney')">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
-                        Audience Poll Tournament
-                    </button>
-                    <button type="button" class="studio-tab-btn" id="tab-btn-templates" onclick="switchTab('templates')">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-                        Templates &amp; History
-                    </button>
-                </div>
+        <!-- Navigation Tabs (Full Width Studio) -->
+        <div class="studio-tabs" style="margin-bottom: 1.25rem;">
+            <button type="button" class="studio-tab-btn active" id="tab-btn-poll" onclick="switchTab('poll')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                Standard Poll
+            </button>
+            <button type="button" class="studio-tab-btn" id="tab-btn-tourney" onclick="switchTab('tourney')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                Audience Poll Tournament
+            </button>
+            <button type="button" class="studio-tab-btn" id="tab-btn-overlays" onclick="switchTab('overlays')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                Overlays &amp; Live Preview
+            </button>
+            <button type="button" class="studio-tab-btn" id="tab-btn-templates" onclick="switchTab('templates')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                Templates &amp; History
+            </button>
+        </div>
 
                 <!-- Active Poll Card (Always visible when a poll is running) -->
                 <div id="active-poll-card" class="card active-poll-card" style="display: none;">
@@ -467,219 +468,141 @@
                         <div id="poll-history-list" style="max-height: 480px; overflow-y: auto;"></div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Right Column: Live Previews & OBS Links -->
-            <div class="preview-col">
-                <!-- Preview Switcher -->
-                <div class="card">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
-                        <h2 style="margin-bottom: 0;">Live Overlay Preview</h2>
-                        <div style="display: flex; gap: 0.35rem;">
-                            <button type="button" class="btn-secondary" id="btn-preview-poll" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="setPreviewMode('poll')">
-                                Poll
-                            </button>
-                            <button type="button" class="btn-secondary" id="btn-preview-tourney" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="setPreviewMode('tourney')">
-                                Tournament
-                            </button>
-                            <button type="button" class="btn-secondary" id="btn-preview-matchup" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="setPreviewMode('matchup')">
-                                Matchup
-                            </button>
+                <!-- Tab 3: Overlays & Live Preview Panel (Full Width) -->
+                <div id="panel-overlays" style="display: none;">
+                    <div class="card" style="margin-bottom: 1rem;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                            <div>
+                                <h2 style="margin-bottom: 0.15rem;">Live Overlay Preview</h2>
+                                <p class="hint" style="margin: 0;">Interactive real-time preview of your audience poll and tournament overlays.</p>
+                            </div>
+                            <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                                <button type="button" class="btn-secondary btn-primary" id="btn-preview-poll" style="font-size: 0.72rem; padding: 0.25rem 0.65rem;" onclick="setPreviewMode('poll')">
+                                    Standard Poll
+                                </button>
+                                <button type="button" class="btn-secondary" id="btn-preview-tourney" style="font-size: 0.72rem; padding: 0.25rem 0.65rem;" onclick="setPreviewMode('tourney')">
+                                    Tournament Bracket
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="poll-preview-box" class="preview-container" style="height: 340px; overflow: hidden; padding: 0.5rem; position: relative; background: #050811; border: 1px solid var(--border); border-radius: 8px;">
+                            <iframe id="poll-preview-iframe" src="/overlays/poll.html?preview=1" style="width: 100%; height: 100%; border: none; background: transparent;"></iframe>
+                        </div>
+                        <div id="tourney-preview-box" class="preview-container" style="display: none; height: 520px; overflow: auto; padding: 0.5rem; background: #050811; border: 1px solid var(--border); border-radius: 8px;">
+                            <iframe id="tourney-preview-iframe" src="/overlays/tournament.html?preview=1" style="width: 100%; height: 100%; border: none; background: transparent;"></iframe>
+                        </div>
+
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; text-align: center;">
+                            Mounts on custom overlays via the <b>Poll widget</b> or dedicated browser sources below.
                         </div>
                     </div>
 
-                    <div id="poll-preview-box" class="preview-container" style="height: 320px; overflow: hidden; padding: 0.5rem; position: relative;">
-                        <iframe id="poll-preview-iframe" src="/overlays/poll.html?preview=1" style="width: 100%; height: 100%; border: none; background: transparent;"></iframe>
-                    </div>
-                    <div id="tourney-preview-box" class="preview-container" style="display: none; height: 320px; overflow: auto; padding: 0.5rem;">
-                        <iframe id="tourney-preview-iframe" src="/overlays/tournament.html" style="width: 100%; height: 100%; border: none; background: #0d1117;"></iframe>
-                    </div>
-                    <div id="matchup-preview-box" class="preview-container" style="display: none; height: 320px; overflow: auto; padding: 0.5rem;">
-                        <iframe id="matchup-preview-iframe" src="/overlays/matchup.html?preview=1" style="width: 100%; height: 100%; border: none; background: transparent;"></iframe>
-                    </div>
-
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; text-align: center;">
-                        Mounts on custom overlays via the <b>Poll widget</b> or dedicated browser sources below.
-                    </div>
-                </div>
-
-                <!-- OBS Browser Source URLs -->
-                <div class="card">
-                    <h2>OBS Browser Source Links</h2>
-                    
-                    <div style="margin-bottom: 1.25rem;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-                            <div style="font-size: 0.78rem; font-weight: 700; color: var(--text);">Live Poll Overlay</div>
-                            <a id="btn-open-poll-overlay" href="/overlays/poll.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open ↗</a>
+                    <!-- OBS Browser Source URLs -->
+                    <div class="card">
+                        <div style="margin-bottom: 1rem;">
+                            <h2 style="margin-bottom: 0.15rem;">OBS Browser Source Links</h2>
+                            <p class="hint" style="margin: 0;">Embed live audience voting directly into your OBS scenes.</p>
                         </div>
-                        <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
-                            <input type="text" class="form-control" id="url-poll-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
-                            <button type="button" class="btn-secondary" onclick="copyUrl('url-poll-overlay', this)">Copy</button>
-                        </div>
+                        
+                        <div style="margin-bottom: 1.5rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                                <div style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Live Poll Overlay</div>
+                                <a id="btn-open-poll-overlay" href="/overlays/poll.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open &nearr;</a>
+                            </div>
+                            <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
+                                <input type="text" class="form-control" id="url-poll-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
+                                <button type="button" class="btn-secondary" onclick="copyUrl('url-poll-overlay', this)">Copy</button>
+                            </div>
 
-                        <!-- URL Options Customizer -->
-                        <div style="background: var(--bg-inset); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border);">
-                            <div class="micro-heading" style="margin-bottom: 0.5rem;">Overlay Options</div>
-                            
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.6rem;">
-                                <div>
-                                    <label for="poll-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme / Container (?overlay=)</label>
-                                    <select id="poll-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updatePollOverlayUrl()">
-                                        <option value="card" selected>Dark Card (?overlay=card)</option>
-                                        <option value="glass">Frosted Glass (?overlay=glass)</option>
-                                        <option value="solid">Opaque Solid (?overlay=solid)</option>
-                                        <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
-                                        <option value="pill">Pill Capsule (?overlay=pill)</option>
-                                        <option value="neon">Cyber Neon (?overlay=neon)</option>
-                                        <option value="retro">Retro Arcade (?overlay=retro)</option>
-                                        <option value="custom">Custom Color / Hash...</option>
-                                    </select>
-                                </div>
-                                <div id="poll-opt-custom-bg-wrap" style="display: none;">
-                                    <label for="poll-opt-custom-bg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Hex Color / Hash</label>
-                                    <div style="display: flex; gap: 0.3rem; align-items: center;">
-                                        <input type="text" id="poll-opt-custom-bg" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; font-family: monospace;" placeholder="161b22" value="161b22" oninput="updatePollOverlayUrl()">
-                                        <input type="color" id="poll-opt-color-picker" value="#161b22" style="width: 28px; height: 28px; padding: 1px; border: none; cursor: pointer; border-radius: 4px;" oninput="$('poll-opt-custom-bg').value = this.value.replace('#',''); updatePollOverlayUrl();">
+                            <!-- URL Options Customizer -->
+                            <div style="background: var(--bg-inset); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border);">
+                                <div class="micro-heading" style="margin-bottom: 0.5rem;">Poll Overlay Options</div>
+                                
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.6rem;">
+                                    <div>
+                                        <label for="poll-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme / Container (?overlay=)</label>
+                                        <select id="poll-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updatePollOverlayUrl()">
+                                            <option value="card" selected>Dark Card (?overlay=card)</option>
+                                            <option value="glass">Frosted Glass (?overlay=glass)</option>
+                                            <option value="solid">Opaque Solid (?overlay=solid)</option>
+                                            <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
+                                            <option value="pill">Pill Capsule (?overlay=pill)</option>
+                                            <option value="neon">Cyber Neon (?overlay=neon)</option>
+                                            <option value="retro">Retro Arcade (?overlay=retro)</option>
+                                            <option value="custom">Custom Color / Hash...</option>
+                                        </select>
+                                    </div>
+                                    <div id="poll-opt-custom-bg-wrap" style="display: none;">
+                                        <label for="poll-opt-custom-bg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Hex Color / Hash</label>
+                                        <div style="display: flex; gap: 0.3rem; align-items: center;">
+                                            <input type="text" id="poll-opt-custom-bg" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; font-family: monospace;" placeholder="161b22" value="161b22" oninput="updatePollOverlayUrl()">
+                                            <input type="color" id="poll-opt-color-picker" value="#161b22" style="width: 28px; height: 28px; padding: 1px; border: none; cursor: pointer; border-radius: 4px;" oninput="$('poll-opt-custom-bg').value = this.value.replace('#',''); updatePollOverlayUrl();">
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div style="margin-bottom: 0.2rem;">
-                                <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                    <input type="checkbox" id="poll-opt-howtovote" onchange="updatePollOverlayUrl()">
-                                    <span>Show "How to vote" instructions at bottom (<code>?howtovote=1</code>)</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-                            <div style="font-size: 0.78rem; font-weight: 700; color: var(--text);">Tournament Bracket Overlay</div>
-                            <a id="btn-open-tourney-overlay" href="/overlays/tournament.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open ↗</a>
-                        </div>
-                        <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
-                            <input type="text" class="form-control" id="url-tourney-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
-                            <button type="button" class="btn-secondary" onclick="copyUrl('url-tourney-overlay', this)">Copy</button>
-                        </div>
-
-                        <!-- Tournament URL Options Customizer -->
-                        <div style="background: var(--bg-inset); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border);">
-                            <div class="micro-heading" style="margin-bottom: 0.5rem;">Tournament Overlay Options</div>
-                            
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.6rem;">
-                                <div>
-                                    <label for="tourney-opt-layout" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Layout (?layout=)</label>
-                                    <select id="tourney-opt-layout" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
-                                        <option value="tree" selected>Full Bracket Tree (?layout=tree)</option>
-                                        <option value="active">Active Match Lower-Third HUD (?layout=active)</option>
-                                        <option value="compact">Compact Overview (?layout=compact)</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="tourney-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme / Container (?overlay=)</label>
-                                    <select id="tourney-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
-                                        <option value="card" selected>Dark Card (?overlay=card)</option>
-                                        <option value="glass">Frosted Glass (?overlay=glass)</option>
-                                        <option value="solid">Opaque Solid (?overlay=solid)</option>
-                                        <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
-                                        <option value="pill">Pill Capsule (?overlay=pill)</option>
-                                        <option value="neon">Cyber Neon (?overlay=neon)</option>
-                                        <option value="retro">Retro Arcade (?overlay=retro)</option>
-                                        <option value="custom">Custom Color / Hash...</option>
-                                    </select>
+                                <div style="margin-bottom: 0.2rem;">
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="poll-opt-howtovote" onchange="updatePollOverlayUrl()">
+                                        <span>Show "How to vote" chat keyword instructions (<code>?howtovote=1</code>)</span>
+                                    </label>
                                 </div>
                             </div>
-
-                            <div id="tourney-opt-custom-bg-wrap" style="display: none; margin-bottom: 0.6rem;">
-                                <label for="tourney-opt-custom-bg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Hex Color / Hash</label>
-                                <div style="display: flex; gap: 0.3rem; align-items: center;">
-                                    <input type="text" id="tourney-opt-custom-bg" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; font-family: monospace;" placeholder="0d1117" value="0d1117" oninput="updateTourneyOverlayUrl()">
-                                    <input type="color" id="tourney-opt-color-picker" value="#0d1117" style="width: 28px; height: 28px; padding: 1px; border: none; cursor: pointer; border-radius: 4px;" oninput="$('tourney-opt-custom-bg').value = this.value.replace('#',''); updateTourneyOverlayUrl();">
-                                </div>
-                            </div>
-
-                            <div style="display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.2rem;">
-                                <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                    <input type="checkbox" id="tourney-opt-scores" checked onchange="updateTourneyOverlayUrl()">
-                                    <span>Show Match Scores &amp; Series Pips (<code>?showscores=1</code>)</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Matchup Scoreboard Overlay URL -->
-                    <div style="margin-top: 1.25rem;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-                            <div style="font-size: 0.78rem; font-weight: 700; color: var(--text);">Matchup Scoreboard Overlay</div>
-                            <a id="btn-open-matchup-overlay" href="/overlays/matchup.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open ↗</a>
-                        </div>
-                        <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
-                            <input type="text" class="form-control" id="url-matchup-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
-                            <button type="button" class="btn-secondary" onclick="copyUrl('url-matchup-overlay', this)">Copy</button>
                         </div>
 
-                        <!-- Matchup URL Options Customizer -->
-                        <div style="background: var(--bg-inset); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border);">
-                            <div class="micro-heading" style="margin-bottom: 0.5rem;">Matchup Overlay Options</div>
-                            
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.6rem;">
-                                <div>
-                                    <label for="matchup-opt-layout" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Layout (?layout=)</label>
-                                    <select id="matchup-opt-layout" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                        <option value="top" selected>Fighting Game Top Bar (?layout=top)</option>
-                                        <option value="fgc">Modern FGC (EVO Style) (?layout=fgc)</option>
-                                        <option value="split">Dual Corner Split (Open Center) (?layout=split)</option>
-                                        <option value="minimal">Minimal / Center-Less (?layout=minimal)</option>
-                                        <option value="bottom">Esports Lower-Third HUD (?layout=bottom)</option>
-                                        <option value="compact">Compact Score Bug (?layout=compact)</option>
-                                        <option value="versus">Versus Screen Card (?layout=versus)</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="matchup-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme (?overlay=)</label>
-                                    <select id="matchup-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                        <option value="card" selected>Dark Card (?overlay=card)</option>
-                                        <option value="fgc-evo">EVO Championship (?overlay=fgc-evo)</option>
-                                        <option value="cyber">Cyberpunk Neon (?overlay=cyber)</option>
-                                        <option value="glass">Frosted Glass (?overlay=glass)</option>
-                                        <option value="solid">Opaque Solid (?overlay=solid)</option>
-                                        <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
-                                        <option value="pill">Pill Capsule (?overlay=pill)</option>
-                                        <option value="neon">Cyber Neon (?overlay=neon)</option>
-                                        <option value="retro">Retro Arcade (?overlay=retro)</option>
-                                        <option value="custom">Custom Color / Hash...</option>
-                                    </select>
-                                </div>
+                        <div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                                <div style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Audience Tournament Bracket Overlay</div>
+                                <a id="btn-open-tourney-overlay" href="/overlays/tournament.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open &nearr;</a>
+                            </div>
+                            <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
+                                <input type="text" class="form-control" id="url-tourney-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
+                                <button type="button" class="btn-secondary" onclick="copyUrl('url-tourney-overlay', this)">Copy</button>
                             </div>
 
-                            <div id="matchup-opt-custom-bg-wrap" style="display: none; margin-bottom: 0.6rem;">
-                                <label for="matchup-opt-custom-bg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Hex Color / Hash</label>
-                                <div style="display: flex; gap: 0.3rem; align-items: center;">
-                                    <input type="text" id="matchup-opt-custom-bg" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; font-family: monospace;" placeholder="0d1117" value="0d1117" oninput="updateMatchupOverlayUrl()">
-                                    <input type="color" id="matchup-opt-color-picker" value="#0d1117" style="width: 28px; height: 28px; padding: 1px; border: none; cursor: pointer; border-radius: 4px;" oninput="$('matchup-opt-custom-bg').value = this.value.replace('#',''); updateMatchupOverlayUrl();">
+                            <!-- Tournament URL Options Customizer -->
+                            <div style="background: var(--bg-inset); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border);">
+                                <div class="micro-heading" style="margin-bottom: 0.5rem;">Tournament Overlay Options</div>
+                                
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.6rem;">
+                                    <div>
+                                        <label for="tourney-opt-layout" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Layout (?layout=)</label>
+                                        <select id="tourney-opt-layout" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <option value="tree" selected>Full Bracket Tree (?layout=tree)</option>
+                                            <option value="active">Active Match Lower-Third HUD (?layout=active)</option>
+                                            <option value="compact">Compact Overview (?layout=compact)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme / Container (?overlay=)</label>
+                                        <select id="tourney-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <option value="card" selected>Dark Card (?overlay=card)</option>
+                                            <option value="glass">Frosted Glass (?overlay=glass)</option>
+                                            <option value="solid">Opaque Solid (?overlay=solid)</option>
+                                            <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
+                                            <option value="pill">Pill Capsule (?overlay=pill)</option>
+                                            <option value="neon">Cyber Neon (?overlay=neon)</option>
+                                            <option value="retro">Retro Arcade (?overlay=retro)</option>
+                                        </select>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div style="display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.2rem;">
-                                <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                    <input type="checkbox" id="matchup-opt-center" checked onchange="updateMatchupOverlayUrl()">
-                                    <span>Show Center Phase Badge (<code>?center=1</code>)</span>
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                    <input type="checkbox" id="matchup-opt-pips" checked onchange="updateMatchupOverlayUrl()">
-                                    <span>Show Series Win Pips (<code>?pips=1</code>)</span>
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                    <input type="checkbox" id="matchup-opt-tags" checked onchange="updateMatchupOverlayUrl()">
-                                    <span>Show Character / Sub-Tags (<code>?tags=1</code>)</span>
-                                </label>
+                                <div style="display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.2rem;">
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-scores" checked onchange="updateTourneyOverlayUrl()">
+                                        <span>Show Match Scores &amp; Votes (<code>?showscores=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-fit" checked onchange="updateTourneyOverlayUrl()">
+                                        <span>Auto-fit whole bracket to screen (<code>?fit=1</code>)</span>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
     </main>
 
     <div id="toast" class="toast"></div>
@@ -780,6 +703,10 @@
             if (scoresCheck && !scoresCheck.checked) {
                 urlParams.set('showscores', '0');
             }
+            const fitCheck = $('tourney-opt-fit');
+            if (fitCheck && fitCheck.checked) {
+                urlParams.set('fit', '1');
+            }
 
             const qs = urlParams.toString();
             const fullUrl = `${origin}/overlays/tournament.html${qs ? `?${qs}` : ''}`;
@@ -857,7 +784,6 @@
         function updatePreview() {
             updatePollOverlayUrl();
             updateTourneyOverlayUrl();
-            updateMatchupOverlayUrl();
         }
 
         function copyUrl(inputId, btn) {
@@ -872,33 +798,36 @@
         // Tab Switching
         function switchTab(tab) {
             activeTab = tab;
-            $('tab-btn-poll').classList.toggle('active', tab === 'poll');
-            $('tab-btn-tourney').classList.toggle('active', tab === 'tourney');
-            $('tab-btn-matchup').classList.toggle('active', tab === 'matchup');
-            $('tab-btn-templates').classList.toggle('active', tab === 'templates');
+            $('tab-btn-poll')?.classList.toggle('active', tab === 'poll');
+            $('tab-btn-tourney')?.classList.toggle('active', tab === 'tourney');
+            $('tab-btn-overlays')?.classList.toggle('active', tab === 'overlays');
+            $('tab-btn-templates')?.classList.toggle('active', tab === 'templates');
 
-            $('panel-poll').style.display = tab === 'poll' ? 'block' : 'none';
-            $('panel-tourney').style.display = tab === 'tourney' ? 'block' : 'none';
-            $('panel-matchup').style.display = tab === 'matchup' ? 'block' : 'none';
-            $('panel-templates').style.display = tab === 'templates' ? 'block' : 'none';
+            if ($('panel-poll')) $('panel-poll').style.display = tab === 'poll' ? 'block' : 'none';
+            if ($('panel-tourney')) $('panel-tourney').style.display = tab === 'tourney' ? 'block' : 'none';
+            if ($('panel-overlays')) $('panel-overlays').style.display = tab === 'overlays' ? 'block' : 'none';
+            if ($('panel-templates')) $('panel-templates').style.display = tab === 'templates' ? 'block' : 'none';
 
-            if (tab === 'tourney') setPreviewMode('tourney');
-            else if (tab === 'matchup') setPreviewMode('matchup');
-            else if (tab === 'poll') setPreviewMode('poll');
+            if (tab === 'tourney') {
+                loadTournament();
+                setPreviewMode('tourney');
+            } else if (tab === 'poll') {
+                setPreviewMode('poll');
+            } else if (tab === 'templates') {
+                loadPresets();
+                loadHistory();
+            }
         }
 
         function setPreviewMode(mode) {
             previewMode = mode;
-            $('btn-preview-poll').classList.toggle('btn-primary', mode === 'poll');
-            $('btn-preview-poll').classList.toggle('btn-secondary', mode !== 'poll');
-            $('btn-preview-tourney').classList.toggle('btn-primary', mode === 'tourney');
-            $('btn-preview-tourney').classList.toggle('btn-secondary', mode !== 'tourney');
-            $('btn-preview-matchup').classList.toggle('btn-primary', mode === 'matchup');
-            $('btn-preview-matchup').classList.toggle('btn-secondary', mode !== 'matchup');
+            $('btn-preview-poll')?.classList.toggle('btn-primary', mode === 'poll');
+            $('btn-preview-poll')?.classList.toggle('btn-secondary', mode !== 'poll');
+            $('btn-preview-tourney')?.classList.toggle('btn-primary', mode === 'tourney');
+            $('btn-preview-tourney')?.classList.toggle('btn-secondary', mode !== 'tourney');
 
-            $('poll-preview-box').style.display = mode === 'poll' ? 'flex' : 'none';
-            $('tourney-preview-box').style.display = mode === 'tourney' ? 'block' : 'none';
-            $('matchup-preview-box').style.display = mode === 'matchup' ? 'block' : 'none';
+            if ($('poll-preview-box')) $('poll-preview-box').style.display = mode === 'poll' ? 'flex' : 'none';
+            if ($('tourney-preview-box')) $('tourney-preview-box').style.display = mode === 'tourney' ? 'block' : 'none';
         }
 
         // Choices management (Up to 10 choices)
@@ -1683,7 +1612,15 @@
             const m = getCurrentMatch();
             if (!m) return;
             if (m.status === 'ACTIVE') {
-                endActivePoll();
+                if (activePollData && activePollData.status === 'ACTIVE') {
+                    endActivePoll();
+                } else {
+                    const e1 = m.entrant1?.name || 'Player 1';
+                    const e2 = m.entrant2?.name || 'Player 2';
+                    const choice = prompt(`Crown Winner for ${m.roundName}:\n1 = ${e1}\n2 = ${e2}`, '1');
+                    if (choice === '1') advanceSpecificEntrant(1);
+                    else if (choice === '2') advanceSpecificEntrant(2);
+                }
             } else {
                 startTournamentMatchById(m.id);
             }

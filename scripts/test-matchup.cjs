@@ -404,4 +404,54 @@ test('Matchup Service Unit Tests', async (t) => {
     assert.equal(service.getMatchup().status, 'COMPLETED');
     assert.equal(service.getMatchup().clock.isRunning, false, 'Clock should auto-pause when set completes');
   });
+
+  await t.test('manages GDQ-style Speedrun Battle race clocks with multi-runner splits and deltas', () => {
+    const service = createMatchupService({
+      dataDir: TEST_DIR
+    });
+
+    service.updateMatchup({
+      competitors: [
+        { name: 'Runner 1', tag: 'Mario' },
+        { name: 'Runner 2', tag: 'Luigi' }
+      ]
+    });
+
+    // Set estimate
+    const clock = service.setTargetEstimate('35:00');
+    assert.equal(clock.estimate, '35:00');
+
+    // Start all runners in sync
+    const started = service.startAllRace();
+    assert.equal(started.clock.isRunning, true);
+    assert.equal(started.competitors[0].timer.isRunning, true);
+    assert.equal(started.competitors[1].timer.isRunning, true);
+
+    // Simulate elapsed time on runner 1 and finish
+    started.competitors[0].timer.elapsed = 120500; // 2m 0.5s
+    const mAfterFinish1 = service.finishCompetitorRace(0);
+    assert.equal(mAfterFinish1.competitors[0].timer.finished, true);
+    assert.equal(mAfterFinish1.competitors[0].timer.isRunning, false);
+    assert.equal(mAfterFinish1.competitors[0].timer.delta, 'WINNER');
+
+    // Runner 2 finishes 1.5s later
+    mAfterFinish1.competitors[1].timer.elapsed = 122000;
+    const mAfterFinish2 = service.finishCompetitorRace(1);
+    assert.equal(mAfterFinish2.competitors[1].timer.finished, true);
+    assert.equal(mAfterFinish2.competitors[1].timer.isRunning, false);
+    assert.ok(mAfterFinish2.competitors[1].timer.delta.startsWith('+'));
+    assert.equal(mAfterFinish2.clock.isRunning, false, 'Clock should stop when all runners have finished');
+
+    // Reset competitor 2
+    service.resetCompetitorRace(1);
+    assert.equal(service.getMatchup().competitors[1].timer.finished, false);
+    assert.equal(service.getMatchup().competitors[1].timer.elapsed, 0);
+
+    // Reset all
+    service.resetAllRace();
+    assert.equal(service.getMatchup().clock.elapsed, 0);
+    assert.equal(service.getMatchup().clock.isRunning, false);
+    assert.equal(service.getMatchup().competitors[0].timer.finished, false);
+    assert.equal(service.getMatchup().competitors[1].timer.finished, false);
+  });
 });

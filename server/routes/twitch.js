@@ -540,6 +540,23 @@ function createTwitchRoutes({
             return true;
         }
 
+        if (pathname.startsWith('/api/tournament/presets/') && (req.method === 'PUT' || req.method === 'PATCH')) {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const id = decodeURIComponent(pathname.replace('/api/tournament/presets/', ''));
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const item = pollService.updateTournamentPreset(id, body);
+                sendJson(res, { status: 'ok', preset: item, presets: pollService.getTournamentPresets() });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
         if (pathname.startsWith('/api/tournament/presets/') && req.method === 'DELETE') {
             if (!pollService) {
                 sendError(res, 501, 'Native polls not available');
@@ -679,6 +696,104 @@ function createTwitchRoutes({
                 const raw = await readRequestBody(req);
                 const body = raw ? JSON.parse(raw) : {};
                 const clock = matchupService.setClockMode(body);
+                sendJson(res, { status: 'ok', clock, matchup: matchupService.getMatchup() });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        // Speedrun Battle / Race Clock Endpoints
+        if (pathname === '/api/matchup/clock/race/start-all' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            const matchup = matchupService.startAllRace();
+            sendJson(res, { status: 'ok', matchup, clock: matchup.clock });
+            return true;
+        }
+
+        if (pathname === '/api/matchup/clock/race/pause-all' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            const matchup = matchupService.pauseAllRace();
+            sendJson(res, { status: 'ok', matchup, clock: matchup.clock });
+            return true;
+        }
+
+        if (pathname === '/api/matchup/clock/race/reset-all' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            const matchup = matchupService.resetAllRace();
+            sendJson(res, { status: 'ok', matchup, clock: matchup.clock });
+            return true;
+        }
+
+        if (pathname === '/api/matchup/clock/race/finish' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const idOrIdx = body.competitorId !== undefined ? body.competitorId : body.index;
+                const matchup = matchupService.finishCompetitorRace(idOrIdx);
+                sendJson(res, { status: 'ok', matchup, clock: matchup.clock });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/matchup/clock/race/toggle' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const idOrIdx = body.competitorId !== undefined ? body.competitorId : body.index;
+                const matchup = matchupService.toggleCompetitorRace(idOrIdx);
+                sendJson(res, { status: 'ok', matchup, clock: matchup.clock });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/matchup/clock/race/reset' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const idOrIdx = body.competitorId !== undefined ? body.competitorId : body.index;
+                const matchup = matchupService.resetCompetitorRace(idOrIdx);
+                sendJson(res, { status: 'ok', matchup, clock: matchup.clock });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/matchup/clock/estimate' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const clock = matchupService.setTargetEstimate(body.estimate);
                 sendJson(res, { status: 'ok', clock, matchup: matchupService.getMatchup() });
             } catch (err) {
                 sendError(res, 400, err.message);

@@ -230,6 +230,7 @@ IGDB operations use the configured Twitch client credentials. Missing credential
 ### Tournament Presets, History & Drafts
 - **Get Presets**: `GET /api/tournament/presets` — Returns saved tournament configuration presets.
 - **Save Preset**: `POST /api/tournament/presets` — Saves current or provided tournament setup: `{ "name": "8-Player Double Elim", "tournament": { ... } }`.
+- **Update Preset**: `PUT /api/tournament/presets/:id` — Updates an existing tournament preset's properties: `{ "name": "Updated Bracket Name", "entrants": [...] }`.
 - **Load Preset**: `POST /api/tournament/presets/load` — Loads a tournament preset: `{ "id": "preset-1" }`.
 - **Delete Preset**: `DELETE /api/tournament/presets/:id` — Deletes a saved tournament preset.
 - **Get History**: `GET /api/tournament/history` — Returns list of archived completed tournament brackets.
@@ -339,6 +340,16 @@ Dual-mode match clocks (EVO fighting game round timer or GDQ marathon stopwatch)
     "estimate": "45:00"
   }
   ```
+
+### Speedrun Battle Multi-Runner Race Clocks (GDQ Mode)
+Synchronized multi-runner clocks for speedrun races with individual splits and delta calculations:
+- **Sync Start All Runners**: `POST /api/matchup/clock/race/start-all` — Starts the master timer and all competitor split timers in perfect synchronization.
+- **Pause All Runners**: `POST /api/matchup/clock/race/pause-all` — Pauses the master race clock and all runner split timers.
+- **Reset All Runners**: `POST /api/matchup/clock/race/reset-all` — Resets all runner split clocks, finished states, and delta badges to zero.
+- **Finish / Split Runner**: `POST /api/matchup/clock/race/finish` — `{ "competitor": 0 }` Locks a competitor's finish time and calculates their delta badge (`WINNER` for first finisher, `+MM:SS.ss` for subsequent finishers).
+- **Toggle Individual Runner**: `POST /api/matchup/clock/race/toggle` — `{ "competitor": 0 }` Pauses or resumes an individual runner's timer.
+- **Reset Individual Runner**: `POST /api/matchup/clock/race/reset` — `{ "competitor": 0 }` Resets an individual runner's split clock and clears their finish state.
+- **Set Target Estimate**: `POST /api/matchup/clock/race/estimate` — `{ "estimate": "45:00" }` Sets the target estimated finish time shown on overlays and studio monitors.
 
 ---
 

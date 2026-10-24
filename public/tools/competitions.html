@@ -31,31 +31,32 @@
             </a>
         </div>
 
-        <div class="layout-grid">
-            <!-- Left Column: Competition Controls -->
-            <div class="controls-col">
-                <!-- Navigation Tabs -->
-                <div class="studio-tabs">
-                    <button type="button" class="studio-tab-btn active" id="tab-btn-tourney" onclick="switchTab('tourney')">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
-                        Tournament Bracket
-                    </button>
-                    <button type="button" class="studio-tab-btn" id="tab-btn-matchup" onclick="switchTab('matchup')">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="2"/><line x1="16" y1="10" x2="16" y2="14"/><line x1="14" y1="12" x2="18" y2="12"/></svg>
-                        Versus &amp; Fight Card
-                    </button>
-                    <button type="button" class="studio-tab-btn" id="tab-btn-presets" onclick="switchTab('presets')">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-                        Saved Presets
-                    </button>
-                    <button type="button" class="studio-tab-btn" id="tab-btn-history" onclick="switchTab('history')">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        History
-                    </button>
-                </div>
+        <!-- Navigation Tabs (Full Width) -->
+        <div class="studio-tabs" style="margin-bottom: 1.25rem;">
+            <button type="button" class="studio-tab-btn active" id="tab-btn-tourney" onclick="switchTab('tourney')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                Tournament Bracket
+            </button>
+            <button type="button" class="studio-tab-btn" id="tab-btn-matchup" onclick="switchTab('matchup')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="2"/><line x1="16" y1="10" x2="16" y2="14"/><line x1="14" y1="12" x2="18" y2="12"/></svg>
+                Versus &amp; Speedruns
+            </button>
+            <button type="button" class="studio-tab-btn" id="tab-btn-overlays" onclick="switchTab('overlays')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                Overlays &amp; Live Preview
+            </button>
+            <button type="button" class="studio-tab-btn" id="tab-btn-presets" onclick="switchTab('presets')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                Saved Presets
+            </button>
+            <button type="button" class="studio-tab-btn" id="tab-btn-history" onclick="switchTab('history')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                History
+            </button>
+        </div>
 
-                <!-- Tab 1: Tournament Bracket Controller -->
-                <div id="panel-tourney" style="display: block;">
+        <!-- Tab 1: Tournament Bracket Controller -->
+        <div id="panel-tourney" style="display: block;">
                     <!-- Active Tournament Running Monitor -->
                     <div id="active-tourney-card" class="card active-poll-card" style="display: none;">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
@@ -226,32 +227,58 @@
                             </div>
                         </div>
 
-                        <!-- Match Clock & Round Timer (EVO & GDQ) -->
-                        <div style="margin-bottom: 0.85rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.65rem 0.8rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
+                        <!-- Match Clock & Speedrun Timers -->
+                        <div style="margin-bottom: 0.85rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
                                 <div style="display: flex; align-items: center; gap: 0.45rem;">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                    <span class="micro-heading" style="margin-bottom: 0;">Match Clock &amp; Timer</span>
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                    <span class="micro-heading" style="margin-bottom: 0;">Match Clock &amp; Speedrun Timers</span>
+                                </div>
+                                <div style="display: flex; gap: 0.3rem; flex-wrap: wrap;" id="clock-mode-chips">
+                                    <button type="button" class="preset-chip-btn active" id="chip-clk-99" onclick="setClockPreset('countdown', 99)">99s EVO</button>
+                                    <button type="button" class="preset-chip-btn" id="chip-clk-60" onclick="setClockPreset('countdown', 60)">60s Tekken</button>
+                                    <button type="button" class="preset-chip-btn" id="chip-clk-stopwatch" onclick="setClockPreset('stopwatch', 0)">Stopwatch</button>
+                                    <button type="button" class="preset-chip-btn" id="chip-clk-race" onclick="setClockPreset('race', 0)">Speedrun Battle (GDQ)</button>
+                                </div>
+                            </div>
+
+                            <!-- Standard Countdown / Stopwatch Controls -->
+                            <div id="clock-standard-controls" style="display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap;">
+                                <div style="display: flex; align-items: baseline; gap: 0.4rem;">
+                                    <span id="studio-clock-digits" style="font-size: 1.55rem; font-weight: 900; font-family: monospace; color: #ffd700; line-height: 1;">99</span>
+                                    <span id="studio-clock-mode-label" style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Countdown</span>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 0.35rem;">
-                                    <button type="button" class="btn-primary" id="btn-clock-toggle" style="font-size: 0.72rem; padding: 0.15rem 0.55rem;" onclick="toggleMatchClock()">
+                                    <button type="button" class="btn-primary" id="btn-clock-toggle" style="font-size: 0.75rem; padding: 0.2rem 0.65rem;" onclick="toggleMatchClock()">
                                         Start Clock
                                     </button>
-                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.45rem;" onclick="resetMatchClock()">
+                                    <button type="button" class="btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.55rem;" onclick="resetMatchClock()">
                                         Reset
                                     </button>
                                 </div>
                             </div>
 
-                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap;">
-                                <div style="display: flex; align-items: baseline; gap: 0.4rem;">
-                                    <span id="studio-clock-digits" style="font-size: 1.45rem; font-weight: 900; font-family: monospace; color: #ffd700; line-height: 1;">99</span>
-                                    <span id="studio-clock-mode-label" style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Countdown</span>
+                            <!-- Speedrun Battle Race Controls -->
+                            <div id="clock-race-controls" style="display: none; border-top: 1px solid var(--border); margin-top: 0.6rem; padding-top: 0.6rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.4rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <label for="race-est-input" style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 0;">Target EST:</label>
+                                        <input type="text" id="race-est-input" class="form-control" style="width: 100px; font-size: 0.75rem; padding: 0.2rem 0.4rem; font-family: monospace;" placeholder="45:00" onchange="saveRaceEstimate(this.value)">
+                                    </div>
+                                    <div style="display: flex; gap: 0.35rem; align-items: center;">
+                                        <button type="button" class="btn-primary" style="font-size: 0.75rem; padding: 0.22rem 0.7rem; background: #238636; border-color: #2ea043; color: #fff; font-weight: 700;" onclick="startAllRunnersRace()">
+                                            Sync Start All Runners
+                                        </button>
+                                        <button type="button" class="btn-secondary" style="font-size: 0.75rem; padding: 0.22rem 0.55rem;" onclick="pauseAllRunnersRace()">
+                                            Pause All
+                                        </button>
+                                        <button type="button" class="btn-secondary" style="font-size: 0.75rem; padding: 0.22rem 0.55rem;" onclick="resetAllRunnersRace()">
+                                            Reset All
+                                        </button>
+                                    </div>
                                 </div>
-                                <div style="display: flex; gap: 0.3rem; flex-wrap: wrap;">
-                                    <button type="button" class="preset-chip-btn active" id="chip-clk-99" onclick="setClockPreset('countdown', 99)">99s EVO</button>
-                                    <button type="button" class="preset-chip-btn" id="chip-clk-60" onclick="setClockPreset('countdown', 60)">60s</button>
-                                    <button type="button" class="preset-chip-btn" id="chip-clk-stopwatch" onclick="setClockPreset('stopwatch', 0)">Stopwatch (GDQ)</button>
+                                <div style="font-size: 0.72rem; color: var(--text-muted);">
+                                    Each runner has their own timer below. Click "Finish / Split" on a runner card when they complete their run.
                                 </div>
                             </div>
                         </div>
@@ -375,7 +402,360 @@
                     </div>
                 </div>
 
-                <!-- Tab 3: Presets & Templates Panel -->
+                <!-- Tab 3: Overlays & Live Preview Panel (Full Width Studio) -->
+                <div id="panel-overlays" style="display: none;">
+                    <div class="card" style="margin-bottom: 1rem;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                            <div>
+                                <h2 style="margin-bottom: 0.15rem;">Live Overlay Preview</h2>
+                                <p class="hint" style="margin: 0;">Interactive real-time preview of your scoreboards, HUDs, and tournament brackets.</p>
+                            </div>
+                            <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                                <button type="button" class="btn-secondary btn-primary" id="btn-prev-matchup" style="font-size: 0.72rem; padding: 0.25rem 0.65rem;" onclick="setPreviewMode('matchup')">
+                                    Matchup Scoreboard
+                                </button>
+                                <button type="button" class="btn-secondary" id="btn-prev-tourney-tree" style="font-size: 0.72rem; padding: 0.25rem 0.65rem;" onclick="setPreviewMode('tourney-tree')">
+                                    Bracket Tree
+                                </button>
+                                <button type="button" class="btn-secondary" id="btn-prev-tourney-hud" style="font-size: 0.72rem; padding: 0.25rem 0.65rem;" onclick="setPreviewMode('tourney-hud')">
+                                    Active Match HUD
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Global Canvas Backdrop & Sample Data Bar -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; background: var(--bg-inset); padding: 0.45rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); flex-wrap: wrap; gap: 0.5rem;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.45rem;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <span id="prev-mode-label" style="font-weight: 700; color: var(--text);">Matchup Scoreboard Preview</span>
+                            </div>
+                            <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
+                                <button type="button" class="btn-secondary" id="prev-btn-bg" style="font-size: 0.7rem; padding: 0.2rem 0.55rem;" onclick="togglePreviewBackdrop()" title="Toggle dark background vs checkerboard transparency grid">
+                                    Canvas: Dark
+                                </button>
+                                <button type="button" class="btn-secondary" id="prev-btn-sample" style="font-size: 0.7rem; padding: 0.2rem 0.55rem;" onclick="togglePreviewSampleData()" title="Toggle sample data to preview populated layouts immediately">
+                                    Sample: ON
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Interactive Live Preview Toolbar: Matchup -->
+                        <div id="preview-toolbar-matchup" class="preview-toolbar" style="margin-bottom: 0.75rem; padding: 0.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;">
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Layout:</span>
+                                <select id="prev-ctrl-layout" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onPreviewOptionChange('layout', this.value)">
+                                    <option value="top">Top Bar (Fighting Game)</option>
+                                    <option value="fgc">Modern FGC (EVO Style)</option>
+                                    <option value="split">Dual Split (Open Center)</option>
+                                    <option value="race">Speedrun Battle (GDQ Race)</option>
+                                    <option value="minimal">Minimal Center-Less</option>
+                                    <option value="pillar">Vertical Pillar Stack</option>
+                                    <option value="bottom">Lower-Third HUD</option>
+                                    <option value="compact">Compact Score Bug</option>
+                                    <option value="versus">Versus Screen Card</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Theme:</span>
+                                <select id="prev-ctrl-theme" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onPreviewOptionChange('theme', this.value)">
+                                    <option value="card">Dark Card</option>
+                                    <option value="championship">Championship Gold</option>
+                                    <option value="fgc-evo">EVO Championship</option>
+                                    <option value="cyber">Cyberpunk</option>
+                                    <option value="glass">Frosted Glass</option>
+                                    <option value="clean-light">Clean Light</option>
+                                    <option value="minimal-dark">OLED Black</option>
+                                    <option value="border">Border Framing</option>
+                                    <option value="solid">Opaque Solid</option>
+                                    <option value="transparent">Transparent</option>
+                                    <option value="pill">Pill</option>
+                                    <option value="retro">Retro Arcade</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Pips:</span>
+                                <select id="prev-ctrl-pipstyle" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onPreviewOptionChange('pipstyle', this.value)">
+                                    <option value="circle">Circles (●)</option>
+                                    <option value="bar">Bars (▮)</option>
+                                    <option value="digit">Digits (1/2)</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Fit:</span>
+                                <select id="prev-ctrl-fit" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onPreviewOptionChange('fit', this.value)">
+                                    <option value="full">Flexible Width</option>
+                                    <option value="content">Tight Content (?fit=content)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Interactive Live Preview Toolbar: Tournament -->
+                        <div id="preview-toolbar-tourney" class="preview-toolbar" style="display: none; margin-bottom: 0.75rem; padding: 0.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;">
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Theme:</span>
+                                <select id="prev-ctrl-tourney-theme" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
+                                    <option value="card">Dark Card</option>
+                                    <option value="championship">Championship Gold</option>
+                                    <option value="fgc-evo">EVO Championship</option>
+                                    <option value="cyber">Cyberpunk</option>
+                                    <option value="glass">Frosted Glass</option>
+                                    <option value="clean-light">Clean Light</option>
+                                    <option value="minimal-dark">OLED Black</option>
+                                    <option value="solid">Opaque Solid</option>
+                                    <option value="transparent">Transparent</option>
+                                    <option value="pill">Pill</option>
+                                    <option value="retro">Retro Arcade</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Spacing:</span>
+                                <select id="prev-ctrl-tourney-spacing" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
+                                    <option value="normal">Normal</option>
+                                    <option value="compact">Compact Fit</option>
+                                    <option value="spacious">Spacious</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Lines:</span>
+                                <select id="prev-ctrl-tourney-lines" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
+                                    <option value="glow">Luminous Glow</option>
+                                    <option value="solid">Solid</option>
+                                    <option value="minimal">Minimal</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Scores:</span>
+                                <select id="prev-ctrl-tourney-scores" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
+                                    <option value="1">Show Scores</option>
+                                    <option value="0">Hide Scores</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Title:</span>
+                                <select id="prev-ctrl-tourney-title" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
+                                    <option value="1">Show Title</option>
+                                    <option value="0">Hide Title</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Rounds:</span>
+                                <select id="prev-ctrl-tourney-rounds" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
+                                    <option value="1">Show Round Headers</option>
+                                    <option value="0">Hide Round Headers</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <button type="button" class="btn-secondary" id="btn-tourney-fit-toggle" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="toggleTourneyFitWholeBracket()">
+                                    Fit Whole Bracket: OFF
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Preset Aspect / Resolution Chips -->
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.65rem;" id="prev-viewport-chips">
+                            <button type="button" class="preset-chip-btn active" id="chip-vp-topbar" onclick="setPreviewViewport(1100, 100, this)">Top Bar (1100×100)</button>
+                            <button type="button" class="preset-chip-btn" id="chip-vp-hud" onclick="setPreviewViewport(800, 130, this)">Lower Third (800×130)</button>
+                            <button type="button" class="preset-chip-btn" id="chip-vp-race" onclick="setPreviewViewport(1280, 220, this)">Speedrun Race (1280×220)</button>
+                            <button type="button" class="preset-chip-btn" id="chip-vp-169" onclick="setPreviewViewport(1280, 720, this)">16:9 Canvas (1280×720)</button>
+                            <button type="button" class="preset-chip-btn" id="chip-vp-bracket" onclick="setPreviewViewport(null, 560, this)">Full Bracket (100%×560)</button>
+                            <button type="button" class="preset-chip-btn" id="chip-vp-bug" onclick="setPreviewViewport(380, 120, this)">Score Bug (380×120)</button>
+                            <button type="button" class="preset-chip-btn" id="chip-vp-pillar" onclick="setPreviewViewport(420, 360, this)">Side Pillar (420×360)</button>
+                        </div>
+
+                        <div id="preview-viewport-wrapper" style="width: 100%; display: flex; justify-content: center; align-items: center; background: #050811; border-radius: 8px; border: 1px solid var(--border); padding: 0.5rem; overflow: hidden; min-height: 240px; transition: all 0.2s ease;">
+                            <div id="preview-viewport-scaler" style="position: relative; overflow: hidden; width: 100%; height: 260px; transition: width 0.2s ease, height 0.2s ease; display: flex; justify-content: center; align-items: center;">
+                                <div id="matchup-preview-box" class="preview-container solid-dark" style="position: absolute; top: 0; left: 0; width: 100%; height: 260px; transform-origin: top left; transition: transform 0.2s ease;">
+                                    <iframe id="matchup-preview-iframe" src="/overlays/matchup.html?preview=1" style="width: 100%; height: 100%; border: none; background: transparent;"></iframe>
+                                </div>
+                                <div id="tourney-tree-box" class="preview-container solid-dark" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 560px; transform-origin: top left; transition: transform 0.2s ease;">
+                                    <iframe id="tourney-preview-iframe" src="/overlays/tournament.html?preview=1" style="width: 100%; height: 100%; border: none; background: transparent;"></iframe>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; text-align: center;">
+                            OBS browser sources are responsive and self-sizing.
+                        </div>
+                    </div>
+
+                    <!-- OBS Browser Source URLs & Detailed Customization Options -->
+                    <div class="card">
+                        <div style="margin-bottom: 1rem;">
+                            <h2 style="margin-bottom: 0.15rem;">OBS Browser Source Links</h2>
+                            <p class="hint" style="margin: 0;">Copy these URLs into your OBS Studio Browser Source settings.</p>
+                        </div>
+
+                        <!-- Matchup Scoreboard Overlay URL -->
+                        <div style="margin-bottom: 1.5rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                                <div style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Matchup Scoreboard Overlay</div>
+                                <a id="btn-open-matchup-overlay" href="/overlays/matchup.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open &nearr;</a>
+                            </div>
+                            <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
+                                <input type="text" class="form-control" id="url-matchup-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
+                                <button type="button" class="btn-secondary" onclick="copyUrl('url-matchup-overlay', this)">Copy</button>
+                            </div>
+
+                            <!-- Matchup Options Customizer -->
+                            <div style="background: var(--bg-inset); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border);">
+                                <div class="micro-heading" style="margin-bottom: 0.5rem;">Matchup Overlay Options</div>
+                                
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem; margin-bottom: 0.6rem;">
+                                    <div>
+                                        <label for="matchup-opt-layout" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Layout (?layout=)</label>
+                                        <select id="matchup-opt-layout" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                            <option value="top" selected>Fighting Game Top Bar (?layout=top)</option>
+                                            <option value="fgc">Modern FGC (EVO Style) (?layout=fgc)</option>
+                                            <option value="split">Dual Corner Split (Open Center) (?layout=split)</option>
+                                            <option value="race">Speedrun Battle (GDQ Race) (?layout=race)</option>
+                                            <option value="minimal">Minimal / Center-Less (?layout=minimal)</option>
+                                            <option value="pillar">Vertical Pillar Stack (?layout=pillar)</option>
+                                            <option value="bottom">Esports Lower-Third HUD (?layout=bottom)</option>
+                                            <option value="compact">Compact Score Bug (?layout=compact)</option>
+                                            <option value="versus">Versus Screen Card (?layout=versus)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="matchup-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme (?overlay=)</label>
+                                        <select id="matchup-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                            <option value="card" selected>Dark Card (?overlay=card)</option>
+                                            <option value="fgc-evo">EVO Championship (?overlay=fgc-evo)</option>
+                                            <option value="championship">Championship Gold (?overlay=championship)</option>
+                                            <option value="cyber">Cyberpunk Neon (?overlay=cyber)</option>
+                                            <option value="clean-light">Clean Light Contrast (?overlay=clean-light)</option>
+                                            <option value="minimal-dark">OLED Deep Black (?overlay=minimal-dark)</option>
+                                            <option value="glass">Frosted Glass (?overlay=glass)</option>
+                                            <option value="solid">Opaque Solid (?overlay=solid)</option>
+                                            <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
+                                            <option value="pill">Pill Capsule (?overlay=pill)</option>
+                                            <option value="retro">Retro Arcade (?overlay=retro)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="matchup-opt-source" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Data Source (?source=)</label>
+                                        <select id="matchup-opt-source" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                            <option value="auto" selected>Auto: Tournament when on, else Versus</option>
+                                            <option value="tournament">Always Tournament Active Match</option>
+                                            <option value="matchup">Always Standalone Versus / Fight Card</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="matchup-opt-pipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Pip Style (?pipstyle=)</label>
+                                        <select id="matchup-opt-pipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                            <option value="circle" selected>Circles (● ● ○)</option>
+                                            <option value="bar">Rectangular Bars (▮ ▮ ▯)</option>
+                                            <option value="digit">Numeric Counter (2 / 3)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div style="display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.4rem;">
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="matchup-opt-center" checked onchange="updateMatchupOverlayUrl()">
+                                        <span>Show Center Phase Badge (<code>?center=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="matchup-opt-fit" onchange="updateMatchupOverlayUrl()">
+                                        <span>Auto-fit tight bounding box (<code>?fit=content</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="matchup-opt-confetti" checked onchange="updateMatchupOverlayUrl()">
+                                        <span>Celebration Victory Confetti (<code>?confetti=1</code>)</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Active Tournament Match HUD Overlay URL -->
+                        <div style="margin-bottom: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                                <div>
+                                    <span style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Active Tournament Match HUD</span>
+                                    <span class="badge-studio" style="font-size: 0.65rem; margin-left: 0.3rem;">Unified with Matchup</span>
+                                </div>
+                                <a id="btn-open-tourney-hud" href="/overlays/matchup.html?source=tournament" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open &nearr;</a>
+                            </div>
+                            <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.5rem;">
+                                <input type="text" class="form-control" id="url-tourney-hud" readonly style="font-family: monospace; font-size: 0.75rem;">
+                                <button type="button" class="btn-secondary" onclick="copyUrl('url-tourney-hud', this)">Copy</button>
+                            </div>
+                            <div style="font-size: 0.72rem; color: var(--text-muted);">
+                                Displays the currently active match from your running tournament using the layout, theme, and pips selected above.
+                            </div>
+                        </div>
+
+                        <!-- Tournament Bracket Overlay URL -->
+                        <div style="padding-top: 1rem; border-top: 1px solid var(--border);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                                <div style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Tournament Bracket Overlay</div>
+                                <a id="btn-open-tourney-overlay" href="/overlays/tournament.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open &nearr;</a>
+                            </div>
+                            <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
+                                <input type="text" class="form-control" id="url-tourney-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
+                                <button type="button" class="btn-secondary" onclick="copyUrl('url-tourney-overlay', this)">Copy</button>
+                            </div>
+
+                            <!-- Tournament Bracket Options Customizer -->
+                            <div style="background: var(--bg-inset); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border);">
+                                <div class="micro-heading" style="margin-bottom: 0.5rem;">Bracket Overlay Options</div>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem; margin-bottom: 0.5rem;">
+                                    <div>
+                                        <label for="tourney-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme (?overlay=)</label>
+                                        <select id="tourney-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncTourneyOptFromMain('theme', this.value)">
+                                            <option value="card" selected>Dark Card</option>
+                                            <option value="championship">Championship Gold</option>
+                                            <option value="fgc-evo">EVO Championship</option>
+                                            <option value="cyber">Cyberpunk Neon</option>
+                                            <option value="glass">Frosted Glass</option>
+                                            <option value="clean-light">Clean Light</option>
+                                            <option value="minimal-dark">OLED Black</option>
+                                            <option value="solid">Opaque Solid</option>
+                                            <option value="transparent">Transparent</option>
+                                            <option value="pill">Pill</option>
+                                            <option value="retro">Retro Arcade</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-spacing" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Spacing (?spacing=)</label>
+                                        <select id="tourney-opt-spacing" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncTourneyOptFromMain('spacing', this.value)">
+                                            <option value="normal" selected>Normal Spacing</option>
+                                            <option value="compact">Compact Fit</option>
+                                            <option value="spacious">Spacious Spacing</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-lines" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket Lines (?lines=)</label>
+                                        <select id="tourney-opt-lines" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncTourneyOptFromMain('lines', this.value)">
+                                            <option value="glow" selected>Luminous Glow Lines</option>
+                                            <option value="solid">Solid Connectors</option>
+                                            <option value="minimal">Minimal Lines</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-scores" checked onchange="syncTourneyOptFromMain('scores', this.checked ? '1' : '0')">
+                                        <span>Show Entrant Scores in Matches (<code>?showscores=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-title" checked onchange="syncTourneyOptFromMain('title', this.checked ? '1' : '0')">
+                                        <span>Show Tournament Title Header (<code>?showtitle=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-rounds" checked onchange="syncTourneyOptFromMain('rounds', this.checked ? '1' : '0')">
+                                        <span>Show Round Name Headers (<code>?showrounds=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-fit" onchange="syncTourneyOptFromMain('fit', this.checked ? '1' : '0')">
+                                        <span>Auto-scale entire bracket to browser viewport (<code>?fit=1</code>)</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 4: Presets & Templates Panel -->
                 <div id="panel-presets" style="display: none;">
                     <div style="display: flex; gap: 0.35rem; margin-bottom: 0.85rem; flex-wrap: wrap;" id="presets-category-tabs">
                         <button type="button" class="preset-chip-btn active" id="chip-cat-all" onclick="filterPresetsCategory('all', this)">All Categories</button>
@@ -440,279 +820,6 @@
                         <div id="matchup-history-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
                     </div>
                 </div>
-            </div>
-
-            <!-- Right Column: Live Previews & OBS Links -->
-            <div class="preview-col">
-                <div class="card">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
-                        <h2 style="margin-bottom: 0;">Live Overlay Preview</h2>
-                        <div style="display: flex; gap: 0.35rem;">
-                            <button type="button" class="btn-secondary btn-primary" id="btn-prev-matchup" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="setPreviewMode('matchup')">
-                                Matchup Scoreboard
-                            </button>
-                            <button type="button" class="btn-secondary" id="btn-prev-tourney-tree" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="setPreviewMode('tourney-tree')">
-                                Bracket Tree
-                            </button>
-                            <button type="button" class="btn-secondary" id="btn-prev-tourney-hud" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="setPreviewMode('tourney-hud')">
-                                Active Match HUD
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Global Canvas Backdrop & Sample Data Bar -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; background: var(--bg-inset); padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid var(--border);">
-                        <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.4rem;">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            <span id="prev-mode-label" style="font-weight: 700; color: var(--text);">Matchup Scoreboard Preview</span>
-                        </div>
-                        <div style="display: flex; gap: 0.35rem; align-items: center;">
-                            <button type="button" class="btn-secondary" id="prev-btn-bg" style="font-size: 0.68rem; padding: 0.2rem 0.5rem;" onclick="togglePreviewBackdrop()" title="Toggle dark background vs checkerboard transparency grid">
-                                Canvas: Dark
-                            </button>
-                            <button type="button" class="btn-secondary" id="prev-btn-sample" style="font-size: 0.68rem; padding: 0.2rem 0.5rem;" onclick="togglePreviewSampleData()" title="Toggle sample data to preview populated layouts immediately">
-                                Sample: ON
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Interactive Live Preview Toolbar: Matchup -->
-                    <div id="preview-toolbar-matchup" class="preview-toolbar">
-                        <div style="display: flex; align-items: center; gap: 0.3rem;">
-                            <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Layout:</span>
-                            <select id="prev-ctrl-layout" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onPreviewOptionChange('layout', this.value)">
-                                <option value="top">Top Bar</option>
-                                <option value="fgc">Modern FGC EVO</option>
-                                <option value="split">Dual Split (Open Center)</option>
-                                <option value="pillar">Vertical Pillar Stack</option>
-                                <option value="minimal">Minimal Center-Less</option>
-                                <option value="bottom">Lower-Third HUD</option>
-                                <option value="compact">Compact Score Bug</option>
-                                <option value="versus">Versus Screen Card</option>
-                            </select>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.3rem;">
-                            <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Theme:</span>
-                            <select id="prev-ctrl-theme" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onPreviewOptionChange('theme', this.value)">
-                                <option value="card">Dark Card</option>
-                                <option value="championship">Championship Gold</option>
-                                <option value="fgc-evo">EVO Championship</option>
-                                <option value="cyber">Cyberpunk</option>
-                                <option value="glass">Frosted Glass</option>
-                                <option value="clean-light">Clean Light</option>
-                                <option value="minimal-dark">OLED Black</option>
-                                <option value="border">Border Framing</option>
-                                <option value="solid">Opaque Solid</option>
-                                <option value="transparent">Transparent</option>
-                                <option value="pill">Pill</option>
-                                <option value="retro">Retro Arcade</option>
-                            </select>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.3rem;">
-                            <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Pips:</span>
-                            <select id="prev-ctrl-pipstyle" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onPreviewOptionChange('pipstyle', this.value)">
-                                <option value="circle">Circles (●)</option>
-                                <option value="bar">Bars (▮)</option>
-                                <option value="digit">Digits (1/2)</option>
-                            </select>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.3rem;">
-                            <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Fit:</span>
-                            <select id="prev-ctrl-fit" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onPreviewOptionChange('fit', this.value)">
-                                <option value="full">Flexible</option>
-                                <option value="content">Tight Content (?fit=content)</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Interactive Live Preview Toolbar: Tournament -->
-                    <div id="preview-toolbar-tourney" class="preview-toolbar" style="display: none;">
-                        <div style="display: flex; align-items: center; gap: 0.3rem;">
-                            <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Theme:</span>
-                            <select id="prev-ctrl-tourney-theme" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
-                                <option value="card">Dark Card</option>
-                                <option value="championship">Championship Gold</option>
-                                <option value="fgc-evo">EVO Championship</option>
-                                <option value="cyber">Cyberpunk</option>
-                                <option value="glass">Frosted Glass</option>
-                                <option value="clean-light">Clean Light</option>
-                                <option value="minimal-dark">OLED Black</option>
-                                <option value="solid">Opaque Solid</option>
-                                <option value="transparent">Transparent</option>
-                                <option value="pill">Pill</option>
-                                <option value="retro">Retro Arcade</option>
-                            </select>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.3rem;">
-                            <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Spacing:</span>
-                            <select id="prev-ctrl-tourney-spacing" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
-                                <option value="normal">Normal</option>
-                                <option value="compact">Compact Fit</option>
-                                <option value="spacious">Spacious</option>
-                            </select>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.3rem;">
-                            <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Lines:</span>
-                            <select id="prev-ctrl-tourney-lines" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
-                                <option value="glow">Luminous Glow</option>
-                                <option value="solid">Solid</option>
-                                <option value="minimal">Minimal</option>
-                            </select>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.3rem;">
-                            <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Scores:</span>
-                            <select id="prev-ctrl-tourney-scores" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
-                                <option value="1">Show Scores</option>
-                                <option value="0">Hide Scores</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Preset Aspect / Resolution Chips -->
-                    <div style="display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.5rem;" id="prev-viewport-chips">
-                        <button type="button" class="preset-chip-btn active" id="chip-vp-topbar" onclick="setPreviewViewport(1100, 100, this)">Top Bar (1100×100)</button>
-                        <button type="button" class="preset-chip-btn" id="chip-vp-hud" onclick="setPreviewViewport(800, 130, this)">Lower Third (800×130)</button>
-                        <button type="button" class="preset-chip-btn" id="chip-vp-169" onclick="setPreviewViewport(1280, 720, this)">16:9 Canvas (1280×720)</button>
-                        <button type="button" class="preset-chip-btn" id="chip-vp-bracket" onclick="setPreviewViewport(null, 520, this)">Full Bracket (100%×520)</button>
-                        <button type="button" class="preset-chip-btn" id="chip-vp-bug" onclick="setPreviewViewport(380, 120, this)">Score Bug (380×120)</button>
-                        <button type="button" class="preset-chip-btn" id="chip-vp-pillar" onclick="setPreviewViewport(420, 360, this)">Side Pillar (420×360)</button>
-                    </div>
-
-                    <div id="preview-viewport-wrapper" style="width: 100%; display: flex; justify-content: center; align-items: center; background: #050811; border-radius: 8px; border: 1px solid var(--border); padding: 0.5rem; overflow: hidden; min-height: 220px; transition: all 0.2s ease;">
-                        <div id="preview-viewport-scaler" style="position: relative; overflow: hidden; width: 100%; height: 260px; transition: width 0.2s ease, height 0.2s ease; display: flex; justify-content: center; align-items: center;">
-                            <div id="matchup-preview-box" class="preview-container solid-dark" style="position: absolute; top: 0; left: 0; width: 100%; height: 260px; transform-origin: top left; transition: transform 0.2s ease;">
-                                <iframe id="matchup-preview-iframe" src="/overlays/matchup.html?preview=1" style="width: 100%; height: 100%; border: none; background: transparent;"></iframe>
-                            </div>
-                            <div id="tourney-tree-box" class="preview-container solid-dark" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 520px; transform-origin: top left; transition: transform 0.2s ease;">
-                                <iframe id="tourney-preview-iframe" src="/overlays/tournament.html?preview=1" style="width: 100%; height: 100%; border: none; background: transparent;"></iframe>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; text-align: center;">
-                        OBS browser sources are responsive and self-sizing.
-                    </div>
-                </div>
-
-                <!-- OBS Browser Source URLs -->
-                <div class="card">
-                    <h2>OBS Browser Source Links</h2>
-
-                    <!-- Matchup Scoreboard Overlay URL -->
-                    <div style="margin-bottom: 1.25rem;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-                            <div style="font-size: 0.78rem; font-weight: 700; color: var(--text);">Matchup Scoreboard Overlay</div>
-                            <a id="btn-open-matchup-overlay" href="/overlays/matchup.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open &nearr;</a>
-                        </div>
-                        <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
-                            <input type="text" class="form-control" id="url-matchup-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
-                            <button type="button" class="btn-secondary" onclick="copyUrl('url-matchup-overlay', this)">Copy</button>
-                        </div>
-
-                        <!-- Matchup Options Customizer -->
-                        <div style="background: var(--bg-inset); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border);">
-                            <div class="micro-heading" style="margin-bottom: 0.5rem;">Matchup Overlay Options</div>
-                            
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.6rem;">
-                                <div>
-                                    <label for="matchup-opt-layout" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Layout (?layout=)</label>
-                                    <select id="matchup-opt-layout" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                        <option value="top" selected>Fighting Game Top Bar (?layout=top)</option>
-                                        <option value="fgc">Modern FGC (EVO Style) (?layout=fgc)</option>
-                                        <option value="split">Dual Corner Split (Open Center) (?layout=split)</option>
-                                        <option value="minimal">Minimal / Center-Less (?layout=minimal)</option>
-                                        <option value="pillar">Vertical Pillar Stack (?layout=pillar)</option>
-                                        <option value="bottom">Esports Lower-Third HUD (?layout=bottom)</option>
-                                        <option value="compact">Compact Score Bug (?layout=compact)</option>
-                                        <option value="versus">Versus Screen Card (?layout=versus)</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="matchup-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme (?overlay=)</label>
-                                    <select id="matchup-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                        <option value="card" selected>Dark Card (?overlay=card)</option>
-                                        <option value="fgc-evo">EVO Championship (?overlay=fgc-evo)</option>
-                                        <option value="championship">Championship Gold (?overlay=championship)</option>
-                                        <option value="cyber">Cyberpunk Neon (?overlay=cyber)</option>
-                                        <option value="clean-light">Clean Light Contrast (?overlay=clean-light)</option>
-                                        <option value="minimal-dark">OLED Deep Black (?overlay=minimal-dark)</option>
-                                        <option value="glass">Frosted Glass (?overlay=glass)</option>
-                                        <option value="solid">Opaque Solid (?overlay=solid)</option>
-                                        <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
-                                        <option value="pill">Pill Capsule (?overlay=pill)</option>
-                                        <option value="retro">Retro Arcade (?overlay=retro)</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.6rem;">
-                                <div>
-                                    <label for="matchup-opt-source" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Data Source (?source=)</label>
-                                    <select id="matchup-opt-source" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                        <option value="auto" selected>Auto: Tournament when on, else Versus</option>
-                                        <option value="tournament">Always Tournament Active Match</option>
-                                        <option value="matchup">Always Standalone Versus / Fight Card</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="matchup-opt-pipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Pip Style (?pipstyle=)</label>
-                                    <select id="matchup-opt-pipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                        <option value="circle" selected>Circles (● ● ○)</option>
-                                        <option value="bar">Rectangular Bars (▮ ▮ ▯)</option>
-                                        <option value="digit">Numeric Counter (2 / 3)</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div style="display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.2rem;">
-                                <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                    <input type="checkbox" id="matchup-opt-center" checked onchange="updateMatchupOverlayUrl()">
-                                    <span>Show Center Phase Badge (<code>?center=1</code>)</span>
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                    <input type="checkbox" id="matchup-opt-fit" onchange="updateMatchupOverlayUrl()">
-                                    <span>Auto-fit tight bounding box (<code>?fit=content</code>)</span>
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                    <input type="checkbox" id="matchup-opt-confetti" checked onchange="updateMatchupOverlayUrl()">
-                                    <span>Celebration Victory Confetti (<code>?confetti=1</code>)</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Active Tournament Match HUD Overlay URL -->
-                    <div style="margin-bottom: 1.25rem; padding-top: 0.85rem; border-top: 1px solid var(--border);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-                            <div>
-                                <span style="font-size: 0.78rem; font-weight: 700; color: var(--text);">Active Tournament Match HUD</span>
-                                <span class="badge-studio" style="font-size: 0.65rem; margin-left: 0.3rem;">Unified with Matchup</span>
-                            </div>
-                            <a id="btn-open-tourney-hud" href="/overlays/matchup.html?source=tournament" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open &nearr;</a>
-                        </div>
-                        <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.5rem;">
-                            <input type="text" class="form-control" id="url-tourney-hud" readonly style="font-family: monospace; font-size: 0.75rem;">
-                            <button type="button" class="btn-secondary" onclick="copyUrl('url-tourney-hud', this)">Copy</button>
-                        </div>
-                        <div style="font-size: 0.72rem; color: var(--text-muted);">
-                            Displays the currently active match from your running tournament using the layout, theme, and pips selected above.
-                        </div>
-                    </div>
-
-                    <!-- Tournament Bracket Overlay URL -->
-                    <div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-                            <div style="font-size: 0.78rem; font-weight: 700; color: var(--text);">Tournament Bracket Overlay</div>
-                            <a id="btn-open-tourney-overlay" href="/overlays/tournament.html" target="_blank" class="btn-secondary" style="font-size: 0.72rem; padding: 0.15rem 0.5rem; text-decoration: none;">Open &nearr;</a>
-                        </div>
-                        <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
-                            <input type="text" class="form-control" id="url-tourney-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
-                            <button type="button" class="btn-secondary" onclick="copyUrl('url-tourney-overlay', this)">Copy</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </main>
 
     <!-- In-Progress Tournament Drafts Modal -->
@@ -729,6 +836,57 @@
             <div style="padding: 0.75rem 1.25rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; align-items: center; background: var(--bg-inset);">
                 <button type="button" class="btn-secondary" onclick="toggleDraftsModal(false)">Dismiss</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Edit Tournament Preset Modal -->
+    <div id="modal-preset-edit" style="display: none; position: fixed; inset: 0; background: rgba(5, 8, 17, 0.85); z-index: 9999; backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 1.5rem;">
+        <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 600px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(0,0,0,0.6); overflow: hidden;">
+            <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg-inset);">
+                <div>
+                    <h3 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--text);">Edit Tournament Preset</h3>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Update preset rules, format, or entrant seeds.</div>
+                </div>
+                <button type="button" class="btn-secondary" onclick="closeEditTournamentPresetModal()" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">&times;</button>
+            </div>
+            <form id="form-edit-preset" onsubmit="submitEditTournamentPreset(event)" style="padding: 1.25rem; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 0.75rem;">
+                <input type="hidden" id="edit-preset-id">
+                <div class="form-group">
+                    <label for="edit-preset-name">Preset Name</label>
+                    <input type="text" id="edit-preset-name" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-preset-title">Tournament Title</label>
+                    <input type="text" id="edit-preset-title" class="form-control" required>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;">
+                    <div class="form-group">
+                        <label for="edit-preset-format">Format</label>
+                        <select id="edit-preset-format" class="form-control">
+                            <option value="single">Single Elimination</option>
+                            <option value="double">Double Elimination</option>
+                            <option value="roundRobin">Round Robin</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-preset-series">Series Format</label>
+                        <select id="edit-preset-series" class="form-control">
+                            <option value="bestOf-1">Best of 1</option>
+                            <option value="bestOf-3">Best of 3</option>
+                            <option value="bestOf-5">Best of 5</option>
+                            <option value="points">Points Only</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="edit-preset-entrants">Entrants (1 per line)</label>
+                    <textarea id="edit-preset-entrants" class="form-control" rows="6" style="font-family: monospace; font-size: 0.8rem;" required></textarea>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                    <button type="button" class="btn-secondary" onclick="closeEditTournamentPresetModal()">Cancel</button>
+                    <button type="submit" class="btn-primary">Save Changes</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -772,19 +930,23 @@
 
         function switchTab(tab) {
             activeTab = tab;
-            $('tab-btn-tourney').classList.toggle('active', tab === 'tourney');
-            $('tab-btn-matchup').classList.toggle('active', tab === 'matchup');
-            $('tab-btn-presets').classList.toggle('active', tab === 'presets');
-            $('tab-btn-history').classList.toggle('active', tab === 'history');
+            $('tab-btn-tourney')?.classList.toggle('active', tab === 'tourney');
+            $('tab-btn-matchup')?.classList.toggle('active', tab === 'matchup');
+            $('tab-btn-overlays')?.classList.toggle('active', tab === 'overlays');
+            $('tab-btn-presets')?.classList.toggle('active', tab === 'presets');
+            $('tab-btn-history')?.classList.toggle('active', tab === 'history');
 
             $('panel-tourney').style.display = tab === 'tourney' ? 'block' : 'none';
             $('panel-matchup').style.display = tab === 'matchup' ? 'block' : 'none';
+            $('panel-overlays').style.display = tab === 'overlays' ? 'block' : 'none';
             $('panel-presets').style.display = tab === 'presets' ? 'block' : 'none';
             $('panel-history').style.display = tab === 'history' ? 'block' : 'none';
 
             if (tab === 'tourney') setPreviewMode('tourney-tree');
             else if (tab === 'matchup') setPreviewMode('matchup');
-            else if (tab === 'presets') {
+            else if (tab === 'overlays') {
+                applyViewportScale();
+            } else if (tab === 'presets') {
                 loadTournamentPresets();
                 loadMatchupPresets();
             } else if (tab === 'history') {
@@ -795,6 +957,30 @@
 
         let previewUseSample = true;
         let previewBackdrop = 'dark';
+        let tourneyFitWholeBracket = false;
+
+        function toggleTourneyFitWholeBracket() {
+            tourneyFitWholeBracket = !tourneyFitWholeBracket;
+            const btn = $('btn-tourney-fit-toggle');
+            if (btn) btn.textContent = tourneyFitWholeBracket ? 'Fit Whole Bracket: ON' : 'Fit Whole Bracket: OFF';
+            if ($('tourney-opt-fit')) $('tourney-opt-fit').checked = tourneyFitWholeBracket;
+            updateTourneyOverlayUrl();
+        }
+
+        function syncTourneyOptFromMain(key, val) {
+            if (key === 'theme' && $('prev-ctrl-tourney-theme')) $('prev-ctrl-tourney-theme').value = val;
+            if (key === 'spacing' && $('prev-ctrl-tourney-spacing')) $('prev-ctrl-tourney-spacing').value = val;
+            if (key === 'lines' && $('prev-ctrl-tourney-lines')) $('prev-ctrl-tourney-lines').value = val;
+            if (key === 'scores' && $('prev-ctrl-tourney-scores')) $('prev-ctrl-tourney-scores').value = val;
+            if (key === 'title' && $('prev-ctrl-tourney-title')) $('prev-ctrl-tourney-title').value = val;
+            if (key === 'rounds' && $('prev-ctrl-tourney-rounds')) $('prev-ctrl-tourney-rounds').value = val;
+            if (key === 'fit') {
+                tourneyFitWholeBracket = val === '1';
+                const btn = $('btn-tourney-fit-toggle');
+                if (btn) btn.textContent = tourneyFitWholeBracket ? 'Fit Whole Bracket: ON' : 'Fit Whole Bracket: OFF';
+            }
+            updateTourneyOverlayUrl();
+        }
 
         function togglePreviewBackdrop() {
             previewBackdrop = previewBackdrop === 'dark' ? 'checkerboard' : 'dark';
@@ -869,6 +1055,7 @@
                 if (val === 'top') setPreviewViewport(1100, 100, $('chip-vp-topbar'));
                 else if (val === 'fgc') setPreviewViewport(1100, 110, $('chip-vp-topbar'));
                 else if (val === 'split') setPreviewViewport(1280, 120, $('chip-vp-169'));
+                else if (val === 'race') setPreviewViewport(1280, 220, $('chip-vp-race'));
                 else if (val === 'minimal') setPreviewViewport(900, 80, $('chip-vp-topbar'));
                 else if (val === 'bottom') setPreviewViewport(800, 130, $('chip-vp-hud'));
                 else if (val === 'pillar') setPreviewViewport(420, 360, $('chip-vp-pillar'));
@@ -887,13 +1074,13 @@
 
         function setPreviewMode(mode) {
             previewMode = mode;
-            $('btn-prev-matchup').classList.toggle('btn-primary', mode === 'matchup');
-            $('btn-prev-tourney-tree').classList.toggle('btn-primary', mode === 'tourney-tree');
-            $('btn-prev-tourney-hud').classList.toggle('btn-primary', mode === 'tourney-hud');
+            $('btn-prev-matchup')?.classList.toggle('btn-primary', mode === 'matchup');
+            $('btn-prev-tourney-tree')?.classList.toggle('btn-primary', mode === 'tourney-tree');
+            $('btn-prev-tourney-hud')?.classList.toggle('btn-primary', mode === 'tourney-hud');
 
             const isMatchupLike = mode === 'matchup' || mode === 'tourney-hud';
-            $('matchup-preview-box').style.display = isMatchupLike ? 'block' : 'none';
-            $('tourney-tree-box').style.display = mode === 'tourney-tree' ? 'block' : 'none';
+            if ($('matchup-preview-box')) $('matchup-preview-box').style.display = isMatchupLike ? 'block' : 'none';
+            if ($('tourney-tree-box')) $('tourney-tree-box').style.display = mode === 'tourney-tree' ? 'block' : 'none';
 
             if ($('preview-toolbar-matchup')) $('preview-toolbar-matchup').style.display = isMatchupLike ? 'flex' : 'none';
             if ($('preview-toolbar-tourney')) $('preview-toolbar-tourney').style.display = mode === 'tourney-tree' ? 'flex' : 'none';
@@ -906,7 +1093,7 @@
             }
 
             if (mode === 'tourney-tree') {
-                setPreviewViewport(null, 520, $('chip-vp-bracket'));
+                setPreviewViewport(null, 560, $('chip-vp-bracket'));
                 updateTourneyOverlayUrl();
             } else if (mode === 'tourney-hud') {
                 setPreviewViewport(1100, 100, $('chip-vp-topbar'));
@@ -920,16 +1107,21 @@
 
         function updateTourneyOverlayUrl() {
             const origin = window.location.origin;
-            const themeSelect = $('prev-ctrl-tourney-theme');
-            const spacingSelect = $('prev-ctrl-tourney-spacing');
-            const linesSelect = $('prev-ctrl-tourney-lines');
-            const scoresSelect = $('prev-ctrl-tourney-scores');
+            const themeSelect = $('prev-ctrl-tourney-theme') || $('tourney-opt-theme');
+            const spacingSelect = $('prev-ctrl-tourney-spacing') || $('tourney-opt-spacing');
+            const linesSelect = $('prev-ctrl-tourney-lines') || $('tourney-opt-lines');
+            const scoresSelect = $('prev-ctrl-tourney-scores') || $('tourney-opt-scores');
+            const titleSelect = $('prev-ctrl-tourney-title') || $('tourney-opt-title');
+            const roundsSelect = $('prev-ctrl-tourney-rounds') || $('tourney-opt-rounds');
 
             const urlParams = new URLSearchParams();
             if (themeSelect && themeSelect.value !== 'card') urlParams.set('overlay', themeSelect.value);
             if (spacingSelect && spacingSelect.value !== 'normal') urlParams.set('spacing', spacingSelect.value);
             if (linesSelect && linesSelect.value !== 'glow') urlParams.set('lines', linesSelect.value);
-            if (scoresSelect && scoresSelect.value === '0') urlParams.set('showscores', '0');
+            if (scoresSelect && String(scoresSelect.value) === '0') urlParams.set('showscores', '0');
+            if (titleSelect && String(titleSelect.value) === '0') urlParams.set('showtitle', '0');
+            if (roundsSelect && String(roundsSelect.value) === '0') urlParams.set('showrounds', '0');
+            if (tourneyFitWholeBracket) urlParams.set('fit', '1');
 
             const qs = urlParams.toString();
             const fullUrl = `${origin}/overlays/tournament.html${qs ? `?${qs}` : ''}`;
@@ -1045,6 +1237,8 @@
                     body.duration = duration;
                 } else if (mode === 'stopwatch') {
                     body.estimate = '45:00';
+                } else if (mode === 'race') {
+                    body.estimate = $('race-est-input')?.value || '45:00';
                 }
                 const res = await fetch('/api/matchup/clock/set', {
                     method: 'POST',
@@ -1055,7 +1249,8 @@
                 if (data.status === 'ok') {
                     if (activeMatchupData && activeMatchupData.clock) activeMatchupData.clock = data.clock;
                     syncClockStudioUi(data.clock);
-                    toast(`Clock set to ${mode === 'countdown' ? duration + 's countdown' : 'Stopwatch (GDQ)'}`);
+                    if (activeMatchupData) renderMatchupStudio(activeMatchupData);
+                    toast(`Clock set to ${mode === 'countdown' ? duration + 's countdown' : (mode === 'race' ? 'Speedrun Battle (GDQ)' : 'Stopwatch')}`);
                 }
             } catch {
                 toast('Error setting clock');
@@ -1069,7 +1264,15 @@
             const toggleBtn = $('btn-clock-toggle');
 
             if (digitsEl) {
-                if (clk.mode === 'stopwatch') {
+                if (clk.mode === 'race') {
+                    const totalSec = clk.elapsed || 0;
+                    const h = Math.floor(totalSec / 3600);
+                    const m = Math.floor((totalSec % 3600) / 60);
+                    const s = totalSec % 60;
+                    const pad = (n) => String(n).padStart(2, '0');
+                    digitsEl.textContent = h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+                    digitsEl.style.color = '#38bdf8';
+                } else if (clk.mode === 'stopwatch') {
                     const totalSec = clk.elapsed || 0;
                     const h = Math.floor(totalSec / 3600);
                     const m = Math.floor((totalSec % 3600) / 60);
@@ -1084,7 +1287,13 @@
             }
 
             if (modeEl) {
-                modeEl.textContent = clk.mode === 'stopwatch' ? (clk.estimate ? `Stopwatch · Est ${clk.estimate}` : 'Stopwatch') : 'Countdown';
+                if (clk.mode === 'race') {
+                    modeEl.textContent = clk.estimate ? `Speedrun Battle · Est ${clk.estimate}` : 'Speedrun Battle';
+                } else if (clk.mode === 'stopwatch') {
+                    modeEl.textContent = clk.estimate ? `Stopwatch · Est ${clk.estimate}` : 'Stopwatch';
+                } else {
+                    modeEl.textContent = 'Countdown';
+                }
             }
 
             if (toggleBtn) {
@@ -1096,9 +1305,15 @@
             const c99 = $('chip-clk-99');
             const c60 = $('chip-clk-60');
             const cSw = $('chip-clk-stopwatch');
+            const cRc = $('chip-clk-race');
             if (c99) c99.classList.toggle('active', clk.mode === 'countdown' && clk.duration === 99);
             if (c60) c60.classList.toggle('active', clk.mode === 'countdown' && clk.duration === 60);
             if (cSw) cSw.classList.toggle('active', clk.mode === 'stopwatch');
+            if (cRc) cRc.classList.toggle('active', clk.mode === 'race');
+
+            const raceCtrl = $('clock-race-controls');
+            if (raceCtrl) raceCtrl.style.display = clk.mode === 'race' ? 'block' : 'none';
+            if ($('race-est-input') && clk.estimate) $('race-est-input').value = clk.estimate;
 
             if (clk.isRunning) {
                 if (!studioClockTicker) {
@@ -1108,12 +1323,22 @@
                             studioClockTicker = null;
                             return;
                         }
-                        if (activeMatchupData.clock.mode === 'stopwatch') {
+                        if (activeMatchupData.clock.mode === 'stopwatch' || activeMatchupData.clock.mode === 'race') {
                             activeMatchupData.clock.elapsed = (activeMatchupData.clock.elapsed || 0) + 1;
+                            if (activeMatchupData.clock.mode === 'race' && Array.isArray(activeMatchupData.competitors)) {
+                                activeMatchupData.competitors.forEach(c => {
+                                    if (c.timer && c.timer.isRunning && !c.timer.finished) {
+                                        c.timer.elapsed = (c.timer.elapsed || 0) + 1;
+                                    }
+                                });
+                            }
                         } else if (activeMatchupData.clock.remaining > 0) {
                             activeMatchupData.clock.remaining -= 1;
                         }
                         syncClockStudioUi(activeMatchupData.clock);
+                        if (activeMatchupData.clock.mode === 'race') {
+                            renderMatchupStudio(activeMatchupData);
+                        }
                     }, 1000);
                 }
             } else {
@@ -1121,6 +1346,131 @@
                     clearInterval(studioClockTicker);
                     studioClockTicker = null;
                 }
+            }
+        }
+
+        async function startAllRunnersRace() {
+            try {
+                const res = await fetch('/api/matchup/clock/race/start-all', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    if (data.matchup) {
+                        activeMatchupData = data.matchup;
+                        renderMatchupStudio(data.matchup);
+                    }
+                    toast('Speedrun Battle started for all runners!');
+                }
+            } catch {
+                toast('Error starting race');
+            }
+        }
+
+        async function pauseAllRunnersRace() {
+            try {
+                const res = await fetch('/api/matchup/clock/race/pause-all', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    if (data.matchup) {
+                        activeMatchupData = data.matchup;
+                        renderMatchupStudio(data.matchup);
+                    }
+                    toast('Race paused');
+                }
+            } catch {
+                toast('Error pausing race');
+            }
+        }
+
+        async function resetAllRunnersRace() {
+            if (!confirm('Reset all runner timers to 0:00?')) return;
+            try {
+                const res = await fetch('/api/matchup/clock/race/reset-all', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    if (data.matchup) {
+                        activeMatchupData = data.matchup;
+                        renderMatchupStudio(data.matchup);
+                    }
+                    toast('Race timers reset');
+                }
+            } catch {
+                toast('Error resetting race');
+            }
+        }
+
+        async function finishRunnerRace(idx) {
+            try {
+                const res = await fetch('/api/matchup/clock/race/finish', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ competitor: idx })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    if (data.matchup) {
+                        activeMatchupData = data.matchup;
+                        renderMatchupStudio(data.matchup);
+                    }
+                    const runner = data.matchup?.competitors?.[idx];
+                    toast(`Runner ${runner ? runner.name : idx + 1} finished at ${runner?.timer?.finishTime || ''}!`);
+                }
+            } catch {
+                toast('Error finishing runner race');
+            }
+        }
+
+        async function toggleRunnerRace(idx) {
+            try {
+                const res = await fetch('/api/matchup/clock/race/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ competitor: idx })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    if (data.matchup) {
+                        activeMatchupData = data.matchup;
+                        renderMatchupStudio(data.matchup);
+                    }
+                }
+            } catch {
+                toast('Error toggling runner timer');
+            }
+        }
+
+        async function resetRunnerRace(idx) {
+            try {
+                const res = await fetch('/api/matchup/clock/race/reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ competitor: idx })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    if (data.matchup) {
+                        activeMatchupData = data.matchup;
+                        renderMatchupStudio(data.matchup);
+                    }
+                }
+            } catch {
+                toast('Error resetting runner timer');
+            }
+        }
+
+        async function saveRaceEstimate(val) {
+            try {
+                const res = await fetch('/api/matchup/clock/estimate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ estimate: val })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    if (activeMatchupData && activeMatchupData.clock) activeMatchupData.clock.estimate = val;
+                    toast(`Target estimate updated: ${val}`);
+                }
+            } catch {
+                toast('Error saving estimate');
             }
         }
 
@@ -1140,7 +1490,7 @@
             if (cat === 'all') return true;
             const str = `${p.id || ''} ${p.name || ''} ${p.title || ''} ${p.details || ''}`.toLowerCase();
             if (cat === 'custom') {
-                return !p.id.startsWith('tp-') && !p.id.startsWith('preset-');
+                return Boolean(p.isCustom || !p.isBuiltIn || (!p.id.startsWith('tp-') && !p.id.startsWith('preset-')));
             }
             if (cat === 'fgc') {
                 return /sf6|street fighter|tekken|smash|guilty|evo|fgc|fighter|mishima/.test(str);
@@ -1208,6 +1558,12 @@
             grid.innerHTML = m.competitors.map((c, i) => {
                 const isWinner = m.status === 'COMPLETED' && m.winner === c.name;
                 const pips = target > 0 ? Array.from({ length: target }, (_, p) => p < c.score ? '●' : '○').join(' ') : '';
+                const isRace = m.clock && m.clock.mode === 'race';
+                const timerObj = c.timer || { elapsed: 0, isRunning: false, finished: false };
+                const pad = n => String(n).padStart(2, '0');
+                const mElapsed = Math.floor((timerObj.elapsed || 0) / 60);
+                const sElapsed = (timerObj.elapsed || 0) % 60;
+                const formattedTime = `${pad(mElapsed)}:${pad(sElapsed)}`;
 
                 return `
                     <div class="matchup-competitor-card${isWinner ? ' winner' : ''}">
@@ -1225,6 +1581,30 @@
                             <input type="text" id="matchup-comp-name-${i}" class="form-control" style="font-size: 0.8rem; padding: 0.3rem 0.5rem;" value="${esc(c.name)}" placeholder="Player ${i + 1} Name" oninput="updateCompetitorNameImmediate(${i}, this.value)" onchange="saveMatchupSettings()">
                             <input type="text" id="matchup-comp-tag-${i}" class="form-control" style="font-size: 0.8rem; padding: 0.3rem 0.5rem;" value="${esc(c.tag)}" placeholder="Character / Tag" oninput="updateCompetitorTagImmediate(${i}, this.value)" onchange="saveMatchupSettings()">
                         </div>
+
+                        ${isRace ? `
+                            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.65rem; margin-top: 0.45rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.35rem;">
+                                    <div style="font-size: 1.15rem; font-weight: 900; font-family: monospace; color: ${timerObj.finished ? '#3fb950' : (timerObj.isRunning ? '#38bdf8' : '#e6edf3')};">
+                                        ${timerObj.finished ? (timerObj.finishTime || formattedTime) : formattedTime}
+                                    </div>
+                                    <div>
+                                        ${timerObj.finished ? `<span class="badge-studio" style="background: rgba(63,185,80,0.15); color: #3fb950; font-size: 0.65rem;">${timerObj.delta ? timerObj.delta : '1ST FINISHER'}</span>` : (timerObj.isRunning ? '<span class="badge-studio" style="background: rgba(56,189,248,0.15); color: #38bdf8; font-size: 0.65rem;">RUNNING</span>' : '<span class="badge-studio" style="font-size: 0.65rem;">READY</span>')}
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 0.35rem; align-items: center;">
+                                    <button type="button" class="btn-primary" style="font-size: 0.72rem; padding: 0.2rem 0.5rem; background: #238636; border-color: #2ea043; color: #fff;" onclick="finishRunnerRace(${i})" ${timerObj.finished ? 'disabled' : ''}>
+                                        Finish / Split
+                                    </button>
+                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.45rem;" onclick="toggleRunnerRace(${i})">
+                                        ${timerObj.isRunning ? 'Pause' : 'Start'}
+                                    </button>
+                                    <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.45rem;" onclick="resetRunnerRace(${i})">
+                                        Reset
+                                    </button>
+                                </div>
+                            </div>
+                        ` : ''}
 
                         <div class="matchup-score-hero">
                             <div class="score-stepper">
@@ -1870,14 +2250,16 @@
                 const formatLabel = p.format === 'double' ? 'Double Elim' : (p.format === 'roundRobin' ? 'Round Robin' : 'Single Elim');
                 const entrantsCount = Array.isArray(p.entrants) ? p.entrants.length : 0;
                 const seriesLabel = p.scoringType === 'points' ? 'Points' : `Bo${p.bestOf || 3}`;
+                const isCustom = Boolean(p.isCustom || !p.isBuiltIn);
 
                 return `
-                    <div style="background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.65rem 0.85rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+                    <div style="background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.65rem 0.85rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                         <div style="min-width: 0;">
                             <div style="display: flex; align-items: center; gap: 0.45rem;">
                                 <span style="font-size: 0.82rem; font-weight: 700; color: var(--text);">${esc(p.name)}</span>
                                 <span class="badge-pill" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); font-size: 0.65rem;">${formatLabel}</span>
                                 <span class="badge-pill" style="background: rgba(255, 255, 255, 0.06); color: var(--text-muted); border: 1px solid var(--border); font-size: 0.65rem;">${seriesLabel}</span>
+                                ${isCustom ? '<span class="badge-pill" style="background: rgba(63, 185, 80, 0.15); color: #3fb950; border: 1px solid rgba(63, 185, 80, 0.3); font-size: 0.65rem;">Custom</span>' : ''}
                             </div>
                             <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">
                                 ${entrantsCount} Entrants: ${(p.entrants || []).slice(0, 4).join(', ')}${entrantsCount > 4 ? '...' : ''}
@@ -1890,15 +2272,100 @@
                             <button type="button" class="btn-primary" style="font-size: 0.7rem; padding: 0.18rem 0.55rem;" onclick="launchTournamentPresetDirect('${p.id}')" title="Launch tournament immediately">
                                 Launch
                             </button>
-                            ${!p.id.startsWith('tp-') ? `
+                            ${isCustom ? `
+                                <button type="button" class="btn-secondary" style="font-size: 0.7rem; padding: 0.18rem 0.5rem;" onclick="openEditTournamentPresetModal('${p.id}')" title="Edit preset rules and seeds">
+                                    Edit
+                                </button>
                                 <button type="button" class="btn-secondary" style="font-size: 0.7rem; padding: 0.18rem 0.45rem; color: #ef4444;" onclick="deleteTournamentPreset('${p.id}')" title="Delete preset">
                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                 </button>
-                            ` : ''}
+                            ` : `
+                                <button type="button" class="btn-secondary" style="font-size: 0.7rem; padding: 0.18rem 0.5rem;" onclick="duplicateBuiltInTournamentPreset('${p.id}')" title="Duplicate to custom preset">
+                                    Duplicate
+                                </button>
+                            `}
                         </div>
                     </div>
                 `;
             }).join('');
+        }
+
+        function openEditTournamentPresetModal(presetId) {
+            const p = activeTourneyPresetsList.find(x => x.id === presetId);
+            if (!p) return;
+            $('edit-preset-id').value = p.id;
+            $('edit-preset-name').value = p.name || '';
+            $('edit-preset-title').value = p.title || p.name || '';
+            $('edit-preset-format').value = p.format || 'single';
+            if (p.scoringType === 'points') $('edit-preset-series').value = 'points';
+            else $('edit-preset-series').value = `bestOf-${p.bestOf || 3}`;
+            $('edit-preset-entrants').value = Array.isArray(p.entrants) ? p.entrants.join('\n') : '';
+            $('modal-preset-edit').style.display = 'flex';
+        }
+
+        function closeEditTournamentPresetModal() {
+            $('modal-preset-edit').style.display = 'none';
+        }
+
+        async function submitEditTournamentPreset(e) {
+            e.preventDefault();
+            const id = $('edit-preset-id').value;
+            const name = $('edit-preset-name').value.trim();
+            const title = $('edit-preset-title').value.trim();
+            const format = $('edit-preset-format').value;
+            const seriesVal = $('edit-preset-series').value;
+            const scoringType = seriesVal === 'points' ? 'points' : 'bestOf';
+            const bestOf = seriesVal.startsWith('bestOf-') ? (parseInt(seriesVal.replace('bestOf-', ''), 10) || 3) : 3;
+            const entrants = $('edit-preset-entrants').value.split('\n').map(s => s.trim()).filter(Boolean);
+
+            if (!name) { toast('Please enter a preset name'); return; }
+            if (entrants.length < 2) { toast('Please provide at least 2 entrants'); return; }
+
+            try {
+                const res = await fetch(`/api/tournament/presets/${encodeURIComponent(id)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, title, format, scoringType, bestOf, entrants })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    closeEditTournamentPresetModal();
+                    loadTournamentPresets();
+                    toast('Tournament preset updated!');
+                } else {
+                    toast(data.error || 'Failed to update preset');
+                }
+            } catch {
+                toast('Error updating preset');
+            }
+        }
+
+        async function duplicateBuiltInTournamentPreset(presetId) {
+            const p = activeTourneyPresetsList.find(x => x.id === presetId);
+            if (!p) return;
+            const newName = prompt('New preset name:', `${p.name} (Copy)`);
+            if (!newName) return;
+            try {
+                const res = await fetch('/api/tournament/presets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: newName,
+                        title: p.title || newName,
+                        format: p.format || 'single',
+                        scoringType: p.scoringType || 'bestOf',
+                        bestOf: p.bestOf || 3,
+                        entrants: p.entrants || []
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    loadTournamentPresets();
+                    toast('Preset duplicated to custom templates!');
+                }
+            } catch {
+                toast('Error duplicating preset');
+            }
         }
 
         async function loadTournamentPresetToForm(presetId) {

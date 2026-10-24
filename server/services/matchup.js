@@ -694,7 +694,7 @@ function createMatchupService({
     function setClockMode(params = {}) {
         if (!activeMatchup) load();
         ensureClock();
-        if (params.mode && (params.mode === 'countdown' || params.mode === 'stopwatch')) {
+        if (params.mode && (params.mode === 'countdown' || params.mode === 'stopwatch' || params.mode === 'race')) {
             activeMatchup.clock.mode = params.mode;
         }
         if (params.duration !== undefined) {
@@ -710,6 +710,264 @@ function createMatchupService({
         if (params.enabled !== undefined) {
             activeMatchup.clock.enabled = Boolean(params.enabled);
         }
+        save();
+        broadcastUpdate();
+        return activeMatchup.clock;
+    }
+
+    function formatTime(totalSeconds) {
+        const s = Math.max(0, Math.floor(totalSeconds));
+        const hours = Math.floor(s / 3600);
+        const mins = Math.floor((s % 3600) / 60);
+        const secs = s % 60;
+        if (hours > 0) {
+            return `${hours}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function ensureCompetitorTimers() {
+        if (!activeMatchup) load();
+        if (!Array.isArray(activeMatchup.competitors)) return;
+        for (const c of activeMatchup.competitors) {
+            if (!c.timer || typeof c.timer !== 'object') {
+                c.timer = {
+                    elapsed: 0,
+                    isRunning: false,
+                    finished: false,
+                    finishTime: null,
+                    delta: null
+                };
+            }
+        }
+    }
+
+    function startAllRace() {
+        if (!activeMatchup) load();
+        ensureClock();
+        ensureCompetitorTimers();
+        activeMatchup.clock.mode = 'race';
+        activeMatchup.clock.isRunning = true;
+        activeMatchup.clock.enabled = true;
+        activeMatchup.clock.startedAt = Date.now();
+
+        for (const c of activeMatchup.competitors) {
+            if (!c.timer.finished) {
+                c.timer.isRunning = true;
+            }
+        }
+
+        if (clockTimer) clearInterval(clockTimer);
+        clockTimer = setInterval(() => {
+            if (!activeMatchup || !activeMatchup.clock || !activeMatchup.clock.isRunning) {
+                if (clockTimer) clearInterval(clockTimer);
+                clockTimer = null;
+                return;
+            }
+            activeMatchup.clock.elapsed += 1;
+            let anyRunning = false;
+            for (const c of (activeMatchup.competitors || [])) {
+                if (c.timer && c.timer.isRunning && !c.timer.finished) {
+                    c.timer.elapsed += 1;
+                    anyRunning = true;
+                }
+            }
+            if (!anyRunning && (activeMatchup.competitors || []).length > 0 && activeMatchup.competitors.every(c => c.timer?.finished)) {
+                activeMatchup.clock.isRunning = false;
+                if (clockTimer) clearInterval(clockTimer);
+                clockTimer = null;
+            }
+            broadcastUpdate();
+        }, 1000);
+        if (clockTimer.unref) clockTimer.unref();
+
+        save();
+        broadcastUpdate();
+        return activeMatchup;
+    }
+
+    function pauseAllRace() {
+        if (!activeMatchup) load();
+        ensureClock();
+        ensureCompetitorTimers();
+        activeMatchup.clock.isRunning = false;
+        for (const c of activeMatchup.competitors) {
+            c.timer.isRunning = false;
+        }
+        if (clockTimer) {
+            clearInterval(clockTimer);
+            clockTimer = null;
+        }
+        save();
+        broadcastUpdate();
+        return activeMatchup;
+    }
+
+    function resetAllRace() {
+        if (!activeMatchup) load();
+        ensureClock();
+        ensureCompetitorTimers();
+        activeMatchup.clock.isRunning = false;
+        activeMatchup.clock.elapsed = 0;
+        for (const c of activeMatchup.competitors) {
+            c.timer.elapsed = 0;
+            c.timer.isRunning = false;
+            c.timer.finished = false;
+            c.timer.finishTime = null;
+            c.timer.delta = null;
+        }
+        if (clockTimer) {
+            clearInterval(clockTimer);
+            clockTimer = null;
+        }
+        save();
+        broadcastUpdate();
+        return activeMatchup;
+    }
+
+    function finishCompetitorRace(compIdentifier) {
+        if (!activeMatchup) load();
+        ensureClock();
+        ensureCompetitorTimers();
+
+        let comp = null;
+        if (typeof compIdentifier === 'number') {
+            comp = activeMatchup.competitors[compIdentifier];
+        } else {
+            comp = activeMatchup.competitors.find(c => c.id === compIdentifier || c.name === compIdentifier);
+        }
+        if (!comp) return activeMatchup;
+
+        comp.timer.finished = true;
+        comp.timer.isRunning = false;
+        comp.timer.finishTime = formatTime(comp.timer.elapsed);
+
+        const otherFinishers = activeMatchup.competitors.filter(c => c.id !== comp.id && c.timer?.finished);
+        if (otherFinishers.length > 0) {
+            const firstFinisher = otherFinishers.reduce((min, cur) => cur.timer.elapsed < min.timer.elapsed ? cur : min, otherFinishers[0]);
+            const diff = comp.timer.elapsed - firstFinisher.timer.elapsed;
+            comp.timer.delta = diff > 0 ? `+${formatTime(diff)}` : null;
+        } else {
+            comp.timer.delta = 'WINNER';
+            if (activeMatchup.format === 'bestOf' || activeMatchup.format === 'firstTo') {
+                comp.score += 1;
+                checkWinnerCondition();
+            }
+            try {
+                onAlert({
+                    type: 'matchup_win',
+                    title: `${comp.name} Finished First!`,
+                    winner: comp.name,
+                    user: comp.name,
+                    score: comp.score,
+                    details: `Finish Time: ${comp.timer.finishTime}`,
+                    celebration: { sound: '', confetti: true }
+                });
+            } catch { /* ignore */ }
+        }
+
+        const allFinished = activeMatchup.competitors.every(c => c.timer?.finished);
+        if (allFinished) {
+            activeMatchup.clock.isRunning = false;
+            if (clockTimer) {
+                clearInterval(clockTimer);
+                clockTimer = null;
+            }
+        }
+
+        save();
+        broadcastUpdate();
+        return activeMatchup;
+    }
+
+    function toggleCompetitorRace(compIdentifier) {
+        if (!activeMatchup) load();
+        ensureClock();
+        ensureCompetitorTimers();
+
+        let comp = null;
+        if (typeof compIdentifier === 'number') {
+            comp = activeMatchup.competitors[compIdentifier];
+        } else {
+            comp = activeMatchup.competitors.find(c => c.id === compIdentifier || c.name === compIdentifier);
+        }
+        if (!comp) return activeMatchup;
+
+        if (comp.timer.finished) {
+            comp.timer.finished = false;
+            comp.timer.finishTime = null;
+            comp.timer.delta = null;
+        }
+
+        comp.timer.isRunning = !comp.timer.isRunning;
+
+        const anyRunning = activeMatchup.competitors.some(c => c.timer.isRunning);
+        if (anyRunning && !activeMatchup.clock.isRunning) {
+            activeMatchup.clock.isRunning = true;
+            if (clockTimer) clearInterval(clockTimer);
+            clockTimer = setInterval(() => {
+                if (!activeMatchup || !activeMatchup.clock || !activeMatchup.clock.isRunning) {
+                    if (clockTimer) clearInterval(clockTimer);
+                    clockTimer = null;
+                    return;
+                }
+                activeMatchup.clock.elapsed += 1;
+                let active = false;
+                for (const c of (activeMatchup.competitors || [])) {
+                    if (c.timer && c.timer.isRunning && !c.timer.finished) {
+                        c.timer.elapsed += 1;
+                        active = true;
+                    }
+                }
+                if (!active && (activeMatchup.competitors || []).length > 0 && activeMatchup.competitors.every(c => c.timer?.finished)) {
+                    activeMatchup.clock.isRunning = false;
+                    if (clockTimer) clearInterval(clockTimer);
+                    clockTimer = null;
+                }
+                broadcastUpdate();
+            }, 1000);
+            if (clockTimer.unref) clockTimer.unref();
+        } else if (!anyRunning && activeMatchup.clock.isRunning) {
+            activeMatchup.clock.isRunning = false;
+            if (clockTimer) {
+                clearInterval(clockTimer);
+                clockTimer = null;
+            }
+        }
+
+        save();
+        broadcastUpdate();
+        return activeMatchup;
+    }
+
+    function resetCompetitorRace(compIdentifier) {
+        if (!activeMatchup) load();
+        ensureClock();
+        ensureCompetitorTimers();
+
+        let comp = null;
+        if (typeof compIdentifier === 'number') {
+            comp = activeMatchup.competitors[compIdentifier];
+        } else {
+            comp = activeMatchup.competitors.find(c => c.id === compIdentifier || c.name === compIdentifier);
+        }
+        if (!comp) return activeMatchup;
+
+        comp.timer.elapsed = 0;
+        comp.timer.isRunning = false;
+        comp.timer.finished = false;
+        comp.timer.finishTime = null;
+        comp.timer.delta = null;
+
+        save();
+        broadcastUpdate();
+        return activeMatchup;
+    }
+
+    function setTargetEstimate(estimate) {
+        if (!activeMatchup) load();
+        ensureClock();
+        activeMatchup.clock.estimate = String(estimate || '').trim();
         save();
         broadcastUpdate();
         return activeMatchup.clock;
@@ -747,6 +1005,13 @@ function createMatchupService({
         pauseClock,
         resetClock,
         setClockMode,
+        startAllRace,
+        pauseAllRace,
+        resetAllRace,
+        finishCompetitorRace,
+        toggleCompetitorRace,
+        resetCompetitorRace,
+        setTargetEstimate,
         destroy: () => {
             if (clockTimer) clearInterval(clockTimer);
         }

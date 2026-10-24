@@ -72,7 +72,8 @@ StreamPulse includes an advanced **Tournament Bracket** engine designed for comm
 - **Match Advancement Undo & Recursive Bracket Rollback**: Made a mistake or scored the wrong winner on a tournament match? Broadcasters can click **Undo / Edit** on any completed match in Competitions Studio (`/api/tournament/rollback`). The match winner is cleared, scores reset, and all downstream matches that depended on that match are recursively reverted back to `TBD` and `PENDING`, clearing any premature champion declarations.
 - **In-Progress Tournament Drafts & Checkpoints**: Streamers can save tournament snapshots at any point during a broadcast (**Save Draft** / `/api/tournament/drafts/save`). Switch games or pause your stream, then resume your exact bracket progression later via **Checkpoints** (`/api/tournament/drafts/restore`).
 - **Interactive Match Selection & Resets**: Click any match card in the studio overview to immediately inspect, score, advance, or reset it.
-- **Saved Tournament Presets & Categories**: Categorized preset browser for Fighting Games (EVO SF6 8P, Tekken 16P), Speedrunning (GDQ League Round Robin), Party / FFA (Smash 6P, Rocket League 4P), and Custom Saved brackets.
+- **Saved Tournament Presets & Categories**: Categorized preset browser for Fighting Games (EVO SF6 8P, Tekken 16P), Speedrunning (GDQ League Round Robin), Party / FFA (Smash 6P, Rocket League 4P), and Custom Saved brackets. Broadcasters can edit existing custom presets (`PUT /api/tournament/presets/:id`), duplicate built-in presets to tweak configurations, and delete unwanted presets.
+- **Dedicated Overlays & Live Preview Tab**: Full-width studio tab allowing broadcasters to test bracket tree scaling, theme styling, score indicators, and viewport presets (`1100×100`, `800×130`, `1280×220`, `1280×720`, `Full Bracket Fit`) before sending feeds to OBS.
 
 ---
 
@@ -81,6 +82,12 @@ StreamPulse includes an advanced **Tournament Bracket** engine designed for comm
 For broadcasts featuring fighting games (Street Fighter, Smash, Tekken), speedrun races, Mario Kart showdowns, or 1v1 to 4-player casual sets, StreamPulse provides a standalone **Matchup Scoreboard** in **Tools -> Competitions Studio** (`/competitions.html`). It tracks match points, series win pips, and competitor side positions without requiring an elimination bracket.
 
 ### Key Matchup Features:
+- **Speedrun Battle (GDQ Race Mode) with Multi-Runner Clocks**:
+  - **Synchronized Master Clock**: One-click **Sync Start All Runners** launches all runner clocks simultaneously (`/api/matchup/clock/race/start-all`).
+  - **Individual Runner Split Cards**: Each runner has independent split controls (`Finish / Split`, `Toggle`, `Reset`).
+  - **Live Delta Badges**: The first runner to finish is awarded the green `WINNER` badge; subsequent finishers display exact positive split deltas (`+MM:SS.ss`) on stream.
+  - **Target EST Display**: Set and display the estimated target time (`Target EST: 45:00`).
+  - **Dedicated GDQ Race Layout**: Responsive multi-runner overlay layout (`?layout=race`) supporting 2, 3, or 4 runners with individual split clocks, runner tags, and status cards.
 - **Dual-Mode Match Clocks & Timers (EVO & GDQ)**:
   - **Round Countdown Timer**: Authentic fighting game clock (99s EVO / 60s Tekken) with amber LED digits that pulse red with high-urgency glow when under 10 seconds.
   - **Speedrun Stopwatch**: Marathon/GDQ-style elapsed runtime clock (`MM:SS` or `HH:MM:SS`) with optional target estimate display (e.g. `/ EST 45:00`).
@@ -141,8 +148,13 @@ Renders the tournament bracket with flexible layouts, responsive auto-scaling, s
 | Parameter | Default | Description |
 | --- | --- | --- |
 | `?layout=tree\|active\|compact` | `tree` | Bracket layout mode (Full tree, lower-third match HUD, or compact card). |
-| `?overlay=<theme\|hash>` | `card` | Container styling theme (`card`, `glass`, `solid`, `transparent`, `pill`, `neon`, `retro`) or hex color hash (e.g. `?overlay=0d1117`). |
+| `?overlay=<theme\|hash>` | `card` | Container styling theme (`card`, `championship`, `fgc-evo`, `cyber`, `glass`, `clean-light`, `minimal-dark`, `solid`, `transparent`, `pill`, `neon`, `retro`) or hex color hash (e.g. `?overlay=0d1117`). |
+| `?fit=1\|0` | `0` | **Fit Entire Bracket**: Auto-scales and centers the whole bracket tree within the OBS browser viewport so all rounds fit on-screen without scrollbars. |
+| `?showtitle=1\|0` | `1` | Show or hide tournament title banner at the top of the bracket overlay (`?showtitle=0` removes header to save vertical space). |
+| `?showrounds=1\|0` | `1` | Show or hide round header labels ("Round of 16", "Semifinals", "Grand Finals"). |
 | `?showscores=1\|0` | `1` | Show or hide numerical scores and series win pips on match cards. |
+| `?lines=glow\|solid\|minimal` | `glow` | Bracket line style: luminous glow, solid high-contrast connectors, or minimal borders. |
+| `?spacing=normal\|compact\|spacious` | `normal` | Bracket match and column spacing density. |
 | `?confetti=1\|0` | `1` | Enable or disable celebration confetti burst when champion is crowned. |
 | `?scale=<multiplier>` | `1` | Responsive zoom and element scaling factor (e.g. `?scale=1.25`). |
 | `?preview=1` | `0` | Displays sample tournament bracket permanently for setup, sizing, and styling in OBS Studio. |
@@ -154,6 +166,7 @@ Renders live competitor scores, names, character tags, and series pips across fi
 - **Fighting Game Top Bar (`?layout=top`)**: Docked at the top of the broadcast screen with P1 and P2 on opposing sides, score boxes, series win pips (`● ● ○`), and a center match phase badge.
 - **Modern FGC / EVO Style (`?layout=fgc`)**: High-octane esports broadcast bar with angular polygon clip-path cuts, LED score counters, character badges, and responsive scaling.
 - **Dual Corner Split (`?layout=split`)**: Places Player 1 in the top-left corner and Player 2 in the top-right corner with a **100% open clear center**. Ideal when webcams, game timers, or in-game super meters are positioned in the top center.
+- **Speedrun Battle / GDQ Race (`?layout=race`)**: Multi-runner speedrun race layout featuring synchronized master clock, target estimate badge, runner nameplates and tags, independent live split times, and auto-calculating delta badges (`WINNER`, `+MM:SS.ss`). Supports 2, 3, or 4 runners.
 - **Vertical Pillar Stack (`?layout=pillar` or `?layout=vertical`)**: Compact vertical stack designed for camera sidebars, mobile stream framing (9:16), or corner pillars.
 - **Minimal / Center-Less (`?layout=minimal`)**: Ultra-compact, center-less score strip where player names and score numbers touch directly without center badges or bulky backplates.
 - **Esports Lower-Third HUD (`?layout=bottom`)**: Docked at the bottom of the stream screen.
@@ -230,6 +243,11 @@ Control live polls, tournament matchups, and scoreboard sets directly from your 
 | **Reset Matchup Scores** | `/api/matchup/reset-scores` | POST | Clears scores to 0 for next set. |
 | **Clock Start / Pause** | `/api/matchup/clock/start` / `/pause` | POST | Starts or pauses match round countdown or stopwatch. |
 | **Clock Reset** | `/api/matchup/clock/reset` | POST | Resets match clock to default duration or 0. |
+| **Race Start All Runners** | `/api/matchup/clock/race/start-all` | POST | Synchronously starts master clock and all runner split timers. |
+| **Race Pause All Runners** | `/api/matchup/clock/race/pause-all` | POST | Pauses master clock and all runner split timers. |
+| **Race Reset All Runners** | `/api/matchup/clock/race/reset-all` | POST | Resets all runner split clocks, finished status, and delta badges. |
+| **Finish Runner 1** | `/api/matchup/clock/race/finish` | POST | `{ "competitor": 0 }` Locks Runner 1 finish time and calculates delta. |
+| **Finish Runner 2** | `/api/matchup/clock/race/finish` | POST | `{ "competitor": 1 }` Locks Runner 2 finish time and calculates delta. |
 | **Next Queue Match** | `/api/matchup/queue/next` | POST | Advances to next match in the fight card queue. |
 | **Prev Queue Match** | `/api/matchup/queue/prev` | POST | Returns to previous match in the fight card queue. |
 

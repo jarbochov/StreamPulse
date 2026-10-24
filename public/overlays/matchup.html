@@ -930,6 +930,155 @@
             color: #6e7681;
         }
 
+        /* ----------------------------------------------------
+           SPEEDRUN BATTLE / RACE LAYOUT (?layout=race)
+           ---------------------------------------------------- */
+        .layout-race #stage {
+            width: 100%;
+            max-width: 1300px;
+        }
+
+        .race-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            width: 100%;
+        }
+
+        .race-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--matchup-bg);
+            border: 1px solid var(--matchup-border);
+            border-radius: 8px;
+            padding: 0.4rem 1rem;
+            backdrop-filter: var(--matchup-backdrop);
+            -webkit-backdrop-filter: var(--matchup-backdrop);
+        }
+
+        .race-est-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.8rem;
+            font-weight: 800;
+            color: #ffd700;
+            background: rgba(255, 215, 0, 0.12);
+            border: 1px solid rgba(255, 215, 0, 0.25);
+            padding: 0.15rem 0.55rem;
+            border-radius: 999px;
+            letter-spacing: 0.04em;
+        }
+
+        .race-runners-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 0.75rem;
+            width: 100%;
+        }
+
+        .race-runner-card {
+            background: var(--matchup-bg);
+            border: 1px solid var(--matchup-border);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            backdrop-filter: var(--matchup-backdrop);
+            -webkit-backdrop-filter: var(--matchup-backdrop);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+            transition: all 0.25s ease;
+        }
+
+        .race-runner-card.finished {
+            border-color: #3fb950;
+            box-shadow: 0 0 20px rgba(63, 185, 80, 0.35);
+        }
+
+        .race-strip {
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 5px;
+        }
+
+        .race-runner-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-left: 0.4rem;
+        }
+
+        .race-runner-name {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -0.01em;
+        }
+
+        .race-runner-tag {
+            font-size: 0.75rem;
+            color: var(--matchup-muted);
+            font-weight: 600;
+        }
+
+        .race-timer-hero {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            padding: 0.45rem 0.75rem;
+            margin-left: 0.4rem;
+        }
+
+        .race-timer-digits {
+            font-size: 1.65rem;
+            font-weight: 900;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            color: #ffd700;
+            letter-spacing: -0.02em;
+        }
+
+        .race-runner-card.finished .race-timer-digits {
+            color: #3fb950;
+            text-shadow: 0 0 10px rgba(63, 185, 80, 0.6);
+        }
+
+        .race-finish-badge {
+            font-size: 0.72rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            letter-spacing: 0.04em;
+        }
+
+        .race-finish-badge.finish-win {
+            background: rgba(63, 185, 80, 0.2);
+            color: #3fb950;
+            border: 1px solid rgba(63, 185, 80, 0.4);
+        }
+
+        .race-finish-badge.finish-delta {
+            background: rgba(255, 255, 255, 0.1);
+            color: #8b949e;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .race-finish-badge.finish-running {
+            background: rgba(255, 215, 0, 0.15);
+            color: #ffd700;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            animation: pulse-clock 1s infinite alternate;
+        }
+
         #confetti-canvas {
             position: fixed;
             top: 0;
@@ -1141,7 +1290,9 @@
             const target = m.targetScore || (m.bestOf > 0 ? Math.ceil(m.bestOf / 2) : 0);
 
             // Select Layout
-            if (layout === 'fgc' || layout === 'evo') {
+            if (layout === 'race' || m.clock?.mode === 'race') {
+                renderSpeedrunRace(m, target, count);
+            } else if (layout === 'fgc' || layout === 'evo') {
                 renderFgcBar(m, target, count);
             } else if (layout === 'split') {
                 renderSplitCorners(m, target);
@@ -1158,6 +1309,69 @@
             } else {
                 renderTopBar(m, target, count);
             }
+        }
+
+        // SPEEDRUN RACE LAYOUT
+        function renderSpeedrunRace(m, target, count) {
+            const comps = m.competitors || [];
+            const clock = m.clock || {};
+            const est = clock.estimate || '';
+
+            container.innerHTML = `
+                <div class="race-panel">
+                    <div class="race-header">
+                        <div style="display: flex; align-items: center; gap: 0.6rem;">
+                            <span class="match-phase-badge">${esc(m.phase || m.title || 'Speedrun Race')}</span>
+                            ${m.details ? `<span style="font-size: 0.78rem; color: var(--matchup-muted); font-weight: 600;">${esc(m.details)}</span>` : ''}
+                        </div>
+                        ${est ? `
+                            <div class="race-est-badge">
+                                <span style="opacity: 0.75; font-size: 0.68rem; text-transform: uppercase;">EST</span>
+                                <span>${esc(est)}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="race-runners-grid">
+                        ${comps.map((c, i) => {
+                            const t = c.timer || { elapsed: 0, isRunning: false, finished: false, finishTime: null, delta: null };
+                            const isFin = t.finished;
+                            const isRun = t.isRunning;
+                            const timeStr = isFin ? (t.finishTime || formatTime(t.elapsed)) : formatTime(t.elapsed || 0);
+
+                            let badgeHtml = '';
+                            if (isFin) {
+                                if (t.delta === 'WINNER' || !t.delta) {
+                                    badgeHtml = `<span class="race-finish-badge finish-win">1st · Finish</span>`;
+                                } else {
+                                    badgeHtml = `<span class="race-finish-badge finish-delta">${esc(t.delta)}</span>`;
+                                }
+                            } else if (isRun) {
+                                badgeHtml = `<span class="race-finish-badge finish-running">Live</span>`;
+                            } else {
+                                badgeHtml = `<span class="race-finish-badge finish-delta">Ready</span>`;
+                            }
+
+                            return `
+                                <div class="race-runner-card${isFin ? ' finished' : ''}">
+                                    <div class="race-strip" style="background: ${c.color || 'var(--matchup-accent)'};"></div>
+                                    <div class="race-runner-info">
+                                        <div>
+                                            <div class="race-runner-name">${esc(c.name)}</div>
+                                            ${showTags && c.tag ? `<div class="race-runner-tag">${esc(c.tag)}</div>` : ''}
+                                        </div>
+                                        ${target > 0 ? renderPipsHtml(c.score, target, c.color) : ''}
+                                    </div>
+                                    <div class="race-timer-hero">
+                                        <div class="race-timer-digits">${timeStr}</div>
+                                        ${badgeHtml}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
         }
 
         // 1b. VERTICAL PILLAR LAYOUT
