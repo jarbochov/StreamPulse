@@ -209,8 +209,18 @@ Renders live competitor scores, names, character tags, and series pips across fi
 - **Angular Slash (`?layout=angular`)**: High-contrast symmetrical esports banner with polygon cuts, italic typography, and center VS badge.
 - **Versus Screen Card (`?layout=versus`)**: Full-screen or large intro card showcasing competitors facing off with prominent VS emblem.
 
-#### Responsive Self-Sizing & Sizing Bounds:
-Unlike traditional full-screen overlays locked to 1920×1080 canvases, `/matchup.html` dynamically sizes itself to whatever OBS browser source dimensions you configure (e.g. 700×70, 1100×90, 400×120).
+#### Responsive Self-Sizing, Container Queries & Narrow Viewports:
+Unlike traditional full-screen overlays locked to 1920×1080 canvases, `/matchup.html` dynamically sizes itself to whatever OBS browser source dimensions you configure (e.g. 700×70, 1100×90, 480×120, 340×200).
+- **Proportional Rem Scaling (`?scale=0.75\|1.0\|1.25\|1.5\|2.0`)**: Scales the root font size and all rem-based typography, pips, badges, and score boxes together in lockstep.
+- **Fluid Container Queries (`@container`)**: Matchup layouts employ CSS container queries to fluidly adapt from 4K down to narrow sidebar widths without clipping:
+  - `< 720px`: Paddings, clip-path angles, and badges scale down smoothly.
+  - `< 580px` (Narrow Bar / Vertical 9:16 streams):
+    - **Top Bar**: Center badge gracefully wraps into a sleek top micro-header, giving Player 1 and Player 2 the entire bottom row (50% width each) with zero name truncation.
+    - **Modern FGC**: Polygon clip-paths retract and cards stack cleanly into opposing vertical battle cards.
+    - **Dual Corner Split**: Corner pods stack vertically.
+    - **Multi-Competitor Grid & Speedrun Battle**: Grids collapse into responsive single-column cards.
+  - `< 380px` (Mobile Frame / Camera Sidebar): Opposing competitor cards stack vertically with clean borders.
+- **Explicit Width & Max-Width (`?width=480px`, `?maxwidth=600px`)**: Constrain the overlay container to explicit pixel or percentage widths.
 - **Tight Bounding Box Mode (`?fit=content` or `?fit=1`)**: Automatically sizes the container to wrap snugly around the content with zero dead whitespace or unwanted margins.
 - **Canvas Alignment (`?align=left|center|right`, `?valign=top|center|bottom`)**: Aligns the scoreboard within the source bounding box.
 
@@ -226,6 +236,9 @@ Unlike traditional full-screen overlays locked to 1920×1080 canvases, `/matchup
 | `?source=auto\|matchup\|tournament` | `auto` | Data source binding: automatically display active tournament match during brackets, or lock to standalone matchup. |
 | `?pipstyle=circle\|diamond\|bar\|digit` | `circle` | Pip presentation format: round dots (`circle`), diamonds (`diamond`), segmented rectangular bars (`bar`), or numerical indicator (`digit`). |
 | `?fit=content` | off | Shrinkwrap container to fit tightly within the OBS browser source without canvas margins. |
+| `?width=<width>` | `100%` | Custom width constraint (e.g. `?width=480px` or `?width=90%`). |
+| `?maxwidth=<width>` | `1200px` | Custom maximum width constraint (e.g. `?maxwidth=600px`). |
+| `?padding=<padding>` | `clamp(...)` | Custom stage padding (e.g. `?padding=8px`). |
 | `?p1color=<hex>` | default | Custom theme accent color override for Player 1 / Left team. |
 | `?p2color=<hex>` | default | Custom theme accent color override for Player 2 / Right team. |
 | `?clockstyle=badge\|bottom\|pill\|fgc` | `badge` | Match clock styling presentation: center integrated badge, bottom dock timer (`00:00 / 45:00`), floating pill, or EVO big digits. |
@@ -238,7 +251,7 @@ Unlike traditional full-screen overlays locked to 1920×1080 canvases, `/matchup
 | `?tags=1\|0` | `1` | Show or hide competitor character/sub-tags. |
 | `?details=1\|0` | `1` | Show or hide match phase badge and series subtitle. |
 | `?confetti=1\|0` | `1` | Enable or disable confetti burst when a set winner is crowned (`?confetti=0` silences confetti). |
-| `?scale=<multiplier>` | `1` | Element scaling multiplier (e.g. `?scale=1.2`). |
+| `?scale=<multiplier>` | `1` | Global scaling multiplier scaling all elements and root rem typography proportionally (e.g. `?scale=0.75`, `?scale=1.5`). |
 | `?preview=1` | `0` | Displays sample matchup permanently for OBS scene framing. |
 
 ---

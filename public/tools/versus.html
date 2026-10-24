@@ -659,6 +659,18 @@
                                 </select>
                             </div>
                             <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Scale:</span>
+                                <select id="prev-ctrl-scale" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onPreviewOptionChange('scale', this.value)">
+                                    <option value="0.75">0.75x</option>
+                                    <option value="0.85">0.85x</option>
+                                    <option value="1" selected>1.0x</option>
+                                    <option value="1.15">1.15x</option>
+                                    <option value="1.25">1.25x</option>
+                                    <option value="1.5">1.5x</option>
+                                    <option value="2.0">2.0x</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
                                 <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Fit:</span>
                                 <select id="prev-ctrl-fit" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onPreviewOptionChange('fit', this.value)">
                                     <option value="full">Flexible Width</option>
@@ -774,6 +786,8 @@
                             <button type="button" class="preset-chip-btn active" id="chip-vp-topbar" onclick="setPreviewViewport(1100, 100, this)">Top Bar (1100×100)</button>
                             <button type="button" class="preset-chip-btn" id="chip-vp-hud" onclick="setPreviewViewport(800, 130, this)">Lower Third (800×130)</button>
                             <button type="button" class="preset-chip-btn" id="chip-vp-race" onclick="setPreviewViewport(1280, 220, this)">Speedrun Race (1280×220)</button>
+                            <button type="button" class="preset-chip-btn" id="chip-vp-narrow" onclick="setPreviewViewport(480, 120, this)">Narrow Bar (480×120)</button>
+                            <button type="button" class="preset-chip-btn" id="chip-vp-mobile" onclick="setPreviewViewport(340, 200, this)">Mobile Vertical (340×200)</button>
                             <button type="button" class="preset-chip-btn" id="chip-vp-169" onclick="setPreviewViewport(1280, 720, this)">16:9 Canvas (1280×720)</button>
                             <button type="button" class="preset-chip-btn" id="chip-vp-bracket" onclick="setPreviewViewport(null, 560, this)">Full Bracket (100%×560)</button>
                             <button type="button" class="preset-chip-btn" id="chip-vp-bug" onclick="setPreviewViewport(380, 120, this)">Score Bug (380×120)</button>
@@ -884,6 +898,22 @@
                                             <option value="bar">Rectangular Bars (▮ ▮ ▯)</option>
                                             <option value="digit">Numeric Counter (1 / 2)</option>
                                         </select>
+                                    </div>
+                                    <div>
+                                        <label for="matchup-opt-scale" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Scale (?scale=)</label>
+                                        <select id="matchup-opt-scale" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                            <option value="0.75">0.75x (Compact)</option>
+                                            <option value="0.85">0.85x</option>
+                                            <option value="1" selected>1.0x (Standard)</option>
+                                            <option value="1.15">1.15x</option>
+                                            <option value="1.25">1.25x</option>
+                                            <option value="1.5">1.5x (Large)</option>
+                                            <option value="2.0">2.0x (Huge 4K)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="matchup-opt-width" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Width (?width=)</label>
+                                        <input type="text" id="matchup-opt-width" class="form-control" placeholder="100% or 480px" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" oninput="updateMatchupOverlayUrl()">
                                     </div>
                                 </div>
 
@@ -1403,6 +1433,7 @@
             if (opt === 'clockstyle' && $('matchup-opt-clockstyle')) $('matchup-opt-clockstyle').value = val;
             if (opt === 'pipstyle' && $('matchup-opt-pipstyle')) $('matchup-opt-pipstyle').value = val;
             if (opt === 'roundpipstyle' && $('matchup-opt-roundpipstyle')) $('matchup-opt-roundpipstyle').value = val;
+            if (opt === 'scale' && $('matchup-opt-scale')) $('matchup-opt-scale').value = val;
             if (opt === 'fit' && $('matchup-opt-fit')) $('matchup-opt-fit').checked = val === 'content';
             updateMatchupOverlayUrl();
         }
@@ -1521,6 +1552,8 @@
             const sourceSelect = $('matchup-opt-source');
             const pipStyleSelect = $('matchup-opt-pipstyle');
             const roundPipStyleSelect = $('matchup-opt-roundpipstyle');
+            const scaleSelect = $('matchup-opt-scale');
+            const widthInput = $('matchup-opt-width');
             const centerCheck = $('matchup-opt-center');
             const fitCheck = $('matchup-opt-fit');
             const confettiCheck = $('matchup-opt-confetti');
@@ -1531,6 +1564,7 @@
             if ($('prev-ctrl-clockstyle') && clockStyleSelect) $('prev-ctrl-clockstyle').value = clockStyleSelect.value;
             if ($('prev-ctrl-pipstyle') && pipStyleSelect) $('prev-ctrl-pipstyle').value = pipStyleSelect.value;
             if ($('prev-ctrl-roundpipstyle') && roundPipStyleSelect) $('prev-ctrl-roundpipstyle').value = roundPipStyleSelect.value;
+            if ($('prev-ctrl-scale') && scaleSelect) $('prev-ctrl-scale').value = scaleSelect.value;
             if ($('prev-ctrl-fit') && fitCheck) $('prev-ctrl-fit').value = fitCheck.checked ? 'content' : 'full';
 
             const urlParams = new URLSearchParams();
@@ -1540,6 +1574,8 @@
             if (sourceSelect && sourceSelect.value !== 'auto') urlParams.set('source', sourceSelect.value);
             if (pipStyleSelect && pipStyleSelect.value !== 'circle') urlParams.set('pipstyle', pipStyleSelect.value);
             if (roundPipStyleSelect && roundPipStyleSelect.value !== 'diamond') urlParams.set('roundpipstyle', roundPipStyleSelect.value);
+            if (scaleSelect && scaleSelect.value && scaleSelect.value !== '1') urlParams.set('scale', scaleSelect.value);
+            if (widthInput && widthInput.value && widthInput.value.trim()) urlParams.set('width', widthInput.value.trim());
             if (centerCheck && !centerCheck.checked) urlParams.set('center', '0');
             ['title', 'phase', 'clock', 'tags', 'details', 'pips', 'banner'].forEach(k => { const el = $('matchup-opt-' + k); if (el && !el.checked) urlParams.set(k, '0'); });
             const roundPipsEl = $('matchup-opt-roundpips');

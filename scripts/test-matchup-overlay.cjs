@@ -183,6 +183,51 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         const digitRoundText = await page.$eval('.pip-digit-rounds', el => el.textContent.trim());
         assert.ok(digitRoundText.includes('/'), 'Should render numeric round counter with ?roundpipstyle=digit');
 
+        // 23. Scaling (?scale=1.5 and ?scale=0.75) proportional rem scaling
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=top&scale=1.5`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.score-box');
+        const rootFontSize15 = await page.evaluate(() => getComputedStyle(document.documentElement).fontSize);
+        assert.equal(rootFontSize15, '24px', 'Root font-size at scale=1.5 should be 24px (16px * 1.5)');
+
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=top&scale=0.75`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.score-box');
+        const rootFontSize075 = await page.evaluate(() => getComputedStyle(document.documentElement).fontSize);
+        assert.equal(rootFontSize075, '12px', 'Root font-size at scale=0.75 should be 12px (16px * 0.75)');
+
+        // 24. Explicit width constraints (?width=480px&maxwidth=600px)
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=top&width=480px&maxwidth=600px`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#matchup-container');
+        const containerWidth = await page.$eval('#matchup-container', el => ({
+            w: getComputedStyle(el).width,
+            mw: getComputedStyle(el).maxWidth
+        }));
+        assert.equal(containerWidth.w, '480px', 'Container width should match ?width=480px');
+        assert.equal(containerWidth.mw, '600px', 'Container max-width should match ?maxwidth=600px');
+
+        // 25. Elimination of rigid fixed heights: .fgc-side and .score-box have min-height and flexible height
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=fgc`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.fgc-side');
+        const fgcHeightStyles = await page.$eval('.fgc-side', el => {
+            const cs = getComputedStyle(el);
+            return {
+                minHeight: cs.minHeight,
+                height: el.style.height || cs.height
+            };
+        });
+        assert.ok(parseFloat(fgcHeightStyles.minHeight) > 0, 'FGC side should have a computed min-height');
+
+        // 26. Responsive narrow width container wrapping (< 540px)
+        await page.setViewport({ width: 440, height: 300 });
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=top`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.topbar-panel');
+        const centerBadgeOrder = await page.$eval('.topbar-center-badge', el => getComputedStyle(el).order);
+        assert.equal(centerBadgeOrder, '-1', 'Center badge should wrap above competitors with order -1 at narrow widths');
+
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=fgc`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.fgc-panel');
+        const fgcFlexDir = await page.$eval('.fgc-panel', el => getComputedStyle(el).flexDirection);
+        assert.equal(fgcFlexDir, 'column', 'FGC panel should stack into column layout at narrow widths');
+
     } finally {
         if (browser) await browser.close();
     }
