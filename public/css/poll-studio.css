@@ -134,6 +134,9 @@ body {
     color: var(--text-muted);
 }
 .choice-del-btn {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
     background: transparent;
     border: none;
     color: var(--text-muted);
@@ -751,3 +754,12 @@ input:checked + .slider:before {
 
 
 
+
+/* Versus Studio field labels */
+#panel-tourney label[for], #panel-matchup label[for], #panel-presets label[for], #panel-history label[for] {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+}
