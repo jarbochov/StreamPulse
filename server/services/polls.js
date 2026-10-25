@@ -567,6 +567,12 @@ function createPollService({
         const text = String(msg.message || msg.text || '').trim();
         if (!text) return false;
 
+        // Never count announcements or bot messages as votes
+        if (/^\[(?:bot|poll|tournament)/i.test(text)) return false;
+        if (chatbotAnnouncer?.isBotMessage?.(text)) return false;
+        const botTag = chatbotAnnouncer?.getTag?.();
+        if (botTag && text.toLowerCase().startsWith(botTag.toLowerCase())) return false;
+
         let choiceIndex = -1;
 
         // 1. Command format: !vote 1, <prefix>vote 1, or !vote <word>
@@ -575,7 +581,11 @@ function createPollService({
         const cmdMatch = text.match(new RegExp(`^(?:${escapedPrefix}|!)vote\\s+(.+)$`, 'i'));
         if (cmdMatch) {
             const arg = cmdMatch[1].trim();
-            const num = parseInt(arg, 10);
+            // Ignore if arg contains choice prompt syntax like "1: Title" or "1 - Title"
+            if (/^\d+\s*[:\-\u2014]/.test(arg)) return false;
+
+            // Only treat as option number if arg is strictly digits (e.g. "1", "2")
+            const num = /^\d+$/.test(arg) ? parseInt(arg, 10) : NaN;
             if (!isNaN(num) && num >= 1 && num <= activePoll.choices.length) {
                 choiceIndex = num - 1;
             } else {

@@ -368,6 +368,30 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
     const sessionId = () => normalizeSsnSessionId(getConfig().ssn?.session_id);
     const baseUrl = () => String(getConfig().ssn?.chat_base || getConfig().ssn?.server || 'https://io.socialstream.ninja').replace(/^wss:/, 'https:').replace(/^ws:/, 'http:').replace(/\/+$/, '');
 
+    const recentSent = new Map();
+    function recordSent(str) {
+        if (!str) return;
+        const now = Date.now();
+        recentSent.set(str.trim().toLowerCase(), now);
+        for (const [k, t] of recentSent.entries()) {
+            if (now - t > 120000) recentSent.delete(k);
+        }
+    }
+
+    function isBotMessage(str) {
+        if (!str) return false;
+        const cleanStr = String(str).trim().toLowerCase();
+        const tag = (data.settings.tag || '').trim().toLowerCase();
+        if (tag && cleanStr.startsWith(tag)) return true;
+        if (/^\[(?:bot|poll|tournament)/i.test(cleanStr)) return true;
+        if (recentSent.has(cleanStr)) return true;
+        if (tag && cleanStr.startsWith(tag)) {
+            const stripped = cleanStr.slice(tag.length).trim();
+            if (recentSent.has(stripped)) return true;
+        }
+        return false;
+    }
+
     async function send(text) {
         const id = sessionId();
         if (!id) throw new Error('SocialStream session ID is not set');
@@ -376,6 +400,8 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             const message = (tag && !line.startsWith(tag)) ? `${tag} ${line}` : line;
+            recordSent(line);
+            recordSent(message);
             if (i) await new Promise(r => setTimeout(r, 400));
             const res = await fetch(`${baseUrl()}/${encodeURIComponent(id)}/sendChat/${encodeURIComponent(message.slice(0, 400))}`, { signal: AbortSignal.timeout(5000) });
             if (!res.ok) throw new Error(`SocialStream replied ${res.status}`);
@@ -1042,6 +1068,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         isReady,
         getPrefix: () => data.settings.prefix || '!',
         getTag: () => data.settings.tag || '',
+        isBotMessage,
         postMessage,
         announcePollStart,
         announcePollEnd,

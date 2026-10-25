@@ -121,9 +121,17 @@ test('Chatbot Poll Announcements: formatting, readiness, and poll service integr
     assert.ok(sentMessages[2].includes('!vote 2: Charmander'));
     assert.ok(sentMessages[3].includes('!vote 3: Squirtle'));
 
+    // Simulate incoming bot messages from SocialStream echo - these must NEVER count as votes!
+    const botSelfVoted1 = pollService.handleChatMessage({ chatname: 'BroadcasterBot', message: '!vote 1: Bulbasaur' });
+    assert.equal(botSelfVoted1, false, 'Bot announcement with choice format must never count as a vote');
+    const botSelfVoted2 = pollService.handleChatMessage({ chatname: 'BroadcasterBot', message: '[BOT] !vote 2: Charmander' });
+    assert.equal(botSelfVoted2, false, 'Bot announcement with [BOT] tag must never count as a vote');
+    assert.equal(pollService.getActivePoll().totalVotes, 0, 'Poll total votes must remain 0 after bot announcements');
+
     // Finishing poll posts end announcement (test voting with !vote 2)
     sentMessages.length = 0;
     pollService.handleChatMessage({ chatname: 'Ash', message: '!vote 2' });
+    assert.equal(pollService.getActivePoll().totalVotes, 1, 'Legitimate viewer vote should count');
     pollService.finishPoll();
     await new Promise(r => setTimeout(r, 50));
     assert.ok(sentMessages.length >= 1, 'End announcement should have been dispatched');
