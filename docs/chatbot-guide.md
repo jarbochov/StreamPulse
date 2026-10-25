@@ -41,3 +41,21 @@ StreamPulse supports **Silent Commands** that execute background logic without p
 - **Silent Execution**: Useful for moderator tools (e.g. `!spin` triggers the Choice Randomizer without cluttering chat).
 - **HTTP Webhook Actions**: Send automatic `POST` or `GET` webhooks to external services (such as Home Assistant, Discord webhooks, or local automation scripts) whenever a command is typed or an alert fires.
 - **API Runner**: Trigger bot commands programmatically via `POST /api/chatbot/run` or `GET /api/chatbot/run?command=!game`.
+
+---
+
+## 4. Poll & Tournament Bracket Announcements
+
+StreamPulse connects the Chat Bot directly to the Poll Manager and audience tournament brackets:
+
+- **Poll & Match Start**: Announces when a poll opens with choices, duration, and voting instructions (`!vote <n>`).
+- **Poll & Match Finish**: Announces the winning choice with vote counts and percentage (or reports a tie).
+- **Tournament Champion**: Announces the crowned winner when the Grand Finals or Round Robin tournament concludes.
+- **Configuration & Templates**: Under **Settings -> Poll & Bracket Chat Announcements**, configure:
+  - Master toggle and individual start/finish toggles.
+  - Start template (tokens: `{title}`, `{choices}`, `{commands}`, `{duration}`).
+  - End template (tokens: `{title}`, `{winner}`, `{votes}`, `{percent}`, `{totalVotes}`).
+  - Tie template (tokens: `{title}`, `{choices}`).
+  - Champion template (tokens: `{title}`, `{champion}`).
+  - **Send test announcement** button to verify chat formatting and SocialStream connectivity.
+- **Safety**: Chat announcements are non-blocking. If the bot is inactive, paused, or disconnected, polls run seamlessly without errors.

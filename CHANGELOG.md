@@ -8,7 +8,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ### Added
 - Versus & Tournament Studio: Scoreboards, elimination and round-robin brackets, multi-match scorekeeper, speedrun battle clocks, and broadcast overlays.
-- Poll Manager: Chat polls, audience voting brackets, and broadcast overlays.
+- Poll Manager: Chat polls, audience voting brackets, chat bot announcements, and broadcast overlays.
 - Randomizer Elimination Mode: Weight-based choice randomizer with elimination and restoration.
 - Promo Creator: Social promo generator with multi-layer layout, animations, and image export.
 - Custom Overlay Poll Element: Real-time Twitch poll widget for custom overlays.

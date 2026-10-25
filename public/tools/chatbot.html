@@ -253,6 +253,30 @@
             </div>
 
             <div class="settings-section">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem;">
+                    <div>
+                        <h2>Poll &amp; Bracket Chat Announcements</h2>
+                        <p class="muted" style="margin:0;">Automatically post messages to chat when polls and tournament matches start and finish.</p>
+                    </div>
+                    <label class="check" style="font-weight:600;"><input type="checkbox" id="s-poll-announce-enabled"> Enable poll announcements</label>
+                </div>
+                <div class="row" style="margin-top:.6rem;gap:1.5rem;flex-wrap:wrap;">
+                    <label class="check"><input type="checkbox" id="s-poll-announce-start"> Post when poll / match starts</label>
+                    <label class="check"><input type="checkbox" id="s-poll-announce-end"> Post results when poll / match ends</label>
+                </div>
+                <div class="grid" style="margin-top:.75rem;">
+                    <label class="f" style="grid-column:1/-1;"><span>Poll / Match Start Template</span><input id="s-poll-template-start" maxlength="400" placeholder="[Poll] {title} — Choices: {choices} — Vote with {commands} ({duration}s)"></label>
+                    <label class="f" style="grid-column:1/-1;"><span>Poll Winner / Result Template</span><input id="s-poll-template-end" maxlength="400" placeholder="[Poll Result] Winner: {winner} with {votes} votes ({percent}%)!"></label>
+                    <label class="f" style="grid-column:1/-1;"><span>Poll Tie Template</span><input id="s-poll-template-tie" maxlength="400" placeholder="[Poll Result] The poll ended in a tie between {choices}!"></label>
+                    <label class="f" style="grid-column:1/-1;"><span>Tournament Grand Champion Template</span><input id="s-poll-template-champ" maxlength="400" placeholder="[Tournament Champion] {champion} has won {title}!"></label>
+                </div>
+                <p class="muted" style="margin-top:.4rem;">Supported tokens: <code>{title}</code>, <code>{choices}</code>, <code>{commands}</code>, <code>{duration}</code>, <code>{winner}</code>, <code>{votes}</code>, <code>{percent}</code>, <code>{totalVotes}</code>, <code>{champion}</code>.</p>
+                <div class="row" style="margin-top:.5rem;">
+                    <button class="btn small" id="test-poll-announce" type="button">Send test announcement</button>
+                </div>
+            </div>
+
+            <div class="settings-section">
                 <h2>Backup &amp; Migration</h2>
                 <div class="row">
                     <button class="btn" id="export-all">Export all settings (.json)</button>
@@ -587,6 +611,14 @@ function renderSettings() {
     $('s-shoutout-enabled').checked = s.autoShoutout?.enabled === true;
     $('s-shoutout-message').value = s.autoShoutout?.message ?? 'Welcome raiders from @{{user}}! Show them some love: twitch.tv/{{user}}';
     $('s-shoutout-min').value = s.autoShoutout?.minViewers ?? 0;
+    const pa = s.pollAnnouncements || {};
+    $('s-poll-announce-enabled').checked = pa.enabled !== false;
+    $('s-poll-announce-start').checked = pa.announceStart !== false;
+    $('s-poll-announce-end').checked = pa.announceEnd !== false;
+    $('s-poll-template-start').value = pa.startTemplate ?? '';
+    $('s-poll-template-end').value = pa.endTemplate ?? '';
+    $('s-poll-template-tie').value = pa.tieTemplate ?? '';
+    $('s-poll-template-champ').value = pa.championTemplate ?? '';
     renderTwitchMods();
     $('builtins').innerHTML = ['quote', 'quotes', 'addquote', 'delquote'].map(n => { const b = (s.builtins || {})[n] || {}; return `<div class="row" data-b="${n}"><code style="min-width:7rem">${s.prefix || '!'}${n}</code><label class="check">Who can use <select data-bk="access"><option value="everyone" ${b.access === 'everyone' ? 'selected' : ''}>Everyone</option><option value="subs" ${b.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${b.access === 'mods' ? 'selected' : ''}>Mods only</option><option value="disabled" ${b.access === 'disabled' ? 'selected' : ''}>Disabled</option></select></label><label class="check">Cooldown (s)<input data-bk="cooldown" type="number" min="0" value="${b.cooldown ?? ''}" placeholder="default" style="width:6rem"></label></div>`; }).join('');
 }
@@ -1115,12 +1147,33 @@ $('save-settings').onclick = async () => {
                     message: $('s-shoutout-message').value,
                     minViewers: Number($('s-shoutout-min').value) || 0
                 },
+                pollAnnouncements: {
+                    enabled: $('s-poll-announce-enabled').checked,
+                    announceStart: $('s-poll-announce-start').checked,
+                    announceEnd: $('s-poll-announce-end').checked,
+                    startTemplate: $('s-poll-template-start').value,
+                    endTemplate: $('s-poll-template-end').value,
+                    tieTemplate: $('s-poll-template-tie').value,
+                    championTemplate: $('s-poll-template-champ').value
+                },
                 builtins: Object.fromEntries([...document.querySelectorAll('#builtins [data-b]')].map(r => [r.dataset.b, { access: r.querySelector('[data-bk=access]').value, cooldown: r.querySelector('[data-bk=cooldown]').value }]))
             }
         }));
         toast('Settings saved');
     } catch (e) { toast(e.message); }
 };
+$('test-poll-announce')?.addEventListener('click', async () => {
+    try {
+        const res = await api('/api/chatbot/test-poll-announce', 'POST');
+        if (res.sent) {
+            toast('Test announcement posted to chat');
+        } else {
+            toast(`Chatbot not ready: ${res.reason || 'Check SocialStream connection'}`);
+        }
+    } catch (e) {
+        toast(`Test failed: ${e.message}`);
+    }
+});
 $('sync-twitch-mods').onclick = async () => {
     const btn = $('sync-twitch-mods');
     const orig = btn.textContent;

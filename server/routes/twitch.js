@@ -166,6 +166,12 @@ function createTwitchRoutes({
             return true;
         }
 
+        if (pathname === '/api/polls/status' && req.method === 'GET') {
+            const chatbotStatus = pollService?.getChatbotStatus?.() || { ready: false, reason: 'Chatbot service not configured' };
+            sendJson(res, { status: 'ok', chatbot: chatbotStatus });
+            return true;
+        }
+
         if (pathname === '/api/polls/history' && req.method === 'GET') {
             const history = pollService ? pollService.getHistory() : [];
             sendJson(res, { status: 'ok', history });

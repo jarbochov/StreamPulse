@@ -10,7 +10,16 @@ const DEFAULT_AUTO_SHOUTOUT = {
     message: 'Welcome raiders from @{{user}}! Show them some love: twitch.tv/{{user}}',
     minViewers: 0
 };
-const DEFAULT_SETTINGS = { enabled: false, prefix: '!', tag: '[BOT]', cooldown: 5, mods: [], autoShoutout: { ...DEFAULT_AUTO_SHOUTOUT } };
+const DEFAULT_POLL_ANNOUNCEMENTS = {
+    enabled: true,
+    announceStart: true,
+    announceEnd: true,
+    startTemplate: '[Poll] {title} — Choices: {choices} — Vote with {commands} ({duration}s)',
+    endTemplate: '[Poll Result] Winner: {winner} with {votes} votes ({percent}%)!',
+    tieTemplate: '[Poll Result] The poll ended in a tie between {choices}!',
+    championTemplate: '[Tournament Champion] {champion} has won {title}!'
+};
+const DEFAULT_SETTINGS = { enabled: false, prefix: '!', tag: '[BOT]', cooldown: 5, mods: [], autoShoutout: { ...DEFAULT_AUTO_SHOUTOUT }, pollAnnouncements: { ...DEFAULT_POLL_ANNOUNCEMENTS } };
 const MAX_COMMANDS = 200;
 const MAX_QUOTES = 5000;
 const MAX_MESSAGES = 100;
@@ -96,6 +105,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
     function normalizeSettings(input = {}) {
         const mods = Array.isArray(input.mods) ? input.mods : String(input.mods || '').split(/[\s,]+/);
         const autoShoutout = input.autoShoutout || {};
+        const pollAnnouncements = input.pollAnnouncements || {};
         return {
             enabled: input.enabled !== undefined
                 ? input.enabled === true
@@ -109,6 +119,15 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 enabled: autoShoutout.enabled === true,
                 message: clean(autoShoutout.message ?? DEFAULT_AUTO_SHOUTOUT.message, 1000),
                 minViewers: Math.max(0, Math.min(1000000, Number(autoShoutout.minViewers) || 0))
+            },
+            pollAnnouncements: {
+                enabled: pollAnnouncements.enabled !== undefined ? pollAnnouncements.enabled === true : DEFAULT_POLL_ANNOUNCEMENTS.enabled,
+                announceStart: pollAnnouncements.announceStart !== undefined ? pollAnnouncements.announceStart === true : DEFAULT_POLL_ANNOUNCEMENTS.announceStart,
+                announceEnd: pollAnnouncements.announceEnd !== undefined ? pollAnnouncements.announceEnd === true : DEFAULT_POLL_ANNOUNCEMENTS.announceEnd,
+                startTemplate: clean(pollAnnouncements.startTemplate ?? DEFAULT_POLL_ANNOUNCEMENTS.startTemplate, 500),
+                endTemplate: clean(pollAnnouncements.endTemplate ?? DEFAULT_POLL_ANNOUNCEMENTS.endTemplate, 500),
+                tieTemplate: clean(pollAnnouncements.tieTemplate ?? DEFAULT_POLL_ANNOUNCEMENTS.tieTemplate, 500),
+                championTemplate: clean(pollAnnouncements.championTemplate ?? DEFAULT_POLL_ANNOUNCEMENTS.championTemplate, 500)
             },
             builtins: Object.fromEntries(Object.entries(BUILTIN_DEFAULTS).map(([name, access]) => {
                 const b = (input.builtins || {})[name] || {};
@@ -261,7 +280,9 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             data.messages = (raw.messages || []).map(normalizeMessage).filter(Boolean).slice(0, MAX_MESSAGES);
             data.triggers = (raw.triggers || []).map(normalizeTrigger).filter(Boolean).slice(0, MAX_TRIGGERS);
             data.nextQuoteId = Math.max(Number(raw.nextQuoteId) || 1, ...data.quotes.map(q => q.id + 1), 1);
-        } catch { /* first run */ }
+        } catch {
+            data.settings = normalizeSettings({});
+        }
     }
 
     function save() {
@@ -830,6 +851,18 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 const res = await executeHttpAction(action, { user, arg, msg: { chatname: user } });
                 return json(200, res || { ok: false, error: 'No response' }), true;
             }
+            if (pathname === '/api/chatbot/status' && req.method === 'GET') {
+                return json(200, isReady()), true;
+            }
+            if (pathname === '/api/chatbot/test-poll-announce' && req.method === 'POST') {
+                const samplePoll = {
+                    title: clean(body.title || 'Favorite Retro Platform', 120),
+                    choices: (Array.isArray(body.choices) ? body.choices : ['SNES', 'Genesis', 'PlayStation']).map(title => ({ title: clean(title, 60) })),
+                    duration: Number(body.duration) || 60
+                };
+                const result = await announcePollStart(samplePoll);
+                return json(200, result || { sent: true }), true;
+            }
             if (pathname === '/api/chatbot/send' && req.method === 'POST') {
                 await send(clean(body.text, 400));
                 return json(200, { sent: true }), true;
@@ -863,6 +896,105 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         }
     }
 
+    function isReady() {
+        if (!isModuleEnabled()) return { ready: false, reason: 'Chatbot module is disabled in app configuration' };
+        if (data.settings.enabled !== true) return { ready: false, reason: 'Chatbot is paused or disabled in Chatbot settings' };
+        if (!sessionId()) return { ready: false, reason: 'SocialStream session ID is not configured' };
+        return { ready: true };
+    }
+
+    async function postMessage(text) {
+        if (!isReady().ready) return { ok: false, reason: isReady().reason };
+        try {
+            await send(text);
+            return { ok: true };
+        } catch (err) {
+            console.warn(`[Chatbot] Post message failed: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    }
+
+    async function announcePollStart(poll) {
+        const readyStatus = isReady();
+        if (!readyStatus.ready) return { sent: false, reason: readyStatus.reason };
+        const cfg = data.settings.pollAnnouncements || DEFAULT_POLL_ANNOUNCEMENTS;
+        if (!cfg.enabled || !cfg.announceStart) return { sent: false, reason: 'Poll announcements disabled in settings' };
+        if (!poll || !Array.isArray(poll.choices) || poll.choices.length < 2) return { sent: false, reason: 'Invalid poll choices' };
+
+        const durationStr = poll.duration > 0 ? String(poll.duration) : 'open';
+        const choicesStr = poll.choices.map((c, i) => `${i + 1}. ${c.title}`).join(' | ');
+        const commandsStr = poll.choices.map((_, i) => `!vote ${i + 1}`).join(' or ');
+
+        const text = (cfg.startTemplate || DEFAULT_POLL_ANNOUNCEMENTS.startTemplate)
+            .replace(/\{title\}/gi, poll.title || 'Untitled Poll')
+            .replace(/\{choices\}/gi, choicesStr)
+            .replace(/\{commands\}/gi, commandsStr)
+            .replace(/\{duration\}/gi, durationStr);
+
+        try {
+            await send(text);
+            return { sent: true, text };
+        } catch (err) {
+            console.warn(`[Chatbot] Poll start announcement failed: ${err.message}`);
+            return { sent: false, error: err.message, text };
+        }
+    }
+
+    async function announcePollEnd(poll) {
+        const readyStatus = isReady();
+        if (!readyStatus.ready) return { sent: false, reason: readyStatus.reason };
+        const cfg = data.settings.pollAnnouncements || DEFAULT_POLL_ANNOUNCEMENTS;
+        if (!cfg.enabled || !cfg.announceEnd) return { sent: false, reason: 'Poll announcements disabled in settings' };
+        if (!poll) return { sent: false, reason: 'No poll' };
+
+        let template = '';
+        if (poll.isTie) {
+            template = cfg.tieTemplate || DEFAULT_POLL_ANNOUNCEMENTS.tieTemplate;
+        } else if (poll.winner) {
+            template = cfg.endTemplate || DEFAULT_POLL_ANNOUNCEMENTS.endTemplate;
+        } else {
+            return { sent: false, reason: 'No winner or tie' };
+        }
+
+        const choicesStr = (poll.choices || []).map(c => c.title).join(' and ');
+        const text = template
+            .replace(/\{title\}/gi, poll.title || 'Untitled Poll')
+            .replace(/\{winner\}/gi, poll.winner || '')
+            .replace(/\{percent\}/gi, String(poll.winningPercent || 0))
+            .replace(/\{votes\}/gi, String(poll.winningVotes || 0))
+            .replace(/\{totalVotes\}/gi, String(poll.totalVotes || 0))
+            .replace(/\{choices\}/gi, choicesStr);
+
+        try {
+            await send(text);
+            return { sent: true, text };
+        } catch (err) {
+            console.warn(`[Chatbot] Poll end announcement failed: ${err.message}`);
+            return { sent: false, error: err.message, text };
+        }
+    }
+
+    async function announceTournamentChampion(tournament) {
+        const readyStatus = isReady();
+        if (!readyStatus.ready) return { sent: false, reason: readyStatus.reason };
+        const cfg = data.settings.pollAnnouncements || DEFAULT_POLL_ANNOUNCEMENTS;
+        if (!cfg.enabled || !cfg.announceEnd) return { sent: false, reason: 'Poll announcements disabled in settings' };
+        if (!tournament || !tournament.champion) return { sent: false, reason: 'No tournament champion' };
+
+        const template = cfg.championTemplate || DEFAULT_POLL_ANNOUNCEMENTS.championTemplate;
+        const text = template
+            .replace(/\{title\}/gi, tournament.title || 'Tournament')
+            .replace(/\{champion\}/gi, tournament.champion || 'Champion');
+
+        try {
+            await send(text);
+            return { sent: true, text };
+        } catch (err) {
+            console.warn(`[Chatbot] Tournament champion announcement failed: ${err.message}`);
+            return { sent: false, error: err.message, text };
+        }
+    }
+
     function getStats() {
         return {
             enabled: enabled(),
@@ -888,5 +1020,17 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
 
     load();
     start();
-    return { handle, handleApi, handleRaid, getStats, start, stop };
+    return {
+        handle,
+        handleApi,
+        handleRaid,
+        getStats,
+        isReady,
+        postMessage,
+        announcePollStart,
+        announcePollEnd,
+        announceTournamentChampion,
+        start,
+        stop
+    };
 };

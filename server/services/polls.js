@@ -116,6 +116,7 @@ function createPollService({
     onTakeover = () => {},
     onAlert = () => {},
     getTwitchPoll = () => null,
+    chatbotAnnouncer = null,
     log = console.log,
     error = console.error
 }) {
@@ -409,6 +410,7 @@ function createPollService({
             winningPercent: 0,
             isTie: false,
             tournamentMatchId: params.tournamentMatchId || null,
+            announceChat: params.announceChat !== false,
             settings
         };
 
@@ -419,6 +421,10 @@ function createPollService({
         const takeoverMs = duration > 0 ? duration * 1000 : 3600000;
         onTakeover('poll-active', activePoll.title, takeoverMs);
         broadcastToOverlays('poll-update', payload);
+
+        if (activePoll.announceChat && chatbotAnnouncer?.announcePollStart) {
+            Promise.resolve().then(() => chatbotAnnouncer.announcePollStart(activePoll)).catch(() => {});
+        }
 
         log(`[Polls] Started native poll: "${activePoll.title}" with ${cleanChoices.length} choices (duration: ${duration}s)`);
         return payload;
@@ -450,6 +456,10 @@ function createPollService({
         const resultsMs = Math.max(3000, (finishedPoll.settings?.resultsSeconds || 15) * 1000);
         onTakeover('poll-end', finishedPoll.title, resultsMs, payload);
         broadcastToOverlays('poll-update', payload);
+
+        if (status === 'COMPLETED' && finishedPoll.announceChat && chatbotAnnouncer?.announcePollEnd) {
+            Promise.resolve().then(() => chatbotAnnouncer.announcePollEnd(finishedPoll)).catch(() => {});
+        }
 
         // Handle linked tournament match cleanly
         if (finishedPoll.tournamentMatchId) {
@@ -951,6 +961,7 @@ function createPollService({
                 matches: rrMatches,
                 entrantsList: rawEntrants.map(e => e.tag ? `${e.name} [${e.tag}]` : e.name),
                 standings,
+                announceChat: input.announceChat !== false,
                 isPoll: Boolean(isPoll)
             };
 
@@ -1232,6 +1243,7 @@ function createPollService({
             createdAt: new Date().toISOString(),
             matches: allMatches,
             entrantsList: cleanEntrants.filter(e => e.name !== 'BYE').map(e => e.tag ? `${e.name} [${e.tag}]` : e.name),
+            announceChat: input.announceChat !== false,
             isPoll: Boolean(isPoll)
         };
 
@@ -1297,7 +1309,8 @@ function createPollService({
             blind: targetTourney.blind,
             subMultiplier: targetTourney.subMultiplier,
             tournamentMatchId: match.id,
-            celebration: { sound: '', confetti: true }
+            celebration: { sound: '', confetti: true },
+            announceChat: targetTourney.announceChat !== false
         });
 
         save();
@@ -1348,6 +1361,9 @@ function createPollService({
                 if (hist.length > 20) hist.length = 20;
 
                 log(`[Tournament] Round Robin completed! Champion: "${targetTourney.champion}"!`);
+                if (targetTourney.announceChat !== false && chatbotAnnouncer?.announceTournamentChampion) {
+                    Promise.resolve().then(() => chatbotAnnouncer.announceTournamentChampion(targetTourney)).catch(() => {});
+                }
                 try {
                     onAlert({
                         type: 'poll_end',
@@ -1393,6 +1409,9 @@ function createPollService({
             }
 
             log(`[Tournament] Champion crowned: "${wName}" in "${targetTourney.title}"!`);
+            if (targetTourney.announceChat !== false && chatbotAnnouncer?.announceTournamentChampion) {
+                Promise.resolve().then(() => chatbotAnnouncer.announceTournamentChampion(targetTourney)).catch(() => {});
+            }
             try {
                 onAlert({
                     type: 'poll_end',
@@ -1760,6 +1779,7 @@ function createPollService({
         if (settings.activeMatchId !== undefined) {
             targetTourney.activeMatchId = (settings.activeMatchId === null || settings.activeMatchId === 'none' || settings.activeMatchId === '') ? null : String(settings.activeMatchId);
         }
+        if (settings.announceChat !== undefined) targetTourney.announceChat = Boolean(settings.announceChat);
         save();
         if (isPollTourney) broadcastPollTournamentUpdate();
         else broadcastTournamentUpdate();
@@ -1961,6 +1981,7 @@ function createPollService({
         saveTournamentDraft,
         restoreTournamentDraft,
         deleteTournamentDraft,
+        getChatbotStatus: () => chatbotAnnouncer?.isReady?.() || { ready: false, reason: 'Chatbot service not configured' },
         destroy: () => { if (pollTimer) clearInterval(pollTimer); }
     };
 }

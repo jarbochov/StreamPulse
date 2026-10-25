@@ -47,6 +47,18 @@ Open **Tools -> Poll Manager** (`/polls.html`):
 - **Blind Voting ("Fog of War")**: Conceals live percentages on public stream overlays (showing mystery `??` indicators), building tension until the poll closes.
 - **Natural Keyword Voting**: Viewers can vote by typing words from the option title (e.g. typing "zelda" or "elden").
 - **Subscriber 2× Multiplier**: Channel subscribers' votes count double.
+- **Announce in Chat**: Automatically posts announcements to your stream chat via SocialStream Ninja when a poll starts, ends, and when a tournament champion is crowned.
+
+### Chat Bot Announcements (Automated Start & End Messages)
+StreamPulse integrates live poll and tournament match lifecycles with the built-in **Chat Bot**:
+- **Automatic Match & Poll Start**: When a poll or bracket match begins, the bot posts the poll title, options list, duration, and voting syntax (`!vote 1 or !vote 2`).
+- **Automatic Winner Reveal**: When a poll concludes or a match is advanced, the bot posts the winning choice, vote count, and percentage (or a tie announcement).
+- **Grand Finals Champion Crowning**: When the final match concludes, the bot announces the tournament champion.
+- **Live Status & Non-Blocking Design**:
+  - Live readiness pills (`Chatbot: Ready` vs `Chatbot: Inactive`) in Poll Manager indicate whether SocialStream Ninja is connected and ready to send messages.
+  - Zero-blocking design: If the Chat Bot is disabled, inactive, or disconnected, polls and tournament brackets proceed 100% normally without delays, errors, or interruptions.
+- **Quick Mute / Unmute**: Toggle chat announcements at creation time or click **Chat: On / Chat: Off** in the active tournament header to mute chat updates mid-bracket without resetting the tournament.
+- **Customizable Templates**: Customize announcement wording, tags, and formatting in **Tools -> Chat Bot -> Poll & Bracket Chat Announcements**. Supported tokens include `{title}`, `{choices}`, `{commands}`, `{duration}`, `{winner}`, `{votes}`, `{percent}`, `{totalVotes}`, and `{champion}`.
 
 ---
 

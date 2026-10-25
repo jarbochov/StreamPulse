@@ -1290,7 +1290,8 @@ const pollService = createPollService({
     broadcastToOverlays,
     onTakeover: (action, title, duration, poll) => takeoverPages(action, title, duration, poll),
     onAlert: (event) => alertEngine.evaluate(event, { isTest: false }),
-    getTwitchPoll: () => twitchService.getLatestPoll()
+    getTwitchPoll: () => twitchService.getLatestPoll(),
+    chatbotAnnouncer: chatbot
 });
 
 const matchupService = createMatchupService({
