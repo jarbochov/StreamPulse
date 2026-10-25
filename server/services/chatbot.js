@@ -14,7 +14,7 @@ const DEFAULT_POLL_ANNOUNCEMENTS = {
     enabled: true,
     announceStart: true,
     announceEnd: true,
-    startTemplate: '[Poll] {title} — Choices: {choices} — Vote with {commands} ({duration}s)',
+    startTemplate: '[Poll] {title} ({duration})\n{choices}',
     endTemplate: '[Poll Result] Winner: {winner} with {votes} votes ({percent}%)!',
     tieTemplate: '[Poll Result] The poll ended in a tie between {choices}!',
     championTemplate: '[Tournament Champion] {champion} has won {title}!'
@@ -124,7 +124,9 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 enabled: pollAnnouncements.enabled !== undefined ? pollAnnouncements.enabled === true : DEFAULT_POLL_ANNOUNCEMENTS.enabled,
                 announceStart: pollAnnouncements.announceStart !== undefined ? pollAnnouncements.announceStart === true : DEFAULT_POLL_ANNOUNCEMENTS.announceStart,
                 announceEnd: pollAnnouncements.announceEnd !== undefined ? pollAnnouncements.announceEnd === true : DEFAULT_POLL_ANNOUNCEMENTS.announceEnd,
-                startTemplate: clean(pollAnnouncements.startTemplate ?? DEFAULT_POLL_ANNOUNCEMENTS.startTemplate, 500),
+                startTemplate: clean(pollAnnouncements.startTemplate ?? DEFAULT_POLL_ANNOUNCEMENTS.startTemplate, 500) === '[Poll] {title} — Choices: {choices} — Vote with {commands} ({duration}s)'
+                    ? DEFAULT_POLL_ANNOUNCEMENTS.startTemplate
+                    : clean(pollAnnouncements.startTemplate ?? DEFAULT_POLL_ANNOUNCEMENTS.startTemplate, 500),
                 endTemplate: clean(pollAnnouncements.endTemplate ?? DEFAULT_POLL_ANNOUNCEMENTS.endTemplate, 500),
                 tieTemplate: clean(pollAnnouncements.tieTemplate ?? DEFAULT_POLL_ANNOUNCEMENTS.tieTemplate, 500),
                 championTemplate: clean(pollAnnouncements.championTemplate ?? DEFAULT_POLL_ANNOUNCEMENTS.championTemplate, 500)
@@ -370,11 +372,12 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         const id = sessionId();
         if (!id) throw new Error('SocialStream session ID is not set');
         const { tag } = data.settings;
-        const lines = String(text).split(/\\n|\n/).map(l => l.trim()).filter(Boolean).slice(0, 5);
+        const lines = String(text).split(/\\n|\n/).map(l => l.trim()).filter(Boolean).slice(0, 15);
         for (let i = 0; i < lines.length; i++) {
-            const message = `${tag ? `${tag} ` : ''}${lines[i]}`.slice(0, 400);
+            const line = lines[i];
+            const message = (tag && !line.startsWith(tag)) ? `${tag} ${line}` : line;
             if (i) await new Promise(r => setTimeout(r, 400));
-            const res = await fetch(`${baseUrl()}/${encodeURIComponent(id)}/sendChat/${encodeURIComponent(message)}`, { signal: AbortSignal.timeout(5000) });
+            const res = await fetch(`${baseUrl()}/${encodeURIComponent(id)}/sendChat/${encodeURIComponent(message.slice(0, 400))}`, { signal: AbortSignal.timeout(5000) });
             if (!res.ok) throw new Error(`SocialStream replied ${res.status}`);
         }
     }
@@ -921,15 +924,26 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         if (!cfg.enabled || !cfg.announceStart) return { sent: false, reason: 'Poll announcements disabled in settings' };
         if (!poll || !Array.isArray(poll.choices) || poll.choices.length < 2) return { sent: false, reason: 'Invalid poll choices' };
 
-        const durationStr = poll.duration > 0 ? String(poll.duration) : 'open';
-        const choicesStr = poll.choices.map((c, i) => `${i + 1}. ${c.title}`).join(' | ');
-        const commandsStr = poll.choices.map((_, i) => `!vote ${i + 1}`).join(' or ');
+        const prefix = data.settings.prefix || '!';
+        const tag = data.settings.tag || '';
+        const durationStr = poll.duration > 0 ? `${poll.duration}s` : 'open';
 
-        const text = (cfg.startTemplate || DEFAULT_POLL_ANNOUNCEMENTS.startTemplate)
+        // Format choices one per line with what to use to vote, prefaced with bot setting
+        const choicesStr = poll.choices.map((c, i) => `${prefix}vote ${i + 1}: ${c.title}`).join('\n');
+        const commandsStr = poll.choices.map((_, i) => `${prefix}vote ${i + 1}`).join(' or ');
+
+        let template = cfg.startTemplate || DEFAULT_POLL_ANNOUNCEMENTS.startTemplate;
+        if (template === '[Poll] {title} — Choices: {choices} — Vote with {commands} ({duration}s)') {
+            template = DEFAULT_POLL_ANNOUNCEMENTS.startTemplate;
+        }
+
+        const text = template
+            .replace(/\{tag\}/gi, tag)
+            .replace(/\{prefix\}/gi, prefix)
             .replace(/\{title\}/gi, poll.title || 'Untitled Poll')
             .replace(/\{choices\}/gi, choicesStr)
             .replace(/\{commands\}/gi, commandsStr)
-            .replace(/\{duration\}/gi, durationStr);
+            .replace(/\{duration\}s?/gi, durationStr);
 
         try {
             await send(text);
@@ -1026,6 +1040,8 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         handleRaid,
         getStats,
         isReady,
+        getPrefix: () => data.settings.prefix || '!',
+        getTag: () => data.settings.tag || '',
         postMessage,
         announcePollStart,
         announcePollEnd,

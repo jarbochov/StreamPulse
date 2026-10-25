@@ -48,12 +48,12 @@ StreamPulse supports **Silent Commands** that execute background logic without p
 
 StreamPulse connects the Chat Bot directly to the Poll Manager and audience tournament brackets:
 
-- **Poll & Match Start**: Announces when a poll opens with choices, duration, and voting instructions (`!vote <n>`).
+- **Poll & Match Start**: Announces when a poll opens with choices clearly formatted one per line with what to use to vote, prefaced with the configured bot setting (e.g. `!vote 1: Option A`).
 - **Poll & Match Finish**: Announces the winning choice with vote counts and percentage (or reports a tie).
 - **Tournament Champion**: Announces the crowned winner when the Grand Finals or Round Robin tournament concludes.
 - **Configuration & Templates**: Under **Settings -> Poll & Bracket Chat Announcements**, configure:
   - Master toggle and individual start/finish toggles.
-  - Start template (tokens: `{title}`, `{choices}`, `{commands}`, `{duration}`).
+  - Start template (tokens: `{title}`, `{choices}` [one per line with voting command], `{commands}`, `{duration}`, `{prefix}`, `{tag}`).
   - End template (tokens: `{title}`, `{winner}`, `{votes}`, `{percent}`, `{totalVotes}`).
   - Tie template (tokens: `{title}`, `{choices}`).
   - Champion template (tokens: `{title}`, `{champion}`).

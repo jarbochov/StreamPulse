@@ -54,12 +54,11 @@ test('Chatbot Poll Announcements: formatting, readiness, and poll service integr
         duration: 60
     });
     assert.equal(startResult.sent, true);
-    assert.ok(sentMessages.length > 0);
-    const startMsg = sentMessages[sentMessages.length - 1];
-    assert.ok(startMsg.includes('Best RPG'));
-    assert.ok(startMsg.includes('Chrono Trigger'));
-    assert.ok(startMsg.includes('!vote 1'));
-    assert.ok(startMsg.includes('60s'));
+    assert.equal(sentMessages.length, 3, 'Should send title plus one message per choice');
+    assert.ok(sentMessages[0].includes('Best RPG'));
+    assert.ok(sentMessages[0].includes('60s'));
+    assert.ok(sentMessages[1].includes('!vote 1: Chrono Trigger'));
+    assert.ok(sentMessages[2].includes('!vote 2: Final Fantasy VI'));
 
     // Announce poll end (winner)
     const endResult = await chatbot.announcePollEnd({
@@ -114,14 +113,17 @@ test('Chatbot Poll Announcements: formatting, readiness, and poll service integr
         announceChat: true
     });
     assert.ok(poll1);
-    // Yield event loop for async fire-and-forget
-    await new Promise(r => setTimeout(r, 50));
-    assert.ok(sentMessages.length >= 1, 'Start announcement should have been dispatched');
+    // Yield event loop for multi-line choices
+    await new Promise(r => setTimeout(r, 1300));
+    assert.ok(sentMessages.length >= 4, 'Header plus 3 choice announcements should be dispatched');
     assert.ok(sentMessages[0].includes('Favorite Starter'));
+    assert.ok(sentMessages[1].includes('!vote 1: Bulbasaur'));
+    assert.ok(sentMessages[2].includes('!vote 2: Charmander'));
+    assert.ok(sentMessages[3].includes('!vote 3: Squirtle'));
 
-    // Finishing poll posts end announcement
+    // Finishing poll posts end announcement (test voting with !vote 2)
     sentMessages.length = 0;
-    pollService.handleChatMessage({ chatname: 'Ash', message: '2' });
+    pollService.handleChatMessage({ chatname: 'Ash', message: '!vote 2' });
     pollService.finishPoll();
     await new Promise(r => setTimeout(r, 50));
     assert.ok(sentMessages.length >= 1, 'End announcement should have been dispatched');
@@ -161,9 +163,11 @@ test('Chatbot Poll Announcements: formatting, readiness, and poll service integr
     // Starting tournament match should post start announcement
     const started = pollService.startTournamentMatch(m.id);
     assert.ok(started.poll);
-    await new Promise(r => setTimeout(r, 50));
-    assert.ok(sentMessages.length >= 1, 'Match start announcement should post');
-    assert.ok(sentMessages[0].includes('Link vs Samus') || sentMessages[0].includes('Round 1'));
+    await new Promise(r => setTimeout(r, 900));
+    assert.ok(sentMessages.length >= 3, 'Match header and 2 choices should post');
+    assert.ok(sentMessages[0].includes('Link vs Samus') || sentMessages[0].includes('Grand Finals'));
+    assert.ok(sentMessages.some(msg => msg.includes('!vote 1: Link')));
+    assert.ok(sentMessages.some(msg => msg.includes('!vote 2: Samus')));
 
     // Advancing match and crowning champion
     sentMessages.length = 0;

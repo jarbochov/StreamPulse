@@ -569,8 +569,10 @@ function createPollService({
 
         let choiceIndex = -1;
 
-        // 1. Command format: !vote 1, !vote 2, or !vote <word>
-        const cmdMatch = text.match(/^!vote\s+(.+)$/i);
+        // 1. Command format: !vote 1, <prefix>vote 1, or !vote <word>
+        const botPrefix = chatbotAnnouncer?.getPrefix?.() || '!';
+        const escapedPrefix = botPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const cmdMatch = text.match(new RegExp(`^(?:${escapedPrefix}|!)vote\\s+(.+)$`, 'i'));
         if (cmdMatch) {
             const arg = cmdMatch[1].trim();
             const num = parseInt(arg, 10);

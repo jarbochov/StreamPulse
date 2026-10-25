@@ -51,7 +51,7 @@ Open **Tools -> Poll Manager** (`/polls.html`):
 
 ### Chat Bot Announcements (Automated Start & End Messages)
 StreamPulse integrates live poll and tournament match lifecycles with the built-in **Chat Bot**:
-- **Automatic Match & Poll Start**: When a poll or bracket match begins, the bot posts the poll title, options list, duration, and voting syntax (`!vote 1 or !vote 2`).
+- **Automatic Match & Poll Start**: When a poll or bracket match begins, the bot posts the poll title, duration, and choices clearly formatted one per line with what to use to vote, prefaced with the configured bot setting (e.g. `!vote 1: Option A`).
 - **Automatic Winner Reveal**: When a poll concludes or a match is advanced, the bot posts the winning choice, vote count, and percentage (or a tie announcement).
 - **Grand Finals Champion Crowning**: When the final match concludes, the bot announces the tournament champion.
 - **Live Status & Non-Blocking Design**:
