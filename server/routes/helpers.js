@@ -36,8 +36,14 @@ function sendText(res, text, statusCode = 200, contentType = 'text/plain; charse
 }
 
 function sendError(res, error, statusCode = 400) {
+    if (typeof error === 'number') {
+        const temp = error;
+        error = statusCode;
+        statusCode = temp;
+    }
+    const status = (typeof statusCode === 'number' && statusCode >= 400 && statusCode < 600) ? statusCode : 400;
     const message = error instanceof Error ? error.message : String(error || 'Internal error');
-    sendJson(res, { error: message }, statusCode);
+    sendJson(res, { error: message }, status);
 }
 
 function escapeHtml(str) {

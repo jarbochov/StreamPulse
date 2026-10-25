@@ -1574,7 +1574,8 @@
                 scoringType: isManual ? 'bestOf' : 'points',
                 bestOf: 0,
                 matchDuration: !isManual ? (parseInt($('tourney-duration').value, 10) || 60) : 0,
-                blind: !isManual ? $('tourney-blind').checked : false
+                blind: !isManual ? $('tourney-blind').checked : false,
+                isPoll: true
             };
 
             try {

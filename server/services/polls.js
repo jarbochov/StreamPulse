@@ -144,7 +144,11 @@ function createPollService({
                 savedPresets = data.presets;
             }
             if (data.tournament) {
-                activeTournament = data.tournament;
+                if (data.tournament.isPoll && !data.pollTournament) {
+                    activePollTournament = data.tournament;
+                } else {
+                    activeTournament = data.tournament;
+                }
             }
             if (Array.isArray(data.tournamentHistory)) {
                 tournamentHistory = data.tournamentHistory.slice(0, 30);
@@ -853,28 +857,30 @@ function createPollService({
         }
     }
 
-    function createTournament({
-        title,
-        logo = '',
-        logoSize = '',
-        format = 'single',
-        entrants = [],
-        progressionMode = 'vote',
-        scoringType = 'points',
-        bestOf = 0,
-        roundsBestOf = 0,
-        targetScore: rawTargetScore = 0,
-        matchDuration = 60,
-        blind = false,
-        subMultiplier = 1,
-        roundRobinLegs = 1,
-        pointsSystem = '3-1-0',
-        pointsPerWin,
-        pointsPerDraw,
-        pointsPerLoss = 0,
-        allowDraws = true,
-        isPoll = false
-    } = {}) {
+    function createTournament(input = {}, opts = {}) {
+        const {
+            title,
+            logo = '',
+            logoSize = '',
+            format = 'single',
+            entrants = [],
+            progressionMode = 'vote',
+            scoringType = 'points',
+            bestOf = 0,
+            roundsBestOf = 0,
+            targetScore: rawTargetScore = 0,
+            matchDuration = 60,
+            blind = false,
+            subMultiplier = 1,
+            roundRobinLegs = 1,
+            pointsSystem = '3-1-0',
+            pointsPerWin,
+            pointsPerDraw,
+            pointsPerLoss = 0,
+            allowDraws = true,
+            isPoll: inputIsPoll = false
+        } = input;
+        const isPoll = Boolean(opts.isPoll !== undefined ? opts.isPoll : inputIsPoll);
         const cleanEntrants = (Array.isArray(entrants) ? entrants : [])
             .map(parseEntrant)
             .filter(Boolean);
@@ -1242,13 +1248,31 @@ function createPollService({
         }
     }
 
+    function resolveTargetTournament(matchId, isPoll = false) {
+        if (matchId && activePollTournament?.matches?.some(m => m.id === matchId)) {
+            return { tournament: activePollTournament, isPoll: true };
+        }
+        if (matchId && activeTournament?.matches?.some(m => m.id === matchId)) {
+            return { tournament: activeTournament, isPoll: false };
+        }
+        if (isPoll) {
+            return {
+                tournament: activePollTournament || activeTournament,
+                isPoll: Boolean(activePollTournament || !activeTournament)
+            };
+        }
+        return {
+            tournament: activeTournament || activePollTournament,
+            isPoll: Boolean(!activeTournament && activePollTournament)
+        };
+    }
+
     function getTournament({ isPoll = false } = {}) {
         return isPoll ? activePollTournament : activeTournament;
     }
 
     function startTournamentMatch(matchId, { isPoll = false } = {}) {
-        const isPollTourney = isPoll || Boolean(activePollTournament?.matches?.some(m => m.id === matchId));
-        const targetTourney = isPollTourney ? activePollTournament : activeTournament;
+        const { tournament: targetTourney, isPoll: isPollTourney } = resolveTargetTournament(matchId, isPoll);
         if (!targetTourney) throw new Error('No active tournament');
         const match = targetTourney.matches.find(m => m.id === matchId);
         if (!match) throw new Error(`Match ${matchId} not found`);
@@ -1282,8 +1306,7 @@ function createPollService({
         return { match, poll };
     }
     function advanceTournamentMatch(matchId, winnerName, { isPoll = false } = {}) {
-        const isPollTourney = isPoll || Boolean(activePollTournament?.matches?.some(m => m.id === matchId));
-        const targetTourney = isPollTourney ? activePollTournament : activeTournament;
+        const { tournament: targetTourney, isPoll: isPollTourney } = resolveTargetTournament(matchId, isPoll);
         if (!targetTourney) return null;
         const match = targetTourney.matches.find(m => m.id === matchId);
         if (!match) return null;
@@ -1411,8 +1434,7 @@ function createPollService({
         entrant1Tag, entrant2Tag, entrant1Rounds, entrant2Rounds, rounds, roundDelta,
         entrant1Color, entrant2Color, color, preserveActiveMatch = false, isPoll = false
     } = {}) {
-        const isPollTourney = isPoll || Boolean(activePollTournament?.matches?.some(m => m.id === matchId));
-        const targetTourney = isPollTourney ? activePollTournament : activeTournament;
+        const { tournament: targetTourney, isPoll: isPollTourney } = resolveTargetTournament(matchId, isPoll);
         if (!targetTourney) throw new Error('No active tournament');
         const match = targetTourney.matches.find(m => m.id === matchId);
         if (!match) throw new Error(`Match ${matchId} not found`);
@@ -1560,8 +1582,7 @@ function createPollService({
     }
 
     function selectActiveMatch(matchId, { isPoll = false } = {}) {
-        const isPollTourney = isPoll || Boolean(matchId && activePollTournament?.matches?.some(m => m.id === matchId));
-        const targetTourney = isPollTourney ? activePollTournament : activeTournament;
+        const { tournament: targetTourney, isPoll: isPollTourney } = resolveTargetTournament(matchId, isPoll);
         if (!targetTourney) throw new Error('No active tournament');
 
         if (!matchId || matchId === 'none' || matchId === 'null') {
@@ -1641,8 +1662,7 @@ function createPollService({
     }
 
     function rollbackTournamentMatch(matchId, { isPoll = false } = {}) {
-        const isPollTourney = isPoll || Boolean(activePollTournament?.matches?.some(m => m.id === matchId));
-        const targetTourney = isPollTourney ? activePollTournament : activeTournament;
+        const { tournament: targetTourney, isPoll: isPollTourney } = resolveTargetTournament(matchId, isPoll);
         if (!targetTourney) throw new Error('No active tournament');
         const match = targetTourney.matches.find(m => m.id === matchId);
         if (!match) throw new Error(`Match ${matchId} not found`);
@@ -1665,8 +1685,7 @@ function createPollService({
     }
 
     function resetMatch(matchId, { isPoll = false } = {}) {
-        const isPollTourney = isPoll || Boolean(activePollTournament?.matches?.some(m => m.id === matchId));
-        const targetTourney = isPollTourney ? activePollTournament : activeTournament;
+        const { tournament: targetTourney, isPoll: isPollTourney } = resolveTargetTournament(matchId, isPoll);
         if (!targetTourney) throw new Error('No active tournament');
         const match = targetTourney.matches.find(m => m.id === matchId);
         if (!match) throw new Error(`Match ${matchId} not found`);
@@ -1688,7 +1707,7 @@ function createPollService({
 
     function updateTournamentSettings(settings = {}, { isPoll = false } = {}) {
         if (settings.isPoll !== undefined) isPoll = Boolean(settings.isPoll);
-        const targetTourney = isPoll ? activePollTournament : activeTournament;
+        const { tournament: targetTourney, isPoll: isPollTourney } = resolveTargetTournament(settings.activeMatchId, isPoll);
         if (!targetTourney) throw new Error('No active tournament');
         if (settings.title) targetTourney.title = String(settings.title).trim();
         if (settings.logo !== undefined) targetTourney.logo = String(settings.logo || '').trim();
@@ -1742,7 +1761,7 @@ function createPollService({
             targetTourney.activeMatchId = (settings.activeMatchId === null || settings.activeMatchId === 'none' || settings.activeMatchId === '') ? null : String(settings.activeMatchId);
         }
         save();
-        if (isPoll) broadcastPollTournamentUpdate();
+        if (isPollTourney) broadcastPollTournamentUpdate();
         else broadcastTournamentUpdate();
         return targetTourney;
     }
