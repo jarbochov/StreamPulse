@@ -175,8 +175,8 @@ export function gradientFields(s, key = 'gradient') {
 }
 
 export const fillControl = (s, key, label, solidField) => fillSeg(s, key, label) + (s[key]?.enabled ? gradientFields(s, key) : solidField);
-export const hasBox = s => s.borderWidth > 0 || (s.background && s.background !== 'transparent') || s.gradient?.enabled;
-export const paddingField = el => TEXT_TYPES.has(el.type) && hasBox(el.style) ? F.number('style.padding', 'Padding (px)', el.style.padding || 0, { min: 0, max: 200 }) : '';
+export const hasBox = s => s.borderWidth > 0 || (s.background && s.background !== 'transparent') || s.gradient?.enabled || (s.padding > 0);
+export const paddingField = el => TEXT_TYPES.has(el.type) ? F.number('style.padding', 'Padding (px)', el.style.padding || 0, { min: 0, max: 200 }) : '';
 export const noRadius = (s, shape) => shape && ['circle', 'pill', 'line'].includes(s.shape);
 
 export function textEffectsSection(el) {

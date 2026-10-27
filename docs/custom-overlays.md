@@ -95,6 +95,7 @@ Rotating phrase pools for stream rules, broadcaster quotes, tip reminders, or tr
 #### Markdown (`markdown`)
 Rich formatted content compiled using sanitized Markdown.
 - **Syntax Support**: Headers (`#` to `###`), bold (`**text**`), italics (`*text*`), unordered and ordered lists, links, inline code, and block quotes.
+- **Padding & Container Spacing**: Configure internal padding (`style.padding`, 0–200px) directly in the inspector to inset text cleanly from the bounding box, with optional backgrounds, borders, and multi-column formatting.
 - **Live Data Tokens**: Dynamic stream tokens can be placed inside Markdown syntax (e.g. `### Top Chatter: **{{chatter.top}}**`).
 - **File Syncing**: Optionally link a local text or markdown file (`.md` / `.txt`). StreamPulse reads the file in place without manual re-uploads, automatically updating the overlay when the file is modified on disk.
 

@@ -2282,7 +2282,7 @@
         if ((mode !== 'shrink' && mode !== 'fit') || !node.isConnected || el.random?.marquee) return;
         const base = Number(el.style?.fontSize) || 32;
         const textKey = probeText != null ? probeText : (node._textNode ? node._textNode.nodeValue : node.textContent);
-        const fitKey = `${el.width}x${el.height}|${mode}|${base}|${el.style?.fontFamily}|${el.columns || 1}|${textKey}`;
+        const fitKey = `${el.width}x${el.height}|${mode}|${base}|${el.style?.fontFamily}|${el.columns || 1}|${el.style?.padding || 0}|${textKey}`;
         if (node._fitKey === fitKey && node._fittedFontSize) {
             node.style.fontSize = `${node._fittedFontSize}px`;
             return;
