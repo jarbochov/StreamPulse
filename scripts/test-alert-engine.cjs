@@ -408,3 +408,75 @@ test('alert assets tracking and rewriting in asset library', () => {
     }
 });
 
+test('weighted variant selection rolls according to weights without forced alternation', () => {
+    const { engine, cleanup } = createTempEngine({
+        settings: { enabled: true, gapSeconds: 0 },
+        rules: [
+            {
+                id: 'weighted-rule',
+                name: 'Weighted Follow Alert',
+                enabled: true,
+                trigger: 'follow',
+                variants: [
+                    { id: 'v-rare', weight: 1, title: 'Rare variant' },
+                    { id: 'v-common', weight: 9, title: 'Common variant' }
+                ]
+            }
+        ]
+    });
+
+    try {
+        const counts = { 'v-rare': 0, 'v-common': 0 };
+        for (let i = 0; i < 200; i++) {
+            const res = engine.fireRule('weighted-rule'); // no variantId passed -> rolls by weight
+            assert.ok(res);
+            counts[res.variantId]++;
+        }
+        // With 9:1 odds (90% vs 10%), common variant should win significantly more than rare
+        assert.ok(counts['v-common'] > counts['v-rare'] * 3, `Expected common (${counts['v-common']}) to significantly outnumber rare (${counts['v-rare']})`);
+        assert.ok(counts['v-rare'] > 0, `Expected rare variant (${counts['v-rare']}) to fire at least once in 200 rolls`);
+    } finally {
+        cleanup();
+    }
+});
+
+test('fireRule simulation evaluates test amounts and thresholds correctly', () => {
+    const { engine, cleanup } = createTempEngine({
+        settings: { enabled: true, gapSeconds: 0 },
+        rules: [
+            {
+                id: 'cheer-rule',
+                name: 'Cheer Bits Alert',
+                enabled: true,
+                trigger: 'bits',
+                variants: [
+                    { id: 'v-default', variantType: 'weighted', weight: 1, title: 'Default Cheer' },
+                    { id: 'v-500', variantType: 'gated', gateMin: 500, gateMinOp: 'gte', weight: 1, title: 'Hype 500 Bits!' },
+                    { id: 'v-1000', variantType: 'gated', gateMin: 1000, gateMinOp: 'gte', weight: 1, title: 'Huge 1000 Bits!' }
+                ]
+            }
+        ]
+    });
+
+    try {
+        // Test with 100 bits (matches default)
+        const res100 = engine.fireRule('cheer-rule', '', { amount: 100 });
+        assert.equal(res100.variantId, 'v-default');
+
+        // Test with 500 bits (matches v-500 threshold)
+        const res500 = engine.fireRule('cheer-rule', '', { amount: 500 });
+        assert.equal(res500.variantId, 'v-500');
+
+        // Test with 1500 bits (matches highest threshold v-1000)
+        const res1500 = engine.fireRule('cheer-rule', '', { amount: 1500 });
+        assert.equal(res1500.variantId, 'v-1000');
+
+        // Explicit variant preview still works
+        const explicit = engine.fireRule('cheer-rule', 'v-500', { amount: 100 });
+        assert.equal(explicit.variantId, 'v-500');
+    } finally {
+        cleanup();
+    }
+});
+
+

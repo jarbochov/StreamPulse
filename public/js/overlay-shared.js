@@ -1932,13 +1932,36 @@
 
     // Built-in alert sounds are synthesized with Web Audio, so no audio files are needed. Stored as "builtin:<name>".
     const BUILTIN_SOUNDS = {
-        ding: { label: 'Ding', notes: [[880, 0, 1.1, 'sine', 0.9]] },
-        chime: { label: 'Chime', notes: [[659, 0, 0.9, 'sine', 0.7], [880, 0.14, 0.9, 'sine', 0.7], [1319, 0.28, 1.3, 'sine', 0.7]] },
-        coin: { label: 'Coin', notes: [[988, 0, 0.09, 'square', 0.25], [1319, 0.09, 0.55, 'square', 0.25]] },
-        fanfare: { label: 'Fanfare', notes: [[523, 0, 0.18, 'triangle', 0.9], [659, 0.16, 0.18, 'triangle', 0.9], [784, 0.32, 0.18, 'triangle', 0.9], [1047, 0.48, 0.9, 'triangle', 0.9], [784, 0.48, 0.9, 'triangle', 0.5]] },
-        levelup: { label: 'Level up', notes: [[392, 0, 0.1, 'square', 0.22], [494, 0.09, 0.1, 'square', 0.22], [587, 0.18, 0.1, 'square', 0.22], [784, 0.27, 0.1, 'square', 0.22], [988, 0.36, 0.1, 'square', 0.22], [1175, 0.45, 0.45, 'square', 0.22]] },
-        pop: { label: 'Pop', notes: [[700, 0, 0.14, 'sine', 1, 180]] },
-        whoosh: { label: 'Whoosh', noise: true }
+        // Chimes & Bells
+        ding: { label: 'Desk Bell', group: 'Chimes', notes: [[880, 0, 1.0, 'sine', 0.9], [1760, 0, 0.6, 'sine', 0.25]] },
+        chime: { label: 'Three-Tone Chime', group: 'Chimes', notes: [[659, 0, 0.85, 'sine', 0.7], [880, 0.13, 0.85, 'sine', 0.7], [1319, 0.26, 1.25, 'sine', 0.7]] },
+        bell: { label: 'Tubular Bell', group: 'Chimes', notes: [[523, 0, 1.5, 'sine', 0.8], [1046, 0, 1.2, 'sine', 0.35], [1568, 0, 0.8, 'sine', 0.18]] },
+        crystal: { label: 'Crystal Ping', group: 'Chimes', notes: [[1175, 0, 0.8, 'sine', 0.6], [1760, 0.08, 0.9, 'sine', 0.5], [2349, 0.16, 1.3, 'sine', 0.6]] },
+        harp: { label: 'Harp Flourish', group: 'Chimes', notes: [[523, 0, 0.7, 'triangle', 0.55], [659, 0.08, 0.7, 'triangle', 0.55], [784, 0.16, 0.7, 'triangle', 0.55], [1047, 0.24, 0.9, 'triangle', 0.65], [1319, 0.32, 1.3, 'sine', 0.6]] },
+
+        // Arcade & 8-Bit Retro
+        coin: { label: 'Retro Coin', group: 'Arcade', notes: [[988, 0, 0.08, 'square', 0.24], [1319, 0.08, 0.5, 'square', 0.24]] },
+        levelup: { label: '8-Bit Level Up', group: 'Arcade', notes: [[392, 0, 0.08, 'square', 0.2], [494, 0.08, 0.08, 'square', 0.2], [587, 0.16, 0.08, 'square', 0.2], [784, 0.24, 0.08, 'square', 0.2], [988, 0.32, 0.08, 'square', 0.2], [1175, 0.40, 0.45, 'square', 0.2]] },
+        laser: { label: 'Laser Zap', group: 'Arcade', notes: [[2200, 0, 0.16, 'sawtooth', 0.35, 140]] },
+        jump: { label: 'Retro Jump', group: 'Arcade', notes: [[140, 0, 0.18, 'square', 0.25, 750]] },
+        powerup: { label: 'Power-Up Riser', group: 'Arcade', notes: [[261, 0, 0.1, 'square', 0.2], [330, 0.09, 0.1, 'square', 0.2], [392, 0.18, 0.1, 'square', 0.2], [523, 0.27, 0.38, 'square', 0.24, 1047]] },
+        retro_win: { label: 'Retro Victory', group: 'Arcade', notes: [[523, 0, 0.1, 'square', 0.2], [523, 0.12, 0.1, 'square', 0.2], [523, 0.24, 0.1, 'square', 0.2], [659, 0.36, 0.3, 'square', 0.24], [587, 0.66, 0.1, 'square', 0.2], [659, 0.78, 0.42, 'square', 0.24]] },
+
+        // Celebration & Triumphant
+        fanfare: { label: 'Royal Fanfare', group: 'Celebration', notes: [[523, 0, 0.18, 'triangle', 0.8], [659, 0.16, 0.18, 'triangle', 0.8], [784, 0.32, 0.18, 'triangle', 0.8], [1047, 0.48, 0.9, 'triangle', 0.9], [784, 0.48, 0.9, 'triangle', 0.5]] },
+        tada: { label: 'Ta-Da!', group: 'Celebration', notes: [[587, 0, 0.14, 'triangle', 0.7], [740, 0, 0.14, 'triangle', 0.6], [880, 0.16, 0.85, 'triangle', 0.8], [1175, 0.16, 0.85, 'sine', 0.5]] },
+        victory: { label: 'Victory Stinger', group: 'Celebration', notes: [[523, 0, 0.12, 'triangle', 0.7], [659, 0.11, 0.12, 'triangle', 0.7], [784, 0.22, 0.12, 'triangle', 0.7], [1047, 0.33, 0.2, 'triangle', 0.8], [880, 0.54, 0.12, 'triangle', 0.7], [1047, 0.66, 0.85, 'triangle', 0.9]] },
+        cheer: { label: 'Celebration Shimmer', group: 'Celebration', notes: [[523, 0, 0.6, 'sine', 0.6], [659, 0.05, 0.6, 'sine', 0.6], [784, 0.1, 0.7, 'sine', 0.6], [1047, 0.15, 0.9, 'sine', 0.7], [1319, 0.2, 1.2, 'sine', 0.7]] },
+        drumroll: { label: 'Drumroll & Crash', group: 'Celebration', noise: true, noiseDuration: 0.95, filterFreqStart: 400, filterFreqEnd: 2600, filterQ: 0.9, noisePeak: 0.85, notes: [[784, 0.9, 0.7, 'triangle', 0.8], [1047, 0.9, 0.7, 'triangle', 0.8]] },
+
+        // Modern UI & Notifications
+        pop: { label: 'Bubble Pop', group: 'Modern UI', notes: [[750, 0, 0.12, 'sine', 1, 160]] },
+        snap: { label: 'Snappy Click', group: 'Modern UI', notes: [[1800, 0, 0.06, 'triangle', 0.8, 120]] },
+        notify: { label: 'Notification Ping', group: 'Modern UI', notes: [[740, 0, 0.24, 'sine', 0.75], [1108, 0.11, 0.6, 'sine', 0.8]] },
+        success: { label: 'Warm Success', group: 'Modern UI', notes: [[523, 0, 0.8, 'sine', 0.7], [659, 0.04, 0.8, 'sine', 0.7], [784, 0.08, 1.1, 'sine', 0.7], [1047, 0.12, 1.3, 'sine', 0.5]] },
+        drop: { label: 'Water Drop', group: 'Modern UI', notes: [[950, 0, 0.15, 'sine', 0.9, 1400]] },
+        whoosh: { label: 'Cinematic Whoosh', group: 'Modern UI', noise: true, noiseDuration: 0.8, filterFreqStart: 250, filterFreqEnd: 3800, filterQ: 1.1, noisePeak: 0.85 },
+        magic: { label: 'Magic Sparkle', group: 'Modern UI', notes: [[1047, 0, 0.16, 'sine', 0.5], [1319, 0.05, 0.16, 'sine', 0.5], [1568, 0.1, 0.16, 'sine', 0.5], [2093, 0.15, 0.2, 'sine', 0.6], [2637, 0.2, 0.28, 'sine', 0.6], [3136, 0.25, 0.45, 'sine', 0.5]] }
     };
     let audioCtx = null;
     function playBuiltinSound(name, volume = 0.7) {
@@ -1946,43 +1969,71 @@
         const Ctx = root.AudioContext || root.webkitAudioContext;
         if (!def || !Ctx) return { pause() {} };
         audioCtx = audioCtx || new Ctx();
-        if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
-        const ctx = audioCtx, now = ctx.currentTime + 0.02, sources = [];
-        const master = ctx.createGain();
-        master.gain.value = Math.max(0, Math.min(1, volume)) * 0.5;
-        master.connect(ctx.destination);
-        const envelope = (start, dur, peak) => {
-            const gain = ctx.createGain();
-            gain.gain.setValueAtTime(0.0001, start);
-            gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), start + 0.012);
-            gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
-            gain.connect(master);
-            return gain;
+        let stopped = false;
+        const sources = [];
+
+        const startSound = () => {
+            if (stopped) return;
+            const ctx = audioCtx;
+            const now = ctx.currentTime + 0.01;
+            const master = ctx.createGain();
+            master.gain.value = Math.max(0, Math.min(1, volume)) * 0.5;
+            master.connect(ctx.destination);
+
+            const envelope = (start, dur, peak) => {
+                const gain = ctx.createGain();
+                const attack = Math.min(0.015, Math.max(0.002, dur * 0.2));
+                gain.gain.setValueAtTime(0.0001, start);
+                gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), start + attack);
+                gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+                gain.connect(master);
+                return gain;
+            };
+
+            for (const [freq, at, dur, type, peak, slideTo] of def.notes || []) {
+                const osc = ctx.createOscillator();
+                osc.type = type || 'sine';
+                osc.frequency.setValueAtTime(Math.max(20, freq), now + at);
+                if (slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), now + at + dur);
+                osc.connect(envelope(now + at, dur, peak));
+                osc.start(now + at);
+                osc.stop(now + at + dur + 0.05);
+                sources.push(osc);
+            }
+
+            if (def.noise) {
+                const dur = def.noiseDuration || 0.8;
+                const length = Math.floor(ctx.sampleRate * dur);
+                const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+                const src = ctx.createBufferSource();
+                const filter = ctx.createBiquadFilter();
+                src.buffer = buffer;
+                filter.type = def.filterType || 'bandpass';
+                filter.Q.value = def.filterQ || 1.2;
+                filter.frequency.setValueAtTime(def.filterFreqStart || 300, now);
+                filter.frequency.exponentialRampToValueAtTime(def.filterFreqEnd || 4000, now + dur);
+                src.connect(filter);
+                filter.connect(envelope(now, dur, def.noisePeak || 0.8));
+                src.start(now);
+                src.stop(now + dur + 0.05);
+                sources.push(src);
+            }
         };
-        for (const [freq, at, dur, type, peak, slideTo] of def.notes || []) {
-            const osc = ctx.createOscillator();
-            osc.type = type;
-            osc.frequency.setValueAtTime(freq, now + at);
-            if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, now + at + dur);
-            osc.connect(envelope(now + at, dur, peak));
-            osc.start(now + at); osc.stop(now + at + dur + 0.05);
-            sources.push(osc);
+
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume().then(startSound).catch(() => {});
+        } else {
+            startSound();
         }
-        if (def.noise) {
-            const length = Math.floor(ctx.sampleRate * 0.9);
-            const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
-            const data = buffer.getChannelData(0);
-            for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
-            const src = ctx.createBufferSource(), filter = ctx.createBiquadFilter();
-            src.buffer = buffer;
-            filter.type = 'bandpass'; filter.Q.value = 1.2;
-            filter.frequency.setValueAtTime(300, now);
-            filter.frequency.exponentialRampToValueAtTime(4000, now + 0.8);
-            src.connect(filter); filter.connect(envelope(now, 0.9, 0.9));
-            src.start(now); src.stop(now + 0.95);
-            sources.push(src);
-        }
-        return { pause() { sources.forEach(source => { try { source.stop(); } catch { /* already ended */ } }); } };
+
+        return {
+            pause() {
+                stopped = true;
+                sources.forEach(source => { try { source.stop(); } catch {} });
+            }
+        };
     }
     const alertSoundName = value => (String(value || '').startsWith('builtin:') ? String(value).slice(8) : '');
 

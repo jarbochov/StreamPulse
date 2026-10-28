@@ -176,6 +176,22 @@
         .seg-btn:hover { color: var(--text); }
         .seg-btn.active { background: var(--bg-raised); color: var(--accent); box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
 
+        /* Unified Variant Condition & Odds Bar */
+        .variant-condition-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.65rem; padding: 0.45rem 0.75rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; flex-wrap: wrap; margin-bottom: 0.35rem; }
+        .variant-cond-left { display: inline-flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; min-width: 0; }
+        .variant-cond-right { display: inline-flex; align-items: center; gap: 0.45rem; flex-shrink: 0; }
+        .variant-cond-item { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.74rem; color: var(--text-muted); font-weight: 600; }
+        .cond-lbl { font-size: 0.71rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+        .cond-sel { padding: 0.22rem 0.45rem; font-size: 0.76rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 5px; color: var(--text); }
+        .cond-threshold-row { display: inline-flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+        .cond-sublbl { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; }
+        .cond-op { width: auto; padding: 0.2rem 0.4rem; font-size: 0.74rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 5px; color: var(--text); }
+        .cond-num { width: 66px; padding: 0.2rem 0.35rem; font-size: 0.74rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 5px; color: var(--text); text-align: center; }
+        .cond-hint { font-size: 0.67rem; color: var(--text-muted); }
+        .cond-static { font-size: 0.74rem; color: var(--text); font-weight: 500; }
+        .cond-weight { width: 52px; padding: 0.2rem 0.35rem; font-size: 0.74rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 5px; color: var(--text); text-align: center; font-weight: 600; }
+        .odds-pill { display: inline-flex; align-items: center; padding: 0.12rem 0.48rem; font-size: 0.7rem; font-weight: 700; border-radius: 999px; background: var(--bg-raised); border: 1px solid var(--border); color: var(--accent); white-space: nowrap; }
+
         /* Volume Slider Row */
         .vol-wrap { display: flex; align-items: center; gap: 0.65rem; }
         .vol-slider { flex: 1; height: 5px; accent-color: var(--accent); cursor: pointer; }
@@ -826,6 +842,12 @@
     function soundHtml(v, i) {
         const name = builtinName(v);
         const file = name ? '' : mediaField(i, 'sound', ['audio'], 'audio/mpeg,audio/wav,audio/mp4,audio/aac,audio/ogg', 'Custom Audio File');
+        const groups = {};
+        for (const [key, def] of Object.entries(BUILTIN || {})) {
+            const grp = def.group || 'Other';
+            if (!groups[grp]) groups[grp] = [];
+            groups[grp].push([key, def.label]);
+        }
         return `
         <div class="vgrid c2">
             <label class="fld">
@@ -833,7 +855,11 @@
                 <span class="media-row">
                     <select data-sound-preset="${i}">
                         <option value="">Custom file / None</option>
-                        ${Object.entries(BUILTIN).map(([key, def]) => `<option value="${key}"${key === name ? ' selected' : ''}>Built-in: ${def.label}</option>`).join('')}
+                        ${Object.entries(groups).map(([grp, items]) => `
+                            <optgroup label="${esc(grp)}">
+                                ${items.map(([key, lbl]) => `<option value="${key}"${key === name ? ' selected' : ''}>${esc(lbl)}</option>`).join('')}
+                            </optgroup>
+                        `).join('')}
                     </select>
                     <button type="button" class="btn sm" data-sound-preview="${i}" ${v.sound ? '' : 'disabled'}>${ICONS.play} Preview</button>
                 </span>
@@ -917,11 +943,22 @@
 
     function variantHtml(v, i, r) {
         const open = r.variants.length === 1 || openVariants.has(v.id);
-        const weighted = r.pick === 'weighted';
-        const isGated = v.variantType === 'gated';
+        const hasMetric = ['sub', 'resub', 'gift', 'bits', 'donation', 'raid', 'redeem', 'milestone'].includes(r.trigger);
         const metricName = AMOUNT_LABEL[r.trigger] || (['sub', 'resub', 'milestone'].includes(r.trigger) ? 'Months' : 'Amount');
+        const isGated = hasMetric && (v.variantType === 'gated' || (v.gateMin > 0) || (v.gateMax > 0));
         const tab = variantTab.get(v.id) || 'text';
-        const media = variantMedia.get(v.id) || (v.video ? 'video' : v.image ? 'image' : (v.emoji || v.emojiUrl || v.emojiLadder.length) ? 'emoji' : 'image');
+        const media = variantMedia.get(v.id) || (v.video ? 'video' : v.image ? 'image' : (v.emoji || v.emojiUrl || v.emojiLadder?.length) ? 'emoji' : 'image');
+
+        // Odds percentage calculation among qualifying pool
+        let pool = [];
+        if (isGated) {
+            pool = r.variants.filter(other => (other.variantType === 'gated' || other.gateMin > 0) && (other.gateMin || 0) === (v.gateMin || 0));
+        } else {
+            pool = r.variants.filter(other => other.variantType !== 'gated' && !other.gateMin && !other.gateMax);
+        }
+        if (!pool.length) pool = r.variants;
+        const totalPoolWeight = pool.reduce((sum, item) => sum + Math.max(1, Number(item.weight) || 1), 0);
+        const oddsPct = Math.round((Math.max(1, Number(v.weight) || 1) / totalPoolWeight) * 100);
 
         const panels = {
             text: `
@@ -983,20 +1020,15 @@
                     ${vsel(i, 'animIn', 'Animation In', v.animIn, ANIM_IN)}
                     ${vsel(i, 'animOut', 'Animation Out', v.animOut, ANIM_OUT)}
                 </div>
-                ${weighted && !isGated ? `
-                    <div class="vgrid c3" style="margin-top:0.4rem;">
-                        ${vin(i, 'weight', 'Weight (Selection Odds)', v.weight, 'min="1" max="100"')}
-                    </div>
-                    <span class="hint">Higher weight variants trigger proportionally more often (e.g. weight 3 vs weight 1).</span>
-                ` : ''}
             `
         };
 
-        const mediaBadge = v.video ? `${ICONS.video} Video` : v.image ? `${ICONS.image} Image` : (v.emoji || v.emojiUrl || v.emojiLadder.length) ? `${ICONS.smile} ${esc(v.emoji || v.emojiLadder[0]?.emoji || 'Emote')}` : '';
+        const mediaBadge = v.video ? `${ICONS.video} Video` : v.image ? `${ICONS.image} Image` : (v.emoji || v.emojiUrl || v.emojiLadder?.length) ? `${ICONS.smile} ${esc(v.emoji || v.emojiLadder[0]?.emoji || 'Emote')}` : '';
         const soundBadge = v.sound ? `${ICONS.volume} Audio` : '';
-        const typeBadge = isGated
-            ? `<span>· gated: ${v.gateMinOp === 'gt' ? '>' : '>='}${v.gateMin || 0}${v.gateMax > 0 ? ` and ${v.gateMaxOp === 'lt' ? '<' : '<='}${v.gateMax}` : ''} ${metricName}</span>`
-            : (weighted ? `<span>· weight ${v.weight}</span>` : '');
+        const condBadge = isGated
+            ? `<span>· ${metricName} ${v.gateMinOp === 'gt' ? '>' : '>='}${v.gateMin || 0}${v.gateMax > 0 ? ` and ${v.gateMaxOp === 'lt' ? '<' : '<='}${v.gateMax}` : ''}</span>`
+            : (hasMetric && r.variants.some(other => other.variantType === 'gated' || other.gateMin > 0) ? '<span>· Default (any amount)</span>' : '');
+        const weightBadge = r.variants.length > 1 ? `<span>· Weight ${v.weight ?? 1} (${oddsPct}%)</span>` : '';
 
         return `
         <details class="variant" data-vid="${esc(v.id)}"${open ? ' open' : ''}>
@@ -1008,50 +1040,58 @@
                         <span>${v.duration}s</span>
                         ${mediaBadge ? `<span>· ${mediaBadge}</span>` : ''}
                         ${soundBadge ? `<span>· ${soundBadge}</span>` : ''}
-                        ${typeBadge}
+                        ${condBadge}
+                        ${weightBadge}
                     </span>
                 </div>
                 <div class="variant-summary-right">
-                    <button type="button" class="btn sm primary" data-test="${i}" title="Preview this alert variant on overlays">
-                        ${ICONS.play} <span>Test</span>
+                    <button type="button" class="btn sm" data-test-variant="${i}" title="Preview this specific alert variant on overlays">
+                        ${ICONS.play} <span>Preview</span>
                     </button>
                 </div>
             </summary>
             <div class="variant-body">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.4rem 0.65rem;background:var(--bg-card);border:1px solid var(--border);border-radius:7px;flex-wrap:wrap;margin-bottom:0.4rem;">
-                    <div style="display:inline-flex;align-items:center;gap:0.45rem;">
-                        <span style="font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;">Type:</span>
-                        <div class="seg-pills">
-                            <button type="button" class="seg-btn${!isGated ? ' active' : ''}" data-set-variant-type="weighted" data-vi="${i}">
-                                ${ICONS.sliders} <span>Weighted (Chance)</span>
-                            </button>
-                            <button type="button" class="seg-btn${isGated ? ' active' : ''}" data-set-variant-type="gated" data-vi="${i}">
-                                ${ICONS.zap} <span>Gated (Threshold)</span>
-                            </button>
-                        </div>
+                <div class="variant-condition-bar">
+                    <div class="variant-cond-left">
+                        ${hasMetric ? `
+                            <label class="variant-cond-item">
+                                <span class="cond-lbl">When to Show:</span>
+                                <select data-variant-cond="${i}" class="cond-sel">
+                                    <option value="any"${!isGated ? ' selected' : ''}>Always / Any ${metricName} (Default)</option>
+                                    <option value="threshold"${isGated ? ' selected' : ''}>When ${metricName} meets threshold...</option>
+                                </select>
+                            </label>
+                            ${isGated ? `
+                                <div class="cond-threshold-row">
+                                    <span class="cond-sublbl">${metricName}</span>
+                                    <select data-v="${i}.gateMinOp" class="cond-op">
+                                        <option value="gte"${v.gateMinOp !== 'gt' ? ' selected' : ''}>&ge; (at least)</option>
+                                        <option value="gt"${v.gateMinOp === 'gt' ? ' selected' : ''}>&gt; (more than)</option>
+                                    </select>
+                                    <input type="number" min="0" data-v="${i}.gateMin" value="${v.gateMin ?? 0}" class="cond-num" placeholder="0">
+                                    <span class="cond-sublbl">and</span>
+                                    <select data-v="${i}.gateMaxOp" class="cond-op">
+                                        <option value="lte"${v.gateMaxOp !== 'lt' ? ' selected' : ''}>&le; (at most)</option>
+                                        <option value="lt"${v.gateMaxOp === 'lt' ? ' selected' : ''}>&lt; (less than)</option>
+                                    </select>
+                                    <input type="number" min="0" data-v="${i}.gateMax" value="${v.gateMax ?? 0}" class="cond-num" placeholder="0">
+                                    <span class="cond-hint">(0 max = no cap)</span>
+                                </div>
+                            ` : ''}
+                        ` : `
+                            <div class="variant-cond-item">
+                                <span class="cond-lbl">Trigger:</span>
+                                <span class="cond-static">Always triggers on ${esc(TRIGGERS[r.trigger] || r.trigger)}</span>
+                            </div>
+                        `}
                     </div>
-                    ${isGated ? `
-                        <div style="display:inline-flex;align-items:center;gap:0.35rem;flex-wrap:wrap;">
-                            <span style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">When ${metricName}:</span>
-                            <select data-v="${i}.gateMinOp" style="width:auto;padding:0.18rem 0.4rem;font-size:0.74rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:5px;color:var(--text);">
-                                <option value="gte"${v.gateMinOp !== 'gt' ? ' selected' : ''}>&ge; (at least)</option>
-                                <option value="gt"${v.gateMinOp === 'gt' ? ' selected' : ''}>&gt; (more than)</option>
-                            </select>
-                            <input type="number" min="0" data-v="${i}.gateMin" value="${v.gateMin ?? 0}" style="width:64px;padding:0.18rem 0.35rem;font-size:0.74rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:5px;color:var(--text);text-align:center;" placeholder="0">
-                            <span style="font-size:0.72rem;color:var(--text-muted);">and</span>
-                            <select data-v="${i}.gateMaxOp" style="width:auto;padding:0.18rem 0.4rem;font-size:0.74rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:5px;color:var(--text);">
-                                <option value="lte"${v.gateMaxOp !== 'lt' ? ' selected' : ''}>&le; (at most)</option>
-                                <option value="lt"${v.gateMaxOp === 'lt' ? ' selected' : ''}>&lt; (less than)</option>
-                            </select>
-                            <input type="number" min="0" data-v="${i}.gateMax" value="${v.gateMax ?? 0}" style="width:64px;padding:0.18rem 0.35rem;font-size:0.74rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:5px;color:var(--text);text-align:center;" placeholder="0">
-                            <span class="hint" style="font-size:0.67rem;margin:0;">(0 in max = no cap)</span>
-                        </div>
-                    ` : `
-                        <div style="display:inline-flex;align-items:center;gap:0.4rem;">
-                            <span style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">Odds Weight:</span>
-                            <input type="number" min="1" max="100" data-v="${i}.weight" value="${v.weight ?? 1}" style="width:52px;padding:0.18rem 0.35rem;font-size:0.74rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:5px;color:var(--text);text-align:center;">
-                        </div>
-                    `}
+                    <div class="variant-cond-right">
+                        <label class="variant-cond-item" title="Higher weight variants are chosen proportionally more often">
+                            <span class="cond-lbl">Odds Weight:</span>
+                            <input type="number" min="1" max="100" data-v="${i}.weight" value="${v.weight ?? 1}" class="cond-weight">
+                        </label>
+                        <span class="odds-pill" title="Probability when this variant's condition is met">${oddsPct}% roll chance</span>
+                    </div>
                 </div>
                 <div class="vtabs">
                     ${VTABS.map(([key, label, icon]) => `
@@ -1064,7 +1104,7 @@
                         ${ICONS.trash} <span>Remove Variant</span>
                     </button>
                 </div>
-                ${panels[tab]}
+                ${panels[tab] || panels.text}
             </div>
         </details>`;
     }
@@ -1103,6 +1143,8 @@
         const a = r.actions;
         const meta = TRIGGER_META[r.trigger] || { label: r.trigger, icon: ICONS.zap, color: '#3b82f6' };
         const tokens = TOKENS[r.trigger] || [];
+        const hasMetric = ['sub', 'resub', 'gift', 'bits', 'donation', 'raid', 'redeem', 'milestone'].includes(r.trigger);
+        const metricName = AMOUNT_LABEL[r.trigger] || (['sub', 'resub', 'milestone'].includes(r.trigger) ? 'Months' : 'Amount');
 
         $('editor').innerHTML = `
             <!-- Rule Summary Banner -->
@@ -1122,7 +1164,13 @@
                     </label>
                     <button type="button" class="btn sm" id="dup-rule" title="Duplicate rule">${ICONS.copy} Duplicate</button>
                     <button type="button" class="btn sm danger" id="del-rule" title="Delete rule">${ICONS.trash} Delete</button>
-                    <button type="button" class="btn sm primary" data-test="0" title="Test this alert on overlays">${ICONS.play} Test</button>
+                    ${hasMetric ? `
+                        <div style="display:inline-flex;align-items:center;gap:0.35rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.18rem 0.45rem;">
+                            <span style="font-size:0.71rem;color:var(--text-muted);font-weight:600;">Test ${metricName}:</span>
+                            <input type="number" min="0" data-test-amount value="${testAmount || ''}" placeholder="${r.conditions.minAmount || 100}" style="width:72px;height:24px;padding:0.1rem 0.35rem;font-size:0.74rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:4px;color:var(--text);text-align:center;">
+                        </div>
+                    ` : ''}
+                    <button type="button" class="btn sm primary" data-test-rule title="Test this alert on overlays (evaluates weights and conditions)">${ICONS.play} Test Rule</button>
                 </div>
             </div>
 
@@ -1167,9 +1215,8 @@
                     </div>
                 </div>
 
-                ${r.variants.length > 1 ? field('Variant Selection Mode', sel_('pick', r.pick, [
-                    ['random', 'Random (never repeats back-to-back)'],
-                    ['weighted', 'Weighted Random (based on variant weight)'],
+                ${r.variants.length > 1 ? field('Variant Selection Mode', sel_('pick', r.pick === 'sequential' ? 'sequential' : 'weighted', [
+                    ['weighted', 'Weighted Random (odds based on variant weights)'],
                     ['sequential', 'Sequential (in order, one after another)']
                 ])) : ''}
 
@@ -1481,9 +1528,29 @@
         } else if (el.dataset.f === 'pick' || ['actions.timer.enabled', 'actions.http.enabled', 'actions.timer.action'].includes(el.dataset.f)) {
             renderEditor();
         } else if (el.dataset.soundPreset !== undefined) {
-            r.variants[el.dataset.soundPreset].sound = el.value ? `builtin:${el.value}` : '';
+            const idx = el.dataset.soundPreset;
+            r.variants[idx].sound = el.value ? `builtin:${el.value}` : '';
             setDirty(true);
             renderEditor();
+            if (el.value && OverlayShared.playBuiltinSound) {
+                OverlayShared.playBuiltinSound(el.value, (r.variants[idx].volume ?? 70) / 100);
+            }
+        } else if (el.dataset.variantCond !== undefined) {
+            const idx = Number(el.dataset.variantCond);
+            if (r && r.variants[idx]) {
+                if (el.value === 'threshold') {
+                    r.variants[idx].variantType = 'gated';
+                    if (!r.variants[idx].gateMin) {
+                        r.variants[idx].gateMin = r.conditions.minAmount || (['sub', 'resub', 'milestone'].includes(r.trigger) ? 12 : 100);
+                    }
+                } else {
+                    r.variants[idx].variantType = 'weighted';
+                    r.variants[idx].gateMin = 0;
+                    r.variants[idx].gateMax = 0;
+                }
+                setDirty(true);
+                renderEditor();
+            }
         } else if (el.dataset.lad && el.dataset.lad.endsWith('.min')) {
             const [i] = el.dataset.lad.split('.');
             r.variants[i].emojiLadder.sort((a, b) => a.min - b.min);
@@ -1496,7 +1563,7 @@
             if (el.type === 'checkbox') r.variants[i][key] = el.checked;
             else r.variants[i][key] = el.value;
             setDirty(true);
-            if (key === 'videoSound' || key === 'gateMinOp' || key === 'gateMaxOp') renderEditor();
+            if (key === 'videoSound' || key === 'gateMinOp' || key === 'gateMaxOp' || key === 'weight') renderEditor();
         }
     });
 
@@ -1658,15 +1725,32 @@
             sel = copy.id;
             setDirty(true);
             renderAll();
-        } else if (btn.dataset.test !== undefined) {
+        } else if (btn.dataset.testRule !== undefined) {
             await save();
-            const variantIdx = Number(btn.dataset.test);
+            const res = await api('/api/alerts/test', {
+                method: 'POST',
+                body: JSON.stringify({
+                    ruleId: sel,
+                    ...(testAmount ? { amount: testAmount, months: testAmount, count: testAmount, viewers: testAmount } : {})
+                })
+            });
+            const vIdx = res.alert?.variantId ? r.variants.findIndex(x => x.id === res.alert.variantId) : -1;
+            const label = vIdx >= 0 ? `Variant ${vIdx + 1}` : 'alert';
+            toast(`Test alert queued: rolled ${label}`);
+            refreshQueue();
+        } else if (btn.dataset.testVariant !== undefined || btn.dataset.test !== undefined) {
+            await save();
+            const variantIdx = Number(btn.dataset.testVariant ?? btn.dataset.test);
             const targetVariant = r.variants[variantIdx] || r.variants[0];
             await api('/api/alerts/test', {
                 method: 'POST',
-                body: JSON.stringify({ ruleId: sel, variantId: targetVariant.id, ...(testAmount ? { amount: testAmount } : {}) })
+                body: JSON.stringify({
+                    ruleId: sel,
+                    variantId: targetVariant.id,
+                    ...(testAmount ? { amount: testAmount, months: testAmount, count: testAmount, viewers: testAmount } : {})
+                })
             });
-            toast('Test alert queued');
+            toast(`Previewing Variant ${variantIdx + 1}`);
             refreshQueue();
         } else if (btn.dataset.upload) {
             const [i, key] = btn.dataset.upload.split('.');

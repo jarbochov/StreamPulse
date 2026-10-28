@@ -269,7 +269,8 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
     }
 
     function matchesGate(v, val) {
-        if (v.variantType !== 'gated') return false;
+        const isGated = v.variantType === 'gated' || (v.gateMin > 0) || (v.gateMax > 0);
+        if (!isGated) return false;
         if (v.gateMin > 0) {
             if (v.gateMinOp === 'gt' && !(val > v.gateMin)) return false;
             if (v.gateMinOp !== 'gt' && !(val >= v.gateMin)) return false;
@@ -281,11 +282,29 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
         return true;
     }
 
+    function rollWeighted(pool, ruleId) {
+        if (!pool || pool.length === 0) return null;
+        if (pool.length === 1) return pool[0];
+        const weights = pool.map(v => Math.max(1, Number(v.weight) || 1));
+        const total = weights.reduce((sum, w) => sum + w, 0);
+        let roll = Math.random() * total;
+        for (let i = 0; i < pool.length; i++) {
+            roll -= weights[i];
+            if (roll <= 0) {
+                if (ruleId) lastVariant.set(ruleId, pool[i].id);
+                return pool[i];
+            }
+        }
+        const fallback = pool[pool.length - 1];
+        if (ruleId) lastVariant.set(ruleId, fallback.id);
+        return fallback;
+    }
+
     function chooseVariant(rule, ev) {
         const list = rule.variants;
         if (list.length === 1) return list[0];
 
-        // 1. Check gated variants first when event context is provided
+        // 1. Check gated / threshold variants first when event context is provided
         if (ev) {
             const val = getVariantMetric(rule, ev);
             const gatedMatches = list.filter(v => matchesGate(v, val));
@@ -295,18 +314,12 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
                 const topGateMin = gatedMatches[0].gateMin;
                 const topTied = gatedMatches.filter(v => v.gateMin === topGateMin);
                 if (topTied.length === 1) return topTied[0];
-                const weights = topTied.map(v => v.weight);
-                let roll = Math.random() * weights.reduce((sum, w) => sum + w, 0);
-                for (let i = 0; i < topTied.length; i++) {
-                    roll -= weights[i];
-                    if (roll <= 0) return topTied[i];
-                }
-                return topTied[0];
+                return rollWeighted(topTied, rule.id);
             }
         }
 
         // 2. Fall back to weighted / general variants
-        const poolList = list.filter(v => v.variantType !== 'gated');
+        const poolList = list.filter(v => v.variantType !== 'gated' && (v.gateMin === 0 || !v.gateMin) && (v.gateMax === 0 || !v.gateMax));
         const effectiveList = poolList.length ? poolList : list;
 
         if (effectiveList.length === 1) return effectiveList[0];
@@ -315,18 +328,8 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
             sequence.set(rule.id, index + 1);
             return effectiveList[index];
         }
-        const previous = lastVariant.get(rule.id);
-        const pool = effectiveList.filter(variant => variant.id !== previous);
-        const activePool = pool.length ? pool : effectiveList;
-        const weights = rule.pick === 'weighted' ? activePool.map(v => v.weight) : activePool.map(() => 1);
-        let roll = Math.random() * weights.reduce((sum, w) => sum + w, 0);
-        for (let i = 0; i < activePool.length; i++) {
-            roll -= weights[i];
-            if (roll <= 0) { lastVariant.set(rule.id, activePool[i].id); return activePool[i]; }
-        }
-        const fallback = activePool[activePool.length - 1];
-        lastVariant.set(rule.id, fallback.id);
-        return fallback;
+
+        return rollWeighted(effectiveList, rule.id);
     }
 
     function tokensFor(ev) {
@@ -482,13 +485,14 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
     function fireRule(ruleId, variantId, overrides = {}) {
         const rule = config.rules.find(item => item.id === ruleId);
         if (!rule || !rule.variants.length) throw new Error('Rule not found or has no variants');
+        const testAmt = (overrides.amount !== undefined && overrides.amount !== '') ? Number(overrides.amount) : null;
         const ev = {
             type: rule.trigger,
             user: str(overrides.user, 60) || 'TestViewer',
             recipient: str(overrides.recipient, 60) || 'TestRecipient',
-            amount: Number(overrides.amount) || rule.conditions.minAmount || 100,
-            count: Number(overrides.count) || Math.max(1, rule.conditions.minAmount || 5),
-            months: Number(overrides.months) || rule.conditions.milestones[0] || rule.conditions.everyMonths || 12,
+            amount: testAmt ?? rule.conditions.minAmount ?? 100,
+            count: Number(overrides.count) || testAmt || Math.max(1, rule.conditions.minAmount || 5),
+            months: Number(overrides.months) || testAmt || rule.conditions.milestones[0] || rule.conditions.everyMonths || 12,
             streak: Number(overrides.streak) || 6,
             tier: overrides.tier || (rule.conditions.tiers?.[0] || '1000'),
             tierLabel: overrides.tierLabel || (overrides.tier === 'prime' ? 'Prime' : overrides.tier === '2000' ? 'Tier 2' : overrides.tier === '3000' ? 'Tier 3' : 'Tier 1'),
@@ -496,9 +500,9 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
             reward: rule.conditions.rewardName || 'Test reward',
             name: rule.conditions.timerId || rule.conditions.goalId || 'Test',
             keyword: rule.conditions.keywords[0] || '',
-            viewers: Number(overrides.amount) || 25
+            viewers: Number(overrides.viewers) || testAmt || 25
         };
-        const variant = rule.variants.find(item => item.id === variantId) || chooseVariant(rule, ev);
+        const variant = (variantId ? rule.variants.find(item => item.id === variantId) : null) || chooseVariant(rule, ev);
         const payload = buildPayload(rule, variant, ev, true);
         enqueue(payload);
         return payload;

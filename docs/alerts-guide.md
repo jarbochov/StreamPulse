@@ -14,16 +14,15 @@ Configure alerts under **Tools -> Alerts** (`/alerts.html`):
 
 - **Event Types**: Follows, subscriptions, resubs, gift subs, bits/cheers, donations/tips, raids, channel point redeems, finished timers, reached goals, poll completed / winner (`poll_end`), chat keywords, and chat commands.
 - **Subscription Tier Checkboxes & Precedence**: Select any combination of tiers (Tier 1, Tier 2, Tier 3, Prime) for sub, resub, milestone, and gift sub alerts. More specific tier rules take precedence over general "Any Tier" rules, ensuring only the intended alert fires without duplicate alerts.
-- **Weighted & Gated Variants**: Create multiple variants per rule:
-  - **Weighted Variants**: Random selection with customizable probability weights (e.g. 1 in 10 chance for a rare variant).
-  - **Gated Variants**: Threshold criteria based on months (e.g. `> 12 months` and `< 24 months` for veteran resubs), amounts, or gift counts. The highest matching threshold triggers automatically; if no gates match, it falls back to the weighted variant pool.
+- **Unified Variant Model (Conditions & Selection Weights)**: Create multiple variations per rule with zero clutter. Each variant can trigger unconditionally or when an event metric meets a threshold condition (e.g. `≥ 12 months`, `≥ 500 bits`, or specific viewer counts). Every variant features dedicated Odds Weight controls with live `% roll chance` badges; when multiple variants qualify (or for default alerts), the engine rolls proportionally by weight without artificial alternation locks.
+- **Rule Simulation & Variant Previews**: The rule banner includes a "Test Rule" button with an inline simulation value input to test live threshold matching and weighted random rolls, while individual variants have "Preview" buttons to audit specific animations and audio.
 - **Video Audio & Volume**: Full volume slider control for video alerts (MP4 / WebM) alongside audio effects.
 - **Twitch Channel Emotes**: Pick directly from your channel's cached and live Twitch emotes in the Emoji field, rendering crisp emote graphics on stream alongside standard icons.
 - **Replacement Tokens**: Dynamic placeholders including `{{alert.user}}`, `{{alert.recipient}}` (or `{{alert.gift_recipient}}` for gift subs), `{{alert.amount}}`, `{{alert.months}}`, `{{alert.streak}}`, `{{alert.tier}}`, plus poll tokens: `{{winner}}`, `{{poll_title}}`, `{{votes}}`, `{{percent}}`, and `{{total_votes}}`.
 - **Clean Idle State**: Alert box containers in custom overlays remain 100% invisible with no borders, backgrounds, or shadows when idle, only displaying border effects and styling while an alert is actively playing.
 - **Tiered Thresholds**: Configure escalating visual alerts based on amount (e.g. 100 bits vs 1,000 bits vs 10,000 bits).
 - **Media Uploads**: Upload custom images, animated GIFs, WebM/MP4 videos, and audio sounds to the Asset Library.
-- **Synthesized Audio**: Use built-in Web Audio synthesized sound presets (Ding, Chime, Coin, Fanfare, Level Up, Pop, Whoosh) without needing external audio files.
+- **Synthesized Web Audio Palette**: 23 offline synthesized sound effects categorized into Chimes, Bells, 8-Bit Arcade, Triumphs, and Modern UI notifications (Desk Bell, Three-Tone Chime, Tubular Bell, Crystal Ping, Harp Flourish, Retro Coin, 8-Bit Level Up, Laser Zap, Retro Jump, Power-Up Riser, Retro Victory, Royal Fanfare, Ta-Da!, Victory Stinger, Celebration Shimmer, Drumroll & Crash, Bubble Pop, Snappy Click, Notification Ping, Warm Success, Water Drop, Cinematic Whoosh, Magic Sparkle) that synthesize instantly in Web Audio without external assets or 404s.
 
 ---
 
