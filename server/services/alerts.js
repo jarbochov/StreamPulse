@@ -41,17 +41,25 @@ function defaultSettings() {
 }
 
 function normalizeVariant(input = {}, index = 0) {
+    const variantType = ['weighted', 'gated'].includes(input.variantType) ? input.variantType : (input.gated ? 'gated' : 'weighted');
     return {
         id: safeId(input.id, `v${index + 1}`),
+        variantType,
+        gateMin: clamp(input.gateMin ?? input.minMonths ?? input.minAmount ?? input.minCount, 0, 1e9, 0),
+        gateMinOp: input.gateMinOp === 'gt' ? 'gt' : 'gte',
+        gateMax: clamp(input.gateMax ?? input.maxMonths ?? input.maxAmount ?? input.maxCount, 0, 1e9, 0),
+        gateMaxOp: input.gateMaxOp === 'lt' ? 'lt' : 'lte',
         title: str(input.title, 200),
         message: str(input.message, 500),
         image: str(input.image, 2000),
         video: str(input.video, 2000),
         videoSound: Boolean(input.videoSound),
+        videoVolume: clamp(input.videoVolume, 0, 100, 70),
         videoLoop: input.videoLoop !== false,
-        emoji: str(input.emoji, 40),
+        emoji: str(input.emoji, 2000),
+        emojiUrl: str(input.emojiUrl, 2000),
         emojiLadder: Array.isArray(input.emojiLadder)
-            ? input.emojiLadder.slice(0, 12).map(step => ({ min: clamp(step?.min, 0, 1e9, 0), emoji: str(step?.emoji, 40) })).filter(step => step.emoji).sort((a, b) => a.min - b.min)
+            ? input.emojiLadder.slice(0, 12).map(step => ({ min: clamp(step?.min, 0, 1e9, 0), emoji: str(step?.emoji, 2000) })).filter(step => step.emoji).sort((a, b) => a.min - b.min)
             : [],
         emojiEvery: clamp(input.emojiEvery, 0, 1e6, 0),
         emojiMax: Math.round(clamp(input.emojiMax, 1, 20, 8)),
@@ -64,6 +72,8 @@ function normalizeVariant(input = {}, index = 0) {
     };
 }
 
+const VALID_TIERS = ['1000', '2000', '3000', 'prime'];
+
 function normalizeRule(input = {}, index = 0) {
     const trigger = TRIGGERS[input.trigger] ? input.trigger : 'follow';
     const c = input.conditions || {};
@@ -74,6 +84,8 @@ function normalizeRule(input = {}, index = 0) {
         while (seen.has(variant.id)) variant.id = `${variant.id}-${i}`;
         seen.add(variant.id);
     });
+    const rawTiers = Array.isArray(c.tiers) ? c.tiers : (c.tier ? [c.tier] : []);
+    const tiers = rawTiers.map(String).filter(t => VALID_TIERS.includes(t));
     return {
         id: safeId(input.id, `rule-${index + 1}`),
         name: str(input.name, 80) || TRIGGERS[trigger],
@@ -82,7 +94,8 @@ function normalizeRule(input = {}, index = 0) {
         conditions: {
             minAmount: clamp(c.minAmount, 0, 1e9, 0),
             maxAmount: clamp(c.maxAmount, 0, 1e9, 0),
-            tier: ['', '1000', '2000', '3000', 'prime'].includes(c.tier) ? c.tier : '',
+            tiers,
+            tier: tiers.length === 1 ? tiers[0] : (VALID_TIERS.includes(c.tier) ? c.tier : ''),
             rewardName: str(c.rewardName, 120),
             keywords: Array.isArray(c.keywords) ? c.keywords.map(k => str(k, 60).toLowerCase()).filter(Boolean).slice(0, 30) : [],
             timerId: str(c.timerId, 80),
@@ -184,7 +197,11 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
         const amount = eventAmount(ev);
         if (c.minAmount && amount < c.minAmount) return false;
         if (c.maxAmount && amount > c.maxAmount) return false;
-        if (c.tier && String(ev.tier || '') !== c.tier) return false;
+        if (c.tiers && c.tiers.length > 0) {
+            if (!c.tiers.includes(String(ev.tier || ''))) return false;
+        } else if (c.tier && String(ev.tier || '') !== c.tier) {
+            return false;
+        }
         if (rule.trigger === 'redeem' && c.rewardName && !String(ev.reward || '').toLowerCase().includes(c.rewardName.toLowerCase())) return false;
         if (rule.trigger === 'timer' && c.timerId && c.timerId !== ev.timerId) return false;
         if (rule.trigger === 'goal' && c.goalId && c.goalId !== ev.goalId) return false;
@@ -222,39 +239,105 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
         return true;
     }
 
+    function tierSpecificity(r) {
+        const list = r.conditions.tiers || (r.conditions.tier ? [r.conditions.tier] : []);
+        if (list.length > 0 && list.length < 4) {
+            return 4 - list.length; // 1 tier = 3 (most specific), 2 tiers = 2, 3 tiers = 1
+        }
+        return 0; // any tier
+    }
+
     function chooseRule(ev) {
         const candidates = config.rules.filter(rule => matches(rule, ev) && rule.variants.length);
-        // Highest threshold wins so tiered rules (100 bits vs 1000 bits) pick the most specific; a rule with a sub tier (e.g. Prime) beats an "Any tier" rule
-        candidates.sort((a, b) => (b.conditions.minAmount - a.conditions.minAmount) || (b.conditions.milestones.length - a.conditions.milestones.length) || (Number(!!b.conditions.tier) - Number(!!a.conditions.tier)));
+        // Highest threshold wins; specific sub tier (e.g. Prime) beats "Any tier" rule so only the winning rule fires
+        candidates.sort((a, b) =>
+            (b.conditions.minAmount - a.conditions.minAmount) ||
+            (tierSpecificity(b) - tierSpecificity(a)) ||
+            (b.conditions.milestones.length - a.conditions.milestones.length)
+        );
         return candidates[0] || null;
     }
 
-    function chooseVariant(rule) {
+    function getVariantMetric(rule, ev) {
+        if (!ev) return 0;
+        switch (ev.type) {
+            case 'sub': case 'resub': case 'milestone': return Number(ev.months) || 0;
+            case 'gift': return Number(ev.count) || Number(ev.amount) || 1;
+            case 'bits': case 'donation': case 'raid': case 'redeem': return Number(ev.amount) || Number(ev.viewers) || 0;
+            default: return eventAmount(ev);
+        }
+    }
+
+    function matchesGate(v, val) {
+        if (v.variantType !== 'gated') return false;
+        if (v.gateMin > 0) {
+            if (v.gateMinOp === 'gt' && !(val > v.gateMin)) return false;
+            if (v.gateMinOp !== 'gt' && !(val >= v.gateMin)) return false;
+        }
+        if (v.gateMax > 0) {
+            if (v.gateMaxOp === 'lt' && !(val < v.gateMax)) return false;
+            if (v.gateMaxOp !== 'lt' && !(val <= v.gateMax)) return false;
+        }
+        return true;
+    }
+
+    function chooseVariant(rule, ev) {
         const list = rule.variants;
         if (list.length === 1) return list[0];
+
+        // 1. Check gated variants first when event context is provided
+        if (ev) {
+            const val = getVariantMetric(rule, ev);
+            const gatedMatches = list.filter(v => matchesGate(v, val));
+            if (gatedMatches.length > 0) {
+                // Highest minimum gate threshold wins (e.g. >24 months beats >12 months)
+                gatedMatches.sort((a, b) => (b.gateMin - a.gateMin) || (b.weight - a.weight));
+                const topGateMin = gatedMatches[0].gateMin;
+                const topTied = gatedMatches.filter(v => v.gateMin === topGateMin);
+                if (topTied.length === 1) return topTied[0];
+                const weights = topTied.map(v => v.weight);
+                let roll = Math.random() * weights.reduce((sum, w) => sum + w, 0);
+                for (let i = 0; i < topTied.length; i++) {
+                    roll -= weights[i];
+                    if (roll <= 0) return topTied[i];
+                }
+                return topTied[0];
+            }
+        }
+
+        // 2. Fall back to weighted / general variants
+        const poolList = list.filter(v => v.variantType !== 'gated');
+        const effectiveList = poolList.length ? poolList : list;
+
+        if (effectiveList.length === 1) return effectiveList[0];
         if (rule.pick === 'sequential') {
-            const index = (sequence.get(rule.id) || 0) % list.length;
+            const index = (sequence.get(rule.id) || 0) % effectiveList.length;
             sequence.set(rule.id, index + 1);
-            return list[index];
+            return effectiveList[index];
         }
         const previous = lastVariant.get(rule.id);
-        const pool = list.filter(variant => variant.id !== previous);
-        const weights = rule.pick === 'weighted' ? pool.map(v => v.weight) : pool.map(() => 1);
+        const pool = effectiveList.filter(variant => variant.id !== previous);
+        const activePool = pool.length ? pool : effectiveList;
+        const weights = rule.pick === 'weighted' ? activePool.map(v => v.weight) : activePool.map(() => 1);
         let roll = Math.random() * weights.reduce((sum, w) => sum + w, 0);
-        for (let i = 0; i < pool.length; i++) {
+        for (let i = 0; i < activePool.length; i++) {
             roll -= weights[i];
-            if (roll <= 0) { lastVariant.set(rule.id, pool[i].id); return pool[i]; }
+            if (roll <= 0) { lastVariant.set(rule.id, activePool[i].id); return activePool[i]; }
         }
-        const fallback = pool[pool.length - 1];
+        const fallback = activePool[activePool.length - 1];
         lastVariant.set(rule.id, fallback.id);
         return fallback;
     }
 
     function tokensFor(ev) {
         const target = ev.target || (ev.args ? String(ev.args).split(/\s+/)[0]?.replace(/^@/, '') : '') || ev.user || 'Someone';
+        const recipient = ev.recipient || '';
         return {
             user: ev.user || 'Someone',
-            recipient: ev.recipient || '',
+            recipient,
+            recipientname: recipient,
+            recipient_name: recipient,
+            gift_recipient: recipient,
             amount: ev.amount ?? '',
             count: ev.count ?? '',
             months: ev.months ?? '',
@@ -299,8 +382,10 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
             image: variant.image,
             video: variant.video,
             videoSound: Boolean(variant.videoSound),
+            videoVolume: variant.videoVolume !== undefined ? variant.videoVolume : (variant.volume ?? 70),
             videoLoop: variant.videoLoop !== false,
             emoji: pickEmoji(variant, eventAmount(ev)),
+            emojiUrl: variant.emojiUrl || '',
             sound: variant.sound,
             volume: variant.volume,
             animIn: variant.animIn,
@@ -308,6 +393,7 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
             durationMs: Math.round(variant.duration * 1000),
             user: ev.user || '',
             avatar: ev.avatar || '',
+            recipient: ev.recipient || '',
             amount: eventAmount(ev),
             test: !!test,
             at: new Date().toISOString()
@@ -383,7 +469,7 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
         if (!isTest && cooldown && now - (cooldowns.get(rule.id) || 0) < cooldown) { recordEvent(ev, null, 'cooldown'); return null; }
         if (!isTest) cooldowns.set(rule.id, now);
 
-        const variant = chooseVariant(rule);
+        const variant = chooseVariant(rule, effective);
         const payload = buildPayload(rule, variant, effective, isTest);
         if (!isTest || runActionsForTest) runActions(rule, effective);
         if (!isTest) recordEvent(effective, payload, 'shown');
@@ -396,21 +482,23 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
     function fireRule(ruleId, variantId, overrides = {}) {
         const rule = config.rules.find(item => item.id === ruleId);
         if (!rule || !rule.variants.length) throw new Error('Rule not found or has no variants');
-        const variant = rule.variants.find(item => item.id === variantId) || chooseVariant(rule);
         const ev = {
             type: rule.trigger,
             user: str(overrides.user, 60) || 'TestViewer',
+            recipient: str(overrides.recipient, 60) || 'TestRecipient',
             amount: Number(overrides.amount) || rule.conditions.minAmount || 100,
             count: Number(overrides.count) || Math.max(1, rule.conditions.minAmount || 5),
             months: Number(overrides.months) || rule.conditions.milestones[0] || rule.conditions.everyMonths || 12,
             streak: Number(overrides.streak) || 6,
-            tierLabel: 'Tier 1',
+            tier: overrides.tier || (rule.conditions.tiers?.[0] || '1000'),
+            tierLabel: overrides.tierLabel || (overrides.tier === 'prime' ? 'Prime' : overrides.tier === '2000' ? 'Tier 2' : overrides.tier === '3000' ? 'Tier 3' : 'Tier 1'),
             message: str(overrides.message, 200) || 'This is a test message',
             reward: rule.conditions.rewardName || 'Test reward',
             name: rule.conditions.timerId || rule.conditions.goalId || 'Test',
             keyword: rule.conditions.keywords[0] || '',
             viewers: Number(overrides.amount) || 25
         };
+        const variant = rule.variants.find(item => item.id === variantId) || chooseVariant(rule, ev);
         const payload = buildPayload(rule, variant, ev, true);
         enqueue(payload);
         return payload;
@@ -422,17 +510,31 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
         const now = Date.now();
         let batch = gifts.get(key);
         if (!batch) {
-            batch = { user: user || 'Anonymous', avatar, recipient, tier, tierLabel, count: 0, first: now, timer: null };
+            batch = { user: user || 'Anonymous', avatar, recipient, tier, tierLabel, count: 0, first: now, timer: null, recipients: [] };
             gifts.set(key, batch);
         }
         batch.count++;
-        if (recipient) batch.recipient = recipient;
+        if (recipient) {
+            batch.recipient = recipient;
+            if (!batch.recipients.includes(recipient)) batch.recipients.push(recipient);
+        }
         if (avatar) batch.avatar = avatar;
         clearTimeout(batch.timer);
         const wait = Math.max(0, Math.min(GIFT_QUIET_MS, batch.first + GIFT_MAX_MS - now));
         batch.timer = setTimeout(() => {
             gifts.delete(key);
-            handleEvent({ type: 'gift', user: batch.user, avatar: batch.avatar, count: batch.count, amount: batch.count, recipient: batch.count === 1 ? batch.recipient : '', tier: batch.tier, tierLabel: batch.tierLabel, dedupeMs: 0 });
+            const recipientStr = batch.count === 1 ? (batch.recipient || '') : (batch.recipients.join(', ') || batch.recipient || '');
+            handleEvent({
+                type: 'gift',
+                user: batch.user,
+                avatar: batch.avatar,
+                count: batch.count,
+                amount: batch.count,
+                recipient: recipientStr,
+                tier: batch.tier,
+                tierLabel: batch.tierLabel,
+                dedupeMs: 0
+            });
         }, wait);
     }
 

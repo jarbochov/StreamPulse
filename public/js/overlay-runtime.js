@@ -97,8 +97,8 @@
             height: `${element.height || 100}px`,
             zIndex: element.zIndex || 0,
             opacity: style.opacity ?? 1,
-            background: style.background || 'transparent',
-            borderRadius: `${style.borderRadius || 0}px`,
+            background: element.type === 'alert' ? 'transparent' : (style.background || 'transparent'),
+            borderRadius: element.type === 'alert' ? '0px' : `${style.borderRadius || 0}px`,
             padding: `${style.padding || 0}px`,
             fontFamily: style.fontFamily || 'sans-serif',
             fontSize: `${style.fontSize || 32}px`,
@@ -111,7 +111,20 @@
             alignItems: style.verticalAlign === 'middle' ? 'center' : style.verticalAlign === 'bottom' ? 'flex-end' : 'flex-start',
             justifyContent: style.textAlign === 'center' ? 'center' : style.textAlign === 'right' ? 'flex-end' : 'flex-start'
         });
-        Object.assign(node.style, shared.decorationStyle(style, element.type));
+        if (element.type === 'alert') {
+            node.style.border = '0';
+            node.style.outline = 'none';
+            node.style.boxShadow = 'none';
+            node.style.backdropFilter = 'none';
+            node.style.webkitBackdropFilter = 'none';
+            if (node._borderRing) { node._borderRing.remove(); node._borderRing = null; }
+            if (node._borderFxRing) { node._borderFxRing.remove(); node._borderFxRing = null; }
+            if (node._innerGlowRing) { node._innerGlowRing.remove(); node._innerGlowRing = null; }
+            if (node._borderObserver) { node._borderObserver.disconnect(); node._borderObserver = null; }
+        } else {
+            Object.assign(node.style, shared.decorationStyle(style, element.type));
+            shared.applyBorderEffects(node, style, element);
+        }
         Object.assign(node.style, shared.textEffectStyle(style, element.type));
         Object.assign(node.style, shared.shadowClipStyle(element));
         if (element.type === 'shape' || element.type === 'cutout') {
@@ -120,7 +133,6 @@
             if (sh === 'pill') node.style.borderRadius = '999px';
             if (sh === 'line' && element.type === 'shape') { node.style.height = `${Math.max(1, style.borderWidth || 4)}px`; node.style.border = '0'; }
         }
-        shared.applyBorderEffects(node, style, element);
         if (element.type === 'game-list' || element.type === 'slideshow' || element.type === 'pattern' || element.type === 'poll') node.style.display = 'block';
         if (element.type === 'pattern') {
             const blend = element.pattern?.blendMode || 'normal';

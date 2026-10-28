@@ -7,6 +7,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- Alerts Engine: Granular subscription tier selection with specificity precedence, weighted and gated variants, video volume controls, Twitch channel emotes in alert media, and gift sub recipient placeholders.
 - Versus & Tournament Studio: Scoreboards, elimination and round-robin brackets, multi-match scorekeeper, speedrun battle clocks, and broadcast overlays.
 - Poll Manager: Chat polls, audience voting brackets, chat bot announcements, and broadcast overlays.
 - Randomizer Elimination Mode: Weight-based choice randomizer with elimination and restoration.
@@ -14,6 +15,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Custom Overlay Poll Element: Real-time Twitch poll widget for custom overlays.
 
 ### Fixed
+- Alert Box: Suppress idle container borders, backgrounds, and glow effects when no alert is actively displaying.
 - Alerts Simulator: Add subscription tier selector and remove username substring check for Prime subs.
 - Custom Overlay Editor: Fix featured message trigger ingestion from SocialStream Ninja (unwrapping payloads on channels 2 & 4) and add in-editor trigger testing.
 

@@ -1476,6 +1476,8 @@ const handleOverlayRoutes = createOverlayRoutes({
     broadcastToOverlays,
     getChatData: () => chatData,
     getStatsData: () => statsData,
+    twitchService,
+    ssnService,
     listOverlayVisibility,
     setOverlayVisibility
 });

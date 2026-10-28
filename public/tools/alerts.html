@@ -478,6 +478,7 @@
                             <option value="3000">Tier 3</option>
                             <option value="prime">Prime</option>
                         </select></div>
+                        <div class="row" id="sim-recipient-row" style="display:none;"><label>Gift Sub Recipient</label><input id="sim-recipient" value="LuckyViewer"></div>
                         <div class="row"><label>User Name</label><input id="sim-user" value="TestViewer"></div>
                         <div class="row"><label>Amount / Months / Viewers</label><input id="sim-amount" type="number" min="0" value="100"></div>
                         <div class="row"><label>Message / Reward / Word</label><input id="sim-text" value="hello there!"></div>
@@ -623,8 +624,41 @@
     const toast = (message, err) => { const t = $('toast'); t.textContent = message; t.className = err ? 'err' : ''; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', 2600); };
     const setDirty = value => { dirty = value; $('save-state').textContent = dirty ? 'Unsaved changes' : 'Saved'; $('save-state').className = `pill ${dirty ? 'dirty' : 'ok'}`; };
     const rule = () => cfg.rules.find(r => r.id === sel);
-    const newVariant = trigger => ({ id: `v${Date.now().toString(36)}`, title: DEFAULT_TITLE[trigger] || '', message: '', image: '', video: '', videoSound: false, videoLoop: true, emoji: '', emojiLadder: [], emojiEvery: 0, emojiMax: 8, sound: '', volume: 70, animIn: 'pop', animOut: 'fade', duration: 6, weight: 1 });
+    const newVariant = trigger => ({
+        id: `v${Date.now().toString(36)}`,
+        variantType: 'weighted',
+        gateMin: 0,
+        gateMinOp: 'gte',
+        gateMax: 0,
+        gateMaxOp: 'lte',
+        title: DEFAULT_TITLE[trigger] || '',
+        message: '',
+        image: '',
+        video: '',
+        videoSound: false,
+        videoVolume: 70,
+        videoLoop: true,
+        emoji: '',
+        emojiUrl: '',
+        emojiLadder: [],
+        emojiEvery: 0,
+        emojiMax: 8,
+        sound: '',
+        volume: 70,
+        animIn: 'pop',
+        animOut: 'fade',
+        duration: 6,
+        weight: 1
+    });
     const setPath = (obj, path, value) => { const keys = path.split('.'); const last = keys.pop(); keys.reduce((o, k) => o[k], obj)[last] = value; };
+
+    let channelEmotes = [];
+    async function loadChannelEmotes() {
+        try {
+            const data = await api('/api/channel-emotes');
+            channelEmotes = Array.isArray(data.emotes) ? data.emotes : [];
+        } catch { channelEmotes = []; }
+    }
 
     async function api(url, options) {
         const response = await fetch(url, options);
@@ -640,7 +674,7 @@
         if (!sel || !rule()) sel = cfg.rules[0]?.id || null;
         try { timers = Object.values((await api('/api/timers')).timers || {}); } catch { timers = []; }
         try { goals = (await api('/api/goals')).items || []; } catch { goals = []; }
-        await loadAssets();
+        await Promise.all([loadAssets(), loadChannelEmotes()]);
         renderAll();
     }
     async function loadAssets() { try { assets = await api('/api/custom-overlays/assets'); } catch { assets = []; } }
@@ -710,7 +744,24 @@
             html += field(`Maximum ${AMOUNT_LABEL[t]}`, inp('conditions.maxAmount', c.maxAmount, 'number', 'min="0"'), '0 means no maximum.');
         }
         if (['sub', 'resub', 'milestone', 'gift'].includes(t)) {
-            html += field('Subscription Tier', sel_('conditions.tier', c.tier, [['', 'Any Tier'], ['1000', 'Tier 1'], ['2000', 'Tier 2'], ['3000', 'Tier 3'], ['prime', 'Prime']]), 'Specific tier rules take precedence over "Any".');
+            const tiers = Array.isArray(c.tiers) ? c.tiers : (c.tier ? [c.tier] : []);
+            const allTiers = [
+                ['1000', 'Tier 1'],
+                ['2000', 'Tier 2'],
+                ['3000', 'Tier 3'],
+                ['prime', 'Prime']
+            ];
+            const checkboxes = `
+                <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;padding:0.4rem 0.6rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;">
+                    ${allTiers.map(([val, label]) => `
+                        <label class="check-row" style="font-size:0.78rem;">
+                            <input type="checkbox" data-tier-check="${val}" ${tiers.includes(val) ? 'checked' : ''}>
+                            <span>${label}</span>
+                        </label>
+                    `).join('')}
+                </div>
+            `;
+            html += field('Subscription Tiers', checkboxes, 'Check all applicable tiers (leave all checked or unchecked for Any Tier). Specific tier rules always take precedence over general rules.');
         }
         if (t === 'redeem') html += field('Reward Name Contains', inp('conditions.rewardName', c.rewardName, 'text', 'placeholder="e.g. Hydrate (blank = any reward)"'), 'Case-insensitive reward title match.');
         if (t === 'timer') html += field('Timer Trigger', sel_('conditions.timerId', c.timerId, [['', 'Any timer'], ...timers.map(x => [x.id, x.label || x.id])]));
@@ -795,13 +846,13 @@
         const amountLabel = AMOUNT_LABEL[r.trigger] && r.trigger !== 'sub' ? AMOUNT_LABEL[r.trigger].toLowerCase() : '';
         const ladder = amountLabel ? `
             <div class="fld" style="margin-top:0.35rem;">
-                <span>Emoji Ladder (escalates by ${amountLabel})</span>
+                <span>Emoji / Emote Ladder (escalates by ${amountLabel})</span>
                 <div style="display:grid;gap:0.35rem;margin-top:0.25rem;">
                     ${v.emojiLadder.map((step, j) => `
                         <div class="media-row" style="align-items:center;">
                             <span style="font-size:0.73rem;color:var(--text-muted);white-space:nowrap;">from</span>
                             <input type="number" min="0" style="max-width:110px;" data-lad="${i}.${j}.min" value="${esc(step.min)}">
-                            <input type="text" maxlength="40" placeholder="e.g. 💎 or 🔥🔥🔥" data-lad="${i}.${j}.emoji" value="${esc(step.emoji)}">
+                            <input type="text" maxlength="2000" placeholder="e.g. HypeEmote, fa-solid fa-fire" data-lad="${i}.${j}.emoji" value="${esc(step.emoji)}">
                             <button type="button" class="btn sm danger icon-btn" data-del-step="${i}.${j}" title="Remove step">${ICONS.close}</button>
                         </div>
                     `).join('')}
@@ -819,7 +870,41 @@
                     <input type="number" min="0" data-test-amount value="${testAmount || ''}" placeholder="${r.conditions.minAmount || 100}">
                 </label>
             </div>` : '';
-        return `<div class="vgrid c2">${vin(i, 'emoji', 'Default Emoji', v.emoji, 'maxlength="40" placeholder="e.g. 🎉"', 'text')}</div>${ladder}`;
+
+        const emotePreview = v.emojiUrl ? `
+            <div style="display:inline-flex;align-items:center;gap:0.4rem;margin-top:0.25rem;">
+                <img src="${esc(v.emojiUrl)}" alt="" style="width:24px;height:24px;object-fit:contain;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);">
+                <span style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">${esc(v.emoji || 'Channel Emote')}</span>
+                <button type="button" class="btn sm ghost danger" data-clear-emote-url="${i}" style="font-size:0.68rem;padding:0.05rem 0.35rem;">Clear Emote</button>
+            </div>
+        ` : '';
+
+        const channelEmotesHtml = channelEmotes.length ? `
+            <div class="fld" style="margin-top:0.4rem;">
+                <span style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>Twitch Channel Emotes (${channelEmotes.length})</span>
+                    <span class="hint" style="font-size:0.68rem;">Click an emote to use it</span>
+                </span>
+                <div style="display:flex;gap:0.35rem;flex-wrap:wrap;max-height:120px;overflow-y:auto;padding:0.35rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;">
+                    ${channelEmotes.map(e => `
+                        <button type="button" class="btn sm ghost" data-select-channel-emote="${esc(e.name)}" data-emote-url="${esc(e.url)}" data-vi="${i}" title="${esc(e.name)}" style="padding:2px 6px;height:auto;gap:4px;display:inline-flex;align-items:center;">
+                            <img src="${esc(e.url)}" alt="${esc(e.name)}" style="width:20px;height:20px;object-fit:contain;pointer-events:none;">
+                            <span style="font-size:0.7rem;pointer-events:none;">${esc(e.name)}</span>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>` : '';
+
+        return `
+            <div class="vgrid c2">
+                <div class="fld">
+                    <span>Default Emoji / Channel Emote / FontAwesome</span>
+                    <input type="text" data-v="${i}.emoji" value="${esc(v.emoji || '')}" placeholder="e.g. Kappa, fa-solid fa-bell, or pick below" maxlength="2000">
+                    ${emotePreview}
+                </div>
+            </div>
+            ${channelEmotesHtml}
+            ${ladder}`;
     }
 
     const variantTab = new Map(), variantMedia = new Map();
@@ -833,8 +918,10 @@
     function variantHtml(v, i, r) {
         const open = r.variants.length === 1 || openVariants.has(v.id);
         const weighted = r.pick === 'weighted';
+        const isGated = v.variantType === 'gated';
+        const metricName = AMOUNT_LABEL[r.trigger] || (['sub', 'resub', 'milestone'].includes(r.trigger) ? 'Months' : 'Amount');
         const tab = variantTab.get(v.id) || 'text';
-        const media = variantMedia.get(v.id) || (v.video ? 'video' : v.image ? 'image' : (v.emoji || v.emojiLadder.length) ? 'emoji' : 'image');
+        const media = variantMedia.get(v.id) || (v.video ? 'video' : v.image ? 'image' : (v.emoji || v.emojiUrl || v.emojiLadder.length) ? 'emoji' : 'image');
 
         const panels = {
             text: `
@@ -856,7 +943,7 @@
                 </div>
                 ${media === 'image' ? mediaField(i, 'image', ['image'], 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml', 'Alert Image / GIF') + (v.video ? '<span class="hint">Note: A video URL is also set and takes priority over the image.</span>' : '')
                 : media === 'video' ? mediaField(i, 'video', ['video'], 'video/mp4,video/webm', 'Alert Video (WebM / MP4)') + `
-                    <div style="display:flex;gap:1.2rem;align-items:center;margin-top:0.35rem;padding:0.4rem 0.6rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;">
+                    <div style="display:flex;gap:1.2rem;align-items:center;margin-top:0.35rem;padding:0.4rem 0.6rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;flex-wrap:wrap;">
                         <label class="check-row">
                             <input type="checkbox" data-v="${i}.videoSound" ${v.videoSound ? 'checked' : ''}>
                             <span>Play video audio</span>
@@ -865,6 +952,13 @@
                             <input type="checkbox" data-v="${i}.videoLoop" ${v.videoLoop !== false ? 'checked' : ''}>
                             <span>Loop video</span>
                         </label>
+                        ${v.videoSound ? `
+                            <div style="display:inline-flex;align-items:center;gap:0.45rem;margin-left:auto;">
+                                <span style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">Video Volume:</span>
+                                <input type="range" class="vol-slider" min="0" max="100" data-v="${i}.videoVolume" data-vidvol-slider="${i}" value="${v.videoVolume ?? 70}" style="width:90px;">
+                                <span class="vol-badge" id="vidvol-badge-${i}" style="min-width:32px;">${v.videoVolume ?? 70}%</span>
+                            </div>
+                        ` : ''}
                     </div>
                 `
                 : emojiHtml(v, i, r) + (v.video || v.image ? '<span class="hint">Emoji only display when image/video is blank.</span>' : '')}
@@ -889,7 +983,7 @@
                     ${vsel(i, 'animIn', 'Animation In', v.animIn, ANIM_IN)}
                     ${vsel(i, 'animOut', 'Animation Out', v.animOut, ANIM_OUT)}
                 </div>
-                ${weighted ? `
+                ${weighted && !isGated ? `
                     <div class="vgrid c3" style="margin-top:0.4rem;">
                         ${vin(i, 'weight', 'Weight (Selection Odds)', v.weight, 'min="1" max="100"')}
                     </div>
@@ -898,8 +992,11 @@
             `
         };
 
-        const mediaBadge = v.video ? `${ICONS.video} Video` : v.image ? `${ICONS.image} Image` : (v.emoji || v.emojiLadder.length) ? `${ICONS.smile} ${esc(v.emoji || v.emojiLadder[0].emoji)}` : '';
+        const mediaBadge = v.video ? `${ICONS.video} Video` : v.image ? `${ICONS.image} Image` : (v.emoji || v.emojiUrl || v.emojiLadder.length) ? `${ICONS.smile} ${esc(v.emoji || v.emojiLadder[0]?.emoji || 'Emote')}` : '';
         const soundBadge = v.sound ? `${ICONS.volume} Audio` : '';
+        const typeBadge = isGated
+            ? `<span>· gated: ${v.gateMinOp === 'gt' ? '>' : '>='}${v.gateMin || 0}${v.gateMax > 0 ? ` and ${v.gateMaxOp === 'lt' ? '<' : '<='}${v.gateMax}` : ''} ${metricName}</span>`
+            : (weighted ? `<span>· weight ${v.weight}</span>` : '');
 
         return `
         <details class="variant" data-vid="${esc(v.id)}"${open ? ' open' : ''}>
@@ -911,7 +1008,7 @@
                         <span>${v.duration}s</span>
                         ${mediaBadge ? `<span>· ${mediaBadge}</span>` : ''}
                         ${soundBadge ? `<span>· ${soundBadge}</span>` : ''}
-                        ${weighted ? `<span>· weight ${v.weight}</span>` : ''}
+                        ${typeBadge}
                     </span>
                 </div>
                 <div class="variant-summary-right">
@@ -921,6 +1018,41 @@
                 </div>
             </summary>
             <div class="variant-body">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.4rem 0.65rem;background:var(--bg-card);border:1px solid var(--border);border-radius:7px;flex-wrap:wrap;margin-bottom:0.4rem;">
+                    <div style="display:inline-flex;align-items:center;gap:0.45rem;">
+                        <span style="font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;">Type:</span>
+                        <div class="seg-pills">
+                            <button type="button" class="seg-btn${!isGated ? ' active' : ''}" data-set-variant-type="weighted" data-vi="${i}">
+                                ${ICONS.sliders} <span>Weighted (Chance)</span>
+                            </button>
+                            <button type="button" class="seg-btn${isGated ? ' active' : ''}" data-set-variant-type="gated" data-vi="${i}">
+                                ${ICONS.zap} <span>Gated (Threshold)</span>
+                            </button>
+                        </div>
+                    </div>
+                    ${isGated ? `
+                        <div style="display:inline-flex;align-items:center;gap:0.35rem;flex-wrap:wrap;">
+                            <span style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">When ${metricName}:</span>
+                            <select data-v="${i}.gateMinOp" style="width:auto;padding:0.18rem 0.4rem;font-size:0.74rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:5px;color:var(--text);">
+                                <option value="gte"${v.gateMinOp !== 'gt' ? ' selected' : ''}>&ge; (at least)</option>
+                                <option value="gt"${v.gateMinOp === 'gt' ? ' selected' : ''}>&gt; (more than)</option>
+                            </select>
+                            <input type="number" min="0" data-v="${i}.gateMin" value="${v.gateMin ?? 0}" style="width:64px;padding:0.18rem 0.35rem;font-size:0.74rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:5px;color:var(--text);text-align:center;" placeholder="0">
+                            <span style="font-size:0.72rem;color:var(--text-muted);">and</span>
+                            <select data-v="${i}.gateMaxOp" style="width:auto;padding:0.18rem 0.4rem;font-size:0.74rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:5px;color:var(--text);">
+                                <option value="lte"${v.gateMaxOp !== 'lt' ? ' selected' : ''}>&le; (at most)</option>
+                                <option value="lt"${v.gateMaxOp === 'lt' ? ' selected' : ''}>&lt; (less than)</option>
+                            </select>
+                            <input type="number" min="0" data-v="${i}.gateMax" value="${v.gateMax ?? 0}" style="width:64px;padding:0.18rem 0.35rem;font-size:0.74rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:5px;color:var(--text);text-align:center;" placeholder="0">
+                            <span class="hint" style="font-size:0.67rem;margin:0;">(0 in max = no cap)</span>
+                        </div>
+                    ` : `
+                        <div style="display:inline-flex;align-items:center;gap:0.4rem;">
+                            <span style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">Odds Weight:</span>
+                            <input type="number" min="1" max="100" data-v="${i}.weight" value="${v.weight ?? 1}" style="width:52px;padding:0.18rem 0.35rem;font-size:0.74rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:5px;color:var(--text);text-align:center;">
+                        </div>
+                    `}
+                </div>
                 <div class="vtabs">
                     ${VTABS.map(([key, label, icon]) => `
                         <button type="button" class="vtab${key === tab ? ' active' : ''}" data-vtab="${key}" data-vid-tab="${esc(v.id)}">
@@ -941,6 +1073,13 @@
         const c = r.conditions, t = TRIGGERS[r.trigger];
         const hasAmt = !!AMOUNT_LABEL[r.trigger] && r.trigger !== 'sub';
         let when = `When there is a "${t}"`;
+        if (['sub', 'resub', 'milestone', 'gift'].includes(r.trigger)) {
+            const tiers = Array.isArray(c.tiers) ? c.tiers : (c.tier ? [c.tier] : []);
+            const tierNames = { '1000': 'Tier 1', '2000': 'Tier 2', '3000': 'Tier 3', 'prime': 'Prime' };
+            if (tiers.length > 0 && tiers.length < 4) {
+                when += ` (${tiers.map(val => tierNames[val] || val).join(', ')})`;
+            }
+        }
         if (hasAmt && c.minAmount && c.maxAmount) when += ` between ${c.minAmount} and ${c.maxAmount}`;
         else if (hasAmt && c.minAmount) when += ` of ${c.minAmount} or more`;
         if (r.trigger === 'redeem' && c.rewardName) when += ` for "${c.rewardName}"`;
@@ -1162,6 +1301,8 @@
         const isSub = ['sub', 'resub', 'milestone', 'gift'].includes(type);
         const row = $('sim-tier-row');
         if (row) row.style.display = isSub ? '' : 'none';
+        const recipRow = $('sim-recipient-row');
+        if (recipRow) recipRow.style.display = type === 'gift' ? '' : 'none';
     }
 
     function renderAll() {
@@ -1303,6 +1444,9 @@
             if (key === 'volume') {
                 const badge = $(`vol-badge-${i}`);
                 if (badge) badge.textContent = `${r.variants[i][key]}%`;
+            } else if (key === 'videoVolume') {
+                const badge = $(`vidvol-badge-${i}`);
+                if (badge) badge.textContent = `${r.variants[i][key]}%`;
             }
             setDirty(true);
         }
@@ -1311,7 +1455,16 @@
     editor.addEventListener('change', event => {
         const el = event.target, r = rule();
         if (!r) return;
-        if (el.dataset.f === 'trigger') {
+        if (el.dataset.tierCheck) {
+            const tiers = new Set(Array.isArray(r.conditions.tiers) ? r.conditions.tiers : (r.conditions.tier ? [r.conditions.tier] : []));
+            if (el.checked) tiers.add(el.dataset.tierCheck);
+            else tiers.delete(el.dataset.tierCheck);
+            r.conditions.tiers = Array.from(tiers);
+            r.conditions.tier = r.conditions.tiers.length === 1 ? r.conditions.tiers[0] : '';
+            setDirty(true);
+            renderSummary();
+            renderRules();
+        } else if (el.dataset.f === 'trigger') {
             r.trigger = el.value;
             if (!AMOUNT_LABEL[r.trigger] || r.trigger === 'sub') r.conditions.minAmount = r.conditions.maxAmount = 0;
             const prev = Object.values(DEFAULT_TITLE);
@@ -1338,10 +1491,12 @@
         } else if (el.dataset.pick) {
             const [i, key] = el.dataset.pick.split('.');
             if (el.value) { r.variants[i][key] = el.value; setDirty(true); renderEditor(); }
-        } else if (el.dataset.v && el.type === 'checkbox') {
+        } else if (el.dataset.v) {
             const [i, key] = el.dataset.v.split('.');
-            r.variants[i][key] = el.checked;
+            if (el.type === 'checkbox') r.variants[i][key] = el.checked;
+            else r.variants[i][key] = el.value;
             setDirty(true);
+            if (key === 'videoSound' || key === 'gateMinOp' || key === 'gateMaxOp') renderEditor();
         }
     });
 
@@ -1436,6 +1591,34 @@
             return;
         }
         if (btn.dataset.test !== undefined) event.preventDefault();
+        if (btn.dataset.setVariantType) {
+            const vi = Number(btn.dataset.vi);
+            if (r && r.variants[vi]) {
+                r.variants[vi].variantType = btn.dataset.setVariantType;
+                setDirty(true);
+                renderEditor();
+            }
+            return;
+        }
+        if (btn.dataset.selectChannelEmote) {
+            const vi = Number(btn.dataset.vi);
+            if (r && r.variants[vi]) {
+                r.variants[vi].emoji = btn.dataset.selectChannelEmote;
+                r.variants[vi].emojiUrl = btn.dataset.emoteUrl || '';
+                setDirty(true);
+                renderEditor();
+            }
+            return;
+        }
+        if (btn.dataset.clearEmoteUrl !== undefined) {
+            const vi = Number(btn.dataset.clearEmoteUrl);
+            if (r && r.variants[vi]) {
+                r.variants[vi].emojiUrl = '';
+                setDirty(true);
+                renderEditor();
+            }
+            return;
+        }
         if (btn.dataset.vmedia) { variantMedia.set(btn.dataset.vidTab, btn.dataset.vmedia); openVariants.add(btn.dataset.vidTab); renderEditor(); return; }
         if (btn.dataset.vtab) { variantTab.set(btn.dataset.vidTab, btn.dataset.vtab); openVariants.add(btn.dataset.vidTab); renderEditor(); return; }
         if (btn.id === 'add-variant') { const nv = newVariant(r.trigger); r.variants.push(nv); openVariants.add(nv.id); setDirty(true); renderEditor(); }
@@ -1542,7 +1725,7 @@
         'bits-100': { type: 'bits', user: 'CheerMaster', amount: 100, text: 'cheer100 great gameplay!' },
         'bits-1000': { type: 'bits', user: 'BigSpender', amount: 1000, text: 'cheer1000 GG!' },
         'raid': { type: 'raid', user: 'RaidLeader', amount: 42, text: '' },
-        'gift': { type: 'gift', user: 'GenerousDonor', amount: 5, tier: '1000', text: '' },
+        'gift': { type: 'gift', user: 'GenerousDonor', recipient: 'LuckyViewer', amount: 5, tier: '1000', text: '' },
         'chat-command': { type: 'chat_command', user: 'CoolChatter', amount: 0, text: '!hype let\'s go team!' }
     };
 
@@ -1558,6 +1741,7 @@
             $('sim-amount').value = preset.amount;
             $('sim-text').value = preset.text;
             if ($('sim-tier')) $('sim-tier').value = preset.tier || '1000';
+            if ($('sim-recipient')) $('sim-recipient').value = preset.recipient || 'LuckyViewer';
             updateSimVisibility();
             $('sim-go').click();
         }
@@ -1571,7 +1755,8 @@
         const tier = isSub ? ($('sim-tier')?.value || '1000') : '';
         const tierLabels = { 'prime': 'Prime', '1000': 'Tier 1', '2000': 'Tier 2', '3000': 'Tier 3' };
         const tierLabel = isSub ? (tierLabels[tier] || 'Tier 1') : '';
-        const body = { type, user: $('sim-user').value || 'TestViewer', amount, count: amount, months: amount, viewers: amount, tier, tierLabel, message: text, reward: text, keyword: text, name: text };
+        const recipient = type === 'gift' ? ($('sim-recipient')?.value || 'LuckyViewer') : '';
+        const body = { type, user: $('sim-user').value || 'TestViewer', recipient, amount, count: amount, months: amount, viewers: amount, tier, tierLabel, message: text, reward: text, keyword: text, name: text };
         if (type === 'chat_word') body.message = text;
         if (type === 'chat_command') {
             const clean = text.replace(/^!+/, '').trim();

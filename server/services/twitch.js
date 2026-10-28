@@ -811,6 +811,36 @@ function createTwitchService(options = {}) {
         }
     }
 
+    let cachedEmotes = null;
+    let cachedEmotesAt = 0;
+
+    async function getChannelEmotes() {
+        const clientId = getClientId();
+        const broadcasterId = getBroadcasterId();
+        if (!clientId || !broadcasterId) return [];
+        const now = Date.now();
+        if (cachedEmotes && now - cachedEmotesAt < 300000) return cachedEmotes;
+        const hasToken = await ensureToken();
+        if (!hasToken) return [];
+        try {
+            const result = await twitchApiRequest('/chat/emotes', { broadcaster_id: broadcasterId });
+            if (result.status === 200 && Array.isArray(result.body?.data)) {
+                cachedEmotes = result.body.data.map(e => ({
+                    id: e.id,
+                    name: e.name,
+                    url: e.images?.url_4x || e.images?.url_2x || e.images?.url_1x || `https://static-cdn.jtvnw.net/emoticons/v2/${e.id}/default/dark/3.0`,
+                    tier: e.tier || '',
+                    type: e.emote_type || 'channel'
+                }));
+                cachedEmotesAt = now;
+                return cachedEmotes;
+            }
+        } catch (err) {
+            warn('[Twitch] Could not fetch channel emotes:', err.message);
+        }
+        return cachedEmotes || [];
+    }
+
     return {
         loadStoredToken,
         saveToken,
@@ -836,6 +866,7 @@ function createTwitchService(options = {}) {
         fetchTwitchData,
         fetchStreamInfo,
         fetchTwitchPoll,
+        getChannelEmotes,
         recordFollowerSnapshot,
         recordSubSnapshot,
         getAccessToken: () => twitchAccessToken,

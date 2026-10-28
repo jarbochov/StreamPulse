@@ -1909,7 +1909,12 @@
             if (node.style[key]) deco[key] = node.style[key];
             node.style[key] = '';
         }
+        if (node._borderRing) { node._borderRing.remove(); node._borderRing = null; }
+        if (node._borderFxRing) { node._borderFxRing.remove(); node._borderFxRing = null; }
+        if (node._innerGlowRing) { node._innerGlowRing.remove(); node._innerGlowRing = null; }
+        if (node._borderObserver) { node._borderObserver.disconnect(); node._borderObserver = null; }
         node.style.border = '0';
+        node.style.outline = 'none';
         node.style.background = 'transparent';
         node.style.backgroundColor = 'transparent';
         node.style.boxShadow = 'none';
@@ -2015,8 +2020,23 @@
             const media = document.createElement(isEmoji ? 'div' : payload.video ? 'video' : 'img');
             const scale = Math.max(10, Math.min(100, Number(cfg.mediaScale) || 60));
             if (isEmoji) {
-                const isFa = payload.emoji && (payload.emoji.startsWith('fa-') || payload.emoji.includes('fa-'));
-                if (isFa) {
+                const emoteUrl = payload.emojiUrl || (/^(https?:\/\/|\/|data:image\/)/i.test(payload.emoji) ? payload.emoji : '');
+                const isFa = !emoteUrl && payload.emoji && (payload.emoji.startsWith('fa-') || payload.emoji.includes('fa-'));
+                if (emoteUrl) {
+                    media.style.display = 'inline-flex';
+                    media.style.alignItems = 'center';
+                    media.style.justifyContent = 'center';
+                    media.style.gap = '6px';
+                    const count = Math.max(1, Math.min(20, Number(payload.emojiRepeat || 1)));
+                    for (let c = 0; c < count; c++) {
+                        const img = document.createElement('img');
+                        img.className = 'alert-emote-img';
+                        img.src = emoteUrl;
+                        img.alt = '';
+                        img.draggable = false;
+                        media.appendChild(img);
+                    }
+                } else if (isFa) {
                     if (!document.querySelector('link[data-fa]')) {
                         const link = document.createElement('link');
                         link.rel = 'stylesheet'; link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'; link.dataset.fa = '1';
@@ -2028,7 +2048,7 @@
                 } else {
                     media.textContent = payload.emoji;
                 }
-                const count = isFa ? 1 : (Array.from(payload.emoji).length || 1);
+                const count = emoteUrl ? (media.querySelectorAll('.alert-emote-img').length || 1) : isFa ? 1 : (Array.from(payload.emoji).length || 1);
                 const boxH = node.clientHeight * (layout === 'media' ? 0.7 : scale / 100);
                 const boxW = node.clientWidth * (layout === 'side' ? 0.5 : 1) * 0.9;
                 media.style.fontSize = `${Math.max(12, Math.min(boxH * 0.8, boxW / (count * 1.15)))}px`;
@@ -2042,7 +2062,7 @@
                     media.loop = (cfg.videoLoop !== false && payload.videoLoop !== false);
                     media.muted = !videoHasAudio;
                     if (videoHasAudio) {
-                        media.volume = Math.max(0, Math.min(1, (Number(cfg.videoVolume ?? payload.volume ?? 100)) / 100));
+                        media.volume = Math.max(0, Math.min(1, (Number(cfg.videoVolume ?? payload.videoVolume ?? payload.volume ?? 100)) / 100));
                         const playPromise = media.play();
                         if (playPromise && playPromise.catch) {
                             playPromise.catch(() => {

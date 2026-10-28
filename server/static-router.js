@@ -91,6 +91,7 @@ function createStaticRouter(options) {
     const rootDir = options.rootDir || path.resolve(__dirname, '..');
     const publicDir = options.publicDir || path.join(rootDir, 'public');
     const customOverlayAssetsDir = options.customOverlayAssetsDir || path.join(rootDir, 'data', 'custom-overlay-assets');
+    const emoteCacheDir = options.emoteCacheDir || path.join(rootDir, 'data', 'emote-cache');
     const isLoopbackRequest = options.isLoopbackRequest || (() => true);
     const getCustomOverlays = options.getCustomOverlays || (() => ({}));
 
@@ -207,6 +208,26 @@ function createStaticRouter(options) {
                 return true;
             }
             filePath = path.join(customOverlayAssetsDir, assetName);
+        } else if (pathname.startsWith('/emote-cache/')) {
+            let emoteFile = '';
+            try {
+                emoteFile = decodeURIComponent(pathname.slice('/emote-cache/'.length));
+            } catch {
+                res.writeHead(400, { 'Content-Type': 'text/plain' });
+                res.end('Bad Request');
+                return true;
+            }
+            if (!emoteFile || emoteFile.includes('/') || emoteFile.includes('\\')) {
+                res.writeHead(404, { 'Content-Type': 'text/plain' });
+                res.end('Not Found');
+                return true;
+            }
+            if (!path.extname(emoteFile) && fs.existsSync(emoteCacheDir)) {
+                const safeName = emoteFile.replace(/[^a-zA-Z0-9]/g, '_');
+                const matched = fs.readdirSync(emoteCacheDir).find(f => f.startsWith(`${safeName}.`) || f.startsWith(`${emoteFile}.`));
+                if (matched) emoteFile = matched;
+            }
+            filePath = path.join(emoteCacheDir, emoteFile);
         } else {
             filePath = resolveFilePath(pathname);
         }

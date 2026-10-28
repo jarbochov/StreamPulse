@@ -185,6 +185,8 @@ function createOverlayRoutes({
     saveRandomizerQuotePresets = overlayService ? overlayService.saveRandomizerQuotePresets : () => true,
     getChatData = () => ({}),
     getStatsData = () => ({}),
+    twitchService = null,
+    ssnService = null,
     listOverlayVisibility = () => [],
     setOverlayVisibility = () => null
 } = {}) {
@@ -254,6 +256,43 @@ function createOverlayRoutes({
                 sendJson(res, { ok: true, queue: alertEngine.getQueueState() });
             } catch (err) {
                 sendError(res, err, 400);
+            }
+            return true;
+        }
+
+        if ((pathname === '/api/channel-emotes' || pathname === '/api/emotes') && req.method === 'GET') {
+            try {
+                const emotesMap = new Map();
+                if (twitchService && typeof twitchService.getChannelEmotes === 'function') {
+                    const twitchEmotes = await twitchService.getChannelEmotes();
+                    for (const e of twitchEmotes) {
+                        emotesMap.set(e.name, { name: e.name, url: e.url, source: 'twitch', tier: e.tier });
+                    }
+                }
+                const chat = getChatData?.() || {};
+                for (const [name, entry] of Object.entries(chat.emotes || {})) {
+                    if (!emotesMap.has(name) && entry.imageUrl) {
+                        emotesMap.set(name, { name, url: entry.imageUrl, source: 'chat' });
+                    }
+                }
+                const stats = getStatsData?.() || {};
+                for (const [name, entry] of Object.entries(stats.emotes || {})) {
+                    if (!emotesMap.has(name) && entry.imageUrl) {
+                        emotesMap.set(name, { name, url: entry.imageUrl, source: 'stats' });
+                    }
+                }
+                if (ssnService && typeof ssnService.getEmoteCache === 'function') {
+                    const cache = ssnService.getEmoteCache();
+                    for (const [name] of cache) {
+                        if (!emotesMap.has(name)) {
+                            emotesMap.set(name, { name, url: `/emote-cache/${encodeURIComponent(name)}`, source: 'cache' });
+                        }
+                    }
+                }
+                const emotes = Array.from(emotesMap.values());
+                sendJson(res, { emotes });
+            } catch (err) {
+                sendError(res, err, 500);
             }
             return true;
         }

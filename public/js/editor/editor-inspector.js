@@ -50,7 +50,7 @@ export const RERENDER_PATHS = new Set([
     'style.borderWidth', 'style.borderStyle', 'style.borderGlow.enabled', 'style.borderGlow.neon',
     'style.borderGlow.inner', 'style.borderAnimation.type', 'style.borderAnimation.mode',
     'style.shadow.blur', 'style.innerShadow.blur', 'style.innerShadow.spread',
-    'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'video.sound',
+    'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'video.sound', 'alert.videoSound',
     'alert.layout', 'alert.hideText', 'slideshow.source', 'slideshow.advance', 'slideshow.transition',
     'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee',
     'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.showStatusBadge',
@@ -1106,6 +1106,8 @@ export function alertSection(el) {
         ${F.color('alert.titleColor', 'Title color', a.titleColor || '#ffd166')}
         ${['stack', 'side', undefined].includes(a.layout) ? F.number('alert.gap', 'Gap between media and text (px)', a.gap ?? 12, { min: 0, max: 100 }) : ''}`}
         ${F.check('alert.sound', 'Play alert sound effects', a.sound !== false)}
+        ${F.check('alert.videoSound', 'Play video audio', a.videoSound === true)}
+        ${a.videoSound ? F.number('alert.videoVolume', 'Video volume (%)', a.videoVolume ?? 100, { min: 0, max: 100 }) : ''}
         ${F.check('alert.showOnPreview', 'Show placeholder on runtime preview', a.showOnPreview === true)}
         <details class="sub-details"${only.length ? ' open' : ''}><summary>Only show certain alerts (${only.length ? only.length + ' selected' : 'all'})</summary>
         <div class="trigger-list">${Object.entries(ALERT_TRIGGER_LABELS).map(([key, label]) => `<label class="check"><input type="checkbox" data-alert-trigger="${key}" ${only.includes(key) ? 'checked' : ''}> ${label}</label>`).join('')}</div>
