@@ -493,7 +493,7 @@
                             <iframe id="poll-preview-iframe" src="/overlays/poll.html?preview=1" style="width: 100%; height: 100%; border: none; background: transparent;"></iframe>
                         </div>
                         <div id="tourney-preview-box" class="preview-container" style="display: none; height: 520px; overflow: auto; padding: 0.5rem; background: #050811; border: 1px solid var(--border); border-radius: 8px;">
-                            <iframe id="tourney-preview-iframe" src="/overlays/tournament.html?source=poll&preview=1" style="width: 100%; height: 100%; border: none; background: transparent;"></iframe>
+                            <iframe id="tourney-preview-iframe" src="/overlays/poll-tournament.html?preview=1" style="width: 100%; height: 100%; border: none; background: transparent;"></iframe>
                         </div>
 
                         <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; text-align: center;">
@@ -557,7 +557,7 @@
                         <div id="ov-sec-tourney" style="display:none;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                                 <div style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Audience Tournament Bracket Overlay</div>
-                                <a id="btn-open-tourney-overlay" href="/overlays/tournament.html" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none;">Open &nearr;</a>
+                                <a id="btn-open-tourney-overlay" href="/overlays/poll-tournament.html" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none;">Open &nearr;</a>
                             </div>
                             <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
                                 <input type="text" class="form-control" id="url-tourney-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
@@ -749,7 +749,7 @@
         // URL display initialization
         const baseUrl = window.location.origin;
         $('url-poll-overlay').value = `${baseUrl}/overlays/poll.html`;
-        $('url-tourney-overlay').value = `${baseUrl}/overlays/tournament.html?source=poll`;
+        $('url-tourney-overlay').value = `${baseUrl}/overlays/poll-tournament.html`;
 
         function updatePollOverlayUrl() {
             const origin = window.location.origin;
@@ -962,7 +962,7 @@
             }
 
             const qs = urlParams.toString();
-            const fullUrl = `${origin}/overlays/tournament.html?source=poll${qs ? `&${qs}` : ''}`;
+            const fullUrl = `${origin}/overlays/poll-tournament.html${qs ? `?${qs}` : ''}`;
             if ($('url-tourney-overlay')) $('url-tourney-overlay').value = fullUrl;
             if ($('btn-open-tourney-overlay')) $('btn-open-tourney-overlay').href = fullUrl;
 
@@ -973,9 +973,8 @@
                 if (!previewParams.get('logo') && activeTourneyData?.logo) {
                     previewParams.set('logo', activeTourneyData.logo);
                 }
-                previewParams.set('source', 'poll');
                 previewParams.set('preview', '1');
-                const targetSrc = `/overlays/tournament.html?${previewParams.toString()}`;
+                const targetSrc = `/overlays/poll-tournament.html?${previewParams.toString()}`;
                 if (previewIframe.getAttribute('src') !== targetSrc) {
                     previewIframe.src = targetSrc;
                 }

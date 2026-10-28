@@ -429,7 +429,7 @@ function createTwitchRoutes({
             try {
                 const raw = await readRequestBody(req);
                 const body = raw ? JSON.parse(raw) : {};
-                const result = pollService.startTournamentMatch(body.matchId);
+                const result = pollService.startTournamentMatch(body.matchId, { isPoll: false });
                 sendJson(res, { status: 'ok', ...result });
             } catch (err) {
                 sendError(res, err, 400);
@@ -445,7 +445,7 @@ function createTwitchRoutes({
             try {
                 const raw = await readRequestBody(req);
                 const body = raw ? JSON.parse(raw) : {};
-                const tournament = pollService.advanceTournamentMatch(body.matchId, body.winner);
+                const tournament = pollService.advanceTournamentMatch(body.matchId, body.winner, { isPoll: false });
                 sendJson(res, { status: 'ok', tournament });
             } catch (err) {
                 sendError(res, err, 400);
@@ -461,7 +461,7 @@ function createTwitchRoutes({
             try {
                 const raw = await readRequestBody(req);
                 const body = raw ? JSON.parse(raw) : {};
-                const result = pollService.updateMatchScore(body.matchId, body);
+                const result = pollService.updateMatchScore(body.matchId, { ...body, isPoll: false });
                 sendJson(res, { status: 'ok', ...result });
             } catch (err) {
                 sendError(res, err, 400);
@@ -477,7 +477,7 @@ function createTwitchRoutes({
             try {
                 const raw = await readRequestBody(req);
                 const body = raw ? JSON.parse(raw) : {};
-                const result = pollService.selectActiveMatch(body.matchId);
+                const result = pollService.selectActiveMatch(body.matchId, { isPoll: false });
                 sendJson(res, { status: 'ok', ...result });
             } catch (err) {
                 sendError(res, 400, err.message);
@@ -493,7 +493,7 @@ function createTwitchRoutes({
             try {
                 const raw = await readRequestBody(req);
                 const body = raw ? JSON.parse(raw) : {};
-                const result = pollService.resetMatch(body.matchId);
+                const result = pollService.resetMatch(body.matchId, { isPoll: false });
                 sendJson(res, { status: 'ok', ...result });
             } catch (err) {
                 sendError(res, 400, err.message);
@@ -509,7 +509,7 @@ function createTwitchRoutes({
             try {
                 const raw = await readRequestBody(req);
                 const body = raw ? JSON.parse(raw) : {};
-                const result = pollService.rollbackTournamentMatch(body.matchId);
+                const result = pollService.rollbackTournamentMatch(body.matchId, { isPoll: false });
                 sendJson(res, { status: 'ok', ...result });
             } catch (err) {
                 sendError(res, 400, err.message);
@@ -574,7 +574,7 @@ function createTwitchRoutes({
             try {
                 const raw = await readRequestBody(req);
                 const body = raw ? JSON.parse(raw) : {};
-                const tournament = pollService.updateTournamentSettings(body);
+                const tournament = pollService.updateTournamentSettings({ ...body, isPoll: false }, { isPoll: false });
                 sendJson(res, { status: 'ok', tournament });
             } catch (err) {
                 sendError(res, 400, err.message);
@@ -587,13 +587,13 @@ function createTwitchRoutes({
                 sendError(res, 501, 'Native polls not available');
                 return true;
             }
-            const result = pollService.resetTournament();
+            const result = pollService.resetTournament({ isPoll: false });
             sendJson(res, { status: 'ok', ...result });
             return true;
         }
 
         if (pathname === '/api/tournament/history' && req.method === 'GET') {
-            const history = pollService ? pollService.getTournamentHistory() : [];
+            const history = pollService ? pollService.getTournamentHistory({ isPoll: false }) : [];
             sendJson(res, { status: 'ok', history });
             return true;
         }

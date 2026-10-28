@@ -144,7 +144,8 @@
             <button type="button" data-overlay-choice="goals" aria-pressed="false">Goals</button>
             <button type="button" data-overlay-choice="viewers" aria-pressed="false">Viewer Count</button>
             <button type="button" data-overlay-choice="polls" aria-pressed="false">Polls</button>
-            <button type="button" data-overlay-choice="tournament" aria-pressed="false">Tournament</button>
+            <button type="button" data-overlay-choice="poll-tournament" aria-pressed="false">Poll Bracket</button>
+            <button type="button" data-overlay-choice="tournament" aria-pressed="false">Versus Bracket</button>
             <button type="button" data-overlay-choice="matchup" aria-pressed="false">Matchup</button>
             <span style="color:var(--border); align-self:center; margin:0 0.25rem;">|</span>
             <a href="/milestone-url-wizard.html" class="picker-link">Milestones ↗</a>
@@ -373,7 +374,7 @@
                 </section>
 
                 <section class="card overlay-config" data-overlay="tournament" hidden>
-                    <h2>Tournament Bracket</h2>
+                    <h2>Versus Tournament Bracket</h2>
                     <div class="form-row">
                         <label for="tourney-layout">Bracket Layout</label>
                         <select id="tourney-layout">
@@ -408,7 +409,46 @@
                             <option value="0">Disabled (?confetti=0)</option>
                         </select>
                     </div>
-                    <p class="hint">Launch and control tournament brackets, seedings, and manual scoring in <a href="/versus.html">Versus</a> (or <a href="/polls.html">Poll Manager</a> for audience brackets).</p>
+                    <p class="hint">Launch and control tournament brackets, seedings, and manual scoring in <a href="/versus.html">Versus</a>.</p>
+                </section>
+
+                <section class="card overlay-config" data-overlay="poll-tournament" hidden>
+                    <h2>Poll Tournament Bracket</h2>
+                    <div class="form-row">
+                        <label for="poll-tourney-layout">Bracket Layout</label>
+                        <select id="poll-tourney-layout">
+                            <option value="tree" selected>Full Bracket Tree (?layout=tree)</option>
+                            <option value="active">Active Match Lower-Third HUD (?layout=active)</option>
+                            <option value="compact">Compact Overview (?layout=compact)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="poll-tourney-theme">Container / Theme</label>
+                        <select id="poll-tourney-theme">
+                            <option value="card" selected>Dark Card (?overlay=card)</option>
+                            <option value="glass">Frosted Glass (?overlay=glass)</option>
+                            <option value="solid">Opaque Solid (?overlay=solid)</option>
+                            <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
+                            <option value="pill">Pill Capsule (?overlay=pill)</option>
+                            <option value="neon">Cyber Neon (?overlay=neon)</option>
+                            <option value="retro">Retro Arcade (?overlay=retro)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="poll-tourney-showscores">Vote Counts &amp; Percentages</label>
+                        <select id="poll-tourney-showscores">
+                            <option value="1" selected>Show Live Votes &amp; Percentages (?showscores=1)</option>
+                            <option value="0">Hide Votes (?showscores=0)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="poll-tourney-confetti">Champion Celebration Fanfare</label>
+                        <select id="poll-tourney-confetti">
+                            <option value="1" selected>Enabled (?confetti=1)</option>
+                            <option value="0">Disabled (?confetti=0)</option>
+                        </select>
+                    </div>
+                    <p class="hint">Launch and manage audience voting brackets in <a href="/polls.html">Poll Manager</a>.</p>
                 </section>
 
                 <section class="card overlay-config" data-overlay="matchup" hidden>
@@ -690,13 +730,23 @@
                         </div>
                         <div class="url-item" data-overlay="tournament" hidden>
                             <div class="url-heading">
-                                <h3>Tournament Bracket Overlay</h3>
+                                <h3>Versus Tournament Bracket Overlay</h3>
                                 <div style="display:flex; gap:0.4rem;">
                                     <button class="button" data-copy="tourney-url">Copy</button>
                                     <a class="button" data-open="tourney-url" target="_blank" rel="noopener noreferrer">Open ↗</a>
                                 </div>
                             </div>
                             <a id="tourney-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+                        </div>
+                        <div class="url-item" data-overlay="poll-tournament" hidden>
+                            <div class="url-heading">
+                                <h3>Poll Tournament Bracket Overlay</h3>
+                                <div style="display:flex; gap:0.4rem;">
+                                    <button class="button" data-copy="poll-tourney-url">Copy</button>
+                                    <a class="button" data-open="poll-tourney-url" target="_blank" rel="noopener noreferrer">Open &nearr;</a>
+                                </div>
+                            </div>
+                            <a id="poll-tourney-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
                         </div>
                         <div class="url-item" data-overlay="matchup" hidden>
                             <div class="url-heading">
@@ -749,6 +799,7 @@
         'viewer-layout', 'viewer-label',
         'poll-theme', 'poll-howtovote', 'poll-results',
         'tourney-layout', 'tourney-theme', 'tourney-showscores', 'tourney-confetti',
+        'poll-tourney-layout', 'poll-tourney-theme', 'poll-tourney-showscores', 'poll-tourney-confetti',
         'matchup-layout', 'matchup-theme', 'matchup-source', 'matchup-pipstyle', 'matchup-fit', 'matchup-center', 'matchup-pips', 'matchup-tags', 'matchup-confetti',
         'ap-font', 'ap-weight', 'ap-fontscale', 'ap-align', 'ap-text', 'ap-accent', 'ap-bg', 'ap-outline'
     ];
@@ -913,6 +964,13 @@
                 u.searchParams.set('preview', '1');
                 url = u.toString();
             }
+        } else if (currentOverlay === 'poll-tournament') {
+            const el = $('poll-tourney-url');
+            if (el && el.href) {
+                const u = new URL(el.href);
+                u.searchParams.set('preview', '1');
+                url = u.toString();
+            }
         } else if (currentOverlay === 'matchup') {
             const el = $('matchup-url');
             if (el && el.href) {
@@ -1041,6 +1099,17 @@
             overlay: tourneyTheme !== 'card' ? tourneyTheme : '',
             showscores: tourneyScores === '0' ? '0' : '',
             confetti: tourneyConfetti === '0' ? '0' : ''
+        }));
+
+        const pollTourneyLayout = $('poll-tourney-layout') ? $('poll-tourney-layout').value : 'tree';
+        const pollTourneyTheme = $('poll-tourney-theme') ? $('poll-tourney-theme').value : 'card';
+        const pollTourneyScores = $('poll-tourney-showscores') ? $('poll-tourney-showscores').value : '1';
+        const pollTourneyConfetti = $('poll-tourney-confetti') ? $('poll-tourney-confetti').value : '1';
+        setUrl('poll-tourney-url', buildUrl('/poll-tournament.html', {
+            layout: pollTourneyLayout !== 'tree' ? pollTourneyLayout : '',
+            overlay: pollTourneyTheme !== 'card' ? pollTourneyTheme : '',
+            showscores: pollTourneyScores === '0' ? '0' : '',
+            confetti: pollTourneyConfetti === '0' ? '0' : ''
         }));
 
         const matchupLayout = $('matchup-layout') ? $('matchup-layout').value : 'top';

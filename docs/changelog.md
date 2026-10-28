@@ -19,6 +19,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Custom Overlay Poll Element: Real-time Twitch poll widget for custom overlays.
 
 ### Fixed
+- Tournament Overlays: Separate Versus tournaments (`/tournament.html`) and Poll tournaments (`/poll-tournament.html`) into distinct overlays with shared rendering, eliminating cross-contamination where setting or advancing a Versus tournament resolved to active poll tournament data.
 - Alert Box: Suppress idle container borders, backgrounds, and glow effects when no alert is actively displaying.
 - Custom Overlay Editor: Fix featured message trigger ingestion from SocialStream Ninja (unwrapping payloads on channels 2 & 4) and add in-editor trigger testing.
 

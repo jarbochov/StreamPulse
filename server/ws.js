@@ -10,6 +10,7 @@ function createOverlayWsServer({
     buildTimersSnapshot = () => ({}),
     getLatestPoll = () => null,
     getTournament = () => null,
+    getPollTournament = () => null,
     getMatchup = () => null,
     listOverlayVisibility = () => [],
     log = console.log
@@ -40,6 +41,8 @@ function createOverlayWsServer({
             if (curPoll) ws.send(JSON.stringify({ type: 'poll-update', data: curPoll }));
             const curTournament = getTournament();
             if (curTournament) ws.send(JSON.stringify({ type: 'tournament-update', data: curTournament }));
+            const curPollTournament = getPollTournament();
+            if (curPollTournament) ws.send(JSON.stringify({ type: 'poll-tournament-update', data: curPollTournament }));
             const curMatchup = getMatchup();
             if (curMatchup) ws.send(JSON.stringify({ type: 'matchup-update', data: curMatchup }));
 

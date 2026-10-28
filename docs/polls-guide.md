@@ -67,15 +67,15 @@ StreamPulse includes an advanced bracket controller designed for community game 
 - **Match Advancement Undo & Rollback**: Made a mistake or scored the wrong winner? Click **Undo / Edit** on any completed match (`/api/tournament/rollback`). The winner is cleared, scores reset, and all downstream dependent matches are recursively reverted back to pending.
 - **Draft Checkpoints**: Snapshot in-progress tournaments at any time (**Save Draft**) to switch games or pause your stream, then resume later via **Checkpoints**.
 
-### Broadcast Overlays (`/overlays/tournament.html`)
-The tournament overlay provides two primary broadcast views:
+### Broadcast Overlays (`/overlays/poll-tournament.html`)
+The audience poll tournament overlay provides two primary broadcast views:
 
 ![Tournament Bracket Overlay](images/tournament-overlay.png)
 
 1. **Full Bracket Tree (`?layout=tree`)**: Displays the entire tournament tree across all rounds with orthogonal connector lines. Ideal for pre-game intro scenes, intermission screens, and post-tournament breakdowns.
    - **Fit to Viewport (`?fit=1`)**: Auto-scales and centers the entire bracket within your OBS browser source so all rounds fit on-screen without scrollbars.
    - **Line Styles (`?lines=glow|solid|minimal`)**: Choose luminous glowing connectors, crisp high-contrast lines, or minimal borders.
-2. **Esports Lower-Third Match HUD (`?layout=hud`)**: A compact broadcast lower-third displaying the currently active matchup, round name, competitor names, scores, and series win pips (`● ● ○`). Designed to overlay gameplay without obstructing action.
+2. **Esports Lower-Third Match HUD (`?layout=hud`)**: A compact broadcast lower-third displaying the currently active matchup, round name, competitor names, live vote counts, and percentages. Designed to overlay gameplay without obstructing action.
 
 ---
 
@@ -135,7 +135,8 @@ To add any poll, tournament, or matchup display to OBS Studio:
 1. In OBS Studio, click **+** under **Sources** and select **Browser**.
 2. Enter the URL:
    - **Live Poll**: `http://localhost:3000/overlays/poll.html` (Width: `640`, Height: `420`)
-   - **Tournament Tree**: `http://localhost:3000/overlays/tournament.html?fit=1` (Width: `1280`, Height: `720`)
+   - **Poll Tournament Tree**: `http://localhost:3000/overlays/poll-tournament.html?fit=1` (Width: `1280`, Height: `720`)
+   - **Versus Tournament Tree**: `http://localhost:3000/overlays/tournament.html?fit=1` (Width: `1280`, Height: `720`)
    - **Match HUD**: `http://localhost:3000/overlays/matchup.html?layout=fgc` (Width: `1280`, Height: `180`)
 3. Check **Shutdown source when not visible** to free resources when the scene is hidden.
 4. Use the **Overlays** tab inside the studio controllers for live interactive previews and one-click URL generation with custom themes, colors, and layouts.

@@ -245,18 +245,19 @@ function createPollService({
                     pollMatch.entrant2.percent = Math.round(activePoll.choices[1].percent);
                 }
                 broadcastPollTournamentUpdate();
-            }
-            const match = activeTournament?.matches?.find(m => m.id === activePoll.tournamentMatchId);
-            if (match && match.status === 'ACTIVE') {
-                if (match.entrant1 && activePoll.choices[0]) {
-                    match.entrant1.votes = activePoll.choices[0].votes;
-                    match.entrant1.percent = Math.round(activePoll.choices[0].percent);
+            } else {
+                const match = activeTournament?.matches?.find(m => m.id === activePoll.tournamentMatchId);
+                if (match && match.status === 'ACTIVE') {
+                    if (match.entrant1 && activePoll.choices[0]) {
+                        match.entrant1.votes = activePoll.choices[0].votes;
+                        match.entrant1.percent = Math.round(activePoll.choices[0].percent);
+                    }
+                    if (match.entrant2 && activePoll.choices[1]) {
+                        match.entrant2.votes = activePoll.choices[1].votes;
+                        match.entrant2.percent = Math.round(activePoll.choices[1].percent);
+                    }
+                    broadcastTournamentUpdate();
                 }
-                if (match.entrant2 && activePoll.choices[1]) {
-                    match.entrant2.votes = activePoll.choices[1].votes;
-                    match.entrant2.percent = Math.round(activePoll.choices[1].percent);
-                }
-                broadcastTournamentUpdate();
             }
         }
     }
@@ -522,12 +523,17 @@ function createPollService({
     }
 
     function cancelPoll() {
-        if (activePoll && activePoll.tournamentMatchId && activeTournament) {
-            const match = activeTournament.matches.find(m => m.id === activePoll.tournamentMatchId);
-            if (match) {
-                match.status = 'PENDING';
-                activeTournament.activeMatchId = null;
-                broadcastTournamentUpdate();
+        if (activePoll && activePoll.tournamentMatchId) {
+            const isPollTourney = Boolean(activePollTournament?.matches?.some(m => m.id === activePoll.tournamentMatchId));
+            const targetTourney = isPollTourney ? activePollTournament : activeTournament;
+            if (targetTourney && Array.isArray(targetTourney.matches)) {
+                const match = targetTourney.matches.find(m => m.id === activePoll.tournamentMatchId);
+                if (match) {
+                    match.status = 'PENDING';
+                    targetTourney.activeMatchId = null;
+                    if (isPollTourney) broadcastPollTournamentUpdate();
+                    else broadcastTournamentUpdate();
+                }
             }
         }
         return finishPoll('TERMINATED');
@@ -1273,17 +1279,17 @@ function createPollService({
     }
 
     function resolveTargetTournament(matchId, isPoll = false) {
-        if (matchId && activePollTournament?.matches?.some(m => m.id === matchId)) {
+        if (isPoll === true) {
             return { tournament: activePollTournament, isPoll: true };
+        }
+        if (isPoll === false) {
+            return { tournament: activeTournament, isPoll: false };
         }
         if (matchId && activeTournament?.matches?.some(m => m.id === matchId)) {
             return { tournament: activeTournament, isPoll: false };
         }
-        if (isPoll) {
-            return {
-                tournament: activePollTournament || activeTournament,
-                isPoll: Boolean(activePollTournament || !activeTournament)
-            };
+        if (matchId && activePollTournament?.matches?.some(m => m.id === matchId)) {
+            return { tournament: activePollTournament, isPoll: true };
         }
         return {
             tournament: activeTournament || activePollTournament,
@@ -1801,7 +1807,7 @@ function createPollService({
     function resetTournament({ isPoll = false, saveToHistory = true } = {}) {
         const targetTourney = isPoll ? activePollTournament : activeTournament;
         if (!targetTourney) return { ok: true };
-        if (activePoll && activePoll.tournamentMatchId) {
+        if (activePoll && activePoll.tournamentMatchId && targetTourney.matches?.some(m => m.id === activePoll.tournamentMatchId)) {
             finishPoll('TERMINATED');
         }
         if (saveToHistory) {

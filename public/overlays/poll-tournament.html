@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Poll Tournament Bracket Overlay</title>
+    <link rel="stylesheet" href="/css/tournament.css">
+</head>
+<body>
+    <canvas id="confetti-canvas"></canvas>
+
+    <div class="tournament-stage" id="stage">
+        <div id="tournament-container">
+            <div class="empty-placeholder">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-bottom: 0.6rem; opacity: 0.6;"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                <p>Waiting for Poll Tournament...</p>
+                <span style="font-size: 0.8rem; opacity: 0.7;">Create and start an audience bracket in Poll Manager</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="/overlay-visibility.js" data-key="poll-tournament"></script>
+    <script src="/js/url-params.js"></script>
+    <script src="/js/overlay-theme.js"></script>
+    <script src="/js/tournament-shared.js"></script>
+    <script>
+        window.TournamentOverlay = TournamentShared.initTournamentOverlay({
+            overlayType: 'poll',
+            defaultEndpoint: '/api/polls/tournament',
+            defaultWsEvent: 'poll-tournament-update',
+            overlaySourceKey: 'tournament-poll',
+            emptyTitle: 'No active audience bracket',
+            emptyHint: 'Open Poll Manager to launch an audience tournament'
+        });
+    </script>
+</body>
+</html>

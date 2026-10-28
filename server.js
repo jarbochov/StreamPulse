@@ -203,7 +203,8 @@ const wsService = createOverlayWsServer({
     buildGoalsSnapshot: () => buildGoalsSnapshot(),
     buildTimersSnapshot: () => buildTimersSnapshot(),
     getLatestPoll: () => (pollService ? pollService.getLatestPoll() : twitchService.getLatestPoll()),
-    getTournament: () => (pollService ? pollService.getTournament() : null),
+    getTournament: () => (pollService ? pollService.getTournament({ isPoll: false }) : null),
+    getPollTournament: () => (pollService ? pollService.getTournament({ isPoll: true }) : null),
     getMatchup: () => (matchupService ? matchupService.getMatchup() : null),
     listOverlayVisibility: () => listOverlayVisibility(),
     log: console.log
