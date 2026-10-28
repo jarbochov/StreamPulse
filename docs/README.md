@@ -43,6 +43,12 @@ Use **Game Plan** to organize tonight's games and future streams. Show the lineu
 
 ![Game Plan with an example streaming lineup](images/game-plan-studio.png)
 
+## Engage your audience with live polls and brackets
+
+Involve your chat directly with **Poll Manager** (multi-platform chat voting, blind mode, and celebration fanfare) and run community tournaments and fighting game showdowns in **Versus & Tournaments** (single/double elimination, round robin, and self-sizing broadcast HUDs).
+
+![StreamPulse Poll Manager Studio](images/polls-studio.png)
+
 ## Close with a thank-you
 
 Bring the broadcast to a thoughtful finish with **Credits Studio**. Choose which supporters and activity to include, add your own special thanks, and preview the roll before going live.

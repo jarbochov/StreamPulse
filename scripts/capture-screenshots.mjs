@@ -341,6 +341,173 @@ const dummyHighlights = [
     }
 ];
 
+const dummyActivePoll = {
+    id: 'poll-fictional-1',
+    title: "Tonight's Next Retro Run?",
+    status: 'ACTIVE',
+    source: 'streampulse',
+    duration: 120,
+    startedAt: new Date(Date.now() - 45000).toISOString(),
+    remainingSeconds: 75,
+    totalVotes: 98,
+    blind: false,
+    keywordVoting: true,
+    isTie: false,
+    winner: '',
+    winningVotes: 0,
+    winningPercent: 0,
+    settings: {
+        blind: false,
+        keywordVoting: true,
+        subMultiplier: 2,
+        resultsSeconds: 15,
+        celebration: { sound: true, confetti: true }
+    },
+    choices: [
+        { id: '1', title: "Castlevania: Symphony of the Night", votes: 47, percent: 48 },
+        { id: '2', title: "Super Metroid (Any% Speedrun)", votes: 31, percent: 32 },
+        { id: '3', title: "Chrono Trigger (Level 1 Run)", votes: 20, percent: 20 }
+    ]
+};
+
+const dummyTournament = {
+    id: 'tourney-fictional-1',
+    title: 'Community Retro Championship',
+    format: 'single',
+    progressionMode: 'manual',
+    scoringType: 'bestOf',
+    bestOf: 3,
+    targetScore: 2,
+    status: 'ACTIVE',
+    activeMatchId: 'm_1_1',
+    rounds: [
+        {
+            roundIndex: 0,
+            name: 'Semifinals',
+            matches: [
+                {
+                    id: 'm_0_1',
+                    roundIndex: 0,
+                    matchIndex: 0,
+                    status: 'COMPLETED',
+                    entrant1: { name: 'PixelKnight', seed: 1, score: 2, tag: 'Ryu', winner: true },
+                    entrant2: { name: 'RetroSamurai', seed: 4, score: 0, tag: 'Ken', winner: false },
+                    winner: 'PixelKnight',
+                    matchDetails: 'Semifinal 1'
+                },
+                {
+                    id: 'm_0_2',
+                    roundIndex: 0,
+                    matchIndex: 1,
+                    status: 'COMPLETED',
+                    entrant1: { name: 'CosmicVoyager', seed: 2, score: 2, tag: 'Chun-Li', winner: true },
+                    entrant2: { name: 'NebulaFox', seed: 3, score: 1, tag: 'Cammy', winner: false },
+                    winner: 'CosmicVoyager',
+                    matchDetails: 'Semifinal 2'
+                }
+            ]
+        },
+        {
+            roundIndex: 1,
+            name: 'Grand Finals',
+            matches: [
+                {
+                    id: 'm_1_1',
+                    roundIndex: 1,
+                    matchIndex: 0,
+                    status: 'ACTIVE',
+                    entrant1: { name: 'PixelKnight', seed: 1, score: 1, tag: 'Ryu' },
+                    entrant2: { name: 'CosmicVoyager', seed: 2, score: 1, tag: 'Chun-Li' },
+                    matchDetails: 'Grand Finals — Game 3'
+                }
+            ]
+        }
+    ],
+    entrants: ['PixelKnight', 'RetroSamurai', 'CosmicVoyager', 'NebulaFox'],
+    champion: null
+};
+
+const dummyMatchup = {
+    id: 'matchup-fictional-1',
+    title: 'EVO Champions Exhibition',
+    phase: 'Grand Finals',
+    details: 'Best of 5',
+    competitorCount: 2,
+    competitors: [
+        { id: 'c1', name: 'PixelKnight', tag: 'Ryu', color: '#3b82f6', score: 2, rounds: 1 },
+        { id: 'c2', name: 'CosmicVoyager', tag: 'Chun-Li', color: '#ec4899', score: 1, rounds: 0 }
+    ],
+    format: 'bestOf',
+    bestOf: 5,
+    targetScore: 3,
+    status: 'ACTIVE',
+    winner: null,
+    clock: {
+        enabled: true,
+        mode: 'countdown',
+        runnerTimersMode: 'finish',
+        showSplits: true,
+        duration: 99,
+        remaining: 74,
+        elapsed: 25,
+        isRunning: true,
+        startedAt: Date.now() - 25000,
+        estimate: '45:00',
+        split: ''
+    },
+    queue: [
+        { id: 'q1', title: 'Next Exhibition: Speedrun Showdown', p1: 'ArcadeHero', p2: 'StarGazer', format: 'Best of 3' }
+    ],
+    presets: []
+};
+
+const dummyChatbotSnapshot = {
+    enabled: true,
+    moduleEnabled: true,
+    botActive: true,
+    ssnConfigured: true,
+    broadcaster: 'DemoStreamer',
+    twitchMods: [{ name: 'PixelKnight', displayName: 'PixelKnight' }],
+    settings: {
+        enabled: true,
+        prefix: '!',
+        tag: '[BOT]',
+        cooldown: 5,
+        mods: ['PixelKnight'],
+        autoShoutout: {
+            enabled: true,
+            message: 'Huge thanks for the raid @{{user}}! Show some love over at twitch.tv/{{user}}',
+            minViewers: 5
+        },
+        pollAnnouncements: {
+            enabled: true,
+            announceStart: true,
+            announceEnd: true,
+            startTemplate: '[Poll] {title} ({duration})\n{choices}',
+            endTemplate: '[Poll Result] Winner: {winner} with {votes} votes ({percent}%)!',
+            tieTemplate: '[Poll Result] The poll ended in a tie between {choices}!',
+            championTemplate: '[Tournament Champion] {champion} has won {title}!'
+        }
+    },
+    commands: [
+        { name: 'discord', reply: 'Join our friendly retro gaming Discord community: https://discord.gg/streampulse', enabled: true, modOnly: false, cooldown: 5, count: 84 },
+        { name: 'game', reply: "Tonight's featured speedrun: Castlevania: Belmont's Curse! Check out Game Plan above.", enabled: true, modOnly: false, cooldown: 5, count: 62 },
+        { name: 'schedule', reply: 'Live Mon/Wed/Fri at 7 PM ET, Retro Marathon Saturdays at 2 PM ET!', enabled: true, modOnly: false, cooldown: 10, count: 41 },
+        { name: 'rules', reply: '1. Be respectful to chat and mods. 2. No backseating unless asked. 3. Have fun!', enabled: true, modOnly: false, cooldown: 15, count: 28 },
+        { name: 'hype', reply: 'StreamPulse HYPE! Let\'s go chat!!', enabled: true, modOnly: false, cooldown: 5, count: 119 },
+        { name: 'hydrate', reply: 'Friendly hydration reminder for the streamer and chat! Drink some water!', enabled: true, modOnly: false, cooldown: 30, count: 35 }
+    ],
+    quotes: [
+        { id: 'q1', text: 'That jump was pixel-perfect!', author: 'PixelKnight', date: '2026-10-14' },
+        { id: 'q2', text: 'Never celebrate before the final boss phase.', author: 'CosmicVoyager', date: '2026-10-16' },
+        { id: 'q3', text: 'Sub-40 minute run or we riot!', author: 'RetroSamurai', date: '2026-10-18' }
+    ],
+    messages: [
+        { id: 'm1', name: 'Socials Reminder', text: 'Enjoying the stream? Don\'t forget to follow and check !discord !', kind: 'interval', value: 20, enabled: true }
+    ],
+    triggers: []
+};
+
 const dummySessionsList = [
     {
         file: '__current__',
@@ -414,6 +581,24 @@ async function run() {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummySessionsList) });
         } else if (url.includes('/api/highlights')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyHighlights) });
+        } else if (url.includes('/api/polls/active') || url.includes('/api/polls/status') || url.includes('/api/polls/latest')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyActivePoll) });
+        } else if (url.includes('/api/polls/presets')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+        } else if (url.includes('/api/polls/tournament')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyTournament) });
+        } else if (url.includes('/api/tournament/presets')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+        } else if (url.includes('/api/tournament/drafts') || url.includes('/api/tournament/history')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+        } else if (url.includes('/api/tournament')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyTournament) });
+        } else if (url.includes('/api/matchup/history') || url.includes('/api/matchup/queue')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+        } else if (url.includes('/api/matchup')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyMatchup) });
+        } else if (url.includes('/api/chatbot')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyChatbotSnapshot) });
         } else {
             req.continue();
         }
@@ -656,12 +841,87 @@ async function run() {
             action: async (p) => {
                 await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
             }
+        },
+        {
+            url: `${baseUrl}/polls.html`,
+            file: 'polls-studio.png',
+            wait: 2000,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+            }
+        },
+        {
+            url: `${baseUrl}/overlays/poll.html?preview=1`,
+            file: 'poll-overlay.png',
+            wait: 1500,
+            action: async (p) => {
+                await p.setViewport({ width: 640, height: 420, deviceScaleFactor: 2 });
+            }
+        },
+        {
+            url: `${baseUrl}/versus.html`,
+            file: 'tournament-studio.png',
+            wait: 2000,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.evaluate(() => {
+                    const btn = document.getElementById('tab-btn-tourney');
+                    if (btn) btn.click();
+                });
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        },
+        {
+            url: `${baseUrl}/overlays/tournament.html?preview=1&layout=tree`,
+            file: 'tournament-overlay.png',
+            wait: 2000,
+            action: async (p) => {
+                await p.setViewport({ width: 1280, height: 720, deviceScaleFactor: 2 });
+            }
+        },
+        {
+            url: `${baseUrl}/versus.html`,
+            file: 'versus-studio.png',
+            wait: 2000,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.evaluate(() => {
+                    const btn = document.getElementById('tab-btn-matchup');
+                    if (btn) btn.click();
+                });
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        },
+        {
+            url: `${baseUrl}/overlays/matchup.html?preview=1&layout=fgc`,
+            file: 'matchup-overlay.png',
+            wait: 1500,
+            action: async (p) => {
+                await p.setViewport({ width: 1280, height: 180, deviceScaleFactor: 2 });
+            }
+        },
+        {
+            url: `${baseUrl}/chatbot.html`,
+            file: 'chatbot-studio.png',
+            wait: 2000,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+            }
+        },
+        {
+            url: `${baseUrl}/tools/alerts.html`,
+            file: 'alerts-studio.png',
+            wait: 2000,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+            }
         }
     ];
 
     const only = process.argv.find(arg => arg.startsWith('--only='))?.slice('--only='.length);
-    const selectedTargets = only ? targets.filter(target => target.file === `${only}.png`) : targets;
-    if (!selectedTargets.length) throw new Error(`Unknown screenshot target: ${only}`);
+    const onlyList = only ? only.split(',').map(s => s.trim().endsWith('.png') ? s.trim() : `${s.trim()}.png`) : null;
+    const selectedTargets = onlyList ? targets.filter(target => onlyList.includes(target.file)) : targets;
+    if (!selectedTargets.length) throw new Error(`Unknown screenshot target(s): ${only}`);
     for (const target of selectedTargets) {
         try {
             console.log(`Capturing ${target.url} -> ${target.file}...`);

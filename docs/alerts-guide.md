@@ -10,6 +10,8 @@ StreamPulse includes an advanced, rule-based stream alert system and an OBS-read
 
 Configure alerts under **Tools -> Alerts** (`/alerts.html`):
 
+![StreamPulse Alerts Studio](images/alerts-studio.png)
+
 - **Event Types**: Follows, subscriptions, resubs, gift subs, bits/cheers, donations/tips, raids, channel point redeems, finished timers, reached goals, poll completed / winner (`poll_end`), and chat keywords.
 - **Replacement Tokens**: Standard alert tokens plus poll-specific tokens: `{{winner}}`, `{{poll_title}}`, `{{votes}}`, `{{percent}}`, and `{{total_votes}}`.
 - **Tiered Thresholds**: Configure escalating visual alerts based on amount (e.g. Tier 1 at 100 bits, Tier 2 at 1,000 bits, Tier 3 at 10,000 bits).

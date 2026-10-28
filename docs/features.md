@@ -54,11 +54,15 @@ Give viewers a clear countdown to your return, time an activity, or show progres
 
 Turn a list of games, challenges, or participants into a wheel, roller, or card reveal. Prepare choices before the stream, then reveal a result on screen when it is time for the audience moment.
 
+![Choice Randomizer](images/randomizer-studio.png)
+
 **Good for:** choosing the next game, drawing a participant, or adding variety to a challenge.
 
 ### Live polls & Poll Manager
 
 Run interactive audience votes directly from **Tools > Poll Manager**. StreamPulse supports both **Native Polls** with multi-platform chat voting (`!vote 1`, digits, keywords), Blind Mode ("Fog of War"), subscriber multipliers, victory fanfare, and confetti celebrations, as well as Twitch API polls displayed on screen. The Poll widget inside Custom Overlays adapts seamlessly to 2 to 5 choices with live countdown timers and winner highlights.
+
+![Live Poll Manager](images/polls-studio.png)
 
 **Good for:** letting viewers decide what comes next, running challenges, and celebrating community decisions live on stream. See the [Live Polls guide](polls-guide.md).
 
@@ -66,17 +70,23 @@ Run interactive audience votes directly from **Tools > Poll Manager**. StreamPul
 
 Run community tournaments, esports showdowns, and fighting game match sets from **Tools > Versus** (featuring nested navigation for **Versus Studio** and **Tournament Manager**). StreamPulse provides an interactive bracket controller (Single Elimination with automatic BYEs for non-power-of-2 entrant counts, Double Elimination, and Round Robin standings), plus a dedicated **Versus Scoreboard** (1v1, 3-way, 4-way FFA) with series win pips, side swapping (`P1 ⇄ P2`), Fight Card queues, and preset saving. Dedicated, self-sizing broadcast overlays (`/matchup.html` and `/tournament.html`) adapt seamlessly to any OBS browser source dimensions without letterboxing or fixed aspect ratio constraints.
 
+![Tournament Brackets & Versus HUD](images/tournament-overlay.png)
+
 **Good for:** fighting games, community tournaments, speedrun races, game night brackets, and esports score bugs. See the [Competitions & Polls guide](polls-guide.md).
 
 ### Alerts and the Alert Queue
 
 Choose which events deserve an on-screen celebration and how they look and sound. Keep the queue beside your stream controls to pause, skip, or replay alerts. **Hide unmatched** helps you focus on events that triggered an alert rather than background activity.
 
+![Alert Queue](images/alert-queue.png)
+
 **Good for:** acknowledging support without losing your place in the show. Available events depend on the platforms and connections you have enabled.
 
 ### Chat Bot
 
 Give viewers helpful command replies, share recurring reminders, and keep a collection of quotes. Use permissions and cooldowns to keep automated replies useful rather than noisy. Chat replies need a working SocialStream Ninja connection.
+
+![Chat Bot Studio](images/chatbot-studio.png)
 
 **Good for:** answering common questions and sharing links while you focus on streaming.
 

@@ -4,6 +4,8 @@ StreamPulse includes a built-in chat automation bot designed to handle commands,
 
 Replies are sent back directly through SocialStream Ninja into your broadcast chat.
 
+![StreamPulse Chat Bot Studio](images/chatbot-studio.png)
+
 ---
 
 ## 1. Commands, Aliases & Permissions
