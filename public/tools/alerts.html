@@ -140,57 +140,525 @@
         .token-chip { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 5px; padding: 0.12rem 0.45rem; font-size: 0.68rem; font-family: ui-monospace, SFMono-Regular, monospace; color: var(--accent); cursor: pointer; transition: all 0.12s; }
         .token-chip:hover { border-color: var(--accent); background: var(--accent-bg); }
 
-        /* Variants */
-        .variant { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.45rem; background: var(--bg-inset); overflow: hidden; }
-        .variant > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.55rem 0.85rem; font-size: 0.82rem; font-weight: 600; background: var(--bg-card); transition: background 0.12s; user-select: none; }
+        /* ══════════════════════════════════════════════════════════════════════
+           PRESTIGE ALERT VARIANTS & ACTIVATION LADDER SYSTEM
+           ══════════════════════════════════════════════════════════════════════ */
+
+        /* Tier Activation Ladder Banner (at top of Card 2) */
+        .tier-ladder-banner {
+            background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, var(--bg-card)), var(--bg-card));
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            padding: 0.8rem 1rem;
+            margin-bottom: 0.85rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+        }
+        .tier-ladder-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .tier-ladder-title {
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .tier-ladder-hint {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .tier-steps-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .tier-step-chip {
+            background: var(--bg-inset);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 0.35rem 0.65rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            font-size: 0.75rem;
+            transition: all 0.12s;
+        }
+        .tier-step-chip.base {
+            border-left: 3px solid var(--accent);
+        }
+        .tier-step-chip.threshold {
+            border-left: 3px solid #f59e0b;
+        }
+        .tier-step-lbl {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+        }
+        .tier-step-val {
+            font-weight: 700;
+            color: var(--text);
+        }
+        .tier-step-count {
+            font-size: 0.66rem;
+            padding: 0.08rem 0.38rem;
+            border-radius: 999px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+        .tier-step-arrow {
+            color: var(--text-faint);
+            font-size: 0.75rem;
+            user-select: none;
+        }
+
+        /* Variant Card */
+        .variant {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 0.65rem;
+            background: var(--bg-card);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .variant:hover {
+            border-color: var(--border-strong);
+        }
+        .variant[open] {
+            border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+        }
+
+        /* Variant Summary (Spacious 2-Row Header, Zero Truncation) */
+        .variant > summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 0.75rem 0.95rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            background: var(--bg-card);
+            transition: background 0.12s;
+            user-select: none;
+        }
         .variant > summary::-webkit-details-marker { display: none; }
-        .variant > summary:hover { background: var(--bg-raised); }
-        .variant-summary-left { display: inline-flex; align-items: center; gap: 0.55rem; min-width: 0; flex: 1; }
-        .variant-num { font-size: 0.65rem; font-weight: 700; padding: 0.08rem 0.42rem; border-radius: 999px; background: var(--bg-raised); border: 1px solid var(--border); color: var(--accent); }
-        .variant-title-prev { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: 0.81rem; }
-        .variant-meta-pill { font-size: 0.69rem; color: var(--text-muted); font-weight: 400; display: inline-flex; align-items: center; gap: 0.35rem; flex-shrink: 0; }
-        .variant-summary-right { display: inline-flex; align-items: center; gap: 0.45rem; }
-        .variant-body { padding: 0.75rem 0.85rem; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.65rem; background: var(--bg-inset); }
+        .variant > summary:hover {
+            background: var(--bg-raised);
+        }
+        .variant[open] > summary {
+            border-bottom: 1px solid var(--border);
+            background: color-mix(in srgb, var(--accent) 3%, var(--bg-card));
+        }
 
-        .vtabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border); align-items: center; flex-wrap: wrap; padding-bottom: 0.2rem; }
-        .vtab { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--text-muted); padding: 0.32rem 0.65rem; font: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer; margin-bottom: -1px; display: inline-flex; align-items: center; gap: 0.32rem; transition: all 0.12s; }
-        .vtab:hover { color: var(--text); }
-        .vtab.active { color: var(--accent); border-bottom-color: var(--accent); }
-        .vtab-grow { flex: 1; }
+        /* Top Row of Summary: Badges, Chips, Actions */
+        .vsum-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.65rem;
+            width: 100%;
+        }
+        .vsum-badges {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+        }
+        .vnum-badge {
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 0.1rem 0.45rem;
+            border-radius: 5px;
+            background: var(--bg-inset);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+        .tier-badge {
+            font-size: 0.71rem;
+            font-weight: 700;
+            padding: 0.14rem 0.55rem;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            letter-spacing: 0.02em;
+        }
+        .tier-badge.base {
+            background: color-mix(in srgb, var(--accent) 15%, transparent);
+            border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+            color: var(--accent);
+        }
+        .tier-badge.milestone {
+            background: rgba(245, 158, 11, 0.14);
+            border: 1px solid rgba(245, 158, 11, 0.45);
+            color: #f59e0b;
+        }
+        .tier-badge.default {
+            background: var(--bg-raised);
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+        .odds-badge {
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 0.1rem 0.45rem;
+            border-radius: 999px;
+            background: var(--bg-inset);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+        .odds-badge.weighted {
+            color: var(--accent);
+            border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+        }
 
-        .vgrid { display: grid; gap: 0.5rem 0.75rem; }
-        .vgrid.c2 { grid-template-columns: 1fr 1fr; }
-        .vgrid.c3 { grid-template-columns: repeat(3, 1fr); }
-        @media (max-width: 650px) { .vgrid.c2, .vgrid.c3 { grid-template-columns: 1fr; } }
-        .fld { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; font-size: 0.72rem; color: var(--text-muted); font-weight: 600; }
-        .fld input, .fld select { width: 100%; min-width: 0; padding: 0.36rem 0.55rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.81rem; font-family: inherit; }
-        .fld input:focus, .fld select:focus { outline: none; border-color: var(--accent); }
+        .vsum-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55rem;
+            flex-shrink: 0;
+        }
+        .vmeta-chips {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .vmeta-chip {
+            font-size: 0.68rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            background: var(--bg-inset);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 0.12rem 0.42rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .v-preview-btn {
+            font-size: 0.74rem;
+            padding: 0.22rem 0.65rem;
+            border-radius: 6px;
+            gap: 0.35rem;
+        }
+        .v-chevron {
+            color: var(--text-muted);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.15s ease;
+        }
+        .variant[open] .v-chevron {
+            transform: rotate(180deg);
+        }
 
-        .media-row { display: flex; gap: 0.35rem; min-width: 0; }
-        .media-row input[type="text"], .media-row select { flex: 1; min-width: 0; }
-        .media-preview-box { width: 68px; height: 68px; border-radius: 6px; background: var(--bg-card); border: 1px solid var(--border); overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .media-preview-box img, .media-preview-box video { max-width: 100%; max-height: 100%; object-fit: contain; }
+        /* Bottom Row of Summary: Thumbnail & Title (Comfortable, Uncut) */
+        .vsum-main {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            min-width: 0;
+            width: 100%;
+        }
+        .v-thumb {
+            width: 38px;
+            height: 38px;
+            border-radius: 7px;
+            background: var(--bg-inset);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: var(--text-muted);
+        }
+        .v-thumb img, .v-thumb video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .vsum-text-col {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+            min-width: 0;
+            flex: 1;
+        }
+        .vsum-title {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1.35;
+            word-break: break-word;
+        }
+        .vsum-subtitle {
+            font-size: 0.74rem;
+            color: var(--text-muted);
+            line-height: 1.35;
+            word-break: break-word;
+        }
 
-        .seg-pills { display: inline-flex; background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 2px; gap: 2px; }
-        .seg-btn { background: transparent; border: 0; border-radius: 5px; padding: 0.22rem 0.65rem; font-size: 0.74rem; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: all 0.12s; }
-        .seg-btn:hover { color: var(--text); }
-        .seg-btn.active { background: var(--bg-raised); color: var(--accent); box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+        /* Variant Body */
+        .variant-body {
+            padding: 0.95rem 1.05rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.95rem;
+            background: var(--bg-inset);
+        }
 
-        /* Unified Variant Condition & Odds Bar */
-        .variant-condition-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.65rem; padding: 0.45rem 0.75rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; flex-wrap: wrap; margin-bottom: 0.35rem; }
-        .variant-cond-left { display: inline-flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; min-width: 0; }
-        .variant-cond-right { display: inline-flex; align-items: center; gap: 0.45rem; flex-shrink: 0; }
-        .variant-cond-item { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.74rem; color: var(--text-muted); font-weight: 600; }
-        .cond-lbl { font-size: 0.71rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
-        .cond-sel { padding: 0.22rem 0.45rem; font-size: 0.76rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 5px; color: var(--text); }
-        .cond-threshold-row { display: inline-flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
-        .cond-sublbl { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; }
-        .cond-op { width: auto; padding: 0.2rem 0.4rem; font-size: 0.74rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 5px; color: var(--text); }
-        .cond-num { width: 66px; padding: 0.2rem 0.35rem; font-size: 0.74rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 5px; color: var(--text); text-align: center; }
-        .cond-hint { font-size: 0.67rem; color: var(--text-muted); }
-        .cond-static { font-size: 0.74rem; color: var(--text); font-weight: 500; }
-        .cond-weight { width: 52px; padding: 0.2rem 0.35rem; font-size: 0.74rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 5px; color: var(--text); text-align: center; font-weight: 600; }
-        .odds-pill { display: inline-flex; align-items: center; padding: 0.12rem 0.48rem; font-size: 0.7rem; font-weight: 700; border-radius: 999px; background: var(--bg-raised); border: 1px solid var(--border); color: var(--accent); white-space: nowrap; }
+        /* Box 1: Activation & Eligibility */
+        .vsection-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.85rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .vsection-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .vsection-title {
+            font-size: 0.76rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        
+        .role-cards-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.65rem;
+        }
+        @media (max-width: 750px) { .role-cards-grid { grid-template-columns: 1fr; } }
+        
+        .role-card-label {
+            position: relative;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: var(--bg-inset);
+            border-radius: 8px;
+            padding: 0.65rem 0.85rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.65rem;
+            transition: all 0.12s;
+        }
+        .role-card-label:hover {
+            border-color: var(--border-strong);
+            background: var(--bg-raised);
+        }
+        .role-card-label.active {
+            border-color: var(--accent);
+            background: color-mix(in srgb, var(--accent) 8%, var(--bg-card));
+            box-shadow: 0 0 0 1px var(--accent);
+        }
+        .role-card-label input[type="radio"] {
+            margin-top: 0.2rem;
+            accent-color: var(--accent);
+        }
+        .role-card-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+        .role-card-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .role-card-desc {
+            font-size: 0.71rem;
+            color: var(--text-muted);
+            line-height: 1.35;
+        }
+
+        /* Threshold Parameter Box */
+        .threshold-params-row {
+            background: var(--bg-inset);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 0.65rem 0.85rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.85rem;
+            flex-wrap: wrap;
+        }
+        .threshold-inputs {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.65rem;
+            flex-wrap: wrap;
+        }
+        .input-affix-group {
+            display: inline-flex;
+            align-items: center;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .input-affix {
+            padding: 0.32rem 0.55rem;
+            font-size: 0.74rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            background: var(--bg-raised);
+            border-right: 1px solid var(--border);
+            user-select: none;
+        }
+        .input-affix-group input {
+            border: 0;
+            background: transparent;
+            padding: 0.32rem 0.55rem;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text);
+            width: 84px;
+            text-align: center;
+        }
+        .input-affix-group input:focus {
+            outline: none;
+        }
+        .threshold-explainer {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            line-height: 1.35;
+        }
+
+        /* Odds Row */
+        .odds-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding-top: 0.45rem;
+            border-top: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+        .odds-left {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55rem;
+        }
+        .odds-input-box {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .odds-input-box input {
+            width: 58px;
+            text-align: center;
+            font-weight: 700;
+            padding: 0.28rem 0.4rem;
+            background: var(--bg-inset);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 0.8rem;
+        }
+        .odds-pill-large {
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 0.18rem 0.65rem;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--accent) 15%, transparent);
+            border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+            color: var(--accent);
+        }
+        .odds-hint-text {
+            font-size: 0.71rem;
+            color: var(--text-muted);
+        }
+
+        /* Full-Width Text Fields */
+        .full-text-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            width: 100%;
+        }
+        .full-text-field label {
+            font-size: 0.73rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .full-text-input {
+            width: 100%;
+            padding: 0.48rem 0.75rem;
+            font-size: 0.86rem;
+            font-family: inherit;
+            color: var(--text);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            transition: border-color 0.12s;
+        }
+        .full-text-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .token-quick-insert {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+            margin-top: 0.2rem;
+        }
+        .token-quick-label {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        .token-quick-pill {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 0.12rem 0.45rem;
+            font-size: 0.68rem;
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            color: var(--accent);
+            cursor: pointer;
+            transition: all 0.12s;
+        }
+        .token-quick-pill:hover {
+            border-color: var(--accent);
+            background: var(--accent-bg);
+        }
 
         /* Volume Slider Row */
         .vol-wrap { display: flex; align-items: center; gap: 0.65rem; }
@@ -574,7 +1042,11 @@
         message: '<svg class="ico" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
         sparkles: '<svg class="ico" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>',
         command: '<svg class="ico" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>',
-        poll: '<svg class="ico" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>'
+        poll: '<svg class="ico" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+        chevronDown: '<svg class="ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>',
+        arrowRight: '<svg class="ico" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
+        flag: '<svg class="ico" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>',
+        layers: '<svg class="ico" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>'
     };
 
     const TRIGGERS = {
@@ -640,10 +1112,10 @@
     const toast = (message, err) => { const t = $('toast'); t.textContent = message; t.className = err ? 'err' : ''; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', 2600); };
     const setDirty = value => { dirty = value; $('save-state').textContent = dirty ? 'Unsaved changes' : 'Saved'; $('save-state').className = `pill ${dirty ? 'dirty' : 'ok'}`; };
     const rule = () => cfg.rules.find(r => r.id === sel);
-    const newVariant = trigger => ({
-        id: `v${Date.now().toString(36)}`,
-        variantType: 'weighted',
-        gateMin: 0,
+    const newVariant = (trigger, role = 'weighted', defaultMin = 0) => ({
+        id: `v${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+        variantType: role === 'milestone' || defaultMin > 0 ? 'gated' : 'weighted',
+        gateMin: defaultMin,
         gateMinOp: 'gte',
         gateMax: 0,
         gateMaxOp: 'lte',
@@ -935,7 +1407,6 @@
 
     const variantTab = new Map(), variantMedia = new Map();
     const VTABS = [
-        ['text', 'Text', ICONS.type],
         ['visual', 'Visuals', ICONS.image],
         ['sound', 'Audio', ICONS.volume],
         ['timing', 'Timing & FX', ICONS.clock]
@@ -945,33 +1416,63 @@
         const open = r.variants.length === 1 || openVariants.has(v.id);
         const hasMetric = ['sub', 'resub', 'gift', 'bits', 'donation', 'raid', 'redeem', 'milestone'].includes(r.trigger);
         const metricName = AMOUNT_LABEL[r.trigger] || (['sub', 'resub', 'milestone'].includes(r.trigger) ? 'Months' : 'Amount');
-        const isGated = hasMetric && (v.variantType === 'gated' || (v.gateMin > 0) || (v.gateMax > 0));
-        const tab = variantTab.get(v.id) || 'text';
+        const isMilestone = hasMetric && (v.variantType === 'gated' || (v.gateMin > 0) || (v.gateMax > 0));
+        const tab = variantTab.get(v.id) || 'visual';
         const media = variantMedia.get(v.id) || (v.video ? 'video' : v.image ? 'image' : (v.emoji || v.emojiUrl || v.emojiLadder?.length) ? 'emoji' : 'image');
 
-        // Odds percentage calculation among qualifying pool
+        // Odds percentage calculation among qualifying pool at this tier level
         let pool = [];
-        if (isGated) {
+        if (isMilestone) {
             pool = r.variants.filter(other => (other.variantType === 'gated' || other.gateMin > 0) && (other.gateMin || 0) === (v.gateMin || 0));
         } else {
             pool = r.variants.filter(other => other.variantType !== 'gated' && !other.gateMin && !other.gateMax);
         }
-        if (!pool.length) pool = r.variants;
+        if (!pool.length) pool = [v];
         const totalPoolWeight = pool.reduce((sum, item) => sum + Math.max(1, Number(item.weight) || 1), 0);
         const oddsPct = Math.round((Math.max(1, Number(v.weight) || 1) / totalPoolWeight) * 100);
 
+        // Thumbnail for summary header
+        let thumbHtml = '';
+        if (v.image) {
+            thumbHtml = `<img src="${esc(v.image)}" alt="" onerror="this.parentElement.innerHTML='${ICONS.image.replace(/'/g, "\\'")}'">`;
+        } else if (v.video) {
+            thumbHtml = `<span style="color:var(--accent);">${ICONS.video}</span>`;
+        } else if (v.emojiUrl) {
+            thumbHtml = `<img src="${esc(v.emojiUrl)}" alt="" onerror="this.parentElement.innerHTML='${ICONS.smile.replace(/'/g, "\\'")}'">`;
+        } else if (v.emoji) {
+            thumbHtml = `<span>${ICONS.smile}</span>`;
+        } else {
+            thumbHtml = `<span>${ICONS.image}</span>`;
+        }
+
+        // Tier badge in summary
+        let tierBadge = '';
+        if (hasMetric) {
+            if (isMilestone) {
+                tierBadge = `<span class="tier-badge milestone">${ICONS.flag} Milestone: &ge; ${v.gateMin || 0} ${esc(metricName)}${v.gateMax > 0 ? ` - &le; ${v.gateMax}` : ''}</span>`;
+            } else {
+                tierBadge = `<span class="tier-badge base">${ICONS.zap} Base Alert (Any ${esc(metricName)})</span>`;
+            }
+        } else {
+            tierBadge = `<span class="tier-badge default">${ICONS.zap} Standard Alert</span>`;
+        }
+
+        const oddsBadge = pool.length > 1 ? `<span class="odds-badge weighted" title="${oddsPct}% chance among variants at this tier level">${oddsPct}% roll</span>` : '';
+
+        const metaChips = `
+            <span class="vmeta-chip">${v.duration}s</span>
+            ${v.video ? `<span class="vmeta-chip">${ICONS.video} Video</span>` : v.image ? `<span class="vmeta-chip">${ICONS.image} Image</span>` : (v.emoji || v.emojiUrl || v.emojiLadder?.length) ? `<span class="vmeta-chip">${ICONS.smile} Emote</span>` : ''}
+            ${v.sound ? `<span class="vmeta-chip">${ICONS.volume} Audio</span>` : ''}
+        `;
+
+        const tokens = TOKENS[r.trigger] || [];
+
         const panels = {
-            text: `
-                <div class="vgrid c2">
-                    ${vin(i, 'title', 'Title Template', v.title, 'placeholder="e.g. {{alert.user}} just followed!"', 'text')}
-                    ${vin(i, 'message', 'Subtitle / Message (Optional)', v.message, 'placeholder="e.g. Thanks for the support!"', 'text')}
-                </div>
-            `,
             visual: `
                 <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.2rem;">
                     <span style="font-size:0.72rem;font-weight:600;color:var(--text-muted);">Media Mode:</span>
                     <div class="seg-pills">
-                        ${[['image', 'Image / GIF', ICONS.image], ['video', 'Video', ICONS.video], ['emoji', 'Emoji', ICONS.smile]].map(([key, label, icon]) => `
+                        ${[['image', 'Image / GIF', ICONS.image], ['video', 'Video', ICONS.video], ['emoji', 'Emoji & Emotes', ICONS.smile]].map(([key, label, icon]) => `
                             <button type="button" class="seg-btn${key === media ? ' active' : ''}" data-vmedia="${key}" data-vid-tab="${esc(v.id)}">
                                 ${icon} <span>${label}</span>
                             </button>
@@ -1023,76 +1524,119 @@
             `
         };
 
-        const mediaBadge = v.video ? `${ICONS.video} Video` : v.image ? `${ICONS.image} Image` : (v.emoji || v.emojiUrl || v.emojiLadder?.length) ? `${ICONS.smile} ${esc(v.emoji || v.emojiLadder[0]?.emoji || 'Emote')}` : '';
-        const soundBadge = v.sound ? `${ICONS.volume} Audio` : '';
-        const condBadge = isGated
-            ? `<span>· ${metricName} ${v.gateMinOp === 'gt' ? '>' : '>='}${v.gateMin || 0}${v.gateMax > 0 ? ` and ${v.gateMaxOp === 'lt' ? '<' : '<='}${v.gateMax}` : ''}</span>`
-            : (hasMetric && r.variants.some(other => other.variantType === 'gated' || other.gateMin > 0) ? '<span>· Default (any amount)</span>' : '');
-        const weightBadge = r.variants.length > 1 ? `<span>· Weight ${v.weight ?? 1} (${oddsPct}%)</span>` : '';
-
         return `
         <details class="variant" data-vid="${esc(v.id)}"${open ? ' open' : ''}>
             <summary>
-                <div class="variant-summary-left">
-                    <span class="variant-num">Variant ${i + 1}</span>
-                    <span class="variant-title-prev">${esc(v.title || v.message || '(Untitled Variant)')}</span>
-                    <span class="variant-meta-pill">
-                        <span>${v.duration}s</span>
-                        ${mediaBadge ? `<span>· ${mediaBadge}</span>` : ''}
-                        ${soundBadge ? `<span>· ${soundBadge}</span>` : ''}
-                        ${condBadge}
-                        ${weightBadge}
-                    </span>
+                <div class="vsum-top">
+                    <div class="vsum-badges">
+                        <span class="vnum-badge">Variant ${i + 1}</span>
+                        ${tierBadge}
+                        ${oddsBadge}
+                    </div>
+                    <div class="vsum-actions">
+                        <div class="vmeta-chips">
+                            ${metaChips}
+                        </div>
+                        <button type="button" class="btn sm v-preview-btn" data-test-variant="${i}" title="Preview this variant on overlays">
+                            ${ICONS.play} <span>Preview</span>
+                        </button>
+                        <span class="v-chevron">${ICONS.chevronDown}</span>
+                    </div>
                 </div>
-                <div class="variant-summary-right">
-                    <button type="button" class="btn sm" data-test-variant="${i}" title="Preview this specific alert variant on overlays">
-                        ${ICONS.play} <span>Preview</span>
-                    </button>
+                <div class="vsum-main">
+                    <div class="v-thumb">
+                        ${thumbHtml}
+                    </div>
+                    <div class="vsum-text-col">
+                        <div class="vsum-title">${esc(v.title || '(No title template set)')}</div>
+                        ${v.message ? `<div class="vsum-subtitle">${esc(v.message)}</div>` : ''}
+                    </div>
                 </div>
             </summary>
             <div class="variant-body">
-                <div class="variant-condition-bar">
-                    <div class="variant-cond-left">
-                        ${hasMetric ? `
-                            <label class="variant-cond-item">
-                                <span class="cond-lbl">When to Show:</span>
-                                <select data-variant-cond="${i}" class="cond-sel">
-                                    <option value="any"${!isGated ? ' selected' : ''}>Always / Any ${metricName} (Default)</option>
-                                    <option value="threshold"${isGated ? ' selected' : ''}>When ${metricName} meets threshold...</option>
-                                </select>
-                            </label>
-                            ${isGated ? `
-                                <div class="cond-threshold-row">
-                                    <span class="cond-sublbl">${metricName}</span>
-                                    <select data-v="${i}.gateMinOp" class="cond-op">
-                                        <option value="gte"${v.gateMinOp !== 'gt' ? ' selected' : ''}>&ge; (at least)</option>
-                                        <option value="gt"${v.gateMinOp === 'gt' ? ' selected' : ''}>&gt; (more than)</option>
-                                    </select>
-                                    <input type="number" min="0" data-v="${i}.gateMin" value="${v.gateMin ?? 0}" class="cond-num" placeholder="0">
-                                    <span class="cond-sublbl">and</span>
-                                    <select data-v="${i}.gateMaxOp" class="cond-op">
-                                        <option value="lte"${v.gateMaxOp !== 'lt' ? ' selected' : ''}>&le; (at most)</option>
-                                        <option value="lt"${v.gateMaxOp === 'lt' ? ' selected' : ''}>&lt; (less than)</option>
-                                    </select>
-                                    <input type="number" min="0" data-v="${i}.gateMax" value="${v.gateMax ?? 0}" class="cond-num" placeholder="0">
-                                    <span class="cond-hint">(0 max = no cap)</span>
-                                </div>
-                            ` : ''}
-                        ` : `
-                            <div class="variant-cond-item">
-                                <span class="cond-lbl">Trigger:</span>
-                                <span class="cond-static">Always triggers on ${esc(TRIGGERS[r.trigger] || r.trigger)}</span>
-                            </div>
-                        `}
+                <!-- Section 1: Activation & Tier Rules -->
+                <div class="vsection-card">
+                    <div class="vsection-head">
+                        <span class="vsection-title">${ICONS.layers} Activation &amp; Tier Rules</span>
                     </div>
-                    <div class="variant-cond-right">
-                        <label class="variant-cond-item" title="Higher weight variants are chosen proportionally more often">
-                            <span class="cond-lbl">Odds Weight:</span>
-                            <input type="number" min="1" max="100" data-v="${i}.weight" value="${v.weight ?? 1}" class="cond-weight">
-                        </label>
-                        <span class="odds-pill" title="Probability when this variant's condition is met">${oddsPct}% roll chance</span>
+                    ${hasMetric ? `
+                        <div class="role-cards-grid">
+                            <label class="role-card-label${!isMilestone ? ' active' : ''}" data-role-card="base" data-vi="${i}">
+                                <input type="radio" name="vrole-${i}" value="base" ${!isMilestone ? 'checked' : ''}>
+                                <div class="role-card-content">
+                                    <div class="role-card-title">${ICONS.zap} Base Alert (Default)</div>
+                                    <div class="role-card-desc">Plays for standard events or when no milestone tier threshold is reached.</div>
+                                </div>
+                            </label>
+                            <label class="role-card-label${isMilestone ? ' active' : ''}" data-role-card="milestone" data-vi="${i}">
+                                <input type="radio" name="vrole-${i}" value="milestone" ${isMilestone ? 'checked' : ''}>
+                                <div class="role-card-content">
+                                    <div class="role-card-title">${ICONS.flag} Milestone Tier (Threshold)</div>
+                                    <div class="role-card-desc">Escalates this alert when ${esc(metricName)} meets or exceeds a target number.</div>
+                                </div>
+                            </label>
+                        </div>
+                        ${isMilestone ? `
+                            <div class="threshold-params-row">
+                                <div class="threshold-inputs">
+                                    <span style="font-size:0.73rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;">${esc(metricName)}:</span>
+                                    <div class="input-affix-group" title="Minimum ${esc(metricName)} required to activate this tier">
+                                        <span class="input-affix">&ge;</span>
+                                        <input type="number" min="0" data-v="${i}.gateMin" value="${v.gateMin ?? 0}">
+                                    </div>
+                                    <span style="font-size:0.73rem;color:var(--text-muted);font-weight:600;">to</span>
+                                    <div class="input-affix-group" title="Optional maximum cap (0 = no maximum)">
+                                        <span class="input-affix">&le;</span>
+                                        <input type="number" min="0" data-v="${i}.gateMax" value="${v.gateMax ?? 0}" placeholder="No max">
+                                    </div>
+                                </div>
+                                <div class="threshold-explainer">
+                                    ${ICONS.info}
+                                    <span>Activates when <b>${esc(metricName)} &ge; ${v.gateMin || 0}</b>${v.gateMax > 0 ? ` and &le; ${v.gateMax}` : ''}. Highest matching tier wins.</span>
+                                </div>
+                            </div>
+                        ` : ''}
+                    ` : `
+                        <div style="font-size:0.75rem;color:var(--text-muted);display:flex;align-items:center;gap:0.4rem;">
+                            ${ICONS.zap} <span>Always triggers when this alert rule fires.</span>
+                        </div>
+                    `}
+                    <div class="odds-row">
+                        <div class="odds-left">
+                            <label class="odds-input-box" title="Relative weight among variants at this tier level">
+                                <span style="font-size:0.73rem;font-weight:700;color:var(--text-muted);">Variant Weight:</span>
+                                <input type="number" min="1" max="100" data-v="${i}.weight" value="${v.weight ?? 1}">
+                            </label>
+                            <span class="odds-pill-large" title="Probability of rolling this variant when this tier activates">${oddsPct}% Chance</span>
+                            <span class="odds-hint-text">when this tier qualifies</span>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Section 2: Content & Template -->
+                <div class="vsection-card">
+                    <div class="vsection-head">
+                        <span class="vsection-title">${ICONS.type} Alert Text &amp; Placeholders</span>
+                    </div>
+                    <div class="full-text-field">
+                        <label>Title Template</label>
+                        <input type="text" class="full-text-input" data-v="${i}.title" value="${esc(v.title || '')}" placeholder="e.g. {{alert.user}} resubscribed for {{alert.months}} months!">
+                        <div class="token-quick-insert">
+                            <span class="token-quick-label">Insert:</span>
+                            ${tokens.map(t => `<button type="button" class="token-quick-pill" data-insert-token="{{alert.${t}}}" data-token-target="${i}.title" title="Insert {{alert.${t}}} into Title">+ {{alert.${t}}}</button>`).join('')}
+                        </div>
+                    </div>
+                    <div class="full-text-field" style="margin-top:0.35rem;">
+                        <label>Subtitle / Message (Optional)</label>
+                        <input type="text" class="full-text-input" data-v="${i}.message" value="${esc(v.message || '')}" placeholder="e.g. Thanks for the amazing support!">
+                        <div class="token-quick-insert">
+                            <span class="token-quick-label">Insert:</span>
+                            ${tokens.map(t => `<button type="button" class="token-quick-pill" data-insert-token="{{alert.${t}}}" data-token-target="${i}.message" title="Insert {{alert.${t}}} into Subtitle">+ {{alert.${t}}}</button>`).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: Visuals, Audio & Timing -->
                 <div class="vtabs">
                     ${VTABS.map(([key, label, icon]) => `
                         <button type="button" class="vtab${key === tab ? ' active' : ''}" data-vtab="${key}" data-vid-tab="${esc(v.id)}">
@@ -1104,7 +1648,7 @@
                         ${ICONS.trash} <span>Remove Variant</span>
                     </button>
                 </div>
-                ${panels[tab] || panels.text}
+                ${panels[tab] || panels.visual}
             </div>
         </details>`;
     }
@@ -1146,6 +1690,55 @@
         const hasMetric = ['sub', 'resub', 'gift', 'bits', 'donation', 'raid', 'redeem', 'milestone'].includes(r.trigger);
         const metricName = AMOUNT_LABEL[r.trigger] || (['sub', 'resub', 'milestone'].includes(r.trigger) ? 'Months' : 'Amount');
 
+        let ladderHtml = '';
+        if (hasMetric) {
+            const milestoneVariants = r.variants
+                .filter(v => (v.variantType === 'gated' || (v.gateMin > 0)))
+                .sort((a, b) => (Number(a.gateMin) || 0) - (Number(b.gateMin) || 0));
+            const baseVariants = r.variants.filter(v => v.variantType !== 'gated' && !v.gateMin && !v.gateMax);
+            
+            const groups = new Map();
+            for (const v of milestoneVariants) {
+                const min = Number(v.gateMin) || 0;
+                if (!groups.has(min)) groups.set(min, []);
+                groups.get(min).push(v);
+            }
+
+            ladderHtml = `
+                <div class="tier-ladder-banner">
+                    <div class="tier-ladder-header">
+                        <div class="tier-ladder-title">
+                            ${ICONS.layers}
+                            <span>Alert Activation Ladder · Priority Escalation</span>
+                        </div>
+                        <div class="tier-ladder-hint">
+                            StreamPulse checks highest milestone first. Highest matching tier wins; below all milestones, Base Alert plays.
+                        </div>
+                    </div>
+                    <div class="tier-steps-row">
+                        <div class="tier-step-chip base" title="Plays for any event below the lowest milestone">
+                            <span class="tier-step-lbl">Base Alert</span>
+                            <span class="tier-step-val">Any ${esc(metricName)}</span>
+                            <span class="tier-step-count">${baseVariants.length} var</span>
+                        </div>
+                        ${Array.from(groups.entries()).map(([min, vars]) => `
+                            <span class="tier-step-arrow">${ICONS.arrowRight}</span>
+                            <div class="tier-step-chip threshold" title="Plays when ${esc(metricName)} is &ge; ${min}">
+                                <span class="tier-step-lbl">Milestone</span>
+                                <span class="tier-step-val">&ge; ${min} ${esc(metricName)}</span>
+                                <span class="tier-step-count">${vars.length} var</span>
+                            </div>
+                        `).join('')}
+                        ${!groups.size ? `
+                            <span class="tier-step-arrow" style="font-size:0.72rem;color:var(--text-faint);">
+                                (All variants currently act as Base Alert. Set any variant to "Milestone Tier" below to escalate!)
+                            </span>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
         $('editor').innerHTML = `
             <!-- Rule Summary Banner -->
             <div class="summary-banner">
@@ -1166,7 +1759,7 @@
                     <button type="button" class="btn sm danger" id="del-rule" title="Delete rule">${ICONS.trash} Delete</button>
                     ${hasMetric ? `
                         <div style="display:inline-flex;align-items:center;gap:0.35rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.18rem 0.45rem;">
-                            <span style="font-size:0.71rem;color:var(--text-muted);font-weight:600;">Test ${metricName}:</span>
+                            <span style="font-size:0.71rem;color:var(--text-muted);font-weight:600;">Simulate ${esc(metricName)}:</span>
                             <input type="number" min="0" data-test-amount value="${testAmount || ''}" placeholder="${r.conditions.minAmount || 100}" style="width:72px;height:24px;padding:0.1rem 0.35rem;font-size:0.74rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:4px;color:var(--text);text-align:center;">
                         </div>
                     ` : ''}
@@ -1192,6 +1785,8 @@
 
             <!-- Card 2: Alert Display & Variants -->
             <div class="card">
+                ${ladderHtml}
+
                 <div class="card-head-row">
                     <h2>
                         <span style="display:inline-flex;align-items:center;gap:0.45rem;">
@@ -1200,9 +1795,20 @@
                         </span>
                         <span class="badge">${r.variants.length} variant${r.variants.length === 1 ? '' : 's'}</span>
                     </h2>
-                    <button type="button" class="btn sm primary" id="add-variant" title="Add a new variation">
-                        ${ICONS.plus} <span>Add Variant</span>
-                    </button>
+                    <div style="display:inline-flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
+                        <button type="button" class="btn sm" id="add-base-variant" title="Add a new variation to the Base Alert tier">
+                            ${ICONS.plus} <span>Base Variant</span>
+                        </button>
+                        ${hasMetric ? `
+                            <button type="button" class="btn sm primary" id="add-milestone-variant" title="Add an escalating milestone tier">
+                                ${ICONS.plus} <span>Milestone Tier</span>
+                            </button>
+                        ` : `
+                            <button type="button" class="btn sm primary" id="add-variant" title="Add a new variation">
+                                ${ICONS.plus} <span>Add Variant</span>
+                            </button>
+                        `}
+                    </div>
                 </div>
 
                 <!-- Clickable Token Chips -->
@@ -1220,7 +1826,7 @@
                     ['sequential', 'Sequential (in order, one after another)']
                 ])) : ''}
 
-                <div style="display:flex;flex-direction:column;gap:0.35rem;margin-top:0.3rem;">
+                <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.4rem;">
                     ${r.variants.map((v, i) => variantHtml(v, i, r)).join('')}
                 </div>
             </div>
@@ -1494,6 +2100,12 @@
             } else if (key === 'videoVolume') {
                 const badge = $(`vidvol-badge-${i}`);
                 if (badge) badge.textContent = `${r.variants[i][key]}%`;
+            } else if (key === 'title') {
+                const titleEl = document.querySelector(`.variant[data-vid="${r.variants[i].id}"] .vsum-title`);
+                if (titleEl) titleEl.textContent = el.value || '(No title template set)';
+            } else if (key === 'message') {
+                const subEl = document.querySelector(`.variant[data-vid="${r.variants[i].id}"] .vsum-subtitle`);
+                if (subEl) subEl.textContent = el.value;
             }
             setDirty(true);
         }
@@ -1563,7 +2175,7 @@
             if (el.type === 'checkbox') r.variants[i][key] = el.checked;
             else r.variants[i][key] = el.value;
             setDirty(true);
-            if (key === 'videoSound' || key === 'gateMinOp' || key === 'gateMaxOp' || key === 'weight') renderEditor();
+            if (key === 'videoSound' || key === 'gateMin' || key === 'gateMax' || key === 'gateMinOp' || key === 'gateMaxOp' || key === 'weight') renderEditor();
         }
     });
 
@@ -1621,10 +2233,50 @@
     }
 
     editor.addEventListener('click', guard(async event => {
-        const r = rule(), btn = event.target.closest('button');
-        if (!r || !btn) return;
+        const r = rule();
+        if (!r) return;
 
-        // Token chip insertion
+        // Role Card Selection (Base Alert vs Milestone Tier)
+        const roleCard = event.target.closest('[data-role-card]');
+        if (roleCard) {
+            const vi = Number(roleCard.dataset.vi);
+            const role = roleCard.dataset.roleCard;
+            if (r.variants[vi]) {
+                if (role === 'milestone') {
+                    r.variants[vi].variantType = 'gated';
+                    if (!r.variants[vi].gateMin) {
+                        r.variants[vi].gateMin = r.conditions.minAmount || (['sub', 'resub', 'milestone'].includes(r.trigger) ? 12 : 100);
+                    }
+                } else {
+                    r.variants[vi].variantType = 'weighted';
+                    r.variants[vi].gateMin = 0;
+                    r.variants[vi].gateMax = 0;
+                }
+                setDirty(true);
+                renderEditor();
+            }
+            return;
+        }
+
+        const btn = event.target.closest('button');
+        if (!btn) return;
+
+        // Quick-insert token button
+        if (btn.dataset.insertToken) {
+            const token = btn.dataset.insertToken;
+            const targetKey = btn.dataset.tokenTarget;
+            const input = targetKey ? document.querySelector(`input[data-v="${targetKey}"]`) : null;
+            if (input) {
+                insertAtCursor(input, token);
+                toast(`Inserted ${token}`);
+            } else {
+                navigator.clipboard?.writeText(token);
+                toast(`Copied ${token}`);
+            }
+            return;
+        }
+
+        // Global token chip insertion
         if (btn.dataset.insert) {
             const token = btn.dataset.insert;
             const targetInput = lastFocusedInput && document.contains(lastFocusedInput)
@@ -1688,7 +2340,25 @@
         }
         if (btn.dataset.vmedia) { variantMedia.set(btn.dataset.vidTab, btn.dataset.vmedia); openVariants.add(btn.dataset.vidTab); renderEditor(); return; }
         if (btn.dataset.vtab) { variantTab.set(btn.dataset.vidTab, btn.dataset.vtab); openVariants.add(btn.dataset.vidTab); renderEditor(); return; }
-        if (btn.id === 'add-variant') { const nv = newVariant(r.trigger); r.variants.push(nv); openVariants.add(nv.id); setDirty(true); renderEditor(); }
+        if (btn.id === 'add-base-variant' || btn.id === 'add-variant') {
+            const nv = newVariant(r.trigger, 'weighted', 0);
+            r.variants.push(nv);
+            openVariants.add(nv.id);
+            setDirty(true);
+            renderEditor();
+            return;
+        }
+        if (btn.id === 'add-milestone-variant') {
+            const maxThreshold = r.variants.reduce((max, v) => Math.max(max, Number(v.gateMin) || 0), 0);
+            const step = ['sub', 'resub', 'milestone'].includes(r.trigger) ? 12 : (maxThreshold >= 1000 ? 500 : (maxThreshold >= 100 ? 100 : 50));
+            const nextMin = maxThreshold > 0 ? maxThreshold + step : (r.conditions.minAmount || step);
+            const nv = newVariant(r.trigger, 'milestone', nextMin);
+            r.variants.push(nv);
+            openVariants.add(nv.id);
+            setDirty(true);
+            renderEditor();
+            return;
+        }
         else if (btn.dataset.addStep !== undefined) {
             const v = r.variants[btn.dataset.addStep], last = v.emojiLadder[v.emojiLadder.length - 1];
             v.emojiLadder.push({ min: last ? last.min * 10 || 100 : 100, emoji: '' });

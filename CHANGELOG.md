@@ -7,7 +7,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- Alerts Engine: Unified variant conditions and weighted random selection, 23 synthesized Web Audio alert sound presets, granular subscription tier selection with specificity precedence, video volume controls, Twitch channel emotes in alert media, and gift sub recipient placeholders.
+- Alerts Engine: Unified variant conditions and weighted random selection, 23 synthesized Web Audio alert sound presets, granular subscription tier selection with specificity precedence, visual Alert Activation Ladder and Milestone Tiers UX, video volume controls, Twitch channel emotes in alert media, and gift sub recipient placeholders.
 - Versus & Tournament Studio: Scoreboards, elimination and round-robin brackets, multi-match scorekeeper, speedrun battle clocks, and broadcast overlays.
 - Matchup Player Clocks: Optional competitor split, race, and countdown clock badges on all versus scoreboard layouts (`top`, `fgc`, `split`, `pillar`, `bottom`, `compact`, `versus`).
 - Poll Manager: Chat polls, audience voting brackets, chat bot announcements, and broadcast overlays.
@@ -18,6 +18,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Custom Overlay Editor IGDB Artwork: Direct browser and importer for official game artwork, logos, and screenshots from IGDB into custom overlay image layers.
 
 ### Fixed
+- Alert Variants UX: Eliminate text truncation and cutoff across headers and template fields; replace cramped inline micro-inputs with structured prestige cards, clear Base Alert vs Milestone Tier role selectors, full-width template and subtitle fields with inline 1-click token pills, and a visual Alert Activation Ladder showing ascending milestone tier progression.
 - Alert Variants & Weights: Fix weighted variant distribution by removing forced 2-variant alternating locks and default pick overrides; remove misplaced odds weight input from Timing & FX tab, replace mutually exclusive weighted/gated toggle with a unified condition and odds bar, and fix test rule simulation bypassing variant selection.
 - Alert Sounds: Resolve Web Audio API context suspension bug that muted built-in synthesized audio on load; expand built-in sound registry to 23 high-quality sound effects across chimes, arcade, celebration, and modern UI categories.
 - Tournament Overlays: Separate Versus tournaments (`/tournament.html`) and Poll tournaments (`/poll-tournament.html`) into distinct overlays with shared rendering, eliminating cross-contamination where setting or advancing a Versus tournament resolved to active poll tournament data.
