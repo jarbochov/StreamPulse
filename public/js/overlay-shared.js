@@ -1723,7 +1723,7 @@
         node.style.maskImage = fadeMask;
         if (typeof ResizeObserver !== 'function' || !(ticker || autoColumns || shrink || config.periodsAcross > 0 || alignV !== 'top' || alignH !== 'left')) return;
         const grids = [...inner.querySelectorAll('[data-gl-grid]')];
-        if (config.periodsAcross > 0 && !kanban) {
+        if (config.periodsAcross > 0 && !kanban && !tiers) {
             inner.style.display = 'grid';
             inner.style.gridTemplateColumns = `repeat(${config.periodsAcross},minmax(0,1fr))`;
             inner.style.columnGap = `${groupGap}px`;
@@ -1759,7 +1759,9 @@
                 inner.style.columnGap = `${groupGap}px`;
                 inner.style.alignItems = 'start';
                 let best = null;
-                for (let across = config.periodsAcross > 0 ? Math.min(config.periodsAcross, sectionEls.length) : 1; across <= (config.periodsAcross > 0 ? Math.min(config.periodsAcross, sectionEls.length) : sectionEls.length); across++) {
+                const maxAcross = tiers ? 1 : (config.periodsAcross > 0 ? Math.min(config.periodsAcross, sectionEls.length) : sectionEls.length);
+                const minAcross = config.periodsAcross > 0 && !tiers ? Math.min(config.periodsAcross, sectionEls.length) : 1;
+                for (let across = minAcross; across <= maxAcross; across++) {
                     inner.style.gridTemplateColumns = `repeat(${across},minmax(0,1fr))`;
                     for (let columns = Math.min(minCols, most); columns <= most; columns++) {
                         grids.forEach(grid => grid.style.setProperty('--cols', columns));
@@ -1776,7 +1778,11 @@
                 }
             }
             const need = inner.offsetHeight;
-            const factor = shrink && need > avail ? avail / need : 1;
+            const factorH = shrink && need > avail ? avail / need : 1;
+            const needW = inner.offsetWidth;
+            const availW = node.clientWidth;
+            const factorW = shrink && availW > 0 && needW > availW ? availW / needW : 1;
+            const factor = Math.min(factorH, factorW);
             const free = Math.max(0, avail - need * factor);
             const dy = alignV === 'middle' ? free / 2 : alignV === 'bottom' ? free : 0;
             let dx = 0;
@@ -3045,7 +3051,7 @@
             altOpacity = Math.max(0, Math.min(1, Number(config.altOpacity ?? 0.4)));
             altScale = Math.max(10, Math.min(200, Number(config.altScale ?? 100))) / 100;
             blendMode = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion', 'luminosity', 'plus-lighter'].includes(config.blendMode) ? config.blendMode : 'normal';
-            sourceType = config.sourceType === 'icon' ? 'icon' : 'image';
+            sourceType = ['preset', 'icon', 'image'].includes(config.sourceType) ? config.sourceType : (config.preset ? 'preset' : 'image');
             wedges = Math.max(4, Math.min(16, Math.round((Number(config.wedges) || 6) / 2) * 2));
             feather = Math.max(0, Math.min(100, Number(config.feather) || 0));
             motion = curOptions.animate === false ? 'none' : (['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'kaleidoscope'].includes(config.motion) ? config.motion : 'scroll');
@@ -3112,7 +3118,25 @@
                 stampCanvas.height = stampSize;
             }
 
-            if (sourceType === 'icon') {
+            if (sourceType === 'preset') {
+                const patternsEngine = window.StreamPulsePatterns || root.OverlayShared?.Patterns;
+                const presetName = config.preset || 'hexagons';
+                stampCtx.clearRect(0, 0, stampSize, stampSize);
+                if (patternsEngine?.drawProceduralPattern) {
+                    patternsEngine.drawProceduralPattern(stampCtx, presetName, stampSize, stampSize, {
+                        scale: config.scale ?? 100,
+                        color: config.color || 'transparent',
+                        accent: config.accent || '#58a6ff',
+                        secondary: config.secondary || config.accent || '#38bdf8',
+                        lineWidth: Number(config.lineWidth) || 0
+                    });
+                } else {
+                    drawSamplePatternStamp(stampCtx, stampSize);
+                }
+                note.style.display = 'none';
+                readyToDraw = true;
+                wake();
+            } else if (sourceType === 'icon') {
                 const cls = String(curElement.content || 'fa-brands fa-twitch').trim().replace(/^fab\b/, 'fa-brands').replace(/^fas\b/, 'fa-solid').replace(/^far\b/, 'fa-regular');
                 const refreshIconStamp = () => {
                     if (stopped) return;

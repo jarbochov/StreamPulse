@@ -769,7 +769,19 @@ function createMatchupService({
             }
         } else if (clock.mode === 'stopwatch') {
             clock.elapsed += dt;
+            const comps = activeMatchup.competitors || [];
+            for (const c of comps) {
+                if (c.timer && c.timer.isRunning && !c.timer.finished) {
+                    c.timer.elapsed += dt;
+                }
+            }
         } else if (clock.remaining > 0) {
+            const comps = activeMatchup.competitors || [];
+            for (const c of comps) {
+                if (c.timer && c.timer.isRunning && !c.timer.finished) {
+                    c.timer.elapsed += dt;
+                }
+            }
             countdownAcc += dt;
             const whole = Math.floor(countdownAcc);
             if (whole < 1) return;

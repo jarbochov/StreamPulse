@@ -55,7 +55,7 @@ export const RERENDER_PATHS = new Set([
     'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee',
     'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.showStatusBadge',
     'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta',
-    'pattern.sourceType', 'pattern.layout', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip'
+    'pattern.sourceType', 'pattern.preset', 'pattern.layout', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip'
 ]);
 
 export const numberWasOn = new Map();
@@ -389,7 +389,8 @@ export function mediaSourceBlock(el) {
         body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button><span class="hint">Use e.g. {{game.cover}} to show the current game's cover art.</span></div>`;
     } else {
         const accept = (el.type === 'image' || el.type === 'pattern') ? 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml' : 'video/mp4,video/webm,video/ogg';
-        body += `<div class="field"><span>${el.type === 'video' ? 'Video' : el.type === 'pattern' ? 'Tile image' : 'Image'} file</span><span class="upload-row"><input readonly value="${esc(friendlyAssetName(el.src))}" placeholder="Nothing chosen"><button type="button" id="open-assets">Library…</button></span></div>`;
+        const isVisual = el.type === 'image' || el.type === 'pattern';
+        body += `<div class="field"><span>${el.type === 'video' ? 'Video' : el.type === 'pattern' ? 'Tile image' : 'Image'} file</span><span class="upload-row"><input readonly value="${esc(friendlyAssetName(el.src))}" placeholder="Nothing chosen"><button type="button" id="open-assets">Library…</button>${isVisual ? '<button type="button" id="open-igdb" title="Import official game artwork, logos, or screenshots from IGDB">IGDB…</button>' : ''}</span></div>`;
         body += `<div class="field"><span>Upload new</span><input id="prop-upload" type="file" accept="${accept}"><span class="hint">Saved to the StreamPulse overlay asset folder (100 MB max). Transparent PNGs and SVGs work great over a background fill or shape.</span></div>`;
     }
     if (el.type === 'video') {
@@ -459,14 +460,33 @@ export function contentSection(el) {
         body += '<span class="hint">The icon is as tall as its box. Change the height to resize it; the width only adds space for alignment.</span>';
     }
     if (el.type === 'pattern') {
-        const sourceType = el.pattern?.sourceType === 'icon' ? 'icon' : 'image';
+        const sourceType = ['preset', 'icon', 'image'].includes(el.pattern?.sourceType) ? el.pattern.sourceType : (el.pattern?.preset ? 'preset' : (el.pattern?.sourceType === 'icon' ? 'icon' : 'image'));
+        const presetIcon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Pattern';
         const imgIcon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Image';
         const faIcon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Icon / Emoji';
         body += F.seg('pattern.sourceType', 'Tile graphic', sourceType, [
-            ['image', 'Image tile', imgIcon],
-            ['icon', 'Font Awesome icon or emoji tile', faIcon]
+            ['preset', 'Procedural (Promo)', presetIcon],
+            ['image', 'Custom image', imgIcon],
+            ['icon', 'Icon / Emoji', faIcon]
         ]);
-        if (sourceType === 'icon') {
+        if (sourceType === 'preset') {
+            const p = el.pattern || {};
+            const patterns = (window.StreamPulsePatterns?.PATTERN_CATEGORIES) || [
+                { group: 'Geometric', options: [['grid', 'Grid'], ['geometry', 'Geometry'], ['orbits', 'Orbits'], ['hexagons', 'Hexagons'], ['diamonds', 'Diamonds'], ['isometric', 'Isometric tiles'], ['mesh', 'Curved mesh'], ['sunburst', 'Sunburst'], ['triangles', 'Triangles'], ['chevrons', 'Chevrons'], ['checker', 'Checkerboard']] },
+                { group: 'Organic & decorative', options: [['waves', 'Waves'], ['rings', 'Rings'], ['scales', 'Scales'], ['topography', 'Topography'], ['circuit', 'Circuit board']] },
+                { group: 'Particle & field', options: [['starfield', 'Starfield'], ['sparkles', 'Sparkles'], ['dots', 'Dots'], ['confetti', 'Confetti']] }
+            ];
+            body += F.select('pattern.preset', 'Pattern', p.preset || 'hexagons', patterns);
+            body += `<div class="grid2">
+                ${F.color('pattern.accent', 'Line / accent color', p.accent || '#58a6ff')}
+                ${F.color('pattern.secondary', 'Secondary color', p.secondary || p.accent || '#38bdf8', { clear: true })}
+            </div>`;
+            body += `<div class="grid2">
+                ${F.color('pattern.color', 'Base fill', p.color || 'transparent', { clear: true })}
+                ${F.number('pattern.lineWidth', 'Line width (px, 0=auto)', p.lineWidth || 0, { min: 0, max: 20, step: 0.5 })}
+            </div>`;
+            body += F.range('pattern.scale', 'Pattern scale', p.scale ?? 100, { min: 10, max: 500, step: 5, unit: '%', editable: true, reset: 100 });
+        } else if (sourceType === 'icon') {
             const s = el.style || {};
             body += F.text('content', 'Font Awesome icon or emoji', el.content || 'fa-brands fa-twitch', 'placeholder="fa-brands fa-twitch or paste an emoji" spellcheck="false"');
             body += `<div class="field"><span>Icon</span><button type="button" id="pick-icon">Choose icon…</button><span class="hint">Pick a Font Awesome icon above, or paste any emoji / symbol directly into the text box.</span></div>`;

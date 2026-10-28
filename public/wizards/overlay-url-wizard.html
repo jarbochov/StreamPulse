@@ -529,6 +529,14 @@
                         </select>
                     </div>
                     <div class="form-row">
+                        <label for="matchup-playerclocks">Player Clocks &amp; Timers</label>
+                        <select id="matchup-playerclocks">
+                            <option value="auto" selected>Auto (?playerclocks=auto)</option>
+                            <option value="always">Always Show (?playerclocks=always)</option>
+                            <option value="off">Hide Player Clocks (?playerclocks=off)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
                         <label for="matchup-confetti">Victory Celebration Fanfare</label>
                         <select id="matchup-confetti">
                             <option value="1" selected>Enabled (?confetti=1)</option>
@@ -800,7 +808,7 @@
         'poll-theme', 'poll-howtovote', 'poll-results',
         'tourney-layout', 'tourney-theme', 'tourney-showscores', 'tourney-confetti',
         'poll-tourney-layout', 'poll-tourney-theme', 'poll-tourney-showscores', 'poll-tourney-confetti',
-        'matchup-layout', 'matchup-theme', 'matchup-source', 'matchup-pipstyle', 'matchup-fit', 'matchup-center', 'matchup-pips', 'matchup-tags', 'matchup-confetti',
+        'matchup-layout', 'matchup-theme', 'matchup-source', 'matchup-pipstyle', 'matchup-fit', 'matchup-center', 'matchup-pips', 'matchup-tags', 'matchup-playerclocks', 'matchup-confetti',
         'ap-font', 'ap-weight', 'ap-fontscale', 'ap-align', 'ap-text', 'ap-accent', 'ap-bg', 'ap-outline'
     ];
 
@@ -1120,6 +1128,7 @@
         const matchupCenter = $('matchup-center') ? $('matchup-center').value : '1';
         const matchupPips = $('matchup-pips') ? $('matchup-pips').value : '1';
         const matchupTags = $('matchup-tags') ? $('matchup-tags').value : '1';
+        const matchupPlayerClocks = $('matchup-playerclocks') ? $('matchup-playerclocks').value : 'auto';
         const matchupConfetti = $('matchup-confetti') ? $('matchup-confetti').value : '1';
         setUrl('matchup-url', buildUrl('/matchup.html', {
             layout: matchupLayout !== 'top' ? matchupLayout : '',
@@ -1130,6 +1139,7 @@
             center: matchupCenter === '0' ? '0' : '',
             pips: matchupPips === '0' ? '0' : '',
             tags: matchupTags === '0' ? '0' : '',
+            playerclocks: matchupPlayerClocks !== 'auto' ? matchupPlayerClocks : '',
             confetti: matchupConfetti === '0' ? '0' : ''
         }));
 

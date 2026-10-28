@@ -114,6 +114,7 @@ The Matchup overlay self-sizes to whatever OBS browser source dimensions you con
   - `bottom` — Esports lower-third HUD docked at the bottom of the screen.
   - `versus` — Full-screen matchup intro card with prominent VS emblem.
   - `pod` — Floating independent single-player score pod for webcam framing in 4-player games.
+- **Competitor Clocks & Splits (`?playerclocks=auto|always|off`)**: Display individual player timer chips, runner split times, and finish delta badges across all layouts (Top Bar, FGC, Split, Pillar, Bottom, Compact, and Versus), not just the dedicated race layout.
 - **Tournament Auto-Binding (`?source=auto`)**: By default, `/overlays/matchup.html` automatically mirrors the active tournament match when a bracket is running, and seamlessly falls back to your exhibition matchup queue when idle.
 
 ---

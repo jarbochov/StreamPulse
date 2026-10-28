@@ -103,6 +103,13 @@
                                             <span class="menu-item-desc">Seamless repeating mosaic</span>
                                         </span>
                                     </button>
+                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="igdb-artwork">
+                                        <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3.5" width="12" height="9" rx="1.5"/><path d="M4.5 8h2m-1-1v2m5-1a1 1 0 100 2 1 1 0 000-2zm2 1.5a.75.75 0 100 1.5.75.75 0 000-1.5z"/></svg></span>
+                                        <span class="menu-item-text">
+                                            <span class="menu-item-title">Game Artwork (IGDB)</span>
+                                            <span class="menu-item-desc">Import game art, logo, or screenshot</span>
+                                        </span>
+                                    </button>
                                 </div>
                             </div>
                             <div class="menu-panel-col">
@@ -249,7 +256,23 @@
         <input id="asset-tag-q" type="search" placeholder="Find a tag…" aria-label="Find a tag" style="margin-top:.5rem">
         <div id="asset-tags" class="tag-chips"></div>
         <div id="asset-grid"></div>
-        <div class="dialog-actions"><label class="btn-like" style="margin-right:auto">Upload new…<input id="asset-upload" type="file" accept="image/*,video/*,.txt,.md,.markdown" hidden></label><button id="asset-close">Cancel</button></div>
+        <div class="dialog-actions"><label class="btn-like" style="margin-right:auto">Upload new…<input id="asset-upload" type="file" accept="image/*,video/*,.txt,.md,.markdown" hidden></label><button type="button" id="asset-igdb-btn" class="btn-like">Import from IGDB…</button><button id="asset-close">Cancel</button></div>
+    </dialog>
+    <dialog id="igdb-dialog">
+        <div class="actions" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+            <h3 style="margin:0;">Game artwork from IGDB</h3>
+            <button id="close-igdb" type="button">Close</button>
+        </div>
+        <form id="igdb-search-form" style="display:flex;gap:.5rem;margin-bottom:1rem;">
+            <input id="igdb-query" type="search" maxlength="100" placeholder="Search games by title…" required minlength="2" style="flex:1;">
+            <button type="submit" class="primary">Search IGDB</button>
+        </form>
+        <button id="igdb-back" type="button" hidden style="margin-bottom:.75rem;display:inline-flex;align-items:center;gap:4px;">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 3L5 8l5 5"/></svg>
+            <span>Back to games</span>
+        </button>
+        <p id="igdb-status" role="status" class="hint" style="margin:0 0 .75rem;"></p>
+        <div id="igdb-grid" class="asset-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.6rem;max-height:60vh;overflow-y:auto;"></div>
     </dialog>
     <dialog id="slide-dialog">
         <h3>Choose slideshow images</h3>
@@ -291,6 +314,7 @@
     <script src="/vendor/Sortable.min.js"></script>
     <script src="/vendor/marked.umd.js"></script>
     <script src="/vendor/purify.min.js"></script>
+    <script src="/js/patterns-shared.js"></script>
     <script src="/overlay-shared.js"></script>
     <script src="/js/poll-widget.js"></script>
     <script src="/overlay-retro.js"></script>

@@ -594,13 +594,58 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
         fs.writeFileSync(eventsPath, JSON.stringify(events));
     }
 
+    function alertAssetUsers(name, assetReferencedIn) {
+        const users = [];
+        const isRef = (val) => {
+            if (!val || typeof val !== 'string') return false;
+            return typeof assetReferencedIn === 'function' ? assetReferencedIn(val, name, null) : val.includes(name);
+        };
+        for (const rule of config.rules || []) {
+            let matched = false;
+            for (const v of rule.variants || []) {
+                if (isRef(v.image) || isRef(v.video) || isRef(v.sound)) {
+                    matched = true;
+                    break;
+                }
+            }
+            if (matched) {
+                users.push({
+                    id: `alert:${rule.id}`,
+                    name: `Alert: ${rule.name || TRIGGERS[rule.trigger] || rule.trigger}`
+                });
+            }
+        }
+        return users;
+    }
+
+    function rewriteAlertReferences(oldName, newName, rewriteAssetReferences) {
+        if (typeof rewriteAssetReferences !== 'function') return false;
+        let changed = false;
+        for (const rule of config.rules || []) {
+            for (const v of rule.variants || []) {
+                for (const key of ['image', 'video', 'sound']) {
+                    if (v[key] && typeof v[key] === 'string') {
+                        const next = rewriteAssetReferences(v[key], oldName, newName, null, null);
+                        if (next !== v[key]) {
+                            v[key] = next;
+                            changed = true;
+                        }
+                    }
+                }
+            }
+        }
+        if (changed) save();
+        return changed;
+    }
+
     return {
         TRIGGERS, ANIM_IN, ANIM_OUT, TIMER_ACTIONS,
         getConfig: () => config,
         setConfig(next) { config = normalizeConfig(next); save(); return config; },
         getQueueState: () => ({ pending: queue.length, current, paused, history, events }),
         replayEvent, replayAlert,
-        handleEvent, fireRule, noteGift, control, stop
+        handleEvent, fireRule, noteGift, control, stop,
+        alertAssetUsers, rewriteAlertReferences
     };
 }
 

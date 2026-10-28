@@ -1889,6 +1889,12 @@
             color: #38bdf8;
         }
 
+        .runner-finish-pill.ready {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            color: rgba(255, 255, 255, 0.65);
+        }
+
         .runner-delta-tag {
             display: inline-flex;
             align-items: center;
@@ -2222,6 +2228,7 @@
         const showClock = params.get('clock') !== '0';
         const clockStyle = (params.get('clockstyle') || 'badge').toLowerCase(); // 'badge' | 'bottom' | 'pill' | 'fgc'
         const runnerTimersParam = (params.get('runnertimers') || params.get('runner_timers') || '').toLowerCase(); // 'finish' | 'always' | 'off'
+        const playerClocksParam = (params.get('playerclocks') || params.get('player_clocks') || params.get('runnerclocks') || '').toLowerCase(); // '1' | 'always' | 'auto' | '0' | 'off'
         const splitsParam = (params.get('splits') ?? params.get('showsplits') ?? params.get('deltas') ?? '').toLowerCase();
         function isSplitsEnabled(m) {
             if (splitsParam === '0' || splitsParam === 'false' || splitsParam === 'off') return false;
@@ -2596,14 +2603,21 @@
 
         // Renders inline finish/running timer badge for any scoreboard layout (top, fgc, split, pillar, minimal, bottom, compact, angular, versus)
         function renderRunnerInlineTimerHtml(m, comp, idx) {
-            if (!showClock || !m?.clock || m.clock.enabled === false || m.clock.mode !== 'race') return '';
+            if (!showClock || !m?.clock || m.clock.enabled === false) return '';
             const t = comp?.timer;
-            if (!t) return '';
             const mode = getRunnerTimersMode(m);
-            if (mode === 'off') return '';
+            const playerClocksExplicit = playerClocksParam === '1' || playerClocksParam === 'always' || playerClocksParam === 'true';
+            const playerClocksOff = playerClocksParam === '0' || playerClocksParam === 'off' || playerClocksParam === 'false';
+            if (playerClocksOff) return '';
+
+            const isRace = m.clock.mode === 'race';
+            const hasActiveTimer = Boolean(t && (t.finished || t.isRunning || (t.elapsed || 0) > 0));
+            if (!isRace && !playerClocksExplicit && !hasActiveTimer) return '';
+            if (mode === 'off' && !playerClocksExplicit) return '';
+
             const origIdx = comp?._origIdx !== undefined ? comp._origIdx : idx;
             const splitsOn = isSplitsEnabled(m);
-            if (t.finished) {
+            if (t && t.finished) {
                 const timeStr = t.finishTime || fmtMs(t.elapsed || 0);
                 if (!splitsOn) {
                     return `<span class="runner-finish-pill place-1" title="Finish Time"><span>${esc(timeStr)}</span></span>`;
@@ -2615,8 +2629,14 @@
                 }
                 return `<span class="runner-finish-pill place-other" title="Finished ${ord} (${deltaStr})"><span>${ord}</span><span>·</span><span>${esc(timeStr)}</span><span class="runner-delta-tag">${esc(deltaStr)}</span></span>`;
             }
-            if (mode === 'always' && (t.isRunning || (t.elapsed || 0) > 0)) {
+            if (t && t.isRunning) {
                 return `<span class="runner-finish-pill running-live"><span data-live="${origIdx}">${fmtMs(t.elapsed || 0)}</span></span>`;
+            }
+            if (hasActiveTimer && t && (t.elapsed || 0) > 0) {
+                return `<span class="runner-finish-pill place-other"><span data-live="${origIdx}">${fmtMs(t.elapsed || 0)}</span></span>`;
+            }
+            if (playerClocksExplicit) {
+                return `<span class="runner-finish-pill ready"><span data-live="${origIdx}">0:00.0</span></span>`;
             }
             return '';
         }

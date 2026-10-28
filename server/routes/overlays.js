@@ -153,10 +153,12 @@ function createOverlayRoutes({
     creditsAssetUsers = () => [],
     gamePlanAssetUsers = () => [],
     promoAssetUsers = () => [],
+    alertAssetUsers = (name) => (alertEngine?.alertAssetUsers ? alertEngine.alertAssetUsers(name, assetReferencedIn) : []),
     rewriteTimerSoundReferences = () => false,
     rewriteGamePlanReferences = () => false,
     rewritePromoReferences = () => false,
     rewriteCreditsReferences = () => false,
+    rewriteAlertReferences = (oldName, newName) => (alertEngine?.rewriteAlertReferences ? alertEngine.rewriteAlertReferences(oldName, newName, rewriteAssetReferences) : false),
     normalizeCustomOverlay = overlayService ? overlayService.normalizeCustomOverlay : (o) => o,
     saveCustomOverlays = overlayService ? overlayService.saveCustomOverlays : () => {},
     syncOverlayPages = overlayService ? overlayService.syncOverlayPages : () => {},
@@ -382,7 +384,8 @@ function createOverlayRoutes({
                     ...timerSoundUsers(name),
                     ...creditsAssetUsers(name),
                     ...gamePlanAssetUsers(name),
-                    ...promoAssetUsers(name)
+                    ...promoAssetUsers(name),
+                    ...alertAssetUsers(name)
                 ];
                 return {
                     name,
@@ -430,7 +433,8 @@ function createOverlayRoutes({
                     ...timerSoundUsers(name).map(u => u.id),
                     ...creditsAssetUsers(name).map(u => u.id),
                     ...gamePlanAssetUsers(name).map(u => u.id),
-                    ...promoAssetUsers(name).map(u => u.id)
+                    ...promoAssetUsers(name).map(u => u.id),
+                    ...alertAssetUsers(name).map(u => u.id)
                 ];
                 if (usedBy.length && url.searchParams.get('force') !== '1') {
                     res.writeHead(409, { 'Content-Type': 'application/json' });
@@ -511,6 +515,7 @@ function createOverlayRoutes({
             if (rewriteGamePlanReferences(name, newName)) updated.push('game-plan');
             if (rewritePromoReferences(name, newName)) updated.push('promos');
             if (rewriteCreditsReferences(name, newName)) updated.push('credits');
+            if (rewriteAlertReferences(name, newName)) updated.push('alerts');
             if (updated.some(id => customOverlays[id])) {
                 saveCustomOverlays();
                 for (const id of updated.filter(id => customOverlays[id])) {

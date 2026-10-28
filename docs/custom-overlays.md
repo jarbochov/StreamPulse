@@ -132,10 +132,15 @@ Automated image carousel cycling through media assets.
 - **Transitions**: Smooth cross-fade or lateral slide animations.
 
 #### Pattern Tile (`pattern`)
-Seamlessly repeating geometric or textured tile backgrounds.
-- **Tile Layout**: Grid, brick staggered, or hexagonal repetition.
-- **Motion Scrolling**: Continuous background panning with configurable scroll angle (0–360°) and travel speed.
+Seamlessly repeating geometric, textured, or procedural tile backgrounds and motion graphics.
+- **Graphic Styles**: Choose from 20 shared procedural patterns (Grid, Geometry, Orbits, Hexagons, Diamonds, Isometric, Mesh, Sunburst, Triangles, Chevrons, Checker, Waves, Rings, Scales, Topography, Starfield, Sparkles, Dots, Confetti, Circuit), uploaded tile images, or Font Awesome icons and emoji.
+- **Procedural Customization**: Tune stroke width, line/accent colors, secondary tones, base fills, and scale (10–500%).
+- **Tile Layout**: Brick staggered, alternating, checkerboard, or kaleidoscope radial mirror wedges (4 to 16 wedges).
+- **Motion Scrolling & Weave**: Continuous background panning with configurable scroll angle (0–360°), counter-scrolling rows/columns, spin, sway, pulse, and weave stepping.
 - **Transforms**: Per-tile rotation angles, alternating tilt, scale variation, and blend modes (`normal`, `screen`, `multiply`, `overlay`).
+
+#### Game Artwork from IGDB
+Directly browse and import official covers, concept artwork, logos, and high-resolution screenshots from IGDB into custom overlay image layers via **Add element &rarr; Game Artwork (IGDB)** or the inspector's **IGDB...** button.
 
 ---
 

@@ -848,9 +848,14 @@ function initEventListeners() {
     });
     addMenu?.querySelectorAll('[data-add]').forEach(button => {
         button.addEventListener('click', () => {
-            addElement(button.dataset.add);
+            const addType = button.dataset.add;
             addMenu.classList.remove('open');
-            $('add-element').setAttribute('aria-expanded', 'false');
+            $('add-element')?.setAttribute('aria-expanded', 'false');
+            if (addType === 'igdb-artwork') {
+                openIgdbDialog({ isNewElement: true });
+                return;
+            }
+            addElement(addType);
         });
     });
 
@@ -955,6 +960,151 @@ function initEventListeners() {
         assetDialog?.close();
         if (!hadSource && el.type !== 'pattern') await fitToMedia(el, el.src, el.type);
         renderCanvas(); renderProperties(); changed(true);
+    });
+
+    // IGDB Game Artwork Picker Listeners
+    let igdbRevision = 0, igdbResults = [], igdbTargetElementId = null, igdbIsNewElement = false;
+
+    function openIgdbDialog({ targetElementId = null, isNewElement = false } = {}) {
+        igdbTargetElementId = targetElementId;
+        igdbIsNewElement = isNewElement;
+        igdbRevision++;
+        const dialog = $('igdb-dialog');
+        if (!dialog) return;
+        $('igdb-grid').replaceChildren();
+        $('igdb-back').hidden = true;
+        $('igdb-status').textContent = 'Search IGDB for a game title to browse official covers, artwork, and screenshots.';
+        dialog.showModal();
+        $('igdb-query')?.focus();
+    }
+
+    function igdbButton(url, label, onClick) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'asset-tile';
+        button.style.cssText = 'display:flex;flex-direction:column;align-items:center;padding:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:6px;cursor:pointer;color:#fff;text-align:center;overflow:hidden;gap:6px;';
+        if (url) {
+            const thumb = document.createElement('span');
+            thumb.className = 'thumb';
+            thumb.style.cssText = 'width:100%;aspect-ratio:16/9;overflow:hidden;border-radius:4px;display:flex;align-items:center;justify-content:center;background:#000;';
+            const image = new Image();
+            image.src = url;
+            image.alt = '';
+            image.loading = 'lazy';
+            image.referrerPolicy = 'no-referrer';
+            image.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+            thumb.appendChild(image);
+            button.appendChild(thumb);
+        }
+        const text = document.createElement('span');
+        text.className = 'cap';
+        text.textContent = label;
+        text.title = label;
+        text.style.cssText = 'font-size:0.75rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;';
+        button.appendChild(text);
+        button.addEventListener('click', onClick);
+        $('igdb-grid')?.appendChild(button);
+    }
+
+    function showIgdbGames() {
+        $('igdb-back').hidden = true;
+        $('igdb-grid').replaceChildren();
+        $('igdb-status').textContent = igdbResults.length ? 'Choose a game to browse its covers, artwork, and screenshots.' : 'No games found. Try another search.';
+        for (const game of igdbResults) {
+            igdbButton(game.cover, `${game.name}${game.year ? ` (${game.year})` : ''}`, () => showIgdbGameMedia(game.id));
+        }
+    }
+
+    async function showIgdbGameMedia(gameId) {
+        const revision = ++igdbRevision;
+        $('igdb-grid').replaceChildren();
+        $('igdb-back').hidden = false;
+        $('igdb-status').textContent = 'Loading game media…';
+        try {
+            const res = await fetch(`/api/promos/igdb/games/${encodeURIComponent(gameId)}`);
+            if (!res.ok) throw new Error((await res.json()).error || 'Could not load game media');
+            const game = await res.json();
+            if (revision !== igdbRevision) return;
+            $('igdb-status').textContent = game.images.length ? `${game.name} — choose a cover, artwork, or screenshot:` : 'This game has no images on IGDB.';
+            for (const [index, image] of game.images.entries()) {
+                igdbButton(image.url, `${image.kind} ${index + 1}`, async () => {
+                    $('igdb-status').textContent = 'Importing full-resolution artwork to your Asset Library…';
+                    $('igdb-dialog').querySelectorAll('button,input').forEach(el => { el.disabled = true; });
+                    try {
+                        const importRes = await fetch('/api/promos/igdb/import', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ gameId, imageId: image.imageId })
+                        });
+                        if (!importRes.ok) throw new Error((await importRes.json()).error || 'Import failed');
+                        const asset = await importRes.json();
+                        $('igdb-dialog').close();
+
+                        if (igdbIsNewElement || !igdbTargetElementId) {
+                            const newEl = addElement('image', { src: asset.url, name: asset.label || `${game.name} Art` });
+                            if (newEl) {
+                                await fitToMedia(newEl, asset.url, 'image');
+                                renderCanvas();
+                                renderProperties();
+                                renderLayers();
+                                changed(true);
+                                toast(`Imported artwork: ${asset.label}`, 'success');
+                            }
+                        } else {
+                            const targetEl = state.overlay.elements.find(item => item.id === igdbTargetElementId);
+                            if (targetEl) {
+                                const hadSource = !!targetEl.src;
+                                targetEl.src = asset.url;
+                                if (!hadSource && targetEl.type !== 'pattern') await fitToMedia(targetEl, asset.url, targetEl.type);
+                                renderCanvas();
+                                renderProperties();
+                                changed(true);
+                                toast(`Updated artwork: ${asset.label}`, 'success');
+                            }
+                        }
+                    } catch (error) {
+                        $('igdb-status').textContent = error.message;
+                    } finally {
+                        $('igdb-dialog').querySelectorAll('button,input').forEach(el => { el.disabled = false; });
+                    }
+                });
+            }
+        } catch (error) {
+            if (revision === igdbRevision) $('igdb-status').textContent = error.message;
+        }
+    }
+
+    $('close-igdb')?.addEventListener('click', () => $('igdb-dialog')?.close());
+    $('igdb-dialog')?.addEventListener('close', () => { igdbRevision++; });
+    $('igdb-back')?.addEventListener('click', () => { igdbRevision++; showIgdbGames(); });
+    $('igdb-search-form')?.addEventListener('submit', async event => {
+        event.preventDefault();
+        const query = $('igdb-query')?.value?.trim();
+        if (!query) return;
+        const revision = ++igdbRevision;
+        $('igdb-grid').replaceChildren();
+        $('igdb-back').hidden = true;
+        $('igdb-status').textContent = 'Searching IGDB…';
+        try {
+            const res = await fetch(`/api/promos/igdb/search?q=${encodeURIComponent(query)}`);
+            if (!res.ok) throw new Error((await res.json()).error || 'Search failed');
+            const data = await res.json();
+            if (revision !== igdbRevision) return;
+            igdbResults = data.results || [];
+            showIgdbGames();
+        } catch (error) {
+            if (revision === igdbRevision) $('igdb-status').textContent = error.message;
+        }
+    });
+    $('asset-igdb-btn')?.addEventListener('click', () => {
+        assetDialog?.close();
+        openIgdbDialog({ targetElementId: pickerTarget, isNewElement: false });
+    });
+    $('properties')?.addEventListener('click', event => {
+        if (event.target.closest('#open-igdb')) {
+            const el = selectedElements()[0];
+            if (el) openIgdbDialog({ targetElementId: el.id, isNewElement: false });
+        }
     });
 
     // Slideshow Picker Listeners

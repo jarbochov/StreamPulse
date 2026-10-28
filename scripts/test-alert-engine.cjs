@@ -340,3 +340,71 @@ test('alert box idle state: border and background styling is stripped from idle 
     assert.ok(deco.background, 'Decorations are preserved on _alertDeco for the active card');
 });
 
+test('alert assets tracking and rewriting in asset library', () => {
+    const { engine, cleanup } = createTempEngine({
+        rules: [
+            {
+                id: 'sub-hype',
+                name: 'Hype Sub Alert',
+                trigger: 'sub',
+                variants: [
+                    {
+                        title: 'Super sub!',
+                        image: '/custom-overlay-assets/hype-sub.gif',
+                        video: '',
+                        sound: '/custom-overlay-assets/fanfare.mp3'
+                    }
+                ]
+            },
+            {
+                id: 'raid-alert',
+                name: 'Raid Incoming',
+                trigger: 'raid',
+                variants: [
+                    {
+                        title: 'Raid!',
+                        image: '',
+                        video: '/custom-overlay-assets/party-raid.mp4',
+                        sound: ''
+                    }
+                ]
+            }
+        ]
+    });
+
+    try {
+        const assetRef = (text, name) => text && text.includes(name);
+
+        // Test alertAssetUsers detection
+        const subImageUsers = engine.alertAssetUsers('hype-sub.gif', assetRef);
+        assert.equal(subImageUsers.length, 1);
+        assert.equal(subImageUsers[0].id, 'alert:sub-hype');
+        assert.equal(subImageUsers[0].name, 'Alert: Hype Sub Alert');
+
+        const soundUsers = engine.alertAssetUsers('fanfare.mp3', assetRef);
+        assert.equal(soundUsers.length, 1);
+        assert.equal(soundUsers[0].id, 'alert:sub-hype');
+
+        const videoUsers = engine.alertAssetUsers('party-raid.mp4', assetRef);
+        assert.equal(videoUsers.length, 1);
+        assert.equal(videoUsers[0].id, 'alert:raid-alert');
+
+        const unusedUsers = engine.alertAssetUsers('nonexistent.png', assetRef);
+        assert.equal(unusedUsers.length, 0);
+
+        // Test rewriteAlertReferences on rename
+        const rewriter = (text, from, to) => text ? text.replace(from, to) : text;
+        const changed = engine.rewriteAlertReferences('fanfare.mp3', 'victory-chime.mp3', rewriter);
+        assert.equal(changed, true);
+
+        const updatedSoundUsers = engine.alertAssetUsers('victory-chime.mp3', assetRef);
+        assert.equal(updatedSoundUsers.length, 1);
+        assert.equal(updatedSoundUsers[0].id, 'alert:sub-hype');
+
+        const oldSoundUsers = engine.alertAssetUsers('fanfare.mp3', assetRef);
+        assert.equal(oldSoundUsers.length, 0);
+    } finally {
+        cleanup();
+    }
+});
+

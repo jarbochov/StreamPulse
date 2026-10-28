@@ -1189,6 +1189,10 @@
                                         <span>Show match clock / timers</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="matchup-opt-playerclocks" checked onchange="updateMatchupOverlayUrl()">
+                                        <span>Show player clocks / timers (<code>?playerclocks=auto</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="matchup-opt-showest" checked onchange="updateMatchupOverlayUrl()">
                                         <span>Show target estimated time (<code>?showest=1</code>, e.g. EST 45:00)</span>
                                     </label>
@@ -2107,7 +2111,7 @@
             if (widthInput && widthInput.value && widthInput.value.trim()) urlParams.set('width', widthInput.value.trim());
             if (gapSelect && gapSelect.value) urlParams.set('gap', gapSelect.value);
             if (centerCheck && !centerCheck.checked) urlParams.set('center', '0');
-            ['title', 'phase', 'clock', 'tags', 'details', 'pips', 'banner'].forEach(k => { const el = $('matchup-opt-' + k); if (el && !el.checked) urlParams.set(k, '0'); });
+            ['title', 'phase', 'clock', 'playerclocks', 'tags', 'details', 'pips', 'banner'].forEach(k => { const el = $('matchup-opt-' + k); if (el && !el.checked) urlParams.set(k, '0'); });
             const roundPipsEl = $('matchup-opt-roundpips');
             if (roundPipsEl) {
                 if (roundPipsEl.checked) urlParams.set('roundpips', '1');
