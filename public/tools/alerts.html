@@ -660,6 +660,258 @@
             background: var(--accent-bg);
         }
 
+        /* ══════════════════════════════════════════════════════════════════════
+           PRESTIGE MEDIA, AUDIO & FX CONTROLS
+           ══════════════════════════════════════════════════════════════════════ */
+
+        /* Tabs within variant */
+        .vtabs {
+            display: flex;
+            gap: 0.35rem;
+            border-bottom: 1px solid var(--border);
+            align-items: center;
+            flex-wrap: wrap;
+            padding-bottom: 0.4rem;
+            margin-bottom: 0.65rem;
+        }
+        .vtab {
+            background: transparent;
+            border: 0;
+            border-bottom: 2px solid transparent;
+            color: var(--text-muted);
+            padding: 0.35rem 0.75rem;
+            font: inherit;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            border-radius: 6px 6px 0 0;
+            transition: all 0.12s;
+        }
+        .vtab:hover {
+            color: var(--text);
+            background: var(--bg-raised);
+        }
+        .vtab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+            background: color-mix(in srgb, var(--accent) 10%, transparent);
+        }
+        .vtab-grow { flex: 1; }
+
+        .vgrid {
+            display: grid;
+            gap: 0.65rem 0.85rem;
+        }
+        .vgrid.c2 { grid-template-columns: 1fr 1fr; }
+        .vgrid.c3 { grid-template-columns: repeat(3, 1fr); }
+        @media (max-width: 720px) {
+            .vgrid.c2, .vgrid.c3 { grid-template-columns: 1fr; }
+        }
+
+        .fld {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            min-width: 0;
+        }
+        .fld label, .fld > span:first-child {
+            font-size: 0.73rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .fld input, .fld select {
+            width: 100%;
+            min-width: 0;
+            padding: 0.42rem 0.65rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            color: var(--text);
+            font-size: 0.82rem;
+            font-family: inherit;
+            transition: border-color 0.12s;
+        }
+        .fld input:focus, .fld select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* Segmented Mode Selector (Image / Video / Emoji) */
+        .seg-pills {
+            display: inline-flex;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 3px;
+            gap: 3px;
+        }
+        .seg-btn {
+            background: transparent;
+            border: 0;
+            border-radius: 5px;
+            padding: 0.28rem 0.75rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.12s;
+        }
+        .seg-btn:hover {
+            color: var(--text);
+            background: var(--bg-raised);
+        }
+        .seg-btn.active {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+        }
+
+        /* Media Field Box & Preview Box */
+        .media-field-box {
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem 0.9rem;
+        }
+        .media-field-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+        .media-field-label {
+            font-size: 0.73rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .media-field-main {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+        @media (max-width: 600px) {
+            .media-field-main { flex-direction: column; align-items: stretch; }
+        }
+        .media-preview-box {
+            width: 84px;
+            height: 64px;
+            border-radius: 6px;
+            background: var(--bg-inset);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .media-preview-box img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+        .media-preview-box video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+            background: #000;
+        }
+        .media-row {
+            display: flex;
+            gap: 0.45rem;
+            min-width: 0;
+            flex: 1;
+            align-items: center;
+        }
+        @media (max-width: 680px) {
+            .media-row { flex-wrap: wrap; }
+        }
+        .media-row input[type="text"] {
+            flex: 1;
+            min-width: 180px;
+            padding: 0.42rem 0.65rem;
+            background: var(--bg-inset);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 0.82rem;
+            font-family: inherit;
+        }
+        .media-row input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .media-row select {
+            flex: 1;
+            min-width: 180px;
+            padding: 0.42rem 0.65rem;
+            background: var(--bg-inset);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 0.82rem;
+            font-family: inherit;
+        }
+        .media-row select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* Video Options Row */
+        .video-options-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.6rem 0.85rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            margin-top: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .video-options-left {
+            display: inline-flex;
+            align-items: center;
+            gap: 1.25rem;
+            flex-wrap: wrap;
+        }
+        .video-vol-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55rem;
+            margin-left: auto;
+        }
+
+        /* Audio Settings Card */
+        .audio-field-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.85rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
         /* Volume Slider Row */
         .vol-wrap { display: flex; align-items: center; gap: 0.65rem; }
         .vol-slider { flex: 1; height: 5px; accent-color: var(--accent); cursor: pointer; }
@@ -1279,27 +1531,25 @@
         const isImg = kinds.includes('image');
         const isVid = kinds.includes('video');
         return `
-        <div class="fld">
-            <span style="display:flex;justify-content:space-between;align-items:center;">
-                <span>${label}</span>
-                ${val ? `<button type="button" class="btn ghost sm" data-clear-media="${i}.${key}" style="font-size:0.68rem;padding:0.05rem 0.35rem;">Clear</button>` : ''}
-            </span>
-            <div style="display:flex;gap:0.5rem;align-items:flex-start;">
+        <div class="media-field-box">
+            <div class="media-field-top">
+                <span class="media-field-label">${label}</span>
+                ${val ? `<button type="button" class="btn ghost sm danger" data-clear-media="${i}.${key}" style="font-size:0.68rem;padding:0.08rem 0.45rem;">Clear</button>` : ''}
+            </div>
+            <div class="media-field-main">
                 ${val ? `
                     <div class="media-preview-box" title="${esc(val)}">
-                        ${isImg ? `<img src="${esc(val)}" alt="" onerror="this.parentElement.style.display='none'">` : isVid ? `<video src="${esc(val)}" muted preload="metadata" onerror="this.parentElement.style.display='none'"></video>` : `<div style="font-size:1.4rem;">${ICONS.volume}</div>`}
+                        ${isImg ? `<img src="${esc(val)}" alt="" onerror="this.parentElement.style.display='none'">` : isVid ? `<video src="${esc(val)}" muted preload="metadata" onerror="this.parentElement.style.display='none'"></video>` : `<div style="font-size:1.4rem;color:var(--accent);">${ICONS.volume}</div>`}
                     </div>
                 ` : ''}
-                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:0.35rem;">
-                    <div class="media-row">
-                        <input type="text" data-v="${i}.${key}" placeholder="Paste URL or choose below" value="${esc(val)}">
-                        <button type="button" class="btn sm" data-library="${i}.${key}" data-kinds="${kinds.join(',')}" ${list.length ? '' : 'disabled'}>
-                            ${ICONS.folder} <span>Library (${list.length})</span>
-                        </button>
-                        <button type="button" class="btn sm" data-upload="${i}.${key}" data-accept="${accept}">
-                            ${ICONS.upload} <span>Upload</span>
-                        </button>
-                    </div>
+                <div class="media-row">
+                    <input type="text" data-v="${i}.${key}" placeholder="Paste URL or choose below" value="${esc(val)}">
+                    <button type="button" class="btn sm" data-library="${i}.${key}" data-kinds="${kinds.join(',')}" ${list.length ? '' : 'disabled'}>
+                        ${ICONS.folder} <span>Library (${list.length})</span>
+                    </button>
+                    <button type="button" class="btn sm" data-upload="${i}.${key}" data-accept="${accept}">
+                        ${ICONS.upload} <span>Upload</span>
+                    </button>
                 </div>
             </div>
         </div>`;
@@ -1322,9 +1572,11 @@
         }
         return `
         <div class="vgrid c2">
-            <label class="fld">
-                <span>Sound Effect</span>
-                <span class="media-row">
+            <div class="media-field-box">
+                <div class="media-field-top">
+                    <span class="media-field-label">Built-in Sound Preset</span>
+                </div>
+                <div class="media-row" style="margin-top:0.2rem;">
                     <select data-sound-preset="${i}">
                         <option value="">Custom file / None</option>
                         ${Object.entries(groups).map(([grp, items]) => `
@@ -1333,9 +1585,9 @@
                             </optgroup>
                         `).join('')}
                     </select>
-                    <button type="button" class="btn sm" data-sound-preview="${i}" ${v.sound ? '' : 'disabled'}>${ICONS.play} Preview</button>
-                </span>
-            </label>
+                    <button type="button" class="btn sm" data-sound-preview="${i}" ${v.sound ? '' : 'disabled'}>${ICONS.play} <span>Preview</span></button>
+                </div>
+            </div>
             ${file}
         </div>`;
     }
@@ -1469,8 +1721,8 @@
 
         const panels = {
             visual: `
-                <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.2rem;">
-                    <span style="font-size:0.72rem;font-weight:600;color:var(--text-muted);">Media Mode:</span>
+                <div style="display:flex;align-items:center;gap:0.65rem;flex-wrap:wrap;margin-bottom:0.65rem;">
+                    <span style="font-size:0.73rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;">Media Mode:</span>
                     <div class="seg-pills">
                         ${[['image', 'Image / GIF', ICONS.image], ['video', 'Video', ICONS.video], ['emoji', 'Emoji & Emotes', ICONS.smile]].map(([key, label, icon]) => `
                             <button type="button" class="seg-btn${key === media ? ' active' : ''}" data-vmedia="${key}" data-vid-tab="${esc(v.id)}">
@@ -1479,44 +1731,53 @@
                         `).join('')}
                     </div>
                 </div>
-                ${media === 'image' ? mediaField(i, 'image', ['image'], 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml', 'Alert Image / GIF') + (v.video ? '<span class="hint">Note: A video URL is also set and takes priority over the image.</span>' : '')
-                : media === 'video' ? mediaField(i, 'video', ['video'], 'video/mp4,video/webm', 'Alert Video (WebM / MP4)') + `
-                    <div style="display:flex;gap:1.2rem;align-items:center;margin-top:0.35rem;padding:0.4rem 0.6rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;flex-wrap:wrap;">
-                        <label class="check-row">
-                            <input type="checkbox" data-v="${i}.videoSound" ${v.videoSound ? 'checked' : ''}>
-                            <span>Play video audio</span>
-                        </label>
-                        <label class="check-row">
-                            <input type="checkbox" data-v="${i}.videoLoop" ${v.videoLoop !== false ? 'checked' : ''}>
-                            <span>Loop video</span>
-                        </label>
+                ${media === 'video' ? `
+                    ${mediaField(i, 'video', ['video'], 'video/mp4,video/webm', 'Alert Video (WebM / MP4)')}
+                    <div class="video-options-bar">
+                        <div class="video-options-left">
+                            <label class="check-row">
+                                <input type="checkbox" data-v="${i}.videoSound" ${v.videoSound ? 'checked' : ''}>
+                                <span>Play video audio</span>
+                            </label>
+                            <label class="check-row">
+                                <input type="checkbox" data-v="${i}.videoLoop" ${v.videoLoop !== false ? 'checked' : ''}>
+                                <span>Loop video</span>
+                            </label>
+                        </div>
                         ${v.videoSound ? `
-                            <div style="display:inline-flex;align-items:center;gap:0.45rem;margin-left:auto;">
+                            <div class="video-vol-group">
                                 <span style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">Video Volume:</span>
-                                <input type="range" class="vol-slider" min="0" max="100" data-v="${i}.videoVolume" data-vidvol-slider="${i}" value="${v.videoVolume ?? 70}" style="width:90px;">
-                                <span class="vol-badge" id="vidvol-badge-${i}" style="min-width:32px;">${v.videoVolume ?? 70}%</span>
+                                <input type="range" class="vol-slider" min="0" max="100" data-v="${i}.videoVolume" data-vidvol-slider="${i}" value="${v.videoVolume ?? 70}" style="width:100px;">
+                                <span class="vol-badge" id="vidvol-badge-${i}">${v.videoVolume ?? 70}%</span>
                             </div>
                         ` : ''}
                     </div>
-                `
-                : emojiHtml(v, i, r) + (v.video || v.image ? '<span class="hint">Emoji only display when image/video is blank.</span>' : '')}
+                ` : media === 'image' ? `
+                    ${mediaField(i, 'image', ['image'], 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml', 'Alert Image / GIF')}
+                    ${v.video ? '<span class="hint" style="margin-top:0.35rem;display:inline-block;">Note: A video URL is also set and takes priority over the image on playback.</span>' : ''}
+                ` : `
+                    ${emojiHtml(v, i, r)}
+                    ${v.video || v.image ? '<span class="hint" style="margin-top:0.35rem;display:inline-block;">Emoji only display when image and video are blank.</span>' : ''}
+                `}
             `,
             sound: `
-                ${soundHtml(v, i)}
-                <div class="fld" style="margin-top:0.4rem;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <span>Audio Volume</span>
-                        <span class="vol-badge" id="vol-badge-${i}">${v.volume ?? 70}%</span>
-                    </div>
-                    <div class="vol-wrap">
-                        <svg class="ico sm" style="color:var(--text-muted);" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></svg>
-                        <input type="range" class="vol-slider" min="0" max="100" data-v="${i}.volume" data-vol-slider="${i}" value="${v.volume ?? 70}">
-                        <svg class="ico sm" style="color:var(--text);" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                <div class="audio-field-card">
+                    ${soundHtml(v, i)}
+                    <div class="fld" style="margin-top:0.25rem;padding-top:0.65rem;border-top:1px solid var(--border);">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <label>Audio Playback Volume</label>
+                            <span class="vol-badge" id="vol-badge-${i}">${v.volume ?? 70}%</span>
+                        </div>
+                        <div class="vol-wrap" style="margin-top:0.25rem;">
+                            <svg class="ico sm" style="color:var(--text-muted);" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></svg>
+                            <input type="range" class="vol-slider" min="0" max="100" data-v="${i}.volume" data-vol-slider="${i}" value="${v.volume ?? 70}">
+                            <svg class="ico sm" style="color:var(--text);" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                        </div>
                     </div>
                 </div>
             `,
             timing: `
-                <div class="vgrid c3">
+                <div class="vgrid c3" style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.85rem 1rem;">
                     ${vin(i, 'duration', 'Show Duration (s)', v.duration, 'min="1" max="120" step="0.5"')}
                     ${vsel(i, 'animIn', 'Animation In', v.animIn, ANIM_IN)}
                     ${vsel(i, 'animOut', 'Animation Out', v.animOut, ANIM_OUT)}
@@ -1637,18 +1898,20 @@
                 </div>
 
                 <!-- Section 3: Visuals, Audio & Timing -->
-                <div class="vtabs">
-                    ${VTABS.map(([key, label, icon]) => `
-                        <button type="button" class="vtab${key === tab ? ' active' : ''}" data-vtab="${key}" data-vid-tab="${esc(v.id)}">
-                            ${icon} <span>${label}</span>
+                <div class="vsection-card">
+                    <div class="vtabs">
+                        ${VTABS.map(([key, label, icon]) => `
+                            <button type="button" class="vtab${key === tab ? ' active' : ''}" data-vtab="${key}" data-vid-tab="${esc(v.id)}">
+                                ${icon} <span>${label}</span>
+                            </button>
+                        `).join('')}
+                        <span class="vtab-grow"></span>
+                        <button type="button" class="btn sm danger" data-del-variant="${i}" ${r.variants.length < 2 ? 'disabled' : ''} title="Delete this variant">
+                            ${ICONS.trash} <span>Remove Variant</span>
                         </button>
-                    `).join('')}
-                    <span class="vtab-grow"></span>
-                    <button type="button" class="btn sm danger" data-del-variant="${i}" ${r.variants.length < 2 ? 'disabled' : ''} title="Delete this variant">
-                        ${ICONS.trash} <span>Remove Variant</span>
-                    </button>
+                    </div>
+                    ${panels[tab] || panels.visual}
                 </div>
-                ${panels[tab] || panels.visual}
             </div>
         </details>`;
     }
