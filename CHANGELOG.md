@@ -15,6 +15,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ### Fixed
 - Alerts Simulator: Add subscription tier selector and remove username substring check for Prime subs.
+- Custom Overlay Editor: Fix featured message trigger ingestion from SocialStream Ninja (unwrapping payloads on channels 2 & 4) and add in-editor trigger testing.
 
 ## [0.13.2] - 2026-10-19
 

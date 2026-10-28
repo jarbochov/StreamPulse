@@ -1608,7 +1608,7 @@ function createOverlayService({
     function takeoverPages(kind, name, ms, poll = {}) {
         for (const overlay of Object.values(customOverlays)) {
             if (!overlay.pages?.enabled) continue;
-            const target = overlay.pages.items.find(p => p.enabled && p.trigger === kind && (kind === 'featured' || (kind === 'alert' ? !p.triggerRules.length || p.triggerRules.includes(name) : !p.triggerName || p.triggerName === String(name || '').toLowerCase())));
+            const target = overlay.pages.items.find(p => p.enabled !== false && p.trigger === kind && (kind === 'featured' || (kind === 'alert' ? !p.triggerRules.length || p.triggerRules.includes(name) : !p.triggerName || p.triggerName === String(name || '').toLowerCase())));
             if (!target) {
                 if (kind === 'poll-end') {
                     const state = overlayPageState.get(overlay.id);

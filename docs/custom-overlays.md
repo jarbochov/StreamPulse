@@ -67,6 +67,9 @@ Once no eligible trigger remains, the previous normal page returns and automatic
 
 Alerts retain their own Alert Queue; page priority does not create a second alert queue. Priority applies only when a matching triggered page exists in that overlay. A shared alert box or separate alert overlay can display without replacing a poll page.
 
+> [!TIP]
+> **Testing Triggered Pages in the Editor**: When configuring an alert, featured message, poll, or chat command page in the Custom Overlay Editor, click **Test trigger** in the page card to immediately preview the takeover on stream and verify transition timings.
+
 ## Element Types Catalog
 
 StreamPulse includes 14 distinct element types organized across 4 functional categories. Access them anytime by clicking **+ Add element** in the stage toolbar:

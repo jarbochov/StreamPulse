@@ -944,10 +944,17 @@ function applyRuntimeConfig(nextConfig) {
     const prevMusicEnabled = MUSIC_CONFIG.enabled;
     const prevSource = MUSIC_CONFIG.source;
     const prevViewerTracking = normalizeViewerTrackingConfig(config.viewer_tracking);
+    const prevSsnId = config.ssn?.session_id;
+    const prevSsnServer = config.ssn?.server;
 
     const prevLifecyclePoll = normalizeLifecycleConfig(config.session_lifecycle).poll_seconds;
     config = nextConfig;
     if (normalizeLifecycleConfig(config.session_lifecycle).poll_seconds !== prevLifecyclePoll) startLifecycleWatcher();
+    if (prevSsnId !== config.ssn?.session_id || prevSsnServer !== config.ssn?.server) {
+        ssnService.disconnectSSN();
+        ssnService.connectSSN();
+        ssnService.connectFeaturedListener();
+    }
     EXCLUDE_USERS = (config.exclude_users || []).map(u => u.toLowerCase());
     BANNED_USERS = (config.banned_users || []).map(u => u.toLowerCase());
 

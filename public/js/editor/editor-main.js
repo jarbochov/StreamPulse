@@ -22,7 +22,7 @@ import {
 import {
     renderLayers, renderPageBar, updateLayerSelection, setRailTab,
     initLayersAndPages, registerLayerCallbacks, duplicatePage, deletePage,
-    switchEditPage, livePage, refreshLivePage
+    switchEditPage, livePage, refreshLivePage, setLiveState
 } from './editor-layers.js';
 
 import {
@@ -699,8 +699,12 @@ export async function refreshLiveStatus() {
 export function connectAlertPreview() {
     const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`);
     socket.addEventListener('message', event => {
-        if (typeof event.data === 'string' && !event.data.includes('"alert') && !event.data.includes('"poll-update"')) return;
+        if (typeof event.data === 'string' && !event.data.includes('"alert') && !event.data.includes('"poll-update"') && !event.data.includes('"custom-overlay-page"')) return;
         let message; try { message = JSON.parse(event.data); } catch { return; }
+        if (message.type === 'custom-overlay-page' && message.data?.id === state.overlay?.id) {
+            setLiveState(message.data);
+            return;
+        }
         if (message.type === 'poll-update') {
             state.liveStatus.poll = message.data;
             if (prefs.live) renderCanvas();

@@ -163,6 +163,7 @@ function createOverlayRoutes({
     dropOverlayPages = overlayService ? overlayService.dropOverlayPages : () => {},
     setPageAuto = overlayService ? overlayService.setPageAuto : () => {},
     movePage = overlayService ? overlayService.movePage : () => {},
+    takeoverPages = overlayService ? overlayService.takeoverPages : () => {},
     broadcastPage = overlayService ? overlayService.broadcastPage : () => {},
     pageSnapshot = overlayService ? overlayService.pageSnapshot : () => ({}),
     getOverlayThumbnailPath = overlayService ? overlayService.getOverlayThumbnailPath : () => null,
@@ -653,8 +654,16 @@ function createOverlayRoutes({
                             sendError(res, 'Page not found', 404);
                             return true;
                         }
+                    } else if (action === 'trigger' || action === 'takeover') {
+                        const kind = String(body.kind || body.trigger || 'featured').trim().toLowerCase();
+                        const name = String(body.name || body.triggerName || '').trim();
+                        const seconds = Number(body.seconds || body.duration || 0);
+                        const ms = seconds > 0 ? seconds * 1000 : undefined;
+                        takeoverPages(kind, name, ms);
+                        sendJson(res, pageSnapshot(overlay));
+                        return true;
                     } else {
-                        sendError(res, 'action must be next, prev, first, last, goto, auto, enable, disable or toggle', 400);
+                        sendError(res, 'action must be next, prev, first, last, goto, auto, enable, disable, toggle, or trigger', 400);
                         return true;
                     }
                 } catch (err) {

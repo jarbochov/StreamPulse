@@ -214,7 +214,9 @@ export function renderPagesPanel() {
             ${cur?.trigger === 'command' ? F.text(`pages.items.${idx}.triggerName`, 'Command or trigger name (blank = any)', cur.triggerName || '') : ''}
             ${cur?.trigger === 'poll-end' ? `<div class="hint">Shows this page when a Twitch poll completes. Leave &ldquo;Show for&rdquo; at 0 for default 15s.</div>` : ''}
             ${cur?.trigger === 'poll-active' ? `<div class="hint">At Show for = 0, stays through voting and the longest Show results duration of visible Poll elements on this page, including shared elements. Waits briefly for Twitch to confirm results. A separate Poll end page takes priority; a nonzero Show for keeps fixed-duration behavior.</div>` : ''}
-            ${cur?.trigger ? F.number(`pages.items.${idx}.triggerSeconds`, 'Show for (seconds, 0 = default)', cur.triggerSeconds || 0, { min: 0, max: 3600 }) : `${F.number(`pages.items.${idx}.duration`, 'Seconds on screen (auto mode, 0 = default)', cur?.duration || 0, { min: 0, max: 3600 })}`}</div>
+            ${cur?.trigger === 'featured' ? `<div class="hint">Shows this page when a chat message is clicked or featured in SocialStream Ninja. Leave &ldquo;Show for&rdquo; at 0 for default 10s.</div>` : ''}
+            ${cur?.trigger ? F.number(`pages.items.${idx}.triggerSeconds`, 'Show for (seconds, 0 = default)', cur.triggerSeconds || 0, { min: 0, max: 3600 }) : `${F.number(`pages.items.${idx}.duration`, 'Seconds on screen (auto mode, 0 = default)', cur?.duration || 0, { min: 0, max: 3600 })}`}
+            ${cur?.trigger ? `<div style="margin-top:.6rem"><button type="button" class="btn" id="btn-test-trigger" style="width:100%;font-size:12px;padding:6px 10px;display:flex;align-items:center;justify-content:center;gap:6px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text);font-weight:600;"><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Test trigger</button></div>` : ''}</div>
         <div class="pg-card"><h4>Playback</h4>
             ${F.select('pages.mode', 'Advance', P.mode, [['manual', 'Manual (editor, control panel, API)'], ['auto', 'Automatic']])}
             ${P.mode === 'auto' ? `${F.number('pages.cycleSeconds', 'Default seconds per page', P.cycleSeconds, { min: 1, max: 3600 })}${F.check('pages.loop', 'Loop back to the first page', P.loop)}` : ''}
@@ -283,6 +285,11 @@ export async function refreshLivePage() {
             if (!pagesPanelBusy()) renderPageBar();
         }
     } catch {}
+}
+
+export function setLiveState(data) {
+    liveState = data;
+    if (!pagesPanelBusy()) renderPageBar();
 }
 
 export function switchEditPage(id) {
@@ -501,6 +508,33 @@ export function initLayersAndPages() {
                 items.push({ id, name: `Page ${items.length + 1}`, duration: 0, enabled: true });
                 changed(true);
                 return switchEditPage(id);
+            }
+            if (t?.id === 'btn-test-trigger') {
+                const page = items.find(p => p.id === state.curPage);
+                if (!page || !page.trigger) return;
+                try {
+                    const response = await fetch(`/api/custom-overlays/${encodeURIComponent(state.overlay.id)}/page`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'trigger',
+                            kind: page.trigger,
+                            name: page.triggerName || (page.triggerRules?.[0] || ''),
+                            seconds: page.triggerSeconds || 0
+                        })
+                    });
+                    if (!response.ok) {
+                        const err = await response.json().catch(() => ({}));
+                        throw new Error(err.error || 'Failed to trigger page');
+                    }
+                    const data = await response.json();
+                    liveState = data;
+                    renderPageBar();
+                    toast(`Triggered “${page.name}”`, 'success', 3000);
+                } catch (error) {
+                    toast(error.message, 'warn', 3500);
+                }
+                return;
             }
             if (!row) return;
             const page = items.find(p => p.id === row.dataset.pid);

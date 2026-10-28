@@ -1230,6 +1230,10 @@ function createSsnService({
             try {
                 let msg = JSON.parse(raw.toString());
                 if (msg.overlayNinja) msg = msg.overlayNinja;
+                if (msg.content && typeof msg.content === 'object') msg = msg.content;
+                if (msg && (msg.clicked || msg.featured || msg.action === 'featured')) {
+                    takeoverPages('featured', '');
+                }
                 processSSNViewerUpdate(msg);
                 processChatMessage(msg);
                 resolveChatbot()?.handle(msg).catch(() => {});
@@ -1269,8 +1273,10 @@ function createSsnService({
         socket.on('open', () => socket.send(JSON.stringify({ join: ssnSessionId, in: 2, out: 9 })));
         socket.on('message', raw => {
             try {
-                const msg = JSON.parse(raw.toString());
-                if (msg && msg.clicked && msg.chatmessage !== undefined) {
+                let msg = JSON.parse(raw.toString());
+                if (msg?.overlayNinja) msg = msg.overlayNinja;
+                if (msg?.content && typeof msg.content === 'object') msg = msg.content;
+                if (msg && (msg.clicked || msg.featured || msg.action === 'featured' || msg.action === 'content' || msg.chatmessage !== undefined || msg.message !== undefined)) {
                     takeoverPages('featured', '');
                 }
             } catch { /* ignore */ }
