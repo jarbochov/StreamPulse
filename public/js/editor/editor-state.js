@@ -28,7 +28,8 @@ export const TYPE_META = {
     'game-list': { label: 'Game List', icon: svg('<path d="M4 5h8a3 3 0 013 3v3a2 2 0 01-2 2h-1l-2-2H6l-2 2H3a2 2 0 01-2-2V8a3 3 0 013-3z"/><path d="M4 8.5h3M5.5 7v3"/><circle cx="11.5" cy="8" r=".7" fill="currentColor"/><circle cx="13" cy="9.5" r=".7" fill="currentColor"/>') },
     alert: { label: 'Alert Box', icon: svg('<path d="M8 2a3 3 0 00-3 3v2.5L3.5 10v1h9v-1L11 7.5V5a3 3 0 00-3-3zM6.5 12.5a1.5 1.5 0 003 0"/>') },
     slideshow: { label: 'Slideshow', icon: svg('<rect x="4.5" y="2" width="9.5" height="9.5" rx="1.5"/><path d="M2 5.5v7A1.5 1.5 0 003.5 14h7"/><path d="M7 7.5l2 2 1.5-1.5 2 2"/>') },
-    pattern: { label: 'Pattern Tile', icon: svg('<rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/>') }
+    pattern: { label: 'Pattern Tile', icon: svg('<rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/>') },
+    'procedural-pattern': { label: 'Background Pattern', icon: svg('<path d="M2 5.5l3-2.5 3 2.5 3-2.5 3 2.5"/><path d="M2 10.5l3-2.5 3 2.5 3-2.5 3 2.5"/><circle cx="5" cy="8" r="1" fill="currentColor"/><circle cx="11" cy="8" r="1" fill="currentColor"/>') }
 };
 
 export const TEXT_TYPES = new Set(['text', 'random-text', 'markdown']);
@@ -401,6 +402,7 @@ export function normalizeLoaded(data) {
         if (item.type === 'poll') item.poll = window.PollWidget.settings(item.poll);
         if (item.type === 'cutout') item.cutout = Object.assign({ shape: 'rectangle', feather: 0 }, item.cutout);
         if (item.type === 'pattern') item.pattern = Object.assign({ sourceType: 'image', layout: 'brick', tileSize: 96, gap: 16, offsetX: 50, offsetY: 0, angle: -15, tileAngle: 0, alternateFlip: 'tilt', tileOpacity: 1, altOpacity: 0.4, altScale: 100, blendMode: 'normal', wedges: 6, feather: 0, motion: 'scroll', trackMode: 'uniform', scrollAngle: 315, speed: 12, spinSpeed: 8, spinDirection: 'cw', waveAmount: 25 }, item.pattern);
+        if (item.type === 'procedural-pattern') item.pattern = Object.assign({ preset: 'hexagons', accent: '#58a6ff', secondary: '#38bdf8', color: 'transparent', lineWidth: 0, scale: 100, motion: 'drift', speed: 1, blendMode: 'normal' }, item.pattern);
         item.style ||= {};
     });
     return next;
@@ -410,13 +412,13 @@ export function createElementData(type, overrides = {}) {
     const sizes = {
         text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270],
         video: [640, 360], embed: [640, 360], qr: [320, 320], icon: [160, 160], shape: [480, 160],
-        cutout: [480, 270], progress: [480, 48], poll: [400, 150], 'game-list': [800, 320], alert: [640, 280], slideshow: [640, 360], pattern: [640, 360]
+        cutout: [480, 270], progress: [480, 48], poll: [400, 150], 'game-list': [800, 320], alert: [640, 280], slideshow: [640, 360], pattern: [640, 360], 'procedural-pattern': [state.overlay?.canvas?.width || 1920, state.overlay?.canvas?.height || 1080]
     };
     const [width, height] = sizes[type] || [480, 270];
     const offset = (state.overlay.elements.length % 6) * 24;
     const data = {
-        id: uid(type), name: '', locked: false, type,
-        content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', icon: 'fa-brands fa-twitch', shape: '', cutout: '', progress: '50', poll: '', 'game-list': '', alert: '', slideshow: '', pattern: 'fa-brands fa-twitch' }[type],
+        id: uid(type), name: type === 'procedural-pattern' ? 'Background Pattern' : '', locked: false, type,
+        content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', icon: 'fa-brands fa-twitch', shape: '', cutout: '', progress: '50', poll: '', 'game-list': '', alert: '', slideshow: '', pattern: 'fa-brands fa-twitch', 'procedural-pattern': '' }[type],
         textFit: 'none',
         columns: 1,
         headingSpan: 6,
@@ -427,7 +429,7 @@ export function createElementData(type, overrides = {}) {
         group: '', qr: { fg: '#000000', bg: '#ffffff', margin: 2, ecc: 'M' },
         gameList: { filter: 'scheduled', period: '', layout: 'grid', coverFit: 'cover', fit: 'none', coverScale: 100, headingSize: 0, titleSize: 0, titleWrap: 'ellipsis', columns: 3, gap: 12, max: 0, showCovers: true, showTitles: true, meta: 'none', headings: true, highlightCurrent: true, accent: '#3fb950' },
         slideshow: { source: 'tags', tags: [], tagMode: 'any', files: [], kinds: 'image', seconds: 5, order: 'sequential', fit: 'cover', transition: 'fade', direction: 'left', transitionMs: 800, caption: false, kenBurns: false },
-        pattern: { sourceType: 'preset', preset: 'hexagons', accent: '#58a6ff', secondary: '#38bdf8', color: 'transparent', lineWidth: 0, scale: 100, layout: 'brick', tileSize: 96, gap: 16, offsetX: 50, offsetY: 0, angle: -15, tileAngle: 0, alternateFlip: 'tilt', tileOpacity: 1, altOpacity: 0.4, altScale: 100, blendMode: 'normal', wedges: 6, feather: 0, motion: 'scroll', trackMode: 'uniform', scrollAngle: 315, speed: 12, spinSpeed: 8, spinDirection: 'cw', waveAmount: 25 },
+        pattern: type === 'procedural-pattern' ? { preset: 'hexagons', accent: '#58a6ff', secondary: '#38bdf8', color: 'transparent', lineWidth: 0, scale: 100, motion: 'drift', speed: 1, blendMode: 'normal' } : { sourceType: 'image', layout: 'brick', tileSize: 96, gap: 16, offsetX: 50, offsetY: 0, angle: -15, tileAngle: 0, alternateFlip: 'tilt', tileOpacity: 1, altOpacity: 0.4, altScale: 100, blendMode: 'normal', wedges: 6, feather: 0, motion: 'scroll', trackMode: 'uniform', scrollAngle: 315, speed: 12, spinSpeed: 8, spinDirection: 'cw', waveAmount: 25 },
         video: { loop: true, sound: false, volume: 100 },
         alert: { layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, showOnPreview: false, triggers: [] },
         cutout: { shape: 'rectangle', feather: 0 },
@@ -435,8 +437,8 @@ export function createElementData(type, overrides = {}) {
         poll: type === 'poll' ? window.PollWidget.settings() : undefined,
         page: pagesOn() ? state.curPage : state.overlay.pages?.items[0]?.id || 'page-1',
         src: '',
-        x: Math.round((state.overlay.canvas.width - width) / 2 + offset),
-        y: Math.round((state.overlay.canvas.height - height) / 2 + offset),
+        x: type === 'procedural-pattern' ? 0 : Math.round((state.overlay.canvas.width - width) / 2 + offset),
+        y: type === 'procedural-pattern' ? 0 : Math.round((state.overlay.canvas.height - height) / 2 + offset),
         width, height, zIndex: state.overlay.elements.length, visible: true,
         style: {
             fontFamily: 'sans-serif',
@@ -446,7 +448,7 @@ export function createElementData(type, overrides = {}) {
             background: type === 'shape' ? '#1f6feb' : type === 'poll' ? 'rgba(13,17,23,0.85)' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent',
             borderColor: '#ffffff', borderWidth: 0, borderRadius: type === 'poll' ? 10 : type === 'alert' ? 24 : type === 'cutout' ? 16 : 0,
             padding: 0,
-            opacity: 1, objectFit: type === 'pattern' ? 'contain' : 'cover', shape: 'rectangle', fill: '#1f6feb',
+            opacity: 1, objectFit: (type === 'pattern' || type === 'procedural-pattern') ? 'contain' : 'cover', shape: 'rectangle', fill: '#1f6feb',
             gradient: { enabled: false, from: '#1f6feb', to: '#8957e5', angle: 135 },
             blur: 0, shadow: { blur: 0, color: 'rgba(0,0,0,0.5)' }
         }

@@ -1127,7 +1127,7 @@
         return cachedGrainCssUrl;
     }
 
-    const MEDIA_TYPES = new Set(['image', 'video', 'slideshow', 'embed', 'pattern']);
+    const MEDIA_TYPES = new Set(['image', 'video', 'slideshow', 'embed', 'pattern', 'procedural-pattern']);
     const FILTERABLE = element => element.type !== 'cutout';
 
     function ensureFxDefs() {
@@ -1255,7 +1255,7 @@
             ? (normRetro.display !== 'none' || normRetro.vhs || normRetro.ntsc || normRetro.static)
             : ((retro.display && retro.display !== 'none') || retro.vhs || retro.ntsc || retro.static || (retro.type && retro.type !== 'none') || (retro.mode && retro.mode !== 'none') || (retro.signal && retro.signal !== 'none'));
         const media = MEDIA_TYPES.has(element.type);
-        const target = !media ? node : (element.type === 'slideshow' || element.type === 'pattern') ? node.firstElementChild : node.querySelector(':scope > video, :scope > img, :scope > iframe');
+        const target = !media ? node : (element.type === 'slideshow' || element.type === 'pattern' || element.type === 'procedural-pattern') ? node.firstElementChild : node.querySelector(':scope > video, :scope > img, :scope > iframe');
         if (!target) { node._fxSig = ''; node._fxAnim = null; fxAnimated.delete(node); return; }
 
         const active = mediaFilterActive(f) && (media || f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.duotone.enabled || hasHt || hasRetro);

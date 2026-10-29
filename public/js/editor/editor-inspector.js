@@ -459,16 +459,38 @@ export function contentSection(el) {
         body += `<div class="field"><span>Box</span><button type="button" id="fit-icon">Fit box to icon</button></div>`;
         body += '<span class="hint">The icon is as tall as its box. Change the height to resize it; the width only adds space for alignment.</span>';
     }
+    if (el.type === 'procedural-pattern') {
+        const p = el.pattern || {};
+        const patterns = (window.StreamPulsePatterns?.PATTERN_CATEGORIES) || [
+            { group: 'Geometric', options: [['grid', 'Grid'], ['geometry', 'Geometry'], ['orbits', 'Orbits'], ['hexagons', 'Hexagons'], ['diamonds', 'Diamonds'], ['isometric', 'Isometric tiles'], ['mesh', 'Curved mesh'], ['sunburst', 'Sunburst'], ['triangles', 'Triangles'], ['chevrons', 'Chevrons'], ['checker', 'Checkerboard']] },
+            { group: 'Organic & decorative', options: [['waves', 'Waves'], ['rings', 'Rings'], ['scales', 'Scales'], ['topography', 'Topography'], ['circuit', 'Circuit board']] },
+            { group: 'Particle & field', options: [['starfield', 'Starfield'], ['sparkles', 'Sparkles'], ['dots', 'Dots'], ['confetti', 'Confetti']] }
+        ];
+        body += F.select('pattern.preset', 'Generative pattern', p.preset || 'hexagons', patterns);
+        body += F.range('pattern.scale', 'Pattern scale', p.scale ?? 100, { min: 10, max: 500, step: 5, unit: '%', editable: true, reset: 100 });
+        body += `<div class="grid2">
+            ${F.color('pattern.accent', 'Line / accent color', p.accent || '#58a6ff')}
+            ${F.color('pattern.secondary', 'Secondary color', p.secondary || p.accent || '#38bdf8', { clear: true })}
+        </div>`;
+        body += `<div class="grid2">
+            ${F.color('pattern.color', 'Base fill', p.color || 'transparent', { clear: true })}
+            ${F.number('pattern.lineWidth', 'Line width (px, 0=auto)', p.lineWidth || 0, { min: 0, max: 20, step: 0.5 })}
+        </div>`;
+    }
     if (el.type === 'pattern') {
-        const sourceType = ['preset', 'icon', 'image'].includes(el.pattern?.sourceType) ? el.pattern.sourceType : (el.pattern?.preset ? 'preset' : (el.pattern?.sourceType === 'icon' ? 'icon' : 'image'));
-        const presetIcon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Pattern';
+        const isLegacyPreset = el.pattern?.sourceType === 'preset';
+        const sourceType = isLegacyPreset ? 'preset' : (el.pattern?.sourceType === 'icon' ? 'icon' : 'image');
         const imgIcon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Image';
         const faIcon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Icon / Emoji';
-        body += F.seg('pattern.sourceType', 'Tile graphic', sourceType, [
-            ['preset', 'Procedural (Promo)', presetIcon],
+        const segOptions = isLegacyPreset ? [
+            ['preset', 'Procedural', '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><path d="M2 5.5l3-2.5 3 2.5 3-2.5 3 2.5"/><path d="M2 10.5l3-2.5 3 2.5 3-2.5 3 2.5"/></svg>Procedural'],
             ['image', 'Custom image', imgIcon],
             ['icon', 'Icon / Emoji', faIcon]
-        ]);
+        ] : [
+            ['image', 'Custom image', imgIcon],
+            ['icon', 'Icon / Emoji', faIcon]
+        ];
+        body += F.seg('pattern.sourceType', 'Tile graphic', sourceType, segOptions);
         if (sourceType === 'preset') {
             const p = el.pattern || {};
             const patterns = (window.StreamPulsePatterns?.PATTERN_CATEGORIES) || [
@@ -476,7 +498,8 @@ export function contentSection(el) {
                 { group: 'Organic & decorative', options: [['waves', 'Waves'], ['rings', 'Rings'], ['scales', 'Scales'], ['topography', 'Topography'], ['circuit', 'Circuit board']] },
                 { group: 'Particle & field', options: [['starfield', 'Starfield'], ['sparkles', 'Sparkles'], ['dots', 'Dots'], ['confetti', 'Confetti']] }
             ];
-            body += F.select('pattern.preset', 'Pattern', p.preset || 'hexagons', patterns);
+            body += F.select('pattern.preset', 'Generative pattern', p.preset || 'hexagons', patterns);
+            body += F.range('pattern.scale', 'Pattern scale', p.scale ?? 100, { min: 10, max: 500, step: 5, unit: '%', editable: true, reset: 100 });
             body += `<div class="grid2">
                 ${F.color('pattern.accent', 'Line / accent color', p.accent || '#58a6ff')}
                 ${F.color('pattern.secondary', 'Secondary color', p.secondary || p.accent || '#38bdf8', { clear: true })}
@@ -485,7 +508,7 @@ export function contentSection(el) {
                 ${F.color('pattern.color', 'Base fill', p.color || 'transparent', { clear: true })}
                 ${F.number('pattern.lineWidth', 'Line width (px, 0=auto)', p.lineWidth || 0, { min: 0, max: 20, step: 0.5 })}
             </div>`;
-            body += F.range('pattern.scale', 'Pattern scale', p.scale ?? 100, { min: 10, max: 500, step: 5, unit: '%', editable: true, reset: 100 });
+            body += '<span class="hint">Rendering full-bleed vector geometry with zero seams. Switch to Image or Icon above for repeating tile mosaics, or use the Background Pattern layer.</span>';
         } else if (sourceType === 'icon') {
             const s = el.style || {};
             body += F.text('content', 'Font Awesome icon or emoji', el.content || 'fa-brands fa-twitch', 'placeholder="fa-brands fa-twitch or paste an emoji" spellcheck="false"');
@@ -1157,7 +1180,55 @@ export function randomSection(el) {
         <p class="hint">The canvas shows the first phrase; the runtime cycles through the pool.</p>`);
 }
 
+export function proceduralPatternSection(el) {
+    const p = el.pattern || {};
+    const motion = p.motion || 'drift';
+    const blendMode = p.blendMode || 'normal';
+
+    let motionBlock = F.select('pattern.motion', 'Animation motion', motion, [
+        ['none', 'Static (no animation)'],
+        ['drift', 'Drift (gentle floating drift)'],
+        ['sway', 'Sway (breathing tilt & scale)'],
+        ['pulse', 'Pulse (rhythmic breath)'],
+        ['orbit', 'Orbit (subtle celestial orbit)'],
+        ['sweep', 'Sweep (scanner light sweep)'],
+        ['pan', 'Pan (continuous smooth glide)']
+    ]);
+
+    if (motion !== 'none') {
+        motionBlock += `<div class="grid2">
+            ${F.number('pattern.speed', 'Motion speed (multiplier)', p.speed ?? 1, { min: 0.1, max: 10, step: 0.1 })}
+            ${F.select('pattern.blendMode', 'Blend mode', blendMode, [
+                ['normal', 'Normal'],
+                ['screen', 'Screen (glow on dark)'],
+                ['overlay', 'Overlay'],
+                ['color-dodge', 'Color dodge'],
+                ['multiply', 'Multiply'],
+                ['soft-light', 'Soft light'],
+                ['luminosity', 'Luminosity']
+            ])}
+        </div>`;
+    } else {
+        motionBlock += F.select('pattern.blendMode', 'Blend mode', blendMode, [
+            ['normal', 'Normal'],
+            ['screen', 'Screen (glow on dark)'],
+            ['overlay', 'Overlay'],
+            ['color-dodge', 'Color dodge'],
+            ['multiply', 'Multiply'],
+            ['soft-light', 'Soft light'],
+            ['luminosity', 'Luminosity']
+        ]);
+    }
+
+    motionBlock += '<span class="hint">Generative procedural backgrounds from Promo Creator render vector mathematics across the full layer frame with zero seams.</span>';
+
+    return F.section('proceduralMotion', 'Animation & Blending', motionBlock);
+}
+
 export function patternSection(el) {
+    if (el.type === 'procedural-pattern' || el.pattern?.sourceType === 'preset') {
+        return proceduralPatternSection(el);
+    }
     const p = el.pattern || {};
     const layout = p.layout || 'brick';
     const motion = p.motion || 'scroll';
@@ -1377,7 +1448,7 @@ export function renderProperties() {
         root.innerHTML = `${actionBar(items)}${sharedBlock(items)}${scaleSection(items)}${alignSection(items)}${appearanceSection(items[0], true)}${textual ? typographySection(items.find(hasText) || items[0]) : ''}`;
     } else {
         const el = items[0];
-        const specific = { 'random-text': randomSection, progress: progressSection, poll: pollSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection, pattern: patternSection }[el.type];
+        const specific = { 'random-text': randomSection, progress: progressSection, poll: pollSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection, pattern: patternSection, 'procedural-pattern': proceduralPatternSection }[el.type];
         root.innerHTML = `${actionBar(items)}${sharedBlock(items)}${layoutSection(el)}${contentSection(el)}${el.type === 'icon' ? iconEffectsSection(el) : ''}${specific ? specific(el) : ''}${el.type !== 'cutout' ? filterSection(el) : ''}${hasText(el) ? typographySection(el) : ''}${el.type !== 'cutout' ? fillSection(el) : ''}${el.type !== 'cutout' ? effectsSection(el) : ''}`;
     }
     if (root.parentElement) root.parentElement.scrollTop = scroll;

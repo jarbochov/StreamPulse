@@ -14,10 +14,12 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Randomizer Elimination Mode: Weight-based choice randomizer with elimination and restoration.
 - Promo Creator: Social promo generator with multi-layer layout, animations, and image export.
 - Procedural Patterns Library: Shared 20-pattern geometric and organic pattern generator synced across Promo Creator and Custom Overlay Editor.
+- Custom Overlay Background Patterns: Dedicated Background Pattern layer (`procedural-pattern`) for full-frame, seamless generative vector backdrops ported from Promo Creator with 20 patterns and 7 animation styles.
 - Custom Overlay Poll Element: Real-time Twitch poll widget for custom overlays.
 - Custom Overlay Editor IGDB Artwork: Direct browser and importer for official game artwork, logos, and screenshots from IGDB into custom overlay image layers.
 
 ### Fixed
+- Custom Overlay Editor Patterns: Separate procedural generative backdrops from repeating tile mosaics; render Promo patterns full-bleed across the layer without cutting geometry into 96px tiled stamp squares, while keeping Pattern Tile dedicated to repeating image and icon mosaics.
 - Alert Variants UX: Eliminate text truncation and cutoff across headers and template fields; replace cramped inline micro-inputs with structured prestige cards, clear Base Alert vs Milestone Tier role selectors, full-width template and subtitle fields with inline 1-click token pills, and a visual Alert Activation Ladder showing ascending milestone tier progression.
 - Alert Variants & Weights: Fix weighted variant distribution by removing forced 2-variant alternating locks and default pick overrides; remove misplaced odds weight input from Timing & FX tab, replace mutually exclusive weighted/gated toggle with a unified condition and odds bar, and fix test rule simulation bypassing variant selection.
 - Alert Sounds: Resolve Web Audio API context suspension bug that muted built-in synthesized audio on load; expand built-in sound registry to 23 high-quality sound effects across chimes, arcade, celebration, and modern UI categories.

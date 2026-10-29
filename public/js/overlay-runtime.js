@@ -133,8 +133,8 @@
             if (sh === 'pill') node.style.borderRadius = '999px';
             if (sh === 'line' && element.type === 'shape') { node.style.height = `${Math.max(1, style.borderWidth || 4)}px`; node.style.border = '0'; }
         }
-        if (element.type === 'game-list' || element.type === 'slideshow' || element.type === 'pattern' || element.type === 'poll') node.style.display = 'block';
-        if (element.type === 'pattern') {
+        if (element.type === 'game-list' || element.type === 'slideshow' || element.type === 'pattern' || element.type === 'procedural-pattern' || element.type === 'poll') node.style.display = 'block';
+        if (element.type === 'pattern' || element.type === 'procedural-pattern') {
             const blend = element.pattern?.blendMode || 'normal';
             const hasFill = shared.hasBoxFill ? shared.hasBoxFill(style) : false;
             node.style.mixBlendMode = (!hasFill && blend !== 'normal') ? blend : '';
@@ -519,7 +519,7 @@
     }
 
     function buildNode(element) {
-        if (element.type === 'pattern') {
+        if (element.type === 'pattern' || element.type === 'procedural-pattern') {
             const existing = slideshows.get(element.id);
             if (existing) {
                 slideshowsKept.add(element.id);
@@ -611,7 +611,7 @@
         {
             const node = document.createElement('div');
             node._elementType = element.type;
-            if (element.id && !['slideshow', 'pattern', 'video', 'embed'].includes(element.type)) {
+            if (element.id && !['slideshow', 'pattern', 'procedural-pattern', 'video', 'embed'].includes(element.type)) {
                 elementNodes.set(element.id, node);
                 elementNodesKept.add(element.id);
             }
@@ -752,7 +752,7 @@
                 slideshows.get(element.id)?.handle.stop();
                 slideshows.set(element.id, { sig: JSON.stringify(element), node, handle: shared.mountSlideshow(node, element, { onState: state => reportSlideshow(element.id, state) }) });
                 slideshowsKept.add(element.id);
-            } else if (element.type === 'pattern') {
+            } else if (element.type === 'pattern' || element.type === 'procedural-pattern') {
                 slideshows.get(element.id)?.handle.stop();
                 const sig = `${JSON.stringify(element)}|${expandVariables(element.src || '')}`;
                 slideshows.set(element.id, { sig, node, handle: shared.mountPattern(node, element, { preview: params.get('preview') === 'true', expand: expandVariables }) });

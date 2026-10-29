@@ -277,9 +277,9 @@ export function applyNodeStyle(node, el, index) {
     }
     if (shared.textEffectStyle) Object.assign(node.style, shared.textEffectStyle(s, el.type));
     if (shared.shadowClipStyle) Object.assign(node.style, shared.shadowClipStyle(el));
-    if (el.type === 'game-list' || el.type === 'slideshow' || el.type === 'pattern' || el.type === 'poll') node.style.display = 'block';
+    if (el.type === 'game-list' || el.type === 'slideshow' || el.type === 'pattern' || el.type === 'procedural-pattern' || el.type === 'poll') node.style.display = 'block';
     if (el.type === 'poll') window.PollWidget.render(node, el, prefs.live ? state.liveStatus.poll : null, { preview: true });
-    if (el.type === 'pattern') {
+    if (el.type === 'pattern' || el.type === 'procedural-pattern') {
         const blend = el.pattern?.blendMode || 'normal';
         const hasFill = shared.hasBoxFill ? shared.hasBoxFill(s) : false;
         node.style.mixBlendMode = (!hasFill && blend !== 'normal') ? blend : '';
@@ -430,7 +430,7 @@ export function buildContent(node, el, playback) {
     } else if (el.type === 'slideshow') {
         node._slideHandle?.stop();
         if (shared.mountSlideshow) node._slideHandle = shared.mountSlideshow(node, el, { preview: true, animate: true, initialState: playback?.slideshow });
-    } else if (el.type === 'pattern') {
+    } else if (el.type === 'pattern' || el.type === 'procedural-pattern') {
         node._patternHandle?.stop();
         if (shared.mountPattern) node._patternHandle = shared.mountPattern(node, el, { preview: true, animate: true, expand });
     } else if (el.type === 'game-list') {
@@ -457,7 +457,7 @@ const usesLivePlaceholders = el => /\{\{/.test(`${el.content || ''} ${el.src || 
 export const contentSignature = (el, live) =>
     el.type === 'embed' ? JSON.stringify([el.type, expand(el.src), el.video]) :
     el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) :
-    el.type === 'pattern' ? JSON.stringify([el.type]) :
+    (el.type === 'pattern' || el.type === 'procedural-pattern') ? JSON.stringify([el.type, el.pattern]) :
     el.type === 'cutout' ? JSON.stringify([el.type]) :
     el.type === 'shape' ? JSON.stringify([el.type]) :
     el.type === 'poll' ? JSON.stringify([el.type]) :

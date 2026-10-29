@@ -131,12 +131,21 @@ Automated image carousel cycling through media assets.
 - **Slide Duration**: Configurable delay per slide before advancing.
 - **Transitions**: Smooth cross-fade or lateral slide animations.
 
+#### Background Pattern (`procedural-pattern`)
+Generative animated backdrops ported directly from the Promo Creator, rendering continuous vector geometry across the layer or full canvas with zero seams or tiling borders.
+- **20 Shared Patterns**: Choose from 20 generative algorithms grouped into:
+  - *Geometric*: Grid, Geometry, Orbits, Hexagons, Diamonds, Isometric tiles, Curved mesh, Sunburst, Triangles, Chevrons, Checkerboard.
+  - *Organic & decorative*: Waves, Rings, Scales, Topography, Circuit board.
+  - *Particle & field*: Starfield, Sparkles, Dots, Confetti.
+- **Procedural Customization**: Pattern scale (10–500%), line width (px, 0=auto), primary line/accent color, secondary accent tone, and base fill (solid color or transparent).
+- **Motion & Dynamics**: Choose from `none` (crisp static vector backdrop), `drift` (floating translation), `sway` (breathing tilt and scale), `pulse` (rhythmic breathing zoom), `orbit` (subtle celestial orbit), `sweep` (neon scanner light beam), and `pan` (smooth continuous glide) with configurable speed multipliers.
+- **Blending**: Direct support for blend modes (`screen`, `overlay`, `color-dodge`, `multiply`, `soft-light`, `luminosity`) for ambient lighting effects over scene backgrounds.
+
 #### Pattern Tile (`pattern`)
-Seamlessly repeating geometric, textured, or procedural tile backgrounds and motion graphics.
-- **Graphic Styles**: Choose from 20 shared procedural patterns (Grid, Geometry, Orbits, Hexagons, Diamonds, Isometric, Mesh, Sunburst, Triangles, Chevrons, Checker, Waves, Rings, Scales, Topography, Starfield, Sparkles, Dots, Confetti, Circuit), uploaded tile images, or Font Awesome icons and emoji.
-- **Procedural Customization**: Tune stroke width, line/accent colors, secondary tones, base fills, and scale (10–500%).
-- **Tile Layout**: Brick staggered, alternating, checkerboard, or kaleidoscope radial mirror wedges (4 to 16 wedges).
-- **Motion Scrolling & Weave**: Continuous background panning with configurable scroll angle (0–360°), counter-scrolling rows/columns, spin, sway, pulse, and weave stepping.
+Seamlessly repeating tile mosaics and wallpaper patterns of custom images or icons.
+- **Tile Graphics**: Use custom uploaded images (logos, stickers, badges) or Font Awesome icons and emoji with customizable colors, outlines, and glow.
+- **Tile Layout**: Brick staggered, alternating tilt/mirror, checkerboard, or kaleidoscope radial mirror wedges (4 to 16 wedges).
+- **Motion Scrolling & Weave**: Continuous background panning with configurable scroll angle (0–360°), counter-scrolling rows/columns, spin, sway, and weave stepping.
 - **Transforms**: Per-tile rotation angles, alternating tilt, scale variation, and blend modes (`normal`, `screen`, `multiply`, `overlay`).
 
 #### Game Artwork from IGDB

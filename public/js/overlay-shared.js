@@ -2862,6 +2862,30 @@
             ctx.clearRect(0, 0, cw, ch);
 
             const t = Math.max(0, (ts - startTime) / 1000);
+
+            const isProcedural = curElement.type === 'procedural-pattern' || curElement.pattern?.sourceType === 'preset' || curElement.pattern?.mode === 'procedural';
+            if (isProcedural) {
+                const patternsEngine = window.StreamPulsePatterns || root.OverlayShared?.Patterns;
+                const p = curElement.pattern || {};
+                const presetName = p.preset || 'hexagons';
+                const pMotion = curOptions.animate === false ? 'none' : (p.motion || 'none');
+                if (patternsEngine?.drawProceduralPattern) {
+                    patternsEngine.drawProceduralPattern(ctx, presetName, cw, ch, {
+                        scale: p.scale ?? 100,
+                        color: p.color || 'transparent',
+                        accent: p.accent || '#58a6ff',
+                        secondary: p.secondary || p.accent || '#38bdf8',
+                        lineWidth: Number(p.lineWidth) || 0,
+                        motion: pMotion,
+                        speed: Number(p.speed) || 1,
+                        time: t
+                    });
+                }
+                if (pMotion !== 'none' && !fxPaused && !document.hidden) {
+                    rafId = requestAnimationFrame(drawFrame);
+                }
+                return;
+            }
             if (isKaleido) updateKaleidoCell(t);
             const sourceBitmap = isKaleido ? cellCanvas : stampCanvas;
 
@@ -3069,7 +3093,8 @@
 
         function wake() {
             if (stopped || !readyToDraw || curElement.visible === false || node.classList.contains('hidden')) return;
-            if (motion === 'none') {
+            const pMotion = curOptions.animate === false ? 'none' : (curElement.pattern?.motion || motion || 'none');
+            if (pMotion === 'none') {
                 if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
                 drawFrame(performance.now());
             } else if (!rafId && !fxPaused && !document.hidden) {
@@ -3136,6 +3161,18 @@
                 }
             }
 
+            const isProcedural = curElement.type === 'procedural-pattern' || config.sourceType === 'preset' || config.mode === 'procedural';
+            if (isProcedural) {
+                const pMotion = curOptions.animate === false ? 'none' : (config.motion || 'none');
+                motion = pMotion;
+                if (motion !== 'none') patternRunners.add(wake);
+                else patternRunners.delete(wake);
+                note.style.display = 'none';
+                readyToDraw = true;
+                wake();
+                return;
+            }
+
             if (motion !== 'none') patternRunners.add(wake);
             else patternRunners.delete(wake);
 
@@ -3169,25 +3206,7 @@
                 stampCanvas.height = stampSize;
             }
 
-            if (sourceType === 'preset') {
-                const patternsEngine = window.StreamPulsePatterns || root.OverlayShared?.Patterns;
-                const presetName = config.preset || 'hexagons';
-                stampCtx.clearRect(0, 0, stampSize, stampSize);
-                if (patternsEngine?.drawProceduralPattern) {
-                    patternsEngine.drawProceduralPattern(stampCtx, presetName, stampSize, stampSize, {
-                        scale: config.scale ?? 100,
-                        color: config.color || 'transparent',
-                        accent: config.accent || '#58a6ff',
-                        secondary: config.secondary || config.accent || '#38bdf8',
-                        lineWidth: Number(config.lineWidth) || 0
-                    });
-                } else {
-                    drawSamplePatternStamp(stampCtx, stampSize);
-                }
-                note.style.display = 'none';
-                readyToDraw = true;
-                wake();
-            } else if (sourceType === 'icon') {
+            if (sourceType === 'icon') {
                 const cls = String(curElement.content || 'fa-brands fa-twitch').trim().replace(/^fab\b/, 'fa-brands').replace(/^fas\b/, 'fa-solid').replace(/^far\b/, 'fa-regular');
                 const refreshIconStamp = () => {
                     if (stopped) return;

@@ -107,9 +107,15 @@
             ctx.translate(-width / 2, -height / 2);
             ctx.globalAlpha = 0.62 + 0.38 * pulse;
         }
+        if (motion === 'pan') {
+            const angle = ((options.angle ?? 45) - 90) * Math.PI / 180;
+            const u = Math.sin(time / 6 * speed * Math.PI * 2);
+            const zoom = 1.25, mx = width * (zoom - 1) / 2, my = height * (zoom - 1) / 2;
+            ctx.translate(Math.cos(angle) * mx * u, Math.sin(angle) * my * u);
+        }
 
-        ctx.strokeStyle = accent.length === 7 ? accent + '45' : accent;
-        ctx.lineWidth = customLineWidth || Math.max(1, fullWidth / 700);
+        ctx.strokeStyle = (accent.startsWith('#') && accent.length === 7) ? accent + (options.accentAlpha || '55') : accent;
+        ctx.lineWidth = (customLineWidth || Math.max(1.2, fullWidth / 700)) / scale;
 
         if (pattern === 'grid') {
             const step = Math.max(3, fullWidth / 32);
@@ -214,20 +220,22 @@
             }
         } else if (pattern === 'waves') {
             const rowStep = Math.max(4, fullHeight / 18), amplitude = Math.max(1, fullWidth / 100), wavelength = Math.max(8, fullWidth / 8);
-            ctx.lineWidth = customLineWidth || Math.max(1.5, fullWidth / 500);
+            const wavePhase = time > 0 ? (time * 1.5 * speed) : 0;
+            ctx.lineWidth = (customLineWidth || Math.max(1.5, fullWidth / 500)) / scale;
             for (let row = 0; row <= height / rowStep; row++) {
                 const baseY = row * rowStep;
                 ctx.beginPath();
                 for (let x = 0; x <= width; x += Math.max(1, fullWidth / 180)) {
-                    const y = baseY + Math.sin((x / wavelength) * Math.PI * 2 + row * 0.45) * amplitude;
+                    const y = baseY + Math.sin((x / wavelength) * Math.PI * 2 + row * 0.45 + wavePhase) * amplitude;
                     if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
                 }
                 ctx.stroke();
             }
         } else if (pattern === 'rings') {
             const cx = width * 0.5, cy = height * 0.5, step = Math.max(3, fullWidth / 36);
-            ctx.lineWidth = customLineWidth || Math.max(1.5, fullWidth / 500);
-            for (let radius = step; radius < Math.hypot(width, height); radius += step) {
+            const rPhase = time > 0 ? (time * 20 * speed) % step : 0;
+            ctx.lineWidth = (customLineWidth || Math.max(1.5, fullWidth / 500)) / scale;
+            for (let radius = step + rPhase; radius < Math.hypot(width, height) + step; radius += step) {
                 ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.stroke();
             }
         } else if (pattern === 'scales') {
@@ -312,6 +320,23 @@
             }
         }
         ctx.restore();
+
+        if (motion === 'sweep') {
+            const t = ((time / 6 * speed) % 1 + 1) % 1;
+            const eased = t * t * (3 - 2 * t);
+            const span = fullWidth + fullHeight, band = span * 0.22;
+            const pos = -band + eased * (span + band * 2);
+            const sweep = ctx.createLinearGradient(pos - band, pos - band, pos + band, pos + band);
+            const hexAccent = (accent.startsWith('#') && accent.length === 7) ? accent : '#58a6ff';
+            sweep.addColorStop(0, hexAccent + '00');
+            sweep.addColorStop(0.5, hexAccent + '5a');
+            sweep.addColorStop(1, hexAccent + '00');
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            ctx.fillStyle = sweep;
+            ctx.fillRect(0, 0, fullWidth, fullHeight);
+            ctx.restore();
+        }
     }
 
     const exported = {

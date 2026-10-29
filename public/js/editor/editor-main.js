@@ -932,7 +932,7 @@ function initEventListeners() {
             const hadSource = !!el.src;
             el.src = url;
             assetDialog?.close();
-            if (!hadSource && el.type !== 'pattern') await fitToMedia(el, url, el.type);
+            if (!hadSource && el.type !== 'pattern' && el.type !== 'procedural-pattern') await fitToMedia(el, url, el.type);
             renderCanvas(); renderProperties(); changed(true);
         } catch (error) {
             toast(error.message, 'error', 5000);
@@ -958,7 +958,7 @@ function initEventListeners() {
         const hadSource = !!el.src;
         el.src = tile.dataset.url;
         assetDialog?.close();
-        if (!hadSource && el.type !== 'pattern') await fitToMedia(el, el.src, el.type);
+        if (!hadSource && el.type !== 'pattern' && el.type !== 'procedural-pattern') await fitToMedia(el, el.src, el.type);
         renderCanvas(); renderProperties(); changed(true);
     });
 
@@ -1055,7 +1055,7 @@ function initEventListeners() {
                             if (targetEl) {
                                 const hadSource = !!targetEl.src;
                                 targetEl.src = asset.url;
-                                if (!hadSource && targetEl.type !== 'pattern') await fitToMedia(targetEl, asset.url, targetEl.type);
+                                if (!hadSource && targetEl.type !== 'pattern' && targetEl.type !== 'procedural-pattern') await fitToMedia(targetEl, asset.url, targetEl.type);
                                 renderCanvas();
                                 renderProperties();
                                 changed(true);

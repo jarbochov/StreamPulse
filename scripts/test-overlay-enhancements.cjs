@@ -81,3 +81,22 @@ test('Custom Overlay Editor: IGDB artwork import dialog and menu options', () =>
     assert.ok(js.includes('openIgdbDialog'), 'editor-main.js must define openIgdbDialog');
     assert.ok(js.includes('/api/promos/igdb/import'), 'editor-main.js must call promo IGDB import endpoint');
 });
+
+test('Procedural Patterns vs Repeating Pattern Tiles separation', () => {
+    const html = fs.readFileSync(path.join(__dirname, '../public/editors/custom-overlay-editor.html'), 'utf8');
+    assert.ok(html.includes('data-add="procedural-pattern"'), 'Must have Background Pattern in Add Layer menu');
+    assert.ok(html.includes('data-add="pattern"'), 'Must retain Pattern Tile in Add Layer menu');
+
+    const stateJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-state.js'), 'utf8');
+    assert.ok(stateJs.includes("'procedural-pattern': { label: 'Background Pattern'"), 'TYPE_META must include procedural-pattern');
+    assert.ok(stateJs.includes("type === 'procedural-pattern' ? { preset: 'hexagons'"), 'createElementData must initialize procedural-pattern properly');
+    assert.ok(stateJs.includes("sourceType: 'image'"), 'Pattern Tile must default to image tiling');
+
+    const inspectorJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-inspector.js'), 'utf8');
+    assert.ok(inspectorJs.includes('export function proceduralPatternSection'), 'editor-inspector must export proceduralPatternSection');
+    assert.ok(inspectorJs.includes("'procedural-pattern': proceduralPatternSection"), 'specific map must route procedural-pattern to its section');
+
+    const sharedJs = fs.readFileSync(path.join(__dirname, '../public/js/overlay-shared.js'), 'utf8');
+    assert.ok(sharedJs.includes("const isProcedural = curElement.type === 'procedural-pattern' || curElement.pattern?.sourceType === 'preset'"), 'mountPattern must detect procedural elements');
+    assert.ok(sharedJs.includes('patternsEngine.drawProceduralPattern(ctx, presetName, cw, ch'), 'mountPattern must render procedural pattern across full canvas');
+});
