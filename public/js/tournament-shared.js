@@ -137,6 +137,8 @@
         const customAccent = params.get('accent');
         const customWinner = params.get('winner');
         const customBadgeColor = params.get('badgecolor') || params.get('centerbadge') || params.get('badge_color');
+        const cardWidthParam = (params.get('cardwidth') || params.get('roundwidth') || params.get('matchwidth') || '').trim();
+        const isWide = params.get('wide') === '1' || params.get('wide') === 'true';
 
         if (!showCenter) {
             document.body.classList.add('no-center-badge');
@@ -145,6 +147,15 @@
             const gapCss = (customGap === 'intact' || customGap === 'keep') ? '160px' : (/^\d+$/.test(customGap) ? `${customGap}px` : customGap);
             document.documentElement.style.setProperty('--tourney-center-gap', gapCss);
             document.body.classList.add('has-center-gap');
+        }
+
+        if (cardWidthParam) {
+            const cardWidthCss = /^\d+$/.test(cardWidthParam) ? `${cardWidthParam}px` : cardWidthParam;
+            document.documentElement.style.setProperty('--round-min-width', cardWidthCss);
+            document.documentElement.style.setProperty('--round-max-width', cardWidthCss);
+        } else if (isWide) {
+            document.documentElement.style.setProperty('--round-min-width', '280px');
+            document.documentElement.style.setProperty('--round-max-width', 'clamp(440px, 36vw, 680px)');
         }
 
         if (scaleVal && Number.isFinite(scaleVal) && scaleVal > 0) {
@@ -347,7 +358,7 @@
                             <div class="hud-entrant e1" style="${e1.color ? `border-left: 4px solid ${e1.color};` : ''}">
                                 <div class="hud-score-display">${isVote ? (e1.votes || 0) : (showScoresParam ? (e1.score || 0) : '')}</div>
                                 <div>
-                                    <div class="hud-entrant-name" style="${e1.color ? `color:${e1.color};` : ''}">${esc(e1.name)}</div>
+                                    <div class="hud-entrant-name" title="${esc(e1.name)}" style="${e1.color ? `color:${e1.color};` : ''}">${esc(e1.name)}</div>
                                     ${showTags && e1.tag ? `<div class="hud-entrant-tag">${esc(e1.tag)}</div>` : ''}
                                     ${!isVote && targetScore > 0 ? renderPips(e1.score || 0, e1.color) : ''}
                                     ${!isVote && targetRounds > 0 ? renderHudRoundPips(e1.rounds || 0, e1.color) : ''}
@@ -357,7 +368,7 @@
                             <div class="hud-entrant e2" style="${e2.color ? `border-right: 4px solid ${e2.color};` : ''}">
                                 <div class="hud-score-display">${isVote ? (e2.votes || 0) : (showScoresParam ? (e2.score || 0) : '')}</div>
                                 <div>
-                                    <div class="hud-entrant-name" style="${e2.color ? `color:${e2.color};` : ''}">${esc(e2.name)}</div>
+                                    <div class="hud-entrant-name" title="${esc(e2.name)}" style="${e2.color ? `color:${e2.color};` : ''}">${esc(e2.name)}</div>
                                     ${showTags && e2.tag ? `<div class="hud-entrant-tag">${esc(e2.tag)}</div>` : ''}
                                     ${!isVote && targetScore > 0 ? renderPips(e2.score || 0, e2.color) : ''}
                                     ${!isVote && targetRounds > 0 ? renderHudRoundPips(e2.rounds || 0, e2.color) : ''}
@@ -440,100 +451,143 @@
                 `;
             }
 
-            // Bracket Tree Columns
-            html += `<div class="bracket-tree"><svg id="bracket-connectors"></svg>`;
-            for (let r = 1; r <= maxRound; r++) {
-                const roundMatches = roundsMap.get(r) || [];
-                const roundTitle = roundMatches[0]?.roundName || `Round ${r}`;
-
-                html += `
-                    <div class="bracket-round">
-                        ${showRounds ? `<div class="round-header">${esc(roundTitle)}</div>` : ''}
-                `;
-
-                for (const match of roundMatches) {
-                    if (match.isBye) {
-                        const real = match.entrant1?.name !== 'BYE' ? match.entrant1 : match.entrant2;
-                        html += `
-                            <div class="match-card bye-card" data-match-id="${match.id}">
-                                <div class="entrant-row winner">
-                                    <div class="entrant-info">
-                                        ${showSeeds && real?.seed > 0 ? `<span class="seed-pill">#${real.seed}</span>` : ''}
-                                        <span class="entrant-name">${esc(real?.name || 'BYE')}</span>
-                                        ${showTags && real?.tag ? `<span class="entrant-tag">${esc(real.tag)}</span>` : ''}
-                                    </div>
-                                    <span class="bye-badge">1st Round BYE</span>
-                                </div>
-                            </div>
-                        `;
-                        continue;
-                    }
-
-                    const isActive = showHighlight && tournament.highlightLive !== false && (
-                        Object.prototype.hasOwnProperty.call(tournament, 'activeMatchId')
-                            ? Boolean(tournament.activeMatchId) && match.id === tournament.activeMatchId
-                            : match.status === 'ACTIVE'
-                    );
-                    const isCompleted = match.status === 'COMPLETED';
-                    const hasWinner = match.winner;
-
-                    const e1 = match.entrant1 || { name: 'TBD', seed: 0, score: 0, rounds: 0, votes: 0, percent: 0 };
-                    const e2 = match.entrant2 || { name: 'TBD', seed: 0, score: 0, rounds: 0, votes: 0, percent: 0 };
-                    const isVote = tournament.progressionMode === 'vote' || isPollMode;
-                    const rb = (!isVote && !isPollMode) ? (match.roundsBestOf || tournament.roundsBestOf || 0) : 0;
-                    const rTarget = rb > 0 ? Math.ceil(rb / 2) : 0;
-
-                    const e1Winner = isCompleted && hasWinner === e1.name;
-                    const e2Winner = isCompleted && hasWinner === e2.name;
-                    const e1Loser = isCompleted && hasWinner && hasWinner !== e1.name;
-                    const e2Loser = isCompleted && hasWinner && hasWinner !== e2.name;
-
-                    html += `
-                        <div class="match-card${isActive ? ' active' : ''}${isCompleted ? ' completed' : ''}" data-match-id="${match.id}">
-                            ${showBadges && isActive ? `<span class="match-card-badge">${isVote ? 'Voting' : 'Live'}</span>` : ''}
-                            
-                            <div class="entrant-row${e1Winner ? ' winner' : ''}${e1Loser ? ' loser' : ''}" style="${e1.color ? `border-left: 3px solid ${e1.color};` : ''}">
-                                ${isActive && isVote ? `<div class="vote-fill-bar" style="width: ${e1.percent || 0}%;"></div>` : ''}
+            function renderMatchCardHtml(match) {
+                if (match.isBye) {
+                    const real = match.entrant1?.name !== 'BYE' ? match.entrant1 : match.entrant2;
+                    return `
+                        <div class="match-card bye-card" data-match-id="${match.id}">
+                            <div class="entrant-row winner">
                                 <div class="entrant-info">
-                                    ${e1.color ? `<span class="entrant-color-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${e1.color}; flex-shrink:0;"></span>` : ''}
-                                    ${showSeeds && e1.seed > 0 ? `<span class="seed-pill">#${e1.seed}</span>` : ''}
-                                    <span class="entrant-name">${esc(e1.name)}</span>
-                                    ${showTags && e1.tag ? `<span class="entrant-tag">${esc(e1.tag)}</span>` : ''}
+                                    ${showSeeds && real?.seed > 0 ? `<span class="seed-pill">#${real.seed}</span>` : ''}
+                                    <span class="entrant-name" title="${esc(real?.name || 'BYE')}">${esc(real?.name || 'BYE')}</span>
+                                    ${showTags && real?.tag ? `<span class="entrant-tag">${esc(real.tag)}</span>` : ''}
                                 </div>
-                                <div class="entrant-score-box">
-                                    ${!isVote && rTarget > 0 ? renderMatchRoundPips(e1.rounds || 0, rTarget, e1.color) : ''}
-                                    ${showScoresParam ? `
-                                        ${isVote ? (isActive || isCompleted ? `<span class="score-badge">${e1.votes || 0}</span><span class="entrant-pct">${e1.percent || 0}%</span>` : '') : `
-                                            <span class="score-badge">${e1.score || 0}</span>
-                                        `}
-                                    ` : ''}
-                                </div>
-                            </div>
-
-                            <div class="entrant-row${e2Winner ? ' winner' : ''}${e2Loser ? ' loser' : ''}" style="${e2.color ? `border-left: 3px solid ${e2.color};` : ''}">
-                                ${isActive && isVote ? `<div class="vote-fill-bar" style="width: ${e2.percent || 0}%;"></div>` : ''}
-                                <div class="entrant-info">
-                                    ${e2.color ? `<span class="entrant-color-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${e2.color}; flex-shrink:0;"></span>` : ''}
-                                    ${showSeeds && e2.seed > 0 ? `<span class="seed-pill">#${e2.seed}</span>` : ''}
-                                    <span class="entrant-name">${esc(e2.name)}</span>
-                                    ${showTags && e2.tag ? `<span class="entrant-tag">${esc(e2.tag)}</span>` : ''}
-                                </div>
-                                <div class="entrant-score-box">
-                                    ${!isVote && rTarget > 0 ? renderMatchRoundPips(e2.rounds || 0, rTarget, e2.color) : ''}
-                                    ${showScoresParam ? `
-                                        ${isVote ? (isActive || isCompleted ? `<span class="score-badge">${e2.votes || 0}</span><span class="entrant-pct">${e2.percent || 0}%</span>` : '') : `
-                                            <span class="score-badge">${e2.score || 0}</span>
-                                        `}
-                                    ` : ''}
-                                </div>
+                                <span class="bye-badge">1st Round BYE</span>
                             </div>
                         </div>
                     `;
                 }
 
-                html += `</div>`;
+                const isActive = showHighlight && tournament.highlightLive !== false && (
+                    Object.prototype.hasOwnProperty.call(tournament, 'activeMatchId')
+                        ? Boolean(tournament.activeMatchId) && match.id === tournament.activeMatchId
+                        : match.status === 'ACTIVE'
+                );
+                const isCompleted = match.status === 'COMPLETED';
+                const hasWinner = match.winner;
+
+                const e1 = match.entrant1 || { name: 'TBD', seed: 0, score: 0, rounds: 0, votes: 0, percent: 0 };
+                const e2 = match.entrant2 || { name: 'TBD', seed: 0, score: 0, rounds: 0, votes: 0, percent: 0 };
+                const isVote = tournament.progressionMode === 'vote' || isPollMode;
+                const rb = (!isVote && !isPollMode) ? (match.roundsBestOf || tournament.roundsBestOf || 0) : 0;
+                const rTarget = rb > 0 ? Math.ceil(rb / 2) : 0;
+
+                const e1Winner = isCompleted && hasWinner === e1.name;
+                const e2Winner = isCompleted && hasWinner === e2.name;
+                const e1Loser = isCompleted && hasWinner && hasWinner !== e1.name;
+                const e2Loser = isCompleted && hasWinner && hasWinner !== e2.name;
+
+                return `
+                    <div class="match-card${isActive ? ' active' : ''}${isCompleted ? ' completed' : ''}" data-match-id="${match.id}">
+                        ${showBadges && isActive ? `<span class="match-card-badge">${isVote ? 'Voting' : 'Live'}</span>` : ''}
+                        
+                        <div class="entrant-row${e1Winner ? ' winner' : ''}${e1Loser ? ' loser' : ''}" style="${e1.color ? `border-left: 3px solid ${e1.color};` : ''}">
+                            ${isActive && isVote ? `<div class="vote-fill-bar" style="width: ${e1.percent || 0}%;"></div>` : ''}
+                            <div class="entrant-info">
+                                ${e1.color ? `<span class="entrant-color-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${e1.color}; flex-shrink:0;"></span>` : ''}
+                                ${showSeeds && e1.seed > 0 ? `<span class="seed-pill">#${e1.seed}</span>` : ''}
+                                <span class="entrant-name" title="${esc(e1.name)}">${esc(e1.name)}</span>
+                                ${showTags && e1.tag ? `<span class="entrant-tag">${esc(e1.tag)}</span>` : ''}
+                            </div>
+                            <div class="entrant-score-box">
+                                ${!isVote && rTarget > 0 ? renderMatchRoundPips(e1.rounds || 0, rTarget, e1.color) : ''}
+                                ${showScoresParam ? `
+                                    ${isVote ? (isActive || isCompleted ? `<span class="score-badge">${e1.votes || 0}</span><span class="entrant-pct">${e1.percent || 0}%</span>` : '') : `
+                                        <span class="score-badge">${e1.score || 0}</span>
+                                    `}
+                                ` : ''}
+                            </div>
+                        </div>
+
+                        <div class="entrant-row${e2Winner ? ' winner' : ''}${e2Loser ? ' loser' : ''}" style="${e2.color ? `border-left: 3px solid ${e2.color};` : ''}">
+                            ${isActive && isVote ? `<div class="vote-fill-bar" style="width: ${e2.percent || 0}%;"></div>` : ''}
+                            <div class="entrant-info">
+                                ${e2.color ? `<span class="entrant-color-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${e2.color}; flex-shrink:0;"></span>` : ''}
+                                ${showSeeds && e2.seed > 0 ? `<span class="seed-pill">#${e2.seed}</span>` : ''}
+                                <span class="entrant-name" title="${esc(e2.name)}">${esc(e2.name)}</span>
+                                ${showTags && e2.tag ? `<span class="entrant-tag">${esc(e2.tag)}</span>` : ''}
+                            </div>
+                            <div class="entrant-score-box">
+                                ${!isVote && rTarget > 0 ? renderMatchRoundPips(e2.rounds || 0, rTarget, e2.color) : ''}
+                                ${showScoresParam ? `
+                                    ${isVote ? (isActive || isCompleted ? `<span class="score-badge">${e2.votes || 0}</span><span class="entrant-pct">${e2.percent || 0}%</span>` : '') : `
+                                        <span class="score-badge">${e2.score || 0}</span>
+                                    `}
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
             }
-            html += `</div>`;
+
+            function renderTreeHtml(matchesList, treeClass = '') {
+                const roundsMap = new Map();
+                const rounds = Array.from(new Set(matchesList.map(m => m.round || 1))).sort((a, b) => a - b);
+                for (const r of rounds) {
+                    roundsMap.set(r, matchesList.filter(m => m.round === r));
+                }
+                let treeHtml = `<div class="bracket-tree ${treeClass}"><svg class="bracket-connectors"></svg>`;
+                for (const r of rounds) {
+                    const roundMatches = roundsMap.get(r) || [];
+                    const roundTitle = roundMatches[0]?.roundName || `Round ${r}`;
+                    treeHtml += `
+                        <div class="bracket-round">
+                            ${showRounds ? `<div class="round-header">${esc(roundTitle)}</div>` : ''}
+                    `;
+                    for (const match of roundMatches) {
+                        treeHtml += renderMatchCardHtml(match);
+                    }
+                    treeHtml += `</div>`;
+                }
+                treeHtml += `</div>`;
+                return treeHtml;
+            }
+
+            const isDouble = tournament.format === 'double';
+            if (isDouble) {
+                const winnersMatches = matches.filter(m => m.bracket === 'winners' || (!m.bracket && !m.id.startsWith('lb_') && m.id !== 'gf_1'));
+                const losersMatches = matches.filter(m => m.bracket === 'losers' || m.id.startsWith('lb_'));
+                const gfMatches = matches.filter(m => m.bracket === 'grand_finals' || m.id === 'gf_1');
+
+                html += `<div class="double-elim-container">`;
+                html += `
+                    <div class="double-elim-section double-elim-winners">
+                        <div class="bracket-section-header">Winners Bracket</div>
+                        ${renderTreeHtml(winnersMatches, 'bracket-tree-winners')}
+                    </div>
+                `;
+                if (losersMatches.length > 0) {
+                    html += `
+                        <div class="double-elim-section double-elim-losers">
+                            <div class="bracket-section-header">Losers Bracket</div>
+                            ${renderTreeHtml(losersMatches, 'bracket-tree-losers')}
+                        </div>
+                    `;
+                }
+                if (gfMatches.length > 0) {
+                    html += `
+                        <div class="double-elim-section double-elim-gf">
+                            <div class="bracket-section-header">Grand Finals</div>
+                            <div class="gf-card-wrap">
+                                ${gfMatches.map(m => renderMatchCardHtml(m)).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+                html += `</div>`;
+            } else {
+                html += renderTreeHtml(matches);
+            }
 
             container.innerHTML = html;
             requestAnimationFrame(drawBracketConnectors);
@@ -541,64 +595,74 @@
         }
 
         function drawBracketConnectors() {
-            const tree = document.querySelector('.bracket-tree');
-            if (!tree) return;
-            let svg = document.getElementById('bracket-connectors');
-            if (!svg) {
-                svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                svg.id = 'bracket-connectors';
-                tree.insertBefore(svg, tree.firstChild);
-            }
-            svg.innerHTML = '';
             if (!showLines || params.get('lines') === 'none') return;
+            const trees = Array.from(document.querySelectorAll('.bracket-tree'));
+            if (!trees.length) return;
 
-            const treeRect = tree.getBoundingClientRect();
-            if (!treeRect.width || !treeRect.height) return;
+            trees.forEach(tree => {
+                let svg = tree.querySelector('.bracket-connectors') || tree.querySelector('#bracket-connectors');
+                if (!svg) {
+                    svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svg.setAttribute('class', 'bracket-connectors');
+                    svg.id = tree.id ? `${tree.id}-connectors` : 'bracket-connectors';
+                    tree.insertBefore(svg, tree.firstChild);
+                }
+                svg.innerHTML = '';
+                const treeRect = tree.getBoundingClientRect();
+                if (!treeRect.width || !treeRect.height) return;
 
-            svg.setAttribute('viewBox', `0 0 ${treeRect.width} ${treeRect.height}`);
+                svg.setAttribute('viewBox', `0 0 ${treeRect.width} ${treeRect.height}`);
 
-            const rounds = Array.from(tree.querySelectorAll('.bracket-round'));
-            if (rounds.length < 2) return;
+                const rounds = Array.from(tree.querySelectorAll('.bracket-round'));
+                if (rounds.length < 2) return;
 
-            for (let r = 0; r < rounds.length - 1; r++) {
-                const curRoundEl = rounds[r];
-                const nextRoundEl = rounds[r + 1];
+                for (let r = 0; r < rounds.length - 1; r++) {
+                    const curRoundEl = rounds[r];
+                    const nextRoundEl = rounds[r + 1];
 
-                const curCards = Array.from(curRoundEl.querySelectorAll('.match-card'));
-                const nextCards = Array.from(nextRoundEl.querySelectorAll('.match-card'));
+                    const curCards = Array.from(curRoundEl.querySelectorAll('.match-card'));
+                    const nextCards = Array.from(nextRoundEl.querySelectorAll('.match-card'));
 
-                curCards.forEach((fromCard, idx) => {
-                    const nextIdx = Math.floor(idx / 2);
-                    const toCard = nextCards[nextIdx];
-                    if (!toCard) return;
+                    curCards.forEach((fromCard, idx) => {
+                        const fromId = fromCard.dataset.matchId;
+                        const matchObj = currentTournament?.matches?.find(m => m.id === fromId);
 
-                    const fromRect = fromCard.getBoundingClientRect();
-                    const toRect = toCard.getBoundingClientRect();
+                        let toCard = null;
+                        if (matchObj && matchObj.nextMatchId) {
+                            toCard = nextRoundEl.querySelector(`.match-card[data-match-id="${matchObj.nextMatchId}"]`);
+                        }
+                        if (!toCard) {
+                            const nextIdx = Math.floor(idx / 2);
+                            toCard = nextCards[nextIdx];
+                        }
+                        if (!toCard) return;
 
-                    const x1 = fromRect.right - treeRect.left;
-                    const y1 = fromRect.top + fromRect.height / 2 - treeRect.top;
+                        const fromRect = fromCard.getBoundingClientRect();
+                        const toRect = toCard.getBoundingClientRect();
 
-                    const x2 = toRect.left - treeRect.left;
-                    const isUpper = (idx % 2 === 0);
-                    const y2 = toRect.top + (isUpper ? toRect.height * 0.32 : toRect.height * 0.68) - treeRect.top;
+                        const x1 = fromRect.right - treeRect.left;
+                        const y1 = fromRect.top + fromRect.height / 2 - treeRect.top;
 
-                    const xm = x1 + (x2 - x1) * 0.5;
+                        const x2 = toRect.left - treeRect.left;
+                        const isUpper = (matchObj?.nextSlot === 1 || (idx % 2 === 0));
+                        const y2 = toRect.top + (isUpper ? toRect.height * 0.32 : toRect.height * 0.68) - treeRect.top;
 
-                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    path.setAttribute('d', `M ${x1} ${y1} H ${xm} V ${y2} H ${x2}`);
+                        const xm = x1 + (x2 - x1) * 0.5;
 
-                    const fromId = fromCard.dataset.matchId;
-                    const matchObj = currentTournament?.matches?.find(m => m.id === fromId);
-                    const isActive = matchObj?.status === 'ACTIVE' || fromCard.classList.contains('active');
+                        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        path.setAttribute('d', `M ${x1} ${y1} H ${xm} V ${y2} H ${x2}`);
 
-                    let cls = 'bracket-line';
-                    if (matchObj?.winner) cls += ' winner-line';
-                    else if (isActive) cls += ' active-line';
-                    path.setAttribute('class', cls);
+                        const isActive = matchObj?.status === 'ACTIVE' || fromCard.classList.contains('active');
 
-                    svg.appendChild(path);
-                });
-            }
+                        let cls = 'bracket-line';
+                        if (matchObj?.winner) cls += ' winner-line';
+                        else if (isActive) cls += ' active-line';
+                        path.setAttribute('class', cls);
+
+                        svg.appendChild(path);
+                    });
+                }
+            });
         }
 
         // Render Round Robin View

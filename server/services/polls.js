@@ -1094,7 +1094,46 @@ function createPollService({
         // Handle double elimination bracket expansion if selected
         if (format === 'double') {
             const lbMatches = [];
-            if (bracketSize === 4) {
+            if (bracketSize === 2) {
+                const wbFinals = allMatches.find(m => m.round === 1);
+                if (wbFinals) {
+                    wbFinals.roundName = 'Winners Finals';
+                    wbFinals.nextMatchId = 'gf_1';
+                    wbFinals.nextSlot = 1;
+                    wbFinals.loserNextMatchId = 'gf_1';
+                    wbFinals.loserNextSlot = 2;
+                }
+                const gf = {
+                    id: 'gf_1',
+                    round: 2,
+                    bracket: 'grand_finals',
+                    roundName: 'Grand Finals',
+                    matchIndex: 0,
+                    entrant1: { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 },
+                    entrant2: { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 },
+                    scores: [0, 0],
+                    targetScore,
+                    bestOf: Number(bestOf) || 0,
+                    matchDetails: '',
+                    status: 'PENDING',
+                    winner: null,
+                    nextMatchId: null,
+                    nextSlot: 1
+                };
+                allMatches = [...allMatches, gf];
+            } else if (bracketSize === 4) {
+                const m1 = allMatches.find(m => m.id === 'm_1_1');
+                const m2 = allMatches.find(m => m.id === 'm_1_2');
+                const wbFinals = allMatches.find(m => m.id === 'm_2_1');
+                if (m1) { m1.loserNextMatchId = 'lb_1_1'; m1.loserNextSlot = 1; }
+                if (m2) { m2.loserNextMatchId = 'lb_1_1'; m2.loserNextSlot = 2; }
+                if (wbFinals) {
+                    wbFinals.roundName = 'Winners Finals';
+                    wbFinals.nextMatchId = 'gf_1';
+                    wbFinals.nextSlot = 1;
+                    wbFinals.loserNextMatchId = 'lb_2_1';
+                    wbFinals.loserNextSlot = 2;
+                }
                 lbMatches.push({
                     id: 'lb_1_1',
                     round: 1,
@@ -1137,14 +1176,30 @@ function createPollService({
                     nextMatchId: null,
                     nextSlot: 1
                 };
-                const wbFinals = allMatches.find(m => m.round === 2);
+                allMatches = [...allMatches, ...lbMatches, gf];
+            } else if (bracketSize === 8) {
+                const m1 = allMatches.find(m => m.id === 'm_1_1');
+                const m2 = allMatches.find(m => m.id === 'm_1_2');
+                const m3 = allMatches.find(m => m.id === 'm_1_3');
+                const m4 = allMatches.find(m => m.id === 'm_1_4');
+                const wsf1 = allMatches.find(m => m.id === 'm_2_1');
+                const wsf2 = allMatches.find(m => m.id === 'm_2_2');
+                const wbFinals = allMatches.find(m => m.id === 'm_3_1');
+
+                if (m1) { m1.loserNextMatchId = 'lb_1_1'; m1.loserNextSlot = 1; }
+                if (m2) { m2.loserNextMatchId = 'lb_1_1'; m2.loserNextSlot = 2; }
+                if (m3) { m3.loserNextMatchId = 'lb_1_2'; m3.loserNextSlot = 1; }
+                if (m4) { m4.loserNextMatchId = 'lb_1_2'; m4.loserNextSlot = 2; }
+                if (wsf1) { wsf1.loserNextMatchId = 'lb_2_2'; wsf1.loserNextSlot = 2; }
+                if (wsf2) { wsf2.loserNextMatchId = 'lb_2_1'; wsf2.loserNextSlot = 2; }
                 if (wbFinals) {
                     wbFinals.roundName = 'Winners Finals';
                     wbFinals.nextMatchId = 'gf_1';
                     wbFinals.nextSlot = 1;
+                    wbFinals.loserNextMatchId = 'lb_4_1';
+                    wbFinals.loserNextSlot = 2;
                 }
-                allMatches = [...allMatches, ...lbMatches, gf];
-            } else if (bracketSize === 8) {
+
                 lbMatches.push({
                     id: 'lb_1_1', round: 1, bracket: 'losers', roundName: 'Losers Round 1', matchIndex: 0,
                     entrant1: { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 }, entrant2: { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 },
@@ -1187,42 +1242,132 @@ function createPollService({
                     scores: [0, 0], targetScore, bestOf: Number(bestOf) || 0, matchDetails: '',
                     status: 'PENDING', winner: null, nextMatchId: null, nextSlot: 1
                 };
-                const wbFinals = allMatches.find(m => m.round === 3);
+                allMatches = [...allMatches, ...lbMatches, gf];
+            } else if (bracketSize === 16) {
+                for (let i = 1; i <= 8; i++) {
+                    const m = allMatches.find(x => x.id === `m_1_${i}`);
+                    if (m) {
+                        const lbIdx = Math.ceil(i / 2);
+                        m.loserNextMatchId = `lb_1_${lbIdx}`;
+                        m.loserNextSlot = ((i - 1) % 2) + 1;
+                    }
+                }
+                for (let i = 1; i <= 4; i++) {
+                    const m = allMatches.find(x => x.id === `m_2_${i}`);
+                    if (m) {
+                        m.loserNextMatchId = `lb_2_${5 - i}`;
+                        m.loserNextSlot = 2;
+                    }
+                }
+                const wsf1 = allMatches.find(m => m.id === 'm_3_1');
+                const wsf2 = allMatches.find(m => m.id === 'm_3_2');
+                if (wsf1) { wsf1.loserNextMatchId = 'lb_4_2'; wsf1.loserNextSlot = 2; }
+                if (wsf2) { wsf2.loserNextMatchId = 'lb_4_1'; wsf2.loserNextSlot = 2; }
+                const wbFinals = allMatches.find(m => m.id === 'm_4_1');
                 if (wbFinals) {
                     wbFinals.roundName = 'Winners Finals';
                     wbFinals.nextMatchId = 'gf_1';
                     wbFinals.nextSlot = 1;
+                    wbFinals.loserNextMatchId = 'lb_6_1';
+                    wbFinals.loserNextSlot = 2;
                 }
+                for (let i = 1; i <= 4; i++) {
+                    lbMatches.push({
+                        id: `lb_1_${i}`, round: 1, bracket: 'losers', roundName: 'Losers Round 1', matchIndex: i - 1,
+                        entrant1: { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 }, entrant2: { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 },
+                        scores: [0, 0], targetScore, bestOf: Number(bestOf) || 0, matchDetails: '',
+                        status: 'PENDING', winner: null, nextMatchId: `lb_2_${i}`, nextSlot: 1
+                    });
+                }
+                for (let i = 1; i <= 4; i++) {
+                    const nextIdx = Math.ceil(i / 2);
+                    lbMatches.push({
+                        id: `lb_2_${i}`, round: 2, bracket: 'losers', roundName: 'Losers Round 2', matchIndex: i - 1,
+                        entrant1: { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 }, entrant2: { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 },
+                        scores: [0, 0], targetScore, bestOf: Number(bestOf) || 0, matchDetails: '',
+                        status: 'PENDING', winner: null, nextMatchId: `lb_3_${nextIdx}`, nextSlot: ((i - 1) % 2) + 1
+                    });
+                }
+                for (let i = 1; i <= 2; i++) {
+                    lbMatches.push({
+                        id: `lb_3_${i}`, round: 3, bracket: 'losers', roundName: 'Losers Round 3', matchIndex: i - 1,
+                        entrant1: { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 }, entrant2: { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 },
+                        scores: [0, 0], targetScore, bestOf: Number(bestOf) || 0, matchDetails: '',
+                        status: 'PENDING', winner: null, nextMatchId: `lb_4_${i}`, nextSlot: 1
+                    });
+                }
+                for (let i = 1; i <= 2; i++) {
+                    lbMatches.push({
+                        id: `lb_4_${i}`, round: 4, bracket: 'losers', roundName: 'Losers Round 4', matchIndex: i - 1,
+                        entrant1: { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 }, entrant2: { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 },
+                        scores: [0, 0], targetScore, bestOf: Number(bestOf) || 0, matchDetails: '',
+                        status: 'PENDING', winner: null, nextMatchId: 'lb_5_1', nextSlot: i
+                    });
+                }
+                lbMatches.push({
+                    id: 'lb_5_1', round: 5, bracket: 'losers', roundName: 'Losers Semifinals', matchIndex: 0,
+                    entrant1: { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 }, entrant2: { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 },
+                    scores: [0, 0], targetScore, bestOf: Number(bestOf) || 0, matchDetails: '',
+                    status: 'PENDING', winner: null, nextMatchId: 'lb_6_1', nextSlot: 1
+                });
+                lbMatches.push({
+                    id: 'lb_6_1', round: 6, bracket: 'losers', roundName: 'Losers Finals', matchIndex: 0,
+                    entrant1: { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 }, entrant2: { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 },
+                    scores: [0, 0], targetScore, bestOf: Number(bestOf) || 0, matchDetails: '',
+                    status: 'PENDING', winner: null, nextMatchId: 'gf_1', nextSlot: 2
+                });
+                const gf = {
+                    id: 'gf_1', round: 7, bracket: 'grand_finals', roundName: 'Grand Finals', matchIndex: 0,
+                    entrant1: { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 }, entrant2: { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 },
+                    scores: [0, 0], targetScore, bestOf: Number(bestOf) || 0, matchDetails: '',
+                    status: 'PENDING', winner: null, nextMatchId: null, nextSlot: 1
+                };
                 allMatches = [...allMatches, ...lbMatches, gf];
             }
         }
 
-        // Auto-advance any BYEs in round 1
-        for (const match of allMatches.filter(m => m.round === 1 && m.bracket === 'winners')) {
-            if (match.entrant1.name === 'BYE' && match.entrant2.name !== 'BYE') {
-                match.isBye = true;
-                match.status = 'COMPLETED';
-                match.winner = match.entrant2.name;
-                if (match.nextMatchId) {
-                    const nextM = allMatches.find(m => m.id === match.nextMatchId);
-                    if (nextM) {
-                        if (match.nextSlot === 1) nextM.entrant1 = { ...match.entrant2, score: 0, votes: 0, percent: 0 };
-                        else nextM.entrant2 = { ...match.entrant2, score: 0, votes: 0, percent: 0 };
+        function sweepByes(matches) {
+            let changed = false;
+            for (const m of matches) {
+                if (m.status !== 'PENDING' || m.isBye) continue;
+                const e1IsBye = m.entrant1?.name === 'BYE';
+                const e2IsBye = m.entrant2?.name === 'BYE';
+                const e1Valid = m.entrant1?.name && m.entrant1.name !== 'TBD' && m.entrant1.name !== 'BYE';
+                const e2Valid = m.entrant2?.name && m.entrant2.name !== 'TBD' && m.entrant2.name !== 'BYE';
+
+                if (e1IsBye && e2Valid) {
+                    m.isBye = true;
+                    m.status = 'COMPLETED';
+                    m.winner = m.entrant2.name;
+                    if (m.nextMatchId) {
+                        const nextM = matches.find(x => x.id === m.nextMatchId);
+                        if (nextM) {
+                            const obj = { ...m.entrant2, score: 0, rounds: 0, votes: 0, percent: 0 };
+                            if (m.nextSlot === 1) nextM.entrant1 = obj;
+                            else nextM.entrant2 = obj;
+                            nextM.entrants = [nextM.entrant1?.name || 'TBD', nextM.entrant2?.name || 'TBD'];
+                            changed = true;
+                        }
                     }
-                }
-            } else if (match.entrant2.name === 'BYE' && match.entrant1.name !== 'BYE') {
-                match.isBye = true;
-                match.status = 'COMPLETED';
-                match.winner = match.entrant1.name;
-                if (match.nextMatchId) {
-                    const nextM = allMatches.find(m => m.id === match.nextMatchId);
-                    if (nextM) {
-                        if (match.nextSlot === 1) nextM.entrant1 = { ...match.entrant1, score: 0, votes: 0, percent: 0 };
-                        else nextM.entrant2 = { ...match.entrant1, score: 0, votes: 0, percent: 0 };
+                } else if (e2IsBye && e1Valid) {
+                    m.isBye = true;
+                    m.status = 'COMPLETED';
+                    m.winner = m.entrant1.name;
+                    if (m.nextMatchId) {
+                        const nextM = matches.find(x => x.id === m.nextMatchId);
+                        if (nextM) {
+                            const obj = { ...m.entrant1, score: 0, rounds: 0, votes: 0, percent: 0 };
+                            if (m.nextSlot === 1) nextM.entrant1 = obj;
+                            else nextM.entrant2 = obj;
+                            nextM.entrants = [nextM.entrant1?.name || 'TBD', nextM.entrant2?.name || 'TBD'];
+                            changed = true;
+                        }
                     }
                 }
             }
+            if (changed) sweepByes(matches);
         }
+        sweepByes(allMatches);
 
         const firstPlayable = allMatches.find(m =>
             !m.isBye &&
@@ -1447,16 +1592,22 @@ function createPollService({
         }
 
         // Handle double elimination loser routing
-        if (targetTourney.format === 'double' && loserObj && loserObj.name !== 'BYE' && loserObj.name !== 'TBD') {
-            if (match.id === 'm_1_1') {
-                const lb = targetTourney.matches.find(m => m.id === 'lb_1_1');
-                if (lb) lb.entrant1 = { ...loserObj, rounds: 0, votes: 0, percent: 0 };
-            } else if (match.id === 'm_1_2') {
-                const lb = targetTourney.matches.find(m => m.id === 'lb_1_1');
-                if (lb) lb.entrant2 = { ...loserObj, rounds: 0, votes: 0, percent: 0 };
-            } else if (match.id === 'm_2_1') {
-                const lbf = targetTourney.matches.find(m => m.id === 'lb_2_1');
-                if (lbf) lbf.entrant2 = { ...loserObj, rounds: 0, votes: 0, percent: 0 };
+        if (targetTourney.format === 'double' && match.loserNextMatchId && loserObj && loserObj.name !== 'BYE' && loserObj.name !== 'TBD') {
+            const loserMatch = targetTourney.matches.find(m => m.id === match.loserNextMatchId);
+            if (loserMatch) {
+                const targetLoser = {
+                    name: loserObj.name,
+                    tag: loserObj.tag || '',
+                    color: loserObj.color || '',
+                    seed: loserObj.seed || 0,
+                    score: 0,
+                    rounds: 0,
+                    votes: 0,
+                    percent: 0
+                };
+                if (match.loserNextSlot === 1) loserMatch.entrant1 = targetLoser;
+                else loserMatch.entrant2 = targetLoser;
+                loserMatch.entrants = [loserMatch.entrant1?.name || 'TBD', loserMatch.entrant2?.name || 'TBD'];
             }
         }
 
@@ -1791,7 +1942,26 @@ function createPollService({
                 m.roundsBestOf = rb;
             });
         }
-        if (settings.matchDuration !== undefined) targetTourney.matchDuration = Number(settings.matchDuration) || 60;
+        if (settings.matchDuration !== undefined) {
+            const dur = Math.max(10, Number(settings.matchDuration) || 60);
+            targetTourney.matchDuration = dur;
+            // Also update any currently active match poll
+            if (activePoll && activePoll.tournamentMatchId && targetTourney.matches?.some(m => m.id === activePoll.tournamentMatchId)) {
+                if (settings.updateActiveMatchTimer !== false) {
+                    activePoll.duration = dur;
+                    const now = Date.now();
+                    const start = activePoll.startTime ? new Date(activePoll.startTime).getTime() : now;
+                    activePoll.remainingSeconds = Math.max(0, Math.ceil(dur - (now - start) / 1000));
+                    broadcastToOverlays('poll-update', getPublicPayload(activePoll));
+                }
+            }
+        }
+        if (settings.extendDuration) {
+            const addSec = parseInt(settings.extendDuration, 10) || 30;
+            if (activePoll && activePoll.tournamentMatchId && targetTourney.matches?.some(m => m.id === activePoll.tournamentMatchId)) {
+                extendPoll(addSec);
+            }
+        }
         if (settings.blind !== undefined) targetTourney.blind = Boolean(settings.blind);
         if (settings.highlightLive !== undefined) targetTourney.highlightLive = Boolean(settings.highlightLive);
         if (settings.activeMatchId !== undefined) {

@@ -22,6 +22,9 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Custom Overlay Editor IGDB Artwork: Direct browser and importer for official game artwork, logos, and screenshots from IGDB into custom overlay image layers.
 
 ### Fixed
+- Tournament Engine: Fix Double Elimination bracket progression to route defeated competitors dynamically into Losers Bracket across 2, 4, 8, and 16-entrant brackets; provide dedicated Winners, Losers, and Grand Finals overlay sections with adaptive connector lines.
+- Poll & Tournament Timers: Enable mid-tournament match duration changes and live voting timer extensions (`+30s` / `+60s`) directly from the active bracket controller without resetting the tournament.
+- Tournament Overlays: Enable responsive horizontal expansion across 1080p, 1440p, and 4K viewports so competitor and game titles do not truncate prematurely, with optional `?wide=1` and `?cardwidth=480` custom scaling.
 - Tournament Overlays: Separate Versus tournaments (`/tournament.html`) and Poll tournaments (`/poll-tournament.html`) into distinct overlays with shared rendering, eliminating cross-contamination where setting or advancing a Versus tournament resolved to active poll tournament data.
 - Game Plan Tier List: Prevent multi-column reflow wrapping when shrinking tier lists to container bounds; keep each tier stacked on its own row.
 - Asset Library Alert Tracking: Track audio, video, and image assets referenced in alert rules so they display active usage badges and are protected against accidental purging.

@@ -287,6 +287,27 @@
                                 </div>
                                 <span id="current-match-status" class="poll-timer-badge">Ready</span>
                             </div>
+
+                            <!-- Mid-Tournament Match Time / Timer Controller -->
+                            <div id="tourney-duration-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin: 0.5rem 0 0.65rem 0; padding: 0.35rem 0.6rem; background: rgba(0,0,0,0.22); border-radius: 6px; border: 1px solid var(--border); flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                    <span style="font-size: 0.74rem; font-weight: 700; color: var(--text-muted);">Match Duration:</span>
+                                    <span id="live-match-duration-display" style="font-size: 0.78rem; font-weight: 800; color: var(--accent);">60s</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap;">
+                                    <button type="button" class="btn-secondary btn-sm" onclick="setLiveTourneyDuration(30)">30s</button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="setLiveTourneyDuration(60)">60s</button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="setLiveTourneyDuration(90)">90s</button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="setLiveTourneyDuration(120)">120s</button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="setLiveTourneyDuration(180)">3m</button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="promptCustomTourneyDuration()">Custom…</button>
+                                    <div id="live-extend-timer-group" style="display: inline-flex; gap: 0.25rem; margin-left: 0.25rem;">
+                                        <button type="button" class="btn-secondary btn-sm" onclick="extendLiveMatchTimer(30)" style="background: rgba(88,166,255,0.18); border-color: var(--accent); color: var(--accent); font-weight: 700;" title="Add 30 seconds to the currently voting match">+30s</button>
+                                        <button type="button" class="btn-secondary btn-sm" onclick="extendLiveMatchTimer(60)" style="background: rgba(88,166,255,0.18); border-color: var(--accent); color: var(--accent); font-weight: 700;" title="Add 60 seconds to the currently voting match">+60s</button>
+                                    </div>
+                                </div>
+                            </div>
                             
                             <div class="match-entrants-grid">
                                 <div class="entrant-badge-block" id="entrant1-box">
@@ -1668,7 +1689,7 @@
                 syncPollTourneyOverlayLogoUi(t.logo || '');
             }
             $('tourney-mode-badge').textContent = t.progressionMode === 'manual' ? 'Manual Scored' : 'Chat Vote';
-            $('tourney-format-badge').textContent = t.format === 'double' ? 'Double Elim' : 'Single Elim';
+            $('tourney-format-badge').textContent = t.format === 'double' ? 'Double Elim' : (t.format === 'roundRobin' ? 'Round Robin' : 'Single Elim');
             const chatToggleLabel = $('label-live-tourney-chat');
             const chatToggleBtn = $('btn-tourney-chat-toggle');
             if (chatToggleLabel && chatToggleBtn) {
@@ -1681,6 +1702,19 @@
             const matches = t.matches || [];
             const currentMatch = getCurrentMatch();
             const isManual = t.progressionMode === 'manual';
+
+            const durDisplay = $('live-match-duration-display');
+            if (durDisplay) {
+                durDisplay.textContent = t.matchDuration ? `${t.matchDuration}s` : 'Manual';
+            }
+            const extendGroup = $('live-extend-timer-group');
+            if (extendGroup) {
+                extendGroup.style.display = (currentMatch && currentMatch.status === 'ACTIVE' && !isManual) ? 'inline-flex' : 'none';
+            }
+            const durationBar = $('tourney-duration-bar');
+            if (durationBar) {
+                durationBar.style.display = isManual ? 'none' : 'flex';
+            }
 
             const e1Stepper = $('e1-stepper');
             const e2Stepper = $('e2-stepper');
@@ -1791,7 +1825,7 @@
 
             // Render mini bracket tree view in studio
             const treeView = $('bracket-studio-view');
-            treeView.innerHTML = matches.map(m => {
+            function renderStudioMatchItem(m) {
                 if (m.isBye) {
                     const real = m.entrant1?.name !== 'BYE' ? m.entrant1 : m.entrant2;
                     return `
@@ -1829,11 +1863,83 @@
                         </div>
                     </div>
                 `;
-            }).join('');
+            }
+
+            if (t.format === 'double') {
+                const wMatches = matches.filter(m => m.bracket === 'winners' || (!m.bracket && !m.id.startsWith('lb_') && m.id !== 'gf_1'));
+                const lMatches = matches.filter(m => m.bracket === 'losers' || m.id.startsWith('lb_'));
+                const gfMatches = matches.filter(m => m.bracket === 'grand_finals' || m.id === 'gf_1');
+
+                let studioHtml = '';
+                if (wMatches.length) {
+                    studioHtml += `<div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); margin: 0.5rem 0 0.35rem; padding-bottom: 0.2rem; border-bottom: 1px solid var(--border);">Winners Bracket</div>`;
+                    studioHtml += wMatches.map(renderStudioMatchItem).join('');
+                }
+                if (lMatches.length) {
+                    studioHtml += `<div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #f59e0b; margin: 0.85rem 0 0.35rem; padding-bottom: 0.2rem; border-bottom: 1px solid var(--border);">Losers Bracket</div>`;
+                    studioHtml += lMatches.map(renderStudioMatchItem).join('');
+                }
+                if (gfMatches.length) {
+                    studioHtml += `<div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #ffd700; margin: 0.85rem 0 0.35rem; padding-bottom: 0.2rem; border-bottom: 1px solid var(--border);">Grand Finals</div>`;
+                    studioHtml += gfMatches.map(renderStudioMatchItem).join('');
+                }
+                treeView.innerHTML = studioHtml;
+            } else {
+                treeView.innerHTML = matches.map(renderStudioMatchItem).join('');
+            }
 
             // Progress text
             const completedCount = matches.filter(m => m.status === 'COMPLETED').length;
             $('tourney-progress-text').textContent = `${completedCount} of ${matches.length} matches completed`;
+        }
+
+        async function setLiveTourneyDuration(sec) {
+            sec = parseInt(sec, 10);
+            if (!sec || sec < 10) return;
+            try {
+                const res = await fetch('/api/polls/tournament/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ matchDuration: sec, updateActiveMatchTimer: true })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    activeTourneyData = data.tournament;
+                    renderTournamentStudio(activeTourneyData);
+                    toast(`Match duration set to ${sec}s for upcoming & active rounds`);
+                }
+            } catch (err) {
+                toast('Error updating match duration');
+            }
+        }
+
+        async function promptCustomTourneyDuration() {
+            const cur = activeTourneyData?.matchDuration || 60;
+            const input = prompt('Enter match duration in seconds (e.g. 45, 90, 150):', cur);
+            if (!input) return;
+            const sec = parseInt(input, 10);
+            if (sec >= 10 && sec <= 86400) {
+                setLiveTourneyDuration(sec);
+            } else {
+                toast('Invalid duration. Must be between 10 and 86400 seconds.');
+            }
+        }
+
+        async function extendLiveMatchTimer(sec) {
+            sec = parseInt(sec, 10) || 30;
+            try {
+                const res = await fetch('/api/polls/tournament/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ extendDuration: sec })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    toast(`Added +${sec}s to live voting match!`);
+                }
+            } catch (err) {
+                toast('Error extending match timer');
+            }
         }
 
         function stepScore(entrantIdx, delta) {

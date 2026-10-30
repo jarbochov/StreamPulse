@@ -664,3 +664,145 @@ test('Matchup Service: Speedrun race clock runnerTimersMode (finish vs always) a
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }
 });
+
+test('Tournament Service: Double Elimination and mid-tournament match duration changes', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-double-elim-test-'));
+    let overlayMessages = [];
+
+    const service = createPollService({
+        dataDir: tmpDir,
+        broadcastToOverlays: (type, data) => overlayMessages.push({ type, data }),
+        onTakeover: () => {},
+        onAlert: () => {},
+        log: () => {},
+        error: () => {}
+    });
+
+    try {
+        // 1. Create a 4-entrant Double Elimination Tournament
+        const dt = service.createTournament({
+            title: 'Double Trouble Championship',
+            format: 'double',
+            matchDuration: 60,
+            entrants: ['Player 1', 'Player 2', 'Player 3', 'Player 4'],
+            isPoll: true
+        });
+
+        assert.equal(dt.format, 'double');
+        assert.equal(dt.matches.length, 6, '4-entrant double elim has 6 matches (2 W-R1, 1 W-Finals, 1 L-R1, 1 L-Finals, 1 Grand Finals)');
+        
+        const wr1_1 = dt.matches.find(m => m.id === 'm_1_1');
+        const wr1_2 = dt.matches.find(m => m.id === 'm_1_2');
+        const lr1_1 = dt.matches.find(m => m.id === 'lb_1_1');
+        const lr2_1 = dt.matches.find(m => m.id === 'lb_2_1');
+        const gf = dt.matches.find(m => m.id === 'gf_1');
+
+        assert.ok(wr1_1 && wr1_2 && lr1_1 && lr2_1 && gf);
+        assert.equal(wr1_1.loserNextMatchId, 'lb_1_1');
+        assert.equal(wr1_1.loserNextSlot, 1);
+        assert.equal(wr1_2.loserNextMatchId, 'lb_1_1');
+        assert.equal(wr1_2.loserNextSlot, 2);
+
+        // Advance WR1_1: Player 1 wins over Player 4
+        service.advanceTournamentMatch('m_1_1', 'Player 1', { isPoll: true });
+        assert.equal(lr1_1.entrant1.name, 'Player 4', 'Loser of m_1_1 must drop into lb_1_1 slot 1');
+
+        // Advance WR1_2: Player 2 wins over Player 3
+        service.advanceTournamentMatch('m_1_2', 'Player 2', { isPoll: true });
+        assert.equal(lr1_1.entrant2.name, 'Player 3', 'Loser of m_1_2 must drop into lb_1_1 slot 2');
+
+        // Advance Losers R1 (Player 4 vs Player 3): Player 3 wins
+        service.advanceTournamentMatch('lb_1_1', 'Player 3', { isPoll: true });
+        assert.equal(lr2_1.entrant1.name, 'Player 3', 'Winner of lb_1_1 must advance to lb_2_1 slot 1');
+
+        // Advance Winners Finals (m_2_1): Player 1 beats Player 2
+        service.advanceTournamentMatch('m_2_1', 'Player 1', { isPoll: true });
+        assert.equal(gf.entrant1.name, 'Player 1', 'Winner of Winners Finals must advance to Grand Finals slot 1');
+        assert.equal(lr2_1.entrant2.name, 'Player 2', 'Loser of Winners Finals must drop into Losers Finals slot 2');
+
+        // Advance Losers Finals: Player 3 beats Player 2
+        service.advanceTournamentMatch('lb_2_1', 'Player 3', { isPoll: true });
+        assert.equal(gf.entrant2.name, 'Player 3', 'Winner of Losers Finals must advance to Grand Finals slot 2');
+
+        // Advance Grand Finals: Player 1 wins Grand Finals!
+        service.advanceTournamentMatch('gf_1', 'Player 1', { isPoll: true });
+        assert.equal(dt.status, 'COMPLETED');
+        assert.equal(dt.champion, 'Player 1');
+
+        // Test 8-entrant double elimination
+        const dt8 = service.createTournament({
+            title: '8-Player Double Elim',
+            format: 'double',
+            matchDuration: 60,
+            entrants: ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8'],
+            isPoll: true
+        });
+        assert.equal(dt8.format, 'double');
+        assert.equal(dt8.bracketSize, 8);
+        // 7 winners matches + 6 losers matches + 1 grand finals = 14 matches
+        assert.equal(dt8.matches.length, 14);
+
+        // Winners R1 matches
+        const m1_1 = dt8.matches.find(m => m.id === 'm_1_1');
+        const m1_4 = dt8.matches.find(m => m.id === 'm_1_4');
+        const m2_1 = dt8.matches.find(m => m.id === 'm_2_1');
+        const m3_1 = dt8.matches.find(m => m.id === 'm_3_1');
+        const lb1_1 = dt8.matches.find(m => m.id === 'lb_1_1');
+        const lb4_1 = dt8.matches.find(m => m.id === 'lb_4_1');
+
+        assert.equal(m1_1.loserNextMatchId, 'lb_1_1');
+        assert.equal(m1_4.loserNextMatchId, 'lb_1_2');
+        assert.equal(m2_1.loserNextMatchId, 'lb_2_2');
+        assert.equal(m3_1.loserNextMatchId, 'lb_4_1');
+
+        // Advance m_1_1: S1 beats S8
+        service.advanceTournamentMatch('m_1_1', 'S1', { isPoll: true });
+        assert.equal(lb1_1.entrant1.name, 'S8', 'Loser of m_1_1 must drop into lb_1_1 slot 1');
+
+        // Advance m_3_1 (Winners Finals): Winner to gf_1 slot 1, Loser to lb_4_1 slot 2
+        service.advanceTournamentMatch('m_3_1', 'S1', { isPoll: true });
+        const gf8 = dt8.matches.find(m => m.id === 'gf_1');
+        assert.equal(gf8.entrant1.name, 'S1');
+        assert.equal(lb4_1.entrant2.name, m3_1.entrant2?.name || 'TBD');
+
+        // 2. Mid-Tournament Match Duration and Extend Timer Controls
+        const t2 = service.createTournament({
+            title: 'Timed Showdown',
+            format: 'single',
+            matchDuration: 60,
+            entrants: ['Alpha', 'Beta'],
+            isPoll: true
+        });
+        assert.equal(t2.matchDuration, 60);
+
+        // Update match duration mid-tournament before starting match
+        service.updateTournamentSettings({ matchDuration: 90 }, { isPoll: true });
+        assert.equal(t2.matchDuration, 90);
+
+        // Start match poll with the new duration
+        service.startTournamentMatch('m_1_1', { isPoll: true });
+        let activePoll = service.getActivePoll();
+        assert.ok(activePoll);
+        assert.equal(activePoll.duration, 90);
+
+        // Update match duration while poll is actively voting -> updates active poll duration!
+        service.updateTournamentSettings({ matchDuration: 120 }, { isPoll: true });
+        assert.equal(t2.matchDuration, 120);
+        activePoll = service.getActivePoll();
+        assert.equal(activePoll.duration, 120);
+
+        // Extend live match timer by +30 seconds
+        service.updateTournamentSettings({ extendDuration: 30 }, { isPoll: true });
+        activePoll = service.getActivePoll();
+        assert.equal(activePoll.duration, 150);
+
+        // Extend live match timer by +60 seconds
+        service.updateTournamentSettings({ extendDuration: 60 }, { isPoll: true });
+        activePoll = service.getActivePoll();
+        assert.equal(activePoll.duration, 210);
+
+        service.cancelPoll();
+    } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
