@@ -884,6 +884,128 @@ test('Resetting a winners match clears both downstream paths without clearing un
     }
 });
 
+test('Repair reconstructs a progressed winners-only poll bracket without losing votes or results', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-bracket-repair-'));
+    const options = { dataDir: tmpDir, broadcastToOverlays: () => {}, onTakeover: () => {},
+        onAlert: () => {}, log: () => {}, error: () => {} };
+    let service = createPollService(options);
+    try {
+        let tournament = service.createTournament({
+            format: 'double', isPoll: true, announceChat: false,
+            entrants: Array.from({ length: 16 }, (_, i) => `Entrant ${i + 1}`)
+        });
+        tournament.matches = tournament.matches.filter(m => m.bracket === 'winners');
+        for (const match of tournament.matches) {
+            delete match.loserNextMatchId;
+            delete match.loserNextSlot;
+            if (match.id === 'm_4_1') {
+                match.roundName = 'Grand Finals';
+                match.nextMatchId = null;
+            }
+        }
+        const losses = new Map(tournament.entrantsList.map(name => [name, 0]));
+        for (let i = 0; i < 14; i++) {
+            const match = tournament.matches.find(m => m.status === 'PENDING' &&
+                m.entrant1?.name !== 'TBD' && m.entrant2?.name !== 'TBD');
+            service.startTournamentMatch(match.id, { isPoll: true });
+            service.handleChatMessage({ user: 'Voter', message: '1' });
+            service.finishPoll();
+            losses.set(match.entrant2.name, losses.get(match.entrant2.name) + 1);
+        }
+        service.startTournamentMatch('m_4_1', { isPoll: true });
+        const stale = service.previewPollBracketRepair();
+        assert.equal(stale.completedWinners, 14);
+        assert.equal(stale.losersMatches, 14);
+        assert.equal(stale.readyLosersMatches, 4);
+        service.handleChatMessage({ user: 'Voter', message: '1' });
+        assert.throws(() => service.repairPollBracket(stale), /changed since the repair preview/);
+        assert.equal(tournament.matches.length, 15);
+        fs.chmodSync(path.join(tmpDir, 'polls.json'), 0o600);
+        const before = JSON.parse(fs.readFileSync(path.join(tmpDir, 'polls.json'), 'utf8'));
+        const preview = service.previewPollBracketRepair();
+        const result = service.repairPollBracket(preview);
+        assert.deepEqual(JSON.parse(fs.readFileSync(path.join(tmpDir, result.backup), 'utf8')), before);
+        assert.equal(fs.statSync(path.join(tmpDir, 'polls.json')).mode & 0o777, 0o600);
+        tournament = result.tournament;
+        assert.equal(tournament.matches.length, 30);
+        assert.equal(service.getActivePoll().totalVotes, 1);
+        for (const old of before.pollTournament.matches) {
+            const restored = tournament.matches.find(m => m.id === old.id);
+            assert.deepEqual(restored.entrant1, old.entrant1);
+            assert.deepEqual(restored.entrant2, old.entrant2);
+            assert.equal(restored.winner, old.winner);
+            assert.equal(restored.status, old.status);
+        }
+        assert.throws(() => service.repairPollBracket(preview), /no saved losers or finals/);
+        service.destroy();
+        service = createPollService(options);
+        tournament = service.getPollTournament();
+        assert.equal(service.getActivePoll().totalVotes, 1);
+        assert.equal(service.handleChatMessage({ user: 'Voter', message: '2' }), false);
+        const winnersFinal = tournament.matches.find(m => m.id === 'm_4_1');
+        losses.set(winnersFinal.entrant2.name, losses.get(winnersFinal.entrant2.name) + 1);
+        service.finishPoll();
+        while (tournament.status !== 'COMPLETED') {
+            const match = tournament.matches.find(m => m.status === 'PENDING' &&
+                m.entrant1?.name && m.entrant1.name !== 'TBD' &&
+                m.entrant2?.name && m.entrant2.name !== 'TBD');
+            assert.ok(match, 'repaired bracket must have a playable match');
+            service.startTournamentMatch(match.id, { isPoll: true });
+            service.handleChatMessage({ user: 'Voter', message: '1' });
+            service.finishPoll();
+            losses.set(match.entrant2.name, losses.get(match.entrant2.name) + 1);
+        }
+        for (const [entrant, count] of losses) {
+            assert.equal(count, entrant === tournament.champion ? 0 : 2);
+        }
+    } finally {
+        service.destroy();
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
+test('Bracket repair refuses inconsistent data and leaves the original intact if saving fails', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-bracket-repair-failure-'));
+    const service = createPollService({
+        dataDir: tmpDir, broadcastToOverlays: () => {}, onTakeover: () => {},
+        onAlert: () => {}, log: () => {}, error: () => {}
+    });
+    const originalRename = fs.renameSync;
+    try {
+        const tournament = service.createTournament({
+            format: 'double', isPoll: true, entrants: ['A', 'B', 'C', 'D'], announceChat: false
+        });
+        tournament.matches = tournament.matches.filter(m => m.bracket === 'winners');
+        for (const match of tournament.matches) {
+            delete match.loserNextMatchId;
+            delete match.loserNextSlot;
+            if (match.id === 'm_2_1') match.nextMatchId = null;
+        }
+        service.startTournamentMatch('m_1_1', { isPoll: true });
+        service.handleChatMessage({ user: 'Voter', message: '1' });
+        service.finishPoll();
+        const next = tournament.matches.find(m => m.id === 'm_2_1');
+        const originalName = next.entrant1.name;
+        next.entrant1.name = 'Inconsistent entrant';
+        assert.throws(() => service.previewPollBracketRepair(), /Winners results are inconsistent/);
+        next.entrant1.name = originalName;
+        const preview = service.previewPollBracketRepair();
+        const before = fs.readFileSync(path.join(tmpDir, 'polls.json'), 'utf8');
+        fs.renameSync = () => { throw new Error('Simulated disk failure'); };
+        assert.throws(() => service.repairPollBracket(preview), /Simulated disk failure/);
+        fs.renameSync = originalRename;
+        assert.equal(fs.readFileSync(path.join(tmpDir, 'polls.json'), 'utf8'), before);
+        assert.equal(service.getPollTournament(), tournament);
+        assert.equal(tournament.matches.length, 3);
+        assert.equal(fs.readdirSync(tmpDir).filter(name => name.endsWith('.tmp')).length, 0);
+        assert.equal(fs.readdirSync(tmpDir).filter(name => name.startsWith('polls-before-bracket-repair-')).length, 1);
+    } finally {
+        fs.renameSync = originalRename;
+        service.destroy();
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
 test('Tournament Service: Double Elimination and mid-tournament match duration changes', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-double-elim-test-'));
     let overlayMessages = [];

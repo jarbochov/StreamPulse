@@ -5,6 +5,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const DEFAULT_PRESETS = [
     {
@@ -178,7 +179,8 @@ function createPollService({
         error('[Polls] Error loading polls.json:', err.message);
     }
 
-    function save() {
+    function save({ atomic = false, throwOnError = false } = {}) {
+        let temporaryPath;
         try {
             const payload = {
                 active: activePoll,
@@ -192,9 +194,21 @@ function createPollService({
                 pollTournament: activePollTournament,
                 pollTournamentHistory: pollTournamentHistory.slice(0, 30)
             };
-            fs.writeFileSync(filePath, JSON.stringify(payload, null, 2));
+            const contents = JSON.stringify(payload, null, 2);
+            if (atomic) {
+                temporaryPath = `${filePath}.${crypto.randomUUID()}.tmp`;
+                fs.writeFileSync(temporaryPath, contents, {
+                    flag: 'wx',
+                    mode: fs.statSync(filePath).mode & 0o777
+                });
+                fs.renameSync(temporaryPath, filePath);
+            } else {
+                fs.writeFileSync(filePath, contents);
+            }
         } catch (err) {
+            if (temporaryPath && fs.existsSync(temporaryPath)) fs.unlinkSync(temporaryPath);
             error('[Polls] Error saving polls.json:', err.message);
+            if (throwOnError) throw err;
         }
     }
 
@@ -925,7 +939,7 @@ function createPollService({
             throw new Error('Poll double elimination requires exactly 2, 4, 8, or 16 participants');
         }
         const currentTournament = isPoll ? activePollTournament : activeTournament;
-        if (currentTournament && getLinkedTournament(activePoll)?.tournament === currentTournament) {
+        if (!opts.buildOnly && currentTournament && getLinkedTournament(activePoll)?.tournament === currentTournament) {
             throw new Error('End the current match vote before replacing its tournament');
         }
 
@@ -1422,6 +1436,7 @@ function createPollService({
             isPoll: Boolean(isPoll)
         };
 
+        if (opts.buildOnly) return elimTourneyObj;
         if (isPoll) {
             activePollTournament = elimTourneyObj;
             save();
@@ -1433,6 +1448,120 @@ function createPollService({
             broadcastTournamentUpdate();
             return activeTournament;
         }
+    }
+
+    function buildPollBracketRepair() {
+        const tournament = activePollTournament;
+        if (!tournament || tournament.format !== 'double' || ![4, 8, 16].includes(tournament.bracketSize) ||
+            tournament.entrantCount !== tournament.bracketSize || tournament.status === 'COMPLETED' || tournament.champion) {
+            throw new Error('This tournament cannot be safely repaired automatically');
+        }
+        const template = createTournament({
+            format: 'double',
+            entrants: Array.from({ length: tournament.bracketSize }, (_, i) => `Repair seed ${i + 1}`),
+            bestOf: tournament.bestOf,
+            roundsBestOf: tournament.roundsBestOf,
+            targetScore: tournament.targetScore,
+            isPoll: true
+        }, { isPoll: true, buildOnly: true });
+        const winners = template.matches.filter(m => m.bracket === 'winners');
+        const matches = tournament.matches;
+        if (!Array.isArray(matches) || matches.length !== winners.length ||
+            new Set(matches.map(m => m.id)).size !== winners.length ||
+            winners.some(m => !matches.some(saved => saved.id === m.id && saved.bracket === 'winners'))) {
+            throw new Error('Repair requires an intact winners bracket with no saved losers or finals matches');
+        }
+        const firstRound = matches.filter(m => m.round === 1);
+        const names = firstRound.flatMap(m => [m.entrant1?.name, m.entrant2?.name]);
+        if (names.length !== tournament.bracketSize || new Set(names).size !== names.length ||
+            names.some(name => !name || name === 'TBD' || name === 'BYE')) {
+            throw new Error('Repair requires distinct, fully seeded entrants without BYEs');
+        }
+
+        const draft = JSON.parse(JSON.stringify(tournament));
+        const byId = new Map(draft.matches.map(m => [m.id, m]));
+        const additions = template.matches.filter(m => m.bracket !== 'winners');
+        const addedById = new Map(additions.map(m => [m.id, m]));
+        let completed = 0;
+        for (const shape of winners) {
+            const match = byId.get(shape.id);
+            if (match.round !== shape.round || !['PENDING', 'ACTIVE', 'COMPLETED'].includes(match.status) ||
+                (match.status !== 'COMPLETED' && match.winner)) {
+                throw new Error(`Cannot safely recover result for ${match.id}`);
+            }
+            if (match.status === 'COMPLETED') {
+                if (!match.entrant1?.name || !match.entrant2?.name ||
+                    match.entrant1.name === match.entrant2.name ||
+                    ![match.entrant1.name, match.entrant2.name].includes(match.winner) ||
+                    !names.includes(match.entrant1.name) || !names.includes(match.entrant2.name)) {
+                    throw new Error(`Cannot safely recover result for ${match.id}`);
+                }
+                completed++;
+            }
+            if (shape.nextMatchId !== 'gf_1') {
+                const next = byId.get(shape.nextMatchId);
+                if (!next || match.nextMatchId !== shape.nextMatchId || match.nextSlot !== shape.nextSlot) {
+                    throw new Error(`Winners routing is inconsistent at ${match.id}`);
+                }
+                const savedNextName = next[`entrant${shape.nextSlot}`]?.name || 'TBD';
+                if (savedNextName !== (match.status === 'COMPLETED' ? match.winner : 'TBD')) {
+                    throw new Error(`Winners results are inconsistent at ${match.id}`);
+                }
+            }
+            match.nextMatchId = shape.nextMatchId;
+            match.nextSlot = shape.nextSlot;
+            match.loserNextMatchId = shape.loserNextMatchId;
+            match.loserNextSlot = shape.loserNextSlot;
+            if (shape.nextMatchId === 'gf_1') match.roundName = shape.roundName;
+            if (match.status === 'COMPLETED') {
+                const winner = match.entrant1.name === match.winner ? match.entrant1 : match.entrant2;
+                const loser = winner === match.entrant1 ? match.entrant2 : match.entrant1;
+                const resetEntrant = entrant => ({ ...entrant, score: 0, rounds: 0, votes: 0, percent: 0 });
+                const loserMatch = addedById.get(shape.loserNextMatchId);
+                if (!loserMatch) throw new Error(`Missing loser destination for ${match.id}`);
+                loserMatch[`entrant${shape.loserNextSlot}`] = resetEntrant(loser);
+                if (shape.nextMatchId === 'gf_1') addedById.get('gf_1').entrant1 = resetEntrant(winner);
+            }
+        }
+        additions.forEach(match => {
+            match.entrants = [match.entrant1?.name || 'TBD', match.entrant2?.name || 'TBD'];
+        });
+        draft.matches.push(...additions);
+        const fingerprint = crypto.createHash('sha256').update(JSON.stringify(tournament)).digest('hex');
+        return {
+            draft,
+            preview: {
+                tournamentId: tournament.id,
+                fingerprint,
+                completedWinners: completed,
+                losersMatches: additions.filter(m => m.bracket === 'losers').length,
+                readyLosersMatches: additions.filter(m => m.bracket === 'losers' &&
+                    m.entrant1?.name !== 'TBD' && m.entrant2?.name !== 'TBD').length
+            }
+        };
+    }
+
+    function previewPollBracketRepair() {
+        return buildPollBracketRepair().preview;
+    }
+
+    function repairPollBracket({ tournamentId, fingerprint } = {}) {
+        const { draft, preview } = buildPollBracketRepair();
+        if (!tournamentId || tournamentId !== preview.tournamentId || !fingerprint || fingerprint !== preview.fingerprint) {
+            throw new Error('Tournament changed since the repair preview; review it again');
+        }
+        const backupPath = path.join(dataDir, `polls-before-bracket-repair-${crypto.randomUUID()}.json`);
+        fs.copyFileSync(filePath, backupPath, fs.constants.COPYFILE_EXCL);
+        const original = activePollTournament;
+        activePollTournament = draft;
+        try {
+            save({ atomic: true, throwOnError: true });
+        } catch (err) {
+            activePollTournament = original;
+            throw err;
+        }
+        broadcastPollTournamentUpdate();
+        return { tournament: activePollTournament, backup: path.basename(backupPath) };
     }
 
     function resolveTargetTournament(matchId, isPoll = false) {
@@ -2209,6 +2338,8 @@ function createPollService({
         createTournament,
         getTournament,
         getPollTournament: () => activePollTournament,
+        previewPollBracketRepair,
+        repairPollBracket,
         broadcastPollTournamentUpdate,
         startTournamentMatch,
         advanceTournamentMatch,

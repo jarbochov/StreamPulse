@@ -165,6 +165,15 @@ test('Poll Manager and overlay show a 16-player losers bracket without disruptin
             entrants: Array.from({ length: 16 }, (_, i) => `Entrant ${i + 1}`),
             isPoll: true, announceChat: false
         });
+        tournament.matches = tournament.matches.filter(m => m.bracket === 'winners');
+        for (const match of tournament.matches) {
+            delete match.loserNextMatchId;
+            delete match.loserNextSlot;
+            if (match.id === 'm_4_1') {
+                match.roundName = 'Grand Finals';
+                match.nextMatchId = null;
+            }
+        }
         for (const id of ['m_1_1', 'm_1_2']) {
             const match = tournament.matches.find(m => m.id === id);
             service.advanceTournamentMatch(id, match.entrant1.name, { isPoll: true });
@@ -185,9 +194,6 @@ test('Poll Manager and overlay show a 16-player losers bracket without disruptin
             }), /exactly 2, 4, 8, or 16/);
         }
         assert.equal(service.getPollTournament().id, tournamentId);
-        assert.throws(() => service.startTournamentMatch('lb_1_1', { isPoll: true }), /End the current poll/);
-        assert.equal(service.getPollTournament().matches.find(m => m.id === 'lb_1_1').status, 'PENDING');
-        assert.equal(service.getActivePoll().id, activeId);
         await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
         const origin = `http://127.0.0.1:${server.address().port}`;
         browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
@@ -195,7 +201,14 @@ test('Poll Manager and overlay show a 16-player losers bracket without disruptin
         await page.setViewport({ width: 1280, height: 720 });
         await page.goto(`${origin}/polls.html`, { waitUntil: 'domcontentloaded' });
         await page.click('#tab-btn-tourney');
+        await page.waitForSelector('button[onclick="repairPollBracket()"]', { visible: true });
+        page.once('dialog', dialog => dialog.accept());
+        await page.$eval('button[onclick="repairPollBracket()"]', button => button.click());
         await page.waitForSelector('#bracket-nav-losers', { visible: true });
+        assert.throws(() => service.startTournamentMatch('lb_1_1', { isPoll: true }), /End the current poll/);
+        assert.equal(service.getPollTournament().matches.find(m => m.id === 'lb_1_1').status, 'PENDING');
+        assert.equal(service.getActivePoll().id, activeId);
+        assert.equal(service.getActivePoll().totalVotes, 1);
         await page.waitForFunction(() => document.getElementById('btn-start-match').textContent.trim() === 'End Match Vote');
         await page.click('#bracket-nav-losers');
         assert.equal(await page.$eval('#bracket-studio-view', el => el.scrollTop > 0), true);

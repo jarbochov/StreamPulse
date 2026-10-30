@@ -1895,7 +1895,8 @@
                     studioHtml += `<div id="bracket-section-losers" style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #f59e0b; margin: 0.85rem 0 0.35rem; padding-bottom: 0.2rem; border-bottom: 1px solid var(--border);">Losers Bracket</div>`;
                     studioHtml += lMatches.map(renderStudioMatchItem).join('');
                 } else if (t.bracketSize >= 4) {
-                    studioHtml += `<p class="bracket-warning">This tournament has no saved losers bracket. Do not reset it while voting is in progress.</p>`;
+                    studioHtml += `<p class="bracket-warning">This tournament has no saved losers bracket. Do not reset it.</p>
+                        <button type="button" class="btn-secondary btn-sm" onclick="repairPollBracket()">Review bracket repair</button>`;
                 }
                 if (gfMatches.length) {
                     studioHtml += `<div id="bracket-section-finals" style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #ffd700; margin: 0.85rem 0 0.35rem; padding-bottom: 0.2rem; border-bottom: 1px solid var(--border);">Grand Finals</div>`;
@@ -1916,6 +1917,34 @@
             const heading = $(`bracket-section-${section}`);
             if (!view || !heading) return;
             view.scrollTop += heading.getBoundingClientRect().top - view.getBoundingClientRect().top - 12;
+        }
+
+        async function repairPollBracket() {
+            try {
+                const previewResponse = await fetch('/api/polls/tournament/repair-preview');
+                const previewData = await previewResponse.json();
+                if (!previewResponse.ok) {
+                    toast(previewData.error || 'Could not preview bracket repair.');
+                    return;
+                }
+                const preview = previewData.preview;
+                if (!confirm(`Restore ${preview.losersMatches} losers matches and Grand Finals using ${preview.completedWinners} completed winners results?\n\n${preview.readyLosersMatches} losers matches will be ready. Existing results and any running vote will be preserved. A backup will be saved before changes are applied.`)) return;
+                const response = await fetch('/api/polls/tournament/repair', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tournamentId: preview.tournamentId, fingerprint: preview.fingerprint })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    toast(data.error || 'Bracket repair failed.');
+                    return;
+                }
+                activeTourneyData = data.tournament;
+                renderTournamentStudio(activeTourneyData);
+                toast('Losers bracket restored. A backup was saved.');
+            } catch {
+                toast('Server error repairing bracket.');
+            }
         }
 
         async function setLiveTourneyDuration(sec) {

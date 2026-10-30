@@ -82,6 +82,8 @@ The audience poll tournament overlay provides two primary broadcast views:
 
 For a double-elimination poll tournament, **Bracket Matches** includes Winners, Losers, and Grand Finals jump buttons. The losers' matches are present immediately with TBD slots; they become playable as results fill both slots. Finish the current poll before starting another poll or match, resetting bracket matches, or replacing its tournament. Advancing a participant in the live match manually overrides its vote. A running poll resumes with its saved votes after a server restart; if its time expired while offline, its saved result is resolved on startup. A tie or a poll with no votes leaves the match pending for another vote or manual resolution.
 
+If an older double-elimination poll tournament contains only winners' matches, use **Review bracket repair** in Bracket Matches. The preview reconstructs the missing losers' bracket and Grand Finals from completed winners' results without resetting the tournament or interrupting its current vote. Confirm the preview to save a backup in the data folder and apply the repair. If results are inconsistent or change while you review them, the repair is rejected rather than guessing.
+
 ---
 
 ## 3. Versus & Matchup Scoreboard

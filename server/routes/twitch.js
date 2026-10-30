@@ -295,6 +295,24 @@ function createTwitchRoutes({
             return true;
         }
 
+        if (pathname === '/api/polls/tournament/repair-preview' && req.method === 'GET') {
+            if (!pollService) { sendError(res, 'Native polls not available', 501); return true; }
+            try {
+                sendJson(res, { status: 'ok', preview: pollService.previewPollBracketRepair() });
+            } catch (err) { sendError(res, err, 400); }
+            return true;
+        }
+
+        if (pathname === '/api/polls/tournament/repair' && req.method === 'POST') {
+            if (!pollService) { sendError(res, 'Native polls not available', 501); return true; }
+            try {
+                const raw = await readRequestBody(req);
+                const result = pollService.repairPollBracket(raw ? JSON.parse(raw) : {});
+                sendJson(res, { status: 'ok', ...result });
+            } catch (err) { sendError(res, err, 400); }
+            return true;
+        }
+
         if (pathname === '/api/polls/tournament/create' && req.method === 'POST') {
             if (!pollService) { sendError(res, 'Native polls not available', 501); return true; }
             try {
