@@ -3,6 +3,7 @@ const path = require('path');
 const http = require('http');
 const https = require('https');
 const WebSocket = require('ws');
+const { createHash } = require('crypto');
 const { normalizeSsnSessionId } = require('../ssn-config');
 
 const MAX_IN_MEMORY_CHAT_MESSAGES = 2000;
@@ -436,7 +437,7 @@ function createSsnService({
         chatData.viewerStats = normalizeViewerStats(chatData.viewerStats);
         // Compare without the timestamp so idle periods don't rewrite the file every interval.
         const { lastUpdated, ...content } = chatData;
-        const fingerprint = JSON.stringify(content);
+        const fingerprint = createHash('sha256').update(JSON.stringify(content)).digest('hex');
         if (fingerprint === lastSavedChatData) return;
         chatData.lastUpdated = new Date().toISOString();
         safeWriteFileSync(liveChatPath, JSON.stringify(chatData, null, 2));
@@ -555,9 +556,10 @@ function createSsnService({
         }
         const statsData = getStatsData();
         const data = JSON.stringify(statsData, null, 2);
-        if (data === lastSavedStats) return;
+        const fingerprint = createHash('sha256').update(data).digest('hex');
+        if (fingerprint === lastSavedStats) return;
         safeWriteFileSync(statsPath, data);
-        lastSavedStats = data;
+        lastSavedStats = fingerprint;
 
         // Rotating backup (cycles through 1, 2, 3); a failed backup must not undo or block the primary save
         const backupPath = path.join(dataDir, `.stats-backup-${statsBackupRotation}.json`);

@@ -1310,7 +1310,7 @@
             $('active-features-tag').textContent = tags.join(' · ');
 
             const list = $('active-choices-list');
-            list.innerHTML = (poll.choices || []).map((c, i) => {
+            const choicesHtml = (poll.choices || []).map((c, i) => {
                 const pct = Math.round(c.percent || 0);
                 const isWinner = poll.winner && poll.winner === c.title;
                 return `
@@ -1325,11 +1325,15 @@
                     </div>
                 `;
             }).join('');
+            if (list._choicesHtml !== choicesHtml) {
+                list._choicesHtml = choicesHtml;
+                list.innerHTML = choicesHtml;
+            }
         }
 
         // Preview box renderer
-        function updatePreview() {
-            updateOverlayUrls();
+        function updatePreview(updateUrls = true) {
+            if (updateUrls) updateOverlayUrls();
             const box = $('poll-preview-box');
             if (!box) return;
 
@@ -2302,10 +2306,7 @@
                     if (msg.type === 'poll-update') {
                         activePollData = msg.data;
                         renderActivePollMonitor(activePollData);
-                        updatePreview();
-                        if (msg.data && msg.data.tournamentMatchId) {
-                            loadTournament();
-                        }
+                        updatePreview(false);
                     } else if (msg.type === 'poll-tournament-update') {
                         activeTourneyData = msg.data;
                         renderTournamentStudio(activeTourneyData);

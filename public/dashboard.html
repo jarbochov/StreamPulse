@@ -148,7 +148,8 @@
             <div class="indicator"><div class="dot" id="dot-ssn"></div><span>SocialStream: <span id="ssn-status">—</span></span></div>
             <div class="indicator"><div class="dot" id="dot-twitch"></div><span>Twitch token: <span id="twitch-status">—</span></span></div>
             <div class="indicator"><div class="dot" id="dot-ws"></div><span>Overlay sources: <span id="ws-clients">0</span></span></div>
-            <div class="detail-line"><strong>Memory:</strong> <span id="memory">—</span></div>
+            <div class="detail-line" title="Resident Node process memory, including heap, native allocations and buffers. This is not Safari memory."><strong>Node RSS:</strong> <span id="memory">—</span></div>
+            <div class="detail-line" title="Live JavaScript allocations / currently allocated V8 heap. RSS need not shrink immediately after garbage collection."><strong>JS heap:</strong> <span id="memory-heap">—</span></div>
         </div>
 
         <div class="card" data-panel-id="quick-actions" data-title="Actions" data-span="6">
@@ -626,6 +627,7 @@
         setDot('dot-server', 'green');
         setText('uptime', formatUptime(data.uptime));
         setText('memory', `${Math.round((data.memory?.rss || 0) / 1048576)} MB`);
+        setText('memory-heap', `${Math.round((data.memory?.heapUsed || 0) / 1048576)} / ${Math.round((data.memory?.heapTotal || 0) / 1048576)} MB`);
         if (ssn.connected) { setDot('dot-ssn', 'green'); setText('ssn-status', 'Connected'); }
         else if (ssn.session) { setDot('dot-ssn', 'red'); setText('ssn-status', 'Disconnected'); }
         else { setDot('dot-ssn', 'yellow'); setText('ssn-status', 'Not configured'); }

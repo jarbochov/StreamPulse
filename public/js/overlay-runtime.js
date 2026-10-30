@@ -449,6 +449,7 @@
     }
 
     function render(overlay) {
+        shared.pruneSourceCaches(overlay.elements);
         if (transitioning) { pendingRender = overlay; return; }
         fitNodes.length = 0;
         currentOverlay = overlay;

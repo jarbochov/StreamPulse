@@ -174,6 +174,7 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
     const sequence = new Map();
     const lastVariant = new Map();
     const recent = new Map();
+    let nextRecentPruneAt = 0;
     const gifts = new Map();
     let counter = 0;
 
@@ -451,9 +452,14 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
         if (!isTest) {
             const key = `${ev.type}|${ev.user}|${ev.command ?? ''}|${ev.amount ?? ''}|${ev.months ?? ''}|${ev.reward ?? ''}|${ev.name ?? ''}`;
             const now = Date.now();
+            if (now >= nextRecentPruneAt) {
+                for (const [k, t] of recent) if (now - t > 600000) recent.delete(k);
+                nextRecentPruneAt = now + 1000;
+            }
             if (recent.has(key) && now - recent.get(key) < (ev.dedupeMs ?? 8000)) return null;
+            recent.delete(key);
             recent.set(key, now);
-            if (recent.size > 500) for (const [k, t] of recent) if (now - t > 600000) recent.delete(k);
+            if (recent.size > 10000) recent.delete(recent.keys().next().value);
         }
 
         let rule = null;
@@ -593,6 +599,10 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
         queue.length = 0;
         for (const batch of gifts.values()) clearTimeout(batch.timer);
         gifts.clear();
+        recent.clear();
+        cooldowns.clear();
+        sequence.clear();
+        lastVariant.clear();
         clearTimeout(saveEventsTimer);
         saveEventsTimer = null;
         fs.writeFileSync(eventsPath, JSON.stringify(events));
@@ -645,7 +655,15 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
     return {
         TRIGGERS, ANIM_IN, ANIM_OUT, TIMER_ACTIONS,
         getConfig: () => config,
-        setConfig(next) { config = normalizeConfig(next); save(); return config; },
+        setConfig(next) {
+            config = normalizeConfig(next);
+            const ruleIds = new Set(config.rules.map(rule => rule.id));
+            for (const map of [cooldowns, sequence, lastVariant]) {
+                for (const id of map.keys()) if (!ruleIds.has(id)) map.delete(id);
+            }
+            save();
+            return config;
+        },
         getQueueState: () => ({ pending: queue.length, current, paused, history, events }),
         replayEvent, replayAlert,
         handleEvent, fireRule, noteGift, control, stop,

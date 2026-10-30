@@ -37,6 +37,20 @@ Solutions to common questions and edge cases when running StreamPulse.
 
 ## 3. Performance & Memory Optimization
 
+### What the Dashboard Memory Figure Means
+
+**Node RSS** is resident memory for the backend process: JavaScript heap, native allocations, buffers, and other resident pages. **JS heap** shows used / allocated V8 heap separately. Neither measures Safari, OBS browser sources, or GPU memory. Values are displayed in binary megabytes (MiB), labelled MB in the dashboard. A 200 MB RSS reading alone does not prove a leak; garbage collection can release objects without the allocator immediately returning those pages to the OS.
+
+Compare readings over similar idle/active cycles and check whether used heap keeps increasing after workload and retained history stabilize. Tournament votes update poll state and broadcast brackets, so temporary allocations are expected, but the tournament being active does not establish the cause of a particular spike. Keep session/lifetime data intact when investigating; do not reset a running tournament just to lower the number.
+
+The backend avoids retaining duplicate serialized chat/statistics snapshots, bounds slow WebSocket queues and slideshow reports, expires dead peers, and bounds transient alert deduplication. Existing protections include a 2,000-message in-memory chat-log tail, 5,000 recent-chatter records, capped poll/tournament histories, compact archive summaries, and bounded backup workers. These are not a fixed total-memory budget: lifetime statistics, archive summaries, and large media/export operations can still need substantial RAM.
+
+Live API responses use `no-store`; static files support ETag revalidation and media range streaming instead of adding an in-memory file cache. Browser HTTP caching policy does not by itself control retained DOM, decoded images, video frames, GPU resources, or JavaScript objects. Those require browser-side lifecycle cleanup and inspection in Safari's developer tools.
+
+Tournament overlays now keep unchanged cards/connectors in place instead of rebuilding them for countdown pushes, and Poll Manager avoids choice-node rebuilds, preference writes, and bracket requests for unchanged countdown updates. Navigation closes tournament/shared visibility sockets and cancels pending work; returning restores those connections. Production tournament sources still receive live vote updates when the browser reports them hidden.
+
+For Safari, compare Web Inspector timelines/JavaScript allocations and macOS Activity Monitor readings for the relevant Web Content process separately from backend RSS. A decoded 4K image, several video frames, or a large composited canvas can consume far more memory than its compressed file. Prefer appropriately sized source media and close unused editor/preview tabs. Do not disable live data or indiscriminately clear caches to hide a growing-memory symptom.
+
 ### Reducing CPU Usage During Long Broadcasts
 1. **Shutdown Inactive Sources**: In OBS Studio, check **"Shutdown source when not visible"** on all StreamPulse browser sources. This completely unloads the browser tab when switching away from that scene.
 2. **Disable Effects in Background**: The WebGL retro display shaders and motion graphics automatically pause when their visual controls are hidden or toggled off.

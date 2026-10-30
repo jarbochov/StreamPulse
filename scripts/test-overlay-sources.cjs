@@ -1,12 +1,124 @@
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const path = require('node:path');
-const { once } = require('node:events');
+const { once, EventEmitter } = require('node:events');
 const { test } = require('node:test');
 const WebSocket = require('ws');
 const puppeteer = require('puppeteer');
 const { createOverlayWsServer } = require('../server/ws');
 const { createStaticRouter } = require('../server/static-router');
+
+class FixtureSocket extends EventEmitter {
+    readyState = WebSocket.OPEN;
+    bufferedAmount = 0;
+    sent = [];
+    pings = 0;
+    autoPong = true;
+    stalled = false;
+    send(message) {
+        this.sent.push(message);
+        if (this.stalled) this.bufferedAmount += Buffer.byteLength(message);
+    }
+    ping() {
+        this.pings++;
+        if (this.autoPong) this.emit('pong');
+    }
+    terminate() {
+        this.readyState = WebSocket.CLOSED;
+    }
+}
+
+test('slow sockets have bounded queues, dead peers expire and idle shutdown clears heartbeats', t => {
+    t.mock.timers.enable({ apis: ['setInterval'] });
+    const live = createOverlayWsServer({ log: () => {} });
+    t.after(() => live.closeAllConnections());
+    let serializations = 0;
+    const payload = { toJSON() { serializations++; return { text: 'x'.repeat(1024 * 1024) }; } };
+    live.broadcastToOverlays('poll-tournament-update', payload);
+    assert.equal(serializations, 0, 'no allocation-heavy serialization without subscribers');
+    const healthy = new FixtureSocket();
+    const slow = new FixtureSocket();
+    slow.stalled = true;
+    live.setupConnection(healthy);
+    live.setupConnection(slow);
+    for (let i = 0; i < 20; i++) live.broadcastToOverlays('poll-tournament-update', payload);
+    assert.equal(slow.readyState, WebSocket.CLOSED, 'slow peer is disconnected instead of retaining every bracket update');
+    assert.ok(slow.bufferedAmount < 6 * 1024 * 1024, 'queued bytes stop growing after crossing the high-water mark');
+    assert.equal(healthy.sent.filter(message => JSON.parse(message).type === 'poll-tournament-update').length, 20);
+    assert.equal(live.getClientCount(), 1, 'closed peer is released even before a close event');
+
+    const dead = new FixtureSocket();
+    dead.autoPong = false;
+    live.setupConnection(dead);
+    dead.emit('message', JSON.stringify({ type: 'slideshow-state', id: 'fixture', element: 'slides', count: 2 }));
+    t.mock.timers.tick(30000);
+    assert.equal(dead.pings, 1);
+    t.mock.timers.tick(30000);
+    assert.equal(dead.readyState, WebSocket.CLOSED);
+    assert.equal(live.getSlideshowStates().size, 0, 'expired peer releases slideshow state');
+    t.mock.timers.tick(90000);
+    assert.equal(live.getClientCount(), 1, 'responsive idle browser remains connected');
+    const pings = healthy.pings;
+    live.closeAllConnections();
+    t.mock.timers.tick(120000);
+    assert.equal(healthy.pings, pings, 'shutdown leaves no heartbeat activity');
+    assert.equal(live.getClientCount(), 0);
+});
+
+test('slideshow reports remain bounded and reconnect cleanup preserves the latest reporter', () => {
+    const live = createOverlayWsServer({ log: () => {} });
+    try {
+        const first = new FixtureSocket();
+        const second = new FixtureSocket();
+        live.setupConnection(first);
+        for (let i = 0; i < 5000; i++) {
+            first.emit('message', JSON.stringify({ type: 'slideshow-state', id: 'fixture', element: `slides-${i}`, count: 2 }));
+        }
+        assert.ok(live.getSlideshowStates().size <= 256, 'unique element reports cannot grow forever on one connection');
+        first.emit('message', JSON.stringify({ type: 'slideshow-state', id: 'fixture', element: 'slides-0', position: 17, count: 20 }));
+        assert.equal(live.getSlideshowStates().get('fixture::slides-0').position, 17, 'existing reports still update at capacity');
+        live.setupConnection(second);
+        second.emit('message', JSON.stringify({ type: 'slideshow-state', id: 'fixture', element: 'slides-0', position: 1, count: 2 }));
+        first.emit('close');
+        assert.equal(live.getSlideshowStates().size, 1);
+        assert.equal(live.getSlideshowStates().get('fixture::slides-0').position, 1);
+        second.emit('error', new Error('fixture transport failure'));
+        assert.equal(live.getClientCount(), 0);
+        assert.equal(live.getSlideshowStates().size, 0);
+    } finally {
+        live.closeAllConnections();
+    }
+});
+
+test('inbound live reports are size-limited without limiting outgoing snapshots', async t => {
+    const server = http.createServer();
+    const snapshotBytes = 5 * 1024 * 1024;
+    const live = createOverlayWsServer({ server, getChatData: () => ({ message: 'x'.repeat(snapshotBytes) }), log: () => {} });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const client = new WebSocket(`ws://127.0.0.1:${server.address().port}`);
+    client.on('error', () => {});
+    t.after(async () => {
+        client.terminate();
+        live.closeAllConnections();
+        await new Promise(resolve => server.close(resolve));
+    });
+    const initialMessages = [];
+    client.on('message', raw => initialMessages.push(JSON.parse(raw)));
+    const initialized = new Promise(resolve => client.on('message', raw => {
+        if (JSON.parse(raw).type === 'timers-snapshot') resolve();
+    }));
+    const snapshot = once(client, 'message');
+    await once(client, 'open');
+    assert.equal(JSON.parse((await snapshot)[0]).data.message.length, snapshotBytes);
+    await initialized;
+    assert.equal(live.getClientCount(), 1, 'a large initial snapshot does not cause a reconnect loop on a healthy client');
+    assert.ok(initialMessages.some(message => message.type === 'viewer-update'));
+    const closed = once(client, 'close');
+    client.send('x'.repeat(128 * 1024));
+    const [code] = await closed;
+    assert.equal(code, 1009, 'oversized incoming messages close cleanly without an unhandled server error');
+    assert.equal(live.getClientCount(), 0);
+});
 
 test('source count excludes generic live sockets, embedded previews and extra runtime sockets', async () => {
     const rootDir = path.resolve(__dirname, '..');

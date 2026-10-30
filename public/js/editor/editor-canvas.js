@@ -516,6 +516,7 @@ if (document.fonts) {
 let lastLive = '';
 const pagePlayback = new Map();
 export function renderCanvas(only) {
+    shared.pruneSourceCaches(state.overlay.elements);
     const live = only ? lastLive : (lastLive = liveSignature());
     const activeCutouts = state.overlay.elements.filter(e => e.type === 'cutout' && e.visible !== false && inView(e));
     const maxCutoutIndex = activeCutouts.length ? Math.max(...activeCutouts.map(c => state.overlay.elements.indexOf(c))) : -1;

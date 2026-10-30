@@ -469,6 +469,8 @@ Control also accepts `GET /api/timers/:id/control?action=toggle`. Read an indivi
 
 Connect to `ws://localhost:3000` (or your configured host/port). Messages use a `{ "type": "...", "data": {...} }` envelope.
 
+The server sends protocol ping frames every 30 seconds while connected; clients must answer with pong (browser WebSockets do this automatically). Dead or backlogged clients are disconnected and should reconnect for a fresh snapshot. Incoming reports have a 64 KiB message limit; outgoing snapshots are not subject to that limit. Slideshow reporting is bounded to 256 distinct keys per connection. See [live-state memory bounds](architecture.md#live-state-memory-bounds) for queue limits and cleanup. Reconnection does not replay missed transient alerts or control commands.
+
 When overlays connect, they receive live event packets in real time:
 - **`snapshot`**: Current collected session data, sent immediately on connection.
 - **`update`**: Updated session data, including chatters and hashtags.

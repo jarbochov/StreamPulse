@@ -119,6 +119,26 @@ Metadata checks are throttled to once every ten seconds. Archives created/update
 
 Cold archive reads and metadata scans are still synchronous. This cache removes repeated archive reads/parsing, not cold loading. Full-backup ZIP creation and restore processing use a separate bounded worker service; share bundles and other exports still have their existing processing paths.
 
+### Live-State Memory Bounds
+
+Chat/statistics change detection keeps SHA-256 fingerprints instead of retaining another full serialized copy of each snapshot. Unchanged saves still skip disk writes and preserve the chat update timestamp; changed data and failed-write retries retain their existing persistence behavior. Serialization and hashing are still synchronous, and the live/session/lifetime data itself is not truncated by this optimization.
+
+WebSocket broadcasts serialize once for connected, writable clients and skip serialization without subscribers. At each live broadcast or heartbeat, a client with more than 4 MiB of queued outgoing data is disconnected rather than accumulating every live update. One outgoing message can cross that high-water mark; the finite initial snapshot sequence is allowed to finish enqueueing so large snapshots do not cause immediate reconnect loops on healthy clients. Reconnecting receives the current snapshot, not a replay of transient alerts or control commands. Server ping/pong checks run every 30 seconds while clients exist and remove unresponsive connections on the next check. Shutdown clears this timer and connection-owned state.
+
+Incoming WebSocket reports are limited to 64 KiB per message; this does not limit outgoing tournament/chat snapshots. A connection can retain at most 256 distinct slideshow-report keys, with existing keys still updateable at the limit. Closing an older reporter does not erase a newer connection's report for the same slideshow.
+
+Alert deduplication retains at most 10,000 recent event keys, evicting the least recently accepted key at capacity and pruning records older than ten minutes during activity. Under an unusually large burst, eviction can let an old duplicate through. Removed rules release their cooldown/variant-selection state; engine shutdown clears those maps. These bounds cover transport and transient caches, not total process RSS or intentionally retained lifetime statistics.
+
+### Browser Idle and Page Lifecycle
+
+Tournament overlays retain bracket DOM for unchanged state and retain connector SVG paths for unchanged geometry. Connector work is coalesced into one pending animation frame. Poll countdown updates do not regenerate Poll Manager choice nodes, rewrite overlay URL preferences, or refetch an unchanged bracket. Actual vote, match, layout, and resize changes continue to update the relevant display.
+
+Tournament initial/reconnect fetches have a ten-second deadline; a newer WebSocket update wins over an older HTTP response. Tournament and shared visibility sockets close on `pagehide`, cancel pending reconnects, and reconnect on `pageshow` without duplicating old connections. Tournament teardown also aborts pending fetches and cancels connector/confetti work. This is navigation cleanup, not a blanket `document.hidden` pause for production tournament overlays: OBS sources can report hidden while still needing live votes.
+
+Custom-overlay runtime/editor rerenders reconcile source and selection caches against the entire current overlay model. Removed source paths and retired selections are evicted; sources on inactive pages remain cached for page switching. Late responses from retired requests cannot repopulate those caches. This bounds retention to current model references rather than clearing useful live-page caches or truncating saved designs.
+
+The automated idle regression (`scripts/test-browser-idle.cjs`) uses isolated HTTP/WebSocket fixtures to test repeated unchanged updates, bounded redraw work, page lifecycle restoration, and Poll Manager countdown handling. Native Safari 27.2 checks of fictional fixtures also retained bracket cards and SVG paths through 60 countdown pushes and 20 resize events with no redraws or extra GETs; changed votes still updated a hidden tournament source. These are bounded behavioral checks, not an overnight Safari heap/GPU profile or proof of production memory savings.
+
 ### Backup Worker
 
 Manual and automatic full backups and restore parsing/decompression use `server/services/backup.js` and `backup-worker.js`, keeping that ZIP work off the Node/Electron main thread. The service permits one active and two waiting operations; excess work fails explicitly rather than spawning unbounded workers. Session end/shutdown and importer flows await the required backup before resetting or replacing source data.

@@ -96,6 +96,15 @@
         const confettiCanvas = document.getElementById('confetti-canvas');
         let currentTournament = null;
         let lastCelebratedChampion = null;
+        let lastRenderSignature = null;
+        let connectorFrame = null;
+        let connectorTimer = null;
+        let liveSocket = null;
+        let reconnectTimer = null;
+        let suspended = false;
+        let stateVersion = 0;
+        let initialRequest = null;
+        let confettiFrame = null;
 
         // Overlay Identity & Mode
         const paramSource = (params.get('source') || '').toLowerCase();
@@ -250,10 +259,14 @@
         }
 
         function renderTournament(tournament) {
+            if (suspended) return;
             if (!tournament || !Array.isArray(tournament.matches)) {
                 if (isPreview) {
                     tournament = getFallbackSample();
                 } else {
+                    currentTournament = null;
+                    if (lastRenderSignature === 'empty') return;
+                    lastRenderSignature = 'empty';
                     const emptyTitle = isPollMode ? 'No active audience bracket' : 'No active tournament bracket';
                     const emptyHint = isPollMode ? 'Open Poll Manager to launch a tournament' : 'Open Versus Studio to launch a tournament';
                     container.innerHTML = `
@@ -268,6 +281,9 @@
             }
 
             currentTournament = tournament;
+            const signature = JSON.stringify(tournament);
+            if (signature === lastRenderSignature) return;
+            lastRenderSignature = signature;
 
             // Trigger Champion celebration once
             if (tournament.status === 'COMPLETED' && tournament.champion && lastCelebratedChampion !== tournament.champion) {
@@ -310,12 +326,20 @@
                 stage.style.transform = `scale(${scaleVal})`;
                 stage.style.transformOrigin = 'center center';
             }
-            requestAnimationFrame(drawBracketConnectors);
+            scheduleBracketConnectors();
         }
-        window.addEventListener('resize', () => {
+        function handleResize() {
             adjustScaleAndFit();
-            drawBracketConnectors();
-        });
+        }
+        window.addEventListener('resize', handleResize);
+
+        function scheduleBracketConnectors() {
+            if (suspended || !showLines || connectorFrame !== null) return;
+            connectorFrame = requestAnimationFrame(() => {
+                connectorFrame = null;
+                drawBracketConnectors();
+            });
+        }
 
         // Render Active Match HUD
         function renderActiveMatchHud(tournament) {
@@ -618,8 +642,12 @@
             }
 
             container.innerHTML = html;
-            requestAnimationFrame(drawBracketConnectors);
-            setTimeout(drawBracketConnectors, 60);
+            scheduleBracketConnectors();
+            clearTimeout(connectorTimer);
+            connectorTimer = setTimeout(() => {
+                connectorTimer = null;
+                scheduleBracketConnectors();
+            }, 60);
         }
 
         function drawBracketConnectors() {
@@ -635,11 +663,11 @@
                     svg.id = tree.id ? `${tree.id}-connectors` : 'bracket-connectors';
                     tree.insertBefore(svg, tree.firstChild);
                 }
-                svg.innerHTML = '';
                 const treeRect = tree.getBoundingClientRect();
                 if (!treeRect.width || !treeRect.height) return;
 
-                svg.setAttribute('viewBox', `0 0 ${treeRect.width} ${treeRect.height}`);
+                const viewBox = `0 0 ${treeRect.width} ${treeRect.height}`;
+                const paths = [];
 
                 const rounds = Array.from(tree.querySelectorAll('.bracket-round'));
                 if (rounds.length < 2) return;
@@ -677,19 +705,24 @@
 
                         const xm = x1 + (x2 - x1) * 0.5;
 
-                        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                        path.setAttribute('d', `M ${x1} ${y1} H ${xm} V ${y2} H ${x2}`);
-
                         const isActive = matchObj?.status === 'ACTIVE' || fromCard.classList.contains('active');
 
                         let cls = 'bracket-line';
                         if (matchObj?.winner) cls += ' winner-line';
                         else if (isActive) cls += ' active-line';
-                        path.setAttribute('class', cls);
-
-                        svg.appendChild(path);
+                        paths.push({ d: `M ${x1} ${y1} H ${xm} V ${y2} H ${x2}`, cls });
                     });
                 }
+                const signature = JSON.stringify([viewBox, paths]);
+                if (svg._connectorSignature === signature) return;
+                svg._connectorSignature = signature;
+                svg.setAttribute('viewBox', viewBox);
+                svg.replaceChildren(...paths.map(({ d, cls }) => {
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', d);
+                    path.setAttribute('class', cls);
+                    return path;
+                }));
             });
         }
 
@@ -838,8 +871,10 @@
 
         // Particle Confetti
         function burstConfetti() {
-            if (!confettiCanvas) return;
+            if (!confettiCanvas || suspended) return;
+            if (confettiFrame !== null) cancelAnimationFrame(confettiFrame);
             const ctx = confettiCanvas.getContext('2d');
+            if (!ctx) return;
             const w = confettiCanvas.width = window.innerWidth;
             const h = confettiCanvas.height = window.innerHeight;
             const count = 75;
@@ -863,6 +898,7 @@
             function frame() {
                 const elapsed = Date.now() - start;
                 if (elapsed > 4000) {
+                    confettiFrame = null;
                     ctx.clearRect(0, 0, w, h);
                     return;
                 }
@@ -879,63 +915,79 @@
                     ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
                     ctx.restore();
                 });
-                requestAnimationFrame(frame);
+                confettiFrame = requestAnimationFrame(frame);
             }
-            requestAnimationFrame(frame);
+            confettiFrame = requestAnimationFrame(frame);
         }
 
         // Initial Data Fetch
         async function loadInitial() {
+            initialRequest?.abort();
+            const controller = new AbortController();
+            initialRequest = controller;
+            const version = stateVersion;
+            const timeout = setTimeout(() => controller.abort(), 10000);
+            const isCurrent = () => !suspended && !controller.signal.aborted && stateVersion === version;
             const fallbackSample = getFallbackSample();
-            if (forceSample) {
-                renderTournament(fallbackSample);
-                try {
-                    const res = await fetch(tourneyEndpoint);
-                    const data = await res.json();
-                    if (data.tournament && (data.tournament.logo || data.tournament.logoSize)) {
-                        renderTournament({ ...fallbackSample, logo: data.tournament.logo || '', logoSize: data.tournament.logoSize || '' });
-                    }
-                } catch {}
-                return;
-            }
             try {
-                const res = await fetch(tourneyEndpoint);
-                const data = await res.json();
-                if (data.tournament) {
-                    currentTournament = data.tournament;
-                    renderTournament(currentTournament);
+                if (forceSample) {
+                    renderTournament(fallbackSample);
+                    try {
+                        const res = await fetch(tourneyEndpoint, { signal: controller.signal, cache: 'no-store' });
+                        const data = await res.json();
+                        if (isCurrent() && data.tournament && (data.tournament.logo || data.tournament.logoSize)) {
+                            renderTournament({ ...fallbackSample, logo: data.tournament.logo || '', logoSize: data.tournament.logoSize || '' });
+                        }
+                    } catch {}
                     return;
                 }
-            } catch (err) {
-                console.warn('[Tournament Overlay] Error fetching initial state:', err);
+                try {
+                    const res = await fetch(tourneyEndpoint, { signal: controller.signal, cache: 'no-store' });
+                    const data = await res.json();
+                    if (!isCurrent()) return;
+                    renderTournament(data.tournament);
+                    return;
+                } catch (err) {
+                    if (!isCurrent()) return;
+                    console.warn('[Tournament Overlay] Error fetching initial state:', err);
+                }
+                if (isPreview) renderTournament(fallbackSample);
+            } finally {
+                clearTimeout(timeout);
+                if (initialRequest === controller) initialRequest = null;
             }
-            if (isPreview) renderTournament(fallbackSample);
         }
         loadInitial();
 
         // WebSocket Connection
         function connectWs() {
+            if (suspended || liveSocket) return;
             const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
             const ws = new WebSocket(`${proto}//${location.host}/ws`);
+            liveSocket = ws;
 
             ws.onopen = () => {
+                if (suspended || liveSocket !== ws) return;
                 if (window.self === window.top && !isPreview) {
                     ws.send(JSON.stringify({ type: 'overlay-source', key: tourneySourceKey }));
                 }
             };
 
             ws.onmessage = (event) => {
-                if (forceSample) return;
+                if (suspended || liveSocket !== ws || forceSample) return;
                 try {
                     const msg = JSON.parse(event.data);
                     if (msg.type === tourneyWsEvent) {
+                        stateVersion++;
                         currentTournament = msg.data;
                         renderTournament(currentTournament);
                     } else if (isPollMode && msg.type === 'poll-update' && currentTournament) {
                         const poll = msg.data;
                         if (poll && poll.tournamentMatchId) {
                             const match = currentTournament.matches.find(m => m.id === poll.tournamentMatchId);
-                            if (match && poll.choices && poll.choices.length >= 2) {
+                            if (match?.entrant1 && match.entrant2 && poll.choices && poll.choices.length >= 2) {
+                                if (poll.tournamentId && poll.tournamentId !== currentTournament.id) return;
+                                stateVersion++;
                                 match.entrant1.votes = poll.choices[0].votes;
                                 match.entrant1.percent = poll.choices[0].percent;
                                 match.entrant2.votes = poll.choices[1].votes;
@@ -947,9 +999,43 @@
                 } catch { /* ignore parse error */ }
             };
 
-            ws.onclose = () => setTimeout(connectWs, 2000);
+            ws.onclose = () => {
+                if (liveSocket !== ws) return;
+                liveSocket = null;
+                if (suspended || reconnectTimer !== null) return;
+                reconnectTimer = setTimeout(() => {
+                    reconnectTimer = null;
+                    connectWs();
+                    loadInitial();
+                }, 2000);
+            };
+            ws.onerror = () => ws.close();
         }
         connectWs();
+        window.addEventListener('pagehide', () => {
+            suspended = true;
+            stateVersion++;
+            initialRequest?.abort();
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+            clearTimeout(connectorTimer);
+            connectorTimer = null;
+            if (connectorFrame !== null) cancelAnimationFrame(connectorFrame);
+            connectorFrame = null;
+            if (confettiFrame !== null) cancelAnimationFrame(confettiFrame);
+            confettiFrame = null;
+            confettiCanvas?.getContext('2d')?.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            const ws = liveSocket;
+            liveSocket = null;
+            ws?.close();
+        });
+        window.addEventListener('pageshow', () => {
+            if (!suspended) return;
+            suspended = false;
+            connectWs();
+            loadInitial();
+            adjustScaleAndFit();
+        });
 
         return {
             renderTournament,

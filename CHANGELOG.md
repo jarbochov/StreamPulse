@@ -19,6 +19,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Custom Overlay Editor IGDB Artwork: Direct browser and importer for official game artwork, logos, and screenshots from IGDB into custom overlay image layers.
 
 ### Fixed
+- Memory: Avoid retaining duplicate saved snapshots, bound live-client queues and transient caches, and distinguish Node RSS from JavaScript heap on the dashboard.
 - Custom Overlay Editor Patterns: Separate procedural generative backdrops from repeating tile mosaics; render Promo patterns full-bleed across the layer without cutting geometry into 96px tiled stamp squares, while keeping Pattern Tile dedicated to repeating image and icon mosaics.
 - Alert Variants UX: Eliminate text truncation and cutoff across headers and template fields; replace cramped inline micro-inputs with structured prestige cards, clear Base Alert vs Milestone Tier role selectors, full-width template and subtitle fields with inline 1-click token pills, and a visual Alert Activation Ladder showing ascending milestone tier progression.
 - Alert Variants & Weights: Fix weighted variant distribution by removing forced 2-variant alternating locks and default pick overrides; remove misplaced odds weight input from Timing & FX tab, replace mutually exclusive weighted/gated toggle with a unified condition and odds bar, and fix test rule simulation bypassing variant selection.

@@ -2325,14 +2325,20 @@
         const keys = [...new Set((elements || []).map(textSourceKey).filter(Boolean))];
         let changed = false;
         await Promise.all(keys.map(async key => {
+            let entry = textSources.get(key);
+            if (!entry) {
+                entry = { state: null };
+                textSources.set(key, entry);
+            }
             const next = await loadTextSource(key);
-            const prev = textSources.get(key);
+            if (textSources.get(key) !== entry) return;
+            const prev = entry.state;
             if (!prev || prev.text !== next.text || prev.error !== next.error) changed = true;
-            textSources.set(key, next);
+            entry.state = next;
         }));
         return changed;
     }
-    const textSourceState = el => textSources.get(textSourceKey(el)) || null;
+    const textSourceState = el => textSources.get(textSourceKey(el))?.state || null;
     const sourceText = el => { const state = textSourceState(el); return state && typeof state.text === 'string' ? state.text : null; };
     // Scrolls the node's current contents across it. The track animates text-indent (layout, not a transform) so a clipped text gradient still follows the letters.
     function wrapMarquee(node) {
@@ -2398,29 +2404,41 @@
     // ---- slideshow ----------------------------------------------------------------------------
     const slideshowCache = new Map();
     const mediaKind = name => (/\.(mp4|webm|ogg)$/i.test(name) ? 'video' : /\.(png|jpe?g|gif|webp|svg)$/i.test(name) ? 'image' : 'other');
-    async function slideshowItems(config) {
+    function slideshowSourceKey(config = {}) {
         if (config.source === 'manual') {
-            if (!(config.files || []).length) return [];
-            const url = `/api/asset-library?kinds=${config.kinds || 'image'}&names=${encodeURIComponent((config.files || []).join('\n'))}`;
-            const cached = slideshowCache.get(url);
-            if (cached && Date.now() - cached.at < 8000) return cached.items;
-            try {
-                const response = await fetch(url, { cache: 'no-store' });
-                const items = response.ok ? await response.json() : [];
-                slideshowCache.set(url, { at: Date.now(), items });
-                return items;
-            } catch { return cached?.items || []; }
+            if (!(config.files || []).length) return '';
+            return `/api/asset-library?kinds=${config.kinds || 'image'}&names=${encodeURIComponent((config.files || []).join('\n'))}`;
         }
-        if (!(config.tags || []).length) return [];
-        const url = `/api/asset-library?tags=${encodeURIComponent(config.tags.join(','))}&mode=${config.tagMode || 'any'}&kinds=${config.kinds || 'image'}`;
-        const cached = slideshowCache.get(url);
-        if (cached && Date.now() - cached.at < 8000) return cached.items;
+        if (!(config.tags || []).length) return '';
+        return `/api/asset-library?tags=${encodeURIComponent(config.tags.join(','))}&mode=${config.tagMode || 'any'}&kinds=${config.kinds || 'image'}`;
+    }
+
+    // Reconcile against the whole model, not just the visible page or a single inspector selection.
+    function pruneSourceCaches(elements) {
+        const textKeys = new Set((elements || []).map(textSourceKey).filter(Boolean));
+        const slideKeys = new Set((elements || []).filter(el => el.type === 'slideshow').map(el => slideshowSourceKey(el.slideshow)).filter(Boolean));
+        for (const key of textSources.keys()) if (!textKeys.has(key)) textSources.delete(key);
+        for (const key of slideshowCache.keys()) if (!slideKeys.has(key)) slideshowCache.delete(key);
+    }
+
+    async function slideshowItems(config) {
+        const url = slideshowSourceKey(config);
+        if (!url) return [];
+        let entry = slideshowCache.get(url);
+        if (!entry) {
+            entry = { at: 0, items: [] };
+            slideshowCache.set(url, entry);
+        }
+        if (entry.at && Date.now() - entry.at < 8000) return entry.items;
         try {
             const response = await fetch(url, { cache: 'no-store' });
             const items = response.ok ? await response.json() : [];
-            slideshowCache.set(url, { at: Date.now(), items });
+            if (slideshowCache.get(url) === entry) {
+                entry.at = Date.now();
+                entry.items = items;
+            }
             return items;
-        } catch { return cached?.items || []; }
+        } catch { return entry.items; }
     }
 
     // Plays a slideshow inside `node`. With { preview: true } it only shows the first slide. Returns { stop() }.
@@ -3303,5 +3321,5 @@
         return handle;
     }
 
-    root.OverlayShared = { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, applyMediaFilter, shadowClipStyle };
+    root.OverlayShared = { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, applyMediaFilter, shadowClipStyle };
 })(window);

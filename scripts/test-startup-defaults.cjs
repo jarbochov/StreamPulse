@@ -127,6 +127,7 @@ test('dashboard defaults form ordered rows before scripts, after load, and after
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify(req.url.startsWith('/api/status') ? {
                 ssn: { connected: false, session: null }, overlayClients: 0,
+                memory: { rss: 200 * 1048576, heapUsed: 40 * 1048576, heapTotal: 80 * 1048576 },
                 topChatters: [{ chatname: 'FixtureChatter', messageCount: 1 }],
                 hourlyMessages: { '2026-10-19T12': 3 }
             } : req.url.startsWith('/api/custom-overlays') ? [] : {}));
@@ -176,6 +177,8 @@ test('dashboard defaults form ordered rows before scripts, after load, and after
     await page.setJavaScriptEnabled(true);
     await page.reload();
     await page.waitForFunction(() => document.getElementById('ssn-status').textContent === 'Not configured');
+    assert.equal(await page.$eval('#memory', element => element.textContent), '200 MB');
+    assert.equal(await page.$eval('#memory-heap', element => element.textContent), '40 / 80 MB');
     checkRows(await boxes());
     for (const width of [900, 390]) {
         await page.setViewport({ width, height: 900 });

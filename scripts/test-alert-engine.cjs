@@ -21,6 +21,33 @@ function createTempEngine(initialConfig = {}) {
     return { engine, dispatched, tempDir, cleanup: () => { engine.stop(); fs.rmSync(tempDir, { recursive: true, force: true }); } };
 }
 
+test('alert deduplication stays bounded during bursts and releases removed-rule cooldowns', () => {
+    const config = {
+        settings: { enabled: true },
+        rules: [{ id: 'fixture', trigger: 'follow', conditions: { cooldownSeconds: 0 }, variants: [{ title: 'Welcome {{user}}' }] }]
+    };
+    const { engine, cleanup } = createTempEngine(config);
+    try {
+        const old = { type: 'follow', user: 'OldFixture' };
+        assert.ok(engine.handleEvent(old));
+        assert.equal(engine.handleEvent({ ...old }), null, 'recent duplicate is suppressed');
+        for (let i = 0; i < 10001; i++) engine.handleEvent({ type: 'chat_word', user: `Fixture-${i}`, message: 'no rule' });
+        assert.ok(engine.handleEvent({ ...old }), 'oldest entry is evicted rather than growing the dedupe cache forever');
+        assert.equal(engine.handleEvent({ ...old }), null, 'newly retained event is still deduplicated');
+
+        const cooldownConfig = {
+            ...config,
+            rules: [{ ...config.rules[0], conditions: { cooldownSeconds: 60 } }]
+        };
+        engine.setConfig(cooldownConfig);
+        engine.setConfig({ settings: { enabled: true }, rules: [] });
+        engine.setConfig(cooldownConfig);
+        assert.ok(engine.handleEvent({ type: 'follow', user: 'NewFixture' }), 'removed rule does not retain its old cooldown');
+    } finally {
+        cleanup();
+    }
+});
+
 test('subscription tiers normalization and backward compatibility', () => {
     // Legacy c.tier string
     const cfg1 = normalizeConfig({
@@ -478,5 +505,4 @@ test('fireRule simulation evaluates test amounts and thresholds correctly', () =
         cleanup();
     }
 });
-
 

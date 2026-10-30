@@ -78,6 +78,7 @@ const broadcast = (startMs, endMs, extra = {}) => ({
 function ssn(dataDir, failures) {
     const chat = { messageCount: 1, viewerStats: {}, lastUpdated: null };
     const stats = { chatters: { a: 1 } };
+    const writes = [];
     const svc = createSsnService({
         dataDir,
         getChatData: () => chat,
@@ -85,13 +86,38 @@ function ssn(dataDir, failures) {
         safeWriteFileSync: (p, c) => {
             if (failures.has(path.basename(p))) throw new Error('injected');
             fs.writeFileSync(p, c);
+            writes.push(path.basename(p));
         },
         normalizeViewerStats: v => v || {},
         log: quiet, warn: quiet, error: quiet
     });
     svc.loadStats();
-    return { svc, chat, stats };
+    return { svc, chat, stats, writes };
 }
+
+(function idlePersistence() {
+    const dir = fs.mkdtempSync(path.join(root, 's-'));
+    const { svc, chat, stats, writes } = ssn(dir, new Set());
+    chat.extra = 'fictional chat'.repeat(100000);
+    stats.extra = 'fictional statistics'.repeat(100000);
+    svc.saveChatData();
+    svc.saveStats();
+    const savedWrites = writes.length;
+    const savedTimestamp = chat.lastUpdated;
+    for (let i = 0; i < 10; i++) {
+        svc.saveChatData();
+        svc.saveStats();
+    }
+    assert.strictEqual(writes.length, savedWrites, 'large unchanged snapshots do not rewrite data or rotating backups');
+    assert.strictEqual(chat.lastUpdated, savedTimestamp, 'idle saves do not change the last-update timestamp');
+    chat.messageCount++;
+    stats.chatters.b = 1;
+    svc.saveChatData();
+    svc.saveStats();
+    assert.strictEqual(JSON.parse(fs.readFileSync(path.join(dir, 'chat.json'))).messageCount, 2);
+    assert.strictEqual(JSON.parse(fs.readFileSync(path.join(dir, 'stats.json'))).chatters.b, 1);
+    assert.strictEqual(writes.length, savedWrites + 3, 'changed chat, stats and backup are still persisted');
+})();
 
 (function persistence() {
     const dir = fs.mkdtempSync(path.join(root, 's-'));

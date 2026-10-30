@@ -272,7 +272,7 @@ try {
     });
     const disposed = await stats(page);
     assert.equal(disposed.active, 0, 'teardown must abort the in-flight request');
-    assert.equal(disposed.sockets, 1, 'teardown must close its socket (existing visibility helper is independent)');
+    assert.equal(disposed.sockets, 0, 'teardown must close both the plan and visibility helper sockets');
     assert.equal(await page.evaluate(() => window.fixture.timers.size), 0, 'teardown must remove polling, request, reconnect timers');
     await advance(page, 120000);
     assert.deepEqual(await stats(page), disposed, 'teardown must not leave fetches or reconnects behind');
@@ -283,7 +283,7 @@ try {
         return window.fixture.flush();
     });
     assert.equal((await stats(page)).requests, disposed.requests + 1, 'BFCache return must refresh once');
-    assert.equal((await stats(page)).sockets, 2, 'BFCache return must not duplicate its socket');
+    assert.equal((await stats(page)).sockets, 2, 'BFCache return must restore exactly one plan and one visibility helper socket');
     await page.evaluate(async () => {
         window.fixture.hold = true;
         await window.fixture.visible(true);

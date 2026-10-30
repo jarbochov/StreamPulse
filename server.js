@@ -1726,8 +1726,7 @@ const server = http.createServer(async (req, res) => {
         const url = new URL(req.url, `http://localhost:${PORT}`);
         const pathname = url.pathname;
 
-        // Auto-enforce strict anti-caching headers on dynamic API and auth endpoints
-        // to prevent WebKit / Safari from ballooning memory to 6-12GB by caching thousands of polled JSON responses
+        // Dynamic snapshots must not accumulate in browser HTTP caches or return stale live state.
         if (pathname.startsWith('/api/') || pathname.startsWith('/auth/')) {
             const origWriteHead = res.writeHead;
             res.writeHead = function(statusCode, statusMessage, headers) {
