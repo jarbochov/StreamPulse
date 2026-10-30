@@ -3,14 +3,27 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
+const http = require('http');
 const puppeteer = require('puppeteer');
-
-const OVERLAY_URL = 'file://' + path.resolve(__dirname, '../public/overlays/tournament.html');
+const { createStaticRouter } = require('../server/static-router');
 
 test('tournament overlay renders tree layout, active HUD layout, theme presets, and showscores toggle', async () => {
     let browser;
+    const rootDir = path.resolve(__dirname, '..');
+    const router = createStaticRouter({ rootDir, publicDir: path.join(rootDir, 'public') });
+    const server = http.createServer((req, res) => {
+        if (req.url.startsWith('/api/')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end('{}');
+        } else if (!router.handleRequest(req, res)) {
+            res.writeHead(404);
+            res.end();
+        }
+    });
 
     try {
+        await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+        const OVERLAY_URL = `http://127.0.0.1:${server.address().port}/overlays/tournament.html`;
         browser = await puppeteer.launch({
             headless: 'new',
             pipe: true,
@@ -74,7 +87,7 @@ test('tournament overlay renders tree layout, active HUD layout, theme presets, 
         assert.ok(scoreText.includes('—'), 'Score pill should format as score — score');
 
         await page.evaluate(() => {
-            window.renderTournament({
+            window.TournamentOverlay.renderTournament({
                 id: 'rr-test',
                 title: 'Trio Showdown',
                 format: 'roundRobin',
@@ -92,7 +105,7 @@ test('tournament overlay renders tree layout, active HUD layout, theme presets, 
 
         // 7. BYE match rendering in single elim (odd participant count)
         await page.evaluate(() => {
-            window.renderTournament({
+            window.TournamentOverlay.renderTournament({
                 id: 'bye-test',
                 title: '3-Player Single Elim',
                 format: 'single',
@@ -165,7 +178,7 @@ test('tournament overlay renders tree layout, active HUD layout, theme presets, 
 
         // 13. Entrant color accents and dots
         await page.evaluate(() => {
-            window.renderTournament({
+            window.TournamentOverlay.renderTournament({
                 id: 'color-test',
                 title: 'Color Overlay Test',
                 format: 'single',
@@ -238,5 +251,6 @@ test('tournament overlay renders tree layout, active HUD layout, theme presets, 
 
     } finally {
         if (browser) await browser.close();
+        if (server.listening) await new Promise(resolve => server.close(resolve));
     }
 });

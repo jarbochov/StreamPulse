@@ -665,6 +665,225 @@ test('Matchup Service: Speedrun race clock runnerTimersMode (finish vs always) a
     }
 });
 
+test('Poll tournament: a vote expiring during restart resolves its saved result', async () => {
+    for (const hasVotes of [true, false]) {
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-poll-restart-'));
+        const options = {
+            dataDir: tmpDir,
+            broadcastToOverlays: () => {},
+            onTakeover: () => {},
+            onAlert: () => {},
+            log: () => {},
+            error: () => {}
+        };
+        let service = createPollService(options);
+        try {
+            const tournament = service.createTournament({
+                title: 'Audience bracket', format: 'double',
+                entrants: ['A', 'B', 'C', 'D'], isPoll: true, announceChat: false,
+                matchDuration: 10
+            });
+            const winner = tournament.matches[0].entrant1.name;
+            service.startTournamentMatch('m_1_1', { isPoll: true });
+            if (hasVotes) service.handleChatMessage({ user: 'TestVoter', message: '1' });
+            service.destroy();
+            const statePath = path.join(tmpDir, 'polls.json');
+            const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+            state.active.startedAt = new Date(Date.now() - 30000).toISOString();
+            fs.writeFileSync(statePath, JSON.stringify(state));
+            service = createPollService(options);
+            if (hasVotes) {
+                assert.equal(service.handleChatMessage({ user: 'LateVoter', message: '2' }), false);
+            } else {
+                await new Promise(resolve => setTimeout(resolve, 1200));
+            }
+            assert.equal(service.getActivePoll(), null);
+            const savedMatch = service.getPollTournament().matches.find(m => m.id === 'm_1_1');
+            assert.equal(savedMatch.status, hasVotes ? 'COMPLETED' : 'PENDING');
+            assert.equal(savedMatch.winner, hasVotes ? winner : null);
+            assert.equal(service.getHistory()[0].totalVotes, hasVotes ? 1 : 0);
+            service.destroy();
+            service = createPollService(options);
+            assert.equal(service.getPollTournament().matches.find(m => m.id === 'm_1_1').status,
+                hasVotes ? 'COMPLETED' : 'PENDING');
+        } finally {
+            service.destroy();
+            fs.rmSync(tmpDir, { recursive: true, force: true });
+        }
+    }
+});
+
+test('Poll tournament: supported double-elimination sizes run both grand final outcomes', () => {
+    const scenarios = [2, 4, 8, 16].flatMap(size => [false, true].map(resetFinal => [size, resetFinal]));
+    for (const [size, resetFinal] of scenarios) {
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-poll-double-16-'));
+        const options = {
+            dataDir: tmpDir,
+            broadcastToOverlays: () => {},
+            onTakeover: () => {},
+            onAlert: () => {},
+            log: () => {},
+            error: () => {}
+        };
+        let service = createPollService(options);
+        try {
+            let tournament = service.createTournament({
+                title: 'Audience bracket',
+                format: 'double',
+                entrants: Array.from({ length: size }, (_, i) => `Entrant ${i + 1}`),
+                isPoll: true,
+                announceChat: false
+            });
+            assert.equal(tournament.matches.filter(m => m.bracket === 'winners').length, size - 1);
+            assert.equal(tournament.matches.filter(m => m.bracket === 'losers').length, size - 2);
+            assert.equal(tournament.matches.filter(m => m.bracket === 'grand_finals').length, 1);
+            const losses = new Map(tournament.entrantsList.map(name => [name, 0]));
+            let matchCount = 0;
+            while (tournament.status !== 'COMPLETED') {
+                const match = tournament.matches.find(m =>
+                    m.status === 'PENDING' && !m.isBye &&
+                    m.entrant1?.name && !['TBD', 'BYE'].includes(m.entrant1.name) &&
+                    m.entrant2?.name && !['TBD', 'BYE'].includes(m.entrant2.name));
+                assert.ok(match, 'an unfinished bracket must have a playable match');
+                const vote = match.id === 'gf_1' && resetFinal ? 2 : 1;
+                const loser = vote === 1 ? match.entrant2.name : match.entrant1.name;
+                service.selectActiveMatch(match.id, { isPoll: true });
+                assert.equal(match.status, 'PENDING', 'selecting a poll match must not start its vote');
+                service.startTournamentMatch(match.id, { isPoll: true });
+                assert.equal(service.handleChatMessage({ user: 'TestVoter', message: String(vote) }), true);
+                service.finishPoll();
+                losses.set(loser, losses.get(loser) + 1);
+                assert.ok(++matchCount <= 2 * size - 1, 'bracket must terminate');
+                if (match.id === 'gf_1' && resetFinal) {
+                    assert.equal(tournament.status, 'IN_PROGRESS');
+                    assert.equal(tournament.champion, null);
+                    assert.equal(tournament.matches.find(m => m.id === 'gf_reset')?.status, 'PENDING');
+                    service.advanceTournamentMatch('gf_1', match.winner, { isPoll: true });
+                    assert.equal(tournament.matches.filter(m => m.id === 'gf_reset').length, 1);
+                    service.destroy();
+                    service = createPollService(options);
+                    tournament = service.getPollTournament();
+                    assert.equal(tournament.matches.find(m => m.id === 'gf_reset')?.status, 'PENDING');
+                }
+            }
+            assert.equal(matchCount, resetFinal ? 2 * size - 1 : 2 * size - 2);
+            for (const [entrant, count] of losses) {
+                assert.equal(count, entrant === tournament.champion ? (resetFinal ? 1 : 0) : 2);
+            }
+            if (resetFinal) {
+                const upstream = tournament.matches.filter(m => !m.id.startsWith('gf_'))
+                    .map(m => [m.id, m.status, m.winner]);
+                service.resetMatch('gf_1', { isPoll: true });
+                assert.equal(tournament.matches.some(m => m.id === 'gf_reset'), false);
+                assert.equal(tournament.status, 'IN_PROGRESS');
+                assert.equal(tournament.champion, null);
+                assert.deepEqual(tournament.matches.filter(m => !m.id.startsWith('gf_'))
+                    .map(m => [m.id, m.status, m.winner]), upstream);
+            }
+        } finally {
+            service.destroy();
+            fs.rmSync(tmpDir, { recursive: true, force: true });
+        }
+    }
+});
+
+test('Linked match votes remain isolated across tournaments and restarts', () => {
+    for (const legacy of [false, true]) {
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-linked-vote-'));
+        const options = { dataDir: tmpDir, broadcastToOverlays: () => {}, onTakeover: () => {},
+            onAlert: () => {}, log: () => {}, error: () => {} };
+        let service = createPollService(options);
+        try {
+            const pollTourney = service.createTournament({
+                title: 'Audience', format: 'double', isPoll: true, announceChat: false,
+                entrants: ['A', 'B', 'C', 'D'], matchDuration: 60
+            });
+            const versus = service.createTournament({
+                title: 'Versus', entrants: ['X', 'Y', 'Z', 'W'], announceChat: false, matchDuration: 60
+            });
+            const match = versus.matches.find(m => m.id === 'm_1_1');
+            service.startTournamentMatch(match.id);
+            assert.equal(service.getActivePoll().tournamentId, versus.id);
+            service.handleChatMessage({ user: 'Voter', message: '1' });
+            service.updateTournamentSettings({ matchDuration: 120 }, { isPoll: true });
+            assert.equal(service.getActivePoll().duration, 60);
+            service.destroy();
+            if (legacy) {
+                const file = path.join(tmpDir, 'polls.json');
+                const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
+                delete saved.active.tournamentId;
+                fs.writeFileSync(file, JSON.stringify(saved));
+            }
+            service = createPollService(options);
+            service.finishPoll();
+            assert.equal(service.getTournament().matches.find(m => m.id === match.id).winner, match.entrant1.name);
+            assert.equal(service.getPollTournament().matches.find(m => m.id === match.id).status, 'PENDING');
+
+            service.startTournamentMatch('m_1_1', { isPoll: true });
+            service.handleChatMessage({ user: 'Voter', message: '1' });
+            const activeId = service.getActivePoll().id;
+            assert.throws(() => service.startTournamentMatch('m_1_2', { isPoll: true }), /End the current poll/);
+            assert.throws(() => service.createPoll({ title: 'Other poll', choices: ['Yes', 'No'] }),
+                /End the current match vote/);
+            assert.throws(() => service.resetMatch('m_1_1', { isPoll: true }), /End the current match vote/);
+            assert.throws(() => service.rollbackTournamentMatch('m_1_2', { isPoll: true }), /End the current match vote/);
+            assert.throws(() => service.advanceTournamentMatch('m_1_2', 'B', { isPoll: true }), /End the current match vote/);
+            assert.throws(() => service.createTournament({
+                entrants: ['A', 'B'], format: 'double', isPoll: true
+            }), /End the current match vote/);
+            assert.equal(service.getPollTournament().id, pollTourney.id);
+            assert.equal(service.getActivePoll().id, activeId);
+            service.extendPoll(30);
+            service.destroy();
+            service = createPollService(options);
+            assert.equal(service.getActivePoll().duration, 150);
+            assert.equal(service.getActivePoll().totalVotes, 1);
+            service.finishPoll();
+            assert.equal(service.getPollTournament().matches.find(m => m.id === 'm_1_1').status, 'COMPLETED');
+            assert.throws(() => service.startTournamentMatch('m_1_1', { isPoll: true }), /Reset this match/);
+            service.startTournamentMatch('m_1_2', { isPoll: true });
+            service.cancelPoll();
+            service.destroy();
+            service = createPollService(options);
+            assert.equal(service.getPollTournament().matches.find(m => m.id === 'm_1_2').status, 'PENDING');
+        } finally {
+            service.destroy();
+            fs.rmSync(tmpDir, { recursive: true, force: true });
+        }
+    }
+});
+
+test('Resetting a winners match clears both downstream paths without clearing unrelated matches', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-bracket-reset-'));
+    const service = createPollService({
+        dataDir: tmpDir, broadcastToOverlays: () => {}, onTakeover: () => {},
+        onAlert: () => {}, log: () => {}, error: () => {}
+    });
+    try {
+        const tournament = service.createTournament({
+            format: 'double', isPoll: true, entrants: ['A', 'B', 'C', 'D'], announceChat: false
+        });
+        for (const id of ['m_1_1', 'm_1_2', 'm_2_1', 'lb_1_1', 'lb_2_1']) {
+            const match = tournament.matches.find(m => m.id === id);
+            service.advanceTournamentMatch(id, match.entrant1.name, { isPoll: true });
+        }
+        const unchanged = tournament.matches.find(m => m.id === 'm_1_2').winner;
+        service.resetMatch('m_1_1', { isPoll: true });
+        assert.equal(tournament.matches.find(m => m.id === 'm_1_2').winner, unchanged);
+        for (const id of ['m_2_1', 'lb_1_1']) {
+            const match = tournament.matches.find(m => m.id === id);
+            assert.equal(match.status, 'PENDING');
+            assert.equal(match.entrant1.name, 'TBD');
+        }
+        const final = tournament.matches.find(m => m.id === 'gf_1');
+        assert.equal(final.entrant1.name, 'TBD');
+        assert.equal(final.entrant2.name, 'TBD');
+    } finally {
+        service.destroy();
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
 test('Tournament Service: Double Elimination and mid-tournament match duration changes', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-double-elim-test-'));
     let overlayMessages = [];

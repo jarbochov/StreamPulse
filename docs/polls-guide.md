@@ -59,7 +59,7 @@ StreamPulse includes an advanced bracket controller designed for community game 
 ### What It Does
 - **Flexible Entrant Scaling (2 to 32 Entrants)**: Enter any number of competitors, including non-power-of-2 numbers (e.g. 3, 5, 6, 7, 9, 11, 13).
 - **Single Elimination with Clean BYEs**: Top seeds automatically receive 1st Round **BYEs** that cleanly advance directly to the subsequent round slot without ghost matches or fake scores.
-- **Double Elimination with Loser Progression**: Full Winners, Losers, and Grand Finals bracket structure. Competitors defeated in the Winners Bracket automatically drop into their assigned Losers Bracket slots, where they can fight back to the Grand Finals.
+- **Double Elimination with Loser Progression**: Competitors defeated in the Winners Bracket drop into their assigned Losers Bracket slots. Poll tournaments support exactly 2, 4, 8, or 16 participants; BYEs and 32-participant double-elimination brackets are not supported. In a poll tournament, if the losers' finalist wins Grand Finals, a reset match decides the champion.
 - **Mid-Tournament Match Time & Timer Controls**: Adjust match voting durations mid-tournament on the fly (`30s`, `60s`, `90s`, `120s`, `3m`, or custom) directly from the live bracket controller. When a match vote is live, one-click `+30s` and `+60s` extension buttons instantly add time to the running vote without interrupting the bracket.
 - **Round Robin League**: All-play-all schedule (Single or Double legs) with customizable league scoring (Standard 3-1-0, Win-Only 1-0-0, or Traditional 2-1-0) and automatic standings calculations (wins, draws, losses, points, and score differential).
 - **Series & Round Rules**: Best of 1, 3, 5, or 7 series. Supports rounds-within-a-game (e.g. Best of 3 rounds per game). Scoring the target rounds automatically increments the series game win and resets round scores.
@@ -79,6 +79,8 @@ The audience poll tournament overlay provides two primary broadcast views:
    - **Fit to Viewport (`?fit=1`)**: Auto-scales and centers the entire bracket within your OBS browser source so all rounds fit on-screen without scrollbars.
    - **Line Styles (`?lines=glow|solid|minimal`)**: Choose luminous glowing connectors, crisp high-contrast lines, or minimal borders.
 2. **Esports Lower-Third Match HUD (`?layout=hud`)**: A compact broadcast lower-third displaying the currently active matchup, round name, competitor names, live vote counts, and percentages. Designed to overlay gameplay without obstructing action.
+
+For a double-elimination poll tournament, **Bracket Matches** includes Winners, Losers, and Grand Finals jump buttons. The losers' matches are present immediately with TBD slots; they become playable as results fill both slots. Finish the current poll before starting another poll or match, resetting bracket matches, or replacing its tournament. Advancing a participant in the live match manually overrides its vote. A running poll resumes with its saved votes after a server restart; if its time expired while offline, its saved result is resolved on startup. A tie or a poll with no votes leaves the match pending for another vote or manual resolution.
 
 ---
 

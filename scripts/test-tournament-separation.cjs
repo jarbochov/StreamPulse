@@ -4,7 +4,13 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+const http = require('http');
+const puppeteer = require('puppeteer');
 const { createPollService } = require('../server/services/polls');
+const { createStaticRouter } = require('../server/static-router');
+const { createOverlayWsServer } = require('../server/ws');
+const { createTwitchRoutes } = require('../server/routes/twitch');
 
 test('Tournaments: strict separation between versus and poll tournaments', async (t) => {
     const tmpDataDir = path.join(__dirname, `tmp-tourney-test-${Date.now()}`);
@@ -122,4 +128,122 @@ test('Overlays: /overlays/tournament.html and /overlays/poll-tournament.html str
     assert.ok(pContent.includes('overlayType: \'poll\''), 'poll-tournament.html configured for poll');
     assert.ok(pContent.includes('/css/tournament.css'), 'poll-tournament.html references tournament.css');
     assert.ok(pContent.includes('/js/tournament-shared.js'), 'poll-tournament.html references tournament-shared.js');
+});
+
+test('Poll Manager and overlay show a 16-player losers bracket without disrupting a running vote', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-live-bracket-'));
+    const rootDir = path.resolve(__dirname, '..');
+    const router = createStaticRouter({ rootDir, publicDir: path.join(rootDir, 'public') });
+    let service;
+    let live;
+    let browser;
+    let routes;
+    const options = {
+        dataDir: dir,
+        broadcastToOverlays: (type, data) => live?.broadcastToOverlays(type, data),
+        onTakeover: () => {},
+        onAlert: () => {},
+        log: () => {},
+        error: () => {}
+    };
+    const server = http.createServer(async (req, res) => {
+        const url = new URL(req.url, 'http://fixture.local');
+        if (await routes(req, res, url, url.pathname)) return;
+        if (url.pathname.startsWith('/api/')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end('{"status":"ok"}');
+        } else if (!router.handleRequest(req, res)) {
+            res.writeHead(404);
+            res.end();
+        }
+    });
+    live = createOverlayWsServer({ server, log: () => {} });
+    try {
+        service = createPollService(options);
+        const tournament = service.createTournament({
+            title: 'Audience bracket', format: 'double',
+            entrants: Array.from({ length: 16 }, (_, i) => `Entrant ${i + 1}`),
+            isPoll: true, announceChat: false
+        });
+        for (const id of ['m_1_1', 'm_1_2']) {
+            const match = tournament.matches.find(m => m.id === id);
+            service.advanceTournamentMatch(id, match.entrant1.name, { isPoll: true });
+        }
+        service.startTournamentMatch('m_1_3', { isPoll: true });
+        service.handleChatMessage({ user: 'TestVoter', message: '1' });
+        const activeId = service.getActivePoll().id;
+        service.destroy();
+        service = createPollService(options);
+        routes = createTwitchRoutes({ pollService: service });
+        assert.equal(service.getActivePoll().id, activeId);
+        assert.equal(service.getActivePoll().totalVotes, 1);
+        const tournamentId = service.getPollTournament().id;
+        for (const count of [3, 5, 17]) {
+            assert.throws(() => service.createTournament({
+                format: 'double', isPoll: true,
+                entrants: Array.from({ length: count }, (_, i) => `Entrant ${i + 1}`)
+            }), /exactly 2, 4, 8, or 16/);
+        }
+        assert.equal(service.getPollTournament().id, tournamentId);
+        assert.throws(() => service.startTournamentMatch('lb_1_1', { isPoll: true }), /End the current poll/);
+        assert.equal(service.getPollTournament().matches.find(m => m.id === 'lb_1_1').status, 'PENDING');
+        assert.equal(service.getActivePoll().id, activeId);
+        await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+        const origin = `http://127.0.0.1:${server.address().port}`;
+        browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1280, height: 720 });
+        await page.goto(`${origin}/polls.html`, { waitUntil: 'domcontentloaded' });
+        await page.click('#tab-btn-tourney');
+        await page.waitForSelector('#bracket-nav-losers', { visible: true });
+        await page.waitForFunction(() => document.getElementById('btn-start-match').textContent.trim() === 'End Match Vote');
+        await page.click('#bracket-nav-losers');
+        assert.equal(await page.$eval('#bracket-studio-view', el => el.scrollTop > 0), true);
+        const loser = '#bracket-studio-view [data-match-id="lb_1_1"]';
+        await page.click(loser);
+        await page.waitForFunction(() => document.getElementById('current-match-round').textContent === 'Losers Round 1');
+        await page.click('#btn-start-match');
+        await page.waitForFunction(() => document.getElementById('toast').textContent.includes('End the current poll'));
+        assert.equal(service.getActivePoll().id, activeId);
+        assert.equal(service.getActivePoll().totalVotes, 1);
+        service.finishPoll();
+        await page.waitForFunction(() => document.getElementById('btn-start-match').textContent.trim() === 'Start Match Vote');
+        await page.click('#btn-start-match');
+        await page.waitForFunction(() => document.getElementById('btn-start-match').textContent.trim() === 'End Match Vote');
+        assert.equal(service.getActivePoll().tournamentMatchId, 'lb_1_1');
+
+        const overlay = await browser.newPage();
+        await overlay.setViewport({ width: 1280, height: 720 });
+        await overlay.goto(`${origin}/overlays/poll-tournament.html?fit=1`, { waitUntil: 'domcontentloaded' });
+        await overlay.waitForSelector('.double-elim-losers .match-card');
+        await overlay.waitForFunction(() => {
+            const stage = document.getElementById('stage');
+            const expected = Number(stage.style.transform.match(/scale\(([^)]+)\)/)?.[1]);
+            return expected > 0 && Math.abs(new window.DOMMatrix(getComputedStyle(stage).transform).a - expected) < 0.001;
+        });
+        assert.equal(await overlay.$$('.double-elim-losers .match-card').then(matches => matches.length), 14);
+        const bounds = await overlay.$eval('.double-elim-losers', el => {
+            const rect = el.getBoundingClientRect();
+            const stage = document.getElementById('stage');
+            return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom,
+                stageWidth: stage.offsetWidth, stageHeight: stage.offsetHeight,
+                scrollWidth: stage.scrollWidth, scrollHeight: stage.scrollHeight,
+                transform: stage.style.transform };
+        });
+        assert.ok(bounds.left >= -1 && bounds.top >= -1 && bounds.right <= 1281 && bounds.bottom <= 721,
+            `losers bracket should fit in the OBS viewport: ${JSON.stringify(bounds)}`);
+        const loserWinner = service.getPollTournament().matches.find(m => m.id === 'lb_1_1').entrant1.name;
+        service.handleChatMessage({ user: 'TestVoter', message: '1' });
+        service.finishPoll();
+        await overlay.waitForFunction(name => {
+            const next = document.querySelector('.double-elim-losers [data-match-id="lb_2_1"]');
+            return next?.textContent.includes(name);
+        }, { timeout: 5000 }, loserWinner);
+    } finally {
+        await browser?.close();
+        service?.destroy();
+        live.closeAllConnections();
+        if (server.listening) await new Promise(resolve => server.close(resolve));
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
 });

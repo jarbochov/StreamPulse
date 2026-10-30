@@ -364,6 +364,11 @@
                                 <div class="micro-heading" style="margin-bottom: 0;">Bracket Matches</div>
                                 <span style="font-size: 0.72rem; color: var(--text-muted);">Click any match to score or inspect</span>
                             </div>
+                            <div id="bracket-section-nav" class="bracket-section-nav" style="display: none;" aria-label="Jump to bracket section">
+                                <button type="button" id="bracket-nav-winners" class="btn-secondary btn-sm" onclick="jumpToBracketSection('winners')">Winners</button>
+                                <button type="button" id="bracket-nav-losers" class="btn-secondary btn-sm" onclick="jumpToBracketSection('losers')">Losers</button>
+                                <button type="button" id="bracket-nav-finals" class="btn-secondary btn-sm" onclick="jumpToBracketSection('finals')">Grand Finals</button>
+                            </div>
                             <div id="bracket-studio-view" class="bracket-mini-preview"></div>
                         </div>
 
@@ -448,6 +453,7 @@
                                     <option value="roundRobin">Round Robin (All vs All · Best for 3–8 players)</option>
                                     <option value="double">Double Elimination (Winners &amp; Losers Bracket)</option>
                                 </select>
+                                <p id="double-entrant-hint" class="bracket-warning" style="display: none;">Double elimination requires exactly 2, 4, 8, or 16 participants. BYEs are not supported in this format.</p>
                             </div>
 
                             <div class="form-group">
@@ -1551,13 +1557,14 @@
             const entrants = text ? text.split('\n').map(s => s.trim()).filter(Boolean) : [];
             const count = entrants.length;
             const pill = $('tourney-entrants-pill');
+            const format = $('tourney-format')?.value;
+            if ($('double-entrant-hint')) $('double-entrant-hint').style.display = format === 'double' ? 'block' : 'none';
             if (!pill) return;
             if (count < 2) {
                 pill.textContent = `${count} seed${count === 1 ? '' : 's'} (min 2)`;
                 pill.style.color = 'var(--text-muted)';
                 return;
             }
-            const format = $('tourney-format')?.value;
             if (format === 'roundRobin') {
                 const totalMatches = (count * (count - 1)) / 2;
                 pill.textContent = `${count} entrants · Round Robin (${totalMatches} matches)`;
@@ -1616,6 +1623,10 @@
 
             if (!title) { toast('Please enter a tournament title.'); return; }
             if (entrants.length < 2) { toast('Please enter at least 2 participants.'); return; }
+            if (format === 'double' && ![2, 4, 8, 16].includes(entrants.length)) {
+                toast('Double elimination requires 2, 4, 8, or 16 participants.');
+                return;
+            }
 
             const isManual = false;
             const payload = {
@@ -1790,8 +1801,8 @@
 
                     if (btnStart) {
                         btnStart.style.display = 'inline-block';
-                        if (currentMatch.status === 'ACTIVE') {
-                            btnStart.textContent = 'Crown Winner & Advance';
+                        if (isCurrentMatchPoll(currentMatch)) {
+                            btnStart.textContent = 'End Match Vote';
                         } else {
                             btnStart.textContent = 'Start Match Vote';
                         }
@@ -1851,7 +1862,7 @@
                     : `<span style="font-size: 0.72rem; color: ${isAct ? 'var(--accent)' : (isComp ? '#3fb950' : 'var(--text-muted)')}; font-weight: 700;">${m.status}</span>`;
 
                 return `
-                    <div class="tournament-match-box clickable${isAct ? ' active' : ''}${isComp ? ' completed' : ''}" style="margin-bottom: 0.5rem; padding: 0.45rem 0.75rem; font-size: 0.8rem; cursor: pointer;" onclick="selectTournamentMatch('${m.id}')" title="Click to score or control match">
+                    <div class="tournament-match-box clickable${isAct ? ' active' : ''}${isComp ? ' completed' : ''}" data-match-id="${esc(m.id)}" style="margin-bottom: 0.5rem; padding: 0.45rem 0.75rem; font-size: 0.8rem; cursor: pointer;" onclick="selectTournamentMatch('${m.id}')" title="Click to score or control match">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
                             <span style="font-weight: 700; color: var(--text-muted); font-size: 0.72rem;">${esc(m.roundName)}${m.matchDetails ? ` · ${esc(m.matchDetails)}` : ''}</span>
                             ${scoreBadge}
@@ -1865,22 +1876,29 @@
                 `;
             }
 
+            const sectionNav = $('bracket-section-nav');
+            if (sectionNav) sectionNav.style.display = t.format === 'double' ? 'flex' : 'none';
             if (t.format === 'double') {
                 const wMatches = matches.filter(m => m.bracket === 'winners' || (!m.bracket && !m.id.startsWith('lb_') && m.id !== 'gf_1'));
                 const lMatches = matches.filter(m => m.bracket === 'losers' || m.id.startsWith('lb_'));
                 const gfMatches = matches.filter(m => m.bracket === 'grand_finals' || m.id === 'gf_1');
+                $('bracket-nav-winners').hidden = !wMatches.length;
+                $('bracket-nav-losers').hidden = !lMatches.length;
+                $('bracket-nav-finals').hidden = !gfMatches.length;
 
                 let studioHtml = '';
                 if (wMatches.length) {
-                    studioHtml += `<div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); margin: 0.5rem 0 0.35rem; padding-bottom: 0.2rem; border-bottom: 1px solid var(--border);">Winners Bracket</div>`;
+                    studioHtml += `<div id="bracket-section-winners" style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); margin: 0.5rem 0 0.35rem; padding-bottom: 0.2rem; border-bottom: 1px solid var(--border);">Winners Bracket</div>`;
                     studioHtml += wMatches.map(renderStudioMatchItem).join('');
                 }
                 if (lMatches.length) {
-                    studioHtml += `<div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #f59e0b; margin: 0.85rem 0 0.35rem; padding-bottom: 0.2rem; border-bottom: 1px solid var(--border);">Losers Bracket</div>`;
+                    studioHtml += `<div id="bracket-section-losers" style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #f59e0b; margin: 0.85rem 0 0.35rem; padding-bottom: 0.2rem; border-bottom: 1px solid var(--border);">Losers Bracket</div>`;
                     studioHtml += lMatches.map(renderStudioMatchItem).join('');
+                } else if (t.bracketSize >= 4) {
+                    studioHtml += `<p class="bracket-warning">This tournament has no saved losers bracket. Do not reset it while voting is in progress.</p>`;
                 }
                 if (gfMatches.length) {
-                    studioHtml += `<div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #ffd700; margin: 0.85rem 0 0.35rem; padding-bottom: 0.2rem; border-bottom: 1px solid var(--border);">Grand Finals</div>`;
+                    studioHtml += `<div id="bracket-section-finals" style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #ffd700; margin: 0.85rem 0 0.35rem; padding-bottom: 0.2rem; border-bottom: 1px solid var(--border);">Grand Finals</div>`;
                     studioHtml += gfMatches.map(renderStudioMatchItem).join('');
                 }
                 treeView.innerHTML = studioHtml;
@@ -1891,6 +1909,13 @@
             // Progress text
             const completedCount = matches.filter(m => m.status === 'COMPLETED').length;
             $('tourney-progress-text').textContent = `${completedCount} of ${matches.length} matches completed`;
+        }
+
+        function jumpToBracketSection(section) {
+            const view = $('bracket-studio-view');
+            const heading = $(`bracket-section-${section}`);
+            if (!view || !heading) return;
+            view.scrollTop += heading.getBoundingClientRect().top - view.getBoundingClientRect().top - 12;
         }
 
         async function setLiveTourneyDuration(sec) {
@@ -2028,28 +2053,28 @@
                     activeTourneyData = data.tournament;
                     renderTournamentStudio(activeTourneyData);
                     toast('Match reset.');
-                }
+                } else toast(data.error || 'Failed to reset match.');
             } catch {
                 toast('Failed to reset match.');
             }
         }
 
+        function isCurrentMatchPoll(match) {
+            if (activePollData?.status !== 'ACTIVE' || activePollData.tournamentMatchId !== match?.id) return false;
+            if (activePollData.tournamentId) return activePollData.tournamentId === activeTourneyData?.id;
+            return activePollData.choices?.[0]?.title === match.entrant1?.name &&
+                activePollData.choices?.[1]?.title === match.entrant2?.name;
+        }
+
         function startCurrentTournamentMatch() {
             const m = getCurrentMatch();
             if (!m) return;
-            if (m.status === 'ACTIVE') {
-                if (activePollData && activePollData.status === 'ACTIVE') {
-                    endActivePoll();
-                } else {
-                    const e1 = m.entrant1?.name || 'Player 1';
-                    const e2 = m.entrant2?.name || 'Player 2';
-                    const choice = prompt(`Crown Winner for ${m.roundName}:\n1 = ${e1}\n2 = ${e2}`, '1');
-                    if (choice === '1') advanceSpecificEntrant(1);
-                    else if (choice === '2') advanceSpecificEntrant(2);
-                }
-            } else {
-                startTournamentMatchById(m.id);
+            if (activePollData?.status === 'ACTIVE') {
+                if (isCurrentMatchPoll(m)) endActivePoll();
+                else toast('End the current poll before starting another match.');
+                return;
             }
+            startTournamentMatchById(m.id);
         }
 
         async function startTournamentMatchById(matchId) {
@@ -2090,7 +2115,7 @@
                     activeTourneyData = data.tournament;
                     renderTournamentStudio(activeTourneyData);
                     toast(`Advanced ${winner}!`);
-                }
+                } else toast(data.error || 'Failed to advance winner.');
             } catch {
                 toast('Failed to advance winner.');
             }
@@ -2255,7 +2280,7 @@
             try {
                 const res = await fetch('/api/polls/active');
                 const data = await res.json();
-                if (data.active && data.poll) {
+                if (data.poll?.status === 'ACTIVE') {
                     activePollData = data.poll;
                     renderActivePollMonitor(activePollData);
                 }
