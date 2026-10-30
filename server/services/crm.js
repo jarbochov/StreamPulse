@@ -14,13 +14,19 @@ function createCrmService({
     const archives = getArchivedSessions || createSessionArchiveCache({ sessionsDir }).getSnapshot;
     const CHATTER_NOTES_FILE = path.join(dataDir, 'chatter-notes.json');
     let chatterNotes = {};
-    try {
-        if (fs.existsSync(CHATTER_NOTES_FILE)) {
-            chatterNotes = JSON.parse(fs.readFileSync(CHATTER_NOTES_FILE, 'utf8')) || {};
+    function loadChatterNotes() {
+        try {
+            if (fs.existsSync(CHATTER_NOTES_FILE)) {
+                chatterNotes = JSON.parse(fs.readFileSync(CHATTER_NOTES_FILE, 'utf8')) || {};
+            } else {
+                chatterNotes = {};
+            }
+        } catch (e) {
+            console.warn('[Chatter Notes] Failed to load:', e.message);
+            chatterNotes = {};
         }
-    } catch (e) {
-        console.warn('[Chatter Notes] Failed to load:', e.message);
     }
+    loadChatterNotes();
 
     function saveChatterNotes() {
         try {
@@ -296,7 +302,8 @@ function createCrmService({
         getChatterDossier,
         updateChatterNotes,
         saveChatterNotes,
-        getChatterNotes: () => chatterNotes
+        getChatterNotes: () => chatterNotes,
+        reload: loadChatterNotes
     };
 }
 

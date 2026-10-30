@@ -125,6 +125,7 @@ const overlayService = createOverlayService({
 const customOverlays = overlayService.getCustomOverlays();
 const CUSTOM_OVERLAY_ASSETS_DIR = overlayService.customOverlayAssetsDir;
 const CUSTOM_OVERLAY_HISTORY_DIR = overlayService.customOverlayHistoryDir;
+const CUSTOM_OVERLAY_THUMBNAILS_DIR = overlayService.customOverlayThumbnailsDir;
 const CUSTOM_OVERLAY_HISTORY_LIMIT = overlayService.customOverlayHistoryLimit;
 const takeoverPages = (kind, name, ms, poll) => overlayService.takeoverPages(kind, name, ms, poll);
 const assetReferencedIn = (text, name, family) => overlayService.assetReferencedIn(text, name, family);
@@ -133,6 +134,9 @@ const normalizeCustomOverlay = (input, idOverride) => overlayService.normalizeCu
 const normalizeOverlayPresets = (list) => overlayService.normalizeOverlayPresets(list);
 const saveCustomOverlays = () => overlayService.saveCustomOverlays();
 const loadCustomOverlays = () => overlayService.loadCustomOverlays();
+const loadOverlayPresets = () => overlayService.loadOverlayPresets();
+const loadAssetTags = () => overlayService.loadAssetTags();
+const loadAssetCaptions = () => overlayService.loadAssetCaptions();
 const syncOverlayPages = (overlay, previous) => overlayService.syncOverlayPages(overlay, previous);
 const dropOverlayPages = (id) => overlayService.dropOverlayPages(id);
 const setPageAuto = (overlay, on) => overlayService.setPageAuto(overlay, on);
@@ -989,7 +993,7 @@ function applyRuntimeConfig(nextConfig) {
 
 
 function getBackupFileSpecs() {
-    return [
+    const knownFiles = [
         { src: CONFIG_PATH, dest: 'config.json' },
         { src: LIVE_CHAT_PATH, dest: 'data/chat.json' },
         { src: CHAT_LOG_PATH, dest: 'data/chat-log.jsonl' },
@@ -1008,8 +1012,60 @@ function getBackupFileSpecs() {
         { src: GAME_PLAN_PATH, dest: 'data/game-plan.json' },
         { src: path.join(DATA_DIR, 'promos.json'), dest: 'data/promos.json' },
         { src: path.join(DATA_DIR, 'promo-themes.json'), dest: 'data/promo-themes.json' },
-        { src: path.join(DATA_DIR, 'alerts.json'), dest: 'data/alerts.json' }
+        { src: path.join(DATA_DIR, 'alerts.json'), dest: 'data/alerts.json' },
+        { src: path.join(DATA_DIR, 'alert-events.json'), dest: 'data/alert-events.json' },
+        { src: path.join(DATA_DIR, 'polls.json'), dest: 'data/polls.json' },
+        { src: path.join(DATA_DIR, 'matchup.json'), dest: 'data/matchup.json' },
+        { src: path.join(DATA_DIR, 'chatbot.json'), dest: 'data/chatbot.json' },
+        { src: path.join(DATA_DIR, 'chatbot-usage.json'), dest: 'data/chatbot-usage.json' },
+        { src: path.join(DATA_DIR, 'quotes.json'), dest: 'data/quotes.json' },
+        { src: path.join(DATA_DIR, 'variables.json'), dest: 'data/variables.json' },
+        { src: RANDOMIZER_PRESETS_PATH, dest: 'data/randomizer-presets.json' },
+        { src: RANDOMIZER_BUTTON_PRESETS_PATH, dest: 'data/randomizer-button-presets.json' },
+        { src: RANDOMIZER_QUOTE_PRESETS_PATH, dest: 'data/randomizer-quote-presets.json' },
+        { src: path.join(DATA_DIR, 'chatter-notes.json'), dest: 'data/chatter-notes.json' },
+        { src: path.join(DATA_DIR, 'moderators.json'), dest: 'data/moderators.json' },
+        { src: path.join(DATA_DIR, 'vips.json'), dest: 'data/vips.json' },
+        { src: path.join(DATA_DIR, 'follower-history.json'), dest: 'data/follower-history.json' },
+        { src: path.join(DATA_DIR, 'sub-history.json'), dest: 'data/sub-history.json' },
+        { src: path.join(DATA_DIR, 'session-lifecycle.json'), dest: 'data/session-lifecycle.json' },
+        { src: path.join(DATA_DIR, 'game-info-cache.json'), dest: 'data/game-info-cache.json' },
+        { src: path.join(DATA_DIR, 'music-artwork.png'), dest: 'data/music-artwork.png' },
+        { src: path.join(DATA_DIR, 'music-fallback.png'), dest: 'data/music-fallback.png' }
     ];
+
+    const seenDests = new Set(knownFiles.map(f => f.dest));
+    const dynamicFiles = [];
+    try {
+        if (fs.existsSync(DATA_DIR)) {
+            const entries = fs.readdirSync(DATA_DIR, { withFileTypes: true });
+            for (const entry of entries) {
+                if (!entry.isFile()) continue;
+                const name = entry.name;
+                if (
+                    name.startsWith('.twitch-token') ||
+                    name.startsWith('twitch-token') ||
+                    name.startsWith('.stats-backup-') ||
+                    name.startsWith('.backup-work-') ||
+                    name.startsWith('.restore-') ||
+                    name.startsWith('.chat.json.tmp') ||
+                    name.endsWith('.tmp') ||
+                    name === '.DS_Store' ||
+                    name === '.gitkeep' ||
+                    name === 'ssn-debug.log'
+                ) {
+                    continue;
+                }
+                const dest = `data/${name}`;
+                if (!seenDests.has(dest)) {
+                    seenDests.add(dest);
+                    dynamicFiles.push({ src: path.join(DATA_DIR, name), dest });
+                }
+            }
+        }
+    } catch { /* ignore dynamic discovery error */ }
+
+    return [...knownFiles, ...dynamicFiles];
 }
 
 // Selective share bundles: pick individual overlays, presets and settings to export or import.
@@ -1247,7 +1303,8 @@ async function performAutoBackup(force = false) {
             folders: [
                 { src: SESSIONS_DIR, dest: 'data/sessions' },
                 { src: CUSTOM_OVERLAY_ASSETS_DIR, dest: 'data/custom-overlay-assets' },
-                { src: CUSTOM_OVERLAY_HISTORY_DIR, dest: 'data/custom-overlay-history' }
+                { src: CUSTOM_OVERLAY_HISTORY_DIR, dest: 'data/custom-overlay-history' },
+                ...(CUSTOM_OVERLAY_THUMBNAILS_DIR ? [{ src: CUSTOM_OVERLAY_THUMBNAILS_DIR, dest: 'data/custom-overlay-thumbnails' }] : [])
             ]
         });
         console.log(`[Backup] Auto-backup saved → ${backupPath}`);
@@ -1729,9 +1786,30 @@ function handleRestoreReload({ previousConfig }) {
     loadClipCandidates();
     loadTimers();
     loadCustomOverlays();
+    loadOverlayPresets();
+    loadAssetTags();
+    loadAssetCaptions();
+    loadRandomizerPresets();
+    loadRandomizerButtonPresets();
+    loadRandomizerQuotePresets();
+    loadGamePlan();
     loadCurrentSessionStateFromDisk();
+
+    try { matchupService.reload(); } catch (err) { console.warn('[Restore] Matchup reload failed:', err.message); }
+    try { pollService.reload(); } catch (err) { console.warn('[Restore] Poll reload failed:', err.message); }
+    try { chatbot.reload(); } catch (err) { console.warn('[Restore] Chatbot reload failed:', err.message); }
+    try { variablesStore.reload(); } catch (err) { console.warn('[Restore] Variables reload failed:', err.message); }
+    try { alertEngine.reload(); } catch (err) { console.warn('[Restore] Alert engine reload failed:', err.message); }
+    try { crmService.reload(); } catch (err) { console.warn('[Restore] CRM reload failed:', err.message); }
+
     broadcastToOverlays('update', chatData);
     broadcastToOverlays('timers-snapshot', buildTimersSnapshot());
+    broadcastToOverlays('goals-update', buildGoalsSnapshot());
+    broadcastToOverlays('game-plan-update', buildGamePlanSnapshot());
+    try { broadcastToOverlays('matchup-update', matchupService.getMatchup()); } catch { /* ignore */ }
+    try { broadcastToOverlays('poll-update', pollService.getActivePoll()); } catch { /* ignore */ }
+    try { broadcastToOverlays('tournament-update', pollService.getTournament()); } catch { /* ignore */ }
+    try { broadcastToOverlays('poll-tournament-update', pollService.getPollTournament()); } catch { /* ignore */ }
 
     return { restartFields };
 }
@@ -1744,6 +1822,7 @@ const handleBackupRoutes = createBackupRoutes({
     sessionsDir: SESSIONS_DIR,
     customOverlayAssetsDir: CUSTOM_OVERLAY_ASSETS_DIR,
     customOverlayHistoryDir: CUSTOM_OVERLAY_HISTORY_DIR,
+    customOverlayThumbnailsDir: CUSTOM_OVERLAY_THUMBNAILS_DIR,
     backupService,
     getBackupFileSpecs,
     listShareItems,

@@ -1162,6 +1162,8 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         handleRaid,
         getStats,
         isReady,
+        getData: () => data,
+        getCommands: () => data.commands || [],
         getPrefix: () => data.settings.prefix || '!',
         getTag: () => data.settings.tag || '',
         isBotMessage,
@@ -1169,6 +1171,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         announcePollStart,
         announcePollEnd,
         announceTournamentChampion,
+        reload: load,
         start,
         stop
     };

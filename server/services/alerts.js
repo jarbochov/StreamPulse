@@ -665,6 +665,15 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             save();
             return config;
         },
+        reload() {
+            try { config = normalizeConfig(JSON.parse(fs.readFileSync(filePath, 'utf8'))); } catch { config = normalizeConfig({}); }
+            try { events = JSON.parse(fs.readFileSync(eventsPath, 'utf8')).slice(0, EVENT_LIMIT); } catch { events = []; }
+            const ruleIds = new Set(config.rules.map(rule => rule.id));
+            for (const map of [cooldowns, sequence, lastVariant]) {
+                for (const id of map.keys()) if (!ruleIds.has(id)) map.delete(id);
+            }
+            return config;
+        },
         getQueueState: () => ({ pending: queue.length, current, paused, history, events }),
         replayEvent, replayAlert,
         handleEvent, fireRule, noteGift, control, stop,

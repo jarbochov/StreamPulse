@@ -12,6 +12,7 @@ function createBackupRoutes({
     sessionsDir,
     customOverlayAssetsDir,
     customOverlayHistoryDir,
+    customOverlayThumbnailsDir,
     backupService = createBackupService({ backupsDir }),
     getBackupFileSpecs = () => [],
     listShareItems = () => ({}),
@@ -85,7 +86,8 @@ function createBackupRoutes({
                     folders: [
                         { src: sessionsDir, dest: 'data/sessions' },
                         { src: customOverlayAssetsDir, dest: 'data/custom-overlay-assets' },
-                        { src: customOverlayHistoryDir, dest: 'data/custom-overlay-history' }
+                        { src: customOverlayHistoryDir, dest: 'data/custom-overlay-history' },
+                        ...(customOverlayThumbnailsDir ? [{ src: customOverlayThumbnailsDir, dest: 'data/custom-overlay-thumbnails' }] : [])
                     ]
                 }, async ({ path: archivePath, size }, signal) => {
                     res.writeHead(200, {

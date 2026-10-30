@@ -1700,21 +1700,32 @@ function createOverlayService({
     }
 
     // Asset tags & captions
-    try {
-        if (fs.existsSync(assetTagsPath)) {
-            assetTags = JSON.parse(fs.readFileSync(assetTagsPath, 'utf8')) || {};
+    function loadAssetTags() {
+        try {
+            if (fs.existsSync(assetTagsPath)) {
+                assetTags = JSON.parse(fs.readFileSync(assetTagsPath, 'utf8')) || {};
+            } else {
+                assetTags = {};
+            }
+        } catch (error) {
+            warn('[Assets] Could not load asset tags:', error.message);
         }
-    } catch (error) {
-        warn('[Assets] Could not load asset tags:', error.message);
     }
 
-    try {
-        if (fs.existsSync(assetCaptionsPath)) {
-            assetCaptions = JSON.parse(fs.readFileSync(assetCaptionsPath, 'utf8')) || {};
+    function loadAssetCaptions() {
+        try {
+            if (fs.existsSync(assetCaptionsPath)) {
+                assetCaptions = JSON.parse(fs.readFileSync(assetCaptionsPath, 'utf8')) || {};
+            } else {
+                assetCaptions = {};
+            }
+        } catch (error) {
+            warn('[Assets] Could not load asset captions:', error.message);
         }
-    } catch (error) {
-        warn('[Assets] Could not load asset captions:', error.message);
     }
+
+    loadAssetTags();
+    loadAssetCaptions();
 
     function saveAssetCaptions() {
         safeWriteFileSync(assetCaptionsPath, JSON.stringify(assetCaptions, null, 2));
@@ -1738,13 +1749,19 @@ function createOverlayService({
     }
 
     // Presets
-    try {
-        if (fs.existsSync(overlayPresetsPath)) {
-            overlayPresets = normalizeOverlayPresets(JSON.parse(fs.readFileSync(overlayPresetsPath, 'utf8')), ALERT_TRIGGERS);
+    function loadOverlayPresets() {
+        try {
+            if (fs.existsSync(overlayPresetsPath)) {
+                overlayPresets = normalizeOverlayPresets(JSON.parse(fs.readFileSync(overlayPresetsPath, 'utf8')), ALERT_TRIGGERS);
+            } else {
+                overlayPresets = [];
+            }
+        } catch (error) {
+            warn('[Presets] Could not load overlay presets:', error.message);
         }
-    } catch (error) {
-        warn('[Presets] Could not load overlay presets:', error.message);
     }
+
+    loadOverlayPresets();
 
     function saveOverlayPresets() {
         safeWriteFileSync(overlayPresetsPath, JSON.stringify(overlayPresets, null, 2));
@@ -1778,13 +1795,16 @@ function createOverlayService({
         assetReferencedIn,
         rewriteAssetReferences,
         getAssetTags: () => assetTags,
+        loadAssetTags,
         setAssetTags,
         saveAssetTags,
         assetMatchesTags,
         getAssetCaptions: () => assetCaptions,
+        loadAssetCaptions,
         saveAssetCaptions,
         getOverlayPresets: () => overlayPresets,
         setOverlayPresets: (val) => { overlayPresets = val; },
+        loadOverlayPresets,
         saveOverlayPresets,
         normalizeOverlayPresets: (list) => normalizeOverlayPresets(list, ALERT_TRIGGERS),
         loadRandomizerPresets,

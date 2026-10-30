@@ -11,6 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- Backup & Restore Coverage: Full archive coverage across all feature state, presets, history, and media files, dynamic data discovery, and automated in-memory service reloading upon restore.
 - Bitfocus Companion & Stream Deck: Unified HTTP GET and POST trigger support across Matchup, Tournament, Polls, Alerts, Chatbot, Randomizer, and Custom Overlays with automatic URL parameter decoding and plain-text field lookups (`/api/matchup/field/:field`, `/api/variables/:name?raw=1`).
 - Companion API Reference: Interactive endpoint documentation with direct Companion copy URLs, status snapshot dynamic variables (`matchup`, `tournament`, `pollTournament`), and dedicated regression suite (`scripts/test-companion-api.cjs`).
 - Versus & Matchup Wide Layout: Responsive widescreen layout mode (`?wide=1`) expanding competitor names, match titles, and runner splits for multi-player esports broadcasts, plus queue duplication and clearing.

@@ -136,52 +136,63 @@ function createPollService({
     let voters = new Map(); // userId -> { choiceId, weight }
 
     // Load persisted state and history
-    try {
-        if (fs.existsSync(filePath)) {
-            const raw = fs.readFileSync(filePath, 'utf8');
-            const data = JSON.parse(raw);
-            if (Array.isArray(data.history)) {
-                pollHistory = data.history.slice(0, 50);
-            }
-            if (Array.isArray(data.presets) && data.presets.length > 0) {
-                savedPresets = data.presets;
-            }
-            if (data.tournament) {
-                if (data.tournament.isPoll && !data.pollTournament) {
-                    activePollTournament = data.tournament;
+    function load() {
+        try {
+            if (fs.existsSync(filePath)) {
+                const raw = fs.readFileSync(filePath, 'utf8');
+                const data = JSON.parse(raw);
+                if (Array.isArray(data.history)) {
+                    pollHistory = data.history.slice(0, 50);
+                }
+                if (Array.isArray(data.presets) && data.presets.length > 0) {
+                    savedPresets = data.presets;
+                }
+                if (data.tournament) {
+                    if (data.tournament.isPoll && !data.pollTournament) {
+                        activePollTournament = data.tournament;
+                    } else {
+                        activeTournament = data.tournament;
+                    }
                 } else {
-                    activeTournament = data.tournament;
+                    activeTournament = null;
+                }
+                if (Array.isArray(data.tournamentHistory)) {
+                    tournamentHistory = data.tournamentHistory.slice(0, 30);
+                }
+                if (Array.isArray(data.tournamentPresets)) {
+                    tournamentPresets = data.tournamentPresets;
+                }
+                if (Array.isArray(data.tournamentDrafts)) {
+                    tournamentDrafts = data.tournamentDrafts.slice(0, 30);
+                }
+                if (data.pollTournament) {
+                    activePollTournament = data.pollTournament;
+                } else if (!data.tournament || !data.tournament.isPoll) {
+                    activePollTournament = null;
+                }
+                if (Array.isArray(data.pollTournamentHistory)) {
+                    pollTournamentHistory = data.pollTournamentHistory.slice(0, 30);
+                }
+                if (Array.isArray(data.pollTournamentPresets)) {
+                    pollTournamentPresets = data.pollTournamentPresets.slice(0, 100);
+                }
+                if (data.active && data.active.status === 'ACTIVE') {
+                    activePoll = data.active;
+                    if (Array.isArray(data.voters)) {
+                        voters = new Map(data.voters);
+                    }
+                    startTimer();
+                } else {
+                    activePoll = null;
+                    voters = new Map();
+                    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
                 }
             }
-            if (Array.isArray(data.tournamentHistory)) {
-                tournamentHistory = data.tournamentHistory.slice(0, 30);
-            }
-            if (Array.isArray(data.tournamentPresets)) {
-                tournamentPresets = data.tournamentPresets;
-            }
-            if (Array.isArray(data.tournamentDrafts)) {
-                tournamentDrafts = data.tournamentDrafts.slice(0, 30);
-            }
-            if (data.pollTournament) {
-                activePollTournament = data.pollTournament;
-            }
-            if (Array.isArray(data.pollTournamentHistory)) {
-                pollTournamentHistory = data.pollTournamentHistory.slice(0, 30);
-            }
-            if (Array.isArray(data.pollTournamentPresets)) {
-                pollTournamentPresets = data.pollTournamentPresets.slice(0, 100);
-            }
-            if (data.active && data.active.status === 'ACTIVE') {
-                activePoll = data.active;
-                if (Array.isArray(data.voters)) {
-                    voters = new Map(data.voters);
-                }
-                startTimer();
-            }
+        } catch (err) {
+            error('[Polls] Error loading polls.json:', err.message);
         }
-    } catch (err) {
-        error('[Polls] Error loading polls.json:', err.message);
     }
+    load();
 
     function save({ atomic = false, throwOnError = false } = {}) {
         let temporaryPath;
@@ -2623,6 +2634,7 @@ function createPollService({
         restoreTournamentDraft,
         deleteTournamentDraft,
         getChatbotStatus: () => chatbotAnnouncer?.isReady?.() || { ready: false, reason: 'Chatbot service not configured' },
+        reload: load,
         destroy: () => { if (pollTimer) clearInterval(pollTimer); }
     };
 }

@@ -1280,6 +1280,11 @@ function createMatchupService({
         resetCompetitorRace,
         setTargetEstimate,
         getField,
+        reload: () => {
+            activeMatchup = null;
+            load();
+            return activeMatchup;
+        },
         destroy: () => {
             if (clockTimer) clearInterval(clockTimer);
         }

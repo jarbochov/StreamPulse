@@ -8,7 +8,10 @@ module.exports = function createVariables({ dataDir }) {
     const file = path.join(dataDir, 'variables.json');
     let vars = {};
 
-    try { vars = JSON.parse(fs.readFileSync(file, 'utf8')) || {}; } catch { /* first run */ }
+    function load() {
+        try { vars = JSON.parse(fs.readFileSync(file, 'utf8')) || {}; } catch { vars = {}; }
+    }
+    load();
 
     function save() {
         fs.mkdirSync(dataDir, { recursive: true });
@@ -94,5 +97,5 @@ module.exports = function createVariables({ dataDir }) {
         return json(405, { error: 'Method not allowed' }), true;
     }
 
-    return { handleApi, values, list, set, change, roll };
+    return { handleApi, values, list, set, change, roll, reload: load };
 };
