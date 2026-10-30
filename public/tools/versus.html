@@ -1266,6 +1266,15 @@
                                 <div class="micro-heading" style="margin-bottom: 0.5rem;">Bracket Overlay Options</div>
                                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem; margin-bottom: 0.5rem;">
                                     <div>
+                                        <label for="tourney-opt-bracket" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket section (double elimination)</label>
+                                        <select id="tourney-opt-bracket" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <option value="all">All brackets</option>
+                                            <option value="winners">Winners bracket</option>
+                                            <option value="losers">Losers bracket</option>
+                                            <option value="finals">Grand Finals</option>
+                                        </select>
+                                    </div>
+                                    <div>
                                         <label for="tourney-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme (?overlay=)</label>
                                         <select id="tourney-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncTourneyOptFromMain('theme', this.value)">
                                             <option value="card" selected>Dark Card</option>
@@ -1907,6 +1916,8 @@
             const roundsSelect = $('prev-ctrl-tourney-rounds') || $('tourney-opt-rounds');
 
             const urlParams = new URLSearchParams();
+            const bracketSelect = $('tourney-opt-bracket');
+            if (bracketSelect && bracketSelect.value !== 'all') urlParams.set('bracket', bracketSelect.value);
             if (themeSelect && themeSelect.value !== 'card') urlParams.set('overlay', themeSelect.value);
             if (spacingSelect && spacingSelect.value !== 'normal') urlParams.set('spacing', spacingSelect.value);
             if (linesSelect && linesSelect.value !== 'glow') urlParams.set('lines', linesSelect.value);
@@ -2192,6 +2203,7 @@
                         confetti: $('matchup-opt-confetti')?.checked,
                     },
                     tourney: {
+                        bracket: $('tourney-opt-bracket')?.value,
                         theme: $('tourney-opt-theme')?.value,
                         spacing: $('tourney-opt-spacing')?.value,
                         lines: $('tourney-opt-lines')?.value,
@@ -2271,6 +2283,7 @@
                 }
                 if (prefs.tourney) {
                     const t = prefs.tourney;
+                    if (['all', 'winners', 'losers', 'finals'].includes(t.bracket) && $('tourney-opt-bracket')) $('tourney-opt-bracket').value = t.bracket;
                     if (t.theme !== undefined && $('tourney-opt-theme')) $('tourney-opt-theme').value = t.theme;
                     if (t.spacing !== undefined && $('tourney-opt-spacing')) $('tourney-opt-spacing').value = t.spacing;
                     if (t.lines !== undefined && $('tourney-opt-lines')) $('tourney-opt-lines').value = t.lines;

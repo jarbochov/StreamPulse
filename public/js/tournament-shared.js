@@ -107,6 +107,8 @@
         const forceSample = params.get('sample') === '1';
         const isPreview = params.get('preview') === '1' || params.get('sample') === '1';
         const layoutMode = (params.get('layout') || params.get('mode') || 'tree').toLowerCase(); // 'tree' | 'active' | 'hud' | 'compact'
+        const requestedBracket = (params.get('bracket') || 'all').toLowerCase();
+        const bracketView = ['winners', 'losers', 'finals'].includes(requestedBracket) ? requestedBracket : 'all';
         const showScoresParam = params.get('showscores') !== '0' && params.get('scores') !== '0';
         const showTitle = params.get('showtitle') !== '0' && params.get('title') !== '0' && params.get('header') !== '0';
         const showLogo = params.get('showlogo') !== '0' && params.get('logo') !== '0';
@@ -219,11 +221,32 @@
         applyStyling();
 
         function getFallbackSample() {
-            if (isPollMode) return SAMPLE_POLL_TOURNAMENT;
-            if (layoutMode === 'roundrobin' || layoutMode === 'rr' || params.get('format') === 'roundRobin') {
+            if (!isPollMode && (layoutMode === 'roundrobin' || layoutMode === 'rr' || params.get('format') === 'roundRobin')) {
                 return SAMPLE_RR_TOURNAMENT;
             }
-            return SAMPLE_VERSUS_TOURNAMENT;
+            const sample = isPollMode ? SAMPLE_POLL_TOURNAMENT : SAMPLE_VERSUS_TOURNAMENT;
+            if (bracketView === 'all') return sample;
+            const first = sample.matches.filter(m => m.round === 1);
+            const blank = () => ({ name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 });
+            const sampleMatch = (id, round, roundName, entrant1, entrant2, nextMatchId) => ({
+                id, round, roundName, bracket: 'losers', entrant1, entrant2, nextMatchId, status: 'PENDING'
+            });
+            return {
+                ...sample,
+                format: 'double',
+                matches: [
+                    ...sample.matches.map(m => ({ ...m, bracket: 'winners',
+                        roundName: m.id === 'm_3_1' ? 'Winners Finals' : m.roundName })),
+                    sampleMatch('lb_1_1', 1, 'Losers Round 1', first[0].entrant2, first[1].entrant2, 'lb_2_1'),
+                    sampleMatch('lb_1_2', 1, 'Losers Round 1', first[2].entrant2, first[3].entrant2, 'lb_2_2'),
+                    sampleMatch('lb_2_1', 2, 'Losers Round 2', blank(), blank(), 'lb_3_1'),
+                    sampleMatch('lb_2_2', 2, 'Losers Round 2', blank(), blank(), 'lb_3_1'),
+                    sampleMatch('lb_3_1', 3, 'Losers Semifinals', blank(), blank(), 'lb_4_1'),
+                    sampleMatch('lb_4_1', 4, 'Losers Finals', blank(), blank(), 'gf_1'),
+                    { id: 'gf_1', round: 5, roundName: 'Grand Finals', bracket: 'grand_finals',
+                        entrant1: blank(), entrant2: blank(), status: 'PENDING' }
+                ]
+            };
         }
 
         function renderTournament(tournament) {
@@ -555,18 +578,20 @@
 
             const isDouble = tournament.format === 'double';
             if (isDouble) {
-                const winnersMatches = matches.filter(m => m.bracket === 'winners' || (!m.bracket && !m.id.startsWith('lb_') && m.id !== 'gf_1'));
+                const winnersMatches = matches.filter(m => m.bracket === 'winners' || (!m.bracket && !m.id.startsWith('lb_') && m.id !== 'gf_1' && m.id !== 'gf_reset'));
                 const losersMatches = matches.filter(m => m.bracket === 'losers' || m.id.startsWith('lb_'));
-                const gfMatches = matches.filter(m => m.bracket === 'grand_finals' || m.id === 'gf_1');
+                const gfMatches = matches.filter(m => m.bracket === 'grand_finals' || m.id === 'gf_1' || m.id === 'gf_reset');
 
                 html += `<div class="double-elim-container">`;
-                html += `
-                    <div class="double-elim-section double-elim-winners">
-                        <div class="bracket-section-header">Winners Bracket</div>
-                        ${renderTreeHtml(winnersMatches, 'bracket-tree-winners')}
-                    </div>
-                `;
-                if (losersMatches.length > 0) {
+                if (bracketView === 'all' || bracketView === 'winners') {
+                    html += `
+                        <div class="double-elim-section double-elim-winners">
+                            <div class="bracket-section-header">Winners Bracket</div>
+                            ${renderTreeHtml(winnersMatches, 'bracket-tree-winners')}
+                        </div>
+                    `;
+                }
+                if (losersMatches.length > 0 && (bracketView === 'all' || bracketView === 'losers')) {
                     html += `
                         <div class="double-elim-section double-elim-losers">
                             <div class="bracket-section-header">Losers Bracket</div>
@@ -574,7 +599,7 @@
                         </div>
                     `;
                 }
-                if (gfMatches.length > 0) {
+                if (gfMatches.length > 0 && (bracketView === 'all' || bracketView === 'finals')) {
                     html += `
                         <div class="double-elim-section double-elim-gf">
                             <div class="bracket-section-header">Grand Finals</div>
@@ -583,6 +608,9 @@
                             </div>
                         </div>
                     `;
+                }
+                if ((bracketView === 'losers' && !losersMatches.length) || (bracketView === 'finals' && !gfMatches.length)) {
+                    html += `<div class="empty-placeholder">${bracketView === 'losers' ? 'Losers bracket' : 'Grand Finals'} not available.</div>`;
                 }
                 html += `</div>`;
             } else {

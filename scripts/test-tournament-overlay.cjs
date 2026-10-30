@@ -175,6 +175,7 @@ test('tournament overlay renders tree layout, active HUD layout, theme presets, 
 
         // Return to tree layout for tree assertions
         await page.goto(`${OVERLAY_URL}?preview=1&layout=tree&roundpips=1`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.match-card');
 
         // 13. Entrant color accents and dots
         await page.evaluate(() => {
@@ -248,6 +249,26 @@ test('tournament overlay renders tree layout, active HUD layout, theme presets, 
             return typeof window.enableConfetti !== 'undefined' ? window.enableConfetti : false;
         });
         assert.equal(confettiExplicitOn, true, 'Confetti should be enabled when ?confetti=1');
+
+        for (const [view, selector, count] of [
+            ['winners', '.double-elim-winners .match-card', 7],
+            ['losers', '.double-elim-losers .match-card', 6],
+            ['finals', '.double-elim-gf .match-card', 1]
+        ]) {
+            await page.goto(`${OVERLAY_URL}?sample=1&bracket=${view}`, { waitUntil: 'domcontentloaded' });
+            await page.waitForSelector(selector);
+            assert.equal(await page.$$('.match-card').then(matches => matches.length), count);
+            assert.equal(await page.$$(selector).then(matches => matches.length), count);
+        }
+
+        await page.evaluate(() => {
+            window.TournamentOverlay.renderTournament({
+                title: 'Single elimination', format: 'single',
+                matches: [{ id: 'm_1_1', round: 1, status: 'PENDING',
+                    entrant1: { name: 'A' }, entrant2: { name: 'B' } }]
+            });
+        });
+        assert.equal(await page.$$('.bracket-tree .match-card').then(matches => matches.length), 1);
 
     } finally {
         if (browser) await browser.close();

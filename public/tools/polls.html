@@ -605,6 +605,16 @@
                                         </select>
                                     </div>
                                     <div>
+                                        <label for="tourney-opt-bracket" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket section (double elimination)</label>
+                                        <select id="tourney-opt-bracket" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()" aria-describedby="tourney-bracket-help">
+                                            <option value="all">All brackets</option>
+                                            <option value="winners">Winners bracket</option>
+                                            <option value="losers">Losers bracket</option>
+                                            <option value="finals">Grand Finals</option>
+                                        </select>
+                                        <small id="tourney-bracket-help" style="color: var(--text-muted);">Bracket tree only; the match HUD shows the active match.</small>
+                                    </div>
+                                    <div>
                                         <label for="tourney-opt-spacing" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Spacing (?spacing=)</label>
                                         <select id="tourney-opt-spacing" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()"><option value="normal">Normal</option><option value="compact">Compact</option><option value="spacious">Spacious</option></select>
                                     </div>
@@ -847,6 +857,7 @@
                     },
                     tourney: {
                         layout: $('tourney-opt-layout')?.value,
+                        bracket: $('tourney-opt-bracket')?.value,
                         theme: $('tourney-opt-theme')?.value,
                         customBg: $('tourney-opt-custom-bg')?.value,
                         spacing: $('tourney-opt-spacing')?.value,
@@ -898,6 +909,7 @@
                 if (prefs.tourney) {
                     const t = prefs.tourney;
                     if (t.layout !== undefined && $('tourney-opt-layout')) $('tourney-opt-layout').value = t.layout;
+                    if (['all', 'winners', 'losers', 'finals'].includes(t.bracket) && $('tourney-opt-bracket')) $('tourney-opt-bracket').value = t.bracket;
                     if (t.theme !== undefined && $('tourney-opt-theme')) $('tourney-opt-theme').value = t.theme;
                     if (t.customBg !== undefined && $('tourney-opt-custom-bg')) $('tourney-opt-custom-bg').value = t.customBg;
                     if (t.spacing !== undefined && $('tourney-opt-spacing')) $('tourney-opt-spacing').value = t.spacing;
@@ -936,6 +948,12 @@
             if (customBgWrap) customBgWrap.style.display = theme === 'custom' ? 'block' : 'none';
 
             const urlParams = new URLSearchParams();
+            const bracketSelect = $('tourney-opt-bracket');
+            if (bracketSelect) {
+                const isTree = !layoutSelect || layoutSelect.value !== 'active';
+                bracketSelect.disabled = !isTree;
+                if (isTree && bracketSelect.value !== 'all') urlParams.set('bracket', bracketSelect.value);
+            }
             if (layoutSelect && layoutSelect.value !== 'tree') {
                 urlParams.set('layout', layoutSelect.value);
             }

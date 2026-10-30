@@ -225,6 +225,32 @@ test('Poll Manager and overlay show a 16-player losers bracket without disruptin
         await page.waitForFunction(() => document.getElementById('btn-start-match').textContent.trim() === 'End Match Vote');
         assert.equal(service.getActivePoll().tournamentMatchId, 'lb_1_1');
 
+        const settings = await browser.newPage();
+        await settings.goto(`${origin}/polls.html`, { waitUntil: 'domcontentloaded' });
+        await settings.click('#tab-btn-overlays');
+        await settings.click('#btn-preview-tree');
+        await settings.select('#tourney-opt-bracket', 'losers');
+        assert.equal(new URL(await settings.$eval('#url-tourney-overlay', el => el.value)).searchParams.get('bracket'), 'losers');
+        await settings.reload({ waitUntil: 'domcontentloaded' });
+        await settings.waitForFunction(() => document.getElementById('tourney-opt-bracket').value === 'losers');
+        assert.equal(new URL(await settings.$eval('#url-tourney-overlay', el => el.value)).searchParams.get('bracket'), 'losers');
+        await settings.select('#tourney-opt-layout', 'active');
+        assert.equal(await settings.$eval('#tourney-opt-bracket', el => el.disabled), true);
+        assert.equal(new URL(await settings.$eval('#url-tourney-overlay', el => el.value)).searchParams.has('bracket'), false);
+        await settings.select('#tourney-opt-layout', 'tree');
+        assert.equal(new URL(await settings.$eval('#url-tourney-overlay', el => el.value)).searchParams.get('bracket'), 'losers');
+        assert.equal(service.getActivePoll().tournamentMatchId, 'lb_1_1');
+
+        const versusSettings = await browser.newPage();
+        await versusSettings.goto(`${origin}/versus.html`, { waitUntil: 'domcontentloaded' });
+        await versusSettings.click('#tab-btn-overlays');
+        await versusSettings.click('#btn-prev-tourney-tree');
+        await versusSettings.select('#tourney-opt-bracket', 'finals');
+        assert.equal(new URL(await versusSettings.$eval('#url-tourney-overlay', el => el.value)).searchParams.get('bracket'), 'finals');
+        await versusSettings.reload({ waitUntil: 'domcontentloaded' });
+        await versusSettings.waitForFunction(() => document.getElementById('tourney-opt-bracket').value === 'finals');
+        assert.equal(new URL(await versusSettings.$eval('#url-tourney-overlay', el => el.value)).searchParams.get('bracket'), 'finals');
+
         const overlay = await browser.newPage();
         await overlay.setViewport({ width: 1280, height: 720 });
         await overlay.goto(`${origin}/overlays/poll-tournament.html?fit=1`, { waitUntil: 'domcontentloaded' });
@@ -245,10 +271,69 @@ test('Poll Manager and overlay show a 16-player losers bracket without disruptin
         });
         assert.ok(bounds.left >= -1 && bounds.top >= -1 && bounds.right <= 1281 && bounds.bottom <= 721,
             `losers bracket should fit in the OBS viewport: ${JSON.stringify(bounds)}`);
+
+        const focused = await browser.newPage();
+        await focused.evaluateOnNewDocument(() => {
+            const NativeWebSocket = window.WebSocket;
+            window.WebSocket = class extends NativeWebSocket {
+                constructor(...args) {
+                    super(...args);
+                    if (new URL(args[0]).pathname === '/ws') {
+                        this.addEventListener('open', () => { window.__testSocketOpen = true; });
+                    }
+                }
+            };
+        });
+        await focused.setViewport({ width: 1280, height: 720 });
+        for (const [view, winners, losers, finals, theme] of [
+            ['winners', 15, 0, 0, 'retro'],
+            ['losers', 0, 14, 0, 'glass'],
+            ['finals', 0, 0, 1, 'neon'],
+            ['unknown', 15, 14, 1, 'card']
+        ]) {
+            await focused.goto(`${origin}/overlays/poll-tournament.html?fit=1&bracket=${view}&overlay=${theme}`,
+                { waitUntil: 'domcontentloaded' });
+            await focused.waitForSelector('.match-card');
+            const counts = await focused.evaluate(() => ({
+                winners: document.querySelectorAll('.double-elim-winners .match-card').length,
+                losers: document.querySelectorAll('.double-elim-losers .match-card').length,
+                finals: document.querySelectorAll('.double-elim-gf .match-card').length
+            }));
+            assert.deepEqual(counts, { winners, losers, finals });
+            if (view !== 'unknown') {
+                await focused.waitForFunction(() => {
+                    const stage = document.getElementById('stage');
+                    const expected = Number(stage.style.transform.match(/scale\(([^)]+)\)/)?.[1]);
+                    return expected > 0 && Math.abs(new window.DOMMatrix(getComputedStyle(stage).transform).a - expected) < 0.001;
+                });
+                const rect = await focused.$eval('.double-elim-section', el => {
+                    const r = el.getBoundingClientRect();
+                    return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+                });
+                assert.ok(rect.left >= -1 && rect.top >= -1 && rect.right <= 1281 && rect.bottom <= 721,
+                    `${view} bracket should fit in the OBS viewport: ${JSON.stringify(rect)}`);
+            }
+        }
+        await focused.goto(`${origin}/overlays/poll-tournament.html?fit=1&bracket=finals`, { waitUntil: 'domcontentloaded' });
+        await focused.waitForSelector('.double-elim-gf .match-card');
+        const fixture = JSON.parse(JSON.stringify(service.getPollTournament()));
+        fixture.matches.push({ ...fixture.matches.find(m => m.id === 'gf_1'), id: 'gf_reset', bracket: undefined });
+        await focused.evaluate(data => window.TournamentOverlay.renderTournament(data), fixture);
+        assert.equal(await focused.$$('.double-elim-gf .match-card').then(matches => matches.length), 2);
+        assert.equal(await focused.$$('.double-elim-winners .match-card').then(matches => matches.length), 0);
+        await focused.goto(`${origin}/overlays/poll-tournament.html?fit=1&bracket=losers`, { waitUntil: 'domcontentloaded' });
+        await focused.waitForSelector('.double-elim-losers .match-card');
+        await focused.waitForFunction(() => window.__testSocketOpen === true);
+
         const loserWinner = service.getPollTournament().matches.find(m => m.id === 'lb_1_1').entrant1.name;
-        service.handleChatMessage({ user: 'TestVoter', message: '1' });
+        assert.equal(service.handleChatMessage({ user: 'TestVoter', message: '1' }), true);
         service.finishPoll();
+        assert.equal(service.getPollTournament().matches.find(m => m.id === 'lb_2_1').entrant1.name, loserWinner);
         await overlay.waitForFunction(name => {
+            const next = document.querySelector('.double-elim-losers [data-match-id="lb_2_1"]');
+            return next?.textContent.includes(name);
+        }, { timeout: 5000 }, loserWinner);
+        await focused.waitForFunction(name => {
             const next = document.querySelector('.double-elim-losers [data-match-id="lb_2_1"]');
             return next?.textContent.includes(name);
         }, { timeout: 5000 }, loserWinner);
