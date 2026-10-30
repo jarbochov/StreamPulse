@@ -108,6 +108,14 @@ function createStaticRouter(options) {
         if (pathname === '/') {
             return path.join(publicDir, 'dashboard.html');
         }
+        if (pathname === '/versus.html' || pathname === '/tournaments.html' || pathname === '/competitions.html') {
+            const versusTool = path.join(publicDir, 'tools', 'versus.html');
+            if (fs.existsSync(versusTool)) return versusTool;
+        }
+        if (pathname === '/overlays/versus.html') {
+            const matchupOverlay = path.join(publicDir, 'overlays', 'matchup.html');
+            if (fs.existsSync(matchupOverlay)) return matchupOverlay;
+        }
 
         const cached = pathCache.get(pathname);
         if (cached && fs.existsSync(cached)) {
@@ -166,8 +174,8 @@ function createStaticRouter(options) {
         // Bare / opens dashboard, but with query parameters serves credits for OBS backward compatibility
         if (pathname === '/') {
             pathname = url.search ? '/credits.html' : '/dashboard.html';
-        } else if (pathname === '/tournaments.html' || pathname === '/competitions.html') {
-            pathname = '/versus.html';
+        } else if (pathname === '/tournaments.html' || pathname === '/competitions.html' || pathname === '/versus.html') {
+            pathname = '/tools/versus.html';
         } else if (pathname === '/overlays/versus.html') {
             pathname = '/overlays/matchup.html';
         }

@@ -30,6 +30,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Custom Overlay Editor IGDB Artwork: Direct browser and importer for official game artwork, logos, and screenshots from IGDB into custom overlay image layers.
 
 ### Fixed
+- Versus Navigation Route: Resolved route conflict where a redundant redirect file in `public/overlays/` hijacked `/versus.html` requests intended for the Versus Studio tool page (`public/tools/versus.html`).
 - UI Harmonization: Enforced Strict No-Emoji policy repository-wide, replacing raw unicode emojis and glyphs with crisp inline SVGs across headers, buttons, wizards, and presets.
 - Matchup Runner Indexing: Fixed 0-based and 1-based competitor and race runner resolution across JavaScript methods and HTTP triggers.
 - Memory: Avoid retaining duplicate saved snapshots, bound live-client queues and transient caches, and distinguish Node RSS from JavaScript heap on the dashboard.
