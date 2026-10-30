@@ -575,6 +575,28 @@
                         </div>
                     </div>
                     <div class="form-row">
+                        <label for="ap-transform">Text transform</label>
+                        <select id="ap-transform">
+                            <option value="">Default</option>
+                            <option value="none">Natural / none</option>
+                            <option value="uppercase">UPPERCASE</option>
+                            <option value="capitalize">Capitalize Words</option>
+                            <option value="lowercase">lowercase</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="ap-radius">Corner roundness</label>
+                        <select id="ap-radius">
+                            <option value="">Default</option>
+                            <option value="0px">Sharp Square (0px)</option>
+                            <option value="4px">Subtle (4px)</option>
+                            <option value="8px">Smooth (8px)</option>
+                            <option value="12px">Rounded (12px)</option>
+                            <option value="16px">Extra Rounded (16px)</option>
+                            <option value="999px">Pill / Capsule (999px)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
                         <label for="ap-align">Alignment</label>
                         <select id="ap-align">
                             <option value="">Default (Center)</option>
@@ -610,6 +632,21 @@
                         <label for="ap-bg">Background</label>
                         <input id="ap-bg" type="text" placeholder="Saved theme color, or rgba(0,0,0,.5)">
                         <input type="color" data-color-for="ap-bg" aria-label="Pick background color">
+                    </div>
+                    <div class="form-row">
+                        <label for="ap-cardbg">Card background</label>
+                        <input id="ap-cardbg" type="text" placeholder="Saved theme color, e.g. #161b22">
+                        <input type="color" data-color-for="ap-cardbg" aria-label="Pick card background color">
+                    </div>
+                    <div class="form-row">
+                        <label for="ap-border">Border color</label>
+                        <input id="ap-border" type="text" placeholder="Saved theme color, e.g. #30363d">
+                        <input type="color" data-color-for="ap-border" aria-label="Pick border color">
+                    </div>
+                    <div class="form-row">
+                        <label for="ap-winner">Winner highlight</label>
+                        <input id="ap-winner" type="text" placeholder="Saved theme color, e.g. #3fb950">
+                        <input type="color" data-color-for="ap-winner" aria-label="Pick winner highlight color">
                     </div>
                     <div class="form-row">
                         <label for="ap-outline">Text outline</label>
@@ -809,7 +846,7 @@
         'tourney-layout', 'tourney-theme', 'tourney-showscores', 'tourney-confetti',
         'poll-tourney-layout', 'poll-tourney-theme', 'poll-tourney-showscores', 'poll-tourney-confetti',
         'matchup-layout', 'matchup-theme', 'matchup-source', 'matchup-pipstyle', 'matchup-fit', 'matchup-center', 'matchup-pips', 'matchup-tags', 'matchup-playerclocks', 'matchup-confetti',
-        'ap-font', 'ap-weight', 'ap-fontscale', 'ap-align', 'ap-text', 'ap-accent', 'ap-bg', 'ap-outline'
+        'ap-font', 'ap-weight', 'ap-fontscale', 'ap-transform', 'ap-radius', 'ap-align', 'ap-text', 'ap-accent', 'ap-bg', 'ap-cardbg', 'ap-border', 'ap-winner', 'ap-outline'
     ];
 
     function numberValue(id, minimum = 0) {
@@ -826,10 +863,15 @@
             font: $('ap-font').value.trim(),
             weight: $('ap-weight').value,
             fontscale: scaleVal && scaleVal !== 1 ? String(scaleVal) : '',
+            transform: $('ap-transform') ? $('ap-transform').value : '',
+            radius: $('ap-radius') ? $('ap-radius').value : '',
             align: $('ap-align').value,
             text: $('ap-text').value.trim(),
             accent: $('ap-accent').value.trim(),
             bg: $('ap-bg').value.trim(),
+            cardbg: $('ap-cardbg') ? $('ap-cardbg').value.trim() : '',
+            border: $('ap-border') ? $('ap-border').value.trim() : '',
+            winner: $('ap-winner') ? $('ap-winner').value.trim() : '',
             outline: $('ap-outline').value.trim()
         };
     }

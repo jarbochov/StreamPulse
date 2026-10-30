@@ -180,54 +180,20 @@
             document.documentElement.style.setProperty('--tourney-badge-color', '#0d1117');
         }
 
-        function applyStyling() {
+        // Shared theme & typography handling via /js/overlay-theme.js
+        if (typeof window.applyTourneyTheme === 'function') {
+            window.applyTourneyTheme();
+        } else {
             let overlayVal = (params.get('overlay') || params.get('theme') || '').trim();
             const bgVal = (params.get('bg') || '').trim();
             const hashVal = (window.location.hash || '').replace(/^#/, '').trim();
-
-            if (!overlayVal && hashVal && !hashVal.includes('=')) {
-                overlayVal = hashVal;
-            }
-
-            if (overlayVal === 'glass') document.body.classList.add('theme-glass');
-            else if (overlayVal === 'solid') document.body.classList.add('theme-solid');
-            else if (overlayVal === 'transparent' || overlayVal === 'clean' || overlayVal === 'none') document.body.classList.add('theme-transparent');
-            else if (overlayVal === 'pill') document.body.classList.add('theme-pill');
-            else if (overlayVal === 'neon') document.body.classList.add('theme-neon');
-            else if (overlayVal === 'retro') document.body.classList.add('theme-retro');
-            else if (overlayVal === 'championship' || overlayVal === 'gold') document.body.classList.add('theme-championship');
-            else if (overlayVal === 'cyber' || overlayVal === 'cyberpunk') document.body.classList.add('theme-cyber');
-            else if (overlayVal === 'fgc-evo' || overlayVal === 'evo') document.body.classList.add('theme-fgc-evo');
-            else if (overlayVal === 'clean-light' || overlayVal === 'light') document.body.classList.add('theme-clean-light');
-            else if (overlayVal === 'minimal-dark' || overlayVal === 'dark') document.body.classList.add('theme-minimal-dark');
-            else if (overlayVal === 'ember') document.body.classList.add('theme-ember');
-            else if (overlayVal === 'aurora') document.body.classList.add('theme-aurora');
-            else if (overlayVal === 'ocean') document.body.classList.add('theme-ocean');
-            else if (overlayVal === 'sunset') document.body.classList.add('theme-sunset');
-            else if (overlayVal === 'violet') document.body.classList.add('theme-violet');
-            else if (overlayVal === 'forest') document.body.classList.add('theme-forest');
-            else if (overlayVal === 'border') document.body.classList.add('theme-border');
-
-            const spacing = (params.get('spacing') || 'normal').toLowerCase();
-            if (spacing === 'compact') document.body.classList.add('spacing-compact');
-            else if (spacing === 'spacious') document.body.classList.add('spacing-spacious');
-
-            const lines = (params.get('lines') || 'glow').toLowerCase();
-            if (lines) document.body.classList.add('lines-' + lines);
-
-            const rh = (params.get('roundheaders') || '').toLowerCase();
-            if (rh) document.body.classList.add('roundheaders-' + rh);
-
+            if (!overlayVal && hashVal && !hashVal.includes('=')) overlayVal = hashVal;
+            if (overlayVal) document.body.classList.add('theme-' + overlayVal);
             const col = bgVal || overlayVal;
-            if (col) {
-                let clean = col;
-                if (/^[0-9a-fA-F]{3,8}$/.test(clean)) clean = '#' + clean;
-                if (/^#[0-9a-fA-F]{3,8}$/.test(clean) || /^rgba?\(.+\)$/.test(clean) || /^[a-zA-Z]{3,20}$/.test(clean)) {
-                    document.documentElement.style.setProperty('--tourney-bg', clean);
-                }
+            if (col && (/^[0-9a-fA-F]{3,8}$/.test(col) || /^#[0-9a-fA-F]{3,8}$/.test(col))) {
+                document.documentElement.style.setProperty('--tourney-bg', col.startsWith('#') ? col : '#' + col);
             }
         }
-        applyStyling();
 
         function getFallbackSample() {
             if (!isPollMode && (layoutMode === 'roundrobin' || layoutMode === 'rr' || params.get('format') === 'roundRobin')) {

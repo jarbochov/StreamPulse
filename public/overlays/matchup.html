@@ -8,11 +8,17 @@
         :root {
             --matchup-scale: 1;
             --matchup-bg: rgba(13, 17, 23, 0.92);
+            --matchup-card-bg: var(--matchup-bg);
             --matchup-border: rgba(255, 255, 255, 0.12);
             --matchup-text: #f0f6fc;
             --matchup-muted: #8b949e;
             --matchup-accent: #58a6ff;
             --matchup-winner: #3fb950;
+            --matchup-radius: 8px;
+            --matchup-weight: 800;
+            --matchup-text-transform: uppercase;
+            --matchup-text-shadow: none;
+            --matchup-backdrop: none;
             --matchup-badge-color: var(--matchup-accent);
             --matchup-badge-bg: rgba(0, 0, 0, 0.28);
             --matchup-badge-border: var(--matchup-border);
@@ -147,7 +153,7 @@
         .ang-side { flex:1; display:flex; align-items:center; gap:.9rem; padding:.7rem 2.2rem; background: linear-gradient(90deg, var(--c), color-mix(in srgb, var(--c) 35%, #0b0f16)); color:#fff; min-width:0; }
         .ang-side.l { clip-path: polygon(1.4rem 0, 100% 0, calc(100% - 1.4rem) 100%, 0 100%); justify-content:flex-start; margin-right:-.7rem; padding-left:2.8rem; }
         .ang-side.r { clip-path: polygon(0 0, calc(100% - 1.4rem) 0, 100% 100%, 1.4rem 100%); flex-direction:row-reverse; justify-content:flex-start; margin-left:-.7rem; padding-right:2.8rem; background: linear-gradient(270deg, var(--c), color-mix(in srgb, var(--c) 35%, #0b0f16)); }
-        .ang-name { font-weight:900; font-size:1.35rem; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-style:italic; }
+        .ang-name { font-weight:var(--matchup-weight, 900); font-size:1.35rem; letter-spacing:.04em; text-transform:var(--matchup-text-transform, uppercase); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-style:italic; text-shadow:var(--matchup-text-shadow, none); }
         .ang-tag { font-size:.7rem; opacity:.8; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }
         .ang-score { font-weight:900; font-size:2.2rem; font-style:italic; margin-left:auto; text-shadow:0 2px 0 rgba(0,0,0,.35); line-height: 1; }
         .ang-side.r .ang-score { margin-left:0; margin-right:auto; }
@@ -159,6 +165,7 @@
         /* Themes */
         .theme-ember {
             --matchup-bg: linear-gradient(135deg, #2a0f0a, #12060a);
+            --matchup-card-bg: linear-gradient(135deg, #2a0f0a, #12060a);
             --matchup-border: #ff6a3d;
             --matchup-accent: #ff6a3d;
             --matchup-text: #fff;
@@ -166,13 +173,14 @@
         }
         .theme-ember .topbar-panel, .theme-ember .fgc-side, .theme-ember .topbar-center-badge, .theme-ember .split-corner-card, .theme-ember .minimal-bar, .theme-ember .race-header, .theme-ember .race-runner-card, .theme-ember .pillar-panel, .theme-ember .bottom-hud-card, .theme-ember .compact-bug, .theme-ember .versus-card-stage, .theme-ember .ang-center, .theme-ember .clock-dock-pill, .theme-ember .single-player-pod, .theme-ember .master-clock-panel,
         body.has-center-gap.no-center-badge.theme-ember .topbar-competitor, body.has-center-gap.no-center-badge.theme-ember .minimal-side {
-            background: linear-gradient(135deg, #2a0f0a, #12060a) !important;
-            border-color: #ff6a3d !important;
+            background: var(--matchup-card-bg, linear-gradient(135deg, #2a0f0a, #12060a)) !important;
+            border-color: var(--matchup-border, #ff6a3d) !important;
             box-shadow: 0 0 18px rgba(255, 106, 61, 0.35) !important;
         }
 
         .theme-aurora {
             --matchup-bg: linear-gradient(135deg, #06232b, #0b1a3a);
+            --matchup-card-bg: linear-gradient(135deg, #06232b, #0b1a3a);
             --matchup-border: #2dd4bf;
             --matchup-accent: #2dd4bf;
             --matchup-text: #fff;
@@ -180,13 +188,14 @@
         }
         .theme-aurora .topbar-panel, .theme-aurora .fgc-side, .theme-aurora .topbar-center-badge, .theme-aurora .split-corner-card, .theme-aurora .minimal-bar, .theme-aurora .race-header, .theme-aurora .race-runner-card, .theme-aurora .pillar-panel, .theme-aurora .bottom-hud-card, .theme-aurora .compact-bug, .theme-aurora .versus-card-stage, .theme-aurora .ang-center, .theme-aurora .clock-dock-pill, .theme-aurora .single-player-pod, .theme-aurora .master-clock-panel,
         body.has-center-gap.no-center-badge.theme-aurora .topbar-competitor, body.has-center-gap.no-center-badge.theme-aurora .minimal-side {
-            background: linear-gradient(135deg, #06232b, #0b1a3a) !important;
-            border-color: #2dd4bf !important;
+            background: var(--matchup-card-bg, linear-gradient(135deg, #06232b, #0b1a3a)) !important;
+            border-color: var(--matchup-border, #2dd4bf) !important;
             box-shadow: 0 0 18px rgba(45, 212, 191, 0.35) !important;
         }
 
         .theme-ocean {
             --matchup-bg: linear-gradient(135deg, #071c3a, #04101f);
+            --matchup-card-bg: linear-gradient(135deg, #071c3a, #04101f);
             --matchup-border: #38bdf8;
             --matchup-accent: #38bdf8;
             --matchup-text: #fff;
@@ -194,13 +203,14 @@
         }
         .theme-ocean .topbar-panel, .theme-ocean .fgc-side, .theme-ocean .topbar-center-badge, .theme-ocean .split-corner-card, .theme-ocean .minimal-bar, .theme-ocean .race-header, .theme-ocean .race-runner-card, .theme-ocean .pillar-panel, .theme-ocean .bottom-hud-card, .theme-ocean .compact-bug, .theme-ocean .versus-card-stage, .theme-ocean .ang-center, .theme-ocean .clock-dock-pill, .theme-ocean .single-player-pod, .theme-ocean .master-clock-panel,
         body.has-center-gap.no-center-badge.theme-ocean .topbar-competitor, body.has-center-gap.no-center-badge.theme-ocean .minimal-side {
-            background: linear-gradient(135deg, #071c3a, #04101f) !important;
-            border-color: #38bdf8 !important;
+            background: var(--matchup-card-bg, linear-gradient(135deg, #071c3a, #04101f)) !important;
+            border-color: var(--matchup-border, #38bdf8) !important;
             box-shadow: 0 0 18px rgba(56, 189, 248, 0.35) !important;
         }
 
         .theme-sunset {
             --matchup-bg: linear-gradient(135deg, #3b0f3a, #2a0d1a);
+            --matchup-card-bg: linear-gradient(135deg, #3b0f3a, #2a0d1a);
             --matchup-border: #fb7185;
             --matchup-accent: #fbbf24;
             --matchup-text: #fff;
@@ -208,13 +218,14 @@
         }
         .theme-sunset .topbar-panel, .theme-sunset .fgc-side, .theme-sunset .topbar-center-badge, .theme-sunset .split-corner-card, .theme-sunset .minimal-bar, .theme-sunset .race-header, .theme-sunset .race-runner-card, .theme-sunset .pillar-panel, .theme-sunset .bottom-hud-card, .theme-sunset .compact-bug, .theme-sunset .versus-card-stage, .theme-sunset .ang-center, .theme-sunset .clock-dock-pill, .theme-sunset .single-player-pod, .theme-sunset .master-clock-panel,
         body.has-center-gap.no-center-badge.theme-sunset .topbar-competitor, body.has-center-gap.no-center-badge.theme-sunset .minimal-side {
-            background: linear-gradient(135deg, #3b0f3a, #2a0d1a) !important;
-            border-color: #fb7185 !important;
+            background: var(--matchup-card-bg, linear-gradient(135deg, #3b0f3a, #2a0d1a)) !important;
+            border-color: var(--matchup-border, #fb7185) !important;
             box-shadow: 0 0 18px rgba(251, 113, 133, 0.35) !important;
         }
 
         .theme-violet {
             --matchup-bg: linear-gradient(135deg, #1e1038, #0d0820);
+            --matchup-card-bg: linear-gradient(135deg, #1e1038, #0d0820);
             --matchup-border: #a78bfa;
             --matchup-accent: #c084fc;
             --matchup-text: #fff;
@@ -222,13 +233,14 @@
         }
         .theme-violet .topbar-panel, .theme-violet .fgc-side, .theme-violet .topbar-center-badge, .theme-violet .split-corner-card, .theme-violet .minimal-bar, .theme-violet .race-header, .theme-violet .race-runner-card, .theme-violet .pillar-panel, .theme-violet .bottom-hud-card, .theme-violet .compact-bug, .theme-violet .versus-card-stage, .theme-violet .ang-center, .theme-violet .clock-dock-pill, .theme-violet .single-player-pod, .theme-violet .master-clock-panel,
         body.has-center-gap.no-center-badge.theme-violet .topbar-competitor, body.has-center-gap.no-center-badge.theme-violet .minimal-side {
-            background: linear-gradient(135deg, #1e1038, #0d0820) !important;
-            border-color: #a78bfa !important;
+            background: var(--matchup-card-bg, linear-gradient(135deg, #1e1038, #0d0820)) !important;
+            border-color: var(--matchup-border, #a78bfa) !important;
             box-shadow: 0 0 18px rgba(167, 139, 250, 0.35) !important;
         }
 
         .theme-forest {
             --matchup-bg: linear-gradient(135deg, #0a2316, #06120b);
+            --matchup-card-bg: linear-gradient(135deg, #0a2316, #06120b);
             --matchup-border: #4ade80;
             --matchup-accent: #4ade80;
             --matchup-text: #fff;
@@ -236,72 +248,77 @@
         }
         .theme-forest .topbar-panel, .theme-forest .fgc-side, .theme-forest .topbar-center-badge, .theme-forest .split-corner-card, .theme-forest .minimal-bar, .theme-forest .race-header, .theme-forest .race-runner-card, .theme-forest .pillar-panel, .theme-forest .bottom-hud-card, .theme-forest .compact-bug, .theme-forest .versus-card-stage, .theme-forest .ang-center, .theme-forest .clock-dock-pill, .theme-forest .single-player-pod, .theme-forest .master-clock-panel,
         body.has-center-gap.no-center-badge.theme-forest .topbar-competitor, body.has-center-gap.no-center-badge.theme-forest .minimal-side {
-            background: linear-gradient(135deg, #0a2316, #06120b) !important;
-            border-color: #4ade80 !important;
+            background: var(--matchup-card-bg, linear-gradient(135deg, #0a2316, #06120b)) !important;
+            border-color: var(--matchup-border, #4ade80) !important;
             box-shadow: 0 0 18px rgba(74, 222, 128, 0.35) !important;
         }
 
         .theme-glass {
             --matchup-bg: rgba(13, 17, 23, 0.65);
+            --matchup-card-bg: rgba(13, 17, 23, 0.65);
             --matchup-border: rgba(255, 255, 255, 0.18);
         }
         .theme-glass .topbar-panel, .theme-glass .fgc-side, .theme-glass .split-corner-card, .theme-glass .minimal-bar, .theme-glass .race-header, .theme-glass .race-runner-card, .theme-glass .pillar-panel, .theme-glass .bottom-hud-card, .theme-glass .compact-bug, .theme-glass .versus-card-stage, .theme-glass .ang-center, .theme-glass .clock-dock-pill, .theme-glass .single-player-pod, .theme-glass .master-clock-panel,
         body.has-center-gap.no-center-badge.theme-glass .topbar-competitor, body.has-center-gap.no-center-badge.theme-glass .minimal-side {
-            background: rgba(13, 17, 23, 0.65) !important;
-            backdrop-filter: blur(14px) saturate(180%);
-            -webkit-backdrop-filter: blur(14px) saturate(180%);
-            border-color: rgba(255, 255, 255, 0.18) !important;
+            background: var(--matchup-card-bg, rgba(13, 17, 23, 0.65)) !important;
+            backdrop-filter: var(--matchup-backdrop, blur(14px) saturate(180%));
+            -webkit-backdrop-filter: var(--matchup-backdrop, blur(14px) saturate(180%));
+            border-color: var(--matchup-border, rgba(255, 255, 255, 0.18)) !important;
         }
 
         .theme-solid {
             --matchup-bg: #0d1117;
+            --matchup-card-bg: #0d1117;
             --matchup-border: #30363d;
         }
         .theme-solid .topbar-panel, .theme-solid .fgc-side, .theme-solid .split-corner-card, .theme-solid .minimal-bar, .theme-solid .race-header, .theme-solid .race-runner-card, .theme-solid .pillar-panel, .theme-solid .bottom-hud-card, .theme-solid .compact-bug, .theme-solid .versus-card-stage, .theme-solid .ang-center, .theme-solid .clock-dock-pill, .theme-solid .single-player-pod, .theme-solid .master-clock-panel,
         body.has-center-gap.no-center-badge.theme-solid .topbar-competitor, body.has-center-gap.no-center-badge.theme-solid .minimal-side {
-            background: #0d1117 !important;
-            border-color: #30363d !important;
+            background: var(--matchup-card-bg, #0d1117) !important;
+            border-color: var(--matchup-border, #30363d) !important;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
         }
 
         .theme-transparent {
             --matchup-bg: transparent;
+            --matchup-card-bg: transparent;
             --matchup-border: transparent;
         }
         .theme-transparent .topbar-panel, .theme-transparent .fgc-side, .theme-transparent .split-corner-card, .theme-transparent .minimal-bar, .theme-transparent .race-header, .theme-transparent .race-runner-card, .theme-transparent .pillar-panel, .theme-transparent .bottom-hud-card, .theme-transparent .compact-bug, .theme-transparent .versus-card-stage, .theme-transparent .ang-center, .theme-transparent .clock-dock-pill, .theme-transparent .single-player-pod, .theme-transparent .master-clock-panel,
         body.has-center-gap.no-center-badge.theme-transparent .topbar-competitor, body.has-center-gap.no-center-badge.theme-transparent .minimal-side {
-            background: transparent !important;
-            border-color: transparent !important;
+            background: var(--matchup-card-bg, transparent) !important;
+            border-color: var(--matchup-border, transparent) !important;
             box-shadow: none !important;
         }
 
         .theme-pill .topbar-panel, .theme-pill .minimal-bar, .theme-pill .bottom-hud-card, .theme-pill .clock-dock-pill, .theme-pill .race-header, .theme-pill .single-player-pod, .theme-pill .master-clock-panel {
-            border-radius: 9999px !important;
+            border-radius: var(--matchup-radius, 9999px) !important;
             padding-left: 1.5rem !important;
             padding-right: 1.5rem !important;
         }
 
         .theme-neon {
             --matchup-bg: #090d16;
+            --matchup-card-bg: #090d16;
             --matchup-border: #00f0ff;
             --matchup-accent: #00f0ff;
         }
         .theme-neon .topbar-panel, .theme-neon .fgc-side, .theme-neon .topbar-center-badge, .theme-neon .split-corner-card, .theme-neon .minimal-bar, .theme-neon .race-header, .theme-neon .race-runner-card, .theme-neon .pillar-panel, .theme-neon .bottom-hud-card, .theme-neon .compact-bug, .theme-neon .versus-card-stage, .theme-neon .ang-center, .theme-neon .clock-dock-pill, .theme-neon .single-player-pod, .theme-neon .master-clock-panel,
         body.has-center-gap.no-center-badge.theme-neon .topbar-competitor, body.has-center-gap.no-center-badge.theme-neon .minimal-side {
-            background: #090d16 !important;
-            border-color: #00f0ff !important;
+            background: var(--matchup-card-bg, #090d16) !important;
+            border-color: var(--matchup-border, #00f0ff) !important;
             box-shadow: 0 0 16px rgba(0, 240, 255, 0.4), inset 0 0 10px rgba(0, 240, 255, 0.15) !important;
         }
 
         .theme-retro {
             --matchup-bg: #150a20;
+            --matchup-card-bg: #150a20;
             --matchup-border: #ffcc00;
             --matchup-accent: #ffcc00;
         }
         .theme-retro .topbar-panel, .theme-retro .fgc-side, .theme-retro .topbar-center-badge, .theme-retro .split-corner-card, .theme-retro .minimal-bar, .theme-retro .race-header, .theme-retro .race-runner-card, .theme-retro .pillar-panel, .theme-retro .bottom-hud-card, .theme-retro .compact-bug, .theme-retro .versus-card-stage, .theme-retro .ang-center, .theme-retro .clock-dock-pill, .theme-retro .single-player-pod, .theme-retro .master-clock-panel {
-            background: #150a20 !important;
-            border-radius: 0 !important;
-            border: 3px solid #ffcc00 !important;
+            background: var(--matchup-card-bg, #150a20) !important;
+            border-radius: var(--matchup-radius, 0) !important;
+            border: 3px solid var(--matchup-border, #ffcc00) !important;
             box-shadow: 4px 4px 0 #000, 0 0 0 2px #000 !important;
             image-rendering: pixelated;
         }
@@ -320,30 +337,33 @@
 
         .theme-fgc-evo {
             --matchup-bg: linear-gradient(180deg, #1b222d 0%, #0a0e14 100%);
+            --matchup-card-bg: linear-gradient(180deg, #1b222d 0%, #0a0e14 100%);
             --matchup-border: rgba(255, 255, 255, 0.2);
             --matchup-accent: #ffd700;
         }
         .theme-fgc-evo .topbar-panel, .theme-fgc-evo .fgc-side, .theme-fgc-evo .topbar-center-badge, .theme-fgc-evo .split-corner-card, .theme-fgc-evo .minimal-bar, .theme-fgc-evo .race-header, .theme-fgc-evo .race-runner-card, .theme-fgc-evo .pillar-panel, .theme-fgc-evo .bottom-hud-card, .theme-fgc-evo .compact-bug, .theme-fgc-evo .versus-card-stage, .theme-fgc-evo .ang-center, .theme-fgc-evo .clock-dock-pill, .theme-fgc-evo .single-player-pod, .theme-fgc-evo .master-clock-panel,
         body.has-center-gap.no-center-badge.theme-fgc-evo .topbar-competitor, body.has-center-gap.no-center-badge.theme-fgc-evo .minimal-side {
-            background: linear-gradient(180deg, #1b222d 0%, #0a0e14 100%) !important;
-            border-color: rgba(255, 255, 255, 0.2) !important;
+            background: var(--matchup-card-bg, linear-gradient(180deg, #1b222d 0%, #0a0e14 100%)) !important;
+            border-color: var(--matchup-border, rgba(255, 255, 255, 0.2)) !important;
             box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75), 0 0 20px rgba(0, 0, 0, 0.5) !important;
         }
 
         .theme-cyber {
             --matchup-bg: #050811;
+            --matchup-card-bg: #050811;
             --matchup-border: #00f0ff;
             --matchup-accent: #ff0055;
         }
         .theme-cyber .topbar-panel, .theme-cyber .fgc-side, .theme-cyber .topbar-center-badge, .theme-cyber .split-corner-card, .theme-cyber .minimal-bar, .theme-cyber .race-header, .theme-cyber .race-runner-card, .theme-cyber .pillar-panel, .theme-cyber .bottom-hud-card, .theme-cyber .compact-bug, .theme-cyber .versus-card-stage, .theme-cyber .ang-center, .theme-cyber .clock-dock-pill, .theme-cyber .single-player-pod, .theme-cyber .master-clock-panel,
         body.has-center-gap.no-center-badge.theme-cyber .topbar-competitor, body.has-center-gap.no-center-badge.theme-cyber .minimal-side {
-            background: #050811 !important;
-            border-color: #00f0ff !important;
+            background: var(--matchup-card-bg, #050811) !important;
+            border-color: var(--matchup-border, #00f0ff) !important;
             box-shadow: 0 0 20px rgba(0, 240, 255, 0.35), inset 0 0 15px rgba(0, 240, 255, 0.1) !important;
         }
 
         .theme-championship, .theme-gold {
             --matchup-bg: linear-gradient(180deg, #1f1a0e 0%, #0d0b06 100%);
+            --matchup-card-bg: linear-gradient(180deg, #1f1a0e 0%, #0d0b06 100%);
             --matchup-border: #ffd700;
             --matchup-accent: #ffd700;
         }
@@ -351,8 +371,8 @@
         .theme-gold .topbar-panel, .theme-gold .fgc-side, .theme-gold .topbar-center-badge, .theme-gold .split-corner-card, .theme-gold .minimal-bar, .theme-gold .race-header, .theme-gold .race-runner-card, .theme-gold .pillar-panel, .theme-gold .bottom-hud-card, .theme-gold .compact-bug, .theme-gold .versus-card-stage, .theme-gold .ang-center, .theme-gold .clock-dock-pill, .theme-gold .single-player-pod, .theme-gold .master-clock-panel,
         body.has-center-gap.no-center-badge.theme-championship .topbar-competitor, body.has-center-gap.no-center-badge.theme-championship .minimal-side,
         body.has-center-gap.no-center-badge.theme-gold .topbar-competitor, body.has-center-gap.no-center-badge.theme-gold .minimal-side {
-            background: linear-gradient(180deg, #1f1a0e 0%, #0d0b06 100%) !important;
-            border-color: #ffd700 !important;
+            background: var(--matchup-card-bg, linear-gradient(180deg, #1f1a0e 0%, #0d0b06 100%)) !important;
+            border-color: var(--matchup-border, #ffd700) !important;
             box-shadow: 0 0 20px rgba(255, 215, 0, 0.35), inset 0 0 10px rgba(255, 215, 0, 0.15) !important;
         }
         .theme-championship .single-player-pod .score-box,
@@ -369,6 +389,7 @@
 
         .theme-clean-light {
             --matchup-bg: #ffffff;
+            --matchup-card-bg: #ffffff;
             --matchup-border: #d0d7de;
             --matchup-text: #1f2328;
             --matchup-muted: #57606a;
@@ -376,8 +397,8 @@
         }
         .theme-clean-light .topbar-panel, .theme-clean-light .fgc-side, .theme-clean-light .topbar-center-badge, .theme-clean-light .split-corner-card, .theme-clean-light .minimal-bar, .theme-clean-light .race-header, .theme-clean-light .race-runner-card, .theme-clean-light .pillar-panel, .theme-clean-light .bottom-hud-card, .theme-clean-light .compact-bug, .theme-clean-light .versus-card-stage, .theme-clean-light .ang-center, .theme-clean-light .clock-dock-pill, .theme-clean-light .single-player-pod, .theme-clean-light .master-clock-panel,
         body.has-center-gap.no-center-badge.theme-clean-light .topbar-competitor, body.has-center-gap.no-center-badge.theme-clean-light .minimal-side {
-            background: #ffffff !important;
-            border-color: #d0d7de !important;
+            background: var(--matchup-card-bg, #ffffff) !important;
+            border-color: var(--matchup-border, #d0d7de) !important;
             color: #1f2328 !important;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
         }
@@ -506,14 +527,15 @@
 
         .theme-minimal-dark {
             --matchup-bg: #000000;
+            --matchup-card-bg: #000000;
             --matchup-border: #222222;
             --matchup-text: #f0f6fc;
             --matchup-accent: #58a6ff;
         }
         .theme-minimal-dark .topbar-panel, .theme-minimal-dark .fgc-side, .theme-minimal-dark .topbar-center-badge, .theme-minimal-dark .split-corner-card, .theme-minimal-dark .minimal-bar, .theme-minimal-dark .race-header, .theme-minimal-dark .race-runner-card, .theme-minimal-dark .pillar-panel, .theme-minimal-dark .bottom-hud-card, .theme-minimal-dark .compact-bug, .theme-minimal-dark .versus-card-stage, .theme-minimal-dark .ang-center, .theme-minimal-dark .clock-dock-pill, .theme-minimal-dark .single-player-pod, .theme-minimal-dark .master-clock-panel,
         body.has-center-gap.no-center-badge.theme-minimal-dark .topbar-competitor, body.has-center-gap.no-center-badge.theme-minimal-dark .minimal-side {
-            background: #000000 !important;
-            border-color: #222222 !important;
+            background: var(--matchup-card-bg, #000000) !important;
+            border-color: var(--matchup-border, #222222) !important;
             box-shadow: none !important;
         }
 
@@ -521,8 +543,8 @@
             --matchup-border: var(--matchup-accent);
         }
         .theme-border .topbar-panel, .theme-border .fgc-side, .theme-border .topbar-center-badge, .theme-border .split-corner-card, .theme-border .minimal-bar, .theme-border .race-header, .theme-border .race-runner-card, .theme-border .pillar-panel, .theme-border .bottom-hud-card, .theme-border .compact-bug, .theme-border .versus-card-stage, .theme-border .ang-center, .theme-border .clock-dock-pill, .theme-border .single-player-pod, .theme-border .master-clock-panel {
-            border: 3px solid var(--matchup-accent) !important;
-            border-radius: 8px !important;
+            border: 3px solid var(--matchup-border, var(--matchup-accent)) !important;
+            border-radius: var(--matchup-radius, 8px) !important;
         }
 
         /* ----------------------------------------------------
@@ -593,9 +615,10 @@
 
         .fgc-player-name {
             font-size: 1.25rem;
-            font-weight: 900;
+            font-weight: var(--matchup-weight, 900);
             letter-spacing: 0.02em;
-            text-transform: uppercase;
+            text-transform: var(--matchup-text-transform, uppercase);
+            text-shadow: var(--matchup-text-shadow, none);
             color: var(--matchup-text);
             white-space: nowrap;
             overflow: hidden;
@@ -661,9 +684,11 @@
             display: flex;
             align-items: center;
             gap: 0.75rem;
-            background: var(--matchup-bg);
+            background: var(--matchup-card-bg, var(--matchup-bg));
             border: 1px solid var(--matchup-border);
-            border-radius: 10px;
+            border-radius: var(--matchup-radius, 10px);
+            backdrop-filter: var(--matchup-backdrop, none);
+            -webkit-backdrop-filter: var(--matchup-backdrop, none);
             padding: 0.55rem 0.85rem;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
             flex: 0 1 auto;
@@ -686,9 +711,11 @@
         .minimal-bar {
             display: flex;
             align-items: center;
-            background: var(--matchup-bg);
+            background: var(--matchup-card-bg, var(--matchup-bg));
             border: 1px solid var(--matchup-border);
-            border-radius: 8px;
+            border-radius: var(--matchup-radius, 8px);
+            backdrop-filter: var(--matchup-backdrop, none);
+            -webkit-backdrop-filter: var(--matchup-backdrop, none);
             overflow: hidden;
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
         }
@@ -714,9 +741,11 @@
            1. TOP BAR / FIGHTING GAME SCOREBOARD LAYOUT
            ---------------------------------------------------- */
         .topbar-panel {
-            background: var(--matchup-bg);
+            background: var(--matchup-card-bg, var(--matchup-bg));
             border: 1px solid var(--matchup-border);
-            border-radius: 12px;
+            border-radius: var(--matchup-radius, 12px);
+            backdrop-filter: var(--matchup-backdrop, none);
+            -webkit-backdrop-filter: var(--matchup-backdrop, none);
             box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
             display: flex;
             align-items: stretch;
@@ -771,8 +800,10 @@
 
         .competitor-name {
             font-size: 1.15rem;
-            font-weight: 800;
+            font-weight: var(--matchup-weight, 800);
             letter-spacing: -0.01em;
+            text-transform: var(--matchup-text-transform, uppercase);
+            text-shadow: var(--matchup-text-shadow, none);
             color: var(--matchup-text);
             white-space: nowrap;
             overflow: hidden;
@@ -917,9 +948,11 @@
             flex-direction: column;
             width: 100%;
             max-width: var(--matchup-max-width, 360px);
-            background: var(--matchup-bg);
+            background: var(--matchup-card-bg, var(--matchup-bg));
             border: 1px solid var(--matchup-border);
-            border-radius: 12px;
+            border-radius: var(--matchup-radius, 12px);
+            backdrop-filter: var(--matchup-backdrop, none);
+            -webkit-backdrop-filter: var(--matchup-backdrop, none);
             overflow: hidden;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         }
@@ -1003,12 +1036,12 @@
             display: inline-flex;
             align-items: center;
             gap: clamp(0.5rem, 1.5cqw, 0.85rem);
-            background: var(--matchup-bg);
+            background: var(--matchup-card-bg, var(--matchup-bg));
             border: 1px solid var(--matchup-border);
-            border-radius: 10px;
+            border-radius: var(--matchup-radius, 10px);
             padding: clamp(0.4rem, 1.2cqw, 0.65rem) clamp(0.6rem, 2cqw, 1.1rem);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            backdrop-filter: var(--matchup-backdrop, blur(12px));
+            -webkit-backdrop-filter: var(--matchup-backdrop, blur(12px));
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
             min-width: clamp(160px, 28cqw, 360px);
             max-width: 100%;
@@ -1230,12 +1263,12 @@
             align-items: center;
             justify-content: center;
             gap: 0.4rem;
-            background: var(--matchup-bg);
+            background: var(--matchup-card-bg, var(--matchup-bg));
             border: 1px solid var(--matchup-border);
-            border-radius: 12px;
+            border-radius: var(--matchup-radius, 12px);
             padding: clamp(0.5rem, 1.5cqw, 0.85rem) clamp(0.8rem, 2.5cqw, 1.5rem);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            backdrop-filter: var(--matchup-backdrop, blur(12px));
+            -webkit-backdrop-filter: var(--matchup-backdrop, blur(12px));
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
             text-align: center;
         }
@@ -1278,9 +1311,11 @@
            3. ESPORTS LOWER-THIRD HUD LAYOUT (?layout=bottom)
            ---------------------------------------------------- */
         .bottom-hud-card {
-            background: var(--matchup-bg);
+            background: var(--matchup-card-bg, var(--matchup-bg));
             border: 1px solid var(--matchup-border);
-            border-radius: 12px;
+            border-radius: var(--matchup-radius, 12px);
+            backdrop-filter: var(--matchup-backdrop, none);
+            -webkit-backdrop-filter: var(--matchup-backdrop, none);
             box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
             padding: 0.75rem 1rem;
             display: flex;
@@ -1399,9 +1434,11 @@
            4. COMPACT / CORNER SCORE BUG LAYOUT (?layout=compact)
            ---------------------------------------------------- */
         .compact-bug {
-            background: var(--matchup-bg);
+            background: var(--matchup-card-bg, var(--matchup-bg));
             border: 1px solid var(--matchup-border);
-            border-radius: 8px;
+            border-radius: var(--matchup-radius, 8px);
+            backdrop-filter: var(--matchup-backdrop, none);
+            -webkit-backdrop-filter: var(--matchup-backdrop, none);
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
             display: flex;
             flex-direction: column;
@@ -1459,9 +1496,11 @@
            5. VERSUS SCREEN CARD LAYOUT (?layout=versus)
            ---------------------------------------------------- */
         .versus-card-stage {
-            background: var(--matchup-bg);
+            background: var(--matchup-card-bg, var(--matchup-bg));
             border: 1px solid var(--matchup-border);
-            border-radius: 16px;
+            border-radius: var(--matchup-radius, 16px);
+            backdrop-filter: var(--matchup-backdrop, none);
+            -webkit-backdrop-filter: var(--matchup-backdrop, none);
             box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
             padding: 2rem 2.5rem;
             display: flex;
@@ -1491,7 +1530,9 @@
 
         .versus-big-name {
             font-size: 1.6rem;
-            font-weight: 900;
+            font-weight: var(--matchup-weight, 900);
+            text-transform: var(--matchup-text-transform, uppercase);
+            text-shadow: var(--matchup-text-shadow, none);
             color: var(--matchup-text);
             line-height: 1.1;
         }
@@ -1747,15 +1788,15 @@
         }
 
         .race-runner-card {
-            background: var(--matchup-bg);
+            background: var(--matchup-card-bg, var(--matchup-bg));
             border: 1px solid var(--matchup-border);
-            border-radius: 10px;
+            border-radius: var(--matchup-radius, 10px);
             padding: 0.75rem 1rem;
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
-            backdrop-filter: var(--matchup-backdrop);
-            -webkit-backdrop-filter: var(--matchup-backdrop);
+            backdrop-filter: var(--matchup-backdrop, none);
+            -webkit-backdrop-filter: var(--matchup-backdrop, none);
             position: relative;
             overflow: hidden;
             box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
@@ -1784,7 +1825,9 @@
 
         .race-runner-name {
             font-size: 1.05rem;
-            font-weight: 800;
+            font-weight: var(--matchup-weight, 800);
+            text-transform: var(--matchup-text-transform, uppercase);
+            text-shadow: var(--matchup-text-shadow, none);
             color: var(--matchup-text);
             letter-spacing: -0.01em;
         }
@@ -2223,8 +2266,8 @@
     </div>
 
     <script src="/overlay-visibility.js" data-key="matchup"></script>
-    <script src="/js/url-params.js"></script>
-    <script src="/js/overlay-theme.js"></script>
+    <script src="../js/url-params.js"></script>
+    <script src="../js/overlay-theme.js"></script>
 
     <script>
         const params = (typeof overlayParams === 'function') ? overlayParams() : new URLSearchParams(window.location.search);
@@ -2348,46 +2391,21 @@
             document.documentElement.style.setProperty('--matchup-badge-border', `color-mix(in srgb, ${customBadgeColor} 50%, rgba(255, 255, 255, 0.12))`);
         }
 
-        // Styling via ?overlay=theme or ?bg=hex
-        function applyStyling() {
+        // Shared theme handling via /js/overlay-theme.js
+        if (typeof window.applyVersusTheme === 'function') {
+            window.applyVersusTheme();
+        } else {
             let overlayVal = (params.get('overlay') || params.get('theme') || '').trim();
             const bgVal = (params.get('bg') || '').trim();
             const hashVal = (window.location.hash || '').replace(/^#/, '').trim();
-
-            if (!overlayVal && hashVal && !hashVal.includes('=')) {
-                overlayVal = hashVal;
-            }
-
-            if (overlayVal === 'glass') document.body.classList.add('theme-glass');
-            else if (overlayVal === 'solid') document.body.classList.add('theme-solid');
-            else if (overlayVal === 'transparent' || overlayVal === 'clean' || overlayVal === 'none') document.body.classList.add('theme-transparent');
-            else if (overlayVal === 'pill') document.body.classList.add('theme-pill');
-            else if (overlayVal === 'neon') document.body.classList.add('theme-neon');
-            else if (overlayVal === 'retro') document.body.classList.add('theme-retro');
-            else if (overlayVal === 'fgc-evo' || overlayVal === 'evo') document.body.classList.add('theme-fgc-evo');
-            else if (overlayVal === 'cyber' || overlayVal === 'cyberpunk') document.body.classList.add('theme-cyber');
-            else if (overlayVal === 'championship' || overlayVal === 'gold') document.body.classList.add('theme-championship');
-            else if (overlayVal === 'clean-light' || overlayVal === 'light') document.body.classList.add('theme-clean-light');
-            else if (overlayVal === 'minimal-dark' || overlayVal === 'dark') document.body.classList.add('theme-minimal-dark');
-            else if (overlayVal === 'ember') document.body.classList.add('theme-ember');
-            else if (overlayVal === 'aurora') document.body.classList.add('theme-aurora');
-            else if (overlayVal === 'ocean') document.body.classList.add('theme-ocean');
-            else if (overlayVal === 'sunset') document.body.classList.add('theme-sunset');
-            else if (overlayVal === 'violet') document.body.classList.add('theme-violet');
-            else if (overlayVal === 'forest') document.body.classList.add('theme-forest');
-            else if (overlayVal === 'border' || overlayVal === 'arcade') document.body.classList.add('theme-border');
-
+            if (!overlayVal && hashVal && !hashVal.includes('=')) overlayVal = hashVal;
+            if (overlayVal) document.body.classList.add('theme-' + overlayVal);
             const col = bgVal || overlayVal;
-            if (col) {
-                let clean = col;
-                if (/^[0-9a-fA-F]{3,8}$/.test(clean)) clean = '#' + clean;
-                if (/^#[0-9a-fA-F]{3,8}$/.test(clean) || /^rgba?\(.+\)$/.test(clean) || /^[a-zA-Z]{3,20}$/.test(clean)) {
-                    document.documentElement.style.setProperty('--matchup-bg', clean);
-                    document.body.classList.add('theme-custom');
-                }
+            if (col && (/^[0-9a-fA-F]{3,8}$/.test(col) || /^#[0-9a-fA-F]{3,8}$/.test(col))) {
+                document.documentElement.style.setProperty('--matchup-bg', col.startsWith('#') ? col : '#' + col);
+                document.body.classList.add('theme-custom');
             }
         }
-        applyStyling();
 
         // Sample Data for OBS Studio positioning and URL wizard
         const sampleClockMode = (layout === 'race' || params.get('clockmode') === 'race') ? 'race' : 'stopwatch';

@@ -140,6 +140,9 @@ The Matchup overlay self-sizes to whatever OBS browser source dimensions you con
 - **Competitor Clocks & Splits (`?playerclocks=auto|always|off`)**: Display individual player timer chips, runner split times, and finish delta badges across all layouts (Top Bar, FGC, Split, Pillar, Bottom, Compact, and Versus), not just the dedicated race layout.
 - **Wide Stage Layout (`?wide=1`)**: Expands matchup card geometry and container clamps up to 2400px for ultrawide and spacious broadcast scenes.
 - **Tournament Auto-Binding (`?source=auto`)**: By default, `/overlays/matchup.html` automatically mirrors the active tournament match when a bracket is running, and seamlessly falls back to your exhibition matchup queue when idle.
+- **Custom Typography & Styling**: Custom fonts (`?font=`), font weights (`?weight=300-900`), text transformations (`?transform=none|uppercase`), proportional bracket/matchup scaling (`?scale=`), corner radius (`?radius=`), and text outlines (`?outline=`).
+- **Granular Color Customization**: Full palette control over card background (`?cardbg=`), backdrop (`?bg=`), borders (`?border=`), primary text (`?text=`), muted subtitles (`?muted=`), accents (`?accent=`), winner highlights (`?winner=`), badge tint (`?badgecolor=`), and competitor slot colors (`?p1color=`, `?p2color=`).
+- **Reusable Custom Themes**: Save your customized typography and color palette into reusable custom themes directly from Versus Studio with one-click application across scoreboard HUDs and tournament brackets.
 
 ---
 
