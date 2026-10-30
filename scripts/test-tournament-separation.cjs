@@ -130,6 +130,164 @@ test('Overlays: /overlays/tournament.html and /overlays/poll-tournament.html str
     assert.ok(pContent.includes('/js/tournament-shared.js'), 'poll-tournament.html references tournament-shared.js');
 });
 
+test('Poll Manager tournament templates and saved brackets work through UI and source-scoped APIs', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-poll-library-ui-'));
+    const rootDir = path.resolve(__dirname, '..');
+    const router = createStaticRouter({ rootDir, publicDir: path.join(rootDir, 'public') });
+    let live;
+    let browser;
+    let service;
+    let restores = 0;
+    const options = { dataDir: dir, log: () => {}, error: () => {}, broadcastToOverlays: (type, data) => live?.broadcastToOverlays(type, data) };
+    service = createPollService(options);
+    const routes = createTwitchRoutes({ pollService: service });
+    const server = http.createServer(async (req, res) => {
+        const url = new URL(req.url, 'http://fixture.local');
+        if (url.pathname === '/api/polls/tournament/history/restore') restores++;
+        if (await routes(req, res, url, url.pathname)) return;
+        if (url.pathname.startsWith('/api/')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end('{"status":"ok"}');
+        } else if (!router.handleRequest(req, res)) { res.writeHead(404); res.end(); }
+    });
+    live = createOverlayWsServer({ server, log: () => {} });
+    try {
+        const versus = service.createTournament({ title: 'Other studio', entrants: ['V1', 'V2'] });
+        const versusPreset = service.saveTournamentPreset({ name: 'Other studio template', entrants: ['V1', 'V2'] });
+        const tournament = service.createTournament({
+            title: 'Fictional 16-player bracket', format: 'double', isPoll: true,
+            entrants: Array.from({ length: 16 }, (_, i) => `Fictional ${i + 1}`),
+            matchDuration: 45, blind: true, announceChat: false
+        });
+        service.updateMatchScore(tournament.matches[0].id, { isPoll: true, entrant1Color: '#123456' });
+        service.advanceTournamentMatch(tournament.matches[0].id, tournament.matches[0].entrant1.name, { isPoll: true });
+        const activeMatch = tournament.matches.find(m => m.status === 'PENDING' && m.bracket === 'winners');
+        service.startTournamentMatch(activeMatch.id, { isPoll: true });
+        service.castVote({ userId: 'Fixture voter', choiceIndex: 0 });
+        const livePollId = service.getActivePoll().id;
+        await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+        const origin = `http://127.0.0.1:${server.address().port}`;
+        const call = async (suffix, method, body) => {
+            const response = await fetch(`${origin}/api/polls/tournament/${suffix}`, {
+                method, headers: { 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {})
+            });
+            return { code: response.status, data: await response.json() };
+        };
+        browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+        const page = await browser.newPage();
+        const errors = [];
+        let confirmLoad = true;
+        page.on('pageerror', error => errors.push(error.message));
+        page.on('dialog', dialog => {
+            if (dialog.type() === 'prompt') dialog.accept('Fictional saved item');
+            else if (confirmLoad) dialog.accept();
+            else dialog.dismiss();
+        });
+        await page.setRequestInterception(true);
+        page.on('request', request => {
+            if (new URL(request.url()).origin === origin) request.continue();
+            else request.respond({ status: 200, body: '' });
+        });
+        await page.goto(`${origin}/polls.html`, { waitUntil: 'domcontentloaded' });
+        await page.click('#tab-btn-tourney');
+        await page.waitForSelector('#save-tourney-template', { visible: true });
+        await page.click('#save-tourney-template');
+        await page.waitForFunction(() => document.querySelectorAll('[data-template-id]').length === 1);
+        await page.click('#save-tourney-checkpoint');
+        await page.waitForFunction(() => document.querySelectorAll('[data-history-id]').length === 1);
+        const template = service.getTournamentPresets({ isPoll: true })[0];
+        const checkpoint = service.getTournamentHistory({ isPoll: true })[0];
+        assert.equal(service.getActivePoll().id, livePollId);
+        assert.equal(service.getActivePoll().totalVotes, 1);
+        assert.equal(service.getPollTournament().id, tournament.id);
+        await page.click('#tab-btn-templates');
+        await page.waitForSelector('[data-library-action="load-history"]', { visible: true });
+        await page.click('[data-library-action="load-history"]');
+        assert.equal(restores, 0, 'UI does not attempt restore during an active ballot');
+        const blocked = await call('history/restore', 'POST', { id: checkpoint.id });
+        assert.equal(blocked.code, 400);
+        assert.match(blocked.data.error, /End the current poll/);
+        assert.equal(service.getActivePoll().id, livePollId);
+        await page.click('[data-library-action="load-template"]');
+        await page.waitForSelector('#create-tournament-card', { visible: true });
+        await page.waitForFunction(() => document.getElementById('tourney-duration').value === '45');
+        assert.equal(await page.$eval('#tourney-format', el => el.value), 'double');
+        assert.equal(await page.$eval('#tourney-entrants', el => el.value.split('\n').length), 16);
+        assert.equal(await page.$eval('#tourney-blind', el => el.checked), true);
+        assert.equal(service.getPollTournament().id, tournament.id, 'loading template only fills form');
+        await page.evaluate(() => window.loadTournament());
+        assert.equal(await page.$eval('#create-tournament-card', el => getComputedStyle(el).display), 'block', 'live refresh does not hide loaded form');
+        service.finishPoll();
+        await page.waitForFunction("activePollData?.status !== 'ACTIVE'");
+        await page.click('#tab-btn-templates');
+        await page.click(`[data-history-id="${checkpoint.id}"] [data-library-action="load-history"]`);
+        await page.waitForFunction(() => document.getElementById('tourney-progress-text').textContent === '1 of 30 matches completed');
+        assert.equal(service.getPollTournament().matches.find(m => m.id === activeMatch.id).status, 'PENDING');
+        assert.equal(service.getActivePoll(), null);
+        assert.equal(service.getTournament().id, versus.id);
+        const createsBefore = service.getPollTournament().id;
+        await page.evaluate(() => document.getElementById('tourney-create-form').requestSubmit());
+        await page.waitForFunction(() => document.getElementById('tourney-progress-text').textContent === '0 of 30 matches completed');
+        assert.notEqual(service.getPollTournament().id, createsBefore);
+        assert.equal(service.getPollTournament().matches.length, 30);
+        assert.equal(service.getPollTournament().matches.some(m => m.winner), false);
+        assert.equal(service.getPollTournament().matchDuration, 45);
+        assert.ok(service.getPollTournament().matches.some(m => m.entrant1?.color === '#123456' || m.entrant2?.color === '#123456'));
+        assert.ok(service.getTournamentHistory({ isPoll: true }).some(t => !t.isCheckpoint && t.tournamentId === createsBefore));
+        const finals = service.createTournament({ title: 'Fictional finished bracket', isPoll: true, entrants: ['Champion A', 'Finalist B'] });
+        service.advanceTournamentMatch(finals.matches[0].id, 'Champion A', { isPoll: true });
+        await page.click('#tab-btn-templates');
+        await page.waitForFunction(() => document.getElementById('tournament-history-list').textContent.includes('Champion: Champion A'));
+        const finalRow = `[data-history-id="${finals.id}"]`;
+        await page.click(`${finalRow} [data-library-action="history-template"]`);
+        await page.waitForFunction(() => document.querySelectorAll('[data-template-id]').length === 2);
+        await page.click(`${finalRow} [data-library-action="load-history"]`);
+        await page.waitForFunction(() => document.getElementById('entrant1-votes').textContent === 'Grand Champion');
+        assert.equal(service.getPollTournament().status, 'COMPLETED');
+        await page.click('#tab-btn-templates');
+        confirmLoad = false;
+        await page.click(`[data-template-id="${template.id}"] [data-library-action="delete-template"]`);
+        assert.equal(service.getTournamentPresets({ isPoll: true }).length, 2, 'cancelled deletion preserves template');
+        confirmLoad = true;
+        await page.click(`[data-template-id="${template.id}"] [data-library-action="delete-template"]`);
+        await page.waitForFunction(id => !document.querySelector(`[data-template-id="${id}"]`), {}, template.id);
+        await page.click(`[data-history-id="${checkpoint.id}"] [data-library-action="delete-history"]`);
+        await page.waitForFunction(id => !document.querySelector(`[data-history-id="${id}"]`), {}, checkpoint.id);
+        assert.equal(service.getPollTournament().id, finals.id, 'deleting saved copies does not reset live bracket');
+        assert.ok(service.getTournamentPresets().some(p => p.id === versusPreset.id));
+        const missing = await call('history/restore', 'POST', { id: 'missing-fixture' });
+        assert.equal(missing.code, 400);
+        assert.equal(service.getPollTournament().id, finals.id);
+        const regularPoll = service.createPoll({ title: 'Unrelated live vote', choices: ['A', 'B'], duration: 120 });
+        const regularBlocked = await call('history/restore', 'POST', { id: finals.id });
+        assert.equal(regularBlocked.code, 400, 'even unrelated live votes block history restore');
+        assert.equal(service.getActivePoll().id, regularPoll.id);
+        service.cancelPoll();
+        await page.click('[data-library-action="load-template"]');
+        await page.waitForSelector('#save-tourney-form-template', { visible: true });
+        await page.$eval('#tourney-title', el => { el.value = 'Reusable form fixture'; });
+        await page.$eval('#tourney-entrants', el => { el.value = 'Form A [Team A]\nForm B'; });
+        await page.$eval('#tourney-format', el => { el.value = 'single'; });
+        await page.$eval('#tourney-duration', el => { el.value = '90'; });
+        await page.click('#save-tourney-form-template');
+        await page.waitForFunction(() => document.querySelectorAll('[data-template-id]').length === 2);
+        const formTemplate = service.getTournamentPresets({ isPoll: true }).find(p => p.title === 'Reusable form fixture');
+        assert.deepEqual(formTemplate.entrants, ['Form A [Team A]', 'Form B']);
+        assert.equal(formTemplate.matchDuration, 90);
+        assert.equal(service.getPollTournament().id, finals.id, 'saving creation settings leaves live history unchanged');
+        await page.setViewport({ width: 390, height: 844 });
+        await page.click('#tab-btn-templates');
+        assert.equal(await page.$eval('[data-template-id]', el => el.scrollWidth <= el.clientWidth), true, 'library buttons fit narrow screens');
+        assert.deepEqual(errors, []);
+    } finally {
+        await browser?.close();
+        service.destroy();
+        live.closeAllConnections();
+        await new Promise(resolve => server.close(resolve));
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
 test('Poll Manager and overlay show a 16-player losers bracket without disrupting a running vote', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-live-bracket-'));
     const rootDir = path.resolve(__dirname, '..');

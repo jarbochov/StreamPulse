@@ -131,6 +131,7 @@ function createPollService({
     let tournamentDrafts = [];
     let activePollTournament = null;
     let pollTournamentHistory = [];
+    let pollTournamentPresets = [];
     let pollTimer = null;
     let voters = new Map(); // userId -> { choiceId, weight }
 
@@ -167,6 +168,9 @@ function createPollService({
             if (Array.isArray(data.pollTournamentHistory)) {
                 pollTournamentHistory = data.pollTournamentHistory.slice(0, 30);
             }
+            if (Array.isArray(data.pollTournamentPresets)) {
+                pollTournamentPresets = data.pollTournamentPresets.slice(0, 100);
+            }
             if (data.active && data.active.status === 'ACTIVE') {
                 activePoll = data.active;
                 if (Array.isArray(data.voters)) {
@@ -192,14 +196,15 @@ function createPollService({
                 tournamentPresets,
                 tournamentDrafts: tournamentDrafts.slice(0, 30),
                 pollTournament: activePollTournament,
-                pollTournamentHistory: pollTournamentHistory.slice(0, 30)
+                pollTournamentHistory: pollTournamentHistory.slice(0, 30),
+                pollTournamentPresets
             };
             const contents = JSON.stringify(payload, null, 2);
             if (atomic) {
                 temporaryPath = `${filePath}.${crypto.randomUUID()}.tmp`;
                 fs.writeFileSync(temporaryPath, contents, {
                     flag: 'wx',
-                    mode: fs.statSync(filePath).mode & 0o777
+                    mode: fs.existsSync(filePath) ? fs.statSync(filePath).mode & 0o777 : 0o600
                 });
                 fs.renameSync(temporaryPath, filePath);
             } else {
@@ -1010,6 +1015,7 @@ function createPollService({
             };
 
             if (isPoll) {
+                archiveReplacedPollTournament();
                 activePollTournament = tourneyObj;
                 save();
                 broadcastPollTournamentUpdate();
@@ -1437,7 +1443,9 @@ function createPollService({
         };
 
         if (opts.buildOnly) return elimTourneyObj;
+
         if (isPoll) {
+            archiveReplacedPollTournament();
             activePollTournament = elimTourneyObj;
             save();
             broadcastPollTournamentUpdate();
@@ -2201,7 +2209,69 @@ function createPollService({
         return isPoll ? pollTournamentHistory : tournamentHistory;
     }
 
-    function restoreTournament(id) {
+    function archiveReplacedPollTournament() {
+        const previous = activePollTournament;
+        if (!previous || previous.status === 'COMPLETED' ||
+            !previous.matches?.some(m => m.status === 'COMPLETED' || m.status === 'ACTIVE')) return;
+        pollTournamentHistory = [{
+            ...JSON.parse(JSON.stringify(previous)), id: `archive-${crypto.randomUUID()}`,
+            tournamentId: previous.id, endedAt: new Date().toISOString()
+        }, ...pollTournamentHistory].slice(0, 30);
+    }
+
+    function savePollTournamentCheckpoint(name) {
+        if (!activePollTournament) throw new Error('No poll tournament to save');
+        const snapshot = JSON.parse(JSON.stringify(activePollTournament));
+        const item = {
+            ...snapshot,
+            id: `checkpoint-${crypto.randomUUID()}`,
+            tournamentId: snapshot.id,
+            savedName: String(name || snapshot.title || 'Bracket checkpoint').trim().slice(0, 160),
+            savedAt: new Date().toISOString(),
+            isCheckpoint: true
+        };
+        const previous = pollTournamentHistory;
+        pollTournamentHistory = [item, ...previous].slice(0, 30);
+        try { save({ atomic: true, throwOnError: true }); } catch (err) {
+            pollTournamentHistory = previous;
+            throw err;
+        }
+        return item;
+    }
+
+    function restorePollTournament(id) {
+        if (activePoll?.status === 'ACTIVE') throw new Error('End the current poll before loading a saved bracket');
+        const item = pollTournamentHistory.find(t => t.id === id);
+        if (!item) throw new Error('Poll tournament history record not found');
+        const restored = JSON.parse(JSON.stringify(item));
+        restored.id = item.tournamentId || item.id;
+        delete restored.tournamentId;
+        delete restored.savedName;
+        delete restored.savedAt;
+        delete restored.isCheckpoint;
+        // A saved bracket is not a saved ballot; unfinished match votes must be started again.
+        for (const match of restored.matches || []) {
+            if (match.status !== 'ACTIVE') continue;
+            match.status = 'PENDING';
+            for (const entrant of [match.entrant1, match.entrant2]) {
+                if (entrant) { entrant.votes = 0; entrant.percent = 0; }
+            }
+        }
+        const previous = activePollTournament;
+        const previousHistory = pollTournamentHistory;
+        archiveReplacedPollTournament();
+        activePollTournament = restored;
+        try { save({ atomic: true, throwOnError: true }); } catch (err) {
+            activePollTournament = previous;
+            pollTournamentHistory = previousHistory;
+            throw err;
+        }
+        broadcastPollTournamentUpdate();
+        return restored;
+    }
+
+    function restoreTournament(id, { isPoll = false } = {}) {
+        if (isPoll) return restorePollTournament(id);
         const item = tournamentHistory.find(t => t.id === id);
         if (!item) throw new Error('Tournament history record not found');
         activeTournament = JSON.parse(JSON.stringify(item));
@@ -2213,7 +2283,16 @@ function createPollService({
         return activeTournament;
     }
 
-    function deleteTournamentHistory(id) {
+    function deleteTournamentHistory(id, { isPoll = false } = {}) {
+        if (isPoll) {
+            const previous = pollTournamentHistory;
+            pollTournamentHistory = previous.filter(t => t.id !== id);
+            try { save({ atomic: true, throwOnError: true }); } catch (err) {
+                pollTournamentHistory = previous;
+                throw err;
+            }
+            return { ok: true };
+        }
         tournamentHistory = tournamentHistory.filter(t => t.id !== id);
         save();
         return { ok: true };
@@ -2225,14 +2304,54 @@ function createPollService({
         return { ok: true };
     }
 
-    function getTournamentPresets() {
+    function getTournamentPresets({ isPoll = false } = {}) {
+        if (isPoll) return pollTournamentPresets;
         return tournamentPresets.map(p => ({
             ...p,
             isBuiltIn: DEFAULT_TOURNAMENT_PRESETS.some(b => b.id === p.id)
         }));
     }
 
-    function saveTournamentPreset(preset = {}) {
+    function saveTournamentPreset(preset = {}, { isPoll = false } = {}) {
+        if (isPoll) {
+            const source = preset.fromActive ? activePollTournament :
+                preset.historyId ? pollTournamentHistory.find(t => t.id === preset.historyId) : preset;
+            if (!source) throw new Error('Poll tournament not found');
+            const name = String(preset.name || source.title || '').trim().slice(0, 160);
+            if (!name) throw new Error('Template name is required');
+            const entrants = (source.entrantsList || source.entrants || []).map(parseEntrant).filter(Boolean).map(entrant => {
+                const original = source.matches?.flatMap(m => [m.entrant1, m.entrant2]).find(e => e?.name === entrant.name && e.color);
+                return original ? { ...entrant, color: original.color } : entrant;
+            });
+            if (entrants.length < 2 || entrants.length > 32) throw new Error('Template requires 2 to 32 entrants');
+            const format = source.format || 'single';
+            if (!['single', 'double', 'roundRobin'].includes(format)) throw new Error('Invalid tournament format');
+            if (format === 'double' && ![2, 4, 8, 16].includes(entrants.length)) {
+                throw new Error('Poll double elimination requires exactly 2, 4, 8, or 16 participants');
+            }
+            if (pollTournamentPresets.length >= 100) throw new Error('Remove a tournament template before saving another (100 maximum)');
+            const item = {
+                id: `poll-template-${crypto.randomUUID()}`, name,
+                title: String(source.title || name).trim().slice(0, 160),
+                entrants: entrants.map(e => e.color ? e : e.tag ? `${e.name} [${e.tag}]` : e.name),
+                format, logo: String(source.logo || ''), logoSize: String(source.logoSize || ''),
+                progressionMode: 'vote', scoringType: 'points', bestOf: 0,
+                matchDuration: Math.max(10, Math.min(3600, Number(source.matchDuration) || 60)),
+                blind: Boolean(source.blind), subMultiplier: Number(source.subMultiplier) || 1,
+                announceChat: source.announceChat !== false, isPoll: true,
+                roundRobinLegs: Number(source.roundRobinLegs) || 1,
+                pointsSystem: source.pointsSystem || '3-1-0',
+                pointsPerWin: source.pointsPerWin ?? 3, pointsPerDraw: source.pointsPerDraw ?? 1,
+                pointsPerLoss: source.pointsPerLoss ?? 0, allowDraws: source.allowDraws !== false,
+                savedAt: new Date().toISOString()
+            };
+            pollTournamentPresets.push(item);
+            try { save({ atomic: true, throwOnError: true }); } catch (err) {
+                pollTournamentPresets.pop();
+                throw err;
+            }
+            return item;
+        }
         const name = String(preset.name || preset.title || '').trim();
         if (!name) throw new Error('Preset name is required');
         const entrants = Array.isArray(preset.entrants) ? preset.entrants.map(e => String(e).trim()).filter(Boolean) : [];
@@ -2278,7 +2397,16 @@ function createPollService({
         return p;
     }
 
-    function deleteTournamentPreset(id) {
+    function deleteTournamentPreset(id, { isPoll = false } = {}) {
+        if (isPoll) {
+            const previous = pollTournamentPresets;
+            pollTournamentPresets = previous.filter(p => p.id !== id);
+            try { save({ atomic: true, throwOnError: true }); } catch (err) {
+                pollTournamentPresets = previous;
+                throw err;
+            }
+            return { ok: true };
+        }
         tournamentPresets = tournamentPresets.filter(p => p.id !== id);
         save();
         return { ok: true };
@@ -2350,6 +2478,7 @@ function createPollService({
         updateTournamentSettings,
         resetTournament,
         getTournamentHistory,
+        savePollTournamentCheckpoint,
         restoreTournament,
         deleteTournamentHistory,
         clearTournamentHistory,

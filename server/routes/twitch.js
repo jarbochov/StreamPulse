@@ -414,6 +414,36 @@ function createTwitchRoutes({
             return true;
         }
 
+        if (pathname.startsWith('/api/polls/tournament/') &&
+            (/^\/api\/polls\/tournament\/(?:presets|checkpoints|history\/restore)$/.test(pathname) ||
+             /^\/api\/polls\/tournament\/(?:presets|history)\/[^/]+$/.test(pathname))) {
+            if (!pollService) { sendError(res, 'Native polls not available', 501); return true; }
+            try {
+                const options = { isPoll: true };
+                if (pathname === '/api/polls/tournament/presets' && req.method === 'GET') {
+                    sendJson(res, { status: 'ok', presets: pollService.getTournamentPresets(options) });
+                } else if (pathname === '/api/polls/tournament/presets' && req.method === 'POST') {
+                    const body = JSON.parse(await readRequestBody(req) || '{}');
+                    const preset = pollService.saveTournamentPreset(body, options);
+                    sendJson(res, { status: 'ok', preset });
+                } else if (pathname === '/api/polls/tournament/checkpoints' && req.method === 'POST') {
+                    const body = JSON.parse(await readRequestBody(req) || '{}');
+                    const checkpoint = pollService.savePollTournamentCheckpoint(body.name);
+                    sendJson(res, { status: 'ok', checkpoint });
+                } else if (pathname === '/api/polls/tournament/history/restore' && req.method === 'POST') {
+                    const body = JSON.parse(await readRequestBody(req) || '{}');
+                    sendJson(res, { status: 'ok', tournament: pollService.restoreTournament(body.id, options) });
+                } else if (req.method === 'DELETE' && pathname.includes('/presets/')) {
+                    sendJson(res, { status: 'ok', ...pollService.deleteTournamentPreset(decodeURIComponent(pathname.split('/').pop()), options) });
+                } else if (req.method === 'DELETE' && pathname.includes('/history/')) {
+                    sendJson(res, { status: 'ok', ...pollService.deleteTournamentHistory(decodeURIComponent(pathname.split('/').pop()), options) });
+                } else {
+                    sendError(res, 'Method not allowed', 405);
+                }
+            } catch (err) { sendError(res, err, 400); }
+            return true;
+        }
+
         // --- Actual Esports Tournament (Versus & Tournament Studio) Routes ---
         if (pathname === '/api/tournament' && req.method === 'GET') {
             const isPoll = url.searchParams.get('source') === 'poll';

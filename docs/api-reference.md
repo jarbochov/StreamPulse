@@ -254,7 +254,15 @@ Dedicated endpoints managing audience chat brackets in Poll Manager, completely 
 - `POST /api/polls/tournament/rollback` — Rolls back completed match and downstream matches: `{ "matchId": "m_1_1" }`.
 - `POST /api/polls/tournament/settings` — Updates poll tournament title or settings.
 - `POST /api/polls/tournament/reset` — Resets active poll tournament.
-- `GET /api/polls/tournament/history` — Returns archived poll tournaments history.
+- `GET /api/polls/tournament/presets` — Returns `{ "status": "ok", "presets": [...] }`, the poll-only tournament templates.
+- `POST /api/polls/tournament/presets` — Saves a clean template from creation settings, the active bracket, or a saved bracket. Bodies: `{ "name": "Friday bracket", "title": "Friday", "format": "double", "entrants": ["A", "B", "C", "D"], "matchDuration": 60 }`, `{ "name": "Friday bracket", "fromActive": true }`, or `{ "name": "Friday bracket", "historyId": "checkpoint-..." }`. Returns `{ "status": "ok", "preset": { ... } }`. Entrants may be strings or `{ "name": "A", "tag": "Team", "color": "#123456" }` objects. Templates exclude progress/results and enforce chat-vote scoring.
+- `DELETE /api/polls/tournament/presets/:id` — Deletes only the named template.
+- `POST /api/polls/tournament/checkpoints` — Snapshots current poll bracket progress without interrupting its ballot: `{ "name": "Before semifinals" }`. Returns `{ "status": "ok", "checkpoint": { ... } }`; checkpoint IDs are distinct from the original `tournamentId`.
+- `GET /api/polls/tournament/history` — Returns `{ "status": "ok", "history": [...] }`, including completed/replaced brackets and named checkpoints. Automatically archived replacements and checkpoints use unique record IDs with the original bracket ID in `tournamentId`, so resumed brackets can retain multiple saved versions. Templates are capped at 100; history/checkpoints share a newest-30 limit.
+- `POST /api/polls/tournament/history/restore` — Loads a saved bracket: `{ "id": "checkpoint-..." }`. Rejects any active poll. Preserves completed results/champions, resets saved active matches to pending with cleared votes, and never starts/restores a ballot. Started brackets are archived before replacement.
+- `DELETE /api/polls/tournament/history/:id` — Deletes only that poll history/checkpoint record; live state and Versus history are unaffected.
+
+To create a fresh tournament from a template through the API, fetch its settings from `/api/polls/tournament/presets` and pass those creation fields to `/api/polls/tournament/create`. Template lookup alone does not replace the live bracket. The template fields include voting options, logo, entrant tags/colors, and round-robin scoring. Double elimination requires exactly 2, 4, 8, or 16 entrants; saved voting durations are 10–3600 seconds.
 
 ---
 

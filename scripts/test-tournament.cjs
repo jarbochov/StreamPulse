@@ -14,6 +14,135 @@ function scoreAndAdvance(svc, id, o) {
     return r;
 }
 
+test('Poll tournament library preserves live votes, settings and source isolation across restart', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-poll-library-'));
+    const options = { dataDir: dir, log: () => {}, error: () => {} };
+    let service = createPollService(options);
+    try {
+        const versus = service.createTournament({ title: 'Versus only', entrants: ['V1', 'V2'] });
+        const versusTemplate = service.saveTournamentPreset({ name: 'Versus template', entrants: ['V1', 'V2'] });
+        const tournament = service.createTournament({
+            title: 'Audience sixteen', format: 'double', isPoll: true,
+            entrants: Array.from({ length: 16 }, (_, i) => `Seed ${i + 1} [Tag ${i + 1}]`),
+            logo: '/custom-overlay-assets/fictional.svg', logoSize: '72', matchDuration: 45,
+            subMultiplier: 2, blind: true, announceChat: false
+        });
+        const first = tournament.matches[0];
+        service.advanceTournamentMatch(first.id, first.entrant1.name, { isPoll: true });
+        const next = tournament.matches.find(m => m.status === 'PENDING' && m.bracket === 'winners');
+        service.startTournamentMatch(next.id, { isPoll: true });
+        service.castVote({ userId: 'fixture-voter', choiceIndex: 0, isSub: true });
+        const active = service.getActivePoll();
+        const before = JSON.stringify(service.getPollTournament());
+        const preset = service.saveTournamentPreset({ name: 'Audience template', fromActive: true }, { isPoll: true });
+        const checkpoint = service.savePollTournamentCheckpoint('Before next match');
+        assert.equal(JSON.stringify(service.getPollTournament()), before, 'saving does not mutate the live bracket');
+        assert.deepEqual(service.getActivePoll(), active, 'saving preserves active ballot and votes');
+        assert.equal(preset.entrants.length, 16);
+        assert.equal(preset.entrants[0].name, 'Seed 1');
+        assert.equal(preset.entrants[0].tag, 'Tag 1');
+        assert.equal(preset.format, 'double');
+        assert.equal(preset.matchDuration, 45);
+        assert.equal(preset.blind, true);
+        assert.equal(preset.subMultiplier, 2);
+        assert.equal(preset.logoSize, '72');
+        assert.equal(preset.logo, tournament.logo);
+        assert.equal(preset.announceChat, false);
+        assert.equal(preset.matches, undefined, 'templates do not contain bracket results');
+        assert.equal(service.getTournamentPresets().some(p => p.id === preset.id), false);
+        assert.throws(() => service.restoreTournament(checkpoint.id, { isPoll: true }), /End the current poll/);
+        assert.equal(JSON.stringify(service.getPollTournament()), before);
+        service.destroy();
+        service = createPollService(options);
+        assert.equal(service.getTournamentPresets({ isPoll: true })[0].id, preset.id);
+        assert.equal(service.getTournamentHistory({ isPoll: true })[0].id, checkpoint.id);
+        assert.equal(service.getActivePoll().id, active.id);
+        assert.equal(service.castVote({ userId: 'fixture-voter', choiceIndex: 1 }), false, 'saved library did not clear voter dedupe');
+        service.finishPoll();
+        const finishedMatches = service.getPollTournament().matches.filter(m => m.status === 'COMPLETED').length;
+        const restored = service.restoreTournament(checkpoint.id, { isPoll: true });
+        const beforeRestore = service.getTournamentHistory({ isPoll: true }).find(t => !t.isCheckpoint && t.tournamentId === restored.id);
+        assert.equal(beforeRestore.matches.filter(m => m.status === 'COMPLETED').length, finishedMatches, 'loading an older checkpoint of the same bracket archives current progress first');
+        assert.equal(restored.id, tournament.id);
+        assert.equal(restored.matches[0].winner, first.winner, 'completed results retained');
+        assert.equal(restored.matches.find(m => m.id === next.id).status, 'PENDING');
+        assert.equal(restored.matches.find(m => m.id === next.id).entrant1.votes, 0, 'unfinished votes are not restored without a ballot');
+        assert.equal(service.getActivePoll(), null);
+        assert.equal(service.getTournament().id, versus.id);
+        service.updateMatchScore(first.id, { isPoll: true, entrant1Color: '#123456' });
+        const colored = service.saveTournamentPreset({ name: 'Colored fixture', fromActive: true }, { isPoll: true });
+        assert.ok(colored.entrants.some(e => e.color === '#123456'), 'active entrant colors survive template saving');
+        const fresh = service.createTournament(preset);
+        assert.notEqual(fresh.id, restored.id);
+        assert.equal(fresh.matches.length, 30);
+        assert.equal(fresh.matches.some(m => m.winner), false, 'fresh template bracket has no saved winners');
+        const archived = service.getTournamentHistory({ isPoll: true }).find(t => !t.isCheckpoint && t.tournamentId === restored.id);
+        assert.ok(archived, 'replaced progress automatically archived');
+        service.restoreTournament(archived.id, { isPoll: true });
+        const resumed = service.getPollTournament();
+        const pending = resumed.matches.find(m => m.status === 'PENDING' && m.entrant1?.name && m.entrant2?.name);
+        service.advanceTournamentMatch(pending.id, pending.entrant1.name, { isPoll: true });
+        service.createTournament(preset);
+        const replacementHistory = service.getTournamentHistory({ isPoll: true }).filter(t => !t.isCheckpoint && t.tournamentId === restored.id);
+        assert.equal(replacementHistory.length, 3, 'replacing a resumed bracket preserves each version rather than dropping new progress');
+        assert.notEqual(replacementHistory[0].id, replacementHistory[1].id);
+        assert.ok(replacementHistory[0].matches.filter(m => m.status === 'COMPLETED').length > replacementHistory[1].matches.filter(m => m.status === 'COMPLETED').length);
+        service.deleteTournamentPreset(preset.id, { isPoll: true });
+        service.deleteTournamentHistory(checkpoint.id, { isPoll: true });
+        assert.equal(service.getTournamentPresets().some(p => p.id === versusTemplate.id), true);
+        assert.equal(service.getTournamentPresets({ isPoll: true }).length, 1);
+        assert.ok(!service.getTournamentHistory({ isPoll: true }).some(t => t.id === checkpoint.id));
+    } finally {
+        service.destroy();
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('Poll tournament library exposes completed history, validates templates and rolls back failed saves', t => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-poll-library-errors-'));
+    const service = createPollService({ dataDir: dir, log: () => {}, error: () => {} });
+    try {
+        assert.throws(() => service.savePollTournamentCheckpoint('empty'), /No poll tournament/);
+        for (const count of [1, 3, 17, 33]) {
+            assert.throws(() => service.saveTournamentPreset({
+                name: 'invalid', format: 'double', entrants: Array.from({ length: count }, (_, i) => `Seed ${i}`)
+            }, { isPoll: true }));
+        }
+        assert.equal(service.getTournamentPresets({ isPoll: true }).length, 0);
+        const rr = service.saveTournamentPreset({
+            name: 'Round robin', format: 'roundRobin', entrants: ['A', 'B', 'C'],
+            roundRobinLegs: 2, pointsSystem: '2-1-0', pointsPerWin: 2, pointsPerDraw: 1, pointsPerLoss: 0
+        }, { isPoll: true });
+        assert.equal(rr.roundRobinLegs, 2);
+        assert.equal(rr.pointsPerWin, 2);
+        const tournament = service.createTournament({ title: 'Final fixture', entrants: ['A', 'B'], isPoll: true });
+        service.advanceTournamentMatch(tournament.matches[0].id, 'A', { isPoll: true });
+        const history = service.getTournamentHistory({ isPoll: true });
+        assert.equal(history[0].champion, 'A');
+        const completed = service.restoreTournament(history[0].id, { isPoll: true });
+        assert.equal(completed.status, 'COMPLETED', 'loading final history does not un-crown the champion');
+        const historicalTemplate = service.saveTournamentPreset({ name: 'From finals', historyId: history[0].id }, { isPoll: true });
+        assert.deepEqual(historicalTemplate.entrants.map(e => typeof e === 'object' ? e.name : e), ['A', 'B']);
+        const previous = fs.readFileSync(path.join(dir, 'polls.json'), 'utf8');
+        const checkpoint = service.savePollTournamentCheckpoint('Safe checkpoint');
+        const persisted = fs.readFileSync(path.join(dir, 'polls.json'), 'utf8');
+        const rename = t.mock.method(fs, 'renameSync', () => { throw new Error('fixture disk failure'); });
+        assert.throws(() => service.savePollTournamentCheckpoint('failed'), /fixture disk failure/);
+        assert.throws(() => service.saveTournamentPreset({ name: 'failed', fromActive: true }, { isPoll: true }), /fixture disk failure/);
+        assert.throws(() => service.deleteTournamentHistory(checkpoint.id, { isPoll: true }), /fixture disk failure/);
+        assert.throws(() => service.deleteTournamentPreset(historicalTemplate.id, { isPoll: true }), /fixture disk failure/);
+        assert.throws(() => service.restoreTournament(checkpoint.id, { isPoll: true }), /fixture disk failure/);
+        assert.equal(fs.readFileSync(path.join(dir, 'polls.json'), 'utf8'), persisted);
+        assert.equal(service.getTournamentHistory({ isPoll: true }).filter(t => t.isCheckpoint).length, 1);
+        assert.ok(service.getTournamentPresets({ isPoll: true }).some(p => p.id === historicalTemplate.id));
+        assert.notEqual(previous, persisted);
+        rename.mock.restore();
+    } finally {
+        service.destroy();
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
 test('Poll Service: string payload parsing, up to 10 choices, presets, and tournaments', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-poll-test-'));
     let lastTakeover = null;

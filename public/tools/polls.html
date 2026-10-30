@@ -372,17 +372,26 @@
                             <div id="bracket-studio-view" class="bracket-mini-preview"></div>
                         </div>
 
-                        <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                             <span style="font-size: 0.72rem; color: var(--text-muted);" id="tourney-progress-text"></span>
-                            <button type="button" class="btn-danger btn-sm" onclick="resetCurrentTournament()">
-                                Reset Tournament
-                            </button>
+                            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                                <button type="button" id="save-tourney-template" class="btn-secondary btn-sm" onclick="savePollTournamentTemplate('active')">Save Template</button>
+                                <button type="button" id="save-tourney-checkpoint" class="btn-secondary btn-sm" onclick="savePollTournamentCheckpoint()">Save Checkpoint</button>
+                                <button type="button" class="btn-secondary btn-sm" onclick="switchTab('templates')">Templates &amp; History</button>
+                                <button type="button" class="btn-danger btn-sm" onclick="resetCurrentTournament()">Reset Tournament</button>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Create Tournament Form -->
                     <div id="create-tournament-card" class="card">
                         <h2>Create Tournament Bracket</h2>
+                        <div class="form-group">
+                            <label for="tourney-preset-select">Tournament Template</label>
+                            <select id="tourney-preset-select" class="form-control" onchange="loadPollTournamentTemplate(this.value)">
+                                <option value="">-- Load a tournament template --</option>
+                            </select>
+                        </div>
                         <form id="tourney-create-form" onsubmit="event.preventDefault(); launchTournament();">
                             <div style="display: grid; grid-template-columns: 1.6fr 1fr; gap: 0.75rem; align-items: end; margin-bottom: 0.75rem;">
                                 <div class="form-group" style="margin-bottom: 0;">
@@ -477,6 +486,7 @@
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
                                 Create Tournament Bracket
                             </button>
+                            <button type="button" id="save-tourney-form-template" class="btn-secondary" onclick="savePollTournamentTemplate('form')">Save as Template</button>
                         </form>
                     </div>
                 </div>
@@ -484,7 +494,7 @@
                 <!-- Tab 4: Templates & History Panel -->
                 <div id="panel-templates" style="display: none;">
                     <div class="card">
-                        <h2>Saved Templates</h2>
+                        <h2>Poll Templates</h2>
                         <div id="templates-list" style="margin-top: 0.5rem;"></div>
                     </div>
 
@@ -496,6 +506,16 @@
                             </button>
                         </h2>
                         <div id="poll-history-list" style="max-height: 480px; overflow-y: auto;"></div>
+                    </div>
+                    <div class="card">
+                        <h2>Tournament Templates</h2>
+                        <p style="font-size: 0.8rem; color: var(--text-muted);">Reusable entrants and settings, without votes or results. Loading fills the creation form; it does not replace a bracket.</p>
+                        <div id="tournament-templates-list" style="max-height: 480px; overflow-y: auto;"></div>
+                    </div>
+                    <div class="card">
+                        <h2>Tournament History &amp; Checkpoints</h2>
+                        <p style="font-size: 0.8rem; color: var(--text-muted);">Completed brackets are saved automatically. Checkpoints preserve bracket progress, not an in-progress ballot. Loading a saved bracket requires ending the current poll first.</p>
+                        <div id="tournament-history-list" style="max-height: 480px; overflow-y: auto;"></div>
                     </div>
                 </div>
 
@@ -1140,12 +1160,14 @@
             if ($('poll-steps')) $('poll-steps').style.display = (tab === 'poll' || tab === 'tourney') ? '' : 'none';
             if (tab === 'tourney') {
                 loadTournament();
+                loadPollTournamentLibrary();
             } else if (tab === 'overlays') {
                 const savedMode = localStorage.getItem('polls-overlay-preview-mode') || previewMode || 'poll';
                 setPreviewMode(['poll', 'tree', 'active'].includes(savedMode) ? savedMode : 'poll');
             } else if (tab === 'templates') {
                 loadPresets();
                 loadHistory();
+                loadPollTournamentLibrary();
             }
         }
 
@@ -1569,6 +1591,174 @@
 
         // --- Tournament Studio Actions ---
         let currentCreateTourneyMode = 'vote';
+        let pollTournamentTemplates = [];
+        let pollTournamentSavedBrackets = [];
+        let loadedTournamentTemplate = null;
+        let tournamentLibraryRequest = null;
+        let tournamentLibraryRendered = false;
+
+        async function tournamentLibraryCall(path, method = 'GET', body) {
+            const response = await fetch(`/api/polls/tournament/${path}`, {
+                method, cache: 'no-store', signal: AbortSignal.timeout(10000),
+                ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
+            });
+            const data = await response.json();
+            if (!response.ok || data.status !== 'ok') throw new Error(data.error || 'Tournament library request failed');
+            return data;
+        }
+
+        function tournamentSummary(t) {
+            const format = t.format === 'double' ? 'Double elimination' : t.format === 'roundRobin' ? 'Round robin' : 'Single elimination';
+            const count = t.entrants?.length || t.entrantCount || t.entrantsList?.length || t.bracketSize || 0;
+            return `${format} · ${count} entrants`;
+        }
+
+        async function loadPollTournamentLibrary(force = false) {
+            if (tournamentLibraryRequest) {
+                await tournamentLibraryRequest;
+                if (!force) return;
+            }
+            tournamentLibraryRequest = (async () => {
+                try {
+                    const [templates, history] = await Promise.all([
+                        tournamentLibraryCall('presets'), tournamentLibraryCall('history')
+                    ]);
+                    const nextTemplates = templates.presets || [];
+                    const nextHistory = history.history || [];
+                    const unchanged = tournamentLibraryRendered &&
+                        JSON.stringify(nextTemplates) === JSON.stringify(pollTournamentTemplates) &&
+                        JSON.stringify(nextHistory) === JSON.stringify(pollTournamentSavedBrackets);
+                    pollTournamentTemplates = nextTemplates;
+                    pollTournamentSavedBrackets = nextHistory;
+                    if (unchanged) return;
+                    $('tourney-preset-select').innerHTML = '<option value="">-- Load a tournament template --</option>' +
+                        pollTournamentTemplates.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
+                    $('tournament-templates-list').innerHTML = pollTournamentTemplates.length
+                        ? pollTournamentTemplates.map(t => `<div class="history-item tournament-library-item" data-template-id="${esc(t.id)}">
+                            <div><div class="history-title">${esc(t.name)}</div><div class="history-meta">${esc(tournamentSummary(t))} · ${t.matchDuration}s per match${t.blind ? ' · Blind' : ''} · <button class="btn-secondary btn-sm" data-library-action="copy-id" data-id="${esc(t.id)}" title="Copy tournament template ID for Companion">Copy ID</button></div></div>
+                            <div style="display: flex; gap: 0.4rem;"><button class="btn-secondary btn-sm" data-library-action="load-template" data-id="${esc(t.id)}">Load Template</button><button class="btn-danger btn-sm" data-library-action="delete-template" data-id="${esc(t.id)}">Delete</button></div>
+                        </div>`).join('') : '<p class="history-meta">No tournament templates yet. Save one from the creation form or the current bracket.</p>';
+                    $('tournament-history-list').innerHTML = pollTournamentSavedBrackets.length
+                        ? pollTournamentSavedBrackets.map(t => `<div class="history-item tournament-library-item" data-history-id="${esc(t.id)}">
+                            <div><div class="history-title">${esc(t.savedName || t.title)}</div><div class="history-meta">${esc(tournamentSummary(t))} · ${t.matches?.filter(m => m.status === 'COMPLETED').length || 0}/${t.matches?.length || 0} matches completed · ${t.isCheckpoint ? 'Checkpoint' : 'History'}${t.champion ? ` · Champion: ${esc(t.champion)}` : ''}</div><div class="history-meta">${esc(new Date(t.savedAt || t.endedAt || t.createdAt).toLocaleString())} · <button class="btn-secondary btn-sm" data-library-action="copy-id" data-id="${esc(t.id)}" title="Copy saved bracket ID for Companion">Copy ID</button></div></div>
+                            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;"><button class="btn-secondary btn-sm" data-library-action="load-history" data-id="${esc(t.id)}">Load Saved Bracket</button><button class="btn-secondary btn-sm" data-library-action="history-template" data-id="${esc(t.id)}">Save as Template</button><button class="btn-danger btn-sm" data-library-action="delete-history" data-id="${esc(t.id)}">Delete</button></div>
+                        </div>`).join('') : '<p class="history-meta">No saved brackets yet. Save a checkpoint without ending the tournament, or finish a tournament to archive its results.</p>';
+                    tournamentLibraryRendered = true;
+                } catch (err) {
+                    tournamentLibraryRendered = false;
+                    $('tournament-templates-list').textContent = err.message;
+                    $('tournament-history-list').textContent = err.message;
+                    toast(err.message);
+                }
+            })().finally(() => { tournamentLibraryRequest = null; });
+            return tournamentLibraryRequest;
+        }
+
+        function tournamentFormSettings() {
+            return {
+                ...(loadedTournamentTemplate || {}),
+                title: $('tourney-title').value.trim(),
+                logo: ($('tourney-create-logo')?.value || '').trim(),
+                format: $('tourney-format').value,
+                entrants: $('tourney-entrants').value.split('\n').map(s => s.trim()).filter(Boolean).map(name =>
+                    loadedTournamentTemplate?.entrants.find(e => typeof e === 'object' && tournamentEntrantLabel(e) === name) || name),
+                matchDuration: Number($('tourney-duration').value),
+                blind: $('tourney-blind').checked,
+                announceChat: $('tourney-announce-chat').checked,
+                progressionMode: 'vote', scoringType: 'points', bestOf: 0, isPoll: true
+            };
+        }
+
+        async function savePollTournamentTemplate(source, historyId) {
+            const settings = source === 'form' ? tournamentFormSettings() :
+                source === 'active' ? activeTourneyData : pollTournamentSavedBrackets.find(t => t.id === historyId);
+            if (!settings) { toast('No tournament to save.'); return; }
+            const name = prompt('Tournament template name:', settings.title || 'Tournament Template');
+            if (name === null || !name.trim()) return;
+            try {
+                await tournamentLibraryCall('presets', 'POST', {
+                    ...(source === 'form' ? settings : source === 'active' ? { fromActive: true } : { historyId }),
+                    name: name.trim()
+                });
+                toast('Tournament template saved. The current bracket and vote are unchanged.');
+                await loadPollTournamentLibrary(true);
+            } catch (err) { toast(err.message); }
+        }
+
+        async function savePollTournamentCheckpoint() {
+            const name = prompt('Checkpoint name (bracket progress; no live ballot):', activeTourneyData?.title || 'Bracket Checkpoint');
+            if (name === null || !name.trim()) return;
+            try {
+                await tournamentLibraryCall('checkpoints', 'POST', { name: name.trim() });
+                toast('Checkpoint saved. The running tournament and vote are unchanged.');
+                await loadPollTournamentLibrary(true);
+            } catch (err) { toast(err.message); }
+        }
+
+        function loadPollTournamentTemplate(id) {
+            const template = pollTournamentTemplates.find(t => t.id === id);
+            if (!template) return;
+            loadedTournamentTemplate = template;
+            $('tourney-title').value = template.title;
+            $('tourney-format').value = template.format;
+            $('tourney-entrants').value = template.entrants.map(tournamentEntrantLabel).join('\n');
+            const duration = $('tourney-duration');
+            for (const option of [...duration.options]) if (option.dataset.templateDuration) option.remove();
+            if (![...duration.options].some(option => Number(option.value) === template.matchDuration)) {
+                const option = new Option(`${template.matchDuration} seconds per match`, String(template.matchDuration));
+                option.dataset.templateDuration = 'true';
+                duration.add(option);
+            }
+            duration.value = String(template.matchDuration);
+            $('tourney-blind').checked = template.blind;
+            $('tourney-announce-chat').checked = template.announceChat !== false;
+            setCreatePollTourneyLogo(template.logo || '');
+            switchTab('tourney');
+            $('create-tournament-card').style.display = 'block';
+            updateEntrantsCalc();
+            $('create-tournament-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            toast('Template loaded into the form. Create a new bracket when ready; saved results are not reused.');
+        }
+
+        function tournamentEntrantLabel(entrant) {
+            return typeof entrant === 'object' ? entrant.tag ? `${entrant.name} [${entrant.tag}]` : entrant.name : entrant;
+        }
+
+        document.addEventListener('click', async event => {
+            const button = event.target.closest('[data-library-action]');
+            if (!button || button.disabled) return;
+            const id = button.dataset.id;
+            const action = button.dataset.libraryAction;
+            if (action === 'copy-id') {
+                try { await navigator.clipboard.writeText(id); toast('Saved item ID copied.'); }
+                catch { prompt('Copy saved item ID:', id); }
+                return;
+            }
+            if (action === 'load-template') { loadPollTournamentTemplate(id); return; }
+            if (action === 'history-template') { await savePollTournamentTemplate('history', id); return; }
+            if (action === 'load-history' && activePollData?.status === 'ACTIVE') {
+                toast('End the current poll before loading a saved bracket.');
+                return;
+            }
+            const message = action === 'load-history'
+                ? 'Load this saved bracket and replace the current bracket? Save a checkpoint first if you want to preserve its exact current progress. Unfinished match votes must be started again.'
+                : 'Delete this saved item? The current tournament and poll will not change.';
+            if (!confirm(message)) return;
+            button.disabled = true;
+            try {
+                if (action === 'load-history') {
+                    const data = await tournamentLibraryCall('history/restore', 'POST', { id });
+                    activeTourneyData = data.tournament;
+                    switchTab('tourney');
+                    renderTournamentStudio(activeTourneyData);
+                    toast('Saved bracket loaded. No vote has been started.');
+                } else {
+                    await tournamentLibraryCall(`${action === 'delete-template' ? 'presets' : 'history'}/${encodeURIComponent(id)}`, 'DELETE');
+                    toast('Saved item deleted.');
+                }
+                await loadPollTournamentLibrary(true);
+            } catch (err) { toast(err.message); } finally { button.disabled = false; }
+        });
 
         function setCreateTourneyMode(mode) {
             currentCreateTourneyMode = mode;
@@ -1649,13 +1839,16 @@
                 toast('Double elimination requires 2, 4, 8, or 16 participants.');
                 return;
             }
+            if (activePollData?.status === 'ACTIVE') { toast('End the current poll before creating a new bracket.'); return; }
+            if (activeTourneyData && !confirm('Replace the current tournament with a fresh bracket? Save a checkpoint first to preserve its exact progress.')) return;
 
             const isManual = false;
             const payload = {
+                ...tournamentFormSettings(),
                 title,
                 logo: ($('tourney-create-logo')?.value || $('tourney-opt-logo')?.value || '').trim(),
                 format,
-                entrants,
+                entrants: tournamentFormSettings().entrants,
                 progressionMode: currentCreateTourneyMode,
                 scoringType: isManual ? 'bestOf' : 'points',
                 bestOf: 0,
@@ -1674,6 +1867,7 @@
                 const data = await res.json();
                 if (data.status === 'ok') {
                     activeTourneyData = data.tournament;
+                    loadedTournamentTemplate = null;
                     renderTournamentStudio(activeTourneyData);
                     setPreviewMode('tree');
                     toast('Tournament bracket launched!');
@@ -1706,7 +1900,7 @@
             }
 
             card.style.display = 'block';
-            createCard.style.display = 'none';
+            createCard.style.display = loadedTournamentTemplate ? 'block' : 'none';
             $('tourney-card-title').textContent = t.title;
             const liveLogoThumb = $('tourney-active-logo-thumb');
             const liveLogoLabel = $('btn-live-tourney-logo-label');
@@ -1733,7 +1927,7 @@
             }
 
             const matches = t.matches || [];
-            const currentMatch = getCurrentMatch();
+            const currentMatch = t.status === 'COMPLETED' ? null : getCurrentMatch();
             const isManual = t.progressionMode === 'manual';
 
             const durDisplay = $('live-match-duration-display');

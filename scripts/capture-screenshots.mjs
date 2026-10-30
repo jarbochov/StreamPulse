@@ -427,6 +427,32 @@ const dummyTournament = {
     champion: null
 };
 
+const dummyPollTournament = {
+    ...dummyTournament,
+    progressionMode: 'vote',
+    scoringType: 'points',
+    bestOf: 0,
+    matchDuration: 60,
+    entrantsList: dummyTournament.entrants,
+    matches: dummyTournament.rounds.flatMap(round => round.matches.map(match => ({ ...match, round: round.roundIndex + 1 })))
+};
+const dummyPollTournamentTemplate = {
+    id: 'template-fictional-1', name: 'Weekly retro bracket', title: dummyPollTournament.title,
+    format: 'single', entrants: dummyPollTournament.entrantsList, matchDuration: 60,
+    blind: false, subMultiplier: 2, announceChat: true
+};
+const dummyPollTournamentHistory = [
+    {
+        ...dummyPollTournament, id: 'checkpoint-fictional-1', tournamentId: dummyPollTournament.id,
+        savedName: 'Before the final vote', savedAt: '2026-10-18T20:30:00.000Z', isCheckpoint: true
+    },
+    {
+        ...dummyPollTournament, id: 'tourney-fictional-completed', title: 'Previous Retro Championship',
+        status: 'COMPLETED', champion: 'PixelKnight', endedAt: '2026-10-16T22:30:00.000Z',
+        matches: dummyPollTournament.matches.map(match => ({ ...match, status: 'COMPLETED' }))
+    }
+];
+
 const dummyMatchup = {
     id: 'matchup-fictional-1',
     title: 'EVO Champions Exhibition',
@@ -582,11 +608,15 @@ async function run() {
         } else if (url.includes('/api/highlights')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyHighlights) });
         } else if (url.includes('/api/polls/active') || url.includes('/api/polls/status') || url.includes('/api/polls/latest')) {
-            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyActivePoll) });
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', poll: page.url().includes('capture=library') ? null : dummyActivePoll }) });
         } else if (url.includes('/api/polls/presets')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+        } else if (url.includes('/api/polls/tournament/presets')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', presets: [dummyPollTournamentTemplate] }) });
+        } else if (url.includes('/api/polls/tournament/history')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', history: dummyPollTournamentHistory }) });
         } else if (url.includes('/api/polls/tournament')) {
-            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyTournament) });
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', tournament: dummyPollTournament }) });
         } else if (url.includes('/api/tournament/presets')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
         } else if (url.includes('/api/tournament/drafts') || url.includes('/api/tournament/history')) {
@@ -848,6 +878,16 @@ async function run() {
             wait: 2000,
             action: async (p) => {
                 await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+            }
+        },
+        {
+            url: `${baseUrl}/polls.html?capture=library`,
+            file: 'polls-library.png',
+            wait: 1500,
+            action: async p => {
+                await p.setViewport({ width: 1440, height: 1100, deviceScaleFactor: 2 });
+                await p.click('#tab-btn-templates');
+                await p.waitForSelector('[data-history-id]', { visible: true });
             }
         },
         {

@@ -68,6 +68,21 @@ StreamPulse includes an advanced bracket controller designed for community game 
 - **Match Advancement Undo & Rollback**: Made a mistake or scored the wrong winner? Click **Undo / Edit** on any completed match (`/api/tournament/rollback`). The winner is cleared, scores reset, and all downstream dependent matches are recursively reverted back to pending.
 - **Draft Checkpoints**: Snapshot in-progress tournaments at any time (**Save Draft**) to switch games or pause your stream, then resume later via **Checkpoints**.
 
+### Saving Poll Tournaments: Templates, Checkpoints & History
+
+In **Poll Manager -> Tournament**, use **Save Template** or **Save Checkpoint** below the active bracket. Before creating a bracket, **Save as Template** saves the creation form instead. Open **Templates & History** to browse the separate poll and tournament libraries.
+
+![Poll tournament templates and saved brackets](images/polls-library.png)
+
+- **Templates** save reusable entrants, tags, colors, format, title/logo, voting duration, blind mode, subscriber multiplier, announcements, and round-robin settings, without winners or votes. **Load Template** fills the creation form; review it and click **Create Tournament & Go Live** to create a fresh bracket. Merely loading the form leaves the existing bracket untouched.
+- **Checkpoints** save the current bracket's progress under a name. Saving a checkpoint or template during a running vote does not stop voting or change its votes. A checkpoint is not a saved ballot: loading it preserves completed matches, but returns any saved live match to pending with its vote counts cleared. Start a new match vote when ready.
+- **History** includes completed brackets and started brackets automatically archived when replaced, including before loading an older checkpoint of the same bracket. **Load Saved Bracket** asks for confirmation before replacing the current bracket. Finish or cancel any active poll first; the API also blocks loading while voting is active. Completed history keeps its champion and remains completed.
+- **Save Template** on a history/checkpoint row extracts a clean reusable setup from that saved bracket. **Delete** asks for confirmation and removes only that library item, not the live bracket.
+
+Poll tournament templates and history are separate from Versus templates/drafts and individual poll templates/history. The library is persisted in `data/polls.json`, retaining up to **100 tournament templates** and the **30 newest history/checkpoint entries combined**. Use the normal data backup workflow for long-term archives.
+
+Each row has **Copy ID** for Companion's save-template, save-checkpoint, restore-saved-bracket, and create-from-template actions. Creating or restoring through Companion requires its replacement confirmation option. Saved tournament voting durations are 10–3600 seconds; templates do not add manual/open-ended match voting.
+
 ### Broadcast Overlays (`/overlays/poll-tournament.html`)
 The audience poll tournament overlay provides two primary broadcast views:
 
