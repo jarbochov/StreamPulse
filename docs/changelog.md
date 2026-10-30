@@ -11,6 +11,13 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- Bitfocus Companion & Stream Deck: Unified HTTP GET and POST trigger support across Matchup, Tournament, Polls, Alerts, Chatbot, Randomizer, and Custom Overlays with automatic URL parameter decoding and plain-text field lookups (`/api/matchup/field/:field`, `/api/variables/:name?raw=1`).
+- Companion API Reference: Interactive endpoint documentation with direct Companion copy URLs, status snapshot dynamic variables (`matchup`, `tournament`, `pollTournament`), and dedicated regression suite (`scripts/test-companion-api.cjs`).
+- Versus & Matchup Wide Layout: Responsive widescreen layout mode (`?wide=1`) expanding competitor names, match titles, and runner splits for multi-player esports broadcasts, plus queue duplication and clearing.
+- Tournaments & Polls: Quick tie-breaker match actions (`higherSeed`, `coinFlip`, `random`, `overtime`), wide tree layout toggle (`?wide=1`), and double-elimination BYE routing resilience.
+- Alert Queue & Alerts: Low-density queue filtering by category and search query, quick test dispatch from the queue toolbar, and master preview volume control.
+- Chatbot Backup & Cooldowns: Added JSON export/import for custom commands and triggers, per-user cooldown overrides, and regex/exact word matching modes.
+- Custom Overlay Editor: Layer aspect ratio presets (`16:9`, `4:3`, `1:1`, `9:16`, `21:9`) with proportion locking, and slideshow transition easing options.
 - Alerts Engine: Granular subscription tier selection with specificity precedence, weighted and gated variants, video volume controls, Twitch channel emotes in alert media, and gift sub recipient placeholders.
 - Versus & Tournament Studio: Scoreboards, elimination and round-robin brackets, multi-match scorekeeper, speedrun battle clocks, and broadcast overlays.
 - Matchup Player Clocks: Optional competitor split, race, and countdown clock badges on all versus scoreboard layouts (`top`, `fgc`, `split`, `pillar`, `bottom`, `compact`, `versus`).
@@ -22,6 +29,8 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Custom Overlay Editor IGDB Artwork: Direct browser and importer for official game artwork, logos, and screenshots from IGDB into custom overlay image layers.
 
 ### Fixed
+- UI Harmonization: Enforced Strict No-Emoji policy repository-wide, replacing raw unicode emojis and glyphs with crisp inline SVGs across headers, buttons, wizards, and presets.
+- Matchup Runner Indexing: Fixed 0-based and 1-based competitor and race runner resolution across JavaScript methods and HTTP triggers.
 - Memory: Avoid retaining duplicate saved snapshots, bound live-client queues and transient caches, and distinguish Node RSS from JavaScript heap on the dashboard.
 - Tournament Engine: Fix Double Elimination bracket progression to route defeated competitors dynamically into Losers Bracket across 2, 4, 8, and 16-entrant brackets; provide dedicated Winners, Losers, and Grand Finals overlay sections with adaptive connector lines.
 - Poll & Tournament Timers: Enable mid-tournament match duration changes and live voting timer extensions (`+30s` / `+60s`) directly from the active bracket controller without resetting the tournament.

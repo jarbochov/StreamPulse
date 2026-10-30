@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { readRequestBody, sendJson, sendError } = require('./helpers');
+const { readRequestBody, sendJson, sendError, parseJsonOrQuery } = require('./helpers');
 
 function createGamePlanRoutes({
     gamePlanService,
@@ -14,7 +14,8 @@ function createGamePlanRoutes({
     infoKey = (name) => String(name || '').toLowerCase(),
     sessionsDir = ''
 }) {
-    return async function handleGamePlanRoutes(req, res, pathname) {
+    return async function handleGamePlanRoutes(req, res, pathname, url) {
+        const urlObj = url || new URL(req.url, 'http://localhost');
         if (pathname === '/api/game-plan/backfill' && req.method === 'POST') {
             try {
                 const result = await gamePlanService.backfillPlayedGames();
@@ -33,10 +34,10 @@ function createGamePlanRoutes({
             return item?.name || '';
         }
 
-        if (pathname === '/api/game-plan/now' && req.method === 'POST') {
+        if (pathname === '/api/game-plan/now' && (req.method === 'POST' || req.method === 'GET')) {
             try {
-                const body = JSON.parse(await readRequestBody(req) || '{}');
-                const targetId = body.clear ? '' : (body.id || '');
+                const body = await parseJsonOrQuery(req, urlObj);
+                const targetId = (body.clear === true || body.clear === 'true' || body.clear === '1') ? '' : (body.id || '');
                 const snapshot = gamePlanService.setPlayingNow(targetId);
                 let twitchResult = null;
                 if (targetId && twitchService && typeof twitchService.updateChannelCategory === 'function') {
@@ -58,7 +59,7 @@ function createGamePlanRoutes({
             return true;
         }
 
-        if (pathname === '/api/game-plan/advance' && req.method === 'POST') {
+        if (pathname === '/api/game-plan/advance' && (req.method === 'POST' || req.method === 'GET')) {
             try {
                 const result = gamePlanService.advance();
                 let twitchResult = null;

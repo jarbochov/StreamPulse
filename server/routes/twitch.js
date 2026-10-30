@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { safeReturnPath } = require('../services/twitch');
-const { readRequestBody, sendJson, sendText, sendError, escapeHtml } = require('./helpers');
+const { readRequestBody, sendJson, sendText, sendError, escapeHtml, parseJsonOrQuery } = require('./helpers');
 
 function createTwitchRoutes({
     twitchService,
@@ -184,14 +184,16 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/polls/create' && req.method === 'POST') {
+        if (pathname === '/api/polls/create' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) {
                 sendError(res, 501, 'Native polls not available');
                 return true;
             }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
+                if (typeof body.choices === 'string') {
+                    body.choices = body.choices.split(',').map(c => c.trim()).filter(Boolean);
+                }
                 const poll = pollService.createPoll(body);
                 sendJson(res, { status: 'ok', poll });
             } catch (err) {
@@ -200,7 +202,7 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/polls/end' && req.method === 'POST') {
+        if (pathname === '/api/polls/end' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) {
                 sendError(res, 501, 'Native polls not available');
                 return true;
@@ -210,7 +212,7 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/polls/cancel' && req.method === 'POST') {
+        if (pathname === '/api/polls/cancel' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) {
                 sendError(res, 501, 'Native polls not available');
                 return true;
@@ -220,14 +222,13 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/polls/extend' && req.method === 'POST') {
+        if (pathname === '/api/polls/extend' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) {
                 sendError(res, 501, 'Native polls not available');
                 return true;
             }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const poll = pollService.extendPoll(body?.seconds || 30);
                 sendJson(res, { status: 'ok', poll });
             } catch (err) {
@@ -236,16 +237,48 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/polls/vote' && req.method === 'POST') {
+        if (pathname === '/api/polls/vote' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) {
                 sendError(res, 501, 'Native polls not available');
                 return true;
             }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
-                const voted = pollService.castVote(body);
+                const body = await parseJsonOrQuery(req, url);
+                let choiceIndex = body.choiceIndex !== undefined ? parseInt(body.choiceIndex, 10) : -1;
+                if (choiceIndex < 0 && body.choice !== undefined) {
+                    const c = parseInt(body.choice, 10);
+                    choiceIndex = c > 0 ? c - 1 : c;
+                }
+                const voted = pollService.castVote({ ...body, choiceIndex });
                 sendJson(res, { status: 'ok', voted });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/polls/toggle-blind' && (req.method === 'POST' || req.method === 'GET')) {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const poll = pollService.toggleBlind ? pollService.toggleBlind() : null;
+                sendJson(res, { status: 'ok', poll });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/polls/toggle-voting' && (req.method === 'POST' || req.method === 'GET')) {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const poll = pollService.toggleVoting ? pollService.toggleVoting() : null;
+                sendJson(res, { status: 'ok', poll });
             } catch (err) {
                 sendError(res, 400, err.message);
             }
@@ -324,84 +357,77 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/polls/tournament/start-match' && req.method === 'POST') {
+        if (pathname === '/api/polls/tournament/start-match' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) { sendError(res, 'Native polls not available', 501); return true; }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const result = pollService.startTournamentMatch(body.matchId, { isPoll: true });
                 sendJson(res, { status: 'ok', ...result });
             } catch (err) { sendError(res, err, 400); }
             return true;
         }
 
-        if (pathname === '/api/polls/tournament/advance' && req.method === 'POST') {
+        if (pathname === '/api/polls/tournament/advance' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) { sendError(res, 'Native polls not available', 501); return true; }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const tournament = pollService.advanceTournamentMatch(body.matchId, body.winner, { isPoll: true });
                 sendJson(res, { status: 'ok', tournament });
             } catch (err) { sendError(res, err, 400); }
             return true;
         }
 
-        if (pathname === '/api/polls/tournament/score' && req.method === 'POST') {
+        if (pathname === '/api/polls/tournament/score' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) { sendError(res, 'Native polls not available', 501); return true; }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const result = pollService.updateMatchScore(body.matchId, { ...body, isPoll: true });
                 sendJson(res, { status: 'ok', ...result });
             } catch (err) { sendError(res, err, 400); }
             return true;
         }
 
-        if (pathname === '/api/polls/tournament/select-match' && req.method === 'POST') {
+        if (pathname === '/api/polls/tournament/select-match' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) { sendError(res, 'Native polls not available', 501); return true; }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const result = pollService.selectActiveMatch(body.matchId, { isPoll: true });
                 sendJson(res, { status: 'ok', ...result });
             } catch (err) { sendError(res, err, 400); }
             return true;
         }
 
-        if (pathname === '/api/polls/tournament/reset-match' && req.method === 'POST') {
+        if (pathname === '/api/polls/tournament/reset-match' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) { sendError(res, 'Native polls not available', 501); return true; }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const result = pollService.resetMatch(body.matchId, { isPoll: true });
                 sendJson(res, { status: 'ok', ...result });
             } catch (err) { sendError(res, err, 400); }
             return true;
         }
 
-        if (pathname === '/api/polls/tournament/rollback' && req.method === 'POST') {
+        if (pathname === '/api/polls/tournament/rollback' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) { sendError(res, 'Native polls not available', 501); return true; }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const result = pollService.rollbackTournamentMatch(body.matchId, { isPoll: true });
                 sendJson(res, { status: 'ok', ...result });
             } catch (err) { sendError(res, err, 400); }
             return true;
         }
 
-        if (pathname === '/api/polls/tournament/settings' && req.method === 'POST') {
+        if (pathname === '/api/polls/tournament/settings' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) { sendError(res, 'Native polls not available', 501); return true; }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const tournament = pollService.updateTournamentSettings({ ...body, isPoll: true });
                 sendJson(res, { status: 'ok', tournament });
             } catch (err) { sendError(res, err, 400); }
             return true;
         }
 
-        if (pathname === '/api/polls/tournament/reset' && req.method === 'POST') {
+        if (pathname === '/api/polls/tournament/reset' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) { sendError(res, 'Native polls not available', 501); return true; }
             const result = pollService.resetTournament({ isPoll: true });
             sendJson(res, { status: 'ok', ...result });
@@ -469,14 +495,13 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/tournament/start-match' && req.method === 'POST') {
+        if (pathname === '/api/tournament/start-match' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) {
                 sendError(res, 'Native polls not available', 501);
                 return true;
             }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const result = pollService.startTournamentMatch(body.matchId, { isPoll: false });
                 sendJson(res, { status: 'ok', ...result });
             } catch (err) {
@@ -485,14 +510,13 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/tournament/advance' && req.method === 'POST') {
+        if (pathname === '/api/tournament/advance' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) {
                 sendError(res, 'Native polls not available', 501);
                 return true;
             }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const tournament = pollService.advanceTournamentMatch(body.matchId, body.winner, { isPoll: false });
                 sendJson(res, { status: 'ok', tournament });
             } catch (err) {
@@ -501,14 +525,13 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/tournament/score' && req.method === 'POST') {
+        if (pathname === '/api/tournament/score' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) {
                 sendError(res, 'Native polls not available', 501);
                 return true;
             }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const result = pollService.updateMatchScore(body.matchId, { ...body, isPoll: false });
                 sendJson(res, { status: 'ok', ...result });
             } catch (err) {
@@ -517,14 +540,13 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/tournament/select-match' && req.method === 'POST') {
+        if (pathname === '/api/tournament/select-match' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) {
                 sendError(res, 501, 'Native polls not available');
                 return true;
             }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const result = pollService.selectActiveMatch(body.matchId, { isPoll: false });
                 sendJson(res, { status: 'ok', ...result });
             } catch (err) {
@@ -533,14 +555,13 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/tournament/reset-match' && req.method === 'POST') {
+        if (pathname === '/api/tournament/reset-match' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) {
                 sendError(res, 501, 'Native polls not available');
                 return true;
             }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const result = pollService.resetMatch(body.matchId, { isPoll: false });
                 sendJson(res, { status: 'ok', ...result });
             } catch (err) {
@@ -549,14 +570,13 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/tournament/rollback' && req.method === 'POST') {
+        if (pathname === '/api/tournament/rollback' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) {
                 sendError(res, 501, 'Native polls not available');
                 return true;
             }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const result = pollService.rollbackTournamentMatch(body.matchId, { isPoll: false });
                 sendJson(res, { status: 'ok', ...result });
             } catch (err) {
@@ -614,14 +634,13 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/tournament/settings' && req.method === 'POST') {
+        if (pathname === '/api/tournament/settings' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) {
                 sendError(res, 501, 'Native polls not available');
                 return true;
             }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const tournament = pollService.updateTournamentSettings({ ...body, isPoll: false }, { isPoll: false });
                 sendJson(res, { status: 'ok', tournament });
             } catch (err) {
@@ -630,7 +649,7 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/tournament/reset' && req.method === 'POST') {
+        if (pathname === '/api/tournament/reset' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) {
                 sendError(res, 501, 'Native polls not available');
                 return true;
@@ -756,15 +775,29 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/matchup/score' && req.method === 'POST') {
+        if (pathname === '/api/matchup/score' && (req.method === 'POST' || req.method === 'GET')) {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;
             }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
-                const target = body.competitorId !== undefined ? body.competitorId : (body.index !== undefined ? body.index : body.id);
+                const body = await parseJsonOrQuery(req, url);
+                let target;
+                if (body.competitorId !== undefined) {
+                    target = body.competitorId;
+                } else if (body.index !== undefined) {
+                    target = parseInt(body.index, 10);
+                } else if (body.competitor !== undefined) {
+                    const cStr = String(body.competitor).trim().toLowerCase();
+                    if (cStr.startsWith('c') || cStr.startsWith('p')) {
+                        target = cStr;
+                    } else {
+                        const cNum = parseInt(cStr, 10);
+                        target = (cNum > 0 && cNum <= 16) ? `c${cNum}` : cNum;
+                    }
+                } else {
+                    target = body.id;
+                }
                 const result = matchupService.updateScore(target, body);
                 sendJson(res, { status: 'ok', ...result });
             } catch (err) {
@@ -773,7 +806,7 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/matchup/swap' && req.method === 'POST') {
+        if (pathname === '/api/matchup/swap' && (req.method === 'POST' || req.method === 'GET')) {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;
@@ -787,7 +820,7 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/matchup/reset-scores' && req.method === 'POST') {
+        if (pathname === '/api/matchup/reset-scores' && (req.method === 'POST' || req.method === 'GET')) {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;
@@ -801,7 +834,7 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/matchup/reset' && req.method === 'POST') {
+        if (pathname === '/api/matchup/reset' && (req.method === 'POST' || req.method === 'GET')) {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;
@@ -816,7 +849,7 @@ function createTwitchRoutes({
         }
 
         // Match Clock & Stopwatch Endpoints
-        if (pathname === '/api/matchup/clock/start' && req.method === 'POST') {
+        if (pathname === '/api/matchup/clock/start' && (req.method === 'POST' || req.method === 'GET')) {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;
@@ -826,7 +859,7 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/matchup/clock/pause' && req.method === 'POST') {
+        if (pathname === '/api/matchup/clock/pause' && (req.method === 'POST' || req.method === 'GET')) {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;
@@ -836,14 +869,23 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/matchup/clock/reset' && req.method === 'POST') {
+        if (pathname === '/api/matchup/clock/toggle' && (req.method === 'POST' || req.method === 'GET')) {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            const clock = matchupService.toggleClock ? matchupService.toggleClock() : matchupService.startClock();
+            sendJson(res, { status: 'ok', clock, matchup: matchupService.getMatchup() });
+            return true;
+        }
+
+        if (pathname === '/api/matchup/clock/reset' && (req.method === 'POST' || req.method === 'GET')) {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;
             }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const clock = matchupService.resetClock(body.seconds !== undefined ? body.seconds : body.duration);
                 sendJson(res, { status: 'ok', clock, matchup: matchupService.getMatchup() });
             } catch (err) {
@@ -852,14 +894,13 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/matchup/clock/set' && req.method === 'POST') {
+        if (pathname === '/api/matchup/clock/set' && (req.method === 'POST' || req.method === 'GET')) {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;
             }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const clock = matchupService.setClockMode(body);
                 sendJson(res, { status: 'ok', clock, matchup: matchupService.getMatchup() });
             } catch (err) {
@@ -869,7 +910,7 @@ function createTwitchRoutes({
         }
 
         // Speedrun Battle / Race Clock Endpoints
-        if (pathname === '/api/matchup/clock/race/start-all' && req.method === 'POST') {
+        if (pathname === '/api/matchup/clock/race/start-all' && (req.method === 'POST' || req.method === 'GET')) {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;
@@ -879,7 +920,7 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/matchup/clock/race/pause-all' && req.method === 'POST') {
+        if (pathname === '/api/matchup/clock/race/pause-all' && (req.method === 'POST' || req.method === 'GET')) {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;
@@ -889,7 +930,17 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/matchup/clock/race/reset-all' && req.method === 'POST') {
+        if (pathname === '/api/matchup/clock/race/toggle-all' && (req.method === 'POST' || req.method === 'GET')) {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            const matchup = matchupService.toggleAllRace ? matchupService.toggleAllRace() : matchupService.startAllRace();
+            sendJson(res, { status: 'ok', matchup, clock: matchup.clock });
+            return true;
+        }
+
+        if (pathname === '/api/matchup/clock/race/reset-all' && (req.method === 'POST' || req.method === 'GET')) {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;
@@ -899,15 +950,32 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/matchup/clock/race/finish' && req.method === 'POST') {
+        const resolveRaceTarget = (body) => {
+            if (body.competitorId !== undefined) return body.competitorId;
+            if (body.index !== undefined) return parseInt(body.index, 10);
+            if (body.competitor !== undefined) {
+                const s = String(body.competitor).trim().toLowerCase();
+                if (s.startsWith('c') || s.startsWith('p')) return s;
+                const n = parseInt(s, 10);
+                return (n >= 1 && n <= 16) ? `c${n}` : n;
+            }
+            if (body.runner !== undefined) {
+                const s = String(body.runner).trim().toLowerCase();
+                if (s.startsWith('c') || s.startsWith('p')) return s;
+                const n = parseInt(s, 10);
+                return (n >= 1 && n <= 16) ? `c${n}` : n;
+            }
+            return 0;
+        };
+
+        if (pathname === '/api/matchup/clock/race/finish' && (req.method === 'POST' || req.method === 'GET')) {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;
             }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
-                const idOrIdx = body.competitor !== undefined ? body.competitor : (body.competitorId !== undefined ? body.competitorId : body.index);
+                const body = await parseJsonOrQuery(req, url);
+                const idOrIdx = resolveRaceTarget(body);
                 const matchup = matchupService.finishCompetitorRace(idOrIdx);
                 sendJson(res, { status: 'ok', matchup, clock: matchup.clock });
             } catch (err) {
@@ -916,15 +984,14 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/matchup/clock/race/toggle' && req.method === 'POST') {
+        if (pathname === '/api/matchup/clock/race/toggle' && (req.method === 'POST' || req.method === 'GET')) {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;
             }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
-                const idOrIdx = body.competitor !== undefined ? body.competitor : (body.competitorId !== undefined ? body.competitorId : body.index);
+                const body = await parseJsonOrQuery(req, url);
+                const idOrIdx = resolveRaceTarget(body);
                 const matchup = matchupService.toggleCompetitorRace(idOrIdx);
                 sendJson(res, { status: 'ok', matchup, clock: matchup.clock });
             } catch (err) {
@@ -933,15 +1000,14 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/matchup/clock/race/reset' && req.method === 'POST') {
+        if (pathname === '/api/matchup/clock/race/reset' && (req.method === 'POST' || req.method === 'GET')) {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;
             }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
-                const idOrIdx = body.competitor !== undefined ? body.competitor : (body.competitorId !== undefined ? body.competitorId : body.index);
+                const body = await parseJsonOrQuery(req, url);
+                const idOrIdx = resolveRaceTarget(body);
                 const matchup = matchupService.resetCompetitorRace(idOrIdx);
                 sendJson(res, { status: 'ok', matchup, clock: matchup.clock });
             } catch (err) {
@@ -950,14 +1016,13 @@ function createTwitchRoutes({
             return true;
         }
 
-        if ((pathname === '/api/matchup/clock/estimate' || pathname === '/api/matchup/clock/race/estimate') && req.method === 'POST') {
+        if ((pathname === '/api/matchup/clock/estimate' || pathname === '/api/matchup/clock/race/estimate') && (req.method === 'POST' || req.method === 'GET')) {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;
             }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const clock = matchupService.setTargetEstimate(body.estimate);
                 sendJson(res, { status: 'ok', clock, matchup: matchupService.getMatchup() });
             } catch (err) {
@@ -1114,14 +1179,13 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/matchup/queue/select' && req.method === 'POST') {
+        if (pathname === '/api/matchup/queue/select' && (req.method === 'POST' || req.method === 'GET')) {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;
             }
             try {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
+                const body = await parseJsonOrQuery(req, url);
                 const id = body.id !== undefined ? body.id : body.index;
                 const matchup = matchupService.selectQueueMatch(id);
                 sendJson(res, { status: 'ok', matchup });
@@ -1131,7 +1195,7 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/matchup/queue/next' && req.method === 'POST') {
+        if (pathname === '/api/matchup/queue/next' && (req.method === 'POST' || req.method === 'GET')) {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;
@@ -1145,7 +1209,7 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/matchup/queue/prev' && req.method === 'POST') {
+        if (pathname === '/api/matchup/queue/prev' && (req.method === 'POST' || req.method === 'GET')) {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;
@@ -1153,6 +1217,37 @@ function createTwitchRoutes({
             try {
                 const matchup = matchupService.prevQueueMatch();
                 sendJson(res, { status: 'ok', matchup });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/matchup/queue' && req.method === 'DELETE') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const queue = matchupService.clearQueue();
+                sendJson(res, { status: 'ok', queue });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/matchup/queue/duplicate' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            try {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const idOrIdx = body.id !== undefined ? body.id : body.index;
+                const match = matchupService.duplicateQueueMatch(idOrIdx);
+                sendJson(res, { status: 'ok', match, queue: matchupService.getQueue() });
             } catch (err) {
                 sendError(res, 400, err.message);
             }
@@ -1174,7 +1269,18 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/polls/test' && req.method === 'POST') {
+        if (pathname.startsWith('/api/matchup/field/') && req.method === 'GET') {
+            if (!matchupService) {
+                sendText(res, '', 404);
+                return true;
+            }
+            const field = pathname.replace('/api/matchup/field/', '');
+            const value = matchupService.getField ? matchupService.getField(field) : '';
+            sendText(res, String(value ?? ''), 200, 'text/plain; charset=utf-8');
+            return true;
+        }
+
+        if (pathname === '/api/polls/test' && (req.method === 'POST' || req.method === 'GET')) {
             const testPoll = {
                 id: `test-${Date.now()}`,
                 title: 'Which game should we play next?',

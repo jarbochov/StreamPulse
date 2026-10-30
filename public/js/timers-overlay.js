@@ -134,7 +134,7 @@
     function buildStandaloneCountdown() {
         const direction = params.get('direction') === 'up' ? 'up' : 'down';
         const showOnEnd = ['message', 'zero', 'none'].includes(params.get('showonend')) ? params.get('showonend') : 'message';
-        const endMessage = params.get('endmessage') || '⌛️';
+        const endMessage = params.get('endmessage') || "Time's Up!";
         const timezone = params.get('timezone') || '';
         const targetAt = params.get('date') ? buildTargetDate(params.get('date'), timezone) : null;
         const durationMs = parseDurationMs({
@@ -354,7 +354,7 @@
                 displayMs,
                 percentComplete: totalMs > 0 ? Math.min(1, Math.max(0, (totalMs - Math.min(totalMs, remainingMs)) / totalMs)) : 0,
                 showMessage: completed && showOnEnd === 'message',
-                completeMessage: completed ? (state.endMessage || '⌛️') : '',
+                completeMessage: completed ? (state.endMessage || "Time's Up!") : '',
                 showMainDisplay: !(completed && showOnEnd === 'none') && !(completed && showOnEnd === 'message'),
                 visible: state.visible !== false
             };

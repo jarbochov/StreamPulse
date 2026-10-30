@@ -148,7 +148,8 @@ function fill(template, tokens) {
     });
 }
 
-function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.log }) {
+function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAction, log = console.log }) {
+    const notify = typeof broadcast === 'function' ? broadcast : (typeof broadcastToOverlays === 'function' ? broadcastToOverlays : () => {});
     const filePath = path.join(dataDir, 'alerts.json');
     let config = normalizeConfig({});
     try { config = normalizeConfig(JSON.parse(fs.readFileSync(filePath, 'utf8'))); } catch { /* first run */ }
@@ -429,7 +430,7 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
     function pump() {
         if (paused || current || !queue.length) return;
         current = queue.shift();
-        broadcast('alert', current);
+        notify('alert', current);
         history.unshift({ ...current, shownAt: new Date().toISOString() });
         history.length = Math.min(history.length, HISTORY_LIMIT);
         const hold = current.durationMs + (config.settings.gapSeconds * 1000);
@@ -570,7 +571,7 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
         if (action === 'resume') { paused = false; pump(); return; }
         if (action === 'clear') {
             queue.length = 0;
-            broadcast('alert-clear', {});
+            notify('alert-clear', {});
             if (currentTimer) clearTimeout(currentTimer);
             current = null; currentTimer = null;
             return;
@@ -585,7 +586,7 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
         if (action === 'skip') {
             if (currentTimer) clearTimeout(currentTimer);
             current = null; currentTimer = null;
-            broadcast('alert-skip', {});
+            notify('alert-skip', {});
             pump();
             return;
         }

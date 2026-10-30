@@ -28,26 +28,30 @@ function createMusicRoutes({
             return true;
         }
 
-        // Overlay visibility control: POST /api/music/overlay { action: "on"|"off"|"toggle" }
-        if (pathname === '/api/music/overlay' && req.method === 'POST') {
-            let body = '';
-            req.on('data', c => { body += c; });
-            req.on('end', () => {
-                let action = 'toggle';
-                try { action = JSON.parse(body).action || 'toggle'; } catch {}
+        // Overlay visibility control: POST or GET /api/music/overlay?action=on|off|toggle
+        if (pathname === '/api/music/overlay') {
+            if (req.method === 'POST') {
+                let body = '';
+                req.on('data', c => { body += c; });
+                req.on('end', () => {
+                    let action = 'toggle';
+                    try { action = JSON.parse(body).action || 'toggle'; } catch {}
+                    const qAction = new URL(req.url, `http://${req.headers.host}`).searchParams.get('action');
+                    if (qAction) action = qAction;
+
+                    setOverlayVisibility('music', action);
+                    sendJson(res, { visible: getOverlayVisible() });
+                });
+                return true;
+            }
+            if (req.method === 'GET') {
                 const qAction = new URL(req.url, `http://${req.headers.host}`).searchParams.get('action');
-                if (qAction) action = qAction;
-
-                setOverlayVisibility('music', action);
+                if (qAction) {
+                    setOverlayVisibility('music', qAction);
+                }
                 sendJson(res, { visible: getOverlayVisible() });
-            });
-            return true;
-        }
-
-        // GET to check overlay visibility state
-        if (pathname === '/api/music/overlay' && req.method === 'GET') {
-            sendJson(res, { visible: getOverlayVisible() });
-            return true;
+                return true;
+            }
         }
 
         if (pathname === '/api/music/vlc-test') {

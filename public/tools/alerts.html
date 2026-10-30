@@ -1083,7 +1083,7 @@
                     <div class="rules-search-wrap">
                         <svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                         <input type="search" id="rule-search" placeholder="Search rules…" autocomplete="off" aria-label="Search alert rules">
-                        <button type="button" class="search-clear" id="rule-search-clear" hidden>✕</button>
+                        <button type="button" class="search-clear" id="rule-search-clear" hidden title="Clear search"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                     </div>
 
                     <div class="filter-chips" id="trigger-filter-chips">
@@ -1559,6 +1559,10 @@
     const vsel = (i, key, label, value, options) => `<label class="fld"><span>${label}</span><select data-v="${i}.${key}">${options.map(a => `<option${a === value ? ' selected' : ''}>${a}</option>`).join('')}</select></label>`;
     const BUILTIN = OverlayShared.BUILTIN_SOUNDS;
     const builtinName = v => (String(v.sound || '').startsWith('builtin:') ? v.sound.slice(8) : '');
+    const getPreviewVolumeScale = () => {
+        const raw = localStorage.getItem('alerts.previewVolume');
+        return raw !== null ? Math.max(0, Math.min(100, Number(raw))) / 100 : 0.8;
+    };
     let testAmount = 0;
 
     function soundHtml(v, i) {
@@ -2020,6 +2024,11 @@
                     </label>
                     <button type="button" class="btn sm" id="dup-rule" title="Duplicate rule">${ICONS.copy} Duplicate</button>
                     <button type="button" class="btn sm danger" id="del-rule" title="Delete rule">${ICONS.trash} Delete</button>
+                    <div style="display:inline-flex;align-items:center;gap:0.35rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.18rem 0.45rem;" title="Adjust test sound audio preview level">
+                        <span style="font-size:0.71rem;color:var(--text-muted);font-weight:600;">Preview Vol:</span>
+                        <input type="range" min="0" max="100" id="preview-vol-slider" value="${Math.round(getPreviewVolumeScale() * 100)}" style="width:55px;height:14px;accent-color:var(--accent);cursor:pointer;" oninput="localStorage.setItem('alerts.previewVolume', this.value); if(document.getElementById('preview-vol-text')) document.getElementById('preview-vol-text').textContent = this.value + '%';">
+                        <span id="preview-vol-text" style="font-size:0.68rem;color:var(--text-muted);min-width:24px;">${Math.round(getPreviewVolumeScale() * 100)}%</span>
+                    </div>
                     ${hasMetric ? `
                         <div style="display:inline-flex;align-items:center;gap:0.35rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.18rem 0.45rem;">
                             <span style="font-size:0.71rem;color:var(--text-muted);font-weight:600;">Simulate ${esc(metricName)}:</span>
@@ -2408,7 +2417,7 @@
             setDirty(true);
             renderEditor();
             if (el.value && OverlayShared.playBuiltinSound) {
-                OverlayShared.playBuiltinSound(el.value, (r.variants[idx].volume ?? 70) / 100);
+                OverlayShared.playBuiltinSound(el.value, ((r.variants[idx].volume ?? 70) / 100) * getPreviewVolumeScale());
             }
         } else if (el.dataset.variantCond !== undefined) {
             const idx = Number(el.dataset.variantCond);
@@ -2634,10 +2643,11 @@
             renderEditor();
         } else if (btn.dataset.soundPreview !== undefined) {
             const v = r.variants[btn.dataset.soundPreview], name = builtinName(v);
-            if (name) OverlayShared.playBuiltinSound(name, (v.volume ?? 70) / 100);
+            const previewVol = getPreviewVolumeScale();
+            if (name) OverlayShared.playBuiltinSound(name, ((v.volume ?? 70) / 100) * previewVol);
             else if (v.sound) {
                 const audio = new Audio(v.sound);
-                audio.volume = (v.volume ?? 70) / 100;
+                audio.volume = Math.max(0, Math.min(1, ((v.volume ?? 70) / 100) * previewVol));
                 audio.play().catch(() => toast('Could not play that audio file'));
             }
         } else if (btn.dataset.delVariant !== undefined) {

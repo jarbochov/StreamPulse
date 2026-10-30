@@ -7,9 +7,12 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- Alerts Engine: Unified variant conditions and weighted random selection, 23 synthesized Web Audio alert sound presets, granular subscription tier selection with specificity precedence, visual Alert Activation Ladder and Milestone Tiers UX, video volume controls, Twitch channel emotes in alert media, and gift sub recipient placeholders.
-- Versus & Tournament Studio: Scoreboards, elimination and round-robin brackets, multi-match scorekeeper, speedrun battle clocks, and broadcast overlays.
+- Alerts Engine & Queue: Unified variant conditions and weighted random selection, 23 synthesized Web Audio alert sound presets, master preview volume scaling, granular subscription tier selection with specificity precedence, visual Alert Activation Ladder and Milestone Tiers UX, video volume controls, Twitch channel emotes in alert media, gift sub recipient placeholders, and low-density Alert Queue filtering by event type and search query with in-dock test dispatch.
+- Versus & Tournament Studio: Scoreboards, elimination and round-robin brackets, multi-match scorekeeper, speedrun battle clocks, broadcast overlays, quick match tie-breaker actions, double-elimination BYE loser routing resilience, queue duplication and clearing, and wide stage layout options (`?wide=1`) with responsive container clamps.
 - Matchup Player Clocks: Optional competitor split, race, and countdown clock badges on all versus scoreboard layouts (`top`, `fgc`, `split`, `pillar`, `bottom`, `compact`, `versus`).
+- Chat Bot Enhancements: Per-user cooldowns (`userCooldown`), keyword trigger matching modes (`contains`, `exact`, `starts_with`, `ends_with`, `regex`), and JSON import/export for custom command and trigger suites with REST API endpoints and toolbar buttons.
+- Custom Overlay Editor: Inspector aspect ratio presets (`16:9`, `4:3`, `1:1`, `9:16`, `21:9`) for 1-click proportion locking, slideshow animation easing controls, and responsive container scaling.
+- Bitfocus Companion & REST API: Plain-text Stream Deck title lookups (`/api/status/field/:field`, `/api/matchup/field/:field`), unified HTTP GET and POST trigger fallbacks, and real-time state variables.
 - Poll Manager: Chat polls, audience voting brackets, focused bracket overlays, reusable tournament templates, progress checkpoints, and saved-bracket history.
 - Randomizer Elimination Mode: Weight-based choice randomizer with elimination and restoration.
 - Promo Creator: Social promo generator with multi-layer layout, animations, and image export.

@@ -13,9 +13,25 @@ Replies are sent back directly through SocialStream Ninja into your broadcast ch
 Configure bot rules in **Tools -> Chat Bot** (`/chatbot.html`):
 
 - **Commands & Aliases**: Define primary commands (e.g., `!socials`) with comma-separated aliases (`!discord`, `!twitter`, `!links`).
-- **Cooldowns**: Set global command cooldowns and per-user cooldowns to prevent chat spam.
+- **Cooldowns**: Set global command cooldowns, mod cooldowns, and per-user cooldowns (`userCooldown`) to prevent chat spam.
 - **Permissions**: Restrict sensitive commands to Broadcaster, Moderators, VIPs, or Subscribers.
 - **Target User Parsing**: Commands can accept target arguments (e.g. `!hug @viewer` renders `Streamer gives @viewer a warm hug!`).
+- **Import & Export**: Backup and restore custom command suites as structured JSON files via toolbar buttons or `/api/chatbot/commands/export` and `/api/chatbot/commands/import`.
+
+---
+
+## 2. Word Triggers & Matching Modes
+
+Word triggers listen to all incoming chat messages and execute replies or webhook actions automatically when matching words or phrases occur:
+
+- **Matching Modes**:
+  - `contains`: Fires when any keyword is present inside the chat message.
+  - `exact`: Fires only when the message matches the keyword exactly.
+  - `starts_with`: Fires when the message begins with the keyword.
+  - `ends_with`: Fires when the message concludes with the keyword.
+  - `regex`: Evaluates the keyword as a regular expression pattern.
+- **Whole Words Only**: Optional boundary enforcement preventing false positives on substring matches.
+- **Import & Export**: Word triggers can be backed up and restored via JSON export (`/api/chatbot/triggers/export` and `/api/chatbot/triggers/import`).
 
 ---
 

@@ -87,7 +87,7 @@
 
     const nav = [
         { label: 'Dashboard', href: '/dashboard.html' },
-        { label: 'Overlays ▾', children: [
+        { label: 'Overlays', children: [
             { heading: 'Hub & Gallery' },
             { label: 'All Overlays', href: '/overlays.html' },
             { label: 'Custom Overlays', href: '/custom-overlays.html' },
@@ -107,7 +107,7 @@
             { label: 'Game Plan', href: '/game-plan-url-wizard.html' },
             { label: 'Milestones', href: '/milestone-url-wizard.html' }
         ]},
-        { label: 'Tools ▾', children: [
+        { label: 'Tools', children: [
             { label: 'Poll Manager', href: '/polls.html', module: 'polls' },
             { label: 'Versus', href: '/versus.html', module: 'versus', children: [
                 { label: 'Versus', href: '/versus.html' },
@@ -119,7 +119,7 @@
             { label: 'Placeholders & Variables', href: '/placeholders.html' },
             { label: 'Hashtag Tools', href: '/manage-hashtags.html', module: 'hashtags' }
         ]},
-        { label: 'Library ▾', children: [
+        { label: 'Library', children: [
             { label: 'Highlights', href: '/highlights.html' },
             { label: 'Clips', href: '/clips.html', module: 'clips' },
             { label: 'Sessions', href: '/sessions.html?session=__current__' },
@@ -127,7 +127,7 @@
             { label: 'Analytics & Community', href: '/analytics.html' },
             { label: 'Hashtag Stats', href: '/hashtag-stats.html', module: 'hashtags' }
         ]},
-        { label: 'System ▾', children: [
+        { label: 'System', children: [
             { label: 'Config', href: '/config-editor.html' },
             { label: 'Appearance', href: '/config-editor.html#appearance' },
             { label: 'Twitch Connect', href: '/twitch-connect.html' },
@@ -534,7 +534,7 @@
 
                 const anyActive = cleaned.some(c => !c.heading && (isActive(c.href) || (c.children && c.children.some(sc => isActive(sc.href)))));
                 html += `<div class="dropdown">`;
-                html += `<a href="#" class="dropdown-toggle${anyActive ? ' active' : ''}" role="button" aria-haspopup="true" aria-expanded="false">${item.label}</a>`;
+                html += `<a href="#" class="dropdown-toggle${anyActive ? ' active' : ''}" role="button" aria-haspopup="true" aria-expanded="false"><span>${item.label}</span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="nav-chevron" style="margin-left:0.35rem;opacity:0.6;"><polyline points="6 9 12 15 18 9"/></svg></a>`;
                 html += `<div class="dropdown-menu">`;
                 for (const child of cleaned) {
                     if (child.heading) { html += `<div class="menu-heading">${child.heading}</div>`; continue; }
@@ -555,7 +555,7 @@
                     }
                     const active = isActive(child.href) ? ' class="active"' : '';
                     const target = child.target ? ` target="${child.target}" rel="noopener"` : '';
-                    const ext = child.target === '_blank' ? `<span class="ext-icon" aria-hidden="true">↗</span>` : '';
+                    const ext = child.target === '_blank' ? `<span class="ext-icon" aria-hidden="true" style="margin-left:0.35rem;opacity:0.6;display:inline-flex;align-items:center;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>` : '';
                     html += `<a href="${child.href}"${target}${active}><span>${child.label}</span>${ext}</a>`;
                 }
                 html += `</div></div>`;
@@ -617,8 +617,10 @@
         // Theme toggle logic
         const toggle = document.getElementById('nav-theme-toggle');
         const ap = window.StreamPulseAppearance;
+        const MOON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline-block;vertical-align:-2px;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+        const SUN_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline-block;vertical-align:-2px;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
         if (toggle && ap) {
-            const paint = () => { toggle.textContent = document.documentElement.dataset.theme === 'light' ? '🌙' : '☀️'; };
+            const paint = () => { toggle.innerHTML = document.documentElement.dataset.theme === 'light' ? MOON_SVG : SUN_SVG; };
             toggle.addEventListener('click', event => { event.preventDefault(); ap.save({ mode: document.documentElement.dataset.theme === 'light' ? 'dark' : 'light' }); paint(); });
             paint();
         }
@@ -642,7 +644,9 @@
     // Theme appearance sync (registered once)
     window.addEventListener('streampulse:appearance', () => {
         const toggle = document.getElementById('nav-theme-toggle');
-        if (toggle) toggle.textContent = document.documentElement.dataset.theme === 'light' ? '🌙' : '☀️';
+        const MOON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline-block;vertical-align:-2px;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+        const SUN_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline-block;vertical-align:-2px;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+        if (toggle) toggle.innerHTML = document.documentElement.dataset.theme === 'light' ? MOON_SVG : SUN_SVG;
     });
 
     // Live stream & integration status indicators polling

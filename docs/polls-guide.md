@@ -119,7 +119,7 @@ For broadcasts featuring fighting games (Street Fighter, Tekken, Smash), speedru
   - **Round Countdown Timer**: 99s EVO / 60s Tekken clock with amber LED digits that pulse red with high-urgency glow under 10 seconds.
   - **Speedrun Stopwatch**: Elapsed runtime clock (`MM:SS` or `HH:MM:SS`) broadcasting updates every 250ms with millisecond precision.
 - **Side Swapping (`P1 ⇄ P2`)**: Instantly swaps Player 1 and Player 2 names, character tags, custom team colors, and current scores with 1 click.
-- **Fight Card & Exhibition Queue**: Schedule a sequential roster of matches. Step forward (`Next Match`) or backward (`Prev Match`) with 1 click or a Stream Deck button.
+- **Fight Card & Exhibition Queue**: Schedule a sequential roster of matches. Step forward (`Next Match`) or backward (`Prev Match`), duplicate queued matches, or clear the entire lineup with 1 click or Bitfocus Companion.
 - **Auto Set Winner Detection**: Reaching the series target score crowns the set winner, triggers optional victory audio fanfare, and fires celebratory particle confetti.
 
 ### Broadcast Overlay (`/overlays/matchup.html`)
@@ -138,6 +138,7 @@ The Matchup overlay self-sizes to whatever OBS browser source dimensions you con
   - `versus` — Full-screen matchup intro card with prominent VS emblem.
   - `pod` — Floating independent single-player score pod for webcam framing in 4-player games.
 - **Competitor Clocks & Splits (`?playerclocks=auto|always|off`)**: Display individual player timer chips, runner split times, and finish delta badges across all layouts (Top Bar, FGC, Split, Pillar, Bottom, Compact, and Versus), not just the dedicated race layout.
+- **Wide Stage Layout (`?wide=1`)**: Expands matchup card geometry and container clamps up to 2400px for ultrawide and spacious broadcast scenes.
 - **Tournament Auto-Binding (`?source=auto`)**: By default, `/overlays/matchup.html` automatically mirrors the active tournament match when a bracket is running, and seamlessly falls back to your exhibition matchup queue when idle.
 
 ---

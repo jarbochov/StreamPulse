@@ -20,7 +20,7 @@
                 muted(`Hour ${i} time`, `{{weather.h${i}.time}}`, x, 44, 110, 26, 18, 'center'),
                 text(`Hour ${i} icon`, `{{weather.h${i}.icon}}`, x, 70, 110, 52, { fontSize: 40, textAlign: 'center' }),
                 text(`Hour ${i} temp`, `{{weather.h${i}.temp}}°`, x, 122, 110, 34, { fontSize: 26, fontWeight: '700', textAlign: 'center' }),
-                muted(`Hour ${i} rain`, `💧 {{weather.h${i}.precip}}%`, x, 154, 110, 24, 15, 'center')
+                muted(`Hour ${i} rain`, `{{weather.h${i}.precip}}% rain`, x, 154, 110, 24, 15, 'center')
             );
         }
         return parts;
@@ -35,7 +35,7 @@
                 text(`Day ${i} icon`, `{{weather.d${i}.icon}}`, x, 72, 130, 58, { fontSize: 44, textAlign: 'center' }),
                 text(`Day ${i} high`, `{{weather.d${i}.high}}°`, x, 130, 130, 34, { fontSize: 28, fontWeight: '700', textAlign: 'center' }),
                 muted(`Day ${i} low`, `{{weather.d${i}.low}}°`, x, 164, 130, 28, 22, 'center'),
-                muted(`Day ${i} rain`, `💧 {{weather.d${i}.precip}}%`, x, 194, 130, 24, 15, 'center')
+                muted(`Day ${i} rain`, `{{weather.d${i}.precip}}% rain`, x, 194, 130, 24, 15, 'center')
             );
         }
         return parts;
@@ -49,12 +49,12 @@
             text('Weather temp', '{{weather.temp_full}}', 140, 8, 370, 70, { fontSize: 56, fontWeight: '700' }),
             text('Weather condition', '{{weather.condition}} · feels like {{weather.feels_like}}°', 140, 76, 370, 30, { fontSize: 20 }),
             muted('Weather location', '{{weather.location}}', 140, 104, 370, 26, 16),
-            stat('Humidity', '💧 Humidity {{weather.humidity}}%', 0, 0),
-            stat('Wind', '💨 {{weather.wind}}', 1, 0),
-            stat('High / low', '🌡️ {{weather.high}}° / {{weather.low}}°', 0, 1),
-            stat('Rain chance', '🌧️ Rain {{weather.precip_chance}}%', 1, 1),
-            stat('Sun times', '🌅 {{weather.sunrise}} · 🌇 {{weather.sunset}}', 0, 2),
-            stat('UV index', '☀️ UV {{weather.uv}} · ☁️ {{weather.cloud_cover}}%', 1, 2)
+            stat('Humidity', 'Humidity {{weather.humidity}}%', 0, 0),
+            stat('Wind', 'Wind {{weather.wind}}', 1, 0),
+            stat('High / low', 'High {{weather.high}}° / Low {{weather.low}}°', 0, 1),
+            stat('Rain chance', 'Rain {{weather.precip_chance}}%', 1, 1),
+            stat('Sun times', 'Sunrise {{weather.sunrise}} · Sunset {{weather.sunset}}', 0, 2),
+            stat('UV index', 'UV {{weather.uv}} · Clouds {{weather.cloud_cover}}%', 1, 2)
         ];
     }
 
@@ -78,10 +78,10 @@
             build('activity', 'Latest activity', 'Stream', 'Latest follower, subscriber, cheer and raider.', 420, 190, [
                 panel(420, 190, 'Activity panel'),
                 muted('Activity title', 'LATEST', 20, 10, 380, 26, 15),
-                text('Latest follower', '👤 {{latest.follower}}', 20, 40, 380, 34, { fontSize: 24 }),
-                text('Latest subscriber', '⭐ {{latest.subscriber}}', 20, 76, 380, 34, { fontSize: 24 }),
-                text('Latest cheer', '💎 {{latest.cheer}} {{latest.cheer.amount}}', 20, 112, 380, 34, { fontSize: 24 }),
-                text('Latest raider', '🚀 {{latest.raider}} {{latest.raider.viewers}}', 20, 148, 380, 34, { fontSize: 24 })
+                text('Latest follower', 'Follower: {{latest.follower}}', 20, 40, 380, 34, { fontSize: 24 }),
+                text('Latest subscriber', 'Subscriber: {{latest.subscriber}}', 20, 76, 380, 34, { fontSize: 24 }),
+                text('Latest cheer', 'Cheer: {{latest.cheer}} {{latest.cheer.amount}}', 20, 112, 380, 34, { fontSize: 24 }),
+                text('Latest raider', 'Raider: {{latest.raider}} {{latest.raider.viewers}}', 20, 148, 380, 34, { fontSize: 24 })
             ]),
             build('now-playing', 'Now playing card', 'Music', 'Album art with title, artist and a progress bar.', 540, 160, [
                 panel(540, 160, 'Music panel'),
@@ -119,19 +119,19 @@
             build('milestone-card', 'Milestone & Stream # Card', 'Milestones', 'Stream broadcast number, lifetime hours, daily streak, and next goal progress bar.', 440, 180, [
                 panel(440, 180, 'Milestones panel'),
                 muted('Milestone title', 'BROADCAST STATS', 20, 12, 260, 24, 14),
-                text('Stream streak', '🔥 {{milestone.streak_days}} Day Streak', 270, 12, 150, 24, { fontSize: 13, fontWeight: '700', textAlign: 'right', color: '#f59e0b' }),
+                text('Stream streak', '{{milestone.streak_days}} Day Streak', 270, 12, 150, 24, { fontSize: 13, fontWeight: '700', textAlign: 'right', color: '#f59e0b' }),
                 text('Stream number', 'Stream #{{milestone.stream_number}}', 20, 36, 400, 48, { fontSize: 34, fontWeight: '700', color: '#8b5cf6' }),
-                muted('Stream time', '⏱️ {{milestone.total_time}} streamed · 💬 {{milestone.lifetime_chatters}} chatters', 20, 84, 400, 26, 16),
+                muted('Stream time', '{{milestone.total_time}} streamed · {{milestone.lifetime_chatters}} chatters', 20, 84, 400, 26, 16),
                 muted('Goal title', 'Next goal: Stream #{{milestone.next_stream_goal}} ({{milestone.streams_remaining}} left)', 20, 116, 400, 22, 14),
                 { type: 'progress', name: 'Goal progress', content: '{{milestone.stream_goal_percent}}', x: 20, y: 142, width: 400, height: 10, style: { fontSize: 12 }, progress: { showLabel: false, thickness: 10, fill: '#8b5cf6' } }
             ]),
             build('milestone-pill', 'Stream & Streak Pill', 'Milestones', 'Compact horizontal badge with Stream #, day streak and broadcast hours.', 440, 54, [
                 { type: 'shape', name: 'Pill background', x: 0, y: 0, width: 440, height: 54, style: { ...PANEL, borderRadius: 27 } },
-                text('Pill text', '🎬 Stream #{{milestone.stream_number}}   ·   🔥 {{milestone.streak_days}} Days   ·   ⏱️ {{milestone.total_time}}', 15, 0, 410, 54, { fontSize: 16, fontWeight: '600', textAlign: 'center' })
+                text('Pill text', 'Stream #{{milestone.stream_number}}   ·   {{milestone.streak_days}} Days   ·   {{milestone.total_time}}', 15, 0, 410, 54, { fontSize: 16, fontWeight: '600', textAlign: 'center' })
             ]),
             build('milestone-goal-bar', 'Next Milestone Goal Bar', 'Milestones', 'Target progress bar toward next stream count milestone.', 440, 84, [
                 panel(440, 84, 'Goal panel'),
-                text('Goal label', '🎯 Stream #{{milestone.next_stream_goal}} Goal', 20, 14, 260, 28, { fontSize: 18, fontWeight: '700' }),
+                text('Goal label', 'Stream #{{milestone.next_stream_goal}} Goal', 20, 14, 260, 28, { fontSize: 18, fontWeight: '700' }),
                 muted('Goal count', '{{milestone.streams_remaining}} to go', 280, 16, 140, 24, 14, 'right'),
                 { type: 'progress', name: 'Goal bar', content: '{{milestone.stream_goal_percent}}', x: 20, y: 48, width: 400, height: 14, style: { fontSize: 12 }, progress: { showLabel: false, thickness: 14, fill: '#8b5cf6' } }
             ])

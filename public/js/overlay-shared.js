@@ -2537,13 +2537,14 @@
             emitState();
             stage.appendChild(slide.layer);
             const ms = frozen || !old ? 0 : config.transitionMs;
+            const easing = config.easing || 'ease';
             if (ms && config.transition === 'fade') {
-                slide.layer.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ms, easing: 'ease', fill: 'both' });
-                old.layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, easing: 'ease', fill: 'both' });
+                slide.layer.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ms, easing, fill: 'both' });
+                old.layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, easing, fill: 'both' });
             } else if (ms && config.transition === 'slide') {
                 const [x, y] = transitionVectors();
-                slide.layer.animate([{ transform: `translate(${x}px,${y}px)` }, { transform: 'translate(0,0)' }], { duration: ms, easing: 'ease', fill: 'both' });
-                old.layer.animate([{ transform: 'translate(0,0)' }, { transform: `translate(${-x}px,${-y}px)` }], { duration: ms, easing: 'ease', fill: 'both' });
+                slide.layer.animate([{ transform: `translate(${x}px,${y}px)` }, { transform: 'translate(0,0)' }], { duration: ms, easing, fill: 'both' });
+                old.layer.animate([{ transform: 'translate(0,0)' }, { transform: `translate(${-x}px,${-y}px)` }], { duration: ms, easing, fill: 'both' });
             }
             if (config.kenBurns && item.kind === 'image' && !frozen) {
                 const grow = Math.random() < 0.5;

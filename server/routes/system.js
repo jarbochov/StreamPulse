@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
-const { readRequestBody, sendJson, sendError } = require('./helpers');
+const { readRequestBody, sendJson, sendText, sendError } = require('./helpers');
 const { normalizeSsnSessionId } = require('../ssn-config');
 
 function createSystemRoutes({
@@ -184,6 +184,39 @@ function createSystemRoutes({
         if (pathname === '/api/status' && req.method === 'GET') {
             const status = await getStatus();
             sendJson(res, status);
+            return true;
+        }
+
+        if (pathname.startsWith('/api/status/field/') && req.method === 'GET') {
+            const field = pathname.replace('/api/status/field/', '').toLowerCase();
+            const status = await getStatus();
+            let val = '';
+            if (field === 'uptime') val = status.stream?.streamUptime || String(Math.floor(status.uptime || 0));
+            else if (field === 'viewers') val = String(status.viewers?.current ?? 0);
+            else if (field === 'viewers_peak') val = String(status.viewers?.peak ?? 0);
+            else if (field === 'track') val = status.music?.track || '';
+            else if (field === 'artist') val = status.music?.artist || '';
+            else if (field === 'music_state') val = status.music?.state || '';
+            else if (field === 'latest_follow' || field === 'latest_follower') val = status.stream?.latestFollower || '';
+            else if (field === 'latest_sub' || field === 'latest_subscriber') val = status.stream?.latestSubscriber || '';
+            else if (field === 'session_active') val = status.sessionActive ? 'true' : 'false';
+            else if (field === 'game_plan_active' || field === 'game') val = status.gamePlan?.playingNow?.name || status.stream?.game?.name || '';
+            else if (field.startsWith('matchup_') && status.matchup) {
+                const sub = field.replace('matchup_', '');
+                if (sub === 'c1_score') val = String(status.matchup.competitors?.[0]?.score ?? 0);
+                else if (sub === 'c2_score') val = String(status.matchup.competitors?.[1]?.score ?? 0);
+                else if (sub === 'c1_name') val = status.matchup.competitors?.[0]?.name || '';
+                else if (sub === 'c2_name') val = status.matchup.competitors?.[1]?.name || '';
+                else if (sub === 'clock') val = status.matchup.clock?.formatted || '';
+                else if (sub === 'winner') val = status.matchup.winner || '';
+            } else if (field.startsWith('counter_') || field.startsWith('var_')) {
+                const varName = field.replace(/^(counter|var)_/, '');
+                const item = (status.customVars || []).find(v => v.name.toLowerCase() === varName);
+                val = item ? String(item.value ?? '') : '';
+            } else if (status[field] !== undefined && typeof status[field] !== 'object') {
+                val = String(status[field]);
+            }
+            sendText(res, val, 200, 'text/plain; charset=utf-8');
             return true;
         }
 

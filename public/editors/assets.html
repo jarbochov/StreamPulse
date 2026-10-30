@@ -132,7 +132,7 @@
             <select id="sort" aria-label="Sort">
                 <option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">Name A–Z</option><option value="size">Largest first</option><option value="smallest">Smallest first</option><option value="kind">Type</option><option value="used">Most used</option>
             </select>
-            <div class="seg"><button class="btn" id="view-grid" title="Grid view">▦ Grid</button><button class="btn" id="view-list" title="List view">☰ List</button></div>
+            <div class="seg"><button class="btn" id="view-grid" title="Grid view"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px;"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Grid</button><button class="btn" id="view-list" title="List view"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px;"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>List</button></div>
             <label class="size">Size <input id="thumb-size" type="range" min="64" max="360" step="8" value="180"></label>
         </div>
 
@@ -181,7 +181,13 @@
     const savePrefs = () => localStorage.setItem('assetLibraryPrefs', JSON.stringify(prefs));
     const formatSize = bytes => bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
     const formatDate = iso => new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-    const ICONS = { audio: '♪', video: '▶', font: 'Aa', text: '¶', other: '▫' };
+    const ICONS = {
+        audio: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
+        video: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+        font: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>',
+        text: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+        other: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>'
+    };
 
     function toast(text) {
         const el = $('toast');
@@ -235,7 +241,7 @@
         if (asset.kind === 'image') return `<img src="${esc(asset.url)}" alt="" loading="lazy" decoding="async">`;
         if (asset.kind === 'video') return `<video src="${esc(asset.url)}" muted preload="none" loop onmouseenter="this.play().catch(()=>{})" onmouseleave="this.pause()"></video>`;
         if (asset.kind === 'font') return `<div class="sample" style="font-family:'${esc(asset.family)}', sans-serif">The quick brown fox 123</div>`;
-        if (asset.kind === 'audio') return `<div class="icon">♪</div><audio controls preload="none" src="${esc(asset.url)}"></audio>`;
+        if (asset.kind === 'audio') return `<div class="icon">${ICONS.audio}</div><audio controls preload="none" src="${esc(asset.url)}"></audio>`;
         if (asset.kind === 'text') return `<div class="icon">${ICONS.text}</div>`;
         return `<div class="icon">${ICONS.other}</div>`;
     }

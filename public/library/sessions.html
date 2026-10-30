@@ -1154,7 +1154,9 @@
         const sessionTag = showSession ? `<div class="chat-session-tag">${sessionDisplay}</div>` : '';
 
         const isPinned = highlightsCache && highlightsCache.some(h => h.ts === m.ts && h.user === m.user);
-        const pinStar = isPinned ? '★' : '☆';
+        const STAR_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+        const STAR_OUTLINE_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+        const pinStar = isPinned ? STAR_ICON : STAR_OUTLINE_ICON;
         const pinClass = isPinned ? 'pin-btn pinned' : 'pin-btn';
         const sName = sessionName || m.session || (activeSessionFile === '__current__' ? currentSessionName() : activeSessionFile) || '';
         const pinData = `data-ts="${m.ts}" data-user="${escapeHtml(m.user)}" data-msg="${escapeHtml(m.message || '')}" data-html="${escapeHtml(m.messageHtml || '')}" data-avatar="${escapeHtml(m.avatar || '')}" data-session="${escapeHtml(sName)}"`;
@@ -1199,7 +1201,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ts, user })
             });
-            btn.textContent = '☆';
+            btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
             btn.classList.remove('pinned');
             if (highlightsCache) highlightsCache = highlightsCache.filter(h => !(h.ts === ts && h.user === user));
         } else {
@@ -1214,7 +1216,7 @@
                     session: btn.dataset.session
                 })
             });
-            btn.textContent = '⭐';
+            btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
             btn.classList.add('pinned');
             if (highlightsCache) highlightsCache.push({ ts, user, session: btn.dataset.session });
         }
@@ -1631,7 +1633,7 @@
             highlightsCache = allHighlights;
 
             if (allHighlights.length === 0) {
-                pane.innerHTML = '<div class="empty">No pinned messages yet. Click ☆ on chat messages to pin them.</div>';
+                pane.innerHTML = '<div class="empty">No pinned messages yet. Click the star icon on chat messages to pin them.</div>';
                 return;
             }
 
@@ -1756,7 +1758,7 @@
                     ${h.avatar ? `<img class="chat-avatar" src="${h.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
                     <div class="chat-meta">
                         <div><span class="chat-user dossier-clickable" data-chatter="${escapeHtml(h.user)}" title="View Chatter Dossier" style="color:${userColor(h.user)}">${escapeHtml(h.user)}</span>
-                        <button class="pin-btn pinned" onclick="unpinHighlight(this, ${h.ts}, '${escapeHtml(h.user)}')" title="Unpin">⭐</button></div>
+                        <button class="pin-btn pinned" onclick="unpinHighlight(this, ${h.ts}, '${escapeHtml(h.user)}')" title="Unpin"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></button></div>
                         <div class="chat-text">${displayHtml}</div>
                         <div class="chat-session-tag" style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
                             <span>Pinned ${formatDateTimestamp(h.pinnedAt)} · Key: <code>${h.ts}:${escapeHtml(h.user)}</code></span>

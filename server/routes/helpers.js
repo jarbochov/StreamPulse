@@ -81,6 +81,29 @@ function safeWriteFileSync(targetPath, data) {
     fs.renameSync(tempPath, targetPath);
 }
 
+async function parseJsonOrQuery(req, url) {
+    let data = {};
+    if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+        try {
+            const raw = await readRequestBody(req);
+            if (raw && raw.trim()) {
+                data = JSON.parse(raw);
+            }
+        } catch (_) {}
+    }
+    if (url && url.searchParams) {
+        for (const [key, value] of url.searchParams.entries()) {
+            if (data[key] === undefined) {
+                if (value === 'true') data[key] = true;
+                else if (value === 'false') data[key] = false;
+                else if (!isNaN(value) && value.trim() !== '') data[key] = Number(value);
+                else data[key] = value;
+            }
+        }
+    }
+    return data;
+}
+
 module.exports = {
     readRequestBody,
     readBinaryBody,
@@ -88,6 +111,7 @@ module.exports = {
     sendText,
     sendError,
     escapeHtml,
-    safeWriteFileSync
+    safeWriteFileSync,
+    parseJsonOrQuery
 };
 

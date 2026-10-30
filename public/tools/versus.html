@@ -653,7 +653,7 @@
                                     <div class="micro-heading" style="margin-bottom: 0.2rem;">Fight Card &amp; Exhibition Queue</div>
                                     <div style="font-size: 0.75rem; color: var(--text-muted);">Step through a series of matches or sets with 1 click without creating a bracket.</div>
                                 </div>
-                                <div style="display: flex; gap: 0.35rem; align-items: center;">
+                                <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
                                     <button type="button" class="btn-secondary btn-sm" onclick="stepMatchupQueue(-1)" title="Go to previous match in queue">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Prev
                                     </button>
@@ -662,6 +662,9 @@
                                     </button>
                                     <button type="button" class="btn-primary btn-sm" onclick="toggleAddMatchupQueueModal(true)" title="Add a new match to the queue">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> + Add Match
+                                    </button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="clearMatchupQueue()" title="Clear all matches in fight card queue">
+                                        Clear
                                     </button>
                                 </div>
                             </div>
@@ -1221,6 +1224,10 @@
                                         <span>Auto-fit tight bounding box (<code>?fit=content</code>)</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="matchup-opt-wide" onchange="updateMatchupOverlayUrl()">
+                                        <span>Wide Stage Layout (<code>?wide=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="matchup-opt-mirror" onchange="updateMatchupOverlayUrl()">
                                         <span>Mirror / reflect pod layout (<code>?mirror=1</code>)</span>
                                     </label>
@@ -1439,6 +1446,10 @@
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="tourney-opt-fit" onchange="syncTourneyOptFromMain('fit', this.checked ? '1' : '0')">
                                         <span>Auto-scale entire bracket to browser viewport (<code>?fit=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-wide" onchange="updateTourneyOverlayUrl()">
+                                        <span>Wide Bracket Tree Layout (<code>?wide=1</code>)</span>
                                     </label>
                                 </div>
                             </div>
@@ -1964,6 +1975,7 @@
             const tourneyBadgeColorInput = $('tourney-opt-badgecolor');
             if (tourneyBadgeColorInput && tourneyBadgeColorInput.value.trim()) urlParams.set('badgecolor', tourneyBadgeColorInput.value.trim());
             if (tourneyFitWholeBracket) urlParams.set('fit', '1');
+            if ($('tourney-opt-wide') && $('tourney-opt-wide').checked) urlParams.set('wide', '1');
 
             const qs = urlParams.toString();
             const fullUrl = `${origin}/overlays/tournament.html${qs ? `?${qs}` : ''}`;
@@ -2132,6 +2144,7 @@
             if (showEstCheck && !showEstCheck.checked) urlParams.set('showest', '0');
             if (fitCheck && fitCheck.checked) urlParams.set('fit', 'content');
             if (confettiCheck && !confettiCheck.checked) urlParams.set('confetti', '0');
+            if ($('matchup-opt-wide') && $('matchup-opt-wide').checked) urlParams.set('wide', '1');
 
             const qs = urlParams.toString();
             const fullUrl = `${origin}/overlays/matchup.html${qs ? `?${qs}` : ''}`;
@@ -3403,6 +3416,9 @@
                                     Load
                                 </button>
                             ` : ''}
+                            <button type="button" class="btn-secondary btn-sm" onclick="duplicateMatchupQueue('${item.id}')" title="Duplicate match in fight card">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                            </button>
                             <button type="button" class="btn-secondary btn-sm" onclick="deleteMatchupQueue('${item.id}')" title="Delete from fight card">
                                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                             </button>
@@ -3499,6 +3515,37 @@
                 }
             } catch {
                 toast('Error deleting match');
+            }
+        }
+
+        async function duplicateMatchupQueue(id) {
+            try {
+                const res = await fetch('/api/matchup/queue/duplicate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    loadMatchup();
+                    toast('Match duplicated in queue');
+                } else toast(data.error || 'Failed to duplicate match');
+            } catch {
+                toast('Error duplicating match');
+            }
+        }
+
+        async function clearMatchupQueue() {
+            if (!confirm('Clear all queued matches in the fight card?')) return;
+            try {
+                const res = await fetch('/api/matchup/queue', { method: 'DELETE' });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    loadMatchup();
+                    toast('Fight card queue cleared');
+                }
+            } catch {
+                toast('Error clearing queue');
             }
         }
 

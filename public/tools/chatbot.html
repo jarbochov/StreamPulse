@@ -311,6 +311,9 @@
                     <input type="text" id="cmd-filter" class="search-input" placeholder="Filter commands...">
                     <button class="btn" id="add-command">+ Add command</button>
                     <button class="btn primary" id="save-commands">Save commands</button>
+                    <button class="btn small" id="export-commands" type="button" title="Export commands to JSON"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Export</button>
+                    <button class="btn small" id="import-commands" type="button" title="Import commands from JSON"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg> Import</button>
+                    <input type="file" id="import-commands-file" accept=".json,application/json" style="display:none;">
                 </div>
             </div>
 
@@ -490,6 +493,9 @@
                     <input type="text" id="trig-filter" class="search-input" placeholder="Filter triggers...">
                     <button class="btn" id="add-trigger">+ Add trigger</button>
                     <button class="btn primary" id="save-triggers">Save triggers</button>
+                    <button class="btn small" id="export-triggers" type="button" title="Export triggers to JSON"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Export</button>
+                    <button class="btn small" id="import-triggers" type="button" title="Import triggers from JSON"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg> Import</button>
+                    <input type="file" id="import-triggers-file" accept=".json,application/json" style="display:none;">
                 </div>
             </div>
             <div id="triggers"></div>
@@ -718,6 +724,7 @@ function commandHtml(c, i) {
                 <div class="item-advanced-body">
                     <div class="row">
                         <label class="check" title="Mod cooldown"><input data-k="modCooldown" type="number" min="0" style="width:4.5rem;" value="${c.modCooldown ?? ''}" placeholder="default"> Mod cooldown (s)</label>
+                        <label class="check" title="Per-user cooldown (seconds)"><input data-k="userCooldown" type="number" min="0" style="width:4.5rem;" value="${c.userCooldown ?? ''}" placeholder="none"> User cooldown (s)</label>
                         <label class="check" title="Limit per person"><input data-k="limit" type="number" min="1" style="width:4.5rem;" value="${c.limit ?? ''}" placeholder="none"> Limit per <select data-k="limitPer" style="padding:.2rem .4rem;">${[['session','session'],['day','day'],['forever','all time']].map(([v, l]) => `<option value="${v}" ${c.limitPer === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
                         <label class="check" title="One reply per line, random one picked"><input type="checkbox" data-k="random" ${c.random ? 'checked' : ''}> Random line</label>
                     </div>
@@ -760,6 +767,7 @@ function readCommands() {
             access: get('access')?.value || 'everyone',
             limit: get('limit')?.value || '',
             modCooldown: get('modCooldown')?.value || '',
+            userCooldown: get('userCooldown')?.value || '',
             limitPer: get('limitPer')?.value || 'session',
             random: get('random')?.checked || false,
             counter: get('useCounter')?.checked ? (get('counter')?.value || '') : '',
@@ -883,11 +891,12 @@ function triggerHtml(t, i) {
             <details class="item-advanced">
                 <summary>${svgIcon('gear')} Advanced trigger options (limits, mod cooldown, whole words)</summary>
                 <div class="item-advanced-body">
-                    <div class="row">
+                    <div class="row" style="flex-wrap:wrap;gap:.6rem;align-items:center;">
                         <label class="check"><input type="checkbox" data-k="wholeWord" ${t.wholeWord !== false ? 'checked' : ''}> Whole words only</label>
                         <label class="check"><input type="checkbox" data-k="random" ${t.random ? 'checked' : ''}> Pick random line</label>
                         <label class="check" title="Mod cooldown"><input data-k="modCooldown" type="number" min="0" style="width:4.5rem" value="${t.modCooldown ?? ''}" placeholder="default"> Mod cooldown (s)</label>
                         <label class="check" title="Limit per person"><input data-k="limit" type="number" min="1" style="width:4.5rem" value="${t.limit ?? ''}" placeholder="none"> Limit per <select data-k="limitPer" style="padding:.2rem .4rem;">${[['session','session'],['day','day'],['forever','all time']].map(([v, l]) => `<option value="${v}" ${t.limitPer === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+                        <label class="f" style="margin-left:.25rem;"><span>Matching mode</span><select data-k="matchMode"><option value="contains" ${(!t.matchMode || t.matchMode === 'contains') ? 'selected' : ''}>Contains</option><option value="exact" ${t.matchMode === 'exact' ? 'selected' : ''}>Exact match</option><option value="starts_with" ${t.matchMode === 'starts_with' ? 'selected' : ''}>Starts with</option><option value="ends_with" ${t.matchMode === 'ends_with' ? 'selected' : ''}>Ends with</option><option value="regex" ${t.matchMode === 'regex' ? 'selected' : ''}>Regex pattern</option></select></label>
                     </div>
                 </div>
             </details>
@@ -901,7 +910,7 @@ function triggerHtml(t, i) {
 }
 const listCfg = {
     messages: { el: 'messages', html: messageHtml, blank: () => ({ _open: true, kind: 'interval', every: 30, minChat: 5, minute: 0, time: '12:00', days: [], enabled: true, liveOnly: false, text: '' }) },
-    triggers: { el: 'triggers', html: triggerHtml, blank: () => ({ _open: true, words: [], cooldown: 60, enabled: true, wholeWord: true, access: 'everyone', text: '' }) }
+    triggers: { el: 'triggers', html: triggerHtml, blank: () => ({ _open: true, words: [], cooldown: 60, enabled: true, wholeWord: true, access: 'everyone', text: '', matchMode: 'contains' }) }
 };
 function readList(name) {
     return [...document.querySelectorAll(`#${listCfg[name].el} .item`)].map(item => {
@@ -1215,6 +1224,52 @@ $('save-commands').onclick = async () => {
         if (list.some(c => !/^[a-z0-9_]{1,30}$/i.test(String(c.name).replace(/^[^a-z0-9_]+/i, '')))) throw new Error('Each command needs a name (letters, numbers, underscore)');
         applyState(await api('/api/chatbot', 'PUT', { commands: list })); toast('Commands saved');
     } catch (e) { toast(e.message); }
+};
+$('export-commands').onclick = async () => {
+    try {
+        const data = await api('/api/chatbot/commands/export');
+        download('streampulse-commands.json', 'application/json', JSON.stringify(data, null, 2));
+        toast('Commands exported');
+    } catch (e) { toast(e.message); }
+};
+$('import-commands').onclick = () => $('import-commands-file').click();
+$('import-commands-file').onchange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+        try {
+            const parsed = JSON.parse(ev.target.result);
+            const res = await api('/api/chatbot/commands/import', 'POST', parsed);
+            applyState(res);
+            toast('Imported commands');
+        } catch (err) { toast(err.message || 'Import failed'); }
+        e.target.value = '';
+    };
+    reader.readAsText(file);
+};
+$('export-triggers').onclick = async () => {
+    try {
+        const data = await api('/api/chatbot/triggers/export');
+        download('streampulse-triggers.json', 'application/json', JSON.stringify(data, null, 2));
+        toast('Triggers exported');
+    } catch (e) { toast(e.message); }
+};
+$('import-triggers').onclick = () => $('import-triggers-file').click();
+$('import-triggers-file').onchange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+        try {
+            const parsed = JSON.parse(ev.target.result);
+            const res = await api('/api/chatbot/triggers/import', 'POST', parsed);
+            applyState(res);
+            toast('Imported triggers');
+        } catch (err) { toast(err.message || 'Import failed'); }
+        e.target.value = '';
+    };
+    reader.readAsText(file);
 };
 function applyPreset(item, presetKey) {
     const methodEl = item.querySelector('[data-k="httpMethod"]');

@@ -1507,9 +1507,39 @@ function buildStatusSnapshot() {
     const { archivedSessions, backupFiles, hashtagStats, categoryTotals } = statusHeavyCache;
     const viewerSummary = getViewerSummary();
     const goalsSnapshot = buildGoalsSnapshot();
+    const startedAtTime = Date.parse(normalizeViewerStats(chatData.viewerStats).streamStartedAt || chatData.startedAt || '');
+    const streamUptimeSec = Number.isFinite(startedAtTime) && startedAtTime > 0
+        ? Math.max(0, Math.floor((Date.now() - startedAtTime) / 1000))
+        : Math.floor(process.uptime());
+    const formatDurationClock = s => {
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    };
+    let gamePlanSummary = null;
+    try {
+        const planSnapshot = buildGamePlanSnapshot();
+        const playingNowItem = planSnapshot.items?.find(i => i.id === planSnapshot.playingNowId) || null;
+        gamePlanSummary = {
+            playingNowId: planSnapshot.playingNowId || null,
+            playingNow: playingNowItem ? {
+                id: playingNowItem.id,
+                name: playingNowItem.name,
+                category: playingNowItem.twitchCategory || playingNowItem.name,
+                notes: playingNowItem.notes || ''
+            } : null,
+            scheduledCount: (planSnapshot.items || []).filter(i => i.list === 'scheduled').length
+        };
+    } catch {}
     return {
         customVars: variablesStore.list(),
         poll: (pollService ? pollService.getLatestPoll() : twitchService.getLatestPoll()),
+        tournament: pollService ? pollService.getTournament({ isPoll: false }) : null,
+        pollTournament: pollService ? pollService.getTournament({ isPoll: true }) : null,
+        matchup: matchupService ? matchupService.getMatchup() : null,
+        randomizer: overlayService.getRandomizerStatus ? overlayService.getRandomizerStatus() : null,
+        gamePlan: gamePlanSummary,
         processStartedAt: PROCESS_STARTED_AT,
         uptime: process.uptime(),
         memory: process.memoryUsage(),
@@ -1540,7 +1570,11 @@ function buildStatusSnapshot() {
         stream: {
             title: chatData.streamInfo?.[chatData.streamInfo.length - 1]?.title || '',
             category: currentCategoryStats(categoryTotals),
-            game: publicGameInfo(chatData.streamInfo?.[chatData.streamInfo.length - 1]?.category)
+            game: publicGameInfo(chatData.streamInfo?.[chatData.streamInfo.length - 1]?.category),
+            uptimeSeconds: streamUptimeSec,
+            streamUptime: formatDurationClock(streamUptimeSec),
+            latestFollower: chatData.followers?.[chatData.followers.length - 1]?.chatname || '',
+            latestSubscriber: chatData.subscribers?.[chatData.subscribers.length - 1]?.chatname || ''
         },
         goals: goalsSnapshot.summary,
         goalMetrics: goalsSnapshot.metrics,
@@ -1561,12 +1595,16 @@ function buildStatusSnapshot() {
             count: backupFiles.length,
             latest: backupFiles[0] || null
         },
-        chatbot: chatbot.getStats ? chatbot.getStats() : { enabled: false, commandsCount: 0, timedCount: 0, quotesCount: 0, triggersCount: 0 },
+        chatbot: {
+            ...(chatbot.getStats ? chatbot.getStats() : { enabled: false, commandsCount: 0, timedCount: 0, quotesCount: 0, triggersCount: 0 }),
+            botActive: chatbot.isReady ? chatbot.isReady().ready : false
+        },
         alerts: {
             enabled: alertEngine ? (alertEngine.getConfig()?.enabled !== false) : false,
             rulesCount: alertEngine ? (alertEngine.getConfig()?.rules?.length || 0) : 0,
             queuePending: alertEngine ? (alertEngine.getQueueState()?.pending || 0) : 0,
-            paused: alertEngine ? (alertEngine.getQueueState()?.paused || false) : false
+            paused: alertEngine ? (alertEngine.getQueueState()?.paused || false) : false,
+            current: alertEngine ? alertEngine.getQueueState()?.current || null : null
         },
         modules: {
             chatbot: config.chatbot_enabled !== false,
@@ -1779,7 +1817,7 @@ const server = http.createServer(async (req, res) => {
 
     if (await handleWeatherRoutes(req, res, url, pathname)) return;
 
-    if (await handleGamePlanRoutes(req, res, pathname)) return;
+    if (await handleGamePlanRoutes(req, res, pathname, url)) return;
     if (await handlePromoRoutes(req, res, pathname)) return;
 
 

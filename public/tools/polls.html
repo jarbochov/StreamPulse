@@ -342,8 +342,8 @@
                                 <input type="text" id="match-details-input" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.55rem;" placeholder="Match details (e.g. Game 3 · Smashville or Tiebreaker)" onchange="saveMatchDetails()">
                             </div>
 
-                            <div style="display: flex; gap: 0.4rem; margin-top: 0.6rem;" id="match-actions-bar">
-                                <button type="button" class="btn-primary" style="flex: 1;" id="btn-start-match" onclick="startCurrentTournamentMatch()">
+                            <div style="display: flex; gap: 0.4rem; margin-top: 0.6rem; flex-wrap: wrap;" id="match-actions-bar">
+                                <button type="button" class="btn-primary" style="flex: 1; min-width: 140px;" id="btn-start-match" onclick="startCurrentTournamentMatch()">
                                     Start Match Vote
                                 </button>
                                 <button type="button" class="btn-secondary" id="btn-advance-e1" onclick="advanceSpecificEntrant(1)" title="Advance Entrant 1">
@@ -351,6 +351,12 @@
                                 </button>
                                 <button type="button" class="btn-secondary" id="btn-advance-e2" onclick="advanceSpecificEntrant(2)" title="Advance Entrant 2">
                                     Advance #2
+                                </button>
+                                <button type="button" class="btn-secondary" id="btn-tiebreak-coin" onclick="quickTieBreak('coinFlip')" title="Roll a 50/50 coin flip to pick a winner">
+                                    Coin Flip
+                                </button>
+                                <button type="button" class="btn-secondary" id="btn-tiebreak-seed" onclick="quickTieBreak('higherSeed')" title="Advance the higher-seeded entrant">
+                                    Higher Seed
                                 </button>
                                 <button type="button" class="btn-danger" id="btn-reset-match" onclick="resetCurrentMatch()" title="Reset this match's scores">
                                     Reset Match
@@ -777,6 +783,10 @@
                                         <input type="checkbox" id="tourney-opt-fit" checked onchange="updateTourneyOverlayUrl()">
                                         <span>Auto-fit whole bracket to screen (<code>?fit=1</code>)</span>
                                     </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-wide" onchange="updateTourneyOverlayUrl()">
+                                        <span>Wide Bracket Tree Layout (<code>?wide=1</code>)</span>
+                                    </label>
                                 </div>
                             </div>
                         </div>
@@ -903,6 +913,7 @@
                         champion: $('tourney-opt-champion')?.checked,
                         confetti: $('tourney-opt-confetti')?.checked,
                         fit: $('tourney-opt-fit')?.checked,
+                        wide: $('tourney-opt-wide')?.checked,
                     }
                 };
                 localStorage.setItem(POLLS_OVERLAY_PREFS_KEY, JSON.stringify(prefs));
@@ -945,7 +956,7 @@
                         syncColorPicker('tourney-opt-badgecolor', 'tourney-opt-badgecolor-picker');
                     }
                     if (t.logosize !== undefined && $('tourney-opt-logosize')) $('tourney-opt-logosize').value = t.logosize;
-                    ['showlogo', 'highlight', 'center', 'title', 'format', 'mode', 'entrants', 'status', 'rounds', 'scores', 'seeds', 'tags', 'badges', 'champion', 'confetti', 'fit'].forEach(k => {
+                    ['showlogo', 'highlight', 'center', 'title', 'format', 'mode', 'entrants', 'status', 'rounds', 'scores', 'seeds', 'tags', 'badges', 'champion', 'confetti', 'fit', 'wide'].forEach(k => {
                         const el = $('tourney-opt-' + k);
                         if (el && t[k] !== undefined) el.checked = Boolean(t[k]);
                     });
@@ -1024,6 +1035,9 @@
             const fitCheck = $('tourney-opt-fit');
             if (fitCheck && fitCheck.checked) {
                 urlParams.set('fit', '1');
+            }
+            if ($('tourney-opt-wide') && $('tourney-opt-wide').checked) {
+                urlParams.set('wide', '1');
             }
 
             const qs = urlParams.toString();
@@ -2363,6 +2377,43 @@
                 } else toast(data.error || 'Failed to advance winner.');
             } catch {
                 toast('Failed to advance winner.');
+            }
+        }
+
+        async function quickTieBreak(mode) {
+            const m = getCurrentMatch();
+            if (!m) {
+                toast('No active match selected.');
+                return;
+            }
+            const e1 = m.entrant1?.name;
+            const e2 = m.entrant2?.name;
+            if (!e1 || !e2 || e1 === 'TBD' || e2 === 'TBD' || e1 === 'BYE' || e2 === 'BYE') {
+                toast('Both match competitors must be decided first.');
+                return;
+            }
+            let winner = null;
+            if (mode === 'higherSeed') {
+                const s1 = m.entrant1?.seed || 999;
+                const s2 = m.entrant2?.seed || 999;
+                winner = s1 <= s2 ? e1 : e2;
+            } else {
+                winner = Math.random() < 0.5 ? e1 : e2;
+            }
+            try {
+                const res = await fetch('/api/polls/tournament/advance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ matchId: m.id, winner })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    activeTourneyData = data.tournament;
+                    renderTournamentStudio(activeTourneyData);
+                    toast(`Tie-breaker resolved: ${winner} advances!`);
+                } else toast(data.error || 'Failed to resolve tie-breaker.');
+            } catch {
+                toast('Failed to resolve tie-breaker.');
             }
         }
 

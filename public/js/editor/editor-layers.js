@@ -69,7 +69,7 @@ export function renderLayers() {
             const closed = state.collapsedGroups.has(row.header);
             const allHidden = row.members.every(m => m.visible === false);
             return `<div class="layer-group${closed ? ' collapsed' : ''}${ids.every(id => state.selectedIds.has(id)) ? ' selected' : ''}" data-group="${esc(row.header)}">
-                <span class="chev" title="${closed ? 'Expand' : 'Collapse'} group">▾</span>
+                <span class="chev" title="${closed ? 'Expand' : 'Collapse'} group"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
                 <span class="layer-name" title="Double-click to rename">${esc(row.members.find(m => m.groupName)?.groupName || 'Group')} <small style="font-weight:400;opacity:.7">· ${ids.length}</small></span>
                 <span class="layer-actions"><button data-layer-action="group-visible" title="${allHidden ? 'Show' : 'Hide'} group" aria-label="${allHidden ? 'Show' : 'Hide'} group">${allHidden ? ICON.eyeOff : ICON.eye}</button></span>
             </div>`;
@@ -79,7 +79,7 @@ export function renderLayers() {
         <div class="layer${state.selectedIds.has(el.id) ? ' selected' : ''}${el.visible === false ? ' is-hidden' : ''}${inGroup}" data-id="${esc(el.id)}">
             <span class="layer-grip" title="Drag to reorder">${ICON.grip}</span>
             <span class="layer-icon">${TYPE_META[el.type]?.icon || '•'}</span>
-            <span class="layer-name" title="Double-click to rename">${pagesOn() && el.page === '*' ? '◈ ' : ''}${esc(displayName(el))}</span>
+            <span class="layer-name" title="Double-click to rename">${pagesOn() && el.page === '*' ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block;vertical-align:-1px;margin-right:3px;opacity:0.8;" title="Shared on all pages"><polygon points="12 2 22 12 12 22 2 12"/></svg>' : ''}${esc(displayName(el))}</span>
             <span class="layer-actions">
                 <button data-layer-action="lock" class="${el.locked ? 'on' : ''}" title="${el.locked ? 'Unlock' : 'Lock'}" aria-label="${el.locked ? 'Unlock' : 'Lock'} layer">${el.locked ? ICON.lock : ICON.unlock}</button>
                 <button data-layer-action="visible" title="${el.visible === false ? 'Show' : 'Hide'}" aria-label="${el.visible === false ? 'Show' : 'Hide'} layer">${el.visible === false ? ICON.eyeOff : ICON.eye}</button>
@@ -169,8 +169,8 @@ export function renderPageSwitch() {
     if (pageCount) pageCount.textContent = on ? `(${state.overlay.pages.items.length})` : '';
     if (!on) return;
     const live = liveId(), isLive = state.curPage === live;
-    box.innerHTML = `<select id="page-select" aria-label="Page being edited">${state.overlay.pages.items.map((p, i) => `<option value="${esc(p.id)}"${p.id === state.curPage ? ' selected' : ''}>${i + 1}. ${esc(p.name)}${p.enabled === false ? ' (off)' : ''}${p.id === live ? '  ● live' : ''}</option>`).join('')}</select>
-        <button id="live-toggle" aria-pressed="${isLive}" ${state.isNew ? 'disabled' : ''} title="${isLive ? 'This page is showing on stream' : 'Show this page on stream'}">${isLive ? '● Live' : 'Make live'}</button>`;
+    box.innerHTML = `<select id="page-select" aria-label="Page being edited">${state.overlay.pages.items.map((p, i) => `<option value="${esc(p.id)}"${p.id === state.curPage ? ' selected' : ''}>${i + 1}. ${esc(p.name)}${p.enabled === false ? ' (off)' : ''}${p.id === live ? '  [Live]' : ''}</option>`).join('')}</select>
+        <button id="live-toggle" aria-pressed="${isLive}" ${state.isNew ? 'disabled' : ''} title="${isLive ? 'This page is showing on stream' : 'Show this page on stream'}">${isLive ? '<span class="status-dot live" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#3fb950;margin-right:4px;"></span>Live' : 'Make live'}</button>`;
 }
 
 export function renderPagesPanel() {
@@ -196,9 +196,9 @@ export function renderPagesPanel() {
                 <span class="pg-meta">${p.id === live ? '<span class="pg-live">Live</span> · ' : ''}${p.enabled === false ? 'Off · ' : ''}${count(p.id)} element${count(p.id) === 1 ? '' : 's'}${p.duration ? ` · ${p.duration}s` : ''}</span></span>
             <span class="pg-actions">
                 <button data-pg="toggle" class="${p.enabled === false ? '' : 'on'}" title="${p.enabled === false ? 'Enable this page' : 'Disable this page (skipped on stream)'}" aria-pressed="${p.enabled !== false}" ${p.enabled !== false && items.filter(x => x.enabled !== false).length === 1 ? 'disabled' : ''}>${p.enabled === false ? ICON.eyeOff : ICON.eye}</button>
-                ${p.id === live || p.enabled === false ? '' : `<button data-pg="live" class="go" title="${state.isNew ? 'Save first to go live' : 'Make this page live'}" ${state.isNew ? 'disabled' : ''}>▶</button>`}
-                <button data-pg="dup" title="Duplicate page">⧉</button>
-                <button data-pg="del" class="danger" title="Delete page" ${items.length === 1 ? 'disabled' : ''}>✕</button>
+                ${p.id === live || p.enabled === false ? '' : `<button data-pg="live" class="go" title="${state.isNew ? 'Save first to go live' : 'Make this page live'}" ${state.isNew ? 'disabled' : ''}><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>`}
+                <button data-pg="dup" title="Duplicate page"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                <button data-pg="del" class="danger" title="Delete page" ${items.length === 1 ? 'disabled' : ''}><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </span>
         </div>`;
 

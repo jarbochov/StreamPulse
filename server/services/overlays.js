@@ -1401,6 +1401,43 @@ function createOverlayService({
         }
     }
 
+    let lastRandomizerStatus = {
+        lastMode: 'roller',
+        lastDuration: 6,
+        lastWinner: '',
+        lastPreset: null,
+        remaining: 0,
+        removed: 0,
+        elimination: false,
+        at: null
+    };
+
+    function setRandomizerStatus(status = {}) {
+        lastRandomizerStatus = { ...lastRandomizerStatus, ...status };
+    }
+
+    function getRandomizerStatus() {
+        if (!lastRandomizerStatus.at) {
+            try {
+                const presets = loadRandomizerPresets();
+                const p = presets[0];
+                if (p) {
+                    return {
+                        lastMode: p.mode || 'roller',
+                        lastDuration: p.duration || 6,
+                        lastWinner: '',
+                        lastPreset: p.id || 'default',
+                        remaining: (p.choices || []).length - (p.eliminated || []).length,
+                        removed: (p.eliminated || []).length,
+                        elimination: Boolean(p.eliminationMode),
+                        at: null
+                    };
+                }
+            } catch {}
+        }
+        return lastRandomizerStatus;
+    }
+
     function loadCustomOverlays() {
         try {
             if (fs.existsSync(customOverlaysPath)) {
@@ -1756,6 +1793,8 @@ function createOverlayService({
         saveRandomizerButtonPresets,
         loadRandomizerQuotePresets,
         saveRandomizerQuotePresets,
+        getRandomizerStatus,
+        setRandomizerStatus,
         // Thumbnail helpers
         generateSvgThumbnail: (overlay, opts = {}) => generateSvgThumbnail(overlay, {
             customOverlayAssetsDir,

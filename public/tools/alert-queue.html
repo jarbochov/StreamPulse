@@ -41,16 +41,48 @@
 <header>
     <div class="status-row">
         <div class="status" id="status"><span class="status-dot"></span> Loading…</div>
-        <label class="filter-toggle" title="Filter out stream events that didn't trigger an alert">
-            <input type="checkbox" id="hide-unmatched">
-            <span>Hide unmatched</span>
-        </label>
+        <div class="ctl">
+            <button data-queue="skip">Skip</button>
+            <button data-queue="clear" title="Drop alerts waiting to play">Clear waiting</button>
+            <button data-queue="clear-log" title="Empty the lists below">Clear lists</button>
+            <button id="pause" data-queue="pause">Pause</button>
+        </div>
     </div>
-    <div class="ctl">
-        <button data-queue="skip">Skip</button>
-        <button data-queue="clear" title="Drop alerts waiting to play">Clear waiting</button>
-        <button data-queue="clear-log" title="Empty the lists below">Clear lists</button>
-        <button id="pause" data-queue="pause">Pause</button>
+    <div style="display: flex; gap: .5rem; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+        <div style="display: flex; gap: .4rem; align-items: center; flex: 1; min-width: 260px; flex-wrap: wrap;">
+            <select id="type-filter" style="background: var(--bg-raised, #21262d); color: var(--text, #c9d1d9); border: 1px solid var(--border, #30363d); border-radius: 6px; padding: .28rem .45rem; font: inherit; font-size: 11px;">
+                <option value="all">All Events</option>
+                <option value="follow">Follows</option>
+                <option value="sub">Subs &amp; Resubs</option>
+                <option value="gift">Gifted Subs</option>
+                <option value="bits">Bits &amp; Cheers</option>
+                <option value="raid">Raids</option>
+                <option value="redeem">Redeems</option>
+                <option value="chat_word">Chat Words</option>
+                <option value="test">Test Alerts Only</option>
+            </select>
+            <input type="search" id="queue-search" placeholder="Search user or rule…" style="background: var(--bg-inset, #0d1117); color: var(--text, #c9d1d9); border: 1px solid var(--border, #30363d); border-radius: 6px; padding: .26rem .55rem; font: inherit; font-size: 11px; flex: 1; min-width: 120px;">
+            <label class="filter-toggle" title="Filter out stream events that didn't trigger an alert">
+                <input type="checkbox" id="hide-unmatched">
+                <span>Hide unmatched</span>
+            </label>
+        </div>
+        <div style="display: flex; gap: .35rem; align-items: center;">
+            <select id="quick-test-type" style="background: var(--bg-raised, #21262d); color: var(--text, #c9d1d9); border: 1px solid var(--border, #30363d); border-radius: 6px; padding: .28rem .45rem; font: inherit; font-size: 11px;">
+                <option value="follow">Follow</option>
+                <option value="sub">Sub (T1)</option>
+                <option value="resub">Resub (12 mos)</option>
+                <option value="gift">Gift Sub (5x)</option>
+                <option value="bits">Bits (500)</option>
+                <option value="raid">Raid (50)</option>
+                <option value="redeem">Redeem</option>
+                <option value="chat_word">Chat Word</option>
+            </select>
+            <button type="button" id="btn-quick-test" title="Dispatch simulated test event to alerts queue">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <span>Dispatch Test</span>
+            </button>
+        </div>
     </div>
 </header>
 <h2>Events (latest 100)</h2>
@@ -67,12 +99,54 @@
     const $ = id => document.getElementById(id);
     let queue = {};
     let hideUnmatched = localStorage.getItem('alerts.hideUnmatched') === '1';
+    let typeFilter = localStorage.getItem('alerts.queueTypeFilter') || 'all';
+    let searchQuery = localStorage.getItem('alerts.queueSearchQuery') || '';
 
     $('hide-unmatched').checked = hideUnmatched;
     $('hide-unmatched').addEventListener('change', e => {
         hideUnmatched = e.target.checked;
         localStorage.setItem('alerts.hideUnmatched', hideUnmatched ? '1' : '0');
         render();
+    });
+
+    if ($('type-filter')) {
+        $('type-filter').value = typeFilter;
+        $('type-filter').addEventListener('change', e => {
+            typeFilter = e.target.value;
+            localStorage.setItem('alerts.queueTypeFilter', typeFilter);
+            render();
+        });
+    }
+
+    if ($('queue-search')) {
+        $('queue-search').value = searchQuery;
+        $('queue-search').addEventListener('input', e => {
+            searchQuery = e.target.value.trim().toLowerCase();
+            localStorage.setItem('alerts.queueSearchQuery', searchQuery);
+            render();
+        });
+    }
+
+    const samplePayloads = {
+        follow: { type: 'follow', user: 'SampleFollower' },
+        sub: { type: 'sub', user: 'SampleSub', tier: '1000' },
+        resub: { type: 'resub', user: 'SampleResub', months: 12, cumulativeMonths: 12, tier: '1000' },
+        gift: { type: 'gift', user: 'SampleGifter', count: 5, tier: '1000' },
+        bits: { type: 'bits', user: 'SampleCheerer', amount: 500 },
+        raid: { type: 'raid', user: 'SampleRaider', viewers: 50 },
+        redeem: { type: 'redeem', user: 'SampleViewer', title: 'Hydrate' },
+        chat_word: { type: 'chat_word', user: 'SampleChatter', word: '!hype', message: '!hype' }
+    };
+    $('btn-quick-test')?.addEventListener('click', async () => {
+        const type = $('quick-test-type')?.value || 'follow';
+        const payload = samplePayloads[type] || samplePayloads.follow;
+        try {
+            await post('/api/alerts/test-event', payload);
+            refresh();
+            toast(`Dispatched test ${type} event`);
+        } catch (err) {
+            toast(err.message);
+        }
     });
 
     function toast(msg) {
@@ -88,6 +162,19 @@
         if (!res.ok) throw new Error(data.error || 'Request failed');
     }
 
+    function matchesTypeFilter(type, isTest) {
+        if (typeFilter === 'all') return true;
+        if (typeFilter === 'test') return Boolean(isTest);
+        if (typeFilter === 'sub') return type === 'sub' || type === 'resub';
+        if (typeFilter === 'chat_word') return type === 'chat_word' || type === 'chat_command';
+        return type === typeFilter;
+    }
+
+    function matchesSearch(text) {
+        if (!searchQuery) return true;
+        return String(text || '').toLowerCase().includes(searchQuery);
+    }
+
     let _lastStatusHtml = '', _lastEventsHtml = '', _lastHistoryHtml = '';
     function render() {
         const isPaused = Boolean(queue.paused);
@@ -100,7 +187,15 @@
         $('pause').dataset.queue = isPaused ? 'resume' : 'pause';
 
         const rawEvents = queue.events || [];
-        const ev = rawEvents.filter(e => !hideUnmatched || e.status !== 'no matching rule');
+        const ev = rawEvents.filter(e => {
+            if (hideUnmatched && e.status === 'no matching rule') return false;
+            if (!matchesTypeFilter(e.event?.type, e.test || e.status === 'test')) return false;
+            if (searchQuery) {
+                const combined = `${e.event?.user || ''} ${e.event?.name || ''} ${e.event?.command || ''} ${e.event?.type || ''} ${e.status || ''}`;
+                if (!matchesSearch(combined)) return false;
+            }
+            return true;
+        });
         const eventsHtml = ev.length ? ev.map(e => {
             const isShown = e.status === 'shown';
             const statusBadge = isShown
@@ -116,20 +211,28 @@
                 </span>
                 <button class="rp" data-event="${esc(e.id)}" title="Run through current rules again">${REPLAY_ICON}</button>
             </div>`;
-        }).join('') : `<div class="empty">${hideUnmatched && rawEvents.length ? 'All ' + rawEvents.length + ' events were unmatched and hidden. Uncheck "Hide unmatched" to view them.' : 'No events yet. Real stream events appear here, including ones that matched no rule.'}</div>`;
+        }).join('') : `<div class="empty">${hideUnmatched && rawEvents.length ? 'All events filtered or hidden. Adjust your filters to view them.' : 'No events matching current filter.'}</div>`;
         if (eventsHtml !== _lastEventsHtml) {
             _lastEventsHtml = eventsHtml;
             $('events').innerHTML = eventsHtml;
         }
 
-        const h = queue.history || [];
+        const rawHistory = queue.history || [];
+        const h = rawHistory.filter(a => {
+            if (!matchesTypeFilter(a.type, a.test)) return false;
+            if (searchQuery) {
+                const combined = `${a.title || ''} ${a.message || ''} ${a.ruleName || ''} ${a.user || ''} ${a.type || ''}`;
+                if (!matchesSearch(combined)) return false;
+            }
+            return true;
+        });
         const historyHtml = h.length ? h.map(a => `<div>
             <span class="grow">
                 <span class="event-title">${a.test ? '<span class="badge badge-test">Test</span>' : ''}${esc(a.title || a.message || a.ruleName)}</span>
                 <span class="sub">${new Date(a.shownAt || a.at).toLocaleTimeString()}</span>
             </span>
             <button class="rp" data-alert="${esc(a.id)}" title="Show this exact alert again">${REPLAY_ICON}</button>
-        </div>`).join('') : '<div class="empty">Nothing yet this run.</div>';
+        </div>`).join('') : '<div class="empty">No alerts shown matching current filter.</div>';
         if (historyHtml !== _lastHistoryHtml) {
             _lastHistoryHtml = historyHtml;
             $('history').innerHTML = historyHtml;

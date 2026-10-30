@@ -340,10 +340,10 @@
     let artPersistInfo = false;
     let miniLayout = 'single';
     let hasFallbackArt = false;
-    let labelText = '♫ Now Playing';
+    let labelText = 'Now Playing';
     let labelShow = { art: false, full: true, mini: true };
 
-    const DEFAULT_ART_SVG = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#161b22"/><text x="100" y="112" text-anchor="middle" font-size="64" fill="#30363d">♫</text></svg>')}`;
+    const DEFAULT_ART_SVG = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#161b22"/><path d="M95 130V75l35-10v50" fill="none" stroke="#30363d" stroke-width="6"/><circle cx="82" cy="130" r="14" fill="#30363d"/><circle cx="128" cy="120" r="14" fill="#30363d"/></svg>')}`;
 
     function escapeHtml(str) {
         return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -600,7 +600,7 @@
 
     function applyLabelSettings(theme) {
         const label = theme.label || {};
-        labelText = label.text ?? '♫ Now Playing';
+        labelText = label.text ?? 'Now Playing';
         labelShow = {
             art: label.show_art ?? false,
             full: label.show_full ?? true,

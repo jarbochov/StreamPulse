@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { sanitizeOverlayId } = require('../services/game-plan');
-const { readRequestBody, sendJson, sendText, sendError } = require('./helpers');
+const { readRequestBody, sendJson, sendText, sendError, parseJsonOrQuery } = require('./helpers');
 
 const ASSET_KIND_BY_EXT = {
     '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.gif': 'image', '.webp': 'image', '.avif': 'image', '.svg': 'image',
@@ -215,9 +215,9 @@ function createOverlayRoutes({
             return true;
         }
 
-        if (pathname === '/api/alerts/test' && req.method === 'POST') {
+        if (pathname === '/api/alerts/test' && (req.method === 'POST' || req.method === 'GET')) {
             try {
-                const body = JSON.parse(await readRequestBody(req) || '{}');
+                const body = await parseJsonOrQuery(req, url);
                 const payload = alertEngine.fireRule(String(body.ruleId || ''), String(body.variantId || ''), body);
                 sendJson(res, { ok: true, alert: payload });
             } catch (err) {
@@ -226,9 +226,9 @@ function createOverlayRoutes({
             return true;
         }
 
-        if (pathname === '/api/alerts/test-event' && req.method === 'POST') {
+        if (pathname === '/api/alerts/test-event' && (req.method === 'POST' || req.method === 'GET')) {
             try {
-                const body = JSON.parse(await readRequestBody(req) || '{}');
+                const body = await parseJsonOrQuery(req, url);
                 const payload = alertEngine.handleEvent({ ...body, user: body.user || 'TestViewer', dedupeMs: 0 }, { test: true });
                 if (body.type === 'raid' && body.triggerChatbot && chatbot) {
                     chatbot.handleRaid({ user: body.user || 'TestViewer', viewers: body.amount || body.viewers || 10, isTest: true }).catch(() => {});
@@ -240,9 +240,9 @@ function createOverlayRoutes({
             return true;
         }
 
-        if (pathname === '/api/alerts/replay' && req.method === 'POST') {
+        if (pathname === '/api/alerts/replay' && (req.method === 'POST' || req.method === 'GET')) {
             try {
-                const body = JSON.parse(await readRequestBody(req) || '{}');
+                const body = await parseJsonOrQuery(req, url);
                 const payload = body.alertId ? alertEngine.replayAlert(String(body.alertId)) : alertEngine.replayEvent(String(body.eventId || ''));
                 sendJson(res, { ok: true, alert: payload });
             } catch (err) {
@@ -251,11 +251,22 @@ function createOverlayRoutes({
             return true;
         }
 
-        if (pathname === '/api/alerts/queue' && req.method === 'POST') {
+        if (pathname === '/api/alerts/queue' && (req.method === 'POST' || req.method === 'GET')) {
             try {
-                const body = JSON.parse(await readRequestBody(req) || '{}');
-                alertEngine.control(String(body.action || ''));
+                const body = await parseJsonOrQuery(req, url);
+                if (body.action) alertEngine.control(String(body.action));
                 sendJson(res, { ok: true, queue: alertEngine.getQueueState() });
+            } catch (err) {
+                sendError(res, err, 400);
+            }
+            return true;
+        }
+
+        const mAlertQueueAction = pathname.match(/^\/api\/alerts\/queue\/(pause|resume|clear|skip)$/);
+        if (mAlertQueueAction && (req.method === 'POST' || req.method === 'GET')) {
+            try {
+                alertEngine.control(mAlertQueueAction[1]);
+                sendJson(res, { ok: true, action: mAlertQueueAction[1], queue: alertEngine.getQueueState() });
             } catch (err) {
                 sendError(res, err, 400);
             }
@@ -664,9 +675,9 @@ function createOverlayRoutes({
                 sendError(res, 'Overlay not found', 404);
                 return true;
             }
-            if (req.method === 'POST') {
+            if (req.method === 'POST' || (req.method === 'GET' && url.searchParams.has('action'))) {
                 try {
-                    const body = JSON.parse(await readRequestBody(req) || '{}');
+                    const body = await parseJsonOrQuery(req, url);
                     const action = String(body.action || '');
                     if (!overlay.pages?.enabled) {
                         sendError(res, 'Pages are not enabled for this overlay', 400);
@@ -743,7 +754,7 @@ function createOverlayRoutes({
         }
 
         const slideshowControlMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)\/slideshow$/);
-        if (slideshowControlMatch && req.method === 'POST') {
+        if (slideshowControlMatch && (req.method === 'POST' || req.method === 'GET')) {
             const customOverlays = getCustomOverlays();
             const overlay = customOverlays[sanitizeOverlayId(decodeURIComponent(slideshowControlMatch[1]))];
             if (!overlay) {
@@ -751,7 +762,7 @@ function createOverlayRoutes({
                 return true;
             }
             try {
-                const body = JSON.parse(await readRequestBody(req) || '{}');
+                const body = await parseJsonOrQuery(req, url);
                 const action = String(body.action || '');
                 if (!['next', 'prev', 'pause', 'play', 'toggle'].includes(action)) {
                     sendError(res, 'action must be next, prev, pause, play or toggle', 400);
@@ -793,8 +804,35 @@ function createOverlayRoutes({
             return true;
         }
 
+        if (pathname === '/api/videos/control' && (req.method === 'POST' || req.method === 'GET')) {
+            try {
+                const body = await parseJsonOrQuery(req, url);
+                let action = String(body.action || '').toLowerCase();
+                if (action === 'toggle_mute') action = 'toggle-mute';
+                const allowed = ['play', 'pause', 'toggle', 'restart', 'stop', 'mute', 'unmute', 'toggle-mute'];
+                if (!allowed.includes(action)) {
+                    sendError(res, `action must be one of: ${allowed.join(', ')}`, 400);
+                    return true;
+                }
+                const customOverlays = getCustomOverlays();
+                const overlayId = body.overlayId ? sanitizeOverlayId(String(body.overlayId)) : null;
+                const element = body.element ? String(body.element) : '';
+                if (overlayId && customOverlays[overlayId]) {
+                    broadcastToOverlays('custom-overlay-video', { id: overlayId, action, element });
+                } else {
+                    for (const ov of Object.values(customOverlays)) {
+                        broadcastToOverlays('custom-overlay-video', { id: ov.id, action, element });
+                    }
+                }
+                sendJson(res, { ok: true, action, target: overlayId || 'all', element: element || 'all', listeners: getOverlayClients().size });
+            } catch (err) {
+                sendError(res, err.message, 400);
+            }
+            return true;
+        }
+
         const videoControlMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)\/video$/);
-        if (videoControlMatch && req.method === 'POST') {
+        if (videoControlMatch && (req.method === 'POST' || req.method === 'GET')) {
             const customOverlays = getCustomOverlays();
             const overlay = customOverlays[sanitizeOverlayId(decodeURIComponent(videoControlMatch[1]))];
             if (!overlay) {
@@ -802,7 +840,7 @@ function createOverlayRoutes({
                 return true;
             }
             try {
-                const body = JSON.parse(await readRequestBody(req) || '{}');
+                const body = await parseJsonOrQuery(req, url);
                 let action = String(body.action || '').toLowerCase();
                 if (action === 'toggle_mute') action = 'toggle-mute';
                 const allowed = ['play', 'pause', 'toggle', 'restart', 'stop', 'mute', 'unmute', 'toggle-mute'];
@@ -844,7 +882,7 @@ function createOverlayRoutes({
         }
 
         const cutoutControlMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)\/cutout$/);
-        if (cutoutControlMatch && req.method === 'POST') {
+        if (cutoutControlMatch && (req.method === 'POST' || req.method === 'GET')) {
             const customOverlays = getCustomOverlays();
             const overlay = customOverlays[sanitizeOverlayId(decodeURIComponent(cutoutControlMatch[1]))];
             if (!overlay) {
@@ -852,7 +890,7 @@ function createOverlayRoutes({
                 return true;
             }
             try {
-                const body = JSON.parse(await readRequestBody(req) || '{}');
+                const body = await parseJsonOrQuery(req, url);
                 const action = String(body.action || '').toLowerCase();
                 if (!['toggle', 'show', 'hide'].includes(action)) {
                     sendError(res, 'action must be toggle, show or hide', 400);
@@ -1310,7 +1348,7 @@ function createOverlayRoutes({
             return true;
         }
 
-        if (pathname.startsWith('/api/randomizer/presets/') && pathname.endsWith('/clear-history') && req.method === 'POST') {
+        if (pathname.startsWith('/api/randomizer/presets/') && pathname.endsWith('/clear-history') && (req.method === 'POST' || req.method === 'GET')) {
             try {
                 const idToClear = decodeURIComponent(pathname.replace('/api/randomizer/presets/', '').replace('/clear-history', ''));
                 const presets = loadRandomizerPresets();
@@ -1329,15 +1367,11 @@ function createOverlayRoutes({
             return true;
         }
 
-        if ((pathname.startsWith('/api/randomizer/presets/') && pathname.endsWith('/reset-eliminated') && req.method === 'POST') ||
-            (pathname === '/api/randomizer/presets/reset-eliminated' && req.method === 'POST')) {
+        if ((pathname.startsWith('/api/randomizer/presets/') && pathname.endsWith('/reset-eliminated') && (req.method === 'POST' || req.method === 'GET')) ||
+            (pathname === '/api/randomizer/presets/reset-eliminated' && (req.method === 'POST' || req.method === 'GET'))) {
             try {
+                const body = await parseJsonOrQuery(req, url);
                 let idToReset = '';
-                let body = {};
-                try {
-                    const raw = await readRequestBody(req);
-                    if (raw) body = JSON.parse(raw);
-                } catch {}
                 if (pathname === '/api/randomizer/presets/reset-eliminated') {
                     idToReset = body.id || url.searchParams.get('id') || lastStudioRandomizerSettings?.preset || '';
                 } else {
@@ -1361,16 +1395,12 @@ function createOverlayRoutes({
             return true;
         }
 
-        if ((pathname.startsWith('/api/randomizer/presets/') && pathname.endsWith('/reset-weights') && req.method === 'POST') ||
-            (pathname === '/api/randomizer/presets/reset-weights' && req.method === 'POST')) {
+        if ((pathname.startsWith('/api/randomizer/presets/') && pathname.endsWith('/reset-weights') && (req.method === 'POST' || req.method === 'GET')) ||
+            (pathname === '/api/randomizer/presets/reset-weights' && (req.method === 'POST' || req.method === 'GET'))) {
             try {
+                const body = await parseJsonOrQuery(req, url);
                 let idToReset = '';
                 let resetMode = url.searchParams.get('mode') || '';
-                let body = {};
-                try {
-                    const raw = await readRequestBody(req);
-                    if (raw) body = JSON.parse(raw);
-                } catch {}
                 if (body.mode) resetMode = body.mode;
                 if (pathname === '/api/randomizer/presets/reset-weights') {
                     idToReset = body.id || url.searchParams.get('id');
@@ -1732,6 +1762,18 @@ function createOverlayRoutes({
                     at: Date.now()
                 };
                 broadcastToOverlays('randomizer-spin', payload);
+                if (overlayService?.setRandomizerStatus) {
+                    overlayService.setRandomizerStatus({
+                        lastMode: mode || activePreset.mode || 'roller',
+                        lastDuration: duration !== undefined ? duration : (activePreset.duration || 6),
+                        lastWinner: String(winner || ''),
+                        lastPreset: presetId || activePreset.id || null,
+                        remaining: choices.length,
+                        removed: (eliminatedAfter || []).length,
+                        elimination: Boolean(eliminationRequested),
+                        at: Date.now()
+                    });
+                }
                 sendJson(res, {
                     ok: true,
                     winner,
@@ -1770,12 +1812,21 @@ function createOverlayRoutes({
         }
 
         const visibilityMatch = pathname.match(/^\/api\/overlay-visibility\/(.+)$/);
-        if (visibilityMatch && req.method === 'POST') {
+        if (visibilityMatch && (req.method === 'POST' || req.method === 'GET')) {
             let key = '';
             try { key = decodeURIComponent(visibilityMatch[1]); } catch { key = visibilityMatch[1]; }
             let action = url.searchParams.get('action') || '';
-            if (!action) {
+            if (!action && req.method === 'POST') {
                 try { action = JSON.parse(await readRequestBody(req) || '{}').action || ''; } catch {}
+            }
+            if (req.method === 'GET' && !url.searchParams.has('action')) {
+                const item = listOverlayVisibility().find(o => o.key === key);
+                if (item) {
+                    sendJson(res, item);
+                    return true;
+                }
+                sendError(res, `Unknown overlay "${key}"`, 404);
+                return true;
             }
             action = ['on', 'off', 'toggle'].includes(action) ? action : 'toggle';
             const result = setOverlayVisibility(key, action);

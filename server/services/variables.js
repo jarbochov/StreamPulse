@@ -74,11 +74,20 @@ module.exports = function createVariables({ dataDir }) {
             const m = pathname.match(/^\/api\/variables\/([^/]+)(?:\/(increment|decrement|reset|roll))?$/);
             if (!m) return json(404, { error: 'Unknown variables endpoint' }), true;
             const name = decodeURIComponent(m[1]);
-            if (m[2] === 'roll' && req.method === 'POST') return json(200, roll(name)), true;
-            if (m[2] && req.method === 'POST') return json(200, change(name, m[2], body.amount)), true;
+            const query = req.method === 'GET' ? Object.fromEntries(new URL(req.url, 'http://localhost').searchParams) : {};
+            if (m[2] === 'roll' && (req.method === 'POST' || req.method === 'GET')) return json(200, roll(name)), true;
+            if (m[2] && (req.method === 'POST' || req.method === 'GET')) return json(200, change(name, m[2], query.amount ?? body.amount)), true;
             if (req.method === 'PUT' || req.method === 'POST') return json(200, set(name, body)), true;
             if (req.method === 'DELETE') { delete vars[normName(name)]; save(); return json(200, { variables: list() }), true; }
-            if (req.method === 'GET') { const v = vars[normName(name)]; return json(v ? 200 : 404, v ? { name: normName(name), ...v } : { error: 'Not found' }), true; }
+            if (req.method === 'GET') {
+                const v = vars[normName(name)];
+                if (query.raw === '1' || query.plain === '1' || query.format === 'text') {
+                    res.writeHead(v ? 200 : 404, { 'Content-Type': 'text/plain; charset=utf-8' });
+                    res.end(v ? String(v.value ?? '') : '');
+                    return true;
+                }
+                return json(v ? 200 : 404, v ? { name: normName(name), ...v } : { error: 'Not found' }), true;
+            }
         } catch (err) {
             return json(400, { error: err.message }), true;
         }

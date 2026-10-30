@@ -206,20 +206,20 @@
                             <tr style="border-bottom:1px solid var(--bg-raised);">
                                 <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{arg.1}}">{{arg.1}}</code>, <code class="copyable" data-copy="{{arg.2}}">{{arg.2}}</code></td>
                                 <td style="padding:.4rem .6rem;">1st, 2nd, etc. space-separated word typed after the command. Supports default fallbacks like <code>{{arg.2:dogs}}</code> if omitted, and Nightbot syntax <code>$(1)</code>, <code>$(2)</code></td>
-                                <td style="padding:.4rem .6rem;"><code>🤔 {{user}} asks: {{arg.1:cats}} or {{arg.2:dogs}}?</code></td>
-                                <td style="padding:.4rem .6rem;"><em>🤔 Alice asks: tea or coffee?</em></td>
+                                <td style="padding:.4rem .6rem;"><code>{{user}} asks: {{arg.1:cats}} or {{arg.2:dogs}}?</code></td>
+                                <td style="padding:.4rem .6rem;"><em>Alice asks: tea or coffee?</em></td>
                             </tr>
                             <tr style="border-bottom:1px solid var(--bg-raised);">
                                 <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{random 1 6}}">{{random min max}}</code></td>
                                 <td style="padding:.4rem .6rem;">Evaluates a random integer or dice roll between min and max (inclusive)</td>
-                                <td style="padding:.4rem .6rem;"><code>🎲 {{user}} rolled a {{random 1 20}}!</code></td>
-                                <td style="padding:.4rem .6rem;"><em>🎲 Alice rolled a 19!</em></td>
+                                <td style="padding:.4rem .6rem;"><code>[Roll] {{user}} rolled a {{random 1 20}}!</code></td>
+                                <td style="padding:.4rem .6rem;"><em>[Roll] Alice rolled a 19!</em></td>
                             </tr>
                             <tr>
                                 <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{choice Yes|No|Maybe}}">{{choice A|B|C}}</code></td>
                                 <td style="padding:.4rem .6rem;">Randomly picks one pipe-separated item (also <code>{{pick A|B|C}}</code>)</td>
-                                <td style="padding:.4rem .6rem;"><code>🎱 8-Ball: {{choice Yes!|No.|Ask again later.}}</code></td>
-                                <td style="padding:.4rem .6rem;"><em>🎱 8-Ball: Yes!</em></td>
+                                <td style="padding:.4rem .6rem;"><code>8-Ball: {{choice Yes!|No.|Ask again later.}}</code></td>
+                                <td style="padding:.4rem .6rem;"><em>8-Ball: Yes!</em></td>
                             </tr>
                         </tbody>
                     </table>

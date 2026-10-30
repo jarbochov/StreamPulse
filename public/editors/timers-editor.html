@@ -151,10 +151,10 @@
                         <div class="who" id="readout-who"></div>
                     </div>
                     <div class="actions">
-                        <button class="btn primary" data-control="start">▶ Start</button>
-                        <button class="btn warn" data-control="pause">⏸ Pause</button>
-                        <button class="btn" data-control="resume">⏵ Resume</button>
-                        <button class="btn" data-control="reset">↺ Reset</button>
+                        <button class="btn primary" data-control="start"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px;margin-right:4px;"><polygon points="5 3 19 12 5 21 5 3"/></svg>Start</button>
+                        <button class="btn warn" data-control="pause"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px;margin-right:4px;"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>Pause</button>
+                        <button class="btn" data-control="resume"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px;margin-right:4px;"><polygon points="5 3 19 12 5 21 5 3"/></svg>Resume</button>
+                        <button class="btn" data-control="reset"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px;"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg>Reset</button>
                         <button class="btn" data-control="visibility" data-value="toggle" id="toggle-visibility">Hide / Show</button>
                     </div>
                     <div class="cfg-row" style="margin-top:1rem;">
@@ -265,7 +265,7 @@
                     </div>
                     <div class="cfg-row" id="end-message-row">
                         <label for="countdown-end-message">End message</label>
-                        <input type="text" id="countdown-end-message" value="⌛️" maxlength="80">
+                        <input type="text" id="countdown-end-message" value="Time's Up!" maxlength="80">
                     </div>
                 </div>
 
@@ -442,8 +442,8 @@
                         ${timer.visible === false ? '<span class="pill">hidden</span>' : ''}
                         <span style="flex:1"></span>
                         <span class="quick">
-                            <button class="btn sm" data-quick="${timer.state === 'running' ? 'pause' : timer.state === 'paused' ? 'resume' : 'start'}" data-id="${esc(timer.id)}" title="${timer.state === 'running' ? 'Pause' : timer.state === 'paused' ? 'Resume' : 'Start'}">${timer.state === 'running' ? '⏸' : '▶'}</button>
-                            <button class="btn sm" data-quick="reset" data-id="${esc(timer.id)}" title="Reset">↺</button>
+                            <button class="btn sm" data-quick="${timer.state === 'running' ? 'pause' : timer.state === 'paused' ? 'resume' : 'start'}" data-id="${esc(timer.id)}" title="${timer.state === 'running' ? 'Pause' : timer.state === 'paused' ? 'Resume' : 'Start'}">${timer.state === 'running' ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>' : '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>'}</button>
+                            <button class="btn sm" data-quick="reset" data-id="${esc(timer.id)}" title="Reset"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg></button>
                         </span>
                     </div>
                 </div>`).join('')
@@ -530,7 +530,7 @@
         $('countdown-mode').value = blank.mode || 'duration';
         $('countdown-progress').checked = blank.progress !== false;
         $('countdown-show-on-end').value = blank.showOnEnd || 'message';
-        $('countdown-end-message').value = blank.endMessage || '⌛️';
+        $('countdown-end-message').value = blank.endMessage || "Time's Up!";
         setSound('timer', blank.soundUrl || '');
         fillDuration('dur', blank.durationMs ?? (kind === 'countdown' ? 600000 : 0));
         $('target-at').value = toLocalInput(blank.targetAt);
@@ -555,7 +555,7 @@
         $('countdown-mode').value = timer.mode || 'duration';
         $('countdown-progress').checked = timer.progress !== false;
         $('countdown-show-on-end').value = timer.showOnEnd || 'message';
-        $('countdown-end-message').value = timer.endMessage || '⌛️';
+        $('countdown-end-message').value = timer.endMessage || "Time's Up!";
         setSound('timer', timer.soundUrl || '');
         fillDuration('dur', timer.durationMs);
         $('target-at').value = toLocalInput(timer.targetAt);
@@ -585,7 +585,7 @@
             payload.mode = $('countdown-mode').value;
             payload.progress = $('countdown-progress').checked;
             payload.showOnEnd = $('countdown-show-on-end').value;
-            payload.endMessage = $('countdown-end-message').value || '⌛️';
+            payload.endMessage = $('countdown-end-message').value || "Time's Up!";
             payload.soundUrl = soundValues.timer;
             if (payload.mode === 'duration') {
                 const duration = parseDuration('dur');

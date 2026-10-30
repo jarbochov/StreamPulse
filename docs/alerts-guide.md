@@ -38,6 +38,9 @@ Open **Tools -> Alert Queue** (`/alert-queue.html`) or dock it inside OBS Studio
 4. Click **Apply**. You can now dock the queue alongside your chat or audio mixer!
 
 ### Dock Features:
+- **Event Type & Search Filtering**: Filter events by category (Follow, Sub, Gift, Bits, Raid, Redeem, Chat Word, Test) and live search by username, rule name, or message text.
+- **Quick Test Dispatch**: Trigger test events (Bits, Sub, Gift, Raid, Follow, Points) directly from the dock toolbar without opening full alert settings.
 - **Hide Unmatched Filtering**: Toggle "Hide unmatched" to filter out regular background chat messages and focus strictly on triggered alerts and engagement events.
 - **Event Replay**: Click **Replay** next to any past event to trigger the on-screen alert again (useful if you missed an alert during a tense game moment).
 - **Skip & Pause**: Skip the currently playing alert or pause the queue when starting a high-focus gameplay section.
+- **Master Preview Volume**: Persistent volume slider in Alerts Studio (`/alerts.html`) to comfortably preview synthesized and custom audio without deafening the broadcaster.

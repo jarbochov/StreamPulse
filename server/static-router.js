@@ -168,6 +168,8 @@ function createStaticRouter(options) {
             pathname = url.search ? '/credits.html' : '/dashboard.html';
         } else if (pathname === '/tournaments.html' || pathname === '/competitions.html') {
             pathname = '/versus.html';
+        } else if (pathname === '/overlays/versus.html') {
+            pathname = '/overlays/matchup.html';
         }
 
         let filePath = null;

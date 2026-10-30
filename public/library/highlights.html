@@ -190,7 +190,7 @@
             allHighlights = await res.json();
 
             if (allHighlights.length === 0) {
-                content.innerHTML = '<div class="empty">No pinned messages yet.<br>Click ☆ on chat messages in the Sessions page to pin them.</div>';
+                content.innerHTML = '<div class="empty">No pinned messages yet.<br>Click the star icon on chat messages in the Sessions page to pin them.</div>';
                 return;
             }
 
@@ -324,7 +324,7 @@
                     ${h.avatar ? `<img class="chat-avatar" src="${h.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
                     <div class="chat-meta">
                         <div><span class="chat-user" style="color:${userColor(h.user)}">${escapeHtml(h.user)}</span>
-                        <button class="pin-btn pinned" onclick="unpinHighlight(this, ${h.ts}, '${escapeHtml(h.user)}')" title="Unpin">⭐</button></div>
+                        <button class="pin-btn pinned" onclick="unpinHighlight(this, ${h.ts}, '${escapeHtml(h.user)}')" title="Unpin"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></button></div>
                         <div class="chat-text">${displayHtml}</div>
                         <div class="chat-pinned-at">
                             <span>Pinned ${formatDate(h.pinnedAt)} · Key: <code>${h.ts}:${escapeHtml(h.user)}</code></span>

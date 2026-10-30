@@ -96,6 +96,23 @@
         .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: var(--text-muted); text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
         .nav .dropdown-menu a:hover { color: var(--text); background: var(--bg-raised); }
 
+        .test-runner { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; margin-top: 0.5rem; }
+        .runner-controls { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+        .run-btn { display: inline-flex; align-items: center; gap: 0.4rem; background: var(--accent); color: white; border: none; padding: 0.35rem 0.75rem; border-radius: 5px; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+        .run-btn:hover { opacity: 0.9; }
+        .run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .runner-hint { font-size: 0.75rem; color: var(--text-muted); }
+        .runner-output { margin-top: 0.6rem; border-top: 1px solid var(--border); padding-top: 0.6rem; }
+        .runner-meta { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem; }
+        .runner-status-pill { font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 4px; border: 1px solid transparent; font-family: 'SF Mono', 'Fira Code', monospace; }
+        .runner-status-pill.success { background: color-mix(in srgb, var(--success) 18%, var(--bg-card)); color: var(--success); border-color: var(--success); }
+        .runner-status-pill.error { background: color-mix(in srgb, var(--danger) 18%, var(--bg-card)); color: var(--danger); border-color: var(--danger); }
+        .runner-time { font-size: 0.72rem; color: var(--text-muted); font-family: 'SF Mono', 'Fira Code', monospace; }
+        .runner-copy { margin-left: auto; }
+        .runner-output pre { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 5px; padding: 0.6rem; max-height: 240px; overflow-y: auto; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.78rem; color: var(--text); }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .spin { animation: spin 0.8s linear infinite; }
+
         @media (max-width: 900px) {
             .layout { grid-template-columns: 1fr; }
             .side { position: static; max-height: none; }
@@ -673,6 +690,25 @@
                     body: '{ "action": "toggle" }'
                 },
                 {
+                    method: 'GET', path: '/api/chatbot/enabled',
+                    desc: 'Companion trigger to toggle or set bot active state',
+                    companion: true,
+                    details: 'Toggles or sets bot active state via GET query parameters (?action=toggle or ?enabled=true).'
+                },
+                {
+                    method: 'POST', path: '/api/chatbot/shoutout',
+                    desc: 'Trigger streamer shoutout in chat',
+                    companion: true,
+                    details: 'Executes a configured shoutout command for a channel user.',
+                    body: '{ "user": "target_user" }'
+                },
+                {
+                    method: 'GET', path: '/api/chatbot/shoutout',
+                    desc: 'Companion trigger for streamer shoutout',
+                    companion: true,
+                    details: 'Triggers streamer shoutout via GET request (?user=target_user).'
+                },
+                {
                     method: 'GET', path: '/api/chatbot/activity',
                     desc: 'Get recent command executions and audit activity',
                     details: 'Returns { enabled, moduleEnabled, seq, activity: [...] } with recent executions, chatter names, command kinds, and timestamps.'
@@ -745,6 +781,12 @@
                     companion: true,
                     details: 'Sends a chat message out through the connected SocialStream Ninja tab or dock.',
                     body: '{ "text": "Hello chat!" }'
+                },
+                {
+                    method: 'GET', path: '/api/chatbot/send',
+                    desc: 'Companion trigger to send chat message',
+                    companion: true,
+                    details: 'Sends a chat message via GET request (?text=Hello+chat!).'
                 },
                 {
                     method: 'POST', path: '/api/chatbot/preview',
@@ -822,10 +864,30 @@
                     details: 'Returns { videos: [{ overlayId, overlayName, elementId, name, kind, src, autoplay, loop, sound, volume }] }. Lists native <video> elements and embedded YouTube players for Companion and remote controls.'
                 },
                 {
+                    method: 'POST', path: '/api/videos/control',
+                    desc: 'Global video playback control across all overlays',
+                    companion: true,
+                    details: 'Pushes playback commands (play, pause, toggle, restart, stop, mute, unmute, toggle-mute) to all <video> and embedded YouTube players across overlays.',
+                    body: '{ "action": "pause" }'
+                },
+                {
+                    method: 'GET', path: '/api/videos/control',
+                    desc: 'Companion trigger for global video playback control',
+                    companion: true,
+                    details: 'Controls global video playback via GET request (?action=play|pause|toggle|restart|stop|mute|unmute&overlay=optional_id).'
+                },
+                {
                     method: 'POST', path: '/api/custom-overlays/:id/video',
-                    desc: 'Control playback of video elements',
+                    desc: 'Control playback of video elements on a specific overlay',
+                    companion: true,
                     body: '{ "action": "play" | "pause" | "toggle" | "restart" | "stop" | "mute" | "unmute" | "toggle-mute", "element": "optional element id (default: all videos)" }',
                     details: 'Pushes playback commands to <video> and embedded YouTube players on live browser sources. Returns { ok, action, element, listeners }.'
+                },
+                {
+                    method: 'GET', path: '/api/custom-overlays/:id/video',
+                    desc: 'Companion trigger to control video playback on an overlay',
+                    companion: true,
+                    details: 'Controls playback on an overlay via GET request (?action=play|pause|toggle|restart|mute|unmute).'
                 },
                 {
                     method: 'GET', path: '/api/cutouts',
@@ -872,26 +934,102 @@
                 {
                     method: 'POST', path: '/api/alerts/test',
                     desc: 'Queue a test alert for one saved rule',
+                    companion: true,
                     details: 'Skips conditions and cooldowns. Timer and HTTP actions are not run.',
                     body: '{ "ruleId": "bits-big", "variantId": "v1" }'
                 },
                 {
+                    method: 'GET', path: '/api/alerts/test',
+                    desc: 'Companion trigger to queue a test alert',
+                    companion: true,
+                    details: 'Queues test alert via GET request (?ruleId=bits-big&variantId=v1).'
+                },
+                {
                     method: 'POST', path: '/api/alerts/test-event',
                     desc: 'Simulate a stream event through the saved rules',
+                    companion: true,
                     details: 'Uses real matching (thresholds, tiers, milestones). Returns { alert } or { alert: null } when nothing matched.',
                     body: '{ "type": "bits", "user": "Viewer", "amount": 500 }'
                 },
                 {
+                    method: 'GET', path: '/api/alerts/test-event',
+                    desc: 'Companion trigger to simulate a stream event',
+                    companion: true,
+                    details: 'Simulates stream event via GET request (?type=bits&user=Viewer&amount=500).'
+                },
+                {
                     method: 'POST', path: '/api/alerts/replay',
                     desc: 'Replay a past event or alert',
-                    details: 'eventId re-runs a stored event (GET /api/alerts returns the latest 100 under queue.events) through your current rules. alertId re-shows the exact alert from history.',
+                    companion: true,
+                    details: 'eventId re-runs a stored event through your current rules. alertId re-shows the exact alert from history.',
                     body: '{ "eventId": "..." }'
+                },
+                {
+                    method: 'GET', path: '/api/alerts/replay',
+                    desc: 'Companion trigger to replay a past event or alert',
+                    companion: true,
+                    details: 'Replays past event or alert via GET request (?eventId=... or ?alertId=...).'
                 },
                 {
                     method: 'POST', path: '/api/alerts/queue',
                     desc: 'Control the alert queue',
+                    companion: true,
                     details: 'Actions: skip, clear, pause, resume.',
                     body: '{ "action": "skip" }'
+                },
+                {
+                    method: 'GET', path: '/api/alerts/queue',
+                    desc: 'Companion trigger to control alert queue',
+                    companion: true,
+                    details: 'Controls alert queue via GET request (?action=skip|pause|resume|clear).'
+                },
+                {
+                    method: 'POST', path: '/api/alerts/queue/pause',
+                    desc: 'Pause alert queue',
+                    companion: true,
+                    details: 'Pauses alert presentation and holds incoming alerts in queue.'
+                },
+                {
+                    method: 'GET', path: '/api/alerts/queue/pause',
+                    desc: 'Companion trigger to pause alert queue',
+                    companion: true,
+                    details: 'Pauses alert queue via GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/alerts/queue/resume',
+                    desc: 'Resume alert queue',
+                    companion: true,
+                    details: 'Resumes processing alerts from queue.'
+                },
+                {
+                    method: 'GET', path: '/api/alerts/queue/resume',
+                    desc: 'Companion trigger to resume alert queue',
+                    companion: true,
+                    details: 'Resumes alert queue via GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/alerts/queue/clear',
+                    desc: 'Clear alert queue',
+                    companion: true,
+                    details: 'Clears all pending alerts in queue and stops current alert.'
+                },
+                {
+                    method: 'GET', path: '/api/alerts/queue/clear',
+                    desc: 'Companion trigger to clear alert queue',
+                    companion: true,
+                    details: 'Clears pending alert queue via GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/alerts/queue/skip',
+                    desc: 'Skip current alert',
+                    companion: true,
+                    details: 'Immediately skips current on-screen alert and advances to next queued alert.'
+                },
+                {
+                    method: 'GET', path: '/api/alerts/queue/skip',
+                    desc: 'Companion trigger to skip current alert',
+                    companion: true,
+                    details: 'Skips current alert via GET request.'
                 },
                 {
                     method: 'GET', path: '/api/custom-overlays/assets',
@@ -1074,10 +1212,10 @@
                 },
                 {
                     method: 'GET', path: '/api/weather/icon.svg',
-                    desc: 'Weather emoji as an SVG image',
-                    details: 'Renders an emoji as an image so it can be used as an image source. This is what {{weather.icon.url}} points to.',
+                    desc: 'Weather icon as an SVG image',
+                    details: 'Renders an icon or character as an image so it can be used as an image source. This is what {{weather.icon.url}} points to.',
                     params: [
-                        { name: 'e', desc: 'Emoji to draw', values: 'emoji', default: '🌡️' }
+                        { name: 'e', desc: 'Symbol character to draw', values: 'character', default: 'cloud' }
                     ]
                 },
                 {
@@ -1113,6 +1251,12 @@
         {
             section: 'System & Updates',
             items: [
+                {
+                    method: 'GET', path: '/api/status/field/:field',
+                    desc: 'Get single plain-text stream status field for Stream Deck button titles',
+                    companion: true,
+                    details: 'Returns a raw plain-text field string for direct Stream Deck button title display without JSON decoding. Supported fields: viewers, uptime, track, artist, latest_follow, latest_sub, matchup_title, matchup_clock, matchup_c1_score, matchup_c2_score, counter_<name>.'
+                },
                 {
                     method: 'GET', path: '/api/restart',
                     desc: 'Restart StreamPulse',
@@ -1212,6 +1356,557 @@
             ]
         },
         {
+            section: 'Live Polls & Poll Tournaments',
+            items: [
+                {
+                    method: 'GET', path: '/api/polls',
+                    desc: 'Get live poll status, choices, and saved presets',
+                    details: 'Returns { active, title, choices, totalVotes, winner, blind, multiVote, subMultiplier, duration, timeRemaining, presets }.'
+                },
+                {
+                    method: 'POST', path: '/api/polls',
+                    desc: 'Start an audience poll (preset or custom)',
+                    companion: true,
+                    details: 'Launches a live poll with chat voting and overlay sync. Supports custom question, array of choices (or preset ID), duration (seconds), blind voting, and subscriber vote multiplier.',
+                    body: '{ "title": "Which map next?", "choices": ["Haven", "Ascent", "Bind"], "duration": 90, "blind": false, "subMultiplier": 2 }'
+                },
+                {
+                    method: 'GET', path: '/api/polls/start',
+                    desc: 'Start a poll via HTTP GET query parameters',
+                    companion: true,
+                    details: 'Companion / Stream Deck trigger to start a poll without request bodies. Query parameters: ?title=...&choices=ChoiceA,ChoiceB&duration=90&blind=0&subMultiplier=2 or ?preset=jackbox.',
+                    params: [
+                        { name: 'title', desc: 'Poll question or title', values: 'string', default: 'Live Poll' },
+                        { name: 'choices', desc: 'Comma-separated choices (up to 10)', values: 'string,string', default: 'Yes,No' },
+                        { name: 'preset', desc: 'Saved poll preset ID (optional)', values: 'string', default: 'none' },
+                        { name: 'duration', desc: 'Voting countdown duration in seconds', values: 'number', default: '90' }
+                    ]
+                },
+                {
+                    method: 'POST', path: '/api/polls/end',
+                    desc: 'End active poll early and announce winner',
+                    companion: true,
+                    details: 'Closes voting immediately, tallies final votes, crowns the winner, and triggers the poll complete overlay alert.'
+                },
+                {
+                    method: 'GET', path: '/api/polls/end',
+                    desc: 'Companion trigger to end active poll early',
+                    companion: true,
+                    details: 'Closes voting immediately via simple GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/polls/extend',
+                    desc: 'Extend active poll duration',
+                    companion: true,
+                    details: 'Adds additional time to the active poll countdown. Body: { "seconds": 30 }.',
+                    body: '{ "seconds": 30 }'
+                },
+                {
+                    method: 'GET', path: '/api/polls/extend',
+                    desc: 'Companion trigger to extend active poll',
+                    companion: true,
+                    details: 'Adds voting time via GET request. Query parameter: ?seconds=30 (default: 30).'
+                },
+                {
+                    method: 'POST', path: '/api/polls/cancel',
+                    desc: 'Cancel active poll without winner',
+                    companion: true,
+                    details: 'Discards current poll votes and resets poll state.'
+                },
+                {
+                    method: 'GET', path: '/api/polls/cancel',
+                    desc: 'Companion trigger to cancel active poll',
+                    companion: true,
+                    details: 'Cancels the active poll via simple GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/polls/blind',
+                    desc: 'Toggle or set blind voting mode',
+                    companion: true,
+                    details: 'Toggles or sets blind mode (hides live vote percentages until the poll finishes). Body: { "enabled": true } (optional).',
+                    body: '{ "enabled": true }'
+                },
+                {
+                    method: 'GET', path: '/api/polls/blind',
+                    desc: 'Companion trigger to toggle blind voting',
+                    companion: true,
+                    details: 'Toggles blind voting on or off via GET request (?action=toggle|on|off).'
+                },
+                {
+                    method: 'POST', path: '/api/polls/voting',
+                    desc: 'Toggle or pause chat voting acceptance',
+                    companion: true,
+                    details: 'Temporarily pause or resume accepting incoming chat votes.',
+                    body: '{ "enabled": false }'
+                },
+                {
+                    method: 'GET', path: '/api/polls/voting',
+                    desc: 'Companion trigger to toggle chat voting',
+                    companion: true,
+                    details: 'Toggles chat voting acceptance via GET request (?action=toggle|on|off).'
+                },
+                {
+                    method: 'POST', path: '/api/polls/create',
+                    desc: 'Create and launch a live poll',
+                    companion: true,
+                    details: 'Creates and launches a poll with options, blind toggle, and duration. Body: { "title": "Map", "choices": ["Haven", "Ascent"], "duration": 60 }.',
+                    body: '{ "title": "Map", "choices": ["Haven", "Ascent"], "duration": 60 }'
+                },
+                {
+                    method: 'GET', path: '/api/polls/create',
+                    desc: 'Companion trigger to create and launch a poll',
+                    companion: true,
+                    details: 'Creates a poll via GET query parameters (?title=...&choices=A,B,C&duration=60&blind=true).'
+                },
+                {
+                    method: 'POST', path: '/api/polls/vote',
+                    desc: 'Cast a simulated vote in active poll',
+                    companion: true,
+                    details: 'Casts a vote for a choice. Body: { "user": "Companion", "choice": 1 }.',
+                    body: '{ "user": "Companion", "choice": 1 }'
+                },
+                {
+                    method: 'GET', path: '/api/polls/vote',
+                    desc: 'Companion trigger to cast a vote',
+                    companion: true,
+                    details: 'Casts a vote via GET request (?user=Companion&choice=1).'
+                },
+                {
+                    method: 'POST', path: '/api/polls/toggle-blind',
+                    desc: 'Toggle blind voting on active poll',
+                    companion: true,
+                    details: 'Toggles blind voting on or off.'
+                },
+                {
+                    method: 'GET', path: '/api/polls/toggle-blind',
+                    desc: 'Companion trigger to toggle blind voting',
+                    companion: true,
+                    details: 'Toggles blind voting via GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/polls/toggle-voting',
+                    desc: 'Toggle chat voting status',
+                    companion: true,
+                    details: 'Freezes or unfreezes incoming chat votes.'
+                },
+                {
+                    method: 'GET', path: '/api/polls/toggle-voting',
+                    desc: 'Companion trigger to toggle chat voting',
+                    companion: true,
+                    details: 'Toggles voting on/off via GET request.'
+                },
+                {
+                    method: 'GET', path: '/api/polls/tournament',
+                    desc: 'Get poll tournament bracket state',
+                    details: 'Returns current poll tournament { active, title, format, entrants, rounds, matches, activeMatch, champion }.'
+                },
+                {
+                    method: 'POST', path: '/api/polls/tournament',
+                    desc: 'Create or start a poll tournament',
+                    details: 'Creates a 2, 4, 8, or 16 entrant poll tournament with single or double elimination format.',
+                    body: '{ "title": "Chat Mascot Bracket", "format": "single", "entrants": ["Cat", "Dog", "Fox", "Panda"] }'
+                },
+                {
+                    method: 'POST', path: '/api/polls/tournament/start-match',
+                    desc: 'Launch audience voting for current bracket match',
+                    companion: true,
+                    details: 'Spawns a live poll featuring the two entrants of the selected tournament match.',
+                    body: '{ "matchId": "m1", "duration": 60 }'
+                },
+                {
+                    method: 'GET', path: '/api/polls/tournament/start-match',
+                    desc: 'Companion trigger to start tournament match poll',
+                    companion: true,
+                    details: 'Starts poll for active bracket match via GET request (?matchId=...&duration=60).'
+                },
+                {
+                    method: 'POST', path: '/api/polls/tournament/advance',
+                    desc: 'Advance winning entrant in poll bracket',
+                    companion: true,
+                    details: 'Advances Entrant 1, Entrant 2, or the poll leader into the next round.',
+                    body: '{ "winner": 1 }'
+                },
+                {
+                    method: 'GET', path: '/api/polls/tournament/advance',
+                    desc: 'Companion trigger to advance tournament entrant',
+                    companion: true,
+                    details: 'Advances winning entrant via GET request (?winner=1 or ?winner=2).'
+                },
+                {
+                    method: 'POST', path: '/api/polls/tournament/rollback',
+                    desc: 'Rollback poll tournament match result',
+                    companion: true,
+                    details: 'Reopens a completed match and restores previous bracket state.'
+                },
+                {
+                    method: 'GET', path: '/api/polls/tournament/rollback',
+                    desc: 'Companion trigger to rollback match',
+                    companion: true,
+                    details: 'Rolls back match via GET request (?matchId=...).'
+                },
+                {
+                    method: 'POST', path: '/api/polls/tournament/reset',
+                    desc: 'Reset entire poll tournament',
+                    companion: true,
+                    details: 'Clears tournament progression and restarts bracket.'
+                },
+                {
+                    method: 'GET', path: '/api/polls/tournament/reset',
+                    desc: 'Companion trigger to reset poll tournament',
+                    companion: true,
+                    details: 'Resets tournament via GET request.'
+                }
+            ]
+        },
+        {
+            section: 'Versus & Speedrun Matchups',
+            items: [
+                {
+                    method: 'GET', path: '/api/matchup',
+                    desc: 'Get current matchup state, clock, and scores',
+                    details: 'Returns full matchup state: { title, phase, bestOf, targetScore, competitors, clock, history, queue }.'
+                },
+                {
+                    method: 'GET', path: '/api/matchup/field/:field',
+                    desc: 'Get single plain-text matchup field for Stream Deck display',
+                    companion: true,
+                    details: 'Returns raw plain-text value of a specific field (e.g. title, phase, clock, c1_name, c1_score, c1_time, c1_delta, c2_score, winner, winReady). Query parameter: ?format=text.'
+                },
+                {
+                    method: 'PUT', path: '/api/matchup',
+                    desc: 'Update matchup configuration and metadata',
+                    details: 'Updates matchup title, best-of format, competitor count, names, tags, colors, and game/series settings.',
+                    body: '{ "title": "Grand Finals", "phase": "Top 8", "bestOf": 5, "competitors": [...] }'
+                },
+                {
+                    method: 'POST', path: '/api/matchup/score',
+                    desc: 'Adjust competitor score or round',
+                    companion: true,
+                    details: 'Increment or set competitor score or round in game. Supports competitor 1-4, delta (+1, -1), absolute score, and roundDelta.',
+                    body: '{ "competitor": 1, "delta": 1 }'
+                },
+                {
+                    method: 'GET', path: '/api/matchup/score',
+                    desc: 'Companion trigger to adjust score or round',
+                    companion: true,
+                    details: 'Adjust competitor score via GET request. Parameters: ?competitor=1&delta=1 or ?competitor=2&roundDelta=1.'
+                },
+                {
+                    method: 'POST', path: '/api/matchup/swap',
+                    desc: 'Swap competitor sides (P1 ⇄ P2)',
+                    companion: true,
+                    details: 'Swaps names, tags, scores, rounds, colors, and runner splits between Competitor 1 and Competitor 2.'
+                },
+                {
+                    method: 'GET', path: '/api/matchup/swap',
+                    desc: 'Companion trigger to swap sides',
+                    companion: true,
+                    details: 'Swaps P1 and P2 sides via GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/matchup/reset-scores',
+                    desc: 'Reset match scores to zero',
+                    companion: true,
+                    details: 'Resets all competitor game scores and rounds to 0 while preserving names, tags, and colors.'
+                },
+                {
+                    method: 'GET', path: '/api/matchup/reset-scores',
+                    desc: 'Companion trigger to reset scores',
+                    companion: true,
+                    details: 'Resets scores to 0 via GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/matchup/clock/start',
+                    desc: 'Start match countdown or stopwatch',
+                    companion: true,
+                    details: 'Starts the match clock. If in race mode, sync-starts all speedrun runner stopwatches.'
+                },
+                {
+                    method: 'GET', path: '/api/matchup/clock/start',
+                    desc: 'Companion trigger to start clock',
+                    companion: true,
+                    details: 'Starts match clock via GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/matchup/clock/pause',
+                    desc: 'Pause match clock',
+                    companion: true,
+                    details: 'Pauses the match clock and all active runner timers.'
+                },
+                {
+                    method: 'GET', path: '/api/matchup/clock/pause',
+                    desc: 'Companion trigger to pause clock',
+                    companion: true,
+                    details: 'Pauses match clock via GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/matchup/clock/toggle',
+                    desc: 'Toggle match clock running state',
+                    companion: true,
+                    details: 'Starts or pauses the match clock toggle.'
+                },
+                {
+                    method: 'GET', path: '/api/matchup/clock/toggle',
+                    desc: 'Companion trigger to toggle clock',
+                    companion: true,
+                    details: 'Toggles clock running state via GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/matchup/clock/reset',
+                    desc: 'Reset match clock',
+                    companion: true,
+                    details: 'Resets match clock to initial duration (for countdown) or 0 (for stopwatch/race).'
+                },
+                {
+                    method: 'GET', path: '/api/matchup/clock/reset',
+                    desc: 'Companion trigger to reset clock',
+                    companion: true,
+                    details: 'Resets clock via GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/matchup/clock/set',
+                    desc: 'Set clock duration or mode in mid-match',
+                    companion: true,
+                    details: 'Updates clock mode (countdown, stopwatch, race, none) and countdown duration (seconds) mid-match.',
+                    body: '{ "mode": "countdown", "duration": 300 }'
+                },
+                {
+                    method: 'GET', path: '/api/matchup/clock/set',
+                    desc: 'Companion trigger to set clock mid-match',
+                    companion: true,
+                    details: 'Sets clock settings via GET request (?mode=countdown&duration=300).'
+                },
+                {
+                    method: 'POST', path: '/api/matchup/clock/race/finish',
+                    desc: 'Lock finish split for speedrun runner',
+                    companion: true,
+                    details: 'Locks the finish time for runner 1-4, calculates finish placement delta, and updates overlay display.',
+                    body: '{ "runner": 1 }'
+                },
+                {
+                    method: 'GET', path: '/api/matchup/clock/race/finish',
+                    desc: 'Companion trigger to lock runner finish',
+                    companion: true,
+                    details: 'Locks runner finish time via GET request (?runner=1).'
+                },
+                {
+                    method: 'POST', path: '/api/matchup/clock/race/toggle',
+                    desc: 'Start or pause individual runner clock',
+                    companion: true,
+                    details: 'Toggles running state for an individual speedrun runner.',
+                    body: '{ "runner": 1 }'
+                },
+                {
+                    method: 'GET', path: '/api/matchup/clock/race/toggle',
+                    desc: 'Companion trigger to toggle individual runner',
+                    companion: true,
+                    details: 'Toggles runner timer via GET request (?runner=1).'
+                },
+                {
+                    method: 'POST', path: '/api/matchup/clock/race/reset',
+                    desc: 'Reset individual runner clock',
+                    companion: true,
+                    details: 'Resets finish split and timer for runner 1-4.',
+                    body: '{ "runner": 1 }'
+                },
+                {
+                    method: 'GET', path: '/api/matchup/clock/race/reset',
+                    desc: 'Companion trigger to reset individual runner',
+                    companion: true,
+                    details: 'Resets runner timer via GET request (?runner=1).'
+                },
+                {
+                    method: 'POST', path: '/api/matchup/clock/race/start-all',
+                    desc: 'Sync-start all speedrun runners',
+                    companion: true,
+                    details: 'Starts timers for all runners simultaneously.'
+                },
+                {
+                    method: 'GET', path: '/api/matchup/clock/race/start-all',
+                    desc: 'Companion trigger to sync-start all runners',
+                    companion: true,
+                    details: 'Starts all runners via GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/matchup/clock/race/pause-all',
+                    desc: 'Pause all speedrun runners',
+                    companion: true,
+                    details: 'Pauses timers for all runners.'
+                },
+                {
+                    method: 'GET', path: '/api/matchup/clock/race/pause-all',
+                    desc: 'Companion trigger to pause all runners',
+                    companion: true,
+                    details: 'Pauses all runners via GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/matchup/clock/race/toggle-all',
+                    desc: 'Toggle all speedrun runners running state',
+                    companion: true,
+                    details: 'Toggles start/pause across all runners.'
+                },
+                {
+                    method: 'GET', path: '/api/matchup/clock/race/toggle-all',
+                    desc: 'Companion trigger to toggle all runners',
+                    companion: true,
+                    details: 'Toggles all runners via GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/matchup/clock/race/reset-all',
+                    desc: 'Reset all speedrun runners',
+                    companion: true,
+                    details: 'Clears all runner finish splits and resets clocks.'
+                },
+                {
+                    method: 'GET', path: '/api/matchup/clock/race/reset-all',
+                    desc: 'Companion trigger to reset all runners',
+                    companion: true,
+                    details: 'Resets all runners via GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/matchup/queue/next',
+                    desc: 'Advance to next matchup in Fight Card queue',
+                    companion: true,
+                    details: 'Loads next match from matchup queue and updates competitors and stage.'
+                },
+                {
+                    method: 'GET', path: '/api/matchup/queue/next',
+                    desc: 'Companion trigger to advance queue',
+                    companion: true,
+                    details: 'Advances to next queued match via GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/matchup/queue/prev',
+                    desc: 'Return to previous matchup in queue',
+                    companion: true,
+                    details: 'Loads previous match from matchup queue.'
+                },
+                {
+                    method: 'GET', path: '/api/matchup/queue/prev',
+                    desc: 'Companion trigger to rewind queue',
+                    companion: true,
+                    details: 'Returns to previous match via GET request.'
+                }
+            ]
+        },
+        {
+            section: 'Tournaments (Esports Brackets)',
+            items: [
+                {
+                    method: 'GET', path: '/api/tournament',
+                    desc: 'Get active esports tournament bracket state',
+                    details: 'Returns { active, title, format, entrants, rounds, matches, activeMatch, champion, settings }.'
+                },
+                {
+                    method: 'POST', path: '/api/tournament',
+                    desc: 'Create or update tournament bracket',
+                    details: 'Creates a tournament with single elimination, double elimination, round robin, or swiss format.',
+                    body: '{ "title": "Street Fighter 6 Top 8", "format": "double", "entrants": ["Daigo", "Tokido", "Punk", "MenaRD", "AngryBird", "Big Bird", "NL", "Kakeru"] }'
+                },
+                {
+                    method: 'POST', path: '/api/tournament/score',
+                    desc: 'Adjust bracket match game or round score',
+                    companion: true,
+                    details: 'Adjusts score for Entrant 1 or Entrant 2 in active or specified match. Body: { "entrant": 1, "delta": 1 }.',
+                    body: '{ "entrant": 1, "delta": 1 }'
+                },
+                {
+                    method: 'GET', path: '/api/tournament/score',
+                    desc: 'Companion trigger to adjust match score',
+                    companion: true,
+                    details: 'Adjusts score via GET request (?entrant=1&delta=1 or ?entrant=2&roundDelta=1).'
+                },
+                {
+                    method: 'POST', path: '/api/tournament/start-match',
+                    desc: 'Mark bracket match as live on stream',
+                    companion: true,
+                    details: 'Sets the active match, syncs scoreboard overlay, and triggers bracket focus glow.',
+                    body: '{ "matchId": "m1" }'
+                },
+                {
+                    method: 'GET', path: '/api/tournament/start-match',
+                    desc: 'Companion trigger to start bracket match',
+                    companion: true,
+                    details: 'Starts match via GET request (?matchId=m1).'
+                },
+                {
+                    method: 'POST', path: '/api/tournament/advance',
+                    desc: 'Confirm match winner and advance bracket',
+                    companion: true,
+                    details: 'Advances winning entrant to next winners/losers bracket round, moves loser accordingly, or crowns champion if grand finals.',
+                    body: '{ "winner": 1 }'
+                },
+                {
+                    method: 'GET', path: '/api/tournament/advance',
+                    desc: 'Companion trigger to advance match winner',
+                    companion: true,
+                    details: 'Advances winner via GET request (?winner=1 or ?winner=2).'
+                },
+                {
+                    method: 'POST', path: '/api/tournament/select-match',
+                    desc: 'Select or highlight specific match in bracket',
+                    companion: true,
+                    details: 'Pins match for overlay display or live scoreboard view.',
+                    body: '{ "matchId": "m2" }'
+                },
+                {
+                    method: 'GET', path: '/api/tournament/select-match',
+                    desc: 'Companion trigger to select bracket match',
+                    companion: true,
+                    details: 'Selects match via GET request (?matchId=m2 or ?action=next|prev).'
+                },
+                {
+                    method: 'POST', path: '/api/tournament/reset-match',
+                    desc: 'Reset scores for bracket match',
+                    companion: true,
+                    details: 'Resets games and rounds for the active match.'
+                },
+                {
+                    method: 'GET', path: '/api/tournament/reset-match',
+                    desc: 'Companion trigger to reset match scores',
+                    companion: true,
+                    details: 'Resets match scores via GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/tournament/rollback',
+                    desc: 'Rollback match advancement',
+                    companion: true,
+                    details: 'Restores match to unplayed state and rolls back downstream bracket entries.'
+                },
+                {
+                    method: 'GET', path: '/api/tournament/rollback',
+                    desc: 'Companion trigger to rollback match',
+                    companion: true,
+                    details: 'Rolls back match via GET request (?matchId=...).'
+                },
+                {
+                    method: 'POST', path: '/api/tournament/settings',
+                    desc: 'Update tournament settings mid-tournament',
+                    companion: true,
+                    details: 'Updates match duration, best-of format, or highlightLive glow toggle without resetting bracket progression.',
+                    body: '{ "matchDuration": 300, "bestOf": 5, "highlightLive": true }'
+                },
+                {
+                    method: 'GET', path: '/api/tournament/settings',
+                    desc: 'Companion trigger to update tournament settings',
+                    companion: true,
+                    details: 'Updates settings via GET request (?matchDuration=300&bestOf=5&highlightLive=1).'
+                },
+                {
+                    method: 'POST', path: '/api/tournament/reset',
+                    desc: 'Reset entire tournament bracket',
+                    companion: true,
+                    details: 'Clears all match scores, bracket progressions, and champion.'
+                },
+                {
+                    method: 'GET', path: '/api/tournament/reset',
+                    desc: 'Companion trigger to reset tournament',
+                    companion: true,
+                    details: 'Resets tournament via GET request.'
+                }
+            ]
+        },
+        {
             section: 'WebSocket',
             items: [
                 {
@@ -1226,6 +1921,7 @@
 
     const sectionId = name => 'sec-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     let methodFilter = '';
+    const epLookup = {};
 
     function render() {
         const container = document.getElementById('endpoints');
@@ -1233,6 +1929,7 @@
             <div class="section-title" id="${sectionId(section.section)}">${section.section} <small>${section.items.length}</small></div>
             ${section.items.map((ep, i) => {
                 const id = `ep-${section.section.replace(/\s/g, '')}-${i}`;
+                epLookup[id] = ep;
                 const methodClass = ep.method.toLowerCase();
                 const fullUrl = ep.wsUrl ? BASE.replace('http', 'ws') + ep.path : BASE + ep.path;
                 return `
@@ -1241,7 +1938,7 @@
                         <span class="method ${methodClass}">${ep.method}</span>
                         <span class="endpoint-path">${ep.path}</span>
                         <span class="endpoint-desc">${ep.desc}${ep.companion ? '<span class=companion-badge>Companion</span>' : ''}</span>
-                        <span class="endpoint-chevron">▶</span>
+                        <svg class="endpoint-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                     </div>
                     <div class="endpoint-body">
                         <div class="detail-label">Description</div>
@@ -1280,6 +1977,27 @@
                         <div class="url-box" style="white-space: pre; font-size: 0.8rem;">
                             <code>${ep.body}</code>
                             <button class="copy-btn" onclick="copyUrl(this, \`${ep.body.replace(/`/g, '\\`')}\`)">Copy</button>
+                        </div>
+                        ` : ''}
+
+                        ${!ep.wsUrl ? `
+                        <div class="detail-label">Interactive Test Runner</div>
+                        <div class="test-runner">
+                            <div class="runner-controls">
+                                <button class="run-btn" onclick="executeEndpoint(this, '${id}')">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                                    Execute Request
+                                </button>
+                                <span class="runner-hint">Send live ${ep.method} request to local StreamPulse server</span>
+                            </div>
+                            <div class="runner-output hidden" id="${id}-output">
+                                <div class="runner-meta">
+                                    <span class="runner-status-pill" id="${id}-status"></span>
+                                    <span class="runner-time" id="${id}-time"></span>
+                                    <button class="copy-btn runner-copy" onclick="copyUrl(this, document.getElementById('${id}-code').textContent)">Copy Output</button>
+                                </div>
+                                <pre><code id="${id}-code"></code></pre>
+                            </div>
                         </div>
                         ` : ''}
                     </div>
@@ -1356,6 +2074,60 @@
                 btn.classList.remove('copied');
             }, 1500);
         });
+    }
+
+    async function executeEndpoint(btn, id) {
+        const ep = epLookup[id];
+        if (!ep) return;
+        const outputEl = document.getElementById(`${id}-output`);
+        const statusEl = document.getElementById(`${id}-status`);
+        const timeEl = document.getElementById(`${id}-time`);
+        const codeEl = document.getElementById(`${id}-code`);
+
+        btn.disabled = true;
+        const origHtml = btn.innerHTML;
+        btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="spin"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle><path d="M12 2a10 10 0 0 1 10 10"></path></svg> Running...`;
+
+        let reqPath = ep.path;
+        reqPath = reqPath.replace(/:id\b/g, 'credits')
+                         .replace(/:name\b/g, 'sample')
+                         .replace(/:field\b/g, 'viewers')
+                         .replace(/:key\b/g, 'credits')
+                         .replace(/:username\b/g, 'Streamer');
+
+        const method = ep.method.toUpperCase();
+        const t0 = performance.now();
+        try {
+            const options = { method };
+            if ((method === 'POST' || method === 'PUT') && ep.body && !ep.body.startsWith('(')) {
+                options.headers = { 'Content-Type': 'application/json' };
+                options.body = ep.body;
+            }
+            const res = await fetch(reqPath, options);
+            const duration = Math.round(performance.now() - t0);
+            const text = await res.text();
+            let displayContent = text;
+            try {
+                const parsed = JSON.parse(text);
+                displayContent = JSON.stringify(parsed, null, 2);
+            } catch {}
+
+            outputEl.classList.remove('hidden');
+            statusEl.textContent = `${res.status} ${res.statusText || (res.ok ? 'OK' : 'Error')}`;
+            statusEl.className = `runner-status-pill ${res.ok ? 'success' : 'error'}`;
+            timeEl.textContent = `${duration}ms`;
+            codeEl.textContent = displayContent;
+        } catch (err) {
+            const duration = Math.round(performance.now() - t0);
+            outputEl.classList.remove('hidden');
+            statusEl.textContent = 'Request Failed';
+            statusEl.className = 'runner-status-pill error';
+            timeEl.textContent = `${duration}ms`;
+            codeEl.textContent = String(err.message || err);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }
     }
 
     render();

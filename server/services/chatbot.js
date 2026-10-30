@@ -94,6 +94,7 @@ module.exports = function createChatbot({ sessionKey = () => '', onUse = () => {
     let chatCount = 0;
     const timerState = new Map();
     const lastUsed = new Map();
+    const lastUserUsed = new Map();
     let lastAny = 0;
     let shared = null;
     let statusCache = { at: 0, value: null };
@@ -176,6 +177,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             limit: input.limit === '' || input.limit === null || input.limit === undefined ? null : Math.max(1, Math.min(1000, Math.round(Number(input.limit)) || 1)),
             limitPer: ['session', 'day', 'forever'].includes(input.limitPer) ? input.limitPer : 'session',
             cooldown: input.cooldown === '' || input.cooldown === null || input.cooldown === undefined ? null : Math.max(0, Math.min(3600, Number(input.cooldown) || 0)),
+            userCooldown: input.userCooldown === '' || input.userCooldown === null || input.userCooldown === undefined ? null : Math.max(0, Math.min(86400, Number(input.userCooldown) || 0)),
             enabled: input.enabled !== false
         };
     }
@@ -248,6 +250,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             enabled: input.enabled !== false,
             words: [...new Set(words)].slice(0, 30),
             wholeWord: input.wholeWord !== false,
+            matchMode: ['contains', 'exact', 'starts_with', 'ends_with', 'regex'].includes(input.matchMode) ? input.matchMode : 'contains',
             access: ACCESS.includes(input.access) ? input.access : 'everyone',
             modCooldown: input.modCooldown === '' || input.modCooldown === null || input.modCooldown === undefined ? null : Math.max(0, Math.min(86400, Number(input.modCooldown) || 0)),
             limit: input.limit === '' || input.limit === null || input.limit === undefined ? null : Math.max(1, Math.min(1000, Math.round(Number(input.limit)) || 1)),
@@ -569,7 +572,16 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             const base = cfg.cooldown !== null && cfg.cooldown !== undefined ? cfg.cooldown : data.settings.cooldown;
             const wait = (isMod(msg) ? (cfg.modCooldown ?? data.settings.modCooldown ?? base) : base) * 1000;
             if (now - (lastUsed.get(key) || 0) < wait || now - lastAny < 1000) return { ok: false, error: 'Cooldown active' };
+            if (cfg.userCooldown && !isMod(msg)) {
+                const userKey = `${key}:${String(msg.chatname || '').toLowerCase()}`;
+                const userWait = cfg.userCooldown * 1000;
+                if (now - (lastUserUsed.get(userKey) || 0) < userWait) return { ok: false, error: 'User cooldown active' };
+            }
             if (custom && limited(key, custom, msg)) return { ok: false, error: 'Usage limit reached' };
+        }
+
+        if (cfg.userCooldown && msg.chatname) {
+            lastUserUsed.set(`${key}:${String(msg.chatname).toLowerCase()}`, now);
         }
 
         logUse('command', key, msg.chatname, { silent: Boolean(custom?.silent), http: Boolean(custom?.httpAction?.enabled) });
@@ -657,7 +669,18 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         for (const t of data.triggers) {
             if (!t.enabled || !allowed(t.access, msg)) continue;
             if (now - (lastUsed.get(`t:${t.id}`) || 0) < (isMod(msg) ? (t.modCooldown ?? data.settings.modCooldown ?? t.cooldown) : t.cooldown) * 1000 || now - lastAny < 1000) continue;
-            const hit = t.words.some(w => new RegExp(t.wholeWord ? `(^|[^\\p{L}\\p{N}_])${escapeRe(w)}($|[^\\p{L}\\p{N}_])` : escapeRe(w), 'iu').test(text));
+            const hit = t.words.some(w => {
+                const mode = t.matchMode || 'contains';
+                const trimmed = text.trim().toLowerCase();
+                const wordLower = w.toLowerCase();
+                if (mode === 'exact') return trimmed === wordLower;
+                if (mode === 'starts_with') return trimmed.startsWith(wordLower);
+                if (mode === 'ends_with') return trimmed.endsWith(wordLower);
+                if (mode === 'regex') {
+                    try { return new RegExp(w, 'iu').test(text); } catch { return false; }
+                }
+                return new RegExp(t.wholeWord ? `(^|[^\\p{L}\\p{N}_])${escapeRe(w)}($|[^\\p{L}\\p{N}_])` : escapeRe(w), 'iu').test(text);
+            });
             if (!hit) continue;
             if (limited(`t:${t.id}`, t, msg)) continue;
             logUse('trigger', t.name || t.id, msg.chatname, { silent: Boolean(t.silent), http: Boolean(t.httpAction?.enabled) });
@@ -792,11 +815,14 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 return json(200, { usage: usageList() }), true;
             }
             if (pathname === '/api/chatbot/activity' && req.method === 'GET') return json(200, { enabled: enabled(), moduleEnabled: isModuleEnabled(), seq, activity: activity.slice(-20) }), true;
-            if (pathname === '/api/chatbot/enabled' && req.method === 'POST') {
+            if (pathname === '/api/chatbot/enabled' && (req.method === 'POST' || req.method === 'GET')) {
                 if (!isModuleEnabled()) {
                     return json(400, { error: 'Chat bot is disabled in Config Editor. Enable it in Config first.', enabled: false, moduleEnabled: false }), true;
                 }
-                data.settings.enabled = body.action === 'toggle' ? !data.settings.enabled : body.enabled === true;
+                const query = req.method === 'GET' ? Object.fromEntries(new URL(req.url, 'http://localhost').searchParams) : {};
+                const input = { ...query, ...body };
+                const action = input.action || (input.enabled !== undefined ? (input.enabled === 'true' || input.enabled === true ? 'enable' : 'disable') : 'toggle');
+                data.settings.enabled = action === 'toggle' ? !data.settings.enabled : (action === 'enable' || input.enabled === true || input.enabled === 'true');
                 save();
                 return json(200, snapshot()), true;
             }
@@ -816,6 +842,55 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 if (variables) for (const v of (body.variables || []).slice(0, 300)) { try { variables.set(v.name, v); vars++; } catch { /* skip bad variable */ } }
                 save();
                 return json(200, { variables: vars, ...snapshot() }), true;
+            }
+            if (pathname === '/api/chatbot/commands/export' && req.method === 'GET') {
+                return json(200, { format: 'streampulse-commands', version: 1, exportedAt: new Date().toISOString(), commands: data.commands }), true;
+            }
+            if (pathname === '/api/chatbot/commands/import' && req.method === 'POST') {
+                if (body.format && body.format !== 'streampulse-commands' && body.format !== 'streampulse-chatbot') {
+                    return json(400, { error: 'Not a StreamPulse commands export' }), true;
+                }
+                const rawCmds = Array.isArray(body.commands) ? body.commands : (Array.isArray(body) ? body : []);
+                if (!rawCmds.length) return json(400, { error: 'Expected commands array' }), true;
+                const mode = body.mode || 'merge';
+                const seen = new Set();
+                const imported = rawCmds.map(normalizeCommand).filter(c => c && !seen.has(c.name) && seen.add(c.name));
+                if (mode === 'replace') {
+                    data.commands = imported.slice(0, MAX_COMMANDS);
+                } else {
+                    for (const c of imported) {
+                        const idx = data.commands.findIndex(x => x.name === c.name);
+                        if (idx >= 0) data.commands[idx] = c;
+                        else data.commands.push(c);
+                    }
+                    data.commands = data.commands.slice(0, MAX_COMMANDS);
+                }
+                save();
+                return json(200, { count: data.commands.length, ...snapshot() }), true;
+            }
+            if (pathname === '/api/chatbot/triggers/export' && req.method === 'GET') {
+                return json(200, { format: 'streampulse-triggers', version: 1, exportedAt: new Date().toISOString(), triggers: data.triggers }), true;
+            }
+            if (pathname === '/api/chatbot/triggers/import' && req.method === 'POST') {
+                if (body.format && body.format !== 'streampulse-triggers' && body.format !== 'streampulse-chatbot') {
+                    return json(400, { error: 'Not a StreamPulse triggers export' }), true;
+                }
+                const rawTrigs = Array.isArray(body.triggers) ? body.triggers : (Array.isArray(body) ? body : []);
+                if (!rawTrigs.length) return json(400, { error: 'Expected triggers array' }), true;
+                const mode = body.mode || 'merge';
+                const imported = rawTrigs.map(normalizeTrigger).filter(Boolean);
+                if (mode === 'replace') {
+                    data.triggers = imported.slice(0, MAX_TRIGGERS);
+                } else {
+                    for (const t of imported) {
+                        const idx = data.triggers.findIndex(x => x.id === t.id || x.name === t.name);
+                        if (idx >= 0) data.triggers[idx] = t;
+                        else data.triggers.push(t);
+                    }
+                    data.triggers = data.triggers.slice(0, MAX_TRIGGERS);
+                }
+                save();
+                return json(200, { count: data.triggers.length, ...snapshot() }), true;
             }
             if (pathname === '/api/chatbot/quotes/import' && req.method === 'POST') {
                 if (!Array.isArray(body.quotes)) return json(400, { error: 'Expected a quotes array' }), true;
@@ -892,9 +967,30 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 const result = await announcePollStart(samplePoll);
                 return json(200, result || { sent: true }), true;
             }
-            if (pathname === '/api/chatbot/send' && req.method === 'POST') {
-                await send(clean(body.text, 400));
-                return json(200, { sent: true }), true;
+            if (pathname === '/api/chatbot/shoutout' && (req.method === 'POST' || req.method === 'GET')) {
+                const query = req.method === 'GET' ? Object.fromEntries(new URL(req.url, 'http://localhost').searchParams) : {};
+                const input = { ...query, ...body };
+                const targetUser = clean(input.user || input.channel || input.name || input.arg || '', 60);
+                if (!targetUser) return json(400, { error: 'Username is required (?user=username)' }), true;
+                const soCmd = data.commands.find(c => (c.name === 'shoutout' || c.name === 'so') && c.enabled !== false);
+                if (soCmd) {
+                    const msg = { chatname: 'Companion', broadcaster: true, mod: true, isBroadcaster: true, isMod: true };
+                    const res = await executeCommand(soCmd.name, targetUser, msg, { bypassCooldown: true });
+                    return json(200, { ok: true, command: soCmd.name, user: targetUser, result: res }), true;
+                }
+                const raw = clean(data.settings.autoShoutout?.message || DEFAULT_AUTO_SHOUTOUT.message, 1000);
+                const formatted = formatTokens(raw, { user: targetUser, arg: targetUser, viewers: input.viewers || 0 });
+                const out = await expand(formatted);
+                if (out) await send(out);
+                return json(200, { ok: true, sent: Boolean(out), text: out, user: targetUser }), true;
+            }
+            if (pathname === '/api/chatbot/send' && (req.method === 'POST' || req.method === 'GET')) {
+                const query = req.method === 'GET' ? Object.fromEntries(new URL(req.url, 'http://localhost').searchParams) : {};
+                const input = { ...query, ...body };
+                const text = clean(input.text || input.message || '', 400);
+                if (!text) return json(400, { error: 'Text message is required' }), true;
+                await send(text);
+                return json(200, { sent: true, text }), true;
             }
         } catch (err) {
             return json(400, { error: err.message }), true;

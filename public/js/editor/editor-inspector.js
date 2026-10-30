@@ -410,9 +410,9 @@ export function sourceStatusText(el) {
     if (src.mode === 'inline' || !src.path) return '';
     const stateVal = shared.textSourceState ? shared.textSourceState(el) : null;
     if (!stateVal) return 'Reading file…';
-    if (stateVal.error) return `⚠ ${stateVal.error}. The fallback text is shown instead.`;
+    if (stateVal.error) return `Warning: ${stateVal.error}. The fallback text is shown instead.`;
     const count = el.type === 'random-text' ? `${shared.elementItems ? shared.elementItems(el).length : 0} entries` : `${stateVal.text.length.toLocaleString()} characters`;
-    return `✓ ${stateVal.name || 'File'} loaded (${count}). Changes you save in the file appear automatically.`;
+    return `${stateVal.name || 'File'} loaded (${count}). Changes you save in the file appear automatically.`;
 }
 
 export function updateSourceStatus() {
@@ -597,7 +597,16 @@ export function layoutSection(el) {
         ${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}
         <div class="grid2">${F.number('x', 'X', el.x, { min: -7680, max: 7680 })}${F.number('y', 'Y', el.y, { min: -4320, max: 4320 })}</div>
         <div class="grid2">${F.number('width', 'Width', el.width, { min: LIMITS.elementW[0], max: LIMITS.elementW[1] })}${line ? '<span></span>' : F.number('height', 'Height', el.height, { min: LIMITS.elementH[0], max: LIMITS.elementH[1] })}</div>
-        ${line ? '' : `<div style="display:flex;justify-content:flex-end;margin:-.2rem 0 .45rem"><button type="button" id="toggle-aspect-lock" class="link-btn" style="font-size:11px;color:${locked ? 'var(--accent)' : 'var(--muted)'};display:inline-flex;align-items:center;gap:4px" title="${locked ? 'Unlock aspect ratio' : 'Lock aspect ratio when editing width/height'}">${locked ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:middle"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> Proportions locked' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:middle"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg> Proportions unlocked'}</button></div>`}
+        ${line ? '' : `<div style="display:flex;justify-content:space-between;align-items:center;margin:-.2rem 0 .45rem;flex-wrap:wrap;gap:4px;">
+            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                <button type="button" class="btn" style="padding:2px 6px;font-size:10px;" data-aspect-preset="16:9" title="Apply 16:9 aspect ratio">16:9</button>
+                <button type="button" class="btn" style="padding:2px 6px;font-size:10px;" data-aspect-preset="4:3" title="Apply 4:3 aspect ratio">4:3</button>
+                <button type="button" class="btn" style="padding:2px 6px;font-size:10px;" data-aspect-preset="1:1" title="Apply 1:1 square aspect ratio">1:1</button>
+                <button type="button" class="btn" style="padding:2px 6px;font-size:10px;" data-aspect-preset="9:16" title="Apply 9:16 vertical aspect ratio">9:16</button>
+                <button type="button" class="btn" style="padding:2px 6px;font-size:10px;" data-aspect-preset="21:9" title="Apply 21:9 ultrawide aspect ratio">21:9</button>
+            </div>
+            <button type="button" id="toggle-aspect-lock" class="link-btn" style="font-size:11px;color:${locked ? 'var(--accent)' : 'var(--muted)'};display:inline-flex;align-items:center;gap:4px" title="${locked ? 'Unlock aspect ratio' : 'Lock aspect ratio when editing width/height'}">${locked ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:middle"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> Proportions locked' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:middle"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg> Proportions unlocked'}</button>
+        </div>`}
         ${F.range('style.rotate', 'Rotation (°)', el.style?.rotate || 0, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset rotation to 0°' })}
         ${alignBody([el])}`);
 }
@@ -998,6 +1007,7 @@ export function slideshowSection(el) {
         ${F.select('slideshow.fit', 'Fit', c.fit || 'cover', [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (whole image)']])}
         ${F.select('slideshow.transition', 'Transition', c.transition || 'fade', [['fade', 'Fade'], ['slide', 'Slide'], ['none', 'None']])}
         ${c.transition === 'none' ? '' : F.number('slideshow.transitionMs', 'Transition time (ms)', c.transitionMs ?? 800, { min: 0, max: 5000, step: 50 })}
+        ${c.transition === 'none' ? '' : F.select('slideshow.easing', 'Transition easing', c.easing || 'ease', [['ease', 'Ease (Smooth)'], ['linear', 'Linear (Constant speed)'], ['ease-in-out', 'Ease In-Out'], ['cubic-bezier(0.16, 1, 0.3, 1)', 'Snappy Spring'], ['cubic-bezier(0.34, 1.56, 0.64, 1)', 'Back / Bounce']])}
         ${c.transition === 'slide' ? F.select('slideshow.direction', 'Slide direction', c.direction || 'left', [['left', 'From the right (moves left)'], ['right', 'From the left (moves right)'], ['up', 'From the bottom (moves up)'], ['down', 'From the top (moves down)']]) : ''}
         ${F.check('slideshow.kenBurns', 'Slow zoom (Ken Burns)', c.kenBurns === true)}
         ${F.select('slideshow.caption', 'Caption', c.caption === true ? 'name' : (c.caption || 'off'), [['off', 'None'], ['caption', 'Asset caption (set in Asset Library)'], ['name', 'File name']])}`);
@@ -2044,30 +2054,33 @@ export function initInspectorEvents() {
                 }
                 return;
             }
-            const aspectBtn = target.closest('[data-cutout-aspect]');
+            const aspectBtn = target.closest('[data-aspect-preset]') || target.closest('[data-cutout-aspect]');
             if (aspectBtn) {
                 const el = primary();
-                if (el && el.type === 'cutout') {
-                    const ratio = aspectBtn.dataset.cutoutAspect;
+                if (el) {
+                    const raw = aspectBtn.dataset.aspectPreset || aspectBtn.dataset.cutoutAspect;
+                    const ratio = raw.replace('-', ':');
+                    let rVal = 16 / 9;
+                    if (ratio === '16:9') rVal = 16 / 9;
+                    else if (ratio === '4:3') rVal = 4 / 3;
+                    else if (ratio === '1:1') rVal = 1;
+                    else if (ratio === '9:16') rVal = 9 / 16;
+                    else if (ratio === '21:9') rVal = 21 / 9;
                     let w = el.width || 480;
-                    let h;
-                    if (ratio === '16-9') h = Math.round(w * 9 / 16);
-                    else if (ratio === '4-3') h = Math.round(w * 3 / 4);
-                    else if (ratio === '1-1') h = w;
-                    else if (ratio === '9-16') h = Math.round(w * 16 / 9);
+                    let h = Math.round(w / rVal);
                     if (h > (state.overlay.canvas?.height || 1080)) {
                         h = Math.round((state.overlay.canvas?.height || 1080) * 0.7);
-                        if (ratio === '16-9') w = Math.round(h * 16 / 9);
-                        else if (ratio === '4-3') w = Math.round(h * 4 / 3);
-                        else if (ratio === '1-1') w = h;
-                        else if (ratio === '9-16') w = Math.round(h * 9 / 16);
+                        w = Math.round(h * rVal);
                     }
                     el.width = clamp(w, 10, 3840);
                     el.height = clamp(h, 10, 2160);
+                    el.aspectRatio = rVal;
+                    el.aspectLock = true;
                     renderCanvas();
                     renderSelectionUI();
                     renderProperties();
                     changed(true);
+                    toast(`Aspect ratio set to ${ratio} and locked`, 'info', 1200);
                 }
                 return;
             }

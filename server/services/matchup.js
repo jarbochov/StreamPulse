@@ -268,7 +268,52 @@ function createMatchupService({
 
     function getMatchup() {
         if (!activeMatchup) load();
+        ensureClock();
+        const mode = activeMatchup.clock.mode;
+        const totalSecs = mode === 'countdown' ? (activeMatchup.clock.remaining ?? 0) : (activeMatchup.clock.elapsed ?? 0);
+        activeMatchup.clock.formatted = formatTime(totalSecs);
+        activeMatchup.clock.formattedPrecise = formatPrecise(totalSecs);
+
+        const target = Number(activeMatchup.targetScore) || 0;
+        const leader = target > 0 ? activeMatchup.competitors.find(c => Number(c.score) >= target) : null;
+        activeMatchup.pendingWinner = leader ? leader.name : (activeMatchup.winner || null);
+        activeMatchup.winReady = Boolean(target > 0 && activeMatchup.competitors.some(c => Number(c.score) >= target - 1));
         return activeMatchup;
+    }
+
+    function getField(fieldName) {
+        if (!activeMatchup) load();
+        const m = getMatchup();
+        const f = String(fieldName || '').toLowerCase().trim();
+        if (f === 'title') return m.title || '';
+        if (f === 'phase') return m.phase || '';
+        if (f === 'details') return m.details || '';
+        if (f === 'format') return m.format || '';
+        if (f === 'status') return m.status || '';
+        if (f === 'winner') return m.winner || '';
+        if (f === 'pending_winner') return m.pendingWinner || '';
+        if (f === 'win_ready') return m.winReady ? 'true' : 'false';
+        if (f === 'clock') return m.clock.formatted || '';
+        if (f === 'clock_precise') return m.clock.formattedPrecise || '';
+        if (f === 'clock_running') return m.clock.isRunning ? 'true' : 'false';
+        if (f === 'clock_mode') return m.clock.mode || '';
+        const compMatch = f.match(/^c([1-4])_(name|score|rounds|tag|color|time|delta|place|finished)$/);
+        if (compMatch) {
+            const idx = parseInt(compMatch[1], 10) - 1;
+            const prop = compMatch[2];
+            const comp = m.competitors[idx];
+            if (!comp) return '';
+            if (prop === 'score') return String(comp.score ?? 0);
+            if (prop === 'rounds') return String(comp.rounds ?? 0);
+            if (prop === 'name') return comp.name || '';
+            if (prop === 'tag') return comp.tag || '';
+            if (prop === 'color') return comp.color || '';
+            if (prop === 'time') return comp.time || '';
+            if (prop === 'delta') return comp.delta || '';
+            if (prop === 'place') return comp.place ? String(comp.place) : '';
+            if (prop === 'finished') return comp.finished ? 'true' : 'false';
+        }
+        return '';
     }
 
     function updateMatchup(data = {}) {
@@ -585,6 +630,36 @@ function createMatchupService({
         return activeMatchup.queue;
     }
 
+    function clearQueue() {
+        if (!activeMatchup) load();
+        activeMatchup.queue = [];
+        activeMatchup.activeQueueIndex = -1;
+        save();
+        broadcastUpdate();
+        return activeMatchup.queue;
+    }
+
+    function duplicateQueueMatch(indexOrId) {
+        if (!activeMatchup) load();
+        if (!Array.isArray(activeMatchup.queue)) activeMatchup.queue = [];
+        let idx = -1;
+        if (typeof indexOrId === 'string') {
+            idx = activeMatchup.queue.findIndex(m => m.id === indexOrId);
+        }
+        if (idx === -1) idx = parseInt(indexOrId, 10);
+        if (idx >= 0 && idx < activeMatchup.queue.length) {
+            const original = activeMatchup.queue[idx];
+            const copy = JSON.parse(JSON.stringify(original));
+            copy.id = `match-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+            copy.title = original.title ? `${original.title} (Copy)` : 'Match (Copy)';
+            activeMatchup.queue.splice(idx + 1, 0, copy);
+            save();
+            broadcastUpdate();
+            return copy;
+        }
+        throw new Error(`Invalid queue match identifier ${indexOrId}`);
+    }
+
     // --- Matchup Presets / Templates Methods ---
     function getPresets() {
         if (!activeMatchup) load();
@@ -835,6 +910,12 @@ function createMatchupService({
         return activeMatchup.clock;
     }
 
+    function toggleClock() {
+        if (!activeMatchup) load();
+        ensureClock();
+        return activeMatchup.clock.isRunning ? pauseClock() : startClock();
+    }
+
     function resetClock(seconds) {
         if (!activeMatchup) load();
         ensureClock();
@@ -950,9 +1031,23 @@ function createMatchupService({
 
     function findRaceCompetitor(compIdentifier) {
         const comps = activeMatchup.competitors || [];
-        if (typeof compIdentifier === 'number') return comps[compIdentifier] || null;
-        if (typeof compIdentifier === 'string' && /^\d+$/.test(compIdentifier) && !comps.some(c => c.id === compIdentifier)) {
-            return comps[Number(compIdentifier)] || null;
+        if (compIdentifier === undefined || compIdentifier === null) return null;
+        if (typeof compIdentifier === 'number' && compIdentifier >= 0 && compIdentifier < comps.length) {
+            return comps[compIdentifier];
+        }
+        if (typeof compIdentifier === 'string') {
+            const trimmed = compIdentifier.trim();
+            const lower = trimmed.toLowerCase();
+            const byId = comps.find(c => (c.id && c.id.toLowerCase() === lower) || (c.name && c.name.toLowerCase() === lower));
+            if (byId) return byId;
+            if (/^[cp]\d+$/i.test(trimmed)) {
+                const n = parseInt(trimmed.slice(1), 10);
+                if (n >= 1 && n <= comps.length) return comps[n - 1];
+            }
+            if (/^\d+$/.test(trimmed)) {
+                const idx = parseInt(trimmed, 10);
+                if (idx >= 0 && idx < comps.length) return comps[idx];
+            }
         }
         return comps.find(c => c.id === compIdentifier || c.name === compIdentifier) || null;
     }
@@ -1004,6 +1099,12 @@ function createMatchupService({
         save();
         broadcastUpdate();
         return activeMatchup;
+    }
+
+    function toggleAllRace() {
+        if (!activeMatchup) load();
+        ensureClock();
+        return activeMatchup.clock.isRunning ? pauseAllRace() : startAllRace();
     }
 
     function resetAllRace() {
@@ -1154,6 +1255,8 @@ function createMatchupService({
         nextQueueMatch,
         prevQueueMatch,
         deleteQueueMatch,
+        clearQueue,
+        duplicateQueueMatch,
         getPresets,
         savePreset,
         loadPreset,
@@ -1165,15 +1268,18 @@ function createMatchupService({
         // Clock methods
         startClock,
         pauseClock,
+        toggleClock,
         resetClock,
         setClockMode,
         startAllRace,
         pauseAllRace,
+        toggleAllRace,
         resetAllRace,
         finishCompetitorRace,
         toggleCompetitorRace,
         resetCompetitorRace,
         setTargetEstimate,
+        getField,
         destroy: () => {
             if (clockTimer) clearInterval(clockTimer);
         }

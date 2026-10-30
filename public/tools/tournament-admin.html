@@ -47,10 +47,10 @@
         }
         .match-admin-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(560px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr));
             gap: 1.1rem;
         }
-        @media (max-width: 640px) {
+        @media (max-width: 580px) {
             .match-admin-grid {
                 grid-template-columns: 1fr;
             }
@@ -755,7 +755,7 @@
                         <div class="entrant-top-bar">
                             <div style="display: flex; align-items: center; gap: 0.4rem; min-width: 0; flex: 1;">
                                 <input type="color" value="${esc(color)}" style="width: 22px; height: 22px; border: none; border-radius: 4px; cursor: pointer; flex-shrink: 0;" onchange="updateEntrantMeta('${m.id}', ${idx}, 'color', this.value)" ${!canScore ? 'disabled' : ''} title="Change entrant color">
-                                <div style="font-weight: 800; font-size: 0.94rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${name === 'TBD' ? 'var(--text-muted)' : 'var(--text)'};" title="${esc(name)}">
+                                <div style="font-weight: 800; font-size: 0.94rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; color: ${name === 'TBD' ? 'var(--text-muted)' : 'var(--text)'};" title="${esc(name)}">
                                     ${esc(name)}
                                 </div>
                                 ${isWinReady ? `<span class="status-pill completed" style="font-size: 0.56rem; padding: 0.06rem 0.35rem; flex-shrink: 0;">Win Ready</span>` : ''}

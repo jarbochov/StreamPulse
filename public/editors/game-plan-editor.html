@@ -308,7 +308,7 @@
                 <div class="search-wrap">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                     <input type="search" id="v-search" placeholder="Search games across lists…" autocomplete="off" aria-label="Search games in plan">
-                    <button type="button" class="search-clear" id="v-search-clear" title="Clear search" hidden>✕</button>
+                    <button type="button" class="search-clear" id="v-search-clear" title="Clear search" hidden><svg class="ico" viewBox="0 0 24 24" style="width:12px;height:12px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                 </div>
             </div>
             <div style="display:flex;align-items:center;gap:0.5rem;">
@@ -336,7 +336,7 @@
     <div id="period-pop" class="period-pop" hidden>
         <div style="font-size:0.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:flex;justify-content:space-between;align-items:center;">
             <span>Assign Block / Group</span>
-            <button type="button" class="col-tool-btn" id="period-pop-close">✕</button>
+            <button type="button" class="col-tool-btn" id="period-pop-close" title="Close"><svg class="ico" viewBox="0 0 24 24" style="width:12px;height:12px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
         <div id="period-pop-chips" class="period-pop-chips"></div>
         <form id="period-pop-form" style="display:flex;gap:0.3rem;">
@@ -483,7 +483,7 @@
     <dialog id="asset-dlg" style="width:min(620px,94vw);">
         <h3>
             <span>Choose Artwork from Asset Library</span>
-            <button type="button" class="btn icon" id="asset-dlg-close">✕</button>
+            <button type="button" class="btn icon" id="asset-dlg-close" title="Close"><svg class="ico" viewBox="0 0 24 24" style="width:12px;height:12px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </h3>
         <div style="display:flex;gap:0.5rem;margin-bottom:0.65rem;flex-wrap:wrap;">
             <input type="search" id="asset-search" placeholder="Search assets by name or tag…" style="flex:1;min-width:180px;">
@@ -496,7 +496,7 @@
     <dialog id="cal-pick-dlg" style="width:min(440px,92vw);">
         <h3>
             <span id="cal-pick-title">Schedule Game on Date</span>
-            <button type="button" class="btn icon" id="cal-pick-close">✕</button>
+            <button type="button" class="btn icon" id="cal-pick-close" title="Close"><svg class="ico" viewBox="0 0 24 24" style="width:12px;height:12px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </h3>
         <p class="hint" style="margin-bottom:0.55rem;">Pick a game from your plan to schedule on this date (or type a new one above):</p>
         <input type="search" id="cal-pick-search" placeholder="Filter games in your plan…" style="width:100%;margin-bottom:0.5rem;">
@@ -527,7 +527,9 @@
             copy: '<svg class="ico" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
             trash: '<svg class="ico" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
             more: '<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/><circle cx="5" cy="12" r="1.5" fill="currentColor"/></svg>',
-            chevronDown: '<svg class="ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>'
+            chevronDown: '<svg class="ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>',
+            chevronUp: '<svg class="ico" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>',
+            close: '<svg class="ico" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
         };
         const BUILTIN = [
             { id: 'tonight', name: "Tonight's Lineup", empty: "No games on tonight's lineup. Drag games here or click 'Tonight' from Schedule or Up Next." },
@@ -638,7 +640,7 @@
                     <div class="collections-pop" id="collections-pop" ${collectionsOpen ? '' : 'hidden'}>
                         <div class="collections-pop-head">
                             <span>Custom Collections (${customLists.length})</span>
-                            <button type="button" class="col-tool-btn" id="collections-close" title="Close">✕</button>
+                            <button type="button" class="col-tool-btn" id="collections-close" title="Close"><svg class="ico" viewBox="0 0 24 24" style="width:12px;height:12px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                         </div>
                         ${customLists.length > 3 ? `
                             <input type="search" id="col-search" placeholder="Filter collections…" value="${esc(collectionSearch)}" style="width:100%;padding:0.3rem 0.5rem;font-size:0.76rem;">
@@ -790,7 +792,7 @@
                 <div class="trow" data-tier-row="${esc(row.id)}">
                     <div class="tlabel" style="background:${esc(row.color)}">
                         ${row.real ? `<input type="text" data-tier-label="${esc(row.id)}" value="${esc(row.label)}" maxlength="24" aria-label="Tier name">
-                        <div class="tools"><input type="color" data-tier-color="${esc(row.id)}" value="${esc(row.color)}" title="Colour"><button type="button" data-tier-up="${esc(row.id)}" title="Move up"${index === 0 ? ' disabled' : ''}>▲</button><button type="button" data-tier-down="${esc(row.id)}" title="Move down"${index === current.length - 1 ? ' disabled' : ''}>▼</button><button type="button" data-tier-del="${esc(row.id)}" title="Delete tier (games become unranked)">✕</button></div>` : '<b style="text-align:center">Unranked</b>'}
+                        <div class="tools"><input type="color" data-tier-color="${esc(row.id)}" value="${esc(row.color)}" title="Colour"><button type="button" data-tier-up="${esc(row.id)}" title="Move up"${index === 0 ? ' disabled' : ''}>${ICONS.chevronUp}</button><button type="button" data-tier-down="${esc(row.id)}" title="Move down"${index === current.length - 1 ? ' disabled' : ''}>${ICONS.chevronDown}</button><button type="button" data-tier-del="${esc(row.id)}" title="Delete tier (games become unranked)">${ICONS.close}</button></div>` : '<b style="text-align:center">Unranked</b>'}
                     </div>
                     <div class="tbody" data-tier-body="${esc(row.id)}">${shown.filter(item => (current.some(tier => tier.id === item.tier) ? item.tier : '') === row.id).map(item => `<div class="tile" data-id="${esc(item.id)}" title="${esc(item.name)}">${coverTag(item)}<div class="nm">${esc(item.name)}</div></div>`).join('')}</div>
                 </div>`).join('') + '<div class="board-tools"><button class="btn" type="button" id="tier-add">+ Add tier</button><button class="btn" type="button" id="tier-reset" title="Back to S A B C D F (games keep matching letters)">Reset to S–F</button></div>';
@@ -947,7 +949,7 @@
                                 <div class="cal-event week-ev ${ev.kind === 'twitch' ? 'twitch-synced' : ev.kind === 'tonight' ? 'tonight-ev' : ev.kind === 'played' ? 'played-ev' : ''}" data-cal-item="${esc(ev.id)}" data-cal-ev-date="${iso}" data-cal-ev-kind="${ev.kind}" title="Click to edit · Right-click or click ⋯ for actions">
                                     <div class="week-ev-top">
                                         <span class="ev-time">${esc(formatEvTime(ev.time))}</span>
-                                        <button type="button" class="ev-menu-btn" data-cal-menu="${esc(ev.id)}" data-cal-menu-date="${iso}" data-cal-menu-kind="${ev.kind}" title="Actions (Duplicate, Delete, Move…)">⋯</button>
+                                        <button type="button" class="ev-menu-btn" data-cal-menu="${esc(ev.id)}" data-cal-menu-date="${iso}" data-cal-menu-kind="${ev.kind}" title="Actions (Duplicate, Delete, Move…)">${ICONS.more}</button>
                                     </div>
                                     <div class="ev-name" title="${esc(ev.item.name)}">${esc(ev.item.name)}</div>
                                     ${(ev.item.cover || subMeta) ? `
@@ -987,7 +989,7 @@
                                 <div class="cal-event ${ev.kind === 'twitch' ? 'twitch-synced' : ev.kind === 'tonight' ? 'tonight-ev' : ev.kind === 'played' ? 'played-ev' : ''}" data-cal-item="${esc(ev.id)}" data-cal-ev-date="${iso}" data-cal-ev-kind="${ev.kind}" title="${esc(ev.item.name)} (${esc(ev.time)}) — click to edit, right-click for actions">
                                     <div class="cal-ev-header">
                                         <span class="ev-time">${esc(formatEvTime(ev.time))}</span>
-                                        <button type="button" class="ev-menu-btn" data-cal-menu="${esc(ev.id)}" data-cal-menu-date="${iso}" data-cal-menu-kind="${ev.kind}" title="Actions">⋯</button>
+                                        <button type="button" class="ev-menu-btn" data-cal-menu="${esc(ev.id)}" data-cal-menu-date="${iso}" data-cal-menu-kind="${ev.kind}" title="Actions">${ICONS.more}</button>
                                     </div>
                                     <div class="ev-name" title="${esc(ev.item.name)}">${esc(ev.item.name)}</div>
                                 </div>
@@ -2281,7 +2283,7 @@
                     allDates.map(d => {
                         const dt = new Date(`${d}T00:00:00`);
                         const nice = isNaN(dt) ? d : dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-                        return `<span class="sdate-chip">${ICONS.calendar} ${esc(nice)} <button type="button" data-unpick-date="${esc(d)}" title="Remove ${esc(d)}">✕</button></span>`;
+                        return `<span class="sdate-chip">${ICONS.calendar} ${esc(nice)} <button type="button" data-unpick-date="${esc(d)}" title="Remove ${esc(d)}">${ICONS.close}</button></span>`;
                     }).join('');
             }
         }
@@ -2311,7 +2313,7 @@
                 <div style="display:flex;gap:0.4rem;align-items:center;" data-date-idx="${idx}">
                     <input type="date" value="${esc(slot.date || '')}" style="flex:1;" data-extra-date>
                     <input type="time" value="${esc(slot.time || editing.streamTime || '19:00')}" style="width:115px;" data-extra-time>
-                    <button type="button" class="btn ghost danger" style="padding:0.2rem 0.5rem;" title="Remove this date" data-remove-date>✕</button>
+                    <button type="button" class="btn ghost danger" style="padding:0.2rem 0.5rem;" title="Remove this date" data-remove-date>${ICONS.close}</button>
                 </div>
             `).join('');
         }

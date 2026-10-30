@@ -287,11 +287,15 @@ function createPollService({
             : 0;
 
         const isBlindActive = poll.status === 'ACTIVE' && poll.settings?.blind;
+        const sortedChoices = [...(poll.choices || [])].sort((a, b) => (b.votes || 0) - (a.votes || 0));
+        const leader = (!isBlindActive && sortedChoices[0]?.votes > 0) ? sortedChoices[0].title : '';
 
         return {
             id: poll.id,
+            active: poll.status === 'ACTIVE',
             title: poll.title,
             status: poll.status,
+            leader,
             source: 'streampulse',
             duration: poll.duration,
             startedAt: poll.startedAt,
@@ -504,12 +508,28 @@ function createPollService({
                     }
                 } else {
                     if (match) {
-                        match.status = 'PENDING';
-                        match.winner = null;
-                        save();
-                        broadcastFn();
+                        const tieBreaker = targetTourney.tieBreaker || 'manual';
+                        let resolvedWinner = null;
+                        if (status === 'COMPLETED' && finishedPoll.isTie && (finishedPoll.totalVotes || 0) > 0) {
+                            if (tieBreaker === 'higherSeed') {
+                                const s1 = match.entrant1?.seed || 999;
+                                const s2 = match.entrant2?.seed || 999;
+                                resolvedWinner = s1 <= s2 ? match.entrant1?.name : match.entrant2?.name;
+                            } else if (tieBreaker === 'coinFlip' || tieBreaker === 'random') {
+                                resolvedWinner = Math.random() < 0.5 ? match.entrant1?.name : match.entrant2?.name;
+                            }
+                        }
+                        if (resolvedWinner) {
+                            log(`[Polls] Tournament match poll "${finishedPoll.title}" tied — resolved by ${tieBreaker}: "${resolvedWinner}".`);
+                            advanceTournamentMatch(finishedPoll.tournamentMatchId, resolvedWinner, { isPoll: isPollTourney });
+                        } else {
+                            match.status = 'PENDING';
+                            match.winner = null;
+                            save();
+                            broadcastFn();
+                            log(`[Polls] Tournament match poll "${finishedPoll.title}" completed with 0 votes or tie — match retained for resolution.`);
+                        }
                     }
-                    log(`[Polls] Tournament match poll "${finishedPoll.title}" completed with 0 votes or tie — match retained for resolution.`);
                 }
             }
         }
@@ -909,6 +929,93 @@ function createPollService({
         }
     }
 
+    function sweepByes(matches) {
+        if (!Array.isArray(matches)) return;
+        let changed = false;
+        for (const m of matches) {
+            if (m.status !== 'PENDING' || m.isBye) continue;
+            const e1IsBye = m.entrant1?.name === 'BYE';
+            const e2IsBye = m.entrant2?.name === 'BYE';
+            const e1Valid = m.entrant1?.name && m.entrant1.name !== 'TBD' && m.entrant1.name !== 'BYE';
+            const e2Valid = m.entrant2?.name && m.entrant2.name !== 'TBD' && m.entrant2.name !== 'BYE';
+
+            if (e1IsBye && e2Valid) {
+                m.isBye = true;
+                m.status = 'COMPLETED';
+                m.winner = m.entrant2.name;
+                if (m.nextMatchId) {
+                    const nextM = matches.find(x => x.id === m.nextMatchId);
+                    if (nextM) {
+                        const obj = { ...m.entrant2, score: 0, rounds: 0, votes: 0, percent: 0 };
+                        if (m.nextSlot === 1) nextM.entrant1 = obj;
+                        else nextM.entrant2 = obj;
+                        nextM.entrants = [nextM.entrant1?.name || 'TBD', nextM.entrant2?.name || 'TBD'];
+                        changed = true;
+                    }
+                }
+                if (m.loserNextMatchId) {
+                    const loserM = matches.find(x => x.id === m.loserNextMatchId);
+                    if (loserM) {
+                        const byeObj = { name: 'BYE', tag: '', seed: 0, score: 0, rounds: 0, votes: 0, percent: 0 };
+                        if (m.loserNextSlot === 1) loserM.entrant1 = byeObj;
+                        else loserM.entrant2 = byeObj;
+                        loserM.entrants = [loserM.entrant1?.name || 'TBD', loserM.entrant2?.name || 'TBD'];
+                        changed = true;
+                    }
+                }
+            } else if (e2IsBye && e1Valid) {
+                m.isBye = true;
+                m.status = 'COMPLETED';
+                m.winner = m.entrant1.name;
+                if (m.nextMatchId) {
+                    const nextM = matches.find(x => x.id === m.nextMatchId);
+                    if (nextM) {
+                        const obj = { ...m.entrant1, score: 0, rounds: 0, votes: 0, percent: 0 };
+                        if (m.nextSlot === 1) nextM.entrant1 = obj;
+                        else nextM.entrant2 = obj;
+                        nextM.entrants = [nextM.entrant1?.name || 'TBD', nextM.entrant2?.name || 'TBD'];
+                        changed = true;
+                    }
+                }
+                if (m.loserNextMatchId) {
+                    const loserM = matches.find(x => x.id === m.loserNextMatchId);
+                    if (loserM) {
+                        const byeObj = { name: 'BYE', tag: '', seed: 0, score: 0, rounds: 0, votes: 0, percent: 0 };
+                        if (m.loserNextSlot === 1) loserM.entrant1 = byeObj;
+                        else loserM.entrant2 = byeObj;
+                        loserM.entrants = [loserM.entrant1?.name || 'TBD', loserM.entrant2?.name || 'TBD'];
+                        changed = true;
+                    }
+                }
+            } else if (e1IsBye && e2IsBye) {
+                m.isBye = true;
+                m.status = 'COMPLETED';
+                m.winner = 'BYE';
+                if (m.nextMatchId) {
+                    const nextM = matches.find(x => x.id === m.nextMatchId);
+                    if (nextM) {
+                        const obj = { name: 'BYE', tag: '', score: 0, rounds: 0, votes: 0, percent: 0 };
+                        if (m.nextSlot === 1) nextM.entrant1 = obj;
+                        else nextM.entrant2 = obj;
+                        nextM.entrants = [nextM.entrant1?.name || 'TBD', nextM.entrant2?.name || 'TBD'];
+                        changed = true;
+                    }
+                }
+                if (m.loserNextMatchId) {
+                    const loserM = matches.find(x => x.id === m.loserNextMatchId);
+                    if (loserM) {
+                        const byeObj = { name: 'BYE', tag: '', seed: 0, score: 0, rounds: 0, votes: 0, percent: 0 };
+                        if (m.loserNextSlot === 1) loserM.entrant1 = byeObj;
+                        else loserM.entrant2 = byeObj;
+                        loserM.entrants = [loserM.entrant1?.name || 'TBD', loserM.entrant2?.name || 'TBD'];
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if (changed) sweepByes(matches);
+    }
+
     function createTournament(input = {}, opts = {}) {
         const {
             title,
@@ -930,6 +1037,7 @@ function createPollService({
             pointsPerDraw,
             pointsPerLoss = 0,
             allowDraws = true,
+            tieBreaker = 'manual',
             isPoll: inputIsPoll = false
         } = input;
         const isPoll = Boolean(opts.isPoll !== undefined ? opts.isPoll : inputIsPoll);
@@ -996,6 +1104,7 @@ function createPollService({
                 pointsPerDraw: drawPts,
                 pointsPerLoss: lossPts,
                 allowDraws: Boolean(allowDraws),
+                tieBreaker: ['manual', 'higherSeed', 'coinFlip', 'random', 'overtime'].includes(tieBreaker) ? tieBreaker : 'manual',
                 entrantCount: rawEntrants.length,
                 bracketSize: rawEntrants.length,
                 roundCount: Math.max(...rrMatches.map(m => m.round || 1)),
@@ -1358,47 +1467,6 @@ function createPollService({
             }
         }
 
-        function sweepByes(matches) {
-            let changed = false;
-            for (const m of matches) {
-                if (m.status !== 'PENDING' || m.isBye) continue;
-                const e1IsBye = m.entrant1?.name === 'BYE';
-                const e2IsBye = m.entrant2?.name === 'BYE';
-                const e1Valid = m.entrant1?.name && m.entrant1.name !== 'TBD' && m.entrant1.name !== 'BYE';
-                const e2Valid = m.entrant2?.name && m.entrant2.name !== 'TBD' && m.entrant2.name !== 'BYE';
-
-                if (e1IsBye && e2Valid) {
-                    m.isBye = true;
-                    m.status = 'COMPLETED';
-                    m.winner = m.entrant2.name;
-                    if (m.nextMatchId) {
-                        const nextM = matches.find(x => x.id === m.nextMatchId);
-                        if (nextM) {
-                            const obj = { ...m.entrant2, score: 0, rounds: 0, votes: 0, percent: 0 };
-                            if (m.nextSlot === 1) nextM.entrant1 = obj;
-                            else nextM.entrant2 = obj;
-                            nextM.entrants = [nextM.entrant1?.name || 'TBD', nextM.entrant2?.name || 'TBD'];
-                            changed = true;
-                        }
-                    }
-                } else if (e2IsBye && e1Valid) {
-                    m.isBye = true;
-                    m.status = 'COMPLETED';
-                    m.winner = m.entrant1.name;
-                    if (m.nextMatchId) {
-                        const nextM = matches.find(x => x.id === m.nextMatchId);
-                        if (nextM) {
-                            const obj = { ...m.entrant1, score: 0, rounds: 0, votes: 0, percent: 0 };
-                            if (m.nextSlot === 1) nextM.entrant1 = obj;
-                            else nextM.entrant2 = obj;
-                            nextM.entrants = [nextM.entrant1?.name || 'TBD', nextM.entrant2?.name || 'TBD'];
-                            changed = true;
-                        }
-                    }
-                }
-            }
-            if (changed) sweepByes(matches);
-        }
         sweepByes(allMatches);
 
         const firstPlayable = allMatches.find(m =>
@@ -1431,6 +1499,7 @@ function createPollService({
             matchDuration: Math.max(10, Number(matchDuration) || 60),
             blind: Boolean(blind),
             subMultiplier: Number(subMultiplier) || 1,
+            tieBreaker: ['manual', 'higherSeed', 'coinFlip', 'random', 'overtime'].includes(tieBreaker) ? tieBreaker : 'manual',
             status: 'READY',
             activeMatchId: firstPlayable ? firstPlayable.id : (allMatches[0]?.id || null),
             highlightLive: true,
@@ -1591,8 +1660,63 @@ function createPollService({
         };
     }
 
+    function toggleBlind() {
+        if (!activePoll) return null;
+        if (!activePoll.settings) activePoll.settings = {};
+        activePoll.settings.blind = !activePoll.settings.blind;
+        broadcastUpdate();
+        save();
+        return getPublicPayload(activePoll);
+    }
+
+    function toggleVoting() {
+        if (!activePoll) return null;
+        if (!activePoll.settings) activePoll.settings = {};
+        activePoll.settings.keywordVoting = activePoll.settings.keywordVoting === false ? true : false;
+        broadcastUpdate();
+        save();
+        return getPublicPayload(activePoll);
+    }
+
     function getTournament({ isPoll = false } = {}) {
-        return isPoll ? activePollTournament : activeTournament;
+        const t = isPoll ? activePollTournament : activeTournament;
+        if (!t) return null;
+        let activeMatch = null;
+        if (t.matches && t.matches.length) {
+            if (t.activeMatchId) {
+                activeMatch = t.matches.find(m => m.id === t.activeMatchId) || null;
+            }
+            if (!activeMatch) {
+                activeMatch = t.matches.find(m => m.status === 'ACTIVE') ||
+                    t.matches.find(m => m.status === 'READY' && !m.isBye) ||
+                    t.matches.find(m => !m.isBye && !m.winner) ||
+                    t.matches[0] || null;
+            }
+        }
+        let enrichedMatch = null;
+        if (activeMatch) {
+            const e1Score = Number(activeMatch.e1Score ?? activeMatch.entrant1?.score ?? 0);
+            const e2Score = Number(activeMatch.e2Score ?? activeMatch.entrant2?.score ?? 0);
+            const targetScore = Number(activeMatch.targetScore ?? t.targetScore ?? 0);
+            let pendingWinner = null;
+            if (targetScore > 0) {
+                if (e1Score >= targetScore) pendingWinner = activeMatch.entrant1?.name || 'Entrant 1';
+                else if (e2Score >= targetScore) pendingWinner = activeMatch.entrant2?.name || 'Entrant 2';
+            }
+            const winReady = Boolean(pendingWinner || (targetScore > 0 && (e1Score >= targetScore - 1 || e2Score >= targetScore - 1)));
+            enrichedMatch = {
+                ...activeMatch,
+                e1Score,
+                e2Score,
+                pendingWinner,
+                winReady
+            };
+        }
+        return {
+            ...t,
+            active: t.status === 'ACTIVE',
+            activeMatch: enrichedMatch
+        };
     }
 
     function startTournamentMatch(matchId, { isPoll = false } = {}) {
@@ -1788,6 +1912,9 @@ function createPollService({
                 if (match.loserNextSlot === 1) loserMatch.entrant1 = targetLoser;
                 else loserMatch.entrant2 = targetLoser;
                 loserMatch.entrants = [loserMatch.entrant1?.name || 'TBD', loserMatch.entrant2?.name || 'TBD'];
+                if (loserMatch.entrant1?.name === 'BYE' || loserMatch.entrant2?.name === 'BYE') {
+                    sweepByes(targetTourney.matches);
+                }
             }
         }
 
@@ -2166,6 +2293,9 @@ function createPollService({
             targetTourney.activeMatchId = (settings.activeMatchId === null || settings.activeMatchId === 'none' || settings.activeMatchId === '') ? null : String(settings.activeMatchId);
         }
         if (settings.announceChat !== undefined) targetTourney.announceChat = Boolean(settings.announceChat);
+        if (settings.tieBreaker !== undefined) {
+            targetTourney.tieBreaker = ['manual', 'higherSeed', 'coinFlip', 'random', 'overtime'].includes(settings.tieBreaker) ? settings.tieBreaker : 'manual';
+        }
         save();
         if (isPollTourney) broadcastPollTournamentUpdate();
         else broadcastTournamentUpdate();
@@ -2452,6 +2582,8 @@ function createPollService({
         finishPoll,
         extendPoll,
         cancelPoll,
+        toggleBlind,
+        toggleVoting,
         castVote,
         handleChatMessage,
         getActivePoll: () => activePoll ? getPublicPayload(activePoll) : null,
