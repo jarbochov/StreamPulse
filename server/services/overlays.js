@@ -346,6 +346,7 @@ const TEXT_SOURCE_MAX_BYTES = 512 * 1024;
 const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'poll', 'game-list', 'qr', 'alert', 'slideshow', 'icon', 'cutout', 'pattern', 'procedural-pattern']);
 const PAGE_TRANSITIONS = ['none', 'fade', 'slide', 'morph'];
 const PAGE_EASINGS = ['smooth', 'snappy', 'spring', 'ease-in-out', 'linear'];
+const PAGE_ENTER_EXITS = ['fade', 'slide', 'zoom', 'none'];
 const PAGE_DIRECTIONS = ['left', 'right', 'up', 'down'];
 const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset'];
 const BORDER_ANIM_TYPES = ['none', 'rotating', 'radial', 'pulsing', 'gradient', 'rainbow', 'marching'];
@@ -943,6 +944,7 @@ function normalizePages(input = {}) {
         loop: input.loop !== false,
         transition: PAGE_TRANSITIONS.includes(input.transition) ? input.transition : (kind === 'states' ? 'morph' : 'fade'),
         transitionEasing: PAGE_EASINGS.includes(input.transitionEasing) ? input.transitionEasing : 'smooth',
+        enterExit: PAGE_ENTER_EXITS.includes(input.enterExit) ? input.enterExit : 'fade',
         transitionMs: Math.max(0, Math.min(5000, Number(input.transitionMs ?? (kind === 'states' ? 650 : 500)))),
         transitionDirection: PAGE_DIRECTIONS.includes(input.transitionDirection) ? input.transitionDirection : 'left',
         transitionDistance: Math.max(10, Math.min(2000, Math.round(Number(input.transitionDistance) || 120))),

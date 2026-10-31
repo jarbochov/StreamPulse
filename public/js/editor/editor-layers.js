@@ -279,10 +279,32 @@ export function renderPagesPanel() {
         </div>` : ''}
         <details class="sub-details" open>
             <summary>Transition &amp; Playback <span class="spacer"></span><span class="badge-pill">${esc(transLabel)} · ${P.transition === 'none' ? '0ms' : `${P.transitionMs || 650}ms`}</span></summary>
-            ${F.select('pages.transition', 'Transition style', P.transition, [['morph', 'Morph (Smooth Layout, Styles & Cutouts)'], ['fade', 'Crossfade'], ['slide', 'Slide'], ['none', 'Instant Cut']])}
-            ${P.transition === 'morph' ? F.select('pages.transitionEasing', 'Motion curve', P.transitionEasing || 'smooth', [['smooth', 'Smooth Cubic'], ['snappy', 'Snappy Out'], ['spring', 'Gentle Spring'], ['ease-in-out', 'Ease In-Out'], ['linear', 'Linear']]) : ''}
-            ${P.transition === 'slide' ? F.select('pages.transitionDirection', 'Slide direction', P.transitionDirection || 'left', [['left', 'Left (new enters from right)'], ['right', 'Right (enters from left)'], ['up', 'Up (enters from bottom)'], ['down', 'Down (enters from top)']]) + F.number('pages.transitionDistance', 'Slide distance (px)', P.transitionDistance || 120, { min: 10, max: 2000, step: 10 }) : ''}
-            ${P.transition !== 'none' ? F.number('pages.transitionMs', 'Transition length (ms)', P.transitionMs, { min: 50, max: 5000, step: 50 }) : ''}
+            ${F.select('pages.transition', 'Transition style', P.transition, [
+                ['morph', 'Liquid Morph (Glide layout, styles & cutouts)'],
+                ['fade', 'Crossfade (Dissolve changing elements)'],
+                ['slide', 'Slide (Push entire layout)'],
+                ['none', 'Instant Cut (0ms)']
+            ])}
+            ${P.transition === 'morph' ? F.select('pages.transitionEasing', 'Morph motion curve', P.transitionEasing || 'smooth', [
+                ['smooth', 'Smooth Cubic (Natural ease-out)'],
+                ['snappy', 'Snappy Out (Fast responsive start)'],
+                ['spring', 'Gentle Spring (Soft rebound)'],
+                ['ease-in-out', 'Ease In-Out (Symmetric curve)'],
+                ['linear', 'Linear (Constant speed)']
+            ]) : ''}
+            ${P.transition === 'morph' ? F.select('pages.enterExit', 'New & removed items', P.enterExit || 'fade', [
+                ['fade', 'Crossfade In / Out (Clean dissolve)'],
+                ['slide', 'Slide In / Out (Directional glide)'],
+                ['zoom', 'Scale Pop In / Out (Zoom from 85%)'],
+                ['none', 'Instant Cut (Appear immediately)']
+            ]) : ''}
+            ${(P.transition === 'slide' || (P.transition === 'morph' && P.enterExit === 'slide')) ? F.select('pages.transitionDirection', 'Slide direction', P.transitionDirection || 'left', [
+                ['left', 'Left (enters from right, exits to left)'],
+                ['right', 'Right (enters from left, exits to right)'],
+                ['up', 'Up (enters from bottom, exits to top)'],
+                ['down', 'Down (enters from top, exits to bottom)']
+            ]) + F.number('pages.transitionDistance', 'Slide distance (px)', P.transitionDistance || 120, { min: 10, max: 2000, step: 10 }) : ''}
+            ${P.transition !== 'none' ? F.number('pages.transitionMs', 'Transition duration (ms)', P.transitionMs, { min: 50, max: 5000, step: 50 }) : ''}
             ${F.select('pages.mode', 'Advance mode', P.mode, [['manual', 'Manual (editor, control panel, API)'], ['auto', 'Automatic cycle']])}
             ${P.mode === 'auto' ? `${F.number('pages.cycleSeconds', `Default seconds per ${noun}`, P.cycleSeconds, { min: 1, max: 3600 })}${F.check('pages.loop', `Loop back to first ${noun}`, P.loop)}` : ''}
             ${items.length > 1 && P.transition !== 'none' ? `<button type="button" id="btn-preview-transition" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:600"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Preview ${P.transition === 'morph' ? 'Morph' : P.transition === 'fade' ? 'Crossfade' : 'Slide'} on Canvas</button>` : ''}
@@ -405,6 +427,7 @@ export function switchEditPage(id, { animate = true } = {}) {
             prevPage: prevPageId,
             nextPage: id,
             transition: trans,
+            enterExit: state.overlay.pages?.enterExit || 'fade',
             durationMs: state.overlay.pages?.transitionMs || (trans === 'morph' ? 650 : 500),
             easing: state.overlay.pages?.transitionEasing || 'smooth',
             direction: state.overlay.pages?.transitionDirection || 'left',
@@ -793,7 +816,7 @@ export function initLayersAndPages() {
                 return;
             }
             const path = event.target.dataset?.path;
-            if (path === 'pages.mode' || path === 'pages.transition' || path === 'pages.transitionEasing' || /^pages\.items\.\d+\.trigger$/.test(path || '')) {
+            if (path === 'pages.mode' || path === 'pages.transition' || path === 'pages.transitionEasing' || path === 'pages.enterExit' || /^pages\.items\.\d+\.trigger$/.test(path || '')) {
                 renderPagesPanel();
             }
         });

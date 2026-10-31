@@ -277,6 +277,7 @@ export function previewEditorTransition(beforeMap, {
     prevPage = null,
     nextPage = state.curPage,
     transition = state.overlay.pages?.transition || 'morph',
+    enterExit = state.overlay.pages?.enterExit || 'fade',
     durationMs = state.overlay.pages?.transitionMs || (transition === 'morph' ? 650 : 500),
     easing = state.overlay.pages?.transitionEasing || 'smooth',
     direction = state.overlay.pages?.transitionDirection || 'left',
@@ -288,33 +289,41 @@ export function previewEditorTransition(beforeMap, {
     const easingKey = easing || 'smooth';
     const cssEase = EASING_CSS[easingKey] || EASING_CSS.smooth;
     const transKind = transition || 'morph';
+    const enterExitKind = enterExit || 'fade';
 
     const animatedNodes = [];
     const cutoutPairs = [];
     const outgoingNodes = [];
     const incomingNodes = [];
+    const ghostNodes = [];
+
+    const sign = { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] }[direction] || [1, 0];
+    const dx = sign[0] * distance, dy = sign[1] * distance;
+
+    const getAnim = (mode, isEnter) => {
+        if (mode === 'none') return '';
+        if (mode === 'slide') return isEnter ? `pg-slide-in ${ms}ms ${cssEase} both` : `pg-slide-out ${ms}ms ${cssEase} both`;
+        if (mode === 'zoom') return isEnter ? `pg-zoom-in ${ms}ms ${cssEase} both` : `pg-zoom-out ${ms}ms ${cssEase} both`;
+        return isEnter ? `pg-fade-in ${ms}ms ${cssEase} both` : `pg-fade-out ${ms}ms ${cssEase} both`;
+    };
 
     // Outgoing nodes: elements that were visible before, but are no longer in view
-    if (transKind === 'fade' || transKind === 'slide') {
-        const sign = { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] }[direction] || [1, 0];
-        const dx = sign[0] * distance, dy = sign[1] * distance;
-        for (const [id, prev] of beforeMap.entries()) {
-            if (id.startsWith('morph:')) continue;
-            const currentEl = byId(id);
-            if (!currentEl || !inView(currentEl)) {
-                const node = state.nodes.get(id);
-                if (node && prev.visible) {
-                    node.classList.remove('hidden');
-                    node.style.pointerEvents = 'none';
-                    if (transKind === 'slide') {
-                        node.style.setProperty('--pg-x', `${dx}px`);
-                        node.style.setProperty('--pg-y', `${dy}px`);
-                        node.style.animation = `pg-slide-out ${ms}ms ${cssEase} both`;
-                    } else {
-                        node.style.animation = `pg-fade-out ${ms}ms ${cssEase} both`;
-                    }
-                    outgoingNodes.push(node);
+    for (const [id, prev] of beforeMap.entries()) {
+        if (id.startsWith('morph:')) continue;
+        const currentEl = byId(id);
+        if (!currentEl || !inView(currentEl)) {
+            const node = state.nodes.get(id);
+            if (node && prev.visible) {
+                node.classList.remove('hidden');
+                node.style.pointerEvents = 'none';
+                const exitMode = transKind === 'morph' ? enterExitKind : transKind;
+                if (exitMode === 'slide') {
+                    node.style.setProperty('--pg-x', `${dx}px`);
+                    node.style.setProperty('--pg-y', `${dy}px`);
                 }
+                const anim = getAnim(exitMode, false);
+                if (anim) node.style.animation = anim;
+                outgoingNodes.push(node);
             }
         }
     }
@@ -326,19 +335,15 @@ export function previewEditorTransition(beforeMap, {
 
         if (!prev || !prev.visible) {
             // Incoming node (was not visible on previous page)
-            if (transKind === 'fade' || transKind === 'slide') {
-                const sign = { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] }[direction] || [1, 0];
-                const dx = sign[0] * distance, dy = sign[1] * distance;
-                node.classList.remove('hidden');
-                if (transKind === 'slide') {
-                    node.style.setProperty('--pg-x', `${dx}px`);
-                    node.style.setProperty('--pg-y', `${dy}px`);
-                    node.style.animation = `pg-slide-in ${ms}ms ${cssEase} both`;
-                } else {
-                    node.style.animation = `pg-fade-in ${ms}ms ${cssEase} both`;
-                }
-                incomingNodes.push(node);
+            const enterMode = transKind === 'morph' ? enterExitKind : transKind;
+            node.classList.remove('hidden');
+            if (enterMode === 'slide') {
+                node.style.setProperty('--pg-x', `${dx}px`);
+                node.style.setProperty('--pg-y', `${dy}px`);
             }
+            const anim = getAnim(enterMode, true);
+            if (anim) node.style.animation = anim;
+            incomingNodes.push(node);
             continue;
         }
 
@@ -355,17 +360,9 @@ export function previewEditorTransition(beforeMap, {
         const prevFitted = prev.fittedFontSize || (Number(prev.style?.fontSize) || 32);
         const targetFitted = (node._fittedFontSize) || (Number(el.style?.fontSize) || 32);
 
-        const changedAny = prev.x !== curX || prev.y !== curY || prev.width !== curW || prev.height !== curH || prevOp !== curOp || prev.rotate !== curRot || prev.borderRadius !== curRad || prev.styleSig !== curStyleSig || prev.feather !== (Number(el.cutout?.feather) || 0) || (isAutoFit && prevFitted !== targetFitted);
+        const isSpatialMove = prev.x !== curX || prev.y !== curY || prev.width !== curW || prev.height !== curH || prev.rotate !== curRot;
+        const changedAny = isSpatialMove || prevOp !== curOp || prev.borderRadius !== curRad || prev.styleSig !== curStyleSig || prev.feather !== (Number(el.cutout?.feather) || 0) || (isAutoFit && prevFitted !== targetFitted);
         if (!changedAny) continue;
-
-        if (el.type === 'cutout' && (prev.visible || curVis) && transKind === 'morph') {
-            cutoutPairs.push({
-                id: el.id,
-                shape: el.cutout?.shape || prev.cutoutShape || 'rectangle',
-                from: { x: prev.x, y: prev.y, width: prev.visible ? prev.width : 0, height: prev.visible ? prev.height : 0, borderRadius: prev.borderRadius, feather: prev.feather },
-                to: { x: curX, y: curY, width: curVis ? curW : 0, height: curVis ? curH : 0, borderRadius: curRad, feather: Number(el.cutout?.feather) || 0 }
-            });
-        }
 
         const idx = state.overlay.elements.indexOf(el);
         const prevElModel = {
@@ -379,6 +376,62 @@ export function previewEditorTransition(beforeMap, {
             style: prev.style || {},
             cutout: prev.cutout || el.cutout
         };
+
+        if (transKind !== 'morph' && isSpatialMove) {
+            // In Crossfade or Slide: elements that moved do NOT glide across coordinates.
+            // Old position dissolves/slides out, new position dissolves/slides in.
+            const ghost = node.cloneNode(true);
+            ghost.id = `ghost-${el.id}`;
+            ghost.style.pointerEvents = 'none';
+            ghost.style.position = 'absolute';
+            applyNodeStyle(ghost, prevElModel, idx);
+            ghost.style.opacity = String(prevOp);
+            if (transKind === 'slide') {
+                ghost.style.setProperty('--pg-x', `${dx}px`);
+                ghost.style.setProperty('--pg-y', `${dy}px`);
+                ghost.style.animation = `pg-slide-out ${ms}ms ${cssEase} both`;
+            } else {
+                ghost.style.animation = `pg-fade-out ${ms}ms ${cssEase} both`;
+            }
+            if (state.stageEl) state.stageEl.appendChild(ghost);
+            ghostNodes.push(ghost);
+
+            node.classList.remove('hidden');
+            applyNodeStyle(node, el, idx);
+            if (isAutoFit) {
+                node._fittedFontSize = targetFitted;
+                node.style.fontSize = `${targetFitted}px`;
+            }
+            if (transKind === 'slide') {
+                node.style.setProperty('--pg-x', `${dx}px`);
+                node.style.setProperty('--pg-y', `${dy}px`);
+                node.style.animation = `pg-slide-in ${ms}ms ${cssEase} both`;
+            } else {
+                node.style.animation = `pg-fade-in ${ms}ms ${cssEase} both`;
+            }
+            incomingNodes.push(node);
+            continue;
+        }
+
+        if (transKind !== 'morph' && !isSpatialMove) {
+            // Style-only change on Crossfade / Slide: crossfade styles in place
+            node.classList.remove('hidden');
+            node.style.transition = `opacity ${ms}ms ${cssEase}, color ${ms}ms ${cssEase}, background-color ${ms}ms ${cssEase}, border-color ${ms}ms ${cssEase}`;
+            applyNodeStyle(node, el, idx);
+            animatedNodes.push({ node, el, idx, curX, curY, curW, curH, curVis, curOp, curRot, curRad, isAutoFit, targetFitted, styleOnly: true });
+            continue;
+        }
+
+        // Morph mode: smoothly morph coordinates and visual styles
+        if (el.type === 'cutout' && (prev.visible || curVis)) {
+            cutoutPairs.push({
+                id: el.id,
+                shape: el.cutout?.shape || prev.cutoutShape || 'rectangle',
+                from: { x: prev.x, y: prev.y, width: prev.visible ? prev.width : 0, height: prev.visible ? prev.height : 0, borderRadius: prev.borderRadius, feather: prev.feather },
+                to: { x: curX, y: curY, width: curVis ? curW : 0, height: curVis ? curH : 0, borderRadius: curRad, feather: Number(el.cutout?.feather) || 0 }
+            });
+        }
+
         applyNodeStyle(node, prevElModel, idx);
         if (isAutoFit) {
             node.style.fontSize = `${prevFitted}px`;
@@ -390,13 +443,16 @@ export function previewEditorTransition(beforeMap, {
         animatedNodes.push({ node, el, idx, curX, curY, curW, curH, curVis, curOp, curRot, curRad, isAutoFit, targetFitted });
     }
 
-    if (!animatedNodes.length && !cutoutPairs.length && !outgoingNodes.length && !incomingNodes.length) return;
+    if (!animatedNodes.length && !cutoutPairs.length && !outgoingNodes.length && !incomingNodes.length && !ghostNodes.length) return;
 
     let rafId = 0;
     let timerId = 0;
     const cleanup = () => {
         if (rafId) cancelAnimationFrame(rafId);
         if (timerId) clearTimeout(timerId);
+        for (const ghost of ghostNodes) {
+            ghost.remove();
+        }
         for (const outNode of outgoingNodes) {
             outNode.style.animation = '';
             outNode.style.pointerEvents = '';
@@ -432,7 +488,7 @@ export function previewEditorTransition(beforeMap, {
     ];
     const transProp = morphProps.map(p => `${p} ${ms}ms ${cssEase}`).join(', ');
     for (const item of animatedNodes) {
-        item.node.style.transition = transProp;
+        if (!item.styleOnly) item.node.style.transition = transProp;
     }
     // Force reflow with transition armed
     for (const item of animatedNodes) {

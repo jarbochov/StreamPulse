@@ -380,6 +380,7 @@ export const defaultPages = (kind = 'pages') => ({
     loop: true,
     transition: kind === 'states' ? 'morph' : 'fade',
     transitionEasing: 'smooth',
+    enterExit: 'fade',
     transitionMs: kind === 'states' ? 650 : 500,
     transitionDirection: 'left',
     transitionDistance: 120,

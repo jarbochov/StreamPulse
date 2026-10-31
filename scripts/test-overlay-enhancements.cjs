@@ -468,4 +468,10 @@ test('Scene States vs Page Deck: Mode switching, font size morphing, and reactio
 
     const overlayServiceJs = fs.readFileSync(path.join(__dirname, '../server/services/overlays.js'), 'utf8');
     assert.ok(overlayServiceJs.includes("clean.textFit = entry.textFit;"), 'overlays service must normalize textFit in pageStates');
+    assert.ok(overlayServiceJs.includes("enterExit: PAGE_ENTER_EXITS.includes"), 'overlays service must normalize enterExit in pages');
+
+    assert.ok(layersJs.includes("pages.enterExit"), 'Layers panel must provide enterExit option');
+    assert.ok(canvasJs.includes("ghost.id = `ghost-${el.id}`"), 'Canvas preview must create ghost nodes for spatial moves during crossfade');
+    assert.ok(runtimeJs.includes("ghost._isGhost = true"), 'Runtime must handle ghost clones for spatial moves during crossfade');
+    assert.ok(editorCss.includes('@keyframes pg-zoom-in'), 'custom-overlay-editor.css must include pg-zoom-in');
 });

@@ -903,12 +903,13 @@
         const ms = pages.transition === 'none' ? 0 : pages.transitionMs;
         const kind = pages.transition;
         const isMorph = kind === 'morph' || (!kind && pages.kind === 'states');
+        const enterExit = pages.enterExit || 'fade';
         const easeName = pages.transitionEasing || 'smooth';
         const cssEase = MORPH_EASINGS[easeName] || MORPH_EASINGS.smooth;
         // "left" means the content moves left: the new page enters from the right.
         const sign = { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] }[pages.transitionDirection] || [1, 0];
         const distance = pages.transitionDistance || 120;
-        const slideVars = node => { if (kind === 'slide') { node.style.setProperty('--pg-x', `${sign[0] * distance}px`); node.style.setProperty('--pg-y', `${sign[1] * distance}px`); } };
+        const slideVars = (node, k = kind) => { if (k === 'slide') { node.style.setProperty('--pg-x', `${sign[0] * distance}px`); node.style.setProperty('--pg-y', `${sign[1] * distance}px`); } };
         clearTimeout(pageSwitchTimer);
         if (cutoutMorphRaf) { cancelAnimationFrame(cutoutMorphRaf); cutoutMorphRaf = 0; }
         transitioning = ms > 0;
@@ -950,6 +951,38 @@
                 node.style.opacity = String(wasVis ? (prevEl.style?.opacity ?? 1) : 0);
                 node.style.willChange = 'left, top, width, height, transform, opacity, border-radius, font-size';
                 morphedShared.push({ node, prevEl, afterEl, wasVis, nowVis, targetFitted: isAutoFit ? targetFitted : null });
+            } else if (ms > 0 && !isMorph && prevEl) {
+                const isSpatialMove = (
+                    prevEl.x !== afterEl.x || prevEl.y !== afterEl.y ||
+                    prevEl.width !== afterEl.width || prevEl.height !== afterEl.height ||
+                    (prevEl.style?.rotate || 0) !== (afterEl.style?.rotate || 0)
+                );
+                if (isSpatialMove) {
+                    // Element moved position/size: dissolve/slide out previous representation, dissolve/slide in new
+                    const ghost = node.cloneNode(true);
+                    ghost._isGhost = true;
+                    applyElementStyle(ghost, prevEl);
+                    ghost.style.opacity = String(wasVis ? (prevEl.style?.opacity ?? 1) : 0);
+                    ghost.style.pointerEvents = 'none';
+                    parent.appendChild(ghost);
+                    outgoing.push(ghost);
+
+                    applyElementStyle(node, afterEl);
+                    node.style.visibility = 'hidden';
+                    if (ms) node.style.willChange = 'transform, opacity';
+                    incoming.push(node);
+                } else {
+                    // Element stayed in place: crossfade styling in place without moving
+                    if (wasVis && nowVis) {
+                        node.style.transition = `opacity ${ms}ms ${cssEase}, color ${ms}ms ${cssEase}, background-color ${ms}ms ${cssEase}, border-color ${ms}ms ${cssEase}`;
+                        applyElementStyle(node, afterEl);
+                    } else if (!nowVis) {
+                        outgoing.push(node);
+                    } else {
+                        applyElementStyle(node, afterEl);
+                        incoming.push(node);
+                    }
+                }
             } else if (!nowVis) {
                 node.remove();
             } else {
@@ -981,8 +1014,11 @@
         const finish = () => {
             if (cutoutMorphRaf) { cancelAnimationFrame(cutoutMorphRaf); cutoutMorphRaf = 0; }
             outgoing.forEach(node => {
-                if (prevTrigger && node.classList.contains('overlay-embed')) { node.style.animation = ''; node.style.willChange = ''; node.style.visibility = 'hidden'; node.style.pointerEvents = 'none'; }
-                else {
+                if (node._isGhost) {
+                    node.remove();
+                } else if (prevTrigger && node.classList.contains('overlay-embed')) {
+                    node.style.animation = ''; node.style.willChange = ''; node.style.visibility = 'hidden'; node.style.pointerEvents = 'none';
+                } else {
                     if (node.dataset.elementId) elementNodes.delete(node.dataset.elementId);
                     shared.cleanupNode(node);
                     node.remove();
@@ -1018,10 +1054,10 @@
         });
         const ready = loading.length ? Promise.race([Promise.all(loading.map(frame => new Promise(done => frame.addEventListener('load', done, { once: true })))), new Promise(done => setTimeout(done, 2000))]) : Promise.resolve();
         if (!ms) { finish(); return; }
-        const animKind = kind === 'morph' ? 'fade' : kind;
+        const animKind = kind === 'morph' ? (enterExit === 'none' ? 'fade' : enterExit) : kind;
         ready.then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
-            incoming.forEach(node => { slideVars(node); node.style.visibility = ''; node.style.animation = `pg-${animKind}-in ${ms}ms ${cssEase} both`; });
-            outgoing.forEach(node => { slideVars(node); node.style.animation = `pg-${animKind}-out ${ms}ms ${cssEase} both`; });
+            incoming.forEach(node => { slideVars(node, animKind); node.style.visibility = ''; node.style.animation = `pg-${animKind}-in ${ms}ms ${cssEase} both`; });
+            outgoing.forEach(node => { slideVars(node, animKind); node.style.animation = `pg-${animKind}-out ${ms}ms ${cssEase} both`; });
             morphedShared.forEach(({ node, afterEl, nowVis, targetFitted }) => {
                 const morphProps = [
                     'left', 'top', 'width', 'height', 'transform', 'opacity',
