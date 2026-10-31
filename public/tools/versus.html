@@ -999,6 +999,25 @@
                                     Fit Whole Bracket: OFF
                                 </button>
                             </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem; border-left: 1px solid var(--border); padding-left: 0.5rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Camera:</span>
+                                <button type="button" class="btn-secondary btn-sm" id="btn-live-focus-toggle" onclick="triggerLiveTourneyView({ focus: 'toggle' })" title="Toggle Smart Framing Zoom Camera in OBS overlay and preview" style="font-size: 0.72rem; padding: 0.2rem 0.45rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                                    <span id="btn-live-focus-label">Focus Camera</span>
+                                </button>
+                                <button type="button" class="btn-secondary btn-sm" onclick="triggerLiveTourneyView({ round: 'prev' })" title="Glide camera to previous round in OBS" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;">
+                                    &larr; Prev
+                                </button>
+                                <button type="button" class="btn-secondary btn-sm" onclick="triggerLiveTourneyView({ round: 'next' })" title="Glide camera to next round in OBS" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;">
+                                    Next &rarr;
+                                </button>
+                                <select id="live-bracket-section-select" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="triggerLiveTourneyView({ bracket: this.value })" title="Switch visible bracket section live in OBS overlay">
+                                    <option value="all">Section: All</option>
+                                    <option value="winners">Section: Winners</option>
+                                    <option value="losers">Section: Losers</option>
+                                    <option value="finals">Section: Finals</option>
+                                </select>
+                            </div>
                         </div>
 
                         <!-- Preset Aspect / Resolution Chips -->
@@ -2203,6 +2222,33 @@
 
         function toggleTourneyFitWholeBracket() {
             setTourneyFitWholeBracket(!tourneyFitWholeBracket);
+        }
+
+        async function triggerLiveTourneyView(opts) {
+            try {
+                const res = await fetch('/api/tournament/view', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(opts)
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    const iframe = $('tourney-preview-iframe');
+                    if (iframe && iframe.contentWindow) {
+                        iframe.contentWindow.postMessage({ type: 'tournament-view', data: data.view }, '*');
+                    }
+                    if (data.view?.focus !== undefined) {
+                        const label = $('btn-live-focus-label');
+                        if (label) label.textContent = data.view.focus ? 'Focus: ON' : 'Focus: OFF';
+                    }
+                    if (data.view?.bracket && $('live-bracket-section-select')) {
+                        $('live-bracket-section-select').value = data.view.bracket;
+                    }
+                    toast('Updated live bracket camera');
+                }
+            } catch {
+                toast('Error updating bracket camera view');
+            }
         }
 
         function switchMatchupSubtab(tabName) {

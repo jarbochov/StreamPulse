@@ -69,6 +69,14 @@ Bind any of the following actions to your Stream Deck keys:
 - **Tournament Settings & Reset**:
   - `GET /api/tournament/settings?matchDuration=300&bestOf=5&highlightLive=1`
   - `GET /api/tournament/reset`
+- **Bracket Camera & Section View Controls**:
+  - `GET /api/tournament/view?focus=toggle` (Toggle Smart Framing camera zoom on/off in live OBS overlay)
+  - `GET /api/tournament/view?focus=1` (Enable focus camera) / `?focus=0` (Disable focus and fit whole bracket)
+  - `GET /api/tournament/view?bracket=cycle` (Cycle visible bracket section: All &rarr; Winners &rarr; Losers &rarr; Grand Finals)
+  - `GET /api/tournament/view?bracket=winners` (Switch visible tree to Winners, `losers`, `finals`, or `all`)
+  - `GET /api/tournament/view?round=next` (Glide camera horizontally to next round column)
+  - `GET /api/tournament/view?round=prev` (Glide camera horizontally to previous round column)
+  - `GET /api/tournament/view?round=finals` (Directly pan camera to Grand Finals)
 
 ### Live Audience Polls
 - **Create & Launch Poll**: Start an audience poll with question, comma-separated choices, duration, and blind voting toggle.
@@ -86,6 +94,10 @@ Bind any of the following actions to your Stream Deck keys:
   - `GET /api/polls/toggle-voting`
 - **Cancel Poll**: Dismiss the poll without crowning a winner.
   - `GET /api/polls/cancel`
+- **Audience Bracket Camera & Section View**:
+  - `GET /api/polls/tournament/view?focus=toggle` (Toggle Smart Framing camera in OBS poll bracket overlay)
+  - `GET /api/polls/tournament/view?bracket=cycle` (Cycle All &rarr; Winners &rarr; Losers &rarr; Grand Finals)
+  - `GET /api/polls/tournament/view?round=next` / `?round=prev` (Glide camera between round columns)
 
 ### Alerts & Event Queue
 - **Simulate Stream Alert**: Test alert presentation with custom type and parameters.
@@ -204,6 +216,7 @@ The StreamPulse status snapshot (`/api/status`) broadcasts live state for dynami
 - **`matchup_win_ready`**: Lights up amber/green when a competitor has achieved the target match score, signaling ready to declare match victory.
 - **`matchup_runner_finished`** (Competitors 1–4): Lights up when a specific runner's finish time has been locked.
 - **`tournament_active`**: Highlights when an esports tournament bracket is loaded.
+- **`tournament_focus_active`**: Lights up green when Smart Framing Camera is zoomed into the active match/round.
 - **`tournament_win_ready`**: Lights up green when an entrant has reached `targetScore` and is ready for confirmation and bracket advancement.
 - **`poll_active`**: Highlights when an audience poll is currently live.
 - **`alerts_paused`**: Turns yellow/red when the alert queue is paused.
@@ -227,6 +240,9 @@ http://127.0.0.1:3000/api/status/field/matchup_title   -> "Grand Finals"
 http://127.0.0.1:3000/api/status/field/matchup_clock   -> "04:32"
 http://127.0.0.1:3000/api/status/field/matchup_c1_score -> "2"
 http://127.0.0.1:3000/api/status/field/matchup_c2_score -> "1"
+http://127.0.0.1:3000/api/status/field/tournament_focus   -> "1"
+http://127.0.0.1:3000/api/status/field/tournament_bracket -> "winners"
+http://127.0.0.1:3000/api/status/field/tournament_round   -> "2"
 http://127.0.0.1:3000/api/status/field/counter_deaths  -> "7"
 ```
 

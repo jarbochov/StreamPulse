@@ -115,13 +115,15 @@
 
         const forceSample = params.get('sample') === '1';
         const isPreview = params.get('preview') === '1' || params.get('sample') === '1';
-        const layoutMode = (params.get('layout') || params.get('mode') || 'tree').toLowerCase(); // 'tree' | 'active' | 'hud' | 'compact' | 'focus' | 'dynamic'
+        let layoutMode = (params.get('layout') || params.get('mode') || 'tree').toLowerCase(); // 'tree' | 'active' | 'hud' | 'compact' | 'focus' | 'dynamic'
         const cameraExplicitlyOff = params.get('focus') === '0' || params.get('camera') === '0' || params.get('dynamic') === '0';
         const cameraExplicitlyOn = params.get('focus') === '1' || params.get('camera') === '1' || params.get('dynamic') === '1';
-        const isFocusMode = !cameraExplicitlyOff && (layoutMode === 'focus' || layoutMode === 'dynamic' || layoutMode === 'zoom' || cameraExplicitlyOn);
-        const isGlideEnabled = params.get('glide') !== '0' && params.get('smooth') !== '0' && params.get('transition') !== '0';
+        let isFocusMode = !cameraExplicitlyOff && (layoutMode === 'focus' || layoutMode === 'dynamic' || layoutMode === 'zoom' || cameraExplicitlyOn);
+        let isGlideEnabled = params.get('glide') !== '0' && params.get('smooth') !== '0' && params.get('transition') !== '0';
         const requestedBracket = (params.get('bracket') || 'all').toLowerCase();
-        const bracketView = ['winners', 'losers', 'finals'].includes(requestedBracket) ? requestedBracket : 'all';
+        let bracketView = ['winners', 'losers', 'finals'].includes(requestedBracket) ? requestedBracket : 'all';
+        let manualTargetRound = null;
+        let manualTargetMatchId = null;
         const showScoresParam = params.get('showscores') !== '0' && params.get('scores') !== '0';
         const showTitle = params.get('showtitle') !== '0' && params.get('title') !== '0' && params.get('header') !== '0';
         const showLogo = params.get('showlogo') !== '0' && params.get('logo') !== '0';
@@ -286,6 +288,34 @@
             const matches = tourney?.matches || [];
             if (!matches.length) return null;
 
+            // Target match override if set via view API
+            if (manualTargetMatchId) {
+                const manualMatch = matches.find(m => m.id === manualTargetMatchId);
+                if (manualMatch) return manualMatch;
+            }
+
+            // Target round override if set via view API
+            if (manualTargetRound !== null && manualTargetRound !== undefined) {
+                const pool = (bracketView && bracketView !== 'all')
+                    ? matches.filter(m => {
+                        if (bracketView === 'winners') return m.bracket === 'winners' || (!m.bracket && !m.id.startsWith('lb_') && m.id !== 'gf_1');
+                        if (bracketView === 'losers') return m.bracket === 'losers' || m.id.startsWith('lb_');
+                        if (bracketView === 'finals') return m.bracket === 'grand_finals' || m.id === 'gf_1';
+                        return true;
+                    })
+                    : matches;
+
+                const roundNum = typeof manualTargetRound === 'number' ? manualTargetRound : parseInt(manualTargetRound, 10);
+                if (Number.isFinite(roundNum)) {
+                    const roundMatch = pool.find(m => m.round === roundNum && !m.isBye) || matches.find(m => m.round === roundNum);
+                    if (roundMatch) return roundMatch;
+                } else {
+                    const rStr = String(manualTargetRound).toLowerCase();
+                    const namedMatch = pool.find(m => (m.roundName || '').toLowerCase().includes(rStr));
+                    if (namedMatch) return namedMatch;
+                }
+            }
+
             // 1. Explicit activeMatchId or ACTIVE status
             if (tourney.activeMatchId) {
                 const active = matches.find(m => m.id === tourney.activeMatchId);
@@ -423,7 +453,13 @@
             }
             document.body.classList.remove('layout-focus');
             document.getElementById('tourney-focus-badge')?.remove();
-            stage.style.transition = '';
+            if (!isGlideEnabled) {
+                stage.style.transition = 'none';
+            } else {
+                const rawSpeed = params.get('glidespeed') || params.get('transitionms') || '';
+                const speedVal = /^\d+$/.test(rawSpeed) ? `${rawSpeed}ms` : (rawSpeed || '0.85s');
+                stage.style.transition = `transform ${speedVal} cubic-bezier(0.16, 1, 0.3, 1)`;
+            }
             const autoFit = params.get('fit') === '1' || params.get('autoscale') === '1' || params.get('fit') === 'all';
             if (autoFit) {
                 stage.style.transform = '';
@@ -442,8 +478,74 @@
             } else if (scaleVal && Number.isFinite(scaleVal) && scaleVal > 0 && scaleVal !== 1) {
                 stage.style.transform = `scale(${scaleVal})`;
                 stage.style.transformOrigin = 'center center';
+            } else {
+                stage.style.transform = '';
+                stage.style.transformOrigin = 'center center';
             }
             scheduleBracketConnectors();
+        }
+
+        function applyLiveViewCommand(viewData) {
+            if (!viewData) return;
+            let bracketChanged = false;
+            let focusChanged = false;
+
+            if (viewData.focus !== undefined) {
+                const nextFocus = viewData.focus === 'toggle' ? !isFocusMode : Boolean(viewData.focus === true || viewData.focus === 1 || viewData.focus === '1' || viewData.focus === 'true');
+                if (isFocusMode !== nextFocus) {
+                    isFocusMode = nextFocus;
+                    focusChanged = true;
+                }
+            }
+            if (viewData.glide !== undefined) {
+                isGlideEnabled = Boolean(viewData.glide);
+            }
+            const bracketCandidate = viewData.bracket || viewData.section;
+            if (bracketCandidate !== undefined) {
+                const clean = String(bracketCandidate).trim().toLowerCase();
+                const sections = ['all', 'winners', 'losers', 'finals'];
+                let nextSection = bracketView;
+                if (clean === 'cycle' || clean === 'next') {
+                    const idx = sections.indexOf(bracketView);
+                    nextSection = sections[(idx + 1) % sections.length];
+                } else if (clean === 'prev') {
+                    const idx = sections.indexOf(bracketView);
+                    nextSection = sections[(idx - 1 + sections.length) % sections.length];
+                } else if (sections.includes(clean)) {
+                    nextSection = clean;
+                }
+                if (bracketView !== nextSection) {
+                    bracketView = nextSection;
+                    bracketChanged = true;
+                }
+            }
+            if (viewData.round !== undefined) {
+                manualTargetRound = viewData.round;
+                isFocusMode = true;
+                focusChanged = true;
+            } else if (viewData.targetRound !== undefined) {
+                manualTargetRound = viewData.targetRound;
+            }
+            if (viewData.matchId !== undefined) {
+                manualTargetMatchId = (viewData.matchId === 'auto' || viewData.matchId === 'reset' || viewData.matchId === '') ? null : String(viewData.matchId);
+                if (manualTargetMatchId) {
+                    isFocusMode = true;
+                    focusChanged = true;
+                }
+            } else if (viewData.targetMatchId !== undefined) {
+                manualTargetMatchId = viewData.targetMatchId;
+            }
+
+            if (bracketChanged && currentTournament) {
+                lastRenderSignature = '';
+                if ((forceSample || isPreview) && (currentTournament.id?.startsWith('sample-'))) {
+                    renderTournament(getFallbackSample());
+                } else {
+                    renderTournament(currentTournament);
+                }
+            } else {
+                adjustScaleAndFit();
+            }
         }
         function handleResize() {
             adjustScaleAndFit();
@@ -1066,6 +1168,9 @@
                     const res = await fetch(tourneyEndpoint, { signal: controller.signal, cache: 'no-store' });
                     const data = await res.json();
                     if (!isCurrent()) return;
+                    if (data.tournament?.viewSettings) {
+                        applyLiveViewCommand(data.tournament.viewSettings);
+                    }
                     renderTournament(data.tournament);
                     return;
                 } catch (err) {
@@ -1098,9 +1203,19 @@
                 if (suspended || liveSocket !== ws || forceSample) return;
                 try {
                     const msg = JSON.parse(event.data);
-                    if (msg.type === tourneyWsEvent) {
+                    if (msg.type === 'tournament-view' || msg.type === 'poll-tournament-view') {
+                        const viewData = msg.data || {};
+                        const matchType = (isPollMode && (msg.type === 'poll-tournament-view' || viewData.isPoll)) ||
+                                          (!isPollMode && (msg.type === 'tournament-view' || !viewData.isPoll));
+                        if (matchType) {
+                            applyLiveViewCommand(viewData);
+                        }
+                    } else if (msg.type === tourneyWsEvent) {
                         stateVersion++;
                         currentTournament = msg.data;
+                        if (currentTournament?.viewSettings) {
+                            applyLiveViewCommand(currentTournament.viewSettings);
+                        }
                         renderTournament(currentTournament);
                     } else if (isPollMode && msg.type === 'poll-update' && currentTournament) {
                         const poll = msg.data;
@@ -1158,9 +1273,19 @@
             adjustScaleAndFit();
         });
 
+        window.addEventListener('message', (event) => {
+            try {
+                const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+                if (msg && (msg.type === 'tournament-view' || msg.type === 'poll-tournament-view')) {
+                    applyLiveViewCommand(msg.data || msg);
+                }
+            } catch {}
+        });
+
         return {
             renderTournament,
             adjustScaleAndFit,
+            applyLiveViewCommand,
             burstConfetti,
             getFallbackSample,
             getCurrentTournament: () => currentTournament

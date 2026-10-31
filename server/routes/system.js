@@ -209,6 +209,15 @@ function createSystemRoutes({
                 else if (sub === 'c2_name') val = status.matchup.competitors?.[1]?.name || '';
                 else if (sub === 'clock') val = status.matchup.clock?.formatted || '';
                 else if (sub === 'winner') val = status.matchup.winner || '';
+            } else if (field.startsWith('tournament_') && (status.tournament || status.pollTournament)) {
+                const tourney = status.tournament || status.pollTournament;
+                const sub = field.replace('tournament_', '');
+                if (sub === 'focus') val = tourney.viewSettings?.focus ? '1' : '0';
+                else if (sub === 'bracket' || sub === 'section') val = tourney.viewSettings?.bracket || 'all';
+                else if (sub === 'round' || sub === 'target_round') val = String(tourney.viewSettings?.targetRound ?? '');
+                else if (sub === 'title') val = tourney.title || '';
+                else if (sub === 'active_match') val = tourney.activeMatchId || '';
+                else if (sub === 'champion') val = tourney.champion || '';
             } else if (field.startsWith('counter_') || field.startsWith('var_')) {
                 const varName = field.replace(/^(counter|var)_/, '');
                 const item = (status.customVars || []).find(v => v.name.toLowerCase() === varName);

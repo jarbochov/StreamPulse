@@ -2342,6 +2342,118 @@ function createPollService({
         return targetTourney;
     }
 
+    function updateTournamentView(viewOptions = {}, { isPoll = false } = {}) {
+        if (viewOptions.isPoll !== undefined) isPoll = Boolean(viewOptions.isPoll);
+        const { tournament: targetTourney, isPoll: isPollTourney } = resolveTargetTournament(viewOptions.activeMatchId, isPoll);
+        if (!targetTourney) throw new Error('No active tournament');
+
+        if (!targetTourney.viewSettings) {
+            targetTourney.viewSettings = {
+                focus: false,
+                bracket: 'all',
+                targetRound: null,
+                targetMatchId: null
+            };
+        }
+        const current = targetTourney.viewSettings;
+
+        // 1. Focus mode handling (enable, disable, toggle)
+        if (viewOptions.focus !== undefined) {
+            const fVal = String(viewOptions.focus).trim().toLowerCase();
+            if (fVal === 'toggle') {
+                current.focus = !current.focus;
+            } else if (fVal === '1' || fVal === 'true' || fVal === 'on' || viewOptions.focus === true || viewOptions.focus === 1) {
+                current.focus = true;
+            } else if (fVal === '0' || fVal === 'false' || fVal === 'off' || viewOptions.focus === false || viewOptions.focus === 0) {
+                current.focus = false;
+            }
+        }
+
+        // 2. Bracket section handling (all, winners, losers, finals, cycle, next, prev)
+        const bracketVal = viewOptions.bracket || viewOptions.section;
+        if (bracketVal !== undefined) {
+            const sections = ['all', 'winners', 'losers', 'finals'];
+            const clean = String(bracketVal).trim().toLowerCase();
+            if (clean === 'cycle' || clean === 'next') {
+                const idx = sections.indexOf(current.bracket || 'all');
+                current.bracket = sections[(idx + 1) % sections.length];
+            } else if (clean === 'prev') {
+                const idx = sections.indexOf(current.bracket || 'all');
+                current.bracket = sections[(idx - 1 + sections.length) % sections.length];
+            } else if (sections.includes(clean)) {
+                current.bracket = clean;
+            }
+        }
+
+        // 3. Round panning / target handling (next, prev, specific number or name, auto/reset)
+        if (viewOptions.round !== undefined) {
+            const roundVal = String(viewOptions.round).trim().toLowerCase();
+            const availableRounds = Array.from(new Set((targetTourney.matches || []).map(m => m.round || 1))).sort((a, b) => a - b);
+            if (roundVal === 'next') {
+                const curR = current.targetRound || (targetTourney.matches?.find(m => m.id === targetTourney.activeMatchId)?.round) || availableRounds[0] || 1;
+                const curIdx = availableRounds.indexOf(curR);
+                if (curIdx >= 0 && curIdx < availableRounds.length - 1) {
+                    current.targetRound = availableRounds[curIdx + 1];
+                } else {
+                    current.targetRound = availableRounds[0] || 1;
+                }
+                current.focus = true;
+            } else if (roundVal === 'prev') {
+                const curR = current.targetRound || (targetTourney.matches?.find(m => m.id === targetTourney.activeMatchId)?.round) || availableRounds[0] || 1;
+                const curIdx = availableRounds.indexOf(curR);
+                if (curIdx > 0) {
+                    current.targetRound = availableRounds[curIdx - 1];
+                } else {
+                    current.targetRound = availableRounds[availableRounds.length - 1] || 1;
+                }
+                current.focus = true;
+            } else if (roundVal === 'auto' || roundVal === 'active' || roundVal === 'reset' || roundVal === 'none') {
+                current.targetRound = null;
+                current.targetMatchId = null;
+            } else if (/^\d+$/.test(roundVal)) {
+                current.targetRound = parseInt(roundVal, 10);
+                current.focus = true;
+            } else if (roundVal === 'finals' || roundVal === 'grand_finals' || roundVal === 'gf') {
+                current.targetRound = availableRounds[availableRounds.length - 1] || roundVal;
+                current.focus = true;
+            } else if (roundVal) {
+                current.targetRound = roundVal;
+                current.focus = true;
+            }
+        }
+
+        // 4. Target Match ID handling
+        if (viewOptions.matchId !== undefined) {
+            const mId = String(viewOptions.matchId).trim();
+            if (mId === 'auto' || mId === 'active' || mId === 'reset' || mId === '' || mId === 'null') {
+                current.targetMatchId = null;
+            } else {
+                current.targetMatchId = mId;
+                current.focus = true;
+            }
+        }
+
+        save();
+
+        const viewPayload = {
+            isPoll: isPollTourney,
+            ...current
+        };
+        broadcastToOverlays('tournament-view', viewPayload);
+        if (isPollTourney) {
+            broadcastToOverlays('poll-tournament-view', viewPayload);
+            broadcastPollTournamentUpdate();
+        } else {
+            broadcastTournamentUpdate();
+        }
+
+        return {
+            ok: true,
+            view: current,
+            tournament: targetTourney
+        };
+    }
+
     function resetTournament({ isPoll = false, saveToHistory = true } = {}) {
         const targetTourney = isPoll ? activePollTournament : activeTournament;
         if (!targetTourney) return { ok: true };
@@ -2648,6 +2760,7 @@ function createPollService({
         resetMatch,
         rollbackTournamentMatch,
         updateTournamentSettings,
+        updateTournamentView,
         resetTournament,
         getTournamentHistory,
         savePollTournamentCheckpoint,

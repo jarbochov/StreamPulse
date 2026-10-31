@@ -1555,6 +1555,19 @@
                     desc: 'Companion trigger to reset poll tournament',
                     companion: true,
                     details: 'Resets tournament via GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/polls/tournament/view',
+                    desc: 'Audience bracket camera framing & section controls',
+                    companion: true,
+                    details: 'Controls OBS audience bracket dynamic camera focus, pans between bracket rounds, or switches visible bracket section (winners/losers/finals/all) live without reloading.',
+                    body: '{ "focus": "toggle", "bracket": "cycle", "round": "next" }'
+                },
+                {
+                    method: 'GET', path: '/api/polls/tournament/view',
+                    desc: 'Companion trigger for poll tournament camera & section',
+                    companion: true,
+                    details: 'Controls poll tournament view via GET request (?focus=toggle|1|0&bracket=winners|losers|finals|all|cycle&round=next|prev).'
                 }
             ]
         },
@@ -1903,6 +1916,19 @@
                     desc: 'Companion trigger to reset tournament',
                     companion: true,
                     details: 'Resets tournament via GET request.'
+                },
+                {
+                    method: 'POST', path: '/api/tournament/view',
+                    desc: 'Live overlay camera framing & section controls',
+                    companion: true,
+                    details: 'Controls OBS overlay dynamic camera focus, pans between bracket rounds, or switches visible bracket section (winners/losers/finals/all) live without reloading.',
+                    body: '{ "focus": "toggle", "bracket": "winners", "round": "next" }'
+                },
+                {
+                    method: 'GET', path: '/api/tournament/view',
+                    desc: 'Companion trigger for bracket camera & section',
+                    companion: true,
+                    details: 'Controls overlay view via GET request (?focus=toggle|1|0&bracket=winners|losers|finals|all|cycle&round=next|prev|1|2).'
                 }
             ]
         },

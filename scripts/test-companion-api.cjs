@@ -308,6 +308,41 @@ test('Companion & API Integration: HTTP GET/POST triggers and status snapshot', 
         const rollback = await request(`/api/tournament/rollback?matchId=${matchId}`);
         assert.equal(rollback.status, 200);
         assert.equal(rollback.json.tournament.matches[0].status, 'ACTIVE');
+
+        // Bracket Camera & Section View Controls via GET
+        const viewToggle = await request('/api/tournament/view?focus=toggle');
+        assert.equal(viewToggle.status, 200);
+        assert.equal(viewToggle.json.view.focus, true);
+
+        const viewDisable = await request('/api/tournament/view?focus=0');
+        assert.equal(viewDisable.status, 200);
+        assert.equal(viewDisable.json.view.focus, false);
+
+        const viewBracketWinners = await request('/api/tournament/view?bracket=winners');
+        assert.equal(viewBracketWinners.status, 200);
+        assert.equal(viewBracketWinners.json.view.bracket, 'winners');
+
+        const viewBracketCycle = await request('/api/tournament/view?bracket=cycle');
+        assert.equal(viewBracketCycle.status, 200);
+        assert.equal(viewBracketCycle.json.view.bracket, 'losers');
+
+        const viewRoundNext = await request('/api/tournament/view?round=next');
+        assert.equal(viewRoundNext.status, 200);
+        assert.equal(viewRoundNext.json.view.focus, true);
+        assert.equal(viewRoundNext.json.view.targetRound, 2);
+
+        const viewRoundPrev = await request('/api/tournament/view?round=prev');
+        assert.equal(viewRoundPrev.status, 200);
+        assert.equal(viewRoundPrev.json.view.targetRound, 1);
+
+        // Plain text field lookups
+        const focusField = await request('/api/status/field/tournament_focus');
+        assert.equal(focusField.status, 200);
+        assert.equal(focusField.text, '1');
+
+        const bracketField = await request('/api/status/field/tournament_bracket');
+        assert.equal(bracketField.status, 200);
+        assert.equal(bracketField.text, 'losers');
     });
 
     await t.test('Live Polls actions via GET and POST', async () => {
@@ -337,6 +372,18 @@ test('Companion & API Integration: HTTP GET/POST triggers and status snapshot', 
         const end = await request('/api/polls/end');
         assert.equal(end.status, 200);
         assert.equal(end.json.poll.status, 'COMPLETED');
+
+        // Audience Bracket View via GET
+        const pollTourney = pollService.createTournament({
+            title: 'Community Bracket',
+            entrants: ['Game A', 'Game B', 'Game C', 'Game D']
+        }, { isPoll: true });
+        assert.ok(pollTourney);
+
+        const pollView = await request('/api/polls/tournament/view?focus=1&bracket=finals');
+        assert.equal(pollView.status, 200);
+        assert.equal(pollView.json.view.focus, true);
+        assert.equal(pollView.json.view.bracket, 'finals');
     });
 
     await t.test('Alert actions via GET and POST', async () => {

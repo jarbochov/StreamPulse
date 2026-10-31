@@ -557,6 +557,25 @@
                             
                         </div>
 
+                        <div id="poll-tourney-camera-toolbar" style="display: none; align-items: center; justify-content: flex-end; gap: 0.35rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+                            <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Camera:</span>
+                            <button type="button" class="btn-secondary btn-sm" id="btn-poll-live-focus-toggle" onclick="triggerLivePollTourneyView({ focus: 'toggle' })" title="Toggle Smart Framing Zoom Camera in OBS overlay and preview" style="font-size: 0.72rem; padding: 0.2rem 0.45rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                                <span id="btn-poll-live-focus-label">Focus Camera</span>
+                            </button>
+                            <button type="button" class="btn-secondary btn-sm" onclick="triggerLivePollTourneyView({ round: 'prev' })" title="Glide camera to previous round in OBS" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;">
+                                &larr; Prev
+                            </button>
+                            <button type="button" class="btn-secondary btn-sm" onclick="triggerLivePollTourneyView({ round: 'next' })" title="Glide camera to next round in OBS" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;">
+                                Next &rarr;
+                            </button>
+                            <select id="poll-live-bracket-section-select" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="triggerLivePollTourneyView({ bracket: this.value })" title="Switch visible bracket section live in OBS overlay">
+                                <option value="all">Section: All</option>
+                                <option value="winners">Section: Winners</option>
+                                <option value="losers">Section: Losers</option>
+                                <option value="finals">Section: Finals</option>
+                            </select>
+                        </div>
                         <div id="poll-preview-box" class="preview-container" style="height: 340px; overflow: hidden; padding: 0.5rem; position: relative; background: #050811; border: 1px solid var(--border); border-radius: 8px;">
                             <iframe id="poll-preview-iframe" src="/overlays/poll.html?preview=1" style="width: 100%; height: 100%; border: none; background: transparent;"></iframe>
                         </div>
@@ -2299,6 +2318,7 @@
             $('btn-preview-tourney')?.classList.toggle('active', mode === 'active');
             if ($('poll-preview-box')) $('poll-preview-box').style.display = isTourney ? 'none' : 'flex';
             if ($('tourney-preview-box')) $('tourney-preview-box').style.display = isTourney ? 'block' : 'none';
+            if ($('poll-tourney-camera-toolbar')) $('poll-tourney-camera-toolbar').style.display = (mode === 'tree') ? 'flex' : 'none';
             if ($('ov-sec-poll')) $('ov-sec-poll').style.display = isTourney ? 'none' : 'block';
             if ($('ov-sec-tourney')) $('ov-sec-tourney').style.display = isTourney ? 'block' : 'none';
             if (isTourney && $('tourney-opt-layout')) {
@@ -2306,6 +2326,33 @@
                 updateTourneyOverlayUrl();
             }
             savePollsOverlayPrefs();
+        }
+
+        async function triggerLivePollTourneyView(opts) {
+            try {
+                const res = await fetch('/api/polls/tournament/view', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(opts)
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    const iframe = $('tourney-preview-iframe');
+                    if (iframe && iframe.contentWindow) {
+                        iframe.contentWindow.postMessage({ type: 'poll-tournament-view', data: data.view }, '*');
+                    }
+                    if (data.view?.focus !== undefined) {
+                        const label = $('btn-poll-live-focus-label');
+                        if (label) label.textContent = data.view.focus ? 'Focus: ON' : 'Focus: OFF';
+                    }
+                    if (data.view?.bracket && $('poll-live-bracket-section-select')) {
+                        $('poll-live-bracket-section-select').value = data.view.bracket;
+                    }
+                    toast('Updated audience bracket camera view');
+                }
+            } catch {
+                toast('Error updating bracket camera view');
+            }
         }
 
         function switchPollSubtab(tabName) {

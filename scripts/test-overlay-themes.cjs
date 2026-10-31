@@ -758,3 +758,80 @@ test('Border radius (?radius=) option across both bracket overlays and all wizar
         if (browser) await browser.close();
     }
 });
+
+test('Live tournament camera view controls (applyLiveViewCommand & postMessage)', async () => {
+    const TOURNEY_URL = 'file://' + path.resolve(__dirname, '../public/overlays/tournament.html');
+    let browser;
+    try {
+        browser = await puppeteer.launch({
+            headless: 'new',
+            pipe: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--allow-file-access-from-files']
+        });
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1280, height: 720 });
+
+        await page.goto(`${TOURNEY_URL}?preview=1&sample=1&layout=standard`, {
+            waitUntil: 'domcontentloaded'
+        });
+        await page.waitForSelector('.match-card');
+
+        // Initial state: standard overview
+        const initial = await page.evaluate(() => {
+            const stage = document.getElementById('stage');
+            return {
+                isFocus: document.body.classList.contains('layout-focus'),
+                transform: stage.style.transform
+            };
+        });
+        assert.equal(initial.isFocus, false, 'Default overview should not have layout-focus class');
+
+        // Apply live focus command to round 2
+        await page.evaluate(() => {
+            window.TournamentOverlay.applyLiveViewCommand({ focus: true, round: 2 });
+        });
+        await new Promise(r => setTimeout(r, 100));
+
+        const focused = await page.evaluate(() => {
+            const stage = document.getElementById('stage');
+            return {
+                isFocus: document.body.classList.contains('layout-focus'),
+                hasTransform: Boolean(stage.style.transform)
+            };
+        });
+        assert.equal(focused.isFocus, true, 'Calling applyLiveViewCommand({ focus: true }) should add layout-focus class');
+        assert.ok(focused.hasTransform, 'Stage should have camera transform applied');
+
+        // Apply bracket section switch
+        await page.evaluate(() => {
+            window.TournamentOverlay.applyLiveViewCommand({ bracket: 'winners' });
+        });
+        await new Promise(r => setTimeout(r, 100));
+
+        const bracketView = await page.evaluate(() => {
+            const winnersSec = document.querySelector('.double-elim-winners');
+            const losersSec = document.querySelector('.double-elim-losers');
+            return {
+                hasWinners: Boolean(winnersSec),
+                hasLosers: Boolean(losersSec)
+            };
+        });
+        assert.ok(bracketView.hasWinners, 'Winners bracket should be visible');
+        assert.equal(bracketView.hasLosers, false, 'Losers bracket should be filtered out when bracket=winners');
+
+        // Switch focus off via window.postMessage
+        await page.evaluate(() => {
+            window.postMessage({ type: 'tournament-view', data: { focus: false } }, '*');
+        });
+        await new Promise(r => setTimeout(r, 100));
+
+        const unfocused = await page.evaluate(() => {
+            return {
+                isFocus: document.body.classList.contains('layout-focus')
+            };
+        });
+        assert.equal(unfocused.isFocus, false, 'postMessage({ focus: false }) should remove layout-focus class');
+    } finally {
+        if (browser) await browser.close();
+    }
+});

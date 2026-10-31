@@ -427,6 +427,16 @@ function createTwitchRoutes({
             return true;
         }
 
+        if ((pathname === '/api/polls/tournament/view' || (pathname === '/api/tournament/view' && url.searchParams.get('source') === 'poll')) && (req.method === 'POST' || req.method === 'GET')) {
+            if (!pollService) { sendError(res, 'Native polls not available', 501); return true; }
+            try {
+                const body = await parseJsonOrQuery(req, url);
+                const result = pollService.updateTournamentView(body, { isPoll: true });
+                sendJson(res, { status: 'ok', ...result });
+            } catch (err) { sendError(res, err, 400); }
+            return true;
+        }
+
         if (pathname === '/api/polls/tournament/reset' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) { sendError(res, 'Native polls not available', 501); return true; }
             const result = pollService.resetTournament({ isPoll: true });
@@ -643,6 +653,22 @@ function createTwitchRoutes({
                 const body = await parseJsonOrQuery(req, url);
                 const tournament = pollService.updateTournamentSettings({ ...body, isPoll: false }, { isPoll: false });
                 sendJson(res, { status: 'ok', tournament });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/tournament/view' && (req.method === 'POST' || req.method === 'GET')) {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const body = await parseJsonOrQuery(req, url);
+                const isPoll = body.isPoll === true || body.isPoll === 'true' || url.searchParams.get('source') === 'poll';
+                const result = pollService.updateTournamentView(body, { isPoll });
+                sendJson(res, { status: 'ok', ...result });
             } catch (err) {
                 sendError(res, 400, err.message);
             }
