@@ -244,3 +244,60 @@ test('Tournament overlay typography, bracket scale & styling parameter overrides
         if (browser) await browser.close();
     }
 });
+
+test('OverlayFonts asset library font loading and versus studio font integration', async () => {
+    const code = fs.readFileSync(path.resolve(__dirname, '../public/js/overlay-theme.js'), 'utf8');
+    const injectedStyles = [];
+    const context = {
+        window: {},
+        document: {
+            documentElement: { style: { setProperty() {} } },
+            body: { classList: { add() {} } },
+            head: {
+                appendChild(el) {
+                    if (el && el.textContent) injectedStyles.push(el.textContent);
+                }
+            },
+            createElement(tag) {
+                return { tagName: tag.toUpperCase(), rel: '', href: '', textContent: '' };
+            }
+        },
+        localStorage: {
+            getItem() { return null; },
+            setItem() {},
+            removeItem() {}
+        },
+        fetch: async (url) => {
+            if (url === '/api/custom-overlays/assets') {
+                return {
+                    ok: true,
+                    json: async () => [
+                        { name: 'Akira-Expanded.otf', kind: 'font', family: 'Akira Expanded', label: 'Akira-Expanded', url: '/custom-overlay-assets/Akira-Expanded.otf' },
+                        { name: 'ChunkyPixel.ttf', kind: 'font', family: 'Chunky Pixel', label: 'ChunkyPixel', url: '/custom-overlay-assets/ChunkyPixel.ttf' },
+                        { name: 'logo.png', kind: 'image', label: 'logo', url: '/custom-overlay-assets/logo.png' }
+                    ]
+                };
+            }
+            return { ok: false };
+        },
+        console
+    };
+    vm.runInNewContext(code, context);
+
+    const { OverlayFonts } = context.window;
+    assert.ok(OverlayFonts.getAssetFonts, 'OverlayFonts should expose getAssetFonts function');
+
+    const assets = await OverlayFonts.getAssetFonts();
+    assert.equal(assets.length, 2, 'Should filter out non-font assets');
+    assert.equal(assets[0].family, 'Akira Expanded');
+    assert.equal(assets[1].family, 'Chunky Pixel');
+
+    // Test loadFont with custom asset library font
+    OverlayFonts.loadFont('Akira Expanded');
+    // Allow async microtask resolution
+    await new Promise(r => setTimeout(r, 20));
+
+    const fontFaceStyle = injectedStyles.find(s => s.includes('Akira Expanded') && s.includes('/custom-overlay-assets/Akira-Expanded.otf'));
+    assert.ok(fontFaceStyle, '@font-face style should be injected for Asset Library font');
+    assert.ok(fontFaceStyle.includes("src: url('/custom-overlay-assets/Akira-Expanded.otf')"), 'Font src should match asset URL');
+});

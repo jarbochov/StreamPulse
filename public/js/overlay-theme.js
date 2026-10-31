@@ -29,6 +29,61 @@
     ];
 
     const loadedFonts = new Set();
+    let cachedAssetFonts = null;
+    let assetFontsPromise = null;
+
+    function getAssetFonts() {
+        if (!assetFontsPromise && typeof fetch === 'function') {
+            assetFontsPromise = fetch('/api/custom-overlays/assets', { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : [])
+                .then(assets => {
+                    cachedAssetFonts = (Array.isArray(assets) ? assets : []).filter(a => a && a.kind === 'font');
+                    return cachedAssetFonts;
+                })
+                .catch(() => {
+                    cachedAssetFonts = [];
+                    return [];
+                });
+        }
+        return assetFontsPromise || Promise.resolve(cachedAssetFonts || []);
+    }
+
+    // Prefetch asset fonts in browser contexts
+    if (typeof window !== 'undefined' && typeof fetch === 'function') {
+        getAssetFonts();
+    }
+
+    function applyAssetFont(cleanName, match) {
+        if (!match || !match.url) return false;
+        const fams = new Set([cleanName, match.family, match.label].filter(Boolean));
+        fams.forEach(f => {
+            const fam = String(f).replace(/'/g, '');
+            if (typeof FontFace !== 'undefined' && typeof document !== 'undefined' && document.fonts) {
+                try {
+                    const ff = new FontFace(fam, `url("${match.url.replace(/"/g, '%22')}")`);
+                    ff.load().then(loaded => document.fonts.add(loaded)).catch(() => {});
+                } catch {}
+            }
+            if (typeof document !== 'undefined' && document.head) {
+                const style = document.createElement('style');
+                style.textContent = `@font-face { font-family: '${fam}'; src: url('${match.url}'); font-display: swap; }`;
+                document.head.appendChild(style);
+            }
+        });
+        return true;
+    }
+
+    function matchAssetFont(cleanName, fontList) {
+        if (!cleanName || !Array.isArray(fontList)) return null;
+        const cleanLower = cleanName.toLowerCase();
+        return fontList.find(a => (
+            (a.family && a.family.toLowerCase() === cleanLower) ||
+            (a.name && a.name.toLowerCase() === cleanLower) ||
+            (a.label && a.label.toLowerCase() === cleanLower) ||
+            (a.name && a.name.replace(/\.[a-z0-9]+$/i, '').toLowerCase() === cleanLower)
+        )) || null;
+    }
+
     function loadUrlFont(name) {
         if (!name) return;
         const cleanName = String(name).replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
@@ -36,20 +91,27 @@
         if (loadedFonts.has(cleanName.toLowerCase())) return;
         loadedFonts.add(cleanName.toLowerCase());
 
-        // Check and load via Google Fonts
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(cleanName).replace(/%20/g, '+')}:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,700;1,900&display=swap`;
-        document.head.appendChild(link);
+        // 1. If cached asset library fonts are already present, apply immediately
+        if (cachedAssetFonts && cachedAssetFonts.length > 0) {
+            const match = matchAssetFont(cleanName, cachedAssetFonts);
+            if (match && applyAssetFont(cleanName, match)) {
+                return;
+            }
+        }
 
-        // Also check if an uploaded font matches in the custom overlay assets library
+        // 2. Check and load via Google Fonts
+        if (typeof document !== 'undefined' && document.head) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(cleanName).replace(/%20/g, '+')}:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,700;1,900&display=swap`;
+            document.head.appendChild(link);
+        }
+
+        // 3. Check asynchronously if asset fonts are still resolving
         if (typeof fetch === 'function') {
-            fetch('/api/custom-overlays/assets', { cache: 'no-store' }).then(r => r.ok ? r.json() : []).then(assets => {
-                const match = assets.find(a => a.kind === 'font' && a.family && a.family.toLowerCase() === cleanName.toLowerCase());
-                if (!match) return;
-                const style = document.createElement('style');
-                style.textContent = `@font-face { font-family: '${cleanName.replace(/'/g, '')}'; src: url('${match.url}'); font-display: swap; }`;
-                document.head.appendChild(style);
+            getAssetFonts().then(fonts => {
+                const match = matchAssetFont(cleanName, fonts);
+                if (match) applyAssetFont(cleanName, match);
             }).catch(() => {});
         }
     }
@@ -166,6 +228,7 @@
     window.OverlayFonts = {
         system: SYSTEM_FONTS,
         google: GOOGLE_FONTS,
+        getAssetFonts,
         loadFont: loadUrlFont
     };
     window.loadUrlFont = loadUrlFont;
