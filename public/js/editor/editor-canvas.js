@@ -316,6 +316,10 @@ export function previewEditorStateMorph(beforeMap) {
                 cutout: prev.cutout || el.cutout
             };
             applyNodeStyle(node, prevElModel, idx);
+            if (TEXT_TYPES.has(el.type) && el.textFit && el.textFit !== 'none' && shared.fitText) {
+                const probe = el.type === 'random-text' ? (shared.elementItems ? shared.elementItems(el).map(expand).reduce((a, b) => (b.length > a.length ? b : a), '') : null) : null;
+                shared.fitText(node, prevElModel, probe);
+            }
             node.classList.remove('hidden');
             node.style.transition = 'none';
             node.style.willChange = 'left, top, width, height, opacity, transform, border-radius, font-size, color, background-color, border-width, border-color, box-shadow';
@@ -335,14 +339,20 @@ export function previewEditorStateMorph(beforeMap) {
             item.node.style.transition = '';
             item.node.style.willChange = '';
             applyNodeStyle(item.node, item.el, item.idx);
+            if (TEXT_TYPES.has(item.el.type) && item.el.textFit && item.el.textFit !== 'none' && shared.fitText) {
+                const probe = item.el.type === 'random-text' ? (shared.elementItems ? shared.elementItems(item.el).map(expand).reduce((a, b) => (b.length > a.length ? b : a), '') : null) : null;
+                shared.fitText(item.node, item.el, probe);
+            }
             item.node.classList.toggle('hidden', !item.curVis);
         }
         updateEditorCutoutMask();
     };
     activeMorphCleanup = cleanup;
 
-    // Force layout before starting CSS transition
-    if (animatedNodes.length) void animatedNodes[0].node.offsetWidth;
+    // Force layout of initial state before arming CSS transition
+    for (const item of animatedNodes) {
+        void item.node.offsetWidth;
+    }
     const morphProps = [
         'left', 'top', 'width', 'height', 'opacity', 'transform',
         'border-radius', 'border-width', 'border-color',
@@ -352,9 +362,19 @@ export function previewEditorStateMorph(beforeMap) {
     ];
     const transProp = morphProps.map(p => `${p} ${ms}ms ${cssEase}`).join(', ');
     for (const item of animatedNodes) {
-        applyNodeStyle(item.node, item.el, item.idx);
-        item.node.classList.remove('hidden');
         item.node.style.transition = transProp;
+    }
+    // Force reflow with transition armed
+    for (const item of animatedNodes) {
+        void item.node.offsetWidth;
+    }
+    for (const item of animatedNodes) {
+        applyNodeStyle(item.node, item.el, item.idx);
+        if (TEXT_TYPES.has(item.el.type) && item.el.textFit && item.el.textFit !== 'none' && shared.fitText) {
+            const probe = item.el.type === 'random-text' ? (shared.elementItems ? shared.elementItems(item.el).map(expand).reduce((a, b) => (b.length > a.length ? b : a), '') : null) : null;
+            shared.fitText(item.node, item.el, probe);
+        }
+        item.node.classList.remove('hidden');
         item.node.style.opacity = String(item.curOp);
     }
 
@@ -426,7 +446,7 @@ export function applyNodeStyle(node, el, index) {
         opacity: s.opacity ?? 1, background: (el.type === 'alert' || el.type === 'cutout') ? 'transparent' : (s.background || 'transparent'),
         borderRadius: el.type === 'alert' ? '0' : el.type === 'cutout' ? cutoutRadius : `${s.borderRadius || 0}px`,
         padding: `${TEXT_TYPES.has(el.type) ? s.padding || 0 : 0}px`,
-        fontFamily: s.fontFamily, fontSize: `${s.fontSize}px`, fontWeight: s.fontWeight, color: s.color, textAlign: s.textAlign,
+        fontFamily: s.fontFamily, fontSize: `${s.fontSize != null && s.fontSize !== '' ? s.fontSize : 32}px`, fontWeight: s.fontWeight, color: s.color, textAlign: s.textAlign,
         lineHeight: s.lineHeight, letterSpacing: `${s.letterSpacing || 0}px`,
         display: s.verticalAlign === 'top' ? 'block' : 'flex',
         alignItems: s.verticalAlign === 'middle' ? 'center' : s.verticalAlign === 'bottom' ? 'flex-end' : 'flex-start',

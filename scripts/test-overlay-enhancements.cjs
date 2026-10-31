@@ -432,3 +432,22 @@ test('Scene States: Full Visual & Style Overrides (fontSize, color, borders, fil
     const inspectorJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-inspector.js'), 'utf8');
     assert.ok(inspectorJs.includes('if (!state.obs?.enabled) return \'\';'), 'obsLinkSection must return empty string when OBS is disabled');
 });
+
+test('Scene States vs Page Deck: Mode switching, font size morphing, and reaction triggers', () => {
+    const stateJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-state.js'), 'utf8');
+    assert.ok(stateJs.includes("export const statesModeOn = () => pagesOn() && ("), 'statesModeOn must be exported');
+    assert.ok(stateJs.includes("state.overlay.pages?.kind ? state.overlay.pages.kind === 'states' : state.overlay.pages?.transition === 'morph'"), 'statesModeOn must prioritize explicit pages.kind over transition');
+
+    const layersJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-layers.js'), 'utf8');
+    assert.ok(layersJs.includes("renderPagesPanel();"), 'Mode toggle must re-render pages panel');
+    assert.ok(layersJs.includes("projectPageState(state.curPage);"), 'Mode toggle must project page state');
+    assert.ok(layersJs.includes("state.overlay.pages.transition = 'fade';"), 'Switching to pages must default transition from morph to fade');
+    assert.ok(layersJs.includes("isStates ? 'Event Reaction' : 'Triggers &amp; Timing'"), 'Triggers section must adapt label in scene states mode');
+
+    const canvasJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-canvas.js'), 'utf8');
+    assert.ok(canvasJs.includes("fontSize != null && s.fontSize !== '' ? s.fontSize : 32"), 'applyNodeStyle must have fallback for font size');
+    assert.ok(canvasJs.indexOf('item.node.style.transition = transProp;') < canvasJs.indexOf('applyNodeStyle(item.node, item.el, item.idx);', canvasJs.indexOf('transProp')), 'Transition must be applied to node BEFORE applying target styles to enable smooth morph transitions');
+
+    const runtimeJs = fs.readFileSync(path.join(__dirname, '../public/js/overlay-runtime.js'), 'utf8');
+    assert.ok(runtimeJs.includes('if (morphedNodesSet.has(node)) continue;'), 'overlay-runtime must avoid premature refit on morphing nodes');
+});

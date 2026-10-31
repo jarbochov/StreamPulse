@@ -961,7 +961,12 @@
             if (v) initializeVideoElement(v);
         });
         outgoing.forEach(node => { if (ms) node.style.willChange = 'transform, opacity'; });
-        refit();
+        const morphedNodesSet = new Set(morphedShared.map(m => m.node));
+        for (const { node, element } of fitNodes) {
+            if (morphedNodesSet.has(node)) continue;
+            const probe = element.type === 'random-text' ? shared.elementItems(element).map(expandVariables).reduce((a, b) => (b.length > a.length ? b : a), '') : null;
+            shared.fitText(node, element, probe);
+        }
         if (!ms || !isMorph) updateCutoutMask();
 
         const finish = () => {
@@ -993,6 +998,7 @@
                     node.style.pointerEvents = afterEl.type === 'cutout' ? 'none' : '';
                 }
             });
+            refit();
             updateCutoutMask();
             transitioning = false;
             if (pendingRender) { const next = pendingRender; pendingRender = null; render(next); }

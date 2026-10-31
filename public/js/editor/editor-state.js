@@ -387,7 +387,9 @@ export const defaultPages = (kind = 'pages') => ({
 });
 
 export const pagesOn = () => state.overlay.pages?.enabled === true;
-export const statesModeOn = () => pagesOn() && (state.overlay.pages?.kind === 'states' || state.overlay.pages?.transition === 'morph');
+export const statesModeOn = () => pagesOn() && (
+    state.overlay.pages?.kind ? state.overlay.pages.kind === 'states' : state.overlay.pages?.transition === 'morph'
+);
 export const basePageId = () => state.overlay.pages?.items?.[0]?.id || 'page-1';
 export const isBasePage = (pid = state.curPage) => !pagesOn() || pid === basePageId();
 export const inView = el => !pagesOn() || el.page === '*' || el.page === state.curPage;

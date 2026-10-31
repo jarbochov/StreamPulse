@@ -280,8 +280,23 @@ export function renderPagesPanel() {
             ${items.length > 1 && P.transition === 'morph' ? `<button type="button" id="btn-preview-morph" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:600"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Preview Morph on Canvas</button>` : ''}
         </details>
         <details class="sub-details" ${cur?.trigger ? 'open' : ''}>
-            <summary>${esc(cur?.name || nounCap)} Triggers &amp; Timing <span class="spacer"></span><span class="badge-pill${cur?.trigger ? '' : ' is-muted'}">${esc(triggerLabel)}</span></summary>
-            ${F.select(`pages.items.${idx}.trigger`, `Show this ${noun}`, cur?.trigger || '', [['', 'In the rotation / manual'], ['alert', 'Only when an alert plays'], ['featured', 'Only when a message is featured'], ['command', 'Only when a chat command or trigger is used'], ['poll-end', 'Only when a Twitch poll ends'], ['poll-active', 'While a Twitch poll is active']])}
+            <summary>${esc(cur?.name || nounCap)} ${isStates ? 'Event Reaction' : 'Triggers &amp; Timing'} <span class="spacer"></span><span class="badge-pill${cur?.trigger ? '' : ' is-muted'}">${esc(triggerLabel)}</span></summary>
+            ${isStates ? '<div class="hint" style="margin-bottom:.35rem">Optional: automatically morph to this state when an event occurs, then morph back.</div>' : ''}
+            ${F.select(`pages.items.${idx}.trigger`, isStates ? `Event reaction trigger` : `Show this ${noun}`, cur?.trigger || '', isStates ? [
+                ['', 'None — manual, OBS sync, or Companion'],
+                ['alert', 'Auto-morph when an alert plays'],
+                ['featured', 'Auto-morph on featured chat message'],
+                ['command', 'Auto-morph on chat command or trigger'],
+                ['poll-end', 'Auto-morph on Twitch poll end'],
+                ['poll-active', 'Auto-morph while Twitch poll is active']
+            ] : [
+                ['', 'In the rotation / manual'],
+                ['alert', 'Only when an alert plays'],
+                ['featured', 'Only when a message is featured'],
+                ['command', 'Only when a chat command or trigger is used'],
+                ['poll-end', 'Only when a Twitch poll ends'],
+                ['poll-active', 'While a Twitch poll is active']
+            ])}
             ${cur?.trigger === 'alert' ? `<div class="field"><span>Alerts that show this ${noun}</span>${alertRules ? (alertRules.length ? `<div class="trule-list">${alertRules.map(r => `<label class="check"><input type="checkbox" data-trule="${esc(r.id)}" ${(cur.triggerRules || []).includes(r.id) ? 'checked' : ''}> ${esc(r.name || r.id)}</label>`).join('')}</div><div class="hint">${(cur.triggerRules || []).length ? `Only the ticked alerts show this ${noun}.` : `None ticked: any alert shows this ${noun}.`}</div>` : '<div class="hint">No alert rules yet.</div>') : '<div class="hint">Loading...</div>'}</div>` : ''}
             ${cur?.trigger === 'command' ? F.text(`pages.items.${idx}.triggerName`, 'Command or trigger name (blank = any)', cur.triggerName || '') : ''}
             ${cur?.trigger === 'poll-end' ? `<div class="hint">Shows this ${noun} when a Twitch poll completes. Leave &ldquo;Show for&rdquo; at 0 for default 15s.</div>` : ''}
@@ -647,10 +662,15 @@ export function initLayersAndPages() {
                             if (!el._baseState) el._baseState = extractElementState(el);
                             if (!el.pageStates) el.pageStates = {};
                         });
+                    } else if (state.overlay.pages.transition === 'morph') {
+                        state.overlay.pages.transition = 'fade';
                     }
+                    projectPageState(state.curPage);
                     changed(true);
                     renderPageBar();
+                    renderPagesPanel();
                     renderLayers();
+                    renderCanvasHandler();
                     renderPropertiesHandler();
                 }
                 return;
