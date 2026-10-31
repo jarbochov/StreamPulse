@@ -74,7 +74,7 @@ Alerts retain their own Alert Queue; page priority does not create a second aler
 
 ## Scene States & Keyframe Morph Transitions
 
-In addition to traditional slide decks (**Page Deck** mode), any Custom Overlay can opt into **Scene States (Morph)** mode from the left rail's **Pages / States** tab:
+In addition to traditional multi-page layouts (**Pages** mode), any Custom Overlay can opt into **Scene States (Morph)** mode from the left rail's **Pages / States** tab:
 
 - **Base State & Per-State Overrides**: State 1 (`items[0]`) serves as the canonical **Base State** layout. Moving, resizing, rotating, adjusting opacity/corner radius, changing font size/colors/borders, or hiding a shared layer (`page: '*'`) on State 2+ automatically records a per-state override (`el.pageStates[stateId]`) indicated by a cyan dot in the Layers tree and a **State Override Banner** in the Inspector with a 1-click **Reset to Base** button.
 - **Smooth Layer & Cutout Morphing (`transition: 'morph'`)**: Switching between states smoothly interpolates shared layers' position (`left`, `top`), dimensions (`width`, `height`), font size (including dynamic **Auto-fit** text size synchronization), `opacity`, `rotate`, and `borderRadius` with configurable easing curves (`Smooth`, `Snappy`, `Spring`, `Ease In/Out`, `Linear`).
@@ -388,7 +388,7 @@ Group multiple layers (such as a camera cutout or frame, neon border, and lower-
 - Built-in prefabs include **Webcam 16:9 + Tag**, **Retro 4:3 CRT Cam**, and **Social Pill Bar**, complete with real `cutout` punchthrough layers.
 
 ### Scene States & 60fps Keyframe Morph Transitions (Beta)
-Switch an overlay between **Page Deck (Slides)** and **Scene States (Morph · BETA)** in the left rail:
+Switch an overlay between **Pages** and **Scene States (Morph · BETA)** in the left rail:
 - **Base State Inheritance**: `State 1` acts as the Base Layout for all shared layers (`page: "*"`).
 - **Per-State Overrides**: Select `State 2` (or any additional state) and move, resize, rotate, change opacity/border-radius, or hide any shared layer. StreamPulse records a non-destructive per-state delta (`el.pageStates[stateId]`) and marks the layer with a cyan override indicator and a one-click **Reset to Base** action.
 - **60fps Morph Engine**: Switching states smoothly interpolates layer positions, dimensions, rotation, opacity, border radius, and SVG cutout masks using customizable motion curves (`Smooth Cubic`, `Snappy Out`, `Gentle Spring`, `Ease In-Out`, `Linear`).

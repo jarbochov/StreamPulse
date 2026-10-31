@@ -203,15 +203,15 @@ export function renderPagesPanel() {
                 <div style="color:var(--accent);opacity:0.85;">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 22 12 12 22 2 12"/></svg>
                 </div>
-                <strong>Scene States &amp; Multi-Page Layouts</strong>
-                <p>Add dynamic scene states that smoothly morph elements (e.g. Gameplay → Full Cam → Intermission), or split the overlay into rotating pages.</p>
+                <strong>Pages &amp; Dynamic Scene States</strong>
+                <p>Split your overlay into rotating pages, or add dynamic scene states that smoothly morph elements (e.g. Gameplay → Full Cam → Intermission).</p>
                 <div class="pg-empty-actions">
-                    <button id="states-enable" type="button" class="primary">
+                    <button id="pages-enable" type="button" class="primary">
+                        <span>Turn on Pages</span>
+                    </button>
+                    <button id="states-enable" type="button" class="ghost" style="border:1px solid var(--border)">
                         <span>Turn on Scene States (Morph)</span>
                         <span class="badge-beta">BETA</span>
-                    </button>
-                    <button id="pages-enable" type="button" class="ghost" style="border:1px solid var(--border)">
-                        <span>Turn on Page Deck (Slides)</span>
                     </button>
                 </div>
             </div>`;
@@ -263,8 +263,8 @@ export function renderPagesPanel() {
     panel.innerHTML = `
         <div class="field" style="margin-bottom:.1rem">
             <span class="seg" id="pages-kind-seg">
+                <button type="button" data-pg-kind="pages" aria-pressed="${!isStates}">Pages</button>
                 <button type="button" data-pg-kind="states" aria-pressed="${isStates}">Scene States <span class="badge-beta" style="margin-left:3px;">BETA</span></button>
-                <button type="button" data-pg-kind="pages" aria-pressed="${!isStates}">Page Deck</button>
             </span>
         </div>
         <div class="pg-head"><span>${nounPlural}</span><button id="page-add" title="Add a new ${noun}">+ Add ${noun}</button></div>

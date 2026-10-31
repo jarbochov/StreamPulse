@@ -443,6 +443,9 @@ test('Scene States vs Page Deck: Mode switching, font size morphing, and reactio
     assert.ok(layersJs.includes("projectPageState(state.curPage);"), 'Mode toggle must project page state');
     assert.ok(layersJs.includes("state.overlay.pages.transition = 'fade';"), 'Switching to pages must default transition from morph to fade');
     assert.ok(layersJs.includes("isStates ? 'Event Reaction' : 'Triggers &amp; Timing'"), 'Triggers section must adapt label in scene states mode');
+    assert.ok(layersJs.indexOf('data-pg-kind="pages"') < layersJs.indexOf('data-pg-kind="states"'), 'Pages button must be positioned on the left before Scene States');
+    assert.ok(layersJs.indexOf('id="pages-enable"') < layersJs.indexOf('id="states-enable"'), 'Turn on Pages button must be on the left before Scene States');
+    assert.ok(layersJs.includes('>Pages</button>'), 'Pages button must be simply called Pages');
 
     const canvasJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-canvas.js'), 'utf8');
     assert.ok(canvasJs.includes("fontSize != null && s.fontSize !== '' ? s.fontSize : 32"), 'applyNodeStyle must have fallback for font size');
