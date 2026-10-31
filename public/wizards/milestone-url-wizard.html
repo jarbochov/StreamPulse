@@ -443,14 +443,29 @@
     }
 
     (async function fillFonts() {
-        const names = [...(window.OverlayFonts?.system || []), ...(window.OverlayFonts?.google || [])];
+        let entries = [];
         try {
-            const assets = await (await fetch('/api/custom-overlays/assets', { cache: 'no-store' })).json();
-            assets.filter(a => a.kind === 'font').forEach(a => names.push(a.family));
+            if (window.OverlayFonts && typeof window.OverlayFonts.getDeduplicatedFontFamilies === 'function') {
+                entries = await window.OverlayFonts.getDeduplicatedFontFamilies();
+            } else {
+                const names = [...(window.OverlayFonts?.system || []), ...(window.OverlayFonts?.google || [])];
+                try {
+                    const assets = await (await fetch('/api/custom-overlays/assets', { cache: 'no-store' })).json();
+                    assets.filter(a => a && a.kind === 'font').forEach(a => names.push(a.family || a.label || a.name));
+                } catch {}
+                const seen = new Set();
+                names.forEach(n => {
+                    const clean = String(n || '').replace(/['"]/g, '').trim();
+                    if (clean && !seen.has(clean.toLowerCase())) {
+                        seen.add(clean.toLowerCase());
+                        entries.push({ name: clean });
+                    }
+                });
+            }
         } catch {}
         const datalist = document.getElementById('wiz-font-list');
         if (datalist) {
-            datalist.innerHTML = [...new Set(names)].map(n => `<option value="${n.replace(/"/g, '')}">`).join('');
+            datalist.innerHTML = entries.map(e => `<option value="${e.name}">`).join('');
         }
     })();
 

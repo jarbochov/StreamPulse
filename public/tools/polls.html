@@ -792,6 +792,28 @@
                                         </select>
                                     </div>
                                     <div>
+                                        <label for="tourney-opt-camera" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Smart Framing Camera (?focus=)</label>
+                                        <select id="tourney-opt-camera" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <option value="" selected>Auto (Active in Focus view)</option>
+                                            <option value="1">Always On (?focus=1)</option>
+                                            <option value="0">Disabled / Static (?focus=0)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-glide" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Smooth Glide Transitions (?glide=)</label>
+                                        <select id="tourney-opt-glide" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <option value="1" selected>Enabled (0.85s Smooth Glide)</option>
+                                            <option value="0">Disabled (Instant Snap (?glide=0))</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-badge" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Active Match Badge (?focusbadge=)</label>
+                                        <select id="tourney-opt-badge" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <option value="1" selected>Visible (?focusbadge=1)</option>
+                                            <option value="0">Hidden (?focusbadge=0)</option>
+                                        </select>
+                                    </div>
+                                    <div>
                                         <label for="tourney-opt-bracket" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket section (double elimination)</label>
                                         <select id="tourney-opt-bracket" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()" aria-describedby="tourney-bracket-help">
                                             <option value="all">All brackets</option>
@@ -1246,58 +1268,43 @@
         async function populateFontDatalist() {
             const list = $('overlay-fonts-list');
             if (!list) return;
-            list.innerHTML = '';
-            const seen = new Set();
 
-            // 1. Asset Library Custom Fonts
-            if (window.OverlayFonts && typeof window.OverlayFonts.getAssetFonts === 'function') {
-                const assets = await window.OverlayFonts.getAssetFonts();
-                cachedAssetFontsList = Array.isArray(assets) ? assets : [];
-                cachedAssetFontsList.forEach(a => {
-                    const fam = (a.family || a.label || (a.name ? a.name.replace(/\.[a-z0-9]+$/i, '') : '')).trim();
-                    if (fam && !seen.has(fam.toLowerCase())) {
-                        seen.add(fam.toLowerCase());
-                        const opt = document.createElement('option');
-                        opt.value = fam;
-                        opt.label = `${fam} (Asset Library)`;
-                        list.appendChild(opt);
-
-                        if (a.url) {
-                            if (typeof FontFace !== 'undefined' && document.fonts) {
-                                try {
-                                    const ff = new FontFace(fam, `url('${a.url}')`);
-                                    ff.load().then(loaded => document.fonts.add(loaded)).catch(() => {});
-                                } catch {}
-                            }
-                            const style = document.createElement('style');
-                            style.textContent = `@font-face { font-family: '${fam.replace(/'/g, '')}'; src: url('${a.url}'); font-display: swap; }`;
-                            document.head.appendChild(style);
-                        }
-                    }
-                });
+            let fontEntries = [];
+            try {
+                if (window.OverlayFonts && typeof window.OverlayFonts.getDeduplicatedFontFamilies === 'function') {
+                    fontEntries = await window.OverlayFonts.getDeduplicatedFontFamilies();
+                } else if (window.OverlayFonts && typeof window.OverlayFonts.getAssetFonts === 'function') {
+                    const assets = await window.OverlayFonts.getAssetFonts();
+                    fontEntries = (Array.isArray(assets) ? assets : []).map(a => ({
+                        name: (a.family || a.label || a.name || '').replace(/['"]/g, '').trim(),
+                        source: 'asset',
+                        raw: a
+                    }));
+                }
+            } catch {
+                fontEntries = [];
             }
 
-            // 2. Google Fonts
-            const googleFonts = window.OverlayFonts?.google || [];
-            googleFonts.forEach(f => {
-                if (!seen.has(f.toLowerCase())) {
-                    seen.add(f.toLowerCase());
-                    const opt = document.createElement('option');
-                    opt.value = f;
-                    opt.label = `${f} (Google Font)`;
-                    list.appendChild(opt);
-                }
-            });
+            cachedAssetFontsList = fontEntries.filter(e => e.source === 'asset' && e.raw).map(e => e.raw);
 
-            // 3. System Fonts
-            const systemFonts = window.OverlayFonts?.system || [];
-            systemFonts.forEach(f => {
-                if (!seen.has(f.toLowerCase())) {
-                    seen.add(f.toLowerCase());
-                    const opt = document.createElement('option');
-                    opt.value = f;
-                    opt.label = `${f} (System Font)`;
-                    list.appendChild(opt);
+            list.innerHTML = '';
+            fontEntries.forEach(entry => {
+                if (!entry.name) return;
+                const opt = document.createElement('option');
+                opt.value = entry.name;
+                list.appendChild(opt);
+
+                // Pre-register @font-face for uploaded asset fonts
+                if (entry.source === 'asset' && entry.raw?.url) {
+                    if (typeof FontFace !== 'undefined' && document.fonts) {
+                        try {
+                            const ff = new FontFace(entry.name, `url("${entry.raw.url.replace(/"/g, '%22')}")`);
+                            ff.load().then(loaded => document.fonts.add(loaded)).catch(() => {});
+                        } catch {}
+                    }
+                    const style = document.createElement('style');
+                    style.textContent = `@font-face { font-family: '${entry.name}'; src: url('${entry.raw.url}'); font-display: swap; }`;
+                    document.head.appendChild(style);
                 }
             });
 
@@ -1353,7 +1360,22 @@
             const container = $('asset-font-picker-list');
             if (!container) return;
 
-            if (!cachedAssetFontsList || cachedAssetFontsList.length === 0) {
+            // Group uploaded font assets by normalized family name to prevent duplicate cards
+            const fontMap = new Map();
+            (cachedAssetFontsList || []).forEach(a => {
+                const fam = (a.family || a.label || (a.name ? a.name.replace(/\.[a-z0-9]+$/i, '') : '')).replace(/['"]/g, '').trim();
+                if (!fam) return;
+                const key = fam.toLowerCase();
+                const ext = a.name ? a.name.split('.').pop().toUpperCase() : 'FONT';
+                if (!fontMap.has(key)) {
+                    fontMap.set(key, { family: fam, formats: [ext], asset: a });
+                } else {
+                    const existing = fontMap.get(key);
+                    if (!existing.formats.includes(ext)) existing.formats.push(ext);
+                }
+            });
+
+            if (fontMap.size === 0) {
                 container.innerHTML = `
                     <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
                         <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="margin-bottom: 0.6rem; opacity: 0.6;"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
@@ -1374,16 +1396,16 @@
                 ? 'WHICH GAME NEXT? • CHRONO TRIGGER 64% - 36% FINAL'
                 : 'OPTION A 64% - 36% OPTION B • CHAMPIONSHIP FINALS';
 
-            container.innerHTML = cachedAssetFontsList.map(a => {
-                const fam = (a.family || a.label || (a.name ? a.name.replace(/\.[a-z0-9]+$/i, '') : '')).trim();
-                const ext = a.name ? a.name.split('.').pop() : 'font';
+            container.innerHTML = Array.from(fontMap.values()).map(f => {
+                const fam = f.family;
                 const safeFam = fam.replace(/'/g, '');
+                const formatBadges = f.formats.map(fmt => `<span class="badge" style="background: var(--bg-card); border: 1px solid var(--border); font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 3px; color: var(--text-muted); text-transform: uppercase;">${escapeHtml(fmt)}</span>`).join(' ');
                 return `
                     <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
                             <div style="display: flex; align-items: center; gap: 0.5rem; min-width: 0;">
                                 <span style="font-weight: 700; font-size: 0.88rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(fam)}</span>
-                                <span class="badge" style="background: var(--bg-card); border: 1px solid var(--border); font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 3px; color: var(--text-muted); text-transform: uppercase;">${escapeHtml(ext)}</span>
+                                ${formatBadges}
                             </div>
                             <button type="button" class="btn-primary btn-sm" onclick="selectAssetFont('${escapeHtml(fam)}')" style="font-size: 0.72rem; padding: 0.22rem 0.6rem; display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
                                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -1912,6 +1934,12 @@
             if (layoutSelect && layoutSelect.value !== 'tree') {
                 urlParams.set('layout', layoutSelect.value);
             }
+            const tourneyCamera = $('tourney-opt-camera')?.value;
+            if (tourneyCamera === '1' || tourneyCamera === '0') urlParams.set('focus', tourneyCamera);
+            const tourneyGlide = $('tourney-opt-glide')?.value;
+            if (tourneyGlide === '0') urlParams.set('glide', '0');
+            const tourneyBadge = $('tourney-opt-badge')?.value;
+            if (tourneyBadge === '0') urlParams.set('focusbadge', '0');
             if (theme && theme !== 'card') {
                 urlParams.set('overlay', theme);
             }

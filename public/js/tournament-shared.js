@@ -116,7 +116,10 @@
         const forceSample = params.get('sample') === '1';
         const isPreview = params.get('preview') === '1' || params.get('sample') === '1';
         const layoutMode = (params.get('layout') || params.get('mode') || 'tree').toLowerCase(); // 'tree' | 'active' | 'hud' | 'compact' | 'focus' | 'dynamic'
-        const isFocusMode = layoutMode === 'focus' || layoutMode === 'dynamic' || layoutMode === 'zoom' || params.get('focus') === '1' || params.get('dynamic') === '1';
+        const cameraExplicitlyOff = params.get('focus') === '0' || params.get('camera') === '0' || params.get('dynamic') === '0';
+        const cameraExplicitlyOn = params.get('focus') === '1' || params.get('camera') === '1' || params.get('dynamic') === '1';
+        const isFocusMode = !cameraExplicitlyOff && (layoutMode === 'focus' || layoutMode === 'dynamic' || layoutMode === 'zoom' || cameraExplicitlyOn);
+        const isGlideEnabled = params.get('glide') !== '0' && params.get('smooth') !== '0' && params.get('transition') !== '0';
         const requestedBracket = (params.get('bracket') || 'all').toLowerCase();
         const bracketView = ['winners', 'losers', 'finals'].includes(requestedBracket) ? requestedBracket : 'all';
         const showScoresParam = params.get('showscores') !== '0' && params.get('scores') !== '0';
@@ -309,6 +312,15 @@
             if (!stage || !container || !tourney) return;
             document.body.classList.add('layout-focus');
 
+            // Apply glide transition (or instant snap if glide=0 / smooth=0)
+            if (!isGlideEnabled) {
+                stage.style.transition = 'none';
+            } else {
+                const rawSpeed = params.get('glidespeed') || params.get('transitionms') || '';
+                const speedVal = /^\d+$/.test(rawSpeed) ? `${rawSpeed}ms` : (rawSpeed || '0.85s');
+                stage.style.transition = `transform ${speedVal} cubic-bezier(0.16, 1, 0.3, 1)`;
+            }
+
             const targetMatch = findFocusTargetMatch(tourney);
             if (!targetMatch) {
                 stage.style.transform = '';
@@ -390,12 +402,18 @@
         function adjustScaleAndFit() {
             if (layoutMode === 'active' || layoutMode === 'hud' || layoutMode === 'match') {
                 stage.style.transform = '';
+                stage.style.transition = '';
+                document.body.classList.remove('layout-focus');
+                document.getElementById('tourney-focus-badge')?.remove();
                 return;
             }
             if (isFocusMode) {
                 applyDynamicFocus(currentTournament);
                 return;
             }
+            document.body.classList.remove('layout-focus');
+            document.getElementById('tourney-focus-badge')?.remove();
+            stage.style.transition = '';
             const autoFit = params.get('fit') === '1' || params.get('autoscale') === '1' || params.get('fit') === 'all';
             if (autoFit) {
                 stage.style.transform = '';

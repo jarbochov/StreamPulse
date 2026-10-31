@@ -396,6 +396,28 @@
                         </select>
                     </div>
                     <div class="form-row">
+                        <label for="tourney-camera">Smart Framing Camera</label>
+                        <select id="tourney-camera">
+                            <option value="" selected>Auto (Framed in Focus view)</option>
+                            <option value="1">Always Enabled (?focus=1)</option>
+                            <option value="0">Disabled / Static (?focus=0)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="tourney-glide">Smooth Glide Transitions</label>
+                        <select id="tourney-glide">
+                            <option value="1" selected>Enabled (0.85s Smooth Glide)</option>
+                            <option value="0">Disabled (Instant Snap (?glide=0))</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="tourney-badge">Active Match Badge</label>
+                        <select id="tourney-badge">
+                            <option value="1" selected>Visible (?focusbadge=1)</option>
+                            <option value="0">Hidden (?focusbadge=0)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
                         <label for="tourney-theme">Container / Theme</label>
                         <select id="tourney-theme">
                             <option value="card" selected>Dark Card (?overlay=card)</option>
@@ -444,6 +466,28 @@
                             <option value="focus">Dynamic Focus / Zoomed on Active Matches (?layout=focus)</option>
                             <option value="active">Active Match Lower-Third HUD (?layout=active)</option>
                             <option value="compact">Compact Overview (?layout=compact)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="poll-tourney-camera">Smart Framing Camera</label>
+                        <select id="poll-tourney-camera">
+                            <option value="" selected>Auto (Framed in Focus view)</option>
+                            <option value="1">Always Enabled (?focus=1)</option>
+                            <option value="0">Disabled / Static (?focus=0)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="poll-tourney-glide">Smooth Glide Transitions</label>
+                        <select id="poll-tourney-glide">
+                            <option value="1" selected>Enabled (0.85s Smooth Glide)</option>
+                            <option value="0">Disabled (Instant Snap (?glide=0))</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="poll-tourney-badge">Active Match Badge</label>
+                        <select id="poll-tourney-badge">
+                            <option value="1" selected>Visible (?focusbadge=1)</option>
+                            <option value="0">Hidden (?focusbadge=0)</option>
                         </select>
                     </div>
                     <div class="form-row">
@@ -585,11 +629,15 @@
                     <h2>Appearance (all overlays)</h2>
                     <p class="hint" style="margin-left:0;">Leave a field empty to use the saved theme. These apply to the selected overlay's URL only.</p>
                     <div class="form-row">
-                        <label for="ap-font">Font</label>
-                        <input id="ap-font" type="text" list="ap-font-list" placeholder="Saved theme font">
+                        <label for="ap-font">Content font</label>
+                        <input id="ap-font" type="text" list="ap-font-list" placeholder="Theme default or custom font (?font=)">
                         <datalist id="ap-font-list"></datalist>
                     </div>
-                    <p class="hint">Use a font installed on the computer running OBS.</p>
+                    <div class="form-row">
+                        <label for="ap-heading-font">Heading font</label>
+                        <input id="ap-heading-font" type="text" list="ap-font-list" placeholder="Titles, badges, clocks (?headingfont=)">
+                    </div>
+                    <p class="hint">Curated Google Fonts, local system fonts, and custom fonts from your Asset Library.</p>
                     <div class="form-row">
                         <label for="ap-weight">Font weight</label>
                         <select id="ap-weight">
@@ -878,10 +926,10 @@
         'goal-layout', 'goal-single', 'goal-showlabel', 'goal-interval', 'goal-skipcompleted', 'goal-pausecomplete',
         'viewer-layout', 'viewer-label',
         'poll-theme', 'poll-howtovote', 'poll-results',
-        'tourney-layout', 'tourney-theme', 'tourney-showscores', 'tourney-confetti',
-        'poll-tourney-layout', 'poll-tourney-theme', 'poll-tourney-showscores', 'poll-tourney-confetti',
+        'tourney-layout', 'tourney-camera', 'tourney-glide', 'tourney-badge', 'tourney-theme', 'tourney-showscores', 'tourney-confetti',
+        'poll-tourney-layout', 'poll-tourney-camera', 'poll-tourney-glide', 'poll-tourney-badge', 'poll-tourney-theme', 'poll-tourney-showscores', 'poll-tourney-confetti',
         'matchup-layout', 'matchup-theme', 'matchup-source', 'matchup-pipstyle', 'matchup-fit', 'matchup-center', 'matchup-pips', 'matchup-tags', 'matchup-playerclocks', 'matchup-confetti',
-        'ap-font', 'ap-weight', 'ap-fontscale', 'ap-transform', 'ap-radius', 'ap-align', 'ap-text', 'ap-accent', 'ap-bg', 'ap-cardbg', 'ap-border', 'ap-winner', 'ap-outline'
+        'ap-font', 'ap-heading-font', 'ap-weight', 'ap-fontscale', 'ap-transform', 'ap-radius', 'ap-align', 'ap-text', 'ap-accent', 'ap-bg', 'ap-cardbg', 'ap-border', 'ap-winner', 'ap-outline'
     ];
 
     function numberValue(id, minimum = 0) {
@@ -896,6 +944,7 @@
         const scaleVal = parseFloat($('ap-fontscale').value);
         return {
             font: $('ap-font').value.trim(),
+            headingfont: $('ap-heading-font') ? $('ap-heading-font').value.trim() : '',
             weight: $('ap-weight').value,
             fontscale: scaleVal && scaleVal !== 1 ? String(scaleVal) : '',
             transform: $('ap-transform') ? $('ap-transform').value : '',
@@ -1179,22 +1228,34 @@
         const tourneyTheme = $('tourney-theme') ? $('tourney-theme').value : 'card';
         const tourneyScores = $('tourney-showscores') ? $('tourney-showscores').value : '1';
         const tourneyConfetti = $('tourney-confetti') ? $('tourney-confetti').value : '1';
+        const tourneyCamera = $('tourney-camera') ? $('tourney-camera').value : '';
+        const tourneyGlide = $('tourney-glide') ? $('tourney-glide').value : '1';
+        const tourneyBadge = $('tourney-badge') ? $('tourney-badge').value : '1';
         setUrl('tourney-url', buildUrl('/tournament.html', {
             layout: tourneyLayout !== 'tree' ? tourneyLayout : '',
             overlay: tourneyTheme !== 'card' ? tourneyTheme : '',
             showscores: tourneyScores === '0' ? '0' : '',
-            confetti: tourneyConfetti === '0' ? '0' : ''
+            confetti: tourneyConfetti === '0' ? '0' : '',
+            focus: (tourneyCamera === '1' || tourneyCamera === '0') ? tourneyCamera : '',
+            glide: tourneyGlide === '0' ? '0' : '',
+            focusbadge: tourneyBadge === '0' ? '0' : ''
         }));
 
         const pollTourneyLayout = $('poll-tourney-layout') ? $('poll-tourney-layout').value : 'tree';
         const pollTourneyTheme = $('poll-tourney-theme') ? $('poll-tourney-theme').value : 'card';
         const pollTourneyScores = $('poll-tourney-showscores') ? $('poll-tourney-showscores').value : '1';
         const pollTourneyConfetti = $('poll-tourney-confetti') ? $('poll-tourney-confetti').value : '1';
+        const pollTourneyCamera = $('poll-tourney-camera') ? $('poll-tourney-camera').value : '';
+        const pollTourneyGlide = $('poll-tourney-glide') ? $('poll-tourney-glide').value : '1';
+        const pollTourneyBadge = $('poll-tourney-badge') ? $('poll-tourney-badge').value : '1';
         setUrl('poll-tourney-url', buildUrl('/poll-tournament.html', {
             layout: pollTourneyLayout !== 'tree' ? pollTourneyLayout : '',
             overlay: pollTourneyTheme !== 'card' ? pollTourneyTheme : '',
             showscores: pollTourneyScores === '0' ? '0' : '',
-            confetti: pollTourneyConfetti === '0' ? '0' : ''
+            confetti: pollTourneyConfetti === '0' ? '0' : '',
+            focus: (pollTourneyCamera === '1' || pollTourneyCamera === '0') ? pollTourneyCamera : '',
+            glide: pollTourneyGlide === '0' ? '0' : '',
+            focusbadge: pollTourneyBadge === '0' ? '0' : ''
         }));
 
         const matchupLayout = $('matchup-layout') ? $('matchup-layout').value : 'top';
@@ -1385,12 +1446,27 @@
     });
 
     (async function fillFonts() {
-        const names = [...OverlayFonts.system, ...OverlayFonts.google];
+        let entries = [];
         try {
-            const assets = await (await fetch('/api/custom-overlays/assets', { cache: 'no-store' })).json();
-            assets.filter(a => a.kind === 'font').forEach(a => names.push(a.family));
-        } catch { /* uploaded fonts are optional */ }
-        $('ap-font-list').innerHTML = [...new Set(names)].map(n => `<option value="${n.replace(/"/g, '')}">`).join('');
+            if (window.OverlayFonts && typeof window.OverlayFonts.getDeduplicatedFontFamilies === 'function') {
+                entries = await window.OverlayFonts.getDeduplicatedFontFamilies();
+            } else {
+                const names = [...(window.OverlayFonts?.system || []), ...(window.OverlayFonts?.google || [])];
+                try {
+                    const assets = await (await fetch('/api/custom-overlays/assets', { cache: 'no-store' })).json();
+                    assets.filter(a => a && a.kind === 'font').forEach(a => names.push(a.family || a.label || a.name));
+                } catch {}
+                const seen = new Set();
+                names.forEach(n => {
+                    const clean = String(n || '').replace(/['"]/g, '').trim();
+                    if (clean && !seen.has(clean.toLowerCase())) {
+                        seen.add(clean.toLowerCase());
+                        entries.push({ name: clean });
+                    }
+                });
+            }
+        } catch {}
+        $('ap-font-list').innerHTML = entries.map(e => `<option value="${e.name}">`).join('');
     })();
 
     async function loadConfigTheme() {

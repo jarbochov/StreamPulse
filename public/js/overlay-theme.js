@@ -229,7 +229,42 @@
         system: SYSTEM_FONTS,
         google: GOOGLE_FONTS,
         getAssetFonts,
-        loadFont: loadUrlFont
+        loadFont: loadUrlFont,
+        getDeduplicatedFontFamilies: async function() {
+            const seen = new Set();
+            const list = [];
+            // 1. Asset Library Custom Fonts (highest precedence)
+            try {
+                const assets = await getAssetFonts();
+                (Array.isArray(assets) ? assets : []).forEach(a => {
+                    const fam = (a.family || a.label || (a.name ? a.name.replace(/\.[a-z0-9]+$/i, '') : '')).replace(/['"]/g, '').trim();
+                    const key = fam.toLowerCase();
+                    if (fam && !seen.has(key)) {
+                        seen.add(key);
+                        list.push({ name: fam, source: 'asset', raw: a });
+                    }
+                });
+            } catch {}
+            // 2. Google Fonts (skip if already provided by uploaded asset)
+            (GOOGLE_FONTS || []).forEach(f => {
+                const clean = String(f).replace(/['"]/g, '').trim();
+                const key = clean.toLowerCase();
+                if (clean && !seen.has(key)) {
+                    seen.add(key);
+                    list.push({ name: clean, source: 'google' });
+                }
+            });
+            // 3. System Fonts (skip if already seen)
+            (SYSTEM_FONTS || []).forEach(f => {
+                const clean = String(f).replace(/['"]/g, '').trim();
+                const key = clean.toLowerCase();
+                if (clean && !seen.has(key)) {
+                    seen.add(key);
+                    list.push({ name: clean, source: 'system' });
+                }
+            });
+            return list;
+        }
     };
     window.loadUrlFont = loadUrlFont;
     OverlayThemes.BUILT_IN_THEMES = BUILT_IN_THEMES;

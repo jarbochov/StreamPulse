@@ -343,23 +343,30 @@ function resetPresetWeights(preset, mode = '') {
 const TEXT_SOURCE_TYPES = new Set(['text', 'random-text', 'markdown']);
 const TEXT_SOURCE_EXTS = new Set(['.txt', '.md', '.markdown', '.text']);
 const TEXT_SOURCE_MAX_BYTES = 512 * 1024;
-const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'poll', 'game-list', 'qr', 'alert', 'slideshow', 'icon', 'cutout', 'pattern']);
+const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'poll', 'game-list', 'qr', 'alert', 'slideshow', 'icon', 'cutout', 'pattern', 'procedural-pattern']);
 const PAGE_TRANSITIONS = ['none', 'fade', 'slide'];
 const PAGE_DIRECTIONS = ['left', 'right', 'up', 'down'];
 const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset'];
 const BORDER_ANIM_TYPES = ['none', 'rotating', 'radial', 'pulsing', 'gradient', 'rainbow', 'marching'];
 const PATTERN_LAYOUTS = ['grid', 'brick', 'stagger', 'alternating', 'checkerboard', 'kaleidoscope-quad', 'kaleidoscope-radial'];
-const PATTERN_MOTIONS = ['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'kaleidoscope'];
+const PATTERN_MOTIONS = ['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'kaleidoscope', 'drift', 'orbit', 'pulse', 'pan', 'sweep'];
 const PATTERN_TRACK_MODES = ['uniform', 'opposite', 'stagger', 'sine', 'alternate-stop', 'alt-rows', 'stagger-rows', 'alt-cols', 'stagger-cols'];
 const PATTERN_FLIPS = ['none', 'tilt', 'h', 'v', 'both'];
 const PATTERN_BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion', 'luminosity', 'plus-lighter'];
 
 function normalizePattern(p = {}) {
     const num = (value, min, max, fallback) => (Number.isFinite(Number(value)) && value !== '' && value !== null ? Math.max(min, Math.min(max, Number(value))) : fallback);
-    const motion = PATTERN_MOTIONS.includes(p.motion) ? p.motion : 'scroll';
+    const motion = PATTERN_MOTIONS.includes(p.motion) ? p.motion : (p.sourceType === 'preset' ? 'drift' : 'scroll');
     const defaultTrack = (motion === 'alt-rows' || motion === 'alt-cols') ? 'opposite' : 'uniform';
+    const sourceType = (p.sourceType === 'icon' || p.sourceType === 'preset') ? p.sourceType : 'image';
     return {
-        sourceType: p.sourceType === 'icon' ? 'icon' : 'image',
+        sourceType,
+        preset: String(p.preset || 'hexagons').slice(0, 40),
+        accent: String(p.accent || '#58a6ff').slice(0, 80),
+        secondary: String(p.secondary || p.accent || '#38bdf8').slice(0, 80),
+        color: String(p.color || 'transparent').slice(0, 80),
+        lineWidth: Math.max(0, Math.min(50, Number(p.lineWidth) || 0)),
+        scale: Math.max(10, Math.min(1000, Math.round(Number(p.scale) || 100))),
         layout: PATTERN_LAYOUTS.includes(p.layout) ? p.layout : 'brick',
         tileSize: Math.round(num(p.tileSize, 16, 1024, 96)),
         gap: Math.round(num(p.gap, 0, 256, 16)),
@@ -377,7 +384,7 @@ function normalizePattern(p = {}) {
         motion,
         trackMode: PATTERN_TRACK_MODES.includes(p.trackMode) ? p.trackMode : defaultTrack,
         scrollAngle: Math.round(num(p.scrollAngle, 0, 360, 315)),
-        speed: Math.round(num(p.speed, 0.5, 120, 12) * 10) / 10,
+        speed: Math.round(num(p.speed, 0.1, 120, (p.sourceType === 'preset' ? 1 : 12)) * 10) / 10,
         spinSpeed: Math.round(num(p.spinSpeed, 0.5, 120, 8) * 10) / 10,
         spinDirection: ['cw', 'ccw', 'alternate'].includes(p.spinDirection) ? p.spinDirection : 'cw',
         waveAmount: Math.round(num(p.waveAmount, 5, 100, 25))
@@ -1177,10 +1184,11 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
                     <text x="${x + 64}" y="${y + h / 2 + 14}" fill="#ffffff" font-family="-apple-system, system-ui, sans-serif" font-size="12">${escapeXml(alertUser)}</text>
                 </g>`);
             }
-        } else if (el.type === 'pattern') {
+        } else if (el.type === 'pattern' || el.type === 'procedural-pattern') {
+            const patternTitle = el.type === 'procedural-pattern' ? `Pattern (${escapeXml(el.pattern?.preset || 'Hexagons')})` : `Pattern (${escapeXml(el.pattern?.layout || 'Grid')})`;
             elementsSvg.push(`<g${opacityAttr}${transform}>
                 <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : '#1e1b4b'}" stroke="${borderWidth > 0 && borderStroke ? escapeXml(borderStroke) : 'rgba(167, 139, 250, 0.3)'}" stroke-width="${Math.max(1, borderWidth)}"${strokeDashAttr} />
-                <text x="${x + w / 2}" y="${y + h / 2 + 4}" fill="#c4b5fd" font-family="-apple-system, system-ui, sans-serif" font-size="13" font-weight="600" text-anchor="middle">Pattern (${escapeXml(el.pattern?.layout || 'Grid')})</text>
+                <text x="${x + w / 2}" y="${y + h / 2 + 4}" fill="#c4b5fd" font-family="-apple-system, system-ui, sans-serif" font-size="13" font-weight="600" text-anchor="middle">${patternTitle}</text>
             </g>`);
         } else if (el.type === 'game-list') {
             elementsSvg.push(`<g${opacityAttr}${transform}>

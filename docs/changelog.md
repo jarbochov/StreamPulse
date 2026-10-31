@@ -31,6 +31,9 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Custom Overlay Editor IGDB Artwork: Direct browser and importer for official game artwork, logos, and screenshots from IGDB into custom overlay image layers.
 
 ### Fixed
+- Custom Overlay Background Patterns: Resolved an issue where procedural background patterns (`procedural-pattern`) were stripped or coerced to text elements on save due to element type whitelist omissions and incomplete pattern property normalization.
+- Overlay Font Lists & Autocomplete Deduplication: Deduplicated font options across all URL wizards and studio tools, eliminating redundant browser datalist autocomplete lines and grouping multi-format custom uploaded font assets into single family cards.
+- Bracket Camera & Transition Controls: Added explicit on/off switches for Smart Framing Camera (`focus=1|0`), Smooth Glide Transitions (`glide=1|0`), and active match badges (`focusbadge=1|0`) across Versus, Polls, and Overlay URL wizards.
 - Versus Navigation Route: Resolved route conflict where a redundant redirect file in `public/overlays/` hijacked `/versus.html` requests intended for the Versus Studio tool page (`public/tools/versus.html`).
 - UI Harmonization: Enforced Strict No-Emoji policy repository-wide, replacing raw unicode emojis and glyphs with crisp inline SVGs across headers, buttons, wizards, and presets.
 - Matchup Runner Indexing: Fixed 0-based and 1-based competitor and race runner resolution across JavaScript methods and HTTP triggers.

@@ -498,3 +498,136 @@ test('Tournament overlay dynamic focus layout (layout=focus) zooms on active mat
         if (browser) await browser.close();
     }
 });
+
+test('Tournament dynamic focus camera framing on/off (focus=0), glide on/off (glide=0), and badge on/off (focusbadge=0) parameter options', async () => {
+    const TOURNEY_URL = 'file://' + path.resolve(__dirname, '../public/overlays/tournament.html');
+    let browser;
+    try {
+        browser = await puppeteer.launch({
+            headless: 'new',
+            pipe: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--allow-file-access-from-files']
+        });
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1280, height: 720 });
+
+        // 1. Test glide=0 (instant snap without smooth glide transition) & focusbadge=0
+        await page.goto(`${TOURNEY_URL}?preview=1&sample=1&layout=focus&glide=0&focusbadge=0`, {
+            waitUntil: 'domcontentloaded'
+        });
+        await page.waitForSelector('.match-card');
+
+        const snapInfo = await page.evaluate(() => {
+            const stage = document.getElementById('stage');
+            return {
+                transition: stage ? stage.style.transition : '',
+                badgePresent: Boolean(document.getElementById('tourney-focus-badge'))
+            };
+        });
+        assert.equal(snapInfo.transition, 'none', 'Stage transition should be none when glide=0');
+        assert.equal(snapInfo.badgePresent, false, 'Focus badge should be absent when focusbadge=0');
+
+        // 2. Test focus=0 (explicitly disable camera framing even when layout=focus)
+        await page.goto(`${TOURNEY_URL}?preview=1&sample=1&layout=focus&focus=0`, {
+            waitUntil: 'domcontentloaded'
+        });
+        await page.waitForSelector('.match-card');
+
+        const offInfo = await page.evaluate(() => {
+            const stage = document.getElementById('stage');
+            return {
+                hasFocusClass: document.body.classList.contains('layout-focus'),
+                badgePresent: Boolean(document.getElementById('tourney-focus-badge')),
+                transform: stage ? stage.style.transform : ''
+            };
+        });
+        assert.equal(offInfo.hasFocusClass, false, 'layout-focus class should not be applied when focus=0');
+        assert.equal(offInfo.badgePresent, false, 'Focus badge should not be created when focus=0');
+    } finally {
+        if (browser) await browser.close();
+    }
+});
+
+test('OverlayFonts deduplication across custom asset fonts, Google fonts, and system fonts', async () => {
+    const code = fs.readFileSync(path.resolve(__dirname, '../public/js/overlay-theme.js'), 'utf8');
+    const context = {
+        window: {},
+        document: {
+            documentElement: { style: { setProperty() {} } },
+            body: { classList: { add() {} } },
+            head: { appendChild() {} },
+            createElement() { return {}; }
+        },
+        localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
+        fetch: async (url) => {
+            if (url === '/api/custom-overlays/assets') {
+                return {
+                    ok: true,
+                    json: async () => [
+                        // Uploaded font with exact same name as Google font 'Montserrat'
+                        { name: 'Montserrat-Bold.ttf', kind: 'font', family: 'Montserrat', url: '/custom-overlay-assets/Montserrat-Bold.ttf' },
+                        { name: 'CustomGamer.woff2', kind: 'font', family: "'Custom Gamer'", url: '/custom-overlay-assets/CustomGamer.woff2' },
+                        { name: 'image.png', kind: 'image' }
+                    ]
+                };
+            }
+            return { ok: false };
+        },
+        console
+    };
+    vm.runInNewContext(code, context);
+
+    const { OverlayFonts } = context.window;
+    assert.ok(typeof OverlayFonts.getDeduplicatedFontFamilies === 'function', 'Should expose getDeduplicatedFontFamilies');
+
+    const list = await OverlayFonts.getDeduplicatedFontFamilies();
+    const names = list.map(e => e.name);
+    const lowerNames = names.map(n => n.toLowerCase());
+    const uniqueLower = new Set(lowerNames);
+
+    assert.equal(lowerNames.length, uniqueLower.size, 'Every font family should appear exactly once (no duplicates)');
+    assert.ok(names.includes('Custom Gamer'), 'Quotes should be cleaned from font family names');
+    assert.ok(!names.some(n => n.includes("'") || n.includes('"')), 'No quotes should remain in family names');
+
+    // Montserrat should be listed under asset, and not repeated under google
+    const montserratEntries = list.filter(e => e.name.toLowerCase() === 'montserrat');
+    assert.equal(montserratEntries.length, 1, 'Montserrat should appear exactly once');
+    assert.equal(montserratEntries[0].source, 'asset', 'Uploaded asset version should take precedence');
+});
+
+test('Custom overlay background pattern persistence and normalization', () => {
+    const overlays = require('../server/services/overlays.js');
+    const customPatternElement = {
+        id: 'bg-pattern-layer',
+        type: 'procedural-pattern',
+        name: 'Background Pattern',
+        pattern: {
+            preset: 'hexagons',
+            accent: '#ff0077',
+            secondary: '#00ffcc',
+            color: '#0d1117',
+            lineWidth: 1.5,
+            scale: 120,
+            motion: 'drift',
+            speed: 1.2,
+            blendMode: 'screen'
+        }
+    };
+    const normalized = overlays.normalizeCustomOverlay({
+        id: 'overlay-with-pattern',
+        name: 'Overlay With Pattern',
+        elements: [customPatternElement]
+    });
+
+    const el = normalized.elements[0];
+    assert.equal(el.type, 'procedural-pattern', 'Element type must remain procedural-pattern');
+    assert.equal(el.pattern.preset, 'hexagons', 'Pattern preset must be preserved');
+    assert.equal(el.pattern.accent, '#ff0077', 'Pattern accent must be preserved');
+    assert.equal(el.pattern.secondary, '#00ffcc', 'Pattern secondary must be preserved');
+    assert.equal(el.pattern.color, '#0d1117', 'Pattern color must be preserved');
+    assert.equal(el.pattern.lineWidth, 1.5, 'Pattern lineWidth must be preserved');
+    assert.equal(el.pattern.scale, 120, 'Pattern scale must be preserved');
+    assert.equal(el.pattern.motion, 'drift', 'Pattern motion drift must be preserved');
+    assert.equal(el.pattern.speed, 1.2, 'Pattern speed multiplier must be preserved');
+    assert.equal(el.pattern.blendMode, 'screen', 'Pattern blendMode must be preserved');
+});
