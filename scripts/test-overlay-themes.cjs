@@ -547,6 +547,22 @@ test('Tournament dynamic focus camera framing on/off (focus=0), glide on/off (gl
         });
         assert.equal(offInfo.hasFocusClass, false, 'layout-focus class should not be applied when focus=0');
         assert.equal(offInfo.badgePresent, false, 'Focus badge should not be created when focus=0');
+
+        // 3. Test focusbadge=1 explicitly renders on standard tree layout (layout=tree / default)
+        await page.goto(`${TOURNEY_URL}?preview=1&sample=1&focusbadge=1`, {
+            waitUntil: 'domcontentloaded'
+        });
+        await page.waitForSelector('.match-card');
+
+        const treeBadgeInfo = await page.evaluate(() => {
+            const el = document.getElementById('tourney-focus-badge');
+            return {
+                badgePresent: Boolean(el),
+                text: el ? el.textContent.trim() : ''
+            };
+        });
+        assert.equal(treeBadgeInfo.badgePresent, true, 'Active match badge should be displayed when focusbadge=1 on standard tree layout');
+        assert.ok(treeBadgeInfo.text.includes('Live Match') || treeBadgeInfo.text.includes('Round'), 'Badge text should reflect active match info');
     } finally {
         if (browser) await browser.close();
     }

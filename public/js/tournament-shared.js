@@ -348,6 +348,57 @@
             return { x, y, width: el.offsetWidth, height: el.offsetHeight };
         }
 
+        function updateFocusBadge(tourney) {
+            let badgeEl = document.getElementById('tourney-focus-badge');
+            if (layoutMode === 'active' || layoutMode === 'hud' || layoutMode === 'match') {
+                if (badgeEl) badgeEl.remove();
+                return;
+            }
+
+            const rawFocusBadge = (params.get('focusbadge') || '').trim().toLowerCase();
+            const rawBadge = (params.get('badge') || '').trim().toLowerCase();
+
+            // Explicit turn off
+            if (rawFocusBadge === '0' || rawFocusBadge === 'false' || rawBadge === '0' || rawBadge === 'false') {
+                if (badgeEl) badgeEl.remove();
+                return;
+            }
+
+            // Explicit turn on
+            const explicitlyOn = rawFocusBadge === '1' || rawFocusBadge === 'true' || rawBadge === '1' || rawBadge === 'true';
+
+            // Show badge if explicitly requested OR if currently in camera focus mode
+            const shouldShow = explicitlyOn || isFocusMode;
+            if (!shouldShow || !tourney) {
+                if (badgeEl) badgeEl.remove();
+                return;
+            }
+
+            const targetMatch = findFocusTargetMatch(tourney);
+            if (!targetMatch) {
+                if (badgeEl) badgeEl.remove();
+                return;
+            }
+
+            if (!badgeEl) {
+                badgeEl = document.createElement('div');
+                badgeEl.id = 'tourney-focus-badge';
+                badgeEl.className = 'focus-badge';
+                document.body.appendChild(badgeEl);
+            }
+
+            const targetCard = container?.querySelector(`.match-card[data-match-id="${targetMatch.id}"]`);
+            const targetRound = targetCard?.closest('.bracket-round');
+            const roundTitle = targetMatch.roundName || (targetRound?.querySelector('.round-header')?.textContent?.trim()) || `Round ${targetMatch.round || 1}`;
+            const statusLabel = targetMatch.status === 'ACTIVE' ? (isPollMode ? 'Voting Live' : 'Live Match') : 'Up Next';
+
+            const dotStyle = customBadgeColor ? ` style="background:${customBadgeColor};box-shadow:0 0 8px ${customBadgeColor};"` : '';
+            if (customBadgeColor) {
+                badgeEl.style.borderColor = customBadgeColor;
+            }
+            badgeEl.innerHTML = `<span class="focus-dot"${dotStyle}></span><span>${statusLabel} · ${esc(roundTitle)}</span>`;
+        }
+
         function applyDynamicFocus(tourney) {
             if (!stage || !container || !tourney) return;
             document.body.classList.add('layout-focus');
@@ -364,12 +415,14 @@
             const targetMatch = findFocusTargetMatch(tourney);
             if (!targetMatch) {
                 stage.style.transform = '';
+                updateFocusBadge(tourney);
                 return;
             }
 
             const targetCard = container.querySelector(`.match-card[data-match-id="${targetMatch.id}"]`);
             if (!targetCard) {
                 stage.style.transform = '';
+                updateFocusBadge(tourney);
                 return;
             }
 
@@ -385,21 +438,7 @@
             }
 
             // Dynamic focus badge indicator
-            const showFocusBadge = params.get('focusbadge') !== '0' && params.get('badge') !== '0';
-            let badgeEl = document.getElementById('tourney-focus-badge');
-            if (showFocusBadge) {
-                if (!badgeEl) {
-                    badgeEl = document.createElement('div');
-                    badgeEl.id = 'tourney-focus-badge';
-                    badgeEl.className = 'focus-badge';
-                    document.body.appendChild(badgeEl);
-                }
-                const roundTitle = targetMatch.roundName || (targetRound?.querySelector('.round-header')?.textContent?.trim()) || `Round ${targetMatch.round || 1}`;
-                const statusLabel = targetMatch.status === 'ACTIVE' ? (isPollMode ? 'Voting Live' : 'Live Match') : 'Up Next';
-                badgeEl.innerHTML = `<span class="focus-dot"></span><span>${statusLabel} · ${esc(roundTitle)}</span>`;
-            } else if (badgeEl) {
-                badgeEl.remove();
-            }
+            updateFocusBadge(tourney);
 
             const cardOffset = getOffsetToStage(targetCard, stage);
             const roundOffset = targetRound ? getOffsetToStage(targetRound, stage) : cardOffset;
@@ -444,7 +483,7 @@
                 stage.style.transform = '';
                 stage.style.transition = '';
                 document.body.classList.remove('layout-focus');
-                document.getElementById('tourney-focus-badge')?.remove();
+                updateFocusBadge(null);
                 return;
             }
             if (isFocusMode) {
@@ -452,7 +491,7 @@
                 return;
             }
             document.body.classList.remove('layout-focus');
-            document.getElementById('tourney-focus-badge')?.remove();
+            updateFocusBadge(currentTournament);
             if (!isGlideEnabled) {
                 stage.style.transition = 'none';
             } else {

@@ -2588,7 +2588,8 @@
             const tourneyGlide = $('tourney-opt-glide')?.value;
             if (tourneyGlide === '0') urlParams.set('glide', '0');
             const tourneyBadge = $('tourney-opt-badge')?.value;
-            if (tourneyBadge === '0') urlParams.set('focusbadge', '0');
+            if (tourneyBadge === '1') urlParams.set('focusbadge', '1');
+            else if (tourneyBadge === '0') urlParams.set('focusbadge', '0');
             const tourneyHeadingFont = $('tourney-opt-heading-font')?.value?.trim();
             if (tourneyHeadingFont) urlParams.set('headingfont', tourneyHeadingFont);
             const tourneyFont = $('tourney-opt-font')?.value?.trim();

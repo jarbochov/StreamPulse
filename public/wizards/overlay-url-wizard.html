@@ -1431,7 +1431,7 @@
             confetti: tourneyConfetti === '0' ? '0' : '',
             focus: (tourneyCamera === '1' || tourneyCamera === '0') ? tourneyCamera : '',
             glide: tourneyGlide === '0' ? '0' : '',
-            focusbadge: tourneyBadge === '0' ? '0' : '',
+            focusbadge: tourneyBadge === '1' ? '1' : (tourneyBadge === '0' ? '0' : ''),
             p1color: tourneyP1Color,
             p2color: tourneyP2Color
         }));
@@ -1454,7 +1454,7 @@
             confetti: pollTourneyConfetti === '0' ? '0' : '',
             focus: (pollTourneyCamera === '1' || pollTourneyCamera === '0') ? pollTourneyCamera : '',
             glide: pollTourneyGlide === '0' ? '0' : '',
-            focusbadge: pollTourneyBadge === '0' ? '0' : '',
+            focusbadge: pollTourneyBadge === '1' ? '1' : (pollTourneyBadge === '0' ? '0' : ''),
             p1color: pollTourneyP1Color,
             p2color: pollTourneyP2Color
         }));
