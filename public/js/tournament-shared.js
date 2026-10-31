@@ -137,8 +137,23 @@
         const showRounds = params.get('showrounds') !== '0' && params.get('roundheaders') !== '0' && params.get('roundheaders') !== 'none';
         const showSeeds = params.get('showseeds') !== '0' && params.get('seeds') !== '0';
         const showTags = params.get('showtags') !== '0' && params.get('tags') !== '0';
-        const showBadges = params.get('showbadges') !== '0' && params.get('badges') !== '0' && params.get('badge') !== '0';
-        const showHighlight = params.get('highlight') !== '0' && params.get('showlive') !== '0' && params.get('highlightlive') !== '0';
+        const focusBadgeParam = (params.get('focusbadge') || '').trim().toLowerCase();
+        const badgeParam = (params.get('badge') || '').trim().toLowerCase();
+        const highlightParam = (params.get('highlight') || '').trim().toLowerCase();
+        const focusBorderParam = (params.get('focusborder') || params.get('focuscolor') || '').trim().toLowerCase();
+
+        const hideFocusIndicator = focusBadgeParam === '0' || focusBadgeParam === 'false' || badgeParam === '0' || badgeParam === 'false';
+        const hideFocusBorder = hideFocusIndicator || highlightParam === '0' || highlightParam === 'false' || focusBorderParam === '0' || focusBorderParam === 'false';
+
+        const showBadges = !hideFocusIndicator && params.get('showbadges') !== '0' && params.get('badges') !== '0';
+        const showHighlight = !hideFocusBorder && params.get('showlive') !== '0' && params.get('highlightlive') !== '0';
+
+        if (hideFocusIndicator) {
+            document.body.classList.add('hide-focus-badge');
+        }
+        if (hideFocusBorder) {
+            document.body.classList.add('hide-focus-border');
+        }
         const showCenter = params.get('center') !== '0' && params.get('showcenter') !== '0' && params.get('vs') !== '0';
         const customGap = (params.get('gap') || params.get('centerspace') || '').trim().toLowerCase();
         const showRoundPips = !isPollMode && params.get('roundpips') !== '0' && params.get('rounds') !== '0' && params.get('showroundpips') !== '0';

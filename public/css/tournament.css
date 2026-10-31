@@ -1222,6 +1222,20 @@
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
+        body.hide-focus-badge .match-card.active,
+        body.hide-focus-border .match-card.active {
+            border-color: var(--tourney-border) !important;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+            animation: none !important;
+            transform: none !important;
+        }
+
+        body.hide-focus-badge .match-card-badge,
+        body.hide-focus-badge #tourney-focus-badge,
+        body.hide-focus-border #tourney-focus-badge {
+            display: none !important;
+        }
+
         /* Dynamic Focus Stage Indicator Pill */
         .focus-badge {
             position: fixed;
