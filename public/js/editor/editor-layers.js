@@ -59,7 +59,7 @@ export function renderLayers() {
         renderPagesPanel();
     }
     if (!shown.length) {
-        list.innerHTML = '<div class="layers-empty">No elements yet. Use <b>+ Add element</b> to start.</div>';
+        list.innerHTML = '<div class="layers-empty">No elements yet. Use <b>+ Add</b> to start.</div>';
         return;
     }
     const top = shown.slice().reverse(), rows = [], seenGroups = new Set();

@@ -944,6 +944,7 @@ export function syncToggles() {
     $('toggle-safe')?.setAttribute('aria-pressed', String(!!prefs.safeZones));
     $('toggle-live')?.setAttribute('aria-pressed', String(prefs.live));
     $('toggle-fx')?.setAttribute('aria-pressed', String(prefs.fx));
+    $('view-options-btn')?.setAttribute('aria-pressed', String(Boolean(prefs.grid || prefs.safeZones)));
     $('safe-zones')?.classList.toggle('on', !!prefs.safeZones);
     if (shared.setEffectsPaused) shared.setEffectsPaused(!prefs.fx);
     if (window.OverlayFilters?.setEffectsPaused) window.OverlayFilters.setEffectsPaused(!prefs.fx);
@@ -955,15 +956,29 @@ function initEventListeners() {
     // Toolbar toggle buttons
     $('toggle-snap')?.addEventListener('click', () => { prefs.snap = !prefs.snap; savePrefs(); syncToggles(); });
     const snapWrap = $('snap-menu-wrap');
+    const viewWrap = $('view-menu-wrap');
     $('snap-options-btn')?.addEventListener('click', event => {
         event.stopPropagation();
+        viewWrap?.classList.remove('open');
+        $('view-options-btn')?.setAttribute('aria-expanded', 'false');
         const open = snapWrap?.classList.toggle('open');
         $('snap-options-btn')?.setAttribute('aria-expanded', String(!!open));
+    });
+    $('view-options-btn')?.addEventListener('click', event => {
+        event.stopPropagation();
+        snapWrap?.classList.remove('open');
+        $('snap-options-btn')?.setAttribute('aria-expanded', 'false');
+        const open = viewWrap?.classList.toggle('open');
+        $('view-options-btn')?.setAttribute('aria-expanded', String(!!open));
     });
     document.addEventListener('click', event => {
         if (snapWrap && !snapWrap.contains(event.target)) {
             snapWrap.classList.remove('open');
             $('snap-options-btn')?.setAttribute('aria-expanded', 'false');
+        }
+        if (viewWrap && !viewWrap.contains(event.target)) {
+            viewWrap.classList.remove('open');
+            $('view-options-btn')?.setAttribute('aria-expanded', 'false');
         }
     });
     $('snap-opt-align')?.addEventListener('change', e => { prefs.snapAlign = e.target.checked; savePrefs(); });

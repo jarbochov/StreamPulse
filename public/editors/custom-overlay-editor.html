@@ -48,9 +48,8 @@
 
         <main class="stage-col">
             <div class="stage-toolbar">
-                <div id="page-switch" hidden></div>
                 <div class="add-menu" id="add-menu">
-                    <button id="add-element" class="primary" aria-haspopup="true" aria-expanded="false">+ Add element</button>
+                    <button id="add-element" class="primary" aria-haspopup="true" aria-expanded="false">+ Add</button>
                     <div class="menu-panel" role="menu">
                         <div class="menu-panel-body">
                             <div class="menu-panel-col">
@@ -214,6 +213,7 @@
                         </div>
                     </div>
                 </div>
+                <div id="page-switch" hidden></div>
                 <span class="divider"></span>
                 <div class="snap-menu-wrap" id="snap-menu-wrap">
                     <button id="toggle-snap" aria-pressed="true" title="Snap to canvas and other elements. Hold Alt while dragging to bypass.">Snap</button>
@@ -228,10 +228,31 @@
                         <div class="snap-popover-hint">Hold <kbd>Alt</kbd> while dragging to bypass</div>
                     </div>
                 </div>
-                <button id="toggle-grid" aria-pressed="false" title="Show grid">Grid</button>
-                <button id="toggle-safe" aria-pressed="false" title="Show OBS Action/Title Safe Zones and Twitch Mobile overlay">Safe Zones</button>
-                <button id="toggle-fx" aria-pressed="true" title="Run animated retro effects, duotone, and film grain in the editor. Turn off for a smoother editor; the live overlay still animates.">Effects</button>
-                <button id="toggle-live" aria-pressed="true" title="Preview {{placeholders}} with live data">Live data</button>
+                <div class="snap-menu-wrap" id="view-menu-wrap">
+                    <button type="button" id="view-options-btn" aria-haspopup="true" aria-expanded="false" title="Canvas guides, safe zones &amp; live preview options">
+                        <span>View</span>
+                        <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5L6 7.5L9 4.5"/></svg>
+                    </button>
+                    <div class="snap-popover view-popover" id="view-popover" role="menu">
+                        <div class="snap-popover-head">Canvas View &amp; Preview</div>
+                        <button type="button" id="toggle-grid" class="view-menu-toggle" aria-pressed="false" title="Show alignment grid">
+                            <span>Alignment Grid</span>
+                            <span class="view-toggle-switch"></span>
+                        </button>
+                        <button type="button" id="toggle-safe" class="view-menu-toggle" aria-pressed="false" title="Show OBS Action/Title Safe Zones and Twitch Mobile overlay">
+                            <span>Safe Zones</span>
+                            <span class="view-toggle-switch"></span>
+                        </button>
+                        <button type="button" id="toggle-fx" class="view-menu-toggle" aria-pressed="true" title="Run animated retro effects, duotone, and film grain in the editor">
+                            <span>Animated Effects</span>
+                            <span class="view-toggle-switch"></span>
+                        </button>
+                        <button type="button" id="toggle-live" class="view-menu-toggle" aria-pressed="true" title="Preview {{placeholders}} with live data">
+                            <span>Live {{Data}} Preview</span>
+                            <span class="view-toggle-switch"></span>
+                        </button>
+                    </div>
+                </div>
                 <div class="zoom-controls">
                     <button id="zoom-out" class="icon" title="Zoom out (-)" aria-label="Zoom out"></button>
                     <button id="zoom-reset" class="zoom-value ghost" title="Zoom to 100% (Ctrl/⌘+1)">100%</button>
@@ -257,7 +278,7 @@
                 </div>
                 <div id="bounds-label"></div>
                 <div id="marquee"></div>
-                <div id="empty-hint"><div><strong>This canvas is empty</strong>Use <b>+ Add element</b>, or drop an image or video here.</div></div>
+                <div id="empty-hint"><div><strong>This canvas is empty</strong>Use <b>+ Add</b>, or drop an image or video here.</div></div>
             </div>
             <div class="statusbar"><span class="info" id="status-info">Nothing selected</span><span class="tips">Scroll to pan · Ctrl/⌘+scroll to zoom · Space+drag to pan · Shift-click to multi-select</span></div>
         </main>
