@@ -370,6 +370,38 @@ To add an overlay to OBS Studio:
 
 ---
 
+## Smart Snapping, Component Prefabs & Scene States (Beta)
+
+### Smart Alignment & Equal-Spacing Magnetic Snapping
+The Custom Overlay Editor includes an interactive geometry engine (`public/js/editor-geometry.js`) with configurable magnetic guides under the **Snap ▾** toolbar menu:
+- **Align to Layers & Centers**: Snaps dragged or resized edges and centers against the canvas center, safe zones, and visible sibling layers.
+- **Equal Spacing Guides**: Automatically detects equidistant horizontal and vertical gaps between 3+ collinear layers and renders live distance callout pills (`24px`).
+- **Match Dimensions on Resize**: Snaps width and height to matching dimensions of sibling layers while resizing, displaying a dimension-match badge (`W: 480`).
+- Hold <kbd>Alt</kbd> while dragging or resizing to temporarily bypass snapping.
+
+### Reusable Component Prefabs & Presets
+Group multiple layers (such as a camera cutout or frame, neon border, and lower-third nameplate) and save them as a reusable **Prefab**:
+- Select multiple layers or click the **Save Group as Prefab** icon directly on any group header in the Layers tree.
+- Built-in prefabs include **Webcam 16:9 + Tag**, **Retro 4:3 CRT Cam**, and **Social Pill Bar**, complete with real `cutout` punchthrough layers.
+
+### Scene States & 60fps Keyframe Morph Transitions (Beta)
+Switch an overlay between **Page Deck (Slides)** and **Scene States (Morph · BETA)** in the left rail:
+- **Base State Inheritance**: `State 1` acts as the Base Layout for all shared layers (`page: "*"`).
+- **Per-State Overrides**: Select `State 2` (or any additional state) and move, resize, rotate, change opacity/border-radius, or hide any shared layer. StreamPulse records a non-destructive per-state delta (`el.pageStates[stateId]`) and marks the layer with a cyan override indicator and a one-click **Reset to Base** action.
+- **60fps Morph Engine**: Switching states smoothly interpolates layer positions, dimensions, rotation, opacity, border radius, and SVG cutout masks using customizable motion curves (`Smooth Cubic`, `Snappy Out`, `Gentle Spring`, `Ease In-Out`, `Linear`).
+
+### OBS WebSocket v5 Source Sync & OBS Source Frames (Beta)
+When your camera or gameplay capture lives in OBS Studio rather than inside the browser source, StreamPulse can automatically move, scale, and morph your OBS scene items in sync with your overlay's Scene States:
+- **Two Layer Modes**:
+  1. **OBS Source Frame (`shape` — No Cutout Needed)**: Add an **OBS Source Frame (`BETA`)** from **+ Add element &rarr; Shapes &amp; Graphics** (or enable **OBS Source Link** on any `shape` layer). Place your OBS camera/capture **above** the overlay in OBS. StreamPulse renders the border, glow, and drop shadow behind your OBS source and synchronizes the OBS source's position and bounds without cutting a hole in the overlay.
+  2. **Cutout + Sync (`cutout` — Punchthrough Mode)**: Enable **OBS Source Link** on any `cutout` layer when your OBS source sits **below** the overlay. StreamPulse punches a transparent hole through the overlay and moves/scales the OBS source behind it in lockstep.
+- **Auto-Detect Hybrid Motion Engine**:
+  - **Exeldro Move Plugin**: If `move_source_filter` is installed in OBS, StreamPulse automatically triggers hardware-smooth filter transitions inside OBS.
+  - **Built-in 60fps WebSocket Stream**: If no OBS plugin is installed, StreamPulse interpolates `SetSceneItemTransform` at 60fps over WebSocket v5 using top-left positional alignment (`alignment: 5`) and bounding-box scaling (`OBS_BOUNDS_SCALE_OUTER`, `OBS_BOUNDS_SCALE_INNER`, `OBS_BOUNDS_STRETCH`).
+- Configure your connection in **OBS Sync (`BETA`)** in the Custom Overlay Editor topbar or under **System &rarr; Configuration &rarr; Modules &amp; Services**.
+
+---
+
 ## Developer API & WebSocket Synchronization
 
 All overlays are backed by atomic JSON storage and synchronised live across active clients over WebSockets:
@@ -382,6 +414,10 @@ All overlays are backed by atomic JSON storage and synchronised live across acti
 - `GET /api/custom-overlays/:id/history` — List saved revision snapshots
 - `POST /api/custom-overlays/:id/history/:revision/restore` — Restore historical revision
 - `GET /api/videos` — Discover all controllable `<video>` and YouTube elements
+- `GET /api/obs/status` — Fetch OBS WebSocket v5 connection status and detected capabilities
+- `GET /api/obs/sources` — List OBS scenes and scene item sources
+- `POST /api/obs/config` — Update OBS WebSocket v5 connection settings (`enabled`, `host`, `port`, `password`, `motionEngine`, `syncOnSave`)
+- `POST /api/obs/sync` — Synchronize linked OBS sources to an overlay's active or specified Scene State
 
 ### Live WebSocket Broadcast
 Whenever an overlay is saved, StreamPulse emits a real-time event to all connected browser sources:

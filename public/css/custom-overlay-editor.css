@@ -681,3 +681,119 @@ body.is-scrubbing, body.is-scrubbing * {
     margin-left: 0;
     margin-right: 2px;
 }
+
+/* Beta Badge & OBS WebSocket Bridge UI */
+.badge-beta {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 5px;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: rgba(56, 189, 248, 0.14);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    line-height: 1.3;
+    vertical-align: middle;
+}
+.obs-top-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.obs-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    opacity: 0.55;
+    flex: none;
+    transition: background 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+.obs-status-dot.is-connected {
+    background: #10b981;
+    opacity: 1;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.7);
+}
+.obs-status-dot.is-connecting {
+    background: #f59e0b;
+    opacity: 1;
+}
+.obs-status-dot.is-error {
+    background: #ef4444;
+    opacity: 1;
+}
+.obs-dialog-status {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+}
+.obs-dialog-status.is-connected {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.35);
+    color: #34d399;
+}
+.obs-dialog-status.is-error {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #f87171;
+}
+.obs-form-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 8px;
+    margin: 8px 0;
+}
+.obs-form-grid label {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 11px;
+    color: var(--muted);
+}
+.obs-form-grid label.row {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    color: var(--text);
+}
+.obs-capabilities-box {
+    margin: 6px 0;
+    padding: 7px 10px;
+    border-radius: 6px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--muted);
+}
+.obs-link-hint {
+    padding: 6px 8px;
+    border-radius: 5px;
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    color: var(--text);
+    font-size: 11px;
+    line-height: 1.35;
+}
+.layer-obs-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0 4px;
+    margin-left: 4px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    vertical-align: middle;
+}

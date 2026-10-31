@@ -67,6 +67,8 @@ const { createBackupRoutes } = require('./server/routes/backup');
 const { createBackupService } = require('./server/services/backup');
 const { normalizeSsnSessionId } = require('./server/ssn-config');
 const { createUpdateService } = require('./server/services/updates');
+const { createObsService, normalizeObsConfig } = require('./server/services/obs');
+const { createObsRoutes } = require('./server/routes/obs');
 const execFileAsync = promisify(execFile);
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 // Node refuses to spawn .cmd files without a shell on Windows (EINVAL); the arguments here are fixed.
@@ -213,7 +215,20 @@ const wsService = createOverlayWsServer({
     listOverlayVisibility: () => listOverlayVisibility(),
     log: console.log
 });
-const broadcastToOverlays = (type, payload) => wsService.broadcastToOverlays(type, payload);
+const obsService = createObsService({
+    getConfig: () => config?.obs || {},
+    log: console.log,
+    warn: console.warn
+});
+const broadcastToOverlays = (type, payload) => {
+    wsService.broadcastToOverlays(type, payload);
+    if (type === 'custom-overlay-page' && payload?.id && payload?.page && customOverlays[payload.id]) {
+        obsService.syncOverlayState(customOverlays[payload.id], payload.page, { animate: true }).catch(() => {});
+    } else if (type === 'custom-overlay-update' && payload?.overlay && config?.obs?.syncOnSave !== false) {
+        const curPage = pageSnapshot(payload.overlay)?.page || '';
+        obsService.syncOverlayState(payload.overlay, curPage, { animate: false }).catch(() => {});
+    }
+};
 const slideshowStates = wsService.slideshowStates;
 const overlayClients = wsService.overlayClients;
 
@@ -951,9 +966,15 @@ function applyRuntimeConfig(nextConfig) {
     const prevViewerTracking = normalizeViewerTrackingConfig(config.viewer_tracking);
     const prevSsnId = config.ssn?.session_id;
     const prevSsnServer = config.ssn?.server;
+    const prevObs = normalizeObsConfig(config.obs);
 
     const prevLifecyclePoll = normalizeLifecycleConfig(config.session_lifecycle).poll_seconds;
     config = nextConfig;
+    const nextObs = normalizeObsConfig(config.obs);
+    if (prevObs.enabled !== nextObs.enabled || prevObs.host !== nextObs.host || prevObs.port !== nextObs.port || prevObs.password !== nextObs.password) {
+        obsService.disconnect();
+        if (nextObs.enabled) obsService.connect();
+    }
     if (normalizeLifecycleConfig(config.session_lifecycle).poll_seconds !== prevLifecyclePoll) startLifecycleWatcher();
     if (prevSsnId !== config.ssn?.session_id || prevSsnServer !== config.ssn?.server) {
         ssnService.disconnectSSN();
@@ -1670,8 +1691,10 @@ function buildStatusSnapshot() {
             music: !!MUSIC_CONFIG.enabled,
             hashtags: config.hashtags_enabled !== false,
             polls: config.polls_enabled !== false,
-            versus: config.versus_enabled !== false
+            versus: config.versus_enabled !== false,
+            obs: Boolean(config.obs?.enabled)
         },
+        obs: obsService.getStatus(),
         overlayClients: wsService.getSourceCount(),
         websocketClients: wsService.getClientCount(),
         sessionActive,
@@ -1838,6 +1861,15 @@ const handleBackupRoutes = createBackupRoutes({
     shareSingles: SHARE_SINGLES
 });
 
+const handleObsRoutes = createObsRoutes({
+    obsService,
+    getConfig: () => config,
+    saveConfig: updates => saveRuntimeConfigSection(c => Object.assign(c, updates)),
+    getCustomOverlays: () => customOverlays,
+    pageSnapshot: (overlay, pageId) => overlayService.pageSnapshot(overlay, pageId),
+    isLoopbackRequest
+});
+
 const server = http.createServer(async (req, res) => {
     try {
         const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -1906,6 +1938,8 @@ const server = http.createServer(async (req, res) => {
     if (await handleBackupRoutes(req, res, url, pathname)) return;
 
     if (await handleHighlightsRoutes(req, res, url, pathname)) return;
+
+    if (await handleObsRoutes(req, res, pathname)) return;
 
     // Static file serving via cascading static router
     if (staticRouter.handleRequest(req, res)) {
@@ -2027,6 +2061,11 @@ function initializeServer() {
     if (MUSIC_CONFIG.enabled) {
         startMusicPolling();
     }
+
+    // Connect OBS WebSocket if enabled
+    if (normalizeObsConfig(config.obs).enabled) {
+        obsService.connect();
+    }
 }
 
 function startServer() {
@@ -2096,6 +2135,7 @@ function stopServer({ preserveSession = false } = {}) {
         attempt(() => chatbot.stop());
         attempt(() => alertEngine.stop());
         attempt(() => overlayService.stop());
+        attempt(() => obsService.disconnect());
         attempt(() => pollService.destroy());
         attempt(() => matchupService.destroy());
         for (const wait of [() => sessionService.waitForPendingEnd(), () => backupService.waitForIdle()]) {

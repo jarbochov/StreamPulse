@@ -4,7 +4,7 @@
 
 import {
     $, esc, ICON, TYPE_META, state, prefs, savePrefs, byId, selectedElements,
-    pagesOn, statesModeOn, isBasePage, hasPageOverride, resetElementPageState,
+    pagesOn, statesModeOn, basePageId, isBasePage, hasPageOverride, resetElementPageState,
     syncWorkingStateForCurrentPage, projectPageState, extractElementState,
     inView, visibleElements, displayName, normalizeZ, setSelection,
     changed, flushHistory, ensureCurPage, uid, toast, defaultPages
@@ -34,13 +34,17 @@ let renderPropertiesHandler = () => {};
 let updateStatusBarHandler = () => {};
 let renderAllHandler = () => {};
 let savePresetHandler = () => {};
+let openObsModalHandler = () => {};
+let syncObsStateHandler = () => {};
 
-export function registerLayerCallbacks({ onRenderCanvas, onRenderProperties, onUpdateStatusBar, onRenderAll, onSavePreset }) {
+export function registerLayerCallbacks({ onRenderCanvas, onRenderProperties, onUpdateStatusBar, onRenderAll, onSavePreset, onOpenObsModal, onSyncObsState }) {
     if (onRenderCanvas) renderCanvasHandler = onRenderCanvas;
     if (onRenderProperties) renderPropertiesHandler = onRenderProperties;
     if (onUpdateStatusBar) updateStatusBarHandler = onUpdateStatusBar;
     if (onRenderAll) renderAllHandler = onRenderAll;
     if (onSavePreset) savePresetHandler = onSavePreset;
+    if (onOpenObsModal) openObsModalHandler = onOpenObsModal;
+    if (onSyncObsState) syncObsStateHandler = onSyncObsState;
 }
 
 // ---- Layers Tree ------------------------------------------------------------------
@@ -84,11 +88,12 @@ export function renderLayers() {
         }
         const el = row.el, inGroup = row.group ? ` in-group${state.collapsedGroups.has(row.group) ? ' group-hidden' : ''}` : '';
         const hasOvr = hasPageOverride(el, state.curPage);
+        const obsBadge = el.obsLink?.enabled ? `<span class="layer-obs-badge" title="Linked to OBS source: ${esc(el.obsLink.sourceName || 'Unassigned')}">OBS</span>` : '';
         return `
-        <div class="layer${state.selectedIds.has(el.id) ? ' selected' : ''}${el.visible === false ? ' is-hidden' : ''}${inGroup}" data-id="${esc(el.id)}">
+        <div class="layer${state.selectedIds.has(el.id) ? ' selected' : ''}${el.visible === false ? ' is-hidden' : ''}${inGroup}${hasOvr ? ' has-state-override' : ''}" data-id="${esc(el.id)}">
             <span class="layer-grip" title="Drag to reorder">${ICON.grip}</span>
             <span class="layer-icon">${TYPE_META[el.type]?.icon || '•'}</span>
-            <span class="layer-name" title="Double-click to rename">${pagesOn() && el.page === '*' ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block;vertical-align:-1px;margin-right:3px;opacity:0.8;" title="${statesModeOn() ? 'Shared across all states' : 'Shared on all pages'}"><polygon points="12 2 22 12 12 22 2 12"/></svg>` : ''}${esc(displayName(el))}${hasOvr ? '<span class="layer-ovr-dot" title="Overridden in this state"></span>' : ''}</span>
+            <span class="layer-name" title="Double-click to rename">${pagesOn() && el.page === '*' ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block;vertical-align:-1px;margin-right:3px;opacity:0.8;" title="${statesModeOn() ? 'Shared across all states' : 'Shared on all pages'}"><polygon points="12 2 22 12 12 22 2 12"/></svg>` : ''}${esc(displayName(el))}${obsBadge}${hasOvr ? '<span class="layer-ovr-dot" title="Overridden in this state"></span>' : ''}</span>
             <span class="layer-actions">
                 ${hasOvr ? `<button data-layer-action="reset-state" class="ovr-reset" title="Reset state override back to base layout" aria-label="Reset state override"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>` : ''}
                 <button data-layer-action="lock" class="${el.locked ? 'on' : ''}" title="${el.locked ? 'Unlock' : 'Lock'}" aria-label="${el.locked ? 'Unlock' : 'Lock'} layer">${el.locked ? ICON.lock : ICON.unlock}</button>
@@ -198,7 +203,7 @@ export function renderPagesPanel() {
                 <strong>Scene States &amp; Multi-Page Layouts</strong>
                 <p>Add dynamic scene states that smoothly morph elements (e.g., Gameplay → Full Cam → Intermission), or split the overlay into rotating pages.</p>
                 <div style="display:grid;gap:.45rem;width:100%;margin-top:.2rem">
-                    <button id="states-enable" class="primary" style="width:100%">Turn on Scene States (Morph)</button>
+                    <button id="states-enable" class="primary" style="width:100%">Turn on Scene States (Morph) <span class="badge-beta" style="margin-left:4px;">BETA</span></button>
                     <button id="pages-enable" class="ghost" style="width:100%;border:1px solid var(--border)">Turn on Page Deck (Slides)</button>
                 </div>
             </div>`;
@@ -244,10 +249,11 @@ export function renderPagesPanel() {
         </div>`;
     };
 
+    const obsLinkedCount = state.overlay.elements.filter(el => el.obsLink?.enabled && el.obsLink?.sourceName).length;
     panel.innerHTML = `
         <div class="field" style="margin-bottom:.1rem">
             <span class="seg" id="pages-kind-seg">
-                <button type="button" data-pg-kind="states" aria-pressed="${isStates}">Scene States (Morph)</button>
+                <button type="button" data-pg-kind="states" aria-pressed="${isStates}">Scene States (Morph) <span class="badge-beta" style="margin-left:3px;">BETA</span></button>
                 <button type="button" data-pg-kind="pages" aria-pressed="${!isStates}">Page Deck (Slides)</button>
             </span>
         </div>
@@ -257,6 +263,10 @@ export function renderPagesPanel() {
         <div class="hint">${isStates
             ? `<b>${esc(items[0]?.name || 'State 1')}</b> is the Base Layout. Select any other state and move, resize, rotate, or hide shared layers to record smooth morph overrides.`
             : (shared ? `${shared} shared element${shared === 1 ? '' : 's'} show on every page.` : 'Mark an element “Show on all pages” to share it across pages.')}</div>
+        ${isStates ? `<div class="state-override-bar${obsLinkedCount ? ' is-active' : ''}" style="margin:4px 0;">
+            <span class="state-ovr-text"><strong>OBS Sync <span class="badge-beta">BETA</span>:</strong> ${obsLinkedCount ? `${obsLinkedCount} linked OBS source${obsLinkedCount === 1 ? '' : 's'}` : 'Link Shape or Cutout boxes to OBS sources'}</span>
+            <button type="button" id="btn-pages-obs-setup" class="link-btn">${state.obs?.connected ? 'Connected' : 'Configure…'}</button>
+        </div>` : ''}
         ${items.some(p => p.trigger) ? `<div class="hint">Priority: alerts, featured messages, polls, then commands. Interrupted polls resume while still valid. Pending messages and commands expire; interrupted ones do not replay. Manual ${noun} changes clear pending triggers.</div>` : ''}
         <div class="pg-card"><h4>${esc(cur?.name || '')}</h4>
             ${F.select(`pages.items.${idx}.trigger`, `Show this ${noun}`, cur?.trigger || '', [['', 'In the rotation / manual'], ['alert', 'Only when an alert plays'], ['featured', 'Only when a message is featured'], ['command', 'Only when a chat command or trigger is used'], ['poll-end', 'Only when a Twitch poll ends'], ['poll-active', 'While a Twitch poll is active']])}
@@ -365,6 +375,9 @@ export function switchEditPage(id, { animate = true } = {}) {
             durationMs: state.overlay.pages?.transitionMs || 650,
             easing: state.overlay.pages?.transitionEasing || 'smooth'
         });
+    }
+    if (animate && state.obs?.connected && state.obs?.syncOnSave !== false) {
+        syncObsStateHandler(id);
     }
 }
 
@@ -614,6 +627,7 @@ export function initLayersAndPages() {
             if (!items) return;
             if (t?.id === 'states-enable') return setPagesEnabled(true, 'states');
             if (t?.id === 'pages-enable') return setPagesEnabled(true, 'pages');
+            if (t?.id === 'btn-pages-obs-setup') return openObsModalHandler();
             if (t?.dataset.pgKind) {
                 const nextKind = t.dataset.pgKind === 'states' ? 'states' : 'pages';
                 if (state.overlay.pages.kind !== nextKind) {

@@ -202,3 +202,153 @@ test('Scene States, Morph Transitions & Prefabs (overlays service + presets + ru
     assert.ok(runtimeJs.includes('const MORPH_EASINGS'), 'overlay-runtime.js must define MORPH_EASINGS');
     assert.ok(runtimeJs.includes('tickCutoutMorph'), 'overlay-runtime.js must interpolate cutout masks during morph transitions');
 });
+
+test('OBS WebSocket v5 Bridge & OBS Source Link (shape border/frame + cutout sync)', async () => {
+    const overlaysService = require('../server/services/overlays.js');
+    const obsModule = require('../server/services/obs.js');
+
+    // 1. Verify obsLink normalization on both shape (Border/Frame) and cutout layers
+    const shapeFrame = overlaysService.normalizeOverlayElement({
+        id: 'shape-cam-frame',
+        type: 'shape',
+        page: '*',
+        x: 60,
+        y: 60,
+        width: 480,
+        height: 270,
+        obsLink: {
+            enabled: true,
+            sourceName: 'Facecam',
+            sceneName: 'Live Scene',
+            fit: 'cover',
+            syncVisibility: true
+        },
+        pageStates: {
+            'state-2': { x: 1200, y: 650, width: 640, height: 360, visible: true }
+        }
+    }, 0);
+    assert.equal(shapeFrame.obsLink.enabled, true);
+    assert.equal(shapeFrame.obsLink.sourceName, 'Facecam');
+    assert.equal(shapeFrame.obsLink.sceneName, 'Live Scene');
+    assert.equal(shapeFrame.obsLink.fit, 'cover');
+
+    // 2. Verify OBS v5 auth challenge SHA-256 computation & transform builder
+    const authResp = obsModule.computeObsAuthResponse('supersecret', 'salt123', 'challenge456');
+    assert.equal(typeof authResp, 'string');
+    assert.ok(authResp.length > 20);
+
+    const transformCover = obsModule.buildObsTransform({ x: 100, y: 200, width: 480, height: 270, rotate: 0, fit: 'cover' });
+    assert.equal(transformCover.positionX, 100);
+    assert.equal(transformCover.positionY, 200);
+    assert.equal(transformCover.alignment, 5);
+    assert.equal(transformCover.boundsType, 'OBS_BOUNDS_SCALE_OUTER');
+    assert.equal(transformCover.boundsWidth, 480);
+    assert.equal(transformCover.boundsHeight, 270);
+
+    // 3. Verify createObsService handshake + state sync via mock WebSocket
+    const sentRequests = [];
+    class MockWebSocket {
+        static OPEN = 1;
+        constructor(url) {
+            this.url = url;
+            this.readyState = 1;
+            this._listeners = {};
+            setImmediate(() => {
+                this._emit('open');
+                this._emit('message', {
+                    data: JSON.stringify({
+                        op: 0,
+                        d: { obsWebSocketVersion: '5.4.2', rpcVersion: 1 }
+                    })
+                });
+            });
+        }
+        addEventListener(type, fn) {
+            (this._listeners[type] ||= []).push(fn);
+        }
+        _emit(type, ev = {}) {
+            for (const fn of this._listeners[type] || []) fn(ev);
+        }
+        send(raw) {
+            const msg = JSON.parse(raw);
+            if (msg.op === 1) {
+                setImmediate(() => {
+                    this._emit('message', {
+                        data: JSON.stringify({ op: 2, d: { negotiatedRpcVersion: 1 } })
+                    });
+                });
+            } else if (msg.op === 6) {
+                const { requestType, requestId, requestData } = msg.d;
+                sentRequests.push({ requestType, requestData });
+                let responseData = {};
+                if (requestType === 'GetVersion') {
+                    responseData = { obsVersion: '30.2.0', obsWebSocketVersion: '5.4.2' };
+                } else if (requestType === 'GetSourceFilterKindList') {
+                    responseData = { sourceFilterKinds: ['mask_filter', 'crop_filter'] };
+                } else if (requestType === 'GetSceneList') {
+                    responseData = { currentProgramSceneName: 'Live Scene', scenes: [{ sceneName: 'Live Scene' }] };
+                } else if (requestType === 'GetSceneItemId') {
+                    responseData = { sceneItemId: 42 };
+                } else if (requestType === 'GetSceneItemTransform') {
+                    responseData = {
+                        sceneItemTransform: {
+                            positionX: 60, positionY: 60,
+                            boundsWidth: 480, boundsHeight: 270,
+                            width: 480, height: 270, rotation: 0
+                        }
+                    };
+                }
+                setImmediate(() => {
+                    this._emit('message', {
+                        data: JSON.stringify({
+                            op: 7,
+                            d: {
+                                requestType,
+                                requestId,
+                                requestStatus: { result: true, code: 100 },
+                                responseData
+                            }
+                        })
+                    });
+                });
+            }
+        }
+        close() {
+            this.readyState = 3;
+        }
+    }
+
+    const obsService = obsModule.createObsService({
+        config: { enabled: true, host: '127.0.0.1', port: 4455, motionEngine: 'cut' },
+        WebSocketImpl: MockWebSocket
+    });
+    obsService.connect();
+    await new Promise(r => setTimeout(r, 40));
+    assert.equal(obsService.getStatus().connected, true);
+
+    const syncRes = await obsService.syncOverlayState({
+        id: 'ov-test',
+        pages: {
+            enabled: true,
+            kind: 'states',
+            transition: 'morph',
+            transitionMs: 300,
+            items: [
+                { id: 'state-1', name: 'Base' },
+                { id: 'state-2', name: 'Pip' }
+            ]
+        },
+        elements: [shapeFrame]
+    }, 'state-2', { instant: true });
+
+    assert.equal(syncRes.ok, true);
+    assert.equal(syncRes.results.length, 1);
+    assert.equal(syncRes.results[0].ok, true);
+    const transformCall = sentRequests.find(r => r.requestType === 'SetSceneItemTransform');
+    assert.ok(transformCall, 'Should send SetSceneItemTransform to OBS');
+    assert.equal(transformCall.requestData.sceneItemTransform.positionX, 1200);
+    assert.equal(transformCall.requestData.sceneItemTransform.positionY, 650);
+    assert.equal(transformCall.requestData.sceneItemTransform.boundsWidth, 640);
+    assert.equal(transformCall.requestData.sceneItemTransform.boundsHeight, 360);
+    obsService.disconnect();
+});

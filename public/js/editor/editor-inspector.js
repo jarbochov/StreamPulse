@@ -26,6 +26,9 @@ let scaleSelectionByHandler = () => {};
 let uploadAssetHandler = () => Promise.resolve('');
 let fitToMediaHandler = () => Promise.resolve();
 let openAssetDialogHandler = () => {};
+let openObsModalHandler = () => {};
+let refreshObsSourcesHandler = () => Promise.resolve();
+let snapObsLayerHandler = () => Promise.resolve();
 
 export function registerInspectorCallbacks(callbacks) {
     if (callbacks.onUpdateStatusBar) updateStatusBarHandler = callbacks.onUpdateStatusBar;
@@ -36,12 +39,15 @@ export function registerInspectorCallbacks(callbacks) {
     if (callbacks.onUploadAsset) uploadAssetHandler = callbacks.onUploadAsset;
     if (callbacks.onFitToMedia) fitToMediaHandler = callbacks.onFitToMedia;
     if (callbacks.onOpenAssetDialog) openAssetDialogHandler = callbacks.onOpenAssetDialog;
+    if (callbacks.onOpenObsModal) openObsModalHandler = callbacks.onOpenObsModal;
+    if (callbacks.onRefreshObsSources) refreshObsSourcesHandler = callbacks.onRefreshObsSources;
+    if (callbacks.onSnapObsLayer) snapObsLayerHandler = callbacks.onSnapObsLayer;
 }
 
 // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
 export const RERENDER_PATHS = new Set([
     'poll.previewMode',
-    'cutout.shape', 'alert.showOnPreview', 'style.objectFit', 'mediaFilter.duotone.enabled',
+    'cutout.shape', 'obsLink.enabled', 'alert.showOnPreview', 'style.objectFit', 'mediaFilter.duotone.enabled',
     'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled',
     'mediaFilter.halftone.mode', 'mediaFilter.halftone.colorMode', 'mediaFilter.halftone.fadeMode',
     'mediaFilter.retro.display', 'mediaFilter.retro.vhs', 'mediaFilter.retro.ntsc', 'mediaFilter.retro.static',
@@ -1458,6 +1464,63 @@ export function sharedBlock(items) {
     return `<div class="shared-box"><label class="check"><input type="checkbox" id="el-shared" ${all ? 'checked' : ''}> ${labelText}</label>${overrideBar}</div>`;
 }
 
+export function obsLinkSection(el) {
+    if (el.type !== 'shape' && el.type !== 'cutout') return '';
+    const link = el.obsLink || { enabled: false, sourceName: '', sceneName: '', fit: 'cover', syncVisibility: true };
+    const isCutout = el.type === 'cutout';
+    const sources = Array.isArray(state.obs?.sources) ? state.obs.sources : [];
+    const scenes = Array.isArray(state.obs?.scenes) ? state.obs.scenes : [];
+    const connected = state.obs?.connected === true;
+
+    let body = F.check('obsLink.enabled', 'Link this box to an OBS source', link.enabled === true);
+    if (!link.enabled) {
+        body += `<p class="hint" style="margin-top:4px;">${isCutout
+            ? 'Enable to automatically position and morph an OBS source behind this cutout hole when Scene States change.'
+            : 'Enable to use this shape as a border/frame around an OBS camera or game source sitting above this overlay (no cutout hole needed).'}</p>`;
+        return F.section('obsLink', 'OBS Source Link (BETA)', body);
+    }
+
+    body += `<div class="obs-link-hint" style="margin:6px 0 8px;">${isCutout
+        ? '<strong>Cutout + Sync Mode:</strong> Place your OBS source <b>below</b> this overlay in OBS. StreamPulse cuts a transparent hole here and moves/scales the OBS source to stay aligned across Scene States.'
+        : '<strong>Frame / Border Mode (No Cutout):</strong> Place your OBS source <b>above</b> this overlay in OBS. StreamPulse renders this border/shadow behind your source and moves/scales the OBS source to match this box.'}</div>`;
+
+    const sourceOptions = sources.map(s => `<option value="${esc(s)}">`).join('');
+    const sceneOptions = [
+        ['', `Active Program Scene${state.obs?.currentProgramScene ? ` (${state.obs.currentProgramScene})` : ''}`],
+        ...scenes.map(sc => {
+            const name = typeof sc === 'string' ? sc : sc?.name || '';
+            return [name, name];
+        }).filter(([n]) => n)
+    ];
+    if (link.sceneName && !sceneOptions.some(([v]) => v === link.sceneName)) {
+        sceneOptions.push([link.sceneName, link.sceneName]);
+    }
+
+    body += `
+        <div class="field">
+            <span style="display:flex;justify-content:space-between;align-items:center;">
+                <span>OBS Source Name</span>
+                <button type="button" id="btn-obs-refresh-sources" class="link-btn" style="font-size:10px;">${connected ? 'Refresh OBS list' : 'Connect OBS…'}</button>
+            </span>
+            <input type="text" data-path="obsLink.sourceName" data-kind="text" list="obs-source-datalist" value="${esc(link.sourceName || '')}" placeholder="e.g. Webcam, Game Capture">
+            <datalist id="obs-source-datalist">${sourceOptions}</datalist>
+        </div>
+        ${F.select('obsLink.sceneName', 'Target OBS Scene', link.sceneName || '', sceneOptions)}
+        ${F.select('obsLink.fit', 'Source scaling inside box', link.fit || 'cover', [
+            ['cover', 'Cover (Scale outer to fill box)'],
+            ['contain', 'Contain (Fit inside box)'],
+            ['stretch', 'Stretch to exact box dimensions'],
+            ['none', 'Position only (Keep native OBS scale)']
+        ])}
+        ${F.check('obsLink.syncVisibility', 'Sync OBS source visibility when hidden in a state', link.syncVisibility !== false)}
+        <div style="display:flex;gap:6px;margin-top:6px;">
+            <button type="button" id="btn-obs-snap-layer" class="primary" style="flex:1;" title="Immediately snap this OBS source to match this layer's current box">Snap OBS Source Now</button>
+            <button type="button" id="btn-open-obs-settings" title="Configure OBS WebSocket Bridge">OBS Setup…</button>
+        </div>
+    `;
+    return F.section('obsLink', 'OBS Source Link (BETA)', body);
+}
+
 // ---- Property Inspector Panel Render ----------------------------------------------
 export function renderProperties() {
     const items = selectedElements();
@@ -1477,7 +1540,7 @@ export function renderProperties() {
     } else {
         const el = items[0];
         const specific = { 'random-text': randomSection, progress: progressSection, poll: pollSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection, pattern: patternSection, 'procedural-pattern': proceduralPatternSection }[el.type];
-        root.innerHTML = `${actionBar(items)}${sharedBlock(items)}${layoutSection(el)}${contentSection(el)}${el.type === 'icon' ? iconEffectsSection(el) : ''}${specific ? specific(el) : ''}${el.type !== 'cutout' ? filterSection(el) : ''}${hasText(el) ? typographySection(el) : ''}${el.type !== 'cutout' ? fillSection(el) : ''}${el.type !== 'cutout' ? effectsSection(el) : ''}`;
+        root.innerHTML = `${actionBar(items)}${sharedBlock(items)}${layoutSection(el)}${obsLinkSection(el)}${contentSection(el)}${el.type === 'icon' ? iconEffectsSection(el) : ''}${specific ? specific(el) : ''}${el.type !== 'cutout' ? filterSection(el) : ''}${hasText(el) ? typographySection(el) : ''}${el.type !== 'cutout' ? fillSection(el) : ''}${el.type !== 'cutout' ? effectsSection(el) : ''}`;
     }
     if (root.parentElement) root.parentElement.scrollTop = scroll;
     state.lastTextField = null;
@@ -1752,7 +1815,7 @@ export function initInspectorEvents() {
             }
             renderSelectionUI();
             updateStatusBarHandler();
-            if (path === 'name') renderLayers();
+            if (path === 'name' || path.startsWith('obsLink.')) renderLayers();
             if (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || RERENDER_PATHS.has(path) || /^style\.(gradient|textGradient|borderGradient)\.(enabled|type|animate)$/.test(path)) {
                 if (numberCrossedZero(path, event)) renderProperties();
             }
@@ -2128,6 +2191,24 @@ export function initInspectorEvents() {
                     changed(true);
                     toast('Layer reset to Base State layout', 'info', 1800);
                 }
+                return;
+            }
+            if (target.closest('#btn-open-obs-settings')) {
+                openObsModalHandler();
+                return;
+            }
+            if (target.closest('#btn-obs-refresh-sources')) {
+                if (!state.obs?.connected) {
+                    openObsModalHandler();
+                } else {
+                    await refreshObsSourcesHandler(true);
+                    renderProperties();
+                }
+                return;
+            }
+            if (target.closest('#btn-obs-snap-layer')) {
+                const el = primary();
+                if (el) await snapObsLayerHandler(el);
                 return;
             }
             if (target.closest('[data-slide-popout]')) {

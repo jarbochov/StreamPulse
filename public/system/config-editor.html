@@ -412,6 +412,45 @@
                         <a class="btn" href="/tournament-admin.html" style="text-decoration:none;">Multi-Match Admin →</a>
                     </div>
                 </div>
+
+                <!-- OBS WebSocket Bridge Card -->
+                <div class="module-card">
+                    <div class="module-card-head">
+                        <div class="module-card-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                            <span>OBS WebSocket Sync</span>
+                            <span class="beta-tag">BETA</span>
+                        </div>
+                        <span class="module-badge" id="badge-obs">Disabled</span>
+                    </div>
+                    <p class="hint">Synchronize OBS camera &amp; capture sources with Custom Overlay Scene States (Morph) using Move Plugin or 60fps WebSocket transforms.</p>
+                    <div class="cfg-toggle">
+                        <input type="checkbox" id="cfg-obs-enabled">
+                        <label for="cfg-obs-enabled">Enable OBS WebSocket v5 Bridge</label>
+                    </div>
+                    <div class="cfg-row" style="margin-top:0.35rem;">
+                        <label style="min-width:95px;">Host &amp; Port</label>
+                        <input type="text" id="cfg-obs-host" placeholder="127.0.0.1" value="127.0.0.1" style="flex:2;">
+                        <input type="number" id="cfg-obs-port" min="1" max="65535" value="4455" style="flex:1;max-width:90px;">
+                    </div>
+                    <div class="cfg-row">
+                        <label style="min-width:95px;">Password</label>
+                        <input type="password" id="cfg-obs-password" placeholder="Optional OBS WS password" autocomplete="off">
+                    </div>
+                    <div class="cfg-row">
+                        <label style="min-width:95px;">Motion</label>
+                        <select id="cfg-obs-engine">
+                            <option value="auto">Auto-Detect (Move Plugin or 60fps Stream)</option>
+                            <option value="stream">60fps WebSocket Transform Stream</option>
+                            <option value="cut">Instant Cut</option>
+                        </select>
+                    </div>
+                    <div class="cfg-toggle" style="margin-top:0.2rem;">
+                        <input type="checkbox" id="cfg-obs-sync-save" checked>
+                        <label for="cfg-obs-sync-save">Auto-sync OBS on overlay save &amp; state change</label>
+                    </div>
+                    <div class="hint" id="cfg-obs-status" style="margin-top:auto;font-weight:500;">OBS status checking…</div>
+                </div>
             </div>
         </div>
 
@@ -642,6 +681,25 @@
         }
     }
 
+    async function showObsStatus() {
+        const line = document.getElementById('cfg-obs-status');
+        if (!line) return;
+        try {
+            const st = await (await fetch('/api/obs/status', { cache: 'no-store' })).json();
+            if (!st.enabled) {
+                line.textContent = 'OBS WebSocket Bridge is disabled.';
+                return;
+            }
+            if (st.connected) {
+                line.textContent = `Connected to OBS ${st.obsVersion || ''} (${st.host}:${st.port}) · ${st.movePluginAvailable ? 'Move Plugin detected' : 'Built-in 60fps Engine'}`;
+            } else {
+                line.textContent = st.lastError ? `Disconnected: ${st.lastError}` : `Waiting for OBS at ${st.host}:${st.port}…`;
+            }
+        } catch {
+            line.textContent = 'OBS status unavailable.';
+        }
+    }
+
     function updateModuleBadges() {
         const updateBadge = (id, active) => {
             const el = document.getElementById(id);
@@ -655,6 +713,7 @@
         updateBadge('badge-clips', document.getElementById('cfg-clips-enabled')?.checked);
         updateBadge('badge-polls', document.getElementById('cfg-polls-enabled')?.checked);
         updateBadge('badge-versus', document.getElementById('cfg-versus-enabled')?.checked);
+        updateBadge('badge-obs', document.getElementById('cfg-obs-enabled')?.checked);
     }
 
     async function loadConfig() {
@@ -707,6 +766,14 @@
             document.getElementById('cfg-polls-enabled').checked = cfg.polls_enabled !== false;
             document.getElementById('cfg-versus-enabled').checked = cfg.versus_enabled !== false;
 
+            const obs = cfg.obs || {};
+            document.getElementById('cfg-obs-enabled').checked = Boolean(obs.enabled);
+            document.getElementById('cfg-obs-host').value = obs.host || '127.0.0.1';
+            document.getElementById('cfg-obs-port').value = obs.port || 4455;
+            document.getElementById('cfg-obs-password').value = obs.password || '';
+            document.getElementById('cfg-obs-engine').value = obs.motionEngine || 'auto';
+            document.getElementById('cfg-obs-sync-save').checked = obs.syncOnSave !== false;
+
             updateModuleBadges();
 
             // Connection & Security
@@ -727,6 +794,7 @@
             document.getElementById('cfg-rl-mutations').value = rl.mutation_per_minute || 30;
 
             showWeatherStatus();
+            showObsStatus();
             clearDirty();
         } catch (e) {
             console.error('Failed to load system config:', e);
@@ -778,6 +846,15 @@
                 ...(loadedConfig?.clip_candidates || {}),
                 enabled: document.getElementById('cfg-clips-enabled').checked
             },
+            obs: {
+                ...(loadedConfig?.obs || {}),
+                enabled: document.getElementById('cfg-obs-enabled').checked,
+                host: document.getElementById('cfg-obs-host').value.trim() || '127.0.0.1',
+                port: Math.max(1, Math.min(65535, parseInt(document.getElementById('cfg-obs-port').value, 10) || 4455)),
+                password: document.getElementById('cfg-obs-password').value || '',
+                motionEngine: document.getElementById('cfg-obs-engine').value || 'auto',
+                syncOnSave: document.getElementById('cfg-obs-sync-save').checked
+            },
             ssn_session_id: document.getElementById('cfg-ssn-session').value.trim(),
             twitch_refresh_minutes: parseInt(document.getElementById('cfg-twitch-refresh').value, 10) || 10,
             twitch_stream_info_seconds: parseInt(document.getElementById('cfg-twitch-info').value, 10) || 30,
@@ -806,6 +883,7 @@
                 }
                 window.dispatchEvent(new CustomEvent('streampulse:config-saved', { detail: cfg }));
                 setTimeout(showWeatherStatus, 2500);
+                setTimeout(showObsStatus, 1500);
             } else {
                 showToast(data.error || 'Save failed');
             }
@@ -836,7 +914,7 @@
     document.getElementById('ssn-session-toggle').addEventListener('click', toggleSsnSession);
 
     // Module toggles update badges live
-    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled'].forEach(id => {
+    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-obs-enabled'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', updateModuleBadges);
     });
 

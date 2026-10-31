@@ -680,6 +680,9 @@ export async function save() {
         pushHistory();
         renderAll();
         toast(`Saved revision ${state.overlay.revision}. Live overlays updated.`, 'success');
+        if (state.obs?.connected && state.obs?.syncOnSave !== false) {
+            syncObsState(state.curPage);
+        }
     } catch (error) {
         toast(error.message, 'error', 6000);
     } finally {
@@ -687,6 +690,170 @@ export async function save() {
         $('save').disabled = false;
         $('save').textContent = 'Save & Push Live';
         updateHistoryUI();
+    }
+}
+
+// ---- OBS WebSocket Bridge (Beta) --------------------------------------------------
+export function renderObsStatusUI() {
+    const dot = $('obs-top-dot');
+    if (dot) {
+        dot.classList.toggle('is-connected', !!state.obs.connected);
+        dot.classList.toggle('is-connecting', !state.obs.connected && !!state.obs.connecting);
+        dot.classList.toggle('is-error', !state.obs.connected && !state.obs.connecting && !!state.obs.lastError);
+    }
+    const st = $('obs-dialog-status');
+    if (st) {
+        st.classList.toggle('is-connected', !!state.obs.connected);
+        st.classList.toggle('is-error', !state.obs.connected && !!state.obs.lastError);
+        if (state.obs.connected) {
+            st.textContent = `Connected${state.obs.obsVersion ? ` · OBS ${state.obs.obsVersion}` : ''}`;
+        } else if (state.obs.connecting) {
+            st.textContent = 'Connecting…';
+        } else if (state.obs.lastError) {
+            st.textContent = `Error: ${state.obs.lastError}`;
+        } else {
+            st.textContent = state.obs.enabled ? 'Disconnected' : 'Disabled';
+        }
+    }
+    const cap = $('obs-dialog-capabilities');
+    if (cap) {
+        if (state.obs.connected) {
+            cap.hidden = false;
+            cap.innerHTML = `<strong>Active Scene:</strong> ${esc(state.obs.currentProgramScene || 'Unknown')} &nbsp;·&nbsp; <strong>Move Plugin:</strong> ${state.obs.movePluginAvailable ? '<span style="color:#34d399">Detected (Hardware Filter Available)</span>' : 'Not installed (Using Built-in 60fps WebSocket Stream)'}`;
+        } else if (state.obs.lastError) {
+            cap.hidden = false;
+            cap.innerHTML = `<span style="color:#f87171">${esc(state.obs.lastError)}</span>`;
+        } else {
+            cap.hidden = true;
+            cap.innerHTML = '';
+        }
+    }
+}
+
+export async function refreshObsStatus(fetchSources = false) {
+    try {
+        const res = await fetch('/api/obs/status', { cache: 'no-store' });
+        if (res.ok) {
+            const st = await res.json();
+            Object.assign(state.obs, st);
+        }
+        if (state.obs.connected && (fetchSources || !state.obs.sources.length)) {
+            const srcRes = await fetch('/api/obs/sources', { cache: 'no-store' });
+            if (srcRes.ok) {
+                const srcData = await srcRes.json();
+                state.obs.scenes = srcData.scenes || [];
+                state.obs.sources = srcData.sources || [];
+                if (srcData.currentProgramScene) state.obs.currentProgramScene = srcData.currentProgramScene;
+            }
+        }
+        renderObsStatusUI();
+    } catch { /* ignore */ }
+}
+
+export async function openObsModal() {
+    await refreshObsStatus(true);
+    if ($('obs-cfg-enabled')) $('obs-cfg-enabled').checked = !!state.obs.enabled;
+    if ($('obs-cfg-host')) $('obs-cfg-host').value = state.obs.host || '127.0.0.1';
+    if ($('obs-cfg-port')) $('obs-cfg-port').value = String(state.obs.port || 4455);
+    if ($('obs-cfg-password')) {
+        $('obs-cfg-password').value = '';
+        $('obs-cfg-password').placeholder = state.obs.hasPassword ? '•••••••• (Saved — leave blank to keep)' : 'Leave blank if authentication is disabled in OBS';
+    }
+    if ($('obs-cfg-engine')) $('obs-cfg-engine').value = state.obs.motionEngine || 'auto';
+    if ($('obs-cfg-sync-save')) $('obs-cfg-sync-save').checked = state.obs.syncOnSave !== false;
+    renderObsStatusUI();
+    $('obs-dialog')?.showModal();
+}
+
+export async function saveAndConnectObs() {
+    const btn = $('obs-save-connect');
+    if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
+    try {
+        const payload = {
+            enabled: !!$('obs-cfg-enabled')?.checked,
+            host: $('obs-cfg-host')?.value.trim() || '127.0.0.1',
+            port: Number($('obs-cfg-port')?.value) || 4455,
+            motionEngine: $('obs-cfg-engine')?.value || 'auto',
+            syncOnSave: $('obs-cfg-sync-save')?.checked !== false
+        };
+        const pw = $('obs-cfg-password')?.value || '';
+        if (pw) payload.password = pw;
+        const res = await fetch('/api/obs/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not save OBS settings');
+        if (data.status) Object.assign(state.obs, data.status);
+        await refreshObsStatus(true);
+        renderProperties();
+        renderPageBar();
+        if (state.obs.connected) {
+            toast('OBS WebSocket connected', 'success', 2400);
+        } else if (state.obs.enabled) {
+            toast(state.obs.lastError ? `OBS: ${state.obs.lastError}` : 'OBS settings saved (waiting for OBS)', 'warn', 3500);
+        } else {
+            toast('OBS WebSocket disabled', 'info', 2000);
+        }
+    } catch (err) {
+        toast(err.message, 'error', 4000);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Save & Connect'; }
+    }
+}
+
+export async function syncObsState(pageId) {
+    if (!state.obs?.connected) return;
+    const hasLinked = state.overlay.elements.some(el => el.obsLink?.enabled && el.obsLink?.sourceName);
+    if (!hasLinked) return;
+    try {
+        const payload = serializeOverlayForSave();
+        await fetch('/api/obs/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                overlay: payload,
+                pageId: pageId || state.curPage
+            })
+        });
+    } catch { /* ignore background sync error */ }
+}
+
+export async function snapObsLayer(el) {
+    if (!el?.obsLink?.enabled || !el.obsLink.sourceName?.trim()) {
+        toast('Enter an OBS Source Name first.', 'warn', 2500);
+        return;
+    }
+    if (!state.obs?.connected) {
+        toast('Connect to OBS WebSocket first.', 'warn', 2500);
+        openObsModal();
+        return;
+    }
+    try {
+        const payload = serializeOverlayForSave();
+        const singleOverlay = {
+            ...payload,
+            elements: payload.elements.filter(item => item.id === el.id)
+        };
+        const res = await fetch('/api/obs/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                overlay: singleOverlay,
+                pageId: state.curPage,
+                instant: true
+            })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.ok === false) {
+            throw new Error(data.error || data.reason || 'Could not sync OBS source');
+        }
+        const firstErr = (data.results || []).find(r => !r.ok);
+        if (firstErr) throw new Error(firstErr.reason || `Source "${el.obsLink.sourceName}" not found in OBS scene`);
+        toast(`Snapped OBS source “${el.obsLink.sourceName}” to layer box`, 'success', 2200);
+    } catch (err) {
+        toast(err.message, 'error', 4000);
     }
 }
 
@@ -718,8 +885,16 @@ export async function refreshLiveStatus() {
 export function connectAlertPreview() {
     const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`);
     socket.addEventListener('message', event => {
-        if (typeof event.data === 'string' && !event.data.includes('"alert') && !event.data.includes('"poll-update"') && !event.data.includes('"custom-overlay-page"')) return;
+        if (typeof event.data === 'string' && !event.data.includes('"alert') && !event.data.includes('"poll-update"') && !event.data.includes('"custom-overlay-page"') && !event.data.includes('"obs-status"')) return;
         let message; try { message = JSON.parse(event.data); } catch { return; }
+        if (message.type === 'obs-status' && message.data) {
+            Object.assign(state.obs, message.data);
+            renderObsStatusUI();
+            if (message.data.connected && !state.obs.sources.length) {
+                refreshObsStatus(true);
+            }
+            return;
+        }
         if (message.type === 'custom-overlay-page' && message.data?.id === state.overlay?.id) {
             setLiveState(message.data);
             return;
@@ -801,6 +976,19 @@ function initEventListeners() {
     // Help Dialog
     $('help')?.addEventListener('click', () => $('help-dialog')?.showModal());
     $('help-close')?.addEventListener('click', () => $('help-dialog')?.close());
+
+    // OBS WebSocket Dialog (Beta)
+    $('btn-obs-modal')?.addEventListener('click', () => openObsModal());
+    $('obs-close')?.addEventListener('click', () => $('obs-dialog')?.close());
+    $('obs-save-connect')?.addEventListener('click', () => saveAndConnectObs());
+    $('obs-sync-now')?.addEventListener('click', async () => {
+        if (!state.obs?.connected) {
+            toast('Connect to OBS WebSocket first.', 'warn', 2400);
+            return;
+        }
+        await syncObsState(state.curPage);
+        toast('Synced active state to OBS', 'success', 2000);
+    });
 
     // Overlay Name
     $('overlay-name')?.addEventListener('input', event => { state.overlay.name = event.target.value; changed(false); });
@@ -1438,7 +1626,9 @@ export async function load() {
         onRenderProperties: renderProperties,
         onUpdateStatusBar: updateStatusBar,
         onRenderAll: renderAll,
-        onSavePreset: openSavePreset
+        onSavePreset: openSavePreset,
+        onOpenObsModal: openObsModal,
+        onSyncObsState: syncObsState
     });
 
     registerInspectorCallbacks({
@@ -1449,7 +1639,10 @@ export async function load() {
         onScaleSelectionBy: scaleSelectionBy,
         onUploadAsset: uploadAsset,
         onFitToMedia: fitToMedia,
-        onOpenAssetDialog: openAssetPicker
+        onOpenAssetDialog: openAssetPicker,
+        onOpenObsModal: openObsModal,
+        onRefreshObsSources: refreshObsStatus,
+        onSnapObsLayer: snapObsLayer
     });
 
     initCanvasGestures({
@@ -1498,6 +1691,7 @@ export async function load() {
     fitView(true);
     refreshLiveStatus();
     refreshLivePage();
+    refreshObsStatus(true);
 
     loadAssetTags().then(() => {
         if (primary()?.type === 'slideshow') renderProperties();

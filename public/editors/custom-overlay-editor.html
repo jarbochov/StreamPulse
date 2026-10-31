@@ -20,6 +20,11 @@
             <button id="redo" class="icon" title="Redo (Ctrl/⌘+Shift+Z)" aria-label="Redo" disabled></button>
             <button id="help" class="icon ghost" title="Keyboard shortcuts" aria-label="Keyboard shortcuts">?</button>
             <span class="divider"></span>
+            <button id="btn-obs-modal" class="hide-narrow obs-top-btn" title="Configure OBS WebSocket Bridge &amp; Source Sync (Beta)">
+                <span class="obs-status-dot" id="obs-top-dot"></span>
+                <span>OBS Sync</span>
+                <span class="badge-beta">BETA</span>
+            </button>
             <button id="revisions" class="hide-narrow" title="Browse and restore earlier saved revisions">History</button>
             <button id="copy-url" class="hide-narrow" title="Copy the browser-source URL for OBS">Copy OBS URL</button>
             <button id="preview" class="hide-narrow" title="Open the runtime page in a new tab">Open Runtime</button>
@@ -141,6 +146,13 @@
                                         <span class="menu-item-text">
                                             <span class="menu-item-title">Cutout (Punchthrough)</span>
                                             <span class="menu-item-desc">OBS webcam &amp; window aperture</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="obs-frame">
+                                        <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M5 3v2M11 3v2M5 11v2M11 11v2"/><circle cx="8" cy="8" r="1.5"/></svg></span>
+                                        <span class="menu-item-text">
+                                            <span class="menu-item-title">OBS Source Frame <span class="badge-beta">BETA</span></span>
+                                            <span class="menu-item-desc">Border/frame synced to an OBS source</span>
                                         </span>
                                     </button>
                                 </div>
@@ -306,6 +318,37 @@
         <p class="hint" style="margin:0">Each save keeps the version it replaced (last 30). Restoring loads that version into the editor as an unsaved change, so you can review it, undo it, or save it as a new revision.</p>
         <div id="revision-list"></div>
         <div class="dialog-actions"><button id="revision-close">Close</button></div>
+    </dialog>
+    <dialog id="obs-dialog">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <h3 style="margin:0;display:flex;align-items:center;gap:6px;">
+                <span>OBS WebSocket Bridge</span>
+                <span class="badge-beta">BETA</span>
+            </h3>
+            <span class="obs-dialog-status" id="obs-dialog-status">Disconnected</span>
+        </div>
+        <p class="hint" style="margin:4px 0 8px;">Connect StreamPulse to OBS Studio (Tools &rarr; WebSocket Server Settings) so linked <b>Shape (Border/Frame)</b> and <b>Cutout</b> layers automatically position, scale, and morph your OBS cameras and captures in sync with Scene States.</p>
+        <div class="obs-form-grid">
+            <label class="row" style="grid-column:1 / -1;"><input type="checkbox" id="obs-cfg-enabled"> <span>Enable OBS WebSocket Bridge</span></label>
+            <label>Host<input type="text" id="obs-cfg-host" placeholder="127.0.0.1" value="127.0.0.1"></label>
+            <label>Port<input type="number" id="obs-cfg-port" min="1" max="65535" value="4455"></label>
+            <label style="grid-column:1 / -1;">Server Password<input type="password" id="obs-cfg-password" placeholder="Leave blank if authentication is disabled in OBS" autocomplete="off"></label>
+            <label style="grid-column:1 / -1;">Motion Engine
+                <select id="obs-cfg-engine">
+                    <option value="auto">Auto-Detect Hybrid (Move Plugin if installed, else 60fps Stream)</option>
+                    <option value="stream">Built-in 60fps WebSocket Transform Interpolation</option>
+                    <option value="cut">Instant Cut (Single Transform Update)</option>
+                </select>
+            </label>
+            <label class="row" style="grid-column:1 / -1;"><input type="checkbox" id="obs-cfg-sync-save" checked> <span>Automatically sync linked OBS sources when saving or switching Scene States</span></label>
+        </div>
+        <div id="obs-dialog-capabilities" class="obs-capabilities-box" hidden></div>
+        <div class="dialog-actions">
+            <button type="button" id="obs-sync-now" title="Immediately align all linked OBS sources to the active state">Sync Current State Now</button>
+            <span style="margin-right:auto"></span>
+            <button type="button" id="obs-close">Close</button>
+            <button type="button" id="obs-save-connect" class="primary">Save &amp; Connect</button>
+        </div>
     </dialog>
     <dialog id="help-dialog">
         <h3>Keyboard shortcuts</h3>

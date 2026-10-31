@@ -263,7 +263,24 @@ export const state = {
     pickerTarget: null,
     mediaTab: new Map(),
     collapsedGroups: new Set(JSON.parse(localStorage.getItem('layerCollapsedGroups') || '[]')),
-    layerOrder: []
+    layerOrder: [],
+    obs: {
+        enabled: false,
+        connected: false,
+        connecting: false,
+        host: '127.0.0.1',
+        port: 4455,
+        hasPassword: false,
+        syncOnSave: true,
+        motionEngine: 'auto',
+        movePluginAvailable: false,
+        obsVersion: '',
+        wsVersion: '',
+        lastError: '',
+        currentProgramScene: '',
+        scenes: [],
+        sources: []
+    }
 };
 
 // ---- Model & Geometry Helpers -----------------------------------------------------
@@ -518,6 +535,7 @@ export function normalizeLoaded(data) {
         if (item.type === 'alert') item.alert = Object.assign({ layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, showOnPreview: false, triggers: [] }, item.alert);
         if (item.type === 'poll') item.poll = window.PollWidget.settings(item.poll);
         if (item.type === 'cutout') item.cutout = Object.assign({ shape: 'rectangle', feather: 0 }, item.cutout);
+        item.obsLink = Object.assign({ enabled: false, sourceName: '', sceneName: '', fit: 'cover', syncVisibility: true }, item.obsLink);
         if (item.type === 'pattern') item.pattern = Object.assign({ sourceType: 'image', layout: 'brick', tileSize: 96, gap: 16, offsetX: 50, offsetY: 0, angle: -15, tileAngle: 0, alternateFlip: 'tilt', tileOpacity: 1, altOpacity: 0.4, altScale: 100, blendMode: 'normal', wedges: 6, feather: 0, motion: 'scroll', trackMode: 'uniform', scrollAngle: 315, speed: 12, spinSpeed: 8, spinDirection: 'cw', waveAmount: 25 }, item.pattern);
         if (item.type === 'procedural-pattern') item.pattern = Object.assign({ preset: 'hexagons', accent: '#58a6ff', secondary: '#38bdf8', color: 'transparent', lineWidth: 0, scale: 100, motion: 'drift', speed: 1, blendMode: 'normal' }, item.pattern);
         item.style ||= {};
@@ -526,16 +544,18 @@ export function normalizeLoaded(data) {
     return next;
 }
 
-export function createElementData(type, overrides = {}) {
+export function createElementData(rawType, overrides = {}) {
+    const isObsFrame = rawType === 'obs-frame';
+    const type = isObsFrame ? 'shape' : rawType;
     const sizes = {
         text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270],
-        video: [640, 360], embed: [640, 360], qr: [320, 320], icon: [160, 160], shape: [480, 160],
+        video: [640, 360], embed: [640, 360], qr: [320, 320], icon: [160, 160], shape: isObsFrame ? [480, 270] : [480, 160],
         cutout: [480, 270], progress: [480, 48], poll: [400, 150], 'game-list': [800, 320], alert: [640, 280], slideshow: [640, 360], pattern: [640, 360], 'procedural-pattern': [state.overlay?.canvas?.width || 1920, state.overlay?.canvas?.height || 1080]
     };
     const [width, height] = sizes[type] || [480, 270];
     const offset = (state.overlay.elements.length % 6) * 24;
     const data = {
-        id: uid(type), name: type === 'procedural-pattern' ? 'Background Pattern' : '', locked: false, type,
+        id: uid(type), name: isObsFrame ? 'OBS Source Frame' : (type === 'procedural-pattern' ? 'Background Pattern' : ''), locked: false, type,
         content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', icon: 'fa-brands fa-twitch', shape: '', cutout: '', progress: '50', poll: '', 'game-list': '', alert: '', slideshow: '', pattern: 'fa-brands fa-twitch', 'procedural-pattern': '' }[type],
         textFit: 'none',
         columns: 1,
@@ -551,6 +571,7 @@ export function createElementData(type, overrides = {}) {
         video: { loop: true, sound: false, volume: 100 },
         alert: { layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, showOnPreview: false, triggers: [] },
         cutout: { shape: 'rectangle', feather: 0 },
+        obsLink: { enabled: isObsFrame, sourceName: '', sceneName: '', fit: 'cover', syncVisibility: true },
         progress: { kind: 'bar', label: '{{progress}}%', showLabel: true, trackColor: 'rgba(255,255,255,0.18)', thickness: 10 },
         poll: type === 'poll' ? window.PollWidget.settings() : undefined,
         page: statesModeOn() ? '*' : (pagesOn() ? state.curPage : state.overlay.pages?.items[0]?.id || 'page-1'),
@@ -563,12 +584,12 @@ export function createElementData(type, overrides = {}) {
             fontSize: type === 'poll' ? 12 : type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : 48,
             fontWeight: type === 'alert' ? '600' : '400',
             color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0,
-            background: type === 'shape' ? '#1f6feb' : type === 'poll' ? 'rgba(13,17,23,0.85)' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent',
-            borderColor: '#ffffff', borderWidth: 0, borderRadius: type === 'poll' ? 10 : type === 'alert' ? 24 : type === 'cutout' ? 16 : 0,
+            background: isObsFrame ? 'transparent' : (type === 'shape' ? '#1f6feb' : type === 'poll' ? 'rgba(13,17,23,0.85)' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent'),
+            borderColor: isObsFrame ? '#38bdf8' : '#ffffff', borderWidth: isObsFrame ? 3 : 0, borderRadius: isObsFrame ? 12 : (type === 'poll' ? 10 : type === 'alert' ? 24 : type === 'cutout' ? 16 : 0),
             padding: 0,
             opacity: 1, objectFit: (type === 'pattern' || type === 'procedural-pattern') ? 'contain' : 'cover', shape: 'rectangle', fill: '#1f6feb',
             gradient: { enabled: false, from: '#1f6feb', to: '#8957e5', angle: 135 },
-            blur: 0, shadow: { blur: 0, color: 'rgba(0,0,0,0.5)' }
+            blur: 0, shadow: { blur: isObsFrame ? 18 : 0, color: 'rgba(0,0,0,0.5)' }
         }
     };
     if (type === 'icon' || type === 'alert') Object.assign(data.style, { textAlign: 'center', verticalAlign: 'middle' });

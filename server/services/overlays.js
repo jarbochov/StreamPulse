@@ -633,10 +633,28 @@ function normalizePageStates(raw) {
     return Object.keys(out).length ? out : undefined;
 }
 
+function normalizeObsLink(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+    const enabled = raw.enabled === true;
+    const sourceName = String(raw.sourceName || '').trim().slice(0, 120);
+    const sceneName = String(raw.sceneName || '').trim().slice(0, 120);
+    const fit = ['cover', 'contain', 'stretch', 'none'].includes(raw.fit) ? raw.fit : 'cover';
+    const syncVisibility = raw.syncVisibility !== false;
+    if (!enabled && !sourceName && !sceneName) return undefined;
+    return {
+        enabled,
+        sourceName,
+        sceneName,
+        fit,
+        syncVisibility
+    };
+}
+
 function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
     const type = CUSTOM_OVERLAY_ELEMENT_TYPES.has(element.type) ? element.type : 'text';
     const morphId = sanitizeOverlayId(element.morphId).slice(0, 40);
     const pageStates = normalizePageStates(element.pageStates);
+    const obsLink = normalizeObsLink(element.obsLink);
     return {
         id: sanitizeOverlayId(element.id) || `element-${index + 1}`,
         name: String(element.name || '').trim().slice(0, 80),
@@ -646,6 +664,7 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
         page: element.page === '*' ? '*' : sanitizeOverlayId(element.page).slice(0, 40),
         ...(morphId ? { morphId } : {}),
         ...(pageStates ? { pageStates } : {}),
+        ...(obsLink ? { obsLink } : {}),
         type,
         poll: type === 'poll' ? normalizePollSettings(element.poll) : undefined,
         mediaFilter: normalizeMediaFilter(element.mediaFilter),
@@ -1918,6 +1937,8 @@ module.exports = {
     normalizeMediaFilter,
     normalizeRetro,
     normalizeAssetTagList,
+    normalizeObsLink,
+    normalizePageStates,
     normalizeOverlayElement,
     normalizePages,
     normalizeCustomOverlay,
