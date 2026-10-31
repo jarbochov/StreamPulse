@@ -904,6 +904,21 @@
                                             </select>
                                         </div>
                                         <div>
+                                            <label for="tourney-opt-radius-layout" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Border Radius (?radius=)</label>
+                                            <select id="tourney-opt-radius-layout" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncPollTourneyRadius(this.value)">
+                                                <option value="" selected>Theme Default</option>
+                                                <option value="0px">Sharp Square (0px)</option>
+                                                <option value="4px">Subtle (4px)</option>
+                                                <option value="6px">Crisp (6px)</option>
+                                                <option value="8px">Smooth (8px)</option>
+                                                <option value="10px">Standard (10px)</option>
+                                                <option value="12px">Rounded (12px)</option>
+                                                <option value="16px">Extra Rounded (16px)</option>
+                                                <option value="24px">Soft Pill (24px)</option>
+                                                <option value="999px">Pill / Capsule (999px)</option>
+                                            </select>
+                                        </div>
+                                        <div>
                                             <label for="tourney-opt-pipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Vote / Pip Style (?pipstyle=)</label>
                                             <select id="tourney-opt-pipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
                                                 <option value="circle" selected>Circles (● ● ○)</option>
@@ -1040,14 +1055,17 @@
                                             </select>
                                         </div>
                                         <div>
-                                            <label for="tourney-opt-radius" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Corner Roundness (?radius=)</label>
-                                            <select id="tourney-opt-radius" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <label for="tourney-opt-radius" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Border Radius (?radius=)</label>
+                                            <select id="tourney-opt-radius" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncPollTourneyRadius(this.value)">
                                                 <option value="" selected>Theme Default</option>
                                                 <option value="0px">Sharp Square (0px)</option>
                                                 <option value="4px">Subtle (4px)</option>
+                                                <option value="6px">Crisp (6px)</option>
                                                 <option value="8px">Smooth (8px)</option>
+                                                <option value="10px">Standard (10px)</option>
                                                 <option value="12px">Rounded (12px)</option>
                                                 <option value="16px">Extra Rounded (16px)</option>
+                                                <option value="24px">Soft Pill (24px)</option>
                                                 <option value="999px">Pill / Capsule (999px)</option>
                                             </select>
                                         </div>
@@ -1585,6 +1603,9 @@
             if (theme.weight !== undefined && $(prefix + 'weight')) $(prefix + 'weight').value = theme.weight;
             if (theme.textTransform !== undefined && $(prefix + 'transform')) $(prefix + 'transform').value = theme.textTransform;
             if (theme.radius !== undefined && $(prefix + 'radius')) $(prefix + 'radius').value = theme.radius;
+            if (target === 'tourney' && theme.radius !== undefined && $('tourney-opt-radius-layout')) {
+                $('tourney-opt-radius-layout').value = theme.radius;
+            }
             if (theme.outline !== undefined && $(prefix + 'outline')) $(prefix + 'outline').value = theme.outline;
             if (theme.scale !== undefined && $(prefix + 'scale')) $(prefix + 'scale').value = theme.scale;
 
@@ -1905,6 +1926,7 @@
                     if (t.weight !== undefined && $('tourney-opt-weight')) $('tourney-opt-weight').value = t.weight;
                     if (t.transform !== undefined && $('tourney-opt-transform')) $('tourney-opt-transform').value = t.transform;
                     if (t.radius !== undefined && $('tourney-opt-radius')) $('tourney-opt-radius').value = t.radius;
+                    if (t.radius !== undefined && $('tourney-opt-radius-layout')) $('tourney-opt-radius-layout').value = t.radius;
                     if (t.outline !== undefined && $('tourney-opt-outline')) $('tourney-opt-outline').value = t.outline;
                     if (t.spacing !== undefined && $('tourney-opt-spacing')) $('tourney-opt-spacing').value = t.spacing;
                     if (t.lines !== undefined && $('tourney-opt-lines')) $('tourney-opt-lines').value = t.lines;
@@ -2009,6 +2031,12 @@
                 }
             }
             savePollsOverlayPrefs();
+        }
+
+        function syncPollTourneyRadius(val) {
+            if ($('tourney-opt-radius')) $('tourney-opt-radius').value = val;
+            if ($('tourney-opt-radius-layout')) $('tourney-opt-radius-layout').value = val;
+            updateTourneyOverlayUrl();
         }
 
         function updateTourneyOverlayUrl() {

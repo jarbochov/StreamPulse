@@ -154,6 +154,7 @@
         const customBadgeColor = params.get('badgecolor') || params.get('centerbadge') || params.get('badge_color');
         const customP1Color = params.get('p1color') || params.get('e1color') || params.get('entrant1color') || params.get('player1color') || '';
         const customP2Color = params.get('p2color') || params.get('e2color') || params.get('entrant2color') || params.get('player2color') || '';
+        const customRadius = (params.get('radius') || params.get('borderradius') || params.get('border-radius') || params.get('roundness') || '').trim();
         const cardWidthParam = (params.get('cardwidth') || params.get('roundwidth') || params.get('matchwidth') || '').trim();
         const isWide = params.get('wide') === '1' || params.get('wide') === 'true';
 
@@ -187,6 +188,11 @@
         }
         if (customP1Color) document.documentElement.style.setProperty('--tourney-p1-color', customP1Color);
         if (customP2Color) document.documentElement.style.setProperty('--tourney-p2-color', customP2Color);
+        if (customRadius) {
+            const rCss = /^\d+$/.test(customRadius) ? `${customRadius}px` : customRadius;
+            document.documentElement.style.setProperty('--tourney-radius', rCss);
+            if (document.body && document.body.style) document.body.style.setProperty('--tourney-radius', rCss);
+        }
 
         // Shared theme & typography handling via /js/overlay-theme.js
         if (typeof window.applyTourneyTheme === 'function') {

@@ -693,3 +693,68 @@ test('Poll tournament entrant / versus colors customization and participant pars
         if (browser) await browser.close();
     }
 });
+
+test('Border radius (?radius=) option across both bracket overlays and all wizards', async () => {
+    const wizardHtml = fs.readFileSync(path.resolve(__dirname, '../public/wizards/overlay-url-wizard.html'), 'utf8');
+    const versusHtml = fs.readFileSync(path.resolve(__dirname, '../public/tools/versus.html'), 'utf8');
+    const pollsHtml = fs.readFileSync(path.resolve(__dirname, '../public/tools/polls.html'), 'utf8');
+
+    assert.ok(wizardHtml.includes('id="tourney-radius"'), 'overlay-url-wizard should have #tourney-radius control');
+    assert.ok(wizardHtml.includes('id="poll-tourney-radius"'), 'overlay-url-wizard should have #poll-tourney-radius control');
+    assert.ok(versusHtml.includes('id="prev-ctrl-tourney-radius"'), 'versus.html should have #prev-ctrl-tourney-radius in toolbar');
+    assert.ok(versusHtml.includes('id="tourney-opt-radius-layout"'), 'versus.html should have #tourney-opt-radius-layout in layout tab');
+    assert.ok(pollsHtml.includes('id="tourney-opt-radius-layout"'), 'polls.html should have #tourney-opt-radius-layout in layout tab');
+
+    const TOURNEY_URL = 'file://' + path.resolve(__dirname, '../public/overlays/tournament.html');
+    const POLL_TOURNEY_URL = 'file://' + path.resolve(__dirname, '../public/overlays/poll-tournament.html');
+    let browser;
+    try {
+        browser = await puppeteer.launch({
+            headless: 'new',
+            pipe: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--allow-file-access-from-files']
+        });
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1280, height: 720 });
+
+        // Test tournament.html with theme=pill (normally 24px) overridden by radius=6px
+        await page.goto(`${TOURNEY_URL}?preview=1&sample=1&theme=pill&radius=6px`, {
+            waitUntil: 'domcontentloaded'
+        });
+        await page.waitForSelector('.match-card');
+
+        const tourneyRadiusInfo = await page.evaluate(() => {
+            const card = document.querySelector('.match-card');
+            const header = document.querySelector('.tournament-header');
+            return {
+                cardRadius: card ? window.getComputedStyle(card).borderRadius : '',
+                headerRadius: header ? window.getComputedStyle(header).borderRadius : '',
+                bodyVar: window.getComputedStyle(document.body).getPropertyValue('--tourney-radius').trim()
+            };
+        });
+        assert.equal(tourneyRadiusInfo.bodyVar, '6px', 'Body --tourney-radius should be 6px even when theme=pill');
+        assert.equal(tourneyRadiusInfo.cardRadius, '6px', '.match-card computed borderRadius should be 6px on tournament.html');
+        assert.equal(tourneyRadiusInfo.headerRadius, '6px', '.tournament-header computed borderRadius should be 6px on tournament.html');
+
+        // Test poll-tournament.html with theme=border (normally 8px) overridden by radius=16px
+        await page.goto(`${POLL_TOURNEY_URL}?preview=1&sample=1&theme=border&radius=16px`, {
+            waitUntil: 'domcontentloaded'
+        });
+        await page.waitForSelector('.match-card');
+
+        const pollTourneyRadiusInfo = await page.evaluate(() => {
+            const card = document.querySelector('.match-card');
+            const header = document.querySelector('.tournament-header');
+            return {
+                cardRadius: card ? window.getComputedStyle(card).borderRadius : '',
+                headerRadius: header ? window.getComputedStyle(header).borderRadius : '',
+                bodyVar: window.getComputedStyle(document.body).getPropertyValue('--tourney-radius').trim()
+            };
+        });
+        assert.equal(pollTourneyRadiusInfo.bodyVar, '16px', 'Body --tourney-radius should be 16px even when theme=border');
+        assert.equal(pollTourneyRadiusInfo.cardRadius, '16px', '.match-card computed borderRadius should be 16px on poll-tournament.html');
+        assert.equal(pollTourneyRadiusInfo.headerRadius, '16px', '.tournament-header computed borderRadius should be 16px on poll-tournament.html');
+    } finally {
+        if (browser) await browser.close();
+    }
+});

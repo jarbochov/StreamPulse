@@ -273,7 +273,14 @@
     // Applied by /matchup.html
     window.applyVersusTheme = function applyVersusTheme(options = {}) {
         const params = (typeof overlayParams === 'function') ? overlayParams() : new URLSearchParams(window.location.search);
-        const root = document.documentElement.style;
+        const rawRoot = document.documentElement.style;
+        const bodyStyle = document.body && document.body.style ? document.body.style : null;
+        const root = {
+            setProperty(k, v) {
+                rawRoot.setProperty(k, v);
+                if (bodyStyle) bodyStyle.setProperty(k, v);
+            }
+        };
         const hashVal = (window.location.hash || '').replace(/^#/, '').trim();
         const rawTheme = (params.get('overlay') || params.get('theme') || (!hashVal.includes('=') ? hashVal : '') || 'card').trim().toLowerCase();
 
@@ -373,7 +380,7 @@
         const urlWinner = cleanColor(params.get('winner') || params.get('winnercolor'));
         if (urlWinner) root.setProperty('--matchup-winner', urlWinner);
 
-        const urlRadius = cleanRadius(params.get('radius') || params.get('roundness'));
+        const urlRadius = cleanRadius(params.get('radius') || params.get('borderradius') || params.get('border-radius') || params.get('roundness'));
         if (urlRadius) root.setProperty('--matchup-radius', urlRadius);
 
         const urlBadgeColor = cleanColor(params.get('badgecolor') || params.get('centerbadge') || params.get('badge_color'));
@@ -406,7 +413,14 @@
     // Applied by /tournament.html, /versus-tournament.html, /poll-tournament.html
     window.applyTourneyTheme = function applyTourneyTheme(options = {}) {
         const params = (typeof overlayParams === 'function') ? overlayParams() : new URLSearchParams(window.location.search);
-        const root = document.documentElement.style;
+        const rawRoot = document.documentElement.style;
+        const bodyStyle = document.body && document.body.style ? document.body.style : null;
+        const root = {
+            setProperty(k, v) {
+                rawRoot.setProperty(k, v);
+                if (bodyStyle) bodyStyle.setProperty(k, v);
+            }
+        };
         const hashVal = (window.location.hash || '').replace(/^#/, '').trim();
         const rawTheme = (params.get('overlay') || params.get('theme') || (!hashVal.includes('=') ? hashVal : '') || 'card').trim().toLowerCase();
 
@@ -506,7 +520,7 @@
         const urlWinner = cleanColor(params.get('winner') || params.get('winnercolor'));
         if (urlWinner) root.setProperty('--tourney-winner', urlWinner);
 
-        const urlRadius = cleanRadius(params.get('radius') || params.get('roundness'));
+        const urlRadius = cleanRadius(params.get('radius') || params.get('borderradius') || params.get('border-radius') || params.get('roundness'));
         if (urlRadius) root.setProperty('--tourney-radius', urlRadius);
 
         const urlBadgeColor = cleanColor(params.get('badgecolor') || params.get('centerbadge') || params.get('badge_color'));

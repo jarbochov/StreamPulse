@@ -539,7 +539,7 @@
         .rr-standings-card {
             background: rgba(22, 27, 34, 0.85);
             border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 10px;
+            border-radius: var(--tourney-radius, 10px);
             overflow: hidden;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
         }
@@ -624,7 +624,7 @@
         .rr-match-item {
             background: rgba(13, 17, 23, 0.55);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 8px;
+            border-radius: var(--tourney-radius, 8px);
             padding: 0.55rem 0.75rem;
             display: flex;
             flex-direction: column;
@@ -1049,7 +1049,7 @@
         .hud-score-display {
             background: var(--tourney-card-bg);
             border: 1px solid var(--tourney-border);
-            border-radius: 8px;
+            border-radius: min(8px, var(--tourney-radius, 8px));
             padding: 0.35rem 0.85rem;
             font-size: calc(clamp(1.2rem, 3.2cqi, 1.6rem) * var(--tourney-scale));
             font-weight: 900;
@@ -1088,7 +1088,7 @@
         .champion-card {
             background: linear-gradient(135deg, rgba(210, 153, 34, 0.2), rgba(210, 153, 34, 0.05));
             border: 2px solid #d29922;
-            border-radius: 12px;
+            border-radius: var(--tourney-radius, 12px);
             padding: 1.25rem 2.5rem;
             text-align: center;
             box-shadow: 0 0 32px rgba(210, 153, 34, 0.35);
@@ -1123,7 +1123,7 @@
         .empty-placeholder {
             background: var(--tourney-bg);
             border: 1px dashed var(--tourney-border);
-            border-radius: 12px;
+            border-radius: var(--tourney-radius, 12px);
             padding: 2.5rem;
             text-align: center;
             color: var(--tourney-muted);

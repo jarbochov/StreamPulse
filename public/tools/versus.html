@@ -916,6 +916,21 @@
                                 </select>
                             </div>
                             <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Radius:</span>
+                                <select id="prev-ctrl-tourney-radius" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
+                                    <option value="">Default</option>
+                                    <option value="0px">Sharp (0px)</option>
+                                    <option value="4px">Subtle (4px)</option>
+                                    <option value="6px">Crisp (6px)</option>
+                                    <option value="8px">Smooth (8px)</option>
+                                    <option value="10px">Standard (10px)</option>
+                                    <option value="12px">Rounded (12px)</option>
+                                    <option value="16px">Extra (16px)</option>
+                                    <option value="24px">Soft Pill (24px)</option>
+                                    <option value="999px">Capsule</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
                                 <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Scores:</span>
                                 <select id="prev-ctrl-tourney-scores" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
                                     <option value="1">Show Scores</option>
@@ -1534,6 +1549,21 @@
                                             </select>
                                         </div>
                                         <div>
+                                            <label for="tourney-opt-radius-layout" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Border Radius (?radius=)</label>
+                                            <select id="tourney-opt-radius-layout" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncTourneyOptFromMain('radius', this.value)">
+                                                <option value="" selected>Theme Default</option>
+                                                <option value="0px">Sharp Square (0px)</option>
+                                                <option value="4px">Subtle (4px)</option>
+                                                <option value="6px">Crisp (6px)</option>
+                                                <option value="8px">Smooth (8px)</option>
+                                                <option value="10px">Standard (10px)</option>
+                                                <option value="12px">Rounded (12px)</option>
+                                                <option value="16px">Extra Rounded (16px)</option>
+                                                <option value="24px">Soft Pill (24px)</option>
+                                                <option value="999px">Pill / Capsule (999px)</option>
+                                            </select>
+                                        </div>
+                                        <div>
                                             <label for="tourney-opt-pipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Score Pip Style (?pipstyle=)</label>
                                             <select id="tourney-opt-pipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncTourneyOptFromMain('pipstyle', this.value)">
                                                 <option value="circle" selected>Circles (● ● ○)</option>
@@ -1687,14 +1717,17 @@
                                             </select>
                                         </div>
                                         <div>
-                                            <label for="tourney-opt-radius" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Corner Roundness (?radius=)</label>
-                                            <select id="tourney-opt-radius" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <label for="tourney-opt-radius" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Border Radius (?radius=)</label>
+                                            <select id="tourney-opt-radius" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncTourneyOptFromMain('radius', this.value)">
                                                 <option value="" selected>Theme Default</option>
                                                 <option value="0px">Sharp Square (0px)</option>
                                                 <option value="4px">Subtle (4px)</option>
+                                                <option value="6px">Crisp (6px)</option>
                                                 <option value="8px">Smooth (8px)</option>
+                                                <option value="10px">Standard (10px)</option>
                                                 <option value="12px">Rounded (12px)</option>
                                                 <option value="16px">Extra Rounded (16px)</option>
+                                                <option value="24px">Soft Pill (24px)</option>
                                                 <option value="999px">Pill / Capsule (999px)</option>
                                             </select>
                                         </div>
@@ -2198,6 +2231,11 @@
             if (key === 'theme' && $('prev-ctrl-tourney-theme')) $('prev-ctrl-tourney-theme').value = val;
             if (key === 'spacing' && $('prev-ctrl-tourney-spacing')) $('prev-ctrl-tourney-spacing').value = val;
             if (key === 'lines' && $('prev-ctrl-tourney-lines')) $('prev-ctrl-tourney-lines').value = val;
+            if (key === 'radius') {
+                if ($('tourney-opt-radius')) $('tourney-opt-radius').value = val;
+                if ($('tourney-opt-radius-layout')) $('tourney-opt-radius-layout').value = val;
+                if ($('prev-ctrl-tourney-radius')) $('prev-ctrl-tourney-radius').value = val;
+            }
             if (key === 'scores' && $('prev-ctrl-tourney-scores')) $('prev-ctrl-tourney-scores').value = val;
             if (key === 'title' && $('prev-ctrl-tourney-title')) $('prev-ctrl-tourney-title').value = val;
             if (key === 'format' && $('prev-ctrl-tourney-format')) $('prev-ctrl-tourney-format').value = val;
@@ -2367,6 +2405,10 @@
             if ($('tourney-opt-theme') && $('prev-ctrl-tourney-theme')) $('tourney-opt-theme').value = $('prev-ctrl-tourney-theme').value;
             if ($('tourney-opt-spacing') && $('prev-ctrl-tourney-spacing')) $('tourney-opt-spacing').value = $('prev-ctrl-tourney-spacing').value;
             if ($('tourney-opt-lines') && $('prev-ctrl-tourney-lines')) $('tourney-opt-lines').value = $('prev-ctrl-tourney-lines').value;
+            if ($('prev-ctrl-tourney-radius')) {
+                if ($('tourney-opt-radius')) $('tourney-opt-radius').value = $('prev-ctrl-tourney-radius').value;
+                if ($('tourney-opt-radius-layout')) $('tourney-opt-radius-layout').value = $('prev-ctrl-tourney-radius').value;
+            }
             if ($('tourney-opt-scores') && $('prev-ctrl-tourney-scores')) $('tourney-opt-scores').checked = $('prev-ctrl-tourney-scores').value === '1';
             if ($('tourney-opt-title') && $('prev-ctrl-tourney-title')) $('tourney-opt-title').checked = $('prev-ctrl-tourney-title').value === '1';
             if ($('tourney-opt-format') && $('prev-ctrl-tourney-format')) $('tourney-opt-format').checked = $('prev-ctrl-tourney-format').value === '1';
@@ -2932,6 +2974,10 @@
                         const el = $('tourney-opt-' + k);
                         if (el && t[k] !== undefined) el.value = t[k];
                     });
+                    if (t.radius !== undefined) {
+                        if ($('tourney-opt-radius-layout')) $('tourney-opt-radius-layout').value = t.radius;
+                        if ($('prev-ctrl-tourney-radius')) $('prev-ctrl-tourney-radius').value = t.radius;
+                    }
                     ['accent', 'badgecolor', 'p1color', 'p2color', 'text', 'muted', 'cardbg', 'bg', 'border', 'winner'].forEach(k => {
                         const el = $('tourney-opt-' + k);
                         if (el && t[k] !== undefined) {
@@ -3223,6 +3269,10 @@
             if (theme.weight !== undefined && $(prefix + 'weight')) $(prefix + 'weight').value = theme.weight;
             if (theme.textTransform !== undefined && $(prefix + 'transform')) $(prefix + 'transform').value = theme.textTransform;
             if (theme.radius !== undefined && $(prefix + 'radius')) $(prefix + 'radius').value = theme.radius;
+            if (target === 'tourney' && theme.radius !== undefined) {
+                if ($('tourney-opt-radius-layout')) $('tourney-opt-radius-layout').value = theme.radius;
+                if ($('prev-ctrl-tourney-radius')) $('prev-ctrl-tourney-radius').value = theme.radius;
+            }
             if (theme.outline !== undefined && $(prefix + 'outline')) $(prefix + 'outline').value = theme.outline;
             if (theme.scale !== undefined && $(prefix + 'scale')) $(prefix + 'scale').value = theme.scale;
 
