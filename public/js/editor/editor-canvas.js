@@ -244,10 +244,13 @@ export function cancelEditorStateMorph() {
 export function captureEditorStateSnapshot() {
     const map = new Map();
     for (const el of visibleElements()) {
+        const node = state.nodes.get(el.id);
+        const fittedFontSize = (node && node._fittedFontSize) ? node._fittedFontSize : (Number(el.style?.fontSize) || 32);
         const entry = {
             id: el.id,
             morphId: el.morphId || '',
             type: el.type,
+            page: el.page || '*',
             x: Number(el.x) || 0,
             y: Number(el.y) || 0,
             width: Number(el.width) || 400,
@@ -258,6 +261,8 @@ export function captureEditorStateSnapshot() {
             borderRadius: Number(el.style?.borderRadius) || 0,
             feather: Number(el.cutout?.feather) || 0,
             cutoutShape: el.cutout?.shape || 'rectangle',
+            textFit: el.textFit || 'none',
+            fittedFontSize,
             style: JSON.parse(JSON.stringify(el.style || {})),
             cutout: JSON.parse(JSON.stringify(el.cutout || { shape: 'rectangle', feather: 0 })),
             styleSig: JSON.stringify(el.style || {})
@@ -268,20 +273,75 @@ export function captureEditorStateSnapshot() {
     return map;
 }
 
-export function previewEditorStateMorph(beforeMap) {
+export function previewEditorTransition(beforeMap, {
+    prevPage = null,
+    nextPage = state.curPage,
+    transition = state.overlay.pages?.transition || 'morph',
+    durationMs = state.overlay.pages?.transitionMs || (transition === 'morph' ? 650 : 500),
+    easing = state.overlay.pages?.transitionEasing || 'smooth',
+    direction = state.overlay.pages?.transitionDirection || 'left',
+    distance = state.overlay.pages?.transitionDistance || 120
+} = {}) {
     cancelEditorStateMorph();
-    if (!beforeMap || prefs.fx === false || state.overlay.pages?.transition !== 'morph') return;
-    const ms = Math.max(80, Math.min(5000, Number(state.overlay.pages?.transitionMs) || 650));
-    const easingKey = state.overlay.pages?.transitionEasing || 'smooth';
+    if (!beforeMap || prefs.fx === false || transition === 'none') return;
+    const ms = Math.max(80, Math.min(5000, Number(durationMs) || (transition === 'morph' ? 650 : 500)));
+    const easingKey = easing || 'smooth';
     const cssEase = EASING_CSS[easingKey] || EASING_CSS.smooth;
+    const transKind = transition || 'morph';
 
     const animatedNodes = [];
     const cutoutPairs = [];
+    const outgoingNodes = [];
+    const incomingNodes = [];
+
+    // Outgoing nodes: elements that were visible before, but are no longer in view
+    if (transKind === 'fade' || transKind === 'slide') {
+        const sign = { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] }[direction] || [1, 0];
+        const dx = sign[0] * distance, dy = sign[1] * distance;
+        for (const [id, prev] of beforeMap.entries()) {
+            if (id.startsWith('morph:')) continue;
+            const currentEl = byId(id);
+            if (!currentEl || !inView(currentEl)) {
+                const node = state.nodes.get(id);
+                if (node && prev.visible) {
+                    node.classList.remove('hidden');
+                    node.style.pointerEvents = 'none';
+                    if (transKind === 'slide') {
+                        node.style.setProperty('--pg-x', `${dx}px`);
+                        node.style.setProperty('--pg-y', `${dy}px`);
+                        node.style.animation = `pg-slide-out ${ms}ms ${cssEase} both`;
+                    } else {
+                        node.style.animation = `pg-fade-out ${ms}ms ${cssEase} both`;
+                    }
+                    outgoingNodes.push(node);
+                }
+            }
+        }
+    }
 
     for (const el of visibleElements()) {
         const prev = beforeMap.get(el.id) || (el.morphId ? beforeMap.get(`morph:${el.morphId}`) : null);
-        if (!prev) continue;
         const node = state.nodes.get(el.id);
+        if (!node) continue;
+
+        if (!prev || !prev.visible) {
+            // Incoming node (was not visible on previous page)
+            if (transKind === 'fade' || transKind === 'slide') {
+                const sign = { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] }[direction] || [1, 0];
+                const dx = sign[0] * distance, dy = sign[1] * distance;
+                node.classList.remove('hidden');
+                if (transKind === 'slide') {
+                    node.style.setProperty('--pg-x', `${dx}px`);
+                    node.style.setProperty('--pg-y', `${dy}px`);
+                    node.style.animation = `pg-slide-in ${ms}ms ${cssEase} both`;
+                } else {
+                    node.style.animation = `pg-fade-in ${ms}ms ${cssEase} both`;
+                }
+                incomingNodes.push(node);
+            }
+            continue;
+        }
+
         const curX = Number(el.x) || 0, curY = Number(el.y) || 0;
         const curW = Number(el.width) || 400, curH = Number(el.height) || 100;
         const curVis = el.visible !== false;
@@ -291,10 +351,14 @@ export function previewEditorStateMorph(beforeMap) {
         const curRad = Number(el.style?.borderRadius) || 0;
         const curStyleSig = JSON.stringify(el.style || {});
 
-        const changedAny = prev.x !== curX || prev.y !== curY || prev.width !== curW || prev.height !== curH || prevOp !== curOp || prev.rotate !== curRot || prev.borderRadius !== curRad || prev.styleSig !== curStyleSig || prev.feather !== (Number(el.cutout?.feather) || 0);
+        const isAutoFit = TEXT_TYPES.has(el.type) && ((el.textFit && el.textFit !== 'none') || (prev.textFit && prev.textFit !== 'none'));
+        const prevFitted = prev.fittedFontSize || (Number(prev.style?.fontSize) || 32);
+        const targetFitted = (node._fittedFontSize) || (Number(el.style?.fontSize) || 32);
+
+        const changedAny = prev.x !== curX || prev.y !== curY || prev.width !== curW || prev.height !== curH || prevOp !== curOp || prev.rotate !== curRot || prev.borderRadius !== curRad || prev.styleSig !== curStyleSig || prev.feather !== (Number(el.cutout?.feather) || 0) || (isAutoFit && prevFitted !== targetFitted);
         if (!changedAny) continue;
 
-        if (el.type === 'cutout' && (prev.visible || curVis)) {
+        if (el.type === 'cutout' && (prev.visible || curVis) && transKind === 'morph') {
             cutoutPairs.push({
                 id: el.id,
                 shape: el.cutout?.shape || prev.cutoutShape || 'rectangle',
@@ -303,45 +367,51 @@ export function previewEditorStateMorph(beforeMap) {
             });
         }
 
-        if (node) {
-            const idx = state.overlay.elements.indexOf(el);
-            const prevElModel = {
-                ...el,
-                x: prev.x,
-                y: prev.y,
-                width: prev.width,
-                height: prev.height,
-                visible: prev.visible,
-                style: prev.style || {},
-                cutout: prev.cutout || el.cutout
-            };
-            applyNodeStyle(node, prevElModel, idx);
-            if (TEXT_TYPES.has(el.type) && el.textFit && el.textFit !== 'none' && shared.fitText) {
-                const probe = el.type === 'random-text' ? (shared.elementItems ? shared.elementItems(el).map(expand).reduce((a, b) => (b.length > a.length ? b : a), '') : null) : null;
-                shared.fitText(node, prevElModel, probe);
-            }
-            node.classList.remove('hidden');
-            node.style.transition = 'none';
-            node.style.willChange = 'left, top, width, height, opacity, transform, border-radius, font-size, color, background-color, border-width, border-color, box-shadow';
-            node.style.opacity = String(prevOp);
-            animatedNodes.push({ node, el, idx, curX, curY, curW, curH, curVis, curOp, curRot, curRad });
+        const idx = state.overlay.elements.indexOf(el);
+        const prevElModel = {
+            ...el,
+            x: prev.x,
+            y: prev.y,
+            width: prev.width,
+            height: prev.height,
+            visible: prev.visible,
+            textFit: prev.textFit || el.textFit,
+            style: prev.style || {},
+            cutout: prev.cutout || el.cutout
+        };
+        applyNodeStyle(node, prevElModel, idx);
+        if (isAutoFit) {
+            node.style.fontSize = `${prevFitted}px`;
         }
+        node.classList.remove('hidden');
+        node.style.transition = 'none';
+        node.style.willChange = 'left, top, width, height, opacity, transform, border-radius, font-size, color, background-color, border-width, border-color, box-shadow';
+        node.style.opacity = String(prevOp);
+        animatedNodes.push({ node, el, idx, curX, curY, curW, curH, curVis, curOp, curRot, curRad, isAutoFit, targetFitted });
     }
 
-    if (!animatedNodes.length && !cutoutPairs.length) return;
+    if (!animatedNodes.length && !cutoutPairs.length && !outgoingNodes.length && !incomingNodes.length) return;
 
     let rafId = 0;
     let timerId = 0;
     const cleanup = () => {
         if (rafId) cancelAnimationFrame(rafId);
         if (timerId) clearTimeout(timerId);
+        for (const outNode of outgoingNodes) {
+            outNode.style.animation = '';
+            outNode.style.pointerEvents = '';
+            outNode.classList.add('hidden');
+        }
+        for (const inNode of incomingNodes) {
+            inNode.style.animation = '';
+        }
         for (const item of animatedNodes) {
             item.node.style.transition = '';
             item.node.style.willChange = '';
             applyNodeStyle(item.node, item.el, item.idx);
-            if (TEXT_TYPES.has(item.el.type) && item.el.textFit && item.el.textFit !== 'none' && shared.fitText) {
-                const probe = item.el.type === 'random-text' ? (shared.elementItems ? shared.elementItems(item.el).map(expand).reduce((a, b) => (b.length > a.length ? b : a), '') : null) : null;
-                shared.fitText(item.node, item.el, probe);
+            if (item.isAutoFit) {
+                item.node._fittedFontSize = item.targetFitted;
+                item.node.style.fontSize = `${item.targetFitted}px`;
             }
             item.node.classList.toggle('hidden', !item.curVis);
         }
@@ -370,9 +440,8 @@ export function previewEditorStateMorph(beforeMap) {
     }
     for (const item of animatedNodes) {
         applyNodeStyle(item.node, item.el, item.idx);
-        if (TEXT_TYPES.has(item.el.type) && item.el.textFit && item.el.textFit !== 'none' && shared.fitText) {
-            const probe = item.el.type === 'random-text' ? (shared.elementItems ? shared.elementItems(item.el).map(expand).reduce((a, b) => (b.length > a.length ? b : a), '') : null) : null;
-            shared.fitText(item.node, item.el, probe);
+        if (item.isAutoFit) {
+            item.node.style.fontSize = `${item.targetFitted}px`;
         }
         item.node.classList.remove('hidden');
         item.node.style.opacity = String(item.curOp);
@@ -410,8 +479,9 @@ export function previewEditorStateMorph(beforeMap) {
             activeMorphCleanup = null;
             cleanup();
         }
-    }, ms + 30);
+    }, ms + 40);
 }
+export const previewEditorStateMorph = previewEditorTransition;
 
 function setNodeText(node, text) {
     if (!node.firstElementChild) {
@@ -446,7 +516,7 @@ export function applyNodeStyle(node, el, index) {
         opacity: s.opacity ?? 1, background: (el.type === 'alert' || el.type === 'cutout') ? 'transparent' : (s.background || 'transparent'),
         borderRadius: el.type === 'alert' ? '0' : el.type === 'cutout' ? cutoutRadius : `${s.borderRadius || 0}px`,
         padding: `${TEXT_TYPES.has(el.type) ? s.padding || 0 : 0}px`,
-        fontFamily: s.fontFamily, fontSize: `${s.fontSize != null && s.fontSize !== '' ? s.fontSize : 32}px`, fontWeight: s.fontWeight, color: s.color, textAlign: s.textAlign,
+        fontFamily: s.fontFamily, fontSize: `${TEXT_TYPES.has(el.type) && el.textFit && el.textFit !== 'none' && node._fittedFontSize ? node._fittedFontSize : (s.fontSize != null && s.fontSize !== '' ? s.fontSize : 32)}px`, fontWeight: s.fontWeight, color: s.color, textAlign: s.textAlign,
         lineHeight: s.lineHeight, letterSpacing: `${s.letterSpacing || 0}px`,
         display: s.verticalAlign === 'top' ? 'block' : 'flex',
         alignItems: s.verticalAlign === 'middle' ? 'center' : s.verticalAlign === 'bottom' ? 'flex-end' : 'flex-start',

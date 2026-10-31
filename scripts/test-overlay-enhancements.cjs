@@ -455,4 +455,17 @@ test('Scene States vs Page Deck: Mode switching, font size morphing, and reactio
     assert.ok(editorCss.includes('.pg-empty button'), 'custom-overlay-editor.css must style .pg-empty button');
     assert.ok(editorCss.includes('white-space: normal;'), 'Empty state buttons must allow text wrapping to prevent cutoff');
     assert.ok(editorCss.includes('.pg-empty-actions'), 'Must have structured action layout for empty state');
+    assert.ok(editorCss.includes('@keyframes pg-fade-in'), 'custom-overlay-editor.css must include pg-fade-in');
+    assert.ok(editorCss.includes('@keyframes pg-slide-in'), 'custom-overlay-editor.css must include pg-slide-in');
+
+    assert.ok(layersJs.includes("id=\"btn-preview-transition\""), 'Layers panel must have transition preview button');
+    assert.ok(layersJs.includes("P.transition === 'morph' ? 'Morph' : P.transition === 'fade' ? 'Crossfade' : 'Slide'"), 'Preview button must adapt label to transition style');
+
+    assert.ok(canvasJs.includes("export function previewEditorTransition"), 'canvas must export previewEditorTransition');
+    assert.ok(canvasJs.includes("isAutoFit && prevFitted !== targetFitted"), 'canvas must detect auto text size differences across states');
+
+    assert.ok(runtimeJs.includes("isAutoFit ? targetFitted : null"), 'runtime must track target fitted font size during morph');
+
+    const overlayServiceJs = fs.readFileSync(path.join(__dirname, '../server/services/overlays.js'), 'utf8');
+    assert.ok(overlayServiceJs.includes("clean.textFit = entry.textFit;"), 'overlays service must normalize textFit in pageStates');
 });

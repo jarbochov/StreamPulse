@@ -902,7 +902,7 @@
         }
         const ms = pages.transition === 'none' ? 0 : pages.transitionMs;
         const kind = pages.transition;
-        const isMorph = kind === 'morph' || pages.kind === 'states';
+        const isMorph = kind === 'morph' || (!kind && pages.kind === 'states');
         const easeName = pages.transitionEasing || 'smooth';
         const cssEase = MORPH_EASINGS[easeName] || MORPH_EASINGS.smooth;
         // "left" means the content moves left: the new page enters from the right.
@@ -935,12 +935,21 @@
                 }
             }
             if (ms > 0 && isMorph && prevEl) {
+                const isAutoFit = ((afterEl.textFit && afterEl.textFit !== 'none') || (prevEl.textFit && prevEl.textFit !== 'none')) && shared.fitText;
+                let prevFitted = Number(prevEl.style?.fontSize) || 32;
+                let targetFitted = Number(afterEl.style?.fontSize) || 32;
+                if (isAutoFit) {
+                    targetFitted = node._fittedFontSize || targetFitted;
+                    shared.fitText(node, prevEl);
+                    prevFitted = node._fittedFontSize || prevFitted;
+                }
                 // Set initial before-state styles so browser can transition to afterEl
                 applyElementStyle(node, prevEl);
+                if (isAutoFit) node.style.fontSize = `${prevFitted}px`;
                 node.style.visibility = '';
                 node.style.opacity = String(wasVis ? (prevEl.style?.opacity ?? 1) : 0);
-                node.style.willChange = 'left, top, width, height, transform, opacity, border-radius';
-                morphedShared.push({ node, prevEl, afterEl, wasVis, nowVis });
+                node.style.willChange = 'left, top, width, height, transform, opacity, border-radius, font-size';
+                morphedShared.push({ node, prevEl, afterEl, wasVis, nowVis, targetFitted: isAutoFit ? targetFitted : null });
             } else if (!nowVis) {
                 node.remove();
             } else {
@@ -1013,7 +1022,7 @@
         ready.then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
             incoming.forEach(node => { slideVars(node); node.style.visibility = ''; node.style.animation = `pg-${animKind}-in ${ms}ms ${cssEase} both`; });
             outgoing.forEach(node => { slideVars(node); node.style.animation = `pg-${animKind}-out ${ms}ms ${cssEase} both`; });
-            morphedShared.forEach(({ node, afterEl, nowVis }) => {
+            morphedShared.forEach(({ node, afterEl, nowVis, targetFitted }) => {
                 const morphProps = [
                     'left', 'top', 'width', 'height', 'transform', 'opacity',
                     'border-radius', 'border-width', 'border-color',
@@ -1023,6 +1032,9 @@
                 ];
                 node.style.transition = morphProps.map(p => `${p} ${ms}ms ${cssEase}`).join(', ');
                 applyElementStyle(node, afterEl);
+                if (targetFitted != null) {
+                    node.style.fontSize = `${targetFitted}px`;
+                }
                 if (afterEl.type === 'progress') {
                     shared.renderProgress(node, afterEl, expandVariables);
                 } else if (afterEl.type === 'icon') {

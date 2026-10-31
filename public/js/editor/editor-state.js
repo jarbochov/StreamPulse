@@ -426,6 +426,7 @@ export function extractElementState(el) {
         borderRadius: Math.round(Number(s.borderRadius) || 0),
         feather: Math.round(Number(el.cutout?.feather) || 0),
         cutoutShape: el.cutout?.shape || 'rectangle',
+        textFit: el.textFit || 'none',
         style: styleSnap
     };
 }
@@ -437,6 +438,7 @@ export function applyElementState(el, st) {
     if (st.width !== undefined) el.width = st.width;
     if (st.height !== undefined) el.height = st.height;
     if (st.visible !== undefined) el.visible = st.visible;
+    if (st.textFit !== undefined) el.textFit = st.textFit;
     el.style ||= {};
     if (st.style && typeof st.style === 'object') {
         for (const [k, v] of Object.entries(st.style)) {
@@ -471,8 +473,9 @@ export function syncWorkingStateForCurrentPage(pageId = state.curPage) {
         const base = el._baseState || (el._baseState = extractElementState(el));
         const cur = extractElementState(el);
         const delta = {};
-        for (const key of ['x', 'y', 'width', 'height', 'visible', 'opacity', 'rotate', 'borderRadius', 'feather', 'cutoutShape']) {
+        for (const key of ['x', 'y', 'width', 'height', 'visible', 'opacity', 'rotate', 'borderRadius', 'feather', 'cutoutShape', 'textFit']) {
             if ((key === 'feather' || key === 'cutoutShape') && el.type !== 'cutout') continue;
+            if (key === 'textFit' && !TEXT_TYPES.has(el.type)) continue;
             if (cur[key] !== base[key]) delta[key] = cur[key];
         }
         const styleDelta = {};

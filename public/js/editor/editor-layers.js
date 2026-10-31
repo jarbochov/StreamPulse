@@ -285,7 +285,7 @@ export function renderPagesPanel() {
             ${P.transition !== 'none' ? F.number('pages.transitionMs', 'Transition length (ms)', P.transitionMs, { min: 50, max: 5000, step: 50 }) : ''}
             ${F.select('pages.mode', 'Advance mode', P.mode, [['manual', 'Manual (editor, control panel, API)'], ['auto', 'Automatic cycle']])}
             ${P.mode === 'auto' ? `${F.number('pages.cycleSeconds', `Default seconds per ${noun}`, P.cycleSeconds, { min: 1, max: 3600 })}${F.check('pages.loop', `Loop back to first ${noun}`, P.loop)}` : ''}
-            ${items.length > 1 && P.transition === 'morph' ? `<button type="button" id="btn-preview-morph" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:600"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Preview Morph on Canvas</button>` : ''}
+            ${items.length > 1 && P.transition !== 'none' ? `<button type="button" id="btn-preview-transition" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:600"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Preview ${P.transition === 'morph' ? 'Morph' : P.transition === 'fade' ? 'Crossfade' : 'Slide'} on Canvas</button>` : ''}
         </details>
         <details class="sub-details" ${cur?.trigger ? 'open' : ''}>
             <summary>${esc(cur?.name || nounCap)} ${isStates ? 'Event Reaction' : 'Triggers &amp; Timing'} <span class="spacer"></span><span class="badge-pill${cur?.trigger ? '' : ' is-muted'}">${esc(triggerLabel)}</span></summary>
@@ -389,8 +389,10 @@ export function switchEditPage(id, { animate = true } = {}) {
     if (!id || id === state.curPage) return;
     flushHistory();
     syncWorkingStateForCurrentPage(state.curPage);
-    const shouldMorphPreview = animate && (statesModeOn() || state.overlay.pages?.transition === 'morph');
-    const beforeSnap = shouldMorphPreview ? captureEditorStateSnapshot() : null;
+    const trans = state.overlay.pages?.transition || (statesModeOn() ? 'morph' : 'fade');
+    const shouldAnimate = animate && trans !== 'none';
+    const beforeSnap = shouldAnimate ? captureEditorStateSnapshot() : null;
+    const prevPageId = state.curPage;
     state.curPage = id;
     projectPageState(id);
     renderPageBar();
@@ -400,8 +402,13 @@ export function switchEditPage(id, { animate = true } = {}) {
     updateStatusBarHandler();
     if (beforeSnap) {
         previewEditorStateMorph(beforeSnap, {
-            durationMs: state.overlay.pages?.transitionMs || 650,
-            easing: state.overlay.pages?.transitionEasing || 'smooth'
+            prevPage: prevPageId,
+            nextPage: id,
+            transition: trans,
+            durationMs: state.overlay.pages?.transitionMs || (trans === 'morph' ? 650 : 500),
+            easing: state.overlay.pages?.transitionEasing || 'smooth',
+            direction: state.overlay.pages?.transitionDirection || 'left',
+            distance: state.overlay.pages?.transitionDistance || 120
         });
     }
     if (animate && state.obs?.connected && state.obs?.syncOnSave !== false) {
@@ -683,10 +690,10 @@ export function initLayersAndPages() {
                 }
                 return;
             }
-            if (t?.id === 'btn-preview-morph') {
+            if (t?.id === 'btn-preview-morph' || t?.id === 'btn-preview-transition') {
                 const enabledItems = items.filter(p => p.enabled !== false);
                 if (enabledItems.length < 2) {
-                    toast('Add at least 2 states to preview transitions.', 'info', 2400);
+                    toast(`Add at least 2 ${isStates ? 'states' : 'pages'} to preview transitions.`, 'info', 2400);
                     return;
                 }
                 const curIdx = enabledItems.findIndex(p => p.id === state.curPage);

@@ -698,6 +698,7 @@ function normalizePageStates(raw) {
         if (Number.isFinite(Number(entry.borderRadius))) clean.borderRadius = Math.max(0, Math.min(200, Math.round(Number(entry.borderRadius))));
         if (Number.isFinite(Number(entry.feather))) clean.feather = Math.max(0, Math.min(100, Math.round(Number(entry.feather))));
         if (['rectangle', 'circle', 'pill'].includes(entry.cutoutShape)) clean.cutoutShape = entry.cutoutShape;
+        if (['none', 'shrink', 'fit'].includes(entry.textFit)) clean.textFit = entry.textFit;
         const styleOvr = normalizePageStateStyle(entry.style, entry);
         if (styleOvr) clean.style = styleOvr;
         if (Object.keys(clean).length) out[pid] = clean;
@@ -1047,6 +1048,7 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
             width: st.width ?? rawEl.width,
             height: st.height ?? rawEl.height,
             visible: st.visible ?? rawEl.visible,
+            textFit: st.textFit ?? rawEl.textFit,
             cutout: {
                 ...(rawEl.cutout || {}),
                 ...(st.cutoutShape !== undefined ? { shape: st.cutoutShape } : {}),
