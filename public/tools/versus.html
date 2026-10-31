@@ -1169,12 +1169,25 @@
                                     </div>
                                     <div>
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-                                            <label for="matchup-opt-font" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin: 0;">Font Family (?font=)</label>
+                                            <label for="matchup-opt-heading-font" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin: 0;">Heading Font (?headingfont=)</label>
+                                            <span id="matchup-heading-font-asset-badge" style="display: none; font-size: 0.65rem; color: var(--accent); font-weight: 700; background: var(--bg-surface); border: 1px solid var(--border); padding: 0.05rem 0.35rem; border-radius: 3px;">Asset Library</span>
+                                        </div>
+                                        <div style="display: flex; gap: 0.35rem; align-items: center;">
+                                            <input type="text" id="matchup-opt-heading-font" list="overlay-fonts-list" class="form-control" placeholder="Match titles, phase badges, clocks" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="onFontInput('matchup-heading')">
+                                            <button type="button" class="btn-secondary btn-sm" onclick="openAssetFontPicker('matchup-heading')" title="Browse custom fonts in your Asset Library" style="font-size: 0.72rem; padding: 0.32rem 0.55rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+                                                Fonts
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                                            <label for="matchup-opt-font" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin: 0;">Content Font (?font=)</label>
                                             <span id="matchup-font-asset-badge" style="display: none; font-size: 0.65rem; color: var(--accent); font-weight: 700; background: var(--bg-surface); border: 1px solid var(--border); padding: 0.05rem 0.35rem; border-radius: 3px;">Asset Library</span>
                                         </div>
                                         <div style="display: flex; gap: 0.35rem; align-items: center;">
-                                            <input type="text" id="matchup-opt-font" list="overlay-fonts-list" class="form-control" placeholder="Asset Library, Google, or System Font" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="onFontInput('matchup')">
-                                            <button type="button" class="btn-secondary btn-sm" onclick="openAssetFontPicker('matchup')" title="Browse and preview custom fonts in your Asset Library" style="font-size: 0.72rem; padding: 0.32rem 0.55rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                            <input type="text" id="matchup-opt-font" list="overlay-fonts-list" class="form-control" placeholder="Player names, tags, scores" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="onFontInput('matchup')">
+                                            <button type="button" class="btn-secondary btn-sm" onclick="openAssetFontPicker('matchup')" title="Browse custom fonts in your Asset Library" style="font-size: 0.72rem; padding: 0.32rem 0.55rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">
                                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
                                                 Fonts
                                             </button>
@@ -1416,6 +1429,13 @@
                                 <div class="micro-heading" style="margin-bottom: 0.5rem;">Bracket Overlay Options</div>
                                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem; margin-bottom: 0.5rem;">
                                     <div>
+                                        <label for="tourney-opt-layout" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket Layout (?layout=)</label>
+                                        <select id="tourney-opt-layout" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <option value="tree" selected>Full Bracket Tree</option>
+                                            <option value="focus">Dynamic Focus (Zoomed on Active &amp; Upcoming)</option>
+                                        </select>
+                                    </div>
+                                    <div>
                                         <label for="tourney-opt-bracket" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket section (double elimination)</label>
                                         <select id="tourney-opt-bracket" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
                                             <option value="all">All brackets</option>
@@ -1532,12 +1552,25 @@
                                     </div>
                                     <div>
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-                                            <label for="tourney-opt-font" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin: 0;">Font Family (?font=)</label>
+                                            <label for="tourney-opt-heading-font" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin: 0;">Heading Font (?headingfont=)</label>
+                                            <span id="tourney-heading-font-asset-badge" style="display: none; font-size: 0.65rem; color: var(--accent); font-weight: 700; background: var(--bg-surface); border: 1px solid var(--border); padding: 0.05rem 0.35rem; border-radius: 3px;">Asset Library</span>
+                                        </div>
+                                        <div style="display: flex; gap: 0.35rem; align-items: center;">
+                                            <input type="text" id="tourney-opt-heading-font" list="overlay-fonts-list" class="form-control" placeholder="Tournament title, round headers, badges" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="onFontInput('tourney-heading')">
+                                            <button type="button" class="btn-secondary btn-sm" onclick="openAssetFontPicker('tourney-heading')" title="Browse custom fonts in your Asset Library" style="font-size: 0.72rem; padding: 0.32rem 0.55rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+                                                Fonts
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                                            <label for="tourney-opt-font" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin: 0;">Content Font (?font=)</label>
                                             <span id="tourney-font-asset-badge" style="display: none; font-size: 0.65rem; color: var(--accent); font-weight: 700; background: var(--bg-surface); border: 1px solid var(--border); padding: 0.05rem 0.35rem; border-radius: 3px;">Asset Library</span>
                                         </div>
                                         <div style="display: flex; gap: 0.35rem; align-items: center;">
-                                            <input type="text" id="tourney-opt-font" list="overlay-fonts-list" class="form-control" placeholder="Asset Library, Google, or System Font" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="onFontInput('tourney')">
-                                            <button type="button" class="btn-secondary btn-sm" onclick="openAssetFontPicker('tourney')" title="Browse and preview custom fonts in your Asset Library" style="font-size: 0.72rem; padding: 0.32rem 0.55rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                            <input type="text" id="tourney-opt-font" list="overlay-fonts-list" class="form-control" placeholder="Entrant names, tags, scores" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="onFontInput('tourney')">
+                                            <button type="button" class="btn-secondary btn-sm" onclick="openAssetFontPicker('tourney')" title="Browse custom fonts in your Asset Library" style="font-size: 0.72rem; padding: 0.32rem 0.55rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">
                                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
                                                 Fonts
                                             </button>
@@ -2342,6 +2375,10 @@
             if (tourneyBadgeColorInput && tourneyBadgeColorInput.value.trim()) urlParams.set('badgecolor', tourneyBadgeColorInput.value.trim());
 
             // Typography & Styling Overrides
+            const tourneyLayout = $('tourney-opt-layout')?.value;
+            if (tourneyLayout && tourneyLayout !== 'tree') urlParams.set('layout', tourneyLayout);
+            const tourneyHeadingFont = $('tourney-opt-heading-font')?.value?.trim();
+            if (tourneyHeadingFont) urlParams.set('headingfont', tourneyHeadingFont);
             const tourneyFont = $('tourney-opt-font')?.value?.trim();
             if (tourneyFont) urlParams.set('font', tourneyFont);
             const tourneyScale = $('tourney-opt-scale')?.value?.trim();
@@ -2520,6 +2557,8 @@
             if (badgeColorInput && badgeColorInput.value.trim()) urlParams.set('badgecolor', badgeColorInput.value.trim());
 
             // Typography & Styling Overrides
+            const matchupHeadingFont = $('matchup-opt-heading-font')?.value?.trim();
+            if (matchupHeadingFont) urlParams.set('headingfont', matchupHeadingFont);
             const matchupFont = $('matchup-opt-font')?.value?.trim();
             if (matchupFont) urlParams.set('font', matchupFont);
             const matchupWeight = $('matchup-opt-weight')?.value?.trim();
@@ -2613,6 +2652,7 @@
                         accent: $('matchup-opt-accent')?.value,
                         badgecolor: $('matchup-opt-badgecolor')?.value,
                         theme: $('matchup-opt-theme')?.value,
+                        headingfont: $('matchup-opt-heading-font')?.value,
                         font: $('matchup-opt-font')?.value,
                         weight: $('matchup-opt-weight')?.value,
                         transform: $('matchup-opt-transform')?.value,
@@ -2651,8 +2691,10 @@
                         confetti: $('matchup-opt-confetti')?.checked,
                     },
                     tourney: {
+                        layout: $('tourney-opt-layout')?.value,
                         bracket: $('tourney-opt-bracket')?.value,
                         theme: $('tourney-opt-theme')?.value,
+                        headingfont: $('tourney-opt-heading-font')?.value,
                         font: $('tourney-opt-font')?.value,
                         scale: $('tourney-opt-scale')?.value,
                         weight: $('tourney-opt-weight')?.value,
@@ -2728,6 +2770,7 @@
                     if (m.scale !== undefined && $('matchup-opt-scale')) $('matchup-opt-scale').value = m.scale;
                     if (m.width !== undefined && $('matchup-opt-width')) $('matchup-opt-width').value = m.width;
                     if (m.gap !== undefined && $('matchup-opt-gap')) $('matchup-opt-gap').value = m.gap;
+                    if (m.headingfont !== undefined && $('matchup-opt-heading-font')) $('matchup-opt-heading-font').value = m.headingfont;
                     ['font', 'weight', 'transform', 'radius', 'outline'].forEach(k => {
                         const el = $('matchup-opt-' + k);
                         if (el && m[k] !== undefined) el.value = m[k];
@@ -2746,6 +2789,7 @@
                 }
                 if (prefs.tourney) {
                     const t = prefs.tourney;
+                    if (t.layout !== undefined && $('tourney-opt-layout')) $('tourney-opt-layout').value = t.layout;
                     if (['all', 'winners', 'losers', 'finals'].includes(t.bracket) && $('tourney-opt-bracket')) $('tourney-opt-bracket').value = t.bracket;
                     if (t.theme !== undefined && $('tourney-opt-theme')) $('tourney-opt-theme').value = t.theme;
                     if (t.spacing !== undefined && $('tourney-opt-spacing')) $('tourney-opt-spacing').value = t.spacing;
@@ -2754,7 +2798,7 @@
                     if (t.roundpipstyle !== undefined && $('tourney-opt-roundpipstyle')) $('tourney-opt-roundpipstyle').value = t.roundpipstyle;
                     if (t.gap !== undefined && $('tourney-opt-gap')) $('tourney-opt-gap').value = t.gap;
                     if (t.logosize !== undefined && $('tourney-opt-logosize')) $('tourney-opt-logosize').value = t.logosize;
-                    ['font', 'scale', 'weight', 'transform', 'radius', 'outline'].forEach(k => {
+                    ['headingfont', 'font', 'scale', 'weight', 'transform', 'radius', 'outline'].forEach(k => {
                         const el = $('tourney-opt-' + k);
                         if (el && t[k] !== undefined) el.value = t[k];
                     });
@@ -2875,17 +2919,25 @@
         }
 
         function onFontInput(target) {
-            if (target === 'matchup') updateMatchupOverlayUrl();
+            if (target === 'matchup' || target === 'matchup-heading') updateMatchupOverlayUrl();
             else updateTourneyOverlayUrl();
             updateAssetFontBadges();
         }
 
         function updateAssetFontBadges() {
             const assetNames = (cachedAssetFontsList || []).map(a => (a.family || a.label || (a.name ? a.name.replace(/\.[a-z0-9]+$/i, '') : '')).trim().toLowerCase());
+            const mhVal = $('matchup-opt-heading-font')?.value?.trim().toLowerCase();
             const mVal = $('matchup-opt-font')?.value?.trim().toLowerCase();
+            const thVal = $('tourney-opt-heading-font')?.value?.trim().toLowerCase();
             const tVal = $('tourney-opt-font')?.value?.trim().toLowerCase();
+            if ($('matchup-heading-font-asset-badge')) {
+                $('matchup-heading-font-asset-badge').style.display = mhVal && assetNames.includes(mhVal) ? 'inline-block' : 'none';
+            }
             if ($('matchup-font-asset-badge')) {
                 $('matchup-font-asset-badge').style.display = mVal && assetNames.includes(mVal) ? 'inline-block' : 'none';
+            }
+            if ($('tourney-heading-font-asset-badge')) {
+                $('tourney-heading-font-asset-badge').style.display = thVal && assetNames.includes(thVal) ? 'inline-block' : 'none';
             }
             if ($('tourney-font-asset-badge')) {
                 $('tourney-font-asset-badge').style.display = tVal && assetNames.includes(tVal) ? 'inline-block' : 'none';
@@ -2957,11 +3009,17 @@
         }
 
         function selectAssetFont(fam) {
-            const inputId = activeFontPickerTarget === 'matchup' ? 'matchup-opt-font' : 'tourney-opt-font';
+            const targetMap = {
+                'matchup': 'matchup-opt-font',
+                'matchup-heading': 'matchup-opt-heading-font',
+                'tourney': 'tourney-opt-font',
+                'tourney-heading': 'tourney-opt-heading-font'
+            };
+            const inputId = targetMap[activeFontPickerTarget] || 'tourney-opt-font';
             const input = $(inputId);
             if (input) {
                 input.value = fam;
-                if (activeFontPickerTarget === 'matchup') updateMatchupOverlayUrl();
+                if (activeFontPickerTarget && activeFontPickerTarget.startsWith('matchup')) updateMatchupOverlayUrl();
                 else updateTourneyOverlayUrl();
                 updateAssetFontBadges();
             }

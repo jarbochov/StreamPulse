@@ -401,3 +401,100 @@ test('Poll Manager studio (polls.html) theme and font controls integration', () 
     assert.ok(html.includes('id="poll-opt-radius"'), 'Should contain radius selector for poll overlay');
     assert.ok(html.includes('id="poll-opt-winner"'), 'Should contain winner color picker for poll overlay');
 });
+
+test('Tournament and Poll overlays Heading Font vs Content Font parameter separation', async () => {
+    const TOURNEY_URL = 'file://' + path.resolve(__dirname, '../public/overlays/poll-tournament.html');
+    const POLL_URL = 'file://' + path.resolve(__dirname, '../public/overlays/poll.html');
+    let browser;
+    try {
+        browser = await puppeteer.launch({
+            headless: 'new',
+            pipe: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--allow-file-access-from-files']
+        });
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1280, height: 720 });
+        await page.goto(`${TOURNEY_URL}?preview=1&sample=1&font=Montserrat&headingfont=Cinzel&headingweight=800&headingtransform=uppercase`, {
+            waitUntil: 'domcontentloaded'
+        });
+        await page.waitForSelector('#tournament-container');
+
+        const tourneyStyles = await page.evaluate(() => {
+            const root = document.documentElement;
+            const cs = window.getComputedStyle(root);
+            return {
+                font: cs.getPropertyValue('--tourney-font').trim(),
+                headingFont: cs.getPropertyValue('--tourney-heading-font').trim(),
+                headingWeight: cs.getPropertyValue('--tourney-heading-weight').trim(),
+                headingTransform: cs.getPropertyValue('--tourney-heading-transform').trim()
+            };
+        });
+
+        assert.ok(tourneyStyles.font.includes('Montserrat'), 'Content font should be Montserrat');
+        assert.ok(tourneyStyles.headingFont.includes('Cinzel'), 'Heading font should be Cinzel');
+        assert.equal(tourneyStyles.headingWeight, '800', 'Heading weight should be 800');
+        assert.equal(tourneyStyles.headingTransform, 'uppercase', 'Heading transform should be uppercase');
+
+        // Test Live Poll overlay heading vs content font
+        await page.goto(`${POLL_URL}?preview=1&font=Roboto&headingfont=Oswald&headingweight=900`, {
+            waitUntil: 'domcontentloaded'
+        });
+        await page.waitForSelector('#poll-card');
+
+        const pollStyles = await page.evaluate(() => {
+            const root = document.documentElement;
+            const cs = window.getComputedStyle(root);
+            return {
+                font: cs.getPropertyValue('--poll-font').trim(),
+                headingFont: cs.getPropertyValue('--poll-heading-font').trim()
+            };
+        });
+
+        assert.ok(pollStyles.font.includes('Roboto'), 'Poll content font should be Roboto');
+        assert.ok(pollStyles.headingFont.includes('Oswald'), 'Poll heading font should be Oswald');
+    } finally {
+        if (browser) await browser.close();
+    }
+});
+
+test('Tournament overlay dynamic focus layout (layout=focus) zooms on active match and glides smoothly', async () => {
+    const TOURNEY_URL = 'file://' + path.resolve(__dirname, '../public/overlays/tournament.html');
+    let browser;
+    try {
+        browser = await puppeteer.launch({
+            headless: 'new',
+            pipe: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--allow-file-access-from-files']
+        });
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1280, height: 720 });
+        await page.goto(`${TOURNEY_URL}?preview=1&sample=1&layout=focus&scale=1.15&focusbadge=1`, {
+            waitUntil: 'domcontentloaded'
+        });
+        await page.waitForSelector('.match-card');
+
+        const focusInfo = await page.evaluate(() => {
+            const stage = document.getElementById('stage');
+            const hasFocusClass = document.body.classList.contains('layout-focus');
+            const transform = stage ? stage.style.transform : '';
+            const targetRound = document.querySelector('.bracket-round.is-target-round');
+            const badge = document.getElementById('tourney-focus-badge');
+
+            return {
+                hasFocusClass,
+                transform,
+                hasTargetRound: Boolean(targetRound),
+                hasBadge: Boolean(badge),
+                badgeText: badge ? badge.textContent.trim() : ''
+            };
+        });
+
+        assert.ok(focusInfo.hasFocusClass, 'Body should have layout-focus class');
+        assert.ok(focusInfo.transform.includes('translate('), 'Stage should have translated camera transform');
+        assert.ok(focusInfo.transform.includes('scale('), 'Stage should have scale transform');
+        assert.ok(focusInfo.hasTargetRound, 'A bracket round should be marked as target round');
+        assert.ok(focusInfo.hasBadge, 'Dynamic focus badge should be rendered');
+    } finally {
+        if (browser) await browser.close();
+    }
+});

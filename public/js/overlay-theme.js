@@ -272,10 +272,18 @@
         if (theme.textTransform) root.setProperty('--matchup-text-transform', theme.textTransform);
 
         // 2. Granular URL parameter overrides
-        const urlFont = (params.get('font') || '').replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
+        const urlFont = (params.get('font') || params.get('contentfont') || '').replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
+        const urlHeadingFont = (params.get('headingfont') || params.get('titlefont') || params.get('font1') || '').replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
         if (urlFont) {
             loadUrlFont(urlFont);
             root.setProperty('--matchup-font', `"${urlFont}", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`);
+        }
+        if (urlHeadingFont) {
+            loadUrlFont(urlHeadingFont);
+            root.setProperty('--matchup-heading-font', `"${urlHeadingFont}", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`);
+        } else if (urlFont || theme.font) {
+            const f = urlFont || theme.font;
+            root.setProperty('--matchup-heading-font', `"${f}", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`);
         }
 
         const urlWeight = (params.get('weight') || '').trim().toLowerCase();
@@ -284,9 +292,20 @@
             if (w) root.setProperty('--matchup-weight', w);
         }
 
+        const urlHeadingWeight = (params.get('headingweight') || '').trim().toLowerCase();
+        if (urlHeadingWeight) {
+            const hw = { normal: '400', bold: '700' }[urlHeadingWeight] || (/^[1-9]00$/.test(urlHeadingWeight) ? urlHeadingWeight : '');
+            if (hw) root.setProperty('--matchup-heading-weight', hw);
+        }
+
         const urlTransform = (params.get('transform') || params.get('texttransform') || '').trim().toLowerCase();
         if (['uppercase', 'none', 'capitalize', 'lowercase'].includes(urlTransform)) {
             root.setProperty('--matchup-text-transform', urlTransform);
+        }
+
+        const urlHeadingTransform = (params.get('headingtransform') || '').trim().toLowerCase();
+        if (['uppercase', 'none', 'capitalize', 'lowercase'].includes(urlHeadingTransform)) {
+            root.setProperty('--matchup-heading-transform', urlHeadingTransform);
         }
 
         const urlScale = Number(params.get('scale') || params.get('fontscale'));
@@ -386,10 +405,18 @@
         if (theme.textTransform) root.setProperty('--tourney-text-transform', theme.textTransform);
 
         // 2. Granular URL parameter overrides
-        const urlFont = (params.get('font') || '').replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
+        const urlFont = (params.get('font') || params.get('contentfont') || '').replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
+        const urlHeadingFont = (params.get('headingfont') || params.get('titlefont') || params.get('font1') || '').replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
         if (urlFont) {
             loadUrlFont(urlFont);
             root.setProperty('--tourney-font', `"${urlFont}", -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`);
+        }
+        if (urlHeadingFont) {
+            loadUrlFont(urlHeadingFont);
+            root.setProperty('--tourney-heading-font', `"${urlHeadingFont}", -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`);
+        } else if (urlFont || theme.font) {
+            const f = urlFont || theme.font;
+            root.setProperty('--tourney-heading-font', `"${f}", -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`);
         }
 
         const urlWeight = (params.get('weight') || '').trim().toLowerCase();
@@ -398,9 +425,20 @@
             if (w) root.setProperty('--tourney-weight', w);
         }
 
+        const urlHeadingWeight = (params.get('headingweight') || '').trim().toLowerCase();
+        if (urlHeadingWeight) {
+            const hw = { normal: '400', bold: '700' }[urlHeadingWeight] || (/^[1-9]00$/.test(urlHeadingWeight) ? urlHeadingWeight : '');
+            if (hw) root.setProperty('--tourney-heading-weight', hw);
+        }
+
         const urlTransform = (params.get('transform') || params.get('texttransform') || '').trim().toLowerCase();
         if (['uppercase', 'none', 'capitalize', 'lowercase'].includes(urlTransform)) {
             root.setProperty('--tourney-text-transform', urlTransform);
+        }
+
+        const urlHeadingTransform = (params.get('headingtransform') || '').trim().toLowerCase();
+        if (['uppercase', 'none', 'capitalize', 'lowercase'].includes(urlHeadingTransform)) {
+            root.setProperty('--tourney-heading-transform', urlHeadingTransform);
         }
 
         const urlScale = Number(params.get('scale') || params.get('fontscale'));
@@ -535,10 +573,18 @@
         }
 
         // 2. Granular URL parameter overrides
-        const urlFont = (params.get('font') || '').replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
+        const urlFont = (params.get('font') || params.get('contentfont') || '').replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
+        const urlHeadingFont = (params.get('headingfont') || params.get('titlefont') || params.get('font1') || '').replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
         if (urlFont) {
             loadUrlFont(urlFont);
             root.setProperty('--poll-font', `"${urlFont}", -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`);
+        }
+        if (urlHeadingFont) {
+            loadUrlFont(urlHeadingFont);
+            root.setProperty('--poll-heading-font', `"${urlHeadingFont}", -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`);
+        } else if (urlFont || theme.font) {
+            const f = urlFont || theme.font;
+            root.setProperty('--poll-heading-font', `"${f}", -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`);
         }
 
         const urlWeight = (params.get('weight') || '').trim().toLowerCase();
@@ -555,6 +601,20 @@
             }
         }
 
+        const urlHeadingWeight = (params.get('headingweight') || '').trim().toLowerCase();
+        if (urlHeadingWeight) {
+            const hw = { normal: '400', bold: '700' }[urlHeadingWeight] || (/^[1-9]00$/.test(urlHeadingWeight) ? urlHeadingWeight : '');
+            if (hw) {
+                let style = document.getElementById('streampulse-poll-heading-weight-style');
+                if (!style) {
+                    style = document.createElement('style');
+                    style.id = 'streampulse-poll-heading-weight-style';
+                    document.head.appendChild(style);
+                }
+                style.textContent = `.poll-title, .poll-badge { font-weight: ${hw} !important; }`;
+            }
+        }
+
         const urlTransform = (params.get('transform') || params.get('texttransform') || '').trim().toLowerCase();
         if (['uppercase', 'none', 'capitalize', 'lowercase'].includes(urlTransform)) {
             let style = document.getElementById('streampulse-poll-transform-style');
@@ -564,6 +624,17 @@
                 document.head.appendChild(style);
             }
             style.textContent = `.poll-title, .poll-choice-title, .poll-badge { text-transform: ${urlTransform} !important; }`;
+        }
+
+        const urlHeadingTransform = (params.get('headingtransform') || '').trim().toLowerCase();
+        if (['uppercase', 'none', 'capitalize', 'lowercase'].includes(urlHeadingTransform)) {
+            let style = document.getElementById('streampulse-poll-heading-transform-style');
+            if (!style) {
+                style = document.createElement('style');
+                style.id = 'streampulse-poll-heading-transform-style';
+                document.head.appendChild(style);
+            }
+            style.textContent = `.poll-title, .poll-badge { text-transform: ${urlHeadingTransform} !important; }`;
         }
 
         const urlScale = Number(params.get('scale') || params.get('fontscale'));

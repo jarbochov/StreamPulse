@@ -115,7 +115,8 @@
 
         const forceSample = params.get('sample') === '1';
         const isPreview = params.get('preview') === '1' || params.get('sample') === '1';
-        const layoutMode = (params.get('layout') || params.get('mode') || 'tree').toLowerCase(); // 'tree' | 'active' | 'hud' | 'compact'
+        const layoutMode = (params.get('layout') || params.get('mode') || 'tree').toLowerCase(); // 'tree' | 'active' | 'hud' | 'compact' | 'focus' | 'dynamic'
+        const isFocusMode = layoutMode === 'focus' || layoutMode === 'dynamic' || layoutMode === 'zoom' || params.get('focus') === '1' || params.get('dynamic') === '1';
         const requestedBracket = (params.get('bracket') || 'all').toLowerCase();
         const bracketView = ['winners', 'losers', 'finals'].includes(requestedBracket) ? requestedBracket : 'all';
         const showScoresParam = params.get('showscores') !== '0' && params.get('scores') !== '0';
@@ -268,9 +269,131 @@
             adjustScaleAndFit();
         }
 
+        function findFocusTargetMatch(tourney) {
+            const matches = tourney?.matches || [];
+            if (!matches.length) return null;
+
+            // 1. Explicit activeMatchId or ACTIVE status
+            if (tourney.activeMatchId) {
+                const active = matches.find(m => m.id === tourney.activeMatchId);
+                if (active) return active;
+            }
+            const liveMatch = matches.find(m => m.status === 'ACTIVE');
+            if (liveMatch) return liveMatch;
+
+            // 2. First pending match with both entrants known
+            const readyMatch = matches.find(m => m.status !== 'COMPLETED' && !m.isBye && m.entrant1?.name && m.entrant1.name !== 'TBD' && m.entrant2?.name && m.entrant2.name !== 'TBD');
+            if (readyMatch) return readyMatch;
+
+            // 3. First incomplete match
+            const firstIncomplete = matches.find(m => m.status !== 'COMPLETED' && !m.isBye);
+            if (firstIncomplete) return firstIncomplete;
+
+            // 4. Completed -> Finals match
+            return matches[matches.length - 1];
+        }
+
+        function getOffsetToStage(el, stageEl) {
+            let cur = el;
+            let x = 0;
+            let y = 0;
+            while (cur && cur !== stageEl && cur !== document.body) {
+                x += cur.offsetLeft;
+                y += cur.offsetTop;
+                cur = cur.offsetParent;
+            }
+            return { x, y, width: el.offsetWidth, height: el.offsetHeight };
+        }
+
+        function applyDynamicFocus(tourney) {
+            if (!stage || !container || !tourney) return;
+            document.body.classList.add('layout-focus');
+
+            const targetMatch = findFocusTargetMatch(tourney);
+            if (!targetMatch) {
+                stage.style.transform = '';
+                return;
+            }
+
+            const targetCard = container.querySelector(`.match-card[data-match-id="${targetMatch.id}"]`);
+            if (!targetCard) {
+                stage.style.transform = '';
+                return;
+            }
+
+            const targetRound = targetCard.closest('.bracket-round');
+
+            // Visual indicators on rounds
+            document.querySelectorAll('.bracket-round').forEach(r => {
+                r.classList.remove('is-target-round', 'has-active-match');
+            });
+            if (targetRound) {
+                targetRound.classList.add('is-target-round');
+                if (targetMatch.status === 'ACTIVE') targetRound.classList.add('has-active-match');
+            }
+
+            // Dynamic focus badge indicator
+            const showFocusBadge = params.get('focusbadge') !== '0' && params.get('badge') !== '0';
+            let badgeEl = document.getElementById('tourney-focus-badge');
+            if (showFocusBadge) {
+                if (!badgeEl) {
+                    badgeEl = document.createElement('div');
+                    badgeEl.id = 'tourney-focus-badge';
+                    badgeEl.className = 'focus-badge';
+                    document.body.appendChild(badgeEl);
+                }
+                const roundTitle = targetMatch.roundName || (targetRound?.querySelector('.round-header')?.textContent?.trim()) || `Round ${targetMatch.round || 1}`;
+                const statusLabel = targetMatch.status === 'ACTIVE' ? (isPollMode ? 'Voting Live' : 'Live Match') : 'Up Next';
+                badgeEl.innerHTML = `<span class="focus-dot"></span><span>${statusLabel} · ${esc(roundTitle)}</span>`;
+            } else if (badgeEl) {
+                badgeEl.remove();
+            }
+
+            const cardOffset = getOffsetToStage(targetCard, stage);
+            const roundOffset = targetRound ? getOffsetToStage(targetRound, stage) : cardOffset;
+
+            const winW = window.innerWidth;
+            const winH = window.innerHeight;
+
+            const cardW = targetCard.offsetWidth || 260;
+            const cardH = targetCard.offsetHeight || 90;
+
+            let focusScale = 1.0;
+            if (scaleVal && Number.isFinite(scaleVal) && scaleVal > 0 && scaleVal !== 1) {
+                focusScale = scaleVal;
+            } else {
+                const targetH = Math.max(cardH * 3.2, 340);
+                const targetW = Math.max(cardW * 2.2, 580);
+                focusScale = Math.min(1.25, Math.max(0.75, (winH - 40) / targetH, (winW - 60) / targetW));
+            }
+
+            const focusType = (params.get('focusmode') || 'auto').toLowerCase();
+            let targetCenterX, targetCenterY;
+
+            if (focusType === 'match') {
+                targetCenterX = cardOffset.x + cardOffset.width / 2;
+                targetCenterY = cardOffset.y + cardOffset.height / 2;
+            } else {
+                targetCenterX = roundOffset.x + roundOffset.width / 2;
+                targetCenterY = cardOffset.y + cardOffset.height / 2;
+            }
+
+            const tx = (winW / 2) - (targetCenterX * focusScale);
+            const ty = (winH / 2) - (targetCenterY * focusScale);
+
+            stage.style.transformOrigin = '0 0';
+            stage.style.transform = `translate(${Math.round(tx)}px, ${Math.round(ty)}px) scale(${focusScale})`;
+
+            scheduleBracketConnectors();
+        }
+
         function adjustScaleAndFit() {
             if (layoutMode === 'active' || layoutMode === 'hud' || layoutMode === 'match') {
                 stage.style.transform = '';
+                return;
+            }
+            if (isFocusMode) {
+                applyDynamicFocus(currentTournament);
                 return;
             }
             const autoFit = params.get('fit') === '1' || params.get('autoscale') === '1' || params.get('fit') === 'all';

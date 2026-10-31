@@ -1,5 +1,8 @@
 :root {
             --tourney-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Roboto, sans-serif;
+            --tourney-heading-font: var(--tourney-font);
+            --tourney-heading-weight: 700;
+            --tourney-heading-transform: uppercase;
             --tourney-weight: 600;
             --tourney-text-transform: none;
             --tourney-text: #f0f6fc;
@@ -404,8 +407,10 @@
         }
 
         .tournament-title {
+            font-family: var(--tourney-heading-font);
             font-size: calc(clamp(1.1rem, 3.2cqi, 1.45rem) * var(--tourney-scale));
-            font-weight: 800;
+            font-weight: var(--tourney-heading-weight, 800);
+            text-transform: var(--tourney-heading-transform, none);
             letter-spacing: -0.02em;
             color: var(--tourney-text);
             display: flex;
@@ -461,9 +466,10 @@
         }
 
         .round-header {
+            font-family: var(--tourney-heading-font);
             font-size: calc(0.75rem * var(--tourney-scale));
-            font-weight: 700;
-            text-transform: uppercase;
+            font-weight: var(--tourney-heading-weight, 700);
+            text-transform: var(--tourney-heading-transform, uppercase);
             letter-spacing: 0.08em;
             color: var(--tourney-muted);
             text-align: center;
@@ -1096,15 +1102,17 @@
         }
 
         .champion-title {
+            font-family: var(--tourney-heading-font);
             font-size: 0.78rem;
-            font-weight: 800;
-            text-transform: uppercase;
+            font-weight: var(--tourney-heading-weight, 800);
+            text-transform: var(--tourney-heading-transform, uppercase);
             letter-spacing: 0.1em;
             color: #d29922;
             margin-bottom: 0.4rem;
         }
 
         .champion-name {
+            font-family: var(--tourney-heading-font);
             font-size: calc(1.8rem * var(--tourney-scale));
             font-weight: 900;
             color: #fff;
@@ -1140,12 +1148,13 @@
         }
 
         .bracket-section-header {
+            font-family: var(--tourney-heading-font);
             display: inline-flex;
             align-items: center;
             gap: 0.45rem;
             font-size: calc(0.78rem * var(--tourney-scale));
-            font-weight: 800;
-            text-transform: uppercase;
+            font-weight: var(--tourney-heading-weight, 800);
+            text-transform: var(--tourney-heading-transform, uppercase);
             letter-spacing: 0.08em;
             color: var(--tourney-accent);
             background: color-mix(in srgb, var(--tourney-accent) 14%, transparent);
@@ -1173,4 +1182,82 @@
             justify-content: center;
             width: 100%;
             max-width: var(--round-max-width, 580px);
+        }
+
+        /* Dynamic Focus / Zoomed Bracket View (layout=focus) */
+        body.layout-focus {
+            overflow: hidden !important;
+            padding: 0 !important;
+            display: block !important;
+            position: relative !important;
+        }
+
+        body.layout-focus .tournament-stage {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: max-content !important;
+            max-width: none !important;
+            transition: transform 0.85s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            transform-origin: 0 0 !important;
+            will-change: transform !important;
+        }
+
+        body.layout-focus .bracket-round {
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+
+        body.layout-focus .bracket-round:not(.has-active-match):not(.is-target-round) {
+            opacity: 0.68;
+        }
+
+        body.layout-focus .bracket-round.is-target-round {
+            opacity: 1;
+        }
+
+        body.layout-focus .match-card.active {
+            box-shadow: 0 0 24px var(--tourney-accent), 0 0 4px var(--tourney-accent);
+            transform: scale(1.02);
+            z-index: 10;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        /* Dynamic Focus Stage Indicator Pill */
+        .focus-badge {
+            position: fixed;
+            top: 18px;
+            left: 20px;
+            z-index: 999;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0.85rem;
+            border-radius: 9999px;
+            background: rgba(13, 17, 23, 0.88);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--tourney-border);
+            font-family: var(--tourney-heading-font);
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--tourney-text);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+            pointer-events: none;
+        }
+
+        .focus-badge .focus-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--tourney-accent);
+            box-shadow: 0 0 8px var(--tourney-accent);
+            animation: focus-pulse 1.8s infinite ease-in-out;
+            flex-shrink: 0;
+        }
+
+        @keyframes focus-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.75); }
         }
