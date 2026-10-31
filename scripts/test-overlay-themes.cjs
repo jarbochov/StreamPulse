@@ -301,3 +301,103 @@ test('OverlayFonts asset library font loading and versus studio font integration
     assert.ok(fontFaceStyle, '@font-face style should be injected for Asset Library font');
     assert.ok(fontFaceStyle.includes("src: url('/custom-overlay-assets/Akira-Expanded.otf')"), 'Font src should match asset URL');
 });
+
+test('Poll overlay typography, custom theme & styling parameter overrides', async () => {
+    const OVERLAY_URL = 'file://' + path.resolve(__dirname, '../public/overlays/poll.html');
+    let browser;
+    try {
+        browser = await puppeteer.launch({
+            headless: 'new',
+            pipe: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--allow-file-access-from-files']
+        });
+        const page = await browser.newPage();
+        await page.setViewport({ width: 800, height: 600 });
+        await page.goto(`${OVERLAY_URL}?preview=1&theme=championship&font=Cinzel&scale=1.25&weight=700&radius=18px&accent=ffaa00&winner=00ff88`, {
+            waitUntil: 'domcontentloaded'
+        });
+        await page.waitForSelector('#poll-card');
+
+        const styles = await page.evaluate(() => {
+            const root = document.documentElement;
+            const card = document.getElementById('poll-card');
+            const cs = window.getComputedStyle(root);
+            return {
+                pollFont: cs.getPropertyValue('--poll-font').trim(),
+                pollScale: cs.getPropertyValue('--poll-font-scale').trim(),
+                pollRadius: cs.getPropertyValue('--poll-radius').trim(),
+                pollAccent: cs.getPropertyValue('--poll-accent').trim(),
+                pollWinner: cs.getPropertyValue('--poll-winner').trim(),
+                cardHasTheme: card.classList.contains('theme-championship')
+            };
+        });
+
+        assert.ok(styles.pollFont.includes('Cinzel'), 'Poll font should include Cinzel');
+        assert.equal(styles.pollScale, '1.25', 'Poll scale should be 1.25');
+        assert.equal(styles.pollRadius, '18px', 'Poll corner radius should be 18px');
+        assert.equal(styles.pollAccent, '#ffaa00', 'Poll accent should be #ffaa00');
+        assert.equal(styles.pollWinner, '#00ff88', 'Poll winner highlight should be #00ff88');
+        assert.ok(styles.cardHasTheme, 'Poll card should have theme-championship class');
+    } finally {
+        if (browser) await browser.close();
+    }
+});
+
+test('Poll tournament overlay styling & theme integration', async () => {
+    const OVERLAY_URL = 'file://' + path.resolve(__dirname, '../public/overlays/poll-tournament.html');
+    let browser;
+    try {
+        browser = await puppeteer.launch({
+            headless: 'new',
+            pipe: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--allow-file-access-from-files']
+        });
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1280, height: 720 });
+        await page.goto(`${OVERLAY_URL}?preview=1&theme=cyber&font=Press+Start+2P&scale=1.15&radius=4px&accent=00ffff&lines=solid`, {
+            waitUntil: 'domcontentloaded'
+        });
+        await page.waitForSelector('#tournament-container');
+
+        const styles = await page.evaluate(() => {
+            const root = document.documentElement;
+            const cs = window.getComputedStyle(root);
+            return {
+                tourneyFont: cs.getPropertyValue('--tourney-font').trim(),
+                tourneyScale: cs.getPropertyValue('--tourney-scale').trim(),
+                tourneyRadius: cs.getPropertyValue('--tourney-radius').trim(),
+                tourneyAccent: cs.getPropertyValue('--tourney-accent').trim(),
+                bodyHasTheme: document.body.classList.contains('theme-cyber'),
+                bodyHasLines: document.body.classList.contains('lines-solid')
+            };
+        });
+
+        assert.ok(styles.tourneyFont.includes('Press Start 2P'), 'Tournament font should include Press Start 2P');
+        assert.equal(styles.tourneyScale, '1.15', 'Bracket scale should be 1.15');
+        assert.equal(styles.tourneyRadius, '4px', 'Bracket corner radius should be 4px');
+        assert.equal(styles.tourneyAccent, '#00ffff', 'Bracket accent should be #00ffff');
+        assert.ok(styles.bodyHasTheme, 'Body should have theme-cyber class');
+        assert.ok(styles.bodyHasLines, 'Body should have lines-solid class');
+    } finally {
+        if (browser) await browser.close();
+    }
+});
+
+test('Poll Manager studio (polls.html) theme and font controls integration', () => {
+    const html = fs.readFileSync(path.resolve(__dirname, '../public/tools/polls.html'), 'utf8');
+
+    // Required overlay controls
+    assert.ok(html.includes('id="overlay-fonts-list"'), 'Should contain datalist for overlay fonts');
+    assert.ok(html.includes('id="modal-save-theme"'), 'Should contain modal to save custom themes');
+    assert.ok(html.includes('id="modal-manage-themes"'), 'Should contain modal to manage custom themes');
+    assert.ok(html.includes('id="modal-asset-font-picker"'), 'Should contain modal to pick asset fonts');
+    assert.ok(html.includes('id="tourney-opt-font"'), 'Should contain font family input for tournament bracket');
+    assert.ok(html.includes('id="tourney-opt-scale"'), 'Should contain scale selector for tournament bracket');
+    assert.ok(html.includes('id="tourney-opt-weight"'), 'Should contain font weight selector for tournament bracket');
+    assert.ok(html.includes('id="tourney-opt-radius"'), 'Should contain radius selector for tournament bracket');
+    assert.ok(html.includes('id="tourney-opt-roundpipstyle"'), 'Should contain round pip style selector for tournament bracket');
+    assert.ok(html.includes('id="poll-opt-font"'), 'Should contain font family input for poll overlay');
+    assert.ok(html.includes('id="poll-opt-scale"'), 'Should contain scale selector for poll overlay');
+    assert.ok(html.includes('id="poll-opt-radius"'), 'Should contain radius selector for poll overlay');
+    assert.ok(html.includes('id="poll-opt-winner"'), 'Should contain winner color picker for poll overlay');
+});

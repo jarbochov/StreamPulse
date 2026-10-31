@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/admin.css">
     <link rel="stylesheet" href="/css/poll-studio.css">
     <script src="/appearance.js"></script>
+    <script src="/js/overlay-theme.js"></script>
     <script src="/js/image-picker.js"></script>
     <script src="/js/poll-widget.js"></script>
 </head>
@@ -571,37 +572,183 @@
                                 <button type="button" class="btn-secondary" onclick="copyUrl('url-poll-overlay', this)">Copy</button>
                             </div>
 
-                            <!-- URL Options Customizer -->
-                            <div style="background: var(--bg-inset); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border);">
+                            <!-- Poll URL Options Customizer -->
+                            <div style="background: var(--bg-inset); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border);">
                                 <div class="micro-heading" style="margin-bottom: 0.5rem;">Poll Overlay Options</div>
                                 
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.6rem;">
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem; margin-bottom: 0.6rem;">
                                     <div>
-                                        <label for="poll-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme / Container (?overlay=)</label>
-                                        <select id="poll-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updatePollOverlayUrl()">
-                                            <option value="card" selected>Dark Card (?overlay=card)</option>
-                                            <option value="glass">Frosted Glass (?overlay=glass)</option>
-                                            <option value="solid">Opaque Solid (?overlay=solid)</option>
-                                            <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
-                                            <option value="pill">Pill Capsule (?overlay=pill)</option>
-                                            <option value="neon">Cyber Neon (?overlay=neon)</option>
-                                            <option value="retro">Retro Arcade (?overlay=retro)</option><option value="championship">Championship Gold</option><option value="cyber">Cyberpunk</option><option value="clean-light">Clean Light</option><option value="minimal-dark">OLED Black</option><option value="ember">Ember (?overlay=ember)</option><option value="aurora">Aurora (?overlay=aurora)</option><option value="ocean">Ocean (?overlay=ocean)</option><option value="sunset">Sunset (?overlay=sunset)</option><option value="violet">Violet (?overlay=violet)</option><option value="forest">Forest (?overlay=forest)</option>
-                                            <option value="custom">Custom Color / Hash...</option>
+                                        <label for="poll-opt-align" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Horizontal Alignment (?align=)</label>
+                                        <select id="poll-opt-align" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updatePollOverlayUrl()">
+                                            <option value="" selected>Center (Default)</option>
+                                            <option value="left">Left Aligned</option>
+                                            <option value="right">Right Aligned</option>
                                         </select>
                                     </div>
-                                    <div id="poll-opt-custom-bg-wrap" style="display: none;">
-                                        <label for="poll-opt-custom-bg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Hex Color / Hash</label>
-                                        <div style="display: flex; gap: 0.3rem; align-items: center;">
-                                            <input type="text" id="poll-opt-custom-bg" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; font-family: monospace;" placeholder="161b22" value="161b22" oninput="updatePollOverlayUrl()">
-                                            <input type="color" id="poll-opt-color-picker" value="#161b22" style="width: 28px; height: 28px; padding: 1px; border: none; cursor: pointer; border-radius: 4px;" oninput="$('poll-opt-custom-bg').value = this.value.replace('#',''); updatePollOverlayUrl();">
+                                    <div>
+                                        <label for="poll-opt-valign" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Vertical Alignment (?valign=)</label>
+                                        <select id="poll-opt-valign" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updatePollOverlayUrl()">
+                                            <option value="" selected>Center (Default)</option>
+                                            <option value="top">Top Aligned</option>
+                                            <option value="bottom">Bottom Aligned</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Poll Typography & Custom Themes -->
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-top: 1px solid var(--border); padding-top: 0.75rem;">
+                                    <div class="micro-heading" style="margin: 0;">Poll Typography &amp; Theme Customization</div>
+                                    <div style="display: flex; gap: 0.35rem;">
+                                        <button type="button" class="btn-secondary btn-sm" onclick="openSaveThemeModal('poll')" title="Save current poll typography and colors as a theme" style="white-space: nowrap; font-size: 0.72rem; padding: 0.2rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                            Save Theme…
+                                        </button>
+                                        <button type="button" class="btn-secondary btn-sm" onclick="openManageThemesModal()" title="Manage saved custom themes" style="white-space: nowrap; font-size: 0.72rem; padding: 0.2rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                                            Manage
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem; margin-bottom: 0.85rem;">
+                                    <div>
+                                        <label for="poll-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme Preset (?overlay=)</label>
+                                        <select id="poll-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="onThemeSelectChange('poll', this.value)">
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                                            <label for="poll-opt-font" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin: 0;">Font Family (?font=)</label>
+                                            <span id="poll-font-asset-badge" style="display: none; font-size: 0.65rem; color: var(--accent); font-weight: 700; background: var(--bg-surface); border: 1px solid var(--border); padding: 0.05rem 0.35rem; border-radius: 3px;">Asset Library</span>
+                                        </div>
+                                        <div style="display: flex; gap: 0.35rem; align-items: center;">
+                                            <input type="text" id="poll-opt-font" list="overlay-fonts-list" class="form-control" placeholder="Asset Library, Google, or System Font" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="onFontInput('poll')">
+                                            <button type="button" class="btn-secondary btn-sm" onclick="openAssetFontPicker('poll')" title="Browse and preview custom fonts in your Asset Library" style="font-size: 0.72rem; padding: 0.32rem 0.55rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+                                                Fonts
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="poll-opt-scale" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Poll Font Scale (?fontscale=)</label>
+                                        <select id="poll-opt-scale" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updatePollOverlayUrl()">
+                                            <option value="0.75">0.75x (Compact)</option>
+                                            <option value="0.85">0.85x</option>
+                                            <option value="1" selected>1.0x (Standard)</option>
+                                            <option value="1.15">1.15x</option>
+                                            <option value="1.25">1.25x</option>
+                                            <option value="1.5">1.5x (Large)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="poll-opt-weight" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Font Weight (?weight=)</label>
+                                        <select id="poll-opt-weight" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updatePollOverlayUrl()">
+                                            <option value="" selected>Theme Default</option>
+                                            <option value="300">Light (300)</option>
+                                            <option value="400">Regular (400)</option>
+                                            <option value="500">Medium (500)</option>
+                                            <option value="600">Semi-Bold (600)</option>
+                                            <option value="700">Bold (700)</option>
+                                            <option value="800">Extra Bold (800)</option>
+                                            <option value="900">Black (900)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="poll-opt-transform" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Text Transform (?transform=)</label>
+                                        <select id="poll-opt-transform" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updatePollOverlayUrl()">
+                                            <option value="" selected>Theme Default (none)</option>
+                                            <option value="none">Natural / As Entered (none)</option>
+                                            <option value="uppercase">ALL CAPS (uppercase)</option>
+                                            <option value="capitalize">Capitalize Words</option>
+                                            <option value="lowercase">all lowercase</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="poll-opt-radius" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Corner Roundness (?radius=)</label>
+                                        <select id="poll-opt-radius" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updatePollOverlayUrl()">
+                                            <option value="" selected>Theme Default</option>
+                                            <option value="0px">Sharp Square (0px)</option>
+                                            <option value="4px">Subtle (4px)</option>
+                                            <option value="8px">Smooth (8px)</option>
+                                            <option value="14px">Rounded (14px)</option>
+                                            <option value="20px">Extra Rounded (20px)</option>
+                                            <option value="999px">Pill / Capsule (999px)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="poll-opt-outline" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Text Outline / Shadow (?outline=)</label>
+                                        <select id="poll-opt-outline" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updatePollOverlayUrl()">
+                                            <option value="" selected>Theme Default</option>
+                                            <option value="none">None</option>
+                                            <option value="subtle">Subtle Dark Shadow</option>
+                                            <option value="strong">Strong High-Contrast Outline</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Poll Colors -->
+                                <div class="micro-heading" style="margin-bottom: 0.5rem; border-top: 1px solid var(--border); padding-top: 0.75rem;">Poll Color Palette</div>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem; margin-bottom: 0.85rem;">
+                                    <div>
+                                        <label for="poll-opt-text" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Primary Text (?text=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="poll-opt-text-picker" value="#f0f6fc" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('poll-opt-text').value = this.value; updatePollOverlayUrl();">
+                                            <input type="text" id="poll-opt-text" class="form-control" placeholder="#f0f6fc or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('poll-opt-text', 'poll-opt-text-picker'); updatePollOverlayUrl();">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="poll-opt-muted" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Muted Subtitles (?muted=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="poll-opt-muted-picker" value="#8b949e" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('poll-opt-muted').value = this.value; updatePollOverlayUrl();">
+                                            <input type="text" id="poll-opt-muted" class="form-control" placeholder="#8b949e or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('poll-opt-muted', 'poll-opt-muted-picker'); updatePollOverlayUrl();">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="poll-opt-cardbg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Card Background (?bg= / ?cardbg=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="poll-opt-cardbg-picker" value="#0d1117" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('poll-opt-cardbg').value = this.value; updatePollOverlayUrl();">
+                                            <input type="text" id="poll-opt-cardbg" class="form-control" placeholder="rgba(13,17,23,.92) or hex" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('poll-opt-cardbg', 'poll-opt-cardbg-picker'); updatePollOverlayUrl();">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="poll-opt-border" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Border Color (?border=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="poll-opt-border-picker" value="#30363d" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('poll-opt-border').value = this.value; updatePollOverlayUrl();">
+                                            <input type="text" id="poll-opt-border" class="form-control" placeholder="#30363d or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('poll-opt-border', 'poll-opt-border-picker'); updatePollOverlayUrl();">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="poll-opt-accent" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Accent Color (?accent=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="poll-opt-accent-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('poll-opt-accent').value = this.value; updatePollOverlayUrl();">
+                                            <input type="text" id="poll-opt-accent" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('poll-opt-accent', 'poll-opt-accent-picker'); updatePollOverlayUrl();">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="poll-opt-winner" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Winner / Leader (?winner=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="poll-opt-winner-picker" value="#3fb950" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('poll-opt-winner').value = this.value; updatePollOverlayUrl();">
+                                            <input type="text" id="poll-opt-winner" class="form-control" placeholder="#3fb950 or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('poll-opt-winner', 'poll-opt-winner-picker'); updatePollOverlayUrl();">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="poll-opt-track" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Progress Bar Track (?track=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="poll-opt-track-picker" value="#21262d" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('poll-opt-track').value = this.value; updatePollOverlayUrl();">
+                                            <input type="text" id="poll-opt-track" class="form-control" placeholder="rgba(255,255,255,.12)" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('poll-opt-track', 'poll-opt-track-picker'); updatePollOverlayUrl();">
                                         </div>
                                     </div>
                                 </div>
 
-                                <div style="margin-bottom: 0.2rem;">
+                                <!-- Toggles -->
+                                <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="poll-opt-howtovote" onchange="updatePollOverlayUrl()">
+                                        <input type="checkbox" id="poll-opt-howtovote" checked onchange="updatePollOverlayUrl()">
                                         <span>Show "How to vote" chat keyword instructions (<code>?howtovote=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="poll-opt-confetti" checked onchange="updatePollOverlayUrl()">
+                                        <span>Celebration Confetti on Reveal (<code>?confetti=1</code>)</span>
                                     </label>
                                 </div>
                             </div>
@@ -618,10 +765,10 @@
                             </div>
 
                             <!-- Tournament URL Options Customizer -->
-                            <div style="background: var(--bg-inset); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border);">
-                                <div class="micro-heading" style="margin-bottom: 0.5rem;">Tournament Overlay Options</div>
+                            <div style="background: var(--bg-inset); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border);">
+                                <div class="micro-heading" style="margin-bottom: 0.5rem;">Bracket Overlay Options</div>
                                 
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.6rem;">
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem; margin-bottom: 0.5rem;">
                                     <div>
                                         <label for="tourney-opt-layout" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Layout (?layout=)</label>
                                         <select id="tourney-opt-layout" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
@@ -638,36 +785,40 @@
                                             <option value="losers">Losers bracket</option>
                                             <option value="finals">Grand Finals</option>
                                         </select>
-                                        <small id="tourney-bracket-help" style="color: var(--text-muted);">Bracket tree only; the match HUD shows the active match.</small>
+                                        <small id="tourney-bracket-help" style="color: var(--text-muted); font-size: 0.7rem;">Bracket tree only; HUD shows active match.</small>
                                     </div>
                                     <div>
                                         <label for="tourney-opt-spacing" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Spacing (?spacing=)</label>
-                                        <select id="tourney-opt-spacing" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()"><option value="normal">Normal</option><option value="compact">Compact</option><option value="spacious">Spacious</option></select>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-lines" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket lines (?lines=)</label>
-                                        <select id="tourney-opt-lines" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()"><option value="glow">Luminous glow</option><option value="solid">Solid</option></select>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme / Container (?overlay=)</label>
-                                        <select id="tourney-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
-                                            <option value="card" selected>Dark Card (?overlay=card)</option>
-                                            <option value="glass">Frosted Glass (?overlay=glass)</option>
-                                            <option value="solid">Opaque Solid (?overlay=solid)</option>
-                                            <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
-                                            <option value="pill">Pill Capsule (?overlay=pill)</option>
-                                            <option value="neon">Cyber Neon (?overlay=neon)</option>
-                                            <option value="retro">Retro Arcade (?overlay=retro)</option><option value="championship">Championship Gold</option><option value="cyber">Cyberpunk</option><option value="clean-light">Clean Light</option><option value="minimal-dark">OLED Black</option><option value="ember">Ember (?overlay=ember)</option><option value="aurora">Aurora (?overlay=aurora)</option><option value="ocean">Ocean (?overlay=ocean)</option><option value="sunset">Sunset (?overlay=sunset)</option><option value="violet">Violet (?overlay=violet)</option><option value="forest">Forest (?overlay=forest)</option>
+                                        <select id="tourney-opt-spacing" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <option value="normal" selected>Normal Spacing</option>
+                                            <option value="compact">Compact Fit</option>
+                                            <option value="spacious">Spacious Spacing</option>
                                         </select>
                                     </div>
                                     <div>
-                                        <label for="tourney-opt-pipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Pip Style (?pipstyle=)</label>
+                                        <label for="tourney-opt-lines" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket Lines (?lines=)</label>
+                                        <select id="tourney-opt-lines" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <option value="glow" selected>Luminous Glow Lines</option>
+                                            <option value="solid">Solid Connectors</option>
+                                            <option value="minimal">Minimal Lines</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-pipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Vote / Pip Style (?pipstyle=)</label>
                                         <select id="tourney-opt-pipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
-                                            <option value="circle" selected>Dot / Circle (●)</option>
-                                            <option value="diamond">Diamond (◆)</option>
-                                            <option value="star">Star (★)</option>
-                                            <option value="bar">Segment Bar (▮)</option>
+                                            <option value="circle" selected>Circles (● ● ○)</option>
+                                            <option value="diamond">Diamonds (◆ ◆ ◇)</option>
+                                            <option value="bar">Rectangular Bars (▮ ▮ ▯)</option>
                                             <option value="pill">Rounded Pill</option>
+                                            <option value="digit">Numeric Counter (1 / 2)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-roundpipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Round Pip Style (?roundpipstyle=)</label>
+                                        <select id="tourney-opt-roundpipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <option value="diamond" selected>Diamonds (◆ ◆ ◇)</option>
+                                            <option value="circle">Circles (● ● ○)</option>
+                                            <option value="bar">Rectangular Bars (▮ ▮ ▯)</option>
                                             <option value="digit">Numeric Counter (1 / 2)</option>
                                         </select>
                                     </div>
@@ -680,20 +831,6 @@
                                             <option value="240px">Wide Gap (240px)</option>
                                             <option value="360px">Extra Wide Split (360px)</option>
                                         </select>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-accent" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket Accent Color (?accent=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="tourney-opt-accent-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-accent').value = this.value; updateTourneyOverlayUrl();">
-                                            <input type="text" id="tourney-opt-accent" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-accent', 'tourney-opt-accent-picker'); updateTourneyOverlayUrl();">
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-badgecolor" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Match Badge Color (?badgecolor=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="tourney-opt-badgecolor-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-badgecolor').value = this.value; updateTourneyOverlayUrl();">
-                                            <input type="text" id="tourney-opt-badgecolor" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-badgecolor', 'tourney-opt-badgecolor-picker'); updateTourneyOverlayUrl();">
-                                        </div>
                                     </div>
                                     <div style="grid-column: span 2;">
                                         <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Header Logo Above Title (?logo=)</label>
@@ -715,6 +852,159 @@
                                             <option value="80px">Large (80px)</option>
                                             <option value="110px">Extra Large Banner (110px)</option>
                                         </select>
+                                    </div>
+                                </div>
+
+                                <!-- Tournament Typography & Custom Themes -->
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-top: 1px solid var(--border); padding-top: 0.75rem;">
+                                    <div class="micro-heading" style="margin: 0;">Bracket Typography &amp; Theme Customization</div>
+                                    <div style="display: flex; gap: 0.35rem;">
+                                        <button type="button" class="btn-secondary btn-sm" onclick="openSaveThemeModal('tourney')" title="Save current bracket typography and colors as a theme" style="white-space: nowrap; font-size: 0.72rem; padding: 0.2rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                            Save Theme…
+                                        </button>
+                                        <button type="button" class="btn-secondary btn-sm" onclick="openManageThemesModal()" title="Manage saved custom themes" style="white-space: nowrap; font-size: 0.72rem; padding: 0.2rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                                            Manage
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem; margin-bottom: 0.85rem;">
+                                    <div>
+                                        <label for="tourney-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme Preset (?overlay=)</label>
+                                        <select id="tourney-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="onThemeSelectChange('tourney', this.value)">
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                                            <label for="tourney-opt-font" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin: 0;">Font Family (?font=)</label>
+                                            <span id="tourney-font-asset-badge" style="display: none; font-size: 0.65rem; color: var(--accent); font-weight: 700; background: var(--bg-surface); border: 1px solid var(--border); padding: 0.05rem 0.35rem; border-radius: 3px;">Asset Library</span>
+                                        </div>
+                                        <div style="display: flex; gap: 0.35rem; align-items: center;">
+                                            <input type="text" id="tourney-opt-font" list="overlay-fonts-list" class="form-control" placeholder="Asset Library, Google, or System Font" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="onFontInput('tourney')">
+                                            <button type="button" class="btn-secondary btn-sm" onclick="openAssetFontPicker('tourney')" title="Browse and preview custom fonts in your Asset Library" style="font-size: 0.72rem; padding: 0.32rem 0.55rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+                                                Fonts
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-scale" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket Scale (?scale=)</label>
+                                        <select id="tourney-opt-scale" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <option value="0.75">0.75x (Compact)</option>
+                                            <option value="0.85">0.85x</option>
+                                            <option value="1" selected>1.0x (Standard)</option>
+                                            <option value="1.15">1.15x</option>
+                                            <option value="1.25">1.25x</option>
+                                            <option value="1.5">1.5x (Large)</option>
+                                            <option value="2.0">2.0x (Huge 4K)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-weight" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Font Weight (?weight=)</label>
+                                        <select id="tourney-opt-weight" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <option value="" selected>Theme Default</option>
+                                            <option value="300">Light (300)</option>
+                                            <option value="400">Regular (400)</option>
+                                            <option value="500">Medium (500)</option>
+                                            <option value="600">Semi-Bold (600)</option>
+                                            <option value="700">Bold (700)</option>
+                                            <option value="800">Extra Bold (800)</option>
+                                            <option value="900">Black (900)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-transform" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Text Transform (?transform=)</label>
+                                        <select id="tourney-opt-transform" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <option value="" selected>Theme Default (none)</option>
+                                            <option value="none">Natural / As Entered (none)</option>
+                                            <option value="uppercase">ALL CAPS (uppercase)</option>
+                                            <option value="capitalize">Capitalize Words</option>
+                                            <option value="lowercase">all lowercase</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-radius" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Corner Roundness (?radius=)</label>
+                                        <select id="tourney-opt-radius" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <option value="" selected>Theme Default</option>
+                                            <option value="0px">Sharp Square (0px)</option>
+                                            <option value="4px">Subtle (4px)</option>
+                                            <option value="8px">Smooth (8px)</option>
+                                            <option value="12px">Rounded (12px)</option>
+                                            <option value="16px">Extra Rounded (16px)</option>
+                                            <option value="999px">Pill / Capsule (999px)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-outline" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Text Outline / Shadow (?outline=)</label>
+                                        <select id="tourney-opt-outline" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <option value="" selected>Theme Default</option>
+                                            <option value="none">None</option>
+                                            <option value="subtle">Subtle Dark Shadow</option>
+                                            <option value="strong">Strong High-Contrast Outline</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Tournament Colors -->
+                                <div class="micro-heading" style="margin-bottom: 0.5rem; border-top: 1px solid var(--border); padding-top: 0.75rem;">Bracket Color Palette</div>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem; margin-bottom: 0.85rem;">
+                                    <div>
+                                        <label for="tourney-opt-text" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Primary Text (?text=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="tourney-opt-text-picker" value="#f0f6fc" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-text').value = this.value; updateTourneyOverlayUrl();">
+                                            <input type="text" id="tourney-opt-text" class="form-control" placeholder="#f0f6fc or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-text', 'tourney-opt-text-picker'); updateTourneyOverlayUrl();">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-muted" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Muted / Tags Color (?muted=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="tourney-opt-muted-picker" value="#8b949e" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-muted').value = this.value; updateTourneyOverlayUrl();">
+                                            <input type="text" id="tourney-opt-muted" class="form-control" placeholder="#8b949e or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-muted', 'tourney-opt-muted-picker'); updateTourneyOverlayUrl();">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-cardbg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Card Background (?cardbg=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="tourney-opt-cardbg-picker" value="#161b22" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-cardbg').value = this.value; updateTourneyOverlayUrl();">
+                                            <input type="text" id="tourney-opt-cardbg" class="form-control" placeholder="rgba(22,27,34,.88) or hex" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-cardbg', 'tourney-opt-cardbg-picker'); updateTourneyOverlayUrl();">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-bg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Backdrop / Backdrop Bg (?bg=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="tourney-opt-bg-picker" value="#0d1117" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-bg').value = this.value; updateTourneyOverlayUrl();">
+                                            <input type="text" id="tourney-opt-bg" class="form-control" placeholder="transparent or rgba(...)" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-bg', 'tourney-opt-bg-picker'); updateTourneyOverlayUrl();">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-border" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Border Color (?border=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="tourney-opt-border-picker" value="#30363d" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-border').value = this.value; updateTourneyOverlayUrl();">
+                                            <input type="text" id="tourney-opt-border" class="form-control" placeholder="#30363d or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-border', 'tourney-opt-border-picker'); updateTourneyOverlayUrl();">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-accent" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket Accent Color (?accent=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="tourney-opt-accent-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-accent').value = this.value; updateTourneyOverlayUrl();">
+                                            <input type="text" id="tourney-opt-accent" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-accent', 'tourney-opt-accent-picker'); updateTourneyOverlayUrl();">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-winner" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Winner Highlight (?winner=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="tourney-opt-winner-picker" value="#3fb950" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-winner').value = this.value; updateTourneyOverlayUrl();">
+                                            <input type="text" id="tourney-opt-winner" class="form-control" placeholder="#3fb950 or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-winner', 'tourney-opt-winner-picker'); updateTourneyOverlayUrl();">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-badgecolor" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Match Badge Color (?badgecolor=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="tourney-opt-badgecolor-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-badgecolor').value = this.value; updateTourneyOverlayUrl();">
+                                            <input type="text" id="tourney-opt-badgecolor" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-badgecolor', 'tourney-opt-badgecolor-picker'); updateTourneyOverlayUrl();">
+                                        </div>
                                     </div>
                                 </div>
 
@@ -796,11 +1086,95 @@
                 </div>
     </main>
 
+    <!-- Font Family Datalist for Overlay Pickers -->
+    <datalist id="overlay-fonts-list"></datalist>
+
+    <!-- Save Custom Overlay Theme Modal -->
+    <div id="modal-save-theme" style="display: none; position: fixed; inset: 0; background: rgba(5, 8, 17, 0.85); z-index: 9999; backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 1.5rem;">
+        <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 520px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(0,0,0,0.6); overflow: hidden;">
+            <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg-inset);">
+                <div>
+                    <h3 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--text);">Save Custom Overlay Theme</h3>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Save your active typography and color scheme as a reusable theme.</div>
+                </div>
+                <button type="button" class="btn-secondary btn-sm" onclick="closeSaveThemeModal()">Close &times;</button>
+            </div>
+            <form onsubmit="submitSaveTheme(event)" style="margin: 0; display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+                <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 0.85rem; overflow-y: auto;">
+                    <div>
+                        <label for="save-theme-name" style="font-size: 0.78rem; font-weight: 700; color: var(--text); display: block; margin-bottom: 0.35rem;">Theme Name</label>
+                        <input type="text" id="save-theme-name" class="form-control" placeholder="e.g. Neon Horizon, Retro Gold, Cyber EVO" required style="font-size: 0.85rem; padding: 0.45rem 0.65rem;">
+                    </div>
+                    <div style="background: var(--bg-inset); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border);">
+                        <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.4rem;">Theme Attributes Included:</div>
+                        <div id="save-theme-preview-summary"></div>
+                    </div>
+                </div>
+                <div style="padding: 0.75rem 1.25rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 0.5rem; align-items: center; background: var(--bg-inset);">
+                    <button type="button" class="btn-secondary" onclick="closeSaveThemeModal()">Cancel</button>
+                    <button type="submit" class="btn-primary" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        Save Theme
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Manage Saved Custom Overlay Themes Modal -->
+    <div id="modal-manage-themes" style="display: none; position: fixed; inset: 0; background: rgba(5, 8, 17, 0.85); z-index: 9999; backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 1.5rem;">
+        <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 600px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(0,0,0,0.6); overflow: hidden;">
+            <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg-inset);">
+                <div>
+                    <h3 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--text);">Saved Custom Overlay Themes</h3>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Apply or remove custom themes across Polls and Tournament Brackets.</div>
+                </div>
+                <button type="button" class="btn-secondary btn-sm" onclick="closeManageThemesModal()">Close &times;</button>
+            </div>
+            <div id="manage-themes-list" style="padding: 1.25rem; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 0.5rem;"></div>
+            <div style="padding: 0.75rem 1.25rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; align-items: center; background: var(--bg-inset);">
+                <button type="button" class="btn-secondary" onclick="closeManageThemesModal()">Dismiss</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Asset Library Font Picker Modal -->
+    <div id="modal-asset-font-picker" style="display: none; position: fixed; inset: 0; background: rgba(5, 8, 17, 0.85); z-index: 9999; backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 1.5rem;">
+        <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 620px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(0,0,0,0.6); overflow: hidden;">
+            <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg-inset);">
+                <div>
+                    <h3 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 0.4rem;">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+                        Asset Library Fonts
+                    </h3>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Choose an uploaded custom font for your live poll or tournament bracket.</div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <a href="/assets.html" target="_blank" rel="noopener noreferrer" class="btn-secondary btn-sm" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.72rem; padding: 0.25rem 0.5rem;" title="Upload TTF, OTF, WOFF, or WOFF2 fonts in the Asset Library">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Upload Fonts &nearr;
+                    </a>
+                    <button type="button" class="btn-secondary btn-sm" onclick="closeAssetFontPicker()">&times;</button>
+                </div>
+            </div>
+            <div id="asset-font-picker-list" style="padding: 1.25rem; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 0.6rem;"></div>
+            <div style="padding: 0.75rem 1.25rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg-inset);">
+                <button type="button" class="btn-secondary btn-sm" onclick="refreshAssetFontsAndPicker()" style="display: inline-flex; align-items: center; gap: 0.3rem;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                    Refresh List
+                </button>
+                <button type="button" class="btn-secondary" onclick="closeAssetFontPicker()">Dismiss</button>
+            </div>
+        </div>
+    </div>
+    </main>
+
     <div id="toast" class="toast"></div>
 
     <script>
         const $ = id => document.getElementById(id);
         const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const escapeHtml = esc;
         function toast(msg) { const t = $('toast'); if (!t) return; t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2400); }
 
         let activePollData = null;
@@ -812,55 +1186,433 @@
         let pollSocket = null;
         let activeTab = 'poll';
         let previewMode = 'poll';
+        let activeThemeModalTarget = 'tourney';
+        let activeFontPickerTarget = 'tourney';
+        let cachedAssetFontsList = [];
 
         // URL display initialization
         const baseUrl = window.location.origin;
-        $('url-poll-overlay').value = `${baseUrl}/overlays/poll.html`;
-        $('url-tourney-overlay').value = `${baseUrl}/overlays/poll-tournament.html`;
+        if ($('url-poll-overlay')) $('url-poll-overlay').value = `${baseUrl}/overlays/poll.html`;
+        if ($('url-tourney-overlay')) $('url-tourney-overlay').value = `${baseUrl}/overlays/poll-tournament.html`;
 
-        function updatePollOverlayUrl() {
-            const origin = window.location.origin;
-            const themeSelect = $('poll-opt-theme');
-            const customBgWrap = $('poll-opt-custom-bg-wrap');
-            const customBgInput = $('poll-opt-custom-bg');
-            const howToVoteCheck = $('poll-opt-howtovote');
+        const BUILT_IN_THEME_OPTIONS = [
+            { id: 'card', name: 'Dark Card' },
+            { id: 'fgc-evo', name: 'EVO Championship' },
+            { id: 'championship', name: 'Championship Gold' },
+            { id: 'cyber', name: 'Cyberpunk Neon' },
+            { id: 'clean-light', name: 'Clean Light Contrast' },
+            { id: 'minimal-dark', name: 'OLED Deep Black' },
+            { id: 'glass', name: 'Frosted Glass' },
+            { id: 'solid', name: 'Opaque Solid' },
+            { id: 'transparent', name: 'Transparent / Clean' },
+            { id: 'pill', name: 'Pill Capsule' },
+            { id: 'border', name: 'Border Framing' },
+            { id: 'retro', name: 'Retro Arcade' },
+            { id: 'ember', name: 'Ember' },
+            { id: 'aurora', name: 'Aurora' },
+            { id: 'ocean', name: 'Ocean' },
+            { id: 'sunset', name: 'Sunset' },
+            { id: 'violet', name: 'Violet' },
+            { id: 'forest', name: 'Forest' }
+        ];
 
-            if (!themeSelect) return;
-            const theme = themeSelect.value;
-            if (theme === 'custom') {
-                customBgWrap.style.display = 'block';
-            } else {
-                customBgWrap.style.display = 'none';
+        async function populateFontDatalist() {
+            const list = $('overlay-fonts-list');
+            if (!list) return;
+            list.innerHTML = '';
+            const seen = new Set();
+
+            // 1. Asset Library Custom Fonts
+            if (window.OverlayFonts && typeof window.OverlayFonts.getAssetFonts === 'function') {
+                const assets = await window.OverlayFonts.getAssetFonts();
+                cachedAssetFontsList = Array.isArray(assets) ? assets : [];
+                cachedAssetFontsList.forEach(a => {
+                    const fam = (a.family || a.label || (a.name ? a.name.replace(/\.[a-z0-9]+$/i, '') : '')).trim();
+                    if (fam && !seen.has(fam.toLowerCase())) {
+                        seen.add(fam.toLowerCase());
+                        const opt = document.createElement('option');
+                        opt.value = fam;
+                        opt.label = `${fam} (Asset Library)`;
+                        list.appendChild(opt);
+
+                        if (a.url) {
+                            if (typeof FontFace !== 'undefined' && document.fonts) {
+                                try {
+                                    const ff = new FontFace(fam, `url('${a.url}')`);
+                                    ff.load().then(loaded => document.fonts.add(loaded)).catch(() => {});
+                                } catch {}
+                            }
+                            const style = document.createElement('style');
+                            style.textContent = `@font-face { font-family: '${fam.replace(/'/g, '')}'; src: url('${a.url}'); font-display: swap; }`;
+                            document.head.appendChild(style);
+                        }
+                    }
+                });
             }
 
-            const urlParams = new URLSearchParams();
-            if (theme === 'custom' && customBgInput) {
-                const hex = customBgInput.value.trim().replace(/^#/, '');
-                if (hex) urlParams.set('overlay', hex);
-            } else if (theme !== 'card') {
-                urlParams.set('overlay', theme);
+            // 2. Google Fonts
+            const googleFonts = window.OverlayFonts?.google || [];
+            googleFonts.forEach(f => {
+                if (!seen.has(f.toLowerCase())) {
+                    seen.add(f.toLowerCase());
+                    const opt = document.createElement('option');
+                    opt.value = f;
+                    opt.label = `${f} (Google Font)`;
+                    list.appendChild(opt);
+                }
+            });
+
+            // 3. System Fonts
+            const systemFonts = window.OverlayFonts?.system || [];
+            systemFonts.forEach(f => {
+                if (!seen.has(f.toLowerCase())) {
+                    seen.add(f.toLowerCase());
+                    const opt = document.createElement('option');
+                    opt.value = f;
+                    opt.label = `${f} (System Font)`;
+                    list.appendChild(opt);
+                }
+            });
+
+            updateAssetFontBadges();
+        }
+
+        function onFontInput(target) {
+            if (target === 'poll') updatePollOverlayUrl();
+            else updateTourneyOverlayUrl();
+            updateAssetFontBadges();
+        }
+
+        function updateAssetFontBadges() {
+            const assetNames = (cachedAssetFontsList || []).map(a => (a.family || a.label || (a.name ? a.name.replace(/\.[a-z0-9]+$/i, '') : '')).trim().toLowerCase());
+            const pVal = $('poll-opt-font')?.value?.trim().toLowerCase();
+            const tVal = $('tourney-opt-font')?.value?.trim().toLowerCase();
+            if ($('poll-font-asset-badge')) {
+                $('poll-font-asset-badge').style.display = pVal && assetNames.includes(pVal) ? 'inline-block' : 'none';
+            }
+            if ($('tourney-font-asset-badge')) {
+                $('tourney-font-asset-badge').style.display = tVal && assetNames.includes(tVal) ? 'inline-block' : 'none';
+            }
+        }
+
+        function openAssetFontPicker(target) {
+            activeFontPickerTarget = target || 'tourney';
+            const modal = $('modal-asset-font-picker');
+            if (!modal) return;
+            renderAssetFontPickerList();
+            modal.style.display = 'flex';
+        }
+
+        function closeAssetFontPicker() {
+            const modal = $('modal-asset-font-picker');
+            if (modal) modal.style.display = 'none';
+        }
+
+        async function refreshAssetFontsAndPicker() {
+            toast('Refreshing Asset Library fonts...');
+            await populateFontDatalist();
+            renderAssetFontPickerList();
+        }
+
+        function renderAssetFontPickerList() {
+            const container = $('asset-font-picker-list');
+            if (!container) return;
+
+            if (!cachedAssetFontsList || cachedAssetFontsList.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
+                        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="margin-bottom: 0.6rem; opacity: 0.6;"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+                        <div style="font-weight: 700; font-size: 0.95rem; color: var(--text);">No Custom Fonts in Asset Library</div>
+                        <div style="font-size: 0.78rem; margin-top: 0.35rem; max-width: 380px; margin-inline: auto; line-height: 1.45;">Upload .ttf, .otf, .woff, or .woff2 files in the Asset Library to make them available here for live polls and tournament brackets.</div>
+                        <div style="margin-top: 1.1rem;">
+                            <a href="/assets.html" target="_blank" rel="noopener noreferrer" class="btn-primary btn-sm" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; padding: 0.35rem 0.75rem;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                Open Asset Library
+                            </a>
+                        </div>
+                    </div>
+                `;
+                return;
             }
 
-            if (howToVoteCheck && howToVoteCheck.checked) {
-                urlParams.set('howtovote', '1');
+            const specimenText = activeFontPickerTarget === 'poll'
+                ? 'WHICH GAME NEXT? • CHRONO TRIGGER 64% - 36% FINAL'
+                : 'OPTION A 64% - 36% OPTION B • CHAMPIONSHIP FINALS';
+
+            container.innerHTML = cachedAssetFontsList.map(a => {
+                const fam = (a.family || a.label || (a.name ? a.name.replace(/\.[a-z0-9]+$/i, '') : '')).trim();
+                const ext = a.name ? a.name.split('.').pop() : 'font';
+                const safeFam = fam.replace(/'/g, '');
+                return `
+                    <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; min-width: 0;">
+                                <span style="font-weight: 700; font-size: 0.88rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(fam)}</span>
+                                <span class="badge" style="background: var(--bg-card); border: 1px solid var(--border); font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 3px; color: var(--text-muted); text-transform: uppercase;">${escapeHtml(ext)}</span>
+                            </div>
+                            <button type="button" class="btn-primary btn-sm" onclick="selectAssetFont('${escapeHtml(fam)}')" style="font-size: 0.72rem; padding: 0.22rem 0.6rem; display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                Select Font
+                            </button>
+                        </div>
+                        <div style="font-family: '${safeFam}', sans-serif; font-size: 1.15rem; color: var(--text); padding: 0.4rem 0.6rem; background: var(--bg-card); border-radius: 4px; border: 1px solid var(--border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: 0.02em;">
+                            ${escapeHtml(specimenText)}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectAssetFont(fam) {
+            const inputId = activeFontPickerTarget === 'poll' ? 'poll-opt-font' : 'tourney-opt-font';
+            const input = $(inputId);
+            if (input) {
+                input.value = fam;
+                if (activeFontPickerTarget === 'poll') updatePollOverlayUrl();
+                else updateTourneyOverlayUrl();
+                updateAssetFontBadges();
             }
+            closeAssetFontPicker();
+            toast(`Applied font "${fam}" from Asset Library!`);
+        }
 
-            const qs = urlParams.toString();
-            const fullUrl = `${origin}/overlays/poll.html${qs ? `?${qs}` : ''}`;
-            if ($('url-poll-overlay')) $('url-poll-overlay').value = fullUrl;
-            if ($('btn-open-poll-overlay')) $('btn-open-poll-overlay').href = fullUrl;
+        function populateThemeDropdowns() {
+            const customThemes = window.OverlayThemes ? window.OverlayThemes.getCustomThemes() : {};
+            const customList = Object.values(customThemes);
 
-            // Live preview iframe update
-            const previewIframe = $('poll-preview-iframe');
-            if (previewIframe) {
-                const previewParams = new URLSearchParams(urlParams);
-                previewParams.set('preview', '1');
-                const targetSrc = `/overlays/poll.html?${previewParams.toString()}`;
-                if (previewIframe.getAttribute('src') !== targetSrc) {
-                    previewIframe.src = targetSrc;
+            const updateSelect = (selectEl, isPoll) => {
+                if (!selectEl) return;
+                const currentVal = selectEl.value;
+                selectEl.innerHTML = '';
+
+                const builtInGroup = document.createElement('optgroup');
+                builtInGroup.label = 'Built-in Themes';
+                BUILT_IN_THEME_OPTIONS.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = isPoll ? `${t.name} (?overlay=${t.id})` : t.name;
+                    builtInGroup.appendChild(opt);
+                });
+                selectEl.appendChild(builtInGroup);
+
+                if (customList.length > 0) {
+                    const customGroup = document.createElement('optgroup');
+                    customGroup.label = 'Custom Saved Themes';
+                    customList.forEach(t => {
+                        const opt = document.createElement('option');
+                        opt.value = t.id;
+                        opt.textContent = `${t.name || t.id} (Custom)`;
+                        customGroup.appendChild(opt);
+                    });
+                    selectEl.appendChild(customGroup);
+                }
+
+                if (currentVal) selectEl.value = currentVal;
+            };
+
+            updateSelect($('poll-opt-theme'), true);
+            updateSelect($('tourney-opt-theme'), false);
+        }
+
+        function onThemeSelectChange(target, val) {
+            if (window.OverlayThemes) {
+                const theme = window.OverlayThemes.getTheme(val);
+                if (theme && theme.isCustom) {
+                    applyThemeToInputs(target, theme);
                 }
             }
-            savePollsOverlayPrefs();
+            if (target === 'poll') updatePollOverlayUrl();
+            else updateTourneyOverlayUrl();
+        }
+
+        function applyThemeToInputs(target, theme) {
+            if (!theme) return;
+            const prefix = target === 'poll' ? 'poll-opt-' : 'tourney-opt-';
+            if (theme.font !== undefined && $(prefix + 'font')) $(prefix + 'font').value = theme.font;
+            if (theme.weight !== undefined && $(prefix + 'weight')) $(prefix + 'weight').value = theme.weight;
+            if (theme.textTransform !== undefined && $(prefix + 'transform')) $(prefix + 'transform').value = theme.textTransform;
+            if (theme.radius !== undefined && $(prefix + 'radius')) $(prefix + 'radius').value = theme.radius;
+            if (theme.outline !== undefined && $(prefix + 'outline')) $(prefix + 'outline').value = theme.outline;
+            if (theme.scale !== undefined && $(prefix + 'scale')) $(prefix + 'scale').value = theme.scale;
+
+            const colors = ['cardbg', 'bg', 'border', 'text', 'muted', 'accent', 'winner', 'track'];
+            colors.forEach(c => {
+                const val = theme[c === 'cardbg' ? 'cardBg' : c];
+                const el = $(prefix + c);
+                if (el && val !== undefined) {
+                    el.value = val;
+                    syncColorPicker(prefix + c, prefix + c + '-picker');
+                }
+            });
+        }
+
+        function openSaveThemeModal(target) {
+            activeThemeModalTarget = target || 'tourney';
+            const modal = $('modal-save-theme');
+            const nameInput = $('save-theme-name');
+            const summary = $('save-theme-preview-summary');
+            if (!modal) return;
+            if (nameInput) nameInput.value = '';
+
+            const prefix = activeThemeModalTarget === 'poll' ? 'poll-opt-' : 'tourney-opt-';
+            const font = $(prefix + 'font')?.value || 'Theme Default';
+            const weight = $(prefix + 'weight')?.value || 'Theme Default';
+            const radius = $(prefix + 'radius')?.value || 'Theme Default';
+            const accent = $(prefix + 'accent')?.value || '#58a6ff';
+            const cardbg = $(prefix + 'cardbg')?.value || '#161b22';
+            const border = $(prefix + 'border')?.value || '#30363d';
+            const text = $(prefix + 'text')?.value || '#f0f6fc';
+
+            if (summary) {
+                summary.innerHTML = `
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; font-size: 0.72rem;">
+                        <span class="badge" style="background: var(--bg-surface); border: 1px solid var(--border); padding: 0.2rem 0.5rem; border-radius: 4px;">Font: <strong>${escapeHtml(font)}</strong></span>
+                        <span class="badge" style="background: var(--bg-surface); border: 1px solid var(--border); padding: 0.2rem 0.5rem; border-radius: 4px;">Weight: <strong>${escapeHtml(weight)}</strong></span>
+                        <span class="badge" style="background: var(--bg-surface); border: 1px solid var(--border); padding: 0.2rem 0.5rem; border-radius: 4px;">Radius: <strong>${escapeHtml(radius)}</strong></span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.72rem;">
+                        <span style="display: inline-flex; align-items: center; gap: 0.25rem;"><span style="width: 12px; height: 12px; border-radius: 2px; background: ${escapeHtml(accent)}; display: inline-block; border: 1px solid rgba(255,255,255,0.2);"></span> Accent</span>
+                        <span style="display: inline-flex; align-items: center; gap: 0.25rem;"><span style="width: 12px; height: 12px; border-radius: 2px; background: ${escapeHtml(cardbg)}; display: inline-block; border: 1px solid rgba(255,255,255,0.2);"></span> Card</span>
+                        <span style="display: inline-flex; align-items: center; gap: 0.25rem;"><span style="width: 12px; height: 12px; border-radius: 2px; background: ${escapeHtml(border)}; display: inline-block; border: 1px solid rgba(255,255,255,0.2);"></span> Border</span>
+                        <span style="display: inline-flex; align-items: center; gap: 0.25rem;"><span style="width: 12px; height: 12px; border-radius: 2px; background: ${escapeHtml(text)}; display: inline-block; border: 1px solid rgba(255,255,255,0.2);"></span> Text</span>
+                    </div>
+                `;
+            }
+
+            modal.style.display = 'flex';
+            setTimeout(() => nameInput?.focus(), 50);
+        }
+
+        function closeSaveThemeModal() {
+            const modal = $('modal-save-theme');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function submitSaveTheme(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            const nameInput = $('save-theme-name');
+            const name = nameInput ? nameInput.value.trim() : '';
+            if (!name) return;
+
+            const prefix = activeThemeModalTarget === 'poll' ? 'poll-opt-' : 'tourney-opt-';
+            const themeObj = {
+                name,
+                font: $(prefix + 'font')?.value?.trim() || '',
+                weight: $(prefix + 'weight')?.value?.trim() || '',
+                textTransform: $(prefix + 'transform')?.value?.trim() || '',
+                radius: $(prefix + 'radius')?.value?.trim() || '',
+                outline: $(prefix + 'outline')?.value?.trim() || '',
+                scale: $(prefix + 'scale')?.value?.trim() || '',
+                text: $(prefix + 'text')?.value?.trim() || '',
+                muted: $(prefix + 'muted')?.value?.trim() || '',
+                cardBg: $(prefix + 'cardbg')?.value?.trim() || '',
+                bg: $(prefix + 'bg')?.value?.trim() || '',
+                border: $(prefix + 'border')?.value?.trim() || '',
+                accent: $(prefix + 'accent')?.value?.trim() || '',
+                winner: $(prefix + 'winner')?.value?.trim() || '',
+                track: $(prefix + 'track')?.value?.trim() || ''
+            };
+
+            if (window.OverlayThemes) {
+                const saved = window.OverlayThemes.saveCustomTheme(themeObj);
+                populateThemeDropdowns();
+                const selectId = activeThemeModalTarget === 'poll' ? 'poll-opt-theme' : 'tourney-opt-theme';
+                if ($(selectId) && saved) {
+                    $(selectId).value = saved.id;
+                }
+                closeSaveThemeModal();
+                if (activeThemeModalTarget === 'poll') updatePollOverlayUrl();
+                else updateTourneyOverlayUrl();
+                toast(`Custom theme "${name}" saved!`);
+            }
+        }
+
+        function openManageThemesModal() {
+            const modal = $('modal-manage-themes');
+            if (!modal) return;
+            renderManageThemesList();
+            modal.style.display = 'flex';
+        }
+
+        function closeManageThemesModal() {
+            const modal = $('modal-manage-themes');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function renderManageThemesList() {
+            const container = $('manage-themes-list');
+            if (!container) return;
+            const themes = window.OverlayThemes ? window.OverlayThemes.getCustomThemes() : {};
+            const list = Object.values(themes);
+
+            if (list.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 0.5rem; opacity: 0.6;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                        <div style="font-weight: 600; font-size: 0.9rem; color: var(--text);">No Custom Themes Saved</div>
+                        <div style="font-size: 0.78rem; margin-top: 0.35rem; max-width: 360px; margin-inline: auto;">Customize typography, fonts, and colors in the Poll or Tournament controls, then click "Save Theme" to save your custom design.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = list.map(t => {
+                const font = t.font || 'Default';
+                const weight = t.weight ? `(${t.weight})` : '';
+                const radius = t.radius || 'Default radius';
+                return `
+                    <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+                        <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                            <div style="font-weight: 700; font-size: 0.88rem; color: var(--text);">${escapeHtml(t.name || t.id)}</div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--text-muted);">
+                                <span>${escapeHtml(font)} ${escapeHtml(weight)}</span>
+                                <span>•</span>
+                                <span>${escapeHtml(radius)}</span>
+                                <div style="display: inline-flex; align-items: center; gap: 0.2rem; margin-left: 0.25rem;">
+                                    ${t.accent ? `<span style="width: 10px; height: 10px; border-radius: 2px; background: ${escapeHtml(t.accent)}; display: inline-block; border: 1px solid rgba(255,255,255,0.2);" title="Accent: ${escapeHtml(t.accent)}"></span>` : ''}
+                                    ${t.cardBg ? `<span style="width: 10px; height: 10px; border-radius: 2px; background: ${escapeHtml(t.cardBg)}; display: inline-block; border: 1px solid rgba(255,255,255,0.2);" title="Card: ${escapeHtml(t.cardBg)}"></span>` : ''}
+                                    ${t.border ? `<span style="width: 10px; height: 10px; border-radius: 2px; background: ${escapeHtml(t.border)}; display: inline-block; border: 1px solid rgba(255,255,255,0.2);" title="Border: ${escapeHtml(t.border)}"></span>` : ''}
+                                    ${t.text ? `<span style="width: 10px; height: 10px; border-radius: 2px; background: ${escapeHtml(t.text)}; display: inline-block; border: 1px solid rgba(255,255,255,0.2);" title="Text: ${escapeHtml(t.text)}"></span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                            <button type="button" class="btn-secondary btn-sm" onclick="applyCustomThemeToActive('${escapeHtml(t.id)}', 'poll')" title="Load into Live Poll Overlay" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+                                Poll
+                            </button>
+                            <button type="button" class="btn-secondary btn-sm" onclick="applyCustomThemeToActive('${escapeHtml(t.id)}', 'tourney')" title="Load into Tournament Bracket" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+                                Bracket
+                            </button>
+                            <button type="button" class="btn-danger btn-sm" onclick="deleteCustomThemeAndRefresh('${escapeHtml(t.id)}')" title="Delete Theme" style="font-size: 0.72rem; padding: 0.25rem 0.45rem; display: inline-flex; align-items: center;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function applyCustomThemeToActive(themeId, target) {
+            if (!window.OverlayThemes) return;
+            const theme = window.OverlayThemes.getTheme(themeId);
+            if (!theme) return;
+            applyThemeToInputs(target, theme);
+            const selectId = target === 'poll' ? 'poll-opt-theme' : 'tourney-opt-theme';
+            if ($(selectId)) $(selectId).value = themeId;
+            if (target === 'poll') updatePollOverlayUrl();
+            else updateTourneyOverlayUrl();
+            toast(`Theme "${theme.name || themeId}" applied to ${target === 'poll' ? 'Poll' : 'Tournament Bracket'}!`);
+        }
+
+        function deleteCustomThemeAndRefresh(themeId) {
+            if (!window.OverlayThemes) return;
+            if (!confirm('Are you sure you want to delete this custom theme?')) return;
+            window.OverlayThemes.deleteCustomTheme(themeId);
+            populateThemeDropdowns();
+            renderManageThemesList();
+            toast('Custom theme deleted');
         }
 
         function syncColorPicker(textId, pickerId) {
@@ -882,19 +1634,46 @@
                     },
                     poll: {
                         theme: $('poll-opt-theme')?.value,
-                        customBg: $('poll-opt-custom-bg')?.value,
+                        font: $('poll-opt-font')?.value,
+                        scale: $('poll-opt-scale')?.value,
+                        weight: $('poll-opt-weight')?.value,
+                        transform: $('poll-opt-transform')?.value,
+                        radius: $('poll-opt-radius')?.value,
+                        outline: $('poll-opt-outline')?.value,
+                        align: $('poll-opt-align')?.value,
+                        valign: $('poll-opt-valign')?.value,
+                        text: $('poll-opt-text')?.value,
+                        muted: $('poll-opt-muted')?.value,
+                        cardbg: $('poll-opt-cardbg')?.value,
+                        border: $('poll-opt-border')?.value,
+                        accent: $('poll-opt-accent')?.value,
+                        winner: $('poll-opt-winner')?.value,
+                        track: $('poll-opt-track')?.value,
                         howtovote: $('poll-opt-howtovote')?.checked,
+                        confetti: $('poll-opt-confetti')?.checked,
                     },
                     tourney: {
                         layout: $('tourney-opt-layout')?.value,
                         bracket: $('tourney-opt-bracket')?.value,
                         theme: $('tourney-opt-theme')?.value,
-                        customBg: $('tourney-opt-custom-bg')?.value,
+                        font: $('tourney-opt-font')?.value,
+                        scale: $('tourney-opt-scale')?.value,
+                        weight: $('tourney-opt-weight')?.value,
+                        transform: $('tourney-opt-transform')?.value,
+                        radius: $('tourney-opt-radius')?.value,
+                        outline: $('tourney-opt-outline')?.value,
                         spacing: $('tourney-opt-spacing')?.value,
                         lines: $('tourney-opt-lines')?.value,
                         pipstyle: $('tourney-opt-pipstyle')?.value,
+                        roundpipstyle: $('tourney-opt-roundpipstyle')?.value,
                         gap: $('tourney-opt-gap')?.value,
+                        text: $('tourney-opt-text')?.value,
+                        muted: $('tourney-opt-muted')?.value,
+                        cardbg: $('tourney-opt-cardbg')?.value,
+                        bg: $('tourney-opt-bg')?.value,
+                        border: $('tourney-opt-border')?.value,
                         accent: $('tourney-opt-accent')?.value,
+                        winner: $('tourney-opt-winner')?.value,
                         badgecolor: $('tourney-opt-badgecolor')?.value,
                         logosize: $('tourney-opt-logosize')?.value,
                         showlogo: $('tourney-opt-showlogo')?.checked,
@@ -934,27 +1713,49 @@
                 if (prefs.poll) {
                     const p = prefs.poll;
                     if (p.theme !== undefined && $('poll-opt-theme')) $('poll-opt-theme').value = p.theme;
-                    if (p.customBg !== undefined && $('poll-opt-custom-bg')) $('poll-opt-custom-bg').value = p.customBg;
+                    if (p.font !== undefined && $('poll-opt-font')) $('poll-opt-font').value = p.font;
+                    if (p.scale !== undefined && $('poll-opt-scale')) $('poll-opt-scale').value = p.scale;
+                    if (p.weight !== undefined && $('poll-opt-weight')) $('poll-opt-weight').value = p.weight;
+                    if (p.transform !== undefined && $('poll-opt-transform')) $('poll-opt-transform').value = p.transform;
+                    if (p.radius !== undefined && $('poll-opt-radius')) $('poll-opt-radius').value = p.radius;
+                    if (p.outline !== undefined && $('poll-opt-outline')) $('poll-opt-outline').value = p.outline;
+                    if (p.align !== undefined && $('poll-opt-align')) $('poll-opt-align').value = p.align;
+                    if (p.valign !== undefined && $('poll-opt-valign')) $('poll-opt-valign').value = p.valign;
+
+                    ['text', 'muted', 'cardbg', 'border', 'accent', 'winner', 'track'].forEach(c => {
+                        if (p[c] !== undefined && $('poll-opt-' + c)) {
+                            $('poll-opt-' + c).value = p[c];
+                            syncColorPicker('poll-opt-' + c, 'poll-opt-' + c + '-picker');
+                        }
+                    });
+
                     if (p.howtovote !== undefined && $('poll-opt-howtovote')) $('poll-opt-howtovote').checked = Boolean(p.howtovote);
+                    if (p.confetti !== undefined && $('poll-opt-confetti')) $('poll-opt-confetti').checked = Boolean(p.confetti);
                 }
                 if (prefs.tourney) {
                     const t = prefs.tourney;
                     if (t.layout !== undefined && $('tourney-opt-layout')) $('tourney-opt-layout').value = t.layout;
                     if (['all', 'winners', 'losers', 'finals'].includes(t.bracket) && $('tourney-opt-bracket')) $('tourney-opt-bracket').value = t.bracket;
                     if (t.theme !== undefined && $('tourney-opt-theme')) $('tourney-opt-theme').value = t.theme;
-                    if (t.customBg !== undefined && $('tourney-opt-custom-bg')) $('tourney-opt-custom-bg').value = t.customBg;
+                    if (t.font !== undefined && $('tourney-opt-font')) $('tourney-opt-font').value = t.font;
+                    if (t.scale !== undefined && $('tourney-opt-scale')) $('tourney-opt-scale').value = t.scale;
+                    if (t.weight !== undefined && $('tourney-opt-weight')) $('tourney-opt-weight').value = t.weight;
+                    if (t.transform !== undefined && $('tourney-opt-transform')) $('tourney-opt-transform').value = t.transform;
+                    if (t.radius !== undefined && $('tourney-opt-radius')) $('tourney-opt-radius').value = t.radius;
+                    if (t.outline !== undefined && $('tourney-opt-outline')) $('tourney-opt-outline').value = t.outline;
                     if (t.spacing !== undefined && $('tourney-opt-spacing')) $('tourney-opt-spacing').value = t.spacing;
                     if (t.lines !== undefined && $('tourney-opt-lines')) $('tourney-opt-lines').value = t.lines;
                     if (t.pipstyle !== undefined && $('tourney-opt-pipstyle')) $('tourney-opt-pipstyle').value = t.pipstyle;
+                    if (t.roundpipstyle !== undefined && $('tourney-opt-roundpipstyle')) $('tourney-opt-roundpipstyle').value = t.roundpipstyle;
                     if (t.gap !== undefined && $('tourney-opt-gap')) $('tourney-opt-gap').value = t.gap;
-                    if (t.accent !== undefined && $('tourney-opt-accent')) {
-                        $('tourney-opt-accent').value = t.accent;
-                        syncColorPicker('tourney-opt-accent', 'tourney-opt-accent-picker');
-                    }
-                    if (t.badgecolor !== undefined && $('tourney-opt-badgecolor')) {
-                        $('tourney-opt-badgecolor').value = t.badgecolor;
-                        syncColorPicker('tourney-opt-badgecolor', 'tourney-opt-badgecolor-picker');
-                    }
+
+                    ['text', 'muted', 'cardbg', 'bg', 'border', 'accent', 'winner', 'badgecolor'].forEach(c => {
+                        if (t[c] !== undefined && $('tourney-opt-' + c)) {
+                            $('tourney-opt-' + c).value = t[c];
+                            syncColorPicker('tourney-opt-' + c, 'tourney-opt-' + c + '-picker');
+                        }
+                    });
+
                     if (t.logosize !== undefined && $('tourney-opt-logosize')) $('tourney-opt-logosize').value = t.logosize;
                     ['showlogo', 'highlight', 'center', 'title', 'format', 'mode', 'entrants', 'status', 'rounds', 'scores', 'seeds', 'tags', 'badges', 'champion', 'confetti', 'fit', 'wide'].forEach(k => {
                         const el = $('tourney-opt-' + k);
@@ -966,17 +1767,93 @@
             }
         }
 
+        function updatePollOverlayUrl() {
+            const origin = window.location.origin;
+            const themeSelect = $('poll-opt-theme');
+            if (!themeSelect) return;
+            const theme = themeSelect.value || 'card';
+
+            const urlParams = new URLSearchParams();
+            if (theme && theme !== 'card') {
+                urlParams.set('overlay', theme);
+            }
+
+            // Typography & Styling
+            const fontVal = $('poll-opt-font')?.value?.trim();
+            if (fontVal) urlParams.set('font', fontVal);
+
+            const scaleVal = $('poll-opt-scale')?.value;
+            if (scaleVal && scaleVal !== '1') urlParams.set('fontscale', scaleVal);
+
+            const weightVal = $('poll-opt-weight')?.value;
+            if (weightVal) urlParams.set('weight', weightVal);
+
+            const transformVal = $('poll-opt-transform')?.value;
+            if (transformVal) urlParams.set('transform', transformVal);
+
+            const radiusVal = $('poll-opt-radius')?.value;
+            if (radiusVal) urlParams.set('radius', radiusVal);
+
+            const outlineVal = $('poll-opt-outline')?.value;
+            if (outlineVal) urlParams.set('outline', outlineVal);
+
+            // Alignment
+            const alignVal = $('poll-opt-align')?.value;
+            if (alignVal) urlParams.set('align', alignVal);
+            const valignVal = $('poll-opt-valign')?.value;
+            if (valignVal) urlParams.set('valign', valignVal);
+
+            // Colors
+            const colorKeys = [
+                ['text', 'poll-opt-text'],
+                ['muted', 'poll-opt-muted'],
+                ['cardbg', 'poll-opt-cardbg'],
+                ['border', 'poll-opt-border'],
+                ['accent', 'poll-opt-accent'],
+                ['winner', 'poll-opt-winner'],
+                ['track', 'poll-opt-track']
+            ];
+            colorKeys.forEach(([param, inputId]) => {
+                const val = $(inputId)?.value?.trim();
+                if (val) urlParams.set(param, val);
+            });
+
+            // Toggles
+            if ($('poll-opt-howtovote') && $('poll-opt-howtovote').checked) {
+                urlParams.set('howtovote', '1');
+            } else if ($('poll-opt-howtovote') && !$('poll-opt-howtovote').checked) {
+                urlParams.set('howtovote', '0');
+            }
+            if ($('poll-opt-confetti') && !$('poll-opt-confetti').checked) {
+                urlParams.set('confetti', '0');
+            }
+
+            const qs = urlParams.toString();
+            const fullUrl = `${origin}/overlays/poll.html${qs ? `?${qs}` : ''}`;
+            if ($('url-poll-overlay')) $('url-poll-overlay').value = fullUrl;
+            if ($('btn-open-poll-overlay')) $('btn-open-poll-overlay').href = fullUrl;
+
+            // Live preview iframe update
+            const previewIframe = $('poll-preview-iframe');
+            if (previewIframe) {
+                const previewParams = new URLSearchParams(urlParams);
+                previewParams.set('preview', '1');
+                const targetSrc = `/overlays/poll.html?${previewParams.toString()}`;
+                if (previewIframe.getAttribute('src') !== targetSrc) {
+                    previewIframe.src = targetSrc;
+                }
+            }
+            savePollsOverlayPrefs();
+        }
+
         function updateTourneyOverlayUrl() {
             const origin = window.location.origin;
             const layoutSelect = $('tourney-opt-layout');
             const themeSelect = $('tourney-opt-theme');
-            const customBgWrap = $('tourney-opt-custom-bg-wrap');
-            const customBgInput = $('tourney-opt-custom-bg');
             const scoresCheck = $('tourney-opt-scores');
 
             if (!themeSelect) return;
-            const theme = themeSelect.value;
-            if (customBgWrap) customBgWrap.style.display = theme === 'custom' ? 'block' : 'none';
+            const theme = themeSelect.value || 'card';
 
             const urlParams = new URLSearchParams();
             const bracketSelect = $('tourney-opt-bracket');
@@ -988,13 +1865,30 @@
             if (layoutSelect && layoutSelect.value !== 'tree') {
                 urlParams.set('layout', layoutSelect.value);
             }
-            if (theme === 'custom') {
-                const hex = customBgInput.value.trim().replace(/^#/, '');
-                if (hex) urlParams.set('overlay', hex);
-            } else if (theme !== 'card') {
+            if (theme && theme !== 'card') {
                 urlParams.set('overlay', theme);
             }
 
+            // Typography & Styling
+            const fontVal = $('tourney-opt-font')?.value?.trim();
+            if (fontVal) urlParams.set('font', fontVal);
+
+            const scaleVal = $('tourney-opt-scale')?.value;
+            if (scaleVal && scaleVal !== '1') urlParams.set('scale', scaleVal);
+
+            const weightVal = $('tourney-opt-weight')?.value;
+            if (weightVal) urlParams.set('weight', weightVal);
+
+            const transformVal = $('tourney-opt-transform')?.value;
+            if (transformVal) urlParams.set('transform', transformVal);
+
+            const radiusVal = $('tourney-opt-radius')?.value;
+            if (radiusVal) urlParams.set('radius', radiusVal);
+
+            const outlineVal = $('tourney-opt-outline')?.value;
+            if (outlineVal) urlParams.set('outline', outlineVal);
+
+            // Bracket Geometry & Pips
             const spacingEl = $('tourney-opt-spacing'), linesEl = $('tourney-opt-lines');
             if (spacingEl && spacingEl.value !== 'normal') urlParams.set('spacing', spacingEl.value);
             if (linesEl && linesEl.value !== 'glow') urlParams.set('lines', linesEl.value);
@@ -1002,15 +1896,29 @@
             const pipStyleEl = $('tourney-opt-pipstyle');
             if (pipStyleEl && pipStyleEl.value && pipStyleEl.value !== 'circle') urlParams.set('pipstyle', pipStyleEl.value);
 
+            const roundPipStyleEl = $('tourney-opt-roundpipstyle');
+            if (roundPipStyleEl && roundPipStyleEl.value && roundPipStyleEl.value !== 'diamond') urlParams.set('roundpipstyle', roundPipStyleEl.value);
+
             const gapEl = $('tourney-opt-gap');
             if (gapEl && gapEl.value) urlParams.set('gap', gapEl.value);
 
-            const accentEl = $('tourney-opt-accent');
-            if (accentEl && accentEl.value.trim()) urlParams.set('accent', accentEl.value.trim());
+            // Colors
+            const colorKeys = [
+                ['text', 'tourney-opt-text'],
+                ['muted', 'tourney-opt-muted'],
+                ['cardbg', 'tourney-opt-cardbg'],
+                ['bg', 'tourney-opt-bg'],
+                ['border', 'tourney-opt-border'],
+                ['accent', 'tourney-opt-accent'],
+                ['winner', 'tourney-opt-winner'],
+                ['badgecolor', 'tourney-opt-badgecolor']
+            ];
+            colorKeys.forEach(([param, inputId]) => {
+                const val = $(inputId)?.value?.trim();
+                if (val) urlParams.set(param, val);
+            });
 
-            const badgeColorEl = $('tourney-opt-badgecolor');
-            if (badgeColorEl && badgeColorEl.value.trim()) urlParams.set('badgecolor', badgeColorEl.value.trim());
-
+            // Toggles
             if ($('tourney-opt-highlight') && !$('tourney-opt-highlight').checked) urlParams.set('highlight', '0');
             if ($('tourney-opt-center') && !$('tourney-opt-center').checked) urlParams.set('center', '0');
             if ($('tourney-opt-title') && !$('tourney-opt-title').checked) urlParams.set('showtitle', '0');
@@ -1019,9 +1927,7 @@
             if ($('tourney-opt-entrants') && !$('tourney-opt-entrants').checked) urlParams.set('showentrants', '0');
             if ($('tourney-opt-status') && !$('tourney-opt-status').checked) urlParams.set('showstatus', '0');
             if ($('tourney-opt-rounds') && !$('tourney-opt-rounds').checked) urlParams.set('showrounds', '0');
-            if (scoresCheck && !scoresCheck.checked) {
-                urlParams.set('showscores', '0');
-            }
+            if (scoresCheck && !scoresCheck.checked) urlParams.set('showscores', '0');
             if ($('tourney-opt-seeds') && !$('tourney-opt-seeds').checked) urlParams.set('showseeds', '0');
             if ($('tourney-opt-tags') && !$('tourney-opt-tags').checked) urlParams.set('showtags', '0');
             if ($('tourney-opt-badges') && !$('tourney-opt-badges').checked) urlParams.set('showbadges', '0');
@@ -1033,12 +1939,8 @@
             const logoSizeEl = $('tourney-opt-logosize');
             if (logoSizeEl && logoSizeEl.value && logoSizeEl.value !== '56px') urlParams.set('logosize', logoSizeEl.value);
             const fitCheck = $('tourney-opt-fit');
-            if (fitCheck && fitCheck.checked) {
-                urlParams.set('fit', '1');
-            }
-            if ($('tourney-opt-wide') && $('tourney-opt-wide').checked) {
-                urlParams.set('wide', '1');
-            }
+            if (fitCheck && fitCheck.checked) urlParams.set('fit', '1');
+            if ($('tourney-opt-wide') && $('tourney-opt-wide').checked) urlParams.set('wide', '1');
 
             const qs = urlParams.toString();
             const fullUrl = `${origin}/overlays/poll-tournament.html${qs ? `?${qs}` : ''}`;
@@ -2564,6 +3466,8 @@
 
         // Init page
         (async () => {
+            await populateFontDatalist();
+            populateThemeDropdowns();
             restorePollsOverlayPrefs();
             setPreviewMode(previewMode);
             addChoiceField('Zelda: Tears of the Kingdom');
@@ -2586,6 +3490,7 @@
             updateEntrantsCalc();
             updatePollOverlayUrl();
             updateTourneyOverlayUrl();
+            updateAssetFontBadges();
             updatePreview();
             connectWs();
             try {

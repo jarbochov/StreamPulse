@@ -469,8 +469,8 @@
 
     <!-- Core Scripts -->
     <script src="/overlay-visibility.js" data-key="poll"></script>
-    <script src="/js/url-params.js"></script>
-    <script src="/js/overlay-theme.js"></script>
+    <script src="../js/url-params.js"></script>
+    <script src="../js/overlay-theme.js"></script>
 
     <script>
         const params = (typeof overlayParams === 'function') ? overlayParams() : new URLSearchParams(window.location.search);
@@ -527,6 +527,10 @@
 
         // Styling via ?overlay=hash... or ?bg=...
         function applyOverlayStyling() {
+            if (typeof window.applyPollTheme === 'function') {
+                window.applyPollTheme();
+                return;
+            }
             let overlayVal = (params.get('overlay') || params.get('theme') || '').trim();
             const bgVal = (params.get('bg') || '').trim();
             const hashVal = (window.location.hash || '').replace(/^#/, '').trim();

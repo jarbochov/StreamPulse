@@ -45,7 +45,9 @@ The Live Poll overlay renders active votes with real-time percentage fill bars, 
 
 - **OBS URL**: `http://localhost:3000/overlays/poll.html`
 - **Recommended Browser Source Size**: `640×420` (or `1920×1080` with canvas alignment).
-- **Themes**: Switch between `card`, `glass` (frosted blur), `neon` (cyber glow), `retro` (arcade border), `solid`, or `transparent`.
+- **Themes & Styling**: Choose from 18 built-in themes (`card`, `championship`, `cyber`, `fgc-evo`, `glass`, `solid`, `transparent`, `clean-light`, `minimal-dark`, `pill`, `border`, `retro`, `ember`, `aurora`, `ocean`, `sunset`, `violet`, `forest`) or create and save custom themes directly in Poll Manager.
+- **Custom Typography**: Pick fonts from the local Asset Library or Google Fonts (`?font=`), font weights (`?weight=300-900`), text transformations (`?transform=none|uppercase`), font scale (`?scale=0.5-3.0`), corner radius (`?radius=`), and text outlines (`?outline=none|subtle|strong`).
+- **Full Palette Customization**: Granular color overrides for card background (`?cardbg=`), borders (`?border=`), text (`?text=`), muted subtitles (`?muted=`), vote bar accent (`?accent=`), winner highlight (`?winner=`), and badge/track background (`?track=`).
 - **Footer Instructions**: Add `?howtovote=1` to display an on-screen chat voting banner (`Vote in chat: type 1–N or !vote <number>`).
 
 ---
@@ -93,6 +95,7 @@ The audience poll tournament overlay provides two primary broadcast views:
    - **Wide Layout & Custom Width (`?wide=1` or `?cardwidth=480`)**: Expand match cards horizontally to fit long game or player titles with clan tags.
    - **Fit to Viewport (`?fit=1`)**: Auto-scales and centers the entire bracket within your OBS browser source so all rounds fit on-screen without scrollbars.
    - **Line Styles (`?lines=glow|solid|minimal`)**: Choose luminous glowing connectors, crisp high-contrast lines, or minimal borders.
+   - **Theme & Typography Customization**: Choose from 18 built-in themes or custom saved presets, select Asset Library and Google Fonts with the in-studio font picker, adjust bracket scale (`?scale=0.5-2.0`), corner radius (`?radius=`), text outlines (`?outline=none|subtle|strong`), and full color overrides (`?cardbg=`, `?border=`, `?accent=`, `?winner=`, `?text=`, `?muted=`).
    - **Bracket Section (`?bracket=all|winners|losers|finals`)**: Show the whole double-elimination bracket or only the winners, losers, or Grand Finals section. Set this in the Poll Manager or Versus overlay options, or use separate OBS browser sources, such as `/overlays/poll-tournament.html?bracket=losers&fit=1`. This affects the bracket tree, not the active-match HUD; single-elimination and round-robin views are unchanged.
 2. **Esports Lower-Third Match HUD (`?layout=hud`)**: A compact broadcast lower-third displaying the currently active matchup, round name, competitor names, live vote counts, and percentages. Designed to overlay gameplay without obstructing action.
 

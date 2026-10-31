@@ -477,6 +477,142 @@
         return { theme: themeId, font: urlFont || theme.font, scale: urlScale || theme.scale || 1 };
     };
 
+    // Applied by /overlays/poll.html
+    window.applyPollTheme = function applyPollTheme(options = {}) {
+        const params = (typeof overlayParams === 'function') ? overlayParams() : new URLSearchParams(window.location.search);
+        const root = document.documentElement.style;
+        const hashVal = (window.location.hash || '').replace(/^#/, '').trim();
+        const rawTheme = (params.get('overlay') || params.get('theme') || (!hashVal.includes('=') ? hashVal : '') || 'card').trim().toLowerCase();
+
+        const matchedTheme = OverlayThemes.getTheme(rawTheme);
+        const isBuiltIn = Boolean(matchedTheme && BUILT_IN_THEMES[matchedTheme.id] && !matchedTheme.isCustom);
+        const theme = matchedTheme || BUILT_IN_THEMES.card;
+        const themeId = theme.id || 'card';
+
+        const card = document.getElementById('poll-card');
+        if (card) {
+            Array.from(card.classList).forEach(cls => {
+                if (cls.startsWith('theme-')) card.classList.remove(cls);
+            });
+            if (isBuiltIn) {
+                card.classList.add(`theme-${matchedTheme.id}`);
+            } else {
+                card.classList.add('theme-custom');
+            }
+        }
+
+        // 1. Base theme properties
+        const bgVal = theme.cardBg || theme.bg;
+        if (bgVal) root.setProperty('--poll-bg', bgVal);
+        if (theme.border) root.setProperty('--poll-border', theme.border);
+        if (theme.text) root.setProperty('--poll-text', theme.text);
+        if (theme.muted) root.setProperty('--poll-muted', theme.muted);
+        if (theme.accent) root.setProperty('--poll-accent', theme.accent);
+        if (theme.winner) root.setProperty('--poll-winner', theme.winner);
+        if (theme.radius) root.setProperty('--poll-radius', theme.radius);
+        if (theme.backdrop) root.setProperty('--poll-backdrop', theme.backdrop);
+        if (theme.font) {
+            loadUrlFont(theme.font);
+            root.setProperty('--poll-font', `"${theme.font}", -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`);
+        }
+        if (theme.weight) {
+            let style = document.getElementById('streampulse-poll-weight-style');
+            if (!style) {
+                style = document.createElement('style');
+                style.id = 'streampulse-poll-weight-style';
+                document.head.appendChild(style);
+            }
+            style.textContent = `.poll-card, .poll-title, .poll-choice-title { font-weight: ${theme.weight} !important; }`;
+        }
+        if (theme.textTransform) {
+            let style = document.getElementById('streampulse-poll-transform-style');
+            if (!style) {
+                style = document.createElement('style');
+                style.id = 'streampulse-poll-transform-style';
+                document.head.appendChild(style);
+            }
+            style.textContent = `.poll-title, .poll-choice-title, .poll-badge { text-transform: ${theme.textTransform} !important; }`;
+        }
+
+        // 2. Granular URL parameter overrides
+        const urlFont = (params.get('font') || '').replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
+        if (urlFont) {
+            loadUrlFont(urlFont);
+            root.setProperty('--poll-font', `"${urlFont}", -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`);
+        }
+
+        const urlWeight = (params.get('weight') || '').trim().toLowerCase();
+        if (urlWeight) {
+            const w = { normal: '400', bold: '700' }[urlWeight] || (/^[1-9]00$/.test(urlWeight) ? urlWeight : '');
+            if (w) {
+                let style = document.getElementById('streampulse-poll-weight-style');
+                if (!style) {
+                    style = document.createElement('style');
+                    style.id = 'streampulse-poll-weight-style';
+                    document.head.appendChild(style);
+                }
+                style.textContent = `.poll-card, .poll-title, .poll-choice-title { font-weight: ${w} !important; }`;
+            }
+        }
+
+        const urlTransform = (params.get('transform') || params.get('texttransform') || '').trim().toLowerCase();
+        if (['uppercase', 'none', 'capitalize', 'lowercase'].includes(urlTransform)) {
+            let style = document.getElementById('streampulse-poll-transform-style');
+            if (!style) {
+                style = document.createElement('style');
+                style.id = 'streampulse-poll-transform-style';
+                document.head.appendChild(style);
+            }
+            style.textContent = `.poll-title, .poll-choice-title, .poll-badge { text-transform: ${urlTransform} !important; }`;
+        }
+
+        const urlScale = Number(params.get('scale') || params.get('fontscale'));
+        if (urlScale > 0 && Number.isFinite(urlScale)) {
+            const clamped = Math.max(0.4, Math.min(3.5, urlScale));
+            root.setProperty('--poll-font-scale', clamped);
+        }
+
+        const urlText = cleanColor(params.get('text') || params.get('textcolor'));
+        if (urlText) root.setProperty('--poll-text', urlText);
+
+        const urlMuted = cleanColor(params.get('muted') || params.get('mutedcolor'));
+        if (urlMuted) root.setProperty('--poll-muted', urlMuted);
+
+        const urlAccent = cleanColor(params.get('accent'));
+        if (urlAccent) root.setProperty('--poll-accent', urlAccent);
+
+        const urlWinner = cleanColor(params.get('winner') || params.get('winnercolor'));
+        if (urlWinner) root.setProperty('--poll-winner', urlWinner);
+
+        const urlTrack = cleanColor(params.get('track'));
+        if (urlTrack) root.setProperty('--poll-track', urlTrack);
+
+        const urlCardBg = cleanColor(params.get('cardbg') || params.get('card_bg') || params.get('bg'));
+        if (urlCardBg) {
+            root.setProperty('--poll-bg', urlCardBg);
+            if (card) card.classList.add('theme-custom');
+        }
+
+        const urlBorder = cleanColor(params.get('border') || params.get('bordercolor'));
+        if (urlBorder) root.setProperty('--poll-border', urlBorder);
+
+        const urlRadius = cleanRadius(params.get('radius') || params.get('roundness'));
+        if (urlRadius) root.setProperty('--poll-radius', urlRadius);
+
+        const urlOutline = (params.get('outline') || params.get('shadow') || '').trim().toLowerCase();
+        if (urlOutline === 'none') {
+            root.setProperty('--poll-text-shadow', 'none');
+        } else if (urlOutline === 'subtle') {
+            root.setProperty('--poll-text-shadow', '0 1px 3px rgba(0,0,0,0.7)');
+        } else if (urlOutline === 'strong' || urlOutline === '1' || urlOutline === 'true') {
+            root.setProperty('--poll-text-shadow', '0 2px 8px rgba(0,0,0,0.95), 0 0 2px #000');
+        } else if (cleanColor(urlOutline)) {
+            root.setProperty('--poll-text-shadow', `0 0 4px ${cleanColor(urlOutline)}`);
+        }
+
+        return { theme: themeId, font: urlFont || theme.font, scale: urlScale || theme.scale || 1 };
+    };
+
     // Shared theme handling for legacy browser-source overlays (credits, stats, hashtags, goal, viewers).
     window.applyOverlayTheme = function applyOverlayTheme(theme, vars, options = {}) {
         const t = theme || {};
