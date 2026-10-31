@@ -228,8 +228,58 @@ kbd { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; background: var
 .pg-trig .pg-grip { visibility: hidden; cursor: default; }
 .pg-card { border: 1px solid var(--border); border-radius: 10px; padding: .7rem; display: grid; gap: .6rem; background: color-mix(in srgb, var(--field) 55%, transparent); }
 .pg-card h4 { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-.pg-empty { text-align: center; padding: 1.2rem .8rem; border: 1px dashed var(--border); border-radius: 10px; display: grid; gap: .6rem; justify-items: center; }
-.pg-empty p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.pg-empty {
+    text-align: center;
+    padding: 1.1rem .65rem;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    display: grid;
+    gap: .55rem;
+    justify-items: center;
+    background: color-mix(in srgb, var(--panel-2) 35%, transparent);
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+.pg-empty strong {
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--text);
+    word-break: normal;
+}
+.pg-empty p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.45;
+    word-break: normal;
+}
+.pg-empty-actions {
+    display: grid;
+    gap: .45rem;
+    width: 100%;
+    margin-top: .15rem;
+}
+.pg-empty button {
+    white-space: normal;
+    word-break: normal;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: .45rem .5rem;
+    font-size: 11.5px;
+    line-height: 1.3;
+    height: auto;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    flex-wrap: wrap;
+    gap: 4px;
+}
 .pg-name-input { width: 100%; padding: .1rem .3rem; }
 #page-switch { display: inline-flex; align-items: stretch; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; background: var(--field); height: 26px; flex: none; }
 #page-switch select { width: auto; max-width: 145px; height: 100%; border: 0; border-radius: 0; padding: 0 .45rem; font-size: 11.5px; font-weight: 600; background: transparent; }

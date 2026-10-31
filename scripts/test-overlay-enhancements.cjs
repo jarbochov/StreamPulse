@@ -450,4 +450,9 @@ test('Scene States vs Page Deck: Mode switching, font size morphing, and reactio
 
     const runtimeJs = fs.readFileSync(path.join(__dirname, '../public/js/overlay-runtime.js'), 'utf8');
     assert.ok(runtimeJs.includes('if (morphedNodesSet.has(node)) continue;'), 'overlay-runtime must avoid premature refit on morphing nodes');
+
+    const editorCss = fs.readFileSync(path.join(__dirname, '../public/css/custom-overlay-editor.css'), 'utf8');
+    assert.ok(editorCss.includes('.pg-empty button'), 'custom-overlay-editor.css must style .pg-empty button');
+    assert.ok(editorCss.includes('white-space: normal;'), 'Empty state buttons must allow text wrapping to prevent cutoff');
+    assert.ok(editorCss.includes('.pg-empty-actions'), 'Must have structured action layout for empty state');
 });

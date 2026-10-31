@@ -200,11 +200,19 @@ export function renderPagesPanel() {
     if (!pagesOn()) {
         panel.innerHTML = `
             <div class="pg-empty">
+                <div style="color:var(--accent);opacity:0.85;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 22 12 12 22 2 12"/></svg>
+                </div>
                 <strong>Scene States &amp; Multi-Page Layouts</strong>
-                <p>Add dynamic scene states that smoothly morph elements (e.g., Gameplay → Full Cam → Intermission), or split the overlay into rotating pages.</p>
-                <div style="display:grid;gap:.45rem;width:100%;margin-top:.2rem">
-                    <button id="states-enable" class="primary" style="width:100%">Turn on Scene States (Morph) <span class="badge-beta" style="margin-left:4px;">BETA</span></button>
-                    <button id="pages-enable" class="ghost" style="width:100%;border:1px solid var(--border)">Turn on Page Deck (Slides)</button>
+                <p>Add dynamic scene states that smoothly morph elements (e.g. Gameplay → Full Cam → Intermission), or split the overlay into rotating pages.</p>
+                <div class="pg-empty-actions">
+                    <button id="states-enable" type="button" class="primary">
+                        <span>Turn on Scene States (Morph)</span>
+                        <span class="badge-beta">BETA</span>
+                    </button>
+                    <button id="pages-enable" type="button" class="ghost" style="border:1px solid var(--border)">
+                        <span>Turn on Page Deck (Slides)</span>
+                    </button>
                 </div>
             </div>`;
         return;
