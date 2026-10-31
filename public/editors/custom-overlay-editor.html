@@ -20,7 +20,7 @@
             <button id="redo" class="icon" title="Redo (Ctrl/⌘+Shift+Z)" aria-label="Redo" disabled></button>
             <button id="help" class="icon ghost" title="Keyboard shortcuts" aria-label="Keyboard shortcuts">?</button>
             <span class="divider"></span>
-            <button id="btn-obs-modal" class="hide-narrow obs-top-btn" title="Configure OBS WebSocket Bridge &amp; Source Sync (Beta)">
+            <button id="btn-obs-modal" class="hide-narrow obs-top-btn" hidden title="Configure OBS WebSocket Bridge &amp; Source Sync (Beta)">
                 <span class="obs-status-dot" id="obs-top-dot"></span>
                 <span>OBS Sync</span>
                 <span class="badge-beta">BETA</span>
@@ -32,18 +32,18 @@
         </header>
 
         <aside class="rail left" aria-label="Overlay settings and layers">
-            <details class="sect" id="settings-sect" open>
-                <summary>Editor Settings</summary>
-                <div class="sect-body" id="settings"></div>
-            </details>
             <div class="rail-tabs" role="tablist">
                 <button role="tab" id="tab-layers" data-rail-tab="layers" aria-selected="true">Layers <small id="layer-count"></small></button>
                 <button role="tab" id="tab-pages" data-rail-tab="pages" aria-selected="false">Pages <small id="page-count"></small></button>
+                <button role="tab" id="tab-canvas" data-rail-tab="canvas" aria-selected="false">Canvas</button>
             </div>
             <section class="layers-section" id="layers-panel" aria-label="Layers">
                 <div id="layers"></div>
             </section>
             <section class="pages-section" id="pages-panel" aria-label="Pages" hidden></section>
+            <section class="canvas-settings-section" id="settings-sect" aria-label="Canvas settings" hidden>
+                <div class="sect-body" id="settings"></div>
+            </section>
         </aside>
 
         <main class="stage-col">
@@ -148,7 +148,7 @@
                                             <span class="menu-item-desc">OBS webcam &amp; window aperture</span>
                                         </span>
                                     </button>
-                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="obs-frame">
+                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="obs-frame" hidden>
                                         <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M5 3v2M11 3v2M5 11v2M11 11v2"/><circle cx="8" cy="8" r="1.5"/></svg></span>
                                         <span class="menu-item-text">
                                             <span class="menu-item-title">OBS Source Frame <span class="badge-beta">BETA</span></span>

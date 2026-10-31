@@ -23,7 +23,13 @@
         if (!pageId || pageId === baseId) return element;
         const ovr = element.pageStates?.[pageId];
         if (!ovr || typeof ovr !== 'object') return element;
-        const next = { ...element, style: { ...(element.style || {}) } };
+        const next = {
+            ...element,
+            style: {
+                ...(element.style || {}),
+                ...(ovr.style && typeof ovr.style === 'object' ? ovr.style : {})
+            }
+        };
         if (Number.isFinite(ovr.x)) next.x = ovr.x;
         if (Number.isFinite(ovr.y)) next.y = ovr.y;
         if (Number.isFinite(ovr.width)) next.width = ovr.width;
@@ -32,14 +38,18 @@
         if (Number.isFinite(ovr.opacity)) next.style.opacity = ovr.opacity;
         if (Number.isFinite(ovr.rotate)) next.style.rotate = ovr.rotate;
         if (Number.isFinite(ovr.borderRadius)) next.style.borderRadius = ovr.borderRadius;
-        if (element.type === 'cutout' && Number.isFinite(ovr.feather)) {
-            next.cutout = { ...(element.cutout || {}), feather: ovr.feather };
+        if (element.type === 'cutout' && (Number.isFinite(ovr.feather) || ovr.cutoutShape)) {
+            next.cutout = {
+                ...(element.cutout || {}),
+                ...(Number.isFinite(ovr.feather) ? { feather: ovr.feather } : {}),
+                ...(ovr.cutoutShape ? { shape: ovr.cutoutShape } : {})
+            };
         }
         return next;
     }
     function mediaContentSig(element) {
         const { x, y, width, height, visible, pageStates, _baseState, style, ...rest } = element || {};
-        const { opacity, rotate, borderRadius, ...restStyle } = style || {};
+        const { opacity, rotate, borderRadius, borderWidth, borderColor, borderStyle, borderGlow, shadow, innerShadow, background, padding, blur, ...restStyle } = style || {};
         return JSON.stringify({ ...rest, style: restStyle });
     }
     function pageElements(overlay, pageId = currentPage, { includeHiddenShared = false } = {}) {
@@ -998,16 +1008,20 @@
             incoming.forEach(node => { slideVars(node); node.style.visibility = ''; node.style.animation = `pg-${animKind}-in ${ms}ms ${cssEase} both`; });
             outgoing.forEach(node => { slideVars(node); node.style.animation = `pg-${animKind}-out ${ms}ms ${cssEase} both`; });
             morphedShared.forEach(({ node, afterEl, nowVis }) => {
-                node.style.transition = [
-                    `left ${ms}ms ${cssEase}`,
-                    `top ${ms}ms ${cssEase}`,
-                    `width ${ms}ms ${cssEase}`,
-                    `height ${ms}ms ${cssEase}`,
-                    `transform ${ms}ms ${cssEase}`,
-                    `opacity ${ms}ms ${cssEase}`,
-                    `border-radius ${ms}ms ${cssEase}`
-                ].join(', ');
+                const morphProps = [
+                    'left', 'top', 'width', 'height', 'transform', 'opacity',
+                    'border-radius', 'border-width', 'border-color',
+                    'background-color', 'color', 'font-size', 'letter-spacing', 'line-height', 'padding',
+                    'box-shadow', 'text-shadow', 'filter', 'backdrop-filter', '-webkit-backdrop-filter',
+                    '-webkit-text-stroke-width', '-webkit-text-stroke-color'
+                ];
+                node.style.transition = morphProps.map(p => `${p} ${ms}ms ${cssEase}`).join(', ');
                 applyElementStyle(node, afterEl);
+                if (afterEl.type === 'progress') {
+                    shared.renderProgress(node, afterEl, expandVariables);
+                } else if (afterEl.type === 'icon') {
+                    shared.renderIcon(node, afterEl.content, afterEl.style || {});
+                }
                 node.style.opacity = String(nowVis ? (afterEl.style?.opacity ?? 1) : 0);
                 if (!nowVis) node.style.pointerEvents = 'none';
             });

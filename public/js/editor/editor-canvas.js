@@ -257,7 +257,10 @@ export function captureEditorStateSnapshot() {
             rotate: Number.isFinite(Number(el.style?.rotate)) ? Number(el.style.rotate) : 0,
             borderRadius: Number(el.style?.borderRadius) || 0,
             feather: Number(el.cutout?.feather) || 0,
-            cutoutShape: el.cutout?.shape || 'rectangle'
+            cutoutShape: el.cutout?.shape || 'rectangle',
+            style: JSON.parse(JSON.stringify(el.style || {})),
+            cutout: JSON.parse(JSON.stringify(el.cutout || { shape: 'rectangle', feather: 0 })),
+            styleSig: JSON.stringify(el.style || {})
         };
         map.set(el.id, entry);
         if (entry.morphId) map.set(`morph:${entry.morphId}`, entry);
@@ -286,9 +289,10 @@ export function previewEditorStateMorph(beforeMap) {
         const prevOp = prev.visible ? prev.opacity : 0;
         const curRot = Number(el.style?.rotate) || 0;
         const curRad = Number(el.style?.borderRadius) || 0;
+        const curStyleSig = JSON.stringify(el.style || {});
 
-        const changedGeom = prev.x !== curX || prev.y !== curY || prev.width !== curW || prev.height !== curH || prevOp !== curOp || prev.rotate !== curRot || prev.borderRadius !== curRad;
-        if (!changedGeom) continue;
+        const changedAny = prev.x !== curX || prev.y !== curY || prev.width !== curW || prev.height !== curH || prevOp !== curOp || prev.rotate !== curRot || prev.borderRadius !== curRad || prev.styleSig !== curStyleSig || prev.feather !== (Number(el.cutout?.feather) || 0);
+        if (!changedAny) continue;
 
         if (el.type === 'cutout' && (prev.visible || curVis)) {
             cutoutPairs.push({
@@ -300,17 +304,23 @@ export function previewEditorStateMorph(beforeMap) {
         }
 
         if (node) {
+            const idx = state.overlay.elements.indexOf(el);
+            const prevElModel = {
+                ...el,
+                x: prev.x,
+                y: prev.y,
+                width: prev.width,
+                height: prev.height,
+                visible: prev.visible,
+                style: prev.style || {},
+                cutout: prev.cutout || el.cutout
+            };
+            applyNodeStyle(node, prevElModel, idx);
             node.classList.remove('hidden');
             node.style.transition = 'none';
-            node.style.willChange = 'left, top, width, height, opacity, transform, border-radius';
-            node.style.left = `${prev.x}px`;
-            node.style.top = `${prev.y}px`;
-            node.style.width = `${prev.width}px`;
-            node.style.height = `${prev.height}px`;
+            node.style.willChange = 'left, top, width, height, opacity, transform, border-radius, font-size, color, background-color, border-width, border-color, box-shadow';
             node.style.opacity = String(prevOp);
-            node.style.transform = prev.rotate ? `rotate(${prev.rotate}deg)` : '';
-            if (el.type !== 'alert') node.style.borderRadius = `${prev.borderRadius}px`;
-            animatedNodes.push({ node, el, curX, curY, curW, curH, curVis, curOp, curRot, curRad });
+            animatedNodes.push({ node, el, idx, curX, curY, curW, curH, curVis, curOp, curRot, curRad });
         }
     }
 
@@ -324,12 +334,7 @@ export function previewEditorStateMorph(beforeMap) {
         for (const item of animatedNodes) {
             item.node.style.transition = '';
             item.node.style.willChange = '';
-            item.node.style.left = `${item.curX}px`;
-            item.node.style.top = `${item.curY}px`;
-            item.node.style.width = `${item.curW}px`;
-            item.node.style.height = `${item.curH}px`;
-            item.node.style.opacity = String(item.curVis ? (item.el.style?.opacity ?? 1) : 1);
-            item.node.style.transform = item.curRot ? `rotate(${item.curRot}deg)` : '';
+            applyNodeStyle(item.node, item.el, item.idx);
             item.node.classList.toggle('hidden', !item.curVis);
         }
         updateEditorCutoutMask();
@@ -338,18 +343,19 @@ export function previewEditorStateMorph(beforeMap) {
 
     // Force layout before starting CSS transition
     if (animatedNodes.length) void animatedNodes[0].node.offsetWidth;
-    const transProp = `left ${ms}ms ${cssEase}, top ${ms}ms ${cssEase}, width ${ms}ms ${cssEase}, height ${ms}ms ${cssEase}, opacity ${ms}ms ${cssEase}, transform ${ms}ms ${cssEase}, border-radius ${ms}ms ${cssEase}`;
+    const morphProps = [
+        'left', 'top', 'width', 'height', 'opacity', 'transform',
+        'border-radius', 'border-width', 'border-color',
+        'background-color', 'color', 'font-size', 'letter-spacing', 'line-height', 'padding',
+        'box-shadow', 'text-shadow', 'filter', 'backdrop-filter', '-webkit-backdrop-filter',
+        '-webkit-text-stroke-width', '-webkit-text-stroke-color'
+    ];
+    const transProp = morphProps.map(p => `${p} ${ms}ms ${cssEase}`).join(', ');
     for (const item of animatedNodes) {
+        applyNodeStyle(item.node, item.el, item.idx);
+        item.node.classList.remove('hidden');
         item.node.style.transition = transProp;
-        item.node.style.left = `${item.curX}px`;
-        item.node.style.top = `${item.curY}px`;
-        item.node.style.width = `${item.curW}px`;
-        item.node.style.height = `${item.curH}px`;
         item.node.style.opacity = String(item.curOp);
-        item.node.style.transform = item.curRot ? `rotate(${item.curRot}deg)` : '';
-        if (item.el.type !== 'alert' && !['circle', 'pill'].includes(item.el.type === 'cutout' ? item.el.cutout?.shape : item.el.style?.shape)) {
-            item.node.style.borderRadius = `${item.curRad}px`;
-        }
     }
 
     if (cutoutPairs.length) {

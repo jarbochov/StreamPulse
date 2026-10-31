@@ -132,10 +132,13 @@ export function actionBar(items) {
     const link = (items.length > 1 ? `<button type="button" class="link-btn" data-act="group" title="Group (Ctrl/⌘+G)">Group</button>` : '') + (grouped ? `<button type="button" class="link-btn" data-act="ungroup" title="Ungroup (Ctrl/⌘+Shift+G)">Ungroup</button>` : '');
     const allLocked = items.every(el => el.locked), allHidden = items.every(el => el.visible === false);
     const btn = (act, icon, text, cls = '') => `<button type="button" class="icon ${cls}" data-act="${act}" title="${text}" aria-label="${text}">${icon}</button>`;
-    return `<div class="action-bar"><div class="title">${label}<span class="spacer"></span>${link}</div>
-        <div class="btn-cluster">${btn('duplicate', ICON.copy, 'Duplicate (Ctrl/⌘+D)')}${btn('copy-style', ICON.paint, 'Copy style (Ctrl/⌘+⌥/Alt+C)')}${btn('paste-style', ICON.clipboard, 'Paste style (Ctrl/⌘+⌥/Alt+V)')}${btn('preset', ICON.preset, 'Save selection as a preset…')}${btn('delete', ICON.trash, 'Delete (Del)', 'danger')}</div>
-        <div class="btn-cluster">${btn('front', ICON.toFront, 'Bring to front')}${btn('forward', ICON.forward, 'Bring forward')}${btn('backward', ICON.backward, 'Send backward')}${btn('back', ICON.toBack, 'Send to back')}</div>
-        <div class="btn-cluster">${btn('lock', allLocked ? ICON.lock : ICON.unlock, allLocked ? 'Unlock' : 'Lock')}${btn('hide', allHidden ? ICON.eyeOff : ICON.eye, allHidden ? 'Show' : 'Hide')}</div></div>`;
+    return `<div class="action-bar">
+        <div class="title">${label}<span class="spacer"></span>${link}<div class="btn-cluster">${btn('lock', allLocked ? ICON.lock : ICON.unlock, allLocked ? 'Unlock' : 'Lock')}${btn('hide', allHidden ? ICON.eyeOff : ICON.eye, allHidden ? 'Show' : 'Hide')}${btn('delete', ICON.trash, 'Delete (Del)', 'danger')}</div></div>
+        <div class="action-toolbar">
+            <div class="btn-cluster">${btn('duplicate', ICON.copy, 'Duplicate (Ctrl/⌘+D)')}${btn('copy-style', ICON.paint, 'Copy style (Ctrl/⌘+⌥/Alt+C)')}${btn('paste-style', ICON.clipboard, 'Paste style (Ctrl/⌘+⌥/Alt+V)')}${btn('preset', ICON.preset, 'Save selection as a reusable prefab…')}</div>
+            <div class="btn-cluster">${btn('front', ICON.toFront, 'Bring to front')}${btn('forward', ICON.forward, 'Bring forward')}${btn('backward', ICON.backward, 'Send backward')}${btn('back', ICON.toBack, 'Send to back')}</div>
+        </div>
+    </div>`;
 }
 
 export function scaleSection(items) {
@@ -600,19 +603,19 @@ export function pollSection(el) {
 export function layoutSection(el) {
     const line = isLine(el);
     const locked = !!el.aspectLock;
-    return F.section('layout', 'Layer, Position & Rotation', `
+    return F.section('layout', 'Position & Size', `
         ${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}
         <div class="grid2">${F.number('x', 'X', el.x, { min: -7680, max: 7680 })}${F.number('y', 'Y', el.y, { min: -4320, max: 4320 })}</div>
         <div class="grid2">${F.number('width', 'Width', el.width, { min: LIMITS.elementW[0], max: LIMITS.elementW[1] })}${line ? '<span></span>' : F.number('height', 'Height', el.height, { min: LIMITS.elementH[0], max: LIMITS.elementH[1] })}</div>
-        ${line ? '' : `<div style="display:flex;justify-content:space-between;align-items:center;margin:-.2rem 0 .45rem;flex-wrap:wrap;gap:4px;">
-            <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                <button type="button" class="btn" style="padding:2px 6px;font-size:10px;" data-aspect-preset="16:9" title="Apply 16:9 aspect ratio">16:9</button>
-                <button type="button" class="btn" style="padding:2px 6px;font-size:10px;" data-aspect-preset="4:3" title="Apply 4:3 aspect ratio">4:3</button>
-                <button type="button" class="btn" style="padding:2px 6px;font-size:10px;" data-aspect-preset="1:1" title="Apply 1:1 square aspect ratio">1:1</button>
-                <button type="button" class="btn" style="padding:2px 6px;font-size:10px;" data-aspect-preset="9:16" title="Apply 9:16 vertical aspect ratio">9:16</button>
-                <button type="button" class="btn" style="padding:2px 6px;font-size:10px;" data-aspect-preset="21:9" title="Apply 21:9 ultrawide aspect ratio">21:9</button>
+        ${line ? '' : `<div class="aspect-bar">
+            <div class="aspect-chips">
+                <button type="button" class="aspect-chip" data-aspect-preset="16:9" title="Apply 16:9 aspect ratio">16:9</button>
+                <button type="button" class="aspect-chip" data-aspect-preset="4:3" title="Apply 4:3 aspect ratio">4:3</button>
+                <button type="button" class="aspect-chip" data-aspect-preset="1:1" title="Apply 1:1 square aspect ratio">1:1</button>
+                <button type="button" class="aspect-chip" data-aspect-preset="9:16" title="Apply 9:16 vertical aspect ratio">9:16</button>
+                <button type="button" class="aspect-chip" data-aspect-preset="21:9" title="Apply 21:9 ultrawide aspect ratio">21:9</button>
             </div>
-            <button type="button" id="toggle-aspect-lock" class="link-btn" style="font-size:11px;color:${locked ? 'var(--accent)' : 'var(--muted)'};display:inline-flex;align-items:center;gap:4px" title="${locked ? 'Unlock aspect ratio' : 'Lock aspect ratio when editing width/height'}">${locked ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:middle"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> Proportions locked' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:middle"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg> Proportions unlocked'}</button>
+            <button type="button" id="toggle-aspect-lock" class="aspect-lock-btn${locked ? ' is-locked' : ''}" aria-pressed="${locked}" title="${locked ? 'Unlock aspect ratio' : 'Lock aspect ratio when editing width/height'}">${locked ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> Lock ratio' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg> Lock ratio'}</button>
         </div>`}
         ${F.range('style.rotate', 'Rotation (°)', el.style?.rotate || 0, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset rotation to 0°' })}
         ${alignBody([el])}`);
@@ -1445,7 +1448,7 @@ export function sharedBlock(items) {
     if (!pagesEnabled) return '';
     const isStates = statesModeOn();
     const all = items.every(el => el.page === '*');
-    const labelText = isStates ? 'Show across all states (Morphs between states)' : 'Show on all pages (shared)';
+    const labelText = isStates ? 'Shared across states (morphs)' : 'Show on all pages (shared)';
     const curPageObj = state.overlay.pages?.items?.find(p => p.id === state.curPage);
     const curPageName = curPageObj?.name || state.curPage;
     let overrideBar = '';
@@ -1454,17 +1457,18 @@ export function sharedBlock(items) {
         const hasOvr = hasPageOverride(el, state.curPage);
         overrideBar = hasOvr
             ? `<div class="state-override-bar is-active">
-                <span class="state-ovr-text"><i class="layer-ovr-dot"></i> Override on <strong>${esc(curPageName)}</strong></span>
-                <button type="button" id="btn-reset-state-ovr" class="link-btn" title="Revert this layer's position, size, and visibility on ${esc(curPageName)} back to the Base State">Reset to Base</button>
+                <span class="state-ovr-text"><i class="layer-ovr-dot"></i> Modified on <strong>${esc(curPageName)}</strong></span>
+                <button type="button" id="btn-reset-state-ovr" class="link-btn" title="Revert this layer's layout and style on ${esc(curPageName)} back to the Base State">Reset to Base</button>
             </div>`
             : `<div class="state-override-bar">
-                <span class="state-ovr-text" style="color:var(--muted)">Inheriting Base layout — move, resize, or hide to override on <strong>${esc(curPageName)}</strong>.</span>
+                <span class="state-ovr-text" style="color:var(--muted)">Base values on <strong>${esc(curPageName)}</strong> — edit any property to morph</span>
             </div>`;
     }
     return `<div class="shared-box"><label class="check"><input type="checkbox" id="el-shared" ${all ? 'checked' : ''}> ${labelText}</label>${overrideBar}</div>`;
 }
 
 export function obsLinkSection(el) {
+    if (!state.obs?.enabled) return '';
     if (el.type !== 'shape' && el.type !== 'cutout') return '';
     const link = el.obsLink || { enabled: false, sourceName: '', sceneName: '', fit: 'cover', syncVisibility: true };
     const isCutout = el.type === 'cutout';

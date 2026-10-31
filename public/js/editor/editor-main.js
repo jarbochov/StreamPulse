@@ -695,6 +695,11 @@ export async function save() {
 
 // ---- OBS WebSocket Bridge (Beta) --------------------------------------------------
 export function renderObsStatusUI() {
+    const enabled = Boolean(state.obs?.enabled);
+    const topBtn = $('btn-obs-modal');
+    if (topBtn) topBtn.hidden = !enabled;
+    const addObsBtn = document.querySelector('[data-add="obs-frame"]');
+    if (addObsBtn) addObsBtn.hidden = !enabled;
     const dot = $('obs-top-dot');
     if (dot) {
         dot.classList.toggle('is-connected', !!state.obs.connected);
@@ -732,6 +737,7 @@ export function renderObsStatusUI() {
 
 export async function refreshObsStatus(fetchSources = false) {
     try {
+        const wasEnabled = Boolean(state.obs?.enabled);
         const res = await fetch('/api/obs/status', { cache: 'no-store' });
         if (res.ok) {
             const st = await res.json();
@@ -747,6 +753,11 @@ export async function refreshObsStatus(fetchSources = false) {
             }
         }
         renderObsStatusUI();
+        if (Boolean(state.obs?.enabled) !== wasEnabled) {
+            renderLayers();
+            renderPageBar();
+            renderProperties();
+        }
     } catch { /* ignore */ }
 }
 
@@ -1683,7 +1694,7 @@ export async function load() {
     state.savedSnapshot = snapshot();
     state.dirty = false;
     updateHistoryUI();
-    setRailTab(prefs.railTab === 'pages' ? 'pages' : 'layers');
+    setRailTab(['layers', 'pages', 'canvas'].includes(prefs.railTab) ? prefs.railTab : 'layers');
 
     const selectId = params.get('select');
     if (selectId && byId(selectId)) setSelection([selectId]);

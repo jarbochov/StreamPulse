@@ -612,6 +612,75 @@ function rewriteAssetReferences(text, oldName, newName, oldFamily, newFamily) {
     return result;
 }
 
+function normalizePageStateStyle(rawStyle = {}, entry = {}) {
+    const s = (rawStyle && typeof rawStyle === 'object' && !Array.isArray(rawStyle)) ? rawStyle : {};
+    const out = {};
+    const pickStr = (k, max = 120) => {
+        const val = s[k] !== undefined ? s[k] : entry[k];
+        if (typeof val === 'string' && val.trim()) out[k] = val.trim().slice(0, max);
+    };
+    const pickNum = (k, min, max, round = false) => {
+        const rawVal = s[k] !== undefined ? s[k] : entry[k];
+        if (rawVal !== undefined && rawVal !== null && rawVal !== '' && Number.isFinite(Number(rawVal))) {
+            const clamped = Math.max(min, Math.min(max, Number(rawVal)));
+            out[k] = round ? Math.round(clamped) : clamped;
+        }
+    };
+    const pickEnum = (k, allowed) => {
+        const val = s[k] !== undefined ? s[k] : entry[k];
+        if (allowed.includes(val)) out[k] = val;
+    };
+    pickStr('fontFamily', 120);
+    pickNum('fontSize', 8, 400);
+    pickStr('fontWeight', 20);
+    pickStr('color', 80);
+    pickEnum('textAlign', ['left', 'center', 'right']);
+    pickEnum('verticalAlign', ['top', 'middle', 'bottom']);
+    pickNum('lineHeight', 0.5, 3);
+    pickNum('letterSpacing', -10, 50);
+    pickEnum('textTransform', ['none', 'uppercase', 'lowercase', 'capitalize']);
+    pickEnum('textDecoration', ['none', 'underline', 'line-through']);
+    pickStr('background', 120);
+    pickStr('fill', 80);
+    pickStr('borderColor', 80);
+    pickNum('borderWidth', 0, 40);
+    pickEnum('borderStyle', BORDER_STYLES);
+    pickNum('borderRadius', 0, 200, true);
+    pickNum('padding', 0, 200, true);
+    pickNum('opacity', 0, 1);
+    pickNum('rotate', -360, 360);
+    pickNum('blur', 0, 60);
+    pickEnum('shape', ['rectangle', 'circle', 'pill', 'line']);
+    pickEnum('objectFit', ['cover', 'contain']);
+    pickNum('focusX', 0, 100);
+    pickNum('focusY', 0, 100);
+    if (s.gradient && typeof s.gradient === 'object') out.gradient = normalizeGradient(s.gradient);
+    if (s.textGradient && typeof s.textGradient === 'object') out.textGradient = normalizeGradient(s.textGradient);
+    if (s.borderGradient && typeof s.borderGradient === 'object') out.borderGradient = normalizeGradient(s.borderGradient);
+    if (s.borderGlow && typeof s.borderGlow === 'object') out.borderGlow = normalizeBorderGlow(s.borderGlow);
+    if (s.borderAnimation && typeof s.borderAnimation === 'object') out.borderAnimation = normalizeBorderAnimation(s.borderAnimation);
+    if (s.shadow && typeof s.shadow === 'object') {
+        out.shadow = {
+            blur: Math.max(0, Math.min(100, Number(s.shadow.blur) || 0)),
+            color: String(s.shadow.color || 'rgba(0,0,0,0.5)').slice(0, 80)
+        };
+    }
+    if (s.innerShadow && typeof s.innerShadow === 'object') out.innerShadow = normalizeInnerShadow(s.innerShadow);
+    if (s.textStroke && typeof s.textStroke === 'object') {
+        out.textStroke = {
+            width: Math.max(0, Math.min(20, Number(s.textStroke.width) || 0)),
+            color: String(s.textStroke.color || '#000000').slice(0, 80)
+        };
+    }
+    if (s.textShadow && typeof s.textShadow === 'object') {
+        out.textShadow = {
+            blur: Math.max(0, Math.min(60, Number(s.textShadow.blur) || 0)),
+            color: String(s.textShadow.color || 'rgba(0,0,0,0.7)').slice(0, 80)
+        };
+    }
+    return Object.keys(out).length ? out : undefined;
+}
+
 function normalizePageStates(raw) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
     const out = {};
@@ -628,6 +697,9 @@ function normalizePageStates(raw) {
         if (Number.isFinite(Number(entry.rotate))) clean.rotate = Math.max(-360, Math.min(360, Number(entry.rotate)));
         if (Number.isFinite(Number(entry.borderRadius))) clean.borderRadius = Math.max(0, Math.min(200, Math.round(Number(entry.borderRadius))));
         if (Number.isFinite(Number(entry.feather))) clean.feather = Math.max(0, Math.min(100, Math.round(Number(entry.feather))));
+        if (['rectangle', 'circle', 'pill'].includes(entry.cutoutShape)) clean.cutoutShape = entry.cutoutShape;
+        const styleOvr = normalizePageStateStyle(entry.style, entry);
+        if (styleOvr) clean.style = styleOvr;
         if (Object.keys(clean).length) out[pid] = clean;
     }
     return Object.keys(out).length ? out : undefined;
@@ -975,8 +1047,14 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
             width: st.width ?? rawEl.width,
             height: st.height ?? rawEl.height,
             visible: st.visible ?? rawEl.visible,
+            cutout: {
+                ...(rawEl.cutout || {}),
+                ...(st.cutoutShape !== undefined ? { shape: st.cutoutShape } : {}),
+                ...(st.feather !== undefined ? { feather: st.feather } : {})
+            },
             style: {
                 ...(rawEl.style || {}),
+                ...(st.style || {}),
                 ...(st.opacity !== undefined ? { opacity: st.opacity } : {}),
                 ...(st.rotate !== undefined ? { rotate: st.rotate } : {}),
                 ...(st.borderRadius !== undefined ? { borderRadius: st.borderRadius } : {})

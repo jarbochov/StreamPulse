@@ -394,17 +394,37 @@ export const inView = el => !pagesOn() || el.page === '*' || el.page === state.c
 export const visibleElements = () => state.overlay.elements.filter(inView);
 export const pageName = id => state.overlay.pages?.items.find(p => p.id === id)?.name || id;
 
+export const STATE_STYLE_KEYS = [
+    'fontFamily', 'fontSize', 'fontWeight', 'color', 'textAlign', 'verticalAlign',
+    'lineHeight', 'letterSpacing', 'textTransform', 'textDecoration',
+    'background', 'fill', 'borderColor', 'borderWidth', 'borderStyle', 'borderRadius',
+    'padding', 'opacity', 'rotate', 'blur', 'shape', 'objectFit', 'focusX', 'focusY',
+    'gradient', 'textGradient', 'borderGradient', 'borderGlow', 'borderAnimation',
+    'shadow', 'innerShadow', 'textStroke', 'textShadow'
+];
+
 export function extractElementState(el) {
+    const s = el.style || {};
+    const styleSnap = {};
+    for (const key of STATE_STYLE_KEYS) {
+        if (s[key] !== undefined) {
+            styleSnap[key] = typeof s[key] === 'object' && s[key] !== null
+                ? JSON.parse(JSON.stringify(s[key]))
+                : s[key];
+        }
+    }
     return {
         x: Math.round(Number(el.x) || 0),
         y: Math.round(Number(el.y) || 0),
         width: Math.round(Number(el.width) || 400),
         height: Math.round(Number(el.height) || 100),
         visible: el.visible !== false,
-        opacity: Number.isFinite(Number(el.style?.opacity)) ? Number(el.style.opacity) : 1,
-        rotate: Number.isFinite(Number(el.style?.rotate)) ? Number(el.style.rotate) : 0,
-        borderRadius: Math.round(Number(el.style?.borderRadius) || 0),
-        feather: Math.round(Number(el.cutout?.feather) || 0)
+        opacity: Number.isFinite(Number(s.opacity)) ? Number(s.opacity) : 1,
+        rotate: Number.isFinite(Number(s.rotate)) ? Number(s.rotate) : 0,
+        borderRadius: Math.round(Number(s.borderRadius) || 0),
+        feather: Math.round(Number(el.cutout?.feather) || 0),
+        cutoutShape: el.cutout?.shape || 'rectangle',
+        style: styleSnap
     };
 }
 
@@ -416,12 +436,20 @@ export function applyElementState(el, st) {
     if (st.height !== undefined) el.height = st.height;
     if (st.visible !== undefined) el.visible = st.visible;
     el.style ||= {};
+    if (st.style && typeof st.style === 'object') {
+        for (const [k, v] of Object.entries(st.style)) {
+            if (v !== undefined) {
+                el.style[k] = typeof v === 'object' && v !== null ? JSON.parse(JSON.stringify(v)) : v;
+            }
+        }
+    }
     if (st.opacity !== undefined) el.style.opacity = st.opacity;
     if (st.rotate !== undefined) el.style.rotate = st.rotate;
     if (st.borderRadius !== undefined) el.style.borderRadius = st.borderRadius;
-    if (el.type === 'cutout' && st.feather !== undefined) {
+    if (el.type === 'cutout') {
         el.cutout ||= { shape: 'rectangle', feather: 0 };
-        el.cutout.feather = st.feather;
+        if (st.feather !== undefined) el.cutout.feather = st.feather;
+        if (st.cutoutShape !== undefined) el.cutout.shape = st.cutoutShape;
     }
 }
 
@@ -441,9 +469,23 @@ export function syncWorkingStateForCurrentPage(pageId = state.curPage) {
         const base = el._baseState || (el._baseState = extractElementState(el));
         const cur = extractElementState(el);
         const delta = {};
-        for (const key of ['x', 'y', 'width', 'height', 'visible', 'opacity', 'rotate', 'borderRadius', 'feather']) {
-            if (key === 'feather' && el.type !== 'cutout') continue;
+        for (const key of ['x', 'y', 'width', 'height', 'visible', 'opacity', 'rotate', 'borderRadius', 'feather', 'cutoutShape']) {
+            if ((key === 'feather' || key === 'cutoutShape') && el.type !== 'cutout') continue;
             if (cur[key] !== base[key]) delta[key] = cur[key];
+        }
+        const styleDelta = {};
+        const baseStyle = base.style || {};
+        const curStyle = cur.style || {};
+        for (const key of STATE_STYLE_KEYS) {
+            if (key === 'opacity' || key === 'rotate' || key === 'borderRadius') continue;
+            if (JSON.stringify(curStyle[key]) !== JSON.stringify(baseStyle[key])) {
+                styleDelta[key] = curStyle[key] !== undefined && typeof curStyle[key] === 'object' && curStyle[key] !== null
+                    ? JSON.parse(JSON.stringify(curStyle[key]))
+                    : curStyle[key];
+            }
+        }
+        if (Object.keys(styleDelta).length) {
+            delta.style = styleDelta;
         }
         if (Object.keys(delta).length) {
             el.pageStates ||= {};
@@ -465,7 +507,14 @@ export function projectPageState(pageId = state.curPage) {
             applyElementState(el, el._baseState);
         } else {
             const over = el.pageStates?.[pageId] || {};
-            applyElementState(el, { ...el._baseState, ...over });
+            applyElementState(el, {
+                ...el._baseState,
+                ...over,
+                style: {
+                    ...(el._baseState.style || {}),
+                    ...(over.style || {})
+                }
+            });
         }
     }
 }

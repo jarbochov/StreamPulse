@@ -352,3 +352,83 @@ test('OBS WebSocket v5 Bridge & OBS Source Link (shape border/frame + cutout syn
     assert.equal(transformCall.requestData.sceneItemTransform.boundsHeight, 360);
     obsService.disconnect();
 });
+
+test('Scene States: Full Visual & Style Overrides (fontSize, color, borders, fills, cutoutShape) + Strict OBS UI Gating', () => {
+    const overlaysService = require('../server/services/overlays.js');
+
+    const textEl = overlaysService.normalizeOverlayElement({
+        id: 'text-title',
+        type: 'text',
+        page: '*',
+        content: 'STARTING SOON',
+        x: 100,
+        y: 100,
+        width: 600,
+        height: 120,
+        style: {
+            fontSize: 36,
+            fontWeight: '600',
+            color: '#ffffff',
+            background: '#111827',
+            borderWidth: 2,
+            borderColor: '#38bdf8',
+            borderRadius: 8
+        },
+        pageStates: {
+            'state-2': {
+                x: 240,
+                y: 400,
+                width: 900,
+                height: 180,
+                style: {
+                    fontSize: 72,
+                    fontWeight: '800',
+                    color: '#facc15',
+                    background: '#1e1b4b',
+                    borderWidth: 6,
+                    borderColor: '#f43f5e',
+                    borderRadius: 24
+                }
+            }
+        }
+    }, 0);
+
+    assert.ok(textEl.pageStates['state-2'].style, 'pageStates must preserve nested style overrides');
+    assert.equal(textEl.pageStates['state-2'].style.fontSize, 72);
+    assert.equal(textEl.pageStates['state-2'].style.fontWeight, '800');
+    assert.equal(textEl.pageStates['state-2'].style.color, '#facc15');
+    assert.equal(textEl.pageStates['state-2'].style.background, '#1e1b4b');
+    assert.equal(textEl.pageStates['state-2'].style.borderWidth, 6);
+    assert.equal(textEl.pageStates['state-2'].style.borderColor, '#f43f5e');
+    assert.equal(textEl.pageStates['state-2'].style.borderRadius, 24);
+
+    // Verify SVG thumbnail reflects state-2 style overrides when rendering state-2
+    const overlayDoc = overlaysService.normalizeCustomOverlay({
+        id: 'style-morph-test',
+        name: 'Style Morph Test',
+        pages: {
+            enabled: true,
+            kind: 'states',
+            transition: 'morph',
+            items: [
+                { id: 'state-1', name: 'Base' },
+                { id: 'state-2', name: 'Big Highlight' }
+            ]
+        },
+        elements: [textEl]
+    });
+    const svgState1 = overlaysService.generateSvgThumbnail(overlayDoc, { page: 'state-1' });
+    const svgState2 = overlaysService.generateSvgThumbnail(overlayDoc, { page: 'state-2' });
+    assert.ok(svgState1.includes('#38bdf8'), 'State 1 SVG should use base borderColor #38bdf8');
+    assert.ok(svgState2.includes('#f43f5e'), 'State 2 SVG should use overridden borderColor #f43f5e');
+    assert.ok(svgState2.includes('#facc15'), 'State 2 SVG should use overridden text color #facc15');
+
+    // Verify OBS UI is strictly hidden by default in HTML and gated in inspector/layers
+    const html = fs.readFileSync(path.join(__dirname, '../public/editors/custom-overlay-editor.html'), 'utf8');
+    assert.ok(html.includes('id="btn-obs-modal" class="hide-narrow obs-top-btn" hidden'), 'Topbar OBS button must be hidden by default');
+    assert.ok(html.includes('data-add="obs-frame" hidden'), 'Add menu OBS Frame button must be hidden by default');
+    assert.ok(html.includes('data-rail-tab="canvas"'), 'Left rail must include dedicated Canvas tab');
+
+    const inspectorJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-inspector.js'), 'utf8');
+    assert.ok(inspectorJs.includes('if (!state.obs?.enabled) return \'\';'), 'obsLinkSection must return empty string when OBS is disabled');
+});

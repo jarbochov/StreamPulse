@@ -88,7 +88,7 @@ export function renderLayers() {
         }
         const el = row.el, inGroup = row.group ? ` in-group${state.collapsedGroups.has(row.group) ? ' group-hidden' : ''}` : '';
         const hasOvr = hasPageOverride(el, state.curPage);
-        const obsBadge = el.obsLink?.enabled ? `<span class="layer-obs-badge" title="Linked to OBS source: ${esc(el.obsLink.sourceName || 'Unassigned')}">OBS</span>` : '';
+        const obsBadge = (state.obs?.enabled && el.obsLink?.enabled) ? `<span class="layer-obs-badge" title="Linked to OBS source: ${esc(el.obsLink.sourceName || 'Unassigned')}">OBS</span>` : '';
         return `
         <div class="layer${state.selectedIds.has(el.id) ? ' selected' : ''}${el.visible === false ? ' is-hidden' : ''}${inGroup}${hasOvr ? ' has-state-override' : ''}" data-id="${esc(el.id)}">
             <span class="layer-grip" title="Drag to reorder">${ICON.grip}</span>
@@ -250,42 +250,47 @@ export function renderPagesPanel() {
     };
 
     const obsLinkedCount = state.overlay.elements.filter(el => el.obsLink?.enabled && el.obsLink?.sourceName).length;
+    const triggerLabel = { '': 'Manual / Rotation', alert: 'On Alert', featured: 'Featured Chat', command: 'Chat Command', 'poll-end': 'Poll End', 'poll-active': 'Poll Active' }[cur?.trigger || ''] || 'Manual';
+    const transLabel = { morph: 'Morph', fade: 'Crossfade', slide: 'Slide', none: 'Cut' }[P.transition || 'morph'] || 'Morph';
     panel.innerHTML = `
         <div class="field" style="margin-bottom:.1rem">
             <span class="seg" id="pages-kind-seg">
-                <button type="button" data-pg-kind="states" aria-pressed="${isStates}">Scene States (Morph) <span class="badge-beta" style="margin-left:3px;">BETA</span></button>
-                <button type="button" data-pg-kind="pages" aria-pressed="${!isStates}">Page Deck (Slides)</button>
+                <button type="button" data-pg-kind="states" aria-pressed="${isStates}">Scene States <span class="badge-beta" style="margin-left:3px;">BETA</span></button>
+                <button type="button" data-pg-kind="pages" aria-pressed="${!isStates}">Page Deck</button>
             </span>
         </div>
         <div class="pg-head"><span>${nounPlural}</span><button id="page-add" title="Add a new ${noun}">+ Add ${noun}</button></div>
         <div class="pg-list" id="pg-list">${items.filter(p => !p.trigger).map((p, i) => rowHtml(p, i)).join('')}</div>
-        ${items.some(p => p.trigger) ? `<div class="pg-sub">Triggered ${noun}s <span>not in the rotation</span></div><div class="pg-list pg-trig" id="pg-trig-list">${items.filter(p => p.trigger).map((p, i) => rowHtml(p, i)).join('')}</div>` : ''}
+        ${items.some(p => p.trigger) ? `<div class="pg-sub">Triggered ${noun}s <span>not in rotation</span></div><div class="pg-list pg-trig" id="pg-trig-list">${items.filter(p => p.trigger).map((p, i) => rowHtml(p, i)).join('')}</div>` : ''}
         <div class="hint">${isStates
-            ? `<b>${esc(items[0]?.name || 'State 1')}</b> is the Base Layout. Select any other state and move, resize, rotate, or hide shared layers to record smooth morph overrides.`
+            ? `<b>${esc(items[0]?.name || 'State 1')}</b> is the Base Layout. Select any other state and edit position, size, colors, fonts, borders, or visibility on shared layers to record smooth morph overrides.`
             : (shared ? `${shared} shared element${shared === 1 ? '' : 's'} show on every page.` : 'Mark an element “Show on all pages” to share it across pages.')}</div>
-        ${isStates ? `<div class="state-override-bar${obsLinkedCount ? ' is-active' : ''}" style="margin:4px 0;">
-            <span class="state-ovr-text"><strong>OBS Sync <span class="badge-beta">BETA</span>:</strong> ${obsLinkedCount ? `${obsLinkedCount} linked OBS source${obsLinkedCount === 1 ? '' : 's'}` : 'Link Shape or Cutout boxes to OBS sources'}</span>
+        ${isStates && state.obs?.enabled ? `<div class="state-override-bar${obsLinkedCount ? ' is-active' : ''}" style="margin:2px 0;">
+            <span class="state-ovr-text"><strong>OBS Sync <span class="badge-beta">BETA</span>:</strong> ${obsLinkedCount ? `${obsLinkedCount} linked source${obsLinkedCount === 1 ? '' : 's'}` : 'Link Shape/Cutout boxes'}</span>
             <button type="button" id="btn-pages-obs-setup" class="link-btn">${state.obs?.connected ? 'Connected' : 'Configure…'}</button>
         </div>` : ''}
-        ${items.some(p => p.trigger) ? `<div class="hint">Priority: alerts, featured messages, polls, then commands. Interrupted polls resume while still valid. Pending messages and commands expire; interrupted ones do not replay. Manual ${noun} changes clear pending triggers.</div>` : ''}
-        <div class="pg-card"><h4>${esc(cur?.name || '')}</h4>
+        <details class="sub-details" open>
+            <summary>Transition &amp; Playback <span class="spacer"></span><span class="badge-pill">${esc(transLabel)} · ${P.transition === 'none' ? '0ms' : `${P.transitionMs || 650}ms`}</span></summary>
+            ${F.select('pages.transition', 'Transition style', P.transition, [['morph', 'Morph (Smooth Layout, Styles & Cutouts)'], ['fade', 'Crossfade'], ['slide', 'Slide'], ['none', 'Instant Cut']])}
+            ${P.transition === 'morph' ? F.select('pages.transitionEasing', 'Motion curve', P.transitionEasing || 'smooth', [['smooth', 'Smooth Cubic'], ['snappy', 'Snappy Out'], ['spring', 'Gentle Spring'], ['ease-in-out', 'Ease In-Out'], ['linear', 'Linear']]) : ''}
+            ${P.transition === 'slide' ? F.select('pages.transitionDirection', 'Slide direction', P.transitionDirection || 'left', [['left', 'Left (new enters from right)'], ['right', 'Right (enters from left)'], ['up', 'Up (enters from bottom)'], ['down', 'Down (enters from top)']]) + F.number('pages.transitionDistance', 'Slide distance (px)', P.transitionDistance || 120, { min: 10, max: 2000, step: 10 }) : ''}
+            ${P.transition !== 'none' ? F.number('pages.transitionMs', 'Transition length (ms)', P.transitionMs, { min: 50, max: 5000, step: 50 }) : ''}
+            ${F.select('pages.mode', 'Advance mode', P.mode, [['manual', 'Manual (editor, control panel, API)'], ['auto', 'Automatic cycle']])}
+            ${P.mode === 'auto' ? `${F.number('pages.cycleSeconds', `Default seconds per ${noun}`, P.cycleSeconds, { min: 1, max: 3600 })}${F.check('pages.loop', `Loop back to first ${noun}`, P.loop)}` : ''}
+            ${items.length > 1 && P.transition === 'morph' ? `<button type="button" id="btn-preview-morph" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:600"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Preview Morph on Canvas</button>` : ''}
+        </details>
+        <details class="sub-details" ${cur?.trigger ? 'open' : ''}>
+            <summary>${esc(cur?.name || nounCap)} Triggers &amp; Timing <span class="spacer"></span><span class="badge-pill${cur?.trigger ? '' : ' is-muted'}">${esc(triggerLabel)}</span></summary>
             ${F.select(`pages.items.${idx}.trigger`, `Show this ${noun}`, cur?.trigger || '', [['', 'In the rotation / manual'], ['alert', 'Only when an alert plays'], ['featured', 'Only when a message is featured'], ['command', 'Only when a chat command or trigger is used'], ['poll-end', 'Only when a Twitch poll ends'], ['poll-active', 'While a Twitch poll is active']])}
             ${cur?.trigger === 'alert' ? `<div class="field"><span>Alerts that show this ${noun}</span>${alertRules ? (alertRules.length ? `<div class="trule-list">${alertRules.map(r => `<label class="check"><input type="checkbox" data-trule="${esc(r.id)}" ${(cur.triggerRules || []).includes(r.id) ? 'checked' : ''}> ${esc(r.name || r.id)}</label>`).join('')}</div><div class="hint">${(cur.triggerRules || []).length ? `Only the ticked alerts show this ${noun}.` : `None ticked: any alert shows this ${noun}.`}</div>` : '<div class="hint">No alert rules yet.</div>') : '<div class="hint">Loading...</div>'}</div>` : ''}
             ${cur?.trigger === 'command' ? F.text(`pages.items.${idx}.triggerName`, 'Command or trigger name (blank = any)', cur.triggerName || '') : ''}
             ${cur?.trigger === 'poll-end' ? `<div class="hint">Shows this ${noun} when a Twitch poll completes. Leave &ldquo;Show for&rdquo; at 0 for default 15s.</div>` : ''}
-            ${cur?.trigger === 'poll-active' ? `<div class="hint">At Show for = 0, stays through voting and the longest Show results duration of visible Poll elements on this ${noun}, including shared elements. Waits briefly for Twitch to confirm results. A separate Poll end ${noun} takes priority; a nonzero Show for keeps fixed-duration behavior.</div>` : ''}
+            ${cur?.trigger === 'poll-active' ? `<div class="hint">At Show for = 0, stays through voting and the longest Show results duration of visible Poll elements on this ${noun}, including shared elements.</div>` : ''}
             ${cur?.trigger === 'featured' ? `<div class="hint">Shows this ${noun} when a chat message is clicked or featured in SocialStream Ninja. Leave &ldquo;Show for&rdquo; at 0 for default 10s.</div>` : ''}
             ${cur?.trigger ? F.number(`pages.items.${idx}.triggerSeconds`, 'Show for (seconds, 0 = default)', cur.triggerSeconds || 0, { min: 0, max: 3600 }) : `${F.number(`pages.items.${idx}.duration`, 'Seconds on screen (auto mode, 0 = default)', cur?.duration || 0, { min: 0, max: 3600 })}`}
-            ${cur?.trigger ? `<div style="margin-top:.6rem"><button type="button" class="btn" id="btn-test-trigger" style="width:100%;font-size:12px;padding:6px 10px;display:flex;align-items:center;justify-content:center;gap:6px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text);font-weight:600;"><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Test trigger</button></div>` : ''}</div>
-        <div class="pg-card"><h4>Transition &amp; Playback</h4>
-            ${F.select('pages.mode', 'Advance', P.mode, [['manual', 'Manual (editor, control panel, API)'], ['auto', 'Automatic cycle']])}
-            ${P.mode === 'auto' ? `${F.number('pages.cycleSeconds', `Default seconds per ${noun}`, P.cycleSeconds, { min: 1, max: 3600 })}${F.check('pages.loop', `Loop back to the first ${noun}`, P.loop)}` : ''}
-            ${F.select('pages.transition', 'Transition style', P.transition, [['morph', 'Morph (Smooth Layout & Cutouts)'], ['fade', 'Crossfade'], ['slide', 'Slide'], ['none', 'Instant Cut']])}
-            ${P.transition === 'morph' ? F.select('pages.transitionEasing', 'Motion curve', P.transitionEasing || 'smooth', [['smooth', 'Smooth Cubic'], ['snappy', 'Snappy Out'], ['spring', 'Gentle Spring'], ['ease-in-out', 'Ease In-Out'], ['linear', 'Linear']]) : ''}
-            ${P.transition === 'slide' ? F.select('pages.transitionDirection', 'Slide direction', P.transitionDirection || 'left', [['left', 'Left (new enters from right)'], ['right', 'Right (enters from left)'], ['up', 'Up (enters from bottom)'], ['down', 'Down (enters from top)']]) + F.number('pages.transitionDistance', 'Slide distance (px)', P.transitionDistance || 120, { min: 10, max: 2000, step: 10 }) : ''}
-            ${P.transition !== 'none' ? F.number('pages.transitionMs', 'Transition length (ms)', P.transitionMs, { min: 50, max: 5000, step: 50 }) : ''}
-            ${items.length > 1 && P.transition === 'morph' ? `<button type="button" id="btn-preview-morph" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:600"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Preview Morph on Canvas</button>` : ''}</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem">
+            ${cur?.trigger ? `<div style="margin-top:.3rem"><button type="button" class="btn" id="btn-test-trigger" style="width:100%;font-size:12px;padding:6px 10px;display:flex;align-items:center;justify-content:center;gap:6px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text);font-weight:600;"><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Test trigger</button></div>` : ''}
+        </details>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding-top:.2rem">
             <a href="/overlay-control.html?id=${encodeURIComponent(state.overlay.id)}" target="_blank" style="color:var(--accent);font-size:12px">Control panel ↗</a>
             <button id="pages-disable" class="ghost" title="Back to a single view. Elements are kept.">Turn off ${noun}s</button></div>`;
 
@@ -514,8 +519,10 @@ export function setRailTab(tab) {
     }
     const layersPanel = $('layers-panel');
     const pagesPanel = $('pages-panel');
+    const settingsSect = $('settings-sect');
     if (layersPanel) layersPanel.hidden = tab !== 'layers';
     if (pagesPanel) pagesPanel.hidden = tab !== 'pages';
+    if (settingsSect) settingsSect.hidden = tab !== 'canvas';
 }
 
 // ---- Initialization & Event Bindings ----------------------------------------------
