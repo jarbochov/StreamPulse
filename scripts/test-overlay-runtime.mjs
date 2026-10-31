@@ -251,6 +251,88 @@ try {
     assert.equal(await page.$('.alert-card'), null, 'explicit clear must not recreate a preview');
     await clear('alert-clear');
     assert.equal(await page.evaluate(() => window.testState.alerts.length), clearedCount);
+
+    // Scene States Morph & 60fps Cutout Interpolation + Zero-Idle-Cost cleanup test
+    const morphOverlay = {
+        ...clone(overlay),
+        pages: {
+            enabled: true,
+            kind: 'states',
+            transition: 'morph',
+            transitionEasing: 'smooth',
+            transitionMs: 120,
+            items: [
+                { id: 'state-1', name: 'Gameplay' },
+                { id: 'state-2', name: 'Intermission' }
+            ]
+        },
+        elements: [
+            {
+                id: 'cam-cutout',
+                type: 'cutout',
+                page: '*',
+                x: 40,
+                y: 40,
+                width: 480,
+                height: 270,
+                zIndex: 10,
+                style: { borderRadius: 12, borderWidth: 3, borderColor: '#38bdf8' },
+                cutout: { shape: 'rectangle', feather: 0 },
+                pageStates: {
+                    'state-2': { x: 640, y: 180, width: 640, height: 360, borderRadius: 24, feather: 4 }
+                }
+            },
+            {
+                id: 'cam-label',
+                type: 'text',
+                page: '*',
+                content: 'HOST CAM',
+                x: 40,
+                y: 320,
+                width: 200,
+                height: 40,
+                zIndex: 11,
+                style: { opacity: 1, rotate: 0 },
+                pageStates: {
+                    'state-2': { x: 640, y: 550, width: 300, height: 48, opacity: 0.85, rotate: -4 }
+                }
+            }
+        ]
+    };
+    await update(morphOverlay);
+    await page.evaluate(() => window.testState.message('custom-overlay-page', { id: 'fixture', page: 'state-2' }));
+    await page.waitForFunction(() => {
+        const label = document.querySelector('[data-element-id="cam-label"]');
+        return label && label.style.left === '640px' && label.style.willChange === '';
+    }, { timeout: 2000 });
+    const afterMorphState = await page.evaluate(() => {
+        const label = document.querySelector('[data-element-id="cam-label"]');
+        const cutout = document.querySelector('[data-element-id="cam-cutout"]');
+        const masked = document.getElementById('overlay-masked-layer');
+        return {
+            labelLeft: label?.style.left,
+            labelTop: label?.style.top,
+            labelWidth: label?.style.width,
+            labelRotate: label?.style.transform,
+            labelWillChange: label?.style.willChange,
+            labelTransition: label?.style.transition,
+            cutoutLeft: cutout?.style.left,
+            cutoutWidth: cutout?.style.width,
+            cutoutRadius: cutout?.style.borderRadius,
+            hasMask: Boolean(masked?.style.getPropertyValue('mask-image') || masked?.style.getPropertyValue('-webkit-mask-image'))
+        };
+    });
+    assert.equal(afterMorphState.labelLeft, '640px', 'morphed shared text must settle at state-2 X override');
+    assert.equal(afterMorphState.labelTop, '550px', 'morphed shared text must settle at state-2 Y override');
+    assert.equal(afterMorphState.labelWidth, '300px', 'morphed shared text must settle at state-2 Width override');
+    assert.equal(afterMorphState.labelRotate, 'rotate(-4deg)', 'morphed shared text must settle at state-2 Rotate override');
+    assert.equal(afterMorphState.labelWillChange, '', 'will-change must be stripped after morph completion for zero idle overhead');
+    assert.equal(afterMorphState.labelTransition, '', 'transition property must be stripped after morph completion');
+    assert.equal(afterMorphState.cutoutLeft, '640px', 'morphed cutout border must settle at state-2 X override');
+    assert.equal(afterMorphState.cutoutWidth, '640px', 'morphed cutout border must settle at state-2 Width override');
+    assert.equal(afterMorphState.cutoutRadius, '24px', 'morphed cutout border must settle at state-2 borderRadius override');
+    assert.equal(afterMorphState.hasMask, true, 'underlayer cutout SVG mask must remain active after state morph');
+
     assert.deepEqual(errors, []);
     console.log('Overlay runtime regression tests passed.');
 } finally {

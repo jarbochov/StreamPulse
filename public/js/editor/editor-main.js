@@ -10,7 +10,8 @@ import {
     visualBoxOf, scaleSnapshot, applyScale, uid, createElementData, toast,
     changed, registerRenderAll, registerFitView, registerSelectionChange,
     registerStatusBar, params, initialId, LIMITS, MIN_SIZE, ICON, TEXT_TYPES,
-    liveSignature, displayName, setStyleClipboard, getStyleClipboard
+    liveSignature, displayName, setStyleClipboard, getStyleClipboard,
+    serializeOverlayForSave, extractElementState, resetElementPageState
 } from './editor-state.js';
 
 import {
@@ -112,6 +113,7 @@ export function duplicateSelection(source = selectedElements()) {
         copy.y += 24;
         copy.name = el.name ? `${el.name} copy` : '';
         copy.locked = false;
+        copy._baseState = extractElementState(copy);
         return copy;
     });
     state.overlay.elements.push(...clones);
@@ -463,12 +465,20 @@ function presetThumb(preset) {
     const parts = preset.elements.map(el => {
         const s = el.style || {};
         const rect = `x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}"`;
+        if (el.type === 'cutout') {
+            const rx = el.cutout?.shape === 'circle' ? Math.min(el.width, el.height) / 2 : (s.borderRadius || 0);
+            return `<rect ${rect} rx="${rx}" fill="rgba(6,182,212,0.12)" stroke="#38bdf8" stroke-dasharray="10 6" stroke-width="2.5"/>`;
+        }
         if (el.type === 'shape') {
-            const fill = s.shape === 'ellipse' || s.background === 'transparent' ? (s.fill || s.background) : s.background;
+            const fill = s.shape === 'ellipse' || s.background === 'transparent' ? (s.fill && s.background !== 'transparent' ? s.fill : s.background) : s.background;
             const stroke = s.borderWidth ? `stroke="${esc(s.borderColor)}" stroke-width="${s.borderWidth}"` : '';
             return s.shape === 'ellipse'
                 ? `<ellipse cx="${el.x + el.width / 2}" cy="${el.y + el.height / 2}" rx="${el.width / 2}" ry="${el.height / 2}" fill="${esc(fill)}" ${stroke}/>`
                 : `<rect ${rect} rx="${s.borderRadius || 0}" fill="${esc(fill)}" ${stroke}/>`;
+        }
+        if (el.type === 'icon') {
+            const cx = el.x + el.width / 2, cy = el.y + el.height / 2, r = Math.min(el.width, el.height) * 0.35;
+            return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${esc(s.color || '#fff')}" opacity="0.85"/>`;
         }
         if (el.type === 'text' || el.type === 'random-text' || el.type === 'markdown') {
             const size = Math.min(s.fontSize || 24, el.height);
@@ -529,18 +539,24 @@ export function placePreset(preset) {
         delete copy.page; delete copy.id;
         const el = Object.assign(base, copy, { style: { ...base.style, ...copy.style } });
         if (copy.progress) el.progress = { ...base.progress, ...copy.progress };
+        if (copy.cutout) el.cutout = { ...base.cutout, ...copy.cutout };
+        if (copy.mediaFilter) el.mediaFilter = JSON.parse(JSON.stringify(copy.mediaFilter));
         el.id = uid(el.type);
         el.x = originX + (Number(copy.x) || 0);
         el.y = originY + (Number(copy.y) || 0);
         el.locked = false;
         el.visible = true;
         el.zIndex = state.overlay.elements.length + index;
-        if (preset.builtin) el.group = preset.elements.length > 1 ? sharedGroup : '';
-        else if (copy.group) {
+        if (preset.builtin) {
+            el.group = preset.elements.length > 1 ? sharedGroup : '';
+            el.groupName = preset.elements.length > 1 ? preset.name : '';
+        } else if (copy.group) {
             if (!groupMap.has(copy.group)) groupMap.set(copy.group, uid('group'));
             el.group = groupMap.get(copy.group);
+            el.groupName = copy.groupName || preset.name;
         } else {
             el.group = preset.elements.length > 1 ? sharedGroup : '';
+            el.groupName = preset.elements.length > 1 ? preset.name : '';
         }
         return el;
     });
@@ -550,18 +566,20 @@ export function placePreset(preset) {
     renderLayers();
     setSelection(made.map(el => el.id));
     changed(true);
-    toast(preset.elements.length === 1 ? `Added “${preset.name}”. Customize it in Properties.` : `Added “${preset.name}”. Ungroup to tweak the pieces.`, 'info', 3500);
+    toast(preset.elements.length === 1 ? `Added “${preset.name}”. Customize it in Properties.` : `Added prefab “${preset.name}” (${preset.elements.length} layers).`, 'info', 3500);
 }
 
 export function openSavePreset() {
     const items = selectedElements();
     if (!items.length) { toast('Select the elements to save first.', 'warn'); return; }
-    if ($('preset-name')) $('preset-name').value = '';
+    const defaultName = items.find(el => el.groupName)?.groupName || (items.length === 1 ? items[0].name : '') || '';
+    if ($('preset-name')) $('preset-name').value = defaultName;
     if ($('preset-category-list')) {
-        $('preset-category-list').innerHTML = [...new Set(['My presets', ...userPresets.map(preset => preset.category)])].map(name => `<option value="${esc(name)}">`).join('');
+        $('preset-category-list').innerHTML = [...new Set(['My Prefabs', 'My presets', 'Camera & Frames', 'Lower Thirds', 'Stream', ...userPresets.map(preset => preset.category)])].map(name => `<option value="${esc(name)}">`).join('');
     }
     presetSaveDialog?.showModal();
     $('preset-name')?.focus();
+    $('preset-name')?.select();
 }
 
 export async function saveSelectionAsPreset() {
@@ -641,12 +659,13 @@ export async function save() {
             state.overlay.id = id;
         }
         const url = state.isNew ? '/api/custom-overlays' : `/api/custom-overlays/${encodeURIComponent(state.overlay.id)}`;
+        const payload = serializeOverlayForSave();
         let response;
         try {
             response = await fetch(url, {
                 method: state.isNew ? 'POST' : 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(state.overlay)
+                body: JSON.stringify(payload)
             });
         } catch {
             throw new Error('Could not reach the StreamPulse server. Your changes are still here — try again.');
@@ -732,6 +751,9 @@ export function connectAlertPreview() {
 
 export function syncToggles() {
     $('toggle-snap')?.setAttribute('aria-pressed', String(prefs.snap));
+    if ($('snap-opt-align')) $('snap-opt-align').checked = prefs.snapAlign !== false;
+    if ($('snap-opt-spacing')) $('snap-opt-spacing').checked = prefs.snapSpacing !== false;
+    if ($('snap-opt-dimensions')) $('snap-opt-dimensions').checked = prefs.snapDimensions !== false;
     $('toggle-grid')?.setAttribute('aria-pressed', String(prefs.grid));
     $('toggle-safe')?.setAttribute('aria-pressed', String(!!prefs.safeZones));
     $('toggle-live')?.setAttribute('aria-pressed', String(prefs.live));
@@ -746,6 +768,21 @@ export function syncToggles() {
 function initEventListeners() {
     // Toolbar toggle buttons
     $('toggle-snap')?.addEventListener('click', () => { prefs.snap = !prefs.snap; savePrefs(); syncToggles(); });
+    const snapWrap = $('snap-menu-wrap');
+    $('snap-options-btn')?.addEventListener('click', event => {
+        event.stopPropagation();
+        const open = snapWrap?.classList.toggle('open');
+        $('snap-options-btn')?.setAttribute('aria-expanded', String(!!open));
+    });
+    document.addEventListener('click', event => {
+        if (snapWrap && !snapWrap.contains(event.target)) {
+            snapWrap.classList.remove('open');
+            $('snap-options-btn')?.setAttribute('aria-expanded', 'false');
+        }
+    });
+    $('snap-opt-align')?.addEventListener('change', e => { prefs.snapAlign = e.target.checked; savePrefs(); });
+    $('snap-opt-spacing')?.addEventListener('change', e => { prefs.snapSpacing = e.target.checked; savePrefs(); });
+    $('snap-opt-dimensions')?.addEventListener('change', e => { prefs.snapDimensions = e.target.checked; savePrefs(); });
     $('toggle-grid')?.addEventListener('click', () => { prefs.grid = !prefs.grid; savePrefs(); syncToggles(); syncCanvasUI(); });
     $('toggle-safe')?.addEventListener('click', () => { prefs.safeZones = !prefs.safeZones; savePrefs(); syncToggles(); syncCanvasUI(); });
     $('toggle-fx')?.addEventListener('click', () => { prefs.fx = !prefs.fx; savePrefs(); syncToggles(); });
@@ -1225,6 +1262,7 @@ function initEventListeners() {
             if (hasGroup) {
                 menuHtml += `<button type="button" class="ctx-item" data-ctx-act="ungroup"><span>Ungroup</span><kbd>${modKey}⇧G</kbd></button>`;
             }
+            menuHtml += `<button type="button" class="ctx-item" data-ctx-act="preset"><span>Save as Prefab / Preset…</span></button>`;
             menuHtml += `<button type="button" class="ctx-item" data-ctx-act="lock"><span>${allLocked ? 'Unlock' : 'Lock'}</span></button>`;
             menuHtml += `<button type="button" class="ctx-item" data-ctx-act="hide"><span>${items.every(el => el.visible === false) ? 'Show' : 'Hide'}</span></button>`;
             menuHtml += `<div class="ctx-divider"></div>`;
@@ -1262,6 +1300,7 @@ function initEventListeners() {
         else if (['front', 'forward', 'backward', 'back'].includes(act)) reorder(act);
         else if (act === 'group') groupSelection();
         else if (act === 'ungroup') ungroupSelection();
+        else if (act === 'preset') openSavePreset();
         else if (act === 'lock') runAction('lock');
         else if (act === 'hide') runAction('hide');
         else if (act === 'delete') deleteSelection();
@@ -1398,7 +1437,8 @@ export async function load() {
         onRenderCanvas: renderCanvas,
         onRenderProperties: renderProperties,
         onUpdateStatusBar: updateStatusBar,
-        onRenderAll: renderAll
+        onRenderAll: renderAll,
+        onSavePreset: openSavePreset
     });
 
     registerInspectorCallbacks({

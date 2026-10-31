@@ -203,7 +203,19 @@
                     </div>
                 </div>
                 <span class="divider"></span>
-                <button id="toggle-snap" aria-pressed="true" title="Snap to canvas and other elements. Hold Alt while dragging to bypass.">Snap</button>
+                <div class="snap-menu-wrap" id="snap-menu-wrap">
+                    <button id="toggle-snap" aria-pressed="true" title="Snap to canvas and other elements. Hold Alt while dragging to bypass.">Snap</button>
+                    <button id="snap-options-btn" class="snap-caret-btn" aria-haspopup="true" aria-expanded="false" title="Configure magnetic snapping options" aria-label="Snap options">
+                        <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5L6 7.5L9 4.5"/></svg>
+                    </button>
+                    <div class="snap-popover" id="snap-popover" role="menu">
+                        <div class="snap-popover-head">Magnetic Snapping</div>
+                        <label class="snap-opt-row"><input type="checkbox" id="snap-opt-align" checked> <span>Align to Layers &amp; Centers</span></label>
+                        <label class="snap-opt-row"><input type="checkbox" id="snap-opt-spacing" checked> <span>Equal Spacing Guides</span></label>
+                        <label class="snap-opt-row"><input type="checkbox" id="snap-opt-dimensions" checked> <span>Match Dimensions on Resize</span></label>
+                        <div class="snap-popover-hint">Hold <kbd>Alt</kbd> while dragging to bypass</div>
+                    </div>
+                </div>
                 <button id="toggle-grid" aria-pressed="false" title="Show grid">Grid</button>
                 <button id="toggle-safe" aria-pressed="false" title="Show OBS Action/Title Safe Zones and Twitch Mobile overlay">Safe Zones</button>
                 <button id="toggle-fx" aria-pressed="true" title="Run animated retro effects, duotone, and film grain in the editor. Turn off for a smoother editor; the live overlay still animates.">Effects</button>

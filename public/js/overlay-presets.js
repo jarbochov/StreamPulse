@@ -106,15 +106,30 @@
             build('weather-details', 'Weather: current conditions', 'Weather', 'Detailed conditions: feels like, humidity, wind, high/low, rain, sunrise/sunset, UV.', 520, 240, weatherDetails(), 'weather'),
             build('weather-hourly', 'Weather: hourly forecast', 'Weather', 'The next six hours with icon, temperature and rain chance.', 700, 190, weatherHourly(), 'weather'),
             build('weather-daily', 'Weather: 5-day forecast', 'Weather', 'The next five days with icon, high, low and rain chance.', 690, 236, weatherDaily(), 'weather'),
-            build('camera-16-9', 'Webcam frame (16:9)', 'Camera', 'Standard 16:9 webcam cutout with purple border, drop shadow, and streamer handle badge.', 480, 270, [
+            build('camera-16-9', 'Webcam frame (16:9)', 'Camera & Frames', 'Standard 16:9 webcam punchthrough cutout with purple border, drop shadow, and streamer handle badge.', 480, 270, [
+                { type: 'cutout', name: 'Webcam cutout', x: 0, y: 0, width: 480, height: 270, style: { borderRadius: 12 }, cutout: { shape: 'rectangle', feather: 0 } },
                 { type: 'shape', name: 'Webcam border', x: 0, y: 0, width: 480, height: 270, style: { background: 'transparent', borderColor: '#9146ff', borderWidth: 3, borderRadius: 12, shadow: { blur: 20, color: 'rgba(0,0,0,0.6)' } } },
                 { type: 'shape', name: 'Handle tag background', x: 20, y: 246, width: 160, height: 28, style: { background: '#9146ff', borderRadius: 6 } },
                 text('Streamer name', '{{streamer.name}}', 20, 246, 160, 28, { fontSize: 13, fontWeight: '700', textAlign: 'center', color: '#ffffff' })
             ]),
-            build('camera-4-3', 'Webcam frame (4:3)', 'Camera', 'Classic 4:3 webcam cutout with cyan border, drop shadow, and streamer handle badge.', 400, 300, [
+            build('camera-4-3', 'Webcam frame (4:3)', 'Camera & Frames', 'Classic 4:3 webcam punchthrough cutout with cyan border, drop shadow, and streamer handle badge.', 400, 300, [
+                { type: 'cutout', name: 'Webcam cutout', x: 0, y: 0, width: 400, height: 300, style: { borderRadius: 12 }, cutout: { shape: 'rectangle', feather: 0 } },
                 { type: 'shape', name: 'Webcam border', x: 0, y: 0, width: 400, height: 300, style: { background: 'transparent', borderColor: '#06b6d4', borderWidth: 3, borderRadius: 12, shadow: { blur: 20, color: 'rgba(0,0,0,0.6)' } } },
                 { type: 'shape', name: 'Handle tag background', x: 20, y: 274, width: 150, height: 28, style: { background: '#06b6d4', borderRadius: 6 } },
                 text('Streamer name', '{{streamer.name}}', 20, 274, 150, 28, { fontSize: 13, fontWeight: '700', textAlign: 'center', color: '#ffffff' })
+            ]),
+            build('retro-4-3-frame', 'Retro 4:3 Gameplay Frame', 'Camera & Frames', '4:3 gameplay punchthrough cutout with glowing frame border and top Now Playing header.', 1200, 900, [
+                { type: 'cutout', name: '4:3 Gameplay Cutout', x: 0, y: 48, width: 1200, height: 852, style: { borderRadius: 14 }, cutout: { shape: 'rectangle', feather: 0 } },
+                { type: 'shape', name: 'Gameplay Border', x: 0, y: 48, width: 1200, height: 852, style: { background: 'transparent', borderColor: '#38bdf8', borderWidth: 3, borderRadius: 14, shadow: { blur: 24, color: 'rgba(0,0,0,0.65)' } } },
+                { type: 'shape', name: 'Top Header Pill', x: 0, y: 0, width: 420, height: 38, style: { background: 'rgba(13,17,23,0.88)', borderColor: '#30363d', borderWidth: 1, borderRadius: 8 } },
+                text('Now Playing Header', 'PLAYING: {{plan.now}}', 14, 0, 392, 38, { fontSize: 16, fontWeight: '700', color: '#38bdf8' })
+            ]),
+            build('social-bar', 'Social Handle Pill', 'Stream', 'Reusable lower-third social tag with icon badge, streamer handle, and category.', 420, 56, [
+                { type: 'shape', name: 'Pill Card', x: 0, y: 0, width: 420, height: 56, style: { ...PANEL, borderRadius: 28 } },
+                { type: 'shape', name: 'Accent Badge', x: 8, y: 8, width: 40, height: 40, style: { background: '#9146ff', borderRadius: 20 } },
+                { type: 'icon', name: 'Platform Icon', content: 'fa-brands fa-twitch', x: 16, y: 16, width: 24, height: 24, style: { fontSize: 20, color: '#ffffff', textAlign: 'center', verticalAlign: 'middle' } },
+                text('Streamer Handle', '{{streamer.name}}', 60, 6, 340, 26, { fontSize: 18, fontWeight: '700', color: '#ffffff' }),
+                muted('Stream Category', '{{game}}', 60, 30, 340, 20, 13)
             ]),
             build('milestone-card', 'Milestone & Stream # Card', 'Milestones', 'Stream broadcast number, lifetime hours, daily streak, and next goal progress bar.', 440, 180, [
                 panel(440, 180, 'Milestones panel'),

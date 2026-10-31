@@ -17,9 +17,36 @@
         const hit = items.find(item => item.id === k || item.name.toLowerCase() === k) || (/^\d+$/.test(k) ? items[Number(k) - 1] : null);
         return hit ? hit.id : '';
     }
-    function pageElements(overlay) {
-        return (overlay.elements || []).filter(item => item.visible !== false
-            && (!pagesOn(overlay) || item.page === '*' || item.page === currentPage));
+    function effectiveElementForPage(element, pageId = currentPage, overlay = currentOverlay) {
+        if (!element || !pagesOn(overlay) || element.page !== '*') return element;
+        const baseId = overlay?.pages?.items?.[0]?.id;
+        if (!pageId || pageId === baseId) return element;
+        const ovr = element.pageStates?.[pageId];
+        if (!ovr || typeof ovr !== 'object') return element;
+        const next = { ...element, style: { ...(element.style || {}) } };
+        if (Number.isFinite(ovr.x)) next.x = ovr.x;
+        if (Number.isFinite(ovr.y)) next.y = ovr.y;
+        if (Number.isFinite(ovr.width)) next.width = ovr.width;
+        if (Number.isFinite(ovr.height)) next.height = ovr.height;
+        if (typeof ovr.visible === 'boolean') next.visible = ovr.visible;
+        if (Number.isFinite(ovr.opacity)) next.style.opacity = ovr.opacity;
+        if (Number.isFinite(ovr.rotate)) next.style.rotate = ovr.rotate;
+        if (Number.isFinite(ovr.borderRadius)) next.style.borderRadius = ovr.borderRadius;
+        if (element.type === 'cutout' && Number.isFinite(ovr.feather)) {
+            next.cutout = { ...(element.cutout || {}), feather: ovr.feather };
+        }
+        return next;
+    }
+    function mediaContentSig(element) {
+        const { x, y, width, height, visible, pageStates, _baseState, style, ...rest } = element || {};
+        const { opacity, rotate, borderRadius, ...restStyle } = style || {};
+        return JSON.stringify({ ...rest, style: restStyle });
+    }
+    function pageElements(overlay, pageId = currentPage, { includeHiddenShared = false } = {}) {
+        return (overlay.elements || [])
+            .filter(item => !pagesOn(overlay) || item.page === '*' || item.page === pageId)
+            .map(item => effectiveElementForPage(item, pageId, overlay))
+            .filter(item => item.visible !== false || (includeHiddenShared && item.page === '*'));
     }
     const shared = window.OverlayShared;
     const loadGoogleFont = shared.loadGoogleFont;
@@ -353,11 +380,11 @@
         return { masked, top };
     }
 
-    function updateCutoutMask() {
+    function updateCutoutMask(overrideCutouts = null) {
         if (!currentOverlay) return;
         const canW = Number(currentOverlay.canvas?.width) || 1920;
         const canH = Number(currentOverlay.canvas?.height) || 1080;
-        const cutouts = pageElements(currentOverlay).filter(el => el.type === 'cutout' && (cutoutStates.has(el.id) ? cutoutStates.get(el.id) : el.visible !== false));
+        const cutouts = overrideCutouts || pageElements(currentOverlay).filter(el => el.type === 'cutout' && (cutoutStates.has(el.id) ? cutoutStates.get(el.id) : el.visible !== false));
         const { masked } = ensureLayers();
         const svg = document.getElementById('overlay-cutout-svg');
         if (svg) svg.remove();
@@ -532,15 +559,24 @@
             }
         }
         if (element.type === 'slideshow') {
-            const sig = JSON.stringify(element);
+            const sig = mediaContentSig(element);
             const existing = slideshows.get(element.id);
-            if (existing && existing.sig === sig) { slideshowsKept.add(element.id); existing.node.dataset.pg = element.page || ''; return existing.node; }
+            if (existing && existing.sig === sig) {
+                slideshowsKept.add(element.id);
+                existing.node.dataset.pg = element.page || '';
+                applyElementStyle(existing.node, element);
+                shared.applyMediaFilter(existing.node, element);
+                return existing.node;
+            }
         }
-        const embedSig = element.type === 'embed' || element.type === 'video' ? `${JSON.stringify(element)}|${expandVariables(element.src || '')}` : '';
+        const embedSig = element.type === 'embed' || element.type === 'video' ? `${mediaContentSig(element)}|${expandVariables(element.src || '')}` : '';
         if (embedSig) {
             const existing = embeds.get(element.id);
             if (existing && existing.sig === embedSig) {
                 embedsKept.add(element.id);
+                existing.node.dataset.pg = element.page || '';
+                applyElementStyle(existing.node, element);
+                shared.applyMediaFilter(existing.node, element);
                 return existing.node;
             }
         }
@@ -751,11 +787,11 @@
                 randomTimers.set(element.id, setInterval(() => setRandomText(node, element), interval));
             } else if (element.type === 'slideshow') {
                 slideshows.get(element.id)?.handle.stop();
-                slideshows.set(element.id, { sig: JSON.stringify(element), node, handle: shared.mountSlideshow(node, element, { onState: state => reportSlideshow(element.id, state) }) });
+                slideshows.set(element.id, { sig: mediaContentSig(element), node, handle: shared.mountSlideshow(node, element, { onState: state => reportSlideshow(element.id, state) }) });
                 slideshowsKept.add(element.id);
             } else if (element.type === 'pattern' || element.type === 'procedural-pattern') {
                 slideshows.get(element.id)?.handle.stop();
-                const sig = `${JSON.stringify(element)}|${expandVariables(element.src || '')}`;
+                const sig = `${mediaContentSig(element)}|${expandVariables(element.src || '')}`;
                 slideshows.set(element.id, { sig, node, handle: shared.mountPattern(node, element, { preview: params.get('preview') === 'true', expand: expandVariables }) });
                 slideshowsKept.add(element.id);
             } else if (element.type === 'game-list') {
@@ -787,12 +823,43 @@
         }
     }
 
+    const MORPH_EASINGS = {
+        smooth: 'cubic-bezier(0.22, 1, 0.36, 1)',
+        snappy: 'cubic-bezier(0.16, 1, 0.3, 1)',
+        spring: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+        'ease-in-out': 'cubic-bezier(0.65, 0, 0.35, 1)',
+        linear: 'linear'
+    };
+
+    function evalMorphEase(name, t) {
+        const x = Math.max(0, Math.min(1, t));
+        if (name === 'linear') return x;
+        if (name === 'ease-in-out') return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+        if (name === 'snappy') return 1 - Math.pow(1 - x, 4);
+        if (name === 'spring') {
+            const c1 = 1.70158;
+            const c3 = c1 + 1;
+            return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+        }
+        return 1 - Math.pow(1 - x, 3);
+    }
+
     // Swaps only the page's own elements, so shared elements keep running through the transition.
     let pageSwitchTimer = null;
+    let cutoutMorphRaf = 0;
     function switchPage(nextId) {
         if (!currentOverlay || !pagesOn(currentOverlay) || nextId === currentPage || !nextId) return;
         const pages = currentOverlay.pages;
         const previous = currentPage;
+        const beforeShared = new Map();
+        const beforeCutouts = new Map();
+        for (const el of pageElements(currentOverlay, previous, { includeHiddenShared: true })) {
+            if (el.page === '*') beforeShared.set(el.id, el);
+            if (el.type === 'cutout' && (cutoutStates.has(el.id) ? cutoutStates.get(el.id) : el.visible !== false)) {
+                beforeCutouts.set(el.id, el);
+            }
+        }
+
         currentPage = nextId;
         const { masked, top } = ensureLayers();
         const activeCutouts = pageElements(currentOverlay).filter(el => el.type === 'cutout' && (cutoutStates.has(el.id) ? cutoutStates.get(el.id) : el.visible !== false));
@@ -825,13 +892,53 @@
         }
         const ms = pages.transition === 'none' ? 0 : pages.transitionMs;
         const kind = pages.transition;
+        const isMorph = kind === 'morph' || pages.kind === 'states';
+        const easeName = pages.transitionEasing || 'smooth';
+        const cssEase = MORPH_EASINGS[easeName] || MORPH_EASINGS.smooth;
         // "left" means the content moves left: the new page enters from the right.
         const sign = { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] }[pages.transitionDirection] || [1, 0];
         const distance = pages.transitionDistance || 120;
         const slideVars = node => { if (kind === 'slide') { node.style.setProperty('--pg-x', `${sign[0] * distance}px`); node.style.setProperty('--pg-y', `${sign[1] * distance}px`); } };
         clearTimeout(pageSwitchTimer);
+        if (cutoutMorphRaf) { cancelAnimationFrame(cutoutMorphRaf); cutoutMorphRaf = 0; }
         transitioning = ms > 0;
         outgoing.forEach(node => { if (ms) node.style.pointerEvents = 'none'; });
+
+        // Handle shared elements (el.page === '*') that may have per-state overrides on the target state
+        const morphedShared = [];
+        const afterSharedElements = pageElements(currentOverlay, currentPage, { includeHiddenShared: true }).filter(el => el.page === '*');
+        for (const afterEl of afterSharedElements) {
+            const prevEl = beforeShared.get(afterEl.id);
+            const wasVis = prevEl ? prevEl.visible !== false : true;
+            const nowVis = afterEl.visible !== false;
+            if (!wasVis && !nowVis) continue;
+            const node = buildNode(afterEl);
+            node._layer = (node._isTopLayer || Number(node.style.zIndex || 0) > maxCutoutZ) ? 'top' : 'masked';
+            const parent = node._layer === 'top' ? top : masked;
+            if (node.parentNode !== parent) parent.appendChild(node);
+            const v = node.querySelector(':scope > video');
+            if (v) {
+                initializeVideoElement(v);
+                if (nowVis && v._pausedByState) {
+                    delete v._pausedByState;
+                    playVideoElement(v);
+                }
+            }
+            if (ms > 0 && isMorph && prevEl) {
+                // Set initial before-state styles so browser can transition to afterEl
+                applyElementStyle(node, prevEl);
+                node.style.visibility = '';
+                node.style.opacity = String(wasVis ? (prevEl.style?.opacity ?? 1) : 0);
+                node.style.willChange = 'left, top, width, height, transform, opacity, border-radius';
+                morphedShared.push({ node, prevEl, afterEl, wasVis, nowVis });
+            } else if (!nowVis) {
+                node.remove();
+            } else {
+                node.style.visibility = '';
+                node.style.pointerEvents = afterEl.type === 'cutout' ? 'none' : '';
+            }
+        }
+
         // Build and lay the new page out first, then start the animation on the next frame, so fitting text
         // and decoding images do not stutter the first frames.
         const incoming = pageElements(currentOverlay).filter(element => element.page === currentPage).map(buildNode);
@@ -845,8 +952,10 @@
         });
         outgoing.forEach(node => { if (ms) node.style.willChange = 'transform, opacity'; });
         refit();
-        updateCutoutMask();
+        if (!ms || !isMorph) updateCutoutMask();
+
         const finish = () => {
+            if (cutoutMorphRaf) { cancelAnimationFrame(cutoutMorphRaf); cutoutMorphRaf = 0; }
             outgoing.forEach(node => {
                 if (prevTrigger && node.classList.contains('overlay-embed')) { node.style.animation = ''; node.style.willChange = ''; node.style.visibility = 'hidden'; node.style.pointerEvents = 'none'; }
                 else {
@@ -856,6 +965,25 @@
                 }
             });
             incoming.forEach(node => { node.style.animation = ''; node.style.willChange = ''; node.style.visibility = ''; node.style.pointerEvents = ''; });
+            morphedShared.forEach(({ node, afterEl, nowVis }) => {
+                node.style.transition = '';
+                node.style.willChange = '';
+                if (!nowVis) {
+                    const v = node.querySelector(':scope > video');
+                    if (v && !v.paused) {
+                        v._pausedByState = true;
+                        v._playRequest = (v._playRequest || 0) + 1;
+                        v.pause();
+                    }
+                    node.style.visibility = 'hidden';
+                    node.style.pointerEvents = 'none';
+                } else {
+                    node.style.visibility = '';
+                    node.style.opacity = String(afterEl.style?.opacity ?? 1);
+                    node.style.pointerEvents = afterEl.type === 'cutout' ? 'none' : '';
+                }
+            });
+            updateCutoutMask();
             transitioning = false;
             if (pendingRender) { const next = pendingRender; pendingRender = null; render(next); }
         };
@@ -865,10 +993,69 @@
         });
         const ready = loading.length ? Promise.race([Promise.all(loading.map(frame => new Promise(done => frame.addEventListener('load', done, { once: true })))), new Promise(done => setTimeout(done, 2000))]) : Promise.resolve();
         if (!ms) { finish(); return; }
+        const animKind = kind === 'morph' ? 'fade' : kind;
         ready.then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
-            incoming.forEach(node => { slideVars(node); node.style.visibility = ''; node.style.animation = `pg-${kind}-in ${ms}ms ease both`; });
-            outgoing.forEach(node => { slideVars(node); node.style.animation = `pg-${kind}-out ${ms}ms ease both`; });
-            pageSwitchTimer = setTimeout(finish, ms + 30);
+            incoming.forEach(node => { slideVars(node); node.style.visibility = ''; node.style.animation = `pg-${animKind}-in ${ms}ms ${cssEase} both`; });
+            outgoing.forEach(node => { slideVars(node); node.style.animation = `pg-${animKind}-out ${ms}ms ${cssEase} both`; });
+            morphedShared.forEach(({ node, afterEl, nowVis }) => {
+                node.style.transition = [
+                    `left ${ms}ms ${cssEase}`,
+                    `top ${ms}ms ${cssEase}`,
+                    `width ${ms}ms ${cssEase}`,
+                    `height ${ms}ms ${cssEase}`,
+                    `transform ${ms}ms ${cssEase}`,
+                    `opacity ${ms}ms ${cssEase}`,
+                    `border-radius ${ms}ms ${cssEase}`
+                ].join(', ');
+                applyElementStyle(node, afterEl);
+                node.style.opacity = String(nowVis ? (afterEl.style?.opacity ?? 1) : 0);
+                if (!nowVis) node.style.pointerEvents = 'none';
+            });
+
+            // 60fps SVG cutout mask interpolation during active morph transitions
+            const afterCutouts = new Map();
+            for (const c of activeCutouts) afterCutouts.set(c.id, c);
+            const allCutoutIds = new Set([...beforeCutouts.keys(), ...afterCutouts.keys()]);
+            if (isMorph && allCutoutIds.size > 0) {
+                const startTime = performance.now();
+                const tickCutoutMorph = now => {
+                    const rawT = Math.min(1, (now - startTime) / ms);
+                    const k = evalMorphEase(easeName, rawT);
+                    const interp = [];
+                    for (const cid of allCutoutIds) {
+                        const b = beforeCutouts.get(cid);
+                        const a = afterCutouts.get(cid);
+                        if (b && a) {
+                            interp.push({
+                                ...a,
+                                x: b.x + (a.x - b.x) * k,
+                                y: b.y + (a.y - b.y) * k,
+                                width: Math.max(0, b.width + (a.width - b.width) * k),
+                                height: Math.max(0, b.height + (a.height - b.height) * k),
+                                style: { ...(a.style || {}), borderRadius: (b.style?.borderRadius || 0) + ((a.style?.borderRadius || 0) - (b.style?.borderRadius || 0)) * k },
+                                cutout: { ...(a.cutout || {}), feather: (b.cutout?.feather || 0) + ((a.cutout?.feather || 0) - (b.cutout?.feather || 0)) * k }
+                            });
+                        } else if (a && !b) {
+                            const cx = a.x + a.width / 2, cy = a.y + a.height / 2;
+                            const w = a.width * k, h = a.height * k;
+                            if (w >= 1 && h >= 1) interp.push({ ...a, x: cx - w / 2, y: cy - h / 2, width: w, height: h });
+                        } else if (b && !a) {
+                            const inv = Math.max(0, 1 - k);
+                            const cx = b.x + b.width / 2, cy = b.y + b.height / 2;
+                            const w = b.width * inv, h = b.height * inv;
+                            if (w >= 1 && h >= 1) interp.push({ ...b, x: cx - w / 2, y: cy - h / 2, width: w, height: h });
+                        }
+                    }
+                    updateCutoutMask(interp);
+                    if (rawT < 1) cutoutMorphRaf = requestAnimationFrame(tickCutoutMorph);
+                    else cutoutMorphRaf = 0;
+                };
+                cutoutMorphRaf = requestAnimationFrame(tickCutoutMorph);
+            } else {
+                updateCutoutMask();
+            }
+
+            pageSwitchTimer = setTimeout(finish, ms + 35);
         })));
     }
 

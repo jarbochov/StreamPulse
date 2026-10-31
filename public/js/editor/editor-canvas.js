@@ -8,7 +8,12 @@ import {
     primary, inView, visibleElements, withGroups, setSelection, changed,
     expand, liveSignature, alertSample, toast
 } from './editor-state.js';
-import { snapAxis as findSnapAxis } from '../editor-geometry.js';
+import {
+    snapAxis as findSnapAxis,
+    buildSnapModel,
+    computeSmartMoveSnap,
+    computeSmartResizeSnap
+} from '../editor-geometry.js';
 
 const shared = window.OverlayShared || {};
 
@@ -99,12 +104,14 @@ export function syncCanvasUI() {
 }
 
 // ---- Cutout Underlayer Masking ----------------------------------------------------
-export function updateEditorCutoutMask() {
+export function updateEditorCutoutMask(overrideCutouts = null) {
     const under = $('canvas-underlayer');
     if (!under) return;
     const canW = Number(state.overlay.canvas?.width) || 1920;
     const canH = Number(state.overlay.canvas?.height) || 1080;
-    const cutouts = state.overlay.elements.filter(e => e.type === 'cutout' && e.visible !== false && inView(e));
+    const cutouts = Array.isArray(overrideCutouts)
+        ? overrideCutouts
+        : state.overlay.elements.filter(e => e.type === 'cutout' && e.visible !== false && inView(e));
     if (!cutouts.length) {
         if (!under._lastMaskUrl) return;
         under._lastMaskUrl = '';
@@ -202,6 +209,182 @@ export function scheduleEditorCutoutMask() {
         editorCutoutMaskRaf = null;
         updateEditorCutoutMask();
     });
+}
+
+const EASING_CSS = {
+    smooth: 'cubic-bezier(0.22, 1, 0.36, 1)',
+    snappy: 'cubic-bezier(0.16, 1, 0.3, 1)',
+    spring: 'cubic-bezier(0.34, 1.45, 0.64, 1)',
+    'ease-in-out': 'cubic-bezier(0.45, 0, 0.55, 1)',
+    linear: 'linear'
+};
+
+function evalEasing(name, t) {
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    if (name === 'linear') return t;
+    if (name === 'ease-in-out') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    if (name === 'snappy') return 1 - Math.pow(1 - t, 4);
+    if (name === 'spring') {
+        const c1 = 1.70158, c3 = c1 + 1;
+        return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    }
+    return 1 - Math.pow(1 - t, 3);
+}
+
+let activeMorphCleanup = null;
+export function cancelEditorStateMorph() {
+    if (activeMorphCleanup) {
+        const fn = activeMorphCleanup;
+        activeMorphCleanup = null;
+        fn();
+    }
+}
+
+export function captureEditorStateSnapshot() {
+    const map = new Map();
+    for (const el of visibleElements()) {
+        const entry = {
+            id: el.id,
+            morphId: el.morphId || '',
+            type: el.type,
+            x: Number(el.x) || 0,
+            y: Number(el.y) || 0,
+            width: Number(el.width) || 400,
+            height: Number(el.height) || 100,
+            visible: el.visible !== false,
+            opacity: Number.isFinite(Number(el.style?.opacity)) ? Number(el.style.opacity) : 1,
+            rotate: Number.isFinite(Number(el.style?.rotate)) ? Number(el.style.rotate) : 0,
+            borderRadius: Number(el.style?.borderRadius) || 0,
+            feather: Number(el.cutout?.feather) || 0,
+            cutoutShape: el.cutout?.shape || 'rectangle'
+        };
+        map.set(el.id, entry);
+        if (entry.morphId) map.set(`morph:${entry.morphId}`, entry);
+    }
+    return map;
+}
+
+export function previewEditorStateMorph(beforeMap) {
+    cancelEditorStateMorph();
+    if (!beforeMap || prefs.fx === false || state.overlay.pages?.transition !== 'morph') return;
+    const ms = Math.max(80, Math.min(5000, Number(state.overlay.pages?.transitionMs) || 650));
+    const easingKey = state.overlay.pages?.transitionEasing || 'smooth';
+    const cssEase = EASING_CSS[easingKey] || EASING_CSS.smooth;
+
+    const animatedNodes = [];
+    const cutoutPairs = [];
+
+    for (const el of visibleElements()) {
+        const prev = beforeMap.get(el.id) || (el.morphId ? beforeMap.get(`morph:${el.morphId}`) : null);
+        if (!prev) continue;
+        const node = state.nodes.get(el.id);
+        const curX = Number(el.x) || 0, curY = Number(el.y) || 0;
+        const curW = Number(el.width) || 400, curH = Number(el.height) || 100;
+        const curVis = el.visible !== false;
+        const curOp = curVis ? (Number.isFinite(Number(el.style?.opacity)) ? Number(el.style.opacity) : 1) : 0;
+        const prevOp = prev.visible ? prev.opacity : 0;
+        const curRot = Number(el.style?.rotate) || 0;
+        const curRad = Number(el.style?.borderRadius) || 0;
+
+        const changedGeom = prev.x !== curX || prev.y !== curY || prev.width !== curW || prev.height !== curH || prevOp !== curOp || prev.rotate !== curRot || prev.borderRadius !== curRad;
+        if (!changedGeom) continue;
+
+        if (el.type === 'cutout' && (prev.visible || curVis)) {
+            cutoutPairs.push({
+                id: el.id,
+                shape: el.cutout?.shape || prev.cutoutShape || 'rectangle',
+                from: { x: prev.x, y: prev.y, width: prev.visible ? prev.width : 0, height: prev.visible ? prev.height : 0, borderRadius: prev.borderRadius, feather: prev.feather },
+                to: { x: curX, y: curY, width: curVis ? curW : 0, height: curVis ? curH : 0, borderRadius: curRad, feather: Number(el.cutout?.feather) || 0 }
+            });
+        }
+
+        if (node) {
+            node.classList.remove('hidden');
+            node.style.transition = 'none';
+            node.style.willChange = 'left, top, width, height, opacity, transform, border-radius';
+            node.style.left = `${prev.x}px`;
+            node.style.top = `${prev.y}px`;
+            node.style.width = `${prev.width}px`;
+            node.style.height = `${prev.height}px`;
+            node.style.opacity = String(prevOp);
+            node.style.transform = prev.rotate ? `rotate(${prev.rotate}deg)` : '';
+            if (el.type !== 'alert') node.style.borderRadius = `${prev.borderRadius}px`;
+            animatedNodes.push({ node, el, curX, curY, curW, curH, curVis, curOp, curRot, curRad });
+        }
+    }
+
+    if (!animatedNodes.length && !cutoutPairs.length) return;
+
+    let rafId = 0;
+    let timerId = 0;
+    const cleanup = () => {
+        if (rafId) cancelAnimationFrame(rafId);
+        if (timerId) clearTimeout(timerId);
+        for (const item of animatedNodes) {
+            item.node.style.transition = '';
+            item.node.style.willChange = '';
+            item.node.style.left = `${item.curX}px`;
+            item.node.style.top = `${item.curY}px`;
+            item.node.style.width = `${item.curW}px`;
+            item.node.style.height = `${item.curH}px`;
+            item.node.style.opacity = String(item.curVis ? (item.el.style?.opacity ?? 1) : 1);
+            item.node.style.transform = item.curRot ? `rotate(${item.curRot}deg)` : '';
+            item.node.classList.toggle('hidden', !item.curVis);
+        }
+        updateEditorCutoutMask();
+    };
+    activeMorphCleanup = cleanup;
+
+    // Force layout before starting CSS transition
+    if (animatedNodes.length) void animatedNodes[0].node.offsetWidth;
+    const transProp = `left ${ms}ms ${cssEase}, top ${ms}ms ${cssEase}, width ${ms}ms ${cssEase}, height ${ms}ms ${cssEase}, opacity ${ms}ms ${cssEase}, transform ${ms}ms ${cssEase}, border-radius ${ms}ms ${cssEase}`;
+    for (const item of animatedNodes) {
+        item.node.style.transition = transProp;
+        item.node.style.left = `${item.curX}px`;
+        item.node.style.top = `${item.curY}px`;
+        item.node.style.width = `${item.curW}px`;
+        item.node.style.height = `${item.curH}px`;
+        item.node.style.opacity = String(item.curOp);
+        item.node.style.transform = item.curRot ? `rotate(${item.curRot}deg)` : '';
+        if (item.el.type !== 'alert' && !['circle', 'pill'].includes(item.el.type === 'cutout' ? item.el.cutout?.shape : item.el.style?.shape)) {
+            item.node.style.borderRadius = `${item.curRad}px`;
+        }
+    }
+
+    if (cutoutPairs.length) {
+        const start = performance.now();
+        const staticCutouts = state.overlay.elements.filter(e => e.type === 'cutout' && e.visible !== false && inView(e) && !cutoutPairs.some(p => p.id === e.id));
+        const step = now => {
+            const rawT = Math.min(1, (now - start) / ms);
+            const t = evalEasing(easingKey, rawT);
+            const interp = [
+                ...staticCutouts,
+                ...cutoutPairs.map(p => ({
+                    id: p.id,
+                    type: 'cutout',
+                    x: p.from.x + (p.to.x - p.from.x) * t,
+                    y: p.from.y + (p.to.y - p.from.y) * t,
+                    width: Math.max(0, p.from.width + (p.to.width - p.from.width) * t),
+                    height: Math.max(0, p.from.height + (p.to.height - p.from.height) * t),
+                    cutout: { shape: p.shape, feather: p.from.feather + (p.to.feather - p.from.feather) * t },
+                    style: { borderRadius: p.from.borderRadius + (p.to.borderRadius - p.from.borderRadius) * t }
+                })).filter(c => c.width >= 1 && c.height >= 1)
+            ];
+            updateEditorCutoutMask(interp);
+            if (rawT < 1 && activeMorphCleanup === cleanup) {
+                rafId = requestAnimationFrame(step);
+            }
+        };
+        rafId = requestAnimationFrame(step);
+    }
+
+    timerId = setTimeout(() => {
+        if (activeMorphCleanup === cleanup) {
+            activeMorphCleanup = null;
+            cleanup();
+        }
+    }, ms + 30);
 }
 
 function setNodeText(node, text) {
@@ -776,51 +959,101 @@ export function renderSelectionUI(chipText) {
     }
 }
 
-export function showGuides(xs = [], ys = []) {
+export function showGuides(xs = [], ys = [], smartGuides = []) {
     if (!guidesEl) return;
-    if (!xs.length && !ys.length) {
+    if (Array.isArray(xs) && xs.length && typeof xs[0] === 'object') {
+        smartGuides = xs;
+        xs = [];
+        ys = [];
+    }
+    if (!xs.length && !ys.length && !smartGuides.length) {
         if (guidesEl.firstChild) guidesEl.replaceChildren();
         return;
     }
-    let idx = 0;
-    const children = guidesEl.children;
+    const frag = document.createDocumentFragment();
+    const canW = state.overlay?.canvas?.width || 1920;
+    const canH = state.overlay?.canvas?.height || 1080;
+
     for (const x of xs) {
-        let line = children[idx];
-        if (!line) {
-            line = document.createElement('div');
-            guidesEl.appendChild(line);
-        }
-        if (line.className !== 'guide v') line.className = 'guide v';
+        const line = document.createElement('div');
+        line.className = `guide v${Math.abs(x - canW / 2) < 0.5 ? ' is-center' : ''}`;
         line.style.left = `${x}px`;
-        line.style.top = '';
-        idx++;
+        frag.appendChild(line);
     }
     for (const y of ys) {
-        let line = children[idx];
-        if (!line) {
-            line = document.createElement('div');
-            guidesEl.appendChild(line);
-        }
-        if (line.className !== 'guide h') line.className = 'guide h';
+        const line = document.createElement('div');
+        line.className = `guide h${Math.abs(y - canH / 2) < 0.5 ? ' is-center' : ''}`;
         line.style.top = `${y}px`;
-        line.style.left = '';
-        idx++;
+        frag.appendChild(line);
     }
-    while (children.length > idx) {
-        guidesEl.lastElementChild.remove();
+
+    for (const g of smartGuides) {
+        if (g.kind === 'line') {
+            const line = document.createElement('div');
+            line.className = `guide ${g.axis}${g.isCenter ? ' is-center' : ''}`;
+            if (g.axis === 'v') {
+                line.style.left = `${g.pos}px`;
+                line.style.top = `${g.start ?? 0}px`;
+                line.style.height = `${Math.max(1, (g.end ?? canH) - (g.start ?? 0))}px`;
+                line.style.bottom = 'auto';
+            } else {
+                line.style.top = `${g.pos}px`;
+                line.style.left = `${g.start ?? 0}px`;
+                line.style.width = `${Math.max(1, (g.end ?? canW) - (g.start ?? 0))}px`;
+                line.style.right = 'auto';
+            }
+            frag.appendChild(line);
+
+            if (g.distance > 0) {
+                const pill = document.createElement('div');
+                pill.className = 'guide-pill';
+                pill.textContent = `${g.distance} px`;
+                pill.style.left = `${g.axis === 'v' ? g.pos : g.distPos}px`;
+                pill.style.top = `${g.axis === 'v' ? g.distPos : g.pos}px`;
+                frag.appendChild(pill);
+            }
+        } else if (g.kind === 'gap') {
+            const bar = document.createElement('div');
+            bar.className = `guide-gap ${g.axis}`;
+            if (g.axis === 'h') {
+                bar.style.left = `${g.start}px`;
+                bar.style.top = `${g.cross}px`;
+                bar.style.width = `${Math.max(1, g.end - g.start)}px`;
+            } else {
+                bar.style.top = `${g.start}px`;
+                bar.style.left = `${g.cross}px`;
+                bar.style.height = `${Math.max(1, g.end - g.start)}px`;
+            }
+            const pill = document.createElement('span');
+            pill.className = 'guide-pill gap';
+            pill.textContent = `${g.gap}`;
+            bar.appendChild(pill);
+            frag.appendChild(bar);
+        } else if (g.kind === 'dim' && g.box) {
+            const box = document.createElement('div');
+            box.className = 'guide-dim-match';
+            box.style.left = `${g.box.x}px`;
+            box.style.top = `${g.box.y}px`;
+            box.style.width = `${g.box.w}px`;
+            box.style.height = `${g.box.h}px`;
+            const pill = document.createElement('span');
+            pill.className = 'guide-pill dim';
+            pill.textContent = `${g.axis === 'w' ? 'W' : 'H'}: ${g.value}`;
+            box.appendChild(pill);
+            frag.appendChild(box);
+        }
     }
+
+    guidesEl.replaceChildren(frag);
 }
 
 export function snapTargets(excludeIds) {
-    const xs = [0, state.overlay.canvas.width / 2, state.overlay.canvas.width];
-    const ys = [0, state.overlay.canvas.height / 2, state.overlay.canvas.height];
+    const boxes = [];
     for (const el of visibleElements()) {
         if (excludeIds.has(el.id) || el.visible === false) continue;
-        const b = visualBoxOf(el);
-        xs.push(b.x, b.x + b.w / 2, b.x + b.w);
-        ys.push(b.y, b.y + b.h / 2, b.y + b.h);
+        boxes.push({ id: el.id, ...visualBoxOf(el) });
     }
-    return { xs, ys };
+    return buildSnapModel(boxes, state.overlay.canvas.width, state.overlay.canvas.height);
 }
 
 export function snapAxis(candidates, targets) {
@@ -835,13 +1068,19 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
         const gesture = state.gesture;
         if (!gesture || gesture.locked || !gesture.items.length) return;
         if (event.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
-        let guideX = [], guideY = [];
+        let smartGuides = [];
         if (prefs.snap && !event.altKey) {
             const targets = gesture.targets || (gesture.targets = snapTargets(new Set(gesture.items.map(item => item.el.id))));
             const b = gesture.bounds;
-            const sx = snapAxis([b.x + dx, b.x + dx + b.w / 2, b.x + dx + b.w], targets.xs);
-            const sy = snapAxis([b.y + dy, b.y + dy + b.h / 2, b.y + dy + b.h], targets.ys);
-            dx += sx.delta; dy += sy.delta; guideX = sx.lines; guideY = sy.lines;
+            const res = computeSmartMoveSnap(
+                { x: b.x + dx, y: b.y + dy, w: b.w, h: b.h },
+                targets,
+                6 / state.zoom,
+                { align: prefs.snapAlign !== false, spacing: prefs.snapSpacing !== false }
+            );
+            dx += res.dx;
+            dy += res.dy;
+            smartGuides = res.guides;
         }
         for (const item of gesture.items) {
             item.el.x = Math.round(item.x + dx);
@@ -853,7 +1092,7 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
                 node.style.top = `${b.y}px`;
             }
         }
-        showGuides(guideX, guideY);
+        showGuides(smartGuides);
         if (gesture.hasCutout) scheduleEditorCutoutMask();
         renderSelectionUI(gesture.items.length === 1 ? `${gesture.items[0].el.x}, ${gesture.items[0].el.y}` : undefined);
         if (onSyncGeometry) onSyncGeometry();
@@ -865,20 +1104,29 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
         const { dir, orig, snaps } = gesture;
         const right = orig.x + orig.w, bottom = orig.y + orig.h;
         const targets = prefs.snap && !event.altKey ? (gesture.targets || (gesture.targets = snapTargets(gesture.ids))) : null;
-        const guides = { xs: [], ys: [] };
-        const edge = (value, list, key) => { if (!targets) return value; const s = snapAxis([value], targets[list]); guides[key] = s.lines; return value + s.delta; };
+        let smartGuides = [];
         let w = orig.w, h = orig.h;
-        if (dir.includes('w')) w = right - edge(orig.x + dx, 'xs', 'xs');
-        if (dir.includes('e')) w = edge(right + dx, 'xs', 'xs') - orig.x;
-        if (dir.includes('n')) h = bottom - edge(orig.y + dy, 'ys', 'ys');
-        if (dir.includes('s')) h = edge(bottom + dy, 'ys', 'ys') - orig.y;
+        if (targets) {
+            const res = computeSmartResizeSnap(orig, dir, dx, dy, targets, 6 / state.zoom, {
+                align: prefs.snapAlign !== false,
+                dimensions: prefs.snapDimensions !== false
+            });
+            w = res.w;
+            h = res.h;
+            smartGuides = res.guides;
+        } else {
+            if (dir.includes('w')) w = right - (orig.x + dx);
+            if (dir.includes('e')) w = (right + dx) - orig.x;
+            if (dir.includes('n')) h = bottom - (orig.y + dy);
+            if (dir.includes('s')) h = (bottom + dy) - orig.y;
+        }
         let sx = Math.max(0.01, w / orig.w), sy = Math.max(0.01, h / orig.h);
         if (dir.length === 2 && !event.shiftKey) sx = sy = Math.max(sx, sy);
         if (dir === 'n' || dir === 's') sx = 1;
         if (dir === 'e' || dir === 'w') sy = 1;
         const anchor = { x: dir.includes('w') ? right : orig.x, y: dir.includes('n') ? bottom : orig.y };
         const used = applyScale(snaps, anchor, sx, sy);
-        showGuides(guides.xs, guides.ys);
+        showGuides(smartGuides);
         renderCanvas(new Set(gesture.ids));
         renderSelectionUI(`${Math.round(used.sx * 100)}% × ${Math.round(used.sy * 100)}%`.replace(/^(\d+)% × \1%$/, '$1%'));
         if (onSyncGeometry) onSyncGeometry();
@@ -891,13 +1139,21 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
         const { dir, orig, el } = gesture;
         const right = orig.x + orig.w, bottom = orig.y + orig.h;
         const targets = prefs.snap && !event.altKey ? (gesture.targets || (gesture.targets = snapTargets(new Set([el.id])))) : null;
-        const guides = { xs: [], ys: [] };
-        const edge = (value, list, key) => { if (!targets) return value; const s = snapAxis([value], targets[list]); guides[key] = s.lines; return value + s.delta; };
+        let smartGuides = [];
         let x = orig.x, y = orig.y, w = orig.w, h = orig.h;
-        if (dir.includes('w')) { x = edge(orig.x + dx, 'xs', 'xs'); w = right - x; }
-        if (dir.includes('e')) { w = edge(right + dx, 'xs', 'xs') - orig.x; }
-        if (dir.includes('n')) { y = edge(orig.y + dy, 'ys', 'ys'); h = bottom - y; }
-        if (dir.includes('s')) { h = edge(bottom + dy, 'ys', 'ys') - orig.y; }
+        if (targets) {
+            const res = computeSmartResizeSnap(orig, dir, dx, dy, targets, 6 / state.zoom, {
+                align: prefs.snapAlign !== false,
+                dimensions: prefs.snapDimensions !== false
+            });
+            x = res.x; y = res.y; w = res.w; h = res.h;
+            smartGuides = res.guides;
+        } else {
+            if (dir.includes('w')) { x = orig.x + dx; w = right - x; }
+            if (dir.includes('e')) { w = (right + dx) - orig.x; }
+            if (dir.includes('n')) { y = orig.y + dy; h = bottom - y; }
+            if (dir.includes('s')) { h = (bottom + dy) - orig.y; }
+        }
         if ((event.shiftKey || el.aspectLock) && dir.length === 2) {
             const scale = Math.max(w / orig.w, h / orig.h);
             w = orig.w * scale; h = orig.h * scale;
@@ -909,7 +1165,7 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
         w = Math.min(w, LIMITS.elementW[1]); h = Math.min(h, LIMITS.elementH[1]);
         el.x = Math.round(x); el.width = Math.round(w);
         if (!isLine(el)) { el.y = Math.round(y); el.height = Math.round(h); }
-        showGuides(guides.xs, guides.ys);
+        showGuides(smartGuides);
         renderCanvas(new Set([el.id]));
         renderSelectionUI(`${el.width} × ${Math.round(boxOf(el).h)}`);
         if (onSyncGeometry) onSyncGeometry();
@@ -991,6 +1247,7 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
     }
 
     stage.addEventListener('pointerdown', event => {
+        cancelEditorStateMorph();
         stage.focus({ preventScroll: true });
         if (event.button === 1 || (event.button === 0 && state.spaceDown)) {
             event.preventDefault();

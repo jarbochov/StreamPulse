@@ -70,6 +70,39 @@ Alerts retain their own Alert Queue; page priority does not create a second aler
 > [!TIP]
 > **Testing Triggered Pages in the Editor**: When configuring an alert, featured message, poll, or chat command page in the Custom Overlay Editor, click **Test trigger** in the page card to immediately preview the takeover on stream and verify transition timings.
 
+---
+
+## Scene States & Keyframe Morph Transitions
+
+In addition to traditional slide decks (**Page Deck** mode), any Custom Overlay can opt into **Scene States (Morph)** mode from the left rail's **Pages / States** tab:
+
+- **Base State & Per-State Overrides**: State 1 (`items[0]`) serves as the canonical **Base State** layout. Moving, resizing, rotating, adjusting opacity/corner radius, or hiding a shared layer (`page: '*'`) on State 2+ automatically records a per-state override (`el.pageStates[stateId]`) indicated by a cyan dot in the Layers tree and a **State Override Banner** in the Inspector with a 1-click **Reset to Base** button.
+- **Smooth Layer & Cutout Morphing (`transition: 'morph'`)**: Switching between states smoothly interpolates shared layers' position (`left`, `top`), dimensions (`width`, `height`), `opacity`, `rotate`, and `borderRadius` with configurable easing curves (`Smooth`, `Snappy`, `Spring`, `Ease In/Out`, `Linear`).
+- **60fps Cutout Mask Interpolation**: Camera and gameplay punchthrough (`cutout`) layers interpolate their SVG mask aperture and feathering at 60fps via `requestAnimationFrame` during active state transitions so the transparent hole tracks animated borders pixel-for-pixel.
+- **Zero-Idle-Cost Runtime**: GPU layer promotion (`will-change`) and cutout mask `requestAnimationFrame` loops run strictly during active transitions (`300–800ms`) and are torn down immediately upon completion. Shared HTML5 videos hidden on a state automatically pause playback and resume when transitioning back.
+
+---
+
+## Smart Alignment & Magnetic Snapping
+
+The canvas stage includes an opt-in magnetic snapping engine controllable via the **Snap** split-button and popover in the top toolbar (hold `Alt` while dragging to bypass temporarily):
+
+- **Align to Layers & Centers**: Snaps dragged or resized edges and centers to other visible layers and the canvas centerlines, rendering segment-bounded guide lines and pixel distance pills.
+- **Equal Spacing Guides**: Automatically detects uniform horizontal or vertical gaps between 3 or more collinear layers and snaps dragged elements into equal-spacing alignment with `px` gap callout badges.
+- **Match Dimensions on Resize**: Snaps resized layer widths or heights to match existing layers on stage with `W: px` / `H: px` match badges.
+
+---
+
+## Reusable Component Prefabs & Presets
+
+Group multi-layer rigs (such as a webcam `cutout` punchthrough + animated border + lower-third nameplate) and save them as reusable **Prefabs** available across all Custom Overlays:
+
+- **Save from Anywhere**: Click the **Save group as Prefab** icon directly on any group header in the Left Rail, right-click any selection on the canvas and choose **Save as Prefab / Preset…**, or use the Inspector action bar.
+- **Full Fidelity Preservation**: Prefabs preserve group hierarchies (`groupName`), `cutout` aperture shapes and feathering, animated border effects, and GPU `mediaFilter` shaders.
+- **Built-in Camera & Layout Prefabs**: Includes ready-to-drop `16:9` and `4:3` Camera Frame + Cutout + Nameplate prefabs, Retro 4:3 Gameplay Cutout Rig, and Social Handle Pill.
+
+---
+
 ## Element Types Catalog
 
 StreamPulse includes 14 distinct element types organized across 4 functional categories. Access them anytime by clicking **+ Add element** in the stage toolbar:

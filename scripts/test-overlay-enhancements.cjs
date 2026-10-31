@@ -100,3 +100,105 @@ test('Procedural Patterns vs Repeating Pattern Tiles separation', () => {
     assert.ok(sharedJs.includes("const isProcedural = curElement.type === 'procedural-pattern' || curElement.pattern?.sourceType === 'preset'"), 'mountPattern must detect procedural elements');
     assert.ok(sharedJs.includes('patternsEngine.drawProceduralPattern(ctx, presetName, cw, ch'), 'mountPattern must render procedural pattern across full canvas');
 });
+
+test('Smart Alignment, Equal-Spacing & Dimension-Match Snapping (editor-geometry.js)', () => {
+    const vm = require('node:vm');
+    const rawCode = fs.readFileSync(path.join(__dirname, '../public/js/editor-geometry.js'), 'utf8')
+        .replace(/export\s+function\s+/g, 'function ');
+    const sandbox = { Math, Set, Map, Array, Number, Object };
+    vm.runInNewContext(`${rawCode}\nthis.exports = { snapAxis, alignmentOffset, buildSnapModel, computeSmartMoveSnap, computeSmartResizeSnap };`, sandbox);
+    const geom = sandbox.exports;
+
+    assert.equal(typeof geom.buildSnapModel, 'function');
+    assert.equal(typeof geom.computeSmartMoveSnap, 'function');
+    assert.equal(typeof geom.computeSmartResizeSnap, 'function');
+
+    const model = geom.buildSnapModel(
+        [
+            { id: 'box-a', x: 100, y: 200, w: 200, h: 100 },
+            { id: 'box-b', x: 350, y: 200, w: 200, h: 100 }
+        ],
+        1920,
+        1080
+    );
+
+    // 1. Equal horizontal gap snapping: box-a is [100..300], box-b is [350..550] (gap = 50px).
+    // Dragging a 200x100 box near x=602 should snap to x=600 (550 + 50 gap) with a gap guide!
+    const snapGap = geom.computeSmartMoveSnap({ x: 602, y: 201, w: 200, h: 100 }, model, 6, { align: true, spacing: true });
+    assert.equal(snapGap.dx, -2, 'Should snap horizontally to equal 50px gap at x=600');
+    assert.equal(snapGap.dy, -1, 'Should snap vertically to y=200 top/bottom alignment');
+    assert.ok(snapGap.guides.some(g => g.kind === 'gap' && g.gap === 50), 'Should emit equal-spacing gap guide');
+
+    // 2. Canvas center snapping with isCenter flag
+    const snapCenter = geom.computeSmartMoveSnap({ x: 862, y: 491, w: 200, h: 100 }, model, 6, { align: true, spacing: true });
+    assert.equal(snapCenter.dx, -2, 'Should snap horizontal center to 960 (x=860)');
+    assert.equal(snapCenter.dy, -1, 'Should snap vertical center to 540 (y=490)');
+    assert.ok(snapCenter.guides.some(g => g.kind === 'line' && g.isCenter), 'Should mark canvas center guide');
+
+    // 3. Resize dimension-match snapping (matching 200x100 of box-a / box-b)
+    const resizeSnap = geom.computeSmartResizeSnap(
+        { x: 700, y: 500, w: 198, h: 102 },
+        'se',
+        0,
+        0,
+        model,
+        6,
+        { align: true, dimensions: true }
+    );
+    assert.equal(resizeSnap.w, 200, 'Should snap width to match 200px peer');
+    assert.equal(resizeSnap.h, 100, 'Should snap height to match 100px peer');
+    assert.ok(resizeSnap.guides.some(g => g.kind === 'dim' && g.axis === 'w'), 'Should emit width dimension-match badge');
+    assert.ok(resizeSnap.guides.some(g => g.kind === 'dim' && g.axis === 'h'), 'Should emit height dimension-match badge');
+});
+
+test('Scene States, Morph Transitions & Prefabs (overlays service + presets + runtime)', () => {
+    require('../public/js/overlay-presets.js');
+    const BUILT_IN_PRESETS = globalThis.OverlayPresets.list();
+    const cam169 = BUILT_IN_PRESETS.find(p => p.id === 'camera-16-9');
+    assert.ok(cam169, 'camera-16-9 prefab must exist');
+    assert.ok(cam169.elements.some(e => e.type === 'cutout'), 'camera-16-9 prefab must include a real cutout punchout layer');
+    assert.ok(BUILT_IN_PRESETS.some(p => p.id === 'retro-4-3-frame'), 'retro-4-3-frame prefab must exist');
+    assert.ok(BUILT_IN_PRESETS.some(p => p.id === 'social-bar'), 'social-bar prefab must exist');
+
+    const overlaysService = require('../server/services/overlays.js');
+    const normalizedPages = overlaysService.normalizePages({
+        enabled: true,
+        kind: 'states',
+        transition: 'morph',
+        transitionEasing: 'spring',
+        transitionMs: 650,
+        items: [
+            { id: 'state-1', name: 'Gameplay' },
+            { id: 'state-2', name: 'Intermission' }
+        ]
+    });
+    assert.equal(normalizedPages.kind, 'states');
+    assert.equal(normalizedPages.transition, 'morph');
+    assert.equal(normalizedPages.transitionEasing, 'spring');
+    assert.equal(normalizedPages.transitionMs, 650);
+
+    const normalizedEl = overlaysService.normalizeOverlayElement({
+        id: 'cutout-1',
+        type: 'cutout',
+        page: '*',
+        morphId: 'morph-cam',
+        x: 40,
+        y: 40,
+        width: 480,
+        height: 270,
+        pageStates: {
+            'state-2': { x: 640, y: 180, width: 640, height: 360, visible: true, opacity: 1, borderRadius: 24, feather: 8 }
+        }
+    }, 0);
+    assert.equal(normalizedEl.morphId, 'morph-cam');
+    assert.ok(normalizedEl.pageStates && normalizedEl.pageStates['state-2'], 'normalizeOverlayElement must preserve pageStates');
+    assert.equal(normalizedEl.pageStates['state-2'].x, 640);
+    assert.equal(normalizedEl.pageStates['state-2'].width, 640);
+    assert.equal(normalizedEl.pageStates['state-2'].borderRadius, 24);
+    assert.equal(normalizedEl.pageStates['state-2'].feather, 8);
+
+    const runtimeJs = fs.readFileSync(path.join(__dirname, '../public/js/overlay-runtime.js'), 'utf8');
+    assert.ok(runtimeJs.includes('function effectiveElementForPage'), 'overlay-runtime.js must define effectiveElementForPage');
+    assert.ok(runtimeJs.includes('const MORPH_EASINGS'), 'overlay-runtime.js must define MORPH_EASINGS');
+    assert.ok(runtimeJs.includes('tickCutoutMorph'), 'overlay-runtime.js must interpolate cutout masks during morph transitions');
+});

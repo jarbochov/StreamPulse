@@ -7,6 +7,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- Custom Overlay Scene States, Smart Snapping & Prefabs: Added opt-in Scene States (`kind: 'states'`) with per-state layer overrides (`pageStates`), smooth keyframe morph transitions (`transition: 'morph'`) with 60fps cutout mask interpolation and zero-idle-cost GPU cleanup, equal-spacing & dimension-match magnetic snap guides, and multi-layer reusable Prefabs with camera punchthrough cutouts.
 - Alerts Engine & Queue: Unified variant conditions and weighted random selection, 23 synthesized Web Audio alert sound presets, master preview volume scaling, granular subscription tier selection with specificity precedence, visual Alert Activation Ladder and Milestone Tiers UX, video volume controls, Twitch channel emotes in alert media, gift sub recipient placeholders, and low-density Alert Queue filtering by event type and search query with in-dock test dispatch.
 - Versus & Tournament Studio: Scoreboards, elimination and round-robin brackets, multi-match scorekeeper, speedrun battle clocks, broadcast overlays, quick match tie-breaker actions, double-elimination BYE loser routing resilience, queue duplication and clearing, and wide stage layout options (`?wide=1`) with responsive container clamps.
 - Matchup Player Clocks: Optional competitor split, race, and countdown clock badges on all versus scoreboard layouts (`top`, `fgc`, `split`, `pillar`, `bottom`, `compact`, `versus`).

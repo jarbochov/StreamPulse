@@ -344,7 +344,8 @@ const TEXT_SOURCE_TYPES = new Set(['text', 'random-text', 'markdown']);
 const TEXT_SOURCE_EXTS = new Set(['.txt', '.md', '.markdown', '.text']);
 const TEXT_SOURCE_MAX_BYTES = 512 * 1024;
 const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'poll', 'game-list', 'qr', 'alert', 'slideshow', 'icon', 'cutout', 'pattern', 'procedural-pattern']);
-const PAGE_TRANSITIONS = ['none', 'fade', 'slide'];
+const PAGE_TRANSITIONS = ['none', 'fade', 'slide', 'morph'];
+const PAGE_EASINGS = ['smooth', 'snappy', 'spring', 'ease-in-out', 'linear'];
 const PAGE_DIRECTIONS = ['left', 'right', 'up', 'down'];
 const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset'];
 const BORDER_ANIM_TYPES = ['none', 'rotating', 'radial', 'pulsing', 'gradient', 'rainbow', 'marching'];
@@ -611,8 +612,31 @@ function rewriteAssetReferences(text, oldName, newName, oldFamily, newFamily) {
     return result;
 }
 
+function normalizePageStates(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+    const out = {};
+    for (const [rawPid, entry] of Object.entries(raw)) {
+        const pid = sanitizeOverlayId(rawPid).slice(0, 40);
+        if (!pid || !entry || typeof entry !== 'object') continue;
+        const clean = {};
+        if (Number.isFinite(Number(entry.x))) clean.x = Math.round(Number(entry.x));
+        if (Number.isFinite(Number(entry.y))) clean.y = Math.round(Number(entry.y));
+        if (Number.isFinite(Number(entry.width))) clean.width = Math.max(1, Math.min(3840, Math.round(Number(entry.width))));
+        if (Number.isFinite(Number(entry.height))) clean.height = Math.max(1, Math.min(2160, Math.round(Number(entry.height))));
+        if (typeof entry.visible === 'boolean') clean.visible = entry.visible;
+        if (Number.isFinite(Number(entry.opacity))) clean.opacity = Math.max(0, Math.min(1, Number(entry.opacity)));
+        if (Number.isFinite(Number(entry.rotate))) clean.rotate = Math.max(-360, Math.min(360, Number(entry.rotate)));
+        if (Number.isFinite(Number(entry.borderRadius))) clean.borderRadius = Math.max(0, Math.min(200, Math.round(Number(entry.borderRadius))));
+        if (Number.isFinite(Number(entry.feather))) clean.feather = Math.max(0, Math.min(100, Math.round(Number(entry.feather))));
+        if (Object.keys(clean).length) out[pid] = clean;
+    }
+    return Object.keys(out).length ? out : undefined;
+}
+
 function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
     const type = CUSTOM_OVERLAY_ELEMENT_TYPES.has(element.type) ? element.type : 'text';
+    const morphId = sanitizeOverlayId(element.morphId).slice(0, 40);
+    const pageStates = normalizePageStates(element.pageStates);
     return {
         id: sanitizeOverlayId(element.id) || `element-${index + 1}`,
         name: String(element.name || '').trim().slice(0, 80),
@@ -620,6 +644,8 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
         group: sanitizeOverlayId(element.group).slice(0, 40),
         groupName: element.group ? String(element.groupName || '').trim().slice(0, 60) : '',
         page: element.page === '*' ? '*' : sanitizeOverlayId(element.page).slice(0, 40),
+        ...(morphId ? { morphId } : {}),
+        ...(pageStates ? { pageStates } : {}),
         type,
         poll: type === 'poll' ? normalizePollSettings(element.poll) : undefined,
         mediaFilter: normalizeMediaFilter(element.mediaFilter),
@@ -790,20 +816,23 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
             textTransform: ['none', 'uppercase', 'lowercase', 'capitalize'].includes(element.style?.textTransform) ? element.style.textTransform : 'none',
             textDecoration: ['none', 'underline', 'line-through'].includes(element.style?.textDecoration) ? element.style.textDecoration : 'none',
             lineHeight: Math.max(0.5, Math.min(3, Number(element.style?.lineHeight) || 1.2)),
-            letterSpacing: Math.max(-10, Math.min(50, Number(element.style?.letterSpacing) || 0))
+            letterSpacing: Math.max(-10, Math.min(50, Number(element.style?.letterSpacing) || 0)),
+            rotate: Number.isFinite(Number(element.style?.rotate)) ? Math.max(-360, Math.min(360, Number(element.style.rotate))) : 0
         }
     };
 }
 
 function normalizePages(input = {}) {
     const seen = new Set();
+    const kind = input.kind === 'states' || input.transition === 'morph' ? 'states' : 'pages';
+    const defaultLabel = kind === 'states' ? 'State' : 'Page';
     const items = (Array.isArray(input.items) ? input.items : []).slice(0, 50).map((item, index) => {
         let id = sanitizeOverlayId(item?.id).slice(0, 40) || `page-${index + 1}`;
         while (seen.has(id) || id === '*') id = `${id}-${index + 1}`;
         seen.add(id);
         return {
             id,
-            name: String(item?.name || '').trim().slice(0, 60) || `Page ${index + 1}`,
+            name: String(item?.name || '').trim().slice(0, 60) || `${defaultLabel} ${index + 1}`,
             duration: Math.max(0, Math.min(86400, Number(item?.duration) || 0)),
             enabled: item?.enabled !== false,
             trigger: ['alert', 'featured', 'command', 'poll-end', 'poll-active'].includes(item?.trigger) ? item.trigger : '',
@@ -812,15 +841,17 @@ function normalizePages(input = {}) {
             triggerSeconds: Math.max(0, Math.min(3600, Number(item?.triggerSeconds) || 0))
         };
     });
-    if (!items.length) items.push({ id: 'page-1', name: 'Page 1', duration: 0, enabled: true, trigger: '', triggerName: '', triggerRules: [], triggerSeconds: 0 });
+    if (!items.length) items.push({ id: 'page-1', name: `${defaultLabel} 1`, duration: 0, enabled: true, trigger: '', triggerName: '', triggerRules: [], triggerSeconds: 0 });
     if (!items.some(item => item.enabled)) items[0].enabled = true;
     return {
         enabled: input.enabled === true,
+        kind,
         mode: input.mode === 'auto' ? 'auto' : 'manual',
         cycleSeconds: Math.max(1, Math.min(86400, Number(input.cycleSeconds) || 10)),
         loop: input.loop !== false,
-        transition: PAGE_TRANSITIONS.includes(input.transition) ? input.transition : 'fade',
-        transitionMs: Math.max(0, Math.min(5000, Number(input.transitionMs ?? 500))),
+        transition: PAGE_TRANSITIONS.includes(input.transition) ? input.transition : (kind === 'states' ? 'morph' : 'fade'),
+        transitionEasing: PAGE_EASINGS.includes(input.transitionEasing) ? input.transitionEasing : 'smooth',
+        transitionMs: Math.max(0, Math.min(5000, Number(input.transitionMs ?? (kind === 'states' ? 650 : 500)))),
         transitionDirection: PAGE_DIRECTIONS.includes(input.transitionDirection) ? input.transitionDirection : 'left',
         transitionDistance: Math.max(10, Math.min(2000, Math.round(Number(input.transitionDistance) || 120))),
         items
@@ -914,9 +945,25 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
     const elements = Array.isArray(overlay.elements) ? [...overlay.elements] : [];
     elements.sort((a, b) => (Number(a.zIndex) || 0) - (Number(b.zIndex) || 0));
 
-    elements.forEach((el, idx) => {
+    const basePageId = overlay.pages?.items?.[0]?.id || '';
+    elements.forEach((rawEl, idx) => {
+        if (pagesEnabled && targetPage && rawEl.page && rawEl.page !== '*' && rawEl.page !== targetPage) return;
+        const st = (pagesEnabled && targetPage && targetPage !== basePageId && rawEl.page === '*' && rawEl.pageStates?.[targetPage]) ? rawEl.pageStates[targetPage] : null;
+        const el = st ? {
+            ...rawEl,
+            x: st.x ?? rawEl.x,
+            y: st.y ?? rawEl.y,
+            width: st.width ?? rawEl.width,
+            height: st.height ?? rawEl.height,
+            visible: st.visible ?? rawEl.visible,
+            style: {
+                ...(rawEl.style || {}),
+                ...(st.opacity !== undefined ? { opacity: st.opacity } : {}),
+                ...(st.rotate !== undefined ? { rotate: st.rotate } : {}),
+                ...(st.borderRadius !== undefined ? { borderRadius: st.borderRadius } : {})
+            }
+        } : rawEl;
         if (el.visible === false) return;
-        if (pagesEnabled && targetPage && el.page && el.page !== '*' && el.page !== targetPage) return;
         const x = Number(el.x) || 0;
         const y = Number(el.y) || 0;
         const w = Math.max(1, Number(el.width) || 100);
@@ -926,8 +973,9 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
         const rx = Number(style.borderRadius) || 0;
 
         let transform = '';
-        if (el.rotation) {
-            transform = ` transform="rotate(${Number(el.rotation)}, ${x + w / 2}, ${y + h / 2})"`;
+        const rot = Number(style.rotate ?? el.rotation) || 0;
+        if (rot) {
+            transform = ` transform="rotate(${rot}, ${x + w / 2}, ${y + h / 2})"`;
         }
         const opacityAttr = (opacity >= 0 && opacity < 1) ? ` opacity="${opacity}"` : '';
 

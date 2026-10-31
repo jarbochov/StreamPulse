@@ -4,10 +4,13 @@
 
 import {
     $, esc, ICON, TYPE_META, state, prefs, savePrefs, byId, selectedElements,
-    pagesOn, inView, visibleElements, displayName, normalizeZ, setSelection,
+    pagesOn, statesModeOn, isBasePage, hasPageOverride, resetElementPageState,
+    syncWorkingStateForCurrentPage, projectPageState, extractElementState,
+    inView, visibleElements, displayName, normalizeZ, setSelection,
     changed, flushHistory, ensureCurPage, uid, toast, defaultPages
 } from './editor-state.js';
 import { F, bindFields } from './editor-form.js';
+import { captureEditorStateSnapshot, previewEditorStateMorph } from './editor-canvas.js';
 
 let pgSortable = null;
 let alertRules = null;
@@ -30,12 +33,14 @@ let renderCanvasHandler = () => {};
 let renderPropertiesHandler = () => {};
 let updateStatusBarHandler = () => {};
 let renderAllHandler = () => {};
+let savePresetHandler = () => {};
 
-export function registerLayerCallbacks({ onRenderCanvas, onRenderProperties, onUpdateStatusBar, onRenderAll }) {
+export function registerLayerCallbacks({ onRenderCanvas, onRenderProperties, onUpdateStatusBar, onRenderAll, onSavePreset }) {
     if (onRenderCanvas) renderCanvasHandler = onRenderCanvas;
     if (onRenderProperties) renderPropertiesHandler = onRenderProperties;
     if (onUpdateStatusBar) updateStatusBarHandler = onUpdateStatusBar;
     if (onRenderAll) renderAllHandler = onRenderAll;
+    if (onSavePreset) savePresetHandler = onSavePreset;
 }
 
 // ---- Layers Tree ------------------------------------------------------------------
@@ -71,16 +76,21 @@ export function renderLayers() {
             return `<div class="layer-group${closed ? ' collapsed' : ''}${ids.every(id => state.selectedIds.has(id)) ? ' selected' : ''}" data-group="${esc(row.header)}">
                 <span class="chev" title="${closed ? 'Expand' : 'Collapse'} group"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
                 <span class="layer-name" title="Double-click to rename">${esc(row.members.find(m => m.groupName)?.groupName || 'Group')} <small style="font-weight:400;opacity:.7">· ${ids.length}</small></span>
-                <span class="layer-actions"><button data-layer-action="group-visible" title="${allHidden ? 'Show' : 'Hide'} group" aria-label="${allHidden ? 'Show' : 'Hide'} group">${allHidden ? ICON.eyeOff : ICON.eye}</button></span>
+                <span class="layer-actions">
+                    <button data-layer-action="group-prefab" title="Save group as reusable prefab / preset…" aria-label="Save group as prefab">${ICON.preset}</button>
+                    <button data-layer-action="group-visible" title="${allHidden ? 'Show' : 'Hide'} group" aria-label="${allHidden ? 'Show' : 'Hide'} group">${allHidden ? ICON.eyeOff : ICON.eye}</button>
+                </span>
             </div>`;
         }
         const el = row.el, inGroup = row.group ? ` in-group${state.collapsedGroups.has(row.group) ? ' group-hidden' : ''}` : '';
+        const hasOvr = hasPageOverride(el, state.curPage);
         return `
         <div class="layer${state.selectedIds.has(el.id) ? ' selected' : ''}${el.visible === false ? ' is-hidden' : ''}${inGroup}" data-id="${esc(el.id)}">
             <span class="layer-grip" title="Drag to reorder">${ICON.grip}</span>
             <span class="layer-icon">${TYPE_META[el.type]?.icon || '•'}</span>
-            <span class="layer-name" title="Double-click to rename">${pagesOn() && el.page === '*' ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block;vertical-align:-1px;margin-right:3px;opacity:0.8;" title="Shared on all pages"><polygon points="12 2 22 12 12 22 2 12"/></svg>' : ''}${esc(displayName(el))}</span>
+            <span class="layer-name" title="Double-click to rename">${pagesOn() && el.page === '*' ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block;vertical-align:-1px;margin-right:3px;opacity:0.8;" title="${statesModeOn() ? 'Shared across all states' : 'Shared on all pages'}"><polygon points="12 2 22 12 12 22 2 12"/></svg>` : ''}${esc(displayName(el))}${hasOvr ? '<span class="layer-ovr-dot" title="Overridden in this state"></span>' : ''}</span>
             <span class="layer-actions">
+                ${hasOvr ? `<button data-layer-action="reset-state" class="ovr-reset" title="Reset state override back to base layout" aria-label="Reset state override"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>` : ''}
                 <button data-layer-action="lock" class="${el.locked ? 'on' : ''}" title="${el.locked ? 'Unlock' : 'Lock'}" aria-label="${el.locked ? 'Unlock' : 'Lock'} layer">${el.locked ? ICON.lock : ICON.unlock}</button>
                 <button data-layer-action="visible" title="${el.visible === false ? 'Show' : 'Hide'}" aria-label="${el.visible === false ? 'Show' : 'Hide'} layer">${el.visible === false ? ICON.eyeOff : ICON.eye}</button>
             </span>
@@ -162,70 +172,112 @@ export function renderPageBar() {
 
 export function renderPageSwitch() {
     const box = $('page-switch');
-    if (!box) return;
+    const tabBtn = $('tab-pages');
     const on = pagesOn();
+    const isStates = statesModeOn();
+    const noun = isStates ? 'State' : 'Page';
+    const nounPlural = isStates ? 'States' : 'Pages';
+    if (tabBtn) {
+        const cnt = on ? `(${state.overlay.pages.items.length})` : '';
+        tabBtn.innerHTML = `${nounPlural} <small id="page-count">${cnt}</small>`;
+    }
+    if (!box) return;
     box.hidden = !on;
-    const pageCount = $('page-count');
-    if (pageCount) pageCount.textContent = on ? `(${state.overlay.pages.items.length})` : '';
     if (!on) return;
     const live = liveId(), isLive = state.curPage === live;
-    box.innerHTML = `<select id="page-select" aria-label="Page being edited">${state.overlay.pages.items.map((p, i) => `<option value="${esc(p.id)}"${p.id === state.curPage ? ' selected' : ''}>${i + 1}. ${esc(p.name)}${p.enabled === false ? ' (off)' : ''}${p.id === live ? '  [Live]' : ''}</option>`).join('')}</select>
-        <button id="live-toggle" aria-pressed="${isLive}" ${state.isNew ? 'disabled' : ''} title="${isLive ? 'This page is showing on stream' : 'Show this page on stream'}">${isLive ? '<span class="status-dot live" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#3fb950;margin-right:4px;"></span>Live' : 'Make live'}</button>`;
+    box.innerHTML = `<select id="page-select" aria-label="${noun} being edited">${state.overlay.pages.items.map((p, i) => `<option value="${esc(p.id)}"${p.id === state.curPage ? ' selected' : ''}>${i + 1}. ${esc(p.name)}${i === 0 && isStates ? ' (Base)' : ''}${p.enabled === false ? ' (off)' : ''}${p.id === live ? '  [Live]' : ''}</option>`).join('')}</select>
+        <button id="live-toggle" aria-pressed="${isLive}" ${state.isNew ? 'disabled' : ''} title="${isLive ? `This ${noun.toLowerCase()} is showing on stream` : `Show this ${noun.toLowerCase()} on stream`}">${isLive ? '<span class="status-dot live" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#3fb950;margin-right:4px;"></span>Live' : 'Make live'}</button>`;
 }
 
 export function renderPagesPanel() {
     const panel = $('pages-panel');
     if (!panel) return;
     if (!pagesOn()) {
-        panel.innerHTML = `<div class="pg-empty"><strong>Make this a slide deck</strong><p>Split the overlay into pages you can switch between from the editor, the control panel or the API. Existing elements go on Page 1, and anything marked shared shows on every page.</p><button id="pages-enable" class="primary">Turn on pages</button></div>`;
+        panel.innerHTML = `
+            <div class="pg-empty">
+                <strong>Scene States &amp; Multi-Page Layouts</strong>
+                <p>Add dynamic scene states that smoothly morph elements (e.g., Gameplay → Full Cam → Intermission), or split the overlay into rotating pages.</p>
+                <div style="display:grid;gap:.45rem;width:100%;margin-top:.2rem">
+                    <button id="states-enable" class="primary" style="width:100%">Turn on Scene States (Morph)</button>
+                    <button id="pages-enable" class="ghost" style="width:100%;border:1px solid var(--border)">Turn on Page Deck (Slides)</button>
+                </div>
+            </div>`;
         return;
     }
     const items = state.overlay.pages.items;
+    const isStates = statesModeOn();
+    const noun = isStates ? 'state' : 'page';
+    const nounCap = isStates ? 'State' : 'Page';
+    const nounPlural = isStates ? 'Scene States' : 'Pages';
     const live = liveId();
     const idx = items.findIndex(p => p.id === state.curPage);
     const cur = items[idx] || items[0];
     const count = id => state.overlay.elements.filter(el => el.page === id).length;
+    const ovrCount = id => state.overlay.elements.filter(el => el.page === '*' && el.pageStates?.[id] && Object.keys(el.pageStates[id]).length > 0).length;
     const shared = state.overlay.elements.filter(el => el.page === '*').length;
     const P = state.overlay.pages;
     if (cur?.trigger === 'alert') loadAlertRules();
 
-    const rowHtml = p => `
+    const rowHtml = (p, rowIdx) => {
+        const isBase = rowIdx === 0 && isStates && !p.trigger;
+        const ovr = isBase ? 0 : ovrCount(p.id);
+        const ownCount = count(p.id);
+        const metaParts = [];
+        if (p.id === live) metaParts.push('<span class="pg-live">Live</span>');
+        if (p.enabled === false) metaParts.push('Off');
+        if (isBase) metaParts.push('Base layout');
+        else if (isStates) metaParts.push(ovr ? `${ovr} morph override${ovr === 1 ? '' : 's'}` : 'Matches base');
+        if (ownCount || !isStates) metaParts.push(`${ownCount} own element${ownCount === 1 ? '' : 's'}`);
+        if (p.duration) metaParts.push(`${p.duration}s`);
+
+        return `
         <div class="pg-row${p.id === state.curPage ? ' current' : ''}${p.enabled === false ? ' off' : ''}" data-pid="${esc(p.id)}">
             <span class="pg-grip" title="Drag to reorder">${ICON.grip}</span>
-            <span class="pg-main"><span class="pg-name" title="Double-click to rename">${p.trigger ? `<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" style="display:inline-block;vertical-align:-1px;margin-right:3px"><title>Trigger page</title><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg> ` : ''}${esc(p.name)}</span>
-                <span class="pg-meta">${p.id === live ? '<span class="pg-live">Live</span> · ' : ''}${p.enabled === false ? 'Off · ' : ''}${count(p.id)} element${count(p.id) === 1 ? '' : 's'}${p.duration ? ` · ${p.duration}s` : ''}</span></span>
+            <span class="pg-main"><span class="pg-name" title="Double-click to rename">${p.trigger ? `<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" style="display:inline-block;vertical-align:-1px;margin-right:3px"><title>Trigger ${noun}</title><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg> ` : ''}${esc(p.name)}</span>
+                <span class="pg-meta">${metaParts.join(' · ')}</span></span>
             <span class="pg-actions">
-                <button data-pg="toggle" class="${p.enabled === false ? '' : 'on'}" title="${p.enabled === false ? 'Enable this page' : 'Disable this page (skipped on stream)'}" aria-pressed="${p.enabled !== false}" ${p.enabled !== false && items.filter(x => x.enabled !== false).length === 1 ? 'disabled' : ''}>${p.enabled === false ? ICON.eyeOff : ICON.eye}</button>
-                ${p.id === live || p.enabled === false ? '' : `<button data-pg="live" class="go" title="${state.isNew ? 'Save first to go live' : 'Make this page live'}" ${state.isNew ? 'disabled' : ''}><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>`}
-                <button data-pg="dup" title="Duplicate page"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-                <button data-pg="del" class="danger" title="Delete page" ${items.length === 1 ? 'disabled' : ''}><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                <button data-pg="toggle" class="${p.enabled === false ? '' : 'on'}" title="${p.enabled === false ? `Enable this ${noun}` : `Disable this ${noun} (skipped on stream)`}" aria-pressed="${p.enabled !== false}" ${p.enabled !== false && items.filter(x => x.enabled !== false).length === 1 ? 'disabled' : ''}>${p.enabled === false ? ICON.eyeOff : ICON.eye}</button>
+                ${p.id === live || p.enabled === false ? '' : `<button data-pg="live" class="go" title="${state.isNew ? 'Save first to go live' : `Make this ${noun} live`}" ${state.isNew ? 'disabled' : ''}><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>`}
+                <button data-pg="dup" title="Duplicate ${noun}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                <button data-pg="del" class="danger" title="Delete ${noun}" ${items.length === 1 ? 'disabled' : ''}><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </span>
         </div>`;
+    };
 
     panel.innerHTML = `
-        <div class="pg-head"><span>Pages</span><button id="page-add" title="Add a blank page">+ Add page</button></div>
-        <div class="pg-list" id="pg-list">${items.filter(p => !p.trigger).map(rowHtml).join('')}</div>
-        ${items.some(p => p.trigger) ? `<div class="pg-sub">Triggered pages <span>not in the rotation</span></div><div class="pg-list pg-trig" id="pg-trig-list">${items.filter(p => p.trigger).map(rowHtml).join('')}</div>` : ''}
-        <div class="hint">${shared ? `${shared} shared element${shared === 1 ? '' : 's'} show on every page.` : 'Mark an element “Show on all pages” to share it across pages.'}</div>
-        ${items.some(p => p.trigger) ? '<div class="hint">Priority: alerts, featured messages, polls, then commands. Interrupted polls resume while still valid. Pending messages and commands expire; interrupted ones do not replay. Manual page changes clear pending triggers.</div>' : ''}
+        <div class="field" style="margin-bottom:.1rem">
+            <span class="seg" id="pages-kind-seg">
+                <button type="button" data-pg-kind="states" aria-pressed="${isStates}">Scene States (Morph)</button>
+                <button type="button" data-pg-kind="pages" aria-pressed="${!isStates}">Page Deck (Slides)</button>
+            </span>
+        </div>
+        <div class="pg-head"><span>${nounPlural}</span><button id="page-add" title="Add a new ${noun}">+ Add ${noun}</button></div>
+        <div class="pg-list" id="pg-list">${items.filter(p => !p.trigger).map((p, i) => rowHtml(p, i)).join('')}</div>
+        ${items.some(p => p.trigger) ? `<div class="pg-sub">Triggered ${noun}s <span>not in the rotation</span></div><div class="pg-list pg-trig" id="pg-trig-list">${items.filter(p => p.trigger).map((p, i) => rowHtml(p, i)).join('')}</div>` : ''}
+        <div class="hint">${isStates
+            ? `<b>${esc(items[0]?.name || 'State 1')}</b> is the Base Layout. Select any other state and move, resize, rotate, or hide shared layers to record smooth morph overrides.`
+            : (shared ? `${shared} shared element${shared === 1 ? '' : 's'} show on every page.` : 'Mark an element “Show on all pages” to share it across pages.')}</div>
+        ${items.some(p => p.trigger) ? `<div class="hint">Priority: alerts, featured messages, polls, then commands. Interrupted polls resume while still valid. Pending messages and commands expire; interrupted ones do not replay. Manual ${noun} changes clear pending triggers.</div>` : ''}
         <div class="pg-card"><h4>${esc(cur?.name || '')}</h4>
-            ${F.select(`pages.items.${idx}.trigger`, 'Show this page', cur?.trigger || '', [['', 'In the rotation'], ['alert', 'Only when an alert plays'], ['featured', 'Only when a message is featured'], ['command', 'Only when a chat command or trigger is used'], ['poll-end', 'Only when a Twitch poll ends'], ['poll-active', 'While a Twitch poll is active']])}
-            ${cur?.trigger === 'alert' ? `<div class="field"><span>Alerts that show this page</span>${alertRules ? (alertRules.length ? `<div class="trule-list">${alertRules.map(r => `<label class="check"><input type="checkbox" data-trule="${esc(r.id)}" ${(cur.triggerRules || []).includes(r.id) ? 'checked' : ''}> ${esc(r.name || r.id)}</label>`).join('')}</div><div class="hint">${(cur.triggerRules || []).length ? 'Only the ticked alerts show this page.' : 'None ticked: any alert shows this page.'}</div>` : '<div class="hint">No alert rules yet.</div>') : '<div class="hint">Loading...</div>'}</div>` : ''}
+            ${F.select(`pages.items.${idx}.trigger`, `Show this ${noun}`, cur?.trigger || '', [['', 'In the rotation / manual'], ['alert', 'Only when an alert plays'], ['featured', 'Only when a message is featured'], ['command', 'Only when a chat command or trigger is used'], ['poll-end', 'Only when a Twitch poll ends'], ['poll-active', 'While a Twitch poll is active']])}
+            ${cur?.trigger === 'alert' ? `<div class="field"><span>Alerts that show this ${noun}</span>${alertRules ? (alertRules.length ? `<div class="trule-list">${alertRules.map(r => `<label class="check"><input type="checkbox" data-trule="${esc(r.id)}" ${(cur.triggerRules || []).includes(r.id) ? 'checked' : ''}> ${esc(r.name || r.id)}</label>`).join('')}</div><div class="hint">${(cur.triggerRules || []).length ? `Only the ticked alerts show this ${noun}.` : `None ticked: any alert shows this ${noun}.`}</div>` : '<div class="hint">No alert rules yet.</div>') : '<div class="hint">Loading...</div>'}</div>` : ''}
             ${cur?.trigger === 'command' ? F.text(`pages.items.${idx}.triggerName`, 'Command or trigger name (blank = any)', cur.triggerName || '') : ''}
-            ${cur?.trigger === 'poll-end' ? `<div class="hint">Shows this page when a Twitch poll completes. Leave &ldquo;Show for&rdquo; at 0 for default 15s.</div>` : ''}
-            ${cur?.trigger === 'poll-active' ? `<div class="hint">At Show for = 0, stays through voting and the longest Show results duration of visible Poll elements on this page, including shared elements. Waits briefly for Twitch to confirm results. A separate Poll end page takes priority; a nonzero Show for keeps fixed-duration behavior.</div>` : ''}
-            ${cur?.trigger === 'featured' ? `<div class="hint">Shows this page when a chat message is clicked or featured in SocialStream Ninja. Leave &ldquo;Show for&rdquo; at 0 for default 10s.</div>` : ''}
+            ${cur?.trigger === 'poll-end' ? `<div class="hint">Shows this ${noun} when a Twitch poll completes. Leave &ldquo;Show for&rdquo; at 0 for default 15s.</div>` : ''}
+            ${cur?.trigger === 'poll-active' ? `<div class="hint">At Show for = 0, stays through voting and the longest Show results duration of visible Poll elements on this ${noun}, including shared elements. Waits briefly for Twitch to confirm results. A separate Poll end ${noun} takes priority; a nonzero Show for keeps fixed-duration behavior.</div>` : ''}
+            ${cur?.trigger === 'featured' ? `<div class="hint">Shows this ${noun} when a chat message is clicked or featured in SocialStream Ninja. Leave &ldquo;Show for&rdquo; at 0 for default 10s.</div>` : ''}
             ${cur?.trigger ? F.number(`pages.items.${idx}.triggerSeconds`, 'Show for (seconds, 0 = default)', cur.triggerSeconds || 0, { min: 0, max: 3600 }) : `${F.number(`pages.items.${idx}.duration`, 'Seconds on screen (auto mode, 0 = default)', cur?.duration || 0, { min: 0, max: 3600 })}`}
             ${cur?.trigger ? `<div style="margin-top:.6rem"><button type="button" class="btn" id="btn-test-trigger" style="width:100%;font-size:12px;padding:6px 10px;display:flex;align-items:center;justify-content:center;gap:6px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text);font-weight:600;"><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Test trigger</button></div>` : ''}</div>
-        <div class="pg-card"><h4>Playback</h4>
-            ${F.select('pages.mode', 'Advance', P.mode, [['manual', 'Manual (editor, control panel, API)'], ['auto', 'Automatic']])}
-            ${P.mode === 'auto' ? `${F.number('pages.cycleSeconds', 'Default seconds per page', P.cycleSeconds, { min: 1, max: 3600 })}${F.check('pages.loop', 'Loop back to the first page', P.loop)}` : ''}
-            ${F.select('pages.transition', 'Transition', P.transition, [['none', 'None'], ['fade', 'Fade'], ['slide', 'Slide']])}
-            ${P.transition === 'slide' ? F.select('pages.transitionDirection', 'Slide direction', P.transitionDirection || 'left', [['left', 'Left (new page enters from the right)'], ['right', 'Right (enters from the left)'], ['up', 'Up (enters from the bottom)'], ['down', 'Down (enters from the top)']]) + F.number('pages.transitionDistance', 'Slide distance (px)', P.transitionDistance || 120, { min: 10, max: 2000, step: 10 }) : ''}
-            ${P.transition !== 'none' ? F.number('pages.transitionMs', 'Transition length (ms)', P.transitionMs, { min: 50, max: 5000, step: 50 }) : ''}</div>
+        <div class="pg-card"><h4>Transition &amp; Playback</h4>
+            ${F.select('pages.mode', 'Advance', P.mode, [['manual', 'Manual (editor, control panel, API)'], ['auto', 'Automatic cycle']])}
+            ${P.mode === 'auto' ? `${F.number('pages.cycleSeconds', `Default seconds per ${noun}`, P.cycleSeconds, { min: 1, max: 3600 })}${F.check('pages.loop', `Loop back to the first ${noun}`, P.loop)}` : ''}
+            ${F.select('pages.transition', 'Transition style', P.transition, [['morph', 'Morph (Smooth Layout & Cutouts)'], ['fade', 'Crossfade'], ['slide', 'Slide'], ['none', 'Instant Cut']])}
+            ${P.transition === 'morph' ? F.select('pages.transitionEasing', 'Motion curve', P.transitionEasing || 'smooth', [['smooth', 'Smooth Cubic'], ['snappy', 'Snappy Out'], ['spring', 'Gentle Spring'], ['ease-in-out', 'Ease In-Out'], ['linear', 'Linear']]) : ''}
+            ${P.transition === 'slide' ? F.select('pages.transitionDirection', 'Slide direction', P.transitionDirection || 'left', [['left', 'Left (new enters from right)'], ['right', 'Right (enters from left)'], ['up', 'Up (enters from bottom)'], ['down', 'Down (enters from top)']]) + F.number('pages.transitionDistance', 'Slide distance (px)', P.transitionDistance || 120, { min: 10, max: 2000, step: 10 }) : ''}
+            ${P.transition !== 'none' ? F.number('pages.transitionMs', 'Transition length (ms)', P.transitionMs, { min: 50, max: 5000, step: 50 }) : ''}
+            ${items.length > 1 && P.transition === 'morph' ? `<button type="button" id="btn-preview-morph" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:600"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Preview Morph on Canvas</button>` : ''}</div>
         <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem">
             <a href="/overlay-control.html?id=${encodeURIComponent(state.overlay.id)}" target="_blank" style="color:var(--accent);font-size:12px">Control panel ↗</a>
-            <button id="pages-disable" class="ghost" title="Back to a single page. Elements are kept.">Turn off pages</button></div>`;
+            <button id="pages-disable" class="ghost" title="Back to a single view. Elements are kept.">Turn off ${noun}s</button></div>`;
 
     if (pgSortable) pgSortable.destroy();
     const sortList = $('pg-list');
@@ -234,13 +286,16 @@ export function renderPagesPanel() {
             animation: 150, handle: '.pg-grip', ghostClass: 'sortable-ghost',
             onEnd(event) {
                 if (event.oldIndex === event.newIndex) return;
+                syncWorkingStateForCurrentPage(state.curPage);
                 const normal = state.overlay.pages.items.filter(p => !p.trigger);
                 const trig = state.overlay.pages.items.filter(p => p.trigger);
                 const [moved] = normal.splice(event.oldIndex, 1);
                 normal.splice(event.newIndex, 0, moved);
                 state.overlay.pages.items = [...normal, ...trig];
+                projectPageState(state.curPage);
                 changed(true);
                 renderPageBar();
+                renderCanvasHandler();
             }
         });
     }
@@ -292,27 +347,59 @@ export function setLiveState(data) {
     if (!pagesPanelBusy()) renderPageBar();
 }
 
-export function switchEditPage(id) {
+export function switchEditPage(id, { animate = true } = {}) {
+    if (!id || id === state.curPage) return;
     flushHistory();
+    syncWorkingStateForCurrentPage(state.curPage);
+    const shouldMorphPreview = animate && (statesModeOn() || state.overlay.pages?.transition === 'morph');
+    const beforeSnap = shouldMorphPreview ? captureEditorStateSnapshot() : null;
     state.curPage = id;
-    state.selectedIds = new Set();
+    projectPageState(id);
     renderPageBar();
     renderCanvasHandler();
     renderLayers();
     renderPropertiesHandler();
     updateStatusBarHandler();
+    if (beforeSnap) {
+        previewEditorStateMorph(beforeSnap, {
+            durationMs: state.overlay.pages?.transitionMs || 650,
+            easing: state.overlay.pages?.transitionEasing || 'smooth'
+        });
+    }
 }
 
-export function setPagesEnabled(on) {
+export function setPagesEnabled(on, kind = 'pages') {
     if (!state.overlay.pages) state.overlay.pages = defaultPages();
+    syncWorkingStateForCurrentPage(state.curPage);
     state.overlay.pages.enabled = on;
     if (on) {
-        ensureCurPage();
-        state.overlay.elements.forEach(el => {
-            if (el.page !== '*' && !state.overlay.pages.items.some(p => p.id === el.page)) {
-                el.page = state.overlay.pages.items[0].id;
+        state.overlay.pages.kind = kind === 'states' ? 'states' : 'pages';
+        if (kind === 'states') {
+            state.overlay.pages.transition = 'morph';
+            if (!state.overlay.pages.transitionEasing) state.overlay.pages.transitionEasing = 'smooth';
+            if (!state.overlay.pages.transitionMs || state.overlay.pages.transitionMs === 400) state.overlay.pages.transitionMs = 650;
+            const items = state.overlay.pages.items;
+            if (items[0] && items[0].name === 'Page 1') items[0].name = 'State 1';
+            if (items.length < 2) {
+                items.push({ id: pageSeq(), name: 'State 2', duration: 0, enabled: true });
             }
-        });
+            state.overlay.elements.forEach(el => {
+                if (!el.page || el.page === items[0]?.id) el.page = '*';
+                if (!el._baseState) el._baseState = extractElementState(el);
+                if (!el.pageStates) el.pageStates = {};
+            });
+        } else {
+            ensureCurPage();
+            state.overlay.elements.forEach(el => {
+                if (el.page !== '*' && !state.overlay.pages.items.some(p => p.id === el.page)) {
+                    el.page = state.overlay.pages.items[0].id;
+                }
+            });
+        }
+        ensureCurPage();
+        projectPageState(state.curPage);
+    } else {
+        projectPageState(basePageId());
     }
     state.selectedIds = new Set();
     renderAllHandler();
@@ -321,39 +408,59 @@ export function setPagesEnabled(on) {
 }
 
 export function duplicatePage(src) {
+    syncWorkingStateForCurrentPage(state.curPage);
     const items = state.overlay.pages.items, id = pageSeq();
-    items.splice(items.indexOf(src) + 1, 0, { id, name: `${src.name} copy`, duration: src.duration || 0 });
+    items.splice(items.indexOf(src) + 1, 0, { id, name: `${src.name} copy`, duration: src.duration || 0, enabled: src.enabled !== false });
     const groupMap = new Map();
     const clones = state.overlay.elements.filter(el => el.page === src.id).map(el => {
         const copy = JSON.parse(JSON.stringify(el)); copy.id = uid(el.type); copy.page = id;
+        if (!el.morphId) el.morphId = uid('morph');
+        copy.morphId = el.morphId;
         if (el.group) {
             if (!groupMap.has(el.group)) groupMap.set(el.group, uid('group'));
             copy.group = groupMap.get(el.group);
         }
         return copy;
     });
+    state.overlay.elements.forEach(el => {
+        if (el.page === '*') {
+            if (!el.pageStates) el.pageStates = {};
+            if (src.id !== basePageId() && el.pageStates[src.id]) {
+                el.pageStates[id] = JSON.parse(JSON.stringify(el.pageStates[src.id]));
+            }
+        }
+    });
     state.overlay.elements.push(...clones);
     normalizeZ();
     changed(true);
-    switchEditPage(id);
+    switchEditPage(id, { animate: false });
 }
 
 export async function deletePage(page) {
     const items = state.overlay.pages.items;
     if (items.length < 2) return;
+    const isStates = statesModeOn();
+    const noun = isStates ? 'State' : 'Page';
     const doomed = state.overlay.elements.filter(el => el.page === page.id).length;
+    const msg = doomed
+        ? `Delete “${page.name}” and its ${doomed} exclusive element${doomed > 1 ? 's' : ''}? (Undo can restore it.)`
+        : `Delete ${noun.toLowerCase()} “${page.name}”? Shared layers will remain intact.`;
     if (window.StreamPulse?.confirm) {
-        const ok = await window.StreamPulse.confirm('Delete Page', `Delete “${page.name}” and its ${doomed} element${doomed > 1 ? 's' : ''}? (Undo can restore it.)`, { danger: true, confirmText: 'Delete Page' });
+        const ok = await window.StreamPulse.confirm(`Delete ${noun}`, msg, { danger: true, confirmText: `Delete ${noun}` });
         if (!ok) return;
-    } else if (doomed && !confirm(`Delete “${page.name}” and its ${doomed} element${doomed > 1 ? 's' : ''}?`)) {
+    } else if (doomed && !confirm(msg)) {
         return;
     }
+    syncWorkingStateForCurrentPage(state.curPage);
     const idx = items.indexOf(page);
     state.overlay.elements = state.overlay.elements.filter(el => el.page !== page.id);
+    state.overlay.elements.forEach(el => {
+        if (el.pageStates && el.pageStates[page.id]) delete el.pageStates[page.id];
+    });
     items.splice(idx, 1);
     normalizeZ();
     changed(true);
-    if (state.curPage === page.id) switchEditPage(items[Math.max(0, idx - 1)].id);
+    if (state.curPage === page.id) switchEditPage(items[Math.max(0, idx - 1)].id, { animate: false });
     else { renderPageBar(); renderCanvasHandler(); renderLayers(); }
 }
 
@@ -407,6 +514,11 @@ export function initLayersAndPages() {
             if (head) {
                 const group = head.dataset.group;
                 const members = state.overlay.elements.filter(el => el.group === group && inView(el));
+                if (e.target.closest('[data-layer-action="group-prefab"]')) {
+                    setSelection(members.map(el => el.id));
+                    savePresetHandler();
+                    return;
+                }
                 if (e.target.closest('[data-layer-action="group-visible"]')) {
                     const show = members.every(el => el.visible === false);
                     members.forEach(el => { el.visible = show ? true : false; });
@@ -423,6 +535,13 @@ export function initLayersAndPages() {
             const el = byId(row.dataset.id);
             if (!el) return;
             const action = e.target.closest('[data-layer-action]')?.dataset.layerAction;
+            if (action === 'reset-state') {
+                resetElementPageState(el, state.curPage);
+                renderLayers(); renderCanvasHandler(); renderPropertiesHandler(); updateStatusBarHandler();
+                changed(true);
+                toast(`Reset “${el.name || el.type}” to Base State`, 'info', 2000);
+                return;
+            }
             if (action === 'lock') {
                 el.locked = !el.locked;
                 renderLayers(); renderCanvasHandler(); updateStatusBarHandler();
@@ -493,21 +612,59 @@ export function initLayersAndPages() {
             const t = event.target.closest('button'), row = event.target.closest('.pg-row');
             const items = state.overlay.pages?.items;
             if (!items) return;
-            if (t?.id === 'pages-enable') return setPagesEnabled(true);
+            if (t?.id === 'states-enable') return setPagesEnabled(true, 'states');
+            if (t?.id === 'pages-enable') return setPagesEnabled(true, 'pages');
+            if (t?.dataset.pgKind) {
+                const nextKind = t.dataset.pgKind === 'states' ? 'states' : 'pages';
+                if (state.overlay.pages.kind !== nextKind) {
+                    syncWorkingStateForCurrentPage(state.curPage);
+                    state.overlay.pages.kind = nextKind;
+                    if (nextKind === 'states') {
+                        state.overlay.pages.transition = 'morph';
+                        if (!state.overlay.pages.transitionEasing) state.overlay.pages.transitionEasing = 'smooth';
+                        state.overlay.elements.forEach(el => {
+                            if (!el._baseState) el._baseState = extractElementState(el);
+                            if (!el.pageStates) el.pageStates = {};
+                        });
+                    }
+                    changed(true);
+                    renderPageBar();
+                    renderLayers();
+                    renderPropertiesHandler();
+                }
+                return;
+            }
+            if (t?.id === 'btn-preview-morph') {
+                const enabledItems = items.filter(p => p.enabled !== false);
+                if (enabledItems.length < 2) {
+                    toast('Add at least 2 states to preview transitions.', 'info', 2400);
+                    return;
+                }
+                const curIdx = enabledItems.findIndex(p => p.id === state.curPage);
+                const nextPage = enabledItems[(curIdx + 1) % enabledItems.length];
+                if (nextPage) switchEditPage(nextPage.id, { animate: true });
+                return;
+            }
             if (t?.id === 'pages-disable') {
+                const isStates = statesModeOn();
+                const title = isStates ? 'Turn Off States' : 'Turn Off Pages';
+                const msg = isStates
+                    ? 'Turn off scene states? Layers will revert to their Base State layout.'
+                    : 'Turn off pages? Every page’s elements stay, and they all show together in one view.';
                 if (window.StreamPulse?.confirm) {
-                    const ok = await window.StreamPulse.confirm('Turn Off Pages', 'Turn off pages? Every page’s elements stay, and they all show together in one view.', { confirmText: 'Turn Off Pages' });
+                    const ok = await window.StreamPulse.confirm(title, msg, { confirmText: title });
                     if (ok) setPagesEnabled(false);
-                } else if (confirm('Turn off pages? Every page’s elements stay, and they all show together in one view.')) {
+                } else if (confirm(msg)) {
                     setPagesEnabled(false);
                 }
                 return;
             }
             if (t?.id === 'page-add') {
+                const isStates = statesModeOn();
                 const id = pageSeq();
-                items.push({ id, name: `Page ${items.length + 1}`, duration: 0, enabled: true });
+                items.push({ id, name: `${isStates ? 'State' : 'Page'} ${items.length + 1}`, duration: 0, enabled: true });
                 changed(true);
-                return switchEditPage(id);
+                return switchEditPage(id, { animate: false });
             }
             if (t?.id === 'btn-test-trigger') {
                 const page = items.find(p => p.id === state.curPage);
@@ -580,7 +737,7 @@ export function initLayersAndPages() {
                 return;
             }
             const path = event.target.dataset?.path;
-            if (path === 'pages.mode' || path === 'pages.transition' || /^pages\.items\.\d+\.trigger$/.test(path || '')) {
+            if (path === 'pages.mode' || path === 'pages.transition' || path === 'pages.transitionEasing' || /^pages\.items\.\d+\.trigger$/.test(path || '')) {
                 renderPagesPanel();
             }
         });

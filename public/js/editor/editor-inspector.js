@@ -6,7 +6,8 @@ import {
     $, esc, clamp, getPath, setPath, hasText, isLine, state, prefs, savePrefs,
     CANVAS_PRESETS, SYSTEM_FONTS, GOOGLE_FONT_OPTIONS, LIMITS, ICON, TYPE_META,
     ALERT_TRIGGER_LABELS, TEXT_TYPES, FILL_TEXT_TYPES, LOCAL_MEDIA, selectedElements,
-    primary, byId, boundsOf, displayName, changed, toast, alertSample, variableContext
+    primary, byId, boundsOf, displayName, changed, toast, alertSample, variableContext,
+    statesModeOn, isBasePage, hasPageOverride, resetElementPageState, extractElementState
 } from './editor-state.js';
 import { F, bindFields } from './editor-form.js';
 import {
@@ -1436,8 +1437,25 @@ export function patternSection(el) {
 export function sharedBlock(items) {
     const pagesEnabled = state.overlay.pages?.enabled === true;
     if (!pagesEnabled) return '';
+    const isStates = statesModeOn();
     const all = items.every(el => el.page === '*');
-    return `<div class="shared-box"><label class="check"><input type="checkbox" id="el-shared" ${all ? 'checked' : ''}> Show on all pages (shared)</label></div>`;
+    const labelText = isStates ? 'Show across all states (Morphs between states)' : 'Show on all pages (shared)';
+    const curPageObj = state.overlay.pages?.items?.find(p => p.id === state.curPage);
+    const curPageName = curPageObj?.name || state.curPage;
+    let overrideBar = '';
+    if (all && !isBasePage() && items.length === 1) {
+        const el = items[0];
+        const hasOvr = hasPageOverride(el, state.curPage);
+        overrideBar = hasOvr
+            ? `<div class="state-override-bar is-active">
+                <span class="state-ovr-text"><i class="layer-ovr-dot"></i> Override on <strong>${esc(curPageName)}</strong></span>
+                <button type="button" id="btn-reset-state-ovr" class="link-btn" title="Revert this layer's position, size, and visibility on ${esc(curPageName)} back to the Base State">Reset to Base</button>
+            </div>`
+            : `<div class="state-override-bar">
+                <span class="state-ovr-text" style="color:var(--muted)">Inheriting Base layout — move, resize, or hide to override on <strong>${esc(curPageName)}</strong>.</span>
+            </div>`;
+    }
+    return `<div class="shared-box"><label class="check"><input type="checkbox" id="el-shared" ${all ? 'checked' : ''}> ${labelText}</label>${overrideBar}</div>`;
 }
 
 // ---- Property Inspector Panel Render ----------------------------------------------
@@ -2098,6 +2116,20 @@ export function initInspectorEvents() {
                     if (status) status.textContent = 'Preview updated. Could not reach the server.';
                 });
             }
+            if (target.closest('#btn-reset-state-ovr')) {
+                const el = primary();
+                if (el) {
+                    resetElementPageState(el, state.curPage);
+                    renderLayers();
+                    renderCanvas();
+                    renderSelectionUI();
+                    renderProperties();
+                    updateStatusBarHandler();
+                    changed(true);
+                    toast('Layer reset to Base State layout', 'info', 1800);
+                }
+                return;
+            }
             if (target.closest('[data-slide-popout]')) {
                 window.open(`/overlay-control.html?id=${encodeURIComponent(state.overlay.id)}`, 'slideshow-remote', 'popup,width=420,height=640');
             }
@@ -2108,9 +2140,16 @@ export function initInspectorEvents() {
 
         propEl.addEventListener('change', event => {
             if (event.target.id !== 'el-shared') return;
-            for (const el of selectedElements()) el.page = event.target.checked ? '*' : state.curPage;
+            for (const el of selectedElements()) {
+                el.page = event.target.checked ? '*' : state.curPage;
+                if (el.page === '*') {
+                    if (!el._baseState) el._baseState = extractElementState(el);
+                    if (!el.pageStates) el.pageStates = {};
+                }
+            }
             renderLayers();
             renderCanvas();
+            renderProperties();
             changed(true);
         });
     }
