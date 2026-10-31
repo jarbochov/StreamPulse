@@ -152,6 +152,8 @@
         const customAccent = params.get('accent');
         const customWinner = params.get('winner');
         const customBadgeColor = params.get('badgecolor') || params.get('centerbadge') || params.get('badge_color');
+        const customP1Color = params.get('p1color') || params.get('e1color') || params.get('entrant1color') || params.get('player1color') || '';
+        const customP2Color = params.get('p2color') || params.get('e2color') || params.get('entrant2color') || params.get('player2color') || '';
         const cardWidthParam = (params.get('cardwidth') || params.get('roundwidth') || params.get('matchwidth') || '').trim();
         const isWide = params.get('wide') === '1' || params.get('wide') === 'true';
 
@@ -183,6 +185,8 @@
             document.documentElement.style.setProperty('--tourney-badge-bg', customBadgeColor);
             document.documentElement.style.setProperty('--tourney-badge-color', '#0d1117');
         }
+        if (customP1Color) document.documentElement.style.setProperty('--tourney-p1-color', customP1Color);
+        if (customP2Color) document.documentElement.style.setProperty('--tourney-p2-color', customP2Color);
 
         // Shared theme & typography handling via /js/overlay-theme.js
         if (typeof window.applyTourneyTheme === 'function') {
@@ -470,6 +474,8 @@
             const isVote = tournament.progressionMode === 'vote' || isPollMode;
             const totalVotes = (Number(e1.votes) || 0) + (Number(e2.votes) || 0);
             const e1Pct = totalVotes > 0 ? Math.round(((Number(e1.votes) || 0) / totalVotes) * 100) : 50;
+            const e1EffectiveColor = e1.color || customP1Color || (isVote ? '#ef4444' : '');
+            const e2EffectiveColor = e2.color || customP2Color || (isVote ? '#3b82f6' : '');
 
             function renderPips(score, color) {
                 if (!targetScore) return '';
@@ -509,29 +515,29 @@
                             <span>${activeMatch.matchDetails ? esc(activeMatch.matchDetails) : esc(tournament.title)}</span>
                         </div>
                         <div class="hud-match-grid" style="gap: var(--tourney-center-gap, 1rem);${!showCenter ? ' grid-template-columns: 1fr 1fr;' : ''}">
-                            <div class="hud-entrant e1" style="${e1.color ? `border-left: 4px solid ${e1.color};` : ''}">
+                            <div class="hud-entrant e1" style="${e1EffectiveColor ? `border-left: 4px solid ${e1EffectiveColor};` : ''}">
                                 <div class="hud-score-display">${isVote ? (e1.votes || 0) : (showScoresParam ? (e1.score || 0) : '')}</div>
                                 <div>
-                                    <div class="hud-entrant-name" title="${esc(e1.name)}" style="${e1.color ? `color:${e1.color};` : ''}">${esc(e1.name)}</div>
+                                    <div class="hud-entrant-name" title="${esc(e1.name)}" style="${e1EffectiveColor ? `color:${e1EffectiveColor};` : ''}">${esc(e1.name)}</div>
                                     ${showTags && e1.tag ? `<div class="hud-entrant-tag">${esc(e1.tag)}</div>` : ''}
-                                    ${!isVote && targetScore > 0 ? renderPips(e1.score || 0, e1.color) : ''}
-                                    ${!isVote && targetRounds > 0 ? renderHudRoundPips(e1.rounds || 0, e1.color) : ''}
+                                    ${!isVote && targetScore > 0 ? renderPips(e1.score || 0, e1EffectiveColor) : ''}
+                                    ${!isVote && targetRounds > 0 ? renderHudRoundPips(e1.rounds || 0, e1EffectiveColor) : ''}
                                 </div>
                             </div>
                             ${showCenter ? '<div class="hud-vs-pill">VS</div>' : ''}
-                            <div class="hud-entrant e2" style="${e2.color ? `border-right: 4px solid ${e2.color};` : ''}">
+                            <div class="hud-entrant e2" style="${e2EffectiveColor ? `border-right: 4px solid ${e2EffectiveColor};` : ''}">
                                 <div class="hud-score-display">${isVote ? (e2.votes || 0) : (showScoresParam ? (e2.score || 0) : '')}</div>
                                 <div>
-                                    <div class="hud-entrant-name" title="${esc(e2.name)}" style="${e2.color ? `color:${e2.color};` : ''}">${esc(e2.name)}</div>
+                                    <div class="hud-entrant-name" title="${esc(e2.name)}" style="${e2EffectiveColor ? `color:${e2EffectiveColor};` : ''}">${esc(e2.name)}</div>
                                     ${showTags && e2.tag ? `<div class="hud-entrant-tag">${esc(e2.tag)}</div>` : ''}
-                                    ${!isVote && targetScore > 0 ? renderPips(e2.score || 0, e2.color) : ''}
-                                    ${!isVote && targetRounds > 0 ? renderHudRoundPips(e2.rounds || 0, e2.color) : ''}
+                                    ${!isVote && targetScore > 0 ? renderPips(e2.score || 0, e2EffectiveColor) : ''}
+                                    ${!isVote && targetRounds > 0 ? renderHudRoundPips(e2.rounds || 0, e2EffectiveColor) : ''}
                                 </div>
                             </div>
                         </div>
                         ${isVote ? `
-                            <div class="hud-vote-bar-wrap">
-                                <div class="hud-vote-fill" style="width: ${e1Pct}%;"></div>
+                            <div class="hud-vote-bar-wrap" style="${e2EffectiveColor ? `background: ${e2EffectiveColor};` : ''}">
+                                <div class="hud-vote-fill" style="width: ${e1Pct}%;${e1EffectiveColor ? `background: ${e1EffectiveColor};` : ''}"></div>
                             </div>
                         ` : ''}
                     </div>
@@ -632,6 +638,8 @@
 
                 const e1 = match.entrant1 || { name: 'TBD', seed: 0, score: 0, rounds: 0, votes: 0, percent: 0 };
                 const e2 = match.entrant2 || { name: 'TBD', seed: 0, score: 0, rounds: 0, votes: 0, percent: 0 };
+                const e1Color = e1.color || customP1Color || '';
+                const e2Color = e2.color || customP2Color || '';
                 const isVote = tournament.progressionMode === 'vote' || isPollMode;
                 const rb = (!isVote && !isPollMode) ? (match.roundsBestOf || tournament.roundsBestOf || 0) : 0;
                 const rTarget = rb > 0 ? Math.ceil(rb / 2) : 0;
@@ -645,16 +653,16 @@
                     <div class="match-card${isActive ? ' active' : ''}${isCompleted ? ' completed' : ''}" data-match-id="${match.id}">
                         ${showBadges && isActive ? `<span class="match-card-badge">${isVote ? 'Voting' : 'Live'}</span>` : ''}
                         
-                        <div class="entrant-row${e1Winner ? ' winner' : ''}${e1Loser ? ' loser' : ''}" style="${e1.color ? `border-left: 3px solid ${e1.color};` : ''}">
-                            ${isActive && isVote ? `<div class="vote-fill-bar" style="width: ${e1.percent || 0}%;"></div>` : ''}
+                        <div class="entrant-row${e1Winner ? ' winner' : ''}${e1Loser ? ' loser' : ''}" style="${e1Color ? `border-left: 3px solid ${e1Color};` : ''}">
+                            ${isActive && isVote ? `<div class="vote-fill-bar" style="width: ${e1.percent || 0}%;${e1Color ? `background: color-mix(in srgb, ${e1Color} 25%, transparent);` : ''}"></div>` : ''}
                             <div class="entrant-info">
-                                ${e1.color ? `<span class="entrant-color-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${e1.color}; flex-shrink:0;"></span>` : ''}
+                                ${e1Color ? `<span class="entrant-color-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${e1Color}; flex-shrink:0;"></span>` : ''}
                                 ${showSeeds && e1.seed > 0 ? `<span class="seed-pill">#${e1.seed}</span>` : ''}
                                 <span class="entrant-name" title="${esc(e1.name)}">${esc(e1.name)}</span>
                                 ${showTags && e1.tag ? `<span class="entrant-tag">${esc(e1.tag)}</span>` : ''}
                             </div>
                             <div class="entrant-score-box">
-                                ${!isVote && rTarget > 0 ? renderMatchRoundPips(e1.rounds || 0, rTarget, e1.color) : ''}
+                                ${!isVote && rTarget > 0 ? renderMatchRoundPips(e1.rounds || 0, rTarget, e1Color) : ''}
                                 ${showScoresParam ? `
                                     ${isVote ? (isActive || isCompleted ? `<span class="score-badge">${e1.votes || 0}</span><span class="entrant-pct">${e1.percent || 0}%</span>` : '') : `
                                         <span class="score-badge">${e1.score || 0}</span>
@@ -663,16 +671,16 @@
                             </div>
                         </div>
 
-                        <div class="entrant-row${e2Winner ? ' winner' : ''}${e2Loser ? ' loser' : ''}" style="${e2.color ? `border-left: 3px solid ${e2.color};` : ''}">
-                            ${isActive && isVote ? `<div class="vote-fill-bar" style="width: ${e2.percent || 0}%;"></div>` : ''}
+                        <div class="entrant-row${e2Winner ? ' winner' : ''}${e2Loser ? ' loser' : ''}" style="${e2Color ? `border-left: 3px solid ${e2Color};` : ''}">
+                            ${isActive && isVote ? `<div class="vote-fill-bar" style="width: ${e2.percent || 0}%;${e2Color ? `background: color-mix(in srgb, ${e2Color} 25%, transparent);` : ''}"></div>` : ''}
                             <div class="entrant-info">
-                                ${e2.color ? `<span class="entrant-color-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${e2.color}; flex-shrink:0;"></span>` : ''}
+                                ${e2Color ? `<span class="entrant-color-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${e2Color}; flex-shrink:0;"></span>` : ''}
                                 ${showSeeds && e2.seed > 0 ? `<span class="seed-pill">#${e2.seed}</span>` : ''}
                                 <span class="entrant-name" title="${esc(e2.name)}">${esc(e2.name)}</span>
                                 ${showTags && e2.tag ? `<span class="entrant-tag">${esc(e2.tag)}</span>` : ''}
                             </div>
                             <div class="entrant-score-box">
-                                ${!isVote && rTarget > 0 ? renderMatchRoundPips(e2.rounds || 0, rTarget, e2.color) : ''}
+                                ${!isVote && rTarget > 0 ? renderMatchRoundPips(e2.rounds || 0, rTarget, e2Color) : ''}
                                 ${showScoresParam ? `
                                     ${isVote ? (isActive || isCompleted ? `<span class="score-badge">${e2.votes || 0}</span><span class="entrant-pct">${e2.percent || 0}%</span>` : '') : `
                                         <span class="score-badge">${e2.score || 0}</span>

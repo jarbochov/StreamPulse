@@ -400,6 +400,10 @@ test('Poll Manager studio (polls.html) theme and font controls integration', () 
     assert.ok(html.includes('id="poll-opt-scale"'), 'Should contain scale selector for poll overlay');
     assert.ok(html.includes('id="poll-opt-radius"'), 'Should contain radius selector for poll overlay');
     assert.ok(html.includes('id="poll-opt-winner"'), 'Should contain winner color picker for poll overlay');
+    assert.ok(html.includes('id="entrant1-color-picker"'), 'Should contain active match entrant 1 color picker in poll tournament');
+    assert.ok(html.includes('id="entrant2-color-picker"'), 'Should contain active match entrant 2 color picker in poll tournament');
+    assert.ok(html.includes('id="tourney-opt-p1color"'), 'Should contain tournament entrant 1 slot color input');
+    assert.ok(html.includes('id="tourney-opt-p2color"'), 'Should contain tournament entrant 2 slot color input');
 });
 
 test('Tournament and Poll overlays Heading Font vs Content Font parameter separation', async () => {
@@ -630,4 +634,62 @@ test('Custom overlay background pattern persistence and normalization', () => {
     assert.equal(el.pattern.motion, 'drift', 'Pattern motion drift must be preserved');
     assert.equal(el.pattern.speed, 1.2, 'Pattern speed multiplier must be preserved');
     assert.equal(el.pattern.blendMode, 'screen', 'Pattern blendMode must be preserved');
+});
+
+test('Poll tournament entrant / versus colors customization and participant parsing', async () => {
+    // 1. Backend parseEntrant unit test
+    const { parseEntrant } = require('../server/services/polls.js');
+    assert.ok(typeof parseEntrant === 'function', 'parseEntrant should be exported from polls service');
+
+    const e1 = parseEntrant('Chrono Trigger #ef4444');
+    assert.equal(e1.name, 'Chrono Trigger');
+    assert.equal(e1.color, '#ef4444');
+
+    const e2 = parseEntrant('Final Fantasy VII [#3b82f6]');
+    assert.equal(e2.name, 'Final Fantasy VII');
+    assert.equal(e2.color, '#3b82f6');
+
+    const e3 = parseEntrant('Super Metroid [SNES] #10b981');
+    assert.equal(e3.name, 'Super Metroid');
+    assert.equal(e3.tag, 'SNES');
+    assert.equal(e3.color, '#10b981');
+
+    const e4 = parseEntrant({ name: 'EarthBound', tag: 'RPG', color: '#f59e0b' });
+    assert.equal(e4.name, 'EarthBound');
+    assert.equal(e4.tag, 'RPG');
+    assert.equal(e4.color, '#f59e0b');
+
+    // 2. Poll tournament overlay CSS variables and entrant color application via puppeteer
+    const OVERLAY_URL = 'file://' + path.resolve(__dirname, '../public/overlays/poll-tournament.html');
+    let browser;
+    try {
+        browser = await puppeteer.launch({
+            headless: 'new',
+            pipe: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--allow-file-access-from-files']
+        });
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1280, height: 720 });
+        await page.goto(`${OVERLAY_URL}?preview=1&sample=1&p1color=%23ff0055&p2color=%2300ffaa`, {
+            waitUntil: 'domcontentloaded'
+        });
+        await page.waitForSelector('#tournament-container');
+
+        const result = await page.evaluate(() => {
+            const root = document.documentElement;
+            const cs = window.getComputedStyle(root);
+            return {
+                tourneyP1: cs.getPropertyValue('--tourney-p1-color').trim(),
+                tourneyP2: cs.getPropertyValue('--tourney-p2-color').trim(),
+                activeHudPresent: Boolean(document.getElementById('active-match-hud')),
+                matchCardsCount: document.querySelectorAll('.match-card').length
+            };
+        });
+
+        assert.equal(result.tourneyP1, '#ff0055', '--tourney-p1-color should be set to #ff0055');
+        assert.equal(result.tourneyP2, '#00ffaa', '--tourney-p2-color should be set to #00ffaa');
+        assert.ok(result.matchCardsCount > 0, 'Match cards should be rendered');
+    } finally {
+        if (browser) await browser.close();
+    }
 });

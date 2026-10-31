@@ -515,6 +515,24 @@
             root.setProperty('--tourney-badge-color', '#0d1117');
         }
 
+        const urlP1Color = cleanColor(params.get('p1color') || params.get('e1color') || params.get('entrant1color') || params.get('player1color'));
+        if (urlP1Color) {
+            root.setProperty('--tourney-p1-color', urlP1Color);
+            root.setProperty('--p1-color', urlP1Color);
+        } else if (theme.p1color) {
+            root.setProperty('--tourney-p1-color', theme.p1color);
+            root.setProperty('--p1-color', theme.p1color);
+        }
+
+        const urlP2Color = cleanColor(params.get('p2color') || params.get('e2color') || params.get('entrant2color') || params.get('player2color'));
+        if (urlP2Color) {
+            root.setProperty('--tourney-p2-color', urlP2Color);
+            root.setProperty('--p2-color', urlP2Color);
+        } else if (theme.p2color) {
+            root.setProperty('--tourney-p2-color', theme.p2color);
+            root.setProperty('--p2-color', theme.p2color);
+        }
+
         const urlOutline = (params.get('outline') || params.get('shadow') || '').trim().toLowerCase();
         if (urlOutline === 'none') {
             root.setProperty('--tourney-text-shadow', 'none');

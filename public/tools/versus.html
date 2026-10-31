@@ -1770,6 +1770,20 @@
                                                 <input type="text" id="tourney-opt-badgecolor" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-badgecolor', 'tourney-opt-badgecolor-picker'); updateTourneyOverlayUrl();">
                                             </div>
                                         </div>
+                                        <div>
+                                            <label for="tourney-opt-p1color" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Player 1 Slot Color (?p1color=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="tourney-opt-p1color-picker" value="#ef4444" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-p1color').value = this.value; updateTourneyOverlayUrl();">
+                                                <input type="text" id="tourney-opt-p1color" class="form-control" placeholder="#ef4444 or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-p1color', 'tourney-opt-p1color-picker'); updateTourneyOverlayUrl();">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label for="tourney-opt-p2color" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Player 2 Slot Color (?p2color=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="tourney-opt-p2color-picker" value="#3b82f6" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-p2color').value = this.value; updateTourneyOverlayUrl();">
+                                                <input type="text" id="tourney-opt-p2color" class="form-control" placeholder="#3b82f6 or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-p2color', 'tourney-opt-p2color-picker'); updateTourneyOverlayUrl();">
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -2513,6 +2527,10 @@
             if (tourneyBorder) urlParams.set('border', tourneyBorder);
             const tourneyWinner = $('tourney-opt-winner')?.value?.trim();
             if (tourneyWinner) urlParams.set('winner', tourneyWinner);
+            const tourneyP1Color = $('tourney-opt-p1color')?.value?.trim();
+            if (tourneyP1Color) urlParams.set('p1color', tourneyP1Color);
+            const tourneyP2Color = $('tourney-opt-p2color')?.value?.trim();
+            if (tourneyP2Color) urlParams.set('p2color', tourneyP2Color);
 
             if (tourneyFitWholeBracket) urlParams.set('fit', '1');
             if ($('tourney-opt-wide') && $('tourney-opt-wide').checked) urlParams.set('wide', '1');
@@ -2817,6 +2835,8 @@
                         bg: $('tourney-opt-bg')?.value,
                         border: $('tourney-opt-border')?.value,
                         winner: $('tourney-opt-winner')?.value,
+                        p1color: $('tourney-opt-p1color')?.value,
+                        p2color: $('tourney-opt-p2color')?.value,
                         spacing: $('tourney-opt-spacing')?.value,
                         lines: $('tourney-opt-lines')?.value,
                         pipstyle: $('tourney-opt-pipstyle')?.value,
@@ -2912,7 +2932,7 @@
                         const el = $('tourney-opt-' + k);
                         if (el && t[k] !== undefined) el.value = t[k];
                     });
-                    ['accent', 'badgecolor', 'text', 'muted', 'cardbg', 'bg', 'border', 'winner'].forEach(k => {
+                    ['accent', 'badgecolor', 'p1color', 'p2color', 'text', 'muted', 'cardbg', 'bg', 'border', 'winner'].forEach(k => {
                         const el = $('tourney-opt-' + k);
                         if (el && t[k] !== undefined) {
                             el.value = t[k];
@@ -3196,6 +3216,9 @@
         function applyThemeToInputs(target, theme) {
             if (!theme) return;
             const prefix = target === 'matchup' ? 'matchup-opt-' : 'tourney-opt-';
+            if ((theme.headingFont !== undefined || theme.headingfont !== undefined) && $(prefix + 'heading-font')) {
+                $(prefix + 'heading-font').value = theme.headingFont || theme.headingfont || '';
+            }
             if (theme.font !== undefined && $(prefix + 'font')) $(prefix + 'font').value = theme.font;
             if (theme.weight !== undefined && $(prefix + 'weight')) $(prefix + 'weight').value = theme.weight;
             if (theme.textTransform !== undefined && $(prefix + 'transform')) $(prefix + 'transform').value = theme.textTransform;
@@ -3203,9 +3226,14 @@
             if (theme.outline !== undefined && $(prefix + 'outline')) $(prefix + 'outline').value = theme.outline;
             if (theme.scale !== undefined && $(prefix + 'scale')) $(prefix + 'scale').value = theme.scale;
 
-            const colors = ['cardbg', 'bg', 'border', 'text', 'muted', 'accent', 'winner'];
+            const colors = ['cardbg', 'bg', 'border', 'text', 'muted', 'accent', 'winner', 'badgecolor', 'p1color', 'p2color'];
             colors.forEach(c => {
-                const val = theme[c === 'cardbg' ? 'cardBg' : c];
+                let val;
+                if (c === 'cardbg') val = theme.cardBg !== undefined ? theme.cardBg : theme.cardbg;
+                else if (c === 'badgecolor') val = theme.badgeColor !== undefined ? theme.badgeColor : theme.badgecolor;
+                else if (c === 'p1color') val = theme.p1Color !== undefined ? theme.p1Color : theme.p1color;
+                else if (c === 'p2color') val = theme.p2Color !== undefined ? theme.p2Color : theme.p2color;
+                else val = theme[c];
                 const el = $(prefix + c);
                 if (el && val !== undefined) {
                     el.value = val;
@@ -3265,6 +3293,7 @@
             const prefix = activeThemeModalTarget === 'matchup' ? 'matchup-opt-' : 'tourney-opt-';
             const themeObj = {
                 name,
+                headingFont: $(prefix + 'heading-font')?.value?.trim() || '',
                 font: $(prefix + 'font')?.value?.trim() || '',
                 weight: $(prefix + 'weight')?.value?.trim() || '',
                 textTransform: $(prefix + 'transform')?.value?.trim() || '',
@@ -3277,6 +3306,9 @@
                 bg: $(prefix + 'bg')?.value?.trim() || '',
                 border: $(prefix + 'border')?.value?.trim() || '',
                 accent: $(prefix + 'accent')?.value?.trim() || '',
+                badgecolor: $(prefix + 'badgecolor')?.value?.trim() || '',
+                p1color: $(prefix + 'p1color')?.value?.trim() || '',
+                p2color: $(prefix + 'p2color')?.value?.trim() || '',
                 winner: $(prefix + 'winner')?.value?.trim() || ''
             };
 

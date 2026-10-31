@@ -111,6 +111,65 @@ const DEFAULT_TOURNAMENT_PRESETS = [
     }
 ];
 
+// --- Tournament Entrant Parsing (Supports Tags and Custom Hex Colors) ---
+function parseEntrant(item) {
+    if (!item) return null;
+    if (typeof item === 'object') {
+        const name = String(item.name || '').trim();
+        const tag = String(item.tag || '').trim();
+        const color = String(item.color || '').trim();
+        return name ? { name, tag, ...(color ? { color } : {}) } : null;
+    }
+    let raw = String(item).trim();
+    if (!raw) return null;
+
+    // Extract trailing or bracketed hex color code e.g. #ef4444
+    let extractedColor = '';
+    const colorMatch = raw.match(/(?:^|\s+)#([0-9a-fA-F]{3,8})(?:\s*)$/);
+    if (colorMatch) {
+        extractedColor = '#' + colorMatch[1];
+        raw = raw.slice(0, colorMatch.index).trim();
+    }
+
+    // Pattern 1: Name [Tag] e.g. Daigo [Ryu] or Chrono Trigger [#ef4444]
+    let m = raw.match(/^(.*?)\s*\[(.*?)\]$/);
+    if (m && m[1].trim()) {
+        const tagVal = m[2].trim();
+        if (!extractedColor && /^#[0-9a-fA-F]{3,8}$/.test(tagVal)) {
+            return { name: m[1].trim(), tag: '', color: tagVal };
+        }
+        return { name: m[1].trim(), tag: tagVal, ...(extractedColor ? { color: extractedColor } : {}) };
+    }
+
+    // Pattern 2: Tag | Name e.g. FOX | SonicFox or #ef4444 | Chrono Trigger
+    m = raw.match(/^(.*?)\s*\|\s*(.*)$/);
+    if (m && m[1].trim() && m[2].trim()) {
+        const tagVal = m[1].trim();
+        if (!extractedColor && /^#[0-9a-fA-F]{3,8}$/.test(tagVal)) {
+            return { name: m[2].trim(), tag: '', color: tagVal };
+        }
+        return { name: m[2].trim(), tag: tagVal, ...(extractedColor ? { color: extractedColor } : {}) };
+    }
+
+    // Pattern 3: Name (Tag) e.g. Tokido (Ken) or Chrono Trigger (#ef4444)
+    m = raw.match(/^(.*?)\s*\((.*?)\)$/);
+    if (m && m[1].trim()) {
+        const tagVal = m[2].trim();
+        if (!extractedColor && /^#[0-9a-fA-F]{3,8}$/.test(tagVal)) {
+            return { name: m[1].trim(), tag: '', color: tagVal };
+        }
+        return { name: m[1].trim(), tag: tagVal, ...(extractedColor ? { color: extractedColor } : {}) };
+    }
+
+    // Pattern 4: Name, Tag e.g. MenaRD, Zangief
+    m = raw.match(/^(.*?)\s*,\s*(.*?)$/);
+    if (m && m[1].trim()) {
+        return { name: m[1].trim(), tag: m[2].trim(), ...(extractedColor ? { color: extractedColor } : {}) };
+    }
+
+    return { name: raw, tag: '', ...(extractedColor ? { color: extractedColor } : {}) };
+}
+
 function createPollService({
     dataDir,
     broadcastToOverlays = () => {},
@@ -737,36 +796,6 @@ function createPollService({
     }
 
     // --- Tournament Bracket Generation & Management ---
-    function parseEntrant(item) {
-        if (!item) return null;
-        if (typeof item === 'object') {
-            const name = String(item.name || '').trim();
-            const tag = String(item.tag || '').trim();
-            const color = String(item.color || '').trim();
-            return name ? { name, tag, ...(color ? { color } : {}) } : null;
-        }
-        const raw = String(item).trim();
-        if (!raw) return null;
-
-        // Pattern 1: Name [Tag] e.g. Daigo [Ryu]
-        let m = raw.match(/^(.*?)\s*\[(.*?)\]$/);
-        if (m && m[1].trim()) return { name: m[1].trim(), tag: m[2].trim() };
-
-        // Pattern 2: Tag | Name e.g. FOX | SonicFox
-        m = raw.match(/^(.*?)\s*\|\s*(.*)$/);
-        if (m && m[1].trim() && m[2].trim()) return { name: m[2].trim(), tag: m[1].trim() };
-
-        // Pattern 3: Name (Tag) e.g. Tokido (Ken)
-        m = raw.match(/^(.*?)\s*\((.*?)\)$/);
-        if (m && m[1].trim()) return { name: m[1].trim(), tag: m[2].trim() };
-
-        // Pattern 4: Name, Tag e.g. MenaRD, Zangief
-        m = raw.match(/^(.*?)\s*,\s*(.*?)$/);
-        if (m && m[1].trim()) return { name: m[1].trim(), tag: m[2].trim() };
-
-        return { name: raw, tag: '' };
-    }
-
     function generateSeedPairs(size) {
         if (size <= 2) return [[1, 2]];
         let rounds = [1, 2];
@@ -2633,10 +2662,11 @@ function createPollService({
         saveTournamentDraft,
         restoreTournamentDraft,
         deleteTournamentDraft,
+        parseEntrant,
         getChatbotStatus: () => chatbotAnnouncer?.isReady?.() || { ready: false, reason: 'Chatbot service not configured' },
         reload: load,
         destroy: () => { if (pollTimer) clearInterval(pollTimer); }
     };
 }
 
-module.exports = { createPollService, DEFAULT_PRESETS };
+module.exports = { createPollService, DEFAULT_PRESETS, parseEntrant };

@@ -11,6 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- Poll Tournament Entrant & Versus Colors: Audience voting brackets (`poll-tournament.html`) now feature fully customizable competitor slot colors (`?p1color=` / `?p2color=`) with live color swatches and pickers on active match cards in Poll Manager (`polls.html`), color palette inputs in Versus Studio and Overlay URL Wizard, dual-colored active match HUD voting progress bars, and automatic hex color parsing from participant text inputs (`Entrant #hex`, `[#hex]`, `tag | #hex`).
 - Clutter-Free Segmented Overlay Wizards: Categorized tab controls (`Layout & Clocks`, `Typography & Themes`, `Colors & Palette`, `Display Toggles / Elements`) with card grids, micro-headings, and responsive controls across Versus Studio (`versus.html`), Poll Manager (`polls.html`), and Overlay URL Wizard (`overlay-url-wizard.html`), with automatic subtab memory in `localStorage`.
 - Versus & Poll Styling: Custom theme creator, primary heading and content body font separation, dynamic focus zoomed bracket layout with auto-glide transitions, Asset Library and Google Fonts auto-loading with live studio preview picker, and granular color palette controls across matchup, bracket, and live poll overlays.
 - Backup & Restore Coverage: Full archive coverage across all feature state, presets, history, and media files, dynamic data discovery, and automated in-memory service reloading upon restore.

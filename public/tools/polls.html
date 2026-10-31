@@ -312,6 +312,13 @@
                             
                             <div class="match-entrants-grid">
                                 <div class="entrant-badge-block" id="entrant1-box">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                                        <span style="font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.35rem;">
+                                            <span id="entrant1-color-strip" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span>
+                                            Side 1
+                                        </span>
+                                        <input type="color" id="entrant1-color-picker" value="#ef4444" style="width: 22px; height: 22px; border: none; cursor: pointer; border-radius: 4px; background: transparent; padding: 0;" onchange="updatePollTourneyEntrantColor(1, this.value)" title="Change player / entrant color">
+                                    </div>
                                     <div style="font-size: 0.9rem; font-weight: 700;" id="entrant1-name">Entrant 1</div>
                                     <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;" id="entrant1-votes">0 votes (0%)</div>
                                     
@@ -326,6 +333,13 @@
                                 <div class="vs-divider">VS</div>
 
                                 <div class="entrant-badge-block" id="entrant2-box">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                                        <span style="font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.35rem;">
+                                            <span id="entrant2-color-strip" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #3b82f6;"></span>
+                                            Side 2
+                                        </span>
+                                        <input type="color" id="entrant2-color-picker" value="#3b82f6" style="width: 22px; height: 22px; border: none; cursor: pointer; border-radius: 4px; background: transparent; padding: 0;" onchange="updatePollTourneyEntrantColor(2, this.value)" title="Change player / entrant color">
+                                    </div>
                                     <div style="font-size: 0.9rem; font-weight: 700;" id="entrant2-name">Entrant 2</div>
                                     <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;" id="entrant2-votes">0 votes (0%)</div>
 
@@ -1109,6 +1123,20 @@
                                                 <input type="text" id="tourney-opt-badgecolor" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-badgecolor', 'tourney-opt-badgecolor-picker'); updateTourneyOverlayUrl();">
                                             </div>
                                         </div>
+                                        <div>
+                                            <label for="tourney-opt-p1color" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Entrant 1 / Slot Color (?p1color=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="tourney-opt-p1color-picker" value="#ef4444" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-p1color').value = this.value; updateTourneyOverlayUrl();">
+                                                <input type="text" id="tourney-opt-p1color" class="form-control" placeholder="#ef4444 or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-p1color', 'tourney-opt-p1color-picker'); updateTourneyOverlayUrl();">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label for="tourney-opt-p2color" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Entrant 2 / Slot Color (?p2color=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="tourney-opt-p2color-picker" value="#3b82f6" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-p2color').value = this.value; updateTourneyOverlayUrl();">
+                                                <input type="text" id="tourney-opt-p2color" class="form-control" placeholder="#3b82f6 or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-p2color', 'tourney-opt-p2color-picker'); updateTourneyOverlayUrl();">
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1550,6 +1578,9 @@
         function applyThemeToInputs(target, theme) {
             if (!theme) return;
             const prefix = target === 'poll' ? 'poll-opt-' : 'tourney-opt-';
+            if ((theme.headingFont !== undefined || theme.headingfont !== undefined) && $(prefix + 'heading-font')) {
+                $(prefix + 'heading-font').value = theme.headingFont || theme.headingfont || '';
+            }
             if (theme.font !== undefined && $(prefix + 'font')) $(prefix + 'font').value = theme.font;
             if (theme.weight !== undefined && $(prefix + 'weight')) $(prefix + 'weight').value = theme.weight;
             if (theme.textTransform !== undefined && $(prefix + 'transform')) $(prefix + 'transform').value = theme.textTransform;
@@ -1557,7 +1588,7 @@
             if (theme.outline !== undefined && $(prefix + 'outline')) $(prefix + 'outline').value = theme.outline;
             if (theme.scale !== undefined && $(prefix + 'scale')) $(prefix + 'scale').value = theme.scale;
 
-            const colors = ['cardbg', 'bg', 'border', 'text', 'muted', 'accent', 'winner', 'track'];
+            const colors = ['cardbg', 'bg', 'border', 'text', 'muted', 'accent', 'winner', 'track', 'badgecolor', 'p1color', 'p2color'];
             colors.forEach(c => {
                 const val = theme[c === 'cardbg' ? 'cardBg' : c];
                 const el = $(prefix + c);
@@ -1619,6 +1650,7 @@
             const prefix = activeThemeModalTarget === 'poll' ? 'poll-opt-' : 'tourney-opt-';
             const themeObj = {
                 name,
+                headingfont: $(prefix + 'heading-font')?.value?.trim() || '',
                 font: $(prefix + 'font')?.value?.trim() || '',
                 weight: $(prefix + 'weight')?.value?.trim() || '',
                 textTransform: $(prefix + 'transform')?.value?.trim() || '',
@@ -1632,7 +1664,10 @@
                 border: $(prefix + 'border')?.value?.trim() || '',
                 accent: $(prefix + 'accent')?.value?.trim() || '',
                 winner: $(prefix + 'winner')?.value?.trim() || '',
-                track: $(prefix + 'track')?.value?.trim() || ''
+                track: $(prefix + 'track')?.value?.trim() || '',
+                badgecolor: $(prefix + 'badgecolor')?.value?.trim() || '',
+                p1color: $(prefix + 'p1color')?.value?.trim() || '',
+                p2color: $(prefix + 'p2color')?.value?.trim() || ''
             };
 
             if (window.OverlayThemes) {
@@ -1799,6 +1834,8 @@
                         accent: $('tourney-opt-accent')?.value,
                         winner: $('tourney-opt-winner')?.value,
                         badgecolor: $('tourney-opt-badgecolor')?.value,
+                        p1color: $('tourney-opt-p1color')?.value,
+                        p2color: $('tourney-opt-p2color')?.value,
                         logosize: $('tourney-opt-logosize')?.value,
                         showlogo: $('tourney-opt-showlogo')?.checked,
                         highlight: $('tourney-opt-highlight')?.checked,
@@ -1875,7 +1912,7 @@
                     if (t.roundpipstyle !== undefined && $('tourney-opt-roundpipstyle')) $('tourney-opt-roundpipstyle').value = t.roundpipstyle;
                     if (t.gap !== undefined && $('tourney-opt-gap')) $('tourney-opt-gap').value = t.gap;
 
-                    ['text', 'muted', 'cardbg', 'bg', 'border', 'accent', 'winner', 'badgecolor'].forEach(c => {
+                    ['text', 'muted', 'cardbg', 'bg', 'border', 'accent', 'winner', 'badgecolor', 'p1color', 'p2color'].forEach(c => {
                         if (t[c] !== undefined && $('tourney-opt-' + c)) {
                             $('tourney-opt-' + c).value = t[c];
                             syncColorPicker('tourney-opt-' + c, 'tourney-opt-' + c + '-picker');
@@ -2047,7 +2084,9 @@
                 ['border', 'tourney-opt-border'],
                 ['accent', 'tourney-opt-accent'],
                 ['winner', 'tourney-opt-winner'],
-                ['badgecolor', 'tourney-opt-badgecolor']
+                ['badgecolor', 'tourney-opt-badgecolor'],
+                ['p1color', 'tourney-opt-p1color'],
+                ['p2color', 'tourney-opt-p2color']
             ];
             colorKeys.forEach(([param, inputId]) => {
                 const val = $(inputId)?.value?.trim();
@@ -3052,6 +3091,12 @@
 
                 $('entrant1-name').textContent = currentMatch.entrant1?.name || 'TBD';
                 $('entrant2-name').textContent = currentMatch.entrant2?.name || 'TBD';
+                const e1Color = currentMatch.entrant1?.color || '#ef4444';
+                const e2Color = currentMatch.entrant2?.color || '#3b82f6';
+                if ($('entrant1-color-picker')) $('entrant1-color-picker').value = e1Color;
+                if ($('entrant1-color-strip')) $('entrant1-color-strip').style.background = e1Color;
+                if ($('entrant2-color-picker')) $('entrant2-color-picker').value = e2Color;
+                if ($('entrant2-color-strip')) $('entrant2-color-strip').style.background = e2Color;
 
                 if (isManual) {
                     if (e1Stepper) e1Stepper.style.display = 'flex';
@@ -3158,9 +3203,15 @@
                             ${scoreBadge}
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="${m.winner === m.entrant1?.name ? 'color: #3fb950; font-weight: 700;' : ''}">${esc(m.entrant1?.name || 'TBD')}</span>
+                            <span style="display: inline-flex; align-items: center; gap: 0.3rem; ${m.winner === m.entrant1?.name ? 'color: #3fb950; font-weight: 700;' : ''}">
+                                ${m.entrant1?.color ? `<span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:${m.entrant1.color}; flex-shrink:0;"></span>` : ''}
+                                ${esc(m.entrant1?.name || 'TBD')}
+                            </span>
                             <span style="font-size: 0.72rem; color: var(--text-muted); padding: 0 0.4rem;">vs</span>
-                            <span style="${m.winner === m.entrant2?.name ? 'color: #3fb950; font-weight: 700;' : ''}">${esc(m.entrant2?.name || 'TBD')}</span>
+                            <span style="display: inline-flex; align-items: center; gap: 0.3rem; ${m.winner === m.entrant2?.name ? 'color: #3fb950; font-weight: 700;' : ''}">
+                                ${m.entrant2?.color ? `<span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:${m.entrant2.color}; flex-shrink:0;"></span>` : ''}
+                                ${esc(m.entrant2?.name || 'TBD')}
+                            </span>
                         </div>
                     </div>
                 `;
@@ -3356,6 +3407,29 @@
                 toast('Failed to select match.');
             }
         }
+
+        async function updatePollTourneyEntrantColor(side, color) {
+            const currentMatch = getCurrentMatch();
+            if (!currentMatch) return;
+            const entrant = side === 1 ? currentMatch.entrant1?.name : currentMatch.entrant2?.name;
+            if (!entrant || entrant === 'TBD' || entrant === 'BYE') return;
+            try {
+                const res = await fetch('/api/polls/tournament/score', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ matchId: currentMatch.id, entrantIndex: side - 1, entrant, color, isPoll: true })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    activeTourneyData = data.tournament;
+                    renderTournamentStudio(activeTourneyData);
+                    toast(`Updated color for ${entrant}`);
+                }
+            } catch {
+                toast('Failed to update entrant color');
+            }
+        }
+        window.updatePollTourneyEntrantColor = updatePollTourneyEntrantColor;
 
         async function resetCurrentMatch() {
             const m = getCurrentMatch();
