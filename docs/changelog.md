@@ -11,6 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- Clutter-Free Segmented Overlay Wizards: Categorized tab controls (`Layout & Clocks`, `Typography & Themes`, `Colors & Palette`, `Display Toggles / Elements`) with card grids, micro-headings, and responsive controls across Versus Studio (`versus.html`), Poll Manager (`polls.html`), and Overlay URL Wizard (`overlay-url-wizard.html`), with automatic subtab memory in `localStorage`.
 - Versus & Poll Styling: Custom theme creator, primary heading and content body font separation, dynamic focus zoomed bracket layout with auto-glide transitions, Asset Library and Google Fonts auto-loading with live studio preview picker, and granular color palette controls across matchup, bracket, and live poll overlays.
 - Backup & Restore Coverage: Full archive coverage across all feature state, presets, history, and media files, dynamic data discovery, and automated in-memory service reloading upon restore.
 - Bitfocus Companion & Stream Deck: Unified HTTP GET and POST trigger support across Matchup, Tournament, Polls, Alerts, Chatbot, Randomizer, and Custom Overlays with automatic URL parameter decoding and plain-text field lookups (`/api/matchup/field/:field`, `/api/variables/:name?raw=1`).

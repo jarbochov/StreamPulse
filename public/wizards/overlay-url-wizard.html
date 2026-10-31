@@ -54,6 +54,56 @@
         code { padding: .1rem .3rem; color: var(--success-soft); background: var(--bg-raised); border-radius: 3px; }
         .reference { margin-top: 1.25rem; }
 
+        /* Segmented Subtab Navigation */
+        .segmented-control {
+            display: flex;
+            gap: 0.25rem;
+            background: var(--bg-inset);
+            padding: 0.25rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            margin-bottom: 0.85rem;
+        }
+        .segmented-btn {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 0.4rem 0.65rem;
+            border-radius: 4px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            transition: all 0.15s ease;
+            font-family: inherit;
+        }
+        .segmented-btn:hover {
+            color: var(--text);
+        }
+        .segmented-btn.active {
+            background: var(--bg-card);
+            color: var(--accent);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+        .micro-heading {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin: 0.9rem 0 0.45rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .micro-heading:first-child {
+            margin-top: 0;
+        }
+
         /* Palette Chips */
         .palette-chips { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
         .p-chip { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.1s ease; }
@@ -386,6 +436,10 @@
 
                 <section class="card overlay-config" data-overlay="tournament" hidden>
                     <h2>Versus Tournament Bracket</h2>
+                    <div class="micro-heading">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                        Camera &amp; Framing
+                    </div>
                     <div class="form-row">
                         <label for="tourney-layout">Bracket Layout</label>
                         <select id="tourney-layout">
@@ -416,6 +470,10 @@
                             <option value="1" selected>Visible (?focusbadge=1)</option>
                             <option value="0">Hidden (?focusbadge=0)</option>
                         </select>
+                    </div>
+                    <div class="micro-heading">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+                        Theme &amp; Scoring
                     </div>
                     <div class="form-row">
                         <label for="tourney-theme">Container / Theme</label>
@@ -459,6 +517,10 @@
 
                 <section class="card overlay-config" data-overlay="poll-tournament" hidden>
                     <h2>Poll Tournament Bracket</h2>
+                    <div class="micro-heading">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                        Camera &amp; Framing
+                    </div>
                     <div class="form-row">
                         <label for="poll-tourney-layout">Bracket Layout</label>
                         <select id="poll-tourney-layout">
@@ -489,6 +551,10 @@
                             <option value="1" selected>Visible (?focusbadge=1)</option>
                             <option value="0">Hidden (?focusbadge=0)</option>
                         </select>
+                    </div>
+                    <div class="micro-heading">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+                        Theme &amp; Scoring
                     </div>
                     <div class="form-row">
                         <label for="poll-tourney-theme">Container / Theme</label>
@@ -532,6 +598,10 @@
 
                 <section class="card overlay-config" data-overlay="matchup" hidden>
                     <h2>Matchup Scoreboard</h2>
+                    <div class="micro-heading">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                        Layout &amp; Source
+                    </div>
                     <div class="form-row">
                         <label for="matchup-layout">Display Layout</label>
                         <select id="matchup-layout">
@@ -572,18 +642,22 @@
                         </select>
                     </div>
                     <div class="form-row">
+                        <label for="matchup-fit">Self-Sizing Content Box</label>
+                        <select id="matchup-fit">
+                            <option value="0" selected>Full Canvas / Browser Source Bounds</option>
+                            <option value="1">Tight Content Box (?fit=content)</option>
+                        </select>
+                    </div>
+                    <div class="micro-heading">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                        Elements &amp; Clocks
+                    </div>
+                    <div class="form-row">
                         <label for="matchup-pipstyle">Series Pip Style</label>
                         <select id="matchup-pipstyle">
                             <option value="circle" selected>Round Dot Pips (?pipstyle=circle)</option>
                             <option value="bar">Segmented Rectangular Bars (?pipstyle=bar)</option>
                             <option value="digit">Numeric Digit (?pipstyle=digit)</option>
-                        </select>
-                    </div>
-                    <div class="form-row">
-                        <label for="matchup-fit">Self-Sizing Content Box</label>
-                        <select id="matchup-fit">
-                            <option value="0" selected>Full Canvas / Browser Source Bounds</option>
-                            <option value="1">Tight Content Box (?fit=content)</option>
                         </select>
                     </div>
                     <div class="form-row">
@@ -627,116 +701,143 @@
 
                 <section class="card" id="appearance-card">
                     <h2>Appearance (all overlays)</h2>
-                    <p class="hint" style="margin-left:0;">Leave a field empty to use the saved theme. These apply to the selected overlay's URL only.</p>
-                    <div class="form-row">
-                        <label for="ap-font">Content font</label>
-                        <input id="ap-font" type="text" list="ap-font-list" placeholder="Theme default or custom font (?font=)">
-                        <datalist id="ap-font-list"></datalist>
+                    <p class="hint" style="margin-left:0; margin-bottom:0.75rem;">Leave a field empty to use the saved theme. These apply to the selected overlay's URL only.</p>
+
+                    <div class="segmented-control" role="tablist">
+                        <button type="button" class="segmented-btn active" id="ap-tab-btn-typography" onclick="switchAppearanceTab('typography')">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+                            Typography
+                        </button>
+                        <button type="button" class="segmented-btn" id="ap-tab-btn-palette" onclick="switchAppearanceTab('palette')">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"></circle><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"></circle><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"></circle><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"></circle><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.563-2.512 5.563-5.563C22 6.5 17.5 2 12 2z"></path></svg>
+                            Color Palette
+                        </button>
+                        <button type="button" class="segmented-btn" id="ap-tab-btn-framing" onclick="switchAppearanceTab('framing')">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                            Framing &amp; Style
+                        </button>
                     </div>
-                    <div class="form-row">
-                        <label for="ap-heading-font">Heading font</label>
-                        <input id="ap-heading-font" type="text" list="ap-font-list" placeholder="Titles, badges, clocks (?headingfont=)">
-                    </div>
-                    <p class="hint">Curated Google Fonts, local system fonts, and custom fonts from your Asset Library.</p>
-                    <div class="form-row">
-                        <label for="ap-weight">Font weight</label>
-                        <select id="ap-weight">
-                            <option value="">Default</option>
-                            <option value="300">Light (300)</option>
-                            <option value="400">Regular (400)</option>
-                            <option value="500">Medium (500)</option>
-                            <option value="600">Semi-bold (600)</option>
-                            <option value="700">Bold (700)</option>
-                            <option value="900">Black (900)</option>
-                        </select>
-                    </div>
-                    <div class="form-row">
-                        <label for="ap-fontscale">Font scale <span id="ap-fontscale-val" style="font-size:0.75rem; color:var(--accent); font-weight:600;">1.00x</span></label>
-                        <div style="display:flex; align-items:center; gap:0.5rem; flex:1;">
-                            <input id="ap-fontscale" type="range" min="0.5" max="4.0" step="0.05" value="1.0" style="flex:1;">
-                            <button type="button" class="button" style="padding:0.25rem 0.5rem; font-size:0.72rem;" onclick="resetFontScale()">Reset</button>
+
+                    <!-- Sub-panel: Typography -->
+                    <div id="ap-subpanel-typography">
+                        <div class="form-row">
+                            <label for="ap-font">Content font</label>
+                            <input id="ap-font" type="text" list="ap-font-list" placeholder="Theme default or custom font (?font=)">
+                            <datalist id="ap-font-list"></datalist>
                         </div>
-                    </div>
-                    <div class="form-row">
-                        <label for="ap-transform">Text transform</label>
-                        <select id="ap-transform">
-                            <option value="">Default</option>
-                            <option value="none">Natural / none</option>
-                            <option value="uppercase">UPPERCASE</option>
-                            <option value="capitalize">Capitalize Words</option>
-                            <option value="lowercase">lowercase</option>
-                        </select>
-                    </div>
-                    <div class="form-row">
-                        <label for="ap-radius">Corner roundness</label>
-                        <select id="ap-radius">
-                            <option value="">Default</option>
-                            <option value="0px">Sharp Square (0px)</option>
-                            <option value="4px">Subtle (4px)</option>
-                            <option value="8px">Smooth (8px)</option>
-                            <option value="12px">Rounded (12px)</option>
-                            <option value="16px">Extra Rounded (16px)</option>
-                            <option value="999px">Pill / Capsule (999px)</option>
-                        </select>
-                    </div>
-                    <div class="form-row">
-                        <label for="ap-align">Alignment</label>
-                        <select id="ap-align">
-                            <option value="">Default (Center)</option>
-                            <option value="left">Left / Start</option>
-                            <option value="center">Center</option>
-                            <option value="right">Right / End</option>
-                        </select>
-                    </div>
-                    <div class="form-row">
-                        <label for="ap-text">Text color</label>
-                        <input id="ap-text" type="text" placeholder="Saved theme color">
-                        <input type="color" data-color-for="ap-text" aria-label="Pick text color">
-                    </div>
-                    <div class="form-row">
-                        <label for="ap-accent">Accent color</label>
-                        <div style="display:flex; flex-direction:column; gap:0.4rem; flex:1;">
-                            <div style="display:flex; gap:0.5rem; align-items:center;">
-                                <input id="ap-accent" type="text" placeholder="Saved theme color">
-                                <input type="color" data-color-for="ap-accent" aria-label="Pick accent color">
-                            </div>
-                            <div class="palette-chips">
-                                <span class="p-chip" data-color="#8b5cf6" style="background:#8b5cf6" onclick="setAccent('#8b5cf6')" title="Purple"></span>
-                                <span class="p-chip" data-color="#3b82f6" style="background:#3b82f6" onclick="setAccent('#3b82f6')" title="Blue"></span>
-                                <span class="p-chip" data-color="#10b981" style="background:#10b981" onclick="setAccent('#10b981')" title="Green"></span>
-                                <span class="p-chip" data-color="#f59e0b" style="background:#f59e0b" onclick="setAccent('#f59e0b')" title="Amber"></span>
-                                <span class="p-chip" data-color="#f43f5e" style="background:#f43f5e" onclick="setAccent('#f43f5e')" title="Rose"></span>
-                                <span class="p-chip" data-color="#06b6d4" style="background:#06b6d4" onclick="setAccent('#06b6d4')" title="Cyan"></span>
-                                <span class="p-chip" data-color="#ffffff" style="background:#ffffff" onclick="setAccent('#ffffff')" title="White"></span>
+                        <div class="form-row">
+                            <label for="ap-heading-font">Heading font</label>
+                            <input id="ap-heading-font" type="text" list="ap-font-list" placeholder="Titles, badges, clocks (?headingfont=)">
+                        </div>
+                        <p class="hint">Curated Google Fonts, local system fonts, and custom fonts from your Asset Library.</p>
+                        <div class="form-row">
+                            <label for="ap-weight">Font weight</label>
+                            <select id="ap-weight">
+                                <option value="">Default</option>
+                                <option value="300">Light (300)</option>
+                                <option value="400">Regular (400)</option>
+                                <option value="500">Medium (500)</option>
+                                <option value="600">Semi-bold (600)</option>
+                                <option value="700">Bold (700)</option>
+                                <option value="900">Black (900)</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label for="ap-fontscale">Font scale <span id="ap-fontscale-val" style="font-size:0.75rem; color:var(--accent); font-weight:600;">1.00x</span></label>
+                            <div style="display:flex; align-items:center; gap:0.5rem; flex:1;">
+                                <input id="ap-fontscale" type="range" min="0.5" max="4.0" step="0.05" value="1.0" style="flex:1;">
+                                <button type="button" class="button" style="padding:0.25rem 0.5rem; font-size:0.72rem;" onclick="resetFontScale()">Reset</button>
                             </div>
                         </div>
+                        <div class="form-row">
+                            <label for="ap-transform">Text transform</label>
+                            <select id="ap-transform">
+                                <option value="">Default</option>
+                                <option value="none">Natural / none</option>
+                                <option value="uppercase">UPPERCASE</option>
+                                <option value="capitalize">Capitalize Words</option>
+                                <option value="lowercase">lowercase</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="form-row">
-                        <label for="ap-bg">Background</label>
-                        <input id="ap-bg" type="text" placeholder="Saved theme color, or rgba(0,0,0,.5)">
-                        <input type="color" data-color-for="ap-bg" aria-label="Pick background color">
+
+                    <!-- Sub-panel: Color Palette -->
+                    <div id="ap-subpanel-palette" style="display:none;">
+                        <div class="form-row">
+                            <label for="ap-text">Text color</label>
+                            <input id="ap-text" type="text" placeholder="Saved theme color">
+                            <input type="color" data-color-for="ap-text" aria-label="Pick text color">
+                        </div>
+                        <div class="form-row">
+                            <label for="ap-accent">Accent color</label>
+                            <div style="display:flex; flex-direction:column; gap:0.4rem; flex:1;">
+                                <div style="display:flex; gap:0.5rem; align-items:center;">
+                                    <input id="ap-accent" type="text" placeholder="Saved theme color">
+                                    <input type="color" data-color-for="ap-accent" aria-label="Pick accent color">
+                                </div>
+                                <div class="palette-chips">
+                                    <span class="p-chip" data-color="#8b5cf6" style="background:#8b5cf6" onclick="setAccent('#8b5cf6')" title="Purple"></span>
+                                    <span class="p-chip" data-color="#3b82f6" style="background:#3b82f6" onclick="setAccent('#3b82f6')" title="Blue"></span>
+                                    <span class="p-chip" data-color="#10b981" style="background:#10b981" onclick="setAccent('#10b981')" title="Green"></span>
+                                    <span class="p-chip" data-color="#f59e0b" style="background:#f59e0b" onclick="setAccent('#f59e0b')" title="Amber"></span>
+                                    <span class="p-chip" data-color="#f43f5e" style="background:#f43f5e" onclick="setAccent('#f43f5e')" title="Rose"></span>
+                                    <span class="p-chip" data-color="#06b6d4" style="background:#06b6d4" onclick="setAccent('#06b6d4')" title="Cyan"></span>
+                                    <span class="p-chip" data-color="#ffffff" style="background:#ffffff" onclick="setAccent('#ffffff')" title="White"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <label for="ap-bg">Background</label>
+                            <input id="ap-bg" type="text" placeholder="Saved theme color, or rgba(0,0,0,.5)">
+                            <input type="color" data-color-for="ap-bg" aria-label="Pick background color">
+                        </div>
+                        <div class="form-row">
+                            <label for="ap-cardbg">Card background</label>
+                            <input id="ap-cardbg" type="text" placeholder="Saved theme color, e.g. #161b22">
+                            <input type="color" data-color-for="ap-cardbg" aria-label="Pick card background color">
+                        </div>
+                        <div class="form-row">
+                            <label for="ap-border">Border color</label>
+                            <input id="ap-border" type="text" placeholder="Saved theme color, e.g. #30363d">
+                            <input type="color" data-color-for="ap-border" aria-label="Pick border color">
+                        </div>
+                        <div class="form-row">
+                            <label for="ap-winner">Winner highlight</label>
+                            <input id="ap-winner" type="text" placeholder="Saved theme color, e.g. #3fb950">
+                            <input type="color" data-color-for="ap-winner" aria-label="Pick winner highlight color">
+                        </div>
+                        <p class="hint">Colors accept #hex, rgb()/rgba() or a color name.</p>
                     </div>
-                    <div class="form-row">
-                        <label for="ap-cardbg">Card background</label>
-                        <input id="ap-cardbg" type="text" placeholder="Saved theme color, e.g. #161b22">
-                        <input type="color" data-color-for="ap-cardbg" aria-label="Pick card background color">
+
+                    <!-- Sub-panel: Framing & Style -->
+                    <div id="ap-subpanel-framing" style="display:none;">
+                        <div class="form-row">
+                            <label for="ap-radius">Corner roundness</label>
+                            <select id="ap-radius">
+                                <option value="">Default</option>
+                                <option value="0px">Sharp Square (0px)</option>
+                                <option value="4px">Subtle (4px)</option>
+                                <option value="8px">Smooth (8px)</option>
+                                <option value="12px">Rounded (12px)</option>
+                                <option value="16px">Extra Rounded (16px)</option>
+                                <option value="999px">Pill / Capsule (999px)</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label for="ap-align">Alignment</label>
+                            <select id="ap-align">
+                                <option value="">Default (Center)</option>
+                                <option value="left">Left / Start</option>
+                                <option value="center">Center</option>
+                                <option value="right">Right / End</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label for="ap-outline">Text outline</label>
+                            <input id="ap-outline" type="text" placeholder="Saved theme color, or none">
+                            <input type="color" data-color-for="ap-outline" aria-label="Pick outline color">
+                        </div>
                     </div>
-                    <div class="form-row">
-                        <label for="ap-border">Border color</label>
-                        <input id="ap-border" type="text" placeholder="Saved theme color, e.g. #30363d">
-                        <input type="color" data-color-for="ap-border" aria-label="Pick border color">
-                    </div>
-                    <div class="form-row">
-                        <label for="ap-winner">Winner highlight</label>
-                        <input id="ap-winner" type="text" placeholder="Saved theme color, e.g. #3fb950">
-                        <input type="color" data-color-for="ap-winner" aria-label="Pick winner highlight color">
-                    </div>
-                    <div class="form-row">
-                        <label for="ap-outline">Text outline</label>
-                        <input id="ap-outline" type="text" placeholder="Saved theme color, or none">
-                        <input type="color" data-color-for="ap-outline" aria-label="Pick outline color">
-                    </div>
-                    <p class="hint">Colors accept #hex, rgb()/rgba() or a color name.</p>
                 </section>
             </div>
 
@@ -982,6 +1083,21 @@
         const val = parseFloat($('ap-fontscale').value) || 1.0;
         $('ap-fontscale-val').textContent = val === 1.0 ? '1.00x' : val.toFixed(2) + 'x';
     }
+
+    function switchAppearanceTab(tabName) {
+        const tabs = ['typography', 'palette', 'framing'];
+        if (!tabs.includes(tabName)) tabName = 'typography';
+        tabs.forEach(t => {
+            const btn = $(`ap-tab-btn-${t}`);
+            const panel = $(`ap-subpanel-${t}`);
+            if (btn) btn.classList.toggle('active', t === tabName);
+            if (panel) panel.style.display = t === tabName ? 'block' : 'none';
+        });
+        try {
+            localStorage.setItem('sp-wizard-appearance-subtab', tabName);
+        } catch {}
+    }
+    window.switchAppearanceTab = switchAppearanceTab;
 
     function resetFontScale() {
         $('ap-fontscale').value = '1.0';
@@ -1493,6 +1609,10 @@
     loadConfigTheme();
     refreshUrls();
     loadGoals();
+    try {
+        const savedApTab = localStorage.getItem('sp-wizard-appearance-subtab') || 'typography';
+        switchAppearanceTab(savedApTab);
+    } catch {}
     const requested = new URLSearchParams(location.search).get('overlay');
     selectOverlay(['credits', 'stats', 'hashtags', 'goals', 'viewers', 'polls', 'poll', 'tournament', 'matchup'].includes(requested) ? (requested === 'poll' ? 'polls' : requested) : 'credits');
     window.addEventListener('resize', updatePreviewSize);

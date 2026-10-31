@@ -1035,364 +1035,393 @@
 
                             <!-- Matchup Options Customizer -->
                             <div style="background: var(--bg-inset); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border);">
-                                <div class="micro-heading" style="margin-bottom: 0.5rem;">Matchup Layout & Behavior</div>
-                                
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem; margin-bottom: 0.85rem;">
-                                    <div>
-                                        <label for="matchup-opt-layout" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Layout / Pod Shape (?layout=)</label>
-                                        <select id="matchup-opt-layout" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                            <option value="top" selected>Fighting Game Top Bar (?layout=top)</option>
-                                            <option value="fgc">Modern FGC (EVO Style) (?layout=fgc)</option>
-                                            <option value="split">Dual Corner Split (Open Center) (?layout=split)</option>
-                                            <option value="race">Speedrun Battle (?layout=race)</option>
-                                            <option value="minimal">Minimal / Center-Less (?layout=minimal)</option>
-                                            <option value="pillar">Vertical Pillar Stack (?layout=pillar)</option>
-                                            <option value="bottom">Esports Lower-Third HUD (?layout=bottom)</option>
-                                            <option value="compact">Compact Score Bug (?layout=compact)</option>
-                                            <option value="angular">Angular Slash (?layout=angular)</option>
-                                            <option value="pill">Pill Capsule (?layout=pill)</option>
-                                            <option value="versus">Versus Screen Card (?layout=versus)</option>
-                                            <option value="pod">Single Player Pod (?layout=pod)</option>
-                                            <option value="clock">Master Clock Only (?layout=clock)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-player" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Competitor Slot / Filter (?player=)</label>
-                                        <select id="matchup-opt-player" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                            <option value="" selected>All Competitors (Full Matchup)</option>
-                                            <option value="1">Player 1 Solo Pod (?player=1)</option>
-                                            <option value="2">Player 2 Solo Pod (?player=2)</option>
-                                            <option value="3">Player 3 Solo Pod (?player=3)</option>
-                                            <option value="4">Player 4 Solo Pod (?player=4)</option>
-                                            <option value="1,2">Players 1 & 2 / Team Left (?player=1,2)</option>
-                                            <option value="3,4">Players 3 & 4 / Team Right (?player=3,4)</option>
-                                            <option value="none">Master Clock & Round Only (?player=none)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-source" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Data Source (?source=)</label>
-                                        <select id="matchup-opt-source" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                            <option value="auto" selected>Auto: Tournament when on, else Versus</option>
-                                            <option value="tournament">Always Tournament Active Match</option>
-                                            <option value="matchup">Always Standalone Versus / Fight Card</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-clockstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Clock Style (?clockstyle=)</label>
-                                        <select id="matchup-opt-clockstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                            <option value="badge" selected>Integrated Badge (?clockstyle=badge)</option>
-                                            <option value="bottom">Bottom Dock Timer (?clockstyle=bottom)</option>
-                                            <option value="pill">Floating Pill (?clockstyle=pill)</option>
-                                            <option value="fgc">EVO Championship Big Digit (?clockstyle=fgc)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-pipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Score Pip Style (?pipstyle=)</label>
-                                        <select id="matchup-opt-pipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                            <option value="circle" selected>Circles (● ● ○)</option>
-                                            <option value="diamond">Diamonds (◆ ◆ ◇)</option>
-                                            <option value="bar">Rectangular Bars (▮ ▮ ▯)</option>
-                                            <option value="digit">Numeric Counter (2 / 3)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-roundpipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Round Pip Style (?roundpipstyle=)</label>
-                                        <select id="matchup-opt-roundpipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                            <option value="diamond" selected>Diamonds (◆ ◆ ◇)</option>
-                                            <option value="circle">Circles (● ● ○)</option>
-                                            <option value="bar">Rectangular Bars (▮ ▮ ▯)</option>
-                                            <option value="digit">Numeric Counter (1 / 2)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-runnertimers" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Speedrun Runner Timers (?runnertimers=)</label>
-                                        <select id="matchup-opt-runnertimers" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                            <option value="finish" selected>Overall Clock Only — Reveal on Finish</option>
-                                            <option value="always">Overall Clock + Live Runner Timers</option>
-                                            <option value="off">Overall Clock Only — Never Show Runner Times</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-width" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Width (?width=)</label>
-                                        <input type="text" id="matchup-opt-width" class="form-control" placeholder="100% or 480px" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" oninput="updateMatchupOverlayUrl()">
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-gap" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Opponent / Center Spacing (?gap=)</label>
-                                        <select id="matchup-opt-gap" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                            <option value="" selected>Auto (Default)</option>
-                                            <option value="intact">Keep Center Space Intact (160px)</option>
-                                            <option value="80px">Compact Gap (80px)</option>
-                                            <option value="240px">Wide Gap / Clear Timer (240px)</option>
-                                            <option value="360px">Extra Wide Split (360px)</option>
-                                        </select>
-                                    </div>
+                                <!-- Category Navigation Pills -->
+                                <div class="segmented-control" id="matchup-customizer-tabs" style="margin-bottom: 0.85rem;">
+                                    <button type="button" class="segmented-btn active" id="btn-matchup-subtab-layout" onclick="switchMatchupSubtab('layout')">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                                        Layout &amp; Clocks
+                                    </button>
+                                    <button type="button" class="segmented-btn" id="btn-matchup-subtab-typography" onclick="switchMatchupSubtab('typography')">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+                                        Typography &amp; Themes
+                                    </button>
+                                    <button type="button" class="segmented-btn" id="btn-matchup-subtab-colors" onclick="switchMatchupSubtab('colors')">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                                        Color Palette
+                                    </button>
+                                    <button type="button" class="segmented-btn" id="btn-matchup-subtab-toggles" onclick="switchMatchupSubtab('toggles')">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                        Display Toggles
+                                    </button>
                                 </div>
 
-                                <!-- Section 2: Typography & Custom Themes -->
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-top: 1px solid var(--border); padding-top: 0.75rem;">
-                                    <div class="micro-heading" style="margin: 0;">Typography & Theme Customization</div>
-                                    <div style="display: flex; gap: 0.35rem;">
-                                        <button type="button" class="btn-secondary btn-sm" onclick="openSaveThemeModal('matchup')" title="Save current typography and colors as a new theme" style="white-space: nowrap; font-size: 0.72rem; padding: 0.2rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem;">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                                            Save Theme…
-                                        </button>
-                                        <button type="button" class="btn-secondary btn-sm" onclick="openManageThemesModal()" title="Manage saved custom themes" style="white-space: nowrap; font-size: 0.72rem; padding: 0.2rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem;">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                                            Manage
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem; margin-bottom: 0.85rem;">
-                                    <div>
-                                        <label for="matchup-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme Preset (?overlay=)</label>
-                                        <select id="matchup-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="onThemeSelectChange('matchup', this.value)">
-                                            <option value="card" selected>Dark Card (?overlay=card)</option>
-                                            <option value="fgc-evo">EVO Championship (?overlay=fgc-evo)</option>
-                                            <option value="championship">Championship Gold (?overlay=championship)</option>
-                                            <option value="cyber">Cyberpunk Neon (?overlay=cyber)</option>
-                                            <option value="clean-light">Clean Light Contrast (?overlay=clean-light)</option>
-                                            <option value="minimal-dark">OLED Deep Black (?overlay=minimal-dark)</option>
-                                            <option value="glass">Frosted Glass (?overlay=glass)</option>
-                                            <option value="solid">Opaque Solid (?overlay=solid)</option>
-                                            <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
-                                            <option value="pill">Pill Capsule (?overlay=pill)</option>
-                                            <option value="border">Border Framing (?overlay=border)</option>
-                                            <option value="retro">Retro Arcade (?overlay=retro)</option>
-                                            <option value="ember">Ember (?overlay=ember)</option>
-                                            <option value="aurora">Aurora (?overlay=aurora)</option>
-                                            <option value="ocean">Ocean (?overlay=ocean)</option>
-                                            <option value="sunset">Sunset (?overlay=sunset)</option>
-                                            <option value="violet">Violet (?overlay=violet)</option>
-                                            <option value="forest">Forest (?overlay=forest)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-                                            <label for="matchup-opt-heading-font" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin: 0;">Heading Font (?headingfont=)</label>
-                                            <span id="matchup-heading-font-asset-badge" style="display: none; font-size: 0.65rem; color: var(--accent); font-weight: 700; background: var(--bg-surface); border: 1px solid var(--border); padding: 0.05rem 0.35rem; border-radius: 3px;">Asset Library</span>
+                                <!-- Subpanel 1: Layout & Clocks -->
+                                <div id="matchup-subpanel-layout">
+                                    <div class="micro-heading" style="margin-bottom: 0.5rem;">Matchup Layout &amp; Timing</div>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem;">
+                                        <div>
+                                            <label for="matchup-opt-layout" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Layout / Pod Shape (?layout=)</label>
+                                            <select id="matchup-opt-layout" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                                <option value="top" selected>Fighting Game Top Bar (?layout=top)</option>
+                                                <option value="fgc">Modern FGC (EVO Style) (?layout=fgc)</option>
+                                                <option value="split">Dual Corner Split (Open Center) (?layout=split)</option>
+                                                <option value="race">Speedrun Battle (?layout=race)</option>
+                                                <option value="minimal">Minimal / Center-Less (?layout=minimal)</option>
+                                                <option value="pillar">Vertical Pillar Stack (?layout=pillar)</option>
+                                                <option value="bottom">Esports Lower-Third HUD (?layout=bottom)</option>
+                                                <option value="compact">Compact Score Bug (?layout=compact)</option>
+                                                <option value="angular">Angular Slash (?layout=angular)</option>
+                                                <option value="pill">Pill Capsule (?layout=pill)</option>
+                                                <option value="versus">Versus Screen Card (?layout=versus)</option>
+                                                <option value="pod">Single Player Pod (?layout=pod)</option>
+                                                <option value="clock">Master Clock Only (?layout=clock)</option>
+                                            </select>
                                         </div>
-                                        <div style="display: flex; gap: 0.35rem; align-items: center;">
-                                            <input type="text" id="matchup-opt-heading-font" list="overlay-fonts-list" class="form-control" placeholder="Match titles, phase badges, clocks" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="onFontInput('matchup-heading')">
-                                            <button type="button" class="btn-secondary btn-sm" onclick="openAssetFontPicker('matchup-heading')" title="Browse custom fonts in your Asset Library" style="font-size: 0.72rem; padding: 0.32rem 0.55rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
-                                                Fonts
+                                        <div>
+                                            <label for="matchup-opt-player" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Competitor Slot / Filter (?player=)</label>
+                                            <select id="matchup-opt-player" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                                <option value="" selected>All Competitors (Full Matchup)</option>
+                                                <option value="1">Player 1 Solo Pod (?player=1)</option>
+                                                <option value="2">Player 2 Solo Pod (?player=2)</option>
+                                                <option value="3">Player 3 Solo Pod (?player=3)</option>
+                                                <option value="4">Player 4 Solo Pod (?player=4)</option>
+                                                <option value="1,2">Players 1 &amp; 2 / Team Left (?player=1,2)</option>
+                                                <option value="3,4">Players 3 &amp; 4 / Team Right (?player=3,4)</option>
+                                                <option value="none">Master Clock &amp; Round Only (?player=none)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="matchup-opt-source" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Data Source (?source=)</label>
+                                            <select id="matchup-opt-source" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                                <option value="auto" selected>Auto: Tournament when on, else Versus</option>
+                                                <option value="tournament">Always Tournament Active Match</option>
+                                                <option value="matchup">Always Standalone Versus / Fight Card</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="matchup-opt-clockstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Clock Style (?clockstyle=)</label>
+                                            <select id="matchup-opt-clockstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                                <option value="badge" selected>Integrated Badge (?clockstyle=badge)</option>
+                                                <option value="bottom">Bottom Dock Timer (?clockstyle=bottom)</option>
+                                                <option value="pill">Floating Pill (?clockstyle=pill)</option>
+                                                <option value="fgc">EVO Championship Big Digit (?clockstyle=fgc)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="matchup-opt-pipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Score Pip Style (?pipstyle=)</label>
+                                            <select id="matchup-opt-pipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                                <option value="circle" selected>Circles (● ● ○)</option>
+                                                <option value="diamond">Diamonds (◆ ◆ ◇)</option>
+                                                <option value="bar">Rectangular Bars (▮ ▮ ▯)</option>
+                                                <option value="digit">Numeric Counter (2 / 3)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="matchup-opt-roundpipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Round Pip Style (?roundpipstyle=)</label>
+                                            <select id="matchup-opt-roundpipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                                <option value="diamond" selected>Diamonds (◆ ◆ ◇)</option>
+                                                <option value="circle">Circles (● ● ○)</option>
+                                                <option value="bar">Rectangular Bars (▮ ▮ ▯)</option>
+                                                <option value="digit">Numeric Counter (1 / 2)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="matchup-opt-runnertimers" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Speedrun Runner Timers (?runnertimers=)</label>
+                                            <select id="matchup-opt-runnertimers" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                                <option value="finish" selected>Overall Clock Only — Reveal on Finish</option>
+                                                <option value="always">Overall Clock + Live Runner Timers</option>
+                                                <option value="off">Overall Clock Only — Never Show Runner Times</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="matchup-opt-width" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Width (?width=)</label>
+                                            <input type="text" id="matchup-opt-width" class="form-control" placeholder="100% or 480px" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" oninput="updateMatchupOverlayUrl()">
+                                        </div>
+                                        <div>
+                                            <label for="matchup-opt-gap" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Opponent / Center Spacing (?gap=)</label>
+                                            <select id="matchup-opt-gap" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                                <option value="" selected>Auto (Default)</option>
+                                                <option value="intact">Keep Center Space Intact (160px)</option>
+                                                <option value="80px">Compact Gap (80px)</option>
+                                                <option value="240px">Wide Gap / Clear Timer (240px)</option>
+                                                <option value="360px">Extra Wide Split (360px)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Subpanel 2: Typography & Custom Themes -->
+                                <div id="matchup-subpanel-typography" style="display: none;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                        <div class="micro-heading" style="margin: 0;">Typography &amp; Theme Styling</div>
+                                        <div style="display: flex; gap: 0.35rem;">
+                                            <button type="button" class="btn-secondary btn-sm" onclick="openSaveThemeModal('matchup')" title="Save current typography and colors as a new theme" style="white-space: nowrap; font-size: 0.72rem; padding: 0.2rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                                Save Theme…
+                                            </button>
+                                            <button type="button" class="btn-secondary btn-sm" onclick="openManageThemesModal()" title="Manage saved custom themes" style="white-space: nowrap; font-size: 0.72rem; padding: 0.2rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                                                Manage
                                             </button>
                                         </div>
                                     </div>
-                                    <div>
-                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-                                            <label for="matchup-opt-font" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin: 0;">Content Font (?font=)</label>
-                                            <span id="matchup-font-asset-badge" style="display: none; font-size: 0.65rem; color: var(--accent); font-weight: 700; background: var(--bg-surface); border: 1px solid var(--border); padding: 0.05rem 0.35rem; border-radius: 3px;">Asset Library</span>
-                                        </div>
-                                        <div style="display: flex; gap: 0.35rem; align-items: center;">
-                                            <input type="text" id="matchup-opt-font" list="overlay-fonts-list" class="form-control" placeholder="Player names, tags, scores" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="onFontInput('matchup')">
-                                            <button type="button" class="btn-secondary btn-sm" onclick="openAssetFontPicker('matchup')" title="Browse custom fonts in your Asset Library" style="font-size: 0.72rem; padding: 0.32rem 0.55rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
-                                                Fonts
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-scale" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Font / Element Scale (?scale=)</label>
-                                        <select id="matchup-opt-scale" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                            <option value="0.75">0.75x (Compact)</option>
-                                            <option value="0.85">0.85x</option>
-                                            <option value="1" selected>1.0x (Standard)</option>
-                                            <option value="1.15">1.15x</option>
-                                            <option value="1.25">1.25x</option>
-                                            <option value="1.5">1.5x (Large)</option>
-                                            <option value="2.0">2.0x (Huge 4K)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-weight" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Font Weight (?weight=)</label>
-                                        <select id="matchup-opt-weight" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                            <option value="" selected>Theme Default</option>
-                                            <option value="300">Light (300)</option>
-                                            <option value="400">Regular (400)</option>
-                                            <option value="500">Medium (500)</option>
-                                            <option value="600">Semi-Bold (600)</option>
-                                            <option value="700">Bold (700)</option>
-                                            <option value="800">Extra Bold (800)</option>
-                                            <option value="900">Black (900)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-transform" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Text Transform (?transform=)</label>
-                                        <select id="matchup-opt-transform" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                            <option value="" selected>Theme Default (Uppercase)</option>
-                                            <option value="none">Natural / As Entered (none)</option>
-                                            <option value="uppercase">ALL CAPS (uppercase)</option>
-                                            <option value="capitalize">Capitalize Words</option>
-                                            <option value="lowercase">all lowercase</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-radius" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Corner Roundness (?radius=)</label>
-                                        <select id="matchup-opt-radius" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                            <option value="" selected>Theme Default</option>
-                                            <option value="0px">Sharp Square (0px)</option>
-                                            <option value="4px">Subtle (4px)</option>
-                                            <option value="8px">Smooth (8px)</option>
-                                            <option value="12px">Rounded (12px)</option>
-                                            <option value="16px">Extra Rounded (16px)</option>
-                                            <option value="999px">Pill / Capsule (999px)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-outline" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Text Outline / Shadow (?outline=)</label>
-                                        <select id="matchup-opt-outline" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
-                                            <option value="" selected>Theme Default</option>
-                                            <option value="none">None</option>
-                                            <option value="subtle">Subtle Dark Shadow</option>
-                                            <option value="strong">Strong High-Contrast Outline</option>
-                                        </select>
-                                    </div>
-                                </div>
 
-                                <!-- Section 3: Granular Color Controls -->
-                                <div class="micro-heading" style="margin-bottom: 0.5rem; border-top: 1px solid var(--border); padding-top: 0.75rem;">Color Palette</div>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem; margin-bottom: 0.85rem;">
-                                    <div>
-                                        <label for="matchup-opt-text" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Primary Text (?text=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="matchup-opt-text-picker" value="#f0f6fc" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-text').value = this.value; updateMatchupOverlayUrl();">
-                                            <input type="text" id="matchup-opt-text" class="form-control" placeholder="#f0f6fc or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-text', 'matchup-opt-text-picker'); updateMatchupOverlayUrl();">
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem;">
+                                        <div>
+                                            <label for="matchup-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme Preset (?overlay=)</label>
+                                            <select id="matchup-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="onThemeSelectChange('matchup', this.value)">
+                                                <option value="card" selected>Dark Card (?overlay=card)</option>
+                                                <option value="fgc-evo">EVO Championship (?overlay=fgc-evo)</option>
+                                                <option value="championship">Championship Gold (?overlay=championship)</option>
+                                                <option value="cyber">Cyberpunk Neon (?overlay=cyber)</option>
+                                                <option value="clean-light">Clean Light Contrast (?overlay=clean-light)</option>
+                                                <option value="minimal-dark">OLED Deep Black (?overlay=minimal-dark)</option>
+                                                <option value="glass">Frosted Glass (?overlay=glass)</option>
+                                                <option value="solid">Opaque Solid (?overlay=solid)</option>
+                                                <option value="transparent">Transparent / Clean (?overlay=transparent)</option>
+                                                <option value="pill">Pill Capsule (?overlay=pill)</option>
+                                                <option value="border">Border Framing (?overlay=border)</option>
+                                                <option value="retro">Retro Arcade (?overlay=retro)</option>
+                                                <option value="ember">Ember (?overlay=ember)</option>
+                                                <option value="aurora">Aurora (?overlay=aurora)</option>
+                                                <option value="ocean">Ocean (?overlay=ocean)</option>
+                                                <option value="sunset">Sunset (?overlay=sunset)</option>
+                                                <option value="violet">Violet (?overlay=violet)</option>
+                                                <option value="forest">Forest (?overlay=forest)</option>
+                                            </select>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-muted" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Muted / Tags Color (?muted=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="matchup-opt-muted-picker" value="#8b949e" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-muted').value = this.value; updateMatchupOverlayUrl();">
-                                            <input type="text" id="matchup-opt-muted" class="form-control" placeholder="#8b949e or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-muted', 'matchup-opt-muted-picker'); updateMatchupOverlayUrl();">
+                                        <div>
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                                                <label for="matchup-opt-heading-font" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin: 0;">Heading Font (?headingfont=)</label>
+                                                <span id="matchup-heading-font-asset-badge" style="display: none; font-size: 0.65rem; color: var(--accent); font-weight: 700; background: var(--bg-surface); border: 1px solid var(--border); padding: 0.05rem 0.35rem; border-radius: 3px;">Asset Library</span>
+                                            </div>
+                                            <div style="display: flex; gap: 0.35rem; align-items: center;">
+                                                <input type="text" id="matchup-opt-heading-font" list="overlay-fonts-list" class="form-control" placeholder="Match titles, phase badges, clocks" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="onFontInput('matchup-heading')">
+                                                <button type="button" class="btn-secondary btn-sm" onclick="openAssetFontPicker('matchup-heading')" title="Browse custom fonts in your Asset Library" style="font-size: 0.72rem; padding: 0.32rem 0.55rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+                                                    Fonts
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-cardbg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Card Background (?cardbg=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="matchup-opt-cardbg-picker" value="#161b22" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-cardbg').value = this.value; updateMatchupOverlayUrl();">
-                                            <input type="text" id="matchup-opt-cardbg" class="form-control" placeholder="rgba(22,27,34,.88) or hex" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-cardbg', 'matchup-opt-cardbg-picker'); updateMatchupOverlayUrl();">
+                                        <div>
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                                                <label for="matchup-opt-font" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin: 0;">Content Font (?font=)</label>
+                                                <span id="matchup-font-asset-badge" style="display: none; font-size: 0.65rem; color: var(--accent); font-weight: 700; background: var(--bg-surface); border: 1px solid var(--border); padding: 0.05rem 0.35rem; border-radius: 3px;">Asset Library</span>
+                                            </div>
+                                            <div style="display: flex; gap: 0.35rem; align-items: center;">
+                                                <input type="text" id="matchup-opt-font" list="overlay-fonts-list" class="form-control" placeholder="Player names, tags, scores" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="onFontInput('matchup')">
+                                                <button type="button" class="btn-secondary btn-sm" onclick="openAssetFontPicker('matchup')" title="Browse custom fonts in your Asset Library" style="font-size: 0.72rem; padding: 0.32rem 0.55rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+                                                    Fonts
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-bg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Backdrop / Backdrop Bg (?bg=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="matchup-opt-bg-picker" value="#0d1117" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-bg').value = this.value; updateMatchupOverlayUrl();">
-                                            <input type="text" id="matchup-opt-bg" class="form-control" placeholder="transparent or rgba(...)" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-bg', 'matchup-opt-bg-picker'); updateMatchupOverlayUrl();">
+                                        <div>
+                                            <label for="matchup-opt-scale" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Font / Element Scale (?scale=)</label>
+                                            <select id="matchup-opt-scale" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                                <option value="0.75">0.75x (Compact)</option>
+                                                <option value="0.85">0.85x</option>
+                                                <option value="1" selected>1.0x (Standard)</option>
+                                                <option value="1.15">1.15x</option>
+                                                <option value="1.25">1.25x</option>
+                                                <option value="1.5">1.5x (Large)</option>
+                                                <option value="2.0">2.0x (Huge 4K)</option>
+                                            </select>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-border" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Border Color (?border=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="matchup-opt-border-picker" value="#30363d" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-border').value = this.value; updateMatchupOverlayUrl();">
-                                            <input type="text" id="matchup-opt-border" class="form-control" placeholder="#30363d or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-border', 'matchup-opt-border-picker'); updateMatchupOverlayUrl();">
+                                        <div>
+                                            <label for="matchup-opt-weight" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Font Weight (?weight=)</label>
+                                            <select id="matchup-opt-weight" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                                <option value="" selected>Theme Default</option>
+                                                <option value="300">Light (300)</option>
+                                                <option value="400">Regular (400)</option>
+                                                <option value="500">Medium (500)</option>
+                                                <option value="600">Semi-Bold (600)</option>
+                                                <option value="700">Bold (700)</option>
+                                                <option value="800">Extra Bold (800)</option>
+                                                <option value="900">Black (900)</option>
+                                            </select>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-accent" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Accent Color (?accent=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="matchup-opt-accent-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-accent').value = this.value; updateMatchupOverlayUrl();">
-                                            <input type="text" id="matchup-opt-accent" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-accent', 'matchup-opt-accent-picker'); updateMatchupOverlayUrl();">
+                                        <div>
+                                            <label for="matchup-opt-transform" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Text Transform (?transform=)</label>
+                                            <select id="matchup-opt-transform" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                                <option value="" selected>Theme Default (Uppercase)</option>
+                                                <option value="none">Natural / As Entered (none)</option>
+                                                <option value="uppercase">ALL CAPS (uppercase)</option>
+                                                <option value="capitalize">Capitalize Words</option>
+                                                <option value="lowercase">all lowercase</option>
+                                            </select>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-winner" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Winner Highlight (?winner=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="matchup-opt-winner-picker" value="#3fb950" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-winner').value = this.value; updateMatchupOverlayUrl();">
-                                            <input type="text" id="matchup-opt-winner" class="form-control" placeholder="#3fb950 or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-winner', 'matchup-opt-winner-picker'); updateMatchupOverlayUrl();">
+                                        <div>
+                                            <label for="matchup-opt-radius" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Corner Roundness (?radius=)</label>
+                                            <select id="matchup-opt-radius" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                                <option value="" selected>Theme Default</option>
+                                                <option value="0px">Sharp Square (0px)</option>
+                                                <option value="4px">Subtle (4px)</option>
+                                                <option value="8px">Smooth (8px)</option>
+                                                <option value="12px">Rounded (12px)</option>
+                                                <option value="16px">Extra Rounded (16px)</option>
+                                                <option value="999px">Pill / Capsule (999px)</option>
+                                            </select>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-badgecolor" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Match Badge Color (?badgecolor=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="matchup-opt-badgecolor-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-badgecolor').value = this.value; updateMatchupOverlayUrl();">
-                                            <input type="text" id="matchup-opt-badgecolor" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-badgecolor', 'matchup-opt-badgecolor-picker'); updateMatchupOverlayUrl();">
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-p1color" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Player 1 Slot Color (?p1color=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="matchup-opt-p1color-picker" value="#ef4444" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-p1color').value = this.value; updateMatchupOverlayUrl();">
-                                            <input type="text" id="matchup-opt-p1color" class="form-control" placeholder="#ef4444 or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-p1color', 'matchup-opt-p1color-picker'); updateMatchupOverlayUrl();">
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label for="matchup-opt-p2color" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Player 2 Slot Color (?p2color=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="matchup-opt-p2color-picker" value="#3b82f6" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-p2color').value = this.value; updateMatchupOverlayUrl();">
-                                            <input type="text" id="matchup-opt-p2color" class="form-control" placeholder="#3b82f6 or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-p2color', 'matchup-opt-p2color-picker'); updateMatchupOverlayUrl();">
+                                        <div>
+                                            <label for="matchup-opt-outline" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Text Outline / Shadow (?outline=)</label>
+                                            <select id="matchup-opt-outline" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                                <option value="" selected>Theme Default</option>
+                                                <option value="none">None</option>
+                                                <option value="subtle">Subtle Dark Shadow</option>
+                                                <option value="strong">Strong High-Contrast Outline</option>
+                                            </select>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div style="display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.4rem;">
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="matchup-opt-center" checked onchange="updateMatchupOverlayUrl()">
-                                        <span>Show Center Phase Badge (<code>?center=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="matchup-opt-title" checked onchange="updateMatchupOverlayUrl()">
-                                        <span>Show event title</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="matchup-opt-phase" checked onchange="updateMatchupOverlayUrl()">
-                                        <span>Show phase / stage</span>
-                                    </label>
-                                <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="matchup-opt-banner" checked onchange="updateMatchupOverlayUrl()">
-                                        <span>Show winner banner</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="matchup-opt-clock" checked onchange="updateMatchupOverlayUrl()">
-                                        <span>Show match clock / timers</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="matchup-opt-playerclocks" checked onchange="updateMatchupOverlayUrl()">
-                                        <span>Show player clocks / timers (<code>?playerclocks=auto</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="matchup-opt-showest" checked onchange="updateMatchupOverlayUrl()">
-                                        <span>Show target estimated time (<code>?showest=1</code>, e.g. EST 45:00)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="matchup-opt-tags" checked onchange="updateMatchupOverlayUrl()">
-                                        <span>Show tags / characters</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="matchup-opt-details" checked onchange="updateMatchupOverlayUrl()">
-                                        <span>Show sub-details</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="matchup-opt-pips" checked onchange="updateMatchupOverlayUrl()">
-                                        <span>Show score pips</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="matchup-opt-roundpips" checked onchange="updateMatchupOverlayUrl()">
-                                        <span>Show round pips (<code>?roundpips=1</code>, diamond pips)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="matchup-opt-splits" checked onchange="updateMatchupOverlayUrl()">
-                                        <span>Show speedrun split deltas (<code>?splits=1</code>, e.g. +00:12.65 behind 1st)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="matchup-opt-fit" onchange="updateMatchupOverlayUrl()">
-                                        <span>Auto-fit tight bounding box (<code>?fit=content</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="matchup-opt-wide" onchange="updateMatchupOverlayUrl()">
-                                        <span>Wide Stage Layout (<code>?wide=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="matchup-opt-mirror" onchange="updateMatchupOverlayUrl()">
-                                        <span>Mirror / reflect pod layout (<code>?mirror=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="matchup-opt-confetti" checked onchange="updateMatchupOverlayUrl()">
-                                        <span>Celebration Victory Confetti (<code>?confetti=1</code>)</span>
-                                    </label>
+                                <!-- Subpanel 3: Color Palette -->
+                                <div id="matchup-subpanel-colors" style="display: none;">
+                                    <div class="micro-heading" style="margin-bottom: 0.5rem;">Matchup Color Palette</div>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem;">
+                                        <div>
+                                            <label for="matchup-opt-text" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Primary Text (?text=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="matchup-opt-text-picker" value="#f0f6fc" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-text').value = this.value; updateMatchupOverlayUrl();">
+                                                <input type="text" id="matchup-opt-text" class="form-control" placeholder="#f0f6fc or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-text', 'matchup-opt-text-picker'); updateMatchupOverlayUrl();">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label for="matchup-opt-muted" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Muted / Tags Color (?muted=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="matchup-opt-muted-picker" value="#8b949e" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-muted').value = this.value; updateMatchupOverlayUrl();">
+                                                <input type="text" id="matchup-opt-muted" class="form-control" placeholder="#8b949e or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-muted', 'matchup-opt-muted-picker'); updateMatchupOverlayUrl();">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label for="matchup-opt-cardbg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Card Background (?cardbg=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="matchup-opt-cardbg-picker" value="#161b22" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-cardbg').value = this.value; updateMatchupOverlayUrl();">
+                                                <input type="text" id="matchup-opt-cardbg" class="form-control" placeholder="rgba(22,27,34,.88) or hex" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-cardbg', 'matchup-opt-cardbg-picker'); updateMatchupOverlayUrl();">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label for="matchup-opt-bg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Backdrop / Backdrop Bg (?bg=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="matchup-opt-bg-picker" value="#0d1117" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-bg').value = this.value; updateMatchupOverlayUrl();">
+                                                <input type="text" id="matchup-opt-bg" class="form-control" placeholder="transparent or rgba(...)" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-bg', 'matchup-opt-bg-picker'); updateMatchupOverlayUrl();">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label for="matchup-opt-border" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Border Color (?border=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="matchup-opt-border-picker" value="#30363d" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-border').value = this.value; updateMatchupOverlayUrl();">
+                                                <input type="text" id="matchup-opt-border" class="form-control" placeholder="#30363d or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-border', 'matchup-opt-border-picker'); updateMatchupOverlayUrl();">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label for="matchup-opt-accent" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Accent Color (?accent=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="matchup-opt-accent-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-accent').value = this.value; updateMatchupOverlayUrl();">
+                                                <input type="text" id="matchup-opt-accent" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-accent', 'matchup-opt-accent-picker'); updateMatchupOverlayUrl();">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label for="matchup-opt-winner" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Winner Highlight (?winner=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="matchup-opt-winner-picker" value="#3fb950" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-winner').value = this.value; updateMatchupOverlayUrl();">
+                                                <input type="text" id="matchup-opt-winner" class="form-control" placeholder="#3fb950 or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-winner', 'matchup-opt-winner-picker'); updateMatchupOverlayUrl();">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label for="matchup-opt-badgecolor" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Match Badge Color (?badgecolor=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="matchup-opt-badgecolor-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-badgecolor').value = this.value; updateMatchupOverlayUrl();">
+                                                <input type="text" id="matchup-opt-badgecolor" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-badgecolor', 'matchup-opt-badgecolor-picker'); updateMatchupOverlayUrl();">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label for="matchup-opt-p1color" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Player 1 Slot Color (?p1color=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="matchup-opt-p1color-picker" value="#ef4444" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-p1color').value = this.value; updateMatchupOverlayUrl();">
+                                                <input type="text" id="matchup-opt-p1color" class="form-control" placeholder="#ef4444 or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-p1color', 'matchup-opt-p1color-picker'); updateMatchupOverlayUrl();">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label for="matchup-opt-p2color" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Player 2 Slot Color (?p2color=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="matchup-opt-p2color-picker" value="#3b82f6" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-p2color').value = this.value; updateMatchupOverlayUrl();">
+                                                <input type="text" id="matchup-opt-p2color" class="form-control" placeholder="#3b82f6 or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-p2color', 'matchup-opt-p2color-picker'); updateMatchupOverlayUrl();">
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+
+                                <!-- Subpanel 4: Display Toggles & Elements -->
+                                <div id="matchup-subpanel-toggles" style="display: none;">
+                                    <div class="micro-heading" style="margin-bottom: 0.5rem;">Display &amp; Visibility Elements</div>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.5rem;">
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="matchup-opt-center" checked onchange="updateMatchupOverlayUrl()">
+                                            <span>Show Center Phase Badge (<code>?center=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="matchup-opt-title" checked onchange="updateMatchupOverlayUrl()">
+                                            <span>Show Event Title</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="matchup-opt-phase" checked onchange="updateMatchupOverlayUrl()">
+                                            <span>Show Phase / Stage</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="matchup-opt-banner" checked onchange="updateMatchupOverlayUrl()">
+                                            <span>Show Winner Banner</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="matchup-opt-clock" checked onchange="updateMatchupOverlayUrl()">
+                                            <span>Show Match Clock / Timers</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="matchup-opt-playerclocks" checked onchange="updateMatchupOverlayUrl()">
+                                            <span>Show Player Timers (<code>?playerclocks=auto</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="matchup-opt-showest" checked onchange="updateMatchupOverlayUrl()">
+                                            <span>Show Target Estimated Time (<code>?showest=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="matchup-opt-tags" checked onchange="updateMatchupOverlayUrl()">
+                                            <span>Show Tags / Characters</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="matchup-opt-details" checked onchange="updateMatchupOverlayUrl()">
+                                            <span>Show Sub-Details</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="matchup-opt-pips" checked onchange="updateMatchupOverlayUrl()">
+                                            <span>Show Score Pips</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="matchup-opt-roundpips" checked onchange="updateMatchupOverlayUrl()">
+                                            <span>Show Round Pips (<code>?roundpips=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="matchup-opt-splits" checked onchange="updateMatchupOverlayUrl()">
+                                            <span>Show Speedrun Split Deltas (<code>?splits=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="matchup-opt-fit" onchange="updateMatchupOverlayUrl()">
+                                            <span>Auto-fit Tight Bounding Box (<code>?fit=content</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="matchup-opt-wide" onchange="updateMatchupOverlayUrl()">
+                                            <span>Wide Stage Layout (<code>?wide=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="matchup-opt-mirror" onchange="updateMatchupOverlayUrl()">
+                                            <span>Mirror / Reflect Pod Layout (<code>?mirror=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="matchup-opt-confetti" checked onchange="updateMatchupOverlayUrl()">
+                                            <span>Celebration Victory Confetti (<code>?confetti=1</code>)</span>
+                                        </label>
+                                    </div>
+                                </div>
                         </div>
 
                         <!-- Active Tournament Match HUD Overlay URL -->
@@ -1426,370 +1455,401 @@
 
                             <!-- Tournament Bracket Options Customizer -->
                             <div style="background: var(--bg-inset); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border);">
-                                <div class="micro-heading" style="margin-bottom: 0.5rem;">Bracket Overlay Options</div>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem; margin-bottom: 0.5rem;">
-                                    <div>
-                                        <label for="tourney-opt-layout" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket Layout (?layout=)</label>
-                                        <select id="tourney-opt-layout" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
-                                            <option value="tree" selected>Full Bracket Tree</option>
-                                            <option value="focus">Dynamic Focus (Zoomed on Active &amp; Upcoming)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-camera" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Smart Framing Camera (?focus=)</label>
-                                        <select id="tourney-opt-camera" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
-                                            <option value="" selected>Auto (Active in Focus view)</option>
-                                            <option value="1">Always On (?focus=1)</option>
-                                            <option value="0">Disabled / Static (?focus=0)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-glide" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Smooth Glide Transitions (?glide=)</label>
-                                        <select id="tourney-opt-glide" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
-                                            <option value="1" selected>Enabled (0.85s Smooth Glide)</option>
-                                            <option value="0">Disabled (Instant Snap (?glide=0))</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-badge" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Active Match Badge (?focusbadge=)</label>
-                                        <select id="tourney-opt-badge" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
-                                            <option value="1" selected>Visible (?focusbadge=1)</option>
-                                            <option value="0">Hidden (?focusbadge=0)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-bracket" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket section (double elimination)</label>
-                                        <select id="tourney-opt-bracket" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
-                                            <option value="all">All brackets</option>
-                                            <option value="winners">Winners bracket</option>
-                                            <option value="losers">Losers bracket</option>
-                                            <option value="finals">Grand Finals</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-spacing" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Spacing (?spacing=)</label>
-                                        <select id="tourney-opt-spacing" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncTourneyOptFromMain('spacing', this.value)">
-                                            <option value="normal" selected>Normal Spacing</option>
-                                            <option value="compact">Compact Fit</option>
-                                            <option value="spacious">Spacious Spacing</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-lines" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket Lines (?lines=)</label>
-                                        <select id="tourney-opt-lines" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncTourneyOptFromMain('lines', this.value)">
-                                            <option value="glow" selected>Luminous Glow Lines</option>
-                                            <option value="solid">Solid Connectors</option>
-                                            <option value="minimal">Minimal Lines</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-pipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Score Pip Style (?pipstyle=)</label>
-                                        <select id="tourney-opt-pipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncTourneyOptFromMain('pipstyle', this.value)">
-                                            <option value="circle" selected>Circles (● ● ○)</option>
-                                            <option value="diamond">Diamonds (◆ ◆ ◇)</option>
-                                            <option value="bar">Rectangular Bars (▮ ▮ ▯)</option>
-                                            <option value="digit">Numeric Counter (2 / 3)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-roundpipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Round Pip Style (?roundpipstyle=)</label>
-                                        <select id="tourney-opt-roundpipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncTourneyOptFromMain('roundpipstyle', this.value)">
-                                            <option value="diamond" selected>Diamonds (◆ ◆ ◇)</option>
-                                            <option value="circle">Circles (● ● ○)</option>
-                                            <option value="bar">Rectangular Bars (▮ ▮ ▯)</option>
-                                            <option value="digit">Numeric Counter (1 / 2)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-gap" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Opponent / Center Spacing (?gap=)</label>
-                                        <select id="tourney-opt-gap" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
-                                            <option value="" selected>Auto (Default)</option>
-                                            <option value="intact">Keep Center Space Intact (160px)</option>
-                                            <option value="80px">Compact Gap (80px)</option>
-                                            <option value="240px">Wide Gap (240px)</option>
-                                            <option value="360px">Extra Wide Split (360px)</option>
-                                        </select>
-                                    </div>
-                                    <div style="grid-column: span 2;">
-                                        <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Header Logo Above Title (?logo=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <img id="tourney-opt-logo-thumb" src="" alt="" style="display: none; height: 28px; width: auto; max-width: 68px; object-fit: contain; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-card); padding: 2px;">
-                                            <input type="text" id="tourney-opt-logo" class="form-control" placeholder="Choose from Asset Library or paste image URL..." style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncTourneyOverlayLogoUi(this.value); updateTourneyOverlayUrl();">
-                                            <button type="button" class="btn-secondary btn-sm" onclick="pickOverlayTourneyLogo()" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 0.3rem; height: 30px;">
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                                                Asset Library…
-                                            </button>
-                                            <button type="button" id="tourney-opt-logo-clear" class="btn-secondary btn-sm" onclick="setOverlayTourneyLogo('')" style="display: none; height: 30px; padding: 0 0.45rem;" title="Remove logo">&times;</button>
+                                <!-- Category Navigation Pills -->
+                                <div class="segmented-control" id="tourney-customizer-tabs" style="margin-bottom: 0.85rem;">
+                                    <button type="button" class="segmented-btn active" id="btn-tourney-subtab-layout" onclick="switchTourneySubtab('layout')">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                                        Layout &amp; Camera
+                                    </button>
+                                    <button type="button" class="segmented-btn" id="btn-tourney-subtab-typography" onclick="switchTourneySubtab('typography')">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+                                        Typography &amp; Themes
+                                    </button>
+                                    <button type="button" class="segmented-btn" id="btn-tourney-subtab-colors" onclick="switchTourneySubtab('colors')">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                                        Color Palette
+                                    </button>
+                                    <button type="button" class="segmented-btn" id="btn-tourney-subtab-elements" onclick="switchTourneySubtab('elements')">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                        Elements &amp; Badges
+                                    </button>
+                                </div>
+
+                                <!-- Subpanel 1: Layout & Camera -->
+                                <div id="tourney-subpanel-layout">
+                                    <div class="micro-heading" style="margin-bottom: 0.5rem;">Bracket Framing &amp; Navigation</div>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem;">
+                                        <div>
+                                            <label for="tourney-opt-layout" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket Layout (?layout=)</label>
+                                            <select id="tourney-opt-layout" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                                <option value="tree" selected>Full Bracket Tree</option>
+                                                <option value="focus">Dynamic Focus (Zoomed on Active &amp; Upcoming)</option>
+                                            </select>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-logosize" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Header Logo Size (?logosize=)</label>
-                                        <select id="tourney-opt-logosize" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
-                                            <option value="36px">Compact (36px)</option>
-                                            <option value="56px" selected>Standard (56px)</option>
-                                            <option value="80px">Large (80px)</option>
-                                            <option value="110px">Extra Large Banner (110px)</option>
-                                        </select>
+                                        <div>
+                                            <label for="tourney-opt-camera" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Smart Framing Camera (?focus=)</label>
+                                            <select id="tourney-opt-camera" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                                <option value="" selected>Auto (Active in Focus view)</option>
+                                                <option value="1">Always On (?focus=1)</option>
+                                                <option value="0">Disabled / Static (?focus=0)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="tourney-opt-glide" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Smooth Glide Transitions (?glide=)</label>
+                                            <select id="tourney-opt-glide" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                                <option value="1" selected>Enabled (0.85s Smooth Glide)</option>
+                                                <option value="0">Disabled (Instant Snap (?glide=0))</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="tourney-opt-badge" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Active Match Badge (?focusbadge=)</label>
+                                            <select id="tourney-opt-badge" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                                <option value="1" selected>Visible (?focusbadge=1)</option>
+                                                <option value="0">Hidden (?focusbadge=0)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="tourney-opt-bracket" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket Section (Double-Elim)</label>
+                                            <select id="tourney-opt-bracket" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                                <option value="all">All Brackets</option>
+                                                <option value="winners">Winners Bracket</option>
+                                                <option value="losers">Losers Bracket</option>
+                                                <option value="finals">Grand Finals</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="tourney-opt-spacing" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Spacing (?spacing=)</label>
+                                            <select id="tourney-opt-spacing" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncTourneyOptFromMain('spacing', this.value)">
+                                                <option value="normal" selected>Normal Spacing</option>
+                                                <option value="compact">Compact Fit</option>
+                                                <option value="spacious">Spacious Spacing</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="tourney-opt-lines" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket Lines (?lines=)</label>
+                                            <select id="tourney-opt-lines" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncTourneyOptFromMain('lines', this.value)">
+                                                <option value="glow" selected>Luminous Glow Lines</option>
+                                                <option value="solid">Solid Connectors</option>
+                                                <option value="minimal">Minimal Lines</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="tourney-opt-pipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Score Pip Style (?pipstyle=)</label>
+                                            <select id="tourney-opt-pipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncTourneyOptFromMain('pipstyle', this.value)">
+                                                <option value="circle" selected>Circles (● ● ○)</option>
+                                                <option value="diamond">Diamonds (◆ ◆ ◇)</option>
+                                                <option value="bar">Rectangular Bars (▮ ▮ ▯)</option>
+                                                <option value="digit">Numeric Counter (2 / 3)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="tourney-opt-roundpipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Round Pip Style (?roundpipstyle=)</label>
+                                            <select id="tourney-opt-roundpipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="syncTourneyOptFromMain('roundpipstyle', this.value)">
+                                                <option value="diamond" selected>Diamonds (◆ ◆ ◇)</option>
+                                                <option value="circle">Circles (● ● ○)</option>
+                                                <option value="bar">Rectangular Bars (▮ ▮ ▯)</option>
+                                                <option value="digit">Numeric Counter (1 / 2)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="tourney-opt-gap" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Opponent / Center Spacing (?gap=)</label>
+                                            <select id="tourney-opt-gap" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                                <option value="" selected>Auto (Default)</option>
+                                                <option value="intact">Keep Center Space Intact (160px)</option>
+                                                <option value="80px">Compact Gap (80px)</option>
+                                                <option value="240px">Wide Gap (240px)</option>
+                                                <option value="360px">Extra Wide Split (360px)</option>
+                                            </select>
+                                        </div>
+                                        <div style="grid-column: span 2;">
+                                            <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Header Logo Above Title (?logo=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <img id="tourney-opt-logo-thumb" src="" alt="" style="display: none; height: 28px; width: auto; max-width: 68px; object-fit: contain; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-card); padding: 2px;">
+                                                <input type="text" id="tourney-opt-logo" class="form-control" placeholder="Choose from Asset Library or paste image URL..." style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncTourneyOverlayLogoUi(this.value); updateTourneyOverlayUrl();">
+                                                <button type="button" class="btn-secondary btn-sm" onclick="pickOverlayTourneyLogo()" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 0.3rem; height: 30px;">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                                    Asset Library…
+                                                </button>
+                                                <button type="button" id="tourney-opt-logo-clear" class="btn-secondary btn-sm" onclick="setOverlayTourneyLogo('')" style="display: none; height: 30px; padding: 0 0.45rem;" title="Remove logo">&times;</button>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label for="tourney-opt-logosize" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Header Logo Size (?logosize=)</label>
+                                            <select id="tourney-opt-logosize" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                                <option value="36px">Compact (36px)</option>
+                                                <option value="56px" selected>Standard (56px)</option>
+                                                <option value="80px">Large (80px)</option>
+                                                <option value="110px">Extra Large Banner (110px)</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <!-- Tournament Typography & Custom Themes -->
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-top: 1px solid var(--border); padding-top: 0.75rem;">
-                                    <div class="micro-heading" style="margin: 0;">Bracket Typography & Theme Customization</div>
-                                    <div style="display: flex; gap: 0.35rem;">
-                                        <button type="button" class="btn-secondary btn-sm" onclick="openSaveThemeModal('tourney')" title="Save current bracket typography and colors as a theme" style="white-space: nowrap; font-size: 0.72rem; padding: 0.2rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem;">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                                            Save Theme…
-                                        </button>
-                                        <button type="button" class="btn-secondary btn-sm" onclick="openManageThemesModal()" title="Manage saved custom themes" style="white-space: nowrap; font-size: 0.72rem; padding: 0.2rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem;">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                                            Manage
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem; margin-bottom: 0.85rem;">
-                                    <div>
-                                        <label for="tourney-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme Preset (?overlay=)</label>
-                                        <select id="tourney-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="onThemeSelectChange('tourney', this.value)">
-                                            <option value="card" selected>Dark Card</option>
-                                            <option value="championship">Championship Gold</option>
-                                            <option value="fgc-evo">EVO Championship</option>
-                                            <option value="cyber">Cyberpunk Neon</option>
-                                            <option value="glass">Frosted Glass</option>
-                                            <option value="clean-light">Clean Light</option>
-                                            <option value="minimal-dark">OLED Black</option>
-                                            <option value="solid">Opaque Solid</option>
-                                            <option value="transparent">Transparent</option>
-                                            <option value="pill">Pill</option>
-                                            <option value="border">Border Framing</option>
-                                            <option value="retro">Retro Arcade</option>
-                                            <option value="ember">Ember</option>
-                                            <option value="aurora">Aurora</option>
-                                            <option value="ocean">Ocean</option>
-                                            <option value="sunset">Sunset</option>
-                                            <option value="violet">Violet</option>
-                                            <option value="forest">Forest</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-                                            <label for="tourney-opt-heading-font" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin: 0;">Heading Font (?headingfont=)</label>
-                                            <span id="tourney-heading-font-asset-badge" style="display: none; font-size: 0.65rem; color: var(--accent); font-weight: 700; background: var(--bg-surface); border: 1px solid var(--border); padding: 0.05rem 0.35rem; border-radius: 3px;">Asset Library</span>
-                                        </div>
-                                        <div style="display: flex; gap: 0.35rem; align-items: center;">
-                                            <input type="text" id="tourney-opt-heading-font" list="overlay-fonts-list" class="form-control" placeholder="Tournament title, round headers, badges" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="onFontInput('tourney-heading')">
-                                            <button type="button" class="btn-secondary btn-sm" onclick="openAssetFontPicker('tourney-heading')" title="Browse custom fonts in your Asset Library" style="font-size: 0.72rem; padding: 0.32rem 0.55rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
-                                                Fonts
+                                <!-- Subpanel 2: Tournament Typography & Custom Themes -->
+                                <div id="tourney-subpanel-typography" style="display: none;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                        <div class="micro-heading" style="margin: 0;">Bracket Typography &amp; Theme Styling</div>
+                                        <div style="display: flex; gap: 0.35rem;">
+                                            <button type="button" class="btn-secondary btn-sm" onclick="openSaveThemeModal('tourney')" title="Save current bracket typography and colors as a theme" style="white-space: nowrap; font-size: 0.72rem; padding: 0.2rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                                Save Theme…
+                                            </button>
+                                            <button type="button" class="btn-secondary btn-sm" onclick="openManageThemesModal()" title="Manage saved custom themes" style="white-space: nowrap; font-size: 0.72rem; padding: 0.2rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                                                Manage
                                             </button>
                                         </div>
                                     </div>
-                                    <div>
-                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-                                            <label for="tourney-opt-font" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin: 0;">Content Font (?font=)</label>
-                                            <span id="tourney-font-asset-badge" style="display: none; font-size: 0.65rem; color: var(--accent); font-weight: 700; background: var(--bg-surface); border: 1px solid var(--border); padding: 0.05rem 0.35rem; border-radius: 3px;">Asset Library</span>
+
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem;">
+                                        <div>
+                                            <label for="tourney-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme Preset (?overlay=)</label>
+                                            <select id="tourney-opt-theme" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="onThemeSelectChange('tourney', this.value)">
+                                                <option value="card" selected>Dark Card</option>
+                                                <option value="championship">Championship Gold</option>
+                                                <option value="fgc-evo">EVO Championship</option>
+                                                <option value="cyber">Cyberpunk Neon</option>
+                                                <option value="glass">Frosted Glass</option>
+                                                <option value="clean-light">Clean Light</option>
+                                                <option value="minimal-dark">OLED Black</option>
+                                                <option value="solid">Opaque Solid</option>
+                                                <option value="transparent">Transparent</option>
+                                                <option value="pill">Pill</option>
+                                                <option value="border">Border Framing</option>
+                                                <option value="retro">Retro Arcade</option>
+                                                <option value="ember">Ember</option>
+                                                <option value="aurora">Aurora</option>
+                                                <option value="ocean">Ocean</option>
+                                                <option value="sunset">Sunset</option>
+                                                <option value="violet">Violet</option>
+                                                <option value="forest">Forest</option>
+                                            </select>
                                         </div>
-                                        <div style="display: flex; gap: 0.35rem; align-items: center;">
-                                            <input type="text" id="tourney-opt-font" list="overlay-fonts-list" class="form-control" placeholder="Entrant names, tags, scores" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="onFontInput('tourney')">
-                                            <button type="button" class="btn-secondary btn-sm" onclick="openAssetFontPicker('tourney')" title="Browse custom fonts in your Asset Library" style="font-size: 0.72rem; padding: 0.32rem 0.55rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
-                                                Fonts
-                                            </button>
+                                        <div>
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                                                <label for="tourney-opt-heading-font" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin: 0;">Heading Font (?headingfont=)</label>
+                                                <span id="tourney-heading-font-asset-badge" style="display: none; font-size: 0.65rem; color: var(--accent); font-weight: 700; background: var(--bg-surface); border: 1px solid var(--border); padding: 0.05rem 0.35rem; border-radius: 3px;">Asset Library</span>
+                                            </div>
+                                            <div style="display: flex; gap: 0.35rem; align-items: center;">
+                                                <input type="text" id="tourney-opt-heading-font" list="overlay-fonts-list" class="form-control" placeholder="Tournament title, round headers, badges" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="onFontInput('tourney-heading')">
+                                                <button type="button" class="btn-secondary btn-sm" onclick="openAssetFontPicker('tourney-heading')" title="Browse custom fonts in your Asset Library" style="font-size: 0.72rem; padding: 0.32rem 0.55rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+                                                    Fonts
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-scale" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket Scale (?scale=)</label>
-                                        <select id="tourney-opt-scale" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
-                                            <option value="0.75">0.75x (Compact)</option>
-                                            <option value="0.85">0.85x</option>
-                                            <option value="1" selected>1.0x (Standard)</option>
-                                            <option value="1.15">1.15x</option>
-                                            <option value="1.25">1.25x</option>
-                                            <option value="1.5">1.5x (Large)</option>
-                                            <option value="2.0">2.0x (Huge 4K)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-weight" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Font Weight (?weight=)</label>
-                                        <select id="tourney-opt-weight" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
-                                            <option value="" selected>Theme Default</option>
-                                            <option value="300">Light (300)</option>
-                                            <option value="400">Regular (400)</option>
-                                            <option value="500">Medium (500)</option>
-                                            <option value="600">Semi-Bold (600)</option>
-                                            <option value="700">Bold (700)</option>
-                                            <option value="800">Extra Bold (800)</option>
-                                            <option value="900">Black (900)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-transform" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Text Transform (?transform=)</label>
-                                        <select id="tourney-opt-transform" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
-                                            <option value="" selected>Theme Default (none)</option>
-                                            <option value="none">Natural / As Entered (none)</option>
-                                            <option value="uppercase">ALL CAPS (uppercase)</option>
-                                            <option value="capitalize">Capitalize Words</option>
-                                            <option value="lowercase">all lowercase</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-radius" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Corner Roundness (?radius=)</label>
-                                        <select id="tourney-opt-radius" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
-                                            <option value="" selected>Theme Default</option>
-                                            <option value="0px">Sharp Square (0px)</option>
-                                            <option value="4px">Subtle (4px)</option>
-                                            <option value="8px">Smooth (8px)</option>
-                                            <option value="12px">Rounded (12px)</option>
-                                            <option value="16px">Extra Rounded (16px)</option>
-                                            <option value="999px">Pill / Capsule (999px)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-outline" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Text Outline / Shadow (?outline=)</label>
-                                        <select id="tourney-opt-outline" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
-                                            <option value="" selected>Theme Default</option>
-                                            <option value="none">None</option>
-                                            <option value="subtle">Subtle Dark Shadow</option>
-                                            <option value="strong">Strong High-Contrast Outline</option>
-                                        </select>
+                                        <div>
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                                                <label for="tourney-opt-font" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin: 0;">Content Font (?font=)</label>
+                                                <span id="tourney-font-asset-badge" style="display: none; font-size: 0.65rem; color: var(--accent); font-weight: 700; background: var(--bg-surface); border: 1px solid var(--border); padding: 0.05rem 0.35rem; border-radius: 3px;">Asset Library</span>
+                                            </div>
+                                            <div style="display: flex; gap: 0.35rem; align-items: center;">
+                                                <input type="text" id="tourney-opt-font" list="overlay-fonts-list" class="form-control" placeholder="Entrant names, tags, scores" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="onFontInput('tourney')">
+                                                <button type="button" class="btn-secondary btn-sm" onclick="openAssetFontPicker('tourney')" title="Browse custom fonts in your Asset Library" style="font-size: 0.72rem; padding: 0.32rem 0.55rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+                                                    Fonts
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label for="tourney-opt-scale" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket Scale (?scale=)</label>
+                                            <select id="tourney-opt-scale" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                                <option value="0.75">0.75x (Compact)</option>
+                                                <option value="0.85">0.85x</option>
+                                                <option value="1" selected>1.0x (Standard)</option>
+                                                <option value="1.15">1.15x</option>
+                                                <option value="1.25">1.25x</option>
+                                                <option value="1.5">1.5x (Large)</option>
+                                                <option value="2.0">2.0x (Huge 4K)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="tourney-opt-weight" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Font Weight (?weight=)</label>
+                                            <select id="tourney-opt-weight" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                                <option value="" selected>Theme Default</option>
+                                                <option value="300">Light (300)</option>
+                                                <option value="400">Regular (400)</option>
+                                                <option value="500">Medium (500)</option>
+                                                <option value="600">Semi-Bold (600)</option>
+                                                <option value="700">Bold (700)</option>
+                                                <option value="800">Extra Bold (800)</option>
+                                                <option value="900">Black (900)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="tourney-opt-transform" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Text Transform (?transform=)</label>
+                                            <select id="tourney-opt-transform" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                                <option value="" selected>Theme Default (none)</option>
+                                                <option value="none">Natural / As Entered (none)</option>
+                                                <option value="uppercase">ALL CAPS (uppercase)</option>
+                                                <option value="capitalize">Capitalize Words</option>
+                                                <option value="lowercase">all lowercase</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="tourney-opt-radius" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Corner Roundness (?radius=)</label>
+                                            <select id="tourney-opt-radius" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                                <option value="" selected>Theme Default</option>
+                                                <option value="0px">Sharp Square (0px)</option>
+                                                <option value="4px">Subtle (4px)</option>
+                                                <option value="8px">Smooth (8px)</option>
+                                                <option value="12px">Rounded (12px)</option>
+                                                <option value="16px">Extra Rounded (16px)</option>
+                                                <option value="999px">Pill / Capsule (999px)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="tourney-opt-outline" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Text Outline / Shadow (?outline=)</label>
+                                            <select id="tourney-opt-outline" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                                <option value="" selected>Theme Default</option>
+                                                <option value="none">None</option>
+                                                <option value="subtle">Subtle Dark Shadow</option>
+                                                <option value="strong">Strong High-Contrast Outline</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <!-- Tournament Colors -->
-                                <div class="micro-heading" style="margin-bottom: 0.5rem; border-top: 1px solid var(--border); padding-top: 0.75rem;">Bracket Color Palette</div>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem; margin-bottom: 0.85rem;">
-                                    <div>
-                                        <label for="tourney-opt-text" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Primary Text (?text=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="tourney-opt-text-picker" value="#f0f6fc" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-text').value = this.value; updateTourneyOverlayUrl();">
-                                            <input type="text" id="tourney-opt-text" class="form-control" placeholder="#f0f6fc or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-text', 'tourney-opt-text-picker'); updateTourneyOverlayUrl();">
+                                <!-- Subpanel 3: Tournament Color Palette -->
+                                <div id="tourney-subpanel-colors" style="display: none;">
+                                    <div class="micro-heading" style="margin-bottom: 0.5rem;">Bracket Color Palette</div>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem;">
+                                        <div>
+                                            <label for="tourney-opt-text" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Primary Text (?text=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="tourney-opt-text-picker" value="#f0f6fc" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-text').value = this.value; updateTourneyOverlayUrl();">
+                                                <input type="text" id="tourney-opt-text" class="form-control" placeholder="#f0f6fc or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-text', 'tourney-opt-text-picker'); updateTourneyOverlayUrl();">
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-muted" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Muted / Tags Color (?muted=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="tourney-opt-muted-picker" value="#8b949e" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-muted').value = this.value; updateTourneyOverlayUrl();">
-                                            <input type="text" id="tourney-opt-muted" class="form-control" placeholder="#8b949e or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-muted', 'tourney-opt-muted-picker'); updateTourneyOverlayUrl();">
+                                        <div>
+                                            <label for="tourney-opt-muted" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Muted / Tags Color (?muted=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="tourney-opt-muted-picker" value="#8b949e" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-muted').value = this.value; updateTourneyOverlayUrl();">
+                                                <input type="text" id="tourney-opt-muted" class="form-control" placeholder="#8b949e or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-muted', 'tourney-opt-muted-picker'); updateTourneyOverlayUrl();">
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-cardbg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Card Background (?cardbg=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="tourney-opt-cardbg-picker" value="#161b22" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-cardbg').value = this.value; updateTourneyOverlayUrl();">
-                                            <input type="text" id="tourney-opt-cardbg" class="form-control" placeholder="rgba(22,27,34,.88) or hex" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-cardbg', 'tourney-opt-cardbg-picker'); updateTourneyOverlayUrl();">
+                                        <div>
+                                            <label for="tourney-opt-cardbg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Card Background (?cardbg=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="tourney-opt-cardbg-picker" value="#161b22" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-cardbg').value = this.value; updateTourneyOverlayUrl();">
+                                                <input type="text" id="tourney-opt-cardbg" class="form-control" placeholder="rgba(22,27,34,.88) or hex" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-cardbg', 'tourney-opt-cardbg-picker'); updateTourneyOverlayUrl();">
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-bg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Backdrop / Backdrop Bg (?bg=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="tourney-opt-bg-picker" value="#0d1117" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-bg').value = this.value; updateTourneyOverlayUrl();">
-                                            <input type="text" id="tourney-opt-bg" class="form-control" placeholder="transparent or rgba(...)" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-bg', 'tourney-opt-bg-picker'); updateTourneyOverlayUrl();">
+                                        <div>
+                                            <label for="tourney-opt-bg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Backdrop / Backdrop Bg (?bg=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="tourney-opt-bg-picker" value="#0d1117" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-bg').value = this.value; updateTourneyOverlayUrl();">
+                                                <input type="text" id="tourney-opt-bg" class="form-control" placeholder="transparent or rgba(...)" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-bg', 'tourney-opt-bg-picker'); updateTourneyOverlayUrl();">
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-border" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Border Color (?border=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="tourney-opt-border-picker" value="#30363d" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-border').value = this.value; updateTourneyOverlayUrl();">
-                                            <input type="text" id="tourney-opt-border" class="form-control" placeholder="#30363d or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-border', 'tourney-opt-border-picker'); updateTourneyOverlayUrl();">
+                                        <div>
+                                            <label for="tourney-opt-border" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Border Color (?border=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="tourney-opt-border-picker" value="#30363d" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-border').value = this.value; updateTourneyOverlayUrl();">
+                                                <input type="text" id="tourney-opt-border" class="form-control" placeholder="#30363d or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-border', 'tourney-opt-border-picker'); updateTourneyOverlayUrl();">
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-accent" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket Accent Color (?accent=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="tourney-opt-accent-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-accent').value = this.value; updateTourneyOverlayUrl();">
-                                            <input type="text" id="tourney-opt-accent" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-accent', 'tourney-opt-accent-picker'); updateTourneyOverlayUrl();">
+                                        <div>
+                                            <label for="tourney-opt-accent" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket Accent Color (?accent=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="tourney-opt-accent-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-accent').value = this.value; updateTourneyOverlayUrl();">
+                                                <input type="text" id="tourney-opt-accent" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-accent', 'tourney-opt-accent-picker'); updateTourneyOverlayUrl();">
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-winner" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Winner Highlight (?winner=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="tourney-opt-winner-picker" value="#3fb950" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-winner').value = this.value; updateTourneyOverlayUrl();">
-                                            <input type="text" id="tourney-opt-winner" class="form-control" placeholder="#3fb950 or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-winner', 'tourney-opt-winner-picker'); updateTourneyOverlayUrl();">
+                                        <div>
+                                            <label for="tourney-opt-winner" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Winner Highlight (?winner=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="tourney-opt-winner-picker" value="#3fb950" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-winner').value = this.value; updateTourneyOverlayUrl();">
+                                                <input type="text" id="tourney-opt-winner" class="form-control" placeholder="#3fb950 or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-winner', 'tourney-opt-winner-picker'); updateTourneyOverlayUrl();">
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label for="tourney-opt-badgecolor" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Match Badge Color (?badgecolor=)</label>
-                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                            <input type="color" id="tourney-opt-badgecolor-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-badgecolor').value = this.value; updateTourneyOverlayUrl();">
-                                            <input type="text" id="tourney-opt-badgecolor" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-badgecolor', 'tourney-opt-badgecolor-picker'); updateTourneyOverlayUrl();">
+                                        <div>
+                                            <label for="tourney-opt-badgecolor" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Match Badge Color (?badgecolor=)</label>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <input type="color" id="tourney-opt-badgecolor-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-badgecolor').value = this.value; updateTourneyOverlayUrl();">
+                                                <input type="text" id="tourney-opt-badgecolor" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-badgecolor', 'tourney-opt-badgecolor-picker'); updateTourneyOverlayUrl();">
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                                </div>
-                                <div style="display: flex; flex-direction: column; gap: 0.4rem;">
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-showlogo" checked onchange="updateTourneyOverlayUrl()">
-                                        <span>Show Header Logo Above Title (<code>?showlogo=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-highlight" checked onchange="updateTourneyOverlayUrl()">
-                                        <span>Highlight Live Match on Bracket (<code>?highlight=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-center" checked onchange="updateTourneyOverlayUrl()">
-                                        <span>Show Center Phase Badge (<code>?center=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-title" checked onchange="syncTourneyOptFromMain('title', this.checked ? '1' : '0')">
-                                        <span>Show Tournament Title Header (<code>?showtitle=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-format" checked onchange="syncTourneyOptFromMain('format', this.checked ? '1' : '0')">
-                                        <span>Show Elimination Format Pill (<code>?showformat=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-mode" checked onchange="syncTourneyOptFromMain('mode', this.checked ? '1' : '0')">
-                                        <span>Show Series Mode / Best-Of Pill (<code>?showmode=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-entrants" checked onchange="syncTourneyOptFromMain('entrants', this.checked ? '1' : '0')">
-                                        <span>Show Participants Count (<code>?showentrants=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-status" checked onchange="syncTourneyOptFromMain('status', this.checked ? '1' : '0')">
-                                        <span>Show Status Badge (Finished / In Progress) (<code>?showstatus=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-rounds" checked onchange="syncTourneyOptFromMain('rounds', this.checked ? '1' : '0')">
-                                        <span>Show Round Column Headers (<code>?showrounds=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-scores" checked onchange="syncTourneyOptFromMain('scores', this.checked ? '1' : '0')">
-                                        <span>Show Entrant Scores in Matches (<code>?showscores=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-roundpips" checked onchange="syncTourneyOptFromMain('roundpips', this.checked ? '1' : '0')">
-                                        <span>Show Round Pips in Match Cards (<code>?roundpips=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-seeds" checked onchange="syncTourneyOptFromMain('seeds', this.checked ? '1' : '0')">
-                                        <span>Show Entrant Seed Numbers (<code>?showseeds=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-tags" checked onchange="syncTourneyOptFromMain('tags', this.checked ? '1' : '0')">
-                                        <span>Show Player / Character Tags (<code>?showtags=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-badges" checked onchange="syncTourneyOptFromMain('badges', this.checked ? '1' : '0')">
-                                        <span>Show Live / Voting Badges on Cards (<code>?showbadges=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-champion" checked onchange="syncTourneyOptFromMain('champion', this.checked ? '1' : '0')">
-                                        <span>Show Champion Celebration Card (<code>?champion=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-confetti" onchange="syncTourneyOptFromMain('confetti', this.checked ? '1' : '0')">
-                                        <span>Victory Confetti Celebration (<code>?confetti=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-fit" onchange="syncTourneyOptFromMain('fit', this.checked ? '1' : '0')">
-                                        <span>Auto-scale entire bracket to browser viewport (<code>?fit=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-wide" onchange="updateTourneyOverlayUrl()">
-                                        <span>Wide Bracket Tree Layout (<code>?wide=1</code>)</span>
-                                    </label>
+
+                                <!-- Subpanel 4: Bracket Elements & Badges -->
+                                <div id="tourney-subpanel-elements" style="display: none;">
+                                    <div class="micro-heading" style="margin-bottom: 0.5rem;">Bracket Elements &amp; Badges</div>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.5rem;">
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="tourney-opt-showlogo" checked onchange="updateTourneyOverlayUrl()">
+                                            <span>Show Header Logo Above Title (<code>?showlogo=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="tourney-opt-highlight" checked onchange="updateTourneyOverlayUrl()">
+                                            <span>Highlight Live Match on Bracket (<code>?highlight=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="tourney-opt-center" checked onchange="updateTourneyOverlayUrl()">
+                                            <span>Show Center Phase Badge (<code>?center=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="tourney-opt-title" checked onchange="syncTourneyOptFromMain('title', this.checked ? '1' : '0')">
+                                            <span>Show Tournament Title Header (<code>?showtitle=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="tourney-opt-format" checked onchange="syncTourneyOptFromMain('format', this.checked ? '1' : '0')">
+                                            <span>Show Elimination Format Pill (<code>?showformat=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="tourney-opt-mode" checked onchange="syncTourneyOptFromMain('mode', this.checked ? '1' : '0')">
+                                            <span>Show Series Mode / Best-Of Pill (<code>?showmode=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="tourney-opt-entrants" checked onchange="syncTourneyOptFromMain('entrants', this.checked ? '1' : '0')">
+                                            <span>Show Participants Count (<code>?showentrants=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="tourney-opt-status" checked onchange="syncTourneyOptFromMain('status', this.checked ? '1' : '0')">
+                                            <span>Show Status Badge (<code>?showstatus=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="tourney-opt-rounds" checked onchange="syncTourneyOptFromMain('rounds', this.checked ? '1' : '0')">
+                                            <span>Show Round Column Headers (<code>?showrounds=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="tourney-opt-scores" checked onchange="syncTourneyOptFromMain('scores', this.checked ? '1' : '0')">
+                                            <span>Show Entrant Scores (<code>?showscores=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="tourney-opt-roundpips" checked onchange="syncTourneyOptFromMain('roundpips', this.checked ? '1' : '0')">
+                                            <span>Show Round Pips (<code>?roundpips=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="tourney-opt-seeds" checked onchange="syncTourneyOptFromMain('seeds', this.checked ? '1' : '0')">
+                                            <span>Show Entrant Seed Numbers (<code>?showseeds=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="tourney-opt-tags" checked onchange="syncTourneyOptFromMain('tags', this.checked ? '1' : '0')">
+                                            <span>Show Player / Character Tags (<code>?showtags=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="tourney-opt-badges" checked onchange="syncTourneyOptFromMain('badges', this.checked ? '1' : '0')">
+                                            <span>Show Live / Status Badges (<code>?showbadges=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="tourney-opt-champion" checked onchange="syncTourneyOptFromMain('champion', this.checked ? '1' : '0')">
+                                            <span>Show Champion Celebration Card (<code>?champion=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="tourney-opt-confetti" onchange="syncTourneyOptFromMain('confetti', this.checked ? '1' : '0')">
+                                            <span>Victory Confetti Celebration (<code>?confetti=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="tourney-opt-fit" onchange="syncTourneyOptFromMain('fit', this.checked ? '1' : '0')">
+                                            <span>Auto-Scale Entire Bracket (<code>?fit=1</code>)</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text); padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border);">
+                                            <input type="checkbox" id="tourney-opt-wide" onchange="updateTourneyOverlayUrl()">
+                                            <span>Wide Bracket Tree Layout (<code>?wide=1</code>)</span>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2096,6 +2156,28 @@
 
         function toggleTourneyFitWholeBracket() {
             setTourneyFitWholeBracket(!tourneyFitWholeBracket);
+        }
+
+        function switchMatchupSubtab(tabName) {
+            const tabs = ['layout', 'typography', 'colors', 'toggles'];
+            tabs.forEach(t => {
+                const btn = $('btn-matchup-subtab-' + t);
+                const panel = $('matchup-subpanel-' + t);
+                if (btn) btn.classList.toggle('active', t === tabName);
+                if (panel) panel.style.display = (t === tabName) ? 'block' : 'none';
+            });
+            try { localStorage.setItem('sp-versus-matchup-subtab', tabName); } catch {}
+        }
+
+        function switchTourneySubtab(tabName) {
+            const tabs = ['layout', 'typography', 'colors', 'elements'];
+            tabs.forEach(t => {
+                const btn = $('btn-tourney-subtab-' + t);
+                const panel = $('tourney-subpanel-' + t);
+                if (btn) btn.classList.toggle('active', t === tabName);
+                if (panel) panel.style.display = (t === tabName) ? 'block' : 'none';
+            });
+            try { localStorage.setItem('sp-versus-tourney-subtab', tabName); } catch {}
         }
 
         function syncTourneyOptFromMain(key, val) {
@@ -6665,6 +6747,12 @@
         populateThemeDropdowns();
         restoreVersusOverlayPrefs();
         setPreviewMode(previewMode);
+        try {
+            const savedMatchupSubtab = localStorage.getItem('sp-versus-matchup-subtab') || 'layout';
+            switchMatchupSubtab(savedMatchupSubtab);
+            const savedTourneySubtab = localStorage.getItem('sp-versus-tourney-subtab') || 'layout';
+            switchTourneySubtab(savedTourneySubtab);
+        } catch {}
         loadMatchup();
         loadTournament();
         loadTournamentDrafts();
