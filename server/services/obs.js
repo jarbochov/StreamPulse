@@ -65,17 +65,26 @@ function buildObsTransform(target = {}, fit = 'cover') {
     };
 }
 
+const MORPH_BEZIERS = {
+    smooth: [0.22, 1, 0.36, 1],
+    snappy: [0.16, 1, 0.3, 1],
+    spring: [0.34, 1.56, 0.64, 1],
+    'ease-in-out': [0.65, 0, 0.35, 1]
+};
+
+// Solves the same cubic-bezier curves the overlay CSS uses, so OBS motion matches the browser frame for frame.
 function evalMorphEase(name, t) {
     const x = Math.max(0, Math.min(1, t));
-    if (name === 'linear') return x;
-    if (name === 'ease-in-out') return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
-    if (name === 'snappy') return 1 - Math.pow(1 - x, 4);
-    if (name === 'spring') {
-        const c1 = 1.70158;
-        const c3 = c1 + 1;
-        return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+    const p = MORPH_BEZIERS[name];
+    if (!p) return name === 'linear' ? x : evalMorphEase('smooth', x);
+    const [x1, y1, x2, y2] = p;
+    const axis = (a, b, s) => 3 * a * s * (1 - s) * (1 - s) + 3 * b * s * s * (1 - s) + s * s * s;
+    let lo = 0, hi = 1, s = x;
+    for (let i = 0; i < 40; i++) {
+        s = (lo + hi) / 2;
+        if (axis(x1, x2, s) < x) lo = s; else hi = s;
     }
-    return 1 - Math.pow(1 - x, 3);
+    return axis(y1, y2, s);
 }
 
 function computeObsAuthResponse(password, salt, challenge) {
@@ -99,6 +108,7 @@ function createObsService({
     const pendingRequests = new Map();
     const activeInterpolations = new Map();
     const pendingSyncs = new Map();
+    const overlayPages = new Map();
     let connectionGeneration = 0;
     const sceneItemIdCache = new Map();
     const lastKnownTransforms = new Map();
@@ -419,7 +429,8 @@ function createObsService({
         fit = 'cover',
         syncVisibility = true,
         durationMs = 0,
-        easing = 'smooth'
+        easing = 'smooth',
+        style = {}
     }) {
         const itemKey = `${sceneName}::${sceneItemId}`;
         // Reserve ownership before any OBS await, including visibility and transform reads.
@@ -476,6 +487,140 @@ function createObsService({
                     filterEnabled: false
                 }).catch(() => null);
                 checkCurrent();
+            }
+
+
+            const mode = style.mode || 'morph';
+            const willShow = target.visible !== false;
+            const effectKind = mode === 'morph' ? (style.enterExit || 'fade') : mode;
+            const readCurrent = async () => {
+                const known = lastKnownTransforms.get(itemKey);
+                if (known) return { ...known };
+                const cur = await call('GetSceneItemTransform', { sceneName, sceneItemId });
+                const curT = cur?.sceneItemTransform;
+                if (!curT) return { ...target };
+                return {
+                    x: Number(curT.positionX) || 0,
+                    y: Number(curT.positionY) || 0,
+                    width: Number(curT.boundsWidth > 1 ? curT.boundsWidth : curT.width) || target.width,
+                    height: Number(curT.boundsHeight > 1 ? curT.boundsHeight : curT.height) || target.height,
+                    rotate: Number(curT.rotation) || 0
+                };
+            };
+            const fadeFilterName = `StreamPulse_Fade_${sceneItemId}`;
+            let opacityUnavailable = false;
+            let opacityFilterTouched = false;
+            const setOpacity = async value => {
+                if (opacityUnavailable) return;
+                const filterSettings = { opacity: Math.round(Math.max(0, Math.min(1, value)) * 100) };
+                try {
+                    const updated = opacityFilterTouched && await call('SetSourceFilterSettings', { sourceName, filterName: fadeFilterName, filterSettings, overlay: true }).catch(() => null);
+                    if (!updated) {
+                        await call('CreateSourceFilter', { sourceName, filterName: fadeFilterName, filterKind: 'color_filter_v2', filterSettings }).catch(async () => {
+                            await call('SetSourceFilterSettings', { sourceName, filterName: fadeFilterName, filterSettings, overlay: true });
+                        });
+                    }
+                    opacityFilterTouched = true;
+                } catch (err) {
+                    if (operation.error || activeInterpolations.get(itemKey) !== operation) throw err;
+                    opacityUnavailable = true;
+                }
+            };
+            const clearOpacity = async () => {
+                if (!opacityFilterTouched) return;
+                opacityFilterTouched = false;
+                await request('RemoveSourceFilter', { sourceName, filterName: fadeFilterName }).catch(() => null);
+            };
+            const runFrames = (ms, frame) => new Promise((resolve, reject) => {
+                operation.reject = reject;
+                const startAt = Date.now();
+                const tick = async () => {
+                    try {
+                        checkCurrent();
+                        const frameStart = Date.now();
+                        const raw = Math.min(1, (frameStart - startAt) / ms);
+                        await frame(raw);
+                        if (raw >= 1) { resolve(); return; }
+                        checkCurrent();
+                        operation.timer = setTimeout(tick, Math.max(0, 16 - (Date.now() - frameStart)));
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                tick();
+            });
+            // Mirrors the overlay's pg-fade/slide/zoom keyframes: slide travels +/-distance, zoom scales 0.85 to 1.
+            const playEffect = async (direction, ms, base) => {
+                const sign = style.sign || [1, 0];
+                const distance = Number(style.distance) || 120;
+                const entering = direction === 'in';
+                const frameState = progress => {
+                    const away = entering ? 1 - progress : progress;
+                    const offset = entering ? away : -away;
+                    const scale = effectKind === 'zoom' ? 1 - 0.15 * away : 1;
+                    const width = Math.max(1, base.width * scale);
+                    const height = Math.max(1, base.height * scale);
+                    return {
+                        opacity: entering ? progress : 1 - progress,
+                        transform: {
+                            x: base.x + (effectKind === 'slide' ? offset * sign[0] * distance : 0) - (width - base.width) / 2,
+                            y: base.y + (effectKind === 'slide' ? offset * sign[1] * distance : 0) - (height - base.height) / 2,
+                            width,
+                            height,
+                            rotate: base.rotate || 0
+                        }
+                    };
+                };
+                const apply = async progress => {
+                    const state = frameState(progress);
+                    if (effectKind !== 'fade') await writeTransform(state.transform);
+                    await setOpacity(state.opacity);
+                };
+                await apply(0);
+                if (entering && syncVisibility) await call('SetSceneItemEnabled', { sceneName, sceneItemId, sceneItemEnabled: true });
+                await runFrames(ms, raw => apply(evalMorphEase(easing, raw)));
+            };
+            const finishEffect = async base => {
+                await writeTransform(base);
+                await clearOpacity();
+            };
+
+            if (effectiveMs > 0 && syncVisibility) {
+                const wasEnabled = (await call('GetSceneItemEnabled', { sceneName, sceneItemId }))?.sceneItemEnabled !== false;
+                if (!willShow) {
+                    if (wasEnabled && effectKind !== 'none') {
+                        const base = await readCurrent();
+                        await playEffect('out', effectiveMs, base);
+                        await call('SetSceneItemEnabled', { sceneName, sceneItemId, sceneItemEnabled: false });
+                        await finishEffect(base);
+                        return;
+                    }
+                    await call('SetSceneItemEnabled', { sceneName, sceneItemId, sceneItemEnabled: false });
+                    return;
+                }
+                if (!wasEnabled) {
+                    if (effectKind === 'none') {
+                        await writeTransform(target);
+                        await call('SetSceneItemEnabled', { sceneName, sceneItemId, sceneItemEnabled: true });
+                        return;
+                    }
+                    await playEffect('in', effectiveMs, target);
+                    await finishEffect(target);
+                    return;
+                }
+                if (mode !== 'morph') {
+                    const current = await readCurrent();
+                    const moved = ['x', 'y', 'width', 'height', 'rotate'].some(key => Math.abs((Number(current[key]) || 0) - (Number(target[key]) || 0)) > 1);
+                    if (moved && effectKind !== 'none') {
+                        await playEffect('out', effectiveMs / 2, current);
+                        await writeTransform(target);
+                        await playEffect('in', effectiveMs / 2, target);
+                        await finishEffect(target);
+                    } else {
+                        await writeTransform(target);
+                    }
+                    return;
+                }
             }
 
             if (syncVisibility && target.visible !== false) {
@@ -682,6 +827,20 @@ function createObsService({
             ? 0
             : (Number(overlay.pages.transitionMs) || 650);
         const easing = overlay.pages?.transitionEasing || 'smooth';
+        const previousPage = overlayPages.get(overlay.id || '');
+        if (overlay.id) overlayPages.set(overlay.id, targetPage);
+        const items = overlay.pages?.items || [];
+        const prevIdx = items.findIndex(item => item.id === previousPage);
+        const nextIdx = items.findIndex(item => item.id === targetPage);
+        const isBackward = prevIdx !== -1 && nextIdx !== -1 && nextIdx < prevIdx && !(overlay.pages?.mode === 'auto' && prevIdx === items.length - 1 && nextIdx === 0);
+        const flipDir = { left: 'right', right: 'left', up: 'down', down: 'up' };
+        const direction = isBackward ? (flipDir[overlay.pages?.transitionDirection] || 'right') : (overlay.pages?.transitionDirection || 'left');
+        const transitionStyle = {
+            mode: ['morph', 'fade', 'slide', 'zoom', 'none'].includes(overlay.pages?.transition) ? overlay.pages.transition : 'morph',
+            enterExit: overlay.pages?.enterExit || 'fade',
+            sign: { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] }[direction] || [1, 0],
+            distance: Number(overlay.pages?.transitionDistance) || 120
+        };
 
         let synced = 0;
         const results = [];
@@ -714,7 +873,8 @@ function createObsService({
                     fit: link.fit || 'cover',
                     syncVisibility: link.syncVisibility !== false,
                     durationMs,
-                    easing
+                    easing,
+                    style: transitionStyle
                 });
                 synced++;
                 results.push({ id: el.id, sourceName: link.sourceName, sceneName, sceneItemId, ok: true });

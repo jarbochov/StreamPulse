@@ -211,25 +211,30 @@ export function scheduleEditorCutoutMask() {
     });
 }
 
+const EASING_BEZIERS = {
+    smooth: [0.22, 1, 0.36, 1],
+    snappy: [0.16, 1, 0.3, 1],
+    spring: [0.34, 1.56, 0.64, 1],
+    'ease-in-out': [0.65, 0, 0.35, 1]
+};
 const EASING_CSS = {
-    smooth: 'cubic-bezier(0.22, 1, 0.36, 1)',
-    snappy: 'cubic-bezier(0.16, 1, 0.3, 1)',
-    spring: 'cubic-bezier(0.34, 1.45, 0.64, 1)',
-    'ease-in-out': 'cubic-bezier(0.45, 0, 0.55, 1)',
+    ...Object.fromEntries(Object.entries(EASING_BEZIERS).map(([name, p]) => [name, `cubic-bezier(${p.join(', ')})`])),
     linear: 'linear'
 };
 
+// Same curves as the live overlay and OBS motion, so the preview matches playback.
 function evalEasing(name, t) {
     if (t <= 0) return 0;
     if (t >= 1) return 1;
-    if (name === 'linear') return t;
-    if (name === 'ease-in-out') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    if (name === 'snappy') return 1 - Math.pow(1 - t, 4);
-    if (name === 'spring') {
-        const c1 = 1.70158, c3 = c1 + 1;
-        return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    const p = EASING_BEZIERS[name];
+    if (!p) return name === 'linear' ? t : evalEasing('smooth', t);
+    const axis = (a, b, s) => 3 * a * s * (1 - s) * (1 - s) + 3 * b * s * s * (1 - s) + s * s * s;
+    let lo = 0, hi = 1, s = t;
+    for (let k = 0; k < 40; k++) {
+        s = (lo + hi) / 2;
+        if (axis(p[0], p[2], s) < t) lo = s; else hi = s;
     }
-    return 1 - Math.pow(1 - t, 3);
+    return axis(p[1], p[3], s);
 }
 
 let activeMorphCleanup = null;

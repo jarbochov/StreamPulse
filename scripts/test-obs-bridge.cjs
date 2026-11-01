@@ -111,6 +111,34 @@ test('simple Pages remain instant and never send OBS commands, even with inherit
     }
 });
 
+test('crossfade and slide transitions never use Move filters and match the overlay effect', async () => {
+    for (const transition of ['fade', 'slide', 'zoom']) {
+        const { service, socket } = createConnectedService();
+        try {
+            await flush();
+            const result = await service.syncOverlayState({
+                id: `parity-${transition}`,
+                elements: [{
+                    id: 'camera', page: '*', x: 100, y: 100, width: 400, height: 300,
+                    pageStates: { p2: { x: 900, y: 400 } },
+                    obsLink: { enabled: true, sourceName: 'Camera', sceneName: 'Main' }
+                }],
+                pages: { enabled: true, kind: 'states', items: [{ id: 'p1' }, { id: 'p2' }], transition, transitionMs: 120, transitionEasing: 'linear' }
+            }, 'p2');
+            assert.equal(result.ok, true);
+            assert.ok(!socket.requests.some(r => r.requestType === 'CreateSourceFilter' && r.requestData.filterKind === 'move_source_filter'), transition);
+            assert.ok(!socket.requests.some(r => r.requestType === 'SetSourceFilterSettings' && r.requestData.filterName?.startsWith('StreamPulse_Move_')), transition);
+            assert.ok(socket.requests.some(r => r.requestType === 'CreateSourceFilter' && r.requestData.filterKind === 'color_filter_v2'), transition);
+            const transforms = socket.requests.filter(r => r.requestType === 'SetSceneItemTransform').map(r => r.requestData.sceneItemTransform);
+            assert.equal(transforms.at(-1).positionX, 900);
+            assert.equal(transforms.at(-1).positionY, 400);
+            assert.ok(socket.requests.some(r => r.requestType === 'RemoveSourceFilter' && r.requestData.filterName === 'StreamPulse_Fade_55'));
+        } finally {
+            service.disconnect();
+        }
+    }
+});
+
 test('new Move filters load their target after attachment to the containing scene', async () => {
     const { service, socket } = createConnectedService();
     try {
