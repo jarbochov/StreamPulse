@@ -337,14 +337,14 @@ function createObsService({
             state.connecting = false;
             state.identified = false;
             clearPendingRequests('OBS socket closed');
-            if (code === 4009) {
+            if (code === 4006) {
                 state.lastError = 'Authentication failed — check your OBS WebSocket password.';
             } else if (!wasIdentified && !state.lastError) {
                 const reasonStr = reason ? String(reason).trim() : '';
                 state.lastError = reasonStr || `Could not connect to OBS at ${cfg.host}:${cfg.port}`;
             }
             onStatusChange(getStatus());
-            if (code !== 4009) scheduleReconnect(4000);
+            if (code !== 4006) scheduleReconnect(4000);
         });
 
         addListener('error', err => {
@@ -480,21 +480,21 @@ function createObsService({
                     }
                 }
                 const setRes = await request('SetSourceFilterSettings', {
-                    sourceName: sceneName,
+                    sourceName,
                     filterName,
                     filterSettings,
                     overlay: true
                 }).catch(() => null);
                 if (!setRes) {
                     await request('CreateSourceFilter', {
-                        sourceName: sceneName,
+                        sourceName,
                         filterName,
                         filterKind: 'move_source_filter',
                         filterSettings
                     });
                 }
                 await request('SetSourceFilterEnabled', {
-                    sourceName: sceneName,
+                    sourceName,
                     filterName,
                     filterEnabled: true
                 });
@@ -598,7 +598,7 @@ function createObsService({
             y: Number(ovr?.y ?? el.y) || 0,
             width: Math.max(1, Number(ovr?.width ?? el.width) || 100),
             height: Math.max(1, Number(ovr?.height ?? el.height) || 100),
-            rotate: Number(ovr?.rotate ?? el.style?.rotate) || 0,
+            rotate: Number(ovr?.rotate ?? ovr?.style?.rotate ?? el.style?.rotate) || 0,
             visible: (ovr?.visible !== undefined ? ovr.visible : el.visible) !== false
         };
     }
@@ -646,7 +646,7 @@ function createObsService({
                 results.push({ id: el.id, sourceName: link.sourceName, sceneName, ok: false, reason: err.message });
             }
         }));
-        return { ok: true, synced, results };
+        return { ok: results.every(result => result.ok), synced, results };
     }
 
     return {

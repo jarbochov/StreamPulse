@@ -222,7 +222,7 @@ const obsService = createObsService({
 });
 const broadcastToOverlays = (type, payload) => {
     wsService.broadcastToOverlays(type, payload);
-    if (type === 'custom-overlay-page' && payload?.id && payload?.page && customOverlays[payload.id]) {
+    if (config?.obs?.syncOnSave !== false && type === 'custom-overlay-page' && payload?.id && payload?.page && customOverlays[payload.id]) {
         obsService.syncOverlayState(customOverlays[payload.id], payload.page, { animate: true }).catch(() => {});
     } else if (type === 'custom-overlay-update' && payload?.overlay && config?.obs?.syncOnSave !== false) {
         const curPage = pageSnapshot(payload.overlay)?.page || '';

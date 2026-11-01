@@ -857,8 +857,20 @@
     // Swaps only the page's own elements, so shared elements keep running through the transition.
     let pageSwitchTimer = null;
     let cutoutMorphRaf = 0;
+    let cancelPageSwitch = null;
+    let pageSwitchGeneration = 0;
+    let pageSwitchRaf = 0;
     function switchPage(nextId) {
         if (!currentOverlay || !pagesOn(currentOverlay) || nextId === currentPage || !nextId) return;
+        if (cancelPageSwitch) {
+            const finishPrevious = cancelPageSwitch;
+            cancelPageSwitch = null;
+            clearTimeout(pageSwitchTimer);
+            pageSwitchTimer = null;
+            finishPrevious();
+        }
+        if (pageSwitchRaf) { cancelAnimationFrame(pageSwitchRaf); pageSwitchRaf = 0; }
+        const generation = ++pageSwitchGeneration;
         const pages = currentOverlay.pages;
         const previous = currentPage;
         const beforeShared = new Map();
@@ -922,6 +934,7 @@
 
         // Handle shared elements (el.page === '*') that may have per-state overrides on the target state
         const morphedShared = [];
+        const incoming = [];
         const afterSharedElements = pageElements(currentOverlay, currentPage, { includeHiddenShared: true }).filter(el => el.page === '*');
         for (const afterEl of afterSharedElements) {
             const prevEl = beforeShared.get(afterEl.id);
@@ -949,6 +962,8 @@
                     ghost.style.opacity = String(wasVis ? (prevEl.style?.opacity ?? 1) : 0);
                     ghost.style.pointerEvents = 'none';
                     parent.appendChild(ghost);
+                    node.style.visibility = 'hidden';
+                    node.style.pointerEvents = 'none';
                     outgoing.push(ghost);
                 } else if (!wasVis && nowVis) {
                     // Shared element is APPEARING on this state: play enter animation
@@ -1015,7 +1030,7 @@
 
         // Build and lay the new page out first, then start the animation on the next frame, so fitting text
         // and decoding images do not stutter the first frames.
-        const incoming = pageElements(currentOverlay).filter(element => element.page === currentPage).map(buildNode);
+        incoming.push(...pageElements(currentOverlay).filter(element => element.page === currentPage).map(buildNode));
         incoming.forEach(node => {
             node._layer = (node._isTopLayer || Number(node.style.zIndex || 0) > maxCutoutZ) ? 'top' : 'masked';
             if (ms) { node.style.visibility = 'hidden'; node.style.willChange = 'transform, opacity'; }
@@ -1033,7 +1048,13 @@
         }
         if (!ms || !isMorph) updateCutoutMask();
 
+        let finished = false;
         const finish = () => {
+            if (finished) return;
+            finished = true;
+            if (cancelPageSwitch === finish) cancelPageSwitch = null;
+            clearTimeout(pageSwitchTimer);
+            pageSwitchTimer = null;
             if (cutoutMorphRaf) { cancelAnimationFrame(cutoutMorphRaf); cutoutMorphRaf = 0; }
             outgoing.forEach(node => {
                 if (node._isGhost) {
@@ -1070,16 +1091,31 @@
             transitioning = false;
             if (pendingRender) { const next = pendingRender; pendingRender = null; render(next); }
         };
+        cancelPageSwitch = finish;
+        if (!ms) { finish(); return; }
+        const animKind = kind === 'morph' ? enterExit : kind;
+        if (animKind === 'none') {
+            incoming.forEach(node => { node.style.visibility = ''; });
+            outgoing.forEach(node => {
+                if (node._isGhost) node.remove();
+                else node.style.visibility = 'hidden';
+            });
+        }
         // Fresh embeds are blank until loaded, so hold the switch briefly (max 2s) until they have painted.
-        const loading = incoming.flatMap(node => [...node.querySelectorAll('iframe')]).filter(frame => {
+        const loading = animKind === 'none' ? [] : incoming.flatMap(node => [...node.querySelectorAll('iframe')]).filter(frame => {
             try { return frame.contentDocument?.readyState !== 'complete' || frame.contentWindow.location.href === 'about:blank'; } catch { return true; }
         });
         const ready = loading.length ? Promise.race([Promise.all(loading.map(frame => new Promise(done => frame.addEventListener('load', done, { once: true })))), new Promise(done => setTimeout(done, 2000))]) : Promise.resolve();
-        if (!ms) { finish(); return; }
-        const animKind = kind === 'morph' ? (enterExit === 'none' ? 'fade' : enterExit) : kind;
-        ready.then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
-            incoming.forEach(node => { slideVars(node, animKind); node.style.visibility = ''; node.style.animation = `pg-${animKind}-in ${ms}ms ${cssEase} both`; });
-            outgoing.forEach(node => { slideVars(node, animKind); node.style.animation = `pg-${animKind}-out ${ms}ms ${cssEase} both`; });
+        ready.then(() => {
+            if (generation !== pageSwitchGeneration) return;
+            pageSwitchRaf = requestAnimationFrame(() => {
+                pageSwitchRaf = requestAnimationFrame(() => {
+            pageSwitchRaf = 0;
+            if (generation !== pageSwitchGeneration) return;
+            if (animKind !== 'none') {
+                incoming.forEach(node => { slideVars(node, animKind); node.style.visibility = ''; node.style.animation = `pg-${animKind}-in ${ms}ms ${cssEase} both`; });
+                outgoing.forEach(node => { slideVars(node, animKind); node.style.animation = `pg-${animKind}-out ${ms}ms ${cssEase} both`; });
+            }
             morphedShared.forEach(({ node, afterEl, nowVis, targetFitted }) => {
                 const morphProps = [
                     'left', 'top', 'width', 'height', 'transform', 'opacity',
@@ -1146,7 +1182,9 @@
             }
 
             pageSwitchTimer = setTimeout(finish, ms + 35);
-        })));
+                });
+            });
+        });
     }
 
     async function load() {

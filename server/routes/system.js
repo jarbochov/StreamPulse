@@ -3,6 +3,7 @@ const path = require('path');
 const { execFile } = require('child_process');
 const { readRequestBody, sendJson, sendText, sendError } = require('./helpers');
 const { normalizeSsnSessionId } = require('../ssn-config');
+const { normalizeObsConfig } = require('../services/obs');
 
 function createSystemRoutes({
     rootDir,
@@ -102,8 +103,11 @@ function createSystemRoutes({
                                 current[key] = { ...(current.music || {}), ...updates[key] };
                             } else if (key === 'session_lifecycle' && updates[key] && typeof updates[key] === 'object') {
                                 current[key] = { ...(current.session_lifecycle || {}), ...updates[key] };
-                            } else if (key === 'obs' && updates[key] && typeof updates[key] === 'object') {
-                                current[key] = { ...(current.obs || {}), ...updates[key] };
+                            } else if (key === 'obs') {
+                                const obsUpdates = updates[key] && typeof updates[key] === 'object' && !Array.isArray(updates[key])
+                                    ? updates[key]
+                                    : {};
+                                current[key] = normalizeObsConfig({ ...(current.obs || {}), ...obsUpdates });
                             } else {
                                 current[key] = updates[key];
                             }

@@ -149,6 +149,28 @@ test('Smart Alignment, Equal-Spacing & Dimension-Match Snapping (editor-geometry
     assert.equal(resizeSnap.h, 100, 'Should snap height to match 100px peer');
     assert.ok(resizeSnap.guides.some(g => g.kind === 'dim' && g.axis === 'w'), 'Should emit width dimension-match badge');
     assert.ok(resizeSnap.guides.some(g => g.kind === 'dim' && g.axis === 'h'), 'Should emit height dimension-match badge');
+
+    // 4. Canvas-edge alignment must win at the left and right canvas boundaries.
+    const leftEdgeSnap = geom.computeSmartMoveSnap(
+        { x: -2, y: 200, w: 100, h: 50 },
+        model,
+        6,
+        { align: true, spacing: false }
+    );
+    assert.equal(leftEdgeSnap.dx, 2, 'Should snap a slightly off-canvas left edge to x=0');
+    assert.ok(leftEdgeSnap.guides.some(g => g.kind === 'line' && g.axis === 'v' && g.pos === 0), 'Should show the left canvas-edge guide');
+
+    const rightEdgeSnap = geom.computeSmartResizeSnap(
+        { x: 1700, y: 500, w: 218, h: 100 },
+        'e',
+        2,
+        0,
+        model,
+        6,
+        { align: true, dimensions: true }
+    );
+    assert.equal(rightEdgeSnap.w, 220, 'Should snap a resized right edge to the canvas width');
+    assert.ok(rightEdgeSnap.guides.some(g => g.kind === 'line' && g.axis === 'v' && g.pos === 1920), 'Should show the right canvas-edge guide');
 });
 
 test('Scene States, Morph Transitions & Prefabs (overlays service + presets + runtime)', () => {

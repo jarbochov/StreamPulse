@@ -99,6 +99,9 @@ try {
                 await state.flush();
             };
             window.fetch = (url, init = {}) => {
+                if (url === '/api/custom-overlays/assets') {
+                    return Promise.resolve(new window.Response('[]'));
+                }
                 if (url === '/api/config') {
                     return new Promise(resolve => {
                         state.releaseConfig = () => resolve(new window.Response(JSON.stringify({

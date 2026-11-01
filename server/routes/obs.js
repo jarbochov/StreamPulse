@@ -100,7 +100,16 @@ function createObsRoutes({
                 const pageId = body.pageId || body.page || pageSnapshot(overlay)?.page || '';
                 const animate = body.instant ? false : (body.animate !== false);
                 const result = await obsService.syncOverlayState(overlay, pageId, { animate, instant: Boolean(body.instant) });
-                sendJson(res, 200, { ok: true, ...result });
+                if (!result.ok) {
+                    const unavailable = !obsService.getStatus().connected;
+                    const failed = result.results?.find(item => !item.ok);
+                    sendJson(res, {
+                        ...result,
+                        error: unavailable ? 'OBS WebSocket is not connected' : (failed?.reason || 'Could not sync overlay state to OBS')
+                    }, unavailable ? 503 : 502);
+                    return true;
+                }
+                sendJson(res, 200, result);
             } catch (err) {
                 sendError(res, 500, err.message || 'Failed to sync state to OBS');
             }
