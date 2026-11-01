@@ -618,6 +618,7 @@ try {
         'Pages cut synchronously without morphing, entrance animations, or outgoing ghosts');
 
     const editorPage = await browser.newPage();
+    await editorPage.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }]);
     editorPage.on('pageerror', error => errors.push(error.message));
     await editorPage.setRequestInterception(true);
     editorPage.on('request', request => {
@@ -725,14 +726,15 @@ try {
             ghosts: stage.querySelectorAll('[id^="ghost-"]').length,
             start: getComputedStyle(node).left,
             opacity: getComputedStyle(node).opacity,
-            animations: animations.length
+            animations: animations.length,
+            durations: animations.map(animation => animation.effect.getTiming().duration)
         };
     });
     assert.ok(morphPreview.transition.includes('left 160ms'), 'editor morph preview must use the runtime transition duration and animate geometry');
     assert.equal(morphPreview.ghosts, 0, 'morph preview must move the shared element in place');
     const morphLeft = Number.parseFloat(morphPreview.start);
     const morphOpacity = Number.parseFloat(morphPreview.opacity);
-    assert.ok(morphLeft > 30 && morphLeft < 230, 'morph preview must interpolate from captured geometry toward the target');
+    assert.ok(morphLeft > 30 && morphLeft < 230, `morph preview must interpolate from captured geometry toward the target: ${JSON.stringify(morphPreview)}`);
     assert.ok(morphOpacity < 1 && morphOpacity > 0.5, 'morph preview must interpolate style opacity with position');
     assert.ok(morphPreview.animations >= 2, 'native position and opacity transitions must both run');
     await editorPage.evaluate(() => {
