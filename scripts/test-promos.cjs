@@ -625,66 +625,97 @@ test('promo persistence, image references and actual studio export work without 
     assert.equal(model.background({ pattern: 'hexagons' }).pattern, 'hexagons', 'hexagon pattern is persisted by normalization');
     assert.equal(model.background({ pattern: 'topography' }).pattern, 'topography', 'new patterns are preserved by normalization');
     assert.equal(model.background({ motion: 'drift' }).motion, 'drift', 'pattern motion is preserved by normalization');
-    const mp4Export = await page.evaluate(async () => {
-        const { exportAnimation, supportsMp4 } = await import('/js/promo-export.js');
-        const supported = await supportsMp4();
-        if (!supported) return { supported };
-        const id = new URLSearchParams(window.location.search).get('id');
-        const design = await (await fetch(`/api/promos/${id}`)).json();
-        const result = await exportAnimation(design, 'square', { seconds: .2 });
-        const header = new window.TextDecoder().decode(await result.blob.slice(0, 32).arrayBuffer());
-        return { supported, type: result.blob.type, size: result.blob.size, name: result.name, header, bytes: Array.from(new Uint8Array(await result.blob.arrayBuffer())) };
-    });
-    if (mp4Export.supported) {
-        const { Input, BufferSource, ALL_FORMATS, EncodedPacketSink } = await import('mediabunny');
-        const input = new Input({ source: new BufferSource(Uint8Array.from(mp4Export.bytes)), formats: ALL_FORMATS });
-        try {
-            const track = await input.getPrimaryVideoTrack();
-            assert.ok(track, 'MP4 export contains a video track, not just a container header');
-            const config = await track.getDecoderConfig();
-            assert.match(config.codec, /^avc1\./);
-            assert.deepEqual([config.codedWidth, config.codedHeight], model.SIZES.square, 'MP4 keeps full export resolution');
-            assert.ok(config.description?.byteLength > 0, 'MP4 includes the AVC decoder configuration');
-            const packets = [];
-            for await (const packet of new EncodedPacketSink(track).packets(undefined, undefined, { verifyKeyPackets: true })) {
-                assert.ok(packet.data.length > 0, 'every MP4 frame has encoded video data');
-                packets.push(packet);
-            }
-            assert.ok(packets.length >= 2, 'MP4 contains multiple encoded frames');
-            assert.equal(packets[0].type, 'key', 'MP4 begins with an independently decodable AVC keyframe');
-            assert.ok(packets.at(-1).timestamp > packets[0].timestamp, 'MP4 frame timestamps advance');
-            assert.ok(await track.computeDuration() >= .15, 'MP4 covers the short animation, not only its first frame');
-            const decoded = await page.evaluate(async ({ config, packets }) => {
-                const frames = [], decoder = new window.VideoDecoder({
-                    output(frame) {
-                        frames.push({ width: frame.displayWidth, height: frame.displayHeight, timestamp: frame.timestamp });
-                        frame.close();
-                    },
-                    error(error) { throw error; }
-                });
+    const cdp = await page.createCDPSession();
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 });
+    try {
+        for (const nativeFallback of [false, true]) {
+            // The UI only exports six-second loops; 0.2s is an offline-encoding stress fixture.
+            const seconds = nativeFallback ? 6 : .2;
+            const mp4Export = await page.evaluate(async ({ nativeFallback, seconds }) => {
+                const { exportAnimation, supportsMp4 } = await import('/js/promo-export.js');
+                const originalEncoder = window.VideoEncoder, originalCapture = window.HTMLCanvasElement.prototype.captureStream;
+                if (nativeFallback) {
+                    window.VideoEncoder = undefined;
+                    window.HTMLCanvasElement.prototype.captureStream = function () {
+                        const stream = originalCapture.call(this, 0), track = stream.getVideoTracks()[0];
+                        const stop = track.stop.bind(track);
+                        const timer = setInterval(() => track.requestFrame(), 250);
+                        track.stop = () => { clearInterval(timer); stop(); };
+                        return stream;
+                    };
+                } else {
+                    window.HTMLCanvasElement.prototype.captureStream = () => { throw new Error('Offline encoding must not depend on realtime canvas capture.'); };
+                }
                 try {
-                    decoder.configure({ ...config, description: new Uint8Array(config.description) });
-                    for (const packet of packets) decoder.decode(new window.EncodedVideoChunk({
-                        ...packet, data: new Uint8Array(packet.data)
-                    }));
-                    await decoder.flush();
-                    return frames;
-                } finally { decoder.close(); }
-            }, {
-                config: { ...config, description: Array.from(new Uint8Array(config.description)) },
-                packets: packets.map(packet => ({
-                    type: packet.type, timestamp: packet.microsecondTimestamp, duration: packet.microsecondDuration, data: Array.from(packet.data)
-                }))
-            });
-            assert.equal(decoded.length, packets.length, 'every encoded MP4 frame can actually be decoded');
-            assert.ok(decoded.every(frame => frame.width === 1080 && frame.height === 1080), 'decoded frames preserve promo dimensions');
-            t.diagnostic(`MP4: ${mp4Export.size} bytes, ${packets.length} decoded AVC frames, ${(await track.computeDuration()).toFixed(3)}s`);
-        } finally { input.dispose(); }
-        assert.match(mp4Export.type, /^video\/mp4(?:;codecs=avc1[^,;]+)?$/);
-        assert.match(mp4Export.name, /-square-animated\.mp4$/);
-        assert.ok(mp4Export.header.includes('ftyp'), 'MP4 export contains the expected MP4 file signature');
-    } else {
-        assert.equal(await page.$eval('#animation-export', el => el.disabled), true, 'MP4 export is disabled when the browser has no H.264 encoder');
+                    const supported = await supportsMp4();
+                    if (!supported) return { supported };
+                    const id = new URLSearchParams(window.location.search).get('id');
+                    const design = await (await fetch(`/api/promos/${id}`)).json();
+                    const result = await exportAnimation(design, 'square', nativeFallback ? {} : { seconds });
+                    const header = new window.TextDecoder().decode(await result.blob.slice(0, 32).arrayBuffer());
+                    return { supported, type: result.blob.type, size: result.blob.size, name: result.name, header, bytes: Array.from(new Uint8Array(await result.blob.arrayBuffer())) };
+                } finally {
+                    window.VideoEncoder = originalEncoder;
+                    window.HTMLCanvasElement.prototype.captureStream = originalCapture;
+                }
+            }, { nativeFallback, seconds });
+            if (mp4Export.supported) {
+                const { Input, BufferSource, ALL_FORMATS, EncodedPacketSink } = await import('mediabunny');
+                const input = new Input({ source: new BufferSource(Uint8Array.from(mp4Export.bytes)), formats: ALL_FORMATS });
+                try {
+                    const track = await input.getPrimaryVideoTrack();
+                    assert.ok(track, 'MP4 export contains a video track, not just a container header');
+                    const config = await track.getDecoderConfig();
+                    assert.match(config.codec, /^avc1\./);
+                    assert.deepEqual([config.codedWidth, config.codedHeight], model.SIZES.square, 'MP4 keeps full export resolution');
+                    assert.ok(config.description?.byteLength > 0, 'MP4 includes the AVC decoder configuration');
+                    const packets = [];
+                    for await (const packet of new EncodedPacketSink(track).packets(undefined, undefined, { verifyKeyPackets: true })) {
+                        assert.ok(packet.data.length > 0, 'every MP4 frame has encoded video data');
+                        packets.push(packet);
+                    }
+                    assert.ok(packets.length >= 2, 'MP4 contains multiple encoded frames');
+                    if (!nativeFallback) assert.equal(packets.length, 4, 'offline encoding preserves all four frames under CPU throttling');
+                    assert.equal(packets[0].type, 'key', 'MP4 begins with an independently decodable AVC keyframe');
+                    assert.ok(packets.at(-1).timestamp > packets[0].timestamp, 'MP4 frame timestamps advance');
+                    assert.ok(await track.computeDuration() >= seconds - .05, 'MP4 covers the requested animation, not only its first frame');
+                    if (!nativeFallback) assert.equal(await track.computeDuration(), seconds, 'offline encoding keeps exact duration regardless of render speed');
+                    const decoded = await page.evaluate(async ({ config, packets }) => {
+                        const frames = [], decoder = new window.VideoDecoder({
+                            output(frame) {
+                                frames.push({ width: frame.displayWidth, height: frame.displayHeight, timestamp: frame.timestamp });
+                                frame.close();
+                            },
+                            error(error) { throw error; }
+                        });
+                        try {
+                            decoder.configure({ ...config, description: new Uint8Array(config.description) });
+                            for (const packet of packets) decoder.decode(new window.EncodedVideoChunk({
+                                ...packet, data: new Uint8Array(packet.data)
+                            }));
+                            await decoder.flush();
+                            return frames;
+                        } finally { decoder.close(); }
+                    }, {
+                        config: { ...config, description: Array.from(new Uint8Array(config.description)) },
+                        packets: packets.map(packet => ({
+                            type: packet.type, timestamp: packet.microsecondTimestamp, duration: packet.microsecondDuration, data: Array.from(packet.data)
+                        }))
+                    });
+                    assert.equal(decoded.length, packets.length, 'every encoded MP4 frame can actually be decoded');
+                    assert.ok(decoded.every(frame => frame.width === 1080 && frame.height === 1080), 'decoded frames preserve promo dimensions');
+                    t.diagnostic(`${nativeFallback ? 'Native fallback (250ms capture)' : 'Offline'} MP4 at 6x CPU throttle: ${mp4Export.size} bytes, ${packets.length} decoded AVC frames, ${(await track.computeDuration()).toFixed(3)}s`);
+                } finally { input.dispose(); }
+                assert.match(mp4Export.type, /^video\/mp4(?:;codecs=avc1[^,;]+)?$/);
+                assert.match(mp4Export.name, /-square-animated\.mp4$/);
+                assert.ok(mp4Export.header.includes('ftyp'), 'MP4 export contains the expected MP4 file signature');
+            } else {
+                assert.equal(await page.$eval('#animation-export', el => el.disabled), true, 'MP4 export is disabled when the browser has no H.264 encoder');
+            }
+        }
+    } finally {
+        await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+        await cdp.detach();
     }
     await page.setViewport({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'studio fits narrow screens');
@@ -728,6 +759,27 @@ test('promo persistence, image references and actual studio export work without 
     fs.writeFileSync(path.join(dataDir, 'promo-themes.json'), '{}');
     assert.equal((await api('/api/promo-themes')).status, 500);
     assert.ok(messages.some(message => message.includes('[Promos]')));
+});
+
+test('promo export prefers offline encoding at the actual dimensions and retains native fallback', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../public/js/promo-export.js'), 'utf8');
+    for (const offlineSupported of [true, false]) {
+        const calls = [];
+        const exportAnimation = vm.runInNewContext(
+            source.slice(source.indexOf('export async function exportAnimation(')).replace('export async function', 'async function') + '\nexportAnimation;',
+            {
+                ANIMATION_SECONDS: 6, window: { PromoModel: { SIZES: { landscape: [1920, 1080] } } },
+                document: { createElement: () => ({}) },
+                supportsNativeMp4: () => true,
+                supportsWebCodecsMp4: async (...dimensions) => { calls.push(dimensions); return offlineSupported; },
+                renderFrame: async () => {},
+                exportWithWebCodecs: async () => { calls.push('offline'); return new globalThis.Blob(['encoded']); },
+                exportWithMediaRecorder: async () => { calls.push('native'); return new globalThis.Blob(['encoded']); }
+            }
+        );
+        await exportAnimation({ name: 'Fictional' }, 'landscape');
+        assert.deepEqual(calls, [[1920, 1080], offlineSupported ? 'offline' : 'native']);
+    }
 });
 
 test('native promo MP4 recording waits for codec startup and cleans up startup errors', { timeout: 2000 }, async () => {

@@ -11,7 +11,7 @@ const { normalizeConfig } = require('../server/services/alerts');
 const { createStaticRouter } = require('../server/static-router');
 
 const rootDir = path.resolve(__dirname, '..');
-const serverSource = fs.readFileSync(path.join(rootDir, 'server.js'), 'utf8');
+const serverSource = fs.readFileSync(path.join(rootDir, 'server.js'), 'utf8').replace(/\r\n/g, '\n');
 const alertsMapping = serverSource.match(/\n        alerts: (\{[\s\S]*?\n        \}),\n        modules:/)?.[1];
 assert.ok(alertsMapping, 'locate the real /api/status alerts mapping without starting the backend');
 

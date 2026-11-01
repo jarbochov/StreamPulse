@@ -53,17 +53,20 @@ function supportsNativeMp4() {
     return Boolean(window.MediaRecorder?.isTypeSupported?.(MP4_MIME) && HTMLCanvasElement.prototype.captureStream);
 }
 
-export async function supportsMp4() {
-    if (supportsNativeMp4()) return true;
+async function supportsWebCodecsMp4(width = 1080, height = 1080) {
     if (typeof window.VideoEncoder?.isConfigSupported !== 'function') return false;
     try {
         const { supported } = await window.VideoEncoder.isConfigSupported({
-            codec: 'avc1.420028', width: 1080, height: 1080, bitrate: 4_000_000, framerate: MP4_FPS
+            codec: 'avc1.420028', width, height, bitrate: 4_000_000, framerate: MP4_FPS
         });
         return supported === true;
     } catch {
         return false;
     }
+}
+
+export async function supportsMp4() {
+    return supportsNativeMp4() || await supportsWebCodecsMp4();
 }
 
 function paintOpaque(canvas, design) {
@@ -151,12 +154,15 @@ async function exportWithWebCodecs(canvas, design, ratio, seconds, onProgress) {
 
 export async function exportAnimation(design, ratio, { onProgress = () => {}, seconds = ANIMATION_SECONDS } = {}) {
     if (!Number.isFinite(seconds) || seconds <= 0 || seconds > ANIMATION_SECONDS) throw new Error('Animation duration must be between 0 and 6 seconds.');
-    if (!await supportsMp4()) throw new Error('MP4 export is not supported by this browser. Try the latest version of Safari, Chrome, or Edge.');
+    const [width, height] = window.PromoModel.SIZES[ratio];
+    const offline = await supportsWebCodecsMp4(width, height);
+    if (!offline && !supportsNativeMp4()) throw new Error('MP4 export is not supported by this browser. Try the latest version of Safari, Chrome, or Edge.');
     const canvas = document.createElement('canvas');
     await renderFrame(canvas, design, ratio, 0);
-    const blob = supportsNativeMp4()
-        ? await exportWithMediaRecorder(canvas, design, ratio, seconds, onProgress)
-        : await exportWithWebCodecs(canvas, design, ratio, seconds, onProgress);
+    // Offline encoding preserves every frame and timestamp even when rendering is slower than realtime.
+    const blob = offline
+        ? await exportWithWebCodecs(canvas, design, ratio, seconds, onProgress)
+        : await exportWithMediaRecorder(canvas, design, ratio, seconds, onProgress);
     if (!blob.size) throw new Error('The browser MP4 encoder returned an empty file.');
     const name = design.name.replace(/[^a-z0-9_-]/gi, '-').slice(0, 80) || 'promo';
     return { blob, name: `${name}-${ratio}-animated.mp4` };

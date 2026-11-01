@@ -18,7 +18,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Bitfocus Companion & REST API: Plain-text Stream Deck title lookups (`/api/status/field/:field`, `/api/matchup/field/:field`), unified HTTP GET and POST trigger fallbacks, and real-time state variables.
 - Poll Manager: Viewer-based chat voting, blind audience brackets, focused overlays with snapshot recovery, reusable tournament templates, progress checkpoints, and completed-ballot history.
 - Randomizer Elimination Mode: Weight-based choice randomizer with elimination and restoration.
-- Promo Creator: Social promo generator with multi-layer layout, animations, image export, and startup-safe video recording.
+- Promo Creator: Social promo generator with multi-layer layout, animations, PNG exports, and six-second MP4 loops.
 - Procedural Patterns Library: Shared 20-pattern geometric and organic pattern generator synced across Promo Creator and Custom Overlay Editor.
 - Custom Overlay Background Patterns: Dedicated Background Pattern layer (`procedural-pattern`) for full-frame, seamless generative vector backdrops ported from Promo Creator with 20 patterns and 7 animation styles.
 - Custom Overlay Poll Element: Real-time Twitch poll widget for custom overlays.
