@@ -657,7 +657,7 @@ function createObsService({
                     start_delay: 0,
                     end_delay: 0,
                     easing_match: easing === 'linear' ? 0 : easing === 'ease-in-out' ? 3 : 2,
-                    easing_function_match: easing === 'snappy' ? 3 : easing === 'spring' ? 10 : 2,
+                    easing_function_match: { smooth: 4, snappy: 6, spring: 10 }[easing] || 2, // quintic, expo and back match the overlay's cubic-beziers
                     duration: Math.round(effectiveMs),
                     scale: { x: 1, y: 1 },
                     change_visibility: 0,
