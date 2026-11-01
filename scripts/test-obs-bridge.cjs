@@ -56,6 +56,7 @@ class FixtureWebSocket extends EventEmitter {
         if (requestType === 'GetVersion') return { obsVersion: '31.0', obsWebSocketVersion: '5.5' };
         if (requestType === 'GetCurrentProgramScene') return { currentProgramSceneName: 'Main' };
         if (requestType === 'GetSourceFilterKindList') return { sourceFilterKinds: ['move_source_filter'] };
+        if (requestType === 'GetSourceFilterList') return { filters: [] };
         if (requestType === 'GetSceneItemId') return { sceneItemId: 55 };
         if (requestType === 'GetSceneItemTransform') {
             return { sceneItemTransform: { positionX: 0, positionY: 0, width: 1280, height: 720, rotation: 0 } };
@@ -95,6 +96,13 @@ test('new Move filters load their target after attachment to the containing scen
     try {
         await flush();
         let created = false;
+        const responseFor = socket.responseFor.bind(socket);
+        socket.responseFor = type => type === 'GetSourceFilterList' ? {
+            filters: [
+                { filterName: 'StreamPulse_Move_12_Camera', filterSettings: { source: 'Camera' } },
+                { filterName: 'User filter', filterSettings: { source: 'Camera' } }
+            ]
+        } : responseFor(type);
         socket.handleRequest = request => {
             if (request.requestType === 'CreateSourceFilter') created = true;
             if (request.requestType === 'SetSourceFilterSettings' && !created) {
@@ -118,6 +126,9 @@ test('new Move filters load their target after attachment to the containing scen
         assert.equal(reload.requestData.sourceName, 'Main');
         assert.deepEqual(reload.requestData.filterSettings.pos, { x: 1295, y: 51 });
         assert.equal(reload.requestData.filterSettings.duration, 1500);
+        assert.ok(socket.requests.some(r => r.requestType === 'SetSourceFilterEnabled' &&
+            r.requestData.filterName === 'StreamPulse_Move_12_Camera' && r.requestData.filterEnabled === false));
+        assert.ok(!socket.requests.some(r => r.requestData.filterName === 'User filter'));
     } finally {
         service.disconnect();
     }
@@ -157,6 +168,8 @@ test('OBS v5 auth, Move filter requests, and page-state rotation use OBS source 
         assert.equal(moveSettings.enabled_match_moving, false);
         assert.equal(moveSettings.transform, true);
         assert.equal(moveSettings.custom_duration, true);
+        assert.deepEqual(moveSettings.scale, { x: 1, y: 1 });
+        assert.equal(moveSettings.change_visibility, 0);
         assert.equal(moveSettings.easing_match, 0);
 
         const firstMoveCount = socket.requests.length;
@@ -166,8 +179,8 @@ test('OBS v5 auth, Move filter requests, and page-state rotation use OBS source 
             durationMs: 500, easing: 'spring'
         });
         const repeatedMove = socket.requests.slice(firstMoveCount);
-        assert.equal(repeatedMove[0].requestType, 'SetSourceFilterEnabled');
-        assert.equal(repeatedMove[0].requestData.filterEnabled, false);
+        assert.equal(repeatedMove[1].requestType, 'SetSourceFilterEnabled');
+        assert.equal(repeatedMove[1].requestData.filterEnabled, false);
         assert.equal(repeatedMove.find(r => r.requestType === 'SetSourceFilterSettings').requestData.filterSettings.pos.x, 100);
         assert.equal(repeatedMove.find(r => r.requestType === 'SetSourceFilterSettings').requestData.filterSettings.easing_function_match, 10);
         assert.equal(repeatedMove.at(-1).requestData.filterEnabled, true);
@@ -178,7 +191,7 @@ test('OBS v5 auth, Move filter requests, and page-state rotation use OBS source 
             target: { visible: false }, durationMs: 0
         });
         const hiding = socket.requests.slice(hideStart);
-        assert.equal(hiding[0].requestData.filterEnabled, false);
+        assert.equal(hiding[1].requestData.filterEnabled, false);
         assert.equal(hiding.at(-1).requestData.sceneItemEnabled, false);
 
         const result = await service.syncOverlayState({

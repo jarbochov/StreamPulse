@@ -69,6 +69,8 @@ for (const name of ['overlay-filters.js', 'overlay-retro.js']) {
 }
 const clone = value => JSON.parse(JSON.stringify(value));
 let statusVersion = 0;
+let receiveInitialSnapshot;
+const initialSnapshot = new Promise(resolve => { receiveInitialSnapshot = resolve; });
 const server = createServer((request, response) => {
     const path = new URL(request.url, 'http://fixture.local').pathname;
     response.setHeader('Content-Type', 'application/json');
@@ -77,7 +79,7 @@ const server = createServer((request, response) => {
         response.end(sources.get(path));
     } else if (path === '/api/custom-overlays/fixture') response.end(JSON.stringify(overlay));
     else if (path === '/api/custom-overlays/transition-fixture') response.end(JSON.stringify(transitionFixture));
-    else if (path === '/api/custom-overlays/transition-fixture/page') response.end(JSON.stringify({ page: 'a' }));
+    else if (path === '/api/custom-overlays/transition-fixture/page') receiveInitialSnapshot(() => response.end(JSON.stringify({ page: 'a' })));
     else if (path === '/api/status') response.end(JSON.stringify({ stream: { title: `Fictional title ${++statusVersion}` } }));
     else if (path === '/api/custom-overlays/assets') response.end('[]');
     else if (path === '/fixture.webm') { response.writeHead(204); response.end(); }
@@ -306,11 +308,31 @@ try {
     });
     await transitionPage.goto(`${origin}/?id=transition-fixture`);
     await transitionPage.evaluate(() => {
-        window.testState = { intervals: new Map(), timers: new Map(), clearedTransitionTimers: 0 };
+        window.testState = { intervals: new Map(), timers: new Map(), completions: new Map(), clearedTransitionTimers: 0 };
         window.setInterval = (callback, ms) => { window.testState.intervals.set(ms, callback); return ms; };
         const nativeSetTimeout = window.setTimeout.bind(window);
         const nativeClearTimeout = window.clearTimeout.bind(window);
+        const nativeFetch = window.fetch.bind(window);
+        window.fetch = async (...args) => {
+            const response = await nativeFetch(...args);
+            if (String(args[0]).endsWith('/transition-fixture/page')) {
+                const json = response.json.bind(response);
+                response.json = async () => {
+                    const data = await json();
+                    nativeSetTimeout(() => { window.testState.snapshotRead = true; }, 0);
+                    return data;
+                };
+            }
+            return response;
+        };
         window.setTimeout = (callback, ms, ...args) => {
+            // Hold transition completion so CI scheduling cannot finish it before the reversal.
+            if (ms === 315) {
+                const id = -1 - window.testState.completions.size;
+                window.testState.timers.set(id, ms);
+                window.testState.completions.set(id, () => callback(...args));
+                return id;
+            }
             let id;
             id = nativeSetTimeout(() => {
                 window.testState.timers.delete(id);
@@ -322,6 +344,7 @@ try {
         window.clearTimeout = id => {
             if (window.testState.timers.get(id) === 315) window.testState.clearedTransitionTimers++;
             window.testState.timers.delete(id);
+            window.testState.completions.delete(id);
             nativeClearTimeout(id);
         };
         class Socket extends window.EventTarget {
@@ -339,12 +362,31 @@ try {
     await transitionPage.addScriptTag({ url: `${origin}/js/overlay-shared.js` });
     await transitionPage.addScriptTag({ url: `${origin}/js/overlay-runtime.js` });
     await transitionPage.waitForFunction(() => document.querySelector('[data-element-id="moving-label"]'));
-    const switchState = id => transitionPage.evaluate(id => {
-        window.testState.message('custom-overlay-page', { id: 'transition-fixture', page: id });
-    }, id);
+    await transitionPage.bringToFront();
+    const switchState = async id => {
+        await transitionPage.evaluate(id => {
+            window.testState.message('custom-overlay-page', { id: 'transition-fixture', page: id });
+        }, id);
+        try {
+            await transitionPage.waitForFunction(() => window.testState.completions.size > 0, { polling: 'mutation', timeout: 5000 });
+        } catch (error) {
+            const details = await transitionPage.evaluate(() => ({
+                timers: [...window.testState.timers.values()],
+                completions: [...window.testState.completions.keys()],
+                completionSize: window.testState.completions.size,
+                left: document.querySelector('[data-element-id="moving-label"]')?.style.left,
+                hidden: document.hidden
+            }));
+            throw new Error(`${error.message}: ${JSON.stringify(details)}`);
+        }
+    };
     const stableTransitionState = async () => {
-        await new Promise(done => setTimeout(done, 400));
         return transitionPage.evaluate(() => {
+            for (const [id, finish] of window.testState.completions) {
+                window.testState.timers.delete(id);
+                window.testState.completions.delete(id);
+                finish();
+            }
             const get = id => document.querySelector(`[data-element-id="${id}"]`);
             const label = get('moving-label');
             const visibility = get('visibility-label');
@@ -370,7 +412,10 @@ try {
         });
     };
     await switchState('b');
-    await new Promise(done => setTimeout(done, 45));
+    (await initialSnapshot)();
+    await transitionPage.waitForFunction(() => window.testState.snapshotRead);
+    assert.equal(await transitionPage.$eval('[data-element-id="moving-label"]', node => node.style.left), '240px',
+        'a late initial page snapshot must not undo a newer live state switch');
     await switchState('a');
     const reversed = await stableTransitionState();
     assert.equal(reversed.left, '20px', 'A→B→A reversal must settle at A position');
@@ -384,7 +429,6 @@ try {
     assert.equal(reversed.activeTransitionTimers, 0, 'A→B→A must clear all transition completion timers');
     assert.ok(reversed.clearedTransitionTimers > 0, 'A→B→A must cancel the superseded transition timer');
     await switchState('b');
-    await new Promise(done => setTimeout(done, 45));
     await switchState('c');
     const advanced = await stableTransitionState();
     assert.equal(advanced.left, '420px', 'A→B→C sequence must settle at C position');
@@ -625,10 +669,13 @@ try {
     });
     await editorPage.bringToFront();
 
-    await editorPage.evaluate(() => window.editorPreviewFixture.run('morph'));
-    await new Promise(done => setTimeout(done, 45));
     const morphPreview = await editorPage.evaluate(() => {
+        window.editorPreviewFixture.run('morph');
         const { node, stage } = window.editorPreviewFixture;
+        for (const animation of node.getAnimations()) {
+            animation.pause();
+            animation.currentTime = 80;
+        }
         return {
             transition: node.style.transition,
             ghosts: stage.querySelectorAll('[id^="ghost-"]').length,
@@ -642,7 +689,7 @@ try {
     const morphOpacity = Number.parseFloat(morphPreview.opacity);
     assert.ok(morphLeft > 30 && morphLeft < 230, 'morph preview must interpolate from captured geometry toward the target');
     assert.ok(morphOpacity < 1 && morphOpacity > 0.5, 'morph preview must interpolate style opacity with position');
-    await new Promise(done => setTimeout(done, 240));
+    await editorPage.waitForFunction(() => window.editorPreviewFixture.node.style.transition === '', { polling: 50 });
     assert.deepEqual(await editorPage.evaluate(() => {
         const { node } = window.editorPreviewFixture;
         return { left: node.style.left, opacity: node.style.opacity, transition: node.style.transition, willChange: node.style.willChange };

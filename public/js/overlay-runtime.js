@@ -1193,6 +1193,7 @@
         const overlay = await response.json();
         liveStatus.overlayName = overlay.name;
         currentOverlay = overlay;
+        const initialPageGeneration = pageSwitchGeneration;
 
         if (pagesOn(overlay)) {
             currentPage = resolvePage(overlay, pageParam) || (overlay.pages.items.find(item => item.enabled !== false) || overlay.pages.items[0])?.id;
@@ -1214,7 +1215,7 @@
                 try {
                     const state = await (await fetch(`/api/custom-overlays/${encodeURIComponent(overlayId)}/page`, { cache: 'no-store' })).json();
                     const activePage = resolvePage(overlay, state.page);
-                    if (activePage && activePage !== currentPage) {
+                    if (initialPageGeneration === pageSwitchGeneration && activePage && activePage !== currentPage) {
                         switchPage(activePage);
                         return;
                     }

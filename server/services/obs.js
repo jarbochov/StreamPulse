@@ -56,6 +56,8 @@ function buildObsTransform(target = {}, fit = 'cover') {
         positionY: y,
         alignment: 5, // Top-Left positional anchor so (x, y) matches StreamPulse canvas coordinates
         rotation: ((rot % 360) + 360) % 360,
+        scaleX: 1,
+        scaleY: 1,
         boundsType,
         boundsAlignment: 0, // Center inside bounds
         boundsWidth: w,
@@ -458,6 +460,16 @@ function createObsService({
 
             // Move Source filters belong to the scene, and must stop before a replacement target or hide.
             if (state.hasMovePlugin) {
+                const existing = await call('GetSourceFilterList', { sourceName: sceneName });
+                for (const filter of existing.filters || []) {
+                    if (filter.filterName !== filterName && filter.filterName?.startsWith('StreamPulse_Move_') && filter.filterSettings?.source === sourceName) {
+                        await call('SetSourceFilterEnabled', {
+                            sourceName: sceneName,
+                            filterName: filter.filterName,
+                            filterEnabled: false
+                        });
+                    }
+                }
                 await call('SetSourceFilterEnabled', {
                     sourceName: sceneName,
                     filterName,
@@ -502,6 +514,8 @@ function createObsService({
                     easing_match: easing === 'linear' ? 0 : easing === 'ease-in-out' ? 3 : 2,
                     easing_function_match: easing === 'snappy' ? 3 : easing === 'spring' ? 10 : 2,
                     duration: Math.round(effectiveMs),
+                    scale: { x: 1, y: 1 },
+                    change_visibility: 0,
                     pos: { x: Math.round(target.x), y: Math.round(target.y) },
                     bounds: { x: Math.max(1, Math.round(target.width)), y: Math.max(1, Math.round(target.height)) },
                     rot: Number(target.rotate) || 0
