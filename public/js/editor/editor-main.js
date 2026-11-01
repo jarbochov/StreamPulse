@@ -10,7 +10,8 @@ import {
     visualBoxOf, scaleSnapshot, applyScale, uid, createElementData, toast,
     changed, registerRenderAll, registerFitView, registerSelectionChange,
     registerStatusBar, params, initialId, LIMITS, MIN_SIZE, ICON, TEXT_TYPES,
-    liveSignature, displayName, setStyleClipboard, getStyleClipboard
+    liveSignature, displayName, setStyleClipboard, getStyleClipboard,
+    serializeOverlayForSave, extractElementState, resetElementPageState
 } from './editor-state.js';
 
 import {
@@ -112,6 +113,7 @@ export function duplicateSelection(source = selectedElements()) {
         copy.y += 24;
         copy.name = el.name ? `${el.name} copy` : '';
         copy.locked = false;
+        copy._baseState = extractElementState(copy);
         return copy;
     });
     state.overlay.elements.push(...clones);
@@ -463,12 +465,20 @@ function presetThumb(preset) {
     const parts = preset.elements.map(el => {
         const s = el.style || {};
         const rect = `x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}"`;
+        if (el.type === 'cutout') {
+            const rx = el.cutout?.shape === 'circle' ? Math.min(el.width, el.height) / 2 : (s.borderRadius || 0);
+            return `<rect ${rect} rx="${rx}" fill="rgba(6,182,212,0.12)" stroke="#38bdf8" stroke-dasharray="10 6" stroke-width="2.5"/>`;
+        }
         if (el.type === 'shape') {
-            const fill = s.shape === 'ellipse' || s.background === 'transparent' ? (s.fill || s.background) : s.background;
+            const fill = s.shape === 'ellipse' || s.background === 'transparent' ? (s.fill && s.background !== 'transparent' ? s.fill : s.background) : s.background;
             const stroke = s.borderWidth ? `stroke="${esc(s.borderColor)}" stroke-width="${s.borderWidth}"` : '';
             return s.shape === 'ellipse'
                 ? `<ellipse cx="${el.x + el.width / 2}" cy="${el.y + el.height / 2}" rx="${el.width / 2}" ry="${el.height / 2}" fill="${esc(fill)}" ${stroke}/>`
                 : `<rect ${rect} rx="${s.borderRadius || 0}" fill="${esc(fill)}" ${stroke}/>`;
+        }
+        if (el.type === 'icon') {
+            const cx = el.x + el.width / 2, cy = el.y + el.height / 2, r = Math.min(el.width, el.height) * 0.35;
+            return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${esc(s.color || '#fff')}" opacity="0.85"/>`;
         }
         if (el.type === 'text' || el.type === 'random-text' || el.type === 'markdown') {
             const size = Math.min(s.fontSize || 24, el.height);
@@ -529,18 +539,24 @@ export function placePreset(preset) {
         delete copy.page; delete copy.id;
         const el = Object.assign(base, copy, { style: { ...base.style, ...copy.style } });
         if (copy.progress) el.progress = { ...base.progress, ...copy.progress };
+        if (copy.cutout) el.cutout = { ...base.cutout, ...copy.cutout };
+        if (copy.mediaFilter) el.mediaFilter = JSON.parse(JSON.stringify(copy.mediaFilter));
         el.id = uid(el.type);
         el.x = originX + (Number(copy.x) || 0);
         el.y = originY + (Number(copy.y) || 0);
         el.locked = false;
         el.visible = true;
         el.zIndex = state.overlay.elements.length + index;
-        if (preset.builtin) el.group = preset.elements.length > 1 ? sharedGroup : '';
-        else if (copy.group) {
+        if (preset.builtin) {
+            el.group = preset.elements.length > 1 ? sharedGroup : '';
+            el.groupName = preset.elements.length > 1 ? preset.name : '';
+        } else if (copy.group) {
             if (!groupMap.has(copy.group)) groupMap.set(copy.group, uid('group'));
             el.group = groupMap.get(copy.group);
+            el.groupName = copy.groupName || preset.name;
         } else {
             el.group = preset.elements.length > 1 ? sharedGroup : '';
+            el.groupName = preset.elements.length > 1 ? preset.name : '';
         }
         return el;
     });
@@ -550,18 +566,20 @@ export function placePreset(preset) {
     renderLayers();
     setSelection(made.map(el => el.id));
     changed(true);
-    toast(preset.elements.length === 1 ? `Added “${preset.name}”. Customize it in Properties.` : `Added “${preset.name}”. Ungroup to tweak the pieces.`, 'info', 3500);
+    toast(preset.elements.length === 1 ? `Added “${preset.name}”. Customize it in Properties.` : `Added prefab “${preset.name}” (${preset.elements.length} layers).`, 'info', 3500);
 }
 
 export function openSavePreset() {
     const items = selectedElements();
     if (!items.length) { toast('Select the elements to save first.', 'warn'); return; }
-    if ($('preset-name')) $('preset-name').value = '';
+    const defaultName = items.find(el => el.groupName)?.groupName || (items.length === 1 ? items[0].name : '') || '';
+    if ($('preset-name')) $('preset-name').value = defaultName;
     if ($('preset-category-list')) {
-        $('preset-category-list').innerHTML = [...new Set(['My presets', ...userPresets.map(preset => preset.category)])].map(name => `<option value="${esc(name)}">`).join('');
+        $('preset-category-list').innerHTML = [...new Set(['My Prefabs', 'My presets', 'Camera & Frames', 'Lower Thirds', 'Stream', ...userPresets.map(preset => preset.category)])].map(name => `<option value="${esc(name)}">`).join('');
     }
     presetSaveDialog?.showModal();
     $('preset-name')?.focus();
+    $('preset-name')?.select();
 }
 
 export async function saveSelectionAsPreset() {
@@ -641,12 +659,13 @@ export async function save() {
             state.overlay.id = id;
         }
         const url = state.isNew ? '/api/custom-overlays' : `/api/custom-overlays/${encodeURIComponent(state.overlay.id)}`;
+        const payload = serializeOverlayForSave();
         let response;
         try {
             response = await fetch(url, {
                 method: state.isNew ? 'POST' : 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(state.overlay)
+                body: JSON.stringify(payload)
             });
         } catch {
             throw new Error('Could not reach the StreamPulse server. Your changes are still here — try again.');
@@ -661,6 +680,9 @@ export async function save() {
         pushHistory();
         renderAll();
         toast(`Saved revision ${state.overlay.revision}. Live overlays updated.`, 'success');
+        if (state.obs?.connected && state.obs?.syncOnSave !== false) {
+            syncObsState(state.curPage);
+        }
     } catch (error) {
         toast(error.message, 'error', 6000);
     } finally {
@@ -668,6 +690,181 @@ export async function save() {
         $('save').disabled = false;
         $('save').textContent = 'Save & Push Live';
         updateHistoryUI();
+    }
+}
+
+// ---- OBS WebSocket Bridge (Beta) --------------------------------------------------
+export function renderObsStatusUI() {
+    const enabled = Boolean(state.obs?.enabled);
+    const topBtn = $('btn-obs-modal');
+    if (topBtn) topBtn.hidden = !enabled;
+    const addObsBtn = document.querySelector('[data-add="obs-frame"]');
+    if (addObsBtn) addObsBtn.hidden = !enabled;
+    const dot = $('obs-top-dot');
+    if (dot) {
+        dot.classList.toggle('is-connected', !!state.obs.connected);
+        dot.classList.toggle('is-connecting', !state.obs.connected && !!state.obs.connecting);
+        dot.classList.toggle('is-error', !state.obs.connected && !state.obs.connecting && !!state.obs.lastError);
+    }
+    const st = $('obs-dialog-status');
+    if (st) {
+        st.classList.toggle('is-connected', !!state.obs.connected);
+        st.classList.toggle('is-error', !state.obs.connected && !!state.obs.lastError);
+        if (state.obs.connected) {
+            st.textContent = `Connected${state.obs.obsVersion ? ` · OBS ${state.obs.obsVersion}` : ''}`;
+        } else if (state.obs.connecting) {
+            st.textContent = 'Connecting…';
+        } else if (state.obs.lastError) {
+            st.textContent = `Error: ${state.obs.lastError}`;
+        } else {
+            st.textContent = state.obs.enabled ? 'Disconnected' : 'Disabled';
+        }
+    }
+    const cap = $('obs-dialog-capabilities');
+    if (cap) {
+        if (state.obs.connected) {
+            cap.hidden = false;
+            cap.innerHTML = `<strong>Active Scene:</strong> ${esc(state.obs.currentProgramScene || 'Unknown')} &nbsp;·&nbsp; <strong>Move Plugin:</strong> ${state.obs.movePluginAvailable ? '<span style="color:#34d399">Detected (Hardware Filter Available)</span>' : 'Not installed (Using Built-in 60fps WebSocket Stream)'}`;
+        } else if (state.obs.lastError) {
+            cap.hidden = false;
+            cap.innerHTML = `<span style="color:#f87171">${esc(state.obs.lastError)}</span>`;
+        } else {
+            cap.hidden = true;
+            cap.innerHTML = '';
+        }
+    }
+}
+
+export async function refreshObsStatus(fetchSources = false) {
+    try {
+        const wasEnabled = Boolean(state.obs?.enabled);
+        const res = await fetch('/api/obs/status', { cache: 'no-store' });
+        if (res.ok) {
+            const st = await res.json();
+            Object.assign(state.obs, st);
+        }
+        if (state.obs.connected && (fetchSources || !state.obs.sources.length)) {
+            const srcRes = await fetch('/api/obs/sources', { cache: 'no-store' });
+            if (srcRes.ok) {
+                const srcData = await srcRes.json();
+                state.obs.scenes = srcData.scenes || [];
+                state.obs.sources = srcData.sources || [];
+                if (srcData.currentProgramScene) state.obs.currentProgramScene = srcData.currentProgramScene;
+            }
+        }
+        renderObsStatusUI();
+        if (Boolean(state.obs?.enabled) !== wasEnabled) {
+            renderLayers();
+            renderPageBar();
+            renderProperties();
+        }
+    } catch { /* ignore */ }
+}
+
+export async function openObsModal() {
+    await refreshObsStatus(true);
+    if ($('obs-cfg-enabled')) $('obs-cfg-enabled').checked = !!state.obs.enabled;
+    if ($('obs-cfg-host')) $('obs-cfg-host').value = state.obs.host || '127.0.0.1';
+    if ($('obs-cfg-port')) $('obs-cfg-port').value = String(state.obs.port || 4455);
+    if ($('obs-cfg-password')) {
+        $('obs-cfg-password').value = '';
+        $('obs-cfg-password').placeholder = state.obs.hasPassword ? '•••••••• (Saved — leave blank to keep)' : 'Leave blank if authentication is disabled in OBS';
+    }
+    if ($('obs-cfg-engine')) $('obs-cfg-engine').value = state.obs.motionEngine || 'auto';
+    if ($('obs-cfg-sync-save')) $('obs-cfg-sync-save').checked = state.obs.syncOnSave !== false;
+    renderObsStatusUI();
+    $('obs-dialog')?.showModal();
+}
+
+export async function saveAndConnectObs() {
+    const btn = $('obs-save-connect');
+    if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
+    try {
+        const payload = {
+            enabled: !!$('obs-cfg-enabled')?.checked,
+            host: $('obs-cfg-host')?.value.trim() || '127.0.0.1',
+            port: Number($('obs-cfg-port')?.value) || 4455,
+            motionEngine: $('obs-cfg-engine')?.value || 'auto',
+            syncOnSave: $('obs-cfg-sync-save')?.checked !== false
+        };
+        const pw = $('obs-cfg-password')?.value || '';
+        if (pw) payload.password = pw;
+        const res = await fetch('/api/obs/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not save OBS settings');
+        if (data.status) Object.assign(state.obs, data.status);
+        await refreshObsStatus(true);
+        renderProperties();
+        renderPageBar();
+        if (state.obs.connected) {
+            toast('OBS WebSocket connected', 'success', 2400);
+        } else if (state.obs.enabled) {
+            toast(state.obs.lastError ? `OBS: ${state.obs.lastError}` : 'OBS settings saved (waiting for OBS)', 'warn', 3500);
+        } else {
+            toast('OBS WebSocket disabled', 'info', 2000);
+        }
+    } catch (err) {
+        toast(err.message, 'error', 4000);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Save & Connect'; }
+    }
+}
+
+export async function syncObsState(pageId) {
+    if (!state.obs?.connected) return;
+    const hasLinked = state.overlay.elements.some(el => el.obsLink?.enabled && el.obsLink?.sourceName);
+    if (!hasLinked) return;
+    try {
+        const payload = serializeOverlayForSave();
+        await fetch('/api/obs/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                overlay: payload,
+                pageId: pageId || state.curPage
+            })
+        });
+    } catch { /* ignore background sync error */ }
+}
+
+export async function snapObsLayer(el) {
+    if (!el?.obsLink?.enabled || !el.obsLink.sourceName?.trim()) {
+        toast('Enter an OBS Source Name first.', 'warn', 2500);
+        return;
+    }
+    if (!state.obs?.connected) {
+        toast('Connect to OBS WebSocket first.', 'warn', 2500);
+        openObsModal();
+        return;
+    }
+    try {
+        const payload = serializeOverlayForSave();
+        const singleOverlay = {
+            ...payload,
+            elements: payload.elements.filter(item => item.id === el.id)
+        };
+        const res = await fetch('/api/obs/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                overlay: singleOverlay,
+                pageId: state.curPage,
+                instant: true
+            })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.ok === false) {
+            throw new Error(data.error || data.reason || 'Could not sync OBS source');
+        }
+        const firstErr = (data.results || []).find(r => !r.ok);
+        if (firstErr) throw new Error(firstErr.reason || `Source "${el.obsLink.sourceName}" not found in OBS scene`);
+        toast(`Snapped OBS source “${el.obsLink.sourceName}” to layer box`, 'success', 2200);
+    } catch (err) {
+        toast(err.message, 'error', 4000);
     }
 }
 
@@ -699,8 +896,16 @@ export async function refreshLiveStatus() {
 export function connectAlertPreview() {
     const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`);
     socket.addEventListener('message', event => {
-        if (typeof event.data === 'string' && !event.data.includes('"alert') && !event.data.includes('"poll-update"') && !event.data.includes('"custom-overlay-page"')) return;
+        if (typeof event.data === 'string' && !event.data.includes('"alert') && !event.data.includes('"poll-update"') && !event.data.includes('"custom-overlay-page"') && !event.data.includes('"obs-status"')) return;
         let message; try { message = JSON.parse(event.data); } catch { return; }
+        if (message.type === 'obs-status' && message.data) {
+            Object.assign(state.obs, message.data);
+            renderObsStatusUI();
+            if (message.data.connected && !state.obs.sources.length) {
+                refreshObsStatus(true);
+            }
+            return;
+        }
         if (message.type === 'custom-overlay-page' && message.data?.id === state.overlay?.id) {
             setLiveState(message.data);
             return;
@@ -732,10 +937,14 @@ export function connectAlertPreview() {
 
 export function syncToggles() {
     $('toggle-snap')?.setAttribute('aria-pressed', String(prefs.snap));
+    if ($('snap-opt-align')) $('snap-opt-align').checked = prefs.snapAlign !== false;
+    if ($('snap-opt-spacing')) $('snap-opt-spacing').checked = prefs.snapSpacing !== false;
+    if ($('snap-opt-dimensions')) $('snap-opt-dimensions').checked = prefs.snapDimensions !== false;
     $('toggle-grid')?.setAttribute('aria-pressed', String(prefs.grid));
     $('toggle-safe')?.setAttribute('aria-pressed', String(!!prefs.safeZones));
     $('toggle-live')?.setAttribute('aria-pressed', String(prefs.live));
     $('toggle-fx')?.setAttribute('aria-pressed', String(prefs.fx));
+    $('view-options-btn')?.setAttribute('aria-pressed', String(Boolean(prefs.grid || prefs.safeZones)));
     $('safe-zones')?.classList.toggle('on', !!prefs.safeZones);
     if (shared.setEffectsPaused) shared.setEffectsPaused(!prefs.fx);
     if (window.OverlayFilters?.setEffectsPaused) window.OverlayFilters.setEffectsPaused(!prefs.fx);
@@ -746,6 +955,35 @@ export function syncToggles() {
 function initEventListeners() {
     // Toolbar toggle buttons
     $('toggle-snap')?.addEventListener('click', () => { prefs.snap = !prefs.snap; savePrefs(); syncToggles(); });
+    const snapWrap = $('snap-menu-wrap');
+    const viewWrap = $('view-menu-wrap');
+    $('snap-options-btn')?.addEventListener('click', event => {
+        event.stopPropagation();
+        viewWrap?.classList.remove('open');
+        $('view-options-btn')?.setAttribute('aria-expanded', 'false');
+        const open = snapWrap?.classList.toggle('open');
+        $('snap-options-btn')?.setAttribute('aria-expanded', String(!!open));
+    });
+    $('view-options-btn')?.addEventListener('click', event => {
+        event.stopPropagation();
+        snapWrap?.classList.remove('open');
+        $('snap-options-btn')?.setAttribute('aria-expanded', 'false');
+        const open = viewWrap?.classList.toggle('open');
+        $('view-options-btn')?.setAttribute('aria-expanded', String(!!open));
+    });
+    document.addEventListener('click', event => {
+        if (snapWrap && !snapWrap.contains(event.target)) {
+            snapWrap.classList.remove('open');
+            $('snap-options-btn')?.setAttribute('aria-expanded', 'false');
+        }
+        if (viewWrap && !viewWrap.contains(event.target)) {
+            viewWrap.classList.remove('open');
+            $('view-options-btn')?.setAttribute('aria-expanded', 'false');
+        }
+    });
+    $('snap-opt-align')?.addEventListener('change', e => { prefs.snapAlign = e.target.checked; savePrefs(); });
+    $('snap-opt-spacing')?.addEventListener('change', e => { prefs.snapSpacing = e.target.checked; savePrefs(); });
+    $('snap-opt-dimensions')?.addEventListener('change', e => { prefs.snapDimensions = e.target.checked; savePrefs(); });
     $('toggle-grid')?.addEventListener('click', () => { prefs.grid = !prefs.grid; savePrefs(); syncToggles(); syncCanvasUI(); });
     $('toggle-safe')?.addEventListener('click', () => { prefs.safeZones = !prefs.safeZones; savePrefs(); syncToggles(); syncCanvasUI(); });
     $('toggle-fx')?.addEventListener('click', () => { prefs.fx = !prefs.fx; savePrefs(); syncToggles(); });
@@ -764,6 +1002,19 @@ function initEventListeners() {
     // Help Dialog
     $('help')?.addEventListener('click', () => $('help-dialog')?.showModal());
     $('help-close')?.addEventListener('click', () => $('help-dialog')?.close());
+
+    // OBS WebSocket Dialog (Beta)
+    $('btn-obs-modal')?.addEventListener('click', () => openObsModal());
+    $('obs-close')?.addEventListener('click', () => $('obs-dialog')?.close());
+    $('obs-save-connect')?.addEventListener('click', () => saveAndConnectObs());
+    $('obs-sync-now')?.addEventListener('click', async () => {
+        if (!state.obs?.connected) {
+            toast('Connect to OBS WebSocket first.', 'warn', 2400);
+            return;
+        }
+        await syncObsState(state.curPage);
+        toast('Synced active state to OBS', 'success', 2000);
+    });
 
     // Overlay Name
     $('overlay-name')?.addEventListener('input', event => { state.overlay.name = event.target.value; changed(false); });
@@ -1225,6 +1476,7 @@ function initEventListeners() {
             if (hasGroup) {
                 menuHtml += `<button type="button" class="ctx-item" data-ctx-act="ungroup"><span>Ungroup</span><kbd>${modKey}⇧G</kbd></button>`;
             }
+            menuHtml += `<button type="button" class="ctx-item" data-ctx-act="preset"><span>Save as Prefab / Preset…</span></button>`;
             menuHtml += `<button type="button" class="ctx-item" data-ctx-act="lock"><span>${allLocked ? 'Unlock' : 'Lock'}</span></button>`;
             menuHtml += `<button type="button" class="ctx-item" data-ctx-act="hide"><span>${items.every(el => el.visible === false) ? 'Show' : 'Hide'}</span></button>`;
             menuHtml += `<div class="ctx-divider"></div>`;
@@ -1262,6 +1514,7 @@ function initEventListeners() {
         else if (['front', 'forward', 'backward', 'back'].includes(act)) reorder(act);
         else if (act === 'group') groupSelection();
         else if (act === 'ungroup') ungroupSelection();
+        else if (act === 'preset') openSavePreset();
         else if (act === 'lock') runAction('lock');
         else if (act === 'hide') runAction('hide');
         else if (act === 'delete') deleteSelection();
@@ -1398,7 +1651,10 @@ export async function load() {
         onRenderCanvas: renderCanvas,
         onRenderProperties: renderProperties,
         onUpdateStatusBar: updateStatusBar,
-        onRenderAll: renderAll
+        onRenderAll: renderAll,
+        onSavePreset: openSavePreset,
+        onOpenObsModal: openObsModal,
+        onSyncObsState: syncObsState
     });
 
     registerInspectorCallbacks({
@@ -1409,7 +1665,10 @@ export async function load() {
         onScaleSelectionBy: scaleSelectionBy,
         onUploadAsset: uploadAsset,
         onFitToMedia: fitToMedia,
-        onOpenAssetDialog: openAssetPicker
+        onOpenAssetDialog: openAssetPicker,
+        onOpenObsModal: openObsModal,
+        onRefreshObsSources: refreshObsStatus,
+        onSnapObsLayer: snapObsLayer
     });
 
     initCanvasGestures({
@@ -1450,7 +1709,7 @@ export async function load() {
     state.savedSnapshot = snapshot();
     state.dirty = false;
     updateHistoryUI();
-    setRailTab(prefs.railTab === 'pages' ? 'pages' : 'layers');
+    setRailTab(['layers', 'pages', 'canvas'].includes(prefs.railTab) ? prefs.railTab : 'layers');
 
     const selectId = params.get('select');
     if (selectId && byId(selectId)) setSelection([selectId]);
@@ -1458,6 +1717,7 @@ export async function load() {
     fitView(true);
     refreshLiveStatus();
     refreshLivePage();
+    refreshObsStatus(true);
 
     loadAssetTags().then(() => {
         if (primary()?.type === 'slideshow') renderProperties();

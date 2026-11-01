@@ -7,6 +7,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- Custom Overlay Studio (Beta): scene states with reversible morph/crossfade/slide transitions, OBS source synchronization, smart snapping, and reusable component prefabs.
 - Alerts Engine & Queue: Unified variant conditions and weighted random selection, 23 synthesized Web Audio alert sound presets, master preview volume scaling, granular subscription tier selection with specificity precedence, visual Alert Activation Ladder and Milestone Tiers UX, video volume controls, Twitch channel emotes in alert media, gift sub recipient placeholders, and low-density Alert Queue filtering by event type and search query with in-dock test dispatch.
 - Versus & Tournament Studio: Scoreboards, elimination and round-robin brackets, multi-match scorekeeper, speedrun battle clocks, broadcast overlays, quick match tie-breaker actions, double-elimination BYE loser routing resilience, queue duplication and clearing, and wide stage layout options (`?wide=1`) with responsive container clamps.
 - Matchup Player Clocks: Optional competitor split, race, and countdown clock badges on all versus scoreboard layouts (`top`, `fgc`, `split`, `pillar`, `bottom`, `compact`, `versus`).

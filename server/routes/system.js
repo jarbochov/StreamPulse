@@ -3,6 +3,7 @@ const path = require('path');
 const { execFile } = require('child_process');
 const { readRequestBody, sendJson, sendText, sendError } = require('./helpers');
 const { normalizeSsnSessionId } = require('../ssn-config');
+const { normalizeObsConfig } = require('../services/obs');
 
 function createSystemRoutes({
     rootDir,
@@ -91,7 +92,7 @@ function createSystemRoutes({
                     setInterval_('twitch_refresh_minutes', 1, 1440, 10);
                     setInterval_('twitch_stream_info_seconds', 10, 3600, 30);
 
-                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'hashtag_max_length', 'chat_log_enabled', 'chatbot_enabled', 'polls_enabled', 'versus_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals', 'clip_candidates', 'session_lifecycle'];
+                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'hashtag_max_length', 'chat_log_enabled', 'chatbot_enabled', 'polls_enabled', 'versus_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals', 'clip_candidates', 'session_lifecycle', 'obs'];
                     for (const key of safeFields) {
                         if (updates[key] !== undefined) {
                             if (key === 'hashtag_max_length') {
@@ -102,6 +103,11 @@ function createSystemRoutes({
                                 current[key] = { ...(current.music || {}), ...updates[key] };
                             } else if (key === 'session_lifecycle' && updates[key] && typeof updates[key] === 'object') {
                                 current[key] = { ...(current.session_lifecycle || {}), ...updates[key] };
+                            } else if (key === 'obs') {
+                                const obsUpdates = updates[key] && typeof updates[key] === 'object' && !Array.isArray(updates[key])
+                                    ? updates[key]
+                                    : {};
+                                current[key] = normalizeObsConfig({ ...(current.obs || {}), ...obsUpdates });
                             } else {
                                 current[key] = updates[key];
                             }
@@ -160,7 +166,8 @@ function createSystemRoutes({
                     weather: normalizeWeatherConfig(config.weather),
                     goals: normalizeGoalsConfig(config.goals || defaultGoalsConfig),
                     clip_candidates: normalizeClipCandidateConfig(config.clip_candidates),
-                    session_lifecycle: config.session_lifecycle || {}
+                    session_lifecycle: config.session_lifecycle || {},
+                    obs: config.obs || { enabled: false, host: '127.0.0.1', port: 4455, password: '', syncOnSave: true, motionEngine: 'auto' }
                 });
                 return true;
             }

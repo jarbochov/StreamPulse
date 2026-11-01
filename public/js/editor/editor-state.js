@@ -185,7 +185,8 @@ export function toast(message, kind = 'info', ms = 3200) {
 // ---- preferences ------------------------------------------------------------------
 export const PREF_KEY = 'streampulse.overlayEditor.v1';
 export const prefs = Object.assign({
-    snap: true, scaleText: true, grid: false, safeZones: false, live: true, fx: true,
+    snap: true, snapAlign: true, snapSpacing: true, snapDimensions: true,
+    scaleText: true, grid: false, safeZones: false, live: true, fx: true,
     backdrop: 'checker', backdropImage: '', backdropOpacity: 80, alignTo: 'selection',
     sections: {}, recentColors: []
 }, (() => {
@@ -262,7 +263,24 @@ export const state = {
     pickerTarget: null,
     mediaTab: new Map(),
     collapsedGroups: new Set(JSON.parse(localStorage.getItem('layerCollapsedGroups') || '[]')),
-    layerOrder: []
+    layerOrder: [],
+    obs: {
+        enabled: false,
+        connected: false,
+        connecting: false,
+        host: '127.0.0.1',
+        port: 4455,
+        hasPassword: false,
+        syncOnSave: true,
+        motionEngine: 'auto',
+        movePluginAvailable: false,
+        obsVersion: '',
+        wsVersion: '',
+        lastError: '',
+        currentProgramScene: '',
+        scenes: [],
+        sources: []
+    }
 };
 
 // ---- Model & Geometry Helpers -----------------------------------------------------
@@ -354,34 +372,205 @@ export function normalizeZ() {
     state.overlay.elements.forEach((item, index) => { item.zIndex = index; });
 }
 
-export const defaultPages = () => ({
+export const defaultPages = (kind = 'pages') => ({
     enabled: false,
+    kind: kind === 'states' ? 'states' : 'pages',
     mode: 'manual',
     cycleSeconds: 10,
     loop: true,
-    transition: 'fade',
-    transitionMs: 500,
+    transition: kind === 'states' ? 'morph' : 'fade',
+    transitionEasing: 'smooth',
+    enterExit: 'fade',
+    transitionMs: kind === 'states' ? 650 : 500,
     transitionDirection: 'left',
     transitionDistance: 120,
-    items: [{ id: 'page-1', name: 'Page 1', duration: 0, enabled: true }]
+    items: [{ id: 'page-1', name: kind === 'states' ? 'State 1' : 'Page 1', duration: 0, enabled: true }]
 });
 
 export const pagesOn = () => state.overlay.pages?.enabled === true;
+export const statesModeOn = () => pagesOn() && (
+    state.overlay.pages?.kind ? state.overlay.pages.kind === 'states' : state.overlay.pages?.transition === 'morph'
+);
+export const basePageId = () => state.overlay.pages?.items?.[0]?.id || 'page-1';
+export const isBasePage = (pid = state.curPage) => !pagesOn() || pid === basePageId();
 export const inView = el => !pagesOn() || el.page === '*' || el.page === state.curPage;
 export const visibleElements = () => state.overlay.elements.filter(inView);
 export const pageName = id => state.overlay.pages?.items.find(p => p.id === id)?.name || id;
+
+export const STATE_STYLE_KEYS = [
+    'fontFamily', 'fontSize', 'fontWeight', 'color', 'textAlign', 'verticalAlign',
+    'lineHeight', 'letterSpacing', 'textTransform', 'textDecoration',
+    'background', 'fill', 'borderColor', 'borderWidth', 'borderStyle', 'borderRadius',
+    'padding', 'opacity', 'rotate', 'blur', 'shape', 'objectFit', 'focusX', 'focusY',
+    'gradient', 'textGradient', 'borderGradient', 'borderGlow', 'borderAnimation',
+    'shadow', 'innerShadow', 'textStroke', 'textShadow'
+];
+
+export function extractElementState(el) {
+    const s = el.style || {};
+    const styleSnap = {};
+    for (const key of STATE_STYLE_KEYS) {
+        if (s[key] !== undefined) {
+            styleSnap[key] = typeof s[key] === 'object' && s[key] !== null
+                ? JSON.parse(JSON.stringify(s[key]))
+                : s[key];
+        }
+    }
+    return {
+        x: Math.round(Number(el.x) || 0),
+        y: Math.round(Number(el.y) || 0),
+        width: Math.round(Number(el.width) || 400),
+        height: Math.round(Number(el.height) || 100),
+        visible: el.visible !== false,
+        opacity: Number.isFinite(Number(s.opacity)) ? Number(s.opacity) : 1,
+        rotate: Number.isFinite(Number(s.rotate)) ? Number(s.rotate) : 0,
+        borderRadius: Math.round(Number(s.borderRadius) || 0),
+        feather: Math.round(Number(el.cutout?.feather) || 0),
+        cutoutShape: el.cutout?.shape || 'rectangle',
+        textFit: el.textFit || 'none',
+        style: styleSnap
+    };
+}
+
+export function applyElementState(el, st) {
+    if (!el || !st) return;
+    if (st.x !== undefined) el.x = st.x;
+    if (st.y !== undefined) el.y = st.y;
+    if (st.width !== undefined) el.width = st.width;
+    if (st.height !== undefined) el.height = st.height;
+    if (st.visible !== undefined) el.visible = st.visible;
+    if (st.textFit !== undefined) el.textFit = st.textFit;
+    el.style ||= {};
+    if (st.style && typeof st.style === 'object') {
+        for (const [k, v] of Object.entries(st.style)) {
+            if (v !== undefined) {
+                el.style[k] = typeof v === 'object' && v !== null ? JSON.parse(JSON.stringify(v)) : v;
+            }
+        }
+    }
+    if (st.opacity !== undefined) el.style.opacity = st.opacity;
+    if (st.rotate !== undefined) el.style.rotate = st.rotate;
+    if (st.borderRadius !== undefined) el.style.borderRadius = st.borderRadius;
+    if (el.type === 'cutout') {
+        el.cutout ||= { shape: 'rectangle', feather: 0 };
+        if (st.feather !== undefined) el.cutout.feather = st.feather;
+        if (st.cutoutShape !== undefined) el.cutout.shape = st.cutoutShape;
+    }
+}
+
+export function syncWorkingStateForCurrentPage(pageId = state.curPage) {
+    const els = state.overlay?.elements || [];
+    if (!pagesOn() || isBasePage(pageId)) {
+        for (const el of els) {
+            el._baseState = extractElementState(el);
+        }
+        return;
+    }
+    for (const el of els) {
+        if (el.page !== '*') {
+            el._baseState = extractElementState(el);
+            continue;
+        }
+        const base = el._baseState || (el._baseState = extractElementState(el));
+        const cur = extractElementState(el);
+        const delta = {};
+        for (const key of ['x', 'y', 'width', 'height', 'visible', 'opacity', 'rotate', 'borderRadius', 'feather', 'cutoutShape', 'textFit']) {
+            if ((key === 'feather' || key === 'cutoutShape') && el.type !== 'cutout') continue;
+            if (key === 'textFit' && !TEXT_TYPES.has(el.type)) continue;
+            if (cur[key] !== base[key]) delta[key] = cur[key];
+        }
+        const styleDelta = {};
+        const baseStyle = base.style || {};
+        const curStyle = cur.style || {};
+        for (const key of STATE_STYLE_KEYS) {
+            if (key === 'opacity' || key === 'rotate' || key === 'borderRadius') continue;
+            if (JSON.stringify(curStyle[key]) !== JSON.stringify(baseStyle[key])) {
+                styleDelta[key] = curStyle[key] !== undefined && typeof curStyle[key] === 'object' && curStyle[key] !== null
+                    ? JSON.parse(JSON.stringify(curStyle[key]))
+                    : curStyle[key];
+            }
+        }
+        if (Object.keys(styleDelta).length) {
+            delta.style = styleDelta;
+        }
+        if (Object.keys(delta).length) {
+            el.pageStates ||= {};
+            el.pageStates[pageId] = delta;
+        } else if (el.pageStates?.[pageId]) {
+            delete el.pageStates[pageId];
+            if (!Object.keys(el.pageStates).length) delete el.pageStates;
+        }
+    }
+}
+
+export function projectPageState(pageId = state.curPage) {
+    const els = state.overlay?.elements || [];
+    const onBase = !pagesOn() || isBasePage(pageId);
+    for (const el of els) {
+        if (!el._baseState) el._baseState = extractElementState(el);
+        if (el.page !== '*') continue;
+        if (onBase) {
+            applyElementState(el, el._baseState);
+        } else {
+            const over = el.pageStates?.[pageId] || {};
+            applyElementState(el, {
+                ...el._baseState,
+                ...over,
+                style: {
+                    ...(el._baseState.style || {}),
+                    ...(over.style || {})
+                }
+            });
+        }
+    }
+}
+
+export function hasPageOverride(el, pageId = state.curPage) {
+    return Boolean(pagesOn() && el?.page === '*' && !isBasePage(pageId) && el.pageStates?.[pageId] && Object.keys(el.pageStates[pageId]).length > 0);
+}
+
+export function resetElementPageState(el, pageId = state.curPage) {
+    if (!el || !el.pageStates?.[pageId]) return false;
+    delete el.pageStates[pageId];
+    if (!Object.keys(el.pageStates).length) delete el.pageStates;
+    if (el._baseState) applyElementState(el, el._baseState);
+    return true;
+}
+
+export function serializeOverlayForSave() {
+    syncWorkingStateForCurrentPage(state.curPage);
+    const out = JSON.parse(JSON.stringify({
+        id: state.overlay.id,
+        name: state.overlay.name,
+        revision: state.overlay.revision,
+        canvas: state.overlay.canvas,
+        pages: state.overlay.pages,
+        elements: state.overlay.elements
+    }));
+    const srcEls = state.overlay.elements || [];
+    (out.elements || []).forEach((el, idx) => {
+        const src = srcEls[idx];
+        if (src?._baseState && el.page === '*') {
+            applyElementState(el, src._baseState);
+        }
+        delete el._baseState;
+    });
+    return out;
+}
 
 export function ensureCurPage() {
     if (!state.overlay.pages) state.overlay.pages = defaultPages();
     if (!state.overlay.pages.items.some(p => p.id === state.curPage)) {
         state.curPage = state.overlay.pages.items[0]?.id || 'page-1';
     }
+    projectPageState(state.curPage);
 }
 
 export function normalizeLoaded(data) {
     const next = JSON.parse(JSON.stringify(data));
-    next.pages = Object.assign(defaultPages(), next.pages);
-    if (!Array.isArray(next.pages.items) || !next.pages.items.length) next.pages.items = defaultPages().items;
+    const kind = next.pages?.kind === 'states' || next.pages?.transition === 'morph' ? 'states' : 'pages';
+    next.pages = Object.assign(defaultPages(kind), next.pages, { kind });
+    if (!Array.isArray(next.pages.items) || !next.pages.items.length) next.pages.items = defaultPages(kind).items;
     const pageIds = new Set(next.pages.items.map(p => p.id));
     (next.elements || []).forEach(item => { if (item.page !== '*' && !pageIds.has(item.page)) item.page = next.pages.items[0].id; });
     next.canvas = Object.assign({ width: 1920, height: 1080, background: 'transparent' }, next.canvas);
@@ -401,23 +590,27 @@ export function normalizeLoaded(data) {
         if (item.type === 'alert') item.alert = Object.assign({ layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, showOnPreview: false, triggers: [] }, item.alert);
         if (item.type === 'poll') item.poll = window.PollWidget.settings(item.poll);
         if (item.type === 'cutout') item.cutout = Object.assign({ shape: 'rectangle', feather: 0 }, item.cutout);
+        item.obsLink = Object.assign({ enabled: false, sourceName: '', sceneName: '', fit: 'cover', syncVisibility: true }, item.obsLink);
         if (item.type === 'pattern') item.pattern = Object.assign({ sourceType: 'image', layout: 'brick', tileSize: 96, gap: 16, offsetX: 50, offsetY: 0, angle: -15, tileAngle: 0, alternateFlip: 'tilt', tileOpacity: 1, altOpacity: 0.4, altScale: 100, blendMode: 'normal', wedges: 6, feather: 0, motion: 'scroll', trackMode: 'uniform', scrollAngle: 315, speed: 12, spinSpeed: 8, spinDirection: 'cw', waveAmount: 25 }, item.pattern);
         if (item.type === 'procedural-pattern') item.pattern = Object.assign({ preset: 'hexagons', accent: '#58a6ff', secondary: '#38bdf8', color: 'transparent', lineWidth: 0, scale: 100, motion: 'drift', speed: 1, blendMode: 'normal' }, item.pattern);
         item.style ||= {};
+        item._baseState = extractElementState(item);
     });
     return next;
 }
 
-export function createElementData(type, overrides = {}) {
+export function createElementData(rawType, overrides = {}) {
+    const isObsFrame = rawType === 'obs-frame';
+    const type = isObsFrame ? 'shape' : rawType;
     const sizes = {
         text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270],
-        video: [640, 360], embed: [640, 360], qr: [320, 320], icon: [160, 160], shape: [480, 160],
+        video: [640, 360], embed: [640, 360], qr: [320, 320], icon: [160, 160], shape: isObsFrame ? [480, 270] : [480, 160],
         cutout: [480, 270], progress: [480, 48], poll: [400, 150], 'game-list': [800, 320], alert: [640, 280], slideshow: [640, 360], pattern: [640, 360], 'procedural-pattern': [state.overlay?.canvas?.width || 1920, state.overlay?.canvas?.height || 1080]
     };
     const [width, height] = sizes[type] || [480, 270];
     const offset = (state.overlay.elements.length % 6) * 24;
     const data = {
-        id: uid(type), name: type === 'procedural-pattern' ? 'Background Pattern' : '', locked: false, type,
+        id: uid(type), name: isObsFrame ? 'OBS Source Frame' : (type === 'procedural-pattern' ? 'Background Pattern' : ''), locked: false, type,
         content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', icon: 'fa-brands fa-twitch', shape: '', cutout: '', progress: '50', poll: '', 'game-list': '', alert: '', slideshow: '', pattern: 'fa-brands fa-twitch', 'procedural-pattern': '' }[type],
         textFit: 'none',
         columns: 1,
@@ -433,9 +626,10 @@ export function createElementData(type, overrides = {}) {
         video: { loop: true, sound: false, volume: 100 },
         alert: { layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, showOnPreview: false, triggers: [] },
         cutout: { shape: 'rectangle', feather: 0 },
+        obsLink: { enabled: isObsFrame, sourceName: '', sceneName: '', fit: 'cover', syncVisibility: true },
         progress: { kind: 'bar', label: '{{progress}}%', showLabel: true, trackColor: 'rgba(255,255,255,0.18)', thickness: 10 },
         poll: type === 'poll' ? window.PollWidget.settings() : undefined,
-        page: pagesOn() ? state.curPage : state.overlay.pages?.items[0]?.id || 'page-1',
+        page: statesModeOn() ? '*' : (pagesOn() ? state.curPage : state.overlay.pages?.items[0]?.id || 'page-1'),
         src: '',
         x: type === 'procedural-pattern' ? 0 : Math.round((state.overlay.canvas.width - width) / 2 + offset),
         y: type === 'procedural-pattern' ? 0 : Math.round((state.overlay.canvas.height - height) / 2 + offset),
@@ -445,16 +639,18 @@ export function createElementData(type, overrides = {}) {
             fontSize: type === 'poll' ? 12 : type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : 48,
             fontWeight: type === 'alert' ? '600' : '400',
             color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0,
-            background: type === 'shape' ? '#1f6feb' : type === 'poll' ? 'rgba(13,17,23,0.85)' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent',
-            borderColor: '#ffffff', borderWidth: 0, borderRadius: type === 'poll' ? 10 : type === 'alert' ? 24 : type === 'cutout' ? 16 : 0,
+            background: isObsFrame ? 'transparent' : (type === 'shape' ? '#1f6feb' : type === 'poll' ? 'rgba(13,17,23,0.85)' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent'),
+            borderColor: isObsFrame ? '#38bdf8' : '#ffffff', borderWidth: isObsFrame ? 3 : 0, borderRadius: isObsFrame ? 12 : (type === 'poll' ? 10 : type === 'alert' ? 24 : type === 'cutout' ? 16 : 0),
             padding: 0,
             opacity: 1, objectFit: (type === 'pattern' || type === 'procedural-pattern') ? 'contain' : 'cover', shape: 'rectangle', fill: '#1f6feb',
             gradient: { enabled: false, from: '#1f6feb', to: '#8957e5', angle: 135 },
-            blur: 0, shadow: { blur: 0, color: 'rgba(0,0,0,0.5)' }
+            blur: 0, shadow: { blur: isObsFrame ? 18 : 0, color: 'rgba(0,0,0,0.5)' }
         }
     };
     if (type === 'icon' || type === 'alert') Object.assign(data.style, { textAlign: 'center', verticalAlign: 'middle' });
-    return Object.assign(data, overrides);
+    const merged = Object.assign(data, overrides);
+    merged._baseState = extractElementState(merged);
+    return merged;
 }
 
 export function withGroups(ids) {
@@ -480,12 +676,15 @@ export const alertSample = el => {
 };
 
 // ---- History & Dirty Tracking -----------------------------------------------------
-export const snapshot = () => JSON.stringify({
-    name: state.overlay.name,
-    canvas: state.overlay.canvas,
-    pages: state.overlay.pages,
-    elements: state.overlay.elements
-});
+export const snapshot = () => {
+    const serialized = serializeOverlayForSave();
+    return JSON.stringify({
+        name: serialized.name,
+        canvas: serialized.canvas,
+        pages: serialized.pages,
+        elements: serialized.elements
+    });
+};
 
 export function updateHistoryUI() {
     const undoBtn = $('undo');
@@ -500,6 +699,7 @@ export function updateHistoryUI() {
 export function pushHistory() {
     clearTimeout(state.hist.timer);
     state.hist.timer = null;
+    syncWorkingStateForCurrentPage(state.curPage);
     const current = snapshot();
     if (current !== state.hist.stack[state.hist.index]) {
         state.hist.stack.length = state.hist.index + 1;
@@ -512,6 +712,7 @@ export function pushHistory() {
 }
 
 export function changed(immediate = false) {
+    syncWorkingStateForCurrentPage(state.curPage);
     state.dirty = true;
     clearTimeout(state.hist.timer);
     state.hist.timer = null;
@@ -538,7 +739,7 @@ export function registerSelectionChange(fn) { selectionChangeHandler = fn; }
 export function registerStatusBar(fn) { statusBarHandler = fn; }
 
 export function restore(json) {
-    const s = JSON.parse(json);
+    const s = normalizeLoaded(JSON.parse(json));
     state.overlay.name = s.name;
     state.overlay.canvas = s.canvas;
     state.overlay.elements = s.elements;

@@ -18,9 +18,52 @@ const overlay = {
         { id: 'label', type: 'text', content: '{{stream.title}}' }
     ]
 };
+const transitionFixture = {
+    id: 'transition-fixture',
+    name: 'Fictional transition regression fixture',
+    canvas: { width: 640, height: 360 },
+    pages: {
+        enabled: true,
+        kind: 'states',
+        transition: 'morph',
+        enterExit: 'fade',
+        transitionMs: 280,
+        items: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }, { id: 'c', name: 'C' }]
+    },
+    elements: [
+        {
+            id: 'moving-label', type: 'text', page: '*', content: 'FICTIONAL POSITION',
+            x: 20, y: 20, width: 200, height: 40, style: { opacity: 0.9 },
+            pageStates: {
+                b: { x: 240, style: { opacity: 0.5 } },
+                c: { x: 420, style: { opacity: 0.7 } }
+            }
+        },
+        {
+            id: 'visibility-label', type: 'text', page: '*', content: 'FICTIONAL VISIBILITY',
+            x: 20, y: 80, width: 200, height: 40,
+            pageStates: { b: { visible: false }, c: { visible: true } }
+        },
+        {
+            id: 'state-cutout', type: 'cutout', page: '*',
+            x: 20, y: 160, width: 100, height: 70, cutout: { shape: 'rectangle', feather: 0 },
+            pageStates: {
+                b: { x: 180, width: 140 },
+                c: { x: 360, width: 180 }
+            }
+        },
+        { id: 'own-a', type: 'text', page: 'a', content: 'A', x: 10, y: 300, width: 20, height: 20 },
+        { id: 'own-b', type: 'text', page: 'b', content: 'B', x: 40, y: 300, width: 20, height: 20 },
+        { id: 'own-c', type: 'text', page: 'c', content: 'C', x: 70, y: 300, width: 20, height: 20 }
+    ]
+};
 const sources = new Map(await Promise.all(['overlay-runtime.js', 'overlay-shared.js'].map(async name =>
     [`/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8')]
 )));
+for (const name of ['editor/editor-state.js', 'editor/editor-canvas.js', 'editor-geometry.js']) {
+    sources.set(`/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8'));
+}
+sources.set('/css/custom-overlay-editor.css', await readFile(new URL('../public/css/custom-overlay-editor.css', import.meta.url), 'utf8'));
 for (const name of ['overlay-filters.js', 'overlay-retro.js']) {
     sources.set(`/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8'));
 }
@@ -30,9 +73,11 @@ const server = createServer((request, response) => {
     const path = new URL(request.url, 'http://fixture.local').pathname;
     response.setHeader('Content-Type', 'application/json');
     if (sources.has(path)) {
-        response.setHeader('Content-Type', 'text/javascript');
+        response.setHeader('Content-Type', path.endsWith('.css') ? 'text/css' : 'text/javascript');
         response.end(sources.get(path));
     } else if (path === '/api/custom-overlays/fixture') response.end(JSON.stringify(overlay));
+    else if (path === '/api/custom-overlays/transition-fixture') response.end(JSON.stringify(transitionFixture));
+    else if (path === '/api/custom-overlays/transition-fixture/page') response.end(JSON.stringify({ page: 'a' }));
     else if (path === '/api/status') response.end(JSON.stringify({ stream: { title: `Fictional title ${++statusVersion}` } }));
     else if (path === '/api/custom-overlays/assets') response.end('[]');
     else if (path === '/fixture.webm') { response.writeHead(204); response.end(); }
@@ -251,8 +296,443 @@ try {
     assert.equal(await page.$('.alert-card'), null, 'explicit clear must not recreate a preview');
     await clear('alert-clear');
     assert.equal(await page.evaluate(() => window.testState.alerts.length), clearedCount);
+
+    const transitionPage = await browser.newPage();
+    transitionPage.on('pageerror', error => errors.push(error.message));
+    await transitionPage.setRequestInterception(true);
+    transitionPage.on('request', request => {
+        if (new URL(request.url()).origin === origin) request.continue();
+        else request.respond({ status: 200, contentType: 'text/html', body: '<!doctype html><title>Fictional player</title>' });
+    });
+    await transitionPage.goto(`${origin}/?id=transition-fixture`);
+    await transitionPage.evaluate(() => {
+        window.testState = { intervals: new Map(), timers: new Map(), clearedTransitionTimers: 0 };
+        window.setInterval = (callback, ms) => { window.testState.intervals.set(ms, callback); return ms; };
+        const nativeSetTimeout = window.setTimeout.bind(window);
+        const nativeClearTimeout = window.clearTimeout.bind(window);
+        window.setTimeout = (callback, ms, ...args) => {
+            let id;
+            id = nativeSetTimeout(() => {
+                window.testState.timers.delete(id);
+                callback(...args);
+            }, ms);
+            window.testState.timers.set(id, ms);
+            return id;
+        };
+        window.clearTimeout = id => {
+            if (window.testState.timers.get(id) === 315) window.testState.clearedTransitionTimers++;
+            window.testState.timers.delete(id);
+            nativeClearTimeout(id);
+        };
+        class Socket extends window.EventTarget {
+            static OPEN = 1;
+            readyState = 1;
+            send() {}
+            close() {}
+            constructor() { super(); window.testState.socket = this; }
+        }
+        window.WebSocket = Socket;
+        window.testState.message = (type, data) => window.testState.socket.dispatchEvent(
+            new window.MessageEvent('message', { data: JSON.stringify({ type, data }) })
+        );
+    });
+    await transitionPage.addScriptTag({ url: `${origin}/js/overlay-shared.js` });
+    await transitionPage.addScriptTag({ url: `${origin}/js/overlay-runtime.js` });
+    await transitionPage.waitForFunction(() => document.querySelector('[data-element-id="moving-label"]'));
+    const switchState = id => transitionPage.evaluate(id => {
+        window.testState.message('custom-overlay-page', { id: 'transition-fixture', page: id });
+    }, id);
+    const stableTransitionState = async () => {
+        await new Promise(done => setTimeout(done, 400));
+        return transitionPage.evaluate(() => {
+            const get = id => document.querySelector(`[data-element-id="${id}"]`);
+            const label = get('moving-label');
+            const visibility = get('visibility-label');
+            const mask = document.getElementById('overlay-masked-layer');
+            let maskSvg = '';
+            try {
+                const encoded = mask?._lastMaskUrl?.match(/data:image\/svg\+xml;charset=utf-8,([^)"]+)/)?.[1];
+                if (encoded) maskSvg = decodeURIComponent(encoded);
+            } catch {}
+            return {
+                left: label?.style.left,
+                opacity: label?.style.opacity,
+                transition: label?.style.transition,
+                visibility: visibility?.style.visibility,
+                ghosts: [...document.querySelectorAll('[data-element-id]')].filter(node => node._isGhost).length,
+                ownA: Boolean(get('own-a')),
+                ownB: Boolean(get('own-b')),
+                ownC: Boolean(get('own-c')),
+                maskSvg,
+                activeTransitionTimers: [...window.testState.timers.values()].filter(ms => ms === 315).length,
+                clearedTransitionTimers: window.testState.clearedTransitionTimers
+            };
+        });
+    };
+    await switchState('b');
+    await new Promise(done => setTimeout(done, 45));
+    await switchState('a');
+    const reversed = await stableTransitionState();
+    assert.equal(reversed.left, '20px', 'A→B→A reversal must settle at A position');
+    assert.equal(reversed.opacity, '0.9', 'A→B→A reversal must settle at A opacity');
+    assert.equal(reversed.visibility, '', 'A→B→A reversal must restore the visible state override');
+    assert.equal(reversed.ghosts, 0, 'A→B→A reversal must remove transition ghosts');
+    assert.equal(reversed.transition, '', 'A→B→A reversal must clear transition styles and timers');
+    assert.equal(reversed.ownA, true);
+    assert.equal(reversed.ownB, false, 'superseded B-only elements must be removed after reversal');
+    assert.ok(reversed.maskSvg.includes('M 20 160 H 120 V 230 H 20 Z'), 'cutout mask must return to state A geometry after reversal');
+    assert.equal(reversed.activeTransitionTimers, 0, 'A→B→A must clear all transition completion timers');
+    assert.ok(reversed.clearedTransitionTimers > 0, 'A→B→A must cancel the superseded transition timer');
+    await switchState('b');
+    await new Promise(done => setTimeout(done, 45));
+    await switchState('c');
+    const advanced = await stableTransitionState();
+    assert.equal(advanced.left, '420px', 'A→B→C sequence must settle at C position');
+    assert.equal(advanced.opacity, '0.7', 'A→B→C sequence must settle at C opacity');
+    assert.equal(advanced.visibility, '', 'C visibility override must be restored');
+    assert.equal(advanced.ghosts, 0, 'A→B→C sequence must remove stale ghosts');
+    assert.equal(advanced.transition, '', 'A→B→C sequence must clear transition styles and timers');
+    assert.equal(advanced.ownA, false, 'stale A-only elements must be removed');
+    assert.equal(advanced.ownB, false, 'superseded B-only elements must be removed');
+    assert.equal(advanced.ownC, true);
+    assert.ok(advanced.maskSvg.includes('M 360 160 H 540 V 230 H 360 Z'), 'cutout mask must settle at state C geometry');
+    assert.equal(advanced.activeTransitionTimers, 0, 'A→B→C must clear all transition completion timers');
+
+    await page.bringToFront();
+    // Scene States Morph & 60fps Cutout Interpolation + Zero-Idle-Cost cleanup test
+    const morphOverlay = {
+        ...clone(overlay),
+        pages: {
+            enabled: true,
+            kind: 'states',
+            transition: 'morph',
+            transitionEasing: 'smooth',
+            transitionMs: 120,
+            items: [
+                { id: 'state-1', name: 'Gameplay' },
+                { id: 'state-2', name: 'Intermission' }
+            ]
+        },
+        elements: [
+            {
+                id: 'cam-cutout',
+                type: 'cutout',
+                page: '*',
+                x: 40,
+                y: 40,
+                width: 480,
+                height: 270,
+                zIndex: 10,
+                style: { borderRadius: 12, borderWidth: 3, borderColor: '#38bdf8' },
+                cutout: { shape: 'rectangle', feather: 0 },
+                pageStates: {
+                    'state-2': { x: 640, y: 180, width: 640, height: 360, borderRadius: 24, feather: 4 }
+                }
+            },
+            {
+                id: 'cam-label',
+                type: 'text',
+                page: '*',
+                content: 'HOST CAM',
+                x: 40,
+                y: 320,
+                width: 200,
+                height: 40,
+                zIndex: 11,
+                style: { opacity: 1, rotate: 0 },
+                pageStates: {
+                    'state-2': { x: 640, y: 550, width: 300, height: 48, opacity: 0.85, rotate: -4 }
+                }
+            },
+            {
+                id: 'hide-on-intermission',
+                type: 'text',
+                page: '*',
+                content: 'FICTIONAL HIDDEN LABEL',
+                x: 40,
+                y: 280,
+                width: 220,
+                height: 32,
+                pageStates: { 'state-2': { visible: false } }
+            }
+        ]
+    };
+    await update(morphOverlay);
+    await page.waitForFunction(() => document.querySelector('[data-element-id="cam-label"]'));
+    await page.evaluate(() => window.testState.message('custom-overlay-page', { id: 'fixture', page: 'state-2' }));
+    await new Promise(done => setTimeout(done, 100));
+    const exitNodes = await page.$$eval('[data-element-id="hide-on-intermission"]', nodes => nodes.map(node => ({
+        ghost: node._isGhost,
+        visibility: node.style.visibility
+    })));
+    assert.ok(exitNodes.some(node => !node.ghost && node.visibility === 'hidden'), 'shared exit must hide original node while its ghost exits');
+    const hiddenDuringExit = await page.$eval('[data-element-id="hide-on-intermission"]', node => ({
+        visibility: node.style.visibility,
+        opacity: node.style.opacity
+    }));
+    assert.ok(
+        hiddenDuringExit.visibility === 'hidden' || Number(hiddenDuringExit.opacity) === 0,
+        'a disappearing shared state element must not remain visible underneath its outgoing ghost'
+    );
+    await page.waitForFunction(() => {
+        const label = document.querySelector('[data-element-id="cam-label"]');
+        return label && label.style.left === '640px' && label.style.willChange === '';
+    }, { timeout: 2000 });
+    const afterMorphState = await page.evaluate(() => {
+        const label = document.querySelector('[data-element-id="cam-label"]');
+        const cutout = document.querySelector('[data-element-id="cam-cutout"]');
+        const masked = document.getElementById('overlay-masked-layer');
+        return {
+            labelLeft: label?.style.left,
+            labelTop: label?.style.top,
+            labelWidth: label?.style.width,
+            labelRotate: label?.style.transform,
+            labelWillChange: label?.style.willChange,
+            labelTransition: label?.style.transition,
+            cutoutLeft: cutout?.style.left,
+            cutoutWidth: cutout?.style.width,
+            cutoutRadius: cutout?.style.borderRadius,
+            hiddenVisibility: document.querySelector('[data-element-id="hide-on-intermission"]')?.style.visibility,
+            hasMask: Boolean(masked?.style.getPropertyValue('mask-image') || masked?.style.getPropertyValue('-webkit-mask-image'))
+        };
+    });
+    assert.equal(afterMorphState.labelLeft, '640px', 'morphed shared text must settle at state-2 X override');
+    assert.equal(afterMorphState.labelTop, '550px', 'morphed shared text must settle at state-2 Y override');
+    assert.equal(afterMorphState.labelWidth, '300px', 'morphed shared text must settle at state-2 Width override');
+    assert.equal(afterMorphState.labelRotate, 'rotate(-4deg)', 'morphed shared text must settle at state-2 Rotate override');
+    assert.equal(afterMorphState.labelWillChange, '', 'will-change must be stripped after morph completion for zero idle overhead');
+    assert.equal(afterMorphState.labelTransition, '', 'transition property must be stripped after morph completion');
+    assert.equal(afterMorphState.cutoutLeft, '640px', 'morphed cutout border must settle at state-2 X override');
+    assert.equal(afterMorphState.cutoutWidth, '640px', 'morphed cutout border must settle at state-2 Width override');
+    assert.equal(afterMorphState.cutoutRadius, '24px', 'morphed cutout border must settle at state-2 borderRadius override');
+    assert.equal(afterMorphState.hiddenVisibility, 'hidden', 'a hidden state override must remain hidden after its exit animation');
+    assert.equal(afterMorphState.hasMask, true, 'underlayer cutout SVG mask must remain active after state morph');
+
+    const instantEnterExit = {
+        ...clone(overlay),
+        pages: {
+            enabled: true,
+            kind: 'states',
+            transition: 'morph',
+            enterExit: 'none',
+            transitionMs: 300,
+            items: [{ id: 'base', name: 'Base' }, { id: 'next', name: 'Next' }]
+        },
+        elements: [
+            { id: 'base-label', type: 'text', page: 'base', content: 'BASE', x: 0, y: 0, width: 120, height: 32 },
+            { id: 'next-label', type: 'text', page: 'next', content: 'NEXT', x: 0, y: 0, width: 120, height: 32 },
+            {
+                id: 'shared-morph', type: 'text', page: '*', content: 'SHARED STATE',
+                x: 10, y: 80, width: 160, height: 32,
+                pageStates: { next: { x: 250, opacity: 0.6 } }
+            }
+        ]
+    };
+    await update(instantEnterExit);
+    await page.evaluate(() => window.testState.message('custom-overlay-page', { id: 'fixture', page: 'next' }));
+    await page.waitForFunction(() => {
+        const node = document.querySelector('[data-element-id="next-label"]');
+        return node && node.style.visibility !== 'hidden';
+    }, { timeout: 2000 });
+    assert.equal(
+        await page.$eval('[data-element-id="next-label"]', node => node.style.animationName),
+        '',
+        'morph transitions configured with Instant Cut must not animate page-specific entrance elements'
+    );
+    await page.waitForFunction(() => {
+        const node = document.querySelector('[data-element-id="shared-morph"]');
+        return node && getComputedStyle(node).left !== '10px';
+    }, { timeout: 1000 });
+    await page.waitForFunction(() => {
+        const node = document.querySelector('[data-element-id="shared-morph"]');
+        return node && node.style.left === '250px' && node.style.transition === '';
+    }, { timeout: 2000 });
+    await new Promise(done => setTimeout(done, 350));
+
+    const editorPage = await browser.newPage();
+    editorPage.on('pageerror', error => errors.push(error.message));
+    await editorPage.setRequestInterception(true);
+    editorPage.on('request', request => {
+        if (new URL(request.url()).origin === origin) request.continue();
+        else request.respond({ status: 200, contentType: 'text/css', body: '' });
+    });
+    await editorPage.goto(`${origin}/?editor-preview-fixture`);
+    await editorPage.setContent('<link rel="stylesheet" href="/css/custom-overlay-editor.css"><div id="stage"><div id="canvas"><div id="canvas-underlayer"></div></div></div>');
+    await editorPage.evaluate(async () => {
+        window.OverlayShared = { pruneSourceCaches() {} };
+        const editorState = await import('/js/editor/editor-state.js');
+        const canvas = await import('/js/editor/editor-canvas.js');
+        const stage = document.getElementById('stage');
+        const element = {
+            id: 'preview-label', type: 'text', page: '*', content: 'FICTIONAL PREVIEW',
+            x: 30, y: 40, width: 140, height: 36, visible: true, style: { opacity: 1 }
+        };
+        const node = document.createElement('div');
+        node.dataset.elementId = element.id;
+        node.textContent = element.content;
+        node.style.position = 'absolute';
+        stage.appendChild(node);
+        Object.assign(editorState.state, {
+            curPage: 'a',
+            stageEl: stage,
+            overlay: {
+                id: 'editor-preview-fixture',
+                canvas: { width: 640, height: 360, background: 'transparent' },
+                pages: {
+                    enabled: true,
+                    kind: 'states',
+                    mode: 'manual',
+                    items: [{ id: 'a' }, { id: 'b' }],
+                    transition: 'morph',
+                    transitionMs: 160,
+                    transitionDirection: 'left',
+                    transitionDistance: 60
+                },
+                elements: [element]
+            }
+        });
+        editorState.state.nodes = new Map([[element.id, node]]);
+        window.editorPreviewFixture = {
+            state: editorState.state,
+            canvas,
+            element,
+            node,
+            stage,
+            run(transition) {
+                canvas.cancelEditorStateMorph();
+                stage.replaceChildren(node);
+                node.className = '';
+                node.style.cssText = 'position:absolute;left:30px;top:40px;width:140px;height:36px;opacity:1';
+                element.x = 30;
+                element.y = 40;
+                element.style = { opacity: 1 };
+                this.state.curPage = 'a';
+                const before = canvas.captureEditorStateSnapshot();
+                element.x = 230;
+                element.style = { opacity: 0.5 };
+                this.state.curPage = 'b';
+                canvas.previewEditorTransition(before, {
+                    prevPage: 'a',
+                    nextPage: 'b',
+                    transition,
+                    durationMs: 160,
+                    direction: 'left',
+                    distance: 60,
+                    easing: 'linear'
+                });
+            }
+        };
+    });
+    await editorPage.bringToFront();
+
+    await editorPage.evaluate(() => window.editorPreviewFixture.run('morph'));
+    await new Promise(done => setTimeout(done, 45));
+    const morphPreview = await editorPage.evaluate(() => {
+        const { node, stage } = window.editorPreviewFixture;
+        return {
+            transition: node.style.transition,
+            ghosts: stage.querySelectorAll('[id^="ghost-"]').length,
+            start: getComputedStyle(node).left,
+            opacity: getComputedStyle(node).opacity
+        };
+    });
+    assert.ok(morphPreview.transition.includes('left 160ms'), 'editor morph preview must use the runtime transition duration and animate geometry');
+    assert.equal(morphPreview.ghosts, 0, 'morph preview must move the shared element in place');
+    const morphLeft = Number.parseFloat(morphPreview.start);
+    const morphOpacity = Number.parseFloat(morphPreview.opacity);
+    assert.ok(morphLeft > 30 && morphLeft < 230, 'morph preview must interpolate from captured geometry toward the target');
+    assert.ok(morphOpacity < 1 && morphOpacity > 0.5, 'morph preview must interpolate style opacity with position');
+    await new Promise(done => setTimeout(done, 240));
+    assert.deepEqual(await editorPage.evaluate(() => {
+        const { node } = window.editorPreviewFixture;
+        return { left: node.style.left, opacity: node.style.opacity, transition: node.style.transition, willChange: node.style.willChange };
+    }), { left: '230px', opacity: '0.5', transition: '', willChange: '' }, 'morph preview must settle and clear temporary styles');
+
+    await editorPage.evaluate(() => window.editorPreviewFixture.run('fade'));
+    const crossfadePreview = await editorPage.evaluate(() => {
+        const { node, stage } = window.editorPreviewFixture;
+        const ghost = stage.querySelector('#ghost-preview-label');
+        return { enter: node.style.animation, exit: ghost?.style.animation, ghostLeft: ghost?.style.left, targetLeft: node.style.left };
+    });
+    assert.ok(crossfadePreview.enter.includes('pg-fade-in'), 'crossfade preview must fade the target position in');
+    assert.ok(crossfadePreview.exit.includes('pg-fade-out'), 'crossfade preview must fade a ghost at the outgoing position');
+    assert.equal(crossfadePreview.ghostLeft, '30px');
+    assert.equal(crossfadePreview.targetLeft, '230px');
+    await new Promise(done => setTimeout(done, 240));
+    assert.equal(await editorPage.$('#ghost-preview-label'), null, 'crossfade preview must remove its outgoing ghost');
+
+    await editorPage.evaluate(() => window.editorPreviewFixture.run('slide'));
+    const slidePreview = await editorPage.evaluate(() => {
+        const { node, stage } = window.editorPreviewFixture;
+        const ghost = stage.querySelector('#ghost-preview-label');
+        return {
+            enter: node.style.animation,
+            exit: ghost?.style.animation,
+            enterX: node.style.getPropertyValue('--pg-x'),
+            exitX: ghost?.style.getPropertyValue('--pg-x')
+        };
+    });
+    assert.ok(slidePreview.enter.includes('pg-slide-in'), 'slide preview must animate the target position in');
+    assert.ok(slidePreview.exit.includes('pg-slide-out'), 'slide preview must animate a ghost from the outgoing position');
+    assert.equal(slidePreview.enterX, '60px');
+    assert.equal(slidePreview.exitX, '60px');
+    await new Promise(done => setTimeout(done, 240));
+    assert.equal(await editorPage.$('#ghost-preview-label'), null, 'slide preview must remove its outgoing ghost');
+
+    await editorPage.evaluate(() => {
+        const fixture = window.editorPreviewFixture;
+        fixture.runExit = function (enterExit, paired = false) {
+            this.canvas.cancelEditorStateMorph();
+            this.stage.querySelectorAll('[id^="ghost-"]').forEach(node => node.remove());
+            this.stage.replaceChildren(this.canvas.canvasEl);
+            this.state.curPage = 'b';
+            this.state.overlay.elements = [{
+                id: 'state-two-shape', type: 'shape', page: 'b', morphId: 'paired-shape',
+                x: 70, y: 80, width: 120, height: 60, visible: true, style: { opacity: 1 }
+            }];
+            if (paired) this.state.overlay.elements.push({
+                id: 'state-one-shape', type: 'shape', page: 'a', morphId: 'paired-shape',
+                x: 170, y: 80, width: 120, height: 60, visible: true, style: { opacity: 1 }
+            });
+            const changedIds = new Set(['state-two-shape', 'state-one-shape']);
+            this.canvas.renderCanvas(changedIds);
+            if (!this.state.nodes.get('state-two-shape')?.isConnected) throw new Error('renderer must mount the outgoing layer before snapshot capture');
+            const before = this.canvas.captureEditorStateSnapshot();
+            this.state.curPage = 'a';
+            this.canvas.renderCanvas(changedIds);
+            this.canvas.previewEditorTransition(before, {
+                prevPage: 'b', nextPage: 'a', transition: 'morph',
+                enterExit, durationMs: 240, easing: 'linear'
+            });
+        };
+        fixture.runExit('fade');
+    });
+    const reverseExit = await editorPage.$eval('#ghost-state-two-shape', node => ({
+        animation: node.style.animation, opacity: getComputedStyle(node).opacity
+    }));
+    assert.ok(reverseExit.animation.includes('pg-fade-out'), 'State 2-only layers must crossfade out after the real canvas unmounts them on return to State 1');
+    await new Promise(done => setTimeout(done, 80));
+    const fadingOpacity = await editorPage.$eval('#ghost-state-two-shape', node => Number(getComputedStyle(node).opacity));
+    assert.ok(fadingOpacity > 0 && fadingOpacity < 1, 'reverse exit must visibly fade rather than instantly disappear');
+    await new Promise(done => setTimeout(done, 240));
+    assert.equal(await editorPage.$('#ghost-state-two-shape'), null, 'reverse exit ghost must be removed after the crossfade');
+    await editorPage.evaluate(() => window.editorPreviewFixture.runExit('zoom'));
+    assert.ok((await editorPage.$eval('#ghost-state-two-shape', node => node.style.animation)).includes('pg-zoom-out'), 'saved zoom enter/exit settings must also animate State 2 to State 1');
+    await editorPage.evaluate(() => window.editorPreviewFixture.canvas.cancelEditorStateMorph());
+    assert.equal(await editorPage.$('#ghost-state-two-shape'), null, 'cancelling a reverse exit must remove its ghost');
+    await editorPage.evaluate(() => window.editorPreviewFixture.runExit('none'));
+    assert.equal(await editorPage.$('#ghost-state-two-shape'), null, 'Instant Cut must not retain an outgoing ghost');
+    const pairedStart = await editorPage.evaluate(() => {
+        window.editorPreviewFixture.runExit('fade', true);
+        return getComputedStyle(window.editorPreviewFixture.state.nodes.get('state-one-shape')).left;
+    });
+    assert.equal(await editorPage.$('#ghost-state-two-shape'), null, 'paired page-specific layers must morph without a duplicate outgoing exit');
+    assert.equal(pairedStart, '70px', 'paired incoming layer must start at the outgoing position');
+    await new Promise(done => setTimeout(done, 320));
+    assert.equal(await editorPage.$eval('[data-id="state-one-shape"]', node => node.style.left), '170px', 'paired incoming layer must finish at its target position');
+
     assert.deepEqual(errors, []);
-    console.log('Overlay runtime regression tests passed.');
+    console.log('Overlay runtime and editor preview regression tests passed.');
 } finally {
     await browser?.close();
     await new Promise(done => server.close(done));

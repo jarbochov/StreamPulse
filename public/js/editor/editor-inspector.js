@@ -6,7 +6,8 @@ import {
     $, esc, clamp, getPath, setPath, hasText, isLine, state, prefs, savePrefs,
     CANVAS_PRESETS, SYSTEM_FONTS, GOOGLE_FONT_OPTIONS, LIMITS, ICON, TYPE_META,
     ALERT_TRIGGER_LABELS, TEXT_TYPES, FILL_TEXT_TYPES, LOCAL_MEDIA, selectedElements,
-    primary, byId, boundsOf, displayName, changed, toast, alertSample, variableContext
+    primary, byId, boundsOf, displayName, changed, toast, alertSample, variableContext,
+    statesModeOn, isBasePage, hasPageOverride, resetElementPageState, extractElementState
 } from './editor-state.js';
 import { F, bindFields } from './editor-form.js';
 import {
@@ -25,6 +26,9 @@ let scaleSelectionByHandler = () => {};
 let uploadAssetHandler = () => Promise.resolve('');
 let fitToMediaHandler = () => Promise.resolve();
 let openAssetDialogHandler = () => {};
+let openObsModalHandler = () => {};
+let refreshObsSourcesHandler = () => Promise.resolve();
+let snapObsLayerHandler = () => Promise.resolve();
 
 export function registerInspectorCallbacks(callbacks) {
     if (callbacks.onUpdateStatusBar) updateStatusBarHandler = callbacks.onUpdateStatusBar;
@@ -35,12 +39,15 @@ export function registerInspectorCallbacks(callbacks) {
     if (callbacks.onUploadAsset) uploadAssetHandler = callbacks.onUploadAsset;
     if (callbacks.onFitToMedia) fitToMediaHandler = callbacks.onFitToMedia;
     if (callbacks.onOpenAssetDialog) openAssetDialogHandler = callbacks.onOpenAssetDialog;
+    if (callbacks.onOpenObsModal) openObsModalHandler = callbacks.onOpenObsModal;
+    if (callbacks.onRefreshObsSources) refreshObsSourcesHandler = callbacks.onRefreshObsSources;
+    if (callbacks.onSnapObsLayer) snapObsLayerHandler = callbacks.onSnapObsLayer;
 }
 
 // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
 export const RERENDER_PATHS = new Set([
     'poll.previewMode',
-    'cutout.shape', 'alert.showOnPreview', 'style.objectFit', 'mediaFilter.duotone.enabled',
+    'cutout.shape', 'obsLink.enabled', 'alert.showOnPreview', 'style.objectFit', 'mediaFilter.duotone.enabled',
     'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled',
     'mediaFilter.halftone.mode', 'mediaFilter.halftone.colorMode', 'mediaFilter.halftone.fadeMode',
     'mediaFilter.retro.display', 'mediaFilter.retro.vhs', 'mediaFilter.retro.ntsc', 'mediaFilter.retro.static',
@@ -125,10 +132,13 @@ export function actionBar(items) {
     const link = (items.length > 1 ? `<button type="button" class="link-btn" data-act="group" title="Group (Ctrl/⌘+G)">Group</button>` : '') + (grouped ? `<button type="button" class="link-btn" data-act="ungroup" title="Ungroup (Ctrl/⌘+Shift+G)">Ungroup</button>` : '');
     const allLocked = items.every(el => el.locked), allHidden = items.every(el => el.visible === false);
     const btn = (act, icon, text, cls = '') => `<button type="button" class="icon ${cls}" data-act="${act}" title="${text}" aria-label="${text}">${icon}</button>`;
-    return `<div class="action-bar"><div class="title">${label}<span class="spacer"></span>${link}</div>
-        <div class="btn-cluster">${btn('duplicate', ICON.copy, 'Duplicate (Ctrl/⌘+D)')}${btn('copy-style', ICON.paint, 'Copy style (Ctrl/⌘+⌥/Alt+C)')}${btn('paste-style', ICON.clipboard, 'Paste style (Ctrl/⌘+⌥/Alt+V)')}${btn('preset', ICON.preset, 'Save selection as a preset…')}${btn('delete', ICON.trash, 'Delete (Del)', 'danger')}</div>
-        <div class="btn-cluster">${btn('front', ICON.toFront, 'Bring to front')}${btn('forward', ICON.forward, 'Bring forward')}${btn('backward', ICON.backward, 'Send backward')}${btn('back', ICON.toBack, 'Send to back')}</div>
-        <div class="btn-cluster">${btn('lock', allLocked ? ICON.lock : ICON.unlock, allLocked ? 'Unlock' : 'Lock')}${btn('hide', allHidden ? ICON.eyeOff : ICON.eye, allHidden ? 'Show' : 'Hide')}</div></div>`;
+    return `<div class="action-bar">
+        <div class="title">${label}<span class="spacer"></span>${link}<div class="btn-cluster">${btn('lock', allLocked ? ICON.lock : ICON.unlock, allLocked ? 'Unlock' : 'Lock')}${btn('hide', allHidden ? ICON.eyeOff : ICON.eye, allHidden ? 'Show' : 'Hide')}${btn('delete', ICON.trash, 'Delete (Del)', 'danger')}</div></div>
+        <div class="action-toolbar">
+            <div class="btn-cluster">${btn('duplicate', ICON.copy, 'Duplicate (Ctrl/⌘+D)')}${btn('copy-style', ICON.paint, 'Copy style (Ctrl/⌘+⌥/Alt+C)')}${btn('paste-style', ICON.clipboard, 'Paste style (Ctrl/⌘+⌥/Alt+V)')}${btn('preset', ICON.preset, 'Save selection as a reusable prefab…')}</div>
+            <div class="btn-cluster">${btn('front', ICON.toFront, 'Bring to front')}${btn('forward', ICON.forward, 'Bring forward')}${btn('backward', ICON.backward, 'Send backward')}${btn('back', ICON.toBack, 'Send to back')}</div>
+        </div>
+    </div>`;
 }
 
 export function scaleSection(items) {
@@ -593,19 +603,19 @@ export function pollSection(el) {
 export function layoutSection(el) {
     const line = isLine(el);
     const locked = !!el.aspectLock;
-    return F.section('layout', 'Layer, Position & Rotation', `
+    return F.section('layout', 'Position & Size', `
         ${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}
         <div class="grid2">${F.number('x', 'X', el.x, { min: -7680, max: 7680 })}${F.number('y', 'Y', el.y, { min: -4320, max: 4320 })}</div>
         <div class="grid2">${F.number('width', 'Width', el.width, { min: LIMITS.elementW[0], max: LIMITS.elementW[1] })}${line ? '<span></span>' : F.number('height', 'Height', el.height, { min: LIMITS.elementH[0], max: LIMITS.elementH[1] })}</div>
-        ${line ? '' : `<div style="display:flex;justify-content:space-between;align-items:center;margin:-.2rem 0 .45rem;flex-wrap:wrap;gap:4px;">
-            <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                <button type="button" class="btn" style="padding:2px 6px;font-size:10px;" data-aspect-preset="16:9" title="Apply 16:9 aspect ratio">16:9</button>
-                <button type="button" class="btn" style="padding:2px 6px;font-size:10px;" data-aspect-preset="4:3" title="Apply 4:3 aspect ratio">4:3</button>
-                <button type="button" class="btn" style="padding:2px 6px;font-size:10px;" data-aspect-preset="1:1" title="Apply 1:1 square aspect ratio">1:1</button>
-                <button type="button" class="btn" style="padding:2px 6px;font-size:10px;" data-aspect-preset="9:16" title="Apply 9:16 vertical aspect ratio">9:16</button>
-                <button type="button" class="btn" style="padding:2px 6px;font-size:10px;" data-aspect-preset="21:9" title="Apply 21:9 ultrawide aspect ratio">21:9</button>
+        ${line ? '' : `<div class="aspect-bar">
+            <div class="aspect-chips">
+                <button type="button" class="aspect-chip" data-aspect-preset="16:9" title="Apply 16:9 aspect ratio">16:9</button>
+                <button type="button" class="aspect-chip" data-aspect-preset="4:3" title="Apply 4:3 aspect ratio">4:3</button>
+                <button type="button" class="aspect-chip" data-aspect-preset="1:1" title="Apply 1:1 square aspect ratio">1:1</button>
+                <button type="button" class="aspect-chip" data-aspect-preset="9:16" title="Apply 9:16 vertical aspect ratio">9:16</button>
+                <button type="button" class="aspect-chip" data-aspect-preset="21:9" title="Apply 21:9 ultrawide aspect ratio">21:9</button>
             </div>
-            <button type="button" id="toggle-aspect-lock" class="link-btn" style="font-size:11px;color:${locked ? 'var(--accent)' : 'var(--muted)'};display:inline-flex;align-items:center;gap:4px" title="${locked ? 'Unlock aspect ratio' : 'Lock aspect ratio when editing width/height'}">${locked ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:middle"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> Proportions locked' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:middle"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg> Proportions unlocked'}</button>
+            <button type="button" id="toggle-aspect-lock" class="aspect-lock-btn${locked ? ' is-locked' : ''}" aria-pressed="${locked}" title="${locked ? 'Unlock aspect ratio' : 'Lock aspect ratio when editing width/height'}">${locked ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> Lock ratio' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg> Lock ratio'}</button>
         </div>`}
         ${F.range('style.rotate', 'Rotation (°)', el.style?.rotate || 0, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset rotation to 0°' })}
         ${alignBody([el])}`);
@@ -1436,8 +1446,83 @@ export function patternSection(el) {
 export function sharedBlock(items) {
     const pagesEnabled = state.overlay.pages?.enabled === true;
     if (!pagesEnabled) return '';
+    const isStates = statesModeOn();
     const all = items.every(el => el.page === '*');
-    return `<div class="shared-box"><label class="check"><input type="checkbox" id="el-shared" ${all ? 'checked' : ''}> Show on all pages (shared)</label></div>`;
+    const labelText = isStates ? 'Shared across states (morphs)' : 'Show on all pages (shared)';
+    const curPageObj = state.overlay.pages?.items?.find(p => p.id === state.curPage);
+    const curPageName = curPageObj?.name || state.curPage;
+    let overrideBar = '';
+    if (all && !isBasePage() && items.length === 1) {
+        const el = items[0];
+        const hasOvr = hasPageOverride(el, state.curPage);
+        overrideBar = hasOvr
+            ? `<div class="state-override-bar is-active">
+                <span class="state-ovr-text"><i class="layer-ovr-dot"></i> Modified on <strong>${esc(curPageName)}</strong></span>
+                <button type="button" id="btn-reset-state-ovr" class="link-btn" title="Revert this layer's layout and style on ${esc(curPageName)} back to the Base State">Reset to Base</button>
+            </div>`
+            : `<div class="state-override-bar">
+                <span class="state-ovr-text" style="color:var(--muted)">Base values on <strong>${esc(curPageName)}</strong> — edit any property to morph</span>
+            </div>`;
+    }
+    return `<div class="shared-box"><label class="check"><input type="checkbox" id="el-shared" ${all ? 'checked' : ''}> ${labelText}</label>${overrideBar}</div>`;
+}
+
+export function obsLinkSection(el) {
+    if (!state.obs?.enabled) return '';
+    if (el.type !== 'shape' && el.type !== 'cutout') return '';
+    const link = el.obsLink || { enabled: false, sourceName: '', sceneName: '', fit: 'cover', syncVisibility: true };
+    const isCutout = el.type === 'cutout';
+    const sources = Array.isArray(state.obs?.sources) ? state.obs.sources : [];
+    const scenes = Array.isArray(state.obs?.scenes) ? state.obs.scenes : [];
+    const connected = state.obs?.connected === true;
+
+    let body = F.check('obsLink.enabled', 'Link this box to an OBS source', link.enabled === true);
+    if (!link.enabled) {
+        body += `<p class="hint" style="margin-top:4px;">${isCutout
+            ? 'Enable to automatically position and morph an OBS source behind this cutout hole when Scene States change.'
+            : 'Enable to use this shape as a border/frame around an OBS camera or game source sitting above this overlay (no cutout hole needed).'}</p>`;
+        return F.section('obsLink', 'OBS Source Link (BETA)', body);
+    }
+
+    body += `<div class="obs-link-hint" style="margin:6px 0 8px;">${isCutout
+        ? '<strong>Cutout + Sync Mode:</strong> Place your OBS source <b>below</b> this overlay in OBS. StreamPulse cuts a transparent hole here and moves/scales the OBS source to stay aligned across Scene States.'
+        : '<strong>Frame / Border Mode (No Cutout):</strong> Place your OBS source <b>above</b> this overlay in OBS. StreamPulse renders this border/shadow behind your source and moves/scales the OBS source to match this box.'}</div>`;
+
+    const sourceOptions = sources.map(s => `<option value="${esc(s)}">`).join('');
+    const sceneOptions = [
+        ['', `Active Program Scene${state.obs?.currentProgramScene ? ` (${state.obs.currentProgramScene})` : ''}`],
+        ...scenes.map(sc => {
+            const name = typeof sc === 'string' ? sc : sc?.name || '';
+            return [name, name];
+        }).filter(([n]) => n)
+    ];
+    if (link.sceneName && !sceneOptions.some(([v]) => v === link.sceneName)) {
+        sceneOptions.push([link.sceneName, link.sceneName]);
+    }
+
+    body += `
+        <div class="field">
+            <span style="display:flex;justify-content:space-between;align-items:center;">
+                <span>OBS Source Name</span>
+                <button type="button" id="btn-obs-refresh-sources" class="link-btn" style="font-size:10px;">${connected ? 'Refresh OBS list' : 'Connect OBS…'}</button>
+            </span>
+            <input type="text" data-path="obsLink.sourceName" data-kind="text" list="obs-source-datalist" value="${esc(link.sourceName || '')}" placeholder="e.g. Webcam, Game Capture">
+            <datalist id="obs-source-datalist">${sourceOptions}</datalist>
+        </div>
+        ${F.select('obsLink.sceneName', 'Target OBS Scene', link.sceneName || '', sceneOptions)}
+        ${F.select('obsLink.fit', 'Source scaling inside box', link.fit || 'cover', [
+            ['cover', 'Cover (Scale outer to fill box)'],
+            ['contain', 'Contain (Fit inside box)'],
+            ['stretch', 'Stretch to exact box dimensions'],
+            ['none', 'Position only (Keep native OBS scale)']
+        ])}
+        ${F.check('obsLink.syncVisibility', 'Sync OBS source visibility when hidden in a state', link.syncVisibility !== false)}
+        <div style="display:flex;gap:6px;margin-top:6px;">
+            <button type="button" id="btn-obs-snap-layer" class="primary" style="flex:1;" title="Immediately snap this OBS source to match this layer's current box">Snap OBS Source Now</button>
+            <button type="button" id="btn-open-obs-settings" title="Configure OBS WebSocket Bridge">OBS Setup…</button>
+        </div>
+    `;
+    return F.section('obsLink', 'OBS Source Link (BETA)', body);
 }
 
 // ---- Property Inspector Panel Render ----------------------------------------------
@@ -1459,7 +1544,7 @@ export function renderProperties() {
     } else {
         const el = items[0];
         const specific = { 'random-text': randomSection, progress: progressSection, poll: pollSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection, pattern: patternSection, 'procedural-pattern': proceduralPatternSection }[el.type];
-        root.innerHTML = `${actionBar(items)}${sharedBlock(items)}${layoutSection(el)}${contentSection(el)}${el.type === 'icon' ? iconEffectsSection(el) : ''}${specific ? specific(el) : ''}${el.type !== 'cutout' ? filterSection(el) : ''}${hasText(el) ? typographySection(el) : ''}${el.type !== 'cutout' ? fillSection(el) : ''}${el.type !== 'cutout' ? effectsSection(el) : ''}`;
+        root.innerHTML = `${actionBar(items)}${sharedBlock(items)}${layoutSection(el)}${obsLinkSection(el)}${contentSection(el)}${el.type === 'icon' ? iconEffectsSection(el) : ''}${specific ? specific(el) : ''}${el.type !== 'cutout' ? filterSection(el) : ''}${hasText(el) ? typographySection(el) : ''}${el.type !== 'cutout' ? fillSection(el) : ''}${el.type !== 'cutout' ? effectsSection(el) : ''}`;
     }
     if (root.parentElement) root.parentElement.scrollTop = scroll;
     state.lastTextField = null;
@@ -1734,7 +1819,7 @@ export function initInspectorEvents() {
             }
             renderSelectionUI();
             updateStatusBarHandler();
-            if (path === 'name') renderLayers();
+            if (path === 'name' || path.startsWith('obsLink.')) renderLayers();
             if (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || RERENDER_PATHS.has(path) || /^style\.(gradient|textGradient|borderGradient)\.(enabled|type|animate)$/.test(path)) {
                 if (numberCrossedZero(path, event)) renderProperties();
             }
@@ -2098,6 +2183,38 @@ export function initInspectorEvents() {
                     if (status) status.textContent = 'Preview updated. Could not reach the server.';
                 });
             }
+            if (target.closest('#btn-reset-state-ovr')) {
+                const el = primary();
+                if (el) {
+                    resetElementPageState(el, state.curPage);
+                    renderLayers();
+                    renderCanvas();
+                    renderSelectionUI();
+                    renderProperties();
+                    updateStatusBarHandler();
+                    changed(true);
+                    toast('Layer reset to Base State layout', 'info', 1800);
+                }
+                return;
+            }
+            if (target.closest('#btn-open-obs-settings')) {
+                openObsModalHandler();
+                return;
+            }
+            if (target.closest('#btn-obs-refresh-sources')) {
+                if (!state.obs?.connected) {
+                    openObsModalHandler();
+                } else {
+                    await refreshObsSourcesHandler(true);
+                    renderProperties();
+                }
+                return;
+            }
+            if (target.closest('#btn-obs-snap-layer')) {
+                const el = primary();
+                if (el) await snapObsLayerHandler(el);
+                return;
+            }
             if (target.closest('[data-slide-popout]')) {
                 window.open(`/overlay-control.html?id=${encodeURIComponent(state.overlay.id)}`, 'slideshow-remote', 'popup,width=420,height=640');
             }
@@ -2108,9 +2225,16 @@ export function initInspectorEvents() {
 
         propEl.addEventListener('change', event => {
             if (event.target.id !== 'el-shared') return;
-            for (const el of selectedElements()) el.page = event.target.checked ? '*' : state.curPage;
+            for (const el of selectedElements()) {
+                el.page = event.target.checked ? '*' : state.curPage;
+                if (el.page === '*') {
+                    if (!el._baseState) el._baseState = extractElementState(el);
+                    if (!el.pageStates) el.pageStates = {};
+                }
+            }
             renderLayers();
             renderCanvas();
+            renderProperties();
             changed(true);
         });
     }

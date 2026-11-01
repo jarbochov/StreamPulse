@@ -344,7 +344,9 @@ const TEXT_SOURCE_TYPES = new Set(['text', 'random-text', 'markdown']);
 const TEXT_SOURCE_EXTS = new Set(['.txt', '.md', '.markdown', '.text']);
 const TEXT_SOURCE_MAX_BYTES = 512 * 1024;
 const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'poll', 'game-list', 'qr', 'alert', 'slideshow', 'icon', 'cutout', 'pattern', 'procedural-pattern']);
-const PAGE_TRANSITIONS = ['none', 'fade', 'slide'];
+const PAGE_TRANSITIONS = ['none', 'fade', 'slide', 'morph'];
+const PAGE_EASINGS = ['smooth', 'snappy', 'spring', 'ease-in-out', 'linear'];
+const PAGE_ENTER_EXITS = ['fade', 'slide', 'zoom', 'none'];
 const PAGE_DIRECTIONS = ['left', 'right', 'up', 'down'];
 const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset'];
 const BORDER_ANIM_TYPES = ['none', 'rotating', 'radial', 'pulsing', 'gradient', 'rainbow', 'marching'];
@@ -611,8 +613,123 @@ function rewriteAssetReferences(text, oldName, newName, oldFamily, newFamily) {
     return result;
 }
 
+function normalizePageStateStyle(rawStyle = {}, entry = {}) {
+    const s = (rawStyle && typeof rawStyle === 'object' && !Array.isArray(rawStyle)) ? rawStyle : {};
+    const out = {};
+    const pickStr = (k, max = 120) => {
+        const val = s[k] !== undefined ? s[k] : entry[k];
+        if (typeof val === 'string' && val.trim()) out[k] = val.trim().slice(0, max);
+    };
+    const pickNum = (k, min, max, round = false) => {
+        const rawVal = s[k] !== undefined ? s[k] : entry[k];
+        if (rawVal !== undefined && rawVal !== null && rawVal !== '' && Number.isFinite(Number(rawVal))) {
+            const clamped = Math.max(min, Math.min(max, Number(rawVal)));
+            out[k] = round ? Math.round(clamped) : clamped;
+        }
+    };
+    const pickEnum = (k, allowed) => {
+        const val = s[k] !== undefined ? s[k] : entry[k];
+        if (allowed.includes(val)) out[k] = val;
+    };
+    pickStr('fontFamily', 120);
+    pickNum('fontSize', 8, 400);
+    pickStr('fontWeight', 20);
+    pickStr('color', 80);
+    pickEnum('textAlign', ['left', 'center', 'right']);
+    pickEnum('verticalAlign', ['top', 'middle', 'bottom']);
+    pickNum('lineHeight', 0.5, 3);
+    pickNum('letterSpacing', -10, 50);
+    pickEnum('textTransform', ['none', 'uppercase', 'lowercase', 'capitalize']);
+    pickEnum('textDecoration', ['none', 'underline', 'line-through']);
+    pickStr('background', 120);
+    pickStr('fill', 80);
+    pickStr('borderColor', 80);
+    pickNum('borderWidth', 0, 40);
+    pickEnum('borderStyle', BORDER_STYLES);
+    pickNum('borderRadius', 0, 200, true);
+    pickNum('padding', 0, 200, true);
+    pickNum('opacity', 0, 1);
+    pickNum('rotate', -360, 360);
+    pickNum('blur', 0, 60);
+    pickEnum('shape', ['rectangle', 'circle', 'pill', 'line']);
+    pickEnum('objectFit', ['cover', 'contain']);
+    pickNum('focusX', 0, 100);
+    pickNum('focusY', 0, 100);
+    if (s.gradient && typeof s.gradient === 'object') out.gradient = normalizeGradient(s.gradient);
+    if (s.textGradient && typeof s.textGradient === 'object') out.textGradient = normalizeGradient(s.textGradient);
+    if (s.borderGradient && typeof s.borderGradient === 'object') out.borderGradient = normalizeGradient(s.borderGradient);
+    if (s.borderGlow && typeof s.borderGlow === 'object') out.borderGlow = normalizeBorderGlow(s.borderGlow);
+    if (s.borderAnimation && typeof s.borderAnimation === 'object') out.borderAnimation = normalizeBorderAnimation(s.borderAnimation);
+    if (s.shadow && typeof s.shadow === 'object') {
+        out.shadow = {
+            blur: Math.max(0, Math.min(100, Number(s.shadow.blur) || 0)),
+            color: String(s.shadow.color || 'rgba(0,0,0,0.5)').slice(0, 80)
+        };
+    }
+    if (s.innerShadow && typeof s.innerShadow === 'object') out.innerShadow = normalizeInnerShadow(s.innerShadow);
+    if (s.textStroke && typeof s.textStroke === 'object') {
+        out.textStroke = {
+            width: Math.max(0, Math.min(20, Number(s.textStroke.width) || 0)),
+            color: String(s.textStroke.color || '#000000').slice(0, 80)
+        };
+    }
+    if (s.textShadow && typeof s.textShadow === 'object') {
+        out.textShadow = {
+            blur: Math.max(0, Math.min(60, Number(s.textShadow.blur) || 0)),
+            color: String(s.textShadow.color || 'rgba(0,0,0,0.7)').slice(0, 80)
+        };
+    }
+    return Object.keys(out).length ? out : undefined;
+}
+
+function normalizePageStates(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+    const out = {};
+    for (const [rawPid, entry] of Object.entries(raw)) {
+        const pid = sanitizeOverlayId(rawPid).slice(0, 40);
+        if (!pid || !entry || typeof entry !== 'object') continue;
+        const clean = {};
+        const hasNumber = key => entry[key] !== undefined && entry[key] !== null && entry[key] !== '' && Number.isFinite(Number(entry[key]));
+        if (hasNumber('x')) clean.x = Math.round(Number(entry.x));
+        if (hasNumber('y')) clean.y = Math.round(Number(entry.y));
+        if (hasNumber('width')) clean.width = Math.max(1, Math.min(3840, Math.round(Number(entry.width))));
+        if (hasNumber('height')) clean.height = Math.max(1, Math.min(2160, Math.round(Number(entry.height))));
+        if (typeof entry.visible === 'boolean') clean.visible = entry.visible;
+        if (hasNumber('opacity')) clean.opacity = Math.max(0, Math.min(1, Number(entry.opacity)));
+        if (hasNumber('rotate')) clean.rotate = Math.max(-360, Math.min(360, Number(entry.rotate)));
+        if (hasNumber('borderRadius')) clean.borderRadius = Math.max(0, Math.min(200, Math.round(Number(entry.borderRadius))));
+        if (hasNumber('feather')) clean.feather = Math.max(0, Math.min(100, Math.round(Number(entry.feather))));
+        if (['rectangle', 'circle', 'pill'].includes(entry.cutoutShape)) clean.cutoutShape = entry.cutoutShape;
+        if (['none', 'shrink', 'fit'].includes(entry.textFit)) clean.textFit = entry.textFit;
+        const styleOvr = normalizePageStateStyle(entry.style, entry);
+        if (styleOvr) clean.style = styleOvr;
+        if (Object.keys(clean).length) out[pid] = clean;
+    }
+    return Object.keys(out).length ? out : undefined;
+}
+
+function normalizeObsLink(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+    const enabled = raw.enabled === true;
+    const sourceName = String(raw.sourceName || '').trim().slice(0, 120);
+    const sceneName = String(raw.sceneName || '').trim().slice(0, 120);
+    const fit = ['cover', 'contain', 'stretch', 'none'].includes(raw.fit) ? raw.fit : 'cover';
+    const syncVisibility = raw.syncVisibility !== false;
+    if (!enabled && !sourceName && !sceneName) return undefined;
+    return {
+        enabled,
+        sourceName,
+        sceneName,
+        fit,
+        syncVisibility
+    };
+}
+
 function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
     const type = CUSTOM_OVERLAY_ELEMENT_TYPES.has(element.type) ? element.type : 'text';
+    const morphId = sanitizeOverlayId(element.morphId).slice(0, 40);
+    const pageStates = normalizePageStates(element.pageStates);
+    const obsLink = normalizeObsLink(element.obsLink);
     return {
         id: sanitizeOverlayId(element.id) || `element-${index + 1}`,
         name: String(element.name || '').trim().slice(0, 80),
@@ -620,6 +737,9 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
         group: sanitizeOverlayId(element.group).slice(0, 40),
         groupName: element.group ? String(element.groupName || '').trim().slice(0, 60) : '',
         page: element.page === '*' ? '*' : sanitizeOverlayId(element.page).slice(0, 40),
+        ...(morphId ? { morphId } : {}),
+        ...(pageStates ? { pageStates } : {}),
+        ...(obsLink ? { obsLink } : {}),
         type,
         poll: type === 'poll' ? normalizePollSettings(element.poll) : undefined,
         mediaFilter: normalizeMediaFilter(element.mediaFilter),
@@ -790,20 +910,23 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
             textTransform: ['none', 'uppercase', 'lowercase', 'capitalize'].includes(element.style?.textTransform) ? element.style.textTransform : 'none',
             textDecoration: ['none', 'underline', 'line-through'].includes(element.style?.textDecoration) ? element.style.textDecoration : 'none',
             lineHeight: Math.max(0.5, Math.min(3, Number(element.style?.lineHeight) || 1.2)),
-            letterSpacing: Math.max(-10, Math.min(50, Number(element.style?.letterSpacing) || 0))
+            letterSpacing: Math.max(-10, Math.min(50, Number(element.style?.letterSpacing) || 0)),
+            rotate: Number.isFinite(Number(element.style?.rotate)) ? Math.max(-360, Math.min(360, Number(element.style.rotate))) : 0
         }
     };
 }
 
 function normalizePages(input = {}) {
     const seen = new Set();
+    const kind = input.kind === 'states' || input.transition === 'morph' ? 'states' : 'pages';
+    const defaultLabel = kind === 'states' ? 'State' : 'Page';
     const items = (Array.isArray(input.items) ? input.items : []).slice(0, 50).map((item, index) => {
         let id = sanitizeOverlayId(item?.id).slice(0, 40) || `page-${index + 1}`;
         while (seen.has(id) || id === '*') id = `${id}-${index + 1}`;
         seen.add(id);
         return {
             id,
-            name: String(item?.name || '').trim().slice(0, 60) || `Page ${index + 1}`,
+            name: String(item?.name || '').trim().slice(0, 60) || `${defaultLabel} ${index + 1}`,
             duration: Math.max(0, Math.min(86400, Number(item?.duration) || 0)),
             enabled: item?.enabled !== false,
             trigger: ['alert', 'featured', 'command', 'poll-end', 'poll-active'].includes(item?.trigger) ? item.trigger : '',
@@ -812,15 +935,18 @@ function normalizePages(input = {}) {
             triggerSeconds: Math.max(0, Math.min(3600, Number(item?.triggerSeconds) || 0))
         };
     });
-    if (!items.length) items.push({ id: 'page-1', name: 'Page 1', duration: 0, enabled: true, trigger: '', triggerName: '', triggerRules: [], triggerSeconds: 0 });
+    if (!items.length) items.push({ id: 'page-1', name: `${defaultLabel} 1`, duration: 0, enabled: true, trigger: '', triggerName: '', triggerRules: [], triggerSeconds: 0 });
     if (!items.some(item => item.enabled)) items[0].enabled = true;
     return {
         enabled: input.enabled === true,
+        kind,
         mode: input.mode === 'auto' ? 'auto' : 'manual',
         cycleSeconds: Math.max(1, Math.min(86400, Number(input.cycleSeconds) || 10)),
         loop: input.loop !== false,
-        transition: PAGE_TRANSITIONS.includes(input.transition) ? input.transition : 'fade',
-        transitionMs: Math.max(0, Math.min(5000, Number(input.transitionMs ?? 500))),
+        transition: PAGE_TRANSITIONS.includes(input.transition) ? input.transition : (kind === 'states' ? 'morph' : 'fade'),
+        transitionEasing: PAGE_EASINGS.includes(input.transitionEasing) ? input.transitionEasing : 'smooth',
+        enterExit: PAGE_ENTER_EXITS.includes(input.enterExit) ? input.enterExit : 'fade',
+        transitionMs: Math.max(0, Math.min(5000, Number(input.transitionMs ?? (kind === 'states' ? 650 : 500)))),
         transitionDirection: PAGE_DIRECTIONS.includes(input.transitionDirection) ? input.transitionDirection : 'left',
         transitionDistance: Math.max(10, Math.min(2000, Math.round(Number(input.transitionDistance) || 120))),
         items
@@ -914,9 +1040,32 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
     const elements = Array.isArray(overlay.elements) ? [...overlay.elements] : [];
     elements.sort((a, b) => (Number(a.zIndex) || 0) - (Number(b.zIndex) || 0));
 
-    elements.forEach((el, idx) => {
+    const basePageId = overlay.pages?.items?.[0]?.id || '';
+    elements.forEach((rawEl, idx) => {
+        if (pagesEnabled && targetPage && rawEl.page && rawEl.page !== '*' && rawEl.page !== targetPage) return;
+        const st = (pagesEnabled && targetPage && targetPage !== basePageId && rawEl.page === '*' && rawEl.pageStates?.[targetPage]) ? rawEl.pageStates[targetPage] : null;
+        const el = st ? {
+            ...rawEl,
+            x: st.x ?? rawEl.x,
+            y: st.y ?? rawEl.y,
+            width: st.width ?? rawEl.width,
+            height: st.height ?? rawEl.height,
+            visible: st.visible ?? rawEl.visible,
+            textFit: st.textFit ?? rawEl.textFit,
+            cutout: {
+                ...(rawEl.cutout || {}),
+                ...(st.cutoutShape !== undefined ? { shape: st.cutoutShape } : {}),
+                ...(st.feather !== undefined ? { feather: st.feather } : {})
+            },
+            style: {
+                ...(rawEl.style || {}),
+                ...(st.style || {}),
+                ...(st.opacity !== undefined ? { opacity: st.opacity } : {}),
+                ...(st.rotate !== undefined ? { rotate: st.rotate } : {}),
+                ...(st.borderRadius !== undefined ? { borderRadius: st.borderRadius } : {})
+            }
+        } : rawEl;
         if (el.visible === false) return;
-        if (pagesEnabled && targetPage && el.page && el.page !== '*' && el.page !== targetPage) return;
         const x = Number(el.x) || 0;
         const y = Number(el.y) || 0;
         const w = Math.max(1, Number(el.width) || 100);
@@ -926,8 +1075,9 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
         const rx = Number(style.borderRadius) || 0;
 
         let transform = '';
-        if (el.rotation) {
-            transform = ` transform="rotate(${Number(el.rotation)}, ${x + w / 2}, ${y + h / 2})"`;
+        const rot = Number(style.rotate ?? el.rotation) || 0;
+        if (rot) {
+            transform = ` transform="rotate(${rot}, ${x + w / 2}, ${y + h / 2})"`;
         }
         const opacityAttr = (opacity >= 0 && opacity < 1) ? ` opacity="${opacity}"` : '';
 
@@ -1870,6 +2020,8 @@ module.exports = {
     normalizeMediaFilter,
     normalizeRetro,
     normalizeAssetTagList,
+    normalizeObsLink,
+    normalizePageStates,
     normalizeOverlayElement,
     normalizePages,
     normalizeCustomOverlay,

@@ -8,7 +8,12 @@ import {
     primary, inView, visibleElements, withGroups, setSelection, changed,
     expand, liveSignature, alertSample, toast
 } from './editor-state.js';
-import { snapAxis as findSnapAxis } from '../editor-geometry.js';
+import {
+    snapAxis as findSnapAxis,
+    buildSnapModel,
+    computeSmartMoveSnap,
+    computeSmartResizeSnap
+} from '../editor-geometry.js';
 
 const shared = window.OverlayShared || {};
 
@@ -99,12 +104,14 @@ export function syncCanvasUI() {
 }
 
 // ---- Cutout Underlayer Masking ----------------------------------------------------
-export function updateEditorCutoutMask() {
+export function updateEditorCutoutMask(overrideCutouts = null) {
     const under = $('canvas-underlayer');
     if (!under) return;
     const canW = Number(state.overlay.canvas?.width) || 1920;
     const canH = Number(state.overlay.canvas?.height) || 1080;
-    const cutouts = state.overlay.elements.filter(e => e.type === 'cutout' && e.visible !== false && inView(e));
+    const cutouts = Array.isArray(overrideCutouts)
+        ? overrideCutouts
+        : state.overlay.elements.filter(e => e.type === 'cutout' && e.visible !== false && inView(e));
     if (!cutouts.length) {
         if (!under._lastMaskUrl) return;
         under._lastMaskUrl = '';
@@ -204,6 +211,385 @@ export function scheduleEditorCutoutMask() {
     });
 }
 
+const EASING_CSS = {
+    smooth: 'cubic-bezier(0.22, 1, 0.36, 1)',
+    snappy: 'cubic-bezier(0.16, 1, 0.3, 1)',
+    spring: 'cubic-bezier(0.34, 1.45, 0.64, 1)',
+    'ease-in-out': 'cubic-bezier(0.45, 0, 0.55, 1)',
+    linear: 'linear'
+};
+
+function evalEasing(name, t) {
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    if (name === 'linear') return t;
+    if (name === 'ease-in-out') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    if (name === 'snappy') return 1 - Math.pow(1 - t, 4);
+    if (name === 'spring') {
+        const c1 = 1.70158, c3 = c1 + 1;
+        return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    }
+    return 1 - Math.pow(1 - t, 3);
+}
+
+let activeMorphCleanup = null;
+export function cancelEditorStateMorph() {
+    if (activeMorphCleanup) {
+        const fn = activeMorphCleanup;
+        activeMorphCleanup = null;
+        fn();
+    }
+}
+
+export function captureEditorStateSnapshot() {
+    const map = new Map();
+    for (const el of visibleElements()) {
+        const node = state.nodes.get(el.id);
+        const fittedFontSize = (node && node._fittedFontSize) ? node._fittedFontSize : (Number(el.style?.fontSize) || 32);
+        const entry = {
+            id: el.id,
+            morphId: el.morphId || '',
+            type: el.type,
+            page: el.page || '*',
+            x: Number(el.x) || 0,
+            y: Number(el.y) || 0,
+            width: Number(el.width) || 400,
+            height: Number(el.height) || 100,
+            visible: el.visible !== false,
+            opacity: Number.isFinite(Number(el.style?.opacity)) ? Number(el.style.opacity) : 1,
+            rotate: Number.isFinite(Number(el.style?.rotate)) ? Number(el.style.rotate) : 0,
+            borderRadius: Number(el.style?.borderRadius) || 0,
+            feather: Number(el.cutout?.feather) || 0,
+            cutoutShape: el.cutout?.shape || 'rectangle',
+            textFit: el.textFit || 'none',
+            fittedFontSize,
+            style: JSON.parse(JSON.stringify(el.style || {})),
+            cutout: JSON.parse(JSON.stringify(el.cutout || { shape: 'rectangle', feather: 0 })),
+            styleSig: JSON.stringify(el.style || {}),
+            exitNode: node && el.visible !== false ? node.cloneNode(true) : null,
+            parent: node?.parentElement
+        };
+        map.set(el.id, entry);
+        if (entry.morphId) map.set(`morph:${entry.morphId}`, entry);
+    }
+    return map;
+}
+
+export function previewEditorTransition(beforeMap, {
+    prevPage = null,
+    nextPage = state.curPage,
+    transition = state.overlay.pages?.transition || 'morph',
+    enterExit = state.overlay.pages?.enterExit || 'fade',
+    durationMs = state.overlay.pages?.transitionMs || (transition === 'morph' ? 650 : 500),
+    easing = state.overlay.pages?.transitionEasing || 'smooth',
+    direction = state.overlay.pages?.transitionDirection || 'left',
+    distance = state.overlay.pages?.transitionDistance || 120
+} = {}) {
+    cancelEditorStateMorph();
+    if (!beforeMap || prefs.fx === false || transition === 'none') return;
+    const ms = Math.max(80, Math.min(5000, Number(durationMs) || (transition === 'morph' ? 650 : 500)));
+    const easingKey = easing || 'smooth';
+    const cssEase = EASING_CSS[easingKey] || EASING_CSS.smooth;
+    const transKind = transition || 'morph';
+    const enterExitKind = enterExit || 'fade';
+
+    const animatedNodes = [];
+    const cutoutPairs = [];
+    const outgoingNodes = [];
+    const incomingNodes = [];
+    const ghostNodes = [];
+
+    const items = state.overlay.pages?.items || [];
+    const prevIdx = items.findIndex(p => p.id === prevPage);
+    const nextIdx = items.findIndex(p => p.id === nextPage);
+    const isBackward = prevIdx !== -1 && nextIdx !== -1 && nextIdx < prevIdx && !(state.overlay.pages?.mode === 'auto' && prevIdx === items.length - 1 && nextIdx === 0);
+    const flipDir = { left: 'right', right: 'left', up: 'down', down: 'up' };
+    const effectiveDirection = isBackward ? (flipDir[direction] || 'right') : (direction || 'left');
+
+    const sign = { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] }[effectiveDirection] || [1, 0];
+    const dx = sign[0] * distance, dy = sign[1] * distance;
+
+    const getAnim = (mode, isEnter) => {
+        if (mode === 'none') return '';
+        if (mode === 'slide') return isEnter ? `pg-slide-in ${ms}ms ${cssEase} both` : `pg-slide-out ${ms}ms ${cssEase} both`;
+        if (mode === 'zoom') return isEnter ? `pg-zoom-in ${ms}ms ${cssEase} both` : `pg-zoom-out ${ms}ms ${cssEase} both`;
+        return isEnter ? `pg-fade-in ${ms}ms ${cssEase} both` : `pg-fade-out ${ms}ms ${cssEase} both`;
+    };
+
+    const currentElements = visibleElements();
+    const matchedSnapshots = new Set(currentElements.filter(el => el.visible !== false && state.nodes.has(el.id))
+        .map(el => beforeMap.get(el.id) || (el.morphId ? beforeMap.get(`morph:${el.morphId}`) : null)));
+
+    // Outgoing nodes: elements that were visible before, but are no longer in view
+    for (const [id, prev] of beforeMap.entries()) {
+        if (id.startsWith('morph:') || matchedSnapshots.has(prev)) continue;
+        const currentEl = byId(id);
+        if (!currentEl || !inView(currentEl) || currentEl.visible === false) {
+            const exitMode = transKind === 'morph' ? enterExitKind : transKind;
+            if (prev.exitNode && prev.visible && exitMode !== 'none') {
+                const node = prev.exitNode;
+                node.id = `ghost-${id}`;
+                node.querySelectorAll('video, audio').forEach(media => {
+                    media.autoplay = false;
+                    media.muted = true;
+                });
+                (prev.parent || state.stageEl)?.appendChild(node);
+                node.classList.remove('hidden');
+                node.style.pointerEvents = 'none';
+                if (exitMode === 'slide') {
+                    node.style.setProperty('--pg-x', `${dx}px`);
+                    node.style.setProperty('--pg-y', `${dy}px`);
+                }
+                const anim = getAnim(exitMode, false);
+                if (anim) node.style.animation = anim;
+                ghostNodes.push(node);
+            }
+        }
+    }
+
+    for (const el of currentElements) {
+        const prev = beforeMap.get(el.id) || (el.morphId ? beforeMap.get(`morph:${el.morphId}`) : null);
+        const node = state.nodes.get(el.id);
+        if (!node) continue;
+
+        const curVis = el.visible !== false;
+        const prevVis = prev ? prev.visible : false;
+        const idx = state.overlay.elements.indexOf(el);
+        const prevElModel = prev ? {
+            ...el,
+            x: prev.x,
+            y: prev.y,
+            width: prev.width,
+            height: prev.height,
+            visible: prev.visible,
+            textFit: prev.textFit || el.textFit,
+            style: prev.style || {},
+            cutout: prev.cutout || el.cutout
+        } : null;
+
+        // Shared element disappearing (was visible before, but now hidden in this state)
+        if (prevVis && !curVis) {
+            if (ghostNodes.some(ghost => ghost.id === `ghost-${el.id}`)) {
+                node.classList.add('hidden');
+                continue;
+            }
+            const exitMode = transKind === 'morph' ? enterExitKind : transKind;
+            if (exitMode === 'none') {
+                node.classList.add('hidden');
+            } else {
+                node.classList.remove('hidden');
+                node.style.pointerEvents = 'none';
+                if (prevElModel) applyNodeStyle(node, prevElModel, idx);
+                node.style.opacity = String(prev.opacity ?? 1);
+                if (exitMode === 'slide') {
+                    node.style.setProperty('--pg-x', `${dx}px`);
+                    node.style.setProperty('--pg-y', `${dy}px`);
+                }
+                const anim = getAnim(exitMode, false);
+                if (anim) node.style.animation = anim;
+                outgoingNodes.push(node);
+            }
+            continue;
+        }
+
+        // Shared element appearing (was hidden before, but now visible in this state)
+        if (!prevVis && curVis) {
+            const enterMode = transKind === 'morph' ? enterExitKind : transKind;
+            node.classList.remove('hidden');
+            applyNodeStyle(node, el, idx);
+            if (enterMode === 'slide') {
+                node.style.setProperty('--pg-x', `${dx}px`);
+                node.style.setProperty('--pg-y', `${dy}px`);
+            }
+            const anim = getAnim(enterMode, true);
+            if (anim) node.style.animation = anim;
+            incomingNodes.push(node);
+            continue;
+        }
+
+        if (!curVis) {
+            node.classList.add('hidden');
+            continue;
+        }
+
+        const curX = Number(el.x) || 0, curY = Number(el.y) || 0;
+        const curW = Number(el.width) || 400, curH = Number(el.height) || 100;
+        const curOp = Number.isFinite(Number(el.style?.opacity)) ? Number(el.style.opacity) : 1;
+        const prevOp = prev ? (prev.visible ? prev.opacity : 0) : 0;
+        const curRot = Number(el.style?.rotate) || 0;
+        const curRad = Number(el.style?.borderRadius) || 0;
+        const curStyleSig = JSON.stringify(el.style || {});
+
+        const isAutoFit = TEXT_TYPES.has(el.type) && ((el.textFit && el.textFit !== 'none') || (prev?.textFit && prev.textFit !== 'none'));
+        const prevFitted = prev?.fittedFontSize || (Number(prev?.style?.fontSize) || 32);
+        const targetFitted = (node._fittedFontSize) || (Number(el.style?.fontSize) || 32);
+
+        const isSpatialMove = prev && (prev.x !== curX || prev.y !== curY || prev.width !== curW || prev.height !== curH || prev.rotate !== curRot);
+        const changedAny = !prev || isSpatialMove || prevOp !== curOp || prev.borderRadius !== curRad || prev.styleSig !== curStyleSig || prev.feather !== (Number(el.cutout?.feather) || 0) || (isAutoFit && prevFitted !== targetFitted);
+        if (!changedAny) continue;
+
+        if (transKind !== 'morph' && isSpatialMove) {
+            // In Crossfade or Slide: elements that moved do NOT glide across coordinates.
+            // Old position dissolves/slides out, new position dissolves/slides in.
+            const ghost = node.cloneNode(true);
+            ghost.id = `ghost-${el.id}`;
+            ghost.style.pointerEvents = 'none';
+            ghost.style.position = 'absolute';
+            applyNodeStyle(ghost, prevElModel, idx);
+            ghost.style.opacity = String(prevOp);
+            if (transKind === 'slide') {
+                ghost.style.setProperty('--pg-x', `${dx}px`);
+                ghost.style.setProperty('--pg-y', `${dy}px`);
+                ghost.style.animation = `pg-slide-out ${ms}ms ${cssEase} both`;
+            } else {
+                ghost.style.animation = `pg-fade-out ${ms}ms ${cssEase} both`;
+            }
+            if (state.stageEl) state.stageEl.appendChild(ghost);
+            ghostNodes.push(ghost);
+
+            node.classList.remove('hidden');
+            applyNodeStyle(node, el, idx);
+            if (isAutoFit) {
+                node._fittedFontSize = targetFitted;
+                node.style.fontSize = `${targetFitted}px`;
+            }
+            if (transKind === 'slide') {
+                node.style.setProperty('--pg-x', `${dx}px`);
+                node.style.setProperty('--pg-y', `${dy}px`);
+                node.style.animation = `pg-slide-in ${ms}ms ${cssEase} both`;
+            } else {
+                node.style.animation = `pg-fade-in ${ms}ms ${cssEase} both`;
+            }
+            incomingNodes.push(node);
+            continue;
+        }
+
+        if (transKind !== 'morph' && !isSpatialMove) {
+            // Style-only change on Crossfade / Slide: crossfade styles in place
+            node.classList.remove('hidden');
+            node.style.transition = `opacity ${ms}ms ${cssEase}, color ${ms}ms ${cssEase}, background-color ${ms}ms ${cssEase}, border-color ${ms}ms ${cssEase}`;
+            applyNodeStyle(node, el, idx);
+            animatedNodes.push({ node, el, idx, curX, curY, curW, curH, curVis, curOp, curRot, curRad, isAutoFit, targetFitted, styleOnly: true });
+            continue;
+        }
+
+        // Morph mode: smoothly morph coordinates and visual styles
+        if (el.type === 'cutout' && (prev.visible || curVis)) {
+            cutoutPairs.push({
+                id: el.id,
+                shape: el.cutout?.shape || prev.cutoutShape || 'rectangle',
+                from: { x: prev.x, y: prev.y, width: prev.visible ? prev.width : 0, height: prev.visible ? prev.height : 0, borderRadius: prev.borderRadius, feather: prev.feather },
+                to: { x: curX, y: curY, width: curVis ? curW : 0, height: curVis ? curH : 0, borderRadius: curRad, feather: Number(el.cutout?.feather) || 0 }
+            });
+        }
+
+        applyNodeStyle(node, prevElModel, idx);
+        if (isAutoFit) {
+            node.style.fontSize = `${prevFitted}px`;
+        }
+        node.classList.remove('hidden');
+        node.style.transition = 'none';
+        node.style.willChange = 'left, top, width, height, opacity, transform, border-radius, font-size, color, background-color, border-width, border-color, box-shadow';
+        node.style.opacity = String(prevOp);
+        animatedNodes.push({ node, el, idx, curX, curY, curW, curH, curVis, curOp, curRot, curRad, isAutoFit, targetFitted });
+    }
+
+    if (!animatedNodes.length && !cutoutPairs.length && !outgoingNodes.length && !incomingNodes.length && !ghostNodes.length) return;
+
+    let rafId = 0;
+    let timerId = 0;
+    const cleanup = () => {
+        if (rafId) cancelAnimationFrame(rafId);
+        if (timerId) clearTimeout(timerId);
+        for (const ghost of ghostNodes) {
+            ghost.remove();
+        }
+        for (const outNode of outgoingNodes) {
+            outNode.style.animation = '';
+            outNode.style.pointerEvents = '';
+            outNode.classList.add('hidden');
+        }
+        for (const inNode of incomingNodes) {
+            inNode.style.animation = '';
+        }
+        for (const item of animatedNodes) {
+            item.node.style.transition = '';
+            item.node.style.willChange = '';
+            applyNodeStyle(item.node, item.el, item.idx);
+            if (item.isAutoFit) {
+                item.node._fittedFontSize = item.targetFitted;
+                item.node.style.fontSize = `${item.targetFitted}px`;
+            }
+            item.node.classList.toggle('hidden', !item.curVis);
+        }
+        updateEditorCutoutMask();
+    };
+    activeMorphCleanup = cleanup;
+
+    // Force layout of initial state before arming CSS transition
+    for (const item of animatedNodes) {
+        void item.node.offsetWidth;
+    }
+    const morphProps = [
+        'left', 'top', 'width', 'height', 'opacity', 'transform',
+        'border-radius', 'border-width', 'border-color',
+        'background-color', 'color', 'font-size', 'letter-spacing', 'line-height', 'padding',
+        'box-shadow', 'text-shadow', 'filter', 'backdrop-filter', '-webkit-backdrop-filter',
+        '-webkit-text-stroke-width', '-webkit-text-stroke-color'
+    ];
+    const transProp = morphProps.map(p => `${p} ${ms}ms ${cssEase}`).join(', ');
+    for (const item of animatedNodes) {
+        if (!item.styleOnly) item.node.style.transition = transProp;
+    }
+    // Force reflow with transition armed
+    for (const item of animatedNodes) {
+        void item.node.offsetWidth;
+    }
+    for (const item of animatedNodes) {
+        applyNodeStyle(item.node, item.el, item.idx);
+        if (item.isAutoFit) {
+            item.node.style.fontSize = `${item.targetFitted}px`;
+        }
+        item.node.classList.remove('hidden');
+        item.node.style.opacity = String(item.curOp);
+    }
+
+    if (cutoutPairs.length) {
+        const start = performance.now();
+        const staticCutouts = state.overlay.elements.filter(e => e.type === 'cutout' && e.visible !== false && inView(e) && !cutoutPairs.some(p => p.id === e.id));
+        const step = now => {
+            const rawT = Math.min(1, (now - start) / ms);
+            const t = evalEasing(easingKey, rawT);
+            const interp = [
+                ...staticCutouts,
+                ...cutoutPairs.map(p => ({
+                    id: p.id,
+                    type: 'cutout',
+                    x: p.from.x + (p.to.x - p.from.x) * t,
+                    y: p.from.y + (p.to.y - p.from.y) * t,
+                    width: Math.max(0, p.from.width + (p.to.width - p.from.width) * t),
+                    height: Math.max(0, p.from.height + (p.to.height - p.from.height) * t),
+                    cutout: { shape: p.shape, feather: p.from.feather + (p.to.feather - p.from.feather) * t },
+                    style: { borderRadius: p.from.borderRadius + (p.to.borderRadius - p.from.borderRadius) * t }
+                })).filter(c => c.width >= 1 && c.height >= 1)
+            ];
+            updateEditorCutoutMask(interp);
+            if (rawT < 1 && activeMorphCleanup === cleanup) {
+                rafId = requestAnimationFrame(step);
+            }
+        };
+        rafId = requestAnimationFrame(step);
+    }
+
+    timerId = setTimeout(() => {
+        if (activeMorphCleanup === cleanup) {
+            activeMorphCleanup = null;
+            cleanup();
+        }
+    }, ms + 40);
+}
+export const previewEditorStateMorph = previewEditorTransition;
+
 function setNodeText(node, text) {
     if (!node.firstElementChild) {
         if (node.textContent !== text) node.textContent = text;
@@ -237,7 +623,7 @@ export function applyNodeStyle(node, el, index) {
         opacity: s.opacity ?? 1, background: (el.type === 'alert' || el.type === 'cutout') ? 'transparent' : (s.background || 'transparent'),
         borderRadius: el.type === 'alert' ? '0' : el.type === 'cutout' ? cutoutRadius : `${s.borderRadius || 0}px`,
         padding: `${TEXT_TYPES.has(el.type) ? s.padding || 0 : 0}px`,
-        fontFamily: s.fontFamily, fontSize: `${s.fontSize}px`, fontWeight: s.fontWeight, color: s.color, textAlign: s.textAlign,
+        fontFamily: s.fontFamily, fontSize: `${TEXT_TYPES.has(el.type) && el.textFit && el.textFit !== 'none' && node._fittedFontSize ? node._fittedFontSize : (s.fontSize != null && s.fontSize !== '' ? s.fontSize : 32)}px`, fontWeight: s.fontWeight, color: s.color, textAlign: s.textAlign,
         lineHeight: s.lineHeight, letterSpacing: `${s.letterSpacing || 0}px`,
         display: s.verticalAlign === 'top' ? 'block' : 'flex',
         alignItems: s.verticalAlign === 'middle' ? 'center' : s.verticalAlign === 'bottom' ? 'flex-end' : 'flex-start',
@@ -776,51 +1162,101 @@ export function renderSelectionUI(chipText) {
     }
 }
 
-export function showGuides(xs = [], ys = []) {
+export function showGuides(xs = [], ys = [], smartGuides = []) {
     if (!guidesEl) return;
-    if (!xs.length && !ys.length) {
+    if (Array.isArray(xs) && xs.length && typeof xs[0] === 'object') {
+        smartGuides = xs;
+        xs = [];
+        ys = [];
+    }
+    if (!xs.length && !ys.length && !smartGuides.length) {
         if (guidesEl.firstChild) guidesEl.replaceChildren();
         return;
     }
-    let idx = 0;
-    const children = guidesEl.children;
+    const frag = document.createDocumentFragment();
+    const canW = state.overlay?.canvas?.width || 1920;
+    const canH = state.overlay?.canvas?.height || 1080;
+
     for (const x of xs) {
-        let line = children[idx];
-        if (!line) {
-            line = document.createElement('div');
-            guidesEl.appendChild(line);
-        }
-        if (line.className !== 'guide v') line.className = 'guide v';
+        const line = document.createElement('div');
+        line.className = `guide v${Math.abs(x - canW / 2) < 0.5 ? ' is-center' : ''}`;
         line.style.left = `${x}px`;
-        line.style.top = '';
-        idx++;
+        frag.appendChild(line);
     }
     for (const y of ys) {
-        let line = children[idx];
-        if (!line) {
-            line = document.createElement('div');
-            guidesEl.appendChild(line);
-        }
-        if (line.className !== 'guide h') line.className = 'guide h';
+        const line = document.createElement('div');
+        line.className = `guide h${Math.abs(y - canH / 2) < 0.5 ? ' is-center' : ''}`;
         line.style.top = `${y}px`;
-        line.style.left = '';
-        idx++;
+        frag.appendChild(line);
     }
-    while (children.length > idx) {
-        guidesEl.lastElementChild.remove();
+
+    for (const g of smartGuides) {
+        if (g.kind === 'line') {
+            const line = document.createElement('div');
+            line.className = `guide ${g.axis}${g.isCenter ? ' is-center' : ''}`;
+            if (g.axis === 'v') {
+                line.style.left = `${g.pos}px`;
+                line.style.top = `${g.start ?? 0}px`;
+                line.style.height = `${Math.max(1, (g.end ?? canH) - (g.start ?? 0))}px`;
+                line.style.bottom = 'auto';
+            } else {
+                line.style.top = `${g.pos}px`;
+                line.style.left = `${g.start ?? 0}px`;
+                line.style.width = `${Math.max(1, (g.end ?? canW) - (g.start ?? 0))}px`;
+                line.style.right = 'auto';
+            }
+            frag.appendChild(line);
+
+            if (g.distance > 0) {
+                const pill = document.createElement('div');
+                pill.className = 'guide-pill';
+                pill.textContent = `${g.distance} px`;
+                pill.style.left = `${g.axis === 'v' ? g.pos : g.distPos}px`;
+                pill.style.top = `${g.axis === 'v' ? g.distPos : g.pos}px`;
+                frag.appendChild(pill);
+            }
+        } else if (g.kind === 'gap') {
+            const bar = document.createElement('div');
+            bar.className = `guide-gap ${g.axis}`;
+            if (g.axis === 'h') {
+                bar.style.left = `${g.start}px`;
+                bar.style.top = `${g.cross}px`;
+                bar.style.width = `${Math.max(1, g.end - g.start)}px`;
+            } else {
+                bar.style.top = `${g.start}px`;
+                bar.style.left = `${g.cross}px`;
+                bar.style.height = `${Math.max(1, g.end - g.start)}px`;
+            }
+            const pill = document.createElement('span');
+            pill.className = 'guide-pill gap';
+            pill.textContent = `${g.gap}`;
+            bar.appendChild(pill);
+            frag.appendChild(bar);
+        } else if (g.kind === 'dim' && g.box) {
+            const box = document.createElement('div');
+            box.className = 'guide-dim-match';
+            box.style.left = `${g.box.x}px`;
+            box.style.top = `${g.box.y}px`;
+            box.style.width = `${g.box.w}px`;
+            box.style.height = `${g.box.h}px`;
+            const pill = document.createElement('span');
+            pill.className = 'guide-pill dim';
+            pill.textContent = `${g.axis === 'w' ? 'W' : 'H'}: ${g.value}`;
+            box.appendChild(pill);
+            frag.appendChild(box);
+        }
     }
+
+    guidesEl.replaceChildren(frag);
 }
 
 export function snapTargets(excludeIds) {
-    const xs = [0, state.overlay.canvas.width / 2, state.overlay.canvas.width];
-    const ys = [0, state.overlay.canvas.height / 2, state.overlay.canvas.height];
+    const boxes = [];
     for (const el of visibleElements()) {
         if (excludeIds.has(el.id) || el.visible === false) continue;
-        const b = visualBoxOf(el);
-        xs.push(b.x, b.x + b.w / 2, b.x + b.w);
-        ys.push(b.y, b.y + b.h / 2, b.y + b.h);
+        boxes.push({ id: el.id, ...visualBoxOf(el) });
     }
-    return { xs, ys };
+    return buildSnapModel(boxes, state.overlay.canvas.width, state.overlay.canvas.height);
 }
 
 export function snapAxis(candidates, targets) {
@@ -835,13 +1271,19 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
         const gesture = state.gesture;
         if (!gesture || gesture.locked || !gesture.items.length) return;
         if (event.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
-        let guideX = [], guideY = [];
+        let smartGuides = [];
         if (prefs.snap && !event.altKey) {
             const targets = gesture.targets || (gesture.targets = snapTargets(new Set(gesture.items.map(item => item.el.id))));
             const b = gesture.bounds;
-            const sx = snapAxis([b.x + dx, b.x + dx + b.w / 2, b.x + dx + b.w], targets.xs);
-            const sy = snapAxis([b.y + dy, b.y + dy + b.h / 2, b.y + dy + b.h], targets.ys);
-            dx += sx.delta; dy += sy.delta; guideX = sx.lines; guideY = sy.lines;
+            const res = computeSmartMoveSnap(
+                { x: b.x + dx, y: b.y + dy, w: b.w, h: b.h },
+                targets,
+                6 / state.zoom,
+                { align: prefs.snapAlign !== false, spacing: prefs.snapSpacing !== false }
+            );
+            dx += res.dx;
+            dy += res.dy;
+            smartGuides = res.guides;
         }
         for (const item of gesture.items) {
             item.el.x = Math.round(item.x + dx);
@@ -853,7 +1295,7 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
                 node.style.top = `${b.y}px`;
             }
         }
-        showGuides(guideX, guideY);
+        showGuides(smartGuides);
         if (gesture.hasCutout) scheduleEditorCutoutMask();
         renderSelectionUI(gesture.items.length === 1 ? `${gesture.items[0].el.x}, ${gesture.items[0].el.y}` : undefined);
         if (onSyncGeometry) onSyncGeometry();
@@ -865,20 +1307,29 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
         const { dir, orig, snaps } = gesture;
         const right = orig.x + orig.w, bottom = orig.y + orig.h;
         const targets = prefs.snap && !event.altKey ? (gesture.targets || (gesture.targets = snapTargets(gesture.ids))) : null;
-        const guides = { xs: [], ys: [] };
-        const edge = (value, list, key) => { if (!targets) return value; const s = snapAxis([value], targets[list]); guides[key] = s.lines; return value + s.delta; };
+        let smartGuides = [];
         let w = orig.w, h = orig.h;
-        if (dir.includes('w')) w = right - edge(orig.x + dx, 'xs', 'xs');
-        if (dir.includes('e')) w = edge(right + dx, 'xs', 'xs') - orig.x;
-        if (dir.includes('n')) h = bottom - edge(orig.y + dy, 'ys', 'ys');
-        if (dir.includes('s')) h = edge(bottom + dy, 'ys', 'ys') - orig.y;
+        if (targets) {
+            const res = computeSmartResizeSnap(orig, dir, dx, dy, targets, 6 / state.zoom, {
+                align: prefs.snapAlign !== false,
+                dimensions: prefs.snapDimensions !== false
+            });
+            w = res.w;
+            h = res.h;
+            smartGuides = res.guides;
+        } else {
+            if (dir.includes('w')) w = right - (orig.x + dx);
+            if (dir.includes('e')) w = (right + dx) - orig.x;
+            if (dir.includes('n')) h = bottom - (orig.y + dy);
+            if (dir.includes('s')) h = (bottom + dy) - orig.y;
+        }
         let sx = Math.max(0.01, w / orig.w), sy = Math.max(0.01, h / orig.h);
         if (dir.length === 2 && !event.shiftKey) sx = sy = Math.max(sx, sy);
         if (dir === 'n' || dir === 's') sx = 1;
         if (dir === 'e' || dir === 'w') sy = 1;
         const anchor = { x: dir.includes('w') ? right : orig.x, y: dir.includes('n') ? bottom : orig.y };
         const used = applyScale(snaps, anchor, sx, sy);
-        showGuides(guides.xs, guides.ys);
+        showGuides(smartGuides);
         renderCanvas(new Set(gesture.ids));
         renderSelectionUI(`${Math.round(used.sx * 100)}% × ${Math.round(used.sy * 100)}%`.replace(/^(\d+)% × \1%$/, '$1%'));
         if (onSyncGeometry) onSyncGeometry();
@@ -891,13 +1342,21 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
         const { dir, orig, el } = gesture;
         const right = orig.x + orig.w, bottom = orig.y + orig.h;
         const targets = prefs.snap && !event.altKey ? (gesture.targets || (gesture.targets = snapTargets(new Set([el.id])))) : null;
-        const guides = { xs: [], ys: [] };
-        const edge = (value, list, key) => { if (!targets) return value; const s = snapAxis([value], targets[list]); guides[key] = s.lines; return value + s.delta; };
+        let smartGuides = [];
         let x = orig.x, y = orig.y, w = orig.w, h = orig.h;
-        if (dir.includes('w')) { x = edge(orig.x + dx, 'xs', 'xs'); w = right - x; }
-        if (dir.includes('e')) { w = edge(right + dx, 'xs', 'xs') - orig.x; }
-        if (dir.includes('n')) { y = edge(orig.y + dy, 'ys', 'ys'); h = bottom - y; }
-        if (dir.includes('s')) { h = edge(bottom + dy, 'ys', 'ys') - orig.y; }
+        if (targets) {
+            const res = computeSmartResizeSnap(orig, dir, dx, dy, targets, 6 / state.zoom, {
+                align: prefs.snapAlign !== false,
+                dimensions: prefs.snapDimensions !== false
+            });
+            x = res.x; y = res.y; w = res.w; h = res.h;
+            smartGuides = res.guides;
+        } else {
+            if (dir.includes('w')) { x = orig.x + dx; w = right - x; }
+            if (dir.includes('e')) { w = (right + dx) - orig.x; }
+            if (dir.includes('n')) { y = orig.y + dy; h = bottom - y; }
+            if (dir.includes('s')) { h = (bottom + dy) - orig.y; }
+        }
         if ((event.shiftKey || el.aspectLock) && dir.length === 2) {
             const scale = Math.max(w / orig.w, h / orig.h);
             w = orig.w * scale; h = orig.h * scale;
@@ -909,7 +1368,7 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
         w = Math.min(w, LIMITS.elementW[1]); h = Math.min(h, LIMITS.elementH[1]);
         el.x = Math.round(x); el.width = Math.round(w);
         if (!isLine(el)) { el.y = Math.round(y); el.height = Math.round(h); }
-        showGuides(guides.xs, guides.ys);
+        showGuides(smartGuides);
         renderCanvas(new Set([el.id]));
         renderSelectionUI(`${el.width} × ${Math.round(boxOf(el).h)}`);
         if (onSyncGeometry) onSyncGeometry();
@@ -991,6 +1450,7 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
     }
 
     stage.addEventListener('pointerdown', event => {
+        cancelEditorStateMorph();
         stage.focus({ preventScroll: true });
         if (event.button === 1 || (event.button === 0 && state.spaceDown)) {
             event.preventDefault();

@@ -255,6 +255,15 @@ async function run() {
         assert.ok(await page.$('#main-nav'), 'Dashboard navigation is missing');
         console.log('✓ Dashboard rendered successfully with main-nav');
 
+        console.log('Testing in-app transition documentation and OBS API reference...');
+        await page.goto(`${baseUrl}/docs.html`, { waitUntil: 'networkidle0' });
+        await page.waitForFunction(() => document.body.textContent.includes('Scene States, transitions'));
+        assert.ok(await page.$('a[href="/custom-overlay-editor.html"]'), 'In-app overlay instructions should link to the editor');
+        await page.goto(`${baseUrl}/api.html`, { waitUntil: 'networkidle0' });
+        await page.waitForFunction(() => document.body.textContent.includes('/api/obs/sync'));
+        assert.ok(await page.evaluate(() => document.body.textContent.includes('Loopback only')), 'OBS API reference should describe its administration boundary');
+        console.log('✓ In-app Docs and API Reference include transition and OBS controls');
+
         // Test documentation navigation on a phone-sized viewport
         console.log('Testing documentation mobile navigation...');
         await page.setViewport({ width: 390, height: 844 });

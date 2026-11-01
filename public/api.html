@@ -802,6 +802,43 @@
             ]
         },
         {
+            section: 'OBS Bridge (Beta)',
+            items: [
+                {
+                    method: 'GET', path: '/api/obs/status',
+                    desc: 'OBS connection and motion-engine status',
+                    details: 'Returns enabled, connected, connecting, host, port, hasPassword, syncOnSave, motionEngine, activeEngine, OBS/WebSocket versions, current scene, Move-plugin availability, and lastError. Password contents are never returned.'
+                },
+                {
+                    method: 'GET', path: '/api/obs/sources',
+                    desc: 'Discover OBS scenes and linked-source choices',
+                    details: 'Returns { connected, currentProgramScene, hasMovePlugin, scenes, sources, byScene }. Each byScene entry lists source names, scene-item IDs, input kinds, and visibility. Disconnected bridges return empty source lists.'
+                },
+                {
+                    method: 'POST', path: '/api/obs/config',
+                    desc: 'Update the optional OBS bridge configuration',
+                    body: '{ "enabled": true, "host": "127.0.0.1", "port": 4455, "syncOnSave": true, "motionEngine": "auto" }',
+                    details: 'Loopback-only administration endpoint; PUT is also accepted. Accepts partial settings and persists normalized values. Omitted password preserves it; password:"" clears it. Configuration changes reconnect or disconnect as needed. The regular PUT /api/config also accepts an obs object.'
+                },
+                {
+                    method: 'POST', path: '/api/obs/connect',
+                    desc: 'Enable and connect the OBS bridge',
+                    details: 'Loopback only. Enables the bridge in persisted configuration if needed and returns current status. The response is connection status, not a guarantee that authentication has completed.'
+                },
+                {
+                    method: 'POST', path: '/api/obs/disconnect',
+                    desc: 'Disconnect the OBS bridge',
+                    details: 'Loopback only. Returns the current bridge status.'
+                },
+                {
+                    method: 'POST', path: '/api/obs/sync',
+                    desc: 'Apply linked-source transforms for an overlay state',
+                    body: '{ "overlayId": "my-overlay", "pageId": "state-id", "animate": true }',
+                    details: 'Loopback only. Accepts overlayId (or id), an overlay object, optional pageId (or page), animate, and instant. Applies enabled OBS Source Frame links, not arbitrary browser-source layers. Returns { ok, synced, results }; no linked sources is a successful zero-sync result. HTTP 503 means disconnected; HTTP 502 reports source/scene failures with per-element reasons. Normal overlay page actions already sync linked sources when the bridge and automatic synchronization are enabled.'
+                }
+            ]
+        },
+        {
             section: 'Custom Overlays & Assets',
             items: [
                 {
@@ -818,7 +855,7 @@
                 {
                     method: 'GET', path: '/api/custom-overlays/:id',
                     desc: 'Read one custom overlay',
-                    details: 'Returns the full definition including every element.'
+                    details: 'Returns the full definition including every element. pages supports enabled, kind ("pages" or "states"), mode, items, cycleSeconds, loop, transition ("none", "fade", "slide", "morph"), transitionEasing ("smooth", "snappy", "spring", "ease-in-out", "linear"), enterExit ("fade", "slide", "zoom", "none"), transitionMs (0–5000 milliseconds), transitionDirection ("left", "right", "up", "down"), and transitionDistance (10–2000 pixels). Page duration and cycleSeconds are seconds. Shared elements use page:"*" and optional pageStates keyed by state ID; overrides include x/y/width/height, visible, opacity, rotate, borderRadius, feather, cutoutShape, textFit, and supported style fields. Omitted or null overrides inherit the base. The first state is the base; later states override it.'
                 },
                 {
                     method: 'PUT', path: '/api/custom-overlays/:id',
@@ -844,7 +881,7 @@
                 {
                     method: 'GET', path: '/api/custom-overlays/:id/page',
                     desc: 'Current page of a multipage overlay',
-                    details: 'Returns {enabled, page, name, index, count, auto, pages}. Add ?page=<id|name|number> to the overlay URL to pin a browser source to one page.'
+                    details: 'Returns {enabled, page, name, index, count, auto, pages}. Scene States use the same page IDs and navigation API; the transition is configured on the overlay. Add ?page=<id|name|number> to the overlay URL to pin a browser source to one page/state.'
                 },
                 {
                     method: 'POST', path: '/api/custom-overlays/:id/page',
