@@ -831,6 +831,12 @@
                     details: 'Loopback only. Returns the current bridge status.'
                 },
                 {
+                    method: 'POST', path: '/api/obs/cleanup-filters',
+                    desc: 'Remove orphaned StreamPulse-managed OBS filters',
+                    body: '{ "sceneName": "Scene", "all": false }',
+                    details: 'Loopback only. Removes StreamPulse_Move_* and StreamPulse_Fade_* filters whose source or scene item no longer exists; all=true removes every managed filter. Optional sceneName limits the scope. Your own filters are never touched.'
+                },
+                {
                     method: 'POST', path: '/api/obs/sync',
                     desc: 'Apply linked-source transforms for an overlay state',
                     body: '{ "overlayId": "my-overlay", "pageId": "state-id", "animate": true }',

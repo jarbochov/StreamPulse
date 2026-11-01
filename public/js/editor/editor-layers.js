@@ -287,13 +287,7 @@ export function renderPagesPanel() {
                 ['slide', 'Slide (Push entire layout)'],
                 ['none', 'Instant Cut (0ms)']
             ])}
-            ${P.transition === 'morph' ? F.select('pages.transitionEasing', 'Morph motion curve', P.transitionEasing || 'smooth', [
-                ['smooth', 'Smooth Cubic (Natural ease-out)'],
-                ['snappy', 'Snappy Out (Fast responsive start)'],
-                ['spring', 'Gentle Spring (Soft rebound)'],
-                ['ease-in-out', 'Ease In-Out (Symmetric curve)'],
-                ['linear', 'Linear (Constant speed)']
-            ]) : ''}
+            ${P.transition === 'morph' ? F.select('pages.transitionEasing', 'Morph motion curve', P.transitionEasing || 'smooth', window.StreamPulseMotion.options()) : ''}
             ${P.transition === 'morph' ? F.select('pages.enterExit', 'New & removed items', P.enterExit || 'fade', [
                 ['fade', 'Crossfade In / Out (Clean dissolve)'],
                 ['slide', 'Slide In / Out (Directional glide)'],

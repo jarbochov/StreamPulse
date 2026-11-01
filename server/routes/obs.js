@@ -82,6 +82,21 @@ function createObsRoutes({
             return true;
         }
 
+        if (pathname === '/api/obs/cleanup-filters' && req.method === 'POST') {
+            if (!isLoopbackRequest(req)) {
+                sendError(res, 403, 'Local loopback required.');
+                return true;
+            }
+            try {
+                const body = JSON.parse((await readRequestBody(req)) || '{}');
+                const result = await obsService.cleanupManagedFilters({ sceneName: String(body.sceneName || ''), force: body.all === true });
+                sendJson(res, result, result.ok ? 200 : 503);
+            } catch (err) {
+                sendError(res, 500, err.message || 'Failed to clean up OBS filters');
+            }
+            return true;
+        }
+
         if (pathname === '/api/obs/sync' && req.method === 'POST') {
             if (!isLoopbackRequest(req)) {
                 sendError(res, 403, 'Local loopback required.');

@@ -57,7 +57,7 @@ const transitionFixture = {
         { id: 'own-c', type: 'text', page: 'c', content: 'C', x: 70, y: 300, width: 20, height: 20 }
     ]
 };
-const sources = new Map(await Promise.all(['overlay-runtime.js', 'overlay-shared.js'].map(async name =>
+const sources = new Map(await Promise.all(['overlay-runtime.js', 'overlay-shared.js', 'motion-easing.js'].map(async name =>
     [`/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8')]
 )));
 for (const name of ['editor/editor-state.js', 'editor/editor-canvas.js', 'editor-geometry.js']) {
@@ -141,6 +141,7 @@ try {
         proto.load = function() {};
         state.message = (type, data) => state.socket.dispatchEvent(new window.MessageEvent('message', { data: JSON.stringify({ type, data }) }));
     });
+    await page.addScriptTag({ url: `${origin}/js/motion-easing.js` });
     await page.addScriptTag({ url: `${origin}/js/overlay-shared.js` });
     await page.evaluate(() => {
         const original = window.OverlayShared.playAlert;
@@ -362,6 +363,7 @@ try {
             new window.MessageEvent('message', { data: JSON.stringify({ type, data }) })
         );
     });
+    await transitionPage.addScriptTag({ url: `${origin}/js/motion-easing.js` });
     await transitionPage.addScriptTag({ url: `${origin}/js/overlay-shared.js` });
     await transitionPage.addScriptTag({ url: `${origin}/js/overlay-runtime.js` });
     await transitionPage.waitForFunction(() => document.querySelector('[data-element-id="moving-label"]'));
@@ -629,6 +631,7 @@ try {
     });
     await editorPage.goto(`${origin}/?editor-preview-fixture`);
     await editorPage.setContent('<link rel="stylesheet" href="/css/custom-overlay-editor.css"><div id="stage"><div id="canvas"><div id="canvas-underlayer"></div></div></div>');
+    await editorPage.addScriptTag({ url: `${origin}/js/motion-easing.js` });
     await editorPage.evaluate(async () => {
         window.OverlayShared = { pruneSourceCaches() {} };
         const editorState = await import('/js/editor/editor-state.js');

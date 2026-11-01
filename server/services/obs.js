@@ -65,27 +65,8 @@ function buildObsTransform(target = {}, fit = 'cover') {
     };
 }
 
-const MORPH_BEZIERS = {
-    smooth: [0.22, 1, 0.36, 1],
-    snappy: [0.16, 1, 0.3, 1],
-    spring: [0.34, 1.56, 0.64, 1],
-    'ease-in-out': [0.65, 0, 0.35, 1]
-};
-
-// Solves the same cubic-bezier curves the overlay CSS uses, so OBS motion matches the browser frame for frame.
-function evalMorphEase(name, t) {
-    const x = Math.max(0, Math.min(1, t));
-    const p = MORPH_BEZIERS[name];
-    if (!p) return name === 'linear' ? x : evalMorphEase('smooth', x);
-    const [x1, y1, x2, y2] = p;
-    const axis = (a, b, s) => 3 * a * s * (1 - s) * (1 - s) + 3 * b * s * s * (1 - s) + s * s * s;
-    let lo = 0, hi = 1, s = x;
-    for (let i = 0; i < 40; i++) {
-        s = (lo + hi) / 2;
-        if (axis(x1, x2, s) < x) lo = s; else hi = s;
-    }
-    return axis(y1, y2, s);
-}
+const Motion = require('../../public/js/motion-easing');
+const evalMorphEase = (name, t) => Motion.evaluate(name, t);
 
 function computeObsAuthResponse(password, salt, challenge) {
     const secret = crypto.createHash('sha256').update(String(password || '') + String(salt || '')).digest('base64');
@@ -430,7 +411,8 @@ function createObsService({
         syncVisibility = true,
         durationMs = 0,
         easing = 'smooth',
-        style = {}
+        style = {},
+        onStart = () => {}
     }) {
         const itemKey = `${sceneName}::${sceneItemId}`;
         // Reserve ownership before any OBS await, including visibility and transform reads.
@@ -474,11 +456,8 @@ function createObsService({
                 const existing = await call('GetSourceFilterList', { sourceName: sceneName });
                 for (const filter of existing.filters || []) {
                     if (filter.filterName !== filterName && filter.filterName?.startsWith('StreamPulse_Move_') && filter.filterSettings?.source === sourceName) {
-                        await call('SetSourceFilterEnabled', {
-                            sourceName: sceneName,
-                            filterName: filter.filterName,
-                            filterEnabled: false
-                        });
+                        // A replaced scene item leaves its old managed filter behind, so remove it instead of piling up.
+                        await call('RemoveSourceFilter', { sourceName: sceneName, filterName: filter.filterName }).catch(() => null);
                     }
                 }
                 await call('SetSourceFilterEnabled', {
@@ -577,6 +556,7 @@ function createObsService({
                     await setOpacity(state.opacity);
                 };
                 await apply(0);
+                onStart();
                 if (entering && syncVisibility) await call('SetSceneItemEnabled', { sceneName, sceneItemId, sceneItemEnabled: true });
                 await runFrames(ms, raw => apply(evalMorphEase(easing, raw)));
             };
@@ -656,8 +636,7 @@ function createObsService({
                     start_trigger: 13, // Move's Load trigger starts on settings updates, including repeated state switches.
                     start_delay: 0,
                     end_delay: 0,
-                    easing_match: easing === 'linear' ? 0 : easing === 'ease-in-out' ? 3 : 2,
-                    easing_function_match: { smooth: 4, snappy: 6, spring: 10 }[easing] || 2, // quintic, expo and back match the overlay's cubic-beziers
+                    ...Motion.moveSettings(easing),
                     duration: Math.round(effectiveMs),
                     scale: { x: 1, y: 1 },
                     change_visibility: 0,
@@ -707,6 +686,7 @@ function createObsService({
                         filterName,
                         filterEnabled: true
                     });
+                    onStart();
                     // OBS acknowledges the filter start, not its eventual playback completion.
                     lastKnownTransforms.delete(itemKey);
                     return;
@@ -745,6 +725,7 @@ function createObsService({
                 }
             }
 
+            onStart();
             const startAt = Date.now();
             // Serialize frames and await the final acknowledgement before reporting success.
             await new Promise((resolve, reject) => {
@@ -778,6 +759,7 @@ function createObsService({
                 operation.timer = setTimeout(tick, 16);
             });
         } finally {
+            onStart();
             clearTimeout(operation.timer);
             operation.reject = null;
             if (activeInterpolations.get(itemKey) === operation) activeInterpolations.delete(itemKey);
@@ -811,7 +793,42 @@ function createObsService({
         };
     }
 
-    async function syncOverlayState(overlay, pageId = '', { animate = true, instant = false } = {}) {
+    // Removes StreamPulse-managed Move/Fade filters whose source is no longer in the scene, or all of them when force is set.
+    async function cleanupManagedFilters({ sceneName = '', force = false } = {}) {
+        if (!state.identified) return { ok: false, removed: [], error: 'OBS is not connected' };
+        const sceneNames = sceneName ? [sceneName] : ((await request('GetSceneList')).scenes || []).map(scene => scene.sceneName);
+        const removed = [];
+        for (const name of sceneNames) {
+            const filters = (await request('GetSourceFilterList', { sourceName: name }).catch(() => ({ filters: [] }))).filters || [];
+            const managed = filters.filter(filter => /^StreamPulse_(Move|Fade)_/.test(filter.filterName || ''));
+            if (!managed.length) continue;
+            const items = (await request('GetSceneItemList', { sceneName: name }).catch(() => ({ sceneItems: [] }))).sceneItems || [];
+            const present = new Set(items.map(item => item.sourceName));
+            const ids = new Set(items.map(item => String(item.sceneItemId)));
+            for (const filter of managed) {
+                const target = filter.filterSettings?.source;
+                const fadeId = /^StreamPulse_Fade_(\d+)$/.exec(filter.filterName)?.[1];
+                const orphan = fadeId ? !ids.has(fadeId) : !present.has(target);
+                if (!force && !orphan) continue;
+                await request('RemoveSourceFilter', { sourceName: name, filterName: filter.filterName }).catch(() => null);
+                removed.push({ sceneName: name, filterName: filter.filterName });
+            }
+        }
+        return { ok: true, removed };
+    }
+
+    async function syncOverlayState(overlay, pageId = '', { animate = true, instant = false, onMotionStart = () => {} } = {}) {
+        let pending = 0;
+        let released = false;
+        const release = () => { if (!released) { released = true; onMotionStart(); } };
+        try {
+            return await syncOverlayStateInner(overlay, pageId, { animate, instant, started: () => { if (--pending <= 0) release(); }, expect: n => { pending = n; if (!n) release(); } });
+        } finally {
+            release();
+        }
+    }
+
+    async function syncOverlayStateInner(overlay, pageId, { animate, instant, started, expect }) {
         if (overlay?.pages?.enabled && (overlay.pages.kind === 'pages' || (!overlay.pages.kind && overlay.pages.transition !== 'morph'))) {
             return { ok: true, synced: 0, results: [], skipped: true };
         }
@@ -820,6 +837,7 @@ function createObsService({
             return { ok: false, synced: 0, results: [] };
         }
         const linkedElements = overlay.elements.filter(el => el?.obsLink?.enabled && el?.obsLink?.sourceName);
+        expect(linkedElements.length);
         if (!linkedElements.length) return { ok: true, synced: 0, results: [] };
 
         const targetPage = pageId || (overlay.pages?.enabled ? (overlay.pages.items?.[0]?.id || '') : '');
@@ -874,7 +892,8 @@ function createObsService({
                     syncVisibility: link.syncVisibility !== false,
                     durationMs,
                     easing,
-                    style: transitionStyle
+                    style: transitionStyle,
+                    onStart: (() => { let done = false; return () => { if (!done) { done = true; started(); } }; })()
                 });
                 synced++;
                 results.push({ id: el.id, sourceName: link.sourceName, sceneName, sceneItemId, ok: true });
@@ -894,6 +913,7 @@ function createObsService({
         getStatus,
         listScenesAndSources,
         syncOverlayState,
+        cleanupManagedFilters,
         animateItemToTarget,
         resolveSceneItemId
     };

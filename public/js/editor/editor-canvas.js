@@ -211,31 +211,8 @@ export function scheduleEditorCutoutMask() {
     });
 }
 
-const EASING_BEZIERS = {
-    smooth: [0.22, 1, 0.36, 1],
-    snappy: [0.16, 1, 0.3, 1],
-    spring: [0.34, 1.56, 0.64, 1],
-    'ease-in-out': [0.65, 0, 0.35, 1]
-};
-const EASING_CSS = {
-    ...Object.fromEntries(Object.entries(EASING_BEZIERS).map(([name, p]) => [name, `cubic-bezier(${p.join(', ')})`])),
-    linear: 'linear'
-};
-
-// Same curves as the live overlay and OBS motion, so the preview matches playback.
-function evalEasing(name, t) {
-    if (t <= 0) return 0;
-    if (t >= 1) return 1;
-    const p = EASING_BEZIERS[name];
-    if (!p) return name === 'linear' ? t : evalEasing('smooth', t);
-    const axis = (a, b, s) => 3 * a * s * (1 - s) * (1 - s) + 3 * b * s * s * (1 - s) + s * s * s;
-    let lo = 0, hi = 1, s = t;
-    for (let k = 0; k < 40; k++) {
-        s = (lo + hi) / 2;
-        if (axis(p[0], p[2], s) < t) lo = s; else hi = s;
-    }
-    return axis(p[1], p[3], s);
-}
+const EASING_CSS = new Proxy({}, { get: (_, name) => window.StreamPulseMotion.toCss(String(name)) });
+const evalEasing = (name, t) => window.StreamPulseMotion.evaluate(name, t);
 
 let activeMorphCleanup = null;
 export function cancelEditorStateMorph() {

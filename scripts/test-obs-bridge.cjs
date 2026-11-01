@@ -111,6 +111,61 @@ test('simple Pages remain instant and never send OBS commands, even with inherit
     }
 });
 
+test('shared easing matches Move plugin curves and maps to its enum', () => {
+    const Motion = require('../public/js/motion-easing');
+    assert.equal(Motion.evaluate('smooth', 0.5), 1 - 0.5 ** 5);
+    assert.equal(Motion.evaluate('quad-in', 0.5), 0.25);
+    assert.ok(Motion.evaluate('back-out', 0.8) > 1, 'back overshoots like Move');
+    assert.deepEqual(Motion.moveSettings('smooth'), { easing_match: 2, easing_function_match: 4 });
+    assert.deepEqual(Motion.moveSettings('snappy'), { easing_match: 2, easing_function_match: 7 });
+    assert.deepEqual(Motion.moveSettings('elastic-in-out'), { easing_match: 3, easing_function_match: 8 });
+    assert.deepEqual(Motion.moveSettings('linear'), { easing_match: 0, easing_function_match: 2 });
+    for (const name of Motion.names) {
+        assert.equal(Motion.evaluate(name, 0), 0, name);
+        assert.ok(Math.abs(Motion.evaluate(name, 1) - 1) < 1e-9, name);
+    }
+});
+
+test('cleanup removes only orphaned StreamPulse filters and never user filters', async () => {
+    const { service, socket } = createConnectedService();
+    try {
+        await flush();
+        const responseFor = socket.responseFor.bind(socket);
+        socket.responseFor = type => type === 'GetSourceFilterList' ? { filters: [
+            { filterName: 'StreamPulse_Move_9_Gone', filterSettings: { source: 'Gone' } },
+            { filterName: 'StreamPulse_Move_55_Camera', filterSettings: { source: 'Camera' } },
+            { filterName: 'StreamPulse_Fade_77', filterSettings: {} },
+            { filterName: 'User filter', filterSettings: { source: 'Gone' } }
+        ] } : type === 'GetSceneItemList' ? { sceneItems: [{ sourceName: 'Camera', sceneItemId: 55 }] } : responseFor(type);
+        const result = await service.cleanupManagedFilters({ sceneName: 'Main' });
+        assert.deepEqual(result.removed.map(r => r.filterName).sort(), ['StreamPulse_Fade_77', 'StreamPulse_Move_9_Gone']);
+        const all = await service.cleanupManagedFilters({ sceneName: 'Main', force: true });
+        assert.equal(all.removed.length, 3);
+        assert.ok(!socket.requests.some(r => r.requestType === 'RemoveSourceFilter' && r.requestData.filterName === 'User filter'));
+    } finally {
+        service.disconnect();
+    }
+});
+
+test('motion-start callback fires once OBS begins a linked transition', async () => {
+    const { service } = createConnectedService();
+    try {
+        await flush();
+        let starts = 0;
+        await service.syncOverlayState({
+            id: 'start-fixture',
+            elements: [{ id: 'camera', page: '*', x: 0, y: 0, width: 400, height: 300, pageStates: { p2: { x: 500 } }, obsLink: { enabled: true, sourceName: 'Camera', sceneName: 'Main' } }],
+            pages: { enabled: true, kind: 'states', items: [{ id: 'p1' }, { id: 'p2' }], transition: 'morph', transitionMs: 300 }
+        }, 'p2', { onMotionStart: () => { starts++; } });
+        assert.equal(starts, 1);
+        let unlinked = 0;
+        await service.syncOverlayState({ id: 'none', elements: [], pages: { enabled: true, items: [{ id: 'p1' }] } }, 'p1', { onMotionStart: () => { unlinked++; } });
+        assert.equal(unlinked, 1);
+    } finally {
+        service.disconnect();
+    }
+});
+
 test('crossfade and slide transitions never use Move filters and match the overlay effect', async () => {
     for (const transition of ['fade', 'slide', 'zoom']) {
         const { service, socket } = createConnectedService();
@@ -174,8 +229,8 @@ test('new Move filters load their target after attachment to the containing scen
         assert.equal(reload.requestData.sourceName, 'Main');
         assert.deepEqual(reload.requestData.filterSettings.pos, { x: 1295, y: 51 });
         assert.equal(reload.requestData.filterSettings.duration, 1500);
-        assert.ok(socket.requests.some(r => r.requestType === 'SetSourceFilterEnabled' &&
-            r.requestData.filterName === 'StreamPulse_Move_12_Camera' && r.requestData.filterEnabled === false));
+        assert.ok(socket.requests.some(r => r.requestType === 'RemoveSourceFilter' &&
+            r.requestData.filterName === 'StreamPulse_Move_12_Camera'));
         assert.ok(!socket.requests.some(r => r.requestData.filterName === 'User filter'));
     } finally {
         service.disconnect();

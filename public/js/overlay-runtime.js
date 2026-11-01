@@ -833,36 +833,9 @@
         }
     }
 
-    const MORPH_EASINGS = {
-        smooth: 'cubic-bezier(0.22, 1, 0.36, 1)',
-        snappy: 'cubic-bezier(0.16, 1, 0.3, 1)',
-        spring: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
-        'ease-in-out': 'cubic-bezier(0.65, 0, 0.35, 1)',
-        linear: 'linear'
-    };
-
-    const MORPH_BEZIERS = {
-        smooth: [0.22, 1, 0.36, 1],
-        snappy: [0.16, 1, 0.3, 1],
-        spring: [0.34, 1.56, 0.64, 1],
-        'ease-in-out': [0.65, 0, 0.35, 1]
-    };
-
-    // Solves the same cubic-bezier curves the overlay CSS uses, so OBS motion matches the browser frame for frame.
-    function evalMorphEase(name, t) {
-        const x = Math.max(0, Math.min(1, t));
-        const p = MORPH_BEZIERS[name];
-        if (!p) return name === 'linear' ? x : evalMorphEase('smooth', x);
-        const [x1, y1, x2, y2] = p;
-        const axis = (a, b, s) => 3 * a * s * (1 - s) * (1 - s) + 3 * b * s * s * (1 - s) + s * s * s;
-        let lo = 0, hi = 1, s = x;
-        for (let i = 0; i < 40; i++) {
-            s = (lo + hi) / 2;
-            if (axis(x1, x2, s) < x) lo = s; else hi = s;
-        }
-        return axis(y1, y2, s);
-    }
-
+    const Motion = window.StreamPulseMotion;
+    const MORPH_EASINGS = new Proxy({}, { get: (_, name) => Motion.toCss(String(name)) });
+    const evalMorphEase = (name, t) => Motion.evaluate(name, t);
 
     // Swaps only the page's own elements, so shared elements keep running through the transition.
     let pageSwitchTimer = null;
