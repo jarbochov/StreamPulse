@@ -222,10 +222,17 @@ const obsService = createObsService({
     warn: console.warn
 });
 const broadcastToOverlays = (type, payload) => {
-    wsService.broadcastToOverlays(type, payload);
     if (config?.obs?.syncOnSave !== false && type === 'custom-overlay-page' && payload?.id && payload?.page && customOverlays[payload.id]) {
-        obsService.syncOverlayState(customOverlays[payload.id], payload.page, { animate: true }).catch(() => {});
-    } else if (type === 'custom-overlay-update' && payload?.overlay && config?.obs?.syncOnSave !== false) {
+        // The overlay waits for OBS to start moving so both animations share one start time; overlayOffsetMs fine-tunes it.
+        const offset = Math.max(0, Math.min(1000, Number(config?.obs?.overlayOffsetMs) || 0));
+        let sent = false;
+        const send = () => { if (sent) return; sent = true; setTimeout(() => wsService.broadcastToOverlays(type, payload), offset); };
+        setTimeout(send, 800);
+        obsService.syncOverlayState(customOverlays[payload.id], payload.page, { animate: true, onMotionStart: send }).catch(() => {}).finally(send);
+        return;
+    }
+    wsService.broadcastToOverlays(type, payload);
+    if (type === 'custom-overlay-update' && payload?.overlay && config?.obs?.syncOnSave !== false) {
         const curPage = pageSnapshot(payload.overlay)?.page || '';
         obsService.syncOverlayState(payload.overlay, curPage, { animate: false }).catch(() => {});
     }

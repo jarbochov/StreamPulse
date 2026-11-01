@@ -375,13 +375,15 @@ test('OBS configuration normalization persists bounded, supported settings', () 
         enabled: true,
         host: '  ',
         port: 70000,
-        motionEngine: 'unsupported'
+        motionEngine: 'unsupported',
+        overlayOffsetMs: 5000
     }), {
         enabled: true,
         host: '127.0.0.1',
         port: 65535,
         password: '',
         syncOnSave: true,
+        overlayOffsetMs: 1000,
         motionEngine: 'auto'
     });
 });
