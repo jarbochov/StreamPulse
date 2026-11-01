@@ -1904,7 +1904,17 @@ function setExternalData(key, value) {
     broadcastToOverlays('external-update', { key: id, value: externalData[id] ?? null });
 }
 
-const server = http.createServer(async (req, res) => {
+// Embedded hosts (NodeCG) can serve HTTPS so pages embed in an HTTPS dashboard.
+function createHttpServer(handler) {
+    const keyPath = process.env.STREAMPULSE_TLS_KEY;
+    const certPath = process.env.STREAMPULSE_TLS_CERT;
+    if (keyPath && certPath) {
+        return require('https').createServer({ key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) }, handler);
+    }
+    return http.createServer(handler);
+}
+
+const server = createHttpServer(async (req, res) => {
     try {
         const url = new URL(req.url, `http://localhost:${PORT}`);
         const pathname = url.pathname;

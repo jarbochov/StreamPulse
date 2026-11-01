@@ -11,7 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- Embedded mode (`STREAMPULSE_EMBEDDED=true`) for in-process hosts such as NodeCG, with broadcast listeners and state snapshots; host data such as NodeCG replicants resolves as `{{rep.<bundle>.<name>.<path>}}` placeholders.
+- Embedded mode (`STREAMPULSE_EMBEDDED=true`) for in-process hosts such as NodeCG, with broadcast listeners and state snapshots; host data such as NodeCG replicants resolves as `{{rep.<bundle>.<name>.<path>}}` placeholders. Optional HTTPS via `STREAMPULSE_TLS_KEY`/`STREAMPULSE_TLS_CERT`.
 
 ## [0.14.0] - 2026-11-01
 
@@ -30,7 +30,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Alert Queue & Alerts: Low-density queue filtering by category and search query, quick test dispatch from the queue toolbar, and master preview volume control.
 - Chatbot Backup & Cooldowns: Added JSON export/import for custom commands and triggers, per-user cooldown overrides, and regex/exact word matching modes.
 - Custom Overlay Editor: Type-aware inspector tabs, remembered navigation, page-preserving duplication, edit-safe saving, aspect ratio presets, slideshow easing, and responsive scaling.
-- Alerts Engine: Granular subscription tier selection with specificity precedence, weighted and gated variants, video volume controls, Twitch channel emotes in alert media, and gift sub recipient placeholders.
+- Alerts Engine: Granular subscription tier selection with specificity precedence, weighted and gated variants, video volume controls, Twitch channel emotes in alert media, and gift sub recipient placeholders. Optional HTTPS via `STREAMPULSE_TLS_KEY`/`STREAMPULSE_TLS_CERT`.
 - Versus & Tournament Studio: Scoreboards, validated elimination brackets with Grand Finals resets, round-robin standings and saved history, unlimited points, exhibition queues, independently controlled race clocks, and broadcast overlays.
 - Matchup Player Clocks: Optional competitor split, race, and countdown clock badges on all versus scoreboard layouts (`top`, `fgc`, `split`, `pillar`, `bottom`, `compact`, `versus`).
 - Poll Manager: Viewer-based chat voting, blind audience brackets, focused overlays with snapshot recovery, reusable tournament templates, progress checkpoints, and completed-ballot history.

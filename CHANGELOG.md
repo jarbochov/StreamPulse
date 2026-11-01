@@ -7,7 +7,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- Embedded mode (`STREAMPULSE_EMBEDDED=true`) for in-process hosts such as NodeCG, with broadcast listeners and state snapshots; host data such as NodeCG replicants resolves as `{{rep.<bundle>.<name>.<path>}}` placeholders.
+- Embedded mode (`STREAMPULSE_EMBEDDED=true`) for in-process hosts such as NodeCG, with broadcast listeners and state snapshots; host data such as NodeCG replicants resolves as `{{rep.<bundle>.<name>.<path>}}` placeholders. Optional HTTPS via `STREAMPULSE_TLS_KEY`/`STREAMPULSE_TLS_CERT`.
 
 ## [0.14.0] - 2026-11-01
 
