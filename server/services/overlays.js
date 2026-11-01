@@ -349,6 +349,7 @@ const PAGE_EASINGS = ['smooth', 'snappy', 'spring', 'ease-in-out', 'linear'];
 const PAGE_ENTER_EXITS = ['fade', 'slide', 'zoom', 'none'];
 const PAGE_DIRECTIONS = ['left', 'right', 'up', 'down'];
 const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset'];
+const BORDER_PLACEMENTS = ['inside', 'center', 'outside'];
 const BORDER_ANIM_TYPES = ['none', 'rotating', 'radial', 'pulsing', 'gradient', 'rainbow', 'marching'];
 const PATTERN_LAYOUTS = ['grid', 'brick', 'stagger', 'alternating', 'checkerboard', 'kaleidoscope-quad', 'kaleidoscope-radial'];
 const PATTERN_MOTIONS = ['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'kaleidoscope', 'drift', 'orbit', 'pulse', 'pan', 'sweep'];
@@ -646,6 +647,7 @@ function normalizePageStateStyle(rawStyle = {}, entry = {}) {
     pickStr('borderColor', 80);
     pickNum('borderWidth', 0, 40);
     pickEnum('borderStyle', BORDER_STYLES);
+    pickEnum('borderPlacement', BORDER_PLACEMENTS);
     pickNum('borderRadius', 0, 200, true);
     pickNum('padding', 0, 200, true);
     pickNum('opacity', 0, 1);
@@ -878,6 +880,8 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
             borderColor: String(element.style?.borderColor || 'transparent').slice(0, 80),
             borderWidth: Math.max(0, Math.min(40, Number(element.style?.borderWidth) || 0)),
             borderStyle: BORDER_STYLES.includes(element.style?.borderStyle) ? element.style.borderStyle : 'solid',
+            borderPlacement: BORDER_PLACEMENTS.includes(element.style?.borderPlacement) ? element.style.borderPlacement
+                : type === 'shape' && obsLink?.enabled === true ? 'outside' : 'inside',
             borderRadius: Math.max(0, Math.min(200, Number(element.style?.borderRadius) || 0)),
             borderGlow: normalizeBorderGlow(element.style?.borderGlow),
             borderAnimation: normalizeBorderAnimation(element.style?.borderAnimation),

@@ -49,7 +49,7 @@
     }
     function mediaContentSig(element) {
         const { x, y, width, height, visible, pageStates, _baseState, style, ...rest } = element || {};
-        const { opacity, rotate, borderRadius, borderWidth, borderColor, borderStyle, borderGlow, shadow, innerShadow, background, padding, blur, ...restStyle } = style || {};
+        const { opacity, rotate, borderRadius, borderWidth, borderColor, borderStyle, borderPlacement, borderGlow, shadow, innerShadow, background, padding, blur, ...restStyle } = style || {};
         return JSON.stringify({ ...rest, style: restStyle });
     }
     function pageElements(overlay, pageId = currentPage, { includeHiddenShared = false } = {}) {

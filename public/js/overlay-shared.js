@@ -846,7 +846,13 @@
     }
 
     const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset'];
+    const BORDER_PLACEMENTS = ['inside', 'center', 'outside'];
     const BORDER_ANIM_TYPES = ['none', 'rotating', 'radial', 'pulsing', 'gradient', 'rainbow', 'marching'];
+
+    function borderPlacement(style = {}, element = {}) {
+        return BORDER_PLACEMENTS.includes(style.borderPlacement) ? style.borderPlacement
+            : element.type === 'shape' && element.obsLink?.enabled === true ? 'outside' : 'inside';
+    }
 
     function ensureBorderKeyframes() {
         if (window.CSS && typeof window.CSS.registerProperty === 'function') {
@@ -874,10 +880,10 @@
         document.head.appendChild(tag);
     }
 
-    function computeBoxShadow(style = {}, width = 0) {
+    function computeBoxShadow(style = {}, width = 0, outset = 0) {
         const shadows = [];
         if (style.shadow?.blur > 0) {
-            shadows.push(`0 0 ${style.shadow.blur}px ${style.shadow.color || 'rgba(0,0,0,0.5)'}`);
+            shadows.push(`0 0 ${style.shadow.blur}px ${outset}px ${style.shadow.color || 'rgba(0,0,0,0.5)'}`);
         }
         const glow = style.borderGlow;
         if (glow?.enabled && width > 0) {
@@ -886,13 +892,13 @@
             const gs = Math.max(0, Number(glow.spread ?? 2));
             if (glow.neon) {
                 shadows.push(
-                    '0 0 3px #ffffff',
-                    `0 0 ${Math.max(6, Math.round(gb * 0.4))}px ${gc}`,
-                    `0 0 ${gb}px ${gs}px ${gc}`,
-                    `0 0 ${Math.round(gb * 1.6)}px ${Math.round(gs * 1.5)}px ${gc}`
+                    `0 0 3px ${outset}px #ffffff`,
+                    `0 0 ${Math.max(6, Math.round(gb * 0.4))}px ${outset}px ${gc}`,
+                    `0 0 ${gb}px ${gs + outset}px ${gc}`,
+                    `0 0 ${Math.round(gb * 1.6)}px ${Math.round(gs * 1.5) + outset}px ${gc}`
                 );
             } else {
-                shadows.push(`0 0 ${gb}px ${gs}px ${gc}`);
+                shadows.push(`0 0 ${gb}px ${gs + outset}px ${gc}`);
             }
         }
         return shadows.length ? shadows.join(', ') : 'none';
@@ -901,7 +907,17 @@
     // Applies full border styling, gradients, glows, and hardware-accelerated animations across all element types.
     function applyBorderEffects(node, style = {}, element = {}) {
         if (!node) return;
-        const width = Math.max(0, Number(style.borderWidth) || 0);
+        const lineShape = element.type === 'shape' && style.shape === 'line';
+        const width = lineShape ? 0 : Math.max(0, Number(style.borderWidth) || 0);
+        const shapeBorder = element.type === 'shape' && !lineShape;
+        const placement = shapeBorder ? borderPlacement(style, element) : 'inside';
+        const outset = width * (placement === 'outside' ? 1 : placement === 'center' ? 0.5 : 0);
+        const innerInset = width - outset;
+        const shape = style.shape || 'rectangle';
+        const radius = shapeBorder && shape === 'circle' ? '50%'
+            : shapeBorder && shape === 'pill' ? '999px'
+                : (node.style.borderRadius || `${Number(style.borderRadius) || 0}px`);
+        const outerRadius = outset && radius !== '50%' ? `calc(${radius} + ${outset}px)` : radius;
         const borderStyle = style.borderStyle || 'solid';
         const borderColor = style.borderColor || 'transparent';
         const g = style.borderGradient;
@@ -912,9 +928,9 @@
         const hasInnerShadow = Number(ish.blur) > 0 || Number(ish.spread) > 0;
         const hasBorderGradient = width > 0 && Boolean(g?.enabled);
         const hasBorderAnim = width > 0 && !hasBorderGradient && Boolean(anim.type && anim.type !== 'none');
-        const hasRingBorder = hasBorderGradient || hasBorderAnim;
+        const hasRingBorder = hasBorderGradient || hasBorderAnim || (shapeBorder && width > 0);
 
-        node.style.boxShadow = computeBoxShadow(style, width);
+        node.style.boxShadow = computeBoxShadow(style, width, outset);
 
         if (hasInnerGlow || hasInnerShadow || hasRingBorder) {
             if (!node._borderObserver) {
@@ -960,10 +976,8 @@
                 }
             }
             const innerShadowCss = innerShadows.join(', ');
-            const radRaw = style.borderRadius ?? node.style.borderRadius ?? 0;
-            const radVal = typeof radRaw === 'number' ? `${radRaw}px` : (String(radRaw).trim() || '0px');
-            const insetCss = hasRingBorder ? `${width}px` : '0';
-            const radiusCss = width > 0 ? `max(0px, calc(${radVal} - ${width}px))` : radVal;
+            const insetCss = hasRingBorder ? `${innerInset}px` : '0';
+            const radiusCss = width > 0 && radius !== '50%' ? `max(0px, calc(${radius} - ${innerInset}px))` : radius;
             const innerSig = `${insetCss}|${radiusCss}|${innerShadowCss}`;
             if (innerRing._sig !== innerSig) {
                 innerRing._sig = innerSig;
@@ -1013,7 +1027,7 @@
                 ring.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
                 ring.style.setProperty('mask-composite', 'exclude');
             }
-        } else if (node._borderRing) {
+        } else if (node._borderRing && (!shapeBorder || hasBorderAnim)) {
             node._borderRing.remove();
             node._borderRing = null;
         }
@@ -1114,27 +1128,15 @@
                 }
             } else if (anim.type === 'rainbow') {
                 const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
-                const radRaw = style.borderRadius ?? node.style.borderRadius ?? 0;
-                const radNum = Math.max(0, parseFloat(radRaw) || 0);
-                if (radNum <= 0) {
-                    const sig = `rainbow|rect|${width}|${speed}`;
-                    if (fxRing._sig !== sig) {
-                        fxRing._sig = sig;
-                        fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-image:linear-gradient(135deg, #ff0055, #ff9900, #ffee00, #00ff66, #00bbff, #8800ff, #ff0055) 1;pointer-events:none;animation:sp-border-rainbow ${speed}s linear infinite;z-index:2;`;
-                        fxRing.style.webkitMask = fxRing.style.mask = '';
-                        fxRing.innerHTML = '';
-                    }
-                } else {
-                    const gradId = `sp-rb-${(element.id || node.id || node.dataset?.id || 'fx').replace(/[^a-zA-Z0-9_-]/g, '')}`;
-                    const sig = `rainbow|svg|${width}|${speed}|${radNum}|${gradId}`;
-                    if (fxRing._sig !== sig) {
-                        fxRing._sig = sig;
-                        fxRing.style.cssText = `position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:2;animation:sp-border-rainbow ${speed}s linear infinite;`;
-                        fxRing.style.webkitMask = fxRing.style.mask = '';
-                        fxRing.style.border = '0';
-                        fxRing.style.borderImage = 'none';
-                        fxRing.innerHTML = `<svg data-border-fx="rainbow" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;"><defs><linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ff0055"/><stop offset="17%" stop-color="#ff9900"/><stop offset="33%" stop-color="#ffee00"/><stop offset="50%" stop-color="#00ff66"/><stop offset="67%" stop-color="#00bbff"/><stop offset="83%" stop-color="#8800ff"/><stop offset="100%" stop-color="#ff0055"/></linearGradient></defs><rect x="${width / 2}" y="${width / 2}" width="calc(100% - ${width}px)" height="calc(100% - ${width}px)" rx="${radNum}" ry="${radNum}" fill="none" stroke="url(#${gradId})" stroke-width="${width}"></rect></svg>`;
-                    }
+                const sig = `rainbow|${width}|${speed}`;
+                if (fxRing._sig !== sig) {
+                    fxRing._sig = sig;
+                    fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:linear-gradient(135deg, #ff0055, #ff9900, #ffee00, #00ff66, #00bbff, #8800ff, #ff0055);animation:sp-border-rainbow ${speed}s linear infinite;z-index:2;`;
+                    fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
+                    fxRing.style.setProperty('-webkit-mask-composite', 'xor');
+                    fxRing.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
+                    fxRing.style.setProperty('mask-composite', 'exclude');
+                    fxRing.innerHTML = '';
                 }
             } else if (anim.type === 'marching') {
                 const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 2));
@@ -1155,8 +1157,34 @@
 
         // Case 3: Static solid/dashed/groove border
         if (!hasBorderGradient && !hasBorderAnim) {
-            node.style.border = `${width}px ${borderStyle} ${borderColor}`;
+            if (shapeBorder) {
+                let ring = node._borderRing;
+                if (!ring) {
+                    ring = node._borderRing = document.createElement('div');
+                    ring.setAttribute('aria-hidden', 'true');
+                    ring.dataset.borderRing = 'true';
+                }
+                if (ring.parentNode !== node) node.append(ring);
+                ring._sig = null;
+                ring.style.cssText = `position:absolute;box-sizing:border-box;border:${width}px ${borderStyle} ${borderColor};pointer-events:none;z-index:2;`;
+                node.style.border = '0';
+            } else {
+                node.style.border = `${width}px ${borderStyle} ${borderColor}`;
+            }
             node.style.backgroundClip = '';
+        }
+
+        // The source box stays fixed; only the decorative ring expands beyond it.
+        for (const ring of [node._borderRing, node._borderFxRing]) {
+            if (!ring) continue;
+            ring.style.inset = `${-outset}px`;
+            ring.style.width = ring.style.height = '';
+            ring.style.borderRadius = outerRadius;
+            const rect = ring.querySelector('svg > rect');
+            if (rect) {
+                const strokeRadius = `max(0px, calc(${outerRadius} - ${width / 2}px))`;
+                rect.style.rx = rect.style.ry = strokeRadius;
+            }
         }
     }
 
@@ -1183,6 +1211,9 @@
     function shadowClipStyle(element) {
         if (element.type === 'icon') return { overflow: 'visible', overflowClipMargin: '' };
         const style = element.style || {};
+        if (element.type === 'shape' && (style.shape === 'line' || borderPlacement(style, element) !== 'inside' || style.borderAnimation?.type === 'pulsing')) {
+            return { overflow: 'visible', overflowClipMargin: '' };
+        }
         const blur = Number(style.textShadow?.blur) || 0;
         const textual = !['image', 'video', 'slideshow', 'embed', 'qr', 'icon', 'shape', 'progress', 'game-list', 'pattern'].includes(element.type);
         if (!(blur > 0) || !textual || element.random?.marquee) return { overflow: '', overflowClipMargin: '' };
@@ -3323,4 +3354,5 @@
     }
 
     root.OverlayShared = { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, applyMediaFilter, shadowClipStyle };
+    root.OverlayShared.borderPlacement = borderPlacement;
 })(window);

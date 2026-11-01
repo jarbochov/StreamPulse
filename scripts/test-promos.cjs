@@ -1,8 +1,8 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const http = require('node:http');
-const os = require('node:os');
 const path = require('node:path');
+const vm = require('node:vm');
 const { test } = require('node:test');
 const { Readable } = require('node:stream');
 const puppeteer = require('puppeteer');
@@ -81,7 +81,7 @@ test('promo model preserves independent layouts and validates export-safe images
 });
 
 test('promo persistence, image references and actual studio export work without production or external requests', { timeout: 60000 }, async t => {
-    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-promos-'));
+    const dataDir = fs.mkdtempSync(path.join(__dirname, '..', '.test-promos-'));
     const assetsDir = path.join(dataDir, 'custom-overlay-assets');
     fs.mkdirSync(assetsDir);
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450"><rect width="800" height="450" fill="#2255cc"/><circle cx="400" cy="225" r="130" fill="#ff9900"/></svg>';
@@ -146,7 +146,7 @@ test('promo persistence, image references and actual studio export work without 
     assert.equal(stored.elements.find(element => element.id === 'photo').src, renamed.url, 'asset rename updates saved promo images');
     assert.equal(createPromoService({ dataDir }).list()[0].elements.find(element => element.id === 'photo').src, renamed.url, 'restart reads persistent data');
 
-    browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+    browser = await puppeteer.launch({ headless: true, userDataDir: path.join(dataDir, 'browser'), args: ['--no-sandbox'] });
     const page = await browser.newPage(), errors = [], external = [];
     page.on('pageerror', error => errors.push(error.message));
     let acceptDialogs = true;
@@ -632,11 +632,54 @@ test('promo persistence, image references and actual studio export work without 
         const design = await (await fetch(`/api/promos/${id}`)).json();
         const result = await exportAnimation(design, 'square', { seconds: .2 });
         const header = new window.TextDecoder().decode(await result.blob.slice(0, 32).arrayBuffer());
-        return { supported, type: result.blob.type, size: result.blob.size, name: result.name, header };
+        return { supported, type: result.blob.type, size: result.blob.size, name: result.name, header, bytes: Array.from(new Uint8Array(await result.blob.arrayBuffer())) };
     });
     if (mp4Export.supported) {
+        const { Input, BufferSource, ALL_FORMATS, EncodedPacketSink } = await import('mediabunny');
+        const input = new Input({ source: new BufferSource(Uint8Array.from(mp4Export.bytes)), formats: ALL_FORMATS });
+        try {
+            const track = await input.getPrimaryVideoTrack();
+            assert.ok(track, 'MP4 export contains a video track, not just a container header');
+            const config = await track.getDecoderConfig();
+            assert.match(config.codec, /^avc1\./);
+            assert.deepEqual([config.codedWidth, config.codedHeight], model.SIZES.square, 'MP4 keeps full export resolution');
+            assert.ok(config.description?.byteLength > 0, 'MP4 includes the AVC decoder configuration');
+            const packets = [];
+            for await (const packet of new EncodedPacketSink(track).packets(undefined, undefined, { verifyKeyPackets: true })) {
+                assert.ok(packet.data.length > 0, 'every MP4 frame has encoded video data');
+                packets.push(packet);
+            }
+            assert.ok(packets.length >= 2, 'MP4 contains multiple encoded frames');
+            assert.equal(packets[0].type, 'key', 'MP4 begins with an independently decodable AVC keyframe');
+            assert.ok(packets.at(-1).timestamp > packets[0].timestamp, 'MP4 frame timestamps advance');
+            assert.ok(await track.computeDuration() >= .15, 'MP4 covers the short animation, not only its first frame');
+            const decoded = await page.evaluate(async ({ config, packets }) => {
+                const frames = [], decoder = new window.VideoDecoder({
+                    output(frame) {
+                        frames.push({ width: frame.displayWidth, height: frame.displayHeight, timestamp: frame.timestamp });
+                        frame.close();
+                    },
+                    error(error) { throw error; }
+                });
+                try {
+                    decoder.configure({ ...config, description: new Uint8Array(config.description) });
+                    for (const packet of packets) decoder.decode(new window.EncodedVideoChunk({
+                        ...packet, data: new Uint8Array(packet.data)
+                    }));
+                    await decoder.flush();
+                    return frames;
+                } finally { decoder.close(); }
+            }, {
+                config: { ...config, description: Array.from(new Uint8Array(config.description)) },
+                packets: packets.map(packet => ({
+                    type: packet.type, timestamp: packet.microsecondTimestamp, duration: packet.microsecondDuration, data: Array.from(packet.data)
+                }))
+            });
+            assert.equal(decoded.length, packets.length, 'every encoded MP4 frame can actually be decoded');
+            assert.ok(decoded.every(frame => frame.width === 1080 && frame.height === 1080), 'decoded frames preserve promo dimensions');
+            t.diagnostic(`MP4: ${mp4Export.size} bytes, ${packets.length} decoded AVC frames, ${(await track.computeDuration()).toFixed(3)}s`);
+        } finally { input.dispose(); }
         assert.match(mp4Export.type, /^video\/mp4(?:;codecs=avc1[^,;]+)?$/);
-        assert.ok(mp4Export.size > 1000, 'MP4 export contains encoded video data');
         assert.match(mp4Export.name, /-square-animated\.mp4$/);
         assert.ok(mp4Export.header.includes('ftyp'), 'MP4 export contains the expected MP4 file signature');
     } else {
@@ -686,8 +729,59 @@ test('promo persistence, image references and actual studio export work without 
     assert.ok(messages.some(message => message.includes('[Promos]')));
 });
 
+test('native promo MP4 recording waits for codec startup and cleans up startup errors', { timeout: 2000 }, async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../public/js/promo-export.js'), 'utf8');
+    for (const failStartup of [false, true]) {
+        const events = [], track = { stop: () => events.push('track-stop') };
+        class Recorder extends globalThis.EventTarget {
+            state = 'inactive';
+            mimeType = 'video/mp4';
+            start() {
+                this.state = 'recording';
+                this.startupTimer = setTimeout(() => {
+                    if (failStartup) {
+                        const event = new globalThis.Event('error');
+                        event.error = new Error('Fixture codec startup failed');
+                        this.dispatchEvent(event);
+                    } else {
+                        this.ready = true;
+                        events.push('start');
+                        this.dispatchEvent(new globalThis.Event('start'));
+                    }
+                }, 80);
+            }
+            stop() {
+                clearTimeout(this.startupTimer);
+                this.state = 'inactive';
+                events.push('stop');
+                const event = new globalThis.Event('dataavailable');
+                event.data = new globalThis.Blob(this.ready ? ['encoded-frame'] : []);
+                this.dispatchEvent(event);
+                this.dispatchEvent(new globalThis.Event('stop'));
+            }
+        }
+        const record = vm.runInNewContext(
+            source.slice(source.indexOf('async function exportWithMediaRecorder('), source.indexOf('async function exportWithWebCodecs(')) + '\nexportWithMediaRecorder;',
+            {
+                MediaRecorder: Recorder, Blob: globalThis.Blob, performance: globalThis.performance,
+                setTimeout, clearTimeout, MP4_FPS: 20, MP4_MIME: 'video/mp4',
+                delay: milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)),
+                renderFrame: async () => {}
+            }
+        );
+        const recording = record({ captureStream: () => ({ getTracks: () => [track] }) }, {}, 'square', .05, () => {});
+        if (failStartup) {
+            await assert.rejects(recording, /Fixture codec startup failed/);
+            assert.deepEqual(events, ['stop', 'track-stop']);
+        } else {
+            assert.ok((await recording).size > 0, 'startup slower than the requested duration still records data');
+            assert.deepEqual(events, ['start', 'stop', 'track-stop']);
+        }
+    }
+});
+
 test('IGDB picker detects actual image formats and reports unavailable credentials and upstream errors explicitly', async t => {
-    const assetsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-promo-art-'));
+    const assetsDir = fs.mkdtempSync(path.join(__dirname, '..', '.test-promo-art-'));
     t.after(() => fs.rmSync(assetsDir, { recursive: true, force: true }));
     const unavailable = createPromoArtworkService({ getTwitchClientId: () => '', getAppToken: async () => '' });
     await assert.rejects(unavailable.search('Fictional'), error => error.status === 409);

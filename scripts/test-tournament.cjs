@@ -1193,7 +1193,13 @@ test('Repair reconstructs a progressed winners-only poll bracket without losing 
         const preview = service.previewPollBracketRepair();
         const result = service.repairPollBracket(preview);
         assert.deepEqual(JSON.parse(fs.readFileSync(path.join(tmpDir, result.backup), 'utf8')), before);
-        assert.equal(fs.statSync(path.join(tmpDir, 'polls.json')).mode & 0o777, 0o600);
+        const repairedPath = path.join(tmpDir, 'polls.json');
+        assert.equal(fs.statSync(repairedPath).isFile(), true);
+        fs.accessSync(repairedPath, fs.constants.R_OK | fs.constants.W_OK);
+        // Windows access is governed by ACLs, not POSIX owner/group permission bits.
+        if (process.platform !== 'win32') {
+            assert.equal(fs.statSync(repairedPath).mode & 0o777, 0o600);
+        }
         tournament = result.tournament;
         assert.equal(tournament.matches.length, 30);
         assert.equal(service.getActivePoll().totalVotes, 1);

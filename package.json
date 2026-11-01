@@ -18,7 +18,7 @@
     "build:promo-encoder": "node scripts/build-promo-encoder.mjs",
     "install:chrome": "puppeteer browsers install chrome",
     "smoke:editors": "node scripts/editor-smoke-test.mjs",
-    "test:stability": "node --test --test-concurrency=1 scripts/test-release-workflows.cjs scripts/test-editor-save.cjs scripts/test-competitive-studio.cjs scripts/test-dashboard-resilience.cjs"
+    "test:stability": "node --test --test-concurrency=1 scripts/test-release-workflows.cjs scripts/test-editor-save.cjs scripts/test-competitive-studio.cjs scripts/test-dashboard-resilience.cjs && node scripts/test-shape-border-placement.mjs"
   },
   "repository": {
     "type": "git",

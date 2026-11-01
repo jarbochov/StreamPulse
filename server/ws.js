@@ -64,7 +64,12 @@ function createOverlayWsServer({
         overlayClients.add(ws);
         ws.isAlive = true;
         ws.on('pong', () => { ws.isAlive = true; });
-        ws.on('error', () => disconnect(ws));
+        ws.on('error', () => {
+            removeClient(ws);
+            if (ws.readyState !== WebSocket.CLOSING) {
+                try { ws.terminate(); } catch {}
+            }
+        });
         ws.on('close', () => removeClient(ws));
         if (!heartbeatTimer) {
             heartbeatTimer = setInterval(() => {

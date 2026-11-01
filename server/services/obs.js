@@ -453,7 +453,18 @@ function createObsService({
         try {
             const cfg = currentConfig();
             const effectiveMs = cfg.motionEngine === 'cut' ? 0 : Math.max(0, Number(durationMs) || 0);
-            const useMovePlugin = state.hasMovePlugin && (cfg.motionEngine === 'auto' || cfg.motionEngine === 'move-plugin') && effectiveMs > 0;
+            const filterName = `StreamPulse_Move_${sceneItemId}_${String(sourceName).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40)}`;
+            const useMovePlugin = state.hasMovePlugin && fit !== 'none' && (cfg.motionEngine === 'auto' || cfg.motionEngine === 'move-plugin') && effectiveMs > 0;
+
+            // Move Source filters belong to the scene, and must stop before a replacement target or hide.
+            if (state.hasMovePlugin) {
+                await call('SetSourceFilterEnabled', {
+                    sourceName: sceneName,
+                    filterName,
+                    filterEnabled: false
+                }).catch(() => null);
+                checkCurrent();
+            }
 
             if (syncVisibility && target.visible !== false) {
                 await call('SetSceneItemEnabled', {
@@ -480,9 +491,16 @@ function createObsService({
 
             // Engine A: Exeldro's Move Source Filter (if installed in OBS)
             if (useMovePlugin && target.visible !== false) {
-                const filterName = `StreamPulse_Move_${String(sourceName).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40)}`;
                 const filterSettings = {
                     source: sourceName,
+                    transform: true,
+                    custom_duration: true,
+                    enabled_match_moving: false,
+                    start_trigger: 13, // Move's Load trigger starts on settings updates, including repeated state switches.
+                    start_delay: 0,
+                    end_delay: 0,
+                    easing_match: easing === 'linear' ? 0 : easing === 'ease-in-out' ? 3 : 2,
+                    easing_function_match: easing === 'snappy' ? 3 : easing === 'spring' ? 10 : 2,
                     duration: Math.round(effectiveMs),
                     pos: { x: Math.round(target.x), y: Math.round(target.y) },
                     bounds: { x: Math.max(1, Math.round(target.width)), y: Math.max(1, Math.round(target.height)) },
@@ -504,7 +522,7 @@ function createObsService({
                 }
                 try {
                     const setRes = await call('SetSourceFilterSettings', {
-                        sourceName,
+                        sourceName: sceneName,
                         filterName,
                         filterSettings,
                         overlay: true
@@ -512,14 +530,21 @@ function createObsService({
                     checkCurrent();
                     if (!setRes) {
                         await call('CreateSourceFilter', {
-                            sourceName,
+                            sourceName: sceneName,
                             filterName,
                             filterKind: 'move_source_filter',
                             filterSettings
                         });
+                        // Creation may update the filter before it has a parent scene.
+                        await call('SetSourceFilterSettings', {
+                            sourceName: sceneName,
+                            filterName,
+                            filterSettings,
+                            overlay: true
+                        });
                     }
                     await call('SetSourceFilterEnabled', {
-                        sourceName,
+                        sourceName: sceneName,
                         filterName,
                         filterEnabled: true
                     });

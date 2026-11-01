@@ -92,7 +92,20 @@ async function exportWithMediaRecorder(canvas, design, ratio, seconds, onProgres
             recorder.addEventListener('error', event => reject(event.error || new Error('The browser could not record an MP4.')), { once: true });
         });
         completed.catch(() => {});
-        recorder.start();
+        let startupTimer;
+        try {
+            // Codec startup can exceed a short export; don't stop before recording actually begins.
+            await Promise.race([
+                new Promise((resolve, reject) => {
+                    recorder.addEventListener('start', resolve, { once: true });
+                    startupTimer = setTimeout(() => reject(new Error('The browser MP4 recorder did not start.')), 10_000);
+                    recorder.start();
+                }),
+                completed.then(() => { throw new Error('The browser MP4 recorder stopped before starting.'); })
+            ]);
+        } finally {
+            clearTimeout(startupTimer);
+        }
         const startedAt = performance.now();
         const stopTimer = setTimeout(() => {
             if (recorder.state === 'recording') recorder.stop();
@@ -144,6 +157,7 @@ export async function exportAnimation(design, ratio, { onProgress = () => {}, se
     const blob = supportsNativeMp4()
         ? await exportWithMediaRecorder(canvas, design, ratio, seconds, onProgress)
         : await exportWithWebCodecs(canvas, design, ratio, seconds, onProgress);
+    if (!blob.size) throw new Error('The browser MP4 encoder returned an empty file.');
     const name = design.name.replace(/[^a-z0-9_-]/gi, '-').slice(0, 80) || 'promo';
     return { blob, name: `${name}-${ratio}-animated.mp4` };
 }

@@ -200,7 +200,7 @@ test('source count excludes generic live sockets, embedded previews and extra ru
             frame.src = '/fixture.html';
             document.body.appendChild(frame);
         });
-        await fixture.waitForFunction(() => document.querySelector('iframe')?.contentDocument?.readyState === 'complete');
+        await fixture.waitForFunction(() => document.querySelector('iframe')?.contentDocument?.readyState === 'complete', { polling: 50 });
         await count(fixture, 1);
         await open('/music.html');
         await count(fixture, 2);

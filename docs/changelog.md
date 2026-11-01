@@ -13,7 +13,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [0.14.0] - 2026-10-31
 
 ### Added
-- Custom Overlay Studio (Beta): reversible scene transitions, cancellable OBS source synchronization with connection/error feedback, protected OBS credentials, smart snapping, and reusable prefabs.
+- Custom Overlay Studio (Beta): reversible scene transitions, cancellable OBS source synchronization, scene-hosted Move filters, inside/center/outside frame borders, protected OBS credentials, smart snapping, and reusable prefabs.
 - Bracket Camera & Section View API: HTTP triggers (`/api/tournament/view`, `/api/polls/tournament/view`), WebSocket events, and Companion actions to toggle camera focus (`focus=toggle|1|0`), pan bracket rounds (`round=next|prev|<num>`), and switch bracket sections (`bracket=winners|losers|finals|all|cycle`) on live OBS overlays.
 - Bracket Overlay Border Radius: Added customizable card corner roundness (`?radius=` / `--tourney-radius`, from `0px` sharp square up to `999px` pill/capsule) across all cards in both Versus Bracket (`tournament.html`) and Poll Tournament Bracket (`poll-tournament.html`) overlays, exposed directly in the Layout & Framing tab, Typography & Themes tab, live preview toolbar, and Overlay URL Wizard.
 - Poll Tournament Entrant & Versus Colors: Audience voting brackets (`poll-tournament.html`) now feature fully customizable competitor slot colors (`?p1color=` / `?p2color=`) with live color swatches and pickers on active match cards in Poll Manager (`polls.html`), color palette inputs in Versus Studio and Overlay URL Wizard, dual-colored active match HUD voting progress bars, and automatic hex color parsing from participant text inputs (`Entrant #hex`, `[#hex]`, `tag | #hex`).
@@ -32,12 +32,13 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Matchup Player Clocks: Optional competitor split, race, and countdown clock badges on all versus scoreboard layouts (`top`, `fgc`, `split`, `pillar`, `bottom`, `compact`, `versus`).
 - Poll Manager: Viewer-based chat voting, blind audience brackets, focused overlays with snapshot recovery, reusable tournament templates, progress checkpoints, and completed-ballot history.
 - Randomizer Elimination Mode: Weight-based choice randomizer with elimination and restoration.
-- Promo Creator: Social promo generator with multi-layer layout, animations, and image export.
+- Promo Creator: Social promo generator with multi-layer layout, animations, image export, and startup-safe video recording.
 - Procedural Patterns Library: Shared 20-pattern geometric and organic pattern generator synced across Promo Creator and Custom Overlay Editor.
 - Custom Overlay Poll Element: Real-time Twitch poll widget for custom overlays.
 - Custom Overlay Editor IGDB Artwork: Direct browser and importer for official game artwork, logos, and screenshots from IGDB into custom overlay image layers.
 
 ### Fixed
+- Live connections: Preserve protocol close codes when rejecting oversized WebSocket messages.
 - Dashboard: Restore connection text after outages, show disabled alerts accurately, and bound shared navigation polling with deadlines, stale-response protection, and idle cleanup.
 - Goals & Timers: Preserve reset baselines and zero community weights on save, retain pending baseline edits during live updates, and keep paused date countdown snapshots frozen.
 - Active Match Badge: Fixed Active Match Badge (`?focusbadge=1`) rendering across all bracket layouts (both standard tree overview and dynamic focus views) and resolved wizard URL generation to explicitly output `focusbadge=1` when enabled.

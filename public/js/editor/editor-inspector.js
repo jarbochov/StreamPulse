@@ -254,6 +254,13 @@ export function borderControls(s = {}, shape = false, el = {}) {
 
     let html = `<div class="grid2">${F.number('style.borderWidth', isLineShape ? 'Thickness' : 'Border width', width, { min: 0, max: 40 })}${hideRadius ? '<span></span>' : F.number('style.borderRadius', 'Corner radius', s.borderRadius || 0, { min: 0, max: 200 })}</div>`;
 
+    if (shape) {
+        html += F.select('style.borderPlacement', 'Border placement', window.OverlayShared.borderPlacement(s, el), [
+            ['inside', 'Inside'], ['center', 'Center'], ['outside', 'Outside']
+        ]);
+        if (isLineShape) html += '<p class="hint">Placement applies to closed shapes. Lines use thickness along their center.</p>';
+    }
+
     if (isLineShape || width <= 0) return html;
 
     html += F.select('style.borderStyle', 'Border style', s.borderStyle || 'solid', [

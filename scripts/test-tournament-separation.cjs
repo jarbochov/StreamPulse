@@ -559,14 +559,15 @@ test('Poll Manager and overlay show a 16-player losers bracket without disruptin
         assert.equal(service.handleChatMessage({ user: 'TestVoter', message: '1' }), true);
         service.finishPoll();
         assert.equal(service.getPollTournament().matches.find(m => m.id === 'lb_2_1').entrant1.name, loserWinner);
+        // The original overlay is a background tab; its rAF polling can be suspended.
         await overlay.waitForFunction(name => {
             const next = document.querySelector('.double-elim-losers [data-match-id="lb_2_1"]');
             return next?.textContent.includes(name);
-        }, { timeout: 5000 }, loserWinner);
+        }, { timeout: 5000, polling: 'mutation' }, loserWinner);
         await focused.waitForFunction(name => {
             const next = document.querySelector('.double-elim-losers [data-match-id="lb_2_1"]');
             return next?.textContent.includes(name);
-        }, { timeout: 5000 }, loserWinner);
+        }, { timeout: 5000, polling: 'mutation' }, loserWinner);
     } finally {
         await browser?.close();
         service?.destroy();

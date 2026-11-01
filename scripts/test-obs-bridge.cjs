@@ -90,6 +90,39 @@ async function flush() {
     await new Promise(resolve => setImmediate(resolve));
 }
 
+test('new Move filters load their target after attachment to the containing scene', async () => {
+    const { service, socket } = createConnectedService();
+    try {
+        await flush();
+        let created = false;
+        socket.handleRequest = request => {
+            if (request.requestType === 'CreateSourceFilter') created = true;
+            if (request.requestType === 'SetSourceFilterSettings' && !created) {
+                socket.respond(request, 'Filter not found');
+                return true;
+            }
+        };
+        await service.syncOverlayState({
+            id: 'bees-fixture',
+            elements: [{
+                id: 'camera', page: '*', x: 668, y: 540, width: 540, height: 304,
+                pageStates: { p2: { x: 1295, y: 51 } },
+                obsLink: { enabled: true, sourceName: 'Camera', sceneName: 'Main' }
+            }],
+            pages: { enabled: true, items: [{ id: 'p1' }, { id: 'p2' }], transition: 'morph', transitionMs: 1500 }
+        }, 'p2');
+        const createIndex = socket.requests.findIndex(r => r.requestType === 'CreateSourceFilter');
+        assert.ok(createIndex >= 0);
+        const reload = socket.requests[createIndex + 1];
+        assert.equal(reload.requestType, 'SetSourceFilterSettings');
+        assert.equal(reload.requestData.sourceName, 'Main');
+        assert.deepEqual(reload.requestData.filterSettings.pos, { x: 1295, y: 51 });
+        assert.equal(reload.requestData.filterSettings.duration, 1500);
+    } finally {
+        service.disconnect();
+    }
+});
+
 test('OBS v5 auth, Move filter requests, and page-state rotation use OBS source and state values', async () => {
     const { service, socket } = createConnectedService({ motionEngine: 'auto' });
     try {
@@ -111,12 +144,42 @@ test('OBS v5 auth, Move filter requests, and page-state rotation use OBS source 
             sourceName: 'Camera',
             sceneItemId: 55,
             target: { x: 10, y: 20, width: 640, height: 360, rotate: 15, visible: true },
-            durationMs: 500
+            durationMs: 500,
+            easing: 'linear'
         });
         const filterCalls = socket.requests.filter(({ requestType }) =>
             ['SetSourceFilterSettings', 'CreateSourceFilter', 'SetSourceFilterEnabled'].includes(requestType));
         assert.ok(filterCalls.length > 0);
-        assert.ok(filterCalls.every(({ requestData }) => requestData.sourceName === 'Camera'));
+        assert.ok(filterCalls.every(({ requestData }) => requestData.sourceName === 'Main'));
+        const moveSettings = filterCalls.find(({ requestType }) => requestType === 'SetSourceFilterSettings').requestData.filterSettings;
+        assert.equal(moveSettings.source, 'Camera');
+        assert.equal(moveSettings.start_trigger, 13);
+        assert.equal(moveSettings.enabled_match_moving, false);
+        assert.equal(moveSettings.transform, true);
+        assert.equal(moveSettings.custom_duration, true);
+        assert.equal(moveSettings.easing_match, 0);
+
+        const firstMoveCount = socket.requests.length;
+        await service.animateItemToTarget({
+            sceneName: 'Main', sourceName: 'Camera', sceneItemId: 55,
+            target: { x: 100, y: 200, width: 640, height: 360, visible: true },
+            durationMs: 500, easing: 'spring'
+        });
+        const repeatedMove = socket.requests.slice(firstMoveCount);
+        assert.equal(repeatedMove[0].requestType, 'SetSourceFilterEnabled');
+        assert.equal(repeatedMove[0].requestData.filterEnabled, false);
+        assert.equal(repeatedMove.find(r => r.requestType === 'SetSourceFilterSettings').requestData.filterSettings.pos.x, 100);
+        assert.equal(repeatedMove.find(r => r.requestType === 'SetSourceFilterSettings').requestData.filterSettings.easing_function_match, 10);
+        assert.equal(repeatedMove.at(-1).requestData.filterEnabled, true);
+
+        const hideStart = socket.requests.length;
+        await service.animateItemToTarget({
+            sceneName: 'Main', sourceName: 'Camera', sceneItemId: 55,
+            target: { visible: false }, durationMs: 0
+        });
+        const hiding = socket.requests.slice(hideStart);
+        assert.equal(hiding[0].requestData.filterEnabled, false);
+        assert.equal(hiding.at(-1).requestData.sceneItemEnabled, false);
 
         const result = await service.syncOverlayState({
             id: 'fixture',

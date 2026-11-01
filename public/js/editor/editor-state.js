@@ -400,7 +400,7 @@ export const pageName = id => state.overlay.pages?.items.find(p => p.id === id)?
 export const STATE_STYLE_KEYS = [
     'fontFamily', 'fontSize', 'fontWeight', 'color', 'textAlign', 'verticalAlign',
     'lineHeight', 'letterSpacing', 'textTransform', 'textDecoration',
-    'background', 'fill', 'borderColor', 'borderWidth', 'borderStyle', 'borderRadius',
+    'background', 'fill', 'borderColor', 'borderWidth', 'borderStyle', 'borderPlacement', 'borderRadius',
     'padding', 'opacity', 'rotate', 'blur', 'shape', 'objectFit', 'focusX', 'focusY',
     'gradient', 'textGradient', 'borderGradient', 'borderGlow', 'borderAnimation',
     'shadow', 'innerShadow', 'textStroke', 'textShadow'
@@ -594,6 +594,11 @@ export function normalizeLoaded(data) {
         if (item.type === 'pattern') item.pattern = Object.assign({ sourceType: 'image', layout: 'brick', tileSize: 96, gap: 16, offsetX: 50, offsetY: 0, angle: -15, tileAngle: 0, alternateFlip: 'tilt', tileOpacity: 1, altOpacity: 0.4, altScale: 100, blendMode: 'normal', wedges: 6, feather: 0, motion: 'scroll', trackMode: 'uniform', scrollAngle: 315, speed: 12, spinSpeed: 8, spinDirection: 'cw', waveAmount: 25 }, item.pattern);
         if (item.type === 'procedural-pattern') item.pattern = Object.assign({ preset: 'hexagons', accent: '#58a6ff', secondary: '#38bdf8', color: 'transparent', lineWidth: 0, scale: 100, motion: 'drift', speed: 1, blendMode: 'normal' }, item.pattern);
         item.style ||= {};
+        item.style.borderPlacement = ['inside', 'center', 'outside'].includes(item.style.borderPlacement) ? item.style.borderPlacement
+            : item.type === 'shape' && item.obsLink.enabled === true ? 'outside' : 'inside';
+        for (const pageState of Object.values(item.pageStates || {})) {
+            if (pageState.style && !['inside', 'center', 'outside'].includes(pageState.style.borderPlacement)) delete pageState.style.borderPlacement;
+        }
         item._baseState = extractElementState(item);
     });
     return next;
@@ -641,6 +646,7 @@ export function createElementData(rawType, overrides = {}) {
             color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0,
             background: isObsFrame ? 'transparent' : (type === 'shape' ? '#1f6feb' : type === 'poll' ? 'rgba(13,17,23,0.85)' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent'),
             borderColor: isObsFrame ? '#38bdf8' : '#ffffff', borderWidth: isObsFrame ? 3 : 0, borderRadius: isObsFrame ? 12 : (type === 'poll' ? 10 : type === 'alert' ? 24 : type === 'cutout' ? 16 : 0),
+            borderPlacement: isObsFrame ? 'outside' : 'inside',
             padding: 0,
             opacity: 1, objectFit: (type === 'pattern' || type === 'procedural-pattern') ? 'contain' : 'cover', shape: 'rectangle', fill: '#1f6feb',
             gradient: { enabled: false, from: '#1f6feb', to: '#8957e5', angle: 135 },

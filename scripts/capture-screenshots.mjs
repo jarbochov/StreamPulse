@@ -681,6 +681,8 @@ async function run() {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(pathname === '/api/promos' ? [dummyPromo] : dummyPromo) });
         } else if (new URL(url).pathname === '/api/custom-overlays') {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify([dummyCustomOverlay]) });
+        } else if (new URL(url).pathname === '/api/custom-overlays/assets') {
+            req.respond({ status: 200, contentType: 'application/json', body: '[]' });
         } else if (url.includes('/custom-overlay-assets/promo-fictional-scene.svg')) {
             req.respond({ status: 200, contentType: 'image/svg+xml', body: dummyPromoImage });
         } else if (url.includes('/api/chatters/PixelKnight')) {
