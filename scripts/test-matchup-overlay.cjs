@@ -605,7 +605,7 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
                 scoreColor: csScore.color
             };
         });
-        assert.ok(cleanLightPod.bg.includes('255, 255, 255'), 'Single player pod should have white background in clean-light theme');
+        assert.equal(cleanLightPod.bg, 'rgb(246, 248, 250)', 'Single player pod should use the shared clean-light card palette');
         assert.ok(cleanLightPod.textColor.includes('31, 35, 40'), 'Single player pod text should be dark high-contrast in clean-light theme');
         assert.ok(cleanLightPod.scoreColor.includes('31, 35, 40'), 'Single player pod score should be dark in clean-light theme');
 
@@ -637,7 +637,7 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
                 boxShadow: csPod.boxShadow
             };
         });
-        assert.ok(neonPod.border.includes('0, 240, 255') || neonPod.border.includes('#00f0ff'), 'Single player pod should have cyan neon border in neon theme');
+        assert.equal(neonPod.border, 'rgb(56, 189, 248)', 'Single player pod should use the shared neon border palette');
         assert.ok(neonPod.boxShadow.includes('0, 240, 255') || neonPod.boxShadow.includes('rgba('), 'Single player pod should have cyan neon glow in neon theme');
 
         // 40d. Championship Gold Theme with Player Pod
@@ -665,7 +665,8 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
                 backdrop: csPod.backdropFilter || csPod.webkitBackdropFilter
             };
         });
-        assert.ok(glassPod.bg.includes('rgba(13, 17, 23, 0.65)'), 'Single player pod should have frosted glass background in glass theme');
+        assert.equal(glassPod.bg, 'rgba(22, 27, 34, 0.6)', 'Single player pod should use the shared translucent glass card palette');
+        assert.ok(glassPod.backdrop.includes('blur(16px)'), 'Glass player pod should retain its frosted backdrop');
 
         // 41. Individual Player Pod Layout Styling (?player=1&layout=...)
         // 41a. Angular Slash Pod (?player=1&layout=angular)
