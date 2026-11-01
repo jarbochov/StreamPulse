@@ -10,7 +10,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ## [Unreleased]
 
-## [0.14.0] - 2026-10-31
+## [0.14.0] - 2026-11-01
 
 ### Added
 - Custom Overlay Studio (Beta): independent instant-cut Pages, reversible Scene States with snapshot recovery, cancellable OBS synchronization, scene-hosted Move filters for Morph with visible source motion, matching OBS Crossfade/Slide/Zoom/Cut for linked sources with the overlay's curves, one shared easing set that mirrors OBS Move's curves, self-cleaning managed OBS filters (`/api/obs/cleanup-filters`), a frame-synced OBS motion engine that shares one scheduled start time with the overlay (`obs.leadMs`, Move remains selectable), inside/center/outside frame borders, protected OBS credentials, smart snapping, and reusable prefabs.
