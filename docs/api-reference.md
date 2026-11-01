@@ -490,3 +490,11 @@ When overlays connect, they receive live event packets in real time:
 - **`custom-overlay-video`**: Playback command for an overlay and optional element.
 
 Active custom-overlay alerts survive ordinary live-data rerenders. They end on completion, explicit skip/clear, page departure, or a change/removal of their layer definition.
+
+## 9. Embedded Mode (NodeCG)
+
+With `STREAMPULSE_EMBEDDED=true`, `require('streampulse/server.js')` exports `startServer`, `stopServer`, `onBroadcast`, `getSnapshots`, `setExternalData` and `ingestEvent`.
+
+- **`ingestEvent({ type: 'donation', id, user, amount, currency, message, source, avatar })`**: feeds an external donation (for example Tiltify) through the same path as Social Stream Ninja donations: donation feed and latest-event placeholders, donation goals, session stats and the alerts engine. Returns the alert payload, or `null` when no rule matched or the `id` was already ingested. Other types throw.
+
+The NodeCG bundle (`nodecg-streampulse`) uses it to alert on new Tiltify donations (`tiltifyDonations` in its config).

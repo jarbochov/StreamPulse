@@ -1904,6 +1904,42 @@ function setExternalData(key, value) {
     broadcastToOverlays('external-update', { key: id, value: externalData[id] ?? null });
 }
 
+// Events from an embedded host (e.g. Tiltify donations from NodeCG) take the same path as SSN donations.
+const ingestedEventIds = new Set();
+function ingestEvent(input = {}) {
+    if (input.type !== 'donation') throw new Error(`Unsupported event type: ${input.type}`);
+    const id = String(input.id ?? '').trim().slice(0, 120);
+    if (id) {
+        if (ingestedEventIds.has(id)) return null;
+        ingestedEventIds.add(id);
+        if (ingestedEventIds.size > 5000) ingestedEventIds.delete(ingestedEventIds.values().next().value);
+    }
+    const amount = Number((typeof input.amount === 'number' ? input.amount : parseNumericAmount(input.amount)).toFixed(2)) || 0;
+    const user = String(input.user || '').trim().slice(0, 60) || 'Anonymous';
+    const currency = String(input.currency || 'USD').trim().toUpperCase().slice(0, 3) || 'USD';
+    const message = String(input.message || '').replace(/<[^>]+>/g, '').trim().slice(0, 500);
+    const avatar = String(input.avatar || '').slice(0, 2000);
+    const source = String(input.source || 'external').trim().slice(0, 40);
+    const label = currency === 'USD' ? `$${amount.toFixed(2)}` : `${amount.toFixed(2)} ${currency}`;
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    if (!chatData.donations) chatData.donations = [];
+    chatData.donations.push({ chatname: user, amount: label, amountValue: amount, chatimg: avatar, timestamp: now.getTime(), source, ...(id ? { id } : {}) });
+    if (!statsData.donations) statsData.donations = {};
+    const entry = statsData.donations[user] ||= { chatimg: avatar, firstSeen: now.toISOString(), lastSeen: now.toISOString(), days: {}, amounts: {} };
+    entry.days[today] = (entry.days[today] || 0) + 1;
+    entry.amounts[today] = Number(((entry.amounts[today] || 0) + amount).toFixed(2));
+    entry.lastSeen = now.toISOString();
+    console.log(`[Ingest] Donation (${source}): ${user} - ${label}`);
+    saveChatData();
+    saveStats();
+    broadcastToOverlays('update', chatData);
+    broadcastToOverlays('goals-update', buildGoalsSnapshot());
+    // Ids already dedupe, so identical back-to-back donations still alert.
+    return alertEngine.handleEvent({ type: 'donation', user, avatar, amount, currency, message, source, ...(id ? { dedupeMs: 0 } : {}) });
+}
+
 // Embedded hosts (NodeCG) can serve HTTPS so pages embed in an HTTPS dashboard.
 function createHttpServer(handler) {
     const keyPath = process.env.STREAMPULSE_TLS_KEY;
@@ -2248,6 +2284,7 @@ module.exports = {
     restartServer,
     onBroadcast: wsService.onBroadcast,
     setExternalData,
+    ingestEvent,
     getSnapshots: () => ({
         timers: buildTimersSnapshot(),
         goals: buildGoalsSnapshot(),

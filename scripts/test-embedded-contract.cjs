@@ -25,7 +25,7 @@ test('embedded StreamPulse exposes a stable host contract', async () => {
 
     const sp = require('../server.js');
     try {
-        for (const key of ['server', 'startServer', 'stopServer', 'restartServer', 'onBroadcast', 'setExternalData', 'getSnapshots', 'port']) {
+        for (const key of ['server', 'startServer', 'stopServer', 'restartServer', 'onBroadcast', 'setExternalData', 'ingestEvent', 'getSnapshots', 'port']) {
             assert.ok(key in sp, `missing export ${key}`);
         }
         assert.equal(sp.server.listening, false, 'embedded mode must not auto-start');
@@ -67,6 +67,25 @@ test('embedded StreamPulse exposes a stable host contract', async () => {
         new Function('window', require('fs').readFileSync(require('path').join(__dirname, '../public/js/overlay-shared.js'), 'utf8'))(shared);
         const table = shared.OverlayShared.variableTable({ external: status.external });
         assert.equal(table['rep.nodecg-tiltify.total.amount'], 1234.5);
+
+        await fetch(`http://127.0.0.1:${sp.port}/api/alerts`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rules: [{ id: 'contract-donation', trigger: 'donation', conditions: { minAmount: 20, maxAmount: 29.99 }, variants: [{ title: '{{alert.user}} donated {{alert.amount}}' }] }] })
+        });
+        const donationSeen = [];
+        const offDonation = sp.onBroadcast((type, data) => donationSeen.push({ type, data }));
+        const alert = sp.ingestEvent({ type: 'donation', id: 'tiltify-1', user: 'FictionalDonor', amount: '25.00', currency: 'USD', message: 'Hi', source: 'tiltify' });
+        assert.equal(alert.ruleId, 'contract-donation');
+        assert.equal(alert.title, 'FictionalDonor donated 25');
+        assert.equal(sp.ingestEvent({ type: 'donation', id: 'tiltify-1', user: 'FictionalDonor', amount: 25 }), null, 'duplicate id must be ignored');
+        assert.ok(sp.ingestEvent({ type: 'donation', id: 'tiltify-2', user: 'FictionalDonor', amount: 25, source: 'tiltify' }), 'same donor and amount with a new id must alert');
+        assert.equal(sp.ingestEvent({ type: 'donation', id: 'tiltify-3', user: 'Small', amount: 5, source: 'tiltify' }), null, 'unmatched amount queues no alert');
+        offDonation();
+        const update = donationSeen.filter(e => e.type === 'update').pop();
+        assert.equal(update.data.donations.filter(d => d.source === 'tiltify').length, 3, 'each new donation is counted once');
+        assert.ok(donationSeen.some(e => e.type === 'goals-update'));
+        assert.throws(() => sp.ingestEvent({ type: 'follow' }));
     } finally {
         await sp.stopServer();
         fs.rmSync(dir, { recursive: true, force: true });
