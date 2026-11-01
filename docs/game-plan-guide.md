@@ -1,89 +1,11 @@
-# Game Plan Broadcast Scheduler Guide
+# Keep the next chapter of your stream in view
 
-**Game Plan** is an integrated stream rundown manager and broadcast schedule overlay with IGDB catalog integration, box art fetching, and full calendar planning.
+Game Plan gives your broadcasts a flexible rundown. Keep tonight’s lineup close, save future ideas for later, and see how a game moves from “maybe” to “playing now.”
 
-![Game Plan Studio](images/game-plan-studio.png)
+![Game Plan Studio with a fictional schedule](images/game-plan-studio.png)
 
----
+Use the calendar to plan upcoming streams, group titles into your own collections, and keep a backlog ready for the next time you need inspiration. A clear lineup makes it easier to change direction without losing track of what you had planned.
 
-## Calendar Planning & Broadcast Lineups
+When you want viewers in on the plan, bring a schedule, checklist, or featured game into an OBS scene. Game artwork helps make the display recognizable at a glance, and the same plan can support both your own show notes and an on-screen update.
 
-Manage your entire gaming broadcast schedule from a single visual dashboard:
-- **Full Month & Week Views**: View all past streamed titles and upcoming scheduled games in a full calendar grid.
-- **14-Day Quick Calendar Strip**: One-click scheduling directly from the game detail dialog.
-- **Schedule Stages**:
-  - `Tonight's Lineup`: Games queued for the current broadcast.
-  - `Schedule`: Confirmed upcoming dates and future streams.
-  - `Up Next`: High-priority games on deck.
-  - `Backlog`: Saved games to play in the future.
-  - `Played`: Completed campaigns and one-offs with total play hours recorded.
-- **Custom Collections**: Group titles by franchise, genre, community vote, or system backlog (e.g. Virtual Boy, Retro JRPGs, Horror Month).
-
----
-
-## Custom cover artwork
-
-Open a game's or custom segment's details and choose **Library…** beside the cover field to reuse an image from your StreamPulse Asset Library. The picker lists image assets only; search by display name, filename, or tag, or choose a tag filter. Selecting an image updates and saves the item's custom cover. Use **Upload** for a new image or **Clear** to remove the override.
-
-## One-Click Broadcaster Actions
-
-Control your broadcast rundown in real time with quick action buttons:
-- **Play Now**: Marks a game as currently active, switches the overlay to "Now Playing", and **automatically updates your Twitch broadcast category**.
-- **Stop**: Pauses the current game timer and stops stream time tracking.
-- **Finish & Next**: Marks the current game as played and automatically advances to the next title in tonight's lineup.
-- **Move to Schedule**: Reassigns dates with a single click.
-
----
-
-## Dedicated OBS Overlays & Box Art Display
-
-Use the visual [Game Plan URL Wizard](overlay-wizards.md#3-game-plan-schedule--checklist-wizard) (`/game-plan-url-wizard.html`) to configure and generate customized browser source overlays for your stream scenes.
-
-### Ticker Mode (Lower-Third Banner)
-A sleek broadcast lower-third displaying your active game with box art, title, and an "Up Next" preview for incoming titles:
-
-![Game Plan Ticker Overlay](images/game-plan-overlay-ticker.png)
-
-- **OBS URL**: `http://localhost:3000/overlays/game-plan.html?mode=ticker&theme=dark`
-- **Recommended OBS Source Size**: 1280 x 160 px
-- Displays active "Playing Now" title with IGDB box art, live stream timer, and upcoming game teasers.
-
----
-
-### Schedule Strip (Multi-Card Lineup)
-A horizontal card strip displaying your upcoming schedule and broadcast lineup for viewers:
-
-![Game Plan Schedule Overlay](images/game-plan-overlay-schedule.png)
-
-- **OBS URL**: `http://localhost:3000/overlays/game-plan.html?mode=schedule&theme=dark&max=4`
-- **Recommended OBS Source Size**: 1200 x 260 px
-- Displays game box art, schedule status badges, dates, and custom collection tags.
-
----
-
-### Checklist Mode (Vertical Rundown)
-A vertical stream rundown checklist that checks off games as you complete them during your stream:
-
-![Game Plan Checklist Overlay](images/game-plan-overlay-checklist.png)
-
-- **OBS URL**: `http://localhost:3000/overlays/game-plan.html?mode=checklist&theme=dark&max=4`
-- **Recommended OBS Source Size**: 440 x 480 px
-- Automatically checks off completed games as you click "Finish & Next" in the broadcaster controller.
-
-### Live Updates & Background Activity
-
-The overlay uses WebSocket updates and leaves existing cards/covers mounted when their rendered content has not changed. Theme changes, responsive layout, and smart-date filters still update; date filters are reevaluated when the local calendar day changes.
-
-With WebSocket connected, HTTP is a safety refresh rather than a duplicate ten-second poll: a 60-second refresh threshold is checked every ten seconds. If WebSocket disconnects, visible overlays fall back to ten-second polling. Background polling pauses while the document is hidden, and returning to it refreshes the plan. HTTP requests are single-flight, bounded by a timeout, and stale responses cannot overwrite newer live data.
-
----
-
-## Responsive Cover Art Controls
-
-Every Game Plan overlay provides granular responsive scaling and cover fit controls:
-- **`coverScale`**: Multiplier for artwork sizing (e.g. `?coverScale=1.2` or `?coverScale=0.8`).
-- **`coverFit`**: Aspect ratio behavior:
-  - `cover`: Fills and crops to the standard 3:4 box art ratio.
-  - `contain`: Letterboxes artwork to preserve full uncropped box art.
-  - `natural`: Unconstrained aspect ratio for custom flyer or cartridge images.
-- **CSS Container Queries**: Uses `@container (max-width: ...)` and clamp scaling so overlays scale seamlessly from 720p to 4K resolutions in OBS browser sources.
+Start with the [StreamPulse feature overview](features.md) or [get started](quickstart.md). Already installed? **Docs** and **API Reference** are available from the app navigation.

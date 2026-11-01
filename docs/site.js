@@ -1,14 +1,12 @@
 (function () {
   'use strict';
-  const technical = new Set(['technical-reference', 'architecture', 'api-reference', 'developer-guide', 'server-management', 'desktop-app']);
-  const streamer = new Set(['streamer-guide', 'quickstart', 'socialstream-setup', 'companion', 'troubleshooting']);
+  const legacy = new Set(['technical-reference', 'architecture', 'api-reference', 'developer-guide', 'server-management']);
   const escapeHtml = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const guides = [
-    '/', '/features', '/streamer-guide', '/quickstart', '/socialstream-setup', '/companion',
+  const pages = [
+    '/', '/features', '/showcase', '/support', '/quickstart', '/socialstream-setup', '/companion',
     '/custom-overlays', '/overlay-wizards', '/credits-guide', '/randomizer-guide',
     '/game-plan-guide', '/community-guide', '/alerts-guide', '/chatbot-guide', '/clips-beta',
-    '/technical-reference', '/desktop-app', '/architecture', '/api-reference', '/developer-guide',
-    '/server-management', '/troubleshooting', '/changelog'
+    '/polls-guide', '/promo-creator', '/desktop-app', '/streamer-guide', '/troubleshooting', '/changelog'
   ];
   window.$docsify = {
     name: 'StreamPulse',
@@ -19,9 +17,10 @@
     notFoundPage: '_not-found.md',
     search: {
       maxAge: 3600000,
-      paths: guides,
-      placeholder: 'Search all guides',
-      noData: 'No guides found. Try a feature name.',
+      namespace: 'streampulse-showcase',
+      paths: pages,
+      placeholder: 'Find a feature',
+      noData: 'No matches. Try overlays, polls, or credits.',
       depth: 3
     },
     tabs: { persist: true, sync: true, theme: 'classic' },
@@ -42,9 +41,8 @@
       function (hook, vm) {
         hook.afterEach(function (html) {
           const page = vm.route.path.replace(/^\//, '').replace(/\.md$/, '');
-          const label = technical.has(page) ? 'Technical reference' : streamer.has(page) ? 'Streamer guides' : page === 'features' ? 'Feature overview' : '';
-          const context = label ? '<div class="page-context">' + label + '</div>' : '';
-          return context + html + '<footer class="page-footer"><span>StreamPulse &middot; Independent, open-source broadcast tools</span><span><a href="#/changelog">Release notes</a> &middot; <a href="https://github.com/jarbochov/StreamPulse/issues" target="_blank" rel="noopener noreferrer">Report an issue</a> &middot; <a href="https://ko-fi.com/jarbochov" target="_blank" rel="noopener noreferrer">Support the project</a></span></footer>';
+          const context = legacy.has(page) ? '<aside class="legacy-notice" aria-label="Legacy reference">This page is kept for older links and may not match your installed version. Open <strong>Docs</strong> or <strong>API Reference</strong> in StreamPulse for instructions. <a href="#/features">Explore what you can create</a>.</aside>' : '';
+          return context + html + '<footer class="page-footer"><span>StreamPulse &middot; Independent, open-source broadcast tools</span><span><a href="#/changelog">Changelog</a> &middot; <a href="#/support">Support</a> &middot; <a href="https://ko-fi.com/jarbochov" target="_blank" rel="noopener noreferrer">Support the project</a></span></footer>';
         });
         hook.doneEach(function () {
           if (window.matchMedia('(max-width: 768px)').matches) document.body.classList.remove('close');
@@ -52,12 +50,12 @@
           if (article) {
             article.id = 'main-content';
             article.tabIndex = -1;
-            article.setAttribute('aria-label', 'Documentation');
+            article.setAttribute('aria-label', 'StreamPulse features and project information');
           }
-          const title = article?.querySelector('h1')?.textContent || 'Guides';
+          const title = article?.querySelector('h1')?.textContent || 'Your stream, thoughtfully connected';
           document.title = title + ' | StreamPulse';
           const page = vm.route.path.replace(/^\//, '').replace(/\.md$/, '');
-          const section = technical.has(page) ? 'technical' : streamer.has(page) ? 'streamer' : page === 'features' ? 'features' : '';
+          const section = page === 'quickstart' || page === 'desktop-app' ? 'download' : page === 'showcase' ? 'showcase' : page === 'support' || page === 'troubleshooting' ? 'support' : page === 'changelog' ? 'changelog' : page && !legacy.has(page) ? 'features' : '';
           document.querySelectorAll('[data-section]').forEach(link => {
             if (link.dataset.section === section) link.setAttribute('aria-current', 'page');
             else link.removeAttribute('aria-current');
@@ -67,15 +65,15 @@
             image.decoding = 'async';
           });
           const search = document.querySelector('.search input');
-          if (search) search.setAttribute('aria-label', 'Search all documentation');
+          if (search) search.setAttribute('aria-label', 'Find a StreamPulse feature');
           const sidebar = document.querySelector('.sidebar');
-          if (sidebar) { sidebar.setAttribute('aria-label', 'Documentation navigation'); sidebar.id = 'docs-navigation'; }
+          if (sidebar) { sidebar.setAttribute('aria-label', 'StreamPulse website navigation'); sidebar.id = 'site-navigation'; }
           const toggle = document.querySelector('.sidebar-toggle');
           if (toggle) {
             const header = document.querySelector('.site-header');
             if (header && toggle.parentElement !== header) header.appendChild(toggle);
-            toggle.setAttribute('aria-label', 'Toggle documentation navigation');
-            toggle.setAttribute('aria-controls', 'docs-navigation');
+            toggle.setAttribute('aria-label', 'Toggle website navigation');
+            toggle.setAttribute('aria-controls', 'site-navigation');
             toggle.setAttribute('aria-expanded', String(document.body.classList.contains('close')));
             if (!toggle.dataset.bound) {
               toggle.dataset.bound = 'true';

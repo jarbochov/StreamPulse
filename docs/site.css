@@ -87,6 +87,9 @@ a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-vis
 .markdown-section tr:nth-child(2n) { background: #182235; }
 .markdown-section td { color: #c3cddd; }
 .docs-hero { padding: 6px 0 18px; }
+.markdown-section .docs-hero h1 { font-size: clamp(2.2rem, 4.5vw, 3.5rem); max-width: 780px; }
+.markdown-section .platform-note { font-size: 13px; color: var(--muted); }
+.legacy-notice { padding: 16px 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--muted); font-size: 14px; line-height: 1.7; margin-bottom: 28px; }
 .markdown-section .docs-kicker { color: #aab9fb; letter-spacing: .12em; font-size: 11px; font-weight: 700; text-transform: uppercase; margin: 0 0 18px; }
 .markdown-section .docs-lead { color: #b8c6dc; font-size: 19px; line-height: 1.7; max-width: 680px; margin-bottom: 24px; }
 .button-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0 12px; }
@@ -360,6 +363,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-vis
       box-sizing: border-box;
     }
     .cover-feature-pill {
+      text-decoration: none;
       background: rgba(15, 23, 42, 0.7);
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 10px;

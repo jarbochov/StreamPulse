@@ -11,9 +11,15 @@ const docsImgDir = path.join(__dirname, '..', 'docs', 'images');
 const baseUrl = (process.env.STREAMPULSE_URL || 'http://127.0.0.1:3000').replace(/\/$/, '');
 const dummyPromo = {
     ...promoModel.normalize({
-        name: 'Fictional expedition', title: 'Tonight,\nwe go beyond.', subtitle: 'First steps. Big discoveries.\nJoin the expedition.',
-        badge: 'LIVE TONIGHT / 8 PM', url: 'fictionalstudio42', theme: 'purple',
-        photo: '/custom-overlay-assets/promo-fictional-scene.svg'
+        name: 'Fictional expedition', url: 'fictionalstudio42', theme: 'purple',
+        elements: [
+            { id: 'photo', type: 'image', role: 'photo', name: 'Fictional landscape', src: '/custom-overlay-assets/promo-fictional-scene.svg' },
+            { id: 'badge', type: 'text', role: 'badge', name: 'Status', content: 'LIVE TONIGHT / 8 PM' },
+            { id: 'title', type: 'text', role: 'title', name: 'Headline', content: 'Tonight,\nwe go beyond.' },
+            { id: 'subtitle', type: 'text', role: 'subtitle', name: 'Subtitle', content: 'First steps. Big discoveries.\nJoin the expedition.' },
+            { id: 'url', type: 'text', role: 'url', name: 'Channel', source: 'channel-url' },
+            { id: 'qr', type: 'qr', role: 'qr', name: 'Channel QR', source: 'channel-url' }
+        ]
     }),
     id: 'fictional-promo'
 };
@@ -588,7 +594,8 @@ async function run() {
         if (url.includes('/api/promo-themes')) {
             req.respond({ status: 200, contentType: 'application/json', body: '[]' });
         } else if (url.includes('/api/promos')) {
-            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify([dummyPromo]) });
+            const pathname = new URL(url).pathname;
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(pathname === '/api/promos' ? [dummyPromo] : dummyPromo) });
         } else if (url.includes('/custom-overlay-assets/promo-fictional-scene.svg')) {
             req.respond({ status: 200, contentType: 'image/svg+xml', body: dummyPromoImage });
         } else if (url.includes('/api/chatters/PixelKnight')) {
@@ -641,6 +648,8 @@ async function run() {
             wait: 1200,
             action: async p => {
                 await p.setViewport({ width: 1600, height: 1600, deviceScaleFactor: 2 });
+                await p.waitForFunction(() => document.body.textContent.includes('Tonight,'));
+                await p.waitForFunction(() => document.querySelector('img[src*="promo-fictional-scene"]')?.naturalWidth > 0);
                 await p.click('#rail-tab-appearance');
             }
         },
@@ -962,6 +971,7 @@ async function run() {
     const onlyList = only ? only.split(',').map(s => s.trim().endsWith('.png') ? s.trim() : `${s.trim()}.png`) : null;
     const selectedTargets = onlyList ? targets.filter(target => onlyList.includes(target.file)) : targets;
     if (!selectedTargets.length) throw new Error(`Unknown screenshot target(s): ${only}`);
+    const failures = [];
     for (const target of selectedTargets) {
         try {
             console.log(`Capturing ${target.url} -> ${target.file}...`);
@@ -977,6 +987,7 @@ async function run() {
             console.log(`Saved sanitized: ${outPath}`);
         } catch (err) {
             console.error(`Failed capturing ${target.file}:`, err.message);
+            failures.push(target.file);
         }
     }
 
@@ -984,6 +995,7 @@ async function run() {
     if (serverInstance && typeof serverInstance.gracefulShutdown === 'function') {
         serverInstance.gracefulShutdown('CAPTURE_DONE', false);
     }
+    if (failures.length) throw new Error(`Screenshot capture failed: ${failures.join(', ')}`);
     console.log('All sanitized screenshots captured successfully!');
     process.exit(0);
 }

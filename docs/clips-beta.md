@@ -1,45 +1,9 @@
-# Clips (Beta)
+# Review the moments that might become clips
 
-StreamPulse's Clips page records possible clip moments and lets you request a Twitch clip while the channel is live.
+**Clips is a beta feature.** It helps surface possible highlights from a live session so you can review a moment before deciding whether to make a Twitch clip.
 
-## How candidates are created
+StreamPulse can suggest candidates when notable activity happens, including a busy chat moment or a stream event. You can also mark a moment yourself. Suggestions are a starting point, not automatic publishing: you stay in control of what becomes a clip.
 
-Candidates are added automatically for:
+Look back at a candidate alongside the related chat, then request a clip for a live moment or an eligible past-session recording. Twitch account permissions and the availability of a matching VOD can affect what actions are possible.
 
-- Chat-volume spikes
-- Gift subscriptions
-- Subscriptions
-- Bits
-- Donations
-- Raids
-
-You can also add a manual marker from `/clips.html`. Candidate detection does not create clips automatically. This keeps the beta feature reviewable and avoids creating unwanted Twitch clips.
-
-## Tuning and historical sessions
-
-The **Detection Settings** panel groups controls into automatic detection, the chat spike window, and event triggers. A manually highlighted chat message is also an available trigger: pin a message in the Sessions Chat Log and StreamPulse adds it as a high-confidence candidate when **Highlighted chats** is enabled. A chat spike is defined by two values: the required number of messages and the number of seconds in which they must arrive. For the default installation, that rule is **20 messages within 60 seconds**, followed by a **30-second cooldown** before another chat-spike candidate can be added. The page shows this rule as a live summary while values are edited.
-
-The event trigger section controls subscriptions, gift subs, Bits, donations, and raids separately. Its default examples are **1 Bit**, **$0.00 donation minimum** (include all detected donations), and **0 raid viewers** (include raids of any size). Changes are saved to `config.json` under `clip_candidates` and apply without a restart.
-
-Select **Rebuild Past Analysis** to scan the current and archived JSONL chat logs with the visible settings. The rebuild removes uncreated automatic candidates and regenerates them using the current thresholds. Manual markers and already-created Twitch clips are preserved.
-
-Each candidate includes a **View Chat** link that opens the matching session, loads its Chat Log, and jumps to the nearest recorded message at the candidate timestamp. Past-session candidates can use **Create VOD Clip** when Twitch identifies a matching VOD.
-
-The Clips page separates candidates with the session filter: **Current session** shows only candidates whose recorded session start matches the active session, **Past sessions** shows archived candidates, and **All sessions** combines both views. If no session is active, all candidates are treated as past-session candidates.
-
-The VOD link uses Twitch's archived-video API to match the candidate timestamp against the VOD's start time and duration. If Twitch cannot find a matching recording, it falls back to the broadcaster's video archive.
-
-## Creating a Twitch clip
-
-Open **Clips (Beta)**, review a candidate, and select **Create Twitch Clip** for a live candidate or **Create VOD Clip** for a past-session candidate. Live clipping uses `clips:edit`. VOD clipping uses Twitch's open-beta VOD endpoint and requires broadcaster authorization with `channel:manage:clips` (or editor authorization with `editor:manage:clips`).
-
-After a successful request, StreamPulse stores:
-
-- The Twitch clip ID
-- Twitch's temporary edit URL
-- The published clip URL
-- The creation timestamp
-
-The edit URL is intended for short-term editing after creation. The published clip URL is retained as the durable link.
-
-If StreamPulse was authorized before clip support was enabled, visit `/auth/twitch` again to grant the additional permission. A failed request is retained on the candidate with the Twitch error so it can be retried or removed.
+As a beta, the experience may change. Explore the [StreamPulse features](features.md) or [get started](quickstart.md). Already installed? **Docs** and **API Reference** are available from the app navigation.
