@@ -1372,7 +1372,12 @@
                     tickPlaceholders();
                 }
                 else if (message.type === 'custom-overlay-page' && message.data?.id === overlayId) {
-                    if (!resolvePage(currentOverlay, pageParam)) switchPage(resolvePage(currentOverlay, message.data.page));
+                    if (!resolvePage(currentOverlay, pageParam)) {
+                        const nextPage = resolvePage(currentOverlay, message.data.page);
+                        const startIn = Number(message.data.transition?.startAt) - Number(message.data.transition?.serverNow);
+                        if (startIn > 0 && startIn <= 1000) setTimeout(() => switchPage(nextPage), startIn);
+                        else switchPage(nextPage);
+                    }
                 }
                 else if (message.type === 'custom-overlay-slideshow' && message.data?.id === overlayId) {
                     for (const [id, entry] of slideshows) if (!message.data.element || message.data.element === id) entry.handle.control(message.data.action);

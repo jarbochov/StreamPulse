@@ -35,6 +35,11 @@ class FixtureWebSocket extends EventEmitter {
     send(raw) {
         const message = JSON.parse(raw);
         this.sent.push(message);
+        if (message.op === 8) {
+            (this.batches ||= []).push(message.d);
+            this.emit('message', JSON.stringify({ op: 9, d: { requestId: message.d.requestId, results: message.d.requests.map(r => ({ requestType: r.requestType, requestStatus: { result: true, code: 100 } })) } }));
+            return;
+        }
         if (message.op !== 6) return;
         this.requests.push(message.d);
         if (this.handleRequest?.(message.d)) return;
@@ -53,6 +58,7 @@ class FixtureWebSocket extends EventEmitter {
     }
 
     responseFor(requestType) {
+        if (requestType === 'GetVideoSettings') return FixtureWebSocket.fps ? { fpsNumerator: FixtureWebSocket.fps, fpsDenominator: 1 } : {};
         if (requestType === 'GetVersion') return { obsVersion: '31.0', obsWebSocketVersion: '5.5' };
         if (requestType === 'GetCurrentProgramScene') return { currentProgramSceneName: 'Main' };
         if (requestType === 'GetSourceFilterKindList') return { sourceFilterKinds: ['move_source_filter'] };
@@ -162,6 +168,35 @@ test('motion-start callback fires once OBS begins a linked transition', async ()
         await service.syncOverlayState({ id: 'none', elements: [], pages: { enabled: true, items: [{ id: 'p1' }] } }, 'p1', { onMotionStart: () => { unlinked++; } });
         assert.equal(unlinked, 1);
     } finally {
+        service.disconnect();
+    }
+});
+
+test('frame-sync engine sends frame-paced SerialFrame batches matching the shared easing', async () => {
+    FixtureWebSocket.fps = 60;
+    const Motion = require('../public/js/motion-easing');
+    const { service, socket } = createConnectedService();
+    try {
+        await flush();
+        assert.equal(service.getStatus().activeEngine, 'frame-sync');
+        const result = await service.syncOverlayState({
+            id: 'frame-sync-fixture',
+            elements: [{ id: 'camera', page: '*', x: 0, y: 0, width: 400, height: 300, pageStates: { p2: { x: 600 } }, obsLink: { enabled: true, sourceName: 'Camera', sceneName: 'Main' } }],
+            pages: { enabled: true, kind: 'states', items: [{ id: 'p1' }, { id: 'p2' }], transition: 'morph', transitionMs: 100, transitionEasing: 'smooth' }
+        }, 'p2', { startAt: Date.now() });
+        assert.equal(result.ok, true);
+        assert.ok(socket.batches?.length >= 1, 'uses request batches');
+        assert.ok(socket.batches.every(b => b.executionType === 1), 'SerialFrame execution');
+        const sets = socket.batches.flatMap(b => b.requests).filter(r => r.requestType === 'SetSceneItemTransform');
+        const total = Math.round(100 / (1000 / 60));
+        const xs = sets.map(r => r.requestData.sceneItemTransform.positionX);
+        assert.ok(xs.length >= 2 && xs.length <= total + 1, 'one step per frame');
+        assert.equal(Math.round(xs.at(-1)), 600);
+        const mid = sets.findIndex((_, i) => i === 3);
+        assert.ok(Math.abs(xs[mid] - 600 * Motion.evaluate('smooth', 3 / total)) < 1 || sets.length < 5);
+        assert.ok(socket.batches.flatMap(b => b.requests).some(r => r.requestType === 'Sleep' && r.requestData.sleepFrames === 1));
+    } finally {
+        FixtureWebSocket.fps = 0;
         service.disconnect();
     }
 });
@@ -384,6 +419,7 @@ test('OBS configuration normalization persists bounded, supported settings', () 
         password: '',
         syncOnSave: true,
         overlayOffsetMs: -1000,
+        leadMs: 120,
         motionEngine: 'auto'
     });
 });

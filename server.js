@@ -223,6 +223,14 @@ const obsService = createObsService({
 });
 const broadcastToOverlays = (type, payload) => {
     if (config?.obs?.syncOnSave !== false && type === 'custom-overlay-page' && payload?.id && payload?.page && customOverlays[payload.id]) {
+        if (obsService.getStatus().activeEngine === 'frame-sync') {
+            // Overlay and OBS share one scheduled start time, so neither needs a guessed offset.
+            const leadMs = Math.max(50, Math.min(500, Number(config?.obs?.leadMs) || 120));
+            const startAt = Date.now() + leadMs;
+            wsService.broadcastToOverlays(type, { ...payload, transition: { startAt, serverNow: Date.now() } });
+            obsService.syncOverlayState(customOverlays[payload.id], payload.page, { animate: true, startAt }).catch(() => {});
+            return;
+        }
         // Positive overlayOffsetMs delays the overlay after OBS starts moving; negative sends the overlay first and delays OBS.
         const offset = Math.max(-1000, Math.min(1000, Number(config?.obs?.overlayOffsetMs) || 0));
         const overlay = customOverlays[payload.id];

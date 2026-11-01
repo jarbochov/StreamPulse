@@ -10,14 +10,15 @@ const DEFAULT_OBS_CONFIG = {
     password: '',
     syncOnSave: true,
     overlayOffsetMs: 0, // ms the overlay trails OBS's motion start (-1000..1000); negative starts the overlay first
-    motionEngine: 'auto' // 'auto' (Move plugin if available, else 60fps WS) | 'websocket' | 'move-plugin' | 'cut'
+    leadMs: 120, // frame-sync: how far ahead the shared start time is scheduled (50-500)
+    motionEngine: 'auto' // 'auto' (= frame-sync) | 'frame-sync' | 'move-plugin' | 'websocket' | 'cut'
 };
 
 function normalizeObsConfig(input = {}) {
     const raw = input && typeof input === 'object' ? input : {};
     const port = Math.max(1, Math.min(65535, Math.round(Number(raw.port) || DEFAULT_OBS_CONFIG.port)));
     const engineRaw = raw.motionEngine === 'stream' ? 'websocket' : raw.motionEngine;
-    const motionEngine = ['auto', 'websocket', 'move-plugin', 'cut'].includes(engineRaw)
+    const motionEngine = ['auto', 'frame-sync', 'websocket', 'move-plugin', 'cut'].includes(engineRaw)
         ? engineRaw
         : DEFAULT_OBS_CONFIG.motionEngine;
     return {
@@ -27,6 +28,7 @@ function normalizeObsConfig(input = {}) {
         password: String(raw.password ?? ''),
         syncOnSave: raw.syncOnSave !== false,
         overlayOffsetMs: Math.max(-1000, Math.min(1000, Math.round(Number(raw.overlayOffsetMs) || 0))),
+        leadMs: Math.max(50, Math.min(500, Math.round(Number(raw.leadMs) || DEFAULT_OBS_CONFIG.leadMs))),
         motionEngine
     };
 }
@@ -111,6 +113,13 @@ function createObsService({
         return normalizeObsConfig(configGetter());
     }
 
+    function resolveEngine(cfg) {
+        if (cfg.motionEngine === 'cut') return 'cut';
+        if ((cfg.motionEngine === 'auto' || cfg.motionEngine === 'frame-sync') && state.frameMs > 0) return 'frame-sync';
+        if (cfg.motionEngine === 'websocket' || !state.hasMovePlugin) return 'websocket-60fps';
+        return 'move-plugin';
+    }
+
     function getStatus() {
         const cfg = currentConfig();
         return {
@@ -121,9 +130,7 @@ function createObsService({
             syncOnSave: cfg.syncOnSave,
             motionEngine: cfg.motionEngine,
             activeEngine: state.identified
-                ? (cfg.motionEngine === 'cut'
-                    ? 'cut'
-                    : (cfg.motionEngine === 'websocket' || !state.hasMovePlugin ? 'websocket-60fps' : 'move-plugin'))
+                ? resolveEngine(cfg)
                 : 'disconnected',
             connected: state.connected && state.identified,
             connecting: state.connecting,
@@ -184,6 +191,30 @@ function createObsService({
         });
     }
 
+    // Frame-synced batch: OBS applies one step per rendered frame, so Sleep(sleepFrames) paces the animation.
+    function requestBatch(requests, timeoutMs = 4000) {
+        const openState = WS.OPEN ?? 1;
+        if (!ws || ws.readyState !== openState || !state.identified) {
+            return Promise.reject(new Error('OBS WebSocket is not connected'));
+        }
+        const requestId = `sp-${++reqSeq}`;
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+                pendingRequests.delete(requestId);
+                reject(new Error('OBS request batch timed out'));
+            }, timeoutMs);
+            timer.unref?.();
+            pendingRequests.set(requestId, { resolve, reject, timer });
+            try {
+                ws.send(JSON.stringify({ op: 8, d: { requestId, executionType: 1, haltOnFailure: false, requests } }));
+            } catch (err) {
+                clearTimeout(timer);
+                pendingRequests.delete(requestId);
+                reject(err);
+            }
+        });
+    }
+
     async function probeCapabilities() {
         try {
             const ver = await request('GetVersion').catch(() => null);
@@ -191,6 +222,9 @@ function createObsService({
                 state.obsVersion = ver.obsVersion || '';
                 state.websocketVersion = ver.obsWebSocketVersion || '';
             }
+            const video = await request('GetVideoSettings').catch(() => null);
+            const fps = Number(video?.fpsNumerator) / Number(video?.fpsDenominator);
+            state.frameMs = fps > 0 && fps <= 240 ? 1000 / fps : 0;
             const sceneRes = await request('GetCurrentProgramScene').catch(() => null);
             if (sceneRes?.currentProgramSceneName) {
                 state.currentProgramScene = sceneRes.currentProgramSceneName;
@@ -314,6 +348,12 @@ function createObsService({
                 } else if (d.eventType === 'SceneItemCreated' || d.eventType === 'SceneItemRemoved') {
                     sceneItemIdCache.clear();
                 }
+            } else if (op === 9 && d) {
+                const pending = pendingRequests.get(d.requestId);
+                if (!pending) return;
+                clearTimeout(pending.timer);
+                pendingRequests.delete(d.requestId);
+                pending.resolve(Array.isArray(d.results) ? d.results : []);
             } else if (op === 7 && d) {
                 // RequestResponse
                 const pending = pendingRequests.get(d.requestId);
@@ -414,12 +454,15 @@ function createObsService({
         durationMs = 0,
         easing = 'smooth',
         style = {},
+        startAt = 0,
         onStart = () => {}
     }) {
         const itemKey = `${sceneName}::${sceneItemId}`;
         // Reserve ownership before any OBS await, including visibility and transform reads.
         activeInterpolations.get(itemKey)?.cancel('OBS sync superseded by a newer target');
+        const prior = activeInterpolations.get(itemKey);
         const operation = {
+            inflight: null,
             timer: null,
             error: null,
             reject: null,
@@ -448,7 +491,10 @@ function createObsService({
         };
 
         try {
+            // A superseded frame-sync chunk cannot be cancelled in OBS, so let it finish before writing new targets.
+            if (prior?.inflight) { await prior.inflight.catch(() => {}); checkCurrent(); }
             const cfg = currentConfig();
+            const frameSync = resolveEngine(cfg) === 'frame-sync';
             const effectiveMs = cfg.motionEngine === 'cut' ? 0 : Math.max(0, Number(durationMs) || 0);
             const filterName = `StreamPulse_Move_${sceneItemId}_${String(sourceName).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40)}`;
             const useMovePlugin = state.hasMovePlugin && fit !== 'none' && (cfg.motionEngine === 'auto' || cfg.motionEngine === 'move-plugin') && effectiveMs > 0;
@@ -512,6 +558,44 @@ function createObsService({
                 opacityFilterTouched = false;
                 await request('RemoveSourceFilter', { sourceName, filterName: fadeFilterName }).catch(() => null);
             };
+            const transformRequest = value => ({ requestType: 'SetSceneItemTransform', requestData: { sceneName, sceneItemId, sceneItemTransform: buildObsTransform(value, fit) } });
+            const FRAMES_PER_CHUNK = 5;
+            // requestsAt(progress) returns { requests, value }. Chunks are indexed by the real clock so a late chunk skips ahead instead of drifting.
+            const playBatch = async (ms, requestsAt) => {
+                const frameMs = state.frameMs;
+                const total = Math.max(1, Math.round(ms / frameMs));
+                const t0 = Math.max(Number(startAt) || 0, Date.now());
+                let next = 0;
+                while (next <= total) {
+                    checkCurrent();
+                    const now = Date.now();
+                    const index = Math.min(total, Math.max(next, Math.ceil((now - t0) / frameMs)));
+                    const requests = [];
+                    if (next === 0 && index === 0 && t0 > now) {
+                        requests.push({ requestType: 'Sleep', requestData: { sleepFrames: Math.round((t0 - now) / frameMs) } });
+                    }
+                    let value = null;
+                    const last = Math.min(total, index + FRAMES_PER_CHUNK - 1);
+                    for (let i = index; i <= last; i++) {
+                        const frame = requestsAt(evalMorphEase(easing, i / total));
+                        requests.push(...frame.requests, { requestType: 'Sleep', requestData: { sleepFrames: 1 } });
+                        value = frame.value;
+                    }
+                    onStart();
+                    const chunk = requestBatch(requests, (last - index + 2) * frameMs + 4000);
+                    operation.inflight = chunk;
+                    const results = await new Promise((resolve, reject) => {
+                        operation.reject = reject;
+                        chunk.then(resolve, reject);
+                    });
+                    operation.reject = null;
+                    checkCurrent();
+                    const failed = results.find(r => r?.requestType !== 'Sleep' && r?.requestStatus?.result === false);
+                    if (failed) throw new Error(failed.requestStatus.comment || 'OBS batch request failed');
+                    if (value) lastKnownTransforms.set(itemKey, { ...value });
+                    next = last + 1;
+                }
+            };
             const runFrames = (ms, frame) => new Promise((resolve, reject) => {
                 operation.reject = reject;
                 const startAt = Date.now();
@@ -560,7 +644,19 @@ function createObsService({
                 await apply(0);
                 onStart();
                 if (entering && syncVisibility) await call('SetSceneItemEnabled', { sceneName, sceneItemId, sceneItemEnabled: true });
-                await runFrames(ms, raw => apply(evalMorphEase(easing, raw)));
+                if (frameSync) {
+                    await playBatch(ms, progress => {
+                        const frame = frameState(progress);
+                        const requests = [];
+                        if (effectKind !== 'fade') requests.push(transformRequest(frame.transform));
+                        if (!opacityUnavailable) {
+                            requests.push({ requestType: 'SetSourceFilterSettings', requestData: { sourceName, filterName: fadeFilterName, filterSettings: { opacity: Math.round(Math.max(0, Math.min(1, frame.opacity)) * 100) }, overlay: true } });
+                        }
+                        return { requests, value: frame.transform };
+                    });
+                } else {
+                    await runFrames(ms, raw => apply(evalMorphEase(easing, raw)));
+                }
             };
             const finishEffect = async base => {
                 await writeTransform(base);
@@ -626,6 +722,27 @@ function createObsService({
                     });
                 }
                 return;
+            }
+
+            // Engine F: frame-synced batches share one clock with the overlay (start time = startAt).
+            if (frameSync && target.visible !== false) {
+                try {
+                    const from = await readCurrent();
+                    await playBatch(effectiveMs, progress => {
+                        const value = {
+                            x: from.x + (target.x - from.x) * progress,
+                            y: from.y + (target.y - from.y) * progress,
+                            width: Math.max(1, from.width + (target.width - from.width) * progress),
+                            height: Math.max(1, from.height + (target.height - from.height) * progress),
+                            rotate: (from.rotate || 0) + ((target.rotate || 0) - (from.rotate || 0)) * progress
+                        };
+                        return { requests: [transformRequest(value)], value };
+                    });
+                    return;
+                } catch (err) {
+                    checkCurrent();
+                    warn('[OBS] Frame-synced motion failed, falling back:', err.message);
+                }
             }
 
             // Engine A: Exeldro's Move Source Filter (if installed in OBS)
@@ -728,7 +845,7 @@ function createObsService({
             }
 
             onStart();
-            const startAt = Date.now();
+            const wsStartedAt = Date.now();
             // Serialize frames and await the final acknowledgement before reporting success.
             await new Promise((resolve, reject) => {
                 operation.reject = reject;
@@ -736,7 +853,7 @@ function createObsService({
                     try {
                         checkCurrent();
                         const frameStart = Date.now();
-                        const elapsed = Date.now() - startAt;
+                        const elapsed = Date.now() - wsStartedAt;
                         const rawT = Math.min(1, elapsed / effectiveMs);
                         const k = evalMorphEase(easing, rawT);
                         const interp = {
@@ -819,18 +936,18 @@ function createObsService({
         return { ok: true, removed };
     }
 
-    async function syncOverlayState(overlay, pageId = '', { animate = true, instant = false, onMotionStart = () => {} } = {}) {
+    async function syncOverlayState(overlay, pageId = '', { animate = true, instant = false, startAt = 0, onMotionStart = () => {} } = {}) {
         let pending = 0;
         let released = false;
         const release = () => { if (!released) { released = true; onMotionStart(); } };
         try {
-            return await syncOverlayStateInner(overlay, pageId, { animate, instant, started: () => { if (--pending <= 0) release(); }, expect: n => { pending = n; if (!n) release(); } });
+            return await syncOverlayStateInner(overlay, pageId, { animate, instant, startAt, started: () => { if (--pending <= 0) release(); }, expect: n => { pending = n; if (!n) release(); } });
         } finally {
             release();
         }
     }
 
-    async function syncOverlayStateInner(overlay, pageId, { animate, instant, started, expect }) {
+    async function syncOverlayStateInner(overlay, pageId, { animate, instant, startAt = 0, started, expect }) {
         if (overlay?.pages?.enabled && (overlay.pages.kind === 'pages' || (!overlay.pages.kind && overlay.pages.transition !== 'morph'))) {
             return { ok: true, synced: 0, results: [], skipped: true };
         }
@@ -895,6 +1012,7 @@ function createObsService({
                     durationMs,
                     easing,
                     style: transitionStyle,
+                    startAt,
                     onStart: (() => { let done = false; return () => { if (!done) { done = true; started(); } }; })()
                 });
                 synced++;
