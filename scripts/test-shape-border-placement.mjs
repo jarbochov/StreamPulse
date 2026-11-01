@@ -26,7 +26,7 @@ const makeFixture = (style = {}, extra = {}, normalize = true) => {
 };
 let fixture = makeFixture();
 const sources = new Map();
-for (const name of ['overlay-shared.js', 'overlay-runtime.js', 'poll-widget.js', 'editor-geometry.js',
+for (const name of ['overlay-shared.js', 'overlay-runtime.js', 'motion-easing.js', 'poll-widget.js', 'editor-geometry.js',
     ...['state', 'canvas', 'form', 'layers', 'inspector'].map(name => `editor/editor-${name}.js`)]) {
     sources.set(`/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8'));
 }
@@ -94,6 +94,7 @@ try {
         await page.goto(`${origin}/${mode}?id=fictional-border`);
         await page.addScriptTag({ url: `${origin}/js/overlay-shared.js` });
         await page.addScriptTag({ url: `${origin}/js/poll-widget.js` });
+        await page.addScriptTag({ url: `${origin}/js/motion-easing.js` });
         if (mode === 'live') {
             await page.evaluate(() => {
                 window.WebSocket = class extends window.EventTarget {

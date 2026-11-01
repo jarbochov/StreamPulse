@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import puppeteer from 'puppeteer';
 
-const names = ['overlay-shared.js', 'poll-widget.js', 'editor-geometry.js',
+const names = ['overlay-shared.js', 'poll-widget.js', 'editor-geometry.js', 'motion-easing.js',
     ...['state', 'canvas', 'form', 'layers', 'inspector'].map(name => `editor/editor-${name}.js`)];
 const sources = new Map(await Promise.all(names.map(async name =>
     [`/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8')])));
@@ -49,6 +49,7 @@ try {
     const setup = async () => {
         await page.goto(origin);
         for (const name of names.slice(0, 2)) await page.addScriptTag({ url: `${origin}/js/${name}` });
+        await page.addScriptTag({ url: `${origin}/js/motion-easing.js` });
         await page.evaluate(async () => {
             window.OverlayShared.slideshowItems = async () => [];
             const model = await import('/js/editor/editor-state.js');
