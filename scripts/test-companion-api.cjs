@@ -220,7 +220,8 @@ test('Companion & API Integration: HTTP GET/POST triggers and status snapshot', 
     const systemRoutes = createSystemRoutes({
         rootDir: testDir,
         configPath: path.join(testDir, 'config.json'),
-        getStatus: mockStatus
+        getStatus: mockStatus,
+        getExternalData: () => ({ 'x.big': Array.from({ length: 80 }, (_, i) => i), 'x.long': 'a'.repeat(900), 'x.total': { amount: 5 } })
     });
 
     const request = async (urlStr, options = {}) => {
@@ -243,6 +244,16 @@ test('Companion & API Integration: HTTP GET/POST triggers and status snapshot', 
 
         return await done;
     };
+
+    await t.test('External data endpoint is read-only and size-limited', async () => {
+        const r = await request('/api/external-data');
+        assert.equal(r.status, 200);
+        assert.equal(r.json.truncated, true);
+        assert.equal(r.json.data['x.big'].length, 50);
+        assert.equal(r.json.data['x.long'].length, 500);
+        assert.equal(r.json.data['x.total'].amount, 5);
+        assert.equal((await request('/api/external-data', { method: 'POST', body: {} })).status, 404);
+    });
 
     await t.test('Matchup actions via GET and POST with query params', async () => {
         // Increment P1 score via GET query params

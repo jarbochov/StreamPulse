@@ -111,6 +111,15 @@
     <div class="header"><h1>StreamPulse <span>Chat Bot</span> <span class="beta">BETA</span></h1><div id="main-nav" class="nav"></div><script src="/nav.js"></script></div>
     <div class="container">
         <div id="banner"></div>
+        <details class="card" id="live-data" hidden>
+            <summary style="cursor:pointer;display:flex;align-items:center;gap:.5rem;font-weight:600;"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg> Live data <span class="tab-count" id="ld-count"></span></summary>
+            <div class="tab-actions" style="margin:.6rem 0;">
+                <input type="text" id="ld-filter" class="search-input" placeholder="Search keys and values...">
+                <button class="btn small" id="ld-pause" type="button">Pause</button>
+            </div>
+            <p class="muted" id="ld-note" hidden>Large values are truncated.</p>
+            <div id="ld-tree" style="max-height:320px;overflow:auto;font-size:.8rem;"></div>
+        </details>
         <div class="tabs-sticky-wrap">
             <nav class="tabs-nav compact" id="tabs" role="tablist" aria-label="Chatbot Settings">
                 <button type="button" class="tab-btn active" data-t="commands" role="tab" aria-selected="true">
@@ -1575,6 +1584,49 @@ document.addEventListener('click', e => {
         navigator.clipboard.writeText(tag.dataset.copy).then(() => toast(`Copied ${tag.dataset.copy}`)).catch(() => {});
     }
 });
+
+// Live host data (setExternalData) with copyable {{rep.*}} placeholders
+(() => {
+    const panel = $('live-data'), tree = $('ld-tree');
+    let data = {}, paused = localStorage.getItem('sp.chatbot.liveData.paused') === '1';
+    const setPause = () => { $('ld-pause').textContent = paused ? 'Resume' : 'Pause'; };
+    const fmt = v => typeof v === 'string' ? JSON.stringify(v) : String(v);
+    const copyIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+    function rows(value, path, q, depth) {
+        if (value && typeof value === 'object') {
+            const entries = Array.isArray(value) ? value.map((v, i) => [String(i), v]) : Object.entries(value);
+            return entries.map(([k, v]) => rows(v, `${path}.${k}`, q, depth + 1)).join('');
+        }
+        const text = fmt(value);
+        if (q && !path.toLowerCase().includes(q) && !text.toLowerCase().includes(q)) return '';
+        const ph = `{{rep.${path}}}`;
+        return `<div style="display:flex;gap:.5rem;align-items:center;padding:.15rem 0;border-bottom:1px solid var(--border);"><code style="flex:0 1 45%;overflow-wrap:anywhere;">${esc(path)}</code><span style="flex:1;overflow-wrap:anywhere;">${esc(text.slice(0, 300))}</span><button class="btn small" type="button" data-ph="${esc(ph)}" title="Copy ${esc(ph)}" aria-label="Copy placeholder">${copyIcon}</button></div>`;
+    }
+    function render() {
+        const q = $('ld-filter').value.trim().toLowerCase();
+        tree.innerHTML = Object.entries(data).map(([k, v]) => rows(v, k, q, 0)).join('') || '<p class="muted">No matches.</p>';
+    }
+    async function load() {
+        if (paused && !panel.hidden) return;
+        try {
+            const r = await api('/api/external-data');
+            data = r.data || {};
+            panel.hidden = !r.count;
+            $('ld-count').textContent = r.count ? String(r.count) : '';
+            $('ld-note').hidden = !r.truncated;
+            if (panel.open) render();
+        } catch { /* keep last data */ }
+    }
+    panel.open = localStorage.getItem('sp.chatbot.liveData.open') === '1';
+    panel.addEventListener('toggle', () => { localStorage.setItem('sp.chatbot.liveData.open', panel.open ? '1' : '0'); if (panel.open) render(); });
+    $('ld-filter').addEventListener('input', render);
+    $('ld-pause').addEventListener('click', () => { paused = !paused; localStorage.setItem('sp.chatbot.liveData.paused', paused ? '1' : '0'); setPause(); });
+    tree.addEventListener('click', e => {
+        const b = e.target.closest('[data-ph]');
+        if (b) navigator.clipboard.writeText(b.dataset.ph).then(() => toast(`Copied ${b.dataset.ph}`)).catch(() => {});
+    });
+    setPause(); load(); setInterval(load, 5000);
+})();
 
 showTab(location.hash.slice(1));
 api('/api/chatbot').then(applyState).catch(e => { $('banner').innerHTML = `<div class="banner warn">${esc(e.message)}</div>`; });

@@ -59,6 +59,11 @@ IGDB operations use the configured Twitch client credentials. Missing credential
   ```
 
 ### Get Current Session State
+- **Endpoint**: `GET /api/external-data`
+- **Description**: Read-only map of host data set through `setExternalData` (the `{{rep.*}}` placeholders), as `{ data, count, truncated }`. Arrays are capped at 50 items, strings at 500 characters, objects at 100 keys and 8 levels; `truncated` is true when anything was cut. The chat bot page shows it in the Live data panel. `POST /api/chatbot/preview` with `{ text }` resolves a response against live data without sending to chat.
+
+---
+
 - **Endpoint**: `GET /api/status`
 - **Description**: Returns server and session state, viewer metrics, category, message and chatter counts, milestones, and module health. `sessionActive` describes collection state; `viewers.live` describes observed broadcast status.
 

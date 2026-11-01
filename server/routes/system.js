@@ -5,7 +5,28 @@ const { readRequestBody, sendJson, sendText, sendError } = require('./helpers');
 const { normalizeSsnSessionId } = require('../ssn-config');
 const { normalizeObsConfig } = require('../services/obs');
 
+const EXT_LIMITS = { array: 50, string: 500, keys: 100, depth: 8 };
+function limitExternalValue(value, depth, flag) {
+    if (typeof value === 'string') {
+        if (value.length <= EXT_LIMITS.string) return value;
+        flag.truncated = true;
+        return value.slice(0, EXT_LIMITS.string);
+    }
+    if (!value || typeof value !== 'object') return value;
+    if (depth >= EXT_LIMITS.depth) { flag.truncated = true; return null; }
+    if (Array.isArray(value)) {
+        if (value.length > EXT_LIMITS.array) flag.truncated = true;
+        return value.slice(0, EXT_LIMITS.array).map(v => limitExternalValue(v, depth + 1, flag));
+    }
+    const keys = Object.keys(value);
+    if (keys.length > EXT_LIMITS.keys) flag.truncated = true;
+    const out = {};
+    for (const k of keys.slice(0, EXT_LIMITS.keys)) out[k] = limitExternalValue(value[k], depth + 1, flag);
+    return out;
+}
+
 function createSystemRoutes({
+    getExternalData = () => ({}),
     rootDir,
     configPath,
     getConfig = () => ({}),
@@ -191,6 +212,13 @@ function createSystemRoutes({
                 res.writeHead(404);
                 res.end();
             }
+            return true;
+        }
+
+        if (pathname === '/api/external-data' && req.method === 'GET') {
+            const flag = { truncated: false };
+            const data = limitExternalValue(getExternalData() || {}, 0, flag);
+            sendJson(res, { data, count: Object.keys(data).length, truncated: flag.truncated });
             return true;
         }
 

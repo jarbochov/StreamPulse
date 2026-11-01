@@ -1783,6 +1783,7 @@ const handleSystemRoutes = createSystemRoutes({
     streamInfoPollSeconds: STREAM_INFO_POLL_SECONDS,
     isLoopbackRequest,
     getStatus: buildStatusSnapshot,
+    getExternalData: () => externalData,
     onShutdown: handleShutdown,
     onRestart: handleRestart,
     getUpdateInfo,
