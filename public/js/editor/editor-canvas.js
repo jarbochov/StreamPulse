@@ -297,7 +297,14 @@ export function previewEditorTransition(beforeMap, {
     const incomingNodes = [];
     const ghostNodes = [];
 
-    const sign = { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] }[direction] || [1, 0];
+    const items = state.overlay.pages?.items || [];
+    const prevIdx = items.findIndex(p => p.id === prevPage);
+    const nextIdx = items.findIndex(p => p.id === nextPage);
+    const isBackward = prevIdx !== -1 && nextIdx !== -1 && nextIdx < prevIdx && !(state.overlay.pages?.mode === 'auto' && prevIdx === items.length - 1 && nextIdx === 0);
+    const flipDir = { left: 'right', right: 'left', up: 'down', down: 'up' };
+    const effectiveDirection = isBackward ? (flipDir[direction] || 'right') : (direction || 'left');
+
+    const sign = { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] }[effectiveDirection] || [1, 0];
     const dx = sign[0] * distance, dy = sign[1] * distance;
 
     const getAnim = (mode, isEnter) => {
@@ -333,10 +340,47 @@ export function previewEditorTransition(beforeMap, {
         const node = state.nodes.get(el.id);
         if (!node) continue;
 
-        if (!prev || !prev.visible) {
-            // Incoming node (was not visible on previous page)
+        const curVis = el.visible !== false;
+        const prevVis = prev ? prev.visible : false;
+        const idx = state.overlay.elements.indexOf(el);
+        const prevElModel = prev ? {
+            ...el,
+            x: prev.x,
+            y: prev.y,
+            width: prev.width,
+            height: prev.height,
+            visible: prev.visible,
+            textFit: prev.textFit || el.textFit,
+            style: prev.style || {},
+            cutout: prev.cutout || el.cutout
+        } : null;
+
+        // Shared element disappearing (was visible before, but now hidden in this state)
+        if (prevVis && !curVis) {
+            const exitMode = transKind === 'morph' ? enterExitKind : transKind;
+            if (exitMode === 'none') {
+                node.classList.add('hidden');
+            } else {
+                node.classList.remove('hidden');
+                node.style.pointerEvents = 'none';
+                if (prevElModel) applyNodeStyle(node, prevElModel, idx);
+                node.style.opacity = String(prev.opacity ?? 1);
+                if (exitMode === 'slide') {
+                    node.style.setProperty('--pg-x', `${dx}px`);
+                    node.style.setProperty('--pg-y', `${dy}px`);
+                }
+                const anim = getAnim(exitMode, false);
+                if (anim) node.style.animation = anim;
+                outgoingNodes.push(node);
+            }
+            continue;
+        }
+
+        // Shared element appearing (was hidden before, but now visible in this state)
+        if (!prevVis && curVis) {
             const enterMode = transKind === 'morph' ? enterExitKind : transKind;
             node.classList.remove('hidden');
+            applyNodeStyle(node, el, idx);
             if (enterMode === 'slide') {
                 node.style.setProperty('--pg-x', `${dx}px`);
                 node.style.setProperty('--pg-y', `${dy}px`);
@@ -347,35 +391,26 @@ export function previewEditorTransition(beforeMap, {
             continue;
         }
 
+        if (!curVis) {
+            node.classList.add('hidden');
+            continue;
+        }
+
         const curX = Number(el.x) || 0, curY = Number(el.y) || 0;
         const curW = Number(el.width) || 400, curH = Number(el.height) || 100;
-        const curVis = el.visible !== false;
-        const curOp = curVis ? (Number.isFinite(Number(el.style?.opacity)) ? Number(el.style.opacity) : 1) : 0;
-        const prevOp = prev.visible ? prev.opacity : 0;
+        const curOp = Number.isFinite(Number(el.style?.opacity)) ? Number(el.style.opacity) : 1;
+        const prevOp = prev ? (prev.visible ? prev.opacity : 0) : 0;
         const curRot = Number(el.style?.rotate) || 0;
         const curRad = Number(el.style?.borderRadius) || 0;
         const curStyleSig = JSON.stringify(el.style || {});
 
-        const isAutoFit = TEXT_TYPES.has(el.type) && ((el.textFit && el.textFit !== 'none') || (prev.textFit && prev.textFit !== 'none'));
-        const prevFitted = prev.fittedFontSize || (Number(prev.style?.fontSize) || 32);
+        const isAutoFit = TEXT_TYPES.has(el.type) && ((el.textFit && el.textFit !== 'none') || (prev?.textFit && prev.textFit !== 'none'));
+        const prevFitted = prev?.fittedFontSize || (Number(prev?.style?.fontSize) || 32);
         const targetFitted = (node._fittedFontSize) || (Number(el.style?.fontSize) || 32);
 
-        const isSpatialMove = prev.x !== curX || prev.y !== curY || prev.width !== curW || prev.height !== curH || prev.rotate !== curRot;
-        const changedAny = isSpatialMove || prevOp !== curOp || prev.borderRadius !== curRad || prev.styleSig !== curStyleSig || prev.feather !== (Number(el.cutout?.feather) || 0) || (isAutoFit && prevFitted !== targetFitted);
+        const isSpatialMove = prev && (prev.x !== curX || prev.y !== curY || prev.width !== curW || prev.height !== curH || prev.rotate !== curRot);
+        const changedAny = !prev || isSpatialMove || prevOp !== curOp || prev.borderRadius !== curRad || prev.styleSig !== curStyleSig || prev.feather !== (Number(el.cutout?.feather) || 0) || (isAutoFit && prevFitted !== targetFitted);
         if (!changedAny) continue;
-
-        const idx = state.overlay.elements.indexOf(el);
-        const prevElModel = {
-            ...el,
-            x: prev.x,
-            y: prev.y,
-            width: prev.width,
-            height: prev.height,
-            visible: prev.visible,
-            textFit: prev.textFit || el.textFit,
-            style: prev.style || {},
-            cutout: prev.cutout || el.cutout
-        };
 
         if (transKind !== 'morph' && isSpatialMove) {
             // In Crossfade or Slide: elements that moved do NOT glide across coordinates.

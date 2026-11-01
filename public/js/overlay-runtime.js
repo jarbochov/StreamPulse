@@ -906,8 +906,13 @@
         const enterExit = pages.enterExit || 'fade';
         const easeName = pages.transitionEasing || 'smooth';
         const cssEase = MORPH_EASINGS[easeName] || MORPH_EASINGS.smooth;
-        // "left" means the content moves left: the new page enters from the right.
-        const sign = { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] }[pages.transitionDirection] || [1, 0];
+        const items = pages.items || [];
+        const prevIdx = items.findIndex(item => item.id === previous);
+        const nextIdx = items.findIndex(item => item.id === nextId);
+        const isBackward = prevIdx !== -1 && nextIdx !== -1 && nextIdx < prevIdx && !(pages.mode === 'auto' && prevIdx === items.length - 1 && nextIdx === 0);
+        const flipDir = { left: 'right', right: 'left', up: 'down', down: 'up' };
+        const effectiveDirection = isBackward ? (flipDir[pages.transitionDirection] || 'right') : (pages.transitionDirection || 'left');
+        const sign = { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] }[effectiveDirection] || [1, 0];
         const distance = pages.transitionDistance || 120;
         const slideVars = (node, k = kind) => { if (k === 'slide') { node.style.setProperty('--pg-x', `${sign[0] * distance}px`); node.style.setProperty('--pg-y', `${sign[1] * distance}px`); } };
         clearTimeout(pageSwitchTimer);
@@ -936,21 +941,38 @@
                 }
             }
             if (ms > 0 && isMorph && prevEl) {
-                const isAutoFit = ((afterEl.textFit && afterEl.textFit !== 'none') || (prevEl.textFit && prevEl.textFit !== 'none')) && shared.fitText;
-                let prevFitted = Number(prevEl.style?.fontSize) || 32;
-                let targetFitted = Number(afterEl.style?.fontSize) || 32;
-                if (isAutoFit) {
-                    targetFitted = node._fittedFontSize || targetFitted;
-                    shared.fitText(node, prevEl);
-                    prevFitted = node._fittedFontSize || prevFitted;
+                if (wasVis && !nowVis) {
+                    // Shared element is DISAPPEARING on this state: play exit animation
+                    const ghost = node.cloneNode(true);
+                    ghost._isGhost = true;
+                    applyElementStyle(ghost, prevEl);
+                    ghost.style.opacity = String(wasVis ? (prevEl.style?.opacity ?? 1) : 0);
+                    ghost.style.pointerEvents = 'none';
+                    parent.appendChild(ghost);
+                    outgoing.push(ghost);
+                } else if (!wasVis && nowVis) {
+                    // Shared element is APPEARING on this state: play enter animation
+                    applyElementStyle(node, afterEl);
+                    node.style.visibility = 'hidden';
+                    if (ms) node.style.willChange = 'transform, opacity';
+                    incoming.push(node);
+                } else {
+                    const isAutoFit = ((afterEl.textFit && afterEl.textFit !== 'none') || (prevEl.textFit && prevEl.textFit !== 'none')) && shared.fitText;
+                    let prevFitted = Number(prevEl.style?.fontSize) || 32;
+                    let targetFitted = Number(afterEl.style?.fontSize) || 32;
+                    if (isAutoFit) {
+                        targetFitted = node._fittedFontSize || targetFitted;
+                        shared.fitText(node, prevEl);
+                        prevFitted = node._fittedFontSize || prevFitted;
+                    }
+                    // Set initial before-state styles so browser can transition to afterEl
+                    applyElementStyle(node, prevEl);
+                    if (isAutoFit) node.style.fontSize = `${prevFitted}px`;
+                    node.style.visibility = '';
+                    node.style.opacity = String(wasVis ? (prevEl.style?.opacity ?? 1) : 0);
+                    node.style.willChange = 'left, top, width, height, transform, opacity, border-radius, font-size';
+                    morphedShared.push({ node, prevEl, afterEl, wasVis, nowVis, targetFitted: isAutoFit ? targetFitted : null });
                 }
-                // Set initial before-state styles so browser can transition to afterEl
-                applyElementStyle(node, prevEl);
-                if (isAutoFit) node.style.fontSize = `${prevFitted}px`;
-                node.style.visibility = '';
-                node.style.opacity = String(wasVis ? (prevEl.style?.opacity ?? 1) : 0);
-                node.style.willChange = 'left, top, width, height, transform, opacity, border-radius, font-size';
-                morphedShared.push({ node, prevEl, afterEl, wasVis, nowVis, targetFitted: isAutoFit ? targetFitted : null });
             } else if (ms > 0 && !isMorph && prevEl) {
                 const isSpatialMove = (
                     prevEl.x !== afterEl.x || prevEl.y !== afterEl.y ||

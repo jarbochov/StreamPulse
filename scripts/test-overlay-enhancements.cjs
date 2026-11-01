@@ -476,5 +476,13 @@ test('Scene States vs Page Deck: Mode switching, font size morphing, and reactio
     assert.ok(layersJs.includes("pages.enterExit"), 'Layers panel must provide enterExit option');
     assert.ok(canvasJs.includes("ghost.id = `ghost-${el.id}`"), 'Canvas preview must create ghost nodes for spatial moves during crossfade');
     assert.ok(runtimeJs.includes("ghost._isGhost = true"), 'Runtime must handle ghost clones for spatial moves during crossfade');
+    assert.ok(canvasJs.includes("const isBackward = prevIdx !== -1 && nextIdx !== -1 && nextIdx < prevIdx"), 'Canvas transition preview must detect backward transitions (State 2 -> State 1)');
+    assert.ok(canvasJs.includes("effectiveDirection"), 'Canvas preview must compute effective flipped direction for backward transitions');
+    assert.ok(canvasJs.includes("prevVis && !curVis"), 'Canvas preview must handle shared elements disappearing with exit animation');
+    assert.ok(canvasJs.includes("!prevVis && curVis"), 'Canvas preview must handle shared elements appearing with enter animation');
+
+    assert.ok(runtimeJs.includes("const isBackward = prevIdx !== -1 && nextIdx !== -1 && nextIdx < prevIdx"), 'Runtime must detect backward navigation for directional flipping');
+    assert.ok(runtimeJs.includes("wasVis && !nowVis"), 'Runtime must handle disappearing shared elements in morph transitions');
+    assert.ok(runtimeJs.includes("!wasVis && nowVis"), 'Runtime must handle appearing shared elements in morph transitions');
     assert.ok(editorCss.includes('@keyframes pg-zoom-in'), 'custom-overlay-editor.css must include pg-zoom-in');
 });
