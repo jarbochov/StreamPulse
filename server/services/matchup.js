@@ -165,6 +165,7 @@ function createMatchupService({
                     if (!Array.isArray(data.history)) data.history = [];
                     if (!data.clock) data.clock = createDefaultMatchup().clock;
                     settleClocksAfterLoad(data);
+                    normalizeScoring(data);
                     activeMatchup = data;
                     return;
                 }
@@ -188,7 +189,7 @@ function createMatchupService({
 
     function broadcastUpdate() {
         if (!activeMatchup) return;
-        broadcastToOverlays('matchup-update', activeMatchup);
+        broadcastToOverlays('matchup-update', getMatchup());
     }
 
     function logEvent(type, text) {
@@ -210,7 +211,7 @@ function createMatchupService({
             clock: m.clock ? JSON.parse(JSON.stringify(m.clock)) : null,
             competitors: m.competitors.map(c => ({
                 name: c.name, score: c.score, tag: c.tag, color: c.color,
-                timer: c.timer ? { elapsed: c.timer.elapsed, finished: c.timer.finished, finishTime: c.timer.finishTime, delta: c.timer.delta } : null
+                timer: c.timer ? { ...c.timer } : null
             })),
             log: (m.log || []).slice()
         };
@@ -226,10 +227,25 @@ function createMatchupService({
         return rec;
     }
 
+    function normalizeScoring(match) {
+        match.format = match.format === 'points' ? 'points' : (match.format === 'firstTo' ? 'firstTo' : 'bestOf');
+        match.bestOf = Math.max(0, parseInt(match.bestOf ?? 5, 10) || 0);
+        match.targetScore = match.format === 'points' ? 0 : (match.format === 'bestOf'
+            ? (match.bestOf > 0 ? Math.ceil(match.bestOf / 2) : 0)
+            : Math.max(1, parseInt(match.targetScore ?? 3, 10) || 1));
+        return match;
+    }
+
     function checkWinnerCondition() {
         if (!activeMatchup) return false;
         const target = activeMatchup.targetScore;
-        if (!target || target <= 0) return false;
+        if (!target || target <= 0) {
+            if (activeMatchup.status === 'COMPLETED') {
+                activeMatchup.winner = null;
+                activeMatchup.status = 'ACTIVE';
+            }
+            return false;
+        }
 
         const leader = activeMatchup.competitors.find(c => (Number(c.score) || 0) >= target);
         if (leader) {
@@ -238,7 +254,7 @@ function createMatchupService({
             activeMatchup.status = 'COMPLETED';
 
             if (isNewWinner) {
-                if (activeMatchup.clock && activeMatchup.clock.isRunning) {
+                if (activeMatchup.clock && activeMatchup.clock.isRunning && activeMatchup.clock.mode !== 'race') {
                     activeMatchup.clock.isRunning = false;
                     if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
                 }
@@ -273,6 +289,12 @@ function createMatchupService({
         const totalSecs = mode === 'countdown' ? (activeMatchup.clock.remaining ?? 0) : (activeMatchup.clock.elapsed ?? 0);
         activeMatchup.clock.formatted = formatTime(totalSecs);
         activeMatchup.clock.formattedPrecise = formatPrecise(totalSecs);
+        for (const c of activeMatchup.competitors) {
+            c.finished = !!c.timer?.finished;
+            c.time = c.timer ? formatPrecise(c.timer.elapsed || 0) : '';
+            c.delta = c.timer?.delta || '';
+            c.place = c.timer?.place ?? null;
+        }
 
         const target = Number(activeMatchup.targetScore) || 0;
         const leader = target > 0 ? activeMatchup.competitors.find(c => Number(c.score) >= target) : null;
@@ -330,17 +352,13 @@ function createMatchupService({
         }
 
         if (data.bestOf !== undefined) {
-            activeMatchup.bestOf = Math.max(0, parseInt(data.bestOf, 10) || 0);
-            if (activeMatchup.format === 'bestOf') {
-                activeMatchup.targetScore = activeMatchup.bestOf > 0 ? Math.ceil(activeMatchup.bestOf / 2) : 0;
-            }
+            activeMatchup.bestOf = data.bestOf;
         }
 
         if (data.targetScore !== undefined && activeMatchup.format === 'firstTo') {
-            activeMatchup.targetScore = Math.max(1, parseInt(data.targetScore, 10) || 1);
-        } else if (activeMatchup.format === 'points') {
-            activeMatchup.targetScore = 0;
+            activeMatchup.targetScore = data.targetScore;
         }
+        normalizeScoring(activeMatchup);
 
         if (data.competitorCount !== undefined) {
             const count = Math.max(2, Math.min(4, parseInt(data.competitorCount, 10) || 2));
@@ -525,8 +543,8 @@ function createMatchupService({
             phase: String(item.phase || 'Match').trim(),
             details: String(item.details || '').trim(),
             format: item.format === 'points' ? 'points' : (item.format === 'firstTo' ? 'firstTo' : 'bestOf'),
-            bestOf: Math.max(0, parseInt(item.bestOf, 10) || 5),
-            targetScore: item.targetScore !== undefined ? Math.max(1, parseInt(item.targetScore, 10) || 1) : 3,
+            bestOf: item.bestOf ?? 5,
+            targetScore: item.targetScore ?? 3,
             competitors: Array.isArray(item.competitors) && item.competitors.length >= 2
                 ? item.competitors.map((c, i) => ({
                     id: c.id || `c${i + 1}`,
@@ -540,6 +558,7 @@ function createMatchupService({
                     { id: 'c2', name: 'Player 2', tag: '', color: DEFAULT_COLORS[1], score: 0 }
                 ]
         };
+        normalizeScoring(match);
         activeMatchup.queue.push(match);
         if (loadImmediately) {
             selectQueueMatch(activeMatchup.queue.length - 1);
@@ -552,7 +571,7 @@ function createMatchupService({
 
     function setQueue(arr = []) {
         if (!activeMatchup) load();
-        activeMatchup.queue = Array.isArray(arr) ? arr : [];
+        activeMatchup.queue = Array.isArray(arr) ? arr.map(item => normalizeScoring({ ...item })) : [];
         save();
         broadcastUpdate();
         return activeMatchup.queue;
@@ -572,14 +591,14 @@ function createMatchupService({
             throw new Error(`Invalid queue match identifier ${indexOrId}`);
         }
 
-        const match = activeMatchup.queue[idx];
+        const match = normalizeScoring(activeMatchup.queue[idx]);
         activeMatchup.activeQueueIndex = idx;
         activeMatchup.title = match.title || activeMatchup.title;
         activeMatchup.phase = match.phase || '';
         activeMatchup.details = match.details || '';
         activeMatchup.format = match.format || 'bestOf';
-        activeMatchup.bestOf = match.bestOf || 5;
-        activeMatchup.targetScore = match.targetScore || Math.ceil((match.bestOf || 5) / 2);
+        activeMatchup.bestOf = match.bestOf;
+        activeMatchup.targetScore = match.targetScore;
         activeMatchup.competitorCount = match.competitors ? match.competitors.length : 2;
         activeMatchup.competitors = match.competitors ? match.competitors.map(c => ({ ...c })) : [
             { id: 'c1', name: 'Player 1', tag: '', color: DEFAULT_COLORS[0], score: 0 },
@@ -587,6 +606,9 @@ function createMatchupService({
         ];
         activeMatchup.winner = null;
         activeMatchup.status = 'ACTIVE';
+        if (activeMatchup.targetScore > 0) {
+            activeMatchup.competitors.forEach(c => { c.score = Math.min(activeMatchup.targetScore, Number(c.score) || 0); });
+        }
 
         checkWinnerCondition();
         save();
@@ -1011,6 +1033,13 @@ function createMatchupService({
 
     function recomputeRacePlacements() {
         const comps = activeMatchup.competitors || [];
+        for (const c of comps) {
+            if (c.timer && !c.timer.finished) {
+                c.timer.place = null;
+                c.timer.deltaSeconds = null;
+                c.timer.delta = null;
+            }
+        }
         const finishers = comps
             .filter(c => c.timer && c.timer.finished)
             .sort((a, b) => (a.timer.finishSeconds ?? a.timer.elapsed ?? 0) - (b.timer.finishSeconds ?? b.timer.elapsed ?? 0));
@@ -1027,6 +1056,13 @@ function createMatchupService({
                 c.timer.delta = `+${formatPrecise(diff)}`;
             }
         });
+    }
+
+    function updateRaceHistory() {
+        if (activeMatchup.status !== 'COMPLETED' || activeMatchup.clock.mode !== 'race') return;
+        const item = activeMatchup.history.find(h => h.status === 'COMPLETED' && h.clock?.mode === 'race' &&
+            h.clock.startedAt === activeMatchup.clock.startedAt && h.winner === activeMatchup.winner);
+        if (item) Object.assign(item, snapshotRecord('COMPLETED'), { id: item.id, timestamp: item.timestamp });
     }
 
     function findRaceCompetitor(compIdentifier) {
@@ -1059,7 +1095,7 @@ function createMatchupService({
             if (!activeMatchup.clock.isRunning || !clockTimer) {
                 activeMatchup.clock.mode = 'race';
                 activeMatchup.clock.isRunning = true;
-                activeMatchup.clock.startedAt = Date.now();
+                if (!activeMatchup.clock.startedAt) activeMatchup.clock.startedAt = Date.now();
                 ensureTicker();
             }
         } else if (activeMatchup.clock.isRunning) {
@@ -1078,9 +1114,8 @@ function createMatchupService({
         for (const c of activeMatchup.competitors) {
             if (!c.timer.finished) c.timer.isRunning = true;
         }
-        activeMatchup.clock.isRunning = true;
-        activeMatchup.clock.startedAt = Date.now();
-        ensureTicker();
+        if (!activeMatchup.clock.startedAt) activeMatchup.clock.startedAt = Date.now();
+        syncRaceClockState();
 
         save();
         broadcastUpdate();
@@ -1096,6 +1131,7 @@ function createMatchupService({
             c.timer.isRunning = false;
         }
         stopTicker();
+        getMatchup();
         save();
         broadcastUpdate();
         return activeMatchup;
@@ -1113,6 +1149,7 @@ function createMatchupService({
         ensureCompetitorTimers();
         activeMatchup.clock.isRunning = false;
         activeMatchup.clock.elapsed = 0;
+        activeMatchup.clock.startedAt = null;
         for (const c of activeMatchup.competitors) {
             c.timer.elapsed = 0;
             c.timer.isRunning = false;
@@ -1150,7 +1187,8 @@ function createMatchupService({
 
         if (otherFinishers.length === 0) {
             if (activeMatchup.format === 'bestOf' || activeMatchup.format === 'firstTo') {
-                comp.score += 1;
+                comp.score = (Number(comp.score) || 0) + 1;
+                if (activeMatchup.targetScore > 0) comp.score = Math.min(activeMatchup.targetScore, comp.score);
                 checkWinnerCondition();
             }
             try {
@@ -1166,10 +1204,9 @@ function createMatchupService({
             } catch { /* ignore */ }
         }
 
-        if (activeMatchup.competitors.every(c => c.timer?.finished)) {
-            activeMatchup.clock.isRunning = false;
-            stopTicker();
-        }
+        syncRaceClockState();
+        updateRaceHistory();
+        getMatchup();
 
         save();
         broadcastUpdate();
@@ -1195,6 +1232,7 @@ function createMatchupService({
         }
         comp.timer.isRunning = !comp.timer.isRunning;
         syncRaceClockState();
+        getMatchup();
 
         save();
         broadcastUpdate();
@@ -1219,6 +1257,7 @@ function createMatchupService({
         comp.timer.delta = null;
         recomputeRacePlacements();
         syncRaceClockState();
+        getMatchup();
 
         save();
         broadcastUpdate();

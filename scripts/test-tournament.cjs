@@ -4,7 +4,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const { createPollService } = require('../server/services/polls.js');
 const { createMatchupService } = require('../server/services/matchup.js');
 
@@ -14,8 +13,148 @@ function scoreAndAdvance(svc, id, o) {
     return r;
 }
 
+test('Versus and poll double elimination require a reset only when the losers finalist wins', async (t) => {
+    for (const isPoll of [false, true]) {
+        for (const loserWins of [false, true]) {
+            await t.test(`${isPoll ? 'poll' : 'versus'}: losers finalist ${loserWins ? 'wins' : 'loses'}`, () => {
+                const dir = fs.mkdtempSync(path.join(__dirname, '..', '.test-grand-finals-'));
+                const options = { dataDir: dir, log: () => {}, error: () => {} };
+                let service = createPollService(options);
+                try {
+                    const tournament = service.createTournament({
+                        format: 'double', entrants: Array.from({ length: 16 }, (_, i) => `Fixture ${i + 1}`)
+                    }, { isPoll });
+                    while (true) {
+                        const match = tournament.matches.find(m => m.status === 'PENDING' &&
+                            [m.entrant1, m.entrant2].every(e => e?.name && !['BYE', 'TBD'].includes(e.name)));
+                        assert.ok(match, 'bracket must always have a playable match');
+                        const winner = match.id === 'gf_1' && loserWins ? match.entrant2.name : match.entrant1.name;
+                        service.advanceTournamentMatch(match.id, winner, { isPoll });
+                        if (match.id === 'gf_1') break;
+                    }
+                    const final = tournament.matches.find(m => m.id === 'gf_1');
+                    const reset = tournament.matches.find(m => m.id === 'gf_reset');
+                    assert.equal(!!reset, loserWins);
+                    service.advanceTournamentMatch(final.id, final.winner, { isPoll });
+                    assert.equal(tournament.matches.filter(m => m.id === 'gf_reset').length, loserWins ? 1 : 0);
+                    if (loserWins) {
+                        assert.equal(tournament.status, 'IN_PROGRESS');
+                        assert.equal(tournament.champion, null);
+                        assert.equal(service.getTournamentHistory({ isPoll }).length, 0);
+                        service.destroy();
+                        service = createPollService(options);
+                        const resumed = service.getTournament({ isPoll }).matches.find(m => m.id === 'gf_reset');
+                        service.advanceTournamentMatch(resumed.id, resumed.entrant2.name, { isPoll });
+                    }
+                    const completed = service.getTournament({ isPoll });
+                    assert.equal(completed.status, 'COMPLETED');
+                    assert.equal(completed.champion, final.winner);
+                    assert.equal(service.getTournamentHistory({ isPoll }).length, 1);
+                    assert.equal(service.getTournamentHistory({ isPoll: !isPoll }).length, 0);
+                } finally {
+                    service.destroy();
+                    fs.rmSync(dir, { recursive: true, force: true });
+                }
+            });
+        }
+    }
+});
+
+test('Invalid bracket creation and results do not mutate prior state or live ballots', (t) => {
+    const dir = fs.mkdtempSync(path.join(__dirname, '..', '.test-bracket-validation-'));
+    const service = createPollService({ dataDir: dir, log: () => {}, error: () => {} });
+    t.after(() => { service.destroy(); fs.rmSync(dir, { recursive: true, force: true }); });
+    const tournament = service.createTournament({ entrants: ['A', 'B', 'C', 'D'], blind: true });
+    const file = path.join(dir, 'polls.json');
+    const before = fs.readFileSync(file, 'utf8');
+    for (const count of [17, 32, 33]) {
+        assert.throws(() => service.createTournament({
+            format: 'double', entrants: Array.from({ length: count }, (_, i) => `F${i}`)
+        }), /at most 16/);
+        assert.equal(fs.readFileSync(file, 'utf8'), before);
+    }
+    assert.throws(() => service.createTournament({ entrants: Array.from({ length: 33 }, (_, i) => `F${i}`) }), /at most 32/);
+    assert.throws(() => service.createTournament({ format: 'swiss', entrants: ['A', 'B'] }), /Invalid tournament format/);
+    assert.throws(() => service.createTournament({ tieBreaker: 'overtime', entrants: ['A', 'B'] }), /tie breaker/);
+    assert.throws(() => service.updateTournamentSettings({ title: 'Should not save', tieBreaker: 'overtime' }), /tie breaker/);
+    assert.equal(fs.readFileSync(file, 'utf8'), before);
+    const unfinished = tournament.matches.find(m => m.entrant1.name === 'TBD');
+    assert.throws(() => service.advanceTournamentMatch(unfinished.id, 'A'), /participants must be decided/);
+    assert.equal(fs.readFileSync(file, 'utf8'), before);
+    const first = tournament.matches[0];
+    for (const winner of ['Outsider', 'DRAW', 'TIE']) {
+        assert.throws(() => service.updateMatchScore(first.id, { winner, entrant1Score: 2 }), /participant|Draws/);
+        assert.equal(fs.readFileSync(file, 'utf8'), before);
+    }
+    service.startTournamentMatch(first.id);
+    service.castVote({ userId: 'Fixture', choiceIndex: 0 });
+    const activeBefore = fs.readFileSync(file, 'utf8');
+    assert.throws(() => service.advanceTournamentMatch(first.id, 'Outsider'), /participant/);
+    assert.equal(fs.readFileSync(file, 'utf8'), activeBefore);
+    assert.ok(service.getActivePoll());
+    service.advanceTournamentMatch(first.id, first.entrant1.name);
+    const completedBefore = fs.readFileSync(file, 'utf8');
+    service.advanceTournamentMatch(first.id, first.entrant1.name);
+    assert.equal(fs.readFileSync(file, 'utf8'), completedBefore, 'same result is idempotent');
+    assert.throws(() => service.advanceTournamentMatch(first.id, first.entrant2.name), /Reset this match/);
+    assert.equal(fs.readFileSync(file, 'utf8'), completedBefore);
+    service.resetTournament({ saveToHistory: false });
+    const noDraw = service.createTournament({ format: 'roundRobin', allowDraws: false, entrants: ['A', 'B'] });
+    const noDrawBefore = fs.readFileSync(file, 'utf8');
+    assert.throws(() => service.advanceTournamentMatch(noDraw.matches[0].id, 'DRAW'), /Draws/);
+    assert.equal(fs.readFileSync(file, 'utf8'), noDrawBefore);
+});
+
+test('Round robin archives once in its own history and recalculates after draw rollback/reset', (t) => {
+    for (const isPoll of [false, true]) {
+        const dir = fs.mkdtempSync(path.join(__dirname, '..', '.test-round-robin-correction-'));
+        const options = { dataDir: dir, log: () => {}, error: () => {} };
+        let service = createPollService(options);
+        t.after(() => { service.destroy(); fs.rmSync(dir, { recursive: true, force: true }); });
+        let tournament = service.createTournament({ format: 'roundRobin', entrants: ['A', 'B', 'C'] }, { isPoll });
+        for (const match of tournament.matches) {
+            service.advanceTournamentMatch(match.id, 'DRAW', { isPoll });
+        }
+        const history = service.getTournamentHistory({ isPoll });
+        assert.equal(history.length, 1);
+        assert.equal(service.getTournamentHistory({ isPoll: !isPoll }).length, 0);
+        const archive = JSON.stringify(history[0]);
+        const firstId = tournament.matches[0].id;
+        service.advanceTournamentMatch(firstId, 'TIE', { isPoll });
+        assert.equal(history.length, 1);
+        const correctedWinner = tournament.matches[0].entrant2.name;
+        service.updateMatchScore(firstId, { isPoll, entrant1Score: 0, entrant2Score: 5 });
+        assert.equal(tournament.champion, correctedWinner, 'completed score corrections recalculate tied standings');
+        assert.equal(JSON.stringify(history[0]), archive);
+        service.rollbackTournamentMatch(firstId, { isPoll });
+        assert.equal(tournament.matches[0].isDraw, false);
+        assert.equal(tournament.champion, null);
+        assert.equal(tournament.endedAt, null);
+        assert.equal(tournament.standings.reduce((sum, row) => sum + row.played, 0), 4);
+        assert.equal(JSON.stringify(history[0]), archive, 'rollback must not change archived match objects');
+        service.advanceTournamentMatch(firstId, tournament.matches[0].entrant1.name, { isPoll });
+        assert.equal(tournament.champion, tournament.matches[0].entrant1.name);
+        assert.equal(history.length, 1);
+        assert.equal(JSON.stringify(history[0]), archive);
+        service.resetMatch(firstId, { isPoll });
+        assert.equal(tournament.matches[0].isDraw, false);
+        assert.equal(tournament.status, 'IN_PROGRESS');
+        assert.equal(tournament.champion, null);
+        assert.equal(tournament.standings.reduce((sum, row) => sum + row.played, 0), 4);
+        service.destroy();
+        service = createPollService(options);
+        tournament = service.getTournament({ isPoll });
+        assert.equal(tournament.champion, null);
+        assert.equal(tournament.matches[0].isDraw, false);
+        assert.equal(tournament.standings.reduce((sum, row) => sum + row.played, 0), 4);
+        assert.equal(JSON.stringify(service.getTournamentHistory({ isPoll })[0]), archive);
+        service.resetTournament({ isPoll });
+        assert.equal(service.getTournamentHistory({ isPoll }).length, 1);
+    }
+});
+
 test('Poll tournament library preserves live votes, settings and source isolation across restart', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-poll-library-'));
+    const dir = fs.mkdtempSync(path.join(__dirname, '..', '.test-poll-library-'));
     const options = { dataDir: dir, log: () => {}, error: () => {} };
     let service = createPollService(options);
     try {
@@ -99,7 +238,7 @@ test('Poll tournament library preserves live votes, settings and source isolatio
 });
 
 test('Poll tournament library exposes completed history, validates templates and rolls back failed saves', t => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-poll-library-errors-'));
+    const dir = fs.mkdtempSync(path.join(__dirname, '..', '.test-poll-library-errors-'));
     const service = createPollService({ dataDir: dir, log: () => {}, error: () => {} });
     try {
         assert.throws(() => service.savePollTournamentCheckpoint('empty'), /No poll tournament/);
@@ -144,7 +283,7 @@ test('Poll tournament library exposes completed history, validates templates and
 });
 
 test('Poll Service: string payload parsing, up to 10 choices, presets, and tournaments', async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-poll-test-'));
+    const tmpDir = fs.mkdtempSync(path.join(__dirname, '..', '.test-tournament-poll-'));
     let lastTakeover = null;
     let lastAlert = null;
     let overlayMessages = [];
@@ -268,7 +407,7 @@ test('Poll Service: string payload parsing, up to 10 choices, presets, and tourn
 });
 
 test('Tournament Service: Variable bracket sizes, manual scoring, series best-of auto-advancement, and match controls', async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-tourney-test-'));
+    const tmpDir = fs.mkdtempSync(path.join(__dirname, '..', '.test-tournament-'));
     let overlayMessages = [];
     let lastAlert = null;
 
@@ -736,7 +875,7 @@ test('Tournament Service: Variable bracket sizes, manual scoring, series best-of
 });
 
 test('Matchup Service: Speedrun race clock runnerTimersMode (finish vs always) and finish delta calculation', async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-matchup-test-'));
+    const tmpDir = fs.mkdtempSync(path.join(__dirname, '..', '.test-tournament-matchup-'));
     const muService = createMatchupService({
         dataDir: tmpDir,
         broadcastToOverlays: () => {},
@@ -796,7 +935,7 @@ test('Matchup Service: Speedrun race clock runnerTimersMode (finish vs always) a
 
 test('Poll tournament: a vote expiring during restart resolves its saved result', async () => {
     for (const hasVotes of [true, false]) {
-        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-poll-restart-'));
+        const tmpDir = fs.mkdtempSync(path.join(__dirname, '..', '.test-poll-restart-'));
         const options = {
             dataDir: tmpDir,
             broadcastToOverlays: () => {},
@@ -845,7 +984,7 @@ test('Poll tournament: a vote expiring during restart resolves its saved result'
 test('Poll tournament: supported double-elimination sizes run both grand final outcomes', () => {
     const scenarios = [2, 4, 8, 16].flatMap(size => [false, true].map(resetFinal => [size, resetFinal]));
     for (const [size, resetFinal] of scenarios) {
-        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-poll-double-16-'));
+        const tmpDir = fs.mkdtempSync(path.join(__dirname, '..', '.test-poll-double-16-'));
         const options = {
             dataDir: tmpDir,
             broadcastToOverlays: () => {},
@@ -918,7 +1057,7 @@ test('Poll tournament: supported double-elimination sizes run both grand final o
 
 test('Linked match votes remain isolated across tournaments and restarts', () => {
     for (const legacy of [false, true]) {
-        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-linked-vote-'));
+        const tmpDir = fs.mkdtempSync(path.join(__dirname, '..', '.test-linked-vote-'));
         const options = { dataDir: tmpDir, broadcastToOverlays: () => {}, onTakeover: () => {},
             onAlert: () => {}, log: () => {}, error: () => {} };
         let service = createPollService(options);
@@ -983,7 +1122,7 @@ test('Linked match votes remain isolated across tournaments and restarts', () =>
 });
 
 test('Resetting a winners match clears both downstream paths without clearing unrelated matches', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-bracket-reset-'));
+    const tmpDir = fs.mkdtempSync(path.join(__dirname, '..', '.test-bracket-reset-'));
     const service = createPollService({
         dataDir: tmpDir, broadcastToOverlays: () => {}, onTakeover: () => {},
         onAlert: () => {}, log: () => {}, error: () => {}
@@ -1014,7 +1153,7 @@ test('Resetting a winners match clears both downstream paths without clearing un
 });
 
 test('Repair reconstructs a progressed winners-only poll bracket without losing votes or results', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-bracket-repair-'));
+    const tmpDir = fs.mkdtempSync(path.join(__dirname, '..', '.test-bracket-repair-'));
     const options = { dataDir: tmpDir, broadcastToOverlays: () => {}, onTakeover: () => {},
         onAlert: () => {}, log: () => {}, error: () => {} };
     let service = createPollService(options);
@@ -1094,7 +1233,7 @@ test('Repair reconstructs a progressed winners-only poll bracket without losing 
 });
 
 test('Bracket repair refuses inconsistent data and leaves the original intact if saving fails', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-bracket-repair-failure-'));
+    const tmpDir = fs.mkdtempSync(path.join(__dirname, '..', '.test-bracket-repair-failure-'));
     const service = createPollService({
         dataDir: tmpDir, broadcastToOverlays: () => {}, onTakeover: () => {},
         onAlert: () => {}, log: () => {}, error: () => {}
@@ -1136,7 +1275,7 @@ test('Bracket repair refuses inconsistent data and leaves the original intact if
 });
 
 test('Tournament Service: Double Elimination and mid-tournament match duration changes', async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-double-elim-test-'));
+    const tmpDir = fs.mkdtempSync(path.join(__dirname, '..', '.test-double-elim-'));
     let overlayMessages = [];
 
     const service = createPollService({
@@ -1229,7 +1368,11 @@ test('Tournament Service: Double Elimination and mid-tournament match duration c
         service.advanceTournamentMatch('m_1_1', 'S1', { isPoll: true });
         assert.equal(lb1_1.entrant1.name, 'S8', 'Loser of m_1_1 must drop into lb_1_1 slot 1');
 
-        // Advance m_3_1 (Winners Finals): Winner to gf_1 slot 1, Loser to lb_4_1 slot 2
+        // Resolve the preceding rounds before advancing Winners Finals.
+        for (const id of ['m_1_2', 'm_1_3', 'm_1_4', 'm_2_1', 'm_2_2']) {
+            const match = dt8.matches.find(m => m.id === id);
+            service.advanceTournamentMatch(id, match.entrant1.name, { isPoll: true });
+        }
         service.advanceTournamentMatch('m_3_1', 'S1', { isPoll: true });
         const gf8 = dt8.matches.find(m => m.id === 'gf_1');
         assert.equal(gf8.entrant1.name, 'S1');

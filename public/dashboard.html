@@ -378,11 +378,13 @@
         const text = String(value);
         if (lastText.get(id) === text) return;
         lastText.set(id, text);
+        lastHtml.delete(id);
         $(id).textContent = text;
     }
     function setHtml(id, html) {
         if (lastHtml.get(id) === html) return;
         lastHtml.set(id, html);
+        lastText.delete(id);
         $(id).innerHTML = html;
     }
     const setDot = (id, color) => { const el = $(id); if (el.dataset.color !== color) { el.dataset.color = color; el.className = `dot ${color}`; } };
@@ -634,8 +636,8 @@
         setDot('dot-twitch', data.twitch?.hasToken ? 'green' : 'red');
         setText('twitch-status', data.twitch?.hasToken ? 'Active' : 'Not authenticated');
         setDot('dot-ws', data.overlayClients > 0 ? 'green' : 'yellow');
-        setText('ws-clients', data.overlayClients);
-        setText('overlay-clients', data.overlayClients);
+        setText('ws-clients', data.overlayClients ?? 0);
+        setText('overlay-clients', data.overlayClients ?? 0);
 
         setDot('dot-conn', 'green');
         const clock = iso => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -805,7 +807,7 @@
     async function loadCustomOverlayCount() {
         try {
             const overlays = await (await fetch('/api/custom-overlays', { cache: 'no-store' })).json();
-            setText('overlay-custom-count', overlays.length);
+            setText('overlay-custom-count', Array.isArray(overlays) ? overlays.length : 0);
         } catch { /* keep placeholder */ }
     }
 

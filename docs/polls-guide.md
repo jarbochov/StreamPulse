@@ -8,4 +8,6 @@ Use a poll for a quick decision—what to play, which challenge to try, or what 
 
 For head-to-head matches that don’t need an audience vote, Versus gives you a dedicated scoreboard for competitors and match progress. These tools can make a casual community choice or a full tournament feel like part of the same production.
 
+Keep a bracket ready for another night with reusable templates, or save a checkpoint to return to its progress. Blind votes keep the reveal for the end of a match. Double elimination includes a deciding reset when the losers-side finalist wins the first Grand Finals, while round-robin standings follow corrected results.
+
 Find more [StreamPulse features](features.md) or [get started](quickstart.md). Already installed? Open **Docs** and **API Reference** from the app navigation.

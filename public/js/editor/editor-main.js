@@ -660,6 +660,7 @@ export async function save() {
         }
         const url = state.isNew ? '/api/custom-overlays' : `/api/custom-overlays/${encodeURIComponent(state.overlay.id)}`;
         const payload = serializeOverlayForSave();
+        const submittedSnapshot = snapshot();
         let response;
         try {
             response = await fetch(url, {
@@ -676,11 +677,20 @@ export async function save() {
             state.isNew = false;
             history.replaceState(null, '', `?id=${encodeURIComponent(data.id)}`);
         }
-        applyServerOverlay(data);
+        const hasNewerEdits = snapshot() !== submittedSnapshot;
+        if (hasNewerEdits) {
+            // Acknowledge the saved revision without replacing edits made during the request.
+            state.overlay.id = data.id;
+            state.overlay.revision = data.revision;
+            state.overlay.updatedAt = data.updatedAt;
+            state.savedSnapshot = submittedSnapshot;
+        } else {
+            applyServerOverlay(data);
+        }
         pushHistory();
         renderAll();
-        toast(`Saved revision ${state.overlay.revision}. Live overlays updated.`, 'success');
-        if (state.obs?.connected && state.obs?.syncOnSave !== false) {
+        toast(`Saved revision ${state.overlay.revision}. Live overlays updated.${hasNewerEdits ? ' Newer edits are still unsaved.' : ''}`, 'success');
+        if (!hasNewerEdits && state.obs?.connected && state.obs?.syncOnSave !== false) {
             syncObsState(state.curPage);
         }
     } catch (error) {
@@ -769,6 +779,17 @@ export async function openObsModal() {
     if ($('obs-cfg-password')) {
         $('obs-cfg-password').value = '';
         $('obs-cfg-password').placeholder = state.obs.hasPassword ? '•••••••• (Saved — leave blank to keep)' : 'Leave blank if authentication is disabled in OBS';
+        if (!$('obs-cfg-clear-password')) {
+            const label = document.createElement('label');
+            label.className = 'row';
+            label.style.gridColumn = '1 / -1';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = 'obs-cfg-clear-password';
+            label.append(checkbox, document.createTextNode(' Clear saved OBS password'));
+            $('obs-cfg-password').parentElement.after(label);
+        }
+        $('obs-cfg-clear-password').checked = false;
     }
     if ($('obs-cfg-engine')) $('obs-cfg-engine').value = state.obs.motionEngine || 'auto';
     if ($('obs-cfg-sync-save')) $('obs-cfg-sync-save').checked = state.obs.syncOnSave !== false;
@@ -788,7 +809,8 @@ export async function saveAndConnectObs() {
             syncOnSave: $('obs-cfg-sync-save')?.checked !== false
         };
         const pw = $('obs-cfg-password')?.value || '';
-        if (pw) payload.password = pw;
+        if ($('obs-cfg-clear-password')?.checked) payload.password = '';
+        else if (pw) payload.password = pw;
         const res = await fetch('/api/obs/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -796,8 +818,13 @@ export async function saveAndConnectObs() {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || 'Could not save OBS settings');
+        if ($('obs-cfg-password')) $('obs-cfg-password').value = '';
+        if ($('obs-cfg-clear-password')) $('obs-cfg-clear-password').checked = false;
         if (data.status) Object.assign(state.obs, data.status);
         await refreshObsStatus(true);
+        if ($('obs-cfg-password')) {
+            $('obs-cfg-password').placeholder = state.obs.hasPassword ? '•••••••• (Saved — leave blank to keep)' : 'Leave blank if authentication is disabled in OBS';
+        }
         renderProperties();
         renderPageBar();
         if (state.obs.connected) {
@@ -815,12 +842,12 @@ export async function saveAndConnectObs() {
 }
 
 export async function syncObsState(pageId) {
-    if (!state.obs?.connected) return;
+    if (!state.obs?.connected) return { ok: false, error: 'Connect to OBS WebSocket first.' };
     const hasLinked = state.overlay.elements.some(el => el.obsLink?.enabled && el.obsLink?.sourceName);
-    if (!hasLinked) return;
+    if (!hasLinked) return { ok: false, error: 'No linked OBS sources in this overlay.' };
     try {
         const payload = serializeOverlayForSave();
-        await fetch('/api/obs/sync', {
+        const res = await fetch('/api/obs/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -828,7 +855,15 @@ export async function syncObsState(pageId) {
                 pageId: pageId || state.curPage
             })
         });
-    } catch { /* ignore background sync error */ }
+        const data = await res.json().catch(() => ({}));
+        const failed = data.results?.find(item => !item.ok);
+        if (!res.ok || data.ok !== true || failed) {
+            return { ...data, ok: false, error: data.error || failed?.reason || 'Could not sync active state to OBS' };
+        }
+        return data;
+    } catch (err) {
+        return { ok: false, error: err.message || 'Could not sync active state to OBS' };
+    }
 }
 
 export async function snapObsLayer(el) {
@@ -1012,8 +1047,8 @@ function initEventListeners() {
             toast('Connect to OBS WebSocket first.', 'warn', 2400);
             return;
         }
-        await syncObsState(state.curPage);
-        toast('Synced active state to OBS', 'success', 2000);
+        const result = await syncObsState(state.curPage);
+        toast(result.ok ? 'Synced active state to OBS' : result.error, result.ok ? 'success' : 'error', result.ok ? 2000 : 4000);
     });
 
     // Overlay Name

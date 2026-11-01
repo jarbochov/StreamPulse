@@ -470,3 +470,86 @@ test('Matchup Service Unit Tests', async (t) => {
     service.destroy();
   });
 });
+
+test('Queue selection uses the same scoring rules as direct updates, preserving explicit zero on restart', (t) => {
+  const dir = fs.mkdtempSync(path.join(__dirname, '..', '.test-queue-rules-'));
+  let service = createMatchupService({ dataDir: dir, log: () => {} });
+  t.after(() => { service.destroy(); fs.rmSync(dir, { recursive: true, force: true }); });
+  const cases = [
+    { format: 'bestOf', bestOf: 1, targetScore: 3, expected: 1 },
+    { format: 'bestOf', bestOf: 0, targetScore: 3, expected: 0 },
+    { format: 'points', bestOf: 5, targetScore: 0, expected: 0 },
+    { format: 'firstTo', bestOf: 0, targetScore: 0, expected: 1 }
+  ];
+  for (const fixture of cases) {
+    service.addToQueue(fixture);
+    const queued = service.getQueue().queue.at(-1);
+    assert.equal(queued.targetScore, fixture.expected);
+    assert.equal(queued.bestOf, fixture.bestOf);
+    const selected = service.selectQueueMatch(queued.id);
+    assert.equal(selected.targetScore, fixture.expected);
+    assert.equal(selected.bestOf, fixture.bestOf);
+    service.updateMatchup(fixture);
+    assert.equal(service.getMatchup().targetScore, selected.targetScore);
+    if (fixture.expected === 0) {
+      service.updateScore(0, { score: 50 });
+      assert.equal(service.getMatchup().winner, null);
+    }
+  }
+  service.setQueue([{ id: 'old-bo1', format: 'bestOf', bestOf: 1, targetScore: 3 },
+    { id: 'points-zero', format: 'points', bestOf: 0, targetScore: 0 }]);
+  service.destroy();
+  service = createMatchupService({ dataDir: dir, log: () => {} });
+  assert.equal(service.selectQueueMatch('old-bo1').targetScore, 1);
+  const points = service.selectQueueMatch('points-zero');
+  assert.equal(points.targetScore, 0);
+  assert.equal(points.bestOf, 0);
+});
+
+test('A Bo1 race winner does not freeze later runners, and final splits update one history record', (t) => {
+  const dir = fs.mkdtempSync(path.join(__dirname, '..', '.test-race-finishers-'));
+  t.mock.timers.enable({ apis: ['Date', 'setInterval'], now: Date.now() });
+  let service = createMatchupService({ dataDir: dir, log: () => {} });
+  t.after(() => { service.destroy(); fs.rmSync(dir, { recursive: true, force: true }); });
+  service.updateMatchup({ format: 'bestOf', bestOf: 1, competitorCount: 3 });
+  service.startAllRace();
+  t.mock.timers.tick(1000);
+  let state = service.finishCompetitorRace(0);
+  assert.equal(state.status, 'COMPLETED');
+  assert.equal(state.competitors[0].finished, true);
+  assert.equal(service.getField('c1_finished'), 'true');
+  assert.equal(state.clock.isRunning, true);
+  assert.equal(state.competitors[1].timer.isRunning, true);
+  const firstElapsed = state.competitors[0].timer.elapsed;
+  const historyId = service.getHistory()[0].id;
+  t.mock.timers.tick(2000);
+  assert.equal(state.competitors[0].timer.elapsed, firstElapsed, 'finished runner stays frozen');
+  assert.ok(state.competitors[1].timer.elapsed > firstElapsed, 'unfinished runner keeps counting');
+  service.finishCompetitorRace(1);
+  service.destroy();
+  service = createMatchupService({ dataDir: dir, log: () => {} });
+  state = service.getMatchup();
+  assert.equal(state.clock.isRunning, false, 'restart settles unfinished clocks without losing race identity');
+  assert.equal(state.competitors[2].timer.isRunning, false);
+  service.toggleCompetitorRace(2);
+  t.mock.timers.tick(1000);
+  state = service.finishCompetitorRace(2);
+  assert.equal(state.clock.isRunning, false);
+  assert.equal(service.getHistory().length, 1);
+  assert.equal(service.getHistory()[0].id, historyId);
+  assert.ok(service.getHistory()[0].competitors.every(c => c.timer.finished));
+  assert.equal(service.getHistory()[0].clock.isRunning, false);
+  assert.equal(service.getHistory()[0].competitors[2].timer.delta, '+00:03.00');
+  assert.equal(service.getHistory()[0].competitors[2].timer.place, 3);
+  const score = state.competitors[0].score;
+  service.finishCompetitorRace(0);
+  assert.equal(state.competitors[0].score, score);
+  service.destroy();
+  service = createMatchupService({ dataDir: dir, log: () => {} });
+  assert.equal(service.getHistory()[0].competitors[2].timer.finished, true);
+  assert.equal(service.getField('c3_finished'), 'true');
+  service.resetCompetitorRace(2);
+  assert.equal(service.getField('c3_finished'), 'false');
+  service.resetAllRace();
+  assert.ok(service.getMatchup().competitors.every(c => !c.finished && c.place === null && c.delta === ''));
+});

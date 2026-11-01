@@ -596,6 +596,14 @@
         let countdownTimer = null;
         let fadeOutTimer = null;
         let lastCelebratedPollId = null;
+        let resultsPollId = null;
+        let resultsDeadline = 0;
+        let confettiFrame = null;
+        let suspended = false;
+        let stateVersion = 0;
+        let initialRequest = null;
+        let liveSocket = null;
+        let reconnectTimer = null;
 
         // Render Poll State
         function renderPoll(poll) {
@@ -603,6 +611,8 @@
                 if (isPreview) {
                     poll = SAMPLE_POLL;
                 } else {
+                    currentPoll = null;
+                    clearTimeout(fadeOutTimer);
                     stage.classList.add('hidden');
                     return;
                 }
@@ -621,6 +631,8 @@
             if (active) {
                 stage.classList.remove('hidden');
                 clearTimeout(fadeOutTimer);
+                resultsPollId = null;
+                resultsDeadline = 0;
 
                 if (isBlind) {
                     badgeEl.className = 'poll-badge badge-blind';
@@ -639,23 +651,34 @@
                     timerEl.style.display = 'none';
                 }
             } else if (completed) {
+                stage.classList.remove('hidden');
                 badgeEl.className = 'poll-badge badge-ended';
                 badgeText.textContent = 'FINAL RESULTS';
                 timerEl.style.display = 'none';
 
-                // Confetti & Celebration
+                // OBS auto-hide after resultsSeconds
+                const resultDuration = params.has('results') ? resultsSeconds : (poll.settings?.resultsSeconds ?? resultsSeconds);
+                if (!isPreview && resultDuration > 0) {
+                    if (resultsPollId !== poll.id) {
+                        resultsPollId = poll.id;
+                        const endedAt = Date.parse(poll.endedAt);
+                        resultsDeadline = (Number.isFinite(endedAt) ? endedAt : Date.now()) + resultDuration * 1000;
+                    }
+                    clearTimeout(fadeOutTimer);
+                    const remaining = resultsDeadline - Date.now();
+                    if (remaining <= 0) stage.classList.add('hidden');
+                    else if (!suspended) {
+                        fadeOutTimer = setTimeout(() => {
+                            stage.classList.add('hidden');
+                        }, remaining);
+                    }
+                }
                 if (lastCelebratedPollId !== poll.id && maxVotes > 0) {
                     lastCelebratedPollId = poll.id;
-                    if (enableConfetti) triggerConfetti();
-                    triggerSound(poll.settings?.celebration?.sound, poll.settings?.celebration?.volume);
-                }
-
-                // OBS auto-hide after resultsSeconds
-                if (!isPreview && resultsSeconds > 0) {
-                    clearTimeout(fadeOutTimer);
-                    fadeOutTimer = setTimeout(() => {
-                        stage.classList.add('hidden');
-                    }, resultsSeconds * 1000);
+                    if (!stage.classList.contains('hidden')) {
+                        if (enableConfetti) triggerConfetti();
+                        triggerSound(poll.settings?.celebration?.sound, poll.settings?.celebration?.volume);
+                    }
                 }
             } else {
                 stage.classList.add('hidden');
@@ -754,11 +777,12 @@
         }
 
         // Live ticking timer
-        setInterval(() => {
+        function tickCountdown() {
             if (currentPoll && currentPoll.status === 'ACTIVE') {
                 updateRemainingTimer(currentPoll);
             }
-        }, 1000);
+        }
+        countdownTimer = setInterval(tickCountdown, 1000);
 
         function esc(str) {
             return String(str || '').replace(/[&<>"']/g, c => ({
@@ -768,6 +792,7 @@
 
         // Confetti Fireworks Particle System
         function triggerConfetti() {
+            if (suspended) return;
             const canvas = confettiCanvas;
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
@@ -795,6 +820,8 @@
 
             let frames = 0;
             function animate() {
+                confettiFrame = null;
+                if (suspended) return;
                 if (frames++ > 110 || !particles.length) {
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     return;
@@ -822,8 +849,9 @@
                     ctx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.65);
                     ctx.restore();
                 }
-                requestAnimationFrame(animate);
+                confettiFrame = requestAnimationFrame(animate);
             }
+            if (confettiFrame !== null) cancelAnimationFrame(confettiFrame);
             animate();
         }
 
@@ -838,46 +866,63 @@
 
         // Fetch Initial Poll State
         async function fetchInitialPoll() {
+            initialRequest?.abort();
+            const controller = new AbortController();
+            initialRequest = controller;
+            const version = stateVersion;
+            const timeout = setTimeout(() => controller.abort(), 10000);
+            const isCurrent = () => !suspended && !controller.signal.aborted && stateVersion === version;
             try {
-                const res = await fetch('/api/polls/active', { cache: 'no-store' });
+                const res = await fetch('/api/polls/latest', { cache: 'no-store', signal: controller.signal });
                 if (res.ok) {
                     const data = await res.json();
-                    if (data && data.poll) {
-                        renderPoll(data.poll);
-                        return;
-                    }
+                    if (!isCurrent()) return;
+                    renderPoll(data.poll);
+                    return;
                 }
-            } catch {}
-
-            if (isPreview) {
-                renderPoll(SAMPLE_POLL);
-            } else {
-                stage.classList.add('hidden');
+                if (isCurrent() && !currentPoll) renderPoll(null);
+            } catch {
+                if (isCurrent() && !currentPoll) renderPoll(null);
+            } finally {
+                clearTimeout(timeout);
+                if (initialRequest === controller) initialRequest = null;
             }
         }
 
         // Real-Time WebSocket Connection
         function connectWebSocket() {
+            if (suspended || liveSocket) return;
             const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const ws = new WebSocket(`${proto}//${location.host}`);
+            const ws = new WebSocket(`${proto}//${location.host}/ws`);
+            liveSocket = ws;
 
             ws.onopen = () => {
+                if (suspended || liveSocket !== ws) return;
                 if (window.self === window.top && !isPreview) {
                     ws.send(JSON.stringify({ type: 'overlay-source', key: 'poll' }));
                 }
             };
 
             ws.onmessage = event => {
+                if (suspended || liveSocket !== ws) return;
                 try {
                     const msg = JSON.parse(event.data);
                     if (msg.type === 'poll-update') {
+                        stateVersion++;
                         renderPoll(msg.data);
                     }
                 } catch {}
             };
 
             ws.onclose = () => {
-                setTimeout(connectWebSocket, 3000);
+                if (liveSocket !== ws) return;
+                liveSocket = null;
+                if (suspended || reconnectTimer !== null) return;
+                reconnectTimer = setTimeout(() => {
+                    reconnectTimer = null;
+                    connectWebSocket();
+                    fetchInitialPoll();
+                }, 3000);
             };
 
             ws.onerror = () => {
@@ -887,6 +932,31 @@
 
         fetchInitialPoll();
         connectWebSocket();
+        window.addEventListener('pagehide', () => {
+            suspended = true;
+            stateVersion++;
+            initialRequest?.abort();
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+            clearTimeout(fadeOutTimer);
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+            if (confettiFrame !== null) cancelAnimationFrame(confettiFrame);
+            confettiFrame = null;
+            confettiCanvas?.getContext('2d')?.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            const ws = liveSocket;
+            liveSocket = null;
+            ws?.close();
+        });
+        window.addEventListener('pageshow', () => {
+            if (!suspended) return;
+            suspended = false;
+            if (currentPoll) renderPoll(currentPoll);
+            tickCountdown();
+            countdownTimer = setInterval(tickCountdown, 1000);
+            connectWebSocket();
+            fetchInitialPoll();
+        });
     </script>
 </body>
 </html>

@@ -250,7 +250,7 @@
         const copy = await api('/api/custom-overlays', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: uniqueId(source.id), name: `${source.name} copy`, canvas: source.canvas, elements: source.elements })
+            body: JSON.stringify({ id: uniqueId(source.id), name: `${source.name} copy`, canvas: source.canvas, pages: source.pages, elements: source.elements })
         });
         toast(`Duplicated as "${copy.name}"`);
         await load();

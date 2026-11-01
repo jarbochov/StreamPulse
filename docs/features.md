@@ -38,6 +38,8 @@ Some nights need a polished scene. Others need a quick countdown or a way to let
 
 Use OBS docks for your studios, or connect **[Bitfocus Companion](companion.md)** to put common actions on a Stream Deck.
 
+The dashboard brings connection health and show activity together at a glance. It recovers when a connection returns, while hidden pages pause background status checks so an idle workspace does less work.
+
 ## Fits alongside the tools you already use
 
 SocialStream Ninja handles unified chat, chat overlays, and featured messages. StreamPulse builds on that activity rather than replacing it. Twitch is our current focus; SSN's support for other platforms doesn't mean identical StreamPulse account features everywhere. Available events and actions depend on your connections and permissions.

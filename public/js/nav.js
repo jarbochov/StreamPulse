@@ -650,8 +650,33 @@
     });
 
     // Live stream & integration status indicators polling
-    function updateNavStatus() {
-        fetch('/api/status').then(r => r.json()).then(data => {
+    let statusRequest = null;
+    let statusGeneration = 0;
+    let statusInterval = null;
+    let navReady = false;
+    let pageActive = true;
+
+    function invalidateNavStatus() {
+        statusGeneration++;
+        if (!statusRequest) return;
+        clearTimeout(statusRequest.timeout);
+        statusRequest.controller.abort();
+        statusRequest = null;
+    }
+
+    async function updateNavStatus() {
+        if (!navReady || !pageActive || document.hidden || statusRequest) return;
+        const request = { controller: new AbortController(), generation: statusGeneration, timeout: null };
+        statusRequest = request;
+        request.timeout = setTimeout(() => {
+            if (statusRequest === request) invalidateNavStatus();
+        }, 8000);
+        try {
+            const response = await fetch('/api/status', { cache: 'no-store', signal: request.controller.signal });
+            if (!response.ok) throw new Error('Status fetch failed');
+            const data = await response.json();
+            // Abort may race a completed response or its JSON parsing.
+            if (request.generation !== statusGeneration || request.controller.signal.aborted || !pageActive || document.hidden) return;
             lastStatusData = data;
             renderNavStatusPills();
 
@@ -671,11 +696,28 @@
                     }
                 }
             }
-        }).catch(() => {});
+        } catch { /* keep the last known status until the next poll */ }
+        finally {
+            clearTimeout(request.timeout);
+            if (statusRequest === request) statusRequest = null;
+        }
+    }
+
+    function stopNavStatus() {
+        clearInterval(statusInterval);
+        statusInterval = null;
+        invalidateNavStatus();
+    }
+
+    function startNavStatus() {
+        if (!navReady || !pageActive || document.hidden || statusInterval !== null) return;
+        statusInterval = setInterval(updateNavStatus, 15000);
+        updateNavStatus();
     }
 
     // Instant update when Config Editor saves without page reload
     window.addEventListener('streampulse:config-saved', event => {
+        invalidateNavStatus();
         if (event.detail && typeof event.detail === 'object') {
             let changed = false;
             if (event.detail.chatbot_enabled !== undefined && moduleState.chatbot !== (event.detail.chatbot_enabled !== false)) {
@@ -723,6 +765,7 @@
             try {
                 const parsed = JSON.parse(event.newValue);
                 if (parsed && typeof parsed === 'object') {
+                    invalidateNavStatus();
                     moduleState = Object.assign(moduleState, parsed);
                     buildNav();
                     if (paletteBackdrop?.classList.contains('open')) {
@@ -733,13 +776,29 @@
         }
     });
 
-    setInterval(() => { if (!document.hidden) updateNavStatus(); }, 15000);
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) stopNavStatus();
+        else startNavStatus();
+    });
+    window.addEventListener('pagehide', () => {
+        pageActive = false;
+        stopNavStatus();
+    });
+    window.addEventListener('pageshow', () => {
+        pageActive = true;
+        startNavStatus();
+    });
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => { buildNav(); initCommandPalette(); updateNavStatus(); });
-    } else {
+    function initializeNav() {
         buildNav();
         initCommandPalette();
-        updateNavStatus();
+        navReady = true;
+        startNavStatus();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeNav, { once: true });
+    } else {
+        initializeNav();
     }
 })();

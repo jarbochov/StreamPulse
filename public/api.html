@@ -247,7 +247,7 @@
                 {
                     method: 'GET', path: '/api/config',
                     desc: 'Get current config (sections, social links, options)',
-                    details: 'Returns the full credits configuration including section titles, subtitles, enabled/disabled state, social links, header, closing, and filter settings.'
+                    details: 'Returns editable configuration including section titles, enabled state, social links, header, closing, and filters. OBS passwords are omitted; connection status reports only whether a password is saved.'
                 },
                 {
                     method: 'PUT', path: '/api/config',
@@ -834,7 +834,7 @@
                     method: 'POST', path: '/api/obs/sync',
                     desc: 'Apply linked-source transforms for an overlay state',
                     body: '{ "overlayId": "my-overlay", "pageId": "state-id", "animate": true }',
-                    details: 'Loopback only. Accepts overlayId (or id), an overlay object, optional pageId (or page), animate, and instant. Applies enabled OBS Source Frame links, not arbitrary browser-source layers. Returns { ok, synced, results }; no linked sources is a successful zero-sync result. HTTP 503 means disconnected; HTTP 502 reports source/scene failures with per-element reasons. Normal overlay page actions already sync linked sources when the bridge and automatic synchronization are enabled.'
+                    details: 'Loopback only. Accepts overlayId (or id), an overlay object, optional pageId (or page), animate, and instant. Applies enabled OBS Source Frame links, not arbitrary browser-source layers. Returns { ok, synced, results }; no linked sources is a successful zero-sync result. WebSocket animation waits for final write acknowledgement; Move-plugin success confirms filter configuration/start acknowledgement, not playback completion. Superseded or rejected work is not reported as synchronized. HTTP 503 means disconnected; HTTP 502 reports source/scene/write failures with per-element reasons. Normal overlay page actions already sync linked sources when the bridge and automatic synchronization are enabled.'
                 }
             ]
         },
@@ -1435,7 +1435,7 @@
                     method: 'POST', path: '/api/polls/extend',
                     desc: 'Extend active poll duration',
                     companion: true,
-                    details: 'Adds additional time to the active poll countdown. Body: { "seconds": 30 }.',
+                    details: 'Adds time to the active countdown. For an untimed poll, starts a countdown from now without discarding votes. Body: { "seconds": 30 }.',
                     body: '{ "seconds": 30 }'
                 },
                 {
@@ -1548,19 +1548,19 @@
                     desc: 'Launch audience voting for current bracket match',
                     companion: true,
                     details: 'Spawns a live poll featuring the two entrants of the selected tournament match.',
-                    body: '{ "matchId": "m1", "duration": 60 }'
+                    body: '{ "matchId": "m1" }'
                 },
                 {
                     method: 'GET', path: '/api/polls/tournament/start-match',
                     desc: 'Companion trigger to start tournament match poll',
                     companion: true,
-                    details: 'Starts poll for active bracket match via GET request (?matchId=...&duration=60).'
+                    details: 'Starts voting via GET request (?matchId=...). Voting duration uses the bracket matchDuration setting.'
                 },
                 {
                     method: 'POST', path: '/api/polls/tournament/advance',
                     desc: 'Advance winning entrant in poll bracket',
                     companion: true,
-                    details: 'Advances Entrant 1, Entrant 2, or the poll leader into the next round.',
+                    details: 'Confirms a participating entrant as winner and advances the bracket. An active linked ballot is finalized and saved in poll history. A losers-side Grand Finals victory creates a reset match.',
                     body: '{ "winner": 1 }'
                 },
                 {
@@ -1730,40 +1730,40 @@
                     method: 'POST', path: '/api/matchup/clock/race/finish',
                     desc: 'Lock finish split for speedrun runner',
                     companion: true,
-                    details: 'Locks the finish time for runner 1-4, calculates finish placement delta, and updates overlay display.',
-                    body: '{ "runner": 1 }'
+                    details: 'Locks the selected runner finish time and calculates placement/delta. Use index (zero-based) or competitorId for unambiguous addressing. Other unfinished runners keep timing after the first finisher.',
+                    body: '{ "index": 1 }'
                 },
                 {
                     method: 'GET', path: '/api/matchup/clock/race/finish',
                     desc: 'Companion trigger to lock runner finish',
                     companion: true,
-                    details: 'Locks runner finish time via GET request (?runner=1).'
+                    details: 'Locks runner finish time via GET request (?index=1 selects the second runner).'
                 },
                 {
                     method: 'POST', path: '/api/matchup/clock/race/toggle',
                     desc: 'Start or pause individual runner clock',
                     companion: true,
-                    details: 'Toggles running state for an individual speedrun runner.',
-                    body: '{ "runner": 1 }'
+                    details: 'Toggles running state for the selected speedrun runner. Index is zero-based; competitorId also accepts stable IDs.',
+                    body: '{ "index": 1 }'
                 },
                 {
                     method: 'GET', path: '/api/matchup/clock/race/toggle',
                     desc: 'Companion trigger to toggle individual runner',
                     companion: true,
-                    details: 'Toggles runner timer via GET request (?runner=1).'
+                    details: 'Toggles runner timer via GET request (?index=1 selects the second runner).'
                 },
                 {
                     method: 'POST', path: '/api/matchup/clock/race/reset',
                     desc: 'Reset individual runner clock',
                     companion: true,
-                    details: 'Resets finish split and timer for runner 1-4.',
-                    body: '{ "runner": 1 }'
+                    details: 'Resets finish split and timer for the selected runner. Index is zero-based; competitorId also accepts stable IDs.',
+                    body: '{ "index": 1 }'
                 },
                 {
                     method: 'GET', path: '/api/matchup/clock/race/reset',
                     desc: 'Companion trigger to reset individual runner',
                     companion: true,
-                    details: 'Resets runner timer via GET request (?runner=1).'
+                    details: 'Resets runner timer via GET request (?index=1 selects the second runner).'
                 },
                 {
                     method: 'POST', path: '/api/matchup/clock/race/start-all',
@@ -1850,8 +1850,8 @@
                 {
                     method: 'POST', path: '/api/tournament',
                     desc: 'Create or update tournament bracket',
-                    details: 'Creates a tournament with single elimination, double elimination, round robin, or swiss format.',
-                    body: '{ "title": "Street Fighter 6 Top 8", "format": "double", "entrants": ["Daigo", "Tokido", "Punk", "MenaRD", "AngryBird", "Big Bird", "NL", "Kakeru"] }'
+                    details: 'Creates a single-elimination or round-robin tournament with 2–32 entrants, or double elimination with 2–16 entrants including BYEs. Unsupported formats/counts are rejected without replacing the current bracket.',
+                    body: '{ "title": "Community Top 8", "format": "double", "entrants": ["Amber", "Blue", "Coral", "Dusk", "Ember", "Fern", "Gold", "Haze"] }'
                 },
                 {
                     method: 'POST', path: '/api/tournament/score',
@@ -1883,7 +1883,7 @@
                     method: 'POST', path: '/api/tournament/advance',
                     desc: 'Confirm match winner and advance bracket',
                     companion: true,
-                    details: 'Advances winning entrant to next winners/losers bracket round, moves loser accordingly, or crowns champion if grand finals.',
+                    details: 'Confirms a participating entrant as winner, advances winners/losers, or crowns the champion. A losers-side Grand Finals win creates a reset match. Invalid winners or unresolved participants are rejected; draws are permitted only in round robin when enabled.',
                     body: '{ "winner": 1 }'
                 },
                 {

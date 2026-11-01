@@ -437,11 +437,16 @@
                         <label style="min-width:95px;">Password</label>
                         <input type="password" id="cfg-obs-password" placeholder="Optional OBS WS password" autocomplete="off">
                     </div>
+                    <div class="cfg-toggle">
+                        <input type="checkbox" id="cfg-obs-clear-password">
+                        <label for="cfg-obs-clear-password">Clear saved OBS password</label>
+                    </div>
                     <div class="cfg-row">
                         <label style="min-width:95px;">Motion</label>
                         <select id="cfg-obs-engine">
                             <option value="auto">Auto-Detect (Move Plugin or 60fps Stream)</option>
                             <option value="stream">60fps WebSocket Transform Stream</option>
+                            <option value="move-plugin">Move Plugin (WebSocket fallback)</option>
                             <option value="cut">Instant Cut</option>
                         </select>
                     </div>
@@ -770,8 +775,10 @@
             document.getElementById('cfg-obs-enabled').checked = Boolean(obs.enabled);
             document.getElementById('cfg-obs-host').value = obs.host || '127.0.0.1';
             document.getElementById('cfg-obs-port').value = obs.port || 4455;
-            document.getElementById('cfg-obs-password').value = obs.password || '';
-            document.getElementById('cfg-obs-engine').value = obs.motionEngine || 'auto';
+            document.getElementById('cfg-obs-password').value = '';
+            document.getElementById('cfg-obs-password').placeholder = obs.hasPassword ? 'Saved — leave blank to keep' : 'Optional OBS WS password';
+            document.getElementById('cfg-obs-clear-password').checked = false;
+            document.getElementById('cfg-obs-engine').value = obs.motionEngine === 'websocket' ? 'stream' : (obs.motionEngine || 'auto');
             document.getElementById('cfg-obs-sync-save').checked = obs.syncOnSave !== false;
 
             updateModuleBadges();
@@ -847,11 +854,9 @@
                 enabled: document.getElementById('cfg-clips-enabled').checked
             },
             obs: {
-                ...(loadedConfig?.obs || {}),
                 enabled: document.getElementById('cfg-obs-enabled').checked,
                 host: document.getElementById('cfg-obs-host').value.trim() || '127.0.0.1',
                 port: Math.max(1, Math.min(65535, parseInt(document.getElementById('cfg-obs-port').value, 10) || 4455)),
-                password: document.getElementById('cfg-obs-password').value || '',
                 motionEngine: document.getElementById('cfg-obs-engine').value || 'auto',
                 syncOnSave: document.getElementById('cfg-obs-sync-save').checked
             },
@@ -864,6 +869,9 @@
                 mutation_per_minute: parseInt(document.getElementById('cfg-rl-mutations').value, 10) || 30
             }
         };
+        const obsPassword = document.getElementById('cfg-obs-password').value;
+        if (document.getElementById('cfg-obs-clear-password').checked) cfg.obs.password = '';
+        else if (obsPassword) cfg.obs.password = obsPassword;
 
         try {
             const res = await fetch('/api/config', {
@@ -873,6 +881,11 @@
             });
             const data = await res.json();
             if (data.status === 'saved') {
+                cfg.obs.hasPassword = cfg.obs.password !== undefined ? Boolean(cfg.obs.password) : Boolean(loadedConfig?.obs?.hasPassword);
+                delete cfg.obs.password;
+                document.getElementById('cfg-obs-password').value = '';
+                document.getElementById('cfg-obs-password').placeholder = cfg.obs.hasPassword ? 'Saved — leave blank to keep' : 'Optional OBS WS password';
+                document.getElementById('cfg-obs-clear-password').checked = false;
                 clearDirty();
                 loadedConfig = { ...loadedConfig, ...cfg };
                 updateModuleBadges();

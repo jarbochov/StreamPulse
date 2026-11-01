@@ -4,7 +4,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
 const http = require('http');
 const puppeteer = require('puppeteer');
 const { createPollService } = require('../server/services/polls');
@@ -107,6 +106,79 @@ test('Tournaments: strict separation between versus and poll tournaments', async
     assert.equal(pollService.getTournament({ isPoll: true }), null, 'Poll tournament reset to null');
 });
 
+test('Blind linked ballots mask getters, mutation responses and broadcasts until manual finalization', async (t) => {
+    for (const isPoll of [false, true]) {
+        const dir = fs.mkdtempSync(path.join(__dirname, '..', '.test-blind-bracket-'));
+        const broadcasts = [];
+        const takeovers = [];
+        const announcements = [];
+        const alerts = [];
+        const options = {
+            dataDir: dir, log: () => {}, error: () => {},
+            broadcastToOverlays: (type, data) => broadcasts.push({ type, data: JSON.parse(JSON.stringify(data)) }),
+            onTakeover: (action, title) => takeovers.push({ action, title }),
+            onAlert: event => alerts.push(event),
+            chatbotAnnouncer: {
+                announcePollStart: poll => announcements.push(`start:${poll.id}`),
+                announcePollEnd: poll => announcements.push(`end:${poll.id}`)
+            }
+        };
+        let service = createPollService(options);
+        t.after(() => { service.destroy(); fs.rmSync(dir, { recursive: true, force: true }); });
+        service.createTournament({ entrants: ['A', 'B'], blind: true, bestOf: 3 }, { isPoll });
+        const poll = service.startTournamentMatch('m_1_1', { isPoll }).poll;
+        service.castVote({ userId: 'voter-a', choiceIndex: 0 });
+        service.castVote({ userId: 'voter-b', choiceIndex: 0 });
+        const assertMasked = tournament => {
+            const match = tournament.matches.find(m => m.id === 'm_1_1');
+            assert.equal(match.entrant1.votes, 0);
+            assert.equal(match.entrant1.percent, 0);
+            assert.equal(match.winner, null);
+            if (tournament.activeMatch) {
+                assert.equal(tournament.activeMatch.entrant1.votes, 0);
+                assert.equal(tournament.activeMatch.pendingWinner, null);
+            }
+        };
+        assertMasked(service.getTournament({ isPoll }));
+        if (isPoll) assertMasked(service.getPollTournament());
+        const eventType = isPoll ? 'poll-tournament-update' : 'tournament-update';
+        assertMasked(broadcasts.filter(event => event.type === eventType).at(-1).data);
+        assertMasked(service.selectActiveMatch('m_1_1', { isPoll }).tournament);
+        assertMasked(service.updateMatchScore('m_1_1', { isPoll, matchDetails: 'Fixture details', entrant1Score: 2 }).tournament);
+        assertMasked(service.getTournament({ isPoll }));
+        const raw = JSON.parse(fs.readFileSync(path.join(dir, 'polls.json')));
+        assert.equal((isPoll ? raw.pollTournament : raw.tournament).matches[0].entrant1.votes, 2);
+        assert.equal(raw.active.winner, 'A', 'internal tally remains unmasked');
+        service.destroy();
+        service = createPollService(options);
+        assertMasked(service.getTournament({ isPoll }));
+        assert.equal(service.castVote({ userId: 'voter-a', choiceIndex: 1 }), false);
+        service.advanceTournamentMatch('m_1_1', 'B', { isPoll });
+        await Promise.resolve();
+        const completed = service.getTournament({ isPoll });
+        assert.equal(completed.champion, 'B', 'manual selection overrides the vote leader');
+        assert.equal(completed.matches[0].entrant1.votes, 2, 'completion reveals preserved counts');
+        const finished = service.getHistory();
+        assert.equal(finished.length, 1);
+        assert.equal(finished[0].id, poll.id);
+        assert.equal(finished[0].winner, 'B');
+        assert.equal(finished[0].winningVotes, 0, 'override uses the selected choice tally, not the old leader');
+        assert.equal(finished[0].isTie, false);
+        assert.equal(finished[0].endedAt !== null, true);
+        assert.equal(takeovers.filter(event => event.action === 'poll-end').length, 1);
+        assert.equal(announcements.filter(event => event === `end:${poll.id}`).length, 1);
+        assert.equal(alerts.filter(event => event.title === poll.title).length, 1);
+        service.finishPoll();
+        service.advanceTournamentMatch('m_1_1', 'B', { isPoll });
+        assert.equal(service.getHistory().length, 1);
+        assert.equal(takeovers.filter(event => event.action === 'poll-end').length, 1);
+        const saved = fs.readFileSync(path.join(dir, 'polls.json'), 'utf8');
+        await new Promise(resolve => setTimeout(resolve, 1100));
+        assert.equal(fs.readFileSync(path.join(dir, 'polls.json'), 'utf8'), saved, 'finished ballot has no surviving timer mutation');
+        assert.equal(service.getActivePoll(), null);
+    }
+});
+
 test('Overlays: /overlays/tournament.html and /overlays/poll-tournament.html structure', () => {
     const versusOverlayPath = path.resolve(__dirname, '../public/overlays/tournament.html');
     const pollOverlayPath = path.resolve(__dirname, '../public/overlays/poll-tournament.html');
@@ -131,7 +203,7 @@ test('Overlays: /overlays/tournament.html and /overlays/poll-tournament.html str
 });
 
 test('Poll Manager tournament templates and saved brackets work through UI and source-scoped APIs', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-poll-library-ui-'));
+    const dir = fs.mkdtempSync(path.join(__dirname, '..', '.test-poll-library-ui-'));
     const rootDir = path.resolve(__dirname, '..');
     const router = createStaticRouter({ rootDir, publicDir: path.join(rootDir, 'public') });
     let live;
@@ -289,7 +361,7 @@ test('Poll Manager tournament templates and saved brackets work through UI and s
 });
 
 test('Poll Manager and overlay show a 16-player losers bracket without disrupting a running vote', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-live-bracket-'));
+    const dir = fs.mkdtempSync(path.join(__dirname, '..', '.test-live-bracket-'));
     const rootDir = path.resolve(__dirname, '..');
     const router = createStaticRouter({ rootDir, publicDir: path.join(rootDir, 'public') });
     let service;

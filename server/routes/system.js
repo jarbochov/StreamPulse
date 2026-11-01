@@ -107,7 +107,12 @@ function createSystemRoutes({
                                 const obsUpdates = updates[key] && typeof updates[key] === 'object' && !Array.isArray(updates[key])
                                     ? updates[key]
                                     : {};
-                                current[key] = normalizeObsConfig({ ...(current.obs || {}), ...obsUpdates });
+                                const nextObs = normalizeObsConfig({ ...(current.obs || {}), ...obsUpdates });
+                                if (JSON.stringify(nextObs) !== JSON.stringify(normalizeObsConfig(current.obs)) && !isLoopbackRequest(req)) {
+                                    sendError(res, 'OBS WebSocket configuration requires a local loopback connection.', 403);
+                                    return true;
+                                }
+                                current[key] = nextObs;
                             } else {
                                 current[key] = updates[key];
                             }
@@ -131,6 +136,7 @@ function createSystemRoutes({
                 const broadcasterName = typeof getBroadcasterName === 'function' ? getBroadcasterName() : getBroadcasterName;
                 const clientId = typeof getTwitchClientId === 'function' ? getTwitchClientId() : getTwitchClientId;
                 const clientSecret = typeof getTwitchClientSecret === 'function' ? getTwitchClientSecret() : getTwitchClientSecret;
+                const { password: obsPassword, ...publicObs } = normalizeObsConfig(config.obs);
 
                 sendJson(res, {
                     active_subs_only: config.active_subs_only || false,
@@ -167,7 +173,7 @@ function createSystemRoutes({
                     goals: normalizeGoalsConfig(config.goals || defaultGoalsConfig),
                     clip_candidates: normalizeClipCandidateConfig(config.clip_candidates),
                     session_lifecycle: config.session_lifecycle || {},
-                    obs: config.obs || { enabled: false, host: '127.0.0.1', port: 4455, password: '', syncOnSave: true, motionEngine: 'auto' }
+                    obs: { ...publicObs, hasPassword: Boolean(obsPassword) }
                 });
                 return true;
             }

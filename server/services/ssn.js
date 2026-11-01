@@ -868,7 +868,12 @@ function createSsnService({
             const plainText = messageHtml ? messageHtml.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '') : '';
             resolvePollService().handleChatMessage({
                 chatname,
-                userId: msg.userId || msg.mid || chatname.toLowerCase(),
+                userId: JSON.stringify([
+                    String(msg.type || 'unknown').trim().toLowerCase(),
+                    msg.userId !== undefined && msg.userId !== null && String(msg.userId).trim()
+                        ? `id:${String(msg.userId).trim()}`
+                        : `name:${String(chatname).trim().toLowerCase()}`
+                ]),
                 message: plainText.trim(),
                 subscriber: Boolean(msg.hasMembership || msg.subscriber || msg.isSub),
                 isSub: Boolean(msg.hasMembership || msg.subscriber || msg.isSub),

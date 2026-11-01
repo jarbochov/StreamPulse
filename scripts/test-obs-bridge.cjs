@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Readable } = require('node:stream');
 const test = require('node:test');
+const vm = require('node:vm');
 
 const {
     computeObsAuthResponse,
@@ -36,13 +37,17 @@ class FixtureWebSocket extends EventEmitter {
         this.sent.push(message);
         if (message.op !== 6) return;
         this.requests.push(message.d);
-        const responseData = this.responseFor(message.d.requestType);
+        if (this.handleRequest?.(message.d)) return;
+        this.respond(message.d);
+    }
+
+    respond(request, error = '') {
         this.emit('message', JSON.stringify({
             op: 7,
             d: {
-                requestId: message.d.requestId,
-                requestStatus: { result: true, code: 100 },
-                responseData
+                requestId: request.requestId,
+                requestStatus: { result: !error, code: error ? 500 : 100, comment: error },
+                responseData: error ? {} : this.responseFor(request.requestType)
             }
         }));
     }
@@ -210,6 +215,7 @@ test('system config writes OBS settings in normalized form', async () => {
         const handler = createSystemRoutes({
             rootDir: process.cwd(),
             configPath,
+            isLoopbackRequest: () => true,
             applyRuntimeConfig: config => { runtimeConfig = config; },
             safeWriteFileSync: (filePath, contents) => fs.writeFileSync(filePath, contents)
         });
@@ -231,6 +237,460 @@ test('system config writes OBS settings in normalized form', async () => {
     } finally {
         fs.rmSync(configPath, { force: true });
     }
+});
+
+function requestResponse() {
+    return {
+        writeHead(statusCode) { this.statusCode = statusCode; },
+        end(body) { this.body = JSON.parse(body); }
+    };
+}
+
+function linkedOverlay(x = 100, transitionMs = 50) {
+    return {
+        elements: [{
+            id: 'camera', page: '*', x, y: 20, width: 640, height: 360,
+            obsLink: { enabled: true, sourceName: 'Camera', sceneName: 'Main' }
+        }],
+        pages: { enabled: true, items: [{ id: 'p1' }], transition: 'morph', transitionMs }
+    };
+}
+
+function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+test('GET config redacts OBS credentials without changing runtime config or disabling LAN settings', async () => {
+    const config = { obs: { enabled: true, password: 'private-fixture', host: 'obs.local' } };
+    const handler = createSystemRoutes({ getConfig: () => config, isLoopbackRequest: () => false });
+    const response = requestResponse();
+    await handler({ method: 'GET' }, response, new URL('http://localhost/api/config'), '/api/config');
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.obs.hasPassword, true);
+    assert.equal(Object.hasOwn(response.body.obs, 'password'), false);
+    assert.ok(!JSON.stringify(response.body).includes('private-fixture'));
+    assert.equal(config.obs.password, 'private-fixture');
+});
+
+test('OBS config POST preserves omitted passwords, accepts replacements and explicitly clears empty strings', async () => {
+    let config = { obs: normalizeObsConfig({ password: 'saved-fixture' }) };
+    const handler = createObsRoutes({
+        getConfig: () => config,
+        saveConfig: update => { config = { ...config, ...update }; },
+        obsService: { disconnect() {}, getStatus: () => ({ hasPassword: Boolean(config.obs.password) }) },
+        isLoopbackRequest: req => req.local
+    });
+    for (const [body, expected] of [
+        [{ port: 4456 }, 'saved-fixture'],
+        [{ password: 'replacement-fixture' }, 'replacement-fixture'],
+        [{ password: '' }, '']
+    ]) {
+        const req = Readable.from([JSON.stringify(body)]);
+        Object.assign(req, { method: 'POST', local: true });
+        const response = requestResponse();
+        await handler(req, response, '/api/obs/config');
+        assert.equal(response.statusCode, 200);
+        assert.equal(config.obs.password, expected);
+        assert.equal(response.body.hasPassword, Boolean(expected));
+        assert.equal(Object.hasOwn(response.body, 'password'), false);
+    }
+    const req = Readable.from(['{"password":"remote-fixture"}']);
+    req.method = 'POST';
+    const response = requestResponse();
+    await handler(req, response, '/api/obs/config');
+    assert.equal(response.statusCode, 403);
+    assert.equal(config.obs.password, '');
+});
+
+test('generic config round trips preserve OBS secrets and restrict only changed OBS settings to loopback', async () => {
+    const configPath = path.join(__dirname, `.obs-config-roundtrip-${process.pid}.json`);
+    let config = { obs: normalizeObsConfig({ password: 'saved-fixture' }), theme: {} };
+    fs.writeFileSync(configPath, JSON.stringify(config));
+    const handler = createSystemRoutes({
+        configPath,
+        getConfig: () => config,
+        safeWriteFileSync: (filePath, contents) => fs.writeFileSync(filePath, contents),
+        applyRuntimeConfig: next => { config = next; },
+        isLoopbackRequest: req => req.local
+    });
+    async function update(body, local = false) {
+        const req = Readable.from([JSON.stringify(body)]);
+        Object.assign(req, { method: 'PUT', local });
+        const response = requestResponse();
+        await handler(req, response, new URL('http://localhost/api/config'), '/api/config');
+        return response;
+    }
+    try {
+        const getResponse = requestResponse();
+        await handler({ method: 'GET' }, getResponse, new URL('http://localhost/api/config'), '/api/config');
+        assert.equal((await update({ obs: getResponse.body.obs, theme: { name: 'fixture' } })).statusCode, 200);
+        assert.equal(config.obs.password, 'saved-fixture');
+        assert.equal(config.theme.name, 'fixture');
+        assert.equal((await update({ obs: { host: 'other.local' }, theme: { name: 'denied' } })).statusCode, 403);
+        assert.equal(config.obs.host, '127.0.0.1');
+        assert.equal(config.theme.name, 'fixture');
+        assert.equal((await update({ obs: { password: 'replacement-fixture' } }, true)).statusCode, 200);
+        assert.equal(config.obs.password, 'replacement-fixture');
+        assert.equal((await update({ obs: { password: '' } }, true)).statusCode, 200);
+        assert.equal(config.obs.password, '');
+    } finally {
+        fs.rmSync(configPath, { force: true });
+    }
+});
+
+test('overlapping animations invalidate ownership before visibility or transform-read awaits', async () => {
+    for (const heldType of ['SetSceneItemEnabled', 'GetSceneItemTransform']) {
+        const { service, socket } = createConnectedService({ motionEngine: 'websocket' });
+        await flush();
+        const held = [];
+        socket.handleRequest = request => {
+            if (request.requestType !== heldType) return false;
+            held.push(request);
+            return true;
+        };
+        const animate = x => service.animateItemToTarget({
+            sceneName: 'Main', sourceName: 'Camera', sceneItemId: 55,
+            target: { x, y: 0, width: 640, height: 360, visible: true },
+            durationMs: 60
+        });
+        try {
+            const old = animate(-1000).then(() => null, err => err);
+            await flush();
+            const latest = animate(1000);
+            await flush();
+            assert.equal(held.length, 2);
+            // Resume the newest await first; the older one must never install a timer.
+            socket.handleRequest = null;
+            socket.respond(held[1]);
+            socket.respond(held[0]);
+            assert.match((await old).message, /superseded/);
+            await latest;
+            const writes = socket.requests.filter(request => request.requestType === 'SetSceneItemTransform');
+            assert.ok(writes.length > 0);
+            assert.ok(writes.every(request => request.requestData.sceneItemTransform.positionX >= 0));
+            assert.equal(writes.at(-1).requestData.sceneItemTransform.positionX, 1000);
+            const count = socket.requests.length;
+            await wait(100);
+            assert.equal(socket.requests.length, count);
+        } finally {
+            service.disconnect();
+        }
+    }
+});
+
+test('newer overlay sync wins even when the older scene-item lookup resolves last', async () => {
+    const { service, socket } = createConnectedService({ motionEngine: 'websocket' });
+    await flush();
+    const held = [];
+    socket.handleRequest = request => {
+        if (request.requestType !== 'GetSceneItemId') return false;
+        held.push(request);
+        return true;
+    };
+    try {
+        const old = service.syncOverlayState(linkedOverlay(-1000), 'p1', { animate: false });
+        const latest = service.syncOverlayState(linkedOverlay(1000), 'p1', { animate: false });
+        assert.equal(held.length, 2);
+        socket.respond(held[1]);
+        assert.equal((await latest).ok, true);
+        socket.respond(held[0]);
+        const result = await old;
+        assert.equal(result.ok, false);
+        assert.match(result.results[0].reason, /superseded/);
+        const writes = socket.requests.filter(request => request.requestType === 'SetSceneItemTransform');
+        assert.deepEqual(writes.map(request => request.requestData.sceneItemTransform.positionX), [1000]);
+    } finally {
+        service.disconnect();
+    }
+});
+
+test('disconnect and socket close invalidate pending animation initialization and delayed hides', async () => {
+    for (const close of [service => service.disconnect(), (service, socket) => socket.emit('close', 1000)]) {
+        for (const visible of [true, false]) {
+            const { service, socket } = createConnectedService({ motionEngine: 'websocket' });
+            await flush();
+            socket.handleRequest = request => request.requestType === 'GetSceneItemTransform';
+            try {
+                const animation = service.animateItemToTarget({
+                    sceneName: 'Main', sourceName: 'Camera', sceneItemId: 55,
+                    target: { x: 100, y: 0, width: 640, height: 360, visible },
+                    durationMs: 50
+                }).then(() => null, err => err);
+                await flush();
+                close(service, socket);
+                const count = socket.requests.length;
+                assert.match((await animation).message, /disconnected|socket closed/);
+                await wait(80);
+                assert.equal(socket.requests.length, count);
+            } finally {
+                service.disconnect();
+            }
+        }
+    }
+});
+
+test('mandatory transform and visibility rejections fail sync instead of reporting success', async () => {
+    for (const [requestType, visible] of [
+        ['SetSceneItemTransform', true],
+        ['SetSceneItemEnabled', true],
+        ['SetSceneItemEnabled', false]
+    ]) {
+        const { service, socket } = createConnectedService({ motionEngine: 'cut' });
+        await flush();
+        socket.handleRequest = request => {
+            if (request.requestType !== requestType) return false;
+            socket.respond(request, 'Fixture write rejected');
+            return true;
+        };
+        try {
+            const overlay = linkedOverlay();
+            overlay.elements[0].visible = visible;
+            const result = await service.syncOverlayState(overlay, 'p1');
+            assert.equal(result.ok, false);
+            assert.equal(result.synced, 0);
+            assert.match(result.results[0].reason, /write rejected/);
+        } finally {
+            service.disconnect();
+        }
+    }
+});
+
+test('failed transforms never poison the interpolation cache', async () => {
+    const { service, socket } = createConnectedService({ motionEngine: 'websocket' });
+    await flush();
+    socket.handleRequest = request => {
+        if (request.requestType !== 'SetSceneItemTransform') return false;
+        socket.respond(request, 'Fixture transform rejected');
+        return true;
+    };
+    try {
+        assert.equal((await service.syncOverlayState(linkedOverlay(1000), 'p1', { animate: false })).ok, false);
+        socket.handleRequest = null;
+        const count = socket.requests.length;
+        assert.equal((await service.syncOverlayState(linkedOverlay(100, 50), 'p1')).ok, true);
+        const writes = socket.requests.slice(count).filter(request => request.requestType === 'SetSceneItemTransform');
+        assert.ok(writes.every(request => request.requestData.sceneItemTransform.positionX <= 100));
+        assert.equal(writes.at(-1).requestData.sceneItemTransform.positionX, 100);
+    } finally {
+        service.disconnect();
+    }
+});
+
+test('streamed sync serializes frames and waits for the final acknowledgement', async () => {
+    const { service, socket } = createConnectedService({ motionEngine: 'websocket' });
+    await flush();
+    const held = [];
+    socket.handleRequest = request => {
+        if (request.requestType !== 'SetSceneItemTransform') return false;
+        held.push(request);
+        return true;
+    };
+    try {
+        let settled = false;
+        const handler = createObsRoutes({
+            obsService: service,
+            getCustomOverlays: () => ({ fixture: linkedOverlay(100, 120) }),
+            isLoopbackRequest: () => true
+        });
+        const req = Readable.from(['{"overlayId":"fixture","pageId":"p1"}']);
+        req.method = 'POST';
+        const response = requestResponse();
+        const sync = handler(req, response, '/api/obs/sync').then(() => {
+            settled = true;
+            return response.body;
+        });
+        await wait(50);
+        assert.equal(held.length, 1);
+        assert.equal(settled, false);
+        await wait(120);
+        assert.equal(held.length, 1, 'no overlapping writes while the previous frame is in flight');
+        socket.respond(held[0]);
+        await wait(25);
+        assert.equal(held.length, 2);
+        assert.equal(held[1].requestData.sceneItemTransform.positionX, 100);
+        assert.equal(settled, false);
+        socket.respond(held[1]);
+        assert.equal((await sync).ok, true);
+        assert.equal(response.statusCode, 200);
+    } finally {
+        service.disconnect();
+    }
+});
+
+test('final streamed transform and delayed hide failures propagate through the OBS route', async () => {
+    for (const visible of [true, false]) {
+        const { service, socket } = createConnectedService({ motionEngine: 'websocket' });
+        await flush();
+        socket.handleRequest = request => {
+            if (request.requestType !== (visible ? 'SetSceneItemTransform' : 'SetSceneItemEnabled')) return false;
+            socket.respond(request, 'Fixture final write rejected');
+            return true;
+        };
+        const overlay = linkedOverlay(100, 1);
+        overlay.elements[0].visible = visible;
+        const handler = createObsRoutes({
+            obsService: service, getCustomOverlays: () => ({ fixture: overlay }), isLoopbackRequest: () => true
+        });
+        try {
+            const req = Readable.from(['{"overlayId":"fixture"}']);
+            req.method = 'POST';
+            const response = requestResponse();
+            await handler(req, response, '/api/obs/sync');
+            assert.equal(response.statusCode, 502);
+            assert.equal(response.body.synced, 0);
+            assert.match(response.body.error, /final write rejected/);
+        } finally {
+            service.disconnect();
+        }
+    }
+});
+
+test('OBS editor manual sync surfaces HTTP, per-source and network failures and no-link skips', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-main.js'), 'utf8');
+    const syncSource = source.slice(source.indexOf('export async function syncObsState('), source.indexOf('export async function snapObsLayer(')).replace('export ', '');
+    const handlerSource = source.slice(source.indexOf("    $('obs-sync-now')?.addEventListener"), source.indexOf('    // Overlay Name'));
+    const state = { obs: { connected: true }, overlay: linkedOverlay(), curPage: 'p1' };
+    let click;
+    const toasts = [];
+    const context = vm.createContext({
+        state, serializeOverlayForSave: () => state.overlay,
+        $: () => ({ addEventListener: (event, callback) => { click = callback; } }),
+        toast: (...args) => toasts.push(args)
+    });
+    vm.runInContext(syncSource + handlerSource, context);
+    for (const response of [
+        { ok: false, body: { ok: false, error: 'Rejected transform' } },
+        { ok: true, body: { ok: true, results: [{ ok: false, reason: 'Source missing' }] } },
+        { ok: true, body: {} },
+        null
+    ]) {
+        context.fetch = async () => {
+            if (!response) throw new Error('Network failed');
+            return { ok: response.ok, json: async () => response.body };
+        };
+        await click();
+        assert.equal(toasts.at(-1)[1], 'error');
+    }
+    context.fetch = async () => ({ ok: true, json: async () => ({ ok: true, synced: 1, results: [{ ok: true }] }) });
+    await click();
+    assert.equal(toasts.at(-1)[1], 'success');
+    state.overlay.elements = [];
+    await click();
+    assert.equal(toasts.at(-1)[1], 'error');
+    assert.match(toasts.at(-1)[0], /No linked OBS sources/);
+});
+
+test('OBS settings UI keeps blank credentials omitted and exposes explicit password clearing', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-main.js'), 'utf8');
+    const functions = source.slice(source.indexOf('export async function openObsModal('), source.indexOf('export async function syncObsState(')).replace(/^export /gm, '');
+    const controls = new Map([
+        ['obs-cfg-enabled', { checked: false }],
+        ['obs-cfg-host', { value: '127.0.0.1' }],
+        ['obs-cfg-port', { value: '4455' }],
+        ['obs-cfg-engine', { value: 'auto' }],
+        ['obs-cfg-sync-save', { checked: true }],
+        ['obs-cfg-password', { value: '', parentElement: { after() {} } }]
+    ]);
+    let password = 'saved-fixture';
+    const sent = [];
+    const context = vm.createContext({
+        state: { obs: { hasPassword: true } },
+        $: id => controls.get(id),
+        document: {
+            createElement: () => ({
+                style: {}, append() {},
+                set id(value) { controls.set(value, this); }
+            }),
+            createTextNode: value => value
+        },
+        refreshObsStatus: async () => {},
+        renderObsStatusUI() {}, renderProperties() {}, renderPageBar() {}, toast() {},
+        fetch: async (url, options) => {
+            const body = JSON.parse(options.body);
+            sent.push(body);
+            if (Object.hasOwn(body, 'password')) password = body.password;
+            return { ok: true, json: async () => ({ status: { hasPassword: Boolean(password) } }) };
+        }
+    });
+    vm.runInContext(functions, context);
+    await context.openObsModal();
+    assert.equal(controls.get('obs-cfg-password').value, '');
+    assert.match(controls.get('obs-cfg-password').placeholder, /Saved/);
+    assert.equal(controls.get('obs-cfg-clear-password').checked, false);
+    await context.saveAndConnectObs();
+    assert.equal(Object.hasOwn(sent.at(-1), 'password'), false);
+    controls.get('obs-cfg-password').value = 'replacement-fixture';
+    await context.saveAndConnectObs();
+    assert.equal(sent.at(-1).password, 'replacement-fixture');
+    assert.equal(controls.get('obs-cfg-password').value, '');
+    controls.get('obs-cfg-clear-password').checked = true;
+    await context.saveAndConnectObs();
+    assert.equal(sent.at(-1).password, '');
+    assert.equal(password, '');
+    assert.equal(controls.get('obs-cfg-clear-password').checked, false);
+    assert.doesNotMatch(controls.get('obs-cfg-password').placeholder, /Saved/);
+});
+
+test('generic settings consumer never clears a redacted password on an unchanged save', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../public/system/config-editor.html'), 'utf8');
+    const functions = source.slice(source.indexOf('    async function loadConfig('), source.indexOf('    // Tabs switching'));
+    const controls = new Map();
+    let sent;
+    const events = [];
+    const context = vm.createContext({
+        document: {
+            getElementById(id) {
+                if (!controls.has(id)) controls.set(id, { value: '', checked: false });
+                return controls.get(id);
+            }
+        },
+        window: { dispatchEvent: event => events.push(event) },
+        CustomEvent: class { constructor(name, init) { this.detail = init.detail; } },
+        console, setTimeout() {},
+        clearDirty() {}, updateModuleBadges() {}, showToast() {}, showRestartNotice() {},
+        showWeatherStatus() {}, showObsStatus() {},
+        fetch: async (url, options) => {
+            if (!options) {
+                return { ok: true, json: async () => ({ obs: { enabled: true, hasPassword: true, motionEngine: 'websocket' } }) };
+            }
+            sent = JSON.parse(options.body);
+            return { ok: true, json: async () => ({ status: 'saved' }) };
+        }
+    });
+    vm.runInContext('let loadedConfig;\n' + functions, context);
+    await context.loadConfig();
+    assert.equal(controls.get('cfg-obs-password').value, '');
+    assert.match(controls.get('cfg-obs-password').placeholder, /Saved/);
+    assert.equal(controls.get('cfg-obs-engine').value, 'stream');
+    await context.saveConfig();
+    assert.equal(Object.hasOwn(sent.obs, 'password'), false);
+    controls.get('cfg-obs-password').value = 'replacement-fixture';
+    await context.saveConfig();
+    assert.equal(sent.obs.password, 'replacement-fixture');
+    assert.equal(controls.get('cfg-obs-password').value, '');
+    assert.equal(Object.hasOwn(events.at(-1).detail.obs, 'password'), false);
+    controls.get('cfg-obs-clear-password').checked = true;
+    await context.saveConfig();
+    assert.equal(sent.obs.password, '');
+    assert.equal(events.at(-1).detail.obs.hasPassword, false);
+});
+
+test('OBS wiring broadcasts connection, error, capability and scene status through the overlay socket', () => {
+    const source = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
+    const wiring = source.slice(source.indexOf('const obsService = createObsService('), source.indexOf('const broadcastToOverlays ='));
+    let onStatusChange;
+    const messages = [];
+    vm.runInNewContext(wiring, {
+        config: { obs: {} },
+        console,
+        createObsService: options => { onStatusChange = options.onStatusChange; },
+        wsService: { broadcastToOverlays: (...args) => messages.push(args) }
+    });
+    assert.equal(typeof onStatusChange, 'function');
+    const status = { connected: true, currentProgramScene: 'Fixture', hasPassword: true };
+    onStatusChange(status);
+    assert.equal(messages[0][0], 'obs-status');
+    assert.equal(messages[0][1], status);
 });
 
 test('OBS sync route reports unavailable bridges with a service-unavailable status', async () => {

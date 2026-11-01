@@ -86,7 +86,7 @@ function normalizeTimerHttpActions(raw = {}) {
 
 function computeCountdownRemaining(timer, now = Date.now()) {
     if (timer.state !== 'running') {
-        if (timer.mode === 'date') {
+        if (timer.mode === 'date' && timer.state === 'idle') {
             const targetMs = Date.parse(timer.targetAt || '');
             return Number.isFinite(targetMs) ? Math.max(0, targetMs - now) : 0;
         }

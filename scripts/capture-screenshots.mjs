@@ -1,14 +1,16 @@
 import puppeteer from 'puppeteer';
 import path from 'path';
 import fs from 'fs';
+import http from 'node:http';
 import { fileURLToPath } from 'url';
 import promoModel from '../public/js/promo-model.js';
+import staticRouter from '../server/static-router.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const docsImgDir = path.join(__dirname, '..', 'docs', 'images');
 
-const baseUrl = (process.env.STREAMPULSE_URL || 'http://127.0.0.1:3000').replace(/\/$/, '');
+let baseUrl;
 const dummyCustomOverlay = {
     id: 'border-showcase', name: 'Fictional Studio - Broadcast Layout',
     canvas: { width: 1920, height: 1080, background: '#10172a' },
@@ -452,6 +454,15 @@ const dummyTournament = {
     entrants: ['PixelKnight', 'RetroSamurai', 'CosmicVoyager', 'NebulaFox'],
     champion: null
 };
+dummyTournament.entrantsList = dummyTournament.entrants;
+dummyTournament.entrantCount = dummyTournament.entrants.length;
+dummyTournament.bracketSize = 4;
+dummyTournament.matches = dummyTournament.rounds.flatMap(round => round.matches.map(match => ({
+    ...match, round: round.roundIndex + 1, roundName: round.name, bracket: 'winners',
+    scores: [match.entrant1.score, match.entrant2.score], bestOf: 3, targetScore: 2,
+    nextMatchId: round.roundIndex === 0 ? 'm_1_1' : null, nextSlot: match.matchIndex + 1
+})));
+dummyTournament.activeMatch = dummyTournament.matches.find(match => match.id === dummyTournament.activeMatchId);
 
 const dummyPollTournament = {
     ...dummyTournament,
@@ -508,9 +519,47 @@ const dummyMatchup = {
         split: ''
     },
     queue: [
-        { id: 'q1', title: 'Next Exhibition: Speedrun Showdown', p1: 'ArcadeHero', p2: 'StarGazer', format: 'Best of 3' }
+        { id: 'q1', title: 'Next Exhibition: Speedrun Showdown', format: 'bestOf', bestOf: 3, targetScore: 2,
+            competitors: [{ id: 'c1', name: 'ArcadeHero', score: 0 }, { id: 'c2', name: 'StarGazer', score: 0 }] }
     ],
     presets: []
+};
+
+const dummyStatus = {
+    uptime: 5400,
+    memory: { rss: 83886080, heapUsed: 33554432, heapTotal: 50331648 },
+    sessionPhase: 'live', sessionActive: true,
+    startedAt: new Date(Date.now() - 5400000).toISOString(),
+    streamStartedAt: new Date(Date.now() - 5400000).toISOString(),
+    lifecycle: { auto: true, state: 'live' }, overlayClients: 4, websocketClients: 6,
+    ssn: { connected: true, session: 'configured', messages: 320, chatters: 24,
+        emotes: 42, hashtags: 8, raids: 1, subscribers: 3, followers: 5 },
+    twitch: { hasToken: true },
+    viewers: { live: true, current: 42, peak: 58, average: 36, source: 'twitch' },
+    modules: { chatbot: true, clips: true, weather: true, music: true,
+        hashtags: true, polls: true, versus: true, obs: false },
+    goals: { enabled: 3, completed: 1 },
+    goalMetrics: { persistent: { subscribers: 128, followers: 640 },
+        session: { subscribers: 3, followers: 5, gift_subs: 2, bits: 500, donations: 12 } },
+    timers: { total: 4, running: 1, countdowns: 3, stopwatches: 1 },
+    music: { enabled: true, state: 'playing', source: 'apple_music',
+        track: 'Starlight Circuit', artist: 'Fictional Ensemble' },
+    library: { highlights: 8, sessions: 12, clipCandidates: 3 },
+    backups: { autoEnabled: true, count: 6, latest: 'backup-fictional-show.zip' },
+    chatbot: { enabled: true, botActive: true, commandsCount: 12, timedCount: 3,
+        triggersCount: 4, quotesCount: 9 },
+    alerts: { enabled: true, rulesCount: 8, queuePending: 0, paused: false },
+    hashtags: { tracked: 8, activeSession: 4, banned: 0, topTag: '#OrbitNight' },
+    milestones: { stream_number: 24, total_hours: 72, streak_days: 3, streak_weeks: 4,
+        lifetime_chatters: 180, lifetime_messages: 6400, next_stream_goal: 25 },
+    streamInfo: [{ title: 'Fictional Friday Showcase', category: 'Demo Adventure' }],
+    hourlyMessages: { '2026-10-31T22:00:00': 180, '2026-10-31T23:00:00': 140 },
+    topChatters: [{ chatname: 'OrbitViewer', messageCount: 28 }, { chatname: 'MeadowViewer', messageCount: 21 }],
+    recentEvents: [{ type: 'follow', user: 'CloudVisitor', detail: 'Followed the channel' }],
+    poll: dummyActivePoll, matchup: dummyMatchup, tournament: dummyTournament, pollTournament: dummyPollTournament,
+    gamePlan: { playingNowId: 'fixture-game',
+        playingNow: { id: 'fixture-game', name: 'Demo Adventure', category: 'Demo Adventure', notes: '' },
+        scheduledCount: 2 }
 };
 
 const dummyChatbotSnapshot = {
@@ -584,18 +633,17 @@ const dummySessionsList = [
 ];
 
 async function run() {
-    let serverInstance = null;
-    try {
-        const check = await fetch(`${baseUrl}/api/status`).catch(() => null);
-        if (!check || !check.ok) {
-            console.log('Backend server not detected on port 3000. Launching in-process server...');
-            serverInstance = await import('../server.js');
-            await new Promise(r => setTimeout(r, 1500));
+    const router = staticRouter.createStaticRouter({ rootDir: path.join(__dirname, '..') });
+    const serverInstance = http.createServer((req, res) => {
+        if (/^\/(?:api|custom-overlay-assets|emote-cache)(?:\/|$)/.test(req.url)) {
+            res.writeHead(404);
+            res.end();
+            return;
         }
-    } catch {
-        serverInstance = await import('../server.js');
-        await new Promise(r => setTimeout(r, 1500));
-    }
+        router.handleRequest(req, res);
+    });
+    await new Promise(resolve => serverInstance.listen(0, '127.0.0.1', resolve));
+    baseUrl = `http://127.0.0.1:${serverInstance.address().port}`;
 
     console.log(`Connecting to ${baseUrl} to capture sanitized documentation screenshots...`);
     const browser = await puppeteer.launch({
@@ -606,7 +654,6 @@ async function run() {
     const page = await browser.newPage();
     await page.setViewport({ width: 1600, height: 1000, deviceScaleFactor: 2 });
     await page.evaluateOnNewDocument(() => {
-        if (!window.location.pathname.includes('custom-overlay-editor')) return;
         window.WebSocket = class extends window.EventTarget {
             static OPEN = 1;
             constructor() { super(); this.readyState = 3; }
@@ -632,6 +679,8 @@ async function run() {
         } else if (url.includes('/api/promos')) {
             const pathname = new URL(url).pathname;
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(pathname === '/api/promos' ? [dummyPromo] : dummyPromo) });
+        } else if (new URL(url).pathname === '/api/custom-overlays') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify([dummyCustomOverlay]) });
         } else if (url.includes('/custom-overlay-assets/promo-fictional-scene.svg')) {
             req.respond({ status: 200, contentType: 'image/svg+xml', body: dummyPromoImage });
         } else if (url.includes('/api/chatters/PixelKnight')) {
@@ -665,13 +714,17 @@ async function run() {
         } else if (url.includes('/api/tournament/drafts') || url.includes('/api/tournament/history')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
         } else if (url.includes('/api/tournament')) {
-            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyTournament) });
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', tournament: dummyTournament }) });
         } else if (url.includes('/api/matchup/history') || url.includes('/api/matchup/queue')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
         } else if (url.includes('/api/matchup')) {
-            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyMatchup) });
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', matchup: dummyMatchup }) });
         } else if (url.includes('/api/chatbot')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyChatbotSnapshot) });
+        } else if (new URL(url).pathname === '/api/status') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyStatus) });
+        } else if (new URL(url).pathname.startsWith('/api/')) {
+            req.respond({ status: 200, contentType: 'application/json', body: '{}' });
         } else {
             req.continue();
         }
@@ -955,6 +1008,7 @@ async function run() {
                     const btn = document.getElementById('tab-btn-tourney');
                     if (btn) btn.click();
                 });
+                await p.waitForFunction(() => document.body.textContent.includes('Community Retro Championship'));
                 await new Promise(r => setTimeout(r, 1000));
             }
         },
@@ -976,6 +1030,7 @@ async function run() {
                     const btn = document.getElementById('tab-btn-matchup');
                     if (btn) btn.click();
                 });
+                await p.waitForFunction(() => document.body.textContent.includes('PixelKnight') && document.body.textContent.includes('CosmicVoyager'));
                 await new Promise(r => setTimeout(r, 1000));
             }
         },
@@ -1030,9 +1085,7 @@ async function run() {
     }
 
     await browser.close();
-    if (serverInstance && typeof serverInstance.gracefulShutdown === 'function') {
-        serverInstance.gracefulShutdown('CAPTURE_DONE', false);
-    }
+    await new Promise(resolve => serverInstance.close(resolve));
     if (failures.length) throw new Error(`Screenshot capture failed: ${failures.join(', ')}`);
     console.log('All sanitized screenshots captured successfully!');
     process.exit(0);

@@ -1,16 +1,113 @@
 'use strict';
+/* global competitiveFixture, loadInitial, PageTransitionEvent */
 /* global renderMatchup, currentMatchup, updateMatchupOverlayUrl, updateTourneyOverlayUrl, localStorage, switchTab, setPreviewMode, setPreviewBackdrop, setPreviewSampleData, setTourneyFitWholeBracket, setPreviewViewport, previewBackdrop, previewUseSample, tourneyFitWholeBracket, previewMode, currentViewportW, currentViewportH */
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const puppeteer = require('puppeteer');
+const { installCompetitiveFixture } = require('./competitive-browser-fixture.cjs');
 
 const OVERLAY_URL = 'file://' + path.resolve(__dirname, '../public/overlays/matchup.html');
 
+        test('matchup overlay versions independent snapshots, preserves Free Points and rounds overrides, and recovers resets', async () => {
+            const browser = await puppeteer.launch({ headless: 'new', pipe: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+            try {
+                const page = await browser.newPage();
+                await installCompetitiveFixture(page);
+                const url = 'http://competitive-fixture.test/overlays/matchup.html?confetti=0&roundpips=1';
+                await page.goto(url, { waitUntil: 'domcontentloaded' });
+                await page.evaluate(async () => {
+                    const f = competitiveFixture;
+                    f.matchup = {
+                        id: 'fixture-exhibition', title: 'New exhibition', status: 'ACTIVE', bestOf: 0, targetScore: 0,
+                        competitors: [{ id: 'a', name: 'Harbor Fox', score: 4 }, { id: 'b', name: 'Valley Owl', score: 2 }]
+                    };
+                    f.tournament = {
+                        id: 'fixture-bracket', title: 'New bracket', format: 'single', status: 'IN_PROGRESS',
+                        bestOf: 3, targetScore: 2, roundsBestOf: 3, activeMatchId: 'fixture-match',
+                        matches: [{
+                            id: 'fixture-match', round: 1, status: 'ACTIVE', bestOf: 0, targetScore: 0, roundsBestOf: 0,
+                            entrant1: { name: 'Nova Team', score: 5, rounds: 1 }, entrant2: { name: 'Comet Team', score: 3, rounds: 1 }
+                        }]
+                    };
+                    f.sockets[0].receive('matchup-update', f.matchup);
+                    f.sockets[0].receive('tournament-update', f.tournament);
+                    f.requests.find(r => r.url === '/api/matchup').respond({ matchup: { ...f.matchup, title: 'Old exhibition' } });
+                    f.requests.find(r => r.url === '/api/tournament').respond({ tournament: null });
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                });
+                assert.equal(await page.$eval('.topbar-competitor.c1 .competitor-name', el => el.textContent.trim()), 'Nova Team');
+                assert.equal(await page.evaluate(() => currentMatchup.targetScore), 0);
+                assert.equal(await page.evaluate(() => currentMatchup.bestOf), 0);
+                assert.match(await page.evaluate(() => currentMatchup.details), /Free Points/);
+                assert.equal(await page.$('.pip'), null, 'Explicit zero game/round rules must suppress pips, even with leftover rounds');
+
+                await page.evaluate(() => competitiveFixture.sockets[0].receive('tournament-update', null));
+                assert.equal(await page.$eval('.topbar-competitor.c1 .competitor-name', el => el.textContent.trim()), 'Harbor Fox');
+                await page.evaluate(() => competitiveFixture.sockets[0].receive('matchup-update', null));
+                assert.equal(await page.$eval('#stage', el => el.classList.contains('hidden')), true);
+
+                await page.goto(url + '&source=tournament', { waitUntil: 'domcontentloaded' });
+                await page.evaluate(async () => {
+                    const f = competitiveFixture;
+                    f.tournament = {
+                        id: 'fixture-independent', title: 'Bracket clock fixture', format: 'single', status: 'IN_PROGRESS',
+                        activeMatchId: 'match-one', bestOf: 3, targetScore: 2,
+                        matches: [{ id: 'match-one', entrant1: { name: 'Nova Team', score: 1 }, entrant2: { name: 'Comet Team', score: 0 }, status: 'ACTIVE' }]
+                    };
+                    f.sockets[0].receive('tournament-update', f.tournament);
+                    f.requests.find(r => r.url === '/api/matchup').respond({ matchup: { clock: { enabled: true, mode: 'countdown', duration: 99, remaining: 37, isRunning: false } } });
+                    f.requests.find(r => r.url === '/api/tournament').respond({ tournament: null });
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                });
+                assert.equal(await page.$eval('.clock-val', el => el.textContent.trim()), '00:37', 'A tournament WS update must not invalidate an independent matchup clock snapshot');
+                assert.equal(await page.$eval('.topbar-competitor.c1 .competitor-name', el => el.textContent.trim()), 'Nova Team');
+
+                await page.evaluate(() => competitiveFixture.sockets[0].close());
+                await page.waitForFunction(() => competitiveFixture.sockets.length === 2 && competitiveFixture.requests.length === 4);
+                await page.evaluate(async () => {
+                    const f = competitiveFixture;
+                    f.requests[2].respond({ matchup: null });
+                    f.requests[3].respond({ tournament: null });
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                });
+                assert.equal(await page.$eval('#stage', el => el.classList.contains('hidden')), true, 'Reconnect null snapshots must clear stale tournament state');
+
+                await page.evaluate(() => {
+                    loadInitial();
+                    window.dispatchEvent(new PageTransitionEvent('pagehide'));
+                    competitiveFixture.sockets[1].receive('tournament-update', competitiveFixture.tournament);
+                });
+                assert.equal(await page.evaluate(() => competitiveFixture.requests[4].options.signal.aborted && competitiveFixture.requests[5].options.signal.aborted), true);
+                assert.equal(await page.evaluate(() => competitiveFixture.sockets[1].readyState), 3);
+                await page.evaluate(async () => {
+                    const f = competitiveFixture;
+                    window.dispatchEvent(new PageTransitionEvent('pageshow'));
+                    f.requests[6].respond({ matchup: null });
+                    f.requests[7].respond({ tournament: null });
+                    f.requests[5].respond({ tournament: f.tournament });
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                });
+                assert.equal(await page.evaluate(() => competitiveFixture.sockets.length), 3);
+                assert.equal(await page.$eval('#stage', el => el.classList.contains('hidden')), true, 'Suspended responses and sockets must not revive old matches');
+
+                await page.goto(url + '&preview=1&sample=1', { waitUntil: 'domcontentloaded' });
+                await page.evaluate(async () => {
+                    const f = competitiveFixture;
+                    f.sockets[0].receive('matchup-update', { clock: { enabled: false, runnerTimersMode: 'live', showSplits: false } });
+                    f.requests.find(r => r.url === '/api/matchup').respond({ matchup: { clock: { enabled: true } } });
+                    f.requests.find(r => r.url === '/api/tournament').respond({ tournament: null });
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                });
+                assert.equal(await page.$('.clock-val'), null, 'Sample clock controls must reject stale HTTP settings too');
+                assert.ok(await page.$('.topbar-panel'), 'Sample preview still renders without live data');
+            } finally {
+                await browser.close();
+            }
+        });
 test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, themes, and toggles', async () => {
     let browser;
-
     try {
         browser = await puppeteer.launch({
             headless: 'new',
@@ -18,6 +115,7 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--allow-file-access-from-files']
         });
         const page = await browser.newPage();
+        await installCompetitiveFixture(page, { '/api/matchup': { matchup: null }, '/api/tournament': { tournament: null } });
         await page.setViewport({ width: 1280, height: 720 });
 
         // 1. Top Bar layout (?layout=top)

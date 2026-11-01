@@ -1023,6 +1023,7 @@
         <div class="card-body">
             <div class="detail-text">
                 The right-hand panel groups properties into <strong>Content</strong>, <strong>Layout</strong>, and <strong>Style</strong>. Only tabs relevant to the selection appear. Content keeps sources, playback, alert previews, and poll settings together. Layout holds position, size, scaling, alignment, and optional OBS source links. Style holds typography, borders, visual effects, and element-specific appearance.<br><br>
+                Duplicating an overlay preserves its pages, scene states, transitions, and cycling settings under a new ID. You can keep editing during a save: changes made after submission stay in the editor and remain unsaved until your next save.<br><br>
                 Game lists keep their filters in Content, grid and ticker layout in Layout, and covers and text sizes in Style. Pattern layers separate their graphic, tile layout, and motion the same way. Cutouts keep punchthrough controls in Content and geometry in Layout; multi-selection offers shared Layout and Style controls. Tab choices are remembered per element type, and each tab restores its scroll position. Use Left/Right or Home/End while a tab is focused to navigate with the keyboard.
             </div>
         </div>
@@ -1034,9 +1035,9 @@
         </div>
         <div class="card-body">
             <div class="detail-text">
-                This is optional: ordinary browser-source overlays do not need the OBS bridge. Enable OBS WebSocket v5 in OBS, then open <strong>Config Editor</strong> and enter its host, port, and password in the OBS settings. Check connection status before linking sources.<br><br>
+                This is optional: ordinary browser-source overlays do not need the OBS bridge. Enable OBS WebSocket v5 in OBS, then open <strong>Config Editor</strong> and enter its host, port, and password in the OBS settings. Password fields are not filled from saved credentials: leave blank to keep the saved password, enter a replacement, or use <strong>Clear saved OBS password</strong> to remove it. Check connection status before linking sources.<br><br>
                 An <strong>OBS Source Frame</strong> is a layout proxy for a real source in a selected OBS scene, not a captured video feed. Link the frame to that source and position it in the editor. State changes can then synchronize the source's transform and visibility. Automatic synchronization follows <strong>Sync on Save</strong>; disable it when you do not want editor/page changes moving OBS sources.<br><br>
-                Choose the motion engine supported by your setup; Move-plugin behavior depends on the plugin being installed in OBS. Test off-air. Invalid passwords stop automatic retries, and disconnected or failed syncs are reported rather than treated as successful moves.<br><br>
+                Choose the motion engine supported by your setup; Move-plugin behavior depends on the plugin being installed in OBS. Test off-air. Invalid passwords stop automatic retries, and disconnected or failed syncs are reported rather than treated as successful moves. WebSocket animation waits for the final write acknowledgement; Move-plugin success confirms that OBS accepted the filter start, not that its animation has finished.<br><br>
                 OBS connection/configuration/manual-sync APIs are restricted to requests from the local machine. Remote Companion controllers can still use normal overlay page/state actions; they do not need the OBS administration endpoints.
             </div>
         </div>
@@ -1203,10 +1204,11 @@
                     <div class="detail-text">
                         Poll Manager features a dedicated <strong>Tournament Bracket</strong> mode for community competitions and game showdowns:
                         <br><br>
-                        • <strong>Bracket Sizes &amp; Formats:</strong> 4, 8, or 16 seeds in Single Elimination or Double Elimination (with Winners and Losers Brackets).<br>
+                        • <strong>Bracket Sizes &amp; Formats:</strong> Double Elimination supports exactly 2, 4, 8, or 16 entrants, with Winners, Losers, and Grand Finals sections. Single Elimination supports up to 32 entrants with BYEs where needed.<br>
                         • <strong>Automatic Seeding:</strong> Standard tournament seeding pairs (1 vs 8, 4 vs 5, 2 vs 7, 3 vs 6).<br>
                         • <strong>Matchup Voting:</strong> Each matchup runs as a live head-to-head chat poll with live vote fill bars updating directly on the bracket overlay.<br>
-                        • <strong>Winner Advancement:</strong> Concluding a match advances the winner into the next bracket round, while losers in double elimination route into the Losers Bracket.<br>
+                        • <strong>Winner Advancement:</strong> Concluding a match advances the winner into the next bracket round, while losers in double elimination route into the Losers Bracket. If the losers-side finalist wins Grand Finals, a reset match decides the champion: every entrant must lose twice to be eliminated.<br>
+                        • <strong>Blind Voting:</strong> Votes and percentages stay hidden in the ballot and bracket until the match ends. Confirming a winner manually still saves the completed ballot to poll history.<br>
                         • <strong>Dedicated Poll Tournament Overlay:</strong> Broadcast the full visual bracket tree live in OBS via <code>${BASE}/overlays/poll-tournament.html</code> with glowing active matchup highlights, live chat vote fill bars, and champion ceremony.
                     </div>
                 </div>
@@ -1223,7 +1225,7 @@
                         • <strong>Direct Digit Numbers:</strong> Typing <code>1</code> through <code>10</code> directly in chat.<br>
                         • <strong>Vote Commands:</strong> Typing <code>!vote 1</code>, <code>!vote 2</code>, or <code>!vote &lt;title&gt;</code>.<br>
                         • <strong>Natural Keyword Recognition:</strong> When enabled, typing key words from a choice title automatically casts a vote.<br>
-                        • <strong>Vote Changing:</strong> Viewers can change their vote before the poll closes; previous votes are automatically subtracted and transferred.<br>
+                        • <strong>Vote Changing:</strong> Viewers can change their vote before the poll closes; previous votes are automatically subtracted and transferred. Votes are tracked by viewer and platform, not by individual chat message IDs.<br>
                         • <strong>Subscriber Bonus Multiplier:</strong> Award channel subscribers weighted voting power (e.g. 2× votes).
                     </div>
                 </div>
@@ -1241,14 +1243,14 @@
                         <tr><td><code>/api/polls/history</code></td><td>GET</td><td>Returns list of previous poll results.</td></tr>
                         <tr><td><code>/api/polls/create</code></td><td>POST</td><td>Create and start a poll: <code>{ title, choices, duration, blind, keywords, subMultiplier, celebration }</code>.</td></tr>
                         <tr><td><code>/api/polls/end</code></td><td>POST</td><td>Immediately conclude poll and crown the winner.</td></tr>
-                        <tr><td><code>/api/polls/extend</code></td><td>POST</td><td>Add voting seconds to active poll: <code>{ seconds: 30 }</code>.</td></tr>
+                        <tr><td><code>/api/polls/extend</code></td><td>POST</td><td>Add voting seconds to active poll: <code>{ seconds: 30 }</code>. For an untimed poll, starts a countdown from now.</td></tr>
                         <tr><td><code>/api/polls/cancel</code></td><td>POST</td><td>Cancel active poll without crowning a winner.</td></tr>
                         <tr><td><code>/api/polls/presets</code></td><td>GET / POST</td><td>List or save reusable poll templates.</td></tr>
-                        <tr><td><code>/api/tournament</code></td><td>GET</td><td>Get current active tournament bracket state.</td></tr>
-                        <tr><td><code>/api/tournament/create</code></td><td>POST</td><td>Launch a tournament: <code>{ title, format, entrants, matchDuration, blind }</code>.</td></tr>
-                        <tr><td><code>/api/tournament/start-match</code></td><td>POST</td><td>Start live voting for a tournament match: <code>{ matchId }</code>.</td></tr>
-                        <tr><td><code>/api/tournament/advance</code></td><td>POST</td><td>Advance matchup winner into the next bracket node.</td></tr>
-                        <tr><td><code>/api/tournament/reset</code></td><td>POST</td><td>Reset and end active tournament.</td></tr>
+                        <tr><td><code>/api/polls/tournament</code></td><td>GET</td><td>Get the audience voting bracket. Versus uses the separate <code>/api/tournament</code> endpoints.</td></tr>
+                        <tr><td><code>/api/polls/tournament/create</code></td><td>POST</td><td>Launch an audience bracket: <code>{ title, format, entrants, matchDuration, blind }</code>.</td></tr>
+                        <tr><td><code>/api/polls/tournament/start-match</code></td><td>POST</td><td>Start live voting for a tournament match: <code>{ matchId }</code>.</td></tr>
+                        <tr><td><code>/api/polls/tournament/advance</code></td><td>POST</td><td>Confirm a participating entrant as winner and advance the bracket.</td></tr>
+                        <tr><td><code>/api/polls/tournament/reset</code></td><td>POST</td><td>Reset and end the active audience tournament.</td></tr>
                     </table>
                 </div>
             </div>`;
@@ -1281,9 +1283,10 @@
                         StreamPulse supports 2 to 32 participants across multiple competitive bracket models:
                         <br><br>
                         • <strong>Single Elimination with Clean BYEs:</strong> Enter any number of competitors (even odd numbers like 3, 5, 6, 7, 9, 11). Top seeds automatically receive 1st Round BYEs that advance directly to the subsequent round slot without ghost matches or fake scores.<br>
-                        • <strong>Double Elimination:</strong> Full Winners and Losers bracket progression with Grand Finals reset capabilities.<br>
+                        • <strong>Double Elimination:</strong> Supports 2 to 16 entrants, including BYEs, with Winners and Losers progression. A losers-side Grand Finals victory creates a reset match rather than eliminating the undefeated finalist after one loss.<br>
                         • <strong>Round Robin (All vs All):</strong> Ideal for 3 to 8 players. Every competitor plays every other competitor; the studio and overlay provide an auto-updating Standings Table with Played, W-L records, and points.<br>
-                        • <strong>Series Scoring &amp; Auto-Advancement:</strong> Configure Free Points, Best of 1, Best of 3, Best of 5, or Best of 7. Reaching the series target score automatically advances the winner to their next bracket slot.
+                        • <strong>Series Scoring &amp; Advancement:</strong> Configure Free Points, Best of 1, Best of 3, Best of 5, or Best of 7. Bounded series identify a winner when the target is met; advancement follows the selected progression mode. Free Points has no score ceiling: confirm the winner manually. A per-match <code>roundsBestOf: 0</code> disables rounds; missing or null values inherit the tournament setting.<br>
+                        • <strong>Correcting Results:</strong> Reset or roll back a match to correct a result. Downstream bracket slots and round-robin standings update to match; poll and versus histories remain separate.
                     </div>
                 </div>
             </div>
@@ -1298,7 +1301,7 @@
                         <br><br>
                         • <strong>2 to 4 Competitors / Teams:</strong> Switch instantly between 1v1 duels, 3-way triple threats, and 4-player free-for-all showdowns.<br>
                         • <strong>Side Swapping (P1 ⇄ P2):</strong> 1-click swap for Player 1 and Player 2 names, character tags, custom colors, and current scores.<br>
-                        • <strong>Fight Card Exhibition Queue:</strong> Line up a sequence of exhibition matches for your broadcast. Step forward or backward with 1 click, or load any match directly to the live broadcast overlay.<br>
+                        • <strong>Fight Card Exhibition Queue:</strong> Line up a sequence of exhibition matches for your broadcast. Step forward or backward with 1 click, or load any match directly. Loading a queue item, matchup preset, or matchup history switches studio controls to the exhibition match. Use <code>?source=matchup</code> for an exhibition-only overlay alongside an active tournament.<br>
                         • <strong>Configuration Presets:</strong> Save and reload rules and templates (includes built-in Street Fighter 6 FT10, Tekken 8 BO5, Smash Ultimate BO3, and Mario Kart 4P FFA defaults).
                     </div>
                 </div>
@@ -1448,7 +1451,7 @@
         </div>
         <div class="card-body">
             <div class="detail-text">
-                Incoming controls use HTTP endpoints, so Bitfocus Companion or OBS macros can start, pause, resume, reset, add time, subtract time, or toggle visibility. Countdown timers can use either a fixed duration or a fixed target date/time from Timer Manager. Optional per-timer outgoing HTTP calls can fire on <code>countdown_started</code>, <code>countdown_complete</code>, <code>stopwatch_started</code>, and <code>stopwatch_paused</code>.
+                Incoming controls use HTTP endpoints, so Bitfocus Companion or OBS macros can start, pause, resume, reset, add time, subtract time, or toggle visibility. Countdown timers can use either a fixed duration or a fixed target date/time from Timer Manager. Pausing freezes the remaining time, including date countdowns; refreshing or reconnecting does not consume paused time. Resume continues from that frozen remainder. Optional per-timer outgoing HTTP calls can fire on <code>countdown_started</code>, <code>countdown_complete</code>, <code>stopwatch_started</code>, and <code>stopwatch_paused</code>.
             </div>
             <div class="detail-label">Sample Control URLs</div>
             <div class="url-box"><code>${BASE}/api/timers/starting-soon/control?action=start</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/timers/starting-soon/control?action=start')">Copy</button></div>

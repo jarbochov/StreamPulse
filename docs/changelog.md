@@ -11,7 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- Custom Overlay Studio (Beta): scene states with reversible morph/crossfade/slide transitions, OBS source synchronization, smart snapping, and reusable component prefabs.
+- Custom Overlay Studio (Beta): reversible scene transitions, cancellable OBS source synchronization with connection/error feedback, protected OBS credentials, smart snapping, and reusable prefabs.
 - Bracket Camera & Section View API: HTTP triggers (`/api/tournament/view`, `/api/polls/tournament/view`), WebSocket events, and Companion actions to toggle camera focus (`focus=toggle|1|0`), pan bracket rounds (`round=next|prev|<num>`), and switch bracket sections (`bracket=winners|losers|finals|all|cycle`) on live OBS overlays.
 - Bracket Overlay Border Radius: Added customizable card corner roundness (`?radius=` / `--tourney-radius`, from `0px` sharp square up to `999px` pill/capsule) across all cards in both Versus Bracket (`tournament.html`) and Poll Tournament Bracket (`poll-tournament.html`) overlays, exposed directly in the Layout & Framing tab, Typography & Themes tab, live preview toolbar, and Overlay URL Wizard.
 - Poll Tournament Entrant & Versus Colors: Audience voting brackets (`poll-tournament.html`) now feature fully customizable competitor slot colors (`?p1color=` / `?p2color=`) with live color swatches and pickers on active match cards in Poll Manager (`polls.html`), color palette inputs in Versus Studio and Overlay URL Wizard, dual-colored active match HUD voting progress bars, and automatic hex color parsing from participant text inputs (`Entrant #hex`, `[#hex]`, `tag | #hex`).
@@ -21,14 +21,14 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Bitfocus Companion & Stream Deck: Unified HTTP GET and POST trigger support across Matchup, Tournament, Polls, Alerts, Chatbot, Randomizer, and Custom Overlays with automatic URL parameter decoding and plain-text field lookups (`/api/matchup/field/:field`, `/api/variables/:name?raw=1`).
 - Companion API Reference: Interactive endpoint documentation with direct Companion copy URLs, status snapshot dynamic variables (`matchup`, `tournament`, `pollTournament`), and dedicated regression suite (`scripts/test-companion-api.cjs`).
 - Versus & Matchup Wide Layout: Responsive widescreen layout mode (`?wide=1`) expanding competitor names, match titles, and runner splits for multi-player esports broadcasts, plus queue duplication and clearing.
-- Tournaments & Polls: Quick tie-breaker match actions (`higherSeed`, `coinFlip`, `random`, `overtime`), wide tree layout toggle (`?wide=1`), and double-elimination BYE routing resilience.
+- Tournaments & Polls: Higher Seed and Coin Flip tie-breakers, reset/restart voting controls, wide tree layout, and double-elimination BYE routing.
 - Alert Queue & Alerts: Low-density queue filtering by category and search query, quick test dispatch from the queue toolbar, and master preview volume control.
 - Chatbot Backup & Cooldowns: Added JSON export/import for custom commands and triggers, per-user cooldown overrides, and regex/exact word matching modes.
-- Custom Overlay Editor: Type-aware Content/Layout/Style inspector tabs, remembered navigation, aspect ratio presets, slideshow animation easing, and responsive scaling.
+- Custom Overlay Editor: Type-aware inspector tabs, remembered navigation, page-preserving duplication, edit-safe saving, aspect ratio presets, slideshow easing, and responsive scaling.
 - Alerts Engine: Granular subscription tier selection with specificity precedence, weighted and gated variants, video volume controls, Twitch channel emotes in alert media, and gift sub recipient placeholders.
-- Versus & Tournament Studio: Scoreboards, elimination and round-robin brackets, multi-match scorekeeper, speedrun battle clocks, and broadcast overlays.
+- Versus & Tournament Studio: Scoreboards, validated elimination brackets with Grand Finals resets, round-robin standings and saved history, unlimited points, exhibition queues, independently controlled race clocks, and broadcast overlays.
 - Matchup Player Clocks: Optional competitor split, race, and countdown clock badges on all versus scoreboard layouts (`top`, `fgc`, `split`, `pillar`, `bottom`, `compact`, `versus`).
-- Poll Manager: Chat polls, audience voting brackets, focused bracket overlays, reusable tournament templates, progress checkpoints, and saved-bracket history.
+- Poll Manager: Viewer-based chat voting, blind audience brackets, focused overlays with snapshot recovery, reusable tournament templates, progress checkpoints, and completed-ballot history.
 - Randomizer Elimination Mode: Weight-based choice randomizer with elimination and restoration.
 - Promo Creator: Social promo generator with multi-layer layout, animations, and image export.
 - Procedural Patterns Library: Shared 20-pattern geometric and organic pattern generator synced across Promo Creator and Custom Overlay Editor.
@@ -36,6 +36,8 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Custom Overlay Editor IGDB Artwork: Direct browser and importer for official game artwork, logos, and screenshots from IGDB into custom overlay image layers.
 
 ### Fixed
+- Dashboard: Restore connection text after outages, show disabled alerts accurately, and bound shared navigation polling with deadlines, stale-response protection, and idle cleanup.
+- Goals & Timers: Preserve reset baselines and zero community weights on save, retain pending baseline edits during live updates, and keep paused date countdown snapshots frozen.
 - Active Match Badge: Fixed Active Match Badge (`?focusbadge=1`) rendering across all bracket layouts (both standard tree overview and dynamic focus views) and resolved wizard URL generation to explicitly output `focusbadge=1` when enabled.
 - Custom Overlay Background Patterns: Resolved an issue where procedural background patterns (`procedural-pattern`) were stripped or coerced to text elements on save due to element type whitelist omissions and incomplete pattern property normalization.
 - Overlay Font Lists & Autocomplete Deduplication: Deduplicated font options across all URL wizards and studio tools, eliminating redundant browser datalist autocomplete lines and grouping multi-format custom uploaded font assets into single family cards.

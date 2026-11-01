@@ -62,6 +62,8 @@ The browser regressions use Puppeteer's Chrome. If it is missing, run `npm run i
 
 ### Bounded Resource Checks
 
+`npm run test:stability` covers dashboard recovery, bounded navigation polling, editor save races, competitive studio controls, goal baselines, overlay duplication, and paused countdown snapshots using fictional fixtures. It is included in `npm test`.
+
 Run `node scripts/profile-overlay-resources.mjs` for a separate, one-minute synthetic Chromium workload (not part of `npm test`). It switches between fictional editor pages every two seconds, retaining common layers, and reports post-GC JavaScript heap, DOM nodes, browser task time, maximum mounted layers, and effect callback cleanup. `PROFILE_SECONDS=120` changes the duration (10–600 seconds).
 
 The fixture contains 18 image/pattern/effect layers; only 12 should mount at once. Teardown must leave zero fixture RAF chains and timers. Reported heap is JavaScript heap, not total process/GPU memory; browser task time is not overall CPU utilization. This workload does not exercise video decoding, OBS, or a multi-hour broadcast.
@@ -69,6 +71,8 @@ The fixture contains 18 image/pattern/effect layers; only 12 should mount at onc
 For a manual Safari/OBS check, run `PROFILE_SECONDS=600 node scripts/profile-overlay-resources.mjs --serve` and open the printed **loopback** URL in a dedicated test tab/source. The server expires automatically; stop it when finished. In Safari's console, `window.fixture.switchPage()` changes pages, `window.fixture.sample()` reports callback/layer counts, and `window.fixture.stop()` removes every layer. Keep this separate from real OBS scenes/profiles. A full soak should also use fictional native-video sources and monitor total browser/OBS memory, CPU/GPU utilization, frame time and audio over several hours; the synthetic checks do not establish those results.
 
 The October 19, 2026 bounded run completed 30 page switches over 60 seconds in both Chromium and Safari 27.0.1, with 12 mounted layers throughout and no runtime errors. Both stopped with zero tracked effect RAF chains/timers, with no later effect frames observed in Safari. Chromium's post-GC JS heap was approximately 1.60 MB before, 1.87 MB active, and 1.74 MB after removal; DOM nodes were 93 before/active and 35 after. These single-run fixture observations are not leak-free guarantees or production process-memory measurements. OBS and a multi-hour native-video soak remain unverified.
+
+The October 31 stabilization run repeated the 60-second Chromium fixture: 30 switches, maximum 12 mounted layers, no errors, and zero RAF chains/timers after teardown. Post-GC heap was 1.63 MB before, 1.91 MB active, and 1.78 MB after removal; DOM nodes fell from 93 to 35. Navigation regressions verify one status request at a time, an eight-second deadline, and cleanup while hidden or leaving the page. These are bounded-work measurements, not production memory or Safari/OBS soak guarantees.
 
 ### Smoke Testing Editors
 
@@ -126,7 +130,7 @@ StreamPulse maintains its official documentation at [jarbochov.github.io/StreamP
   ```bash
   node scripts/capture-screenshots.mjs
   ```
-  To refresh only one image, use `--only=dashboard` (or another screenshot filename without `.png`). Set `STREAMPULSE_URL` to an isolated fixture server with fictional data when capturing; do not point it at a live production session.
+  To refresh only one image, use `--only=dashboard` (or another screenshot filename without `.png`). Capture starts a temporary static-only server, intercepts API responses with fictional fixtures, and disables WebSockets. It never starts the application backend or connects to a live production session.
 - **Automated Deployment**: GitHub Pages deploys automatically on every push to `main` via `.github/workflows/pages.yml`.
 
 ---

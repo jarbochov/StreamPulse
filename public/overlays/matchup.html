@@ -2454,6 +2454,12 @@
 
         let currentMatchup = null;
         let lastCelebratedWinner = null;
+        let suspended = false;
+        let initialRequest = null;
+        let liveSocket = null;
+        let reconnectTimer = null;
+        let confettiFrame = null;
+        const stateVersions = { matchup: 0, tournament: 0 };
 
         function esc(str) {
             return String(str || '').replace(/[&<>"']/g, c => ({
@@ -2470,7 +2476,7 @@
             const p2 = n => String(n).padStart(2, '0');
             return `${h > 0 ? h + ':' + p2(mi) : p2(mi)}:${p2(se)}.${p2(cs)}`;
         }
-        setInterval(() => {
+        function tickLiveClocks() {
             if (!liveM) return;
             const clockRunning = liveM.clock && liveM.clock.enabled !== false && liveM.clock.isRunning;
             const anyRunnerRunning = Array.isArray(liveM.competitors) && liveM.competitors.some(c => c.timer && c.timer.isRunning && !c.timer.finished);
@@ -2487,7 +2493,8 @@
                     el.textContent = fmtMs((t.elapsed || 0) + (t.isRunning ? dt : 0));
                 }
             });
-        }, 50);
+        }
+        let clockTicker = setInterval(tickLiveClocks, 50);
 
         function formatClockTime(seconds, isStopwatch = false) {
             const s = Math.max(0, parseInt(seconds, 10) || 0);
@@ -2558,10 +2565,10 @@
 
         function renderPipsHtml(comp, target, color) {
             const score = typeof comp === 'object' ? (comp.score || 0) : comp;
-            const rb = Number(currentMatchup && currentMatchup.roundsBestOf) || (typeof comp === 'object' && comp.rounds > 0 ? 3 : 0);
+            const rb = Number(currentMatchup?.roundsBestOf ?? (typeof comp === 'object' && comp.rounds > 0 ? 3 : 0));
             const roundTarget = rb > 0 ? Math.ceil(rb / 2) : 2;
             const roundsWon = typeof comp === 'object' ? (comp.rounds || 0) : 0;
-            const hasRounds = showRoundPips && (rb > 0 || (typeof comp === 'object' && comp.rounds !== undefined && comp.rounds > 0));
+            const hasRounds = showRoundPips && rb > 0;
             const hasGamePips = showPips && target && target > 0;
 
             if (!hasGamePips && !hasRounds) return '';
@@ -2760,6 +2767,8 @@
                 if (isPreview) {
                     m = SAMPLE_MATCHUP;
                 } else {
+                    currentMatchup = null;
+                    liveM = null;
                     stage.classList.add('hidden');
                     return;
                 }
@@ -2776,7 +2785,7 @@
                 lastCelebratedWinner = null;
             }
 
-            const target = m.targetScore || (m.bestOf > 0 ? Math.ceil(m.bestOf / 2) : 0);
+            const target = m.targetScore ?? (m.bestOf > 0 ? Math.ceil(m.bestOf / 2) : 0);
 
             // Clock-only mode
             if (isClockOnly) {
@@ -3349,7 +3358,7 @@
 
         // Particle Confetti
         function burstConfetti() {
-            if (!enableConfetti || !confettiCanvas) return;
+            if (suspended || !enableConfetti || !confettiCanvas) return;
             const ctx = confettiCanvas.getContext('2d');
             confettiCanvas.width = window.innerWidth;
             confettiCanvas.height = window.innerHeight;
@@ -3373,6 +3382,8 @@
 
             let start = performance.now();
             function frame(time) {
+                confettiFrame = null;
+                if (suspended) return;
                 const elapsed = time - start;
                 ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
 
@@ -3397,12 +3408,13 @@
                 }
 
                 if (alive && elapsed < 2600) {
-                    requestAnimationFrame(frame);
+                    confettiFrame = requestAnimationFrame(frame);
                 } else {
                     ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
                 }
             }
-            requestAnimationFrame(frame);
+            if (confettiFrame !== null) cancelAnimationFrame(confettiFrame);
+            confettiFrame = requestAnimationFrame(frame);
         }
 
         // Auto State Resolver (Tournament vs Standalone Matchup)
@@ -3415,16 +3427,17 @@
             const e2Name = match.entrant2?.name || (match.entrants && match.entrants[1]) || 'Player 2';
             const s1 = match.entrant1?.score ?? (Array.isArray(match.scores) ? (match.scores[0] ?? 0) : ((match.scores && match.scores[e1Name]) ?? 0));
             const s2 = match.entrant2?.score ?? (Array.isArray(match.scores) ? (match.scores[1] ?? 0) : ((match.scores && match.scores[e2Name]) ?? 0));
-            const bestOf = match.bestOf || tournament.bestOf || 3;
-            const targetScore = match.targetScore || tournament.targetScore || (bestOf > 0 ? Math.ceil(bestOf / 2) : 0);
+            const bestOf = match.bestOf ?? tournament.bestOf ?? 3;
+            const targetScore = match.targetScore ?? tournament.targetScore ?? (bestOf > 0 ? Math.ceil(bestOf / 2) : 0);
+            const series = bestOf > 0 ? `Best of ${bestOf}` : (targetScore > 0 ? `First to ${targetScore}` : 'Free Points');
 
             return {
                 id: match.id,
                 title: tournament.title || tournament.name || 'Tournament Showdown',
                 phase: match.roundName || `Round ${match.round || 1}`,
-                details: match.matchDetails || match.details || `${tournament.format === 'roundRobin' ? 'Round Robin' : 'Bracket'} · Best of ${bestOf}`,
+                details: match.matchDetails || match.details || `${tournament.format === 'roundRobin' ? 'Round Robin' : 'Bracket'} · ${series}`,
                 competitorCount: 2,
-                roundsBestOf: match.roundsBestOf || tournament.roundsBestOf || 0,
+                roundsBestOf: match.roundsBestOf ?? tournament.roundsBestOf ?? 0,
                 competitors: [
                     { id: 'c1', name: e1Name, tag: match.entrant1?.tag || '', color: customP1Color || match.entrant1?.color || '#ef4444', score: s1, rounds: match.entrant1?.rounds || 0 },
                     { id: 'c2', name: e2Name, tag: match.entrant2?.tag || '', color: customP2Color || match.entrant2?.color || '#3b82f6', score: s2, rounds: match.entrant2?.rounds || 0 }
@@ -3445,16 +3458,10 @@
 
         function resolveActiveState() {
             if (forceSample) {
-                fetch('/api/matchup').then(r => r.json()).then(d => {
-                    const c = (d.matchup || d).clock;
-                    if (c) {
-                        SAMPLE_MATCHUP.clock.enabled = showClock && c.enabled !== false;
-                        if (!runnerTimersParam && c.runnerTimersMode) SAMPLE_MATCHUP.clock.runnerTimersMode = c.runnerTimersMode;
-                        if (splitsParam === '' && c.showSplits !== undefined) SAMPLE_MATCHUP.clock.showSplits = c.showSplits;
-                        renderMatchup(SAMPLE_MATCHUP);
-                    }
-                }).catch(() => {});
-                SAMPLE_MATCHUP.clock.enabled = showClock;
+                const c = standaloneMatchupData?.clock;
+                SAMPLE_MATCHUP.clock.enabled = showClock && c?.enabled !== false;
+                if (!runnerTimersParam && c?.runnerTimersMode) SAMPLE_MATCHUP.clock.runnerTimersMode = c.runnerTimersMode;
+                if (splitsParam === '' && c?.showSplits !== undefined) SAMPLE_MATCHUP.clock.showSplits = c.showSplits;
                 renderMatchup(SAMPLE_MATCHUP);
                 return;
             }
@@ -3470,11 +3477,7 @@
                         return;
                     }
                 }
-                if (isPreview) {
-                    renderMatchup(SAMPLE_MATCHUP);
-                } else {
-                    stage.classList.add('hidden');
-                }
+                renderMatchup(null);
                 return;
             }
 
@@ -3494,76 +3497,111 @@
             // Standalone matchup fallback
             if (standaloneMatchupData) {
                 renderMatchup(standaloneMatchupData);
-            } else if (isPreview) {
-                renderMatchup(SAMPLE_MATCHUP);
             } else {
-                stage.classList.add('hidden');
+                renderMatchup(null);
             }
         }
 
         // Initial Data Fetch
         async function loadInitial() {
-            try {
-                const [matchupRes, tourneyRes] = await Promise.all([
-                    fetch('/api/matchup').catch(() => null),
-                    fetch('/api/tournament').catch(() => null)
-                ]);
-
-                if (matchupRes && matchupRes.ok) {
-                    const mData = await matchupRes.json();
-                    if (mData && mData.matchup) standaloneMatchupData = mData.matchup;
-                }
-                if (tourneyRes && tourneyRes.ok) {
-                    const tData = await tourneyRes.json();
-                    if (tData && tData.tournament) activeTournamentData = tData.tournament;
-                }
-            } catch (err) {
-                console.warn('Could not fetch initial matchup or tournament data:', err);
+            initialRequest?.abort();
+            const controller = new AbortController();
+            initialRequest = controller;
+            const versions = { ...stateVersions };
+            const timeout = setTimeout(() => controller.abort(), 10000);
+            const isCurrent = key => !suspended && !controller.signal.aborted && stateVersions[key] === versions[key];
+            async function loadSnapshot(key, endpoint) {
+                try {
+                    const res = await fetch(endpoint, { signal: controller.signal, cache: 'no-store' });
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    if (!isCurrent(key)) return;
+                    if (key === 'matchup') standaloneMatchupData = data.matchup ?? null;
+                    else activeTournamentData = data.tournament ?? null;
+                    resolveActiveState();
+                } catch { /* keep the last known state while offline */ }
             }
-            resolveActiveState();
+            try {
+                await Promise.all([
+                    loadSnapshot('matchup', '/api/matchup'),
+                    loadSnapshot('tournament', '/api/tournament')
+                ]);
+                if (isCurrent('matchup') && isCurrent('tournament')) resolveActiveState();
+            } finally {
+                clearTimeout(timeout);
+                if (initialRequest === controller) initialRequest = null;
+            }
         }
+        if (forceSample || isPreview) resolveActiveState();
         loadInitial();
 
         // WebSocket Connection
         function connectWs() {
+            if (suspended || liveSocket) return;
             const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
             const ws = new WebSocket(`${proto}//${location.host}/ws`);
+            liveSocket = ws;
 
             ws.onopen = () => {
+                if (suspended || liveSocket !== ws) return;
                 if (window.self === window.top && !isPreview) {
                     ws.send(JSON.stringify({ type: 'overlay-source', key: 'matchup' }));
                 }
             };
 
             ws.onmessage = (event) => {
-                if (forceSample) {
-                    try {
-                        const sm = JSON.parse(event.data);
-                        if (sm.type === 'matchup-update' && sm.data && sm.data.clock) {
-                            const c = sm.data.clock;
-                            SAMPLE_MATCHUP.clock.enabled = showClock && c.enabled !== false;
-                            if (!runnerTimersParam && c.runnerTimersMode) SAMPLE_MATCHUP.clock.runnerTimersMode = c.runnerTimersMode;
-                            if (splitsParam === '' && c.showSplits !== undefined) SAMPLE_MATCHUP.clock.showSplits = c.showSplits;
-                            renderMatchup(SAMPLE_MATCHUP);
-                        }
-                    } catch { /* ignore */ }
-                    return;
-                }
+                if (suspended || liveSocket !== ws) return;
                 try {
                     const msg = JSON.parse(event.data);
                     if (msg.type === 'matchup-update') {
+                        stateVersions.matchup++;
                         standaloneMatchupData = msg.data;
                         resolveActiveState();
                     } else if (msg.type === 'tournament-update') {
+                        stateVersions.tournament++;
                         activeTournamentData = msg.data;
                         resolveActiveState();
                     }
                 } catch { /* ignore parse error */ }
             };
 
-            ws.onclose = () => setTimeout(connectWs, 2000);
+            ws.onclose = () => {
+                if (liveSocket !== ws) return;
+                liveSocket = null;
+                if (suspended || reconnectTimer !== null) return;
+                reconnectTimer = setTimeout(() => {
+                    reconnectTimer = null;
+                    connectWs();
+                    loadInitial();
+                }, 2000);
+            };
+            ws.onerror = () => ws.close();
         }
         connectWs();
+        window.addEventListener('pagehide', () => {
+            suspended = true;
+            stateVersions.matchup++;
+            stateVersions.tournament++;
+            initialRequest?.abort();
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+            clearInterval(clockTicker);
+            clockTicker = null;
+            if (confettiFrame !== null) cancelAnimationFrame(confettiFrame);
+            confettiFrame = null;
+            confettiCanvas?.getContext('2d')?.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            const ws = liveSocket;
+            liveSocket = null;
+            ws?.close();
+        });
+        window.addEventListener('pageshow', () => {
+            if (!suspended) return;
+            suspended = false;
+            tickLiveClocks();
+            clockTicker = setInterval(tickLiveClocks, 50);
+            connectWs();
+            loadInitial();
+        });
     </script>
 </body>
 </html>

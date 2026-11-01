@@ -349,6 +349,7 @@
             let msg;
             try { msg = JSON.parse(event.data); } catch { return; }
             if (msg.type === 'goals-update') {
+                mergeGoalBaselines(msg.data);
                 goalsSnapshot = msg.data || goalsSnapshot;
                 renderMetrics();
                 renderGoalList();
@@ -359,6 +360,35 @@
             }
         };
         ws.onclose = () => setTimeout(connectWebSocket, 5000);
+    }
+
+    function mergeGoalBaselines(snapshot) {
+        const baselineFields = {
+            followers: 'baseline-followers', subscribers: 'baseline-subscribers',
+            gift_subs: 'baseline-gift-subs', bits: 'baseline-bits', donations: 'baseline-donations'
+        };
+        for (const updated of snapshot?.items || []) {
+            const previous = goalsSnapshot?.items?.find(item => item.id === updated.id);
+            const draft = settingsState?.goals?.items?.find(item => item.id === updated.id);
+            if (!previous || !draft) continue;
+            if (updated.type === 'community') {
+                draft.baseline_metrics ||= {};
+                for (const [key, fieldId] of Object.entries(baselineFields)) {
+                    const before = previous.baseline_metrics?.[key] || 0;
+                    const next = updated.baseline_metrics?.[key] || 0;
+                    if ((draft.baseline_metrics[key] || 0) !== before) continue;
+                    draft.baseline_metrics[key] = next;
+                    const field = document.getElementById(fieldId);
+                    if (selectedGoalId === draft.id && Number(field.value) === before) field.value = next;
+                }
+            } else if ((draft.baseline || 0) === (previous.baseline || 0)) {
+                const field = document.getElementById('goal-baseline-display');
+                if (selectedGoalId === draft.id && Number(field.value) === (previous.baseline || 0)) {
+                    field.value = updated.baseline || 0;
+                }
+                draft.baseline = updated.baseline || 0;
+            }
+        }
     }
 
     function syncSelectedGoalFromDom() {
@@ -385,11 +415,11 @@
             goal.baseline = Math.max(0, Number(document.getElementById('goal-baseline-display').value) || 0);
         }
         goal.weights = {
-            followers: Math.max(0, Number(document.getElementById('weight-followers').value) || DEFAULT_COMMUNITY_WEIGHTS.followers),
-            subscribers: Math.max(0, Number(document.getElementById('weight-subscribers').value) || DEFAULT_COMMUNITY_WEIGHTS.subscribers),
-            gift_subs: Math.max(0, Number(document.getElementById('weight-gift-subs').value) || DEFAULT_COMMUNITY_WEIGHTS.gift_subs),
-            bits_per_100: Math.max(0, Number(document.getElementById('weight-bits').value) || DEFAULT_COMMUNITY_WEIGHTS.bits_per_100),
-            donations: Math.max(0, Number(document.getElementById('weight-donations').value) || DEFAULT_COMMUNITY_WEIGHTS.donations)
+            followers: Math.max(0, Number(document.getElementById('weight-followers').value)),
+            subscribers: Math.max(0, Number(document.getElementById('weight-subscribers').value)),
+            gift_subs: Math.max(0, Number(document.getElementById('weight-gift-subs').value)),
+            bits_per_100: Math.max(0, Number(document.getElementById('weight-bits').value)),
+            donations: Math.max(0, Number(document.getElementById('weight-donations').value))
         };
         settingsState.goals.items[index] = goal;
         selectedGoalId = goal.id;
@@ -420,13 +450,23 @@
 
     async function resetSelectedGoal() {
         if (!selectedGoalId) return;
-        const res = await fetch(`/api/goals/${encodeURIComponent(selectedGoalId)}/reset`, { method: 'POST' });
+        const resetId = selectedGoalId;
+        const res = await fetch(`/api/goals/${encodeURIComponent(resetId)}/reset`, { method: 'POST' });
         const data = await res.json();
         if (!res.ok) {
             showToast(data.error || 'Reset failed');
             return;
         }
-        await refreshSnapshot();
+        const updated = data.goals?.items?.find(item => item.id === resetId);
+        const draft = settingsState.goals.items.find(item => item.id === resetId);
+        if (updated && draft) {
+            draft.baseline = updated.baseline;
+            draft.baseline_metrics = { ...updated.baseline_metrics };
+        }
+        goalsSnapshot = data.goals || goalsSnapshot;
+        renderMetrics();
+        renderGoalList();
+        renderSelectedGoalMeta(selectedGoalId === resetId);
         showToast('Goal baseline reset');
     }
 
@@ -463,7 +503,9 @@
 
     async function refreshSnapshot() {
         const res = await fetch('/api/goals');
-        goalsSnapshot = await res.json();
+        const snapshot = await res.json();
+        mergeGoalBaselines(snapshot);
+        goalsSnapshot = snapshot;
         renderMetrics();
         renderGoalList();
         renderSelectedGoalMeta();
@@ -496,11 +538,11 @@
         const session = metrics.session || {};
         const firstCommunity = (goalsSnapshot?.items || []).find(item => item.type === 'community') || { weights: DEFAULT_COMMUNITY_WEIGHTS };
         const communityValue =
-            (session.followers || 0) * (firstCommunity.weights?.followers || DEFAULT_COMMUNITY_WEIGHTS.followers) +
-            (session.subscribers || 0) * (firstCommunity.weights?.subscribers || DEFAULT_COMMUNITY_WEIGHTS.subscribers) +
-            (session.gift_subs || 0) * (firstCommunity.weights?.gift_subs || DEFAULT_COMMUNITY_WEIGHTS.gift_subs) +
-            ((session.bits || 0) / 100) * (firstCommunity.weights?.bits_per_100 || DEFAULT_COMMUNITY_WEIGHTS.bits_per_100) +
-            (session.donations || 0) * (firstCommunity.weights?.donations || DEFAULT_COMMUNITY_WEIGHTS.donations);
+            (session.followers || 0) * (firstCommunity.weights?.followers ?? DEFAULT_COMMUNITY_WEIGHTS.followers) +
+            (session.subscribers || 0) * (firstCommunity.weights?.subscribers ?? DEFAULT_COMMUNITY_WEIGHTS.subscribers) +
+            (session.gift_subs || 0) * (firstCommunity.weights?.gift_subs ?? DEFAULT_COMMUNITY_WEIGHTS.gift_subs) +
+            ((session.bits || 0) / 100) * (firstCommunity.weights?.bits_per_100 ?? DEFAULT_COMMUNITY_WEIGHTS.bits_per_100) +
+            (session.donations || 0) * (firstCommunity.weights?.donations ?? DEFAULT_COMMUNITY_WEIGHTS.donations);
 
         document.getElementById('metric-current-viewers').textContent = formatNumber(viewers.current || 0);
         document.getElementById('metric-peak-viewers').textContent = formatNumber(viewers.peak || 0);
@@ -570,11 +612,11 @@
         document.getElementById('weight-gift-subs').value = goal.weights?.gift_subs ?? DEFAULT_COMMUNITY_WEIGHTS.gift_subs;
         document.getElementById('weight-bits').value = goal.weights?.bits_per_100 ?? DEFAULT_COMMUNITY_WEIGHTS.bits_per_100;
         document.getElementById('weight-donations').value = goal.weights?.donations ?? DEFAULT_COMMUNITY_WEIGHTS.donations;
-        renderSelectedGoalMeta();
+        renderSelectedGoalMeta(true);
         handleGoalTypeChange();
     }
 
-    function renderSelectedGoalMeta() {
+    function renderSelectedGoalMeta(updateBaseline = false) {
         const goal = settingsState.goals.items.find(item => item.id === selectedGoalId);
         const state = (goalsSnapshot?.items || []).find(item => item.id === selectedGoalId);
         if (!goal) return;
@@ -583,16 +625,18 @@
             document.getElementById('goal-current-value-display').value = state
                 ? `${formatNumber(state.raw_value)} points`
                 : 'Unavailable';
-            document.getElementById('baseline-followers').value = baseline.followers || 0;
-            document.getElementById('baseline-subscribers').value = baseline.subscribers || 0;
-            document.getElementById('baseline-gift-subs').value = baseline.gift_subs || 0;
-            document.getElementById('baseline-bits').value = baseline.bits || 0;
-            document.getElementById('baseline-donations').value = baseline.donations || 0;
+            if (updateBaseline) {
+                document.getElementById('baseline-followers').value = baseline.followers || 0;
+                document.getElementById('baseline-subscribers').value = baseline.subscribers || 0;
+                document.getElementById('baseline-gift-subs').value = baseline.gift_subs || 0;
+                document.getElementById('baseline-bits').value = baseline.bits || 0;
+                document.getElementById('baseline-donations').value = baseline.donations || 0;
+            }
         } else {
             document.getElementById('goal-current-value-display').value = state
                 ? formatNumber(state.raw_value)
                 : 'Unavailable';
-            document.getElementById('goal-baseline-display').value = goal.baseline || 0;
+            if (updateBaseline) document.getElementById('goal-baseline-display').value = goal.baseline || 0;
         }
         document.getElementById('goal-editor-status').textContent = state
             ? `${state.metric_label}: ${formatValue(state.progress, state)} / ${formatValue(state.target, state)}${state.complete ? ' • complete' : ''}`

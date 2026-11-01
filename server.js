@@ -217,6 +217,7 @@ const wsService = createOverlayWsServer({
 });
 const obsService = createObsService({
     getConfig: () => config?.obs || {},
+    onStatusChange: status => wsService.broadcastToOverlays('obs-status', status),
     log: console.log,
     warn: console.warn
 });
@@ -1678,7 +1679,7 @@ function buildStatusSnapshot() {
             botActive: chatbot.isReady ? chatbot.isReady().ready : false
         },
         alerts: {
-            enabled: alertEngine ? (alertEngine.getConfig()?.enabled !== false) : false,
+            enabled: alertEngine ? (alertEngine.getConfig()?.settings?.enabled !== false) : false,
             rulesCount: alertEngine ? (alertEngine.getConfig()?.rules?.length || 0) : 0,
             queuePending: alertEngine ? (alertEngine.getQueueState()?.pending || 0) : 0,
             paused: alertEngine ? (alertEngine.getQueueState()?.paused || false) : false,

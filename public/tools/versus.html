@@ -344,9 +344,9 @@
                                 <div class="form-group">
                                     <label for="tourney-format">Bracket Format</label>
                                     <select id="tourney-format" class="form-control" onchange="handleTourneyFormatChange(this.value)">
-                                        <option value="single" selected>Single Elimination (Clean BYEs)</option>
+                                        <option value="single" selected>Single Elimination (2–32 Entrants, BYEs)</option>
                                         <option value="roundRobin">Round Robin (All-Play-All)</option>
-                                        <option value="double">Double Elimination</option>
+                                        <option value="double">Double Elimination (2–16 Entrants, BYEs)</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -414,9 +414,9 @@
                                 </div>
                                 
                                 <div id="entrant-mode-text-container">
-                                    <textarea id="tourney-entrants-text" class="form-control" rows="6" placeholder="Daigo [Ryu]&#10;Tokido [Ken]&#10;Justin Wong [Chun-Li]&#10;MenaRD [Zangief]&#10;SonicFox [FOX]&#10;Punk [Cammy]&#10;Nephew [Juri]" oninput="syncEntrantsTextToTable()"></textarea>
+                                    <textarea id="tourney-entrants-text" class="form-control" rows="6" placeholder="Amber [Mage]&#10;Blue [Knight]&#10;Coral [Ranger]&#10;Dusk [Healer]&#10;Echo [Scout]&#10;Frost [Guardian]&#10;Grove [Druid]" oninput="syncEntrantsTextToTable()"></textarea>
                                     <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.35rem;">
-                                        Player tags or characters are automatically parsed! Examples: <code>Player [Tag]</code>, <code>Tag | Player</code>, or <code>Player (Tag)</code>. Any number of entrants receives clean 1st-round BYEs in Single Elimination.
+                                        Player tags or characters are automatically parsed! Examples: <code>Player [Tag]</code>, <code>Tag | Player</code>, or <code>Player (Tag)</code>. Single elimination supports 2–32 entrants; double elimination supports 2–16. Non-power-of-two fields receive first-round BYEs.
                                     </div>
                                 </div>
 
@@ -3751,7 +3751,7 @@
                 const res = await fetch('/api/matchup/clock/race/finish', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ competitor: idx })
+                    body: JSON.stringify({ index: idx })
                 });
                 const data = await res.json();
                 if (data.status === 'ok') {
@@ -3772,7 +3772,7 @@
                 const res = await fetch('/api/matchup/clock/race/toggle', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ competitor: idx })
+                    body: JSON.stringify({ index: idx })
                 });
                 const data = await res.json();
                 if (data.status === 'ok') {
@@ -3791,7 +3791,7 @@
                 const res = await fetch('/api/matchup/clock/race/reset', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ competitor: idx })
+                    body: JSON.stringify({ index: idx })
                 });
                 const data = await res.json();
                 if (data.status === 'ok') {
@@ -3923,6 +3923,21 @@
         let lastMatchupSig = '';
         let matchupSourceMode = 'auto'; // 'auto' | 'tournament' | 'exhibition'
 
+        function showLoadedExhibition(matchup) {
+            if (!matchup) return;
+            matchupSourceMode = 'exhibition';
+            renderMatchupStudio(matchup);
+        }
+
+        function tournamentMatchRules(match, tournament) {
+            const bestOf = match.bestOf ?? tournament.bestOf ?? 3;
+            return {
+                bestOf,
+                target: match.targetScore ?? tournament.targetScore ?? (bestOf > 0 ? Math.ceil(bestOf / 2) : 0),
+                roundsBestOf: match.roundsBestOf ?? tournament.roundsBestOf ?? 0
+            };
+        }
+
         function isTournamentMatchActive() {
             if (matchupSourceMode === 'exhibition') return false;
             if (!activeTourneyData) return false;
@@ -3999,15 +4014,15 @@
             if ($('matchup-details')) $('matchup-details').value = tourneyActive ? (activeMatch?.matchDetails || '') : (m.details || '');
             if ($('matchup-competitor-count')) $('matchup-competitor-count').value = tourneyActive ? '2' : String(m.competitorCount || 2);
 
-            const tourneyRoundsBestOf = (tourneyActive ? (activeMatch?.roundsBestOf || activeTourneyData?.roundsBestOf) : null);
+            const tourneyRoundsBestOf = (tourneyActive ? (activeMatch?.roundsBestOf ?? activeTourneyData?.roundsBestOf ?? 0) : null);
             const effectiveRoundsBestOf = (tourneyRoundsBestOf !== null && tourneyRoundsBestOf !== undefined) ? tourneyRoundsBestOf : (m.roundsBestOf || 0);
             if ($('matchup-rounds')) $('matchup-rounds').value = String(effectiveRoundsBestOf || 0);
             const fmtSelect = $('matchup-format');
             const targetRow = $('matchup-custom-target-row');
             if (fmtSelect) {
                 const srcFmt = tourneyActive ? (activeTourneyData.scoringType || 'bestOf') : (m.format || 'bestOf');
-                const srcBestOf = tourneyActive ? (activeMatch?.bestOf ?? activeTourneyData.bestOf ?? 3) : (m.bestOf || 5);
-                const srcTarget = tourneyActive ? (activeMatch?.targetScore ?? activeTourneyData.targetScore ?? 2) : (m.targetScore || 3);
+                const srcBestOf = tourneyActive ? tournamentMatchRules(activeMatch, activeTourneyData).bestOf : (m.bestOf ?? 5);
+                const srcTarget = tourneyActive ? tournamentMatchRules(activeMatch, activeTourneyData).target : (m.targetScore ?? 3);
                 if (srcFmt === 'points' || (!srcBestOf && !srcTarget)) {
                     fmtSelect.value = 'points';
                     if (targetRow) targetRow.style.display = 'none';
@@ -4049,8 +4064,8 @@
             ] : m.competitors;
 
             const target = tourneyActive
-                ? (activeMatch?.targetScore || activeTourneyData?.targetScore || (activeTourneyData?.bestOf > 0 ? Math.ceil(activeTourneyData.bestOf / 2) : 0))
-                : (m.targetScore || (m.bestOf > 0 ? Math.ceil(m.bestOf / 2) : 0));
+                ? tournamentMatchRules(activeMatch, activeTourneyData).target
+                : (m.targetScore ?? (m.bestOf > 0 ? Math.ceil(m.bestOf / 2) : 0));
             const roundTarget = (effectiveRoundsBestOf > 0 ? Math.ceil(effectiveRoundsBestOf / 2) : 0);
             const anyCompetitorAtTarget = target > 0 && competitorsToRender.some(comp => (comp.score || 0) >= target);
             const readyWinnerComp = target > 0 ? competitorsToRender.find(comp => (comp.score || 0) >= target) : null;
@@ -4088,7 +4103,7 @@
                 const canStepRoundUp = !anyCompetitorAtTarget;
                 const gamePips = target > 0
                     ? Array.from({ length: target }, (_, p) => p < (c.score || 0) ? '●' : '○').join(' ')
-                    : ((c.score || 0) > 0 ? '● '.repeat(c.score).trim() : '○');
+                    : `${c.score || 0} pts`;
                 const roundPips = roundTarget > 0
                     ? Array.from({ length: roundTarget }, (_, p) => p < (c.rounds || 0) ? '◆' : '◇').join(' ')
                     : '';
@@ -4160,7 +4175,7 @@
                                     ${gamePips}
                                 </div>
                                 <div style="font-size: 0.65rem; font-weight: 700; color: ${isWinner ? '#4ade80' : 'var(--text-muted)'}; margin-top: 0.15rem;">
-                                    ${c.score || 0} / ${target > 0 ? target : 'Open'} GAMES
+                                    ${target > 0 ? `${c.score || 0} / ${target} GAMES` : `${c.score || 0} POINTS`}
                                 </div>
                             </div>
 
@@ -4195,7 +4210,7 @@
                 `;
             }).join('');
 
-            renderMatchupQueue(m.queue || [], m.activeQueueIndex ?? 0);
+            renderMatchupQueue(m.queue || [], tourneyActive ? -1 : (m.activeQueueIndex ?? -1));
         }
 
         function syncCompetitorsFromDom() {
@@ -4652,7 +4667,10 @@
                     if ($('queue-add-p2-name')) $('queue-add-p2-name').value = '';
                     if ($('queue-add-p2-tag')) $('queue-add-p2-tag').value = '';
                     toggleAddMatchupQueueModal(false);
-                    if (data.matchup) renderMatchupStudio(data.matchup);
+                    if (data.matchup) {
+                        if (loadImmediately) showLoadedExhibition(data.matchup);
+                        else renderMatchupStudio(data.matchup);
+                    }
                     toast('Match added to fight card!');
                 }
             } catch {
@@ -4669,7 +4687,7 @@
                 });
                 const data = await res.json();
                 if (data.status === 'ok') {
-                    if (data.matchup) renderMatchupStudio(data.matchup);
+                    showLoadedExhibition(data.matchup);
                     toast('Loaded fight from queue');
                 }
             } catch {
@@ -4683,7 +4701,7 @@
                 const res = await fetch(endpoint, { method: 'POST' });
                 const data = await res.json();
                 if (data.status === 'ok') {
-                    if (data.matchup) renderMatchupStudio(data.matchup);
+                    showLoadedExhibition(data.matchup);
                     toast(direction > 0 ? 'Advanced to next match' : 'Returned to previous match');
                 }
             } catch {
@@ -4811,7 +4829,7 @@
                 });
                 const data = await res.json();
                 if (data.status === 'ok') {
-                    renderMatchupStudio(data.matchup);
+                    showLoadedExhibition(data.matchup);
                     switchTab('matchup');
                     toast('Loaded preset!');
                 }
@@ -4936,7 +4954,7 @@
                 });
                 const data = await res.json();
                 if (data.status === 'ok') {
-                    renderMatchupStudio(data.matchup);
+                    showLoadedExhibition(data.matchup);
                     toast(`Loaded template: ${payload.title}!`);
                 }
             } catch {
@@ -5566,9 +5584,8 @@
                 });
                 const data = await res.json();
                 if (data.status === 'ok') {
-                    activeMatchupData = data.matchup;
+                    showLoadedExhibition(data.matchup);
                     switchTab('matchup');
-                    renderMatchupStudio(activeMatchupData);
                     toast('Matchup restored to live scoreboard!');
                 }
             } catch {
@@ -5804,12 +5821,13 @@
                 const s2 = activeMatch.entrant2?.score ?? (activeMatch.scores?.[1] ?? (activeMatch.scores?.[e2] ?? 0));
                 const r1 = activeMatch.entrant1?.rounds || 0;
                 const r2 = activeMatch.entrant2?.rounds || 0;
-                const target = activeMatch.targetScore || Math.ceil((activeMatch.bestOf || 3) / 2);
-                const rb = Number(activeMatch.roundsBestOf || t.roundsBestOf) || 0;
+                const rules = tournamentMatchRules(activeMatch, t);
+                const target = rules.target;
+                const rb = Number(rules.roundsBestOf) || 0;
                 const roundTarget = rb > 0 ? Math.ceil(rb / 2) : 0;
 
                 if ($('tourney-round-label')) $('tourney-round-label').textContent = activeMatch.roundName || `Round ${activeMatch.round || 1}`;
-                const seriesText = t.format === 'roundRobin' ? 'Round Robin' : (activeMatch.bestOf > 0 ? `Best of ${activeMatch.bestOf} (First to ${target})` : 'Free Points');
+                const seriesText = rules.bestOf > 0 ? `Best of ${rules.bestOf} (First to ${target})` : (target > 0 ? `First to ${target}` : 'Free Points');
                 if ($('tourney-series-label')) $('tourney-series-label').textContent = roundTarget > 0 ? `${seriesText} · Bo${rb} Rounds (First to ${roundTarget})` : seriesText;
 
                 if ($('t-entrant-1')) $('t-entrant-1').textContent = e1;
@@ -5879,11 +5897,11 @@
                 }
 
                 if ($('t-score-label-1')) {
-                    $('t-score-label-1').textContent = target > 0 ? `${s1} / ${target} GAMES` : `${s1} GAMES`;
+                    $('t-score-label-1').textContent = target > 0 ? `${s1} / ${target} GAMES` : `${s1} POINTS`;
                     $('t-score-label-1').style.color = isWinReady1 ? '#4ade80' : 'var(--text-muted)';
                 }
                 if ($('t-score-label-2')) {
-                    $('t-score-label-2').textContent = target > 0 ? `${s2} / ${target} GAMES` : `${s2} GAMES`;
+                    $('t-score-label-2').textContent = target > 0 ? `${s2} / ${target} GAMES` : `${s2} POINTS`;
                     $('t-score-label-2').style.color = isWinReady2 ? '#4ade80' : 'var(--text-muted)';
                 }
                 if ($('tourney-match-details')) $('tourney-match-details').value = activeMatch.matchDetails || activeMatch.details || '';
@@ -5946,7 +5964,7 @@
                     const s1 = m.entrant1?.score ?? (m.scores?.[0] ?? (m.scores?.[e1] ?? 0));
                     const s2 = m.entrant2?.score ?? (m.scores?.[1] ?? (m.scores?.[e2] ?? 0));
                     const isCompleted = Boolean(m.winner && !isBye);
-                    const mRb = Number(m.roundsBestOf || t.roundsBestOf) || 0;
+                    const mRb = Number(m.roundsBestOf ?? t.roundsBestOf) || 0;
                     const mr1 = m.entrant1?.rounds || 0;
                     const mr2 = m.entrant2?.rounds || 0;
                     const hasMRounds = mRb > 0 || mr1 > 0 || mr2 > 0;
@@ -6334,6 +6352,11 @@
                 alert('Please enter at least 2 entrants (one per line).');
                 return;
             }
+            const entrantLimit = format === 'double' ? 16 : (format === 'single' ? 32 : null);
+            if (entrantLimit && entrants.length > entrantLimit) {
+                alert(`${format === 'double' ? 'Double' : 'Single'} elimination supports up to ${entrantLimit} entrants. The current tournament has not been changed.`);
+                return;
+            }
 
             let bestOf = 3;
             let targetScore = 2;
@@ -6387,6 +6410,8 @@
                     renderTournamentStudio(activeTourneyData);
                     if (activeMatchupData) renderMatchupStudio(activeMatchupData);
                     toast('Tournament created!');
+                } else {
+                    toast(data.error || 'Error creating tournament');
                 }
             } catch {
                 toast('Error creating tournament');
@@ -6643,9 +6668,6 @@
                 `;
                 return;
             }
-            const rb = Number(t.roundsBestOf) || 0;
-            const roundTarget = rb > 0 ? Math.ceil(rb / 2) : 0;
-
             grid.innerHTML = playableMatches.map(m => {
                 const isPinned = t.highlightLive !== false && m.id === t.activeMatchId;
                 const e1 = m.entrant1?.name || m.entrants?.[0] || 'Player 1';
@@ -6658,7 +6680,10 @@
                 const s2 = m.entrant2?.score ?? (m.scores?.[1] ?? 0);
                 const r1 = m.entrant1?.rounds || 0;
                 const r2 = m.entrant2?.rounds || 0;
-                const target = m.targetScore || Math.ceil((m.bestOf || 3) / 2);
+                const rules = tournamentMatchRules(m, t);
+                const target = rules.target;
+                const rb = Number(rules.roundsBestOf) || 0;
+                const roundTarget = rb > 0 ? Math.ceil(rb / 2) : 0;
                 const notes = m.matchDetails || m.details || '';
                 const isWinReady1 = !m.winner && target > 0 && s1 >= target;
                 const isWinReady2 = !m.winner && target > 0 && s2 >= target;

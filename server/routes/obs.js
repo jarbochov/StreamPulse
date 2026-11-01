@@ -15,14 +15,14 @@ function createObsRoutes({
         if (!pathname.startsWith('/api/obs')) return false;
 
         if (pathname === '/api/obs/status' && req.method === 'GET') {
-            sendJson(res, 200, obsService.getStatus());
+            sendJson(res, obsService.getStatus());
             return true;
         }
 
         if (pathname === '/api/obs/sources' && req.method === 'GET') {
             try {
                 const data = await obsService.listScenesAndSources();
-                sendJson(res, 200, data);
+                sendJson(res, data);
             } catch (err) {
                 sendError(res, 500, err.message || 'Could not query OBS sources');
             }
@@ -50,7 +50,7 @@ function createObsRoutes({
                     obsService.disconnect();
                 }
                 const status = obsService.getStatus();
-                sendJson(res, 200, { ok: true, status, ...status });
+                sendJson(res, { ok: true, status, ...status });
             } catch (err) {
                 sendError(res, 400, err.message || 'Invalid OBS configuration payload');
             }
@@ -68,7 +68,7 @@ function createObsRoutes({
             }
             obsService.disconnect();
             obsService.connect();
-            sendJson(res, 200, obsService.getStatus());
+            sendJson(res, obsService.getStatus());
             return true;
         }
 
@@ -78,7 +78,7 @@ function createObsRoutes({
                 return true;
             }
             obsService.disconnect();
-            sendJson(res, 200, obsService.getStatus());
+            sendJson(res, obsService.getStatus());
             return true;
         }
 
@@ -109,7 +109,7 @@ function createObsRoutes({
                     }, unavailable ? 503 : 502);
                     return true;
                 }
-                sendJson(res, 200, result);
+                sendJson(res, result);
             } catch (err) {
                 sendError(res, 500, err.message || 'Failed to sync state to OBS');
             }

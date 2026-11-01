@@ -7,14 +7,14 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- Custom Overlay Studio (Beta): scene states with reversible morph/crossfade/slide transitions, OBS source synchronization, smart snapping, and reusable component prefabs.
+- Custom Overlay Studio (Beta): reversible scene transitions, cancellable OBS source synchronization with connection/error feedback, protected OBS credentials, smart snapping, and reusable prefabs.
 - Alerts Engine & Queue: Unified variant conditions and weighted random selection, 23 synthesized Web Audio alert sound presets, master preview volume scaling, granular subscription tier selection with specificity precedence, visual Alert Activation Ladder and Milestone Tiers UX, video volume controls, Twitch channel emotes in alert media, gift sub recipient placeholders, and low-density Alert Queue filtering by event type and search query with in-dock test dispatch.
-- Versus & Tournament Studio: Scoreboards, elimination and round-robin brackets, multi-match scorekeeper, speedrun battle clocks, broadcast overlays, quick match tie-breaker actions, double-elimination BYE loser routing resilience, queue duplication and clearing, and wide stage layout options (`?wide=1`) with responsive container clamps.
+- Versus & Tournament Studio: Scoreboards, validated elimination brackets with Grand Finals resets, round-robin standings and saved history, unlimited points, exhibition queues, independently controlled race clocks, and broadcast overlays.
 - Matchup Player Clocks: Optional competitor split, race, and countdown clock badges on all versus scoreboard layouts (`top`, `fgc`, `split`, `pillar`, `bottom`, `compact`, `versus`).
 - Chat Bot Enhancements: Per-user cooldowns (`userCooldown`), keyword trigger matching modes (`contains`, `exact`, `starts_with`, `ends_with`, `regex`), and JSON import/export for custom command and trigger suites with REST API endpoints and toolbar buttons.
-- Custom Overlay Editor: Type-aware Content/Layout/Style inspector tabs, remembered navigation, aspect ratio presets, slideshow animation easing, and responsive scaling.
+- Custom Overlay Editor: Type-aware inspector tabs, remembered navigation, page-preserving duplication, edit-safe saving, aspect ratio presets, slideshow easing, and responsive scaling.
 - Bitfocus Companion & REST API: Plain-text Stream Deck title lookups (`/api/status/field/:field`, `/api/matchup/field/:field`), unified HTTP GET and POST trigger fallbacks, and real-time state variables.
-- Poll Manager: Chat polls, audience voting brackets, focused bracket overlays, reusable tournament templates, progress checkpoints, and saved-bracket history.
+- Poll Manager: Viewer-based chat voting, blind audience brackets, focused overlays with snapshot recovery, reusable tournament templates, progress checkpoints, and completed-ballot history.
 - Randomizer Elimination Mode: Weight-based choice randomizer with elimination and restoration.
 - Promo Creator: Social promo generator with multi-layer layout, animations, and image export.
 - Procedural Patterns Library: Shared 20-pattern geometric and organic pattern generator synced across Promo Creator and Custom Overlay Editor.
@@ -23,6 +23,8 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Custom Overlay Editor IGDB Artwork: Direct browser and importer for official game artwork, logos, and screenshots from IGDB into custom overlay image layers.
 
 ### Fixed
+- Dashboard: Restore connection text after outages, show disabled alerts accurately, and bound shared navigation polling with deadlines, stale-response protection, and idle cleanup.
+- Goals & Timers: Preserve reset baselines and zero community weights on save, retain pending baseline edits during live updates, and keep paused date countdown snapshots frozen.
 - Memory: Avoid retaining duplicate saved snapshots, bound live-client queues and transient caches, and distinguish Node RSS from JavaScript heap on the dashboard.
 - Custom Overlay Editor Patterns: Separate procedural generative backdrops from repeating tile mosaics; render Promo patterns full-bleed across the layer without cutting geometry into 96px tiled stamp squares, while keeping Pattern Tile dedicated to repeating image and icon mosaics.
 - Alert Variants UX: Eliminate text truncation and cutoff across headers and template fields; replace cramped inline micro-inputs with structured prestige cards, clear Base Alert vs Milestone Tier role selectors, full-width template and subtitle fields with inline 1-click token pills, and a visual Alert Activation Ladder showing ascending milestone tier progression.

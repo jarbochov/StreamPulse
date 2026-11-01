@@ -96,6 +96,8 @@ function createObsService({
     let reqSeq = 0;
     const pendingRequests = new Map();
     const activeInterpolations = new Map();
+    const pendingSyncs = new Map();
+    let connectionGeneration = 0;
     const sceneItemIdCache = new Map();
     const lastKnownTransforms = new Map();
 
@@ -147,11 +149,14 @@ function createObsService({
         pendingRequests.clear();
     }
 
-    function cancelAllInterpolations() {
-        for (const [, timer] of activeInterpolations) {
-            clearInterval(timer);
+    function cancelAllInterpolations(reason = 'OBS disconnected') {
+        connectionGeneration++;
+        pendingSyncs.clear();
+        for (const operation of activeInterpolations.values()) {
+            operation.cancel(reason);
         }
         activeInterpolations.clear();
+        lastKnownTransforms.clear();
     }
 
     function request(requestType, requestData = {}, timeoutMs = 4000) {
@@ -336,6 +341,8 @@ function createObsService({
             state.connected = false;
             state.connecting = false;
             state.identified = false;
+            cancelAllInterpolations('OBS socket closed');
+            sceneItemIdCache.clear();
             clearPendingRequests('OBS socket closed');
             if (code === 4006) {
                 state.lastError = 'Authentication failed — check your OBS WebSocket password.';
@@ -392,7 +399,9 @@ function createObsService({
     async function resolveSceneItemId(sceneName, sourceName) {
         const key = `${sceneName}::${sourceName}`;
         if (sceneItemIdCache.has(key)) return sceneItemIdCache.get(key);
+        const generation = connectionGeneration;
         const res = await request('GetSceneItemId', { sceneName, sourceName });
+        if (generation !== connectionGeneration) throw new Error('OBS disconnected');
         if (res?.sceneItemId != null) {
             sceneItemIdCache.set(key, res.sceneItemId);
             return res.sceneItemId;
@@ -411,169 +420,184 @@ function createObsService({
         easing = 'smooth'
     }) {
         const itemKey = `${sceneName}::${sceneItemId}`;
-        if (activeInterpolations.has(itemKey)) {
-            clearInterval(activeInterpolations.get(itemKey));
-            activeInterpolations.delete(itemKey);
-        }
+        // Reserve ownership before any OBS await, including visibility and transform reads.
+        activeInterpolations.get(itemKey)?.cancel('OBS sync superseded by a newer target');
+        const operation = {
+            timer: null,
+            error: null,
+            reject: null,
+            cancel(reason) {
+                this.error = new Error(reason);
+                clearTimeout(this.timer);
+                this.reject?.(this.error);
+            }
+        };
+        activeInterpolations.set(itemKey, operation);
+        const checkCurrent = () => {
+            if (operation.error) throw operation.error;
+            if (activeInterpolations.get(itemKey) !== operation) throw new Error('OBS sync superseded by a newer target');
+        };
+        const call = async (type, data) => {
+            checkCurrent();
+            const result = await request(type, data);
+            checkCurrent();
+            return result;
+        };
+        const writeTransform = async value => {
+            await call('SetSceneItemTransform', {
+                sceneName, sceneItemId, sceneItemTransform: buildObsTransform(value, fit)
+            });
+            lastKnownTransforms.set(itemKey, { ...value });
+        };
 
-        const cfg = currentConfig();
-        const effectiveMs = cfg.motionEngine === 'cut' ? 0 : Math.max(0, Number(durationMs) || 0);
-        const useMovePlugin = state.hasMovePlugin && (cfg.motionEngine === 'auto' || cfg.motionEngine === 'move-plugin') && effectiveMs > 0;
+        try {
+            const cfg = currentConfig();
+            const effectiveMs = cfg.motionEngine === 'cut' ? 0 : Math.max(0, Number(durationMs) || 0);
+            const useMovePlugin = state.hasMovePlugin && (cfg.motionEngine === 'auto' || cfg.motionEngine === 'move-plugin') && effectiveMs > 0;
 
-        if (syncVisibility && target.visible !== false) {
-            await request('SetSceneItemEnabled', {
-                sceneName,
-                sceneItemId,
-                sceneItemEnabled: true
-            }).catch(() => {});
-        }
-
-        // Instant snap when duration is 0 or element is hidden immediately
-        if (effectiveMs <= 0) {
-            if (target.visible !== false) {
-                const transform = buildObsTransform(target, fit);
-                await request('SetSceneItemTransform', {
+            if (syncVisibility && target.visible !== false) {
+                await call('SetSceneItemEnabled', {
                     sceneName,
                     sceneItemId,
-                    sceneItemTransform: transform
-                }).catch(() => {});
-                lastKnownTransforms.set(itemKey, { ...target });
-            }
-            if (syncVisibility && target.visible === false) {
-                await request('SetSceneItemEnabled', {
-                    sceneName,
-                    sceneItemId,
-                    sceneItemEnabled: false
-                }).catch(() => {});
-            }
-            return;
-        }
-
-        // Engine A: Exeldro's Move Source Filter (if installed in OBS)
-        if (useMovePlugin && target.visible !== false) {
-            const filterName = `StreamPulse_Move_${String(sourceName).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40)}`;
-            const filterSettings = {
-                source: sourceName,
-                duration: Math.round(effectiveMs),
-                pos: { x: Math.round(target.x), y: Math.round(target.y) },
-                bounds: { x: Math.max(1, Math.round(target.width)), y: Math.max(1, Math.round(target.height)) },
-                rot: Number(target.rotate) || 0
-            };
-            try {
-                // First ensure boundsType is set on the item so Move Filter interpolates bounds cleanly
-                const initCheck = lastKnownTransforms.get(itemKey);
-                if (!initCheck) {
-                    const cur = await request('GetSceneItemTransform', { sceneName, sceneItemId }).catch(() => null);
-                    const curT = cur?.sceneItemTransform;
-                    if (curT && (!curT.boundsType || curT.boundsType === 'OBS_BOUNDS_NONE') && fit !== 'none') {
-                        await request('SetSceneItemTransform', {
-                            sceneName,
-                            sceneItemId,
-                            sceneItemTransform: buildObsTransform({
-                                x: curT.positionX ?? target.x,
-                                y: curT.positionY ?? target.y,
-                                width: curT.width || target.width,
-                                height: curT.height || target.height,
-                                rotate: curT.rotation || 0
-                            }, fit)
-                        }).catch(() => {});
-                    }
-                }
-                const setRes = await request('SetSourceFilterSettings', {
-                    sourceName,
-                    filterName,
-                    filterSettings,
-                    overlay: true
-                }).catch(() => null);
-                if (!setRes) {
-                    await request('CreateSourceFilter', {
-                        sourceName,
-                        filterName,
-                        filterKind: 'move_source_filter',
-                        filterSettings
-                    });
-                }
-                await request('SetSourceFilterEnabled', {
-                    sourceName,
-                    filterName,
-                    filterEnabled: true
+                    sceneItemEnabled: true
                 });
-                lastKnownTransforms.set(itemKey, { ...target });
-                return;
-            } catch {
-                // Fall through seamlessly to built-in 60fps WebSocket interpolation
             }
-        }
 
-        // Engine B: Built-in 60fps WebSocket Transform Interpolation
-        let fromState = lastKnownTransforms.get(itemKey);
-        if (!fromState) {
-            const cur = await request('GetSceneItemTransform', { sceneName, sceneItemId }).catch(() => null);
-            const curT = cur?.sceneItemTransform;
-            if (curT) {
-                fromState = {
-                    x: Number(curT.positionX) || 0,
-                    y: Number(curT.positionY) || 0,
-                    width: Number(curT.boundsWidth > 1 ? curT.boundsWidth : curT.width) || target.width,
-                    height: Number(curT.boundsHeight > 1 ? curT.boundsHeight : curT.height) || target.height,
-                    rotate: Number(curT.rotation) || 0
-                };
-            } else {
-                fromState = { ...target };
-            }
-        }
-
-        if (target.visible === false) {
-            if (syncVisibility) {
-                const hideTimer = setTimeout(() => {
-                    activeInterpolations.delete(itemKey);
-                    request('SetSceneItemEnabled', {
+            // Instant snap when duration is 0 or element is hidden immediately
+            if (effectiveMs <= 0) {
+                if (target.visible !== false) {
+                    await writeTransform(target);
+                }
+                if (syncVisibility && target.visible === false) {
+                    await call('SetSceneItemEnabled', {
                         sceneName,
                         sceneItemId,
                         sceneItemEnabled: false
-                    }).catch(() => {});
-                }, effectiveMs);
-                hideTimer.unref?.();
-                activeInterpolations.set(itemKey, hideTimer);
-            }
-            return;
-        }
-
-        const startAt = Date.now();
-        let inFlight = false;
-        const timer = setInterval(() => {
-            const elapsed = Date.now() - startAt;
-            const rawT = Math.min(1, elapsed / effectiveMs);
-            const k = evalMorphEase(easing, rawT);
-            const interp = {
-                x: fromState.x + (target.x - fromState.x) * k,
-                y: fromState.y + (target.y - fromState.y) * k,
-                width: Math.max(1, fromState.width + (target.width - fromState.width) * k),
-                height: Math.max(1, fromState.height + (target.height - fromState.height) * k),
-                rotate: (fromState.rotate || 0) + ((target.rotate || 0) - (fromState.rotate || 0)) * k
-            };
-            lastKnownTransforms.set(itemKey, interp);
-            if (rawT >= 1) {
-                clearInterval(timer);
-                activeInterpolations.delete(itemKey);
-                request('SetSceneItemTransform', {
-                    sceneName,
-                    sceneItemId,
-                    sceneItemTransform: buildObsTransform(target, fit)
-                }).catch(() => {});
+                    });
+                }
                 return;
             }
-            if (!inFlight) {
-                inFlight = true;
-                request('SetSceneItemTransform', {
-                    sceneName,
-                    sceneItemId,
-                    sceneItemTransform: buildObsTransform(interp, fit)
-                }).catch(() => {}).finally(() => { inFlight = false; });
+
+            // Engine A: Exeldro's Move Source Filter (if installed in OBS)
+            if (useMovePlugin && target.visible !== false) {
+                const filterName = `StreamPulse_Move_${String(sourceName).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40)}`;
+                const filterSettings = {
+                    source: sourceName,
+                    duration: Math.round(effectiveMs),
+                    pos: { x: Math.round(target.x), y: Math.round(target.y) },
+                    bounds: { x: Math.max(1, Math.round(target.width)), y: Math.max(1, Math.round(target.height)) },
+                    rot: Number(target.rotate) || 0
+                };
+                // Required transform preparation must succeed even if filter setup falls back.
+                if (!lastKnownTransforms.has(itemKey)) {
+                    const cur = await call('GetSceneItemTransform', { sceneName, sceneItemId });
+                    const curT = cur?.sceneItemTransform;
+                    if (curT && (!curT.boundsType || curT.boundsType === 'OBS_BOUNDS_NONE') && fit !== 'none') {
+                        await writeTransform({
+                            x: curT.positionX ?? target.x,
+                            y: curT.positionY ?? target.y,
+                            width: curT.width || target.width,
+                            height: curT.height || target.height,
+                            rotate: curT.rotation || 0
+                        });
+                    }
+                }
+                try {
+                    const setRes = await call('SetSourceFilterSettings', {
+                        sourceName,
+                        filterName,
+                        filterSettings,
+                        overlay: true
+                    }).catch(() => null);
+                    checkCurrent();
+                    if (!setRes) {
+                        await call('CreateSourceFilter', {
+                            sourceName,
+                            filterName,
+                            filterKind: 'move_source_filter',
+                            filterSettings
+                        });
+                    }
+                    await call('SetSourceFilterEnabled', {
+                        sourceName,
+                        filterName,
+                        filterEnabled: true
+                    });
+                    // OBS acknowledges the filter start, not its eventual playback completion.
+                    lastKnownTransforms.delete(itemKey);
+                    return;
+                } catch {
+                    // Fall through seamlessly to built-in 60fps WebSocket interpolation
+                    checkCurrent();
+                }
             }
-        }, 16);
-        timer.unref?.();
-        activeInterpolations.set(itemKey, timer);
+
+            // Engine B: Built-in 60fps WebSocket Transform Interpolation
+            if (target.visible === false) {
+                if (syncVisibility) {
+                    await new Promise((resolve, reject) => {
+                        operation.reject = reject;
+                        operation.timer = setTimeout(resolve, effectiveMs);
+                    });
+                    await call('SetSceneItemEnabled', { sceneName, sceneItemId, sceneItemEnabled: false });
+                }
+                return;
+            }
+
+            let fromState = lastKnownTransforms.get(itemKey);
+            if (!fromState) {
+                const cur = await call('GetSceneItemTransform', { sceneName, sceneItemId });
+                const curT = cur?.sceneItemTransform;
+                if (curT) {
+                    fromState = {
+                        x: Number(curT.positionX) || 0,
+                        y: Number(curT.positionY) || 0,
+                        width: Number(curT.boundsWidth > 1 ? curT.boundsWidth : curT.width) || target.width,
+                        height: Number(curT.boundsHeight > 1 ? curT.boundsHeight : curT.height) || target.height,
+                        rotate: Number(curT.rotation) || 0
+                    };
+                } else {
+                    fromState = { ...target };
+                }
+            }
+
+            const startAt = Date.now();
+            // Serialize frames and await the final acknowledgement before reporting success.
+            await new Promise((resolve, reject) => {
+                operation.reject = reject;
+                const tick = async () => {
+                    try {
+                        checkCurrent();
+                        const frameStart = Date.now();
+                        const elapsed = Date.now() - startAt;
+                        const rawT = Math.min(1, elapsed / effectiveMs);
+                        const k = evalMorphEase(easing, rawT);
+                        const interp = {
+                            x: fromState.x + (target.x - fromState.x) * k,
+                            y: fromState.y + (target.y - fromState.y) * k,
+                            width: Math.max(1, fromState.width + (target.width - fromState.width) * k),
+                            height: Math.max(1, fromState.height + (target.height - fromState.height) * k),
+                            rotate: (fromState.rotate || 0) + ((target.rotate || 0) - (fromState.rotate || 0)) * k
+                        };
+                        if (rawT >= 1) {
+                            await writeTransform(target);
+                            resolve();
+                            return;
+                        }
+                        await writeTransform(interp);
+                        checkCurrent();
+                        operation.timer = setTimeout(tick, Math.max(0, 16 - (Date.now() - frameStart)));
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                operation.timer = setTimeout(tick, 16);
+            });
+        } finally {
+            clearTimeout(operation.timer);
+            operation.reject = null;
+            if (activeInterpolations.get(itemKey) === operation) activeInterpolations.delete(itemKey);
+        }
     }
 
     function effectiveOverlayElementForPage(el, pageId, overlay) {
@@ -626,8 +650,19 @@ function createObsService({
                 results.push({ id: el.id, sourceName: link.sourceName, ok: false, reason: 'No target OBS scene known' });
                 return;
             }
+            const syncKey = `${sceneName}::${link.sourceName}`;
+            const previousSync = pendingSyncs.get(syncKey);
+            if (previousSync?.itemKey) {
+                activeInterpolations.get(previousSync.itemKey)?.cancel('OBS sync superseded by a newer target');
+            }
+            const token = {};
+            const generation = connectionGeneration;
+            pendingSyncs.set(syncKey, token);
             try {
                 const sceneItemId = await resolveSceneItemId(sceneName, link.sourceName);
+                if (generation !== connectionGeneration) throw new Error('OBS disconnected');
+                if (pendingSyncs.get(syncKey) !== token) throw new Error('OBS sync superseded by a newer target');
+                token.itemKey = `${sceneName}::${sceneItemId}`;
                 const target = effectiveOverlayElementForPage(el, targetPage, overlay);
                 await animateItemToTarget({
                     sceneName,
@@ -644,6 +679,8 @@ function createObsService({
             } catch (err) {
                 warn(`[OBS] Could not sync source "${link.sourceName}" in scene "${sceneName}":`, err.message);
                 results.push({ id: el.id, sourceName: link.sourceName, sceneName, ok: false, reason: err.message });
+            } finally {
+                if (pendingSyncs.get(syncKey) === token) pendingSyncs.delete(syncKey);
             }
         }));
         return { ok: results.every(result => result.ok), synced, results };
