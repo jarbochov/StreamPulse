@@ -25,6 +25,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Custom Overlay Editor IGDB Artwork: Direct browser and importer for official game artwork, logos, and screenshots from IGDB into custom overlay image layers.
 
 ### Fixed
+- Website: Keep mobile navigation accessibility state synchronized when animation frames are delayed.
 - Live connections: Preserve protocol close codes when rejecting oversized WebSocket messages.
 - Dashboard: Restore connection text after outages, show disabled alerts accurately, and bound shared navigation polling with deadlines, stale-response protection, and idle cleanup.
 - Goals & Timers: Preserve reset baselines and zero community weights on save, retain pending baseline edits during live updates, and keep paused date countdown snapshots frozen.

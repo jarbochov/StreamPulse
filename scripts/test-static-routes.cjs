@@ -266,6 +266,7 @@ async function run() {
 
         // Test documentation navigation on a phone-sized viewport
         console.log('Testing documentation mobile navigation...');
+        await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
         await page.setViewport({ width: 390, height: 844 });
         await page.goto(`${baseUrl}/docs/`, { waitUntil: 'networkidle0' });
         await page.waitForSelector('.sidebar-toggle');
@@ -289,12 +290,22 @@ async function run() {
         assert.ok(mobileLayout.sidebarRight <= 0, 'Mobile sidebar should start closed');
         assert.equal(mobileLayout.expanded, 'false', 'Closed mobile sidebar should report aria-expanded=false');
 
+        await page.evaluate(() => {
+            const raf = window.requestAnimationFrame;
+            const pending = [];
+            window.requestAnimationFrame = callback => { pending.push(callback); return pending.length; };
+            window.restoreNavigationFrames = () => {
+                window.requestAnimationFrame = raf;
+                pending.forEach(callback => raf(callback));
+            };
+        });
         await page.click('.sidebar-toggle');
         await page.waitForFunction(() => {
             const sidebar = document.querySelector('.sidebar').getBoundingClientRect();
             return document.body.classList.contains('close') && sidebar.left >= -1;
-        }, { timeout: 2000 });
+        }, { timeout: 2000, polling: 'mutation' });
         assert.equal(await page.$eval('.sidebar-toggle', toggle => toggle.getAttribute('aria-expanded')), 'true');
+        await page.evaluate(() => window.restoreNavigationFrames());
         await page.click('.sidebar-nav a[href="#/features"]');
         await page.waitForFunction(() => document.querySelector('.markdown-section h1')?.textContent.includes('Features'));
         await page.waitForFunction(() => !document.body.classList.contains('close'));

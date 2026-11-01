@@ -8,6 +8,10 @@
     '/game-plan-guide', '/community-guide', '/alerts-guide', '/chatbot-guide', '/clips-beta',
     '/polls-guide', '/promo-creator', '/desktop-app', '/streamer-guide', '/troubleshooting', '/changelog'
   ];
+  const syncNavigationState = () => {
+    document.querySelector('.sidebar-toggle')?.setAttribute('aria-expanded', String(document.body.classList.contains('close')));
+  };
+  new MutationObserver(syncNavigationState).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   window.$docsify = {
     name: 'StreamPulse',
     coverpage: true,
@@ -74,12 +78,7 @@
             if (header && toggle.parentElement !== header) header.appendChild(toggle);
             toggle.setAttribute('aria-label', 'Toggle website navigation');
             toggle.setAttribute('aria-controls', 'site-navigation');
-            toggle.setAttribute('aria-expanded', String(document.body.classList.contains('close')));
-            if (!toggle.dataset.bound) {
-              toggle.dataset.bound = 'true';
-              toggle.addEventListener('click', () => requestAnimationFrame(() =>
-                toggle.setAttribute('aria-expanded', String(document.body.classList.contains('close')))));
-            }
+            syncNavigationState();
           }
         });
       }
