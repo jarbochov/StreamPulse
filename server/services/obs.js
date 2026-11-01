@@ -667,6 +667,9 @@ function createObsService({
     }
 
     async function syncOverlayState(overlay, pageId = '', { animate = true, instant = false } = {}) {
+        if (overlay?.pages?.enabled && (overlay.pages.kind === 'pages' || (!overlay.pages.kind && overlay.pages.transition !== 'morph'))) {
+            return { ok: true, synced: 0, results: [], skipped: true };
+        }
         const cfg = currentConfig();
         if (!cfg.enabled || !state.identified || !overlay || !Array.isArray(overlay.elements)) {
             return { ok: false, synced: 0, results: [] };

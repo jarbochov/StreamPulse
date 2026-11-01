@@ -378,7 +378,7 @@ export const defaultPages = (kind = 'pages') => ({
     mode: 'manual',
     cycleSeconds: 10,
     loop: true,
-    transition: kind === 'states' ? 'morph' : 'fade',
+    transition: kind === 'states' ? 'morph' : 'none',
     transitionEasing: 'smooth',
     enterExit: 'fade',
     transitionMs: kind === 'states' ? 650 : 500,
@@ -525,6 +525,41 @@ export function projectPageState(pageId = state.curPage) {
     }
 }
 
+export function convertStatesToPages() {
+    syncWorkingStateForCurrentPage();
+    const elements = state.overlay.elements;
+    const baseId = basePageId();
+    state.overlay.elements = state.overlay.pages.items.flatMap(page => {
+        const groups = new Map();
+        return elements.filter(el => el.page === '*' || el.page === page.id || (!el.page && page.id === baseId)).map(el => {
+            const copy = JSON.parse(JSON.stringify(el));
+            if (el.page === '*') {
+                const base = el._baseState || extractElementState(el);
+                const override = page.id === baseId ? {} : el.pageStates?.[page.id] || {};
+                applyElementState(copy, { ...base, ...override, style: { ...base.style, ...override.style } });
+                if (page.id !== baseId) copy.id = uid(el.type);
+            }
+            copy.page = page.id;
+            delete copy.pageStates;
+            delete copy.morphId;
+            for (const key of Object.keys(copy)) if (key.startsWith('_')) delete copy[key];
+            if (copy.obsLink) copy.obsLink.enabled = false;
+            if (copy.group) {
+                if (!groups.has(copy.group)) groups.set(copy.group, uid('group'));
+                copy.group = groups.get(copy.group);
+            }
+            copy._baseState = extractElementState(copy);
+            return copy;
+        });
+    });
+    state.overlay.pages.kind = 'pages';
+    state.overlay.pages.transition = 'none';
+    state.overlay.pages.enterExit = 'none';
+    state.overlay.pages.items.forEach((page, index) => {
+        if (page.name === `State ${index + 1}`) page.name = `Page ${index + 1}`;
+    });
+}
+
 export function hasPageOverride(el, pageId = state.curPage) {
     return Boolean(pagesOn() && el?.page === '*' && !isBasePage(pageId) && el.pageStates?.[pageId] && Object.keys(el.pageStates[pageId]).length > 0);
 }
@@ -568,8 +603,9 @@ export function ensureCurPage() {
 
 export function normalizeLoaded(data) {
     const next = JSON.parse(JSON.stringify(data));
-    const kind = next.pages?.kind === 'states' || next.pages?.transition === 'morph' ? 'states' : 'pages';
+    const kind = next.pages?.kind === 'states' || (!next.pages?.kind && next.pages?.transition === 'morph') ? 'states' : 'pages';
     next.pages = Object.assign(defaultPages(kind), next.pages, { kind });
+    if (kind === 'pages') next.pages.transition = 'none';
     if (!Array.isArray(next.pages.items) || !next.pages.items.length) next.pages.items = defaultPages(kind).items;
     const pageIds = new Set(next.pages.items.map(p => p.id));
     (next.elements || []).forEach(item => { if (item.page !== '*' && !pageIds.has(item.page)) item.page = next.pages.items[0].id; });

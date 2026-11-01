@@ -4,7 +4,7 @@ Custom Overlay Studio gives you a visual place to shape the scenes and on-screen
 
 ![Custom Overlay Studio with a sample broadcast layout](images/custom-overlay-studio.png)
 
-Start with a clean canvas or adapt a saved design. Arrange elements for your scene, create alternate pages for different moments, and reuse the same visual language across your stream. Live details can keep an overlay feeling connected to the show, while custom artwork and typography make it distinctly yours.
+Start with a clean canvas or adapt a saved design. Use simple, independent Pages for different moments, or Scene States for animated layout changes and optional OBS source motion. Converting states to pages keeps each look as its own editable layout. Live details can keep an overlay feeling connected to the show, while custom artwork and typography make it distinctly yours.
 
 Stay focused as you build: the inspector separates content, layout, and style, with controls tailored to each kind of layer. Your preferred tab is remembered, so moving between text, artwork, and live widgets feels familiar rather than starting over.
 

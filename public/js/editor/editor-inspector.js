@@ -7,7 +7,7 @@ import {
     CANVAS_PRESETS, SYSTEM_FONTS, GOOGLE_FONT_OPTIONS, LIMITS, ICON, TYPE_META,
     ALERT_TRIGGER_LABELS, TEXT_TYPES, FILL_TEXT_TYPES, LOCAL_MEDIA, selectedElements,
     primary, byId, boundsOf, displayName, changed, toast, alertSample, variableContext,
-    statesModeOn, isBasePage, hasPageOverride, resetElementPageState, extractElementState
+    pagesOn, statesModeOn, isBasePage, hasPageOverride, resetElementPageState, extractElementState
 } from './editor-state.js';
 import { F, bindFields } from './editor-form.js';
 import {
@@ -1475,6 +1475,7 @@ export function sharedBlock(items) {
 }
 
 export function obsLinkSection(el) {
+    if (pagesOn() && !statesModeOn()) return '';
     if (!state.obs?.enabled) return '';
     if (el.type !== 'shape' && el.type !== 'cutout') return '';
     const link = el.obsLink || { enabled: false, sourceName: '', sceneName: '', fit: 'cover', syncVisibility: true };

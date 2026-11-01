@@ -5,7 +5,7 @@
 import {
     $, esc, ICON, TYPE_META, state, prefs, savePrefs, byId, selectedElements,
     pagesOn, statesModeOn, basePageId, isBasePage, hasPageOverride, resetElementPageState,
-    syncWorkingStateForCurrentPage, projectPageState, extractElementState,
+    syncWorkingStateForCurrentPage, projectPageState, extractElementState, convertStatesToPages,
     inView, visibleElements, displayName, normalizeZ, setSelection,
     changed, flushHistory, ensureCurPage, uid, toast, defaultPages
 } from './editor-state.js';
@@ -273,12 +273,14 @@ export function renderPagesPanel() {
         <div class="hint">${isStates
             ? `<b>${esc(items[0]?.name || 'State 1')}</b> is the Base Layout. Select any other state and edit position, size, colors, fonts, borders, or visibility on shared layers to record smooth morph overrides.`
             : (shared ? `${shared} shared element${shared === 1 ? '' : 's'} show on every page.` : 'Mark an element “Show on all pages” to share it across pages.')}</div>
+        ${!isStates && state.overlay.elements.some(el => Object.keys(el.pageStates || {}).length) ? '<div class="hint">This design still has saved state overrides. Convert them to keep each layout on an independent page.</div><button type="button" id="convert-state-pages">Convert state layouts to pages</button>' : ''}
         ${isStates && state.obs?.enabled ? `<div class="state-override-bar${obsLinkedCount ? ' is-active' : ''}" style="margin:2px 0;">
             <span class="state-ovr-text"><strong>OBS Sync <span class="badge-beta">BETA</span>:</strong> ${obsLinkedCount ? `${obsLinkedCount} linked source${obsLinkedCount === 1 ? '' : 's'}` : 'Link Shape/Cutout boxes'}</span>
             <button type="button" id="btn-pages-obs-setup" class="link-btn">${state.obs?.connected ? 'Connected' : 'Configure…'}</button>
         </div>` : ''}
         <details class="sub-details" open>
-            <summary>Transition &amp; Playback <span class="spacer"></span><span class="badge-pill">${esc(transLabel)} · ${P.transition === 'none' ? '0ms' : `${P.transitionMs || 650}ms`}</span></summary>
+            <summary>${isStates ? 'Transition &amp; Playback' : 'Page switching'} <span class="spacer"></span><span class="badge-pill">${isStates ? `${esc(transLabel)} · ${P.transition === 'none' ? '0ms' : `${P.transitionMs || 650}ms`}` : 'Instant cut'}</span></summary>
+            ${isStates ? `
             ${F.select('pages.transition', 'Transition style', P.transition, [
                 ['morph', 'Liquid Morph (Glide layout, styles & cutouts)'],
                 ['fade', 'Crossfade (Dissolve changing elements)'],
@@ -305,9 +307,10 @@ export function renderPagesPanel() {
                 ['down', 'Down (enters from top, exits to bottom)']
             ]) + F.number('pages.transitionDistance', 'Slide distance (px)', P.transitionDistance || 120, { min: 10, max: 2000, step: 10 }) : ''}
             ${P.transition !== 'none' ? F.number('pages.transitionMs', 'Transition duration (ms)', P.transitionMs, { min: 50, max: 5000, step: 50 }) : ''}
+            ` : '<div class="hint">Pages switch immediately. Animation and OBS source motion belong to Scene States.</div>'}
             ${F.select('pages.mode', 'Advance mode', P.mode, [['manual', 'Manual (editor, control panel, API)'], ['auto', 'Automatic cycle']])}
             ${P.mode === 'auto' ? `${F.number('pages.cycleSeconds', `Default seconds per ${noun}`, P.cycleSeconds, { min: 1, max: 3600 })}${F.check('pages.loop', `Loop back to first ${noun}`, P.loop)}` : ''}
-            ${items.length > 1 && P.transition !== 'none' ? `<button type="button" id="btn-preview-transition" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:600"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Preview ${P.transition === 'morph' ? 'Morph' : P.transition === 'fade' ? 'Crossfade' : 'Slide'} on Canvas</button>` : ''}
+            ${isStates && items.length > 1 && P.transition !== 'none' ? `<button type="button" id="btn-preview-transition" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:600"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Preview ${P.transition === 'morph' ? 'Morph' : P.transition === 'fade' ? 'Crossfade' : 'Slide'} on Canvas</button>` : ''}
         </details>
         <details class="sub-details" ${cur?.trigger ? 'open' : ''}>
             <summary>${esc(cur?.name || nounCap)} ${isStates ? 'Event Reaction' : 'Triggers &amp; Timing'} <span class="spacer"></span><span class="badge-pill${cur?.trigger ? '' : ' is-muted'}">${esc(triggerLabel)}</span></summary>
@@ -411,7 +414,7 @@ export function switchEditPage(id, { animate = true } = {}) {
     if (!id || id === state.curPage) return;
     flushHistory();
     syncWorkingStateForCurrentPage(state.curPage);
-    const trans = state.overlay.pages?.transition || (statesModeOn() ? 'morph' : 'fade');
+    const trans = statesModeOn() ? (state.overlay.pages?.transition || 'morph') : 'none';
     const shouldAnimate = animate && trans !== 'none';
     const beforeSnap = shouldAnimate ? captureEditorStateSnapshot() : null;
     const prevPageId = state.curPage;
@@ -434,7 +437,7 @@ export function switchEditPage(id, { animate = true } = {}) {
             distance: state.overlay.pages?.transitionDistance || 120
         });
     }
-    if (animate && state.obs?.connected && state.obs?.syncOnSave !== false) {
+    if (animate && statesModeOn() && state.obs?.connected && state.obs?.syncOnSave !== false) {
         syncObsStateHandler(id);
     }
 }
@@ -442,6 +445,7 @@ export function switchEditPage(id, { animate = true } = {}) {
 export function setPagesEnabled(on, kind = 'pages') {
     if (!state.overlay.pages) state.overlay.pages = defaultPages();
     syncWorkingStateForCurrentPage(state.curPage);
+    if (on && kind === 'pages' && statesModeOn()) convertStatesToPages();
     state.overlay.pages.enabled = on;
     if (on) {
         state.overlay.pages.kind = kind === 'states' ? 'states' : 'pages';
@@ -454,12 +458,15 @@ export function setPagesEnabled(on, kind = 'pages') {
             if (items.length < 2) {
                 items.push({ id: pageSeq(), name: 'State 2', duration: 0, enabled: true });
             }
+            const hasOtherLayouts = state.overlay.elements.some(el => el.page && el.page !== '*' && el.page !== items[0]?.id);
             state.overlay.elements.forEach(el => {
-                if (!el.page || el.page === items[0]?.id) el.page = '*';
+                if (!hasOtherLayouts && (!el.page || el.page === items[0]?.id)) el.page = '*';
                 if (!el._baseState) el._baseState = extractElementState(el);
                 if (!el.pageStates) el.pageStates = {};
             });
         } else {
+            state.overlay.pages.transition = 'none';
+            state.overlay.pages.enterExit = 'none';
             ensureCurPage();
             state.overlay.elements.forEach(el => {
                 if (el.page !== '*' && !state.overlay.pages.items.some(p => p.id === el.page)) {
@@ -688,28 +695,14 @@ export function initLayersAndPages() {
             if (t?.id === 'states-enable') return setPagesEnabled(true, 'states');
             if (t?.id === 'pages-enable') return setPagesEnabled(true, 'pages');
             if (t?.id === 'btn-pages-obs-setup') return openObsModalHandler();
+            if (t?.id === 'convert-state-pages') {
+                state.overlay.pages.kind = 'states';
+                return setPagesEnabled(true, 'pages');
+            }
             if (t?.dataset.pgKind) {
                 const nextKind = t.dataset.pgKind === 'states' ? 'states' : 'pages';
                 if (state.overlay.pages.kind !== nextKind) {
-                    syncWorkingStateForCurrentPage(state.curPage);
-                    state.overlay.pages.kind = nextKind;
-                    if (nextKind === 'states') {
-                        state.overlay.pages.transition = 'morph';
-                        if (!state.overlay.pages.transitionEasing) state.overlay.pages.transitionEasing = 'smooth';
-                        state.overlay.elements.forEach(el => {
-                            if (!el._baseState) el._baseState = extractElementState(el);
-                            if (!el.pageStates) el.pageStates = {};
-                        });
-                    } else if (state.overlay.pages.transition === 'morph') {
-                        state.overlay.pages.transition = 'fade';
-                    }
-                    projectPageState(state.curPage);
-                    changed(true);
-                    renderPageBar();
-                    renderPagesPanel();
-                    renderLayers();
-                    renderCanvasHandler();
-                    renderPropertiesHandler();
+                    setPagesEnabled(true, nextKind);
                 }
                 return;
             }

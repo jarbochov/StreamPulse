@@ -415,6 +415,7 @@ test('promo persistence, image references and actual studio export work without 
     const other = clone(saved.layouts.landscape);
     await page.select('#template', 'minimal');
     await page.click('#rail-tab-layers');
+    await page.waitForFunction(selector => document.querySelector(selector)?.value === '76', { polling: 50 }, P('x'));
     assert.equal(await page.$eval(P('x'), el => el.value), '76', 'choosing a starting layout applies it immediately');
     await page.click('#save-design');
     await page.waitForFunction(() => document.querySelector('#status').textContent.startsWith('Design saved.'));

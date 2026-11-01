@@ -834,7 +834,7 @@
                     method: 'POST', path: '/api/obs/sync',
                     desc: 'Apply linked-source transforms for an overlay state',
                     body: '{ "overlayId": "my-overlay", "pageId": "state-id", "animate": true }',
-                    details: 'Loopback only. Accepts overlayId (or id), an overlay object, optional pageId (or page), animate, and instant. Applies enabled OBS Source Frame links, not arbitrary browser-source layers. Returns { ok, synced, results }; no linked sources is a successful zero-sync result. WebSocket animation waits for final write acknowledgement; Move-plugin success confirms filter configuration/start acknowledgement, not playback completion. Superseded or rejected work is not reported as synchronized. HTTP 503 means disconnected; HTTP 502 reports source/scene/write failures with per-element reasons. Normal overlay page actions already sync linked sources when the bridge and automatic synchronization are enabled.'
+                    details: 'Loopback only. Accepts overlayId (or id), an overlay object, optional pageId (or page), animate, and instant. Applies enabled OBS Source Frame links, not arbitrary browser-source layers. Returns { ok, synced, results }; no linked sources is a successful zero-sync result. Simple Pages return a successful zero-sync result without any OBS commands. WebSocket animation waits for final write acknowledgement; Move-plugin success confirms filter configuration/start acknowledgement, not playback completion. Superseded or rejected work is not reported as synchronized. HTTP 503 means disconnected; HTTP 502 reports source/scene/write failures with per-element reasons. Normal Scene State actions already sync linked sources when the bridge and automatic synchronization are enabled.'
                 }
             ]
         },
@@ -881,7 +881,7 @@
                 {
                     method: 'GET', path: '/api/custom-overlays/:id/page',
                     desc: 'Current page of a multipage overlay',
-                    details: 'Returns {enabled, page, name, index, count, auto, pages}. Scene States use the same page IDs and navigation API; the transition is configured on the overlay. Add ?page=<id|name|number> to the overlay URL to pin a browser source to one page/state.'
+                    details: 'Returns {enabled, page, name, index, count, auto, pages}. Pages are independent instant-cut layouts without OBS synchronization. Scene States use the same IDs and navigation API, with transitions and optional OBS source motion configured on the overlay. Add ?page=<id|name|number> to the overlay URL to pin a browser source to one page/state.'
                 },
                 {
                     method: 'POST', path: '/api/custom-overlays/:id/page',

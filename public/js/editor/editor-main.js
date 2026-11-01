@@ -5,7 +5,7 @@
 import {
     $, esc, clamp, state, prefs, savePrefs, snapshot, pushHistory, flushHistory,
     undo, redo, restore, updateHistoryUI, setSelection, groupSelection, ungroupSelection,
-    normalizeZ, normalizeLoaded, ensureCurPage, defaultPages, pagesOn, byId,
+    normalizeZ, normalizeLoaded, ensureCurPage, defaultPages, pagesOn, statesModeOn, byId,
     selectedElements, primary, visibleElements, withGroups, boundsOf, boxOf,
     visualBoxOf, scaleSnapshot, applyScale, uid, createElementData, toast,
     changed, registerRenderAll, registerFitView, registerSelectionChange,
@@ -706,10 +706,11 @@ export async function save() {
 // ---- OBS WebSocket Bridge (Beta) --------------------------------------------------
 export function renderObsStatusUI() {
     const enabled = Boolean(state.obs?.enabled);
+    const available = enabled && (!pagesOn() || statesModeOn());
     const topBtn = $('btn-obs-modal');
-    if (topBtn) topBtn.hidden = !enabled;
+    if (topBtn) topBtn.hidden = !available;
     const addObsBtn = document.querySelector('[data-add="obs-frame"]');
-    if (addObsBtn) addObsBtn.hidden = !enabled;
+    if (addObsBtn) addObsBtn.hidden = !available;
     const dot = $('obs-top-dot');
     if (dot) {
         dot.classList.toggle('is-connected', !!state.obs.connected);
@@ -842,6 +843,7 @@ export async function saveAndConnectObs() {
 }
 
 export async function syncObsState(pageId) {
+    if (pagesOn() && !statesModeOn()) return { ok: true, synced: 0, results: [], skipped: true };
     if (!state.obs?.connected) return { ok: false, error: 'Connect to OBS WebSocket first.' };
     const hasLinked = state.overlay.elements.some(el => el.obsLink?.enabled && el.obsLink?.sourceName);
     if (!hasLinked) return { ok: false, error: 'No linked OBS sources in this overlay.' };
@@ -905,6 +907,7 @@ export async function snapObsLayer(el) {
 
 // ---- Master Render ----------------------------------------------------------------
 export function renderAll() {
+    renderObsStatusUI();
     if ($('overlay-name')) $('overlay-name').value = state.overlay.name;
     renderSettings();
     renderPageBar();

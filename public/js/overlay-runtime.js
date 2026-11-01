@@ -912,8 +912,9 @@
             clearInterval(randomTimers.get(element.id));
             randomTimers.delete(element.id);
         }
-        const ms = pages.transition === 'none' ? 0 : pages.transitionMs;
-        const kind = pages.transition;
+        const isStates = pages.kind ? pages.kind === 'states' : pages.transition === 'morph';
+        const ms = !isStates || pages.transition === 'none' ? 0 : pages.transitionMs;
+        const kind = isStates ? pages.transition : 'none';
         const isMorph = kind === 'morph' || (!kind && pages.kind === 'states');
         const enterExit = pages.enterExit || 'fade';
         const easeName = pages.transitionEasing || 'smooth';

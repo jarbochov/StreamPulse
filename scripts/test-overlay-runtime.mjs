@@ -593,6 +593,30 @@ try {
     }, { timeout: 2000 });
     await new Promise(done => setTimeout(done, 350));
 
+    await update({
+        ...clone(overlay),
+        pages: { enabled: true, kind: 'pages', transition: 'morph', transitionMs: 1500,
+            items: [{ id: 'a', name: 'First' }, { id: 'b', name: 'Second' }] },
+        elements: [
+            { id: 'page-a', type: 'text', page: 'a', content: 'First page', x: 10, y: 10 },
+            { id: 'page-b', type: 'text', page: 'b', content: 'Second page', x: 200, y: 40 }
+        ]
+    });
+    const simplePage = await page.evaluate(() => {
+        window.testState.message('custom-overlay-page', { id: 'fixture', page: 'b' });
+        const target = document.querySelector('[data-element-id="page-b"]');
+        return {
+            outgoing: Boolean(document.querySelector('[data-element-id="page-a"]')),
+            target: Boolean(target),
+            animation: target?.style.animation,
+            transition: target?.style.transition,
+            visibility: target?.style.visibility,
+            ghosts: [...document.querySelectorAll('[data-element-id]')].filter(node => node._isGhost).length
+        };
+    });
+    assert.deepEqual(simplePage, { outgoing: false, target: true, animation: '', transition: '', visibility: '', ghosts: 0 },
+        'Pages cut synchronously without morphing, entrance animations, or outgoing ghosts');
+
     const editorPage = await browser.newPage();
     editorPage.on('pageerror', error => errors.push(error.message));
     await editorPage.setRequestInterception(true);
@@ -666,21 +690,42 @@ try {
                 });
             }
         };
+        const nativeTimeout = window.setTimeout.bind(window);
+        const nativeClear = window.clearTimeout.bind(window);
+        window.setTimeout = (callback, ms, ...args) => {
+            if (window.editorPreviewFixture.holdCompletion && ms === 200) {
+                window.editorPreviewFixture.finish = () => callback(...args);
+                return 1000000000;
+            }
+            return nativeTimeout(callback, ms, ...args);
+        };
+        window.clearTimeout = id => {
+            if (id === 1000000000) window.editorPreviewFixture.finish = null;
+            else nativeClear(id);
+        };
     });
     await editorPage.bringToFront();
 
-    const morphPreview = await editorPage.evaluate(() => {
+    const morphPreview = await editorPage.evaluate(async () => {
+        await new Promise(resolve => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+        window.editorPreviewFixture.holdCompletion = true;
         window.editorPreviewFixture.run('morph');
         const { node, stage } = window.editorPreviewFixture;
-        for (const animation of node.getAnimations()) {
+        const animations = node.getAnimations();
+        for (const animation of animations) {
             animation.pause();
+        }
+        await Promise.all(animations.map(animation => animation.ready));
+        for (const animation of animations) {
             animation.currentTime = 80;
         }
+        await new Promise(resolve => window.requestAnimationFrame(resolve));
         return {
             transition: node.style.transition,
             ghosts: stage.querySelectorAll('[id^="ghost-"]').length,
             start: getComputedStyle(node).left,
-            opacity: getComputedStyle(node).opacity
+            opacity: getComputedStyle(node).opacity,
+            animations: animations.length
         };
     });
     assert.ok(morphPreview.transition.includes('left 160ms'), 'editor morph preview must use the runtime transition duration and animate geometry');
@@ -689,6 +734,11 @@ try {
     const morphOpacity = Number.parseFloat(morphPreview.opacity);
     assert.ok(morphLeft > 30 && morphLeft < 230, 'morph preview must interpolate from captured geometry toward the target');
     assert.ok(morphOpacity < 1 && morphOpacity > 0.5, 'morph preview must interpolate style opacity with position');
+    assert.ok(morphPreview.animations >= 2, 'native position and opacity transitions must both run');
+    await editorPage.evaluate(() => {
+        window.editorPreviewFixture.holdCompletion = false;
+        window.editorPreviewFixture.finish();
+    });
     await editorPage.waitForFunction(() => window.editorPreviewFixture.node.style.transition === '', { polling: 50 });
     assert.deepEqual(await editorPage.evaluate(() => {
         const { node } = window.editorPreviewFixture;

@@ -922,7 +922,7 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
 
 function normalizePages(input = {}) {
     const seen = new Set();
-    const kind = input.kind === 'states' || input.transition === 'morph' ? 'states' : 'pages';
+    const kind = input.kind === 'states' || (!input.kind && input.transition === 'morph') ? 'states' : 'pages';
     const defaultLabel = kind === 'states' ? 'State' : 'Page';
     const items = (Array.isArray(input.items) ? input.items : []).slice(0, 50).map((item, index) => {
         let id = sanitizeOverlayId(item?.id).slice(0, 40) || `page-${index + 1}`;
@@ -947,7 +947,7 @@ function normalizePages(input = {}) {
         mode: input.mode === 'auto' ? 'auto' : 'manual',
         cycleSeconds: Math.max(1, Math.min(86400, Number(input.cycleSeconds) || 10)),
         loop: input.loop !== false,
-        transition: PAGE_TRANSITIONS.includes(input.transition) ? input.transition : (kind === 'states' ? 'morph' : 'fade'),
+        transition: kind === 'pages' ? 'none' : (PAGE_TRANSITIONS.includes(input.transition) ? input.transition : 'morph'),
         transitionEasing: PAGE_EASINGS.includes(input.transitionEasing) ? input.transitionEasing : 'smooth',
         enterExit: PAGE_ENTER_EXITS.includes(input.enterExit) ? input.enterExit : 'fade',
         transitionMs: Math.max(0, Math.min(5000, Number(input.transitionMs ?? (kind === 'states' ? 650 : 500)))),

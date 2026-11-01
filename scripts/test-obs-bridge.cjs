@@ -13,7 +13,7 @@ const {
     createObsService,
     normalizeObsConfig
 } = require('../server/services/obs');
-const { normalizePageStates } = require('../server/services/overlays');
+const { normalizePageStates, normalizePages } = require('../server/services/overlays');
 const { createObsRoutes } = require('../server/routes/obs');
 const { createSystemRoutes } = require('../server/routes/system');
 
@@ -90,6 +90,26 @@ function createConnectedService(overrides = {}) {
 async function flush() {
     await new Promise(resolve => setImmediate(resolve));
 }
+
+test('simple Pages remain instant and never send OBS commands, even with inherited state settings', async () => {
+    const { service, socket } = createConnectedService();
+    try {
+        await flush();
+        const count = socket.requests.length;
+        const pages = normalizePages({ enabled: true, kind: 'pages', transition: 'morph', items: [{ id: 'a' }, { id: 'b' }] });
+        assert.equal(pages.kind, 'pages');
+        assert.equal(pages.transition, 'none');
+        const result = await service.syncOverlayState({
+            pages,
+            elements: [{ id: 'camera', page: '*', obsLink: { enabled: true, sourceName: 'Camera' } }]
+        }, 'b');
+        assert.equal(result.ok, true);
+        assert.equal(result.synced, 0);
+        assert.equal(socket.requests.length, count);
+    } finally {
+        service.disconnect();
+    }
+});
 
 test('new Move filters load their target after attachment to the containing scene', async () => {
     const { service, socket } = createConnectedService();
@@ -630,6 +650,8 @@ test('OBS editor manual sync surfaces HTTP, per-source and network failures and 
     const toasts = [];
     const context = vm.createContext({
         state, serializeOverlayForSave: () => state.overlay,
+        pagesOn: () => state.overlay.pages?.enabled === true,
+        statesModeOn: () => state.overlay.pages?.kind === 'states' || (!state.overlay.pages?.kind && state.overlay.pages?.transition === 'morph'),
         $: () => ({ addEventListener: (event, callback) => { click = callback; } }),
         toast: (...args) => toasts.push(args)
     });

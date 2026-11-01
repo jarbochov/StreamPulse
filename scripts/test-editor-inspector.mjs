@@ -194,6 +194,64 @@ try {
     assert.equal(await page.$eval('[data-sect="obsLink"]', node => node.closest('[data-inspector-panel]').dataset.inspectorPanel), 'layout', 'OBS frames retain source linking alongside geometry');
     await page.click('[data-inspector-tab="style"]');
     assert.ok(await page.$eval('#el-shared', node => node.getBoundingClientRect().width > 0), 'state-sharing controls remain available on every tab');
+    await page.evaluate(async () => {
+        const layers = await import('/js/editor/editor-layers.js');
+        const { state, createElementData, extractElementState, projectPageState } = window.fixture;
+        for (const id of ['pages-panel', 'page-switch', 'layers', 'layers-panel']) {
+            const node = document.createElement('div'); node.id = id; document.body.append(node);
+        }
+        const camera = createElementData('obs-frame', { id: 'camera', page: '*', x: 20, y: 30, group: 'paired' });
+        camera.obsLink.sourceName = 'Fictional camera';
+        camera._baseState = extractElementState(camera);
+        camera.pageStates = { b: { x: 220, visible: false, style: { borderColor: '#ff0000' } } };
+        const label = createElementData('text', { id: 'label', page: '*', content: 'Fictional label', group: 'paired' });
+        const own = createElementData('text', { id: 'own', page: 'b', content: 'Break only' });
+        state.overlay.elements = [camera, label, own];
+        state.overlay.pages = { ...window.fixture.defaultPages('states'), enabled: true,
+            items: [{ id: 'a', name: 'State 1', enabled: true }, { id: 'b', name: 'Break', enabled: true }] };
+        state.curPage = 'b';
+        projectPageState('b');
+        state.obs.connected = true;
+        window.fixture.obsSyncs = 0;
+        layers.registerLayerCallbacks({
+            onSyncObsState: () => window.fixture.obsSyncs++,
+            onRenderAll: () => { layers.renderPagesPanel(); window.fixture.renderProperties(); },
+            onRenderProperties: () => window.fixture.renderProperties()
+        });
+        layers.renderPagesPanel();
+        layers.initLayersAndPages();
+        window.fixture.layers = layers;
+    });
+    await page.click('[data-pg-kind="pages"]');
+    const converted = await page.evaluate(() => {
+        const { state } = window.fixture;
+        return { pages: state.overlay.pages, elements: window.fixture.serializeOverlayForSave().elements };
+    });
+    assert.equal(converted.pages.kind, 'pages');
+    assert.equal(converted.pages.transition, 'none');
+    assert.deepEqual(converted.pages.items.map(page => page.name), ['Page 1', 'Break']);
+    assert.equal(converted.elements.length, 5, 'shared state layers become independent copies alongside page-specific layers');
+    const cameras = converted.elements.filter(el => el.obsLink?.sourceName === 'Fictional camera');
+    assert.deepEqual(cameras.map(el => [el.page, el.x, el.visible]), [['a', 20, true], ['b', 220, false]]);
+    assert.ok(cameras.every(el => !el.obsLink.enabled && !el.pageStates));
+    assert.notEqual(cameras[0].group, cameras[1].group, 'groups remain independent between pages');
+    assert.equal(await page.$('[data-path="pages.transition"]'), null, 'Pages expose no animation controls');
+    await page.evaluate(() => {
+        const { state, layers } = window.fixture;
+        const camera = state.overlay.elements.find(el => el.page === 'b' && el.obsLink?.sourceName);
+        camera.x = 320;
+        layers.switchEditPage('a');
+        layers.switchEditPage('b');
+    });
+    assert.equal(await page.evaluate(() => window.fixture.state.overlay.elements.find(el => el.id === 'camera').x), 20,
+        'editing a converted page cannot overwrite the other page');
+    assert.equal(await page.evaluate(() => window.fixture.obsSyncs), 0, 'Pages never synchronize OBS on switching');
+    await page.evaluate(() => {
+        const { state, renderProperties } = window.fixture;
+        state.selectedIds = new Set(['camera']);
+        renderProperties();
+    });
+    assert.equal(await page.$('[data-sect="obsLink"]'), null, 'Pages expose no OBS-link inspector controls');
     assert.deepEqual(errors, []);
     assert.deepEqual(unexpected, []);
     console.log('Inspector browser tests passed: all 17 types, conditional panels, narrow rails, persistence, focus, keyboard navigation and multi-selection.');
