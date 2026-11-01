@@ -101,7 +101,7 @@ try {
         window.movie = URL.createObjectURL(new window.Blob(chunks, { type: 'video/webm' }));
     });
     await page.evaluate(() => {
-        const activity = window.activity = { timers: new Map(), rafs: new Map(), calls: {}, slides: {}, retired: [] };
+        const activity = window.activity = { timers: new Map(), rafs: new Map(), calls: {}, slides: {}, retired: [], heldPatterns: new Set(), nextHeld: -1 };
         for (const [start, stop] of [['setTimeout', 'clearTimeout'], ['setInterval', 'clearInterval']]) {
             const schedule = window[start].bind(window), cancel = window[stop].bind(window);
             window[start] = (callback, ms, ...args) => {
@@ -116,6 +116,12 @@ try {
         }
         const raf = window.requestAnimationFrame.bind(window), cancel = window.cancelAnimationFrame.bind(window);
         window.requestAnimationFrame = callback => {
+            if (activity.holdPatterns && callback.name === 'drawFrame') {
+                const id = activity.nextHeld--;
+                activity.heldPatterns.add(id);
+                activity.rafs.set(id, callback.name);
+                return id;
+            }
             const id = raf(now => {
                 activity.rafs.delete(id);
                 activity.calls[callback.name] = (activity.calls[callback.name] || 0) + 1;
@@ -124,7 +130,11 @@ try {
             activity.rafs.set(id, callback.name);
             return id;
         };
-        window.cancelAnimationFrame = id => { activity.rafs.delete(id); cancel(id); };
+        window.cancelAnimationFrame = id => {
+            activity.heldPatterns.delete(id);
+            activity.rafs.delete(id);
+            cancel(id);
+        };
         for (const [proto, method] of [
             [window.CanvasRenderingContext2D.prototype, 'clearRect'],
             [window.WebGLRenderingContext.prototype, 'drawArrays'],
@@ -271,12 +281,17 @@ try {
     assert.ok(Math.abs(revisited.values['a-video'].time - paused.values['a-video'].time) < 0.1);
     assert.deepEqual(revisited.values['a-slides'].slide, paused.values['a-slides'].slide);
     assert.equal(await page.evaluate(() => window.fixture.state.selectedIds.has('common-pattern')), true);
+    await page.evaluate(() => { window.activity.holdPatterns = true; });
+    await page.waitForFunction(() => window.activity.heldPatterns.size === 2, { polling: 50 });
     await page.evaluate(() => {
         const { state } = window.fixture;
         state.nodes.get('a-video').querySelector('video').play();
         state.nodes.get('a-slides')._slideHandle.control('play');
         window.OverlayShared.setEffectsPaused(true);
+        window.activity.holdPatterns = false;
     });
+    assert.equal(await page.evaluate(() => window.activity.heldPatterns.size), 0,
+        'Effects off must cancel queued pattern frames before they run, even when the browser delays RAF');
     await wait(100);
     const effectsOff = await snapshot();
     await wait(220);

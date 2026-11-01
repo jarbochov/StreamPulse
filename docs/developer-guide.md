@@ -80,6 +80,8 @@ For release validation, `.github/workflows/desktop.yml` defaults to **diagnostic
 
 Use **build** mode only after diagnostics succeeds, supplying its `validated_run_id` and selecting the exact same commit. Packaging verifies both platform summaries against that commit instead of rerunning unchanged tests. A failed or mismatched diagnostics run cannot authorize installers or publication.
 
+The activity fixture holds queued pattern frames to verify immediate cancellation when Effects is turned off. MP4 stress tests retain AVC packet and actual decoding checks: offline exports have exact frame counts and duration; the deliberately sparse native capture allows only its 250ms sampling interval at the recording boundary.
+
 To verify browser editors and canvases in a headless browser environment:
 
 ```bash

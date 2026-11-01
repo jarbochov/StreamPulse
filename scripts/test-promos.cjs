@@ -678,7 +678,11 @@ test('promo persistence, image references and actual studio export work without 
                     if (!nativeFallback) assert.equal(packets.length, 4, 'offline encoding preserves all four frames under CPU throttling');
                     assert.equal(packets[0].type, 'key', 'MP4 begins with an independently decodable AVC keyframe');
                     assert.ok(packets.at(-1).timestamp > packets[0].timestamp, 'MP4 frame timestamps advance');
-                    assert.ok(await track.computeDuration() >= seconds - .05, 'MP4 covers the requested animation, not only its first frame');
+                    const duration = await track.computeDuration();
+                    // Native stress capture samples every 250ms; the last sample may precede stop by that interval.
+                    const captureInterval = nativeFallback ? .25 : 1 / 20;
+                    assert.ok(duration >= seconds - captureInterval,
+                        `MP4 covers the requested animation within its capture interval: ${duration}s, ${packets.length} frames, native=${nativeFallback}`);
                     if (!nativeFallback) assert.equal(await track.computeDuration(), seconds, 'offline encoding keeps exact duration regardless of render speed');
                     const decoded = await page.evaluate(async ({ config, packets }) => {
                         const frames = [], decoder = new window.VideoDecoder({

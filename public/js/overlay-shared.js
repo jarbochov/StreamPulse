@@ -543,9 +543,7 @@
     const patternRunners = new Set();
     let fxPaused = false;
     function fxResume() {
-        if (!fxPaused && typeof document !== 'undefined' && !document.hidden) {
-            for (const wake of patternRunners) wake();
-        }
+        for (const wake of patternRunners) wake();
     }
     function setEffectsPaused(paused) {
         fxPaused = !!paused;
@@ -3142,6 +3140,10 @@
         }
 
         function wake() {
+            if (fxPaused || document.hidden) {
+                if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+                return;
+            }
             if (stopped || !readyToDraw || curElement.visible === false || node.classList.contains('hidden')) return;
             const pMotion = curOptions.animate === false ? 'none' : (curElement.pattern?.motion || motion || 'none');
             if (pMotion === 'none') {
