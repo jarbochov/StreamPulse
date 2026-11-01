@@ -6,6 +6,8 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-31
+
 ### Added
 - Custom Overlay Studio (Beta): reversible scene transitions, cancellable OBS source synchronization with connection/error feedback, protected OBS credentials, smart snapping, and reusable prefabs.
 - Alerts Engine & Queue: Unified variant conditions and weighted random selection, 23 synthesized Web Audio alert sound presets, master preview volume scaling, granular subscription tier selection with specificity precedence, visual Alert Activation Ladder and Milestone Tiers UX, video volume controls, Twitch channel emotes in alert media, gift sub recipient placeholders, and low-density Alert Queue filtering by event type and search query with in-dock test dispatch.

@@ -10,6 +10,8 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-31
+
 ### Added
 - Custom Overlay Studio (Beta): reversible scene transitions, cancellable OBS source synchronization with connection/error feedback, protected OBS credentials, smart snapping, and reusable prefabs.
 - Bracket Camera & Section View API: HTTP triggers (`/api/tournament/view`, `/api/polls/tournament/view`), WebSocket events, and Companion actions to toggle camera focus (`focus=toggle|1|0`), pan bracket rounds (`round=next|prev|<num>`), and switch bracket sections (`bracket=winners|losers|finals|all|cycle`) on live OBS overlays.
