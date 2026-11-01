@@ -292,7 +292,11 @@ test('Poll Manager tournament templates and saved brackets work through UI and s
         service.finishPoll();
         await page.waitForFunction("activePollData?.status !== 'ACTIVE'");
         await page.click('#tab-btn-templates');
-        await page.click(`[data-history-id="${checkpoint.id}"] [data-library-action="load-history"]`);
+        // loadHistory() re-renders the poll list above the library once the finished poll lands; wait so the layout settles.
+        await page.waitForFunction(() => document.querySelector('#poll-history-list .history-item'));
+        const restoreSelector = `[data-history-id="${checkpoint.id}"] [data-library-action="load-history"]`;
+        await page.waitForSelector(restoreSelector, { visible: true });
+        await page.$eval(restoreSelector, el => el.click());
         await page.waitForFunction(() => document.getElementById('tourney-progress-text').textContent === '1 of 30 matches completed');
         assert.equal(service.getPollTournament().matches.find(m => m.id === activeMatch.id).status, 'PENDING');
         assert.equal(service.getActivePoll(), null);
