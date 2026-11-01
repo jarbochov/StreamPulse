@@ -83,6 +83,7 @@ const CONFIG_PATH = process.env.STREAMPULSE_CONFIG_PATH || path.join(__dirname, 
 
 if (!fs.existsSync(CONFIG_PATH)) {
     console.error('Missing config.json — copy config.example.json to config.json and fill in your credentials.');
+    if (process.env.STREAMPULSE_EMBEDDED === 'true') throw new Error(`StreamPulse config not found at ${CONFIG_PATH}`);
     process.exit(1);
 }
 
@@ -2204,8 +2205,12 @@ async function gracefulShutdown(signal, shouldExit = true) {
     }
 }
 
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+// Embedded hosts (NodeCG) own process signals and lifecycle.
+const EMBEDDED = process.env.STREAMPULSE_EMBEDDED === 'true';
+if (!EMBEDDED) {
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+}
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error('[Process] Unhandled Rejection at:', promise, 'reason:', reason);
@@ -2220,10 +2225,21 @@ module.exports = {
     startServer,
     stopServer,
     restartServer,
+    onBroadcast: wsService.onBroadcast,
+    getSnapshots: () => ({
+        timers: buildTimersSnapshot(),
+        goals: buildGoalsSnapshot(),
+        viewers: getViewerSummary(),
+        music: musicService.getState(),
+        poll: pollService ? pollService.getLatestPoll() : null,
+        matchup: matchupService ? matchupService.getMatchup() : null,
+        tournament: pollService ? pollService.getTournament({ isPoll: false }) : null,
+        pollTournament: pollService ? pollService.getTournament({ isPoll: true }) : null
+    }),
     port: PORT
 };
 
-startServer().catch(err => {
+if (!EMBEDDED) startServer().catch(err => {
     console.error('[Server] Startup failed:', err);
     process.exitCode = 1;
 });

@@ -146,7 +146,16 @@ function createOverlayWsServer({
 
     if (server) attachServer(server);
 
+    const broadcastListeners = new Set();
+    function onBroadcast(listener) {
+        broadcastListeners.add(listener);
+        return () => broadcastListeners.delete(listener);
+    }
+
     function broadcastToOverlays(type, payload) {
+        for (const listener of broadcastListeners) {
+            try { listener(type, payload); } catch (err) { console.error('[WS] Broadcast listener failed:', err.message); }
+        }
         let msg;
         for (const client of overlayClients) {
             if (canSend(client)) {
@@ -179,6 +188,7 @@ function createOverlayWsServer({
         attachServer,
         setupConnection,
         broadcastToOverlays,
+        onBroadcast,
         closeAllConnections,
         getWss: () => overlayWss,
         getSlideshowStates: () => slideshowStates,
