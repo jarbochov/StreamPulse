@@ -69,6 +69,7 @@ try {
         window.fixture = { state, prefs, element, renderCanvas, renderProperties };
         await state.nodes.get(element.id).querySelector('img').decode();
     });
+    await page.click('[data-inspector-tab="style"]');
     await page.waitForFunction(() => window.fixture.state.nodes.get('fictional-retro')._retroRecord);
     const pixels = () => page.evaluate(() => {
         const canvas = window.fixture.state.nodes.get('fictional-retro')._retroCanvas;

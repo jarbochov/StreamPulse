@@ -9,6 +9,26 @@ const __dirname = path.dirname(__filename);
 const docsImgDir = path.join(__dirname, '..', 'docs', 'images');
 
 const baseUrl = (process.env.STREAMPULSE_URL || 'http://127.0.0.1:3000').replace(/\/$/, '');
+const dummyCustomOverlay = {
+    id: 'border-showcase', name: 'Fictional Studio - Broadcast Layout',
+    canvas: { width: 1920, height: 1080, background: '#10172a' },
+    pages: { enabled: false, items: [{ id: 'page-1', name: 'Main' }] },
+    elements: [
+        { id: 'elem-neon', type: 'shape', name: 'Camera frame', page: 'page-1',
+            x: 80, y: 180, width: 1180, height: 660, visible: true,
+            style: { shape: 'rectangle', background: '#182840', borderWidth: 4, borderColor: '#38bdf8',
+                borderRadius: 24, opacity: 1, shadow: { blur: 28, color: 'rgba(56,189,248,0.35)' } } },
+        { id: 'fictional-title', type: 'text', name: 'Show title', page: 'page-1',
+            content: 'FICTIONAL STUDIO', x: 80, y: 70, width: 1400, height: 90, visible: true,
+            style: { fontFamily: 'sans-serif', fontSize: 62, fontWeight: '700', color: '#f0f6fc' } },
+        { id: 'fictional-subtitle', type: 'text', name: 'Tonight', page: 'page-1',
+            content: 'Tonight: a new expedition', x: 80, y: 890, width: 1400, height: 80, visible: true,
+            style: { fontFamily: 'sans-serif', fontSize: 36, color: '#94a3b8' } },
+        { id: 'fictional-sidebar', type: 'shape', name: 'Community panel', page: 'page-1',
+            x: 1320, y: 180, width: 500, height: 660, visible: true,
+            style: { shape: 'rectangle', background: '#182840', borderWidth: 2, borderColor: '#8957e5', borderRadius: 24 } }
+    ]
+};
 const dummyPromo = {
     ...promoModel.normalize({
         name: 'Fictional expedition', url: 'fictionalstudio42', theme: 'purple',
@@ -585,13 +605,29 @@ async function run() {
 
     const page = await browser.newPage();
     await page.setViewport({ width: 1600, height: 1000, deviceScaleFactor: 2 });
+    await page.evaluateOnNewDocument(() => {
+        if (!window.location.pathname.includes('custom-overlay-editor')) return;
+        window.WebSocket = class extends window.EventTarget {
+            static OPEN = 1;
+            constructor() { super(); this.readyState = 3; }
+            send() {}
+            close() {}
+        };
+    });
     page.on('dialog', async d => { await d.accept(); });
 
     // Enable request interception to guarantee zero real streamer or chatter data
     await page.setRequestInterception(true);
     page.on('request', req => {
         const url = req.url();
-        if (url.includes('/api/promo-themes')) {
+        if (page.url().includes('custom-overlay-editor') && new URL(url).pathname.startsWith('/api/')) {
+            const pathname = new URL(url).pathname;
+            const data = pathname === '/api/custom-overlays/border-showcase' ? dummyCustomOverlay
+                : pathname === '/api/custom-overlays' ? [dummyCustomOverlay]
+                : pathname === '/api/obs/status' ? { enabled: false, connected: false }
+                : pathname === '/api/config' || pathname === '/api/status' ? {} : [];
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
+        } else if (url.includes('/api/promo-themes')) {
             req.respond({ status: 200, contentType: 'application/json', body: '[]' });
         } else if (url.includes('/api/promos')) {
             const pathname = new URL(url).pathname;
@@ -663,6 +699,8 @@ async function run() {
             file: 'custom-overlay-studio.png',
             wait: 2500,
             action: async (p) => {
+                await p.click('[data-inspector-tab="style"]');
+                if (await p.$('#load-error')) throw new Error('Editor failed to load the fictional screenshot fixture');
                 await p.evaluate(() => {
                     if (window.fitView) window.fitView(true);
                 });

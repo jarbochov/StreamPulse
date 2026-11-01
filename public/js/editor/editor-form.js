@@ -55,7 +55,7 @@ export const F = {
         const eyedropBtn = (typeof window !== 'undefined' && window.EyeDropper)
             ? `<button type="button" class="eyedrop-btn" data-eyedrop="${path}" title="Sample color from screen" aria-label="Sample color from screen">${ICON.eyedrop}</button>`
             : '';
-        return `<div class="field"><span>${label}</span><span class="color-field"><input type="color" data-path="${path}" data-kind="text" value="${hex}" aria-label="${label} picker"><input class="color-text" data-path="${path}" data-kind="text" value="${esc(value)}" placeholder="#rrggbb or rgba()" spellcheck="false" aria-label="${label} value">${eyedropBtn}${clear ? `<button type="button" data-clear="${path}" title="Make transparent">None</button>` : '<span></span>'}</span>${renderSwatches(path)}</div>`;
+        return `<div class="field"><span>${label}</span><span class="color-field${eyedropBtn && clear ? ' has-actions' : ''}"><input type="color" data-path="${path}" data-kind="text" value="${hex}" aria-label="${label} picker"><input class="color-text" data-path="${path}" data-kind="text" value="${esc(value)}" placeholder="#rrggbb or rgba()" spellcheck="false" aria-label="${label} value">${eyedropBtn}${clear ? `<button type="button" data-clear="${path}" title="Make transparent">None</button>` : ''}</span>${renderSwatches(path)}</div>`;
     },
 
     seg: (path, label, value, options) =>

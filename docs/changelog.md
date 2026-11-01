@@ -24,7 +24,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Tournaments & Polls: Quick tie-breaker match actions (`higherSeed`, `coinFlip`, `random`, `overtime`), wide tree layout toggle (`?wide=1`), and double-elimination BYE routing resilience.
 - Alert Queue & Alerts: Low-density queue filtering by category and search query, quick test dispatch from the queue toolbar, and master preview volume control.
 - Chatbot Backup & Cooldowns: Added JSON export/import for custom commands and triggers, per-user cooldown overrides, and regex/exact word matching modes.
-- Custom Overlay Editor: Layer aspect ratio presets (`16:9`, `4:3`, `1:1`, `9:16`, `21:9`) with proportion locking, and slideshow transition easing options.
+- Custom Overlay Editor: Type-aware Content/Layout/Style inspector tabs, remembered navigation, aspect ratio presets, slideshow animation easing, and responsive scaling.
 - Alerts Engine: Granular subscription tier selection with specificity precedence, weighted and gated variants, video volume controls, Twitch channel emotes in alert media, and gift sub recipient placeholders.
 - Versus & Tournament Studio: Scoreboards, elimination and round-robin brackets, multi-match scorekeeper, speedrun battle clocks, and broadcast overlays.
 - Matchup Player Clocks: Optional competitor split, race, and countdown clock badges on all versus scoreboard layouts (`top`, `fgc`, `split`, `pillar`, `bottom`, `compact`, `versus`).

@@ -12,7 +12,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Versus & Tournament Studio: Scoreboards, elimination and round-robin brackets, multi-match scorekeeper, speedrun battle clocks, broadcast overlays, quick match tie-breaker actions, double-elimination BYE loser routing resilience, queue duplication and clearing, and wide stage layout options (`?wide=1`) with responsive container clamps.
 - Matchup Player Clocks: Optional competitor split, race, and countdown clock badges on all versus scoreboard layouts (`top`, `fgc`, `split`, `pillar`, `bottom`, `compact`, `versus`).
 - Chat Bot Enhancements: Per-user cooldowns (`userCooldown`), keyword trigger matching modes (`contains`, `exact`, `starts_with`, `ends_with`, `regex`), and JSON import/export for custom command and trigger suites with REST API endpoints and toolbar buttons.
-- Custom Overlay Editor: Inspector aspect ratio presets (`16:9`, `4:3`, `1:1`, `9:16`, `21:9`) for 1-click proportion locking, slideshow animation easing controls, and responsive container scaling.
+- Custom Overlay Editor: Type-aware Content/Layout/Style inspector tabs, remembered navigation, aspect ratio presets, slideshow animation easing, and responsive scaling.
 - Bitfocus Companion & REST API: Plain-text Stream Deck title lookups (`/api/status/field/:field`, `/api/matchup/field/:field`), unified HTTP GET and POST trigger fallbacks, and real-time state variables.
 - Poll Manager: Chat polls, audience voting brackets, focused bracket overlays, reusable tournament templates, progress checkpoints, and saved-bracket history.
 - Randomizer Elimination Mode: Weight-based choice randomizer with elimination and restoration.

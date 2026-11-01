@@ -1526,34 +1526,92 @@ export function obsLinkSection(el) {
 }
 
 // ---- Property Inspector Panel Render ----------------------------------------------
+const INSPECTOR_TABS = [['content', 'Content'], ['layout', 'Layout'], ['style', 'Style']];
+const SPECIFIC_SECTION_TABS = {
+    gamelayout: 'layout', patternLayout: 'layout',
+    gamecovers: 'style', gametext: 'style', progress: 'style',
+    patternMotion: 'style', proceduralMotion: 'style'
+};
+
+function rememberInspectorScroll(root) {
+    const key = root.dataset.inspectorKey;
+    const tab = root.dataset.inspectorActiveTab;
+    if (!key || !tab) return;
+    prefs.inspectorScroll ||= {};
+    prefs.inspectorScroll[`${key}:${tab}`] = root.parentElement?.scrollTop || 0;
+}
+
+function activateInspectorTab(root, tab, remember = true) {
+    if (remember) rememberInspectorScroll(root);
+    root.dataset.inspectorActiveTab = tab;
+    for (const button of root.querySelectorAll('[data-inspector-tab]')) {
+        const selected = button.dataset.inspectorTab === tab;
+        button.setAttribute('aria-selected', String(selected));
+        button.tabIndex = selected ? 0 : -1;
+    }
+    for (const panel of root.querySelectorAll('[data-inspector-panel]')) {
+        panel.hidden = panel.dataset.inspectorPanel !== tab;
+    }
+    if (root.parentElement) root.parentElement.scrollTop = prefs.inspectorScroll?.[`${root.dataset.inspectorKey}:${tab}`] || 0;
+    if (remember) {
+        prefs.inspectorTabs ||= {};
+        prefs.inspectorTabs[root.dataset.inspectorKey] = tab;
+        savePrefs();
+    }
+}
+
 export function renderProperties() {
     const items = selectedElements();
     const root = $('properties');
     if (!root) return;
-    const scroll = root.parentElement ? root.parentElement.scrollTop : 0;
+    rememberInspectorScroll(root);
+    const key = items.length > 1 ? 'selection' : items[0]?.type;
+    const sameType = key === root.dataset.inspectorKey;
     const active = document.activeElement;
-    const focused = active && root.contains(active) && active.dataset?.path ? { path: active.dataset.path, start: active.selectionStart, end: active.selectionEnd } : null;
+    const focused = sameType && active && root.contains(active) && active.dataset?.path ? { path: active.dataset.path, type: active.type, start: active.selectionStart, end: active.selectionEnd } : null;
     if (!items.length) {
+        delete root.dataset.inspectorKey;
+        delete root.dataset.inspectorActiveTab;
         root.innerHTML = `<div class="empty-props"><h3>No element selected</h3><p class="hint">Click an element on the canvas or in Layers to edit it. Drag on empty canvas to box-select.</p>
             <div class="kbd-list"><span><kbd>Ctrl/⌘</kbd> <kbd>D</kbd></span><span>Duplicate</span><span><kbd>Del</kbd></span><span>Delete</span><span><kbd>↑↓←→</kbd></span><span>Nudge</span><span><kbd>Ctrl/⌘</kbd> <kbd>S</kbd></span><span>Save &amp; push live</span></div></div>`;
         return;
     }
+    let content = '', layout = '', style = '';
     if (items.length > 1) {
         const textual = items.some(el => hasText(el) || el.type === 'shape');
-        root.innerHTML = `${actionBar(items)}${sharedBlock(items)}${scaleSection(items)}${alignSection(items)}${appearanceSection(items[0], true)}${textual ? typographySection(items.find(hasText) || items[0]) : ''}`;
+        layout = scaleSection(items) + alignSection(items);
+        style = appearanceSection(items[0], true) + (textual ? typographySection(items.find(hasText) || items[0]) : '');
     } else {
         const el = items[0];
         const specific = { 'random-text': randomSection, progress: progressSection, poll: pollSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection, pattern: patternSection, 'procedural-pattern': proceduralPatternSection }[el.type];
-        root.innerHTML = `${actionBar(items)}${sharedBlock(items)}${layoutSection(el)}${obsLinkSection(el)}${contentSection(el)}${el.type === 'icon' ? iconEffectsSection(el) : ''}${specific ? specific(el) : ''}${el.type !== 'cutout' ? filterSection(el) : ''}${hasText(el) ? typographySection(el) : ''}${el.type !== 'cutout' ? fillSection(el) : ''}${el.type !== 'cutout' ? effectsSection(el) : ''}`;
+        content = contentSection(el) + (specific ? specific(el) : '');
+        layout = layoutSection(el) + scaleSection(items) + obsLinkSection(el);
+        style = (el.type === 'icon' ? iconEffectsSection(el) : '') + (hasText(el) ? typographySection(el) : '')
+            + (el.type !== 'cutout' ? fillSection(el) + effectsSection(el) + filterSection(el) : '');
     }
-    if (root.parentElement) root.parentElement.scrollTop = scroll;
+    root.dataset.inspectorKey = key;
+    const bodies = { content, layout, style };
+    root.innerHTML = `<div class="inspector-header">${actionBar(items)}<div class="inspector-tabs" role="tablist" aria-label="Element properties"></div></div>
+        ${sharedBlock(items)}
+        ${INSPECTOR_TABS.map(([tab]) => `<div class="inspector-panel" id="inspector-panel-${tab}" data-inspector-panel="${tab}" role="tabpanel" aria-labelledby="inspector-tab-${tab}" tabindex="0">${bodies[tab]}</div>`).join('')}`;
+    // Keep compound element panels together, except layout and appearance sections with a dedicated home.
+    const firstStyleSection = root.querySelector('[data-inspector-panel="style"]').firstChild;
+    for (const section of root.querySelectorAll('[data-inspector-panel="content"] > [data-sect]')) {
+        const tab = SPECIFIC_SECTION_TABS[section.dataset.sect];
+        if (tab) root.querySelector(`[data-inspector-panel="${tab}"]`).insertBefore(section, tab === 'style' ? firstStyleSection : null);
+    }
+    const tabs = INSPECTOR_TABS.filter(([tab]) => root.querySelector(`[data-inspector-panel="${tab}"]`).childElementCount);
+    root.querySelector('[role="tablist"]').innerHTML = tabs.map(([tab, label]) =>
+        `<button type="button" role="tab" id="inspector-tab-${tab}" data-inspector-tab="${tab}" aria-controls="inspector-panel-${tab}">${label}</button>`).join('');
+    const savedTab = prefs.inspectorTabs?.[key];
+    activateInspectorTab(root, tabs.some(([tab]) => tab === savedTab) ? savedTab : tabs[0][0], false);
     state.lastTextField = null;
     refreshSlideCount();
     renderTagSuggestions();
 
     // Rebuilding the panel drops focus; restore so typing continues seamlessly
     if (focused) {
-        const next = [...root.querySelectorAll('[data-path]')].find(node => node.dataset.path === focused.path && !node.matches('[type=color]'));
+        const next = [...root.querySelectorAll('[data-path]')].find(node => node.dataset.path === focused.path && node.type === focused.type && !node.closest('[hidden]'));
         if (next) {
             next.focus({ preventScroll: true });
             if (next.type === 'number') {
@@ -1771,6 +1829,23 @@ export function initInspectorEvents() {
 
     const propEl = $('properties');
     if (propEl) {
+        propEl.addEventListener('click', event => {
+            const button = event.target.closest('[data-inspector-tab]');
+            if (button) activateInspectorTab(propEl, button.dataset.inspectorTab);
+        });
+        propEl.addEventListener('keydown', event => {
+            const button = event.target.closest('[data-inspector-tab]');
+            if (!button || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const buttons = [...propEl.querySelectorAll('[data-inspector-tab]')];
+            const index = buttons.indexOf(button);
+            const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1
+                : (index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
+            const next = buttons[nextIndex];
+            activateInspectorTab(propEl, next.dataset.inspectorTab);
+            next.focus({ preventScroll: true });
+        });
         propEl.addEventListener('focusin', event => {
             const input = event.target.closest?.('[data-path][data-kind="number"]');
             const target = selectedElements()[0];

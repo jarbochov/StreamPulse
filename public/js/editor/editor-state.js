@@ -188,7 +188,7 @@ export const prefs = Object.assign({
     snap: true, snapAlign: true, snapSpacing: true, snapDimensions: true,
     scaleText: true, grid: false, safeZones: false, live: true, fx: true,
     backdrop: 'checker', backdropImage: '', backdropOpacity: 80, alignTo: 'selection',
-    sections: {}, recentColors: []
+    sections: {}, recentColors: [], inspectorTabs: {}, inspectorScroll: {}
 }, (() => {
     try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; }
     catch { return {}; }
