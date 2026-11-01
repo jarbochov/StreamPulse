@@ -557,9 +557,9 @@ try {
         else request.respond({ status: 200, contentType: 'text/css', body: '' });
     });
     await editorPage.goto(`${origin}/?editor-preview-fixture`);
-    await editorPage.setContent('<link rel="stylesheet" href="/css/custom-overlay-editor.css"><div id="stage"><div id="canvas-underlayer"></div></div>');
+    await editorPage.setContent('<link rel="stylesheet" href="/css/custom-overlay-editor.css"><div id="stage"><div id="canvas"><div id="canvas-underlayer"></div></div></div>');
     await editorPage.evaluate(async () => {
-        window.OverlayShared = {};
+        window.OverlayShared = { pruneSourceCaches() {} };
         const editorState = await import('/js/editor/editor-state.js');
         const canvas = await import('/js/editor/editor-canvas.js');
         const stage = document.getElementById('stage');
@@ -576,6 +576,7 @@ try {
             curPage: 'a',
             stageEl: stage,
             overlay: {
+                id: 'editor-preview-fixture',
                 canvas: { width: 640, height: 360, background: 'transparent' },
                 pages: {
                     enabled: true,
@@ -677,6 +678,58 @@ try {
     assert.equal(slidePreview.exitX, '60px');
     await new Promise(done => setTimeout(done, 240));
     assert.equal(await editorPage.$('#ghost-preview-label'), null, 'slide preview must remove its outgoing ghost');
+
+    await editorPage.evaluate(() => {
+        const fixture = window.editorPreviewFixture;
+        fixture.runExit = function (enterExit, paired = false) {
+            this.canvas.cancelEditorStateMorph();
+            this.stage.querySelectorAll('[id^="ghost-"]').forEach(node => node.remove());
+            this.stage.replaceChildren(this.canvas.canvasEl);
+            this.state.curPage = 'b';
+            this.state.overlay.elements = [{
+                id: 'state-two-shape', type: 'shape', page: 'b', morphId: 'paired-shape',
+                x: 70, y: 80, width: 120, height: 60, visible: true, style: { opacity: 1 }
+            }];
+            if (paired) this.state.overlay.elements.push({
+                id: 'state-one-shape', type: 'shape', page: 'a', morphId: 'paired-shape',
+                x: 170, y: 80, width: 120, height: 60, visible: true, style: { opacity: 1 }
+            });
+            const changedIds = new Set(['state-two-shape', 'state-one-shape']);
+            this.canvas.renderCanvas(changedIds);
+            if (!this.state.nodes.get('state-two-shape')?.isConnected) throw new Error('renderer must mount the outgoing layer before snapshot capture');
+            const before = this.canvas.captureEditorStateSnapshot();
+            this.state.curPage = 'a';
+            this.canvas.renderCanvas(changedIds);
+            this.canvas.previewEditorTransition(before, {
+                prevPage: 'b', nextPage: 'a', transition: 'morph',
+                enterExit, durationMs: 240, easing: 'linear'
+            });
+        };
+        fixture.runExit('fade');
+    });
+    const reverseExit = await editorPage.$eval('#ghost-state-two-shape', node => ({
+        animation: node.style.animation, opacity: getComputedStyle(node).opacity
+    }));
+    assert.ok(reverseExit.animation.includes('pg-fade-out'), 'State 2-only layers must crossfade out after the real canvas unmounts them on return to State 1');
+    await new Promise(done => setTimeout(done, 80));
+    const fadingOpacity = await editorPage.$eval('#ghost-state-two-shape', node => Number(getComputedStyle(node).opacity));
+    assert.ok(fadingOpacity > 0 && fadingOpacity < 1, 'reverse exit must visibly fade rather than instantly disappear');
+    await new Promise(done => setTimeout(done, 240));
+    assert.equal(await editorPage.$('#ghost-state-two-shape'), null, 'reverse exit ghost must be removed after the crossfade');
+    await editorPage.evaluate(() => window.editorPreviewFixture.runExit('zoom'));
+    assert.ok((await editorPage.$eval('#ghost-state-two-shape', node => node.style.animation)).includes('pg-zoom-out'), 'saved zoom enter/exit settings must also animate State 2 to State 1');
+    await editorPage.evaluate(() => window.editorPreviewFixture.canvas.cancelEditorStateMorph());
+    assert.equal(await editorPage.$('#ghost-state-two-shape'), null, 'cancelling a reverse exit must remove its ghost');
+    await editorPage.evaluate(() => window.editorPreviewFixture.runExit('none'));
+    assert.equal(await editorPage.$('#ghost-state-two-shape'), null, 'Instant Cut must not retain an outgoing ghost');
+    const pairedStart = await editorPage.evaluate(() => {
+        window.editorPreviewFixture.runExit('fade', true);
+        return getComputedStyle(window.editorPreviewFixture.state.nodes.get('state-one-shape')).left;
+    });
+    assert.equal(await editorPage.$('#ghost-state-two-shape'), null, 'paired page-specific layers must morph without a duplicate outgoing exit');
+    assert.equal(pairedStart, '70px', 'paired incoming layer must start at the outgoing position');
+    await new Promise(done => setTimeout(done, 320));
+    assert.equal(await editorPage.$eval('[data-id="state-one-shape"]', node => node.style.left), '170px', 'paired incoming layer must finish at its target position');
 
     assert.deepEqual(errors, []);
     console.log('Overlay runtime and editor preview regression tests passed.');

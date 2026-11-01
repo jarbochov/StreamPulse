@@ -265,7 +265,9 @@ export function captureEditorStateSnapshot() {
             fittedFontSize,
             style: JSON.parse(JSON.stringify(el.style || {})),
             cutout: JSON.parse(JSON.stringify(el.cutout || { shape: 'rectangle', feather: 0 })),
-            styleSig: JSON.stringify(el.style || {})
+            styleSig: JSON.stringify(el.style || {}),
+            exitNode: node && el.visible !== false ? node.cloneNode(true) : null,
+            parent: node?.parentElement
         };
         map.set(el.id, entry);
         if (entry.morphId) map.set(`morph:${entry.morphId}`, entry);
@@ -314,28 +316,38 @@ export function previewEditorTransition(beforeMap, {
         return isEnter ? `pg-fade-in ${ms}ms ${cssEase} both` : `pg-fade-out ${ms}ms ${cssEase} both`;
     };
 
+    const currentElements = visibleElements();
+    const matchedSnapshots = new Set(currentElements.filter(el => el.visible !== false && state.nodes.has(el.id))
+        .map(el => beforeMap.get(el.id) || (el.morphId ? beforeMap.get(`morph:${el.morphId}`) : null)));
+
     // Outgoing nodes: elements that were visible before, but are no longer in view
     for (const [id, prev] of beforeMap.entries()) {
-        if (id.startsWith('morph:')) continue;
+        if (id.startsWith('morph:') || matchedSnapshots.has(prev)) continue;
         const currentEl = byId(id);
-        if (!currentEl || !inView(currentEl)) {
-            const node = state.nodes.get(id);
-            if (node && prev.visible) {
+        if (!currentEl || !inView(currentEl) || currentEl.visible === false) {
+            const exitMode = transKind === 'morph' ? enterExitKind : transKind;
+            if (prev.exitNode && prev.visible && exitMode !== 'none') {
+                const node = prev.exitNode;
+                node.id = `ghost-${id}`;
+                node.querySelectorAll('video, audio').forEach(media => {
+                    media.autoplay = false;
+                    media.muted = true;
+                });
+                (prev.parent || state.stageEl)?.appendChild(node);
                 node.classList.remove('hidden');
                 node.style.pointerEvents = 'none';
-                const exitMode = transKind === 'morph' ? enterExitKind : transKind;
                 if (exitMode === 'slide') {
                     node.style.setProperty('--pg-x', `${dx}px`);
                     node.style.setProperty('--pg-y', `${dy}px`);
                 }
                 const anim = getAnim(exitMode, false);
                 if (anim) node.style.animation = anim;
-                outgoingNodes.push(node);
+                ghostNodes.push(node);
             }
         }
     }
 
-    for (const el of visibleElements()) {
+    for (const el of currentElements) {
         const prev = beforeMap.get(el.id) || (el.morphId ? beforeMap.get(`morph:${el.morphId}`) : null);
         const node = state.nodes.get(el.id);
         if (!node) continue;
@@ -357,6 +369,10 @@ export function previewEditorTransition(beforeMap, {
 
         // Shared element disappearing (was visible before, but now hidden in this state)
         if (prevVis && !curVis) {
+            if (ghostNodes.some(ghost => ghost.id === `ghost-${el.id}`)) {
+                node.classList.add('hidden');
+                continue;
+            }
             const exitMode = transKind === 'morph' ? enterExitKind : transKind;
             if (exitMode === 'none') {
                 node.classList.add('hidden');
