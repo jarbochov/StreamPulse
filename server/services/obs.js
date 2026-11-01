@@ -9,7 +9,7 @@ const DEFAULT_OBS_CONFIG = {
     port: 4455,
     password: '',
     syncOnSave: true,
-    overlayOffsetMs: 0, // delay before the overlay starts its transition after OBS begins moving (0-1000)
+    overlayOffsetMs: 0, // ms the overlay trails OBS's motion start (-1000..1000); negative starts the overlay first
     motionEngine: 'auto' // 'auto' (Move plugin if available, else 60fps WS) | 'websocket' | 'move-plugin' | 'cut'
 };
 
@@ -26,7 +26,7 @@ function normalizeObsConfig(input = {}) {
         port,
         password: String(raw.password ?? ''),
         syncOnSave: raw.syncOnSave !== false,
-        overlayOffsetMs: Math.max(0, Math.min(1000, Math.round(Number(raw.overlayOffsetMs) || 0))),
+        overlayOffsetMs: Math.max(-1000, Math.min(1000, Math.round(Number(raw.overlayOffsetMs) || 0))),
         motionEngine
     };
 }
