@@ -76,6 +76,10 @@ The October 31 stabilization run repeated the 60-second Chromium fixture: 30 swi
 
 ### Smoke Testing Editors
 
+For release validation, `.github/workflows/desktop.yml` defaults to **diagnostics** mode. It runs every group from the existing `npm test` chain even when an earlier group fails, and uploads separate logs and `results.json` for macOS and Windows. Locally, run `node scripts/release-diagnostics.cjs /path/to/log-directory` for the same complete report. To stress the transition and activity fixtures, run them with `TEST_CPU_RATE=4`.
+
+Use **build** mode only after diagnostics succeeds, supplying its `validated_run_id` and selecting the exact same commit. Packaging verifies both platform summaries against that commit instead of rerunning unchanged tests. A failed or mismatched diagnostics run cannot authorize installers or publication.
+
 To verify browser editors and canvases in a headless browser environment:
 
 ```bash

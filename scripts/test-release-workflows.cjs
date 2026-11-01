@@ -5,8 +5,32 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const os = require('node:os');
+const { testGroups, runGroups } = require('./release-diagnostics.cjs');
 const { normalizeCustomOverlay } = require('../server/services/overlays');
 const { buildTimerSnapshot } = require('../server/services/timers');
+
+test('release diagnostics expand the existing test chain and continue after failed groups', () => {
+    assert.deepEqual(testGroups({
+        test: 'npm run lint && npm run regression',
+        lint: 'eslint scripts/',
+        regression: 'node --test a.cjs && node b.mjs'
+    }), [['eslint', 'scripts/'], ['node', '--test', 'a.cjs'], ['node', 'b.mjs']]);
+    assert.throws(() => testGroups({ test: 'npm run test' }), /Invalid test script/);
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-diagnostics-'));
+    const calls = [];
+    try {
+        const results = runGroups([['node', 'failed.cjs'], ['node', 'later.mjs']], directory, (command, args) => {
+            calls.push(args[0]);
+            return { status: args[0] === 'failed.cjs' ? 1 : 0 };
+        });
+        assert.deepEqual(calls, ['failed.cjs', 'later.mjs']);
+        assert.deepEqual(results.map(result => result.exitCode), [1, 0]);
+        assert.equal(fs.readdirSync(directory).length, 2, 'every group retains its own log');
+    } finally {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
+});
 
 function pageFunction(file, name) {
     const source = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');

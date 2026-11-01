@@ -229,7 +229,11 @@ try {
         for (const id of ['center', 'inside', 'base']) {
             if (mode === 'live') {
                 await page.evaluate(id => window.fixtureMessage('custom-overlay-page', { id: 'fictional-border', page: id }), id);
-                await new Promise(done => setTimeout(done, 180));
+                await page.waitForFunction(outset => {
+                    const node = document.querySelector('[data-element-id="frame"]');
+                    const ring = node?._borderRing || node?._borderFxRing;
+                    return ring?.style.inset === `${-outset}px` && node.style.transition === '';
+                }, { polling: 'mutation' }, id === 'base' ? 12 : id === 'center' ? 6 : 0);
             } else {
                 await page.evaluate(id => {
                     window.model.state.curPage = id;

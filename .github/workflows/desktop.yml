@@ -3,6 +3,15 @@ name: Build Desktop App
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: 'Collect all test results, or package an already validated commit'
+        type: choice
+        options: [diagnostics, build]
+        default: diagnostics
+      validated_run_id:
+        description: 'Successful diagnostics run ID for this exact commit (required for build)'
+        type: string
+        default: ''
       publish_release:
         description: 'Publish installers to the GitHub release?'
         required: false
@@ -16,6 +25,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   build-desktop:
@@ -30,11 +40,54 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Verify diagnostics run
+        if: inputs.mode == 'build'
+        uses: actions/github-script@v7
+        env:
+          DIAGNOSTICS_RUN_ID: ${{ inputs.validated_run_id }}
+        with:
+          script: |
+            const runId = Number(process.env.DIAGNOSTICS_RUN_ID);
+            if (!Number.isSafeInteger(runId) || runId <= 0) throw new Error('A successful diagnostics run ID is required.');
+            const { data: run } = await github.rest.actions.getWorkflowRun({
+              ...context.repo, run_id: runId
+            });
+            if (run.conclusion !== 'success' || run.head_sha !== context.sha ||
+                run.path !== '.github/workflows/desktop.yml') {
+              throw new Error('Diagnostics must have passed for this exact commit.');
+            }
+
+      - name: Download validation evidence
+        if: inputs.mode == 'build'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-diagnostics-*
+          path: ${{ runner.temp }}/validated-diagnostics
+          run-id: ${{ inputs.validated_run_id }}
+          github-token: ${{ github.token }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'npm'
+
+      - name: Verify both platform summaries
+        if: inputs.mode == 'build'
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const { testGroups } = require('./scripts/release-diagnostics.cjs');
+          const expected = testGroups(require('./package.json').scripts).map(args => args.join(' '));
+          for (const os of ['macos-latest', 'windows-latest']) {
+            const summary = JSON.parse(fs.readFileSync(`${process.env.RUNNER_TEMP}/validated-diagnostics/release-diagnostics-${os}/results.json`));
+            if (summary.sha !== process.env.GITHUB_SHA || summary.groups?.length !== expected.length ||
+                summary.groups.some((group, index) => group.exitCode !== 0 || group.command !== expected[index])) {
+              throw new Error(`Missing successful diagnostics for ${os} at this commit`);
+            }
+          }
+          NODE
 
       - name: Install dependencies
         run: npm ci
@@ -42,20 +95,30 @@ jobs:
       - name: Install Electron & Builder for packaging
         run: npm install --no-save electron@33.2.1 electron-builder@25.1.8
 
-      - name: Run Test Suite
-        run: npm test
+      - name: Collect every test group
+        if: inputs.mode == 'diagnostics'
+        run: node scripts/release-diagnostics.cjs "${{ runner.temp }}/release-diagnostics"
+
+      - name: Upload diagnostics and logs
+        if: always() && inputs.mode == 'diagnostics'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-diagnostics-${{ matrix.os }}
+          path: ${{ runner.temp }}/release-diagnostics/
+          if-no-files-found: error
 
       - name: Build macOS Application (.dmg / .zip)
-        if: runner.os == 'macOS'
+        if: inputs.mode == 'build' && runner.os == 'macOS'
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: npx electron-builder --mac --publish never
 
       - name: Build Windows Application (.exe / portable)
-        if: runner.os == 'Windows'
+        if: inputs.mode == 'build' && runner.os == 'Windows'
         run: npx electron-builder --win --publish never
 
       - name: Upload Desktop Dist Artifacts
+        if: inputs.mode == 'build'
         uses: actions/upload-artifact@v4
         with:
           name: StreamPulse-Desktop-${{ matrix.os }}
@@ -63,12 +126,12 @@ jobs:
             dist/*.dmg
             dist/*.zip
             dist/*.exe
-          if-no-files-found: warn
+          if-no-files-found: error
 
   publish-release:
     name: Publish Release Installers
     needs: build-desktop
-    if: github.event.inputs.publish_release == 'true' || github.event.inputs.publish_release == true
+    if: inputs.mode == 'build' && inputs.publish_release
     runs-on: ubuntu-latest
     steps:
       - name: Download macOS Artifacts
@@ -111,4 +174,3 @@ jobs:
                xattr -cr /Applications/StreamPulse.app
                ```
             3. Launch **StreamPulse** from Applications or Spotlight!
-

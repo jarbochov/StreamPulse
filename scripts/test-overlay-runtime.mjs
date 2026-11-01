@@ -99,6 +99,8 @@ try {
         args: ['--no-sandbox']
     });
     const page = await browser.newPage();
+    const cpuRate = Number(process.env.TEST_CPU_RATE || 1);
+    if (cpuRate > 1) await (await page.createCDPSession()).send('Emulation.setCPUThrottlingRate', { rate: cpuRate });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.setRequestInterception(true);
@@ -300,6 +302,7 @@ try {
     assert.equal(await page.evaluate(() => window.testState.alerts.length), clearedCount);
 
     const transitionPage = await browser.newPage();
+    if (cpuRate > 1) await (await transitionPage.createCDPSession()).send('Emulation.setCPUThrottlingRate', { rate: cpuRate });
     transitionPage.on('pageerror', error => errors.push(error.message));
     await transitionPage.setRequestInterception(true);
     transitionPage.on('request', request => {
@@ -503,12 +506,12 @@ try {
     };
     await update(morphOverlay);
     await page.waitForFunction(() => document.querySelector('[data-element-id="cam-label"]'));
-    await page.evaluate(() => window.testState.message('custom-overlay-page', { id: 'fixture', page: 'state-2' }));
-    await new Promise(done => setTimeout(done, 100));
-    const exitNodes = await page.$$eval('[data-element-id="hide-on-intermission"]', nodes => nodes.map(node => ({
-        ghost: node._isGhost,
-        visibility: node.style.visibility
-    })));
+    const exitNodes = await page.evaluate(() => {
+        window.testState.message('custom-overlay-page', { id: 'fixture', page: 'state-2' });
+        return [...document.querySelectorAll('[data-element-id="hide-on-intermission"]')].map(node => ({
+            ghost: node._isGhost, visibility: node.style.visibility
+        }));
+    });
     assert.ok(exitNodes.some(node => !node.ghost && node.visibility === 'hidden'), 'shared exit must hide original node while its ghost exits');
     const hiddenDuringExit = await page.$eval('[data-element-id="hide-on-intermission"]', node => ({
         visibility: node.style.visibility,
@@ -591,8 +594,6 @@ try {
         const node = document.querySelector('[data-element-id="shared-morph"]');
         return node && node.style.left === '250px' && node.style.transition === '';
     }, { timeout: 2000 });
-    await new Promise(done => setTimeout(done, 350));
-
     await update({
         ...clone(overlay),
         pages: { enabled: true, kind: 'pages', transition: 'morph', transitionMs: 1500,
@@ -618,6 +619,7 @@ try {
         'Pages cut synchronously without morphing, entrance animations, or outgoing ghosts');
 
     const editorPage = await browser.newPage();
+    if (cpuRate > 1) await (await editorPage.createCDPSession()).send('Emulation.setCPUThrottlingRate', { rate: cpuRate });
     await editorPage.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }]);
     editorPage.on('pageerror', error => errors.push(error.message));
     await editorPage.setRequestInterception(true);
@@ -694,7 +696,7 @@ try {
         const nativeTimeout = window.setTimeout.bind(window);
         const nativeClear = window.clearTimeout.bind(window);
         window.setTimeout = (callback, ms, ...args) => {
-            if (window.editorPreviewFixture.holdCompletion && ms === 200) {
+            if (window.editorPreviewFixture.holdCompletion && (ms === 200 || ms === 280)) {
                 window.editorPreviewFixture.finish = () => callback(...args);
                 return 1000000000;
             }
@@ -747,7 +749,10 @@ try {
         return { left: node.style.left, opacity: node.style.opacity, transition: node.style.transition, willChange: node.style.willChange };
     }), { left: '230px', opacity: '0.5', transition: '', willChange: '' }, 'morph preview must settle and clear temporary styles');
 
-    await editorPage.evaluate(() => window.editorPreviewFixture.run('fade'));
+    await editorPage.evaluate(() => {
+        window.editorPreviewFixture.holdCompletion = true;
+        window.editorPreviewFixture.run('fade');
+    });
     const crossfadePreview = await editorPage.evaluate(() => {
         const { node, stage } = window.editorPreviewFixture;
         const ghost = stage.querySelector('#ghost-preview-label');
@@ -757,7 +762,8 @@ try {
     assert.ok(crossfadePreview.exit.includes('pg-fade-out'), 'crossfade preview must fade a ghost at the outgoing position');
     assert.equal(crossfadePreview.ghostLeft, '30px');
     assert.equal(crossfadePreview.targetLeft, '230px');
-    await new Promise(done => setTimeout(done, 240));
+    await editorPage.evaluate(() => window.editorPreviewFixture.finish());
+    await editorPage.waitForFunction(() => !document.getElementById('ghost-preview-label'), { polling: 'mutation' });
     assert.equal(await editorPage.$('#ghost-preview-label'), null, 'crossfade preview must remove its outgoing ghost');
 
     await editorPage.evaluate(() => window.editorPreviewFixture.run('slide'));
@@ -775,7 +781,8 @@ try {
     assert.ok(slidePreview.exit.includes('pg-slide-out'), 'slide preview must animate a ghost from the outgoing position');
     assert.equal(slidePreview.enterX, '60px');
     assert.equal(slidePreview.exitX, '60px');
-    await new Promise(done => setTimeout(done, 240));
+    await editorPage.evaluate(() => window.editorPreviewFixture.finish());
+    await editorPage.waitForFunction(() => !document.getElementById('ghost-preview-label'), { polling: 'mutation' });
     assert.equal(await editorPage.$('#ghost-preview-label'), null, 'slide preview must remove its outgoing ghost');
 
     await editorPage.evaluate(() => {
@@ -810,10 +817,16 @@ try {
         animation: node.style.animation, opacity: getComputedStyle(node).opacity
     }));
     assert.ok(reverseExit.animation.includes('pg-fade-out'), 'State 2-only layers must crossfade out after the real canvas unmounts them on return to State 1');
-    await new Promise(done => setTimeout(done, 80));
-    const fadingOpacity = await editorPage.$eval('#ghost-state-two-shape', node => Number(getComputedStyle(node).opacity));
+    const fadingOpacity = await editorPage.$eval('#ghost-state-two-shape', async node => {
+        const animations = node.getAnimations();
+        animations.forEach(animation => animation.pause());
+        await Promise.all(animations.map(animation => animation.ready));
+        animations.forEach(animation => { animation.currentTime = 120; });
+        return Number(getComputedStyle(node).opacity);
+    });
     assert.ok(fadingOpacity > 0 && fadingOpacity < 1, 'reverse exit must visibly fade rather than instantly disappear');
-    await new Promise(done => setTimeout(done, 240));
+    await editorPage.evaluate(() => window.editorPreviewFixture.finish());
+    await editorPage.waitForFunction(() => !document.getElementById('ghost-state-two-shape'), { polling: 'mutation' });
     assert.equal(await editorPage.$('#ghost-state-two-shape'), null, 'reverse exit ghost must be removed after the crossfade');
     await editorPage.evaluate(() => window.editorPreviewFixture.runExit('zoom'));
     assert.ok((await editorPage.$eval('#ghost-state-two-shape', node => node.style.animation)).includes('pg-zoom-out'), 'saved zoom enter/exit settings must also animate State 2 to State 1');
@@ -827,7 +840,11 @@ try {
     });
     assert.equal(await editorPage.$('#ghost-state-two-shape'), null, 'paired page-specific layers must morph without a duplicate outgoing exit');
     assert.equal(pairedStart, '70px', 'paired incoming layer must start at the outgoing position');
-    await new Promise(done => setTimeout(done, 320));
+    await editorPage.evaluate(() => window.editorPreviewFixture.finish());
+    await editorPage.waitForFunction(() => {
+        const node = document.querySelector('[data-id="state-one-shape"]');
+        return node?.style.left === '170px' && node.style.transition === '';
+    }, { polling: 'mutation' });
     assert.equal(await editorPage.$eval('[data-id="state-one-shape"]', node => node.style.left), '170px', 'paired incoming layer must finish at its target position');
 
     assert.deepEqual(errors, []);

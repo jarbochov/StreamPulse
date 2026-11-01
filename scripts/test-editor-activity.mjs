@@ -50,6 +50,9 @@ try {
         args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required', '--enable-unsafe-swiftshader']
     });
     const page = await browser.newPage();
+    await page.bringToFront();
+    const cpuRate = Number(process.env.TEST_CPU_RATE || 1);
+    if (cpuRate > 1) await (await page.createCDPSession()).send('Emulation.setCPUThrottlingRate', { rate: cpuRate });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.setRequestInterception(true);
@@ -82,7 +85,12 @@ try {
             ctx.fillStyle = `hsl(${Date.now() % 360} 80% 50%)`;
             ctx.fillRect(0, 0, 32, 32);
         }, 50);
-        recorder.start();
+        await new Promise((resolve, reject) => {
+            const timeout = window.setTimeout(() => reject(new Error('Synthetic movie recorder did not start')), 10000);
+            recorder.addEventListener('start', () => { window.clearTimeout(timeout); resolve(); }, { once: true });
+            recorder.addEventListener('error', event => { window.clearTimeout(timeout); reject(event.error); }, { once: true });
+            recorder.start();
+        });
         await new Promise(resolve => window.setTimeout(resolve, 1400));
         recorder.stop();
         await done;
@@ -184,7 +192,7 @@ try {
             };
         }
         return {
-            values, timers: window.activity.timers.size, rafs: window.activity.rafs.size,
+            values, timers: window.activity.timers.size, timerDetails: [...window.activity.timers.values()], rafs: window.activity.rafs.size,
             calls: { ...window.activity.calls }, slides: { ...window.activity.slides }
         };
     });
@@ -201,13 +209,21 @@ try {
         state.curPage = value;
         renderCanvas();
     }, value);
-    await page.waitForFunction(() => {
-        const nodes = window.fixture.state.nodes;
-        return nodes.get('a-video')?.querySelector('video')?.currentTime > 0.1 &&
-            nodes.get('a-retro')?._retroCanvas?._draws > 1 &&
-            nodes.get('a-pattern')?.querySelector('canvas')?._draws > 1 &&
-            nodes.get('a-slides')?._slideHandle?.snapshot().item;
-    });
+    try {
+        await page.waitForFunction(() => {
+            const nodes = window.fixture.state.nodes;
+            return nodes.get('a-video')?.querySelector('video')?.currentTime > 0.1 &&
+                nodes.get('a-retro')?._retroCanvas?._draws > 1 &&
+                nodes.get('a-pattern')?.querySelector('canvas')?._draws > 1 &&
+                nodes.get('a-slides')?._slideHandle?.snapshot().item;
+        });
+    } catch (error) {
+        console.error('Activity initialization:', await snapshot(), await page.evaluate(() => {
+            const video = window.fixture.state.nodes.get('a-video')?.querySelector('video');
+            return { hidden: document.hidden, readyState: video?.readyState, mediaError: video?.error?.message };
+        }));
+        throw error;
+    }
     const initial = await snapshot();
     assert.equal(Object.keys(initial.values).length, 12, 'only active/common layers may mount');
     assert.ok(!Object.keys(initial.values).some(id => id.startsWith('b-')));
@@ -281,7 +297,14 @@ try {
     }
     const repeated = await snapshot();
     assert.equal(repeated.rafs, initial.rafs, 'page revisits must not accumulate RAF chains');
-    assert.ok(repeated.timers <= initial.timers + 2, 'page revisits must not accumulate slideshow timers');
+    // Each mounted slideshow owns one refresh, one advance and at most one outgoing-slide cleanup.
+    assert.equal(repeated.timerDetails.filter(timer => timer.start === 'setInterval' && timer.ms === 20000).length, 2,
+        'page revisits must retain only the active/common slideshow refresh intervals');
+    for (const ms of [150, 110]) {
+        assert.ok(repeated.timerDetails.filter(timer => timer.start === 'setTimeout' && timer.ms === ms).length <= 2,
+            `page revisits must not accumulate ${ms}ms slideshow timers: ${JSON.stringify(repeated.timerDetails)}`);
+    }
+    assert.ok(repeated.timers <= 6, `page revisits must not accumulate slideshow timers: ${JSON.stringify(repeated.timerDetails)}`);
     await page.evaluate(async () => {
         const { state, renderCanvas } = window.fixture;
         const video = state.nodes.get('b-video').querySelector('video');
