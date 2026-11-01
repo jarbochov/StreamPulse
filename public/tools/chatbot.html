@@ -277,6 +277,30 @@
             </div>
 
             <div class="settings-section">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem;">
+                    <div>
+                        <h2>Donation Chat Announcements</h2>
+                        <p class="muted" style="margin:0;">Thank donors in chat when a donation at or above the minimum arrives.</p>
+                    </div>
+                    <label class="check" style="font-weight:600;"><input type="checkbox" id="s-don-enabled"> Enable donation announcements</label>
+                </div>
+                <div id="s-don-fields">
+                    <div class="grid" style="margin-top:.6rem;">
+                        <label class="f"><span>Source</span><select id="s-don-source"></select></label>
+                        <label class="f"><span>Minimum Amount</span><input id="s-don-min" type="number" min="0" step="0.01" placeholder="50"></label>
+                        <label class="f" style="grid-column:1/-1;"><span>Template</span><input id="s-don-template" maxlength="500" placeholder="{user} just donated {amount}! {message}"></label>
+                        <label class="f" data-host-data hidden><span>{total} Placeholder</span><input id="s-don-total" maxlength="120" list="s-don-vars"></label>
+                        <label class="f" data-host-data hidden><span>{goal} Placeholder</span><input id="s-don-goal" maxlength="120" list="s-don-vars"></label>
+                        <datalist id="s-don-vars"></datalist>
+                    </div>
+                    <p class="muted" style="margin-top:.4rem;">Tokens: <code>{user}</code>, <code>{amount}</code> (formatted as $1,234.00), <code>{message}</code>, <code>{currency}</code>, <code>{source}</code><span data-host-data hidden>, <code>{total}</code>, <code>{goal}</code></span>. The same donor and amount is announced once even if two sources report it. Any number placeholder can be shown as currency with <code>|money</code><span data-host-data hidden>, for example <code id="s-don-money-example"></code></span>.</p>
+                    <div class="row" style="margin-top:.5rem;">
+                        <button class="btn small" id="test-donation-announce" type="button">Send test announcement</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-section">
                 <h2>Backup &amp; Migration</h2>
                 <div class="row">
                     <button class="btn" id="export-all">Export all settings (.json)</button>
@@ -625,6 +649,14 @@ function renderSettings() {
     $('s-poll-template-end').value = pa.endTemplate ?? '';
     $('s-poll-template-tie').value = pa.tieTemplate ?? '';
     $('s-poll-template-champ').value = pa.championTemplate ?? '';
+    const da = s.donationAnnouncements || {};
+    $('s-don-enabled').checked = da.enabled === true;
+    renderDonationSources(da.source || 'any');
+    $('s-don-min').value = da.minAmount ?? 50;
+    $('s-don-template').value = da.template ?? '';
+    $('s-don-total').value = da.totalVar ?? '';
+    $('s-don-goal').value = da.goalVar ?? '';
+    syncDonationFields();
     renderTwitchMods();
     $('builtins').innerHTML = ['quote', 'quotes', 'addquote', 'delquote'].map(n => { const b = (s.builtins || {})[n] || {}; return `<div class="row" data-b="${n}"><code style="min-width:7rem">${s.prefix || '!'}${n}</code><label class="check">Who can use <select data-bk="access"><option value="everyone" ${b.access === 'everyone' ? 'selected' : ''}>Everyone</option><option value="subs" ${b.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${b.access === 'mods' ? 'selected' : ''}>Mods only</option><option value="disabled" ${b.access === 'disabled' ? 'selected' : ''}>Disabled</option></select></label><label class="check">Cooldown (s)<input data-bk="cooldown" type="number" min="0" value="${b.cooldown ?? ''}" placeholder="default" style="width:6rem"></label></div>`; }).join('');
 }
@@ -1042,6 +1074,7 @@ $('vars').addEventListener('change', async event => {
     if (event.target.dataset.v === 'value' && row) try { await api(`/api/variables/${encodeURIComponent(row.dataset.n)}`, 'PUT', { value: event.target.value }); loadVars(); } catch (e) { toast(e.message); }
 });
 loadVars().then(updateCounts);
+loadHostInfo();
 
 async function loadActivity() {
     const listEl = $('activity-list');
@@ -1165,12 +1198,52 @@ $('save-settings').onclick = async () => {
                     tieTemplate: $('s-poll-template-tie').value,
                     championTemplate: $('s-poll-template-champ').value
                 },
+                donationAnnouncements: {
+                    enabled: $('s-don-enabled').checked,
+                    source: $('s-don-source').value,
+                    minAmount: Number($('s-don-min').value) || 0,
+                    template: $('s-don-template').value,
+                    totalVar: $('s-don-total').value,
+                    goalVar: $('s-don-goal').value
+                },
                 builtins: Object.fromEntries([...document.querySelectorAll('#builtins [data-b]')].map(r => [r.dataset.b, { access: r.querySelector('[data-bk=access]').value, cooldown: r.querySelector('[data-bk=cooldown]').value }]))
             }
         }));
         toast('Settings saved');
     } catch (e) { toast(e.message); }
 };
+let hostInfo = { hostSources: [], externalKeys: [] };
+function renderDonationSources(current) {
+    const list = [['any', 'Any source'], ['socialstream', 'SocialStream'], ...hostInfo.hostSources.map(s => [s.id, s.label])];
+    if (current && !list.some(([id]) => id === current)) list.push([current, current === 'external' ? 'Other integrations' : `${current} (not connected)`]);
+    $('s-don-source').innerHTML = list.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('');
+    $('s-don-source').value = current;
+}
+// {total}/{goal} and host placeholder examples only make sense when an embedded host shares data.
+async function loadHostInfo() {
+    try {
+        const st = await api('/api/status');
+        const flat = [];
+        const walk = (v, p, d = 0) => { if (v && typeof v === 'object' && !Array.isArray(v) && d < 3) Object.entries(v).forEach(([k, x]) => walk(x, `${p}.${k}`, d + 1)); else if (typeof v === 'number' || (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v)))) flat.push(p); };
+        Object.entries(st.external || {}).forEach(([k, v]) => walk(v, `rep.${k}`));
+        hostInfo = { hostSources: st.hostSources || [], externalKeys: flat };
+    } catch { /* status unavailable */ }
+    const has = hostInfo.externalKeys.length > 0;
+    document.querySelectorAll('[data-host-data]').forEach(el => { el.hidden = !has; });
+    $('s-don-vars').innerHTML = hostInfo.externalKeys.map(k => `<option value="${esc(k)}">`).join('');
+    if (has) $('s-don-money-example').textContent = `{{${hostInfo.externalKeys[0]}|money}}`;
+    if (state.settings) renderDonationSources(state.settings.donationAnnouncements?.source || 'any');
+}
+function syncDonationFields() {
+    $('s-don-fields').hidden = !$('s-don-enabled').checked;
+}
+$('s-don-enabled')?.addEventListener('change', syncDonationFields);
+$('test-donation-announce')?.addEventListener('click', async () => {
+    try {
+        const res = await api('/api/chatbot/test-donation-announce', 'POST');
+        toast(res.sent ? 'Test announcement posted to chat' : `Chatbot not ready: ${res.reason || res.error || 'Check SocialStream connection'}`);
+    } catch (e) { toast(`Test failed: ${e.message}`); }
+});
 $('test-poll-announce')?.addEventListener('click', async () => {
     try {
         const res = await api('/api/chatbot/test-poll-announce', 'POST');

@@ -1340,7 +1340,7 @@
     const AMOUNT_LABEL = { bits: 'Bits', donation: 'Amount', raid: 'Viewers', redeem: 'Point cost', gift: 'Number of gifts', sub: 'Months', resub: 'Months', poll_end: 'Winning votes' };
     const TOKENS = {
         follow: ['user'], sub: ['user', 'tier'], resub: ['user', 'months', 'streak', 'tier', 'message'], milestone: ['user', 'months', 'streak', 'tier'],
-        gift: ['user', 'count', 'recipient', 'tier'], bits: ['user', 'amount', 'message'], donation: ['user', 'amount', 'message'], raid: ['user', 'viewers'],
+        gift: ['user', 'count', 'recipient', 'tier'], bits: ['user', 'amount', 'message'], donation: ['user', 'amount', 'currency', 'source', 'message'], raid: ['user', 'viewers'],
         redeem: ['user', 'reward', 'amount'], timer: ['name'], goal: ['name', 'amount'], chat_word: ['user', 'keyword', 'message'],
         chat_command: ['user', 'command', 'target', 'args', 'message'],
         poll_end: ['winner', 'poll_title', 'votes', 'percent', 'total_votes', 'user']
@@ -1414,8 +1414,15 @@
         if (!sel || !rule()) sel = cfg.rules[0]?.id || null;
         try { timers = Object.values((await api('/api/timers')).timers || {}); } catch { timers = []; }
         try { goals = (await api('/api/goals')).items || []; } catch { goals = []; }
+        try { hostSources = (await api('/api/status')).hostSources || []; } catch { hostSources = []; }
         await Promise.all([loadAssets(), loadChannelEmotes()]);
         renderAll();
+    }
+    let hostSources = [];
+    function sourceOptions(current) {
+        const list = [['any', 'Any source'], ['socialstream', 'SocialStream'], ...hostSources.map(s => [s.id, s.label])];
+        if (current && !list.some(([id]) => id === current)) list.push([current, current === 'external' ? 'Other integrations' : `${current} (not connected)`]);
+        return list;
     }
     async function loadAssets() { try { assets = await api('/api/custom-overlays/assets'); } catch { assets = []; } }
 
@@ -1449,7 +1456,7 @@
         $('rule-list').innerHTML = filtered.map(r => {
             const meta = TRIGGER_META[r.trigger] || { label: r.trigger, icon: ICONS.zap, color: '#3b82f6' };
             const isSel = r.id === sel;
-            const amtCond = r.conditions.minAmount && AMOUNT_LABEL[r.trigger] && r.trigger !== 'sub' ? `≥ ${r.conditions.minAmount}` : '';
+            const amtCond = AMOUNT_LABEL[r.trigger] && r.trigger !== 'sub' ? amountText(r.conditions) : '';
             return `
             <div class="rule-item${isSel ? ' active' : ''}${r.enabled ? '' : ' off'}" data-rule="${esc(r.id)}" title="${esc(r.name)} (${meta.label})">
                 <div class="rule-icon-box" style="color:${meta.color};border-color:color-mix(in srgb, ${meta.color} 35%, var(--border));background:color-mix(in srgb, ${meta.color} 10%, var(--bg-card));">
@@ -1476,12 +1483,39 @@
     const inp = (path, value, type = 'text', extra = '') => `<input type="${type}" data-f="${path}" data-type="${type}" value="${esc(value)}" ${extra}>`;
     const sel_ = (path, value, options) => `<select data-f="${path}">${options.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(value) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
 
+    // Older rules only stored min/max; min == max means "equal to".
+    function amountMode(c) {
+        if (['min', 'range', 'exact'].includes(c.amountMode)) return c.amountMode;
+        if (c.minAmount > 0 && c.minAmount === c.maxAmount) return 'exact';
+        return c.maxAmount > 0 ? 'range' : 'min';
+    }
+    function amountText(c) {
+        const mode = amountMode(c);
+        if (mode === 'exact') return `= ${c.exactAmount || c.minAmount}`;
+        if (mode === 'range' && c.maxAmount) return `${c.minAmount}-${c.maxAmount}`;
+        return c.minAmount ? `≥ ${c.minAmount}` : '';
+    }
+
+    function variantGateMode(v) {
+        return amountMode({ amountMode: v.gateMode, minAmount: v.gateMin, maxAmount: v.gateMax });
+    }
+
     function conditionsHtml(r) {
         const c = r.conditions, t = r.trigger;
         let html = '';
         if (AMOUNT_LABEL[t] && t !== 'sub') {
-            html += field(`Minimum ${AMOUNT_LABEL[t]}`, inp('conditions.minAmount', c.minAmount, 'number', 'min="0"'), 'When several rules match, the highest minimum wins (e.g. 100 vs 1000 bits).');
-            html += field(`Maximum ${AMOUNT_LABEL[t]}`, inp('conditions.maxAmount', c.maxAmount, 'number', 'min="0"'), '0 means no maximum.');
+            const mode = amountMode(c);
+            const step = t === 'donation' ? 'step="0.01" ' : '';
+            html += field(`${AMOUNT_LABEL[t]} Condition`, sel_('conditions.amountMode', mode, [['min', 'At least'], ['range', 'Between'], ['exact', 'Equal to']]), 'Equal-to rules beat ranges; otherwise the highest minimum wins.');
+            if (mode === 'exact') {
+                html += field(`Exact ${AMOUNT_LABEL[t]}`, inp('conditions.exactAmount', c.exactAmount || c.minAmount || 0, 'number', `${step}min="0"`), t === 'donation' ? 'Matches within half a cent.' : '');
+            } else {
+                html += field(`Minimum ${AMOUNT_LABEL[t]}`, inp('conditions.minAmount', c.minAmount, 'number', `${step}min="0"`), 'When several rules match, the highest minimum wins (e.g. 100 vs 1000 bits).');
+                if (mode === 'range') html += field(`Maximum ${AMOUNT_LABEL[t]}`, inp('conditions.maxAmount', c.maxAmount, 'number', `${step}min="0"`), 'Inclusive upper limit.');
+            }
+        }
+        if (t === 'donation') {
+            html += field('Donation Source', sel_('conditions.source', c.source || 'any', sourceOptions(c.source || 'any')), 'A rule for a specific source beats an "Any source" rule with the same amount.');
         }
         if (['sub', 'resub', 'milestone', 'gift'].includes(t)) {
             const tiers = Array.isArray(c.tiers) ? c.tiers : (c.tier ? [c.tier] : []);
@@ -1673,6 +1707,7 @@
         const hasMetric = ['sub', 'resub', 'gift', 'bits', 'donation', 'raid', 'redeem', 'milestone'].includes(r.trigger);
         const metricName = AMOUNT_LABEL[r.trigger] || (['sub', 'resub', 'milestone'].includes(r.trigger) ? 'Months' : 'Amount');
         const isMilestone = hasMetric && (v.variantType === 'gated' || (v.gateMin > 0) || (v.gateMax > 0));
+        const gateMode = variantGateMode(v);
         const tab = variantTab.get(v.id) || 'visual';
         const media = variantMedia.get(v.id) || (v.video ? 'video' : v.image ? 'image' : (v.emoji || v.emojiUrl || v.emojiLadder?.length) ? 'emoji' : 'image');
 
@@ -1705,7 +1740,8 @@
         let tierBadge = '';
         if (hasMetric) {
             if (isMilestone) {
-                tierBadge = `<span class="tier-badge milestone">${ICONS.flag} Milestone: &ge; ${v.gateMin || 0} ${esc(metricName)}${v.gateMax > 0 ? ` - &le; ${v.gateMax}` : ''}</span>`;
+                const gm = variantGateMode(v);
+                tierBadge = `<span class="tier-badge milestone">${ICONS.flag} Milestone: ${gm === 'exact' ? '=' : '&ge;'} ${v.gateMin || 0} ${esc(metricName)}${gm === 'range' && v.gateMax > 0 ? ` - &le; ${v.gateMax}` : ''}</span>`;
             } else {
                 tierBadge = `<span class="tier-badge base">${ICONS.zap} Base Alert (Any ${esc(metricName)})</span>`;
             }
@@ -1845,19 +1881,22 @@
                             <div class="threshold-params-row">
                                 <div class="threshold-inputs">
                                     <span style="font-size:0.73rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;">${esc(metricName)}:</span>
-                                    <div class="input-affix-group" title="Minimum ${esc(metricName)} required to activate this tier">
-                                        <span class="input-affix">&ge;</span>
-                                        <input type="number" min="0" data-v="${i}.gateMin" value="${v.gateMin ?? 0}">
+                                    <select data-v="${i}.gateMode" title="How ${esc(metricName)} is compared">
+                                        ${[['min', 'At least'], ['range', 'Between'], ['exact', 'Equal to']].map(([val, label]) => `<option value="${val}"${gateMode === val ? ' selected' : ''}>${label}</option>`).join('')}
+                                    </select>
+                                    <div class="input-affix-group" title="${gateMode === 'exact' ? 'Exact' : 'Minimum'} ${esc(metricName)} required to activate this tier">
+                                        <span class="input-affix">${gateMode === 'exact' ? '=' : '&ge;'}</span>
+                                        <input type="number" min="0" step="any" data-v="${i}.gateMin" value="${v.gateMin ?? 0}">
                                     </div>
-                                    <span style="font-size:0.73rem;color:var(--text-muted);font-weight:600;">to</span>
-                                    <div class="input-affix-group" title="Optional maximum cap (0 = no maximum)">
+                                    ${gateMode === 'range' ? `<span style="font-size:0.73rem;color:var(--text-muted);font-weight:600;">to</span>
+                                    <div class="input-affix-group" title="Maximum ${esc(metricName)} (inclusive)">
                                         <span class="input-affix">&le;</span>
-                                        <input type="number" min="0" data-v="${i}.gateMax" value="${v.gateMax ?? 0}" placeholder="No max">
-                                    </div>
+                                        <input type="number" min="0" step="any" data-v="${i}.gateMax" value="${v.gateMax ?? 0}">
+                                    </div>` : ''}
                                 </div>
                                 <div class="threshold-explainer">
                                     ${ICONS.info}
-                                    <span>Activates when <b>${esc(metricName)} &ge; ${v.gateMin || 0}</b>${v.gateMax > 0 ? ` and &le; ${v.gateMax}` : ''}. Highest matching tier wins.</span>
+                                    <span>${gateMode === 'exact' ? `Activates when <b>${esc(metricName)} = ${v.gateMin || 0}</b>. Exact tiers beat ranges.` : `Activates when <b>${esc(metricName)} &ge; ${v.gateMin || 0}</b>${gateMode === 'range' && v.gateMax > 0 ? ` and &le; ${v.gateMax}` : ''}. Highest matching tier wins.`}</span>
                                 </div>
                             </div>
                         ` : ''}
@@ -1931,8 +1970,11 @@
                 when += ` (${tiers.map(val => tierNames[val] || val).join(', ')})`;
             }
         }
-        if (hasAmt && c.minAmount && c.maxAmount) when += ` between ${c.minAmount} and ${c.maxAmount}`;
+        const mode = amountMode(c);
+        if (hasAmt && mode === 'exact') when += ` of exactly ${c.exactAmount || c.minAmount}`;
+        else if (hasAmt && mode === 'range' && c.minAmount && c.maxAmount) when += ` between ${c.minAmount} and ${c.maxAmount}`;
         else if (hasAmt && c.minAmount) when += ` of ${c.minAmount} or more`;
+        if (r.trigger === 'donation' && c.source && c.source !== 'any') when += ` from ${sourceOptions(c.source).find(([id]) => id === c.source)?.[1] || c.source}`;
         if (r.trigger === 'redeem' && c.rewardName) when += ` for "${c.rewardName}"`;
         if (r.trigger === 'chat_word' && c.keywords.length) when += `: ${c.keywords.join(', ')}`;
         if (r.trigger === 'chat_command' && c.command) when += ` "!${c.command}" (${c.permission || 'everyone'})`;
@@ -2285,7 +2327,7 @@
             name: 'New alert',
             enabled: true,
             trigger,
-            conditions: { minAmount: 0, maxAmount: 0, tier: '', rewardName: '', keywords: [], timerId: '', goalId: '', milestones: [], everyMonths: 0, cooldownSeconds: 0, command: '', permission: 'everyone' },
+            conditions: { amountMode: 'min', minAmount: 0, maxAmount: 0, exactAmount: 0, source: 'any', tier: '', rewardName: '', keywords: [], timerId: '', goalId: '', milestones: [], everyMonths: 0, cooldownSeconds: 0, command: '', permission: 'everyone' },
             pick: 'random',
             variants: [newVariant(trigger)],
             actions: { timer: { enabled: false, timerId: '', action: 'add_time', seconds: 30, perUnit: false }, http: { enabled: false, url: '', method: 'POST' } }
@@ -2397,7 +2439,8 @@
             renderRules();
         } else if (el.dataset.f === 'trigger') {
             r.trigger = el.value;
-            if (!AMOUNT_LABEL[r.trigger] || r.trigger === 'sub') r.conditions.minAmount = r.conditions.maxAmount = 0;
+            if (!AMOUNT_LABEL[r.trigger] || r.trigger === 'sub') { r.conditions.minAmount = r.conditions.maxAmount = r.conditions.exactAmount = 0; r.conditions.amountMode = 'min'; }
+            if (r.trigger !== 'donation') r.conditions.source = 'any';
             const prev = Object.values(DEFAULT_TITLE);
             r.variants.forEach(v => { if (!v.title || prev.includes(v.title)) v.title = DEFAULT_TITLE[r.trigger] || ''; });
             if (r.name === 'New alert' || Object.values(TRIGGERS).includes(r.name)) r.name = TRIGGERS[r.trigger];
@@ -2409,6 +2452,13 @@
                 r.conditions.permission = r.conditions.permission || 'everyone';
             }
             renderAll();
+        } else if (el.dataset.f === 'conditions.amountMode') {
+            const c = r.conditions;
+            if (el.value === 'exact') c.exactAmount = c.exactAmount || c.minAmount || 0;
+            else if (c.exactAmount && !c.minAmount) c.minAmount = c.exactAmount;
+            if (el.value !== 'range') c.maxAmount = 0;
+            renderEditor();
+            renderRules();
         } else if (el.dataset.f === 'pick' || ['actions.timer.enabled', 'actions.http.enabled', 'actions.timer.action'].includes(el.dataset.f)) {
             renderEditor();
         } else if (el.dataset.soundPreset !== undefined) {
@@ -2447,7 +2497,11 @@
             if (el.type === 'checkbox') r.variants[i][key] = el.checked;
             else r.variants[i][key] = el.value;
             setDirty(true);
-            if (key === 'videoSound' || key === 'gateMin' || key === 'gateMax' || key === 'gateMinOp' || key === 'gateMaxOp' || key === 'weight') renderEditor();
+            if (key === 'gateMode') {
+                if (el.value === 'min') r.variants[i].gateMax = 0;
+                if (el.value === 'exact') r.variants[i].gateMax = r.variants[i].gateMin;
+            }
+            if (key === 'videoSound' || key === 'gateMode' || key === 'gateMin' || key === 'gateMax' || key === 'gateMinOp' || key === 'gateMaxOp' || key === 'weight') renderEditor();
         }
     });
 

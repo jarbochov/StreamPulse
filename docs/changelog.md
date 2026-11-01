@@ -13,6 +13,11 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ### Added
 - Embedded mode (`STREAMPULSE_EMBEDDED=true`) for in-process hosts such as NodeCG, with broadcast listeners and state snapshots; host data such as NodeCG replicants resolves as `{{rep.<bundle>.<name>.<path>}}` placeholders. Optional HTTPS via `STREAMPULSE_TLS_KEY`/`STREAMPULSE_TLS_CERT`.
 - Embedded `ingestEvent` feeds external donations (such as Tiltify from NodeCG) into alerts, goals and stats.
+- Alert rules and milestone variants can match an exact amount (At least / Between / Equal to); exact matches win.
+- Donation alert rules can filter by source; `{{alert.source}}` and `{{alert.currency}}` placeholders.
+- Embedded `registerHostSource`/`getHostSources` add host donation sources (listed as `hostSources` in `/api/status`).
+- Chat bot donation announcements with minimum amount, source and template; optional `{total}`/`{goal}` from host data.
+- `money` placeholder format, e.g. `{{placeholder|money}}` renders $1,234.00.
 
 ## [0.14.0] - 2026-11-01
 

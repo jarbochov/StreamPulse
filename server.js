@@ -1636,6 +1636,7 @@ function buildStatusSnapshot() {
     return {
         customVars: variablesStore.list(),
         external: externalData,
+        hostSources: getHostSources(),
         poll: (pollService ? pollService.getLatestPoll() : twitchService.getLatestPoll()),
         tournament: pollService ? pollService.getTournament({ isPoll: false }) : null,
         pollTournament: pollService ? pollService.getTournament({ isPoll: true }) : null,
@@ -1894,6 +1895,16 @@ const handleObsRoutes = createObsRoutes({
     isLoopbackRequest
 });
 
+// Donation sources an embedded host adds (e.g. NodeCG registers Tiltify); listed in /api/status for the source pickers.
+const hostSources = new Map();
+function registerHostSource({ id, label } = {}) {
+    const key = String(id || '').toLowerCase().trim();
+    if (!/^[a-z0-9_-]{1,40}$/.test(key) || ['any', 'socialstream', 'external'].includes(key)) throw new Error(`Invalid host source id: ${id}`);
+    hostSources.set(key, { id: key, label: String(label || key).trim().slice(0, 60) || key });
+    return hostSources.get(key);
+}
+const getHostSources = () => [...hostSources.values()];
+
 // Data pushed in by an embedded host (e.g. NodeCG replicants), keyed "<bundle>.<name>".
 const externalData = {};
 function setExternalData(key, value) {
@@ -1936,6 +1947,7 @@ function ingestEvent(input = {}) {
     saveStats();
     broadcastToOverlays('update', chatData);
     broadcastToOverlays('goals-update', buildGoalsSnapshot());
+    try { chatbot.announceDonation({ id, user, amount, currency, message, source })?.catch?.(() => {}); } catch { /* chat is optional */ }
     // Ids already dedupe, so identical back-to-back donations still alert.
     return alertEngine.handleEvent({ type: 'donation', user, avatar, amount, currency, message, source, ...(id ? { dedupeMs: 0 } : {}) });
 }
@@ -2284,6 +2296,8 @@ module.exports = {
     restartServer,
     onBroadcast: wsService.onBroadcast,
     setExternalData,
+    registerHostSource,
+    getHostSources,
     ingestEvent,
     getSnapshots: () => ({
         timers: buildTimersSnapshot(),

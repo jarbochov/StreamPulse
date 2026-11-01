@@ -452,6 +452,12 @@
 
     function applyFormat(name, value, format, now, table = {}) {
         if (!format) return value;
+        const money = format.match(/^money(?::([a-z]{3}))?$/i);
+        if (money) {
+            const n = Number(String(value ?? '').replace(/[^0-9.-]/g, ''));
+            if (value === '' || value === undefined || value === null || !Number.isFinite(n)) return value;
+            try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: (money[1] || 'USD').toUpperCase() }).format(n); } catch { return n.toFixed(2); }
+        }
         if (isListKey(name)) {
             const items = (table.__lists?.[name] || String(value ?? '').split(', ')).filter(Boolean);
             if (/^(lines|newline|br)$/i.test(format)) return items.join('\n');

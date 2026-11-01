@@ -493,8 +493,12 @@ Active custom-overlay alerts survive ordinary live-data rerenders. They end on c
 
 ## 9. Embedded Mode (NodeCG)
 
-With `STREAMPULSE_EMBEDDED=true`, `require('streampulse/server.js')` exports `startServer`, `stopServer`, `onBroadcast`, `getSnapshots`, `setExternalData` and `ingestEvent`.
+With `STREAMPULSE_EMBEDDED=true`, `require('streampulse/server.js')` exports `startServer`, `stopServer`, `onBroadcast`, `getSnapshots`, `setExternalData`, `registerHostSource`, `getHostSources` and `ingestEvent`.
+
+- **`registerHostSource({ id, label })`**: adds a donation source (for example `{ id: 'tiltify', label: 'Tiltify (NodeCG)' }`) to the alert rule and chat bot announcement source pickers. Listed in `/api/status` as `hostSources`. `getHostSources()` returns the list.
 
 - **`ingestEvent({ type: 'donation', id, user, amount, currency, message, source, avatar })`**: feeds an external donation (for example Tiltify) through the same path as Social Stream Ninja donations: donation feed and latest-event placeholders, donation goals, session stats and the alerts engine. Returns the alert payload, or `null` when no rule matched or the `id` was already ingested. Other types throw.
 
-The NodeCG bundle (`nodecg-streampulse`) uses it to alert on new Tiltify donations (`tiltifyDonations` in its config).
+### NodeCG integration
+
+The NodeCG bundle (`nodecg-streampulse`) shares replicants as `{{rep.<bundle>.<name>.<path>}}` placeholders, forwards new Tiltify donations through `ingestEvent` with `source: 'tiltify'` (`tiltifyDonations` in its config) and registers `tiltify` as a host source. Chat bot `{total}`/`{goal}` can then use `rep.nodecg-tiltify.total` and `rep.nodecg-tiltify.campaignGoal`, and commands can show `{{rep.nodecg-tiltify.total|money}}`. Its `scripts/migrate-legacy.cjs` imports legacy 4s7p-event donation alerts and the large-donation chat announcement as Tiltify-only. See the bundle README.

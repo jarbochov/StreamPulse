@@ -1038,8 +1038,9 @@ function createSsnService({
                 const donation = { chatname, amount: msg.hasDonation, amountValue: parseNumericAmount(msg.hasDonation), chatimg: msg.chatimg, timestamp: Date.now() };
                 chatData.donations.push(donation);
                 log(`[SSN] Donation: ${chatname} - ${msg.hasDonation}`);
-                resolveAlertEngine()?.handleEvent({ type: 'donation', user: chatname, avatar: msg.chatimg, amount: parseNumericAmount(msg.hasDonation) || 0, message: String(msg.chatmessage || '').replace(/<[^>]+>/g, '').trim() });
+                resolveAlertEngine()?.handleEvent({ type: 'donation', user: chatname, avatar: msg.chatimg, amount: parseNumericAmount(msg.hasDonation) || 0, message: String(msg.chatmessage || '').replace(/<[^>]+>/g, '').trim(), source: 'socialstream' });
                 const donationValue = parseNumericAmount(msg.hasDonation);
+                resolveChatbot()?.announceDonation?.({ user: chatname, amount: donationValue || 0, message: String(msg.chatmessage || '').replace(/<[^>]+>/g, '').trim(), source: 'socialstream' })?.catch?.(() => {});
                 if (clipCandidateConfig.enabled && clipCandidateConfig.include_donations && donationValue >= clipCandidateConfig.minimum_donation) {
                     addClipCandidate('donation', { user: chatname, amount: msg.hasDonation }, Date.now(), 0.7);
                 }

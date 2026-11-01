@@ -218,3 +218,32 @@ test('Chatbot Poll Announcements: formatting, readiness, and poll service integr
 
     safePollService.destroy();
 });
+
+test('Chatbot donation announcements: threshold, source, currency formatting and dedupe', async (t) => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'donation-announce-test-'));
+    const originalFetch = globalThis.fetch;
+    const sent = [];
+    globalThis.fetch = async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/sendChat/')) { sent.push(decodeURIComponent(urlStr.split('/sendChat/')[1])); return { ok: true, status: 200 }; }
+        if (urlStr.endsWith('/api/status')) return { ok: true, status: 200, json: async () => ({ external: { 'nodecg-tiltify': { total: 8265, campaignGoal: '15000' } } }) };
+        return { ok: true, status: 200, json: async () => ({}) };
+    };
+    const chatbot = createChatbot({ dataDir: tmpDir, getConfig: () => ({ chatbot_enabled: true, ssn: { session_id: 'sess' } }) });
+    t.after(() => { globalThis.fetch = originalFetch; chatbot.stop(); fs.rmSync(tmpDir, { recursive: true, force: true }); });
+
+    const settings = chatbot.getData().settings;
+    settings.enabled = true;
+    settings.tag = '';
+    assert.equal(settings.donationAnnouncements.minAmount, 50);
+    assert.equal((await chatbot.announceDonation({ user: 'Ann', amount: 100, source: 'tiltify' })).sent, false, 'disabled by default');
+    assert.equal(settings.donationAnnouncements.source, 'any', 'core default is host-agnostic');
+    settings.donationAnnouncements = { ...settings.donationAnnouncements, enabled: true, source: 'tiltify', totalVar: 'rep.nodecg-tiltify.total', goalVar: 'rep.nodecg-tiltify.campaignGoal', template: '{user} just donated {amount}! {message} Total {total} of {goal}' };
+
+    assert.equal((await chatbot.announceDonation({ id: 't1', user: 'Ann', amount: 1234, source: 'tiltify', message: 'GL' })).sent, true);
+    assert.equal(sent.at(-1), 'Ann just donated $1,234.00! GL Total $8,265.00 of $15,000.00');
+    assert.equal((await chatbot.announceDonation({ user: 'Ann', amount: 1234, source: 'tiltify' })).sent, false, 'same donor and amount is not repeated');
+    assert.equal((await chatbot.announceDonation({ user: 'Bo', amount: 49.99, source: 'tiltify' })).sent, false, 'below minimum');
+    assert.equal((await chatbot.announceDonation({ user: 'Cy', amount: 75, source: 'socialstream' })).sent, false, 'other source');
+    assert.equal(sent.length, 1);
+});

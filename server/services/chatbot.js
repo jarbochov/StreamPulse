@@ -19,7 +19,15 @@ const DEFAULT_POLL_ANNOUNCEMENTS = {
     tieTemplate: '[Poll Result] The poll ended in a tie between {choices}!',
     championTemplate: '[Tournament Champion] {champion} has won {title}!'
 };
-const DEFAULT_SETTINGS = { enabled: false, prefix: '!', tag: '[BOT]', cooldown: 5, mods: [], autoShoutout: { ...DEFAULT_AUTO_SHOUTOUT }, pollAnnouncements: { ...DEFAULT_POLL_ANNOUNCEMENTS } };
+const DEFAULT_DONATION_ANNOUNCEMENTS = {
+    enabled: false,
+    source: 'any',
+    minAmount: 50,
+    template: '{user} just donated {amount}! {message}',
+    totalVar: '',
+    goalVar: ''
+};
+const DEFAULT_SETTINGS = { enabled: false, prefix: '!', tag: '[BOT]', cooldown: 5, mods: [], autoShoutout: { ...DEFAULT_AUTO_SHOUTOUT }, pollAnnouncements: { ...DEFAULT_POLL_ANNOUNCEMENTS }, donationAnnouncements: { ...DEFAULT_DONATION_ANNOUNCEMENTS } };
 const MAX_COMMANDS = 200;
 const MAX_QUOTES = 5000;
 const MAX_MESSAGES = 100;
@@ -27,6 +35,11 @@ const MAX_TRIGGERS = 100;
 const KINDS = ['interval', 'hourly', 'daily', 'datetime', 'dateinterval'];
 const USER_RE = /\{\{\s*(?:user|sender)\s*\}\}|\$\((?:user|sender)\)/gi;
 const NAME_RE = /^[a-z0-9_]{1,30}$/;
+
+function formatMoney(value, currency = 'USD') {
+    const n = Number(value) || 0;
+    try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(n); } catch { return `${n.toFixed(2)} ${currency}`; }
+}
 
 function formatTokens(text, { user = '', arg = '', msg = {}, viewers = '' } = {}) {
     if (!text) return '';
@@ -107,6 +120,8 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         const mods = Array.isArray(input.mods) ? input.mods : String(input.mods || '').split(/[\s,]+/);
         const autoShoutout = input.autoShoutout || {};
         const pollAnnouncements = input.pollAnnouncements || {};
+        const donations = input.donationAnnouncements || {};
+        const varName = (value, fallback) => (value === undefined ? fallback : clean(value, 120).replace(/^\{\{\s*|\s*\}\}$/g, ''));
         return {
             enabled: input.enabled !== undefined
                 ? input.enabled === true
@@ -131,6 +146,14 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 endTemplate: clean(pollAnnouncements.endTemplate ?? DEFAULT_POLL_ANNOUNCEMENTS.endTemplate, 500),
                 tieTemplate: clean(pollAnnouncements.tieTemplate ?? DEFAULT_POLL_ANNOUNCEMENTS.tieTemplate, 500),
                 championTemplate: clean(pollAnnouncements.championTemplate ?? DEFAULT_POLL_ANNOUNCEMENTS.championTemplate, 500)
+            },
+            donationAnnouncements: {
+                enabled: donations.enabled === true,
+                source: String(donations.source || DEFAULT_DONATION_ANNOUNCEMENTS.source).toLowerCase().replace(/[^a-z0-9_-]+/g, '').slice(0, 40) || 'any',
+                minAmount: Math.max(0, Math.min(1e9, Number(donations.minAmount ?? DEFAULT_DONATION_ANNOUNCEMENTS.minAmount) || 0)),
+                template: clean(donations.template ?? DEFAULT_DONATION_ANNOUNCEMENTS.template, 500) || DEFAULT_DONATION_ANNOUNCEMENTS.template,
+                totalVar: varName(donations.totalVar, DEFAULT_DONATION_ANNOUNCEMENTS.totalVar),
+                goalVar: varName(donations.goalVar, DEFAULT_DONATION_ANNOUNCEMENTS.goalVar)
             },
             builtins: Object.fromEntries(Object.entries(BUILTIN_DEFAULTS).map(([name, access]) => {
                 const b = (input.builtins || {})[name] || {};
@@ -967,6 +990,10 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 const result = await announcePollStart(samplePoll);
                 return json(200, result || { sent: true }), true;
             }
+            if (pathname === '/api/chatbot/test-donation-announce' && req.method === 'POST') {
+                const result = await announceDonation({ user: clean(body.user || 'TestViewer', 60), amount: Number(body.amount) || 1234, currency: body.currency || 'USD', message: clean(body.message || 'Good luck on the run!', 300), source: body.source || 'socialstream' }, { test: true });
+                return json(200, result), true;
+            }
             if (pathname === '/api/chatbot/shoutout' && (req.method === 'POST' || req.method === 'GET')) {
                 const query = req.method === 'GET' ? Object.fromEntries(new URL(req.url, 'http://localhost').searchParams) : {};
                 const input = { ...query, ...body };
@@ -1131,6 +1158,48 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         }
     }
 
+    const announcedDonations = new Map();
+    // Every donation path calls this; ids and a short user+amount window stop repeats when two sources report one gift.
+    async function announceDonation(donation = {}, { test = false } = {}) {
+        const readyStatus = isReady();
+        if (!readyStatus.ready) return { sent: false, reason: readyStatus.reason };
+        const cfg = data.settings.donationAnnouncements || DEFAULT_DONATION_ANNOUNCEMENTS;
+        if (!cfg.enabled && !test) return { sent: false, reason: 'Donation announcements disabled in settings' };
+        const source = String(donation.source || 'socialstream').toLowerCase();
+        if (!test && cfg.source !== 'any' && cfg.source !== source) return { sent: false, reason: `Source ${source} is not announced` };
+        const amount = Number(donation.amount) || 0;
+        if (!test && amount < cfg.minAmount) return { sent: false, reason: 'Below minimum amount' };
+        const user = clean(donation.user, 60) || 'Anonymous';
+        if (!test) {
+            const now = Date.now();
+            for (const [k, t] of announcedDonations) if (now - t > 120000) announcedDonations.delete(k);
+            const keys = [donation.id ? `id:${donation.id}` : '', `${user.toLowerCase()}|${amount.toFixed(2)}`].filter(Boolean);
+            if (keys.some(k => announcedDonations.has(k))) return { sent: false, reason: 'Already announced' };
+            keys.forEach(k => announcedDonations.set(k, now));
+        }
+        const currency = clean(donation.currency, 3).toUpperCase() || 'USD';
+        const status = await liveStatus();
+        const lookup = name => (name ? getShared().expandVariables(`{{${name}|money}}`, status, {}, false) : '');
+        const message = clean(String(donation.message || '').replace(/\s+/g, ' '), 300);
+        const text = String(cfg.template || DEFAULT_DONATION_ANNOUNCEMENTS.template)
+            .replace(/\{user\}/gi, user)
+            .replace(/\{amount\}/gi, formatMoney(amount, currency))
+            .replace(/\{currency\}/gi, currency)
+            .replace(/\{source\}/gi, source)
+            .replace(/\{message\}/gi, message)
+            .replace(/\{total\}/gi, () => lookup(cfg.totalVar))
+            .replace(/\{goal\}/gi, () => lookup(cfg.goalVar))
+            .replace(/\s+([!?.,])/g, '$1').replace(/[ \t]{2,}/g, ' ').trim();
+        try {
+            await send(text);
+            logUse('donation', source, user);
+            return { sent: true, text };
+        } catch (err) {
+            console.warn(`[Chatbot] Donation announcement failed: ${err.message}`);
+            return { sent: false, error: err.message, text };
+        }
+    }
+
     function getStats() {
         return {
             enabled: enabled(),
@@ -1171,6 +1240,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         announcePollStart,
         announcePollEnd,
         announceTournamentChampion,
+        announceDonation,
         reload: load,
         start,
         stop

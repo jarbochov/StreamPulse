@@ -506,3 +506,51 @@ test('fireRule simulation evaluates test amounts and thresholds correctly', () =
     }
 });
 
+
+test('equal-to amounts beat ranges, legacy min==max loads as exact, and source filters donations', () => {
+    const variant = title => [{ id: 'v1', title, message: '{{alert.source}}' }];
+    const { engine, cleanup } = createTempEngine({
+        settings: { enabled: true, gapSeconds: 0 },
+        rules: [
+            { id: 'any-50', trigger: 'donation', conditions: { minAmount: 50 }, variants: variant('min') },
+            { id: 'range', trigger: 'donation', conditions: { amountMode: 'range', minAmount: 60, maxAmount: 80 }, variants: variant('range') },
+            { id: 'legacy-exact', trigger: 'donation', conditions: { minAmount: 69.42, maxAmount: 69.42 }, variants: variant('exact') },
+            { id: 'tiltify-only', trigger: 'donation', conditions: { amountMode: 'exact', exactAmount: 25, source: 'tiltify' }, variants: variant('tiltify') }
+        ]
+    });
+    try {
+        const legacy = normalizeConfig({ rules: [{ trigger: 'donation', conditions: { minAmount: 5, maxAmount: 5 } }, { trigger: 'donation', conditions: { minAmount: 5, maxAmount: 9 } }] }).rules;
+        assert.equal(legacy[0].conditions.amountMode, 'exact');
+        assert.equal(legacy[0].conditions.exactAmount, 5);
+        assert.equal(legacy[1].conditions.amountMode, 'range');
+
+        const fire = (amount, source) => engine.handleEvent({ type: 'donation', user: `u${amount}${source}`, amount, source });
+        const exact = fire(69.424, 'tiltify');
+        assert.equal(exact.title, 'exact', 'exact beats the overlapping range and minimum');
+        assert.equal(exact.message, 'tiltify', '{{alert.source}} resolves');
+        assert.equal(fire(70, 'tiltify').title, 'range');
+        assert.equal(fire(25, 'socialstream'), null, 'source-specific rule ignores other sources');
+        assert.equal(fire(25.004, 'tiltify').title, 'tiltify', 'within 0.005 tolerance');
+        assert.equal(fire(25.01, 'tiltify'), null, 'outside tolerance');
+    } finally {
+        cleanup();
+    }
+});
+
+test('gated variants support an equal-to amount that beats higher thresholds', () => {
+    const { engine, cleanup } = createTempEngine({
+        settings: { enabled: true, gapSeconds: 0 },
+        rules: [{ id: 'd', trigger: 'donation', variants: [
+            { id: 'base', title: 'base' },
+            { id: 'big', variantType: 'gated', gateMin: 50, title: 'big' },
+            { id: 'nice', variantType: 'gated', gateMode: 'exact', gateMin: 69, title: 'nice' }
+        ] }]
+    });
+    try {
+        assert.equal(engine.fireRule('d', '', { amount: 69 }).variantId, 'nice');
+        assert.equal(engine.fireRule('d', '', { amount: 70 }).variantId, 'big');
+        assert.equal(normalizeConfig({ rules: [{ variants: [{ variantType: 'gated', gateMin: 7, gateMax: 7 }] }] }).rules[0].variants[0].gateMode, 'exact');
+    } finally {
+        cleanup();
+    }
+});

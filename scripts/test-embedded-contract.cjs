@@ -25,7 +25,7 @@ test('embedded StreamPulse exposes a stable host contract', async () => {
 
     const sp = require('../server.js');
     try {
-        for (const key of ['server', 'startServer', 'stopServer', 'restartServer', 'onBroadcast', 'setExternalData', 'ingestEvent', 'getSnapshots', 'port']) {
+        for (const key of ['server', 'startServer', 'stopServer', 'restartServer', 'onBroadcast', 'setExternalData', 'registerHostSource', 'getHostSources', 'ingestEvent', 'getSnapshots', 'port']) {
             assert.ok(key in sp, `missing export ${key}`);
         }
         assert.equal(sp.server.listening, false, 'embedded mode must not auto-start');
@@ -62,6 +62,10 @@ test('embedded StreamPulse exposes a stable host contract', async () => {
         assert.deepEqual(extSeen[0], { key: 'nodecg-tiltify.total', value: { amount: 1234.5, currency: 'USD' } });
         const status = await (await fetch(`http://127.0.0.1:${sp.port}/api/status`)).json();
         assert.equal(status.external['nodecg-tiltify.total'].amount, 1234.5);
+        assert.deepEqual(status.hostSources, [], 'no host sources until registered');
+        sp.registerHostSource({ id: 'tiltify', label: 'Tiltify (NodeCG)' });
+        assert.throws(() => sp.registerHostSource({ id: 'any' }));
+        assert.deepEqual((await (await fetch(`http://127.0.0.1:${sp.port}/api/status`)).json()).hostSources, [{ id: 'tiltify', label: 'Tiltify (NodeCG)' }]);
         assert.throws(() => sp.setExternalData('bad key', 1));
         const shared = {};
         new Function('window', require('fs').readFileSync(require('path').join(__dirname, '../public/js/overlay-shared.js'), 'utf8'))(shared);

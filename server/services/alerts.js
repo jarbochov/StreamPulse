@@ -42,13 +42,19 @@ function defaultSettings() {
 
 function normalizeVariant(input = {}, index = 0) {
     const variantType = ['weighted', 'gated'].includes(input.variantType) ? input.variantType : (input.gated ? 'gated' : 'weighted');
+    const gateMin = clamp(input.gateMin ?? input.minMonths ?? input.minAmount ?? input.minCount, 0, 1e9, 0);
+    let gateMax = clamp(input.gateMax ?? input.maxMonths ?? input.maxAmount ?? input.maxCount, 0, 1e9, 0);
+    const gateMode = amountModeFor(input.gateMode, gateMin, gateMax);
+    if (gateMode === 'exact') gateMax = gateMin;
+    else if (gateMode === 'min') gateMax = 0;
     return {
         id: safeId(input.id, `v${index + 1}`),
         variantType,
-        gateMin: clamp(input.gateMin ?? input.minMonths ?? input.minAmount ?? input.minCount, 0, 1e9, 0),
-        gateMinOp: input.gateMinOp === 'gt' ? 'gt' : 'gte',
-        gateMax: clamp(input.gateMax ?? input.maxMonths ?? input.maxAmount ?? input.maxCount, 0, 1e9, 0),
-        gateMaxOp: input.gateMaxOp === 'lt' ? 'lt' : 'lte',
+        gateMode,
+        gateMin,
+        gateMinOp: gateMode === 'exact' ? 'gte' : (input.gateMinOp === 'gt' ? 'gt' : 'gte'),
+        gateMax,
+        gateMaxOp: gateMode === 'exact' ? 'lte' : (input.gateMaxOp === 'lt' ? 'lt' : 'lte'),
         title: str(input.title, 200),
         message: str(input.message, 500),
         image: str(input.image, 2000),
@@ -73,6 +79,16 @@ function normalizeVariant(input = {}, index = 0) {
 }
 
 const VALID_TIERS = ['1000', '2000', '3000', 'prime'];
+const AMOUNT_MODES = ['min', 'range', 'exact'];
+const AMOUNT_TOLERANCE = 0.005;
+const sameAmount = (a, b) => Math.abs(a - b) <= AMOUNT_TOLERANCE;
+
+// Older rules only stored min/max; min == max means "equal to".
+function amountModeFor(mode, min, max) {
+    if (AMOUNT_MODES.includes(mode)) return mode;
+    if (min > 0 && min === max) return 'exact';
+    return max > 0 ? 'range' : 'min';
+}
 
 function normalizeRule(input = {}, index = 0) {
     const trigger = TRIGGERS[input.trigger] ? input.trigger : 'follow';
@@ -86,14 +102,29 @@ function normalizeRule(input = {}, index = 0) {
     });
     const rawTiers = Array.isArray(c.tiers) ? c.tiers : (c.tier ? [c.tier] : []);
     const tiers = rawTiers.map(String).filter(t => VALID_TIERS.includes(t));
+    let minAmount = clamp(c.minAmount, 0, 1e9, 0);
+    let maxAmount = clamp(c.maxAmount, 0, 1e9, 0);
+    const amountMode = amountModeFor(c.amountMode, minAmount, maxAmount);
+    let exactAmount = 0;
+    if (amountMode === 'exact') {
+        exactAmount = clamp(c.exactAmount ?? minAmount, 0, 1e9, 0);
+        minAmount = maxAmount = exactAmount;
+    } else if (amountMode === 'min') {
+        maxAmount = 0;
+    }
+    // Built-in sources are any/socialstream/external; embedded hosts register their own ids.
+    const source = String(c.source || 'any').toLowerCase().replace(/[^a-z0-9_-]+/g, '').slice(0, 40) || 'any';
     return {
         id: safeId(input.id, `rule-${index + 1}`),
         name: str(input.name, 80) || TRIGGERS[trigger],
         enabled: input.enabled !== false,
         trigger,
         conditions: {
-            minAmount: clamp(c.minAmount, 0, 1e9, 0),
-            maxAmount: clamp(c.maxAmount, 0, 1e9, 0),
+            amountMode,
+            minAmount,
+            maxAmount,
+            exactAmount,
+            source: trigger === 'donation' ? source : 'any',
             tiers,
             tier: tiers.length === 1 ? tiers[0] : (VALID_TIERS.includes(c.tier) ? c.tier : ''),
             rewardName: str(c.rewardName, 120),
@@ -197,8 +228,14 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
         if (!rule.enabled || rule.trigger !== ev.type) return false;
         const c = rule.conditions;
         const amount = eventAmount(ev);
-        if (c.minAmount && amount < c.minAmount) return false;
-        if (c.maxAmount && amount > c.maxAmount) return false;
+        if (c.amountMode === 'exact') {
+            if (!sameAmount(amount, c.exactAmount)) return false;
+        } else {
+            if (c.minAmount && amount < c.minAmount) return false;
+            if (c.amountMode === 'range' && c.maxAmount && amount > c.maxAmount) return false;
+        }
+        // Untagged donations come from SocialStream.
+        if (rule.trigger === 'donation' && c.source && c.source !== 'any' && c.source !== String(ev.source || 'socialstream').toLowerCase()) return false;
         if (c.tiers && c.tiers.length > 0) {
             if (!c.tiers.includes(String(ev.tier || ''))) return false;
         } else if (c.tier && String(ev.tier || '') !== c.tier) {
@@ -251,9 +288,13 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
 
     function chooseRule(ev) {
         const candidates = config.rules.filter(rule => matches(rule, ev) && rule.variants.length);
-        // Highest threshold wins; specific sub tier (e.g. Prime) beats "Any tier" rule so only the winning rule fires
+        // Exact amounts beat thresholds, then highest threshold wins; a specific source or sub tier beats "Any" so only the winning rule fires
+        const exact = r => (r.conditions.amountMode === 'exact' ? 1 : 0);
+        const sourced = r => (r.conditions.source && r.conditions.source !== 'any' ? 1 : 0);
         candidates.sort((a, b) =>
+            (exact(b) - exact(a)) ||
             (b.conditions.minAmount - a.conditions.minAmount) ||
+            (sourced(b) - sourced(a)) ||
             (tierSpecificity(b) - tierSpecificity(a)) ||
             (b.conditions.milestones.length - a.conditions.milestones.length)
         );
@@ -273,6 +314,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
     function matchesGate(v, val) {
         const isGated = v.variantType === 'gated' || (v.gateMin > 0) || (v.gateMax > 0);
         if (!isGated) return false;
+        if (v.gateMode === 'exact') return sameAmount(val, v.gateMin);
         if (v.gateMin > 0) {
             if (v.gateMinOp === 'gt' && !(val > v.gateMin)) return false;
             if (v.gateMinOp !== 'gt' && !(val >= v.gateMin)) return false;
@@ -311,10 +353,11 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             const val = getVariantMetric(rule, ev);
             const gatedMatches = list.filter(v => matchesGate(v, val));
             if (gatedMatches.length > 0) {
-                // Highest minimum gate threshold wins (e.g. >24 months beats >12 months)
-                gatedMatches.sort((a, b) => (b.gateMin - a.gateMin) || (b.weight - a.weight));
-                const topGateMin = gatedMatches[0].gateMin;
-                const topTied = gatedMatches.filter(v => v.gateMin === topGateMin);
+                // Exact gates win, then the highest minimum (e.g. >24 months beats >12 months)
+                const exactGate = v => (v.gateMode === 'exact' ? 1 : 0);
+                gatedMatches.sort((a, b) => (exactGate(b) - exactGate(a)) || (b.gateMin - a.gateMin) || (b.weight - a.weight));
+                const top = gatedMatches[0];
+                const topTied = gatedMatches.filter(v => exactGate(v) === exactGate(top) && v.gateMin === top.gateMin);
                 if (topTied.length === 1) return topTied[0];
                 return rollWeighted(topTied, rule.id);
             }
@@ -344,6 +387,8 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             recipient_name: recipient,
             gift_recipient: recipient,
             amount: ev.amount ?? '',
+            currency: ev.currency || '',
+            source: ev.source || (ev.type === 'donation' ? 'socialstream' : ''),
             count: ev.count ?? '',
             months: ev.months ?? '',
             streak: ev.streak ?? '',
@@ -400,6 +445,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             avatar: ev.avatar || '',
             recipient: ev.recipient || '',
             amount: eventAmount(ev),
+            source: tokens.source,
             test: !!test,
             at: new Date().toISOString()
         };
@@ -497,7 +543,8 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             type: rule.trigger,
             user: str(overrides.user, 60) || 'TestViewer',
             recipient: str(overrides.recipient, 60) || 'TestRecipient',
-            amount: testAmt ?? rule.conditions.minAmount ?? 100,
+            amount: testAmt ?? (rule.conditions.amountMode === 'exact' ? rule.conditions.exactAmount : rule.conditions.minAmount) ?? 100,
+            source: overrides.source || (rule.conditions.source !== 'any' ? rule.conditions.source : ''),
             count: Number(overrides.count) || testAmt || Math.max(1, rule.conditions.minAmount || 5),
             months: Number(overrides.months) || testAmt || rule.conditions.milestones[0] || rule.conditions.everyMonths || 12,
             streak: Number(overrides.streak) || 6,
