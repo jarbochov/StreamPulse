@@ -25,7 +25,7 @@ test('embedded StreamPulse exposes a stable host contract', async () => {
 
     const sp = require('../server.js');
     try {
-        for (const key of ['server', 'startServer', 'stopServer', 'restartServer', 'onBroadcast', 'getSnapshots', 'port']) {
+        for (const key of ['server', 'startServer', 'stopServer', 'restartServer', 'onBroadcast', 'setExternalData', 'getSnapshots', 'port']) {
             assert.ok(key in sp, `missing export ${key}`);
         }
         assert.equal(sp.server.listening, false, 'embedded mode must not auto-start');
@@ -54,6 +54,19 @@ test('embedded StreamPulse exposes a stable host contract', async () => {
         await fetch(`http://127.0.0.1:${sp.port}/api/timers/contract-timer`, { method: 'DELETE' });
         await new Promise(r => setTimeout(r, 100));
         assert.equal(seen.length, count, 'unsubscribed listener must not receive broadcasts');
+
+        const extSeen = [];
+        const offExt = sp.onBroadcast((type, data) => { if (type === 'external-update') extSeen.push(data); });
+        sp.setExternalData('nodecg-tiltify.total', { amount: 1234.5, currency: 'USD' });
+        offExt();
+        assert.deepEqual(extSeen[0], { key: 'nodecg-tiltify.total', value: { amount: 1234.5, currency: 'USD' } });
+        const status = await (await fetch(`http://127.0.0.1:${sp.port}/api/status`)).json();
+        assert.equal(status.external['nodecg-tiltify.total'].amount, 1234.5);
+        assert.throws(() => sp.setExternalData('bad key', 1));
+        const shared = {};
+        new Function('window', require('fs').readFileSync(require('path').join(__dirname, '../public/js/overlay-shared.js'), 'utf8'))(shared);
+        const table = shared.OverlayShared.variableTable({ external: status.external });
+        assert.equal(table['rep.nodecg-tiltify.total.amount'], 1234.5);
     } finally {
         await sp.stopServer();
         fs.rmSync(dir, { recursive: true, force: true });

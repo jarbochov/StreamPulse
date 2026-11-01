@@ -133,6 +133,25 @@
         return out;
     }
 
+    // External host data (NodeCG replicants): {{rep.<bundle>.<name>.<path>}}, arrays by index.
+    function flattenExternal(value, prefix, out, depth = 0) {
+        if (value === null || value === undefined) { out[prefix] = ''; return out; }
+        if (typeof value !== 'object') { out[prefix] = value; return out; }
+        if (depth >= 6) return out;
+        if (Array.isArray(value)) {
+            out[`${prefix}.length`] = value.length;
+            value.slice(0, 50).forEach((item, i) => flattenExternal(item, `${prefix}.${i}`, out, depth + 1));
+            return out;
+        }
+        for (const [key, item] of Object.entries(value)) flattenExternal(item, `${prefix}.${key}`, out, depth + 1);
+        return out;
+    }
+    function externalValues(status) {
+        const out = {};
+        for (const [key, value] of Object.entries(status.external || {})) flattenExternal(value, `rep.${key}`, out);
+        return out;
+    }
+
     const inPlanList = (item, id) => item.status === id || (item.extraLists || []).includes(id);
     function planListValues(status) {
         const out = {};
@@ -210,6 +229,10 @@
             for (const [slug, extra] of Object.entries(status.weather.extras || {})) {
                 if (extra.ok) groups.push({ label: `Weather: ${extra.city}`, items: WEATHER_ITEMS.map(([name, label]) => [name.replace('weather.', `weather.${slug}.`), label]) });
             }
+        }
+        for (const [key, value] of Object.entries(status.external || {})) {
+            const items = Object.keys(flattenExternal(value, `rep.${key}`, {})).slice(0, 200).map(name => [name, name.slice(`rep.${key}.`.length) || key]);
+            if (items.length) groups.push({ label: `NodeCG: ${key}`, items });
         }
         groups.push({ label: 'Game (IGDB)', items: GAME_ITEMS });
         groups.push({ label: 'Game plan', items: [...PLAN_ITEMS, ...(status.gamePlan?.lists || []).map(list => [`plan.list.${list.id}`, `${list.name} list (comma list)`])] });
@@ -298,6 +321,7 @@
             ...musicValues(status, now),
             ...planListValues(status),
             ...weatherValues(status),
+            ...externalValues(status),
             ...pollValues(status, now),
             ...milestoneValues(status),
             ...Object.fromEntries((status.customVars || []).map(v => [`var.${v.name}`, v.value])),

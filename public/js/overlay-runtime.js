@@ -1388,6 +1388,14 @@
                 else if (message.type === 'custom-overlay-cutout' && message.data?.id === overlayId) {
                     handleCutoutControl(message.data.action, message.data.element);
                 }
+                else if (message.type === 'external-update' && message.data?.key) {
+                    const before = shared.variableSnapshot(liveStatus, variableContext());
+                    const external = { ...(liveStatus.external || {}) };
+                    if (message.data.value === null) delete external[message.data.key];
+                    else external[message.data.key] = message.data.value;
+                    liveStatus = { ...liveStatus, external };
+                    if (currentOverlay && shared.variableSnapshot(liveStatus, variableContext()) !== before) render(currentOverlay);
+                }
                 else if (message.type === 'custom-overlay-update' && message.data?.id === overlayId) {
                     if (message.data.overlay) {
                         if (pagesOn(message.data.overlay) && pageParam) currentPage = resolvePage(message.data.overlay, pageParam) || currentPage;

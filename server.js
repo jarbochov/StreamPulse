@@ -1635,6 +1635,7 @@ function buildStatusSnapshot() {
     } catch {}
     return {
         customVars: variablesStore.list(),
+        external: externalData,
         poll: (pollService ? pollService.getLatestPoll() : twitchService.getLatestPoll()),
         tournament: pollService ? pollService.getTournament({ isPoll: false }) : null,
         pollTournament: pollService ? pollService.getTournament({ isPoll: true }) : null,
@@ -1892,6 +1893,16 @@ const handleObsRoutes = createObsRoutes({
     pageSnapshot: (overlay, pageId) => overlayService.pageSnapshot(overlay, pageId),
     isLoopbackRequest
 });
+
+// Data pushed in by an embedded host (e.g. NodeCG replicants), keyed "<bundle>.<name>".
+const externalData = {};
+function setExternalData(key, value) {
+    const id = String(key || '').trim();
+    if (!/^[\w-]+(\.[\w-]+)+$/.test(id)) throw new Error(`Invalid external data key: ${key}`);
+    if (value === undefined) delete externalData[id];
+    else externalData[id] = JSON.parse(JSON.stringify(value));
+    broadcastToOverlays('external-update', { key: id, value: externalData[id] ?? null });
+}
 
 const server = http.createServer(async (req, res) => {
     try {
@@ -2226,6 +2237,7 @@ module.exports = {
     stopServer,
     restartServer,
     onBroadcast: wsService.onBroadcast,
+    setExternalData,
     getSnapshots: () => ({
         timers: buildTimersSnapshot(),
         goals: buildGoalsSnapshot(),
