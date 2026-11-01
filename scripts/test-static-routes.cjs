@@ -331,7 +331,7 @@ async function run() {
                 viewport: window.innerWidth,
                 hasCode: !!document.querySelector('.markdown-section pre'),
                 legacyLinks: [...document.querySelectorAll('.site-header a, .sidebar-nav a')]
-                    .filter(a => /#\/(api-reference|technical-reference|architecture|developer-guide|server-management|changelog)(?:$|\?)/.test(a.getAttribute('href')))
+                    .filter(a => /#\/(api-reference|technical-reference|architecture|developer-guide|server-management)(?:$|\?)/.test(a.getAttribute('href')))
                     .map(a => a.getAttribute('href')),
                 links: [...document.querySelectorAll('.markdown-section a[href^="#/"]')]
                     .map(a => a.getAttribute('href').split('?')[0].slice(2))
@@ -354,8 +354,17 @@ async function run() {
         await page.setViewport({ width: 1280, height: 800 });
         await page.goto(`${baseUrl}/docs/#/`, { waitUntil: 'networkidle0' });
         await page.waitForSelector('.docs-hero');
-        assert.equal(await page.$('section.cover.show'), null, 'Home should have one hero rather than two stacked landing pages');
+        await page.waitForSelector('section.cover.show .cover-hero');
+        assert.ok(await page.$('section.cover.show a[href="#/quickstart"]'), 'Hero should lead to desktop downloads');
+        assert.ok(await page.$('section.cover.show a[href="#/changelog"]'), 'Hero should retain the changelog');
+        await page.setViewport({ width: 390, height: 844 });
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Hero should fit a phone viewport');
+        assert.ok(searchPaths.includes('/changelog'), 'Changelog should be available in public search');
         assert.ok(await page.$('.docs-hero a[href="#/quickstart"]'), 'Home should lead to desktop downloads');
+        await page.goto(`${baseUrl}/docs/#/changelog`, { waitUntil: 'networkidle0' });
+        await page.waitForFunction(() => document.querySelector('.markdown-section h1')?.textContent.includes('Changelog'));
+        assert.equal(await page.$('.legacy-notice'), null, 'Changelog should not be labeled a legacy reference');
+        assert.ok(await page.$('.site-header a[href="#/changelog"][aria-current="page"]'), 'Changelog navigation should show the active page');
         console.log('✓ All public feature pages, mobile layout, download CTA, search scope, and legacy links passed');
 
         // Test randomizer overlay at legacy root url

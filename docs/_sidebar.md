@@ -13,6 +13,7 @@
 
 * **The Project**
   * [Support & Questions](support.md)
+  * [Changelog](changelog.md)
   * [Release Notes](https://github.com/jarbochov/StreamPulse/releases)
   * [Source on GitHub](https://github.com/jarbochov/StreamPulse)
   * [Support on Ko-fi](https://ko-fi.com/jarbochov)

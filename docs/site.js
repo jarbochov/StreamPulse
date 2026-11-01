@@ -1,16 +1,16 @@
 (function () {
   'use strict';
-  const legacy = new Set(['technical-reference', 'architecture', 'api-reference', 'developer-guide', 'server-management', 'changelog']);
+  const legacy = new Set(['technical-reference', 'architecture', 'api-reference', 'developer-guide', 'server-management']);
   const escapeHtml = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const pages = [
     '/', '/features', '/showcase', '/support', '/quickstart', '/socialstream-setup', '/companion',
     '/custom-overlays', '/overlay-wizards', '/credits-guide', '/randomizer-guide',
     '/game-plan-guide', '/community-guide', '/alerts-guide', '/chatbot-guide', '/clips-beta',
-    '/polls-guide', '/promo-creator', '/desktop-app', '/streamer-guide', '/troubleshooting'
+    '/polls-guide', '/promo-creator', '/desktop-app', '/streamer-guide', '/troubleshooting', '/changelog'
   ];
   window.$docsify = {
     name: 'StreamPulse',
-    coverpage: false,
+    coverpage: true,
     loadSidebar: true,
     subMaxLevel: 1,
     auto2top: true,
@@ -42,7 +42,7 @@
         hook.afterEach(function (html) {
           const page = vm.route.path.replace(/^\//, '').replace(/\.md$/, '');
           const context = legacy.has(page) ? '<aside class="legacy-notice" aria-label="Legacy reference">This page is kept for older links and may not match your installed version. Open <strong>Docs</strong> or <strong>API Reference</strong> in StreamPulse for instructions. <a href="#/features">Explore what you can create</a>.</aside>' : '';
-          return context + html + '<footer class="page-footer"><span>StreamPulse &middot; Independent, open-source broadcast tools</span><span><a href="#/support">Support</a> &middot; <a href="https://github.com/jarbochov/StreamPulse/releases" target="_blank" rel="noopener noreferrer">Release notes</a> &middot; <a href="https://ko-fi.com/jarbochov" target="_blank" rel="noopener noreferrer">Support the project</a></span></footer>';
+          return context + html + '<footer class="page-footer"><span>StreamPulse &middot; Independent, open-source broadcast tools</span><span><a href="#/changelog">Changelog</a> &middot; <a href="#/support">Support</a> &middot; <a href="https://ko-fi.com/jarbochov" target="_blank" rel="noopener noreferrer">Support the project</a></span></footer>';
         });
         hook.doneEach(function () {
           if (window.matchMedia('(max-width: 768px)').matches) document.body.classList.remove('close');
@@ -55,7 +55,7 @@
           const title = article?.querySelector('h1')?.textContent || 'Your stream, thoughtfully connected';
           document.title = title + ' | StreamPulse';
           const page = vm.route.path.replace(/^\//, '').replace(/\.md$/, '');
-          const section = page === 'quickstart' || page === 'desktop-app' ? 'download' : page === 'showcase' ? 'showcase' : page === 'support' || page === 'troubleshooting' ? 'support' : page && !legacy.has(page) ? 'features' : '';
+          const section = page === 'quickstart' || page === 'desktop-app' ? 'download' : page === 'showcase' ? 'showcase' : page === 'support' || page === 'troubleshooting' ? 'support' : page === 'changelog' ? 'changelog' : page && !legacy.has(page) ? 'features' : '';
           document.querySelectorAll('[data-section]').forEach(link => {
             if (link.dataset.section === section) link.setAttribute('aria-current', 'page');
             else link.removeAttribute('aria-current');
