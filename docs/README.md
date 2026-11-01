@@ -1,68 +1,53 @@
 <div class="docs-hero">
   <p class="docs-kicker">Your stream. Your community. Your show.</p>
-  <h1>StreamPulse</h1>
-  <p class="docs-lead">Plan your broadcast, bring it to life in OBS, and give your community a proper thank-you. StreamPulse brings overlays, audience interaction, and stream planning together in a desktop app for macOS and Windows.</p>
+  <h1>Make your stream feel<br> like your show.</h1>
+  <p class="docs-lead">Give your game nights a lineup, your audience a say, and your outro a proper thank-you. StreamPulse brings creative overlays and live show tools together in a free, open-source desktop app.</p>
   <div class="button-row">
-    <a class="docs-button" href="#/quickstart">Get started</a>
-    <a class="docs-button" href="#/features">Explore features</a>
+    <a class="docs-button" href="#/quickstart">Download StreamPulse</a>
+    <a class="docs-button" href="#/showcase">See it in action</a>
   </div>
+  <p class="platform-note">For macOS and Windows · Made for OBS · Works alongside SocialStream Ninja</p>
 </div>
 
-## Find your next step
+![Custom Overlay Studio arranging a fictional broadcast scene](images/custom-overlay-studio.png)
+
+## Less window juggling. More time for your audience.
+
+Build a starting screen, run a community vote, or roll the credits at the end of a great night. Keep your presentation and the controls behind it in one workspace, instead of piecing together a different tool for every moment.
 
 <div class="guide-grid">
-  <a class="guide-card" href="#/features">
-    <h3>See what you can do</h3>
-    <p>Find the tools for your show, from custom scenes and audience choices to schedules and closing credits.</p>
+  <a class="guide-card" href="#/custom-overlays">
+    <h3>A look that's yours</h3>
+    <p>Mix artwork, text, video, and live information into layouts that match your channel.</p>
   </a>
-  <a class="guide-card" href="#/streamer-guide">
-    <h3>Build your stream routine</h3>
-    <p>A practical before, during, and after-stream workflow. Start small and add tools as you need them.</p>
+  <a class="guide-card" href="#/polls-guide">
+    <h3>A show they can join</h3>
+    <p>Let chat choose what comes next, reveal a random pick, or turn game night into a tournament.</p>
   </a>
-  <a class="guide-card" href="#/technical-reference">
-    <h3>Set up, connect, or build</h3>
-    <p>Hosting, integrations, API documentation, and development details for advanced users and contributors.</p>
+  <a class="guide-card" href="#/credits-guide">
+    <h3>An ending worth staying for</h3>
+    <p>Celebrate your supporters and regulars with a closing credits roll and your own special thanks.</p>
   </a>
 </div>
-
-## A companion to SocialStream Ninja, focused on Twitch
-
-SocialStream Ninja already handles unified chat, chat overlays, and featured messages. StreamPulse adds show planning, custom overlay layouts, timers, goals, randomizers, alerts, credits, and session/community review alongside it. Twitch is our current focus; SSN's support for other platforms does not imply equivalent StreamPulse integrations.
-
-See [what StreamPulse adds](features.md#alongside-socialstream-ninja-not-instead-of-it) before choosing the tools for your show.
-
-## Make the show your own
-
-Build a starting screen, a gameplay layout, or a break scene in **Custom Overlay Studio**. Arrange text, artwork, video, and live information, then add your finished overlay to OBS.
-
-![Custom Overlay Studio with a sample broadcast layout](images/custom-overlay-studio.png)
 
 ## Give viewers something to look forward to
 
-Use **Game Plan** to organize tonight's games and future streams. Show the lineup on screen so viewers know what is playing and what comes next.
+Organize tonight's games, save ideas for later, and put the lineup on screen with **Game Plan**. Make an announcement in **Promo Creator** so the look carries through from your social posts to your broadcast.
 
-![Game Plan with an example streaming lineup](images/game-plan-studio.png)
+![Game Plan organizing a fictional game-night lineup](images/game-plan-studio.png)
 
-## Engage your audience with live polls and brackets
+[Explore the features](features.md) or [browse the showcase](showcase.md).
 
-Involve your chat directly with **Poll Manager** (multi-platform chat voting, blind mode, and celebration fanfare) and run community tournaments and fighting game showdowns in **Versus & Tournaments** (single/double elimination, round robin, and self-sizing broadcast HUDs).
+## Your workspace stays on your computer
 
-![StreamPulse Poll Manager Studio](images/polls-studio.png)
+StreamPulse runs locally, with your designs, settings, and session records stored on your machine. There is no StreamPulse subscription or hosted account to sign up for. Online integrations still need their own connections.
 
-## Close with a thank-you
+**Built alongside SocialStream Ninja, with Twitch as our current focus.** Keep SSN for unified chat and featured messages; StreamPulse adds show planning, overlay design, audience moments, and community review. OBS displays your finished overlays, and optional Bitfocus Companion controls put live actions on your Stream Deck.
 
-Bring the broadcast to a thoughtful finish with **Credits Studio**. Choose which supporters and activity to include, add your own special thanks, and preview the roll before going live.
+## Start with one thing
 
-![A sample end-credits roll](images/overview-credits-roll.png)
+You don't have to use every studio. Try a countdown, a custom layout, or a closing roll first. The desktop app includes **Docs** and **API Reference** when you're ready for setup instructions or automation.
 
-## Start with what you need
+[Get StreamPulse](quickstart.md) · [Questions and support](support.md)
 
-You do not need to set up every studio at once. Begin with one overlay, test it in OBS, and build from there. StreamPulse works with **SocialStream Ninja** for chat and events, with optional **Twitch** account features and **Bitfocus Companion** controls.
-
-The [quick start](quickstart.md) covers the first connection and OBS setup. For changes between releases, see the [changelog](changelog.md).
-
-## About the project
-
-StreamPulse is an independently maintained, open-source project, available under the [MIT License](https://github.com/jarbochov/StreamPulse/blob/main/LICENSE). Thanks to Steve Seguin and [SocialStream Ninja](https://socialstream.ninja/), and to the OBS Studio, Bitfocus Companion, Twitch, and IGDB communities that make these workflows possible.
-
-Need help? Start with [troubleshooting](troubleshooting.md), or [report an issue on GitHub](https://github.com/jarbochov/StreamPulse/issues). If StreamPulse helps your show, you can [support its development on Ko-fi](https://ko-fi.com/jarbochov).
+StreamPulse is independently maintained and [open source under the MIT License](https://github.com/jarbochov/StreamPulse/blob/main/LICENSE). If it makes your stream better, [help support the project](https://ko-fi.com/jarbochov).

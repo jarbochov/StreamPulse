@@ -1,5 +1,5 @@
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Z8Z11UEY5Q)
-[![Documentation](https://img.shields.io/badge/Documentation-GitHub%20Pages-blue.svg)](https://jarbochov.github.io/StreamPulse/)
+[![Website](https://img.shields.io/badge/Website-StreamPulse-blue.svg)](https://jarbochov.github.io/StreamPulse/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)](https://github.com/jarbochov/StreamPulse/releases)
 
@@ -125,7 +125,7 @@ For developers, technical directors, and power users, StreamPulse is engineered 
 2. Launch StreamPulse. The application runs quietly in your system tray or menu bar with one-click access to all studio controllers and OBS overlay links.
 3. Open `http://localhost:3000` or use the menu bar icon to access the studio.
 
-**Updating the desktop app:** use the latest desktop installer, fully quit StreamPulse, then replace or reinstall the app. Configuration and data are stored separately. Source ZIPs and Git/nightly updates are not desktop upgrades. See the [desktop update guide](docs/desktop-app.md#updating-an-installed-desktop-app).
+**Updating the desktop app:** use the latest desktop installer, fully quit StreamPulse, then replace or reinstall the app. Configuration and data are stored separately. Source ZIPs and Git/nightly updates are not desktop upgrades. Open **Docs** in the app for installation details.
 
 ### Option B: Self-Hosted Node.js (CLI)
 1. Ensure **Node.js** (v22.12 or newer) is installed.
@@ -145,7 +145,7 @@ For developers, technical directors, and power users, StreamPulse is engineered 
 1. Open SocialStream Ninja in your browser and verify the local API server is active on port `8080`.
 2. In StreamPulse, navigate to **System -> Config Editor** (`/config-editor.html`) -> **Connection & Security**.
 3. Enter your actual **SocialStream session ID**, save, and restart StreamPulse. The example `YOUR_SSN_SESSION_ID` is not a working configuration; leaving the ID blank disables chat collection. Check that `ssn.server` in `config.json` matches your SSN endpoint.
-4. For step-by-step instructions, see the **[SocialStream Ninja Setup Guide](docs/socialstream-setup.md)**.
+4. For connection instructions, open **Docs** in the app.
 
 ### Add Overlays to OBS Studio
 1. In OBS Studio, add a new **Browser** source to your scene.
@@ -174,28 +174,18 @@ StreamPulse is built on the shoulders of giants and inspired by the open streami
 
 ---
 
-## Documentation Hub
+## Explore StreamPulse
 
-Comprehensive technical guides, API documentation, and hardware configurations are maintained in the `docs/` directory and published on our live **[Documentation Site](https://jarbochov.github.io/StreamPulse/)**:
+Visit the **[StreamPulse website](https://jarbochov.github.io/StreamPulse/)** for features, sample scenes, downloads, and project support. Setup instructions and automation references are included in the app under **Docs** and **API Reference**.
 
-| Guide | Description |
+| Website page | What's there |
 | --- | --- |
-| **[Quick Start Guide](docs/quickstart.md)** | Get up and running with OBS Studio in under 5 minutes. |
-| **[SocialStream Ninja Setup](docs/socialstream-setup.md)** | Step-by-step guide for installing, configuring, and verifying SocialStream Ninja. |
-| **[Custom Overlays Studio](docs/custom-overlays.md)** | Layer types, WebKit punchout masks, retro WebGL shaders, GPU media filters, and presets. |
-| **[Cinematic Credits Studio](docs/credits-guide.md)** | Built-in sections, order customization, Special Thanks cards, and music sync timing. |
-| **[Choice Randomizer Studio](docs/randomizer-guide.md)** | Spinning wheels, slot machine rollers, winner celebration cards, audio cues, and active chatter population. |
-| **[Game Plan Broadcast Scheduler](docs/game-plan-guide.md)** | Calendar views, IGDB game catalog integration, and dedicated broadcast overlays. |
-| **[Community Directory & Dossiers](docs/community-guide.md)** | Member rosters, smart quick-view segments, private streamer notes, and CSV exports. |
-| **[Alerts & Alert Queue Dock](docs/alerts-guide.md)** | Event rules, synthesized audio, media uploads, and the low-density OBS queue dock. |
-| **[Integrated Chat Bot](docs/chatbot-guide.md)** | Commands, aliases, cooldowns, timed messages, quotes, variables, and silent webhooks. |
-| **[Bitfocus Companion & Stream Deck](docs/companion.md)** | Hardware button actions, live stream feedbacks, dynamic variables, and setup instructions. |
-| **[Desktop App & Architecture](docs/desktop-app.md)** | Electron desktop wrapper architecture, system tray controls, and automated multi-platform packaging. |
-| **[HTTP API & WebSocket Reference](docs/api-reference.md)** | Complete REST API endpoints for session control, randomizer, timers, and WebSocket events. |
-| **[Architecture & Technical Overview](docs/architecture.md)** | Cascading static routing, modular services architecture, and atomic persistence. |
-| **[Developer & Contributor Guide](docs/developer-guide.md)** | Environment setup, lint/syntax and isolated behavioral/browser regressions (`npm test`), backend lifecycle, and UI/UX design standards. |
-| **[Release Changelog](docs/changelog.md)** | Detailed release notes, visual shader engine upgrades, 3D physics, and bug fixes. |
-| **[Troubleshooting & FAQ](docs/troubleshooting.md)** | Solutions for port conflicts, OBS browser sources, audio autoplay, and background tabs. |
+| **[Features](docs/features.md)** | Find the tools that fit your show. |
+| **[Showcase](docs/showcase.md)** | Sample scenes, audience moments, and promos using fictional data. |
+| **[Download](docs/quickstart.md)** | Desktop releases for macOS and Windows. |
+| **[Support](docs/support.md)** | Questions, issue reporting, and ways to help the project. |
+
+Older technical pages remain available for existing links, but may not match your installed version. Contributors can still find source setup in the [developer reference](docs/developer-guide.md).
 
 ---
 

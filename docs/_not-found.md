@@ -1,5 +1,5 @@
-# That guide could not be found
+# That page could not be found
 
-The link may be outdated. Your saved overlays and StreamPulse settings are not affected.
+The link may be outdated. Take a look around and find something for your show.
 
-[Return to the guides](README.md), [explore features](features.md), or use **Search all guides** to find what you need.
+[Return home](README.md), [explore features](features.md), or [download StreamPulse](quickstart.md). Setup instructions and the API reference are included in the app.

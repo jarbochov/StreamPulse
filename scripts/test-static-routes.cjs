@@ -309,6 +309,55 @@ async function run() {
         assert.ok(mobileLayout.toggleRight <= mobileLayout.viewportWidth, 'Mobile navigation toggle is outside a narrow viewport');
         console.log('✓ Mobile navigation opens, navigates, and closes without horizontal overflow');
 
+        console.log('Testing public feature pages and legacy references...');
+        const featurePages = [
+            'features', 'showcase', 'support', 'quickstart', 'custom-overlays', 'promo-creator',
+            'overlay-wizards', 'credits-guide', 'randomizer-guide', 'polls-guide',
+            'game-plan-guide', 'community-guide', 'alerts-guide', 'chatbot-guide',
+            'clips-beta', 'companion', 'socialstream-setup', 'streamer-guide',
+            'desktop-app', 'troubleshooting'
+        ];
+        for (const route of featurePages) {
+            await page.goto(`${baseUrl}/docs/#/${route}`, { waitUntil: 'networkidle0' });
+            const source = fs.readFileSync(path.join(docsDir, `${route}.md`), 'utf8');
+            const heading = source.match(/^# (.+)$/m)?.[1];
+            assert.ok(heading, `${route} needs a clear page heading`);
+            await page.waitForFunction(title => document.querySelector('.markdown-section h1')?.textContent.trim() === title, {}, heading);
+            for (const [, image] of source.matchAll(/!\[[^\]]*\]\((images\/[^)\s]+)\)/g)) {
+                assert.ok(fs.existsSync(path.join(docsDir, image)), `${route} has a missing showcase image: ${image}`);
+            }
+            const layout = await page.evaluate(() => ({
+                width: document.documentElement.scrollWidth,
+                viewport: window.innerWidth,
+                hasCode: !!document.querySelector('.markdown-section pre'),
+                legacyLinks: [...document.querySelectorAll('.site-header a, .sidebar-nav a')]
+                    .filter(a => /#\/(api-reference|technical-reference|architecture|developer-guide|server-management|changelog)(?:$|\?)/.test(a.getAttribute('href')))
+                    .map(a => a.getAttribute('href')),
+                links: [...document.querySelectorAll('.markdown-section a[href^="#/"]')]
+                    .map(a => a.getAttribute('href').split('?')[0].slice(2))
+            }));
+            assert.ok(layout.width <= layout.viewport, `${route} overflows on a narrow phone`);
+            assert.equal(layout.hasCode, false, `${route} should be a product showcase, not a code reference`);
+            assert.deepEqual(layout.legacyLinks, [], 'Technical references should not be promoted in site navigation');
+            for (const link of layout.links) {
+                assert.ok(!link || fs.existsSync(path.join(docsDir, `${link}.md`)), `${route} links to missing page ${link}`);
+            }
+        }
+        const searchPaths = await page.evaluate(() => window.$docsify.search.paths);
+        assert.ok(searchPaths.includes('/polls-guide') && searchPaths.includes('/promo-creator'), 'Search should include polls and promos');
+        assert.ok(!searchPaths.includes('/api-reference') && !searchPaths.includes('/developer-guide'), 'Legacy reference pages should stay out of public search');
+        await page.goto(`${baseUrl}/docs/#/api-reference`, { waitUntil: 'networkidle0' });
+        await page.waitForSelector('.legacy-notice');
+        assert.ok(await page.$('.markdown-section h1'), 'Existing API reference links should remain available');
+        await page.goto(`${baseUrl}/docs/#/missing-fictional-page`, { waitUntil: 'networkidle0' });
+        await page.waitForFunction(() => /page could not be found/i.test(document.querySelector('.markdown-section h1')?.textContent || ''));
+        await page.setViewport({ width: 1280, height: 800 });
+        await page.goto(`${baseUrl}/docs/#/`, { waitUntil: 'networkidle0' });
+        await page.waitForSelector('.docs-hero');
+        assert.equal(await page.$('section.cover.show'), null, 'Home should have one hero rather than two stacked landing pages');
+        assert.ok(await page.$('.docs-hero a[href="#/quickstart"]'), 'Home should lead to desktop downloads');
+        console.log('✓ All public feature pages, mobile layout, download CTA, search scope, and legacy links passed');
+
         // Test randomizer overlay at legacy root url
         console.log('Testing randomizer overlay in browser...');
         await page.goto(`${baseUrl}/randomizer.html?mode=roller&theme=purple`, { waitUntil: 'networkidle0' });
