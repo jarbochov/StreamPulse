@@ -7,6 +7,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- Alerts page: drag-and-drop (or Alt+Up/Down) alert reordering, remembered selection, and alert text that scales to fit small alert boxes.
 - Embedded mode (`STREAMPULSE_EMBEDDED=true`) for in-process hosts such as NodeCG, with broadcast listeners and state snapshots; host data such as NodeCG replicants resolves as `{{rep.<bundle>.<name>.<path>}}` placeholders. Optional HTTPS via `STREAMPULSE_TLS_KEY`/`STREAMPULSE_TLS_CERT`.
 - Embedded `ingestEvent` feeds external donations (such as Tiltify from NodeCG) into alerts, goals and stats.
 - Alert rules and milestone variants can match an exact amount (At least / Between / Equal to); exact matches win.

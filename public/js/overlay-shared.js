@@ -2381,6 +2381,20 @@
         }
         node.replaceChildren(card);
         card.classList.add(`alert-in-${payload.animIn || 'pop'}`);
+        // Fixed px font sizes overflow small alert boxes and get clipped; shrink text to fit the card
+        const fitTextBlock = () => {
+            const text = card.querySelector('.alert-text');
+            if (!text || layout === 'media') return;
+            const cs = getComputedStyle(card);
+            const availH = card.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+            const media = card.querySelector('.alert-media');
+            const mediaH = layout === 'stack' && media ? media.offsetHeight + (parseFloat(cs.rowGap) || 0) : 0;
+            const room = availH - mediaH;
+            if (room <= 0 || text.scrollHeight <= room) return;
+            const k = Math.max(0.4, room / text.scrollHeight);
+            text.querySelectorAll('.alert-title, .alert-message').forEach(el => { el.style.fontSize = `${Math.max(10, parseFloat(el.style.fontSize) * k)}px`; });
+        };
+        fitTextBlock();
 
         let audio = null;
         if (sound && cfg.sound !== false && payload.sound) {

@@ -8,6 +8,11 @@ Give different kinds of support their own look and sound, and preview the result
 
 Amount-based rules can fire at **At least**, **Between** or **Equal to** an amount. An equal-to rule (matched to the cent) wins over overlapping ranges, so a $69.69 donation can get its own alert. Milestone variants offer the same choice. Donation rules can also be limited to one source: SocialStream, or any source an embedded host registers (see [API reference](api-reference.md#9-embedded-mode-nodecg)), and `{{alert.source}}` and `{{alert.currency}}` are available in alert text.
 
+### Reordering Alerts
+Drag the grip handle on an alert in the left-hand list to reorder it (a line shows the drop position), or focus a row and press **Alt+Up / Alt+Down**. Reordering is available while no search or filter is active, and the order is saved with **Save**. Your last selected alert is remembered between visits.
+
+Order does not decide which rule fires: when several rules match, the most specific one wins (exact amount, then highest minimum, then specific source or tier). List order only breaks exact ties, where the earlier rule wins.
+
 ### Emote Celebrations & Effects
 Emote-driven alerts can celebrate with 60fps broadcast animations:
 - **Showcase**: High-DPI hero emote centered prominently in the alert card (replaces tiny icon sizing with responsive 40%–250% scaling).

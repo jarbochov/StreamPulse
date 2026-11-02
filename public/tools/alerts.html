@@ -115,6 +115,21 @@
         .rule-item-meta { font-size: 0.69rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
         .rule-item-tag { font-size: 0.65rem; font-weight: 600; padding: 0.04rem 0.35rem; border-radius: 4px; background: var(--bg-raised); border: 1px solid var(--border); }
         .rule-item-toggle { flex-shrink: 0; }
+        .rule-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+        .drag-handle { color: var(--text-muted); cursor: grab; display: inline-flex; margin-left: -0.25rem; opacity: 0.55; }
+        .drag-handle .ico { fill: currentColor; stroke: none; width: 12px; height: 12px; }
+        .rule-item:hover .drag-handle { opacity: 1; }
+        .rule-item.dragging { opacity: 0.4; }
+        .rule-item.drop-before { box-shadow: 0 -2px 0 0 var(--accent); }
+        .rule-item.drop-after { box-shadow: 0 2px 0 0 var(--accent); }
+        .variant-pill { color: #a855f7; background: rgba(168,85,247,0.1); border-color: rgba(168,85,247,0.35); }
+        .micro-head { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin: 0.2rem 0 0.15rem; }
+        .adv-toggle { cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; list-style: none; }
+        .adv-toggle::-webkit-details-marker { display: none; }
+        details.adv-card[open] .adv-chev { transform: rotate(180deg); }
+        .adv-chev { display: inline-flex; transition: transform 0.12s; color: var(--text-muted); }
+        .rule-item-meta { gap: 0.3rem; }
+        .alerts-toolbar { position: sticky; top: 0; z-index: 20; }
 
         /* Editor Column */
         .editor-col { display: flex; flex-direction: column; gap: 0.85rem; min-width: 0; }
@@ -1427,6 +1442,7 @@
         const data = await api('/api/alerts', { cache: 'no-store' });
         cfg = { settings: data.settings, rules: data.rules };
         queue = data.queue || {};
+        if (!sel) sel = localStorage.getItem('alerts.selected');
         if (!sel || !rule()) sel = cfg.rules[0]?.id || null;
         try { timers = Object.values((await api('/api/timers')).timers || {}); } catch { timers = []; }
         try { goals = (await api('/api/goals')).items || []; } catch { goals = []; }
@@ -1469,12 +1485,14 @@
             return;
         }
 
+        const canReorder = !q && !activeTriggerFilter;
         $('rule-list').innerHTML = filtered.map(r => {
             const meta = TRIGGER_META[r.trigger] || { label: r.trigger, icon: ICONS.zap, color: '#3b82f6' };
             const isSel = r.id === sel;
             const amtCond = AMOUNT_LABEL[r.trigger] && r.trigger !== 'sub' ? amountText(r.conditions) : '';
             return `
-            <div class="rule-item${isSel ? ' active' : ''}${r.enabled ? '' : ' off'}" data-rule="${esc(r.id)}" title="${esc(r.name)} (${meta.label})">
+            <div class="rule-item${isSel ? ' active' : ''}${r.enabled ? '' : ' off'}" data-rule="${esc(r.id)}" tabindex="0" ${canReorder ? 'draggable="true"' : ''} title="${esc(r.name)} (${meta.label})">
+                ${canReorder ? `<span class="drag-handle" title="Drag to reorder (Alt+Up / Alt+Down)" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg></span>` : ''}
                 <div class="rule-icon-box" style="color:${meta.color};border-color:color-mix(in srgb, ${meta.color} 35%, var(--border));background:color-mix(in srgb, ${meta.color} 10%, var(--bg-card));">
                     ${meta.icon}
                 </div>
@@ -1482,7 +1500,7 @@
                     <div class="rule-item-name">${esc(r.name)}</div>
                     <div class="rule-item-meta">
                         <span class="rule-item-tag" style="color:${meta.color};">${esc(meta.label)}</span>
-                        ${r.webhookOnly ? `<span class="rule-item-tag" style="color:var(--accent);font-weight:700;background:rgba(59,130,246,0.12);padding:1px 5px;border-radius:4px;">Webhook Only</span>` : `<span>${r.variants.length} var</span>`}
+                        ${r.webhookOnly ? `<span class="rule-item-tag" style="color:var(--accent);font-weight:700;background:rgba(59,130,246,0.12);padding:1px 5px;border-radius:4px;">Webhook Only</span>` : `<span class="rule-item-tag variant-pill">${r.variants.length} ${r.variants.length === 1 ? 'variant' : 'variants'}</span>`}
                         ${amtCond ? `<span class="rule-item-tag">${esc(amtCond)}</span>` : ''}
                     </div>
                 </div>
@@ -2163,7 +2181,7 @@
                     <div class="tier-ladder-header">
                         <div class="tier-ladder-title">
                             ${ICONS.layers}
-                            <span>Alert Activation Ladder · Priority Escalation</span>
+                            <span>Milestone ladder</span>
                         </div>
                         <div class="tier-ladder-hint">
                             StreamPulse checks highest milestone first. Highest matching tier wins; below all milestones, Base Alert plays.
@@ -2288,6 +2306,7 @@
                 </div>
 
                 <!-- Clickable Token Chips -->
+                <div class="micro-head">Placeholders</div>
                 <div style="margin-top:0.1rem;">
                     <div style="font-size:0.71rem;font-weight:600;color:var(--text-muted);margin-bottom:0.25rem;">
                         Available Placeholders (click to insert into text):
@@ -2302,19 +2321,25 @@
                     ['sequential', 'Sequential (in order, one after another)']
                 ])) : ''}
 
-                <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.4rem;">
+                <div class="micro-head">${hasMetric ? 'Base alerts and milestone tiers' : 'Variants'}</div>
+                ${r.variants.length ? '' : `<div class="empty-state" style="padding:1rem 0.5rem;"><span>No variants yet. Add one to choose what this rule shows.</span></div>`}
+                <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.2rem;">
                     ${r.variants.map((v, i) => variantHtml(v, i, r)).join('')}
                 </div>
             </div>
 
             <!-- Card 3: Additional Actions -->
-            <div class="card">
-                <h2>
-                    <span style="display:inline-flex;align-items:center;gap:0.45rem;">
-                        ${ICONS.clock}
-                        <span>3 · Additional Actions (Optional)</span>
-                    </span>
-                </h2>
+            <details class="card adv-card" id="adv-actions"${localStorage.getItem('alerts.advOpen') === '1' ? ' open' : ''}>
+                <summary class="adv-toggle">
+                    <h2 style="flex:1;">
+                        <span style="display:inline-flex;align-items:center;gap:0.45rem;">
+                            ${ICONS.clock}
+                            <span>3 · Advanced: Additional Actions</span>
+                        </span>
+                        <span class="badge${(a.timer.enabled || a.http.enabled) ? ' accent' : ''}">${(a.timer.enabled ? 1 : 0) + (a.http.enabled ? 1 : 0)} active</span>
+                    </h2>
+                    <span class="adv-chev">${ICONS.chevronDown}</span>
+                </summary>
 
                 <div class="cgrid">
                     <!-- Timer Action -->
@@ -2358,7 +2383,7 @@
                         ` : '<span class="hint" style="font-size:0.71rem;">Trigger external automation, Discord bot, Bitfocus Companion, or smart home light on alert.</span>'}
                     </div>
                 </div>
-            </div>
+            </details>
         `;
     }
 
@@ -2509,6 +2534,8 @@
         renderAll();
     });
 
+    document.addEventListener('toggle', e => { if (e.target.id === 'adv-actions') localStorage.setItem('alerts.advOpen', e.target.open ? '1' : '0'); }, true);
+
     // Rule selection & filtering
     $('rule-list').addEventListener('click', event => {
         if (event.target.closest('#clear-rule-filters')) {
@@ -2521,7 +2548,61 @@
             return;
         }
         const item = event.target.closest('[data-rule]');
-        if (item) { sel = item.dataset.rule; renderRules(); renderEditor(); }
+        if (item) { sel = item.dataset.rule; localStorage.setItem('alerts.selected', sel); renderRules(); renderEditor(); }
+    });
+
+    const moveRule = (id, toIndex) => {
+        const from = cfg.rules.findIndex(r => r.id === id);
+        if (from < 0 || toIndex < 0 || toIndex >= cfg.rules.length || from === toIndex) return;
+        cfg.rules.splice(toIndex, 0, cfg.rules.splice(from, 1)[0]);
+        setDirty(true);
+        renderRules();
+        document.querySelector(`.rule-item[data-rule="${CSS.escape(id)}"]`)?.focus();
+    };
+    let dragId = null;
+    const clearDrop = () => $('rule-list').querySelectorAll('.drop-before,.drop-after,.dragging').forEach(n => n.classList.remove('drop-before', 'drop-after', 'dragging'));
+    $('rule-list').addEventListener('dragstart', e => {
+        const item = e.target.closest('[data-rule]');
+        if (!item) return;
+        dragId = item.dataset.rule;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', dragId);
+        item.classList.add('dragging');
+    });
+    $('rule-list').addEventListener('dragover', e => {
+        const item = e.target.closest('[data-rule]');
+        if (!dragId || !item) return;
+        e.preventDefault();
+        const rect = item.getBoundingClientRect();
+        const after = e.clientY > rect.top + rect.height / 2;
+        $('rule-list').querySelectorAll('.drop-before,.drop-after').forEach(n => n.classList.remove('drop-before', 'drop-after'));
+        if (item.dataset.rule !== dragId) item.classList.add(after ? 'drop-after' : 'drop-before');
+    });
+    $('rule-list').addEventListener('drop', e => {
+        const item = e.target.closest('[data-rule]');
+        if (!dragId || !item) return;
+        e.preventDefault();
+        const rect = item.getBoundingClientRect();
+        const after = e.clientY > rect.top + rect.height / 2;
+        const id = dragId;
+        dragId = null;
+        clearDrop();
+        const without = cfg.rules.filter(r => r.id !== id);
+        let to = without.findIndex(r => r.id === item.dataset.rule) + (after ? 1 : 0);
+        if (item.dataset.rule === id) return;
+        cfg.rules.splice(0, cfg.rules.length, ...without.slice(0, to), cfg.rules.find(r => r.id === id), ...without.slice(to));
+        setDirty(true);
+        renderRules();
+    });
+    $('rule-list').addEventListener('dragend', () => { dragId = null; clearDrop(); });
+    $('rule-list').addEventListener('keydown', e => {
+        const item = e.target.closest('[data-rule]');
+        if (!item || e.target !== item) return;
+        if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !ruleSearchQuery && !activeTriggerFilter) {
+            e.preventDefault();
+            const i = cfg.rules.findIndex(r => r.id === item.dataset.rule);
+            moveRule(item.dataset.rule, i + (e.key === 'ArrowUp' ? -1 : 1));
+        } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); item.click(); }
     });
 
     $('rule-search').addEventListener('input', e => {
