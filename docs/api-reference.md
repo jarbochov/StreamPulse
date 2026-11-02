@@ -542,6 +542,25 @@ Ends active vote and optionally moves the item into the winning consensus tier.
 ### `POST /api/tier-list/vote/cancel`
 Cancels the active vote without moving the item.
 
+### `POST /api/tier-list/presets/save`
+Saves current tiers and optionally items as a custom preset.
+```json
+{
+  "name": "Custom JRPG Ranking",
+  "description": "Custom template",
+  "includeItems": false
+}
+```
+
+### `POST /api/tier-list/presets/:id/load`
+Loads a saved or built-in preset by ID.
+
+### `DELETE /api/tier-list/presets/:id`
+Deletes a preset by ID.
+
+### `POST /api/tier-list/presets/reset`
+Restores the built-in default presets.
+
 ---
 
 ## 9. WebSocket Live Push Protocol

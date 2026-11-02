@@ -155,6 +155,13 @@ function createTierListRoutes({ tierListService }) {
                 return true;
             }
 
+            // POST /api/tier-list/presets/reset
+            if (pathname === '/api/tier-list/presets/reset' && req.method === 'POST') {
+                const presets = tierListService.resetPresets();
+                sendJson(res, { presets });
+                return true;
+            }
+
             // DELETE /api/tier-list/presets/:id
             if (pathname.startsWith('/api/tier-list/presets/') && req.method === 'DELETE') {
                 const presetId = pathname.slice('/api/tier-list/presets/'.length);

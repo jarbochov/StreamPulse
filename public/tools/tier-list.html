@@ -853,7 +853,12 @@
                 <button class="modal-close" data-close="modal-presets">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="section-label">Built-in &amp; Saved Presets</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;">
+                    <div class="section-label">Built-in &amp; Saved Presets</div>
+                    <button id="btn-restore-presets" style="font-size:11px;padding:2px 7px;">
+                        <svg class="ico" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> Restore Defaults
+                    </button>
+                </div>
                 <div id="presets-list" style="display:flex;flex-direction:column;gap:8px;">
                     <!-- Populated dynamically -->
                 </div>
@@ -1081,10 +1086,12 @@
                         state = await res.json();
                         renderBoard();
                         renderHUD();
+                        return state;
                     }
                 } catch (err) {
                     console.error('Failed to fetch tier list state:', err);
                 }
+                return state;
             }
 
             function setupWebSocket() {
@@ -1775,15 +1782,22 @@
                 const listEl = $('presets-list');
                 const presets = state.presets || [];
 
+                if (presets.length === 0) {
+                    listEl.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--text-muted);font-style:italic;">No presets available. Click "Restore Defaults" above to bring back built-in templates.</div>';
+                    return;
+                }
+
                 listEl.innerHTML = presets.map(p => `
                     <div style="background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;padding:0.6rem 0.8rem;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;">
-                        <div>
-                            <div style="font-weight:600;color:#fff;">${esc(p.name)}</div>
+                        <div style="min-width:0;flex:1;">
+                            <div style="font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.name)}</div>
                             <div style="font-size:11px;color:var(--text-muted);">${esc(p.description || '')} &middot; ${(p.tiers || []).length} Tiers</div>
                         </div>
-                        <div style="display:flex;gap:4px;">
+                        <div style="display:flex;gap:6px;flex-shrink:0;">
                             <button class="btn primary" data-load-preset="${esc(p.id)}">Load</button>
-                            ${!p.id.startsWith('preset-') ? `<button class="btn danger" data-del-preset="${esc(p.id)}">&times;</button>` : ''}
+                            <button class="btn danger" data-del-preset="${esc(p.id)}" title="Delete preset">
+                                <svg class="ico" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Delete
+                            </button>
                         </div>
                     </div>
                 `).join('');
@@ -1793,7 +1807,9 @@
                 const loadBtn = e.target.closest('[data-load-preset]');
                 if (loadBtn) {
                     const presetId = loadBtn.dataset.loadPreset;
-                    if (confirm('Load this preset? This will update the tier structure.')) {
+                    const preset = (state.presets || []).find(p => p.id === presetId);
+                    const name = preset ? preset.name : 'preset';
+                    if (confirm(`Load preset "${name}"? This will update your tier structure.`)) {
                         await fetch(`/api/tier-list/presets/${encodeURIComponent(presetId)}/load`, { method: 'POST' });
                         closeModal('modal-presets');
                         showToast('Preset loaded');
@@ -1805,10 +1821,29 @@
                 const delBtn = e.target.closest('[data-del-preset]');
                 if (delBtn) {
                     const presetId = delBtn.dataset.delPreset;
-                    if (confirm('Delete this preset?')) {
-                        await fetch(`/api/tier-list/presets/${encodeURIComponent(presetId)}`, { method: 'DELETE' });
-                        showToast('Preset deleted');
-                        fetchState().then(renderPresetsList);
+                    const preset = (state.presets || []).find(p => p.id === presetId);
+                    const name = preset ? preset.name : 'this preset';
+                    if (confirm(`Delete preset "${name}"?`)) {
+                        const res = await fetch(`/api/tier-list/presets/${encodeURIComponent(presetId)}`, { method: 'DELETE' });
+                        if (res.ok) {
+                            showToast('Preset deleted');
+                            await fetchState();
+                            renderPresetsList();
+                        } else {
+                            showToast('Failed to delete preset');
+                        }
+                    }
+                    return;
+                }
+            });
+
+            $('btn-restore-presets').addEventListener('click', async () => {
+                if (confirm('Restore built-in default presets?')) {
+                    const res = await fetch('/api/tier-list/presets/reset', { method: 'POST' });
+                    if (res.ok) {
+                        showToast('Default presets restored');
+                        await fetchState();
+                        renderPresetsList();
                     }
                 }
             });
@@ -1823,16 +1858,22 @@
                     return;
                 }
 
-                await fetch('/api/tier-list/presets/save', {
+                const res = await fetch('/api/tier-list/presets/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, description, includeItems })
                 });
 
-                $('new-preset-name').value = '';
-                $('new-preset-desc').value = '';
-                showToast('Preset saved');
-                fetchState().then(renderPresetsList);
+                if (res.ok) {
+                    $('new-preset-name').value = '';
+                    $('new-preset-desc').value = '';
+                    $('preset-include-items').checked = false;
+                    showToast('Preset saved');
+                    await fetchState();
+                    renderPresetsList();
+                } else {
+                    showToast('Failed to save preset');
+                }
             });
 
             // ----------------------------------------------------------------

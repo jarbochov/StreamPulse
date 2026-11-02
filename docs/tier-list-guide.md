@@ -30,7 +30,7 @@ Open the maker at `http://localhost:3000/tools/tier-list.html` or navigate to **
 ### Customizing Tiers
 - Click on any tier header (e.g. "S" or "A") to customize its label, hex color code, and description.
 - Use the &uarr; and &darr; arrows to reorder tiers.
-- Click **Presets** to load built-in templates (*Standard S-F*, *Extended Gaming S+-Trash*, *Movie Reviews*, *Food & Snacks*) or save your current list.
+- Click **Presets** to load templates (*Standard S-F*, *Extended Gaming S+-Trash*, *Movie Reviews*, *Food & Snacks*), save your current setup as a new preset, or delete unwanted presets. Click **Restore Defaults** to bring back built-in templates at any time.
 
 ### Configuring the Broadcast Overlay
 Click **Overlay URL & Options** in the maker toolbar to customize your display before launching:
@@ -122,4 +122,5 @@ http://localhost:3000/overlays/tier-list.html
 | `POST` | `/api/tier-list/vote/cancel` | Cancel the active vote. |
 | `POST` | `/api/tier-list/presets/save` | Save current setup as a preset (`{ name, description }`). |
 | `POST` | `/api/tier-list/presets/:id/load` | Load a saved or built-in preset. |
-| `DELETE` | `/api/tier-list/presets/:id` | Delete a custom preset. |
+| `DELETE` | `/api/tier-list/presets/:id` | Delete any saved or built-in preset. |
+| `POST` | `/api/tier-list/presets/reset` | Restore the built-in default templates. |

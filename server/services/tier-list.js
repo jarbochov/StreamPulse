@@ -222,11 +222,8 @@ function createTierListService({
                     if (parsed.settings && typeof parsed.settings === 'object') {
                         state.settings = Object.assign({}, state.settings, parsed.settings);
                     }
-                    if (Array.isArray(parsed.presets) && parsed.presets.length > 0) {
-                        // Keep builtin presets if missing
-                        const map = new Map(BUILTIN_PRESETS.map(p => [p.id, p]));
-                        parsed.presets.forEach(p => map.set(p.id, p));
-                        state.presets = Array.from(map.values());
+                    if (Array.isArray(parsed.presets)) {
+                        state.presets = parsed.presets;
                     }
                 }
             }
@@ -705,14 +702,17 @@ function createTierListService({
     function deletePreset(presetId) {
         const idx = state.presets.findIndex(p => p.id === presetId);
         if (idx === -1) return false;
-        // Don't delete built-in presets
-        if (BUILTIN_PRESETS.some(bp => bp.id === presetId)) {
-            throw new Error('Cannot delete built-in preset');
-        }
         state.presets.splice(idx, 1);
         save();
         broadcastState('tier-list:update');
         return true;
+    }
+
+    function resetPresets() {
+        state.presets = JSON.parse(JSON.stringify(BUILTIN_PRESETS));
+        save();
+        broadcastState('tier-list:update');
+        return state.presets;
     }
 
     // Initialize on load
@@ -736,7 +736,8 @@ function createTierListService({
         calculateConsensus: (v, t) => calculateConsensus(v, t || state.tiers),
         savePreset,
         loadPreset,
-        deletePreset
+        deletePreset,
+        resetPresets
     };
 }
 

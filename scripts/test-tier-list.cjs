@@ -235,16 +235,22 @@ test('Tier List Service: Presets Management', () => {
         assert.equal(state.tiers[0].label, 'S+');
         assert.equal(state.tiers[7].label, 'Trash');
 
-        // Built-in presets cannot be deleted
-        assert.throws(() => {
-            service.deletePreset('preset-extended');
-        });
-
         // Delete custom preset
-        const deleted = service.deletePreset(customPreset.id);
-        assert.equal(deleted, true);
+        const deletedCustom = service.deletePreset(customPreset.id);
+        assert.equal(deletedCustom, true);
         state = service.getState();
         assert.equal(state.presets.some(p => p.id === customPreset.id), false);
+
+        // Delete built-in preset
+        const deletedBuiltin = service.deletePreset('preset-extended');
+        assert.equal(deletedBuiltin, true);
+        state = service.getState();
+        assert.equal(state.presets.some(p => p.id === 'preset-extended'), false);
+
+        // Reset presets back to defaults
+        service.resetPresets();
+        state = service.getState();
+        assert.equal(state.presets.some(p => p.id === 'preset-extended'), true);
     } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -329,6 +335,21 @@ test('Tier List REST API Routes', async () => {
         assert.equal(handled6, true);
         assert.equal(res6.getStatusCode(), 200);
         assert.equal(res6.getBody().activeVote, null);
+
+        // 7. Presets API: delete & reset
+        const req7 = mockReq('DELETE', '/api/tier-list/presets/preset-standard');
+        const res7 = mockRes();
+        const handled7 = await handleRoutes(req7, res7, '/api/tier-list/presets/preset-standard');
+        assert.equal(handled7, true);
+        assert.equal(res7.getStatusCode(), 200);
+        assert.equal(res7.getBody().success, true);
+
+        const req8 = mockReq('POST', '/api/tier-list/presets/reset');
+        const res8 = mockRes();
+        const handled8 = await handleRoutes(req8, res8, '/api/tier-list/presets/reset');
+        assert.equal(handled8, true);
+        assert.equal(res8.getStatusCode(), 200);
+        assert.ok(res8.getBody().presets.some(p => p.id === 'preset-standard'));
     } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }
