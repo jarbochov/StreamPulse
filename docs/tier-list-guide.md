@@ -32,6 +32,16 @@ Open the maker at `http://localhost:3000/tools/tier-list.html` or navigate to **
 - Use the &uarr; and &darr; arrows to reorder tiers.
 - Click **Presets** to load built-in templates (*Standard S-F*, *Extended Gaming S+-Trash*, *Movie Reviews*, *Food & Snacks*) or save your current list.
 
+### Configuring the Broadcast Overlay
+Click **Overlay URL & Options** in the maker toolbar to customize your display before launching:
+- **Layout**: Switch between full-screen `board` and compact vertical `sidebar`.
+- **Unranked Tray**: Toggle showing or hiding the unranked item pool (`hideUnranked=1`).
+- **Card Scale**: Set thumbnail scale to `compact`, `medium`, or `large`.
+- **Card Aspect**: Choose between `1/1` (square), `3/4` (poster/box art), or `16/9` (widescreen).
+- **Theme**: Select `dark` or `transparent` (for game capture compositing).
+
+Your preferences are saved automatically in `localStorage`, and clicking **Launch Overlay** or **Copy URL** always uses your configured parameters.
+
 ---
 
 ## 3. Audience Chat Voting

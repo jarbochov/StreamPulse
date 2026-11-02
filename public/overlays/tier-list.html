@@ -173,7 +173,8 @@
         /* Item Cards */
         .card {
             width: var(--tl-card-size);
-            height: var(--tl-card-size);
+            height: auto;
+            aspect-ratio: var(--tl-card-aspect, 1/1);
             border-radius: 6px;
             background: #1c2128;
             border: 1px solid rgba(255, 255, 255, 0.15);
@@ -352,13 +353,18 @@
                 document.getElementById('overlay-unranked').style.display = 'none';
             }
             if (cardSizeParam === 'compact') {
-                document.documentElement.style.setProperty('--tl-card-size', '60px');
+                document.documentElement.style.setProperty('--tl-card-size', 'clamp(50px, 4.5vw, 68px)');
             } else if (cardSizeParam === 'large') {
-                document.documentElement.style.setProperty('--tl-card-size', '110px');
+                document.documentElement.style.setProperty('--tl-card-size', 'clamp(85px, 8.5vw, 130px)');
+            }
+            if (cardAspectParam) {
+                document.documentElement.style.setProperty('--tl-card-aspect', cardAspectParam);
             }
             if (themeParam === 'transparent') {
                 document.documentElement.style.setProperty('--tl-bg', 'transparent');
                 document.documentElement.style.setProperty('--tl-border', 'transparent');
+                const hdr = document.getElementById('overlay-header');
+                if (hdr) hdr.style.background = 'rgba(13, 17, 23, 0.75)';
             }
 
             let currentState = null;
@@ -458,6 +464,8 @@
 
                     unrankedEl.innerHTML = unrankedItems.map(item => renderOverlayCard(item)).join('');
                     $('overlay-unranked').style.display = unrankedItems.length === 0 ? 'none' : 'flex';
+                } else {
+                    $('overlay-unranked').style.display = 'none';
                 }
 
                 // Render live vote spotlight
