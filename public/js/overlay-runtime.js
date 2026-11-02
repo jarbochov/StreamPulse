@@ -201,6 +201,8 @@
         return (params.get('preview') === 'true' && (params.get('alert') === 'true' || element.alert?.showOnPreview === true));
     }
 
+    let lastAlert = null;
+
     function showAlertPreview(node, element) {
         if (!isAlertPreview(element) || node._alertPreviewHandle || [...activeAlerts].some(entry => entry.node === node)) return;
         let ended = false;
@@ -211,16 +213,43 @@
         if (!ended) node._alertPreviewHandle = handle;
     }
 
+    function alertMatches(element, payload) {
+        if (!payload) return false;
+        const mode = element.alert?.alertMode || (element.alert?.triggers?.length ? 'selected' : 'all');
+        const only = element.alert?.triggers || [];
+        if (mode === 'selected') {
+            return only.length > 0 && only.includes(payload.trigger);
+        }
+        return true;
+    }
+
     function registerAlertNode(node, element) {
         node._alertSig = JSON.stringify(element);
         alertNodes.push({ node, element });
+        if (lastAlert && Date.now() < lastAlert.expiresAt && alertMatches(element, lastAlert.payload) && ![...activeAlerts].some(e => e.node === node)) {
+            if (node._alertPreviewHandle) {
+                node._alertPreviewHandle.stop();
+                node._alertPreviewHandle = null;
+            }
+            const entry = { node, handle: null, stopping: false };
+            activeAlerts.add(entry);
+            entry.handle = shared.playAlert(node, element, lastAlert.payload, {
+                onEnd: () => {
+                    activeAlerts.delete(entry);
+                    if (!entry.stopping) showAlertPreview(node, element);
+                }
+            });
+            return;
+        }
         showAlertPreview(node, element);
     }
 
     function showAlert(payload) {
+        if (payload) {
+            lastAlert = { payload, expiresAt: Date.now() + Math.max(5000, Number(payload.durationMs) || 10000) };
+        }
         for (const { node, element } of alertNodes) {
-            const only = element.alert?.triggers || [];
-            if (only.length && !only.includes(payload.trigger)) continue;
+            if (!alertMatches(element, payload)) continue;
             if (node._alertPreviewHandle) {
                 node._alertPreviewHandle.stop();
                 node._alertPreviewHandle = null;
@@ -238,6 +267,7 @@
     }
 
     function stopAlerts(nodes) {
+        if (!nodes) lastAlert = null;
         for (const entry of [...activeAlerts]) {
             if (nodes && !nodes.has(entry.node)) continue;
             entry.stopping = true;

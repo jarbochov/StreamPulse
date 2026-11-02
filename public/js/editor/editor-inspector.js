@@ -58,7 +58,7 @@ export const RERENDER_PATHS = new Set([
     'style.borderGlow.inner', 'style.borderAnimation.type', 'style.borderAnimation.mode',
     'style.shadow.blur', 'style.innerShadow.blur', 'style.innerShadow.spread',
     'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'video.sound', 'alert.videoSound',
-    'alert.layout', 'alert.hideText', 'slideshow.source', 'slideshow.advance', 'slideshow.transition',
+    'alert.layout', 'alert.hideText', 'alert.alertMode', 'slideshow.source', 'slideshow.advance', 'slideshow.transition',
     'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee',
     'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.showStatusBadge',
     'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta',
@@ -1141,6 +1141,7 @@ export function gameListSection(el) {
 export function alertSection(el) {
     const a = el.alert || {};
     const only = a.triggers || [];
+    const alertMode = a.alertMode || (only.length ? 'selected' : 'all');
     return F.section('alert', 'Alert box', `
         <p class="hint">What this box shows (text, images, sounds, animations) is set per alert in <a href="/alerts.html" target="_blank" style="color:var(--accent)">Alerts</a>. This is only the look.</p>
         <div class="field">
@@ -1179,9 +1180,25 @@ export function alertSection(el) {
         ${F.check('alert.videoSound', 'Play video audio', a.videoSound === true)}
         ${a.videoSound ? F.number('alert.videoVolume', 'Video volume (%)', a.videoVolume ?? 100, { min: 0, max: 100 }) : ''}
         ${F.check('alert.showOnPreview', 'Show placeholder on runtime preview', a.showOnPreview === true)}
-        <details class="sub-details"${only.length ? ' open' : ''}><summary>Only show certain alerts (${only.length ? only.length + ' selected' : 'all'})</summary>
-        <div class="trigger-list">${Object.entries(ALERT_TRIGGER_LABELS).map(([key, label]) => `<label class="check"><input type="checkbox" data-alert-trigger="${key}" ${only.includes(key) ? 'checked' : ''}> ${label}</label>`).join('')}</div>
-        <span class="hint">Leave all unchecked to show every alert. Use this to send, say, raids to a different box.</span></details>`);
+        ${F.select('alert.alertMode', 'Alert types to show', alertMode, [
+            ['all', 'All alerts (show every alert event)'],
+            ['selected', 'Only selected alert types']
+        ])}
+        ${alertMode === 'selected' ? `
+            <div class="field" style="margin-top:.4rem">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                    <span style="font-size:12px;color:var(--text-muted)">Selected (${only.length} of ${Object.keys(ALERT_TRIGGER_LABELS).length})</span>
+                    <div style="display:flex;gap:4px">
+                        <button type="button" class="btn sm" id="btn-select-all-alert-triggers" style="padding:2px 8px;font-size:11px">All</button>
+                        <button type="button" class="btn sm ghost" id="btn-clear-alert-triggers" style="padding:2px 8px;font-size:11px">None</button>
+                    </div>
+                </div>
+                <div class="trigger-list">${Object.entries(ALERT_TRIGGER_LABELS).map(([key, label]) => `<label class="check"><input type="checkbox" data-alert-trigger="${key}" ${only.includes(key) ? 'checked' : ''}> ${label}</label>`).join('')}</div>
+                ${only.length === 0 ? '<span class="hint" style="color:var(--danger, #f85149);font-weight:600">No alert types selected. This box will not show any alerts.</span>' : '<span class="hint">Only checked alert types will appear in this alert box.</span>'}
+            </div>
+        ` : `
+            <div class="hint">This box shows every alert event (follows, subs, bits, raids, etc.).</div>
+        `}`);
 }
 
 export function progressSection(el) {
@@ -2096,6 +2113,30 @@ export function initInspectorEvents() {
             const quick = target.closest('button[data-scale]');
             if (quick) scaleSelectionByHandler(Number(quick.dataset.scale));
             if (target.closest('#scale-apply')) scaleSelectionByHandler(Number($('scale-pct')?.value || 100));
+
+            if (target.closest('#btn-select-all-alert-triggers')) {
+                const allKeys = Object.keys(ALERT_TRIGGER_LABELS);
+                for (const el of selectedElements()) {
+                    if (el.type === 'alert') {
+                        el.alert = { ...(el.alert || {}), triggers: [...allKeys] };
+                    }
+                }
+                renderProperties();
+                renderCanvas();
+                changed(true);
+                return;
+            }
+            if (target.closest('#btn-clear-alert-triggers')) {
+                for (const el of selectedElements()) {
+                    if (el.type === 'alert') {
+                        el.alert = { ...(el.alert || {}), triggers: [] };
+                    }
+                }
+                renderProperties();
+                renderCanvas();
+                changed(true);
+                return;
+            }
 
             if (target.closest('#fit-icon')) {
                 const el = primary(), glyph = state.nodes.get(el?.id)?.querySelector('i');

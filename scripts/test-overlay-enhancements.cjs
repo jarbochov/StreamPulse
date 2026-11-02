@@ -507,3 +507,48 @@ test('Scene States vs Page Deck: Mode switching, font size morphing, and reactio
     assert.ok(runtimeJs.includes("!wasVis && nowVis"), 'Runtime must handle appearing shared elements in morph transitions');
     assert.ok(editorCss.includes('@keyframes pg-zoom-in'), 'custom-overlay-editor.css must include pg-zoom-in');
 });
+
+test('Alert element and page trigger alertMode normalization and UI configuration', () => {
+    const { normalizeOverlayElement, normalizePages } = require('../server/services/overlays.js');
+
+    // Element normalization
+    const elAll = normalizeOverlayElement({ type: 'alert', alert: { alertMode: 'all', triggers: [] } }, 0);
+    assert.equal(elAll.alert.alertMode, 'all', 'Explicit alertMode all is preserved');
+
+    const elSelected = normalizeOverlayElement({ type: 'alert', alert: { alertMode: 'selected', triggers: ['follow'] } }, 1);
+    assert.equal(elSelected.alert.alertMode, 'selected', 'Explicit alertMode selected is preserved');
+
+    const elLegacyEmpty = normalizeOverlayElement({ type: 'alert', alert: { triggers: [] } }, 2);
+    assert.equal(elLegacyEmpty.alert.alertMode, 'all', 'Alert element with empty triggers defaults to all');
+
+    const elLegacyWithTriggers = normalizeOverlayElement({ type: 'alert', alert: { triggers: ['sub'] } }, 3, { sub: true });
+    assert.equal(elLegacyWithTriggers.alert.alertMode, 'selected', 'Alert element with triggers defaults to selected');
+
+    // Page trigger normalization
+    const pagesAll = normalizePages({ items: [{ id: 'p1', trigger: 'alert', triggerAlertMode: 'all' }] });
+    assert.equal(pagesAll.items[0].triggerAlertMode, 'all', 'Page with triggerAlertMode all is preserved');
+
+    const pagesSelected = normalizePages({ items: [{ id: 'p2', trigger: 'alert', triggerAlertMode: 'selected', triggerRules: [] }] });
+    assert.equal(pagesSelected.items[0].triggerAlertMode, 'selected', 'Page with triggerAlertMode selected is preserved even with empty triggerRules');
+
+    const pagesLegacyEmpty = normalizePages({ items: [{ id: 'p3', trigger: 'alert', triggerRules: [] }] });
+    assert.equal(pagesLegacyEmpty.items[0].triggerAlertMode, 'selected', 'Legacy page with empty triggerRules defaults to selected to prevent unintended rotations');
+
+    const pagesFresh = normalizePages({ items: [{ id: 'p4', trigger: 'alert' }] });
+    assert.equal(pagesFresh.items[0].triggerAlertMode, 'all', 'Fresh page with no triggerRules defaults to all');
+
+    // UI and runtime checks
+    const layersJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-layers.js'), 'utf8');
+    assert.ok(layersJs.includes('triggerAlertMode'), 'editor-layers must configure triggerAlertMode');
+    assert.ok(layersJs.includes('id="btn-select-all-trules"'), 'editor-layers must have select all rules button');
+    assert.ok(layersJs.includes('id="btn-clear-trules"'), 'editor-layers must have clear rules button');
+
+    const inspectorJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-inspector.js'), 'utf8');
+    assert.ok(inspectorJs.includes('alert.alertMode'), 'editor-inspector must configure alert.alertMode');
+    assert.ok(inspectorJs.includes('id="btn-select-all-alert-triggers"'), 'editor-inspector must have select all triggers button');
+    assert.ok(inspectorJs.includes('id="btn-clear-alert-triggers"'), 'editor-inspector must have clear triggers button');
+
+    const runtimeJs = fs.readFileSync(path.join(__dirname, '../public/js/overlay-runtime.js'), 'utf8');
+    assert.ok(runtimeJs.includes('alertMatches'), 'overlay-runtime must include alertMatches function');
+    assert.ok(runtimeJs.includes('lastAlert'), 'overlay-runtime must buffer lastAlert for page takeovers');
+});

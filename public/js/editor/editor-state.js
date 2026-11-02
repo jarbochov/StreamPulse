@@ -623,7 +623,7 @@ export function normalizeLoaded(data) {
         item.source ||= { mode: 'inline', path: '', split: 'lines' };
         item.random ||= { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 };
         if (item.type === 'video') item.video = Object.assign({ autoplay: true, loop: true, sound: false, volume: 100 }, item.video);
-        if (item.type === 'alert') item.alert = Object.assign({ layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, showOnPreview: false, triggers: [] }, item.alert);
+        if (item.type === 'alert') item.alert = Object.assign({ layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, showOnPreview: false, alertMode: 'all', triggers: [] }, item.alert);
         if (item.type === 'poll') item.poll = window.PollWidget.settings(item.poll);
         if (item.type === 'cutout') item.cutout = Object.assign({ shape: 'rectangle', feather: 0 }, item.cutout);
         item.obsLink = Object.assign({ enabled: false, sourceName: '', sceneName: '', fit: 'cover', syncVisibility: true }, item.obsLink);
@@ -665,7 +665,7 @@ export function createElementData(rawType, overrides = {}) {
         slideshow: { source: 'tags', tags: [], tagMode: 'any', files: [], kinds: 'image', seconds: 5, order: 'sequential', fit: 'cover', transition: 'fade', direction: 'left', transitionMs: 800, caption: false, kenBurns: false },
         pattern: type === 'procedural-pattern' ? { preset: 'hexagons', accent: '#58a6ff', secondary: '#38bdf8', color: 'transparent', lineWidth: 0, scale: 100, motion: 'drift', speed: 1, blendMode: 'normal' } : { sourceType: 'image', layout: 'brick', tileSize: 96, gap: 16, offsetX: 50, offsetY: 0, angle: -15, tileAngle: 0, alternateFlip: 'tilt', tileOpacity: 1, altOpacity: 0.4, altScale: 100, blendMode: 'normal', wedges: 6, feather: 0, motion: 'scroll', trackMode: 'uniform', scrollAngle: 315, speed: 12, spinSpeed: 8, spinDirection: 'cw', waveAmount: 25 },
         video: { loop: true, sound: false, volume: 100 },
-        alert: { layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, showOnPreview: false, triggers: [] },
+        alert: { layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, showOnPreview: false, alertMode: 'all', triggers: [] },
         cutout: { shape: 'rectangle', feather: 0 },
         obsLink: { enabled: isObsFrame, sourceName: '', sceneName: '', fit: 'cover', syncVisibility: true },
         progress: { kind: 'bar', label: '{{progress}}%', showLabel: true, trackColor: 'rgba(255,255,255,0.18)', thickness: 10 },

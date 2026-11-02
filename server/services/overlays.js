@@ -850,6 +850,11 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
             showOnPreview: Boolean(element.alert?.showOnPreview),
             sampleImage: String(element.alert?.sampleImage || '').slice(0, 2000),
             sampleEmoji: String(element.alert?.sampleEmoji || '').trim().slice(0, 40),
+            alertMode: element.alert?.alertMode === 'all'
+                ? 'all'
+                : element.alert?.alertMode === 'selected'
+                    ? 'selected'
+                    : (Array.isArray(element.alert?.triggers) && element.alert.triggers.length > 0 ? 'selected' : 'all'),
             triggers: Array.isArray(element.alert?.triggers) ? element.alert.triggers.filter(t => !alertTriggers || alertTriggers[t]).slice(0, 20) : []
         },
         cutout: {
@@ -936,11 +941,18 @@ function normalizePages(input = {}) {
             enabled: item?.enabled !== false,
             trigger: ['alert', 'featured', 'command', 'poll-end', 'poll-active'].includes(item?.trigger) ? item.trigger : '',
             triggerName: String(item?.triggerName || '').trim().toLowerCase().replace(/^[^a-z0-9_]+/, '').slice(0, 60),
+            triggerAlertMode: item?.trigger === 'alert'
+                ? (item?.triggerAlertMode === 'all'
+                    ? 'all'
+                    : item?.triggerAlertMode === 'selected'
+                        ? 'selected'
+                        : (Array.isArray(item?.triggerRules) && item.triggerRules.length === 0 ? 'selected' : 'all'))
+                : 'all',
             triggerRules: item?.trigger === 'alert' && Array.isArray(item.triggerRules) ? [...new Set(item.triggerRules.map(String))].slice(0, 100) : [],
             triggerSeconds: Math.max(0, Math.min(3600, Number(item?.triggerSeconds) || 0))
         };
     });
-    if (!items.length) items.push({ id: 'page-1', name: `${defaultLabel} 1`, duration: 0, enabled: true, trigger: '', triggerName: '', triggerRules: [], triggerSeconds: 0 });
+    if (!items.length) items.push({ id: 'page-1', name: `${defaultLabel} 1`, duration: 0, enabled: true, trigger: '', triggerName: '', triggerAlertMode: 'all', triggerRules: [], triggerSeconds: 0 });
     if (!items.some(item => item.enabled)) items[0].enabled = true;
     return {
         enabled: input.enabled === true,
@@ -1808,7 +1820,16 @@ function createOverlayService({
     function takeoverPages(kind, name, ms, poll = {}) {
         for (const overlay of Object.values(customOverlays)) {
             if (!overlay.pages?.enabled) continue;
-            const target = overlay.pages.items.find(p => p.enabled !== false && p.trigger === kind && (kind === 'featured' || (kind === 'alert' ? !p.triggerRules.length || p.triggerRules.includes(name) : !p.triggerName || p.triggerName === String(name || '').toLowerCase())));
+            const target = overlay.pages.items.find(p => {
+                if (p.enabled === false || p.trigger !== kind) return false;
+                if (kind === 'featured') return true;
+                if (kind === 'alert') {
+                    const mode = p.triggerAlertMode || (Array.isArray(p.triggerRules) && p.triggerRules.length ? 'selected' : 'all');
+                    if (mode === 'all') return true;
+                    return Array.isArray(p.triggerRules) && p.triggerRules.length > 0 && (p.triggerRules.includes(name) || (name && p.triggerRules.some(r => r.toLowerCase() === String(name).toLowerCase())));
+                }
+                return !p.triggerName || p.triggerName === String(name || '').toLowerCase();
+            });
             if (!target) {
                 if (kind === 'poll-end') {
                     const state = overlayPageState.get(overlay.id);

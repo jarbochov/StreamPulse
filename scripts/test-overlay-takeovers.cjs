@@ -380,3 +380,89 @@ test('SSN listener ingests featured messages from channel 2 (plain and wrapped) 
     await new Promise(r => setTimeout(r, 50));
     assert.equal(takeovers.length, 4, 'Regular chat messages do not trigger takeover');
 });
+
+test('alert takeover respects triggerAlertMode and does not rotate when no alerts are selected', t => {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-alert-mode-'));
+    const broadcasts = [];
+    const service = createOverlayService({ dataDir, log: () => {}, broadcastToOverlays: (type, data) => broadcasts.push({ type, ...data }) });
+    t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.parse('2026-10-19T12:00:00Z') });
+
+    // Overlay 1: Page with triggerAlertMode: 'selected' and empty triggerRules -> MUST NOT TRIGGER
+    const overlaySelectedEmpty = normalizeCustomOverlay({
+        id: 'ovr-empty',
+        pages: {
+            enabled: true, mode: 'manual',
+            items: [
+                { id: 'home', name: 'Home' },
+                { id: 'alert-page', name: 'Alert Page', trigger: 'alert', triggerAlertMode: 'selected', triggerRules: [] }
+            ]
+        }
+    });
+
+    // Overlay 2: Page with legacy triggerRules: [] and unset triggerAlertMode -> MUST NOT TRIGGER (normalized to selected)
+    const overlayLegacyEmpty = normalizeCustomOverlay({
+        id: 'ovr-legacy',
+        pages: {
+            enabled: true, mode: 'manual',
+            items: [
+                { id: 'home', name: 'Home' },
+                { id: 'alert-page', name: 'Alert Page', trigger: 'alert', triggerRules: [] }
+            ]
+        }
+    });
+
+    // Overlay 3: Page with triggerAlertMode: 'selected' and specific rules -> ONLY TRIGGERS ON MATCH
+    const overlaySelectedRules = normalizeCustomOverlay({
+        id: 'ovr-rules',
+        pages: {
+            enabled: true, mode: 'manual',
+            items: [
+                { id: 'home', name: 'Home' },
+                { id: 'raid-page', name: 'Raid Page', trigger: 'alert', triggerAlertMode: 'selected', triggerRules: ['raid-rule'] }
+            ]
+        }
+    });
+
+    // Overlay 4: Page with triggerAlertMode: 'all' -> TRIGGERS ON ANY ALERT
+    const overlayAll = normalizeCustomOverlay({
+        id: 'ovr-all',
+        pages: {
+            enabled: true, mode: 'manual',
+            items: [
+                { id: 'home', name: 'Home' },
+                { id: 'all-page', name: 'All Alerts Page', trigger: 'alert', triggerAlertMode: 'all', triggerRules: [] }
+            ]
+        }
+    });
+
+    service.setCustomOverlays({
+        'ovr-empty': overlaySelectedEmpty,
+        'ovr-legacy': overlayLegacyEmpty,
+        'ovr-rules': overlaySelectedRules,
+        'ovr-all': overlayAll
+    });
+    service.start();
+    t.after(() => {
+        service.stop();
+        fs.rmSync(dataDir, { recursive: true, force: true });
+    });
+
+    // Send an alert with ruleId 'follow-rule'
+    service.takeoverPages('alert', 'follow-rule', 5000);
+
+    // Overlay 1 & 2 must NOT have rotated
+    assert.equal(service.pageSnapshot(overlaySelectedEmpty).page, 'home', 'Overlay with selected mode and 0 rules does not rotate');
+    assert.equal(service.pageSnapshot(overlayLegacyEmpty).page, 'home', 'Overlay with empty triggerRules does not rotate on unmatched alert');
+
+    // Overlay 3 must NOT rotate for follow-rule
+    assert.equal(service.pageSnapshot(overlaySelectedRules).page, 'home', 'Overlay with raid-rule does not rotate for follow-rule');
+
+    // Overlay 4 MUST rotate for follow-rule because it is set to all
+    assert.equal(service.pageSnapshot(overlayAll).page, 'all-page', 'Overlay with triggerAlertMode: all rotates on any alert');
+
+    // Now send alert with ruleId 'raid-rule'
+    service.takeoverPages('alert', 'raid-rule', 5000);
+
+    // Overlay 3 now rotates!
+    assert.equal(service.pageSnapshot(overlaySelectedRules).page, 'raid-page', 'Overlay with raid-rule rotates when raid-rule fires');
+});

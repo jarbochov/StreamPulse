@@ -258,7 +258,12 @@ export function renderPagesPanel() {
     };
 
     const obsLinkedCount = state.overlay.elements.filter(el => el.obsLink?.enabled && el.obsLink?.sourceName).length;
-    const triggerLabel = { '': 'Manual / Rotation', alert: 'On Alert', featured: 'Featured Chat', command: 'Chat Command', 'poll-end': 'Poll End', 'poll-active': 'Poll Active' }[cur?.trigger || ''] || 'Manual';
+    const pageAlertMode = cur?.triggerAlertMode || (cur?.triggerRules?.length ? 'selected' : 'all');
+    const triggerLabel = cur?.trigger === 'alert'
+        ? (pageAlertMode === 'selected'
+            ? `${(cur.triggerRules || []).length} Alert${(cur.triggerRules || []).length === 1 ? '' : 's'}`
+            : 'All Alerts')
+        : ({ '': 'Manual / Rotation', alert: 'On Alert', featured: 'Featured Chat', command: 'Chat Command', 'poll-end': 'Poll End', 'poll-active': 'Poll Active' }[cur?.trigger || ''] || 'Manual');
     const transLabel = { morph: 'Morph', fade: 'Crossfade', slide: 'Slide', none: 'Cut' }[P.transition || 'morph'] || 'Morph';
     panel.innerHTML = `
         <div class="field" style="margin-bottom:.1rem">
@@ -328,7 +333,30 @@ export function renderPagesPanel() {
                 ['poll-end', 'Only when a Twitch poll ends'],
                 ['poll-active', 'While a Twitch poll is active']
             ])}
-            ${cur?.trigger === 'alert' ? `<div class="field"><span>Alerts that show this ${noun}</span>${alertRules ? (alertRules.length ? `<div class="trule-list">${alertRules.map(r => `<label class="check"><input type="checkbox" data-trule="${esc(r.id)}" ${(cur.triggerRules || []).includes(r.id) ? 'checked' : ''}> ${esc(r.name || r.id)}</label>`).join('')}</div><div class="hint">${(cur.triggerRules || []).length ? `Only the ticked alerts show this ${noun}.` : `None ticked: any alert shows this ${noun}.`}</div>` : '<div class="hint">No alert rules yet.</div>') : '<div class="hint">Loading...</div>'}</div>` : ''}
+            ${cur?.trigger === 'alert' ? `
+                ${F.select(`pages.items.${idx}.triggerAlertMode`, `Alerts that trigger this ${noun}`, pageAlertMode, [
+                    ['all', 'All alerts (triggers on any alert)'],
+                    ['selected', 'Only selected alerts']
+                ])}
+                ${pageAlertMode === 'selected' ? `
+                    <div class="field">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                            <span>Alert rules that show this ${noun}</span>
+                            ${alertRules && alertRules.length ? `
+                            <div style="display:flex;gap:4px">
+                                <button type="button" class="btn sm" id="btn-select-all-trules" style="padding:2px 8px;font-size:11px">All</button>
+                                <button type="button" class="btn sm ghost" id="btn-clear-trules" style="padding:2px 8px;font-size:11px">None</button>
+                            </div>` : ''}
+                        </div>
+                        ${alertRules ? (alertRules.length ? `
+                            <div class="trule-list">${alertRules.map(r => `<label class="check"><input type="checkbox" data-trule="${esc(r.id)}" ${(cur.triggerRules || []).includes(r.id) ? 'checked' : ''}> ${esc(r.name || r.id)}</label>`).join('')}</div>
+                            <div class="hint">${(cur.triggerRules || []).length ? `Only the ticked alerts show this ${noun}.` : `<span style="color:var(--danger, #f85149);font-weight:600">No alerts selected. This ${noun} will not trigger.</span>`}</div>
+                        ` : '<div class="hint">No alert rules yet.</div>') : '<div class="hint">Loading alert rules...</div>'}
+                    </div>
+                ` : `
+                    <div class="hint">Triggers whenever any alert plays.</div>
+                `}
+            ` : ''}
             ${cur?.trigger === 'command' ? F.text(`pages.items.${idx}.triggerName`, 'Command or trigger name (blank = any)', cur.triggerName || '') : ''}
             ${cur?.trigger === 'poll-end' ? `<div class="hint">Shows this ${noun} when a Twitch poll completes. Leave &ldquo;Show for&rdquo; at 0 for default 15s.</div>` : ''}
             ${cur?.trigger === 'poll-active' ? `<div class="hint">At Show for = 0, stays through voting and the longest Show results duration of visible Poll elements on this ${noun}, including shared elements.</div>` : ''}
@@ -736,9 +764,30 @@ export function initLayersAndPages() {
                 changed(true);
                 return switchEditPage(id, { animate: false });
             }
+            if (t?.id === 'btn-select-all-trules') {
+                const page = items.find(p => p.id === state.curPage);
+                if (page && alertRules) {
+                    page.triggerRules = alertRules.map(r => r.id);
+                    changed(true);
+                    return renderPagesPanel();
+                }
+            }
+            if (t?.id === 'btn-clear-trules') {
+                const page = items.find(p => p.id === state.curPage);
+                if (page) {
+                    page.triggerRules = [];
+                    changed(true);
+                    return renderPagesPanel();
+                }
+            }
             if (t?.id === 'btn-test-trigger') {
                 const page = items.find(p => p.id === state.curPage);
                 if (!page || !page.trigger) return;
+                const mode = page.triggerAlertMode || (page.triggerRules?.length ? 'selected' : 'all');
+                if (page.trigger === 'alert' && mode === 'selected' && (!page.triggerRules || !page.triggerRules.length)) {
+                    toast('No alerts selected for this trigger. Select at least one alert rule or switch to All alerts.', 'warn', 3500);
+                    return;
+                }
                 try {
                     const response = await fetch(`/api/custom-overlays/${encodeURIComponent(state.overlay.id)}/page`, {
                         method: 'POST',
@@ -807,7 +856,7 @@ export function initLayersAndPages() {
                 return;
             }
             const path = event.target.dataset?.path;
-            if (path === 'pages.mode' || path === 'pages.transition' || path === 'pages.transitionEasing' || path === 'pages.enterExit' || /^pages\.items\.\d+\.trigger$/.test(path || '')) {
+            if (path === 'pages.mode' || path === 'pages.transition' || path === 'pages.transitionEasing' || path === 'pages.enterExit' || /^pages\.items\.\d+\.(trigger|triggerAlertMode)$/.test(path || '')) {
                 renderPagesPanel();
             }
         });

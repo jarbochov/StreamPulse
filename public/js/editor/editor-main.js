@@ -961,8 +961,9 @@ export function connectAlertPreview() {
         for (const el of state.overlay.elements) {
             const node = state.nodes.get(el.id);
             if (el.type !== 'alert' || !node || el.visible === false) continue;
+            const mode = el.alert?.alertMode || (el.alert?.triggers?.length ? 'selected' : 'all');
             const only = el.alert?.triggers || [];
-            if (only.length && !only.includes(message.data.trigger)) continue;
+            if (mode === 'selected' && (!only.length || !only.includes(message.data?.trigger))) continue;
             if (node._alertHandle) node._alertHandle.stop();
             node._alertHandle = shared.playAlert ? shared.playAlert(node, el, message.data, {
                 sound: false,
