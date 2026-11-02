@@ -70,7 +70,7 @@ const TWITCH_CHEERMOTE_FAMILIES = {
     anon: { id: 'anon', prefix: 'Anon', name: 'Anon', tiers: makeSpecialTiers('anon', 'Anon') }
 };
 
-const CHEERMOTE_REGEX = /\b(cheer|kappa|trihard|kreygasm|swiftrage|4head|pjsalt|showlove|party|pride|frankerz|vohiyo|heyguys|dansgame|failfish|notlikethis|mrdestructoid|cheerwhal|shamrock|anon)(\d+)\b/i;
+const CHEERMOTE_REGEX = /\b(pridecheer|holidaycheer|ripcheer|bibblethump|bitboss|charity|seemsgood|elegiggle|corgo|uni|bday|streamlabs|muxy|cheer|kappa|trihard|kreygasm|swiftrage|4head|pjsalt|showlove|party|pride|frankerz|vohiyo|heyguys|dansgame|failfish|notlikethis|mrdestructoid|cheerwhal|shamrock|anon)(\d+)\b/i;
 
 function extractCheermoteFromText(text) {
     if (!text || typeof text !== 'string') return null;
@@ -84,7 +84,12 @@ function extractCheermoteFromText(text) {
 
 function getTwitchCheermote(bits = 1, prefix = 'cheer') {
     const key = String(prefix || 'cheer').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const family = TWITCH_CHEERMOTE_FAMILIES[key] || TWITCH_CHEERMOTE_FAMILIES.cheer;
+    let family = TWITCH_CHEERMOTE_FAMILIES[key];
+    if (!family && key && /^[a-z0-9]{2,30}$/.test(key)) {
+        const name = key.charAt(0).toUpperCase() + key.slice(1);
+        family = TWITCH_CHEERMOTE_FAMILIES[key] = { id: key, prefix: name, name, tiers: makeSpecialTiers(key, name) };
+    }
+    family = family || TWITCH_CHEERMOTE_FAMILIES.cheer;
     const amt = Number(bits) || 1;
     for (const tier of family.tiers) {
         if (amt >= tier.min) return { ...tier, prefix: family.prefix };
