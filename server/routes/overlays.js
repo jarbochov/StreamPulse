@@ -155,11 +155,15 @@ function createOverlayRoutes({
     gamePlanAssetUsers = () => [],
     promoAssetUsers = () => [],
     alertAssetUsers = (name) => (alertEngine?.alertAssetUsers ? alertEngine.alertAssetUsers(name, assetReferencedIn) : []),
+    tierListAssetUsers = () => [],
+    randomizerAssetUsers = (name) => (overlayService?.randomizerAssetUsers ? overlayService.randomizerAssetUsers(name, assetReferencedIn) : []),
     rewriteTimerSoundReferences = () => false,
     rewriteGamePlanReferences = () => false,
     rewritePromoReferences = () => false,
     rewriteCreditsReferences = () => false,
     rewriteAlertReferences = (oldName, newName) => (alertEngine?.rewriteAlertReferences ? alertEngine.rewriteAlertReferences(oldName, newName, rewriteAssetReferences) : false),
+    rewriteTierListReferences = () => false,
+    rewriteRandomizerReferences = (oldName, newName) => (overlayService?.rewriteRandomizerReferences ? overlayService.rewriteRandomizerReferences(oldName, newName, rewriteAssetReferences) : false),
     normalizeCustomOverlay = overlayService ? overlayService.normalizeCustomOverlay : (o) => o,
     saveCustomOverlays = overlayService ? overlayService.saveCustomOverlays : () => {},
     syncOverlayPages = overlayService ? overlayService.syncOverlayPages : () => {},
@@ -479,7 +483,9 @@ function createOverlayRoutes({
                     ...creditsAssetUsers(name),
                     ...gamePlanAssetUsers(name),
                     ...promoAssetUsers(name),
-                    ...alertAssetUsers(name)
+                    ...alertAssetUsers(name),
+                    ...tierListAssetUsers(name),
+                    ...randomizerAssetUsers(name)
                 ];
                 return {
                     name,
@@ -528,11 +534,13 @@ function createOverlayRoutes({
                     ...creditsAssetUsers(name).map(u => u.id),
                     ...gamePlanAssetUsers(name).map(u => u.id),
                     ...promoAssetUsers(name).map(u => u.id),
-                    ...alertAssetUsers(name).map(u => u.id)
+                    ...alertAssetUsers(name).map(u => u.id),
+                    ...tierListAssetUsers(name).map(u => u.id),
+                    ...randomizerAssetUsers(name).map(u => u.id)
                 ];
                 if (usedBy.length && url.searchParams.get('force') !== '1') {
                     res.writeHead(409, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: 'Asset is used by an overlay', usedBy }));
+                    res.end(JSON.stringify({ error: 'Asset is in use', usedBy }));
                     return true;
                 }
                 try {
@@ -610,6 +618,8 @@ function createOverlayRoutes({
             if (rewritePromoReferences(name, newName)) updated.push('promos');
             if (rewriteCreditsReferences(name, newName)) updated.push('credits');
             if (rewriteAlertReferences(name, newName)) updated.push('alerts');
+            if (rewriteTierListReferences(name, newName)) updated.push('tier-list');
+            if (rewriteRandomizerReferences(name, newName)) updated.push('randomizer');
             if (updated.some(id => customOverlays[id])) {
                 saveCustomOverlays();
                 for (const id of updated.filter(id => customOverlays[id])) {

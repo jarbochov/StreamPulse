@@ -24,9 +24,9 @@ Open the maker at `http://localhost:3000/tools/tier-list.html` or navigate to **
 
 ### Adding Items
 1. **Manual Add**: Click **Add Item** to paste an image URL, upload a file, enter a caption, and add review notes.
-2. **Asset Library**: Click **Asset Library** to browse your existing graphics and artworks. Multi-select multiple files to bulk-add them to the unranked tray in one click.
-3. **Clipboard Copy & Paste (Ctrl+V / ⌘V)**: Copy any image file, screenshot, browser image, or direct image URL to your clipboard and paste it directly onto the maker. The image is instantly uploaded to the Asset Library and placed into the unranked pool.
-4. **Desktop Drag & Drop**: Drag one or more PNG/JPG/WebP/GIF files directly into the dashed Unranked Items pool.
+2. **Asset Library**: Click **Asset Library** to browse your existing graphics and artworks. Multi-select multiple files to bulk-add them to the unranked tray in one click. Items already present on your active board display a visual **In List** badge. Assets used by the Tier Maker are automatically linked in the Asset Library with `Tier List: <Item>` usage badges and protected from accidental deletion.
+3. **Clipboard Copy & Paste (Ctrl+V / ⌘V)**: Copy any image file, screenshot, browser image, or direct image URL to your clipboard and paste it directly onto the maker. The image is instantly uploaded to the Asset Library, tracked as in-use, and placed into the unranked pool.
+4. **Desktop Drag & Drop**: Drag one or more PNG/JPG/WebP/GIF files directly into the dashed Unranked Items pool to upload to the Asset Library and add them to the board.
 
 ### Customizing Tiers
 - Click on any tier header (e.g. "S" or "A") to customize its label, hex color code, and description.

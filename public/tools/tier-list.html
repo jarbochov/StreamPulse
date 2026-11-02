@@ -1881,9 +1881,11 @@
                     const res = await fetch('/api/custom-overlays/assets');
                     if (res.ok) {
                         const data = await res.json();
-                        libraryAssets = (data.assets || []).filter(a => {
-                            const ext = (a.ext || '').toLowerCase();
-                            return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.avif'].includes(ext);
+                        const list = Array.isArray(data) ? data : (data.assets || []);
+                        libraryAssets = list.filter(a => {
+                            if (a.kind === 'image') return true;
+                            const name = (a.name || '').toLowerCase();
+                            return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.avif'].some(ext => name.endsWith(ext));
                         });
                         renderAssetGrid();
                     }
@@ -1897,7 +1899,7 @@
                 const query = ($('asset-search').value || '').trim().toLowerCase();
                 const filtered = libraryAssets.filter(a => {
                     if (!query) return true;
-                    return a.name.toLowerCase().includes(query) || (a.tags || []).some(t => t.toLowerCase().includes(query));
+                    return (a.label || a.name || '').toLowerCase().includes(query) || (a.tags || []).some(t => t.toLowerCase().includes(query));
                 });
 
                 if (filtered.length === 0) {
@@ -1907,10 +1909,12 @@
 
                 grid.innerHTML = filtered.map(a => {
                     const isSel = selectedAssetUrls.has(a.url);
-                    const cleanName = a.caption || a.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+                    const cleanName = a.caption || a.label || a.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+                    const isAlreadyOnList = (state.items || []).some(i => i.imageUrl && (i.imageUrl === a.url || i.imageUrl.endsWith('/' + a.name)));
                     return `
                         <div class="asset-card${isSel ? ' selected' : ''}" data-url="${esc(a.url)}" data-name="${esc(cleanName)}">
                             <input type="checkbox" class="asset-checkbox" ${isSel ? 'checked' : ''}>
+                            ${isAlreadyOnList ? '<span class="badge" style="position:absolute;top:6px;right:6px;background:rgba(56,189,248,0.2);color:#38bdf8;border:1px solid rgba(56,189,248,0.4);font-size:10px;padding:1px 6px;border-radius:10px;pointer-events:none;z-index:2;">In List</span>' : ''}
                             <img src="${esc(a.url)}" alt="${esc(cleanName)}" loading="lazy">
                             <div class="asset-card-label">${esc(cleanName)}</div>
                         </div>

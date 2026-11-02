@@ -789,6 +789,95 @@ function createTierListService({
         return state.presets;
     }
 
+    function tierListAssetUsers(name, assetReferencedIn) {
+        const users = [];
+        const isRef = (val) => {
+            if (!val || typeof val !== 'string') return false;
+            if (typeof assetReferencedIn === 'function') {
+                if (assetReferencedIn(val, name, null)) return true;
+            }
+            const clean = val.split('?')[0];
+            const decodedName = decodeURIComponent(name);
+            const encodedName = encodeURIComponent(name);
+            if (clean.includes(`/custom-overlay-assets/${encodedName}`) || clean.includes(`/custom-overlay-assets/${name}`) || clean.includes(`/custom-overlay-assets/${decodedName}`)) return true;
+            if (clean === name || clean === decodedName || clean.endsWith(`/${name}`) || clean.endsWith(`/${decodedName}`)) return true;
+            return false;
+        };
+        for (const item of state.items || []) {
+            if (isRef(item.imageUrl)) {
+                users.push({
+                    id: `tier-list:item:${item.id}`,
+                    name: `Tier List: ${item.name || 'Item'}`
+                });
+            }
+        }
+        for (const preset of state.presets || []) {
+            for (const item of preset.items || []) {
+                if (isRef(item.imageUrl)) {
+                    users.push({
+                        id: `tier-list:preset:${preset.id}:${item.id || item.name}`,
+                        name: `Tier List (${preset.name || 'Preset'}): ${item.name || 'Item'}`
+                    });
+                }
+            }
+        }
+        return users;
+    }
+
+    function rewriteTierListReferences(oldName, newName, rewriteAssetReferences) {
+        let changed = false;
+        const rewriteStr = (val) => {
+            if (!val || typeof val !== 'string') return val;
+            let next = val;
+            if (typeof rewriteAssetReferences === 'function') {
+                next = rewriteAssetReferences(val, oldName, newName, null, null);
+            }
+            if (next === val) {
+                for (const [from, to] of [
+                    [encodeURIComponent(oldName), encodeURIComponent(newName)],
+                    [oldName, newName],
+                    [decodeURIComponent(oldName), decodeURIComponent(newName)]
+                ]) {
+                    if (next.includes(from)) {
+                        next = next.split(from).join(to);
+                    }
+                }
+            }
+            return next;
+        };
+
+        for (const item of state.items || []) {
+            if (!item.imageUrl) continue;
+            const next = rewriteStr(item.imageUrl);
+            if (next !== item.imageUrl) {
+                item.imageUrl = next;
+                changed = true;
+            }
+        }
+        if (state.activeVote && state.activeVote.itemImage) {
+            const next = rewriteStr(state.activeVote.itemImage);
+            if (next !== state.activeVote.itemImage) {
+                state.activeVote.itemImage = next;
+                changed = true;
+            }
+        }
+        for (const preset of state.presets || []) {
+            for (const item of preset.items || []) {
+                if (!item.imageUrl) continue;
+                const next = rewriteStr(item.imageUrl);
+                if (next !== item.imageUrl) {
+                    item.imageUrl = next;
+                    changed = true;
+                }
+            }
+        }
+        if (changed) {
+            save();
+            broadcastState('tier-list:update');
+        }
+        return changed;
+    }
+
     // Initialize on load
     load();
 
@@ -812,7 +901,9 @@ function createTierListService({
         savePreset,
         loadPreset,
         deletePreset,
-        resetPresets
+        resetPresets,
+        tierListAssetUsers,
+        rewriteTierListReferences
     };
 }
 

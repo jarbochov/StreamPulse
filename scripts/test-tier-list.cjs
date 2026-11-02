@@ -7,6 +7,7 @@ const path = require('path');
 const os = require('os');
 const { createTierListService, calculateConsensus, DEFAULT_TIERS } = require('../server/services/tier-list');
 const { createTierListRoutes } = require('../server/routes/tier-list');
+const { createOverlayRoutes } = require('../server/routes/overlays');
 const createChatbot = require('../server/services/chatbot');
 
 test('Tier List Service: State initialization & defaults', () => {
@@ -668,6 +669,157 @@ test('Tier List Routes: POST and GET /api/tier-list/vote/lock', async () => {
         assert.equal(handled2, true);
         assert.equal(res2.getStatusCode(), 200);
         assert.equal(res2.getBody().activeVote.status, 'LOCKED');
+    } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
+test('Tier List Service: Asset Library Usage Tracking (tierListAssetUsers)', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tl-test-assets-'));
+    try {
+        const service = createTierListService({ dataDir: tmpDir, log: () => {} });
+
+        // Add item with asset library URL
+        const item1 = service.addItem({
+            name: 'Chrono Trigger',
+            imageUrl: '/custom-overlay-assets/chrono-trigger.png'
+        });
+
+        // Add item with URL-encoded asset library URL
+        const item2 = service.addItem({
+            name: 'Secret of Mana',
+            imageUrl: '/custom-overlay-assets/secret%20of%20mana.jpg'
+        });
+
+        // Add item with external image URL (not an asset library file)
+        service.addItem({
+            name: 'EarthBound',
+            imageUrl: 'https://images.igdb.com/earthbound.jpg'
+        });
+
+        // 1. Direct match
+        const users1 = service.tierListAssetUsers('chrono-trigger.png');
+        assert.equal(users1.length, 1);
+        assert.equal(users1[0].id, `tier-list:item:${item1.id}`);
+        assert.equal(users1[0].name, 'Tier List: Chrono Trigger');
+
+        // 2. URL-encoded asset name match
+        const users2 = service.tierListAssetUsers('secret of mana.jpg');
+        assert.equal(users2.length, 1);
+        assert.equal(users2[0].id, `tier-list:item:${item2.id}`);
+        assert.equal(users2[0].name, 'Tier List: Secret of Mana');
+
+        // 3. Unused asset returns empty array
+        const usersUnused = service.tierListAssetUsers('unrelated-banner.png');
+        assert.equal(usersUnused.length, 0);
+
+        // 4. After deleting item, asset is no longer reported as used
+        service.deleteItem(item1.id);
+        assert.equal(service.tierListAssetUsers('chrono-trigger.png').length, 0);
+    } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
+test('Tier List Service & Overlay Asset Routes: Usage, Deletion Protection, and Renaming', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tl-asset-routes-'));
+    const assetsDir = path.join(tmpDir, 'custom-overlay-assets');
+    fs.mkdirSync(assetsDir, { recursive: true });
+
+    try {
+        // Create sample asset files on disk
+        const sampleImage = '<svg width="10" height="10"></svg>';
+        fs.writeFileSync(path.join(assetsDir, 'test-game-cover.png'), sampleImage);
+        fs.writeFileSync(path.join(assetsDir, 'unused-art.png'), sampleImage);
+
+        const service = createTierListService({ dataDir: tmpDir, log: () => {} });
+
+        // Add an item using test-game-cover.png
+        const item = service.addItem({
+            name: 'Super Metroid',
+            imageUrl: '/custom-overlay-assets/test-game-cover.png'
+        });
+
+        // Start a vote with duration 0 (open indefinitely without active timer) so activeVote also captures the image
+        service.startVote({ itemId: item.id, duration: 0 });
+
+        const overlayRoutes = createOverlayRoutes({
+            customOverlayAssetsDir: assetsDir,
+            tierListAssetUsers: name => service.tierListAssetUsers(name),
+            rewriteTierListReferences: (oldName, newName) => service.rewriteTierListReferences(oldName, newName)
+        });
+
+        function mockReq(method, pathname, body = null) {
+            const stream = new (require('stream').Readable)();
+            if (body) stream.push(typeof body === 'string' ? body : JSON.stringify(body));
+            stream.push(null);
+            stream.method = method;
+            stream.url = pathname;
+            stream.headers = { 'content-type': 'application/json' };
+            return stream;
+        }
+
+        function mockRes() {
+            let statusCode = 200;
+            let body = '';
+            return {
+                writeHead(code) { statusCode = code; },
+                end(data) { if (data) body += data; },
+                getStatusCode: () => statusCode,
+                getBody: () => body ? JSON.parse(body) : null
+            };
+        }
+
+        // 1. GET /api/custom-overlays/assets -> test-game-cover.png must report usedBy containing the tier list item
+        const req1 = mockReq('GET', '/api/custom-overlays/assets');
+        const res1 = mockRes();
+        const url1 = new URL('http://localhost/api/custom-overlays/assets');
+        const handled1 = await overlayRoutes(req1, res1, url1, '/api/custom-overlays/assets');
+        assert.equal(handled1, true);
+        assert.equal(res1.getStatusCode(), 200);
+
+        const assetList = res1.getBody();
+        assert.ok(Array.isArray(assetList));
+        const coverAsset = assetList.find(a => a.name === 'test-game-cover.png');
+        assert.ok(coverAsset, 'Cover asset should be listed');
+        assert.equal(coverAsset.usedBy.length, 1);
+        assert.equal(coverAsset.usedBy[0].id, `tier-list:item:${item.id}`);
+        assert.equal(coverAsset.usedBy[0].name, 'Tier List: Super Metroid');
+
+        const unusedAsset = assetList.find(a => a.name === 'unused-art.png');
+        assert.ok(unusedAsset);
+        assert.equal(unusedAsset.usedBy.length, 0);
+
+        // 2. DELETE /api/custom-overlays/assets/test-game-cover.png without ?force=1 -> Must reject with 409 Conflict
+        const req2 = mockReq('DELETE', '/api/custom-overlays/assets/test-game-cover.png');
+        const res2 = mockRes();
+        const url2 = new URL('http://localhost/api/custom-overlays/assets/test-game-cover.png');
+        await overlayRoutes(req2, res2, url2, '/api/custom-overlays/assets/test-game-cover.png');
+        assert.equal(res2.getStatusCode(), 409, 'In-use tier list asset should reject deletion with 409');
+        assert.ok(fs.existsSync(path.join(assetsDir, 'test-game-cover.png')), 'Asset file must still exist');
+
+        // 3. POST /api/custom-overlays/assets/test-game-cover.png/rename -> Rename to super-metroid.png
+        const req3 = mockReq('POST', '/api/custom-overlays/assets/test-game-cover.png/rename', { name: 'super-metroid' });
+        const res3 = mockRes();
+        const url3 = new URL('http://localhost/api/custom-overlays/assets/test-game-cover.png/rename');
+        await overlayRoutes(req3, res3, url3, '/api/custom-overlays/assets/test-game-cover.png/rename');
+        assert.equal(res3.getStatusCode(), 200);
+        const renameResult = res3.getBody();
+        assert.equal(renameResult.renamed, true);
+        assert.ok(renameResult.updated.includes('tier-list'), 'updated list must include tier-list');
+
+        // Verify tier list item imageUrl was updated
+        const updatedItem = service.getState().items.find(i => i.id === item.id);
+        assert.equal(updatedItem.imageUrl, '/custom-overlay-assets/super-metroid.png');
+        assert.equal(service.getState().activeVote.itemImage, '/custom-overlay-assets/super-metroid.png');
+
+        // 4. DELETE /api/custom-overlays/assets/super-metroid.png?force=1 -> Must succeed
+        const req4 = mockReq('DELETE', '/api/custom-overlays/assets/super-metroid.png?force=1');
+        const res4 = mockRes();
+        const url4 = new URL('http://localhost/api/custom-overlays/assets/super-metroid.png?force=1');
+        await overlayRoutes(req4, res4, url4, '/api/custom-overlays/assets/super-metroid.png');
+        assert.equal(res4.getStatusCode(), 200);
+        assert.equal(fs.existsSync(path.join(assetsDir, 'super-metroid.png')), false, 'File should now be deleted');
     } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }

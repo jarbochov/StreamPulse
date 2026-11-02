@@ -1543,6 +1543,63 @@ function createOverlayService({
         return DEFAULT_RANDOMIZER_BUTTON_PRESETS;
     }
 
+    function randomizerAssetUsers(name, assetReferencedIn) {
+        const users = [];
+        const isRef = (val) => {
+            if (!val || typeof val !== 'string') return false;
+            if (typeof assetReferencedIn === 'function') {
+                if (assetReferencedIn(val, name, null)) return true;
+            }
+            const clean = val.split('?')[0];
+            const decodedName = decodeURIComponent(name);
+            const encodedName = encodeURIComponent(name);
+            if (clean.includes(`/custom-overlay-assets/${encodedName}`) || clean.includes(`/custom-overlay-assets/${name}`) || clean.includes(`/custom-overlay-assets/${decodedName}`)) return true;
+            if (clean === name || clean === decodedName || clean.endsWith(`/${name}`) || clean.endsWith(`/${decodedName}`)) return true;
+            return false;
+        };
+        const presets = loadRandomizerPresets();
+        for (const preset of presets) {
+            if (preset.deckLogo && isRef(preset.deckLogo)) {
+                users.push({
+                    id: `randomizer:preset:${preset.id}`,
+                    name: `Randomizer: ${preset.name || preset.id}`
+                });
+            }
+        }
+        return users;
+    }
+
+    function rewriteRandomizerReferences(oldName, newName, rewriteAssetReferences) {
+        const presets = loadRandomizerPresets();
+        let changed = false;
+        for (const preset of presets) {
+            if (!preset.deckLogo || typeof preset.deckLogo !== 'string') continue;
+            let next = preset.deckLogo;
+            if (typeof rewriteAssetReferences === 'function') {
+                next = rewriteAssetReferences(preset.deckLogo, oldName, newName, null, null);
+            }
+            if (next === preset.deckLogo) {
+                for (const [from, to] of [
+                    [encodeURIComponent(oldName), encodeURIComponent(newName)],
+                    [oldName, newName],
+                    [decodeURIComponent(oldName), decodeURIComponent(newName)]
+                ]) {
+                    if (next.includes(from)) {
+                        next = next.split(from).join(to);
+                    }
+                }
+            }
+            if (next !== preset.deckLogo) {
+                preset.deckLogo = next;
+                changed = true;
+            }
+        }
+        if (changed) {
+            saveRandomizerPresets(presets);
+        }
+        return changed;
+    }
+
     function saveRandomizerButtonPresets(presets) {
         try {
             safeWriteFileSync(randomizerButtonPresetsPath, JSON.stringify(presets, null, 2));
@@ -2032,6 +2089,8 @@ function createOverlayService({
         DEFAULT_RANDOMIZER_BUTTON_PRESETS,
         DEFAULT_RANDOMIZER_QUOTE_PRESETS,
         normalizeRandomizerPreset,
+        randomizerAssetUsers,
+        rewriteRandomizerReferences,
         getEffectiveWeights,
         pickWeightedWinner,
         updatePresetWeightsAfterSpin,

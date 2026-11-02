@@ -302,10 +302,10 @@
         return `<div class="i-tags">${chips ? `<div class="chips">${chips}</div>` : ''}${caption}</div>`;
     }
     function usageHtml(asset) {
-        if (!asset.usedBy.length) return '<span class="badge">Unused</span>';
+        if (!asset.usedBy || !asset.usedBy.length) return '<span class="badge">Unused</span>';
         const names = asset.usedBy.map(user => user.name || user.id);
-        const extra = names.length > 2 ? `<span class="badge used more-count" title="${esc(names.join(', '))}">+${names.length - 2}</span>` : '';
-        return names.slice(0, 2).map((name, i) => `<span class="badge used" title="${esc(asset.usedBy[i].id)}">${esc(name)}</span>`).join('') + extra;
+        const extra = names.length > 2 ? `<span class="badge used more-count" title="${esc(names.join('\n'))}">+${names.length - 2}</span>` : '';
+        return names.slice(0, 2).map((name, i) => `<span class="badge used" title="${esc(name)} (${esc(asset.usedBy[i].id)})">${esc(name)}</span>`).join('') + extra;
     }
     function syncSelectionUI() {
         document.body.classList.toggle('has-selection', selected.size > 0);
@@ -371,8 +371,15 @@
     }
 
     async function removeAssets(list) {
-        const inUse = list.filter(asset => asset.usedBy.length);
-        const warning = inUse.length ? `\n\n${inUse.length} of these are in use (${inUse.slice(0, 4).map(a => a.label).join(', ')}${inUse.length > 4 ? '…' : ''}). Overlays or timers using them will lose the file.` : '';
+        const inUse = list.filter(asset => asset.usedBy && asset.usedBy.length);
+        let warning = '';
+        if (inUse.length === 1) {
+            const users = inUse[0].usedBy.map(u => `• ${u.name || u.id}`).slice(0, 10);
+            const extraCount = inUse[0].usedBy.length - users.length;
+            warning = `\n\nThis asset is currently in use by:\n${users.join('\n')}${extraCount > 0 ? `\n• …and ${extraCount} more` : ''}\n\nAny tier lists, overlays, alerts, or features using this file will lose the media.`;
+        } else if (inUse.length > 1) {
+            warning = `\n\n${inUse.length} of these assets are currently in use (${inUse.slice(0, 4).map(a => a.label).join(', ')}${inUse.length > 4 ? '…' : ''}). Any tier lists, overlays, alerts, or features using them will lose the media files.`;
+        }
         if (!await StreamPulse.confirm('Permanently Delete Assets', `Permanently delete ${list.length === 1 ? list[0].label : `${list.length} assets`}?${warning}`, { danger: true, confirmText: 'Permanently Delete' })) return;
         for (const asset of list) {
             try { await api(`/api/custom-overlays/assets/${encodeURIComponent(asset.name)}${asset.usedBy.length ? '?force=1' : ''}`, { method: 'DELETE' }); selected.delete(asset.name); }
