@@ -143,6 +143,7 @@
 
     const pageParentMap = {
         '/tournaments.html': '/versus.html', '/competitions.html': '/versus.html', '/tournament-admin.html': '/versus.html',
+        '/tier-list.html': '/tools/tier-list.html',
         '/custom-overlay-editor.html': '/custom-overlays.html',
         '/alert-queue.html': '/alerts.html',
         '/commands.html': '/chatbot.html',
@@ -196,6 +197,7 @@
 
         // 3. Stream Tools & Automation
         list.push({ label: 'Poll Manager', href: '/polls.html', group: 'Stream Tools', module: 'polls' });
+        list.push({ label: 'Tier List Maker', href: '/tools/tier-list.html', group: 'Stream Tools', keywords: 'tier list maker ranking rank chat voting tiers' });
         list.push({ label: 'Versus', href: '/versus.html', group: 'Stream Tools', module: 'versus', keywords: 'versus studio matchup scoreboard fight card fightcard' });
         list.push({ label: 'Tournament Manager', href: '/tournament-admin.html', group: 'Stream Tools', module: 'versus', keywords: 'tournament bracket scorekeeper elimination round robin' });
         list.push({ label: 'Promo Creator', href: '/promo-creator.html', group: 'Stream Tools' });
