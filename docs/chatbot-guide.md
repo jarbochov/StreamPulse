@@ -8,6 +8,8 @@ Shape replies in your own voice, choose who can use particular commands, and add
 
 The bot can support poll, tournament, and community tier list announcements, so viewers can follow what’s happening and how to join in. For tier lists, the bot announces when item voting opens with available tiers, commands, and countdowns, and posts the final winning tier consensus with agreement percentages. It works alongside SocialStream Ninja, which brings chat into StreamPulse; StreamPulse’s current focus is Twitch.
 
+The **Settings** tab organizes bot options into collapsible sections (General & Cooldowns, Moderator Roles, Raid Auto-Shoutout, Poll Announcements, Tier List Announcements, Donation Announcements, Backup & Migration, and Diagnostics) with an **Expand all / Collapse all** toggle and open/closed state preserved across sessions.
+
 Donation announcements thank donors in chat when a donation meets a minimum amount (default $50). Choose the source (any by default, SocialStream, or a source an embedded host registers), and write the message with `{user}`, `{amount}` (formatted as $1,234.00) and `{message}`. When an embedded host shares data, `{total}` and `{goal}` can point at any of its numeric placeholders. A donation reported by two sources is announced once. Any numeric placeholder can be shown as currency with the `money` format, for example `{{placeholder|money}}`.
 
 Start with the [feature overview](features.md) or [get started](quickstart.md). Already installed? Open **Docs** and **API Reference** from the app navigation.

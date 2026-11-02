@@ -93,9 +93,84 @@
         .meta-pill.api-pill { color: #38bdf8; border-color: rgba(56,189,248,0.4); background: rgba(56,189,248,0.08); font-weight: 600; }
         .action-preset-box { border: 1px solid var(--border); border-radius: 6px; background: var(--bg-inset); padding: .75rem; display: flex; flex-direction: column; gap: .6rem; }
         
-        /* Settings sections */
-        .settings-section { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
-        .settings-section:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+        /* Collapsible Settings sections */
+        .settings-section {
+            margin-bottom: 1.35rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-card);
+            overflow: hidden;
+            transition: border-color .15s ease, box-shadow .15s ease;
+        }
+        .settings-section:hover {
+            border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+        }
+        .settings-section[open] {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+        }
+        .settings-summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.9rem 1.25rem;
+            cursor: pointer;
+            list-style: none;
+            user-select: none;
+            background: var(--bg-inset);
+            transition: background 0.15s ease;
+        }
+        .settings-summary::-webkit-details-marker {
+            display: none;
+        }
+        .settings-section[open] > .settings-summary {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+        }
+        .settings-summary-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            flex: 1;
+            min-width: 0;
+        }
+        .settings-summary-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0;
+        }
+        .settings-summary-desc {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin: 0;
+            line-height: 1.35;
+        }
+        .settings-summary-right {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-shrink: 0;
+        }
+        .settings-chevron {
+            color: var(--text-muted);
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            align-items: center;
+        }
+        .settings-section[open] .settings-chevron {
+            transform: rotate(180deg);
+        }
+        .settings-content {
+            padding: 1.25rem 1.25rem 1.35rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.1rem;
+            background: var(--bg-card);
+        }
 
         .quote { display: grid; grid-template-columns: 3rem 1fr auto; gap: .6rem; align-items: center; padding: .55rem 0; border-bottom: 1px solid var(--bg-raised); font-size: .85rem; }
         .quote .num { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -200,157 +275,234 @@
                     <p class="muted">Configure bot behavior, cooldowns, moderation roles, and raid shoutouts.</p>
                 </div>
                 <div class="tab-actions">
+                    <button class="btn small" id="btn-toggle-all-settings" type="button" title="Expand or collapse all settings sections">Collapse all</button>
                     <button class="btn primary" id="save-settings">Save settings</button>
                 </div>
             </div>
 
-            <div class="settings-section">
-                <h2>General &amp; Cooldowns</h2>
-                <div class="grid">
-                    <label class="f"><span>Command prefix</span><input id="s-prefix" maxlength="3" placeholder="!"></label>
-                    <label class="f"><span>Bot reply tag</span><input id="s-tag" maxlength="20" placeholder="[BOT]"></label>
-                    <label class="f"><span>Default cooldown (seconds)</span><input id="s-cooldown" type="number" min="0" max="3600" placeholder="5"></label>
-                    <label class="f"><span>Default mod cooldown (seconds)</span><input id="s-modcooldown" type="number" min="0" max="3600" placeholder="same as above"></label>
-                </div>
-                <p class="muted" style="margin-top:.5rem;font-size:.8rem;">Bot replies are sent through your connected SocialStream account prefixed with the bot tag. Messages starting with this tag are never treated as commands to prevent infinite reply loops.</p>
-            </div>
-
-            <div class="settings-section">
-                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem;">
-                    <div>
-                        <h2>Moderator Roles &amp; Permissions</h2>
-                        <p class="muted" style="margin:0;">Controls who can run mod-only commands, manage quotes, and bypass user cooldowns.</p>
+            <!-- 1. General & Cooldowns -->
+            <details class="settings-section" data-section="general" open>
+                <summary class="settings-summary">
+                    <div class="settings-summary-left">
+                        <h2 class="settings-summary-title">General &amp; Cooldowns</h2>
+                        <p class="settings-summary-desc">Command prefix, bot tag, and default cooldown limits.</p>
                     </div>
-                    <button class="btn small" id="sync-twitch-mods" type="button" title="Fetch latest moderators and VIPs from Twitch">Sync Twitch Mods</button>
-                </div>
-
-                <div id="twitch-mods-box" style="margin:.75rem 0;padding:.75rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;">
-                        <span style="font-weight:600;font-size:.88rem;">Twitch Auto-Detected Moderators &amp; Broadcaster</span>
-                        <span id="twitch-mods-count" class="meta-pill">Detecting…</span>
+                    <div class="settings-summary-right">
+                        <span class="settings-chevron">
+                            <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </span>
                     </div>
-                    <div id="twitch-mods-chips" style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem;"></div>
-                    <div id="twitch-mods-note" class="muted" style="font-size:.78rem;margin-top:.4rem;"></div>
-                </div>
-
-                <label class="f"><span>Additional or Cross-Platform Moderators (fallback comma-separated list)</span><input id="s-mods" placeholder="e.g. yt_moderator, kick_mod, alt_account"></label>
-                <div class="muted" style="margin-top:.5rem;font-size:.8rem;line-height:1.5;">
-                    <div><b>How moderator status is determined:</b></div>
-                    <div>• <b>Twitch API</b>: Channel moderators are auto-synced from Twitch (shown above).</div>
-                    <div>• <b>Chat Badges</b>: Incoming chat from SocialStream with Moderator, Broadcaster, or Staff badges are detected in real time.</div>
-                    <div>• <b>Broadcaster</b>: The channel owner is always granted full moderator privileges.</div>
-                    <div>• <b>Fallback list</b>: Usernames listed above are always granted mod permissions across all platforms (ideal for YouTube/Kick mods or testing).</div>
-                </div>
-            </div>
-
-            <div class="settings-section">
-                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem;">
-                    <div>
-                        <h2>Incoming Raid Auto-Shoutout</h2>
-                        <p class="muted" style="margin:0;">Automatically welcome incoming raids and shout them out in chat.</p>
+                </summary>
+                <div class="settings-content">
+                    <div class="grid">
+                        <label class="f"><span>Command prefix</span><input id="s-prefix" maxlength="3" placeholder="!"></label>
+                        <label class="f"><span>Bot reply tag</span><input id="s-tag" maxlength="20" placeholder="[BOT]"></label>
+                        <label class="f"><span>Default cooldown (seconds)</span><input id="s-cooldown" type="number" min="0" max="3600" placeholder="5"></label>
+                        <label class="f"><span>Default mod cooldown (seconds)</span><input id="s-modcooldown" type="number" min="0" max="3600" placeholder="same as above"></label>
                     </div>
-                    <label class="check" style="font-weight:600;"><input type="checkbox" id="s-shoutout-enabled"> Enable auto-shoutout</label>
+                    <p class="muted" style="margin:0;font-size:.8rem;">Bot replies are sent through your connected SocialStream account prefixed with the bot tag. Messages starting with this tag are never treated as commands to prevent infinite reply loops.</p>
                 </div>
-                <div class="grid" style="margin-top:.75rem;">
-                    <label class="f" style="grid-column:1/-1;"><span>Shoutout message template</span><textarea id="s-shoutout-message" rows="2" maxlength="500" placeholder="Welcome raiders from @{{user}}! Show them some love: twitch.tv/{{user}}"></textarea></label>
-                    <label class="f"><span>Minimum raid viewers (0 = all raids)</span><input id="s-shoutout-min" type="number" min="0" placeholder="0"></label>
-                </div>
-                <p class="muted" style="margin-top:.4rem;">Supported tokens: <code>{{user}}</code> (raider username), <code>{{viewers}}</code> (viewer count), plus all standard placeholders.</p>
-                <div class="row" style="margin-top:.5rem;">
-                    <button class="btn small" id="test-shoutout" type="button">Send test shoutout</button>
-                </div>
-            </div>
+            </details>
 
-            <div class="settings-section">
-                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem;">
-                    <div>
-                        <h2>Poll &amp; Bracket Chat Announcements</h2>
-                        <p class="muted" style="margin:0;">Automatically post messages to chat when polls and tournament matches start and finish.</p>
+            <!-- 2. Moderator Roles & Permissions -->
+            <details class="settings-section" data-section="moderators" open>
+                <summary class="settings-summary">
+                    <div class="settings-summary-left">
+                        <h2 class="settings-summary-title">Moderator Roles &amp; Permissions</h2>
+                        <p class="settings-summary-desc">Controls who can run mod-only commands, manage quotes, and bypass user cooldowns.</p>
                     </div>
-                    <label class="check" style="font-weight:600;"><input type="checkbox" id="s-poll-announce-enabled"> Enable poll announcements</label>
-                </div>
-                <div class="row" style="margin-top:.6rem;gap:1.5rem;flex-wrap:wrap;">
-                    <label class="check"><input type="checkbox" id="s-poll-announce-start"> Post when poll / match starts</label>
-                    <label class="check"><input type="checkbox" id="s-poll-announce-end"> Post results when poll / match ends</label>
-                </div>
-                <div class="grid" style="margin-top:.75rem;">
-                    <label class="f" style="grid-column:1/-1;"><span>Poll / Match Start Template</span><textarea id="s-poll-template-start" rows="2" maxlength="500" placeholder="[Poll] {title} ({duration})&#10;{choices}"></textarea></label>
-                    <label class="f" style="grid-column:1/-1;"><span>Poll Winner / Result Template</span><input id="s-poll-template-end" maxlength="400" placeholder="[Poll Result] Winner: {winner} with {votes} votes ({percent}%)!"></label>
-                    <label class="f" style="grid-column:1/-1;"><span>Poll Tie Template</span><input id="s-poll-template-tie" maxlength="400" placeholder="[Poll Result] The poll ended in a tie between {choices}!"></label>
-                    <label class="f" style="grid-column:1/-1;"><span>Tournament Grand Champion Template</span><input id="s-poll-template-champ" maxlength="400" placeholder="[Tournament Champion] {champion} has won {title}!"></label>
-                </div>
-                <p class="muted" style="margin-top:.4rem;">Supported tokens: <code>{title}</code>, <code>{choices}</code> (one per line, e.g. <code>!vote 1: Option</code>), <code>{commands}</code>, <code>{duration}</code>, <code>{winner}</code>, <code>{votes}</code>, <code>{percent}</code>, <code>{totalVotes}</code>, <code>{champion}</code>, <code>{prefix}</code>, <code>{tag}</code>.</p>
-                <div class="row" style="margin-top:.5rem;">
-                    <button class="btn small" id="test-poll-announce" type="button">Send test announcement</button>
-                </div>
-            </div>
+                    <div class="settings-summary-right">
+                        <button class="btn small" id="sync-twitch-mods" type="button" onclick="event.stopPropagation()" title="Fetch latest moderators and VIPs from Twitch">Sync Twitch Mods</button>
+                        <span class="settings-chevron">
+                            <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </span>
+                    </div>
+                </summary>
+                <div class="settings-content">
+                    <div id="twitch-mods-box" style="padding:.75rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;">
+                            <span style="font-weight:600;font-size:.88rem;">Twitch Auto-Detected Moderators &amp; Broadcaster</span>
+                            <span id="twitch-mods-count" class="meta-pill">Detecting…</span>
+                        </div>
+                        <div id="twitch-mods-chips" style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem;"></div>
+                        <div id="twitch-mods-note" class="muted" style="font-size:.78rem;margin-top:.4rem;"></div>
+                    </div>
 
-            <div class="settings-section">
-                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem;">
-                    <div>
-                        <h2>Tier List Chat Announcements</h2>
-                        <p class="muted" style="margin:0;">Automatically post messages to chat when community tier list voting opens and closes.</p>
-                    </div>
-                    <label class="check" style="font-weight:600;"><input type="checkbox" id="s-tier-announce-enabled"> Enable tier list announcements</label>
-                </div>
-                <div class="row" style="margin-top:.6rem;gap:1.5rem;flex-wrap:wrap;">
-                    <label class="check"><input type="checkbox" id="s-tier-announce-start"> Post when item voting starts</label>
-                    <label class="check"><input type="checkbox" id="s-tier-announce-end"> Post consensus results when voting ends</label>
-                </div>
-                <div class="grid" style="margin-top:.75rem;">
-                    <label class="f" style="grid-column:1/-1;"><span>Vote Start Template</span><textarea id="s-tier-template-start" rows="2" maxlength="500" placeholder="[Tier List] Rank &quot;{item}&quot;! Vote with {prefix}tier &lt;tier&gt; ({tiers}) ({duration})"></textarea></label>
-                    <label class="f" style="grid-column:1/-1;"><span>Vote Consensus / Result Template</span><input id="s-tier-template-end" maxlength="400" placeholder="[Tier List] Chat ranked &quot;{item}&quot; into {tier} with {votes} votes ({percent}%)!"></label>
-                </div>
-                <p class="muted" style="margin-top:.4rem;">Supported tokens: <code>{item}</code>, <code>{tier}</code>, <code>{tiers}</code> (e.g. <code>S, A, B, C, D, F</code>), <code>{commands}</code>, <code>{duration}</code>, <code>{votes}</code>, <code>{percent}</code>, <code>{totalVotes}</code>, <code>{agreement}</code>, <code>{subVotes}</code>, <code>{prefix}</code>, <code>{tag}</code>.</p>
-                <div class="row" style="margin-top:.5rem;">
-                    <button class="btn small" id="test-tier-announce" type="button">Send test announcement</button>
-                </div>
-            </div>
-
-            <div class="settings-section">
-                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem;">
-                    <div>
-                        <h2>Donation Chat Announcements</h2>
-                        <p class="muted" style="margin:0;">Thank donors in chat when a donation at or above the minimum arrives.</p>
-                    </div>
-                    <label class="check" style="font-weight:600;"><input type="checkbox" id="s-don-enabled"> Enable donation announcements</label>
-                </div>
-                <div id="s-don-fields">
-                    <div class="grid" style="margin-top:.6rem;">
-                        <label class="f"><span>Source</span><select id="s-don-source"></select></label>
-                        <label class="f"><span>Minimum Amount</span><input id="s-don-min" type="number" min="0" step="0.01" placeholder="50"></label>
-                        <label class="f" style="grid-column:1/-1;"><span>Template</span><input id="s-don-template" maxlength="500" placeholder="{user} just donated {amount}! {message}"></label>
-                        <label class="f" data-host-data hidden><span>{total} Placeholder</span><input id="s-don-total" maxlength="120" list="s-don-vars"></label>
-                        <label class="f" data-host-data hidden><span>{goal} Placeholder</span><input id="s-don-goal" maxlength="120" list="s-don-vars"></label>
-                        <datalist id="s-don-vars"></datalist>
-                    </div>
-                    <p class="muted" style="margin-top:.4rem;">Tokens: <code>{user}</code>, <code>{amount}</code> (formatted as $1,234.00), <code>{message}</code>, <code>{currency}</code>, <code>{source}</code><span data-host-data hidden>, <code>{total}</code>, <code>{goal}</code></span>. The same donor and amount is announced once even if two sources report it. Any number placeholder can be shown as currency with <code>|money</code><span data-host-data hidden>, for example <code id="s-don-money-example"></code></span>.</p>
-                    <div class="row" style="margin-top:.5rem;">
-                        <button class="btn small" id="test-donation-announce" type="button">Send test announcement</button>
+                    <label class="f"><span>Additional or Cross-Platform Moderators (fallback comma-separated list)</span><input id="s-mods" placeholder="e.g. yt_moderator, kick_mod, alt_account"></label>
+                    <div class="muted" style="font-size:.8rem;line-height:1.5;">
+                        <div><b>How moderator status is determined:</b></div>
+                        <div>• <b>Twitch API</b>: Channel moderators are auto-synced from Twitch (shown above).</div>
+                        <div>• <b>Chat Badges</b>: Incoming chat from SocialStream with Moderator, Broadcaster, or Staff badges are detected in real time.</div>
+                        <div>• <b>Broadcaster</b>: The channel owner is always granted full moderator privileges.</div>
+                        <div>• <b>Fallback list</b>: Usernames listed above are always granted mod permissions across all platforms (ideal for YouTube/Kick mods or testing).</div>
                     </div>
                 </div>
-            </div>
+            </details>
 
-            <div class="settings-section">
-                <h2>Backup &amp; Migration</h2>
-                <div class="row">
-                    <button class="btn" id="export-all">Export all settings (.json)</button>
-                    <button class="btn" id="import-all">Import settings (.json)</button>
-                    <input type="file" id="import-all-file" accept=".json,application/json" hidden>
-                    <span class="muted" style="font-size:.78rem;">Backup or transfer all commands, quotes, timers, triggers, variables, and settings.</span>
+            <!-- 3. Incoming Raid Auto-Shoutout -->
+            <details class="settings-section" data-section="shoutout" open>
+                <summary class="settings-summary">
+                    <div class="settings-summary-left">
+                        <h2 class="settings-summary-title">Incoming Raid Auto-Shoutout</h2>
+                        <p class="settings-summary-desc">Automatically welcome incoming raids and shout them out in chat.</p>
+                    </div>
+                    <div class="settings-summary-right">
+                        <label class="check" onclick="event.stopPropagation()" style="font-weight:600;"><input type="checkbox" id="s-shoutout-enabled"> Enable auto-shoutout</label>
+                        <span class="settings-chevron">
+                            <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </span>
+                    </div>
+                </summary>
+                <div class="settings-content">
+                    <div class="grid">
+                        <label class="f" style="grid-column:1/-1;"><span>Shoutout message template</span><textarea id="s-shoutout-message" rows="2" maxlength="500" placeholder="Welcome raiders from @{{user}}! Show them some love: twitch.tv/{{user}}"></textarea></label>
+                        <label class="f"><span>Minimum raid viewers (0 = all raids)</span><input id="s-shoutout-min" type="number" min="0" placeholder="0"></label>
+                    </div>
+                    <p class="muted" style="margin:0;font-size:.8rem;">Supported tokens: <code>{{user}}</code> (raider username), <code>{{viewers}}</code> (viewer count), plus all standard placeholders.</p>
+                    <div class="row">
+                        <button class="btn small" id="test-shoutout" type="button">Send test shoutout</button>
+                    </div>
                 </div>
-            </div>
+            </details>
 
-            <div class="settings-section">
-                <h2>Diagnostics &amp; Troubleshooting</h2>
-                <div class="row">
-                    <button class="btn" id="show-recent">Check recent chatters</button>
-                    <span class="muted" style="font-size:.78rem;">Inspect SocialStream metadata for recent chatters to verify moderator and subscriber status.</span>
+            <!-- 4. Poll & Bracket Chat Announcements -->
+            <details class="settings-section" data-section="polls" open>
+                <summary class="settings-summary">
+                    <div class="settings-summary-left">
+                        <h2 class="settings-summary-title">Poll &amp; Bracket Chat Announcements</h2>
+                        <p class="settings-summary-desc">Automatically post messages to chat when polls and tournament matches start and finish.</p>
+                    </div>
+                    <div class="settings-summary-right">
+                        <label class="check" onclick="event.stopPropagation()" style="font-weight:600;"><input type="checkbox" id="s-poll-announce-enabled"> Enable poll announcements</label>
+                        <span class="settings-chevron">
+                            <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </span>
+                    </div>
+                </summary>
+                <div class="settings-content">
+                    <div class="row" style="gap:1.5rem;flex-wrap:wrap;">
+                        <label class="check"><input type="checkbox" id="s-poll-announce-start"> Post when poll / match starts</label>
+                        <label class="check"><input type="checkbox" id="s-poll-announce-end"> Post results when poll / match ends</label>
+                    </div>
+                    <div class="grid">
+                        <label class="f" style="grid-column:1/-1;"><span>Poll / Match Start Template</span><textarea id="s-poll-template-start" rows="2" maxlength="500" placeholder="[Poll] {title} ({duration})&#10;{choices}"></textarea></label>
+                        <label class="f" style="grid-column:1/-1;"><span>Poll Winner / Result Template</span><input id="s-poll-template-end" maxlength="400" placeholder="[Poll Result] Winner: {winner} with {votes} votes ({percent}%)!"></label>
+                        <label class="f" style="grid-column:1/-1;"><span>Poll Tie Template</span><input id="s-poll-template-tie" maxlength="400" placeholder="[Poll Result] The poll ended in a tie between {choices}!"></label>
+                        <label class="f" style="grid-column:1/-1;"><span>Tournament Grand Champion Template</span><input id="s-poll-template-champ" maxlength="400" placeholder="[Tournament Champion] {champion} has won {title}!"></label>
+                    </div>
+                    <p class="muted" style="margin:0;font-size:.8rem;">Supported tokens: <code>{title}</code>, <code>{choices}</code> (one per line, e.g. <code>!vote 1: Option</code>), <code>{commands}</code>, <code>{duration}</code>, <code>{winner}</code>, <code>{votes}</code>, <code>{percent}</code>, <code>{totalVotes}</code>, <code>{champion}</code>, <code>{prefix}</code>, <code>{tag}</code>.</p>
+                    <div class="row">
+                        <button class="btn small" id="test-poll-announce" type="button">Send test announcement</button>
+                    </div>
                 </div>
-                <div id="recent" style="margin-top:.5rem;"></div>
-            </div>
+            </details>
 
-            <div class="row end" style="margin-top:1.25rem;">
+            <!-- 5. Tier List Chat Announcements -->
+            <details class="settings-section" data-section="tier-list" open>
+                <summary class="settings-summary">
+                    <div class="settings-summary-left">
+                        <h2 class="settings-summary-title">Tier List Chat Announcements</h2>
+                        <p class="settings-summary-desc">Automatically post messages to chat when community tier list voting opens and closes.</p>
+                    </div>
+                    <div class="settings-summary-right">
+                        <label class="check" onclick="event.stopPropagation()" style="font-weight:600;"><input type="checkbox" id="s-tier-announce-enabled"> Enable tier list announcements</label>
+                        <span class="settings-chevron">
+                            <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </span>
+                    </div>
+                </summary>
+                <div class="settings-content">
+                    <div class="row" style="gap:1.5rem;flex-wrap:wrap;">
+                        <label class="check"><input type="checkbox" id="s-tier-announce-start"> Post when item voting starts</label>
+                        <label class="check"><input type="checkbox" id="s-tier-announce-end"> Post consensus results when voting ends</label>
+                    </div>
+                    <div class="grid">
+                        <label class="f" style="grid-column:1/-1;"><span>Vote Start Template</span><textarea id="s-tier-template-start" rows="2" maxlength="500" placeholder="[Tier List] Rank &quot;{item}&quot;! Vote with {prefix}tier &lt;tier&gt; ({tiers}) ({duration})"></textarea></label>
+                        <label class="f" style="grid-column:1/-1;"><span>Vote Consensus / Result Template</span><input id="s-tier-template-end" maxlength="400" placeholder="[Tier List] Chat ranked &quot;{item}&quot; into {tier} with {votes} votes ({percent}%)!"></label>
+                    </div>
+                    <p class="muted" style="margin:0;font-size:.8rem;">Supported tokens: <code>{item}</code>, <code>{tier}</code>, <code>{tiers}</code> (e.g. <code>S, A, B, C, D, F</code>), <code>{commands}</code>, <code>{duration}</code>, <code>{votes}</code>, <code>{percent}</code>, <code>{totalVotes}</code>, <code>{agreement}</code>, <code>{subVotes}</code>, <code>{prefix}</code>, <code>{tag}</code>.</p>
+                    <div class="row">
+                        <button class="btn small" id="test-tier-announce" type="button">Send test announcement</button>
+                    </div>
+                </div>
+            </details>
+
+            <!-- 6. Donation Chat Announcements -->
+            <details class="settings-section" data-section="donations" open>
+                <summary class="settings-summary">
+                    <div class="settings-summary-left">
+                        <h2 class="settings-summary-title">Donation Chat Announcements</h2>
+                        <p class="settings-summary-desc">Thank donors in chat when a donation at or above the minimum arrives.</p>
+                    </div>
+                    <div class="settings-summary-right">
+                        <label class="check" onclick="event.stopPropagation()" style="font-weight:600;"><input type="checkbox" id="s-don-enabled"> Enable donation announcements</label>
+                        <span class="settings-chevron">
+                            <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </span>
+                    </div>
+                </summary>
+                <div class="settings-content">
+                    <div id="s-don-fields" style="display:flex;flex-direction:column;gap:1.1rem;">
+                        <div class="grid">
+                            <label class="f"><span>Source</span><select id="s-don-source"></select></label>
+                            <label class="f"><span>Minimum Amount</span><input id="s-don-min" type="number" min="0" step="0.01" placeholder="50"></label>
+                            <label class="f" style="grid-column:1/-1;"><span>Template</span><input id="s-don-template" maxlength="500" placeholder="{user} just donated {amount}! {message}"></label>
+                            <label class="f" data-host-data hidden><span>{total} Placeholder</span><input id="s-don-total" maxlength="120" list="s-don-vars"></label>
+                            <label class="f" data-host-data hidden><span>{goal} Placeholder</span><input id="s-don-goal" maxlength="120" list="s-don-vars"></label>
+                            <datalist id="s-don-vars"></datalist>
+                        </div>
+                        <p class="muted" style="margin:0;font-size:.8rem;">Tokens: <code>{user}</code>, <code>{amount}</code> (formatted as $1,234.00), <code>{message}</code>, <code>{currency}</code>, <code>{source}</code><span data-host-data hidden>, <code>{total}</code>, <code>{goal}</code></span>. The same donor and amount is announced once even if two sources report it. Any number placeholder can be shown as currency with <code>|money</code><span data-host-data hidden>, for example <code id="s-don-money-example"></code></span>.</p>
+                        <div class="row">
+                            <button class="btn small" id="test-donation-announce" type="button">Send test announcement</button>
+                        </div>
+                    </div>
+                    <div id="s-don-disabled-hint" class="muted" style="font-size:.85rem;display:none;">Donation chat announcements are currently disabled. Check the toggle above to configure templates and donor thresholds.</div>
+                </div>
+            </details>
+
+            <!-- 7. Backup & Migration -->
+            <details class="settings-section" data-section="backup" open>
+                <summary class="settings-summary">
+                    <div class="settings-summary-left">
+                        <h2 class="settings-summary-title">Backup &amp; Migration</h2>
+                        <p class="settings-summary-desc">Backup or transfer all commands, quotes, timers, triggers, variables, and settings.</p>
+                    </div>
+                    <div class="settings-summary-right">
+                        <span class="settings-chevron">
+                            <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </span>
+                    </div>
+                </summary>
+                <div class="settings-content">
+                    <div class="row">
+                        <button class="btn" id="export-all">Export all settings (.json)</button>
+                        <button class="btn" id="import-all">Import settings (.json)</button>
+                        <input type="file" id="import-all-file" accept=".json,application/json" hidden>
+                    </div>
+                    <p class="muted" style="margin:0;font-size:.78rem;">Full snapshot export includes all custom triggers, chat commands, moderation roles, and announcement templates.</p>
+                </div>
+            </details>
+
+            <!-- 8. Diagnostics & Troubleshooting -->
+            <details class="settings-section" data-section="diagnostics" open>
+                <summary class="settings-summary">
+                    <div class="settings-summary-left">
+                        <h2 class="settings-summary-title">Diagnostics &amp; Troubleshooting</h2>
+                        <p class="settings-summary-desc">Inspect SocialStream metadata for recent chatters to verify moderator and subscriber status.</p>
+                    </div>
+                    <div class="settings-summary-right">
+                        <button class="btn small" id="show-recent" type="button" onclick="event.stopPropagation()">Check recent chatters</button>
+                        <span class="settings-chevron">
+                            <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </span>
+                    </div>
+                </summary>
+                <div class="settings-content">
+                    <div id="recent"></div>
+                </div>
+            </details>
+
+            <div class="row end" style="margin-top:1.5rem;">
                 <button class="btn primary" id="save-settings-bottom" onclick="$('save-settings').click()">Save settings</button>
             </div>
         </div>
@@ -1279,9 +1431,49 @@ async function loadHostInfo() {
     if (state.settings) renderDonationSources(state.settings.donationAnnouncements?.source || 'any');
 }
 function syncDonationFields() {
-    $('s-don-fields').hidden = !$('s-don-enabled').checked;
+    const enabled = $('s-don-enabled').checked;
+    $('s-don-fields').hidden = !enabled;
+    const hint = $('s-don-disabled-hint');
+    if (hint) hint.style.display = enabled ? 'none' : 'block';
 }
 $('s-don-enabled')?.addEventListener('change', syncDonationFields);
+
+const SETTINGS_SECTIONS_STORAGE_KEY = 'streampulse:chatbot:settings-sections';
+function initSettingsSections() {
+    const sections = document.querySelectorAll('.settings-section[data-section]');
+    if (!sections.length) return;
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(SETTINGS_SECTIONS_STORAGE_KEY) || '{}'); } catch {}
+    sections.forEach(sec => {
+        const id = sec.dataset.section;
+        if (id && saved[id] !== undefined) {
+            sec.open = Boolean(saved[id]);
+        }
+        sec.addEventListener('toggle', () => {
+            if (id) saved[id] = sec.open;
+            try { localStorage.setItem(SETTINGS_SECTIONS_STORAGE_KEY, JSON.stringify(saved)); } catch {}
+            updateToggleAllBtn();
+        });
+    });
+    function updateToggleAllBtn() {
+        const btn = $('btn-toggle-all-settings');
+        if (!btn) return;
+        const anyOpen = [...sections].some(s => s.open);
+        btn.textContent = anyOpen ? 'Collapse all' : 'Expand all';
+    }
+    $('btn-toggle-all-settings')?.addEventListener('click', () => {
+        const anyOpen = [...sections].some(s => s.open);
+        const nextState = !anyOpen;
+        sections.forEach(sec => {
+            sec.open = nextState;
+            const id = sec.dataset.section;
+            if (id) saved[id] = nextState;
+        });
+        try { localStorage.setItem(SETTINGS_SECTIONS_STORAGE_KEY, JSON.stringify(saved)); } catch {}
+        updateToggleAllBtn();
+    });
+    updateToggleAllBtn();
+}
 $('test-donation-announce')?.addEventListener('click', async () => {
     try {
         const res = await api('/api/chatbot/test-donation-announce', 'POST');
@@ -1676,6 +1868,7 @@ document.addEventListener('click', e => {
 })();
 
 showTab(location.hash.slice(1));
+initSettingsSections();
 api('/api/chatbot').then(applyState).catch(e => { $('banner').innerHTML = `<div class="banner warn">${esc(e.message)}</div>`; });
 </script>
 </body>

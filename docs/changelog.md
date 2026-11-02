@@ -12,6 +12,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ### Added
 - Tier List Maker & Live Animated Overlay: standalone tier list tool with customizable tiers, unranked pool tray, clipboard image copy-and-paste (Ctrl+V / ⌘V), direct OS drag-and-drop, Asset Library batch addition, shared navigation menu, preset management (load, save, delete, reset defaults), live chat voting (`!tier <tier>`) with mathematical consensus (Weighted Mean $A+C=B$, Median, Plurality), automated chatbot announcements with customizable message templates in Chat Bot Settings, toggleable voting instruction hint ribbons on OBS broadcast overlays, 60fps hardware-accelerated FLIP animations, 1920px Canvas PNG image export, Web Audio synthesizer sound effects, Bitfocus Companion & Stream Deck hardware triggers, voter agreement metrics, and recent chatter voter spotlights.
+- Chatbot Settings: Collapsible accordion sections with generous spacing, indicator chevrons, quick expand/collapse all toggle, and persistent open/collapsed state.
 - Embedded mode (`STREAMPULSE_EMBEDDED=true`) for in-process hosts such as NodeCG, with broadcast listeners and state snapshots; host data such as NodeCG replicants resolves as `{{rep.<bundle>.<name>.<path>}}` placeholders. Optional HTTPS via `STREAMPULSE_TLS_KEY`/`STREAMPULSE_TLS_CERT`.
 - Embedded `ingestEvent` feeds external donations (such as Tiltify from NodeCG) into alerts, goals and stats.
 - Alert rules and milestone variants can match an exact amount (At least / Between / Equal to); exact matches win.
