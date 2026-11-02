@@ -1051,7 +1051,7 @@ function createSsnService({
                 const donation = { chatname, amount: label, bits: amount, chatimg: msg.chatimg, timestamp: Date.now() };
                 chatData.bits.push(donation);
                 log(`[SSN] Bits: ${chatname} - ${label} (${amount} bits)`);
-                resolveAlertEngine()?.handleEvent({ type: 'bits', user: chatname, avatar: msg.chatimg, amount: Number(amount) || 0, message: String(msg.chatmessage || '').replace(/<[^>]+>/g, '').trim() });
+                resolveAlertEngine()?.handleEvent({ type: 'bits', user: chatname, avatar: msg.chatimg, amount: Number(amount) || 0, message: String(msg.chatmessage || '').replace(/<[^>]+>/g, '').trim(), cheermoteSource: String(msg.chatmessage || '').replace(/<img[^>]*?(?:alt="([^"]*)"|src="[^"]*actions\/([a-z0-9]+)\/[^"]*?\/(\d+)\/[^"]*")[^>]*>/gi, (m, alt, pre, n) => ' ' + (alt || (pre + n)) + ' ').replace(/<[^>]+>/g, ' ') });
                 if (clipCandidateConfig.enabled && clipCandidateConfig.include_bits && amount >= clipCandidateConfig.minimum_bits) {
                     addClipCandidate('bits', { user: chatname, amount, label }, Date.now(), Math.min(0.95, 0.55 + amount / 1000));
                 }

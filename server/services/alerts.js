@@ -500,11 +500,11 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
         }
         // If this is a bits alert and no custom media/emote was specified, fall back to Twitch official cheermote
         if (rule && rule.trigger === 'bits' && !emoji && !emojiUrl && !variant.image && !variant.video) {
-            const detected = ev?.message ? extractCheermoteFromText(ev.message) : null;
+            const detected = extractCheermoteFromText(ev?.cheermoteSource) || extractCheermoteFromText(ev?.message);
             const preferredPrefix = (variant.cheermoteFamily && variant.cheermoteFamily !== 'auto')
                 ? variant.cheermoteFamily
                 : (detected?.prefix || 'cheer');
-            const cheermote = getTwitchCheermote(amount, preferredPrefix);
+            const cheermote = getTwitchCheermote((!variant.cheermoteFamily || variant.cheermoteFamily === 'auto') && detected?.bits ? detected.bits : amount, preferredPrefix);
             if (cheermote) {
                 emoji = cheermote.name;
                 emojiUrl = cheermote.url;
