@@ -339,6 +339,62 @@
             font-size: 9px;
         }
 
+        /* Toggleable Voting Instructions Hint */
+        .overlay-how-to-vote {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 14px;
+            background: var(--tl-bg);
+            border: 1px solid var(--tl-border);
+            border-radius: 8px;
+            font-size: clamp(11px, 1.1vw, 13px);
+            color: var(--tl-text);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+        }
+        .overlay-how-to-vote.visible {
+            display: flex;
+        }
+        .how-to-vote-icon {
+            color: #fbbf24;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+        }
+        .how-to-vote-content {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            flex: 1;
+        }
+        .how-to-vote-cmd code {
+            font-family: inherit;
+            font-weight: 800;
+            color: #fbbf24;
+            background: rgba(251, 191, 36, 0.15);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            padding: 1px 6px;
+            border-radius: 4px;
+        }
+        .how-to-vote-choices {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--tl-muted);
+            font-size: 0.9em;
+        }
+        .tier-choice-chip {
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-weight: 800;
+            color: #000;
+            font-size: 9px;
+            display: inline-block;
+        }
+
         /* Sidebar Layout Mode */
         body.layout-sidebar #overlay-container {
             max-width: 440px;
@@ -357,6 +413,18 @@
             <div class="vote-badge" id="overlay-vote-badge">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 <span>Live Chat Vote Active &middot; <strong id="overlay-timer">30s</strong></span>
+            </div>
+        </div>
+
+        <!-- Toggleable Voting Instructions Hint Ribbon -->
+        <div class="overlay-how-to-vote" id="overlay-how-to-vote">
+            <div class="how-to-vote-icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <div class="how-to-vote-content">
+                <span id="how-to-vote-label">Vote in chat:</span>
+                <span class="how-to-vote-cmd"><code>!tier &lt;tier&gt;</code></span>
+                <span class="how-to-vote-choices" id="how-to-vote-choices"></span>
             </div>
         </div>
 
@@ -422,6 +490,11 @@
 
             const sfxParam = urlParams.get('sfx');
             const sfxEnabled = sfxParam !== '0' && sfxParam !== 'false';
+
+            const howToVoteParam = urlParams.get('howtovote') ?? urlParams.get('hint') ?? urlParams.get('instructions');
+            const customHintText = urlParams.get('hintText');
+            const isHintExplicitOff = howToVoteParam === '0' || howToVoteParam === 'false' || howToVoteParam === 'none' || howToVoteParam === 'hide';
+            const isHintExplicitOn = howToVoteParam === '1' || howToVoteParam === 'true' || (howToVoteParam !== null && !isHintExplicitOff);
 
             let currentState = null;
             let hudInterval = null;
@@ -614,8 +687,54 @@
                 // Render live vote spotlight
                 renderVoteSpotlight(newState.activeVote);
 
+                // Update toggleable voting hint
+                updateVotingHint(newState);
+
                 // Play FLIP animations across all cards that moved
                 playFLIPAnimations(firstRects);
+            }
+
+            function updateVotingHint(state) {
+                const hintEl = $('overlay-how-to-vote');
+                if (!hintEl || !state) return;
+
+                let shouldShow = false;
+                if (isHintExplicitOff) {
+                    shouldShow = false;
+                } else if (isHintExplicitOn) {
+                    shouldShow = true;
+                } else {
+                    shouldShow = state.settings?.showVoteHint !== false;
+                }
+
+                if (!shouldShow) {
+                    hintEl.classList.remove('visible');
+                    return;
+                }
+
+                hintEl.classList.add('visible');
+
+                if (customHintText) {
+                    $('how-to-vote-label').textContent = customHintText;
+                    $('how-to-vote-choices').innerHTML = '';
+                    return;
+                }
+
+                const activeVote = state.activeVote;
+                if (activeVote && activeVote.status === 'ACTIVE') {
+                    $('how-to-vote-label').innerHTML = `Live Chat Vote: <strong style="color:#fbbf24;">${esc(activeVote.itemName)}</strong> &middot; Type:`;
+                } else {
+                    $('how-to-vote-label').textContent = 'Vote in chat:';
+                }
+
+                const choicesEl = $('how-to-vote-choices');
+                if (state.tiers && state.tiers.length > 0) {
+                    choicesEl.innerHTML = '(e.g. ' + state.tiers.slice(0, 6).map(t =>
+                        `<span class="tier-choice-chip" style="background-color:${esc(t.color)};">${esc(t.label)}</span>`
+                    ).join('') + ')';
+                } else {
+                    choicesEl.innerHTML = '';
+                }
             }
 
             function renderOverlayCard(item) {
@@ -647,6 +766,7 @@
                         clearInterval(hudInterval);
                         hudInterval = null;
                     }
+                    updateVotingHint(currentState);
                     return;
                 }
 
@@ -663,6 +783,7 @@
                 $('hud-img').src = vote.itemImage || '';
 
                 updateVoteHUDMeters(vote.consensus);
+                updateVotingHint(currentState);
 
                 // Timer countdown
                 if (hudInterval) clearInterval(hudInterval);

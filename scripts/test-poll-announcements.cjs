@@ -247,3 +247,104 @@ test('Chatbot donation announcements: threshold, source, currency formatting and
     assert.equal((await chatbot.announceDonation({ user: 'Cy', amount: 75, source: 'socialstream' })).sent, false, 'other source');
     assert.equal(sent.length, 1);
 });
+
+test('Chatbot Tier List Announcements: custom settings, tokens, test endpoint, and toggleable inhibition', async (t) => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tier-announce-test-'));
+    const originalFetch = globalThis.fetch;
+    const sent = [];
+    globalThis.fetch = async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/sendChat/')) {
+            sent.push(decodeURIComponent(urlStr.split('/sendChat/')[1]));
+            return { ok: true, status: 200, text: async () => 'ok' };
+        }
+        return { ok: true, status: 200, json: async () => ({}) };
+    };
+
+    const chatbot = createChatbot({
+        dataDir: tmpDir,
+        getConfig: () => ({ chatbot_enabled: true, ssn: { session_id: 'test-sess' } })
+    });
+
+    t.after(() => {
+        globalThis.fetch = originalFetch;
+        chatbot.stop();
+        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    });
+
+    const settings = chatbot.getData().settings;
+    assert.ok(settings.tierAnnouncements);
+    assert.equal(settings.tierAnnouncements.enabled, true);
+    assert.equal(settings.tierAnnouncements.announceStart, true);
+    assert.equal(settings.tierAnnouncements.announceEnd, true);
+
+    // 1. Announce start with default template
+    const startRes = await chatbot.announceTierVoteStart({
+        item: { name: 'Chrono Trigger' },
+        tiers: [{ label: 'S' }, { label: 'A' }, { label: 'B' }],
+        duration: 45
+    });
+    assert.equal(startRes.sent, true);
+    assert.ok(sent.at(-1).includes('Chrono Trigger'));
+    assert.ok(sent.at(-1).includes('!tier <tier>'));
+    assert.ok(sent.at(-1).includes('S, A, B'));
+    assert.ok(sent.at(-1).includes('45s'));
+
+    // 2. Announce end with custom template and rich tokens ({agreement}, {totalVotes}, {subVotes})
+    settings.tierAnnouncements.endTemplate = '[Ranked] {item} -> {tier}! {agreement}% consensus across {totalVotes} voters ({subVotes} subs)';
+    const endRes = await chatbot.announceTierVoteEnd({
+        item: { name: 'Chrono Trigger' },
+        consensusTier: { id: 'tier-s', label: 'S' },
+        consensus: {
+            totalVotes: 32,
+            agreementPercent: 88,
+            subVotes: 10,
+            distribution: [{ tierId: 'tier-s', count: 28, percentage: 88 }]
+        }
+    });
+    assert.equal(endRes.sent, true);
+    assert.equal(sent.at(-1), '[Ranked] Chrono Trigger -> S! 88% consensus across 32 voters (10 subs)');
+
+    // 3. Test endpoint /api/chatbot/test-tier-announce
+    // Helper to mock request
+    const mockReq = (body = {}) => {
+        const stream = new (require('stream').Readable)();
+        stream.push(JSON.stringify(body));
+        stream.push(null);
+        stream.method = 'POST';
+        stream.headers = { 'content-type': 'application/json' };
+        return stream;
+    };
+    const mockRes = () => {
+        let statusCode = 200;
+        let body = '';
+        return {
+            writeHead(code) { statusCode = code; },
+            end(d) { if (d) body += d; },
+            getStatusCode: () => statusCode,
+            getBody: () => body ? JSON.parse(body) : null
+        };
+    };
+
+    const req = mockReq({ item: 'EarthBound', duration: 30 });
+    const res = mockRes();
+    const readBody = async (r) => {
+        let b = '';
+        for await (const chunk of r) b += chunk;
+        return b;
+    };
+    const handled = await chatbot.handleApi(req, res, '/api/chatbot/test-tier-announce', readBody);
+    assert.equal(handled, true);
+    assert.equal(res.getStatusCode(), 200);
+    assert.equal(res.getBody().sent, true);
+    assert.ok(sent.at(-1).includes('EarthBound'));
+
+    // 4. Inhibition: announceStart = false
+    settings.tierAnnouncements.announceStart = false;
+    const disabledRes = await chatbot.announceTierVoteStart({
+        item: { name: 'Final Fantasy VII' },
+        tiers: [{ label: 'S' }]
+    });
+    assert.equal(disabledRes.sent, false);
+    assert.ok(disabledRes.reason.includes('disabled'));
+});

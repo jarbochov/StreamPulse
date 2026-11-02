@@ -223,7 +223,8 @@ function createTierListService({
             defaultDuration: 60,
             announceChat: true,
             soundEnabled: true,
-            soundVolume: 75
+            soundVolume: 75,
+            showVoteHint: true
         }
     };
 

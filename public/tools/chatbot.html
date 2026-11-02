@@ -288,6 +288,28 @@
             <div class="settings-section">
                 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem;">
                     <div>
+                        <h2>Tier List Chat Announcements</h2>
+                        <p class="muted" style="margin:0;">Automatically post messages to chat when community tier list voting opens and closes.</p>
+                    </div>
+                    <label class="check" style="font-weight:600;"><input type="checkbox" id="s-tier-announce-enabled"> Enable tier list announcements</label>
+                </div>
+                <div class="row" style="margin-top:.6rem;gap:1.5rem;flex-wrap:wrap;">
+                    <label class="check"><input type="checkbox" id="s-tier-announce-start"> Post when item voting starts</label>
+                    <label class="check"><input type="checkbox" id="s-tier-announce-end"> Post consensus results when voting ends</label>
+                </div>
+                <div class="grid" style="margin-top:.75rem;">
+                    <label class="f" style="grid-column:1/-1;"><span>Vote Start Template</span><textarea id="s-tier-template-start" rows="2" maxlength="500" placeholder="[Tier List] Rank &quot;{item}&quot;! Vote with {prefix}tier &lt;tier&gt; ({tiers}) ({duration})"></textarea></label>
+                    <label class="f" style="grid-column:1/-1;"><span>Vote Consensus / Result Template</span><input id="s-tier-template-end" maxlength="400" placeholder="[Tier List] Chat ranked &quot;{item}&quot; into {tier} with {votes} votes ({percent}%)!"></label>
+                </div>
+                <p class="muted" style="margin-top:.4rem;">Supported tokens: <code>{item}</code>, <code>{tier}</code>, <code>{tiers}</code> (e.g. <code>S, A, B, C, D, F</code>), <code>{commands}</code>, <code>{duration}</code>, <code>{votes}</code>, <code>{percent}</code>, <code>{totalVotes}</code>, <code>{agreement}</code>, <code>{subVotes}</code>, <code>{prefix}</code>, <code>{tag}</code>.</p>
+                <div class="row" style="margin-top:.5rem;">
+                    <button class="btn small" id="test-tier-announce" type="button">Send test announcement</button>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem;">
+                    <div>
                         <h2>Donation Chat Announcements</h2>
                         <p class="muted" style="margin:0;">Thank donors in chat when a donation at or above the minimum arrives.</p>
                     </div>
@@ -658,6 +680,12 @@ function renderSettings() {
     $('s-poll-template-end').value = pa.endTemplate ?? '';
     $('s-poll-template-tie').value = pa.tieTemplate ?? '';
     $('s-poll-template-champ').value = pa.championTemplate ?? '';
+    const ta = s.tierAnnouncements || {};
+    $('s-tier-announce-enabled').checked = ta.enabled !== false;
+    $('s-tier-announce-start').checked = ta.announceStart !== false;
+    $('s-tier-announce-end').checked = ta.announceEnd !== false;
+    $('s-tier-template-start').value = ta.startTemplate ?? '';
+    $('s-tier-template-end').value = ta.endTemplate ?? '';
     const da = s.donationAnnouncements || {};
     $('s-don-enabled').checked = da.enabled === true;
     renderDonationSources(da.source || 'any');
@@ -1207,6 +1235,13 @@ $('save-settings').onclick = async () => {
                     tieTemplate: $('s-poll-template-tie').value,
                     championTemplate: $('s-poll-template-champ').value
                 },
+                tierAnnouncements: {
+                    enabled: $('s-tier-announce-enabled').checked,
+                    announceStart: $('s-tier-announce-start').checked,
+                    announceEnd: $('s-tier-announce-end').checked,
+                    startTemplate: $('s-tier-template-start').value,
+                    endTemplate: $('s-tier-template-end').value
+                },
                 donationAnnouncements: {
                     enabled: $('s-don-enabled').checked,
                     source: $('s-don-source').value,
@@ -1260,6 +1295,18 @@ $('test-poll-announce')?.addEventListener('click', async () => {
             toast('Test announcement posted to chat');
         } else {
             toast(`Chatbot not ready: ${res.reason || 'Check SocialStream connection'}`);
+        }
+    } catch (e) {
+        toast(`Test failed: ${e.message}`);
+    }
+});
+$('test-tier-announce')?.addEventListener('click', async () => {
+    try {
+        const res = await api('/api/chatbot/test-tier-announce', 'POST');
+        if (res.sent) {
+            toast('Test announcement posted to chat');
+        } else {
+            toast(`Chatbot not ready: ${res.reason || res.error || 'Check SocialStream connection'}`);
         }
     } catch (e) {
         toast(`Test failed: ${e.message}`);

@@ -1009,6 +1009,15 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 const result = await announceDonation({ user: clean(body.user || 'TestViewer', 60), amount: Number(body.amount) || 1234, currency: body.currency || 'USD', message: clean(body.message || 'Good luck on the run!', 300), source: body.source || 'socialstream' }, { test: true });
                 return json(200, result), true;
             }
+            if (pathname === '/api/chatbot/test-tier-announce' && req.method === 'POST') {
+                const sampleVote = {
+                    item: { name: clean(body.item || 'Chrono Trigger', 120) },
+                    tiers: (Array.isArray(body.tiers) ? body.tiers : [{ label: 'S' }, { label: 'A' }, { label: 'B' }, { label: 'C' }, { label: 'D' }, { label: 'F' }]),
+                    duration: Number(body.duration) || 60
+                };
+                const result = await announceTierVoteStart(sampleVote, { test: true });
+                return json(200, result || { sent: true }), true;
+            }
             if (pathname === '/api/chatbot/shoutout' && (req.method === 'POST' || req.method === 'GET')) {
                 const query = req.method === 'GET' ? Object.fromEntries(new URL(req.url, 'http://localhost').searchParams) : {};
                 const input = { ...query, ...body };
@@ -1173,11 +1182,11 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         }
     }
 
-    async function announceTierVoteStart(voteData = {}) {
+    async function announceTierVoteStart(voteData = {}, { test = false } = {}) {
         const readyStatus = isReady();
         if (!readyStatus.ready) return { sent: false, reason: readyStatus.reason };
         const cfg = data.settings.tierAnnouncements || DEFAULT_TIER_LIST_ANNOUNCEMENTS;
-        if (!cfg.enabled || !cfg.announceStart) return { sent: false, reason: 'Tier announcements disabled in settings' };
+        if (!test && (!cfg.enabled || !cfg.announceStart)) return { sent: false, reason: 'Tier announcements disabled in settings' };
 
         const prefix = data.settings.prefix || '!';
         const tag = data.settings.tag || '';
@@ -1185,6 +1194,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         const itemName = item.name || 'Item';
         const tiers = Array.isArray(voteData.tiers) ? voteData.tiers : [];
         const tierLabels = tiers.map(t => t.label).join(', ');
+        const commandsList = tiers.map(t => `${prefix}tier ${t.label}`).join(', ');
         const durationStr = voteData.duration > 0 ? `${voteData.duration}s` : 'open';
 
         const template = cfg.startTemplate || DEFAULT_TIER_LIST_ANNOUNCEMENTS.startTemplate;
@@ -1193,6 +1203,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             .replace(/\{prefix\}/gi, prefix)
             .replace(/\{item\}/gi, itemName)
             .replace(/\{tiers\}/gi, tierLabels)
+            .replace(/\{commands\}/gi, commandsList)
             .replace(/\{duration\}s?/gi, durationStr);
 
         try {
@@ -1204,28 +1215,38 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         }
     }
 
-    async function announceTierVoteEnd(resultData = {}) {
+    async function announceTierVoteEnd(resultData = {}, { test = false } = {}) {
         const readyStatus = isReady();
         if (!readyStatus.ready) return { sent: false, reason: readyStatus.reason };
         const cfg = data.settings.tierAnnouncements || DEFAULT_TIER_LIST_ANNOUNCEMENTS;
-        if (!cfg.enabled || !cfg.announceEnd) return { sent: false, reason: 'Tier announcements disabled in settings' };
+        if (!test && (!cfg.enabled || !cfg.announceEnd)) return { sent: false, reason: 'Tier announcements disabled in settings' };
 
         const item = resultData.item || {};
         const itemName = item.name || 'Item';
         const tier = resultData.consensusTier;
         if (!tier) return { sent: false, reason: 'No consensus tier' };
 
+        const prefix = data.settings.prefix || '!';
+        const tag = data.settings.tag || '';
         const consensus = resultData.consensus || {};
         const matchingDist = (consensus.distribution || []).find(d => d.tierId === tier.id);
         const percent = matchingDist ? matchingDist.percentage : 0;
         const votes = matchingDist ? matchingDist.count : 0;
+        const totalVotes = consensus.totalVotes ?? 0;
+        const agreement = consensus.agreementPercent ?? percent;
+        const subVotes = consensus.subVotes ?? 0;
 
         const template = cfg.endTemplate || DEFAULT_TIER_LIST_ANNOUNCEMENTS.endTemplate;
         const text = template
+            .replace(/\{tag\}/gi, tag)
+            .replace(/\{prefix\}/gi, prefix)
             .replace(/\{item\}/gi, itemName)
             .replace(/\{tier\}/gi, tier.label)
             .replace(/\{votes\}/gi, String(votes))
-            .replace(/\{percent\}/gi, String(percent));
+            .replace(/\{percent\}/gi, String(percent))
+            .replace(/\{totalvotes\}/gi, String(totalVotes))
+            .replace(/\{agreement\}/gi, String(agreement))
+            .replace(/\{subvotes\}/gi, String(subVotes));
 
         try {
             await send(text);

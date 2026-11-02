@@ -84,6 +84,25 @@ In **Settings &rarr; Vote Consensus Method**, choose how chat votes are aggregat
 - When the timer expires, the item automatically moves into the winning tier and chat is notified.
 - Click **Lock & Place** to manually end voting early, or **Cancel** to abort without moving the item.
 
+### Chat Bot Announcements & Settings
+Customize automated chat announcements in **Chat Bot &rarr; Settings** (`/chatbot.html#settings`):
+- **Enable Tier List Announcements**: Master toggle to enable or disable tier vote chat notifications.
+- **Vote Start Announcement**: Automatically broadcast when voting opens with duration and choices.
+- **Vote Consensus Announcement**: Post the final winning tier with total votes, percentages, and agreement.
+- **Customizable Message Templates**: Personalize start and result templates using tokens:
+  - `{item}`: Name of the item being ranked.
+  - `{tier}`: Winning tier label (e.g. `S`).
+  - `{tiers}`: Comma-separated list of available tier choices (e.g. `S, A, B, C, D, F`).
+  - `{commands}`: Formatted commands list (e.g. `!tier S, !tier A, !tier B...`).
+  - `{duration}`: Voting time limit (e.g. `60s` or `open`).
+  - `{votes}`: Vote count for the consensus tier.
+  - `{percent}`: Percentage of voters on the consensus tier.
+  - `{totalVotes}`: Total votes cast across all tiers.
+  - `{agreement}`: Consensus agreement metric.
+  - `{subVotes}`: Number of subscriber votes cast.
+  - `{prefix}` & `{tag}`: Bot command prefix and tag.
+- **Send Test Announcement**: Test bot formatting and SocialStream connection directly with a single click.
+
 ### Consensus Agreement & Voter Spotlight
 The live voting HUD on both the Maker tool and the broadcast overlay provides real-time community engagement metrics:
 - **Agreement Percent**: Displays the percentage of audience voters who agreed with the winning tier (e.g., `83% agree`).
@@ -165,6 +184,7 @@ http://localhost:3000/overlays/tier-list.html
 | `size` | `compact`, `medium` *(default)*, `large` | Card scale and artwork thumbnail sizing. |
 | `aspect` | `1/1` *(default)*, `3/4`, `16/9` | Artwork card aspect ratio. |
 | `theme` | `dark` *(default)*, `transparent` | Transparent background for clean game capture compositing. |
+| `howtovote` | `1` *(default)*, `0` | Toggle voting instructions hint ribbon displaying chat command syntax and tier choices. |
 | `sfx` | `1` *(default)*, `0` | Enable or disable synthesized audio cues in OBS. |
 
 ---

@@ -1006,6 +1006,11 @@
                     <label for="setting-sound" style="cursor:pointer;">Play audio sound effects (vote start, countdown ticks, fanfare)</label>
                 </div>
 
+                <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                    <input type="checkbox" id="setting-show-hint" checked style="accent-color:var(--accent);">
+                    <label for="setting-show-hint" style="cursor:pointer;">Show voting instructions hint bar on broadcast overlay</label>
+                </div>
+
                 <div class="form-group" id="group-setting-volume">
                     <label for="setting-volume">SFX Volume: <span id="setting-volume-label">75%</span></label>
                     <input type="range" id="setting-volume" min="0" max="100" value="75" style="width:100%;accent-color:var(--accent);">
@@ -1099,6 +1104,22 @@
                     <select id="overlay-opt-theme" class="form-control">
                         <option value="dark">Dark Solid (Dark rounded container with soft shadows)</option>
                         <option value="transparent">100% Transparent (Alpha cutout for game capture overlay)</option>
+                    </select>
+                </div>
+
+                <div class="section-label" style="margin-top:0.4rem;">Audience Voting &amp; SFX</div>
+                <div class="form-group">
+                    <label for="overlay-opt-hint">Voting Instructions Hint (?howtovote=)</label>
+                    <select id="overlay-opt-hint" class="form-control">
+                        <option value="1">Show Voting Hint (Display chat command hint bar e.g. !tier &lt;tier&gt;)</option>
+                        <option value="0">Hide Voting Hint (Clean display without instructions bar)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="overlay-opt-sfx">Sound Effects (?sfx=)</label>
+                    <select id="overlay-opt-sfx" class="form-control">
+                        <option value="1">Enable SFX (Synthesizer chimes, countdown ticks, fanfare)</option>
+                        <option value="0">Mute Overlay (Disable audio in OBS browser source)</option>
                     </select>
                 </div>
 
@@ -2273,6 +2294,7 @@
                 $('setting-allow-change').checked = state.settings.allowVoteChange !== false;
                 $('setting-announce-chat').checked = state.settings.announceChat !== false;
                 $('setting-sound').checked = state.settings.soundEnabled !== false;
+                $('setting-show-hint').checked = state.settings.showVoteHint !== false;
                 $('setting-volume').value = state.settings.soundVolume !== undefined ? state.settings.soundVolume : 75;
                 $('setting-volume-label').textContent = `${$('setting-volume').value}%`;
                 openModal('modal-settings');
@@ -2291,6 +2313,7 @@
                 const allowVoteChange = $('setting-allow-change').checked;
                 const announceChat = $('setting-announce-chat').checked;
                 const soundEnabled = $('setting-sound').checked;
+                const showVoteHint = $('setting-show-hint').checked;
                 const soundVolume = Number($('setting-volume').value) || 75;
 
                 TierAudio.enabled = soundEnabled;
@@ -2308,7 +2331,8 @@
                             allowVoteChange,
                             announceChat,
                             soundEnabled,
-                            soundVolume
+                            soundVolume,
+                            showVoteHint
                         }
                     })
                 });
@@ -2545,7 +2569,9 @@
                 hideUnranked: '0',
                 size: 'medium',
                 aspect: '1/1',
-                theme: 'dark'
+                theme: 'dark',
+                howtovote: '1',
+                sfx: '1'
             };
 
             function loadOverlayOptions() {
@@ -2561,6 +2587,8 @@
                 $('overlay-opt-size').value = overlayOptions.size || 'medium';
                 $('overlay-opt-aspect').value = overlayOptions.aspect || '1/1';
                 $('overlay-opt-theme').value = overlayOptions.theme || 'dark';
+                $('overlay-opt-hint').value = overlayOptions.howtovote !== undefined ? overlayOptions.howtovote : '1';
+                $('overlay-opt-sfx').value = overlayOptions.sfx !== undefined ? overlayOptions.sfx : '1';
 
                 updateOverlayUrl();
             }
@@ -2571,6 +2599,8 @@
                 overlayOptions.size = $('overlay-opt-size').value;
                 overlayOptions.aspect = $('overlay-opt-aspect').value;
                 overlayOptions.theme = $('overlay-opt-theme').value;
+                overlayOptions.howtovote = $('overlay-opt-hint').value;
+                overlayOptions.sfx = $('overlay-opt-sfx').value;
 
                 try {
                     localStorage.setItem(OVERLAY_OPTIONS_KEY, JSON.stringify(overlayOptions));
@@ -2582,6 +2612,9 @@
                 if (overlayOptions.size !== 'medium') params.set('size', overlayOptions.size);
                 if (overlayOptions.aspect !== '1/1') params.set('aspect', overlayOptions.aspect);
                 if (overlayOptions.theme !== 'dark') params.set('theme', overlayOptions.theme);
+                if (overlayOptions.howtovote === '0') params.set('howtovote', '0');
+                else if (overlayOptions.howtovote === '1') params.set('howtovote', '1');
+                if (overlayOptions.sfx === '0') params.set('sfx', '0');
 
                 const queryString = params.toString() ? `?${params.toString()}` : '';
                 const relativeUrl = `/overlays/tier-list.html${queryString}`;
@@ -2599,7 +2632,7 @@
                 openModal('modal-overlay-options');
             });
 
-            ['overlay-opt-layout', 'overlay-opt-hide-unranked', 'overlay-opt-size', 'overlay-opt-aspect', 'overlay-opt-theme'].forEach(id => {
+            ['overlay-opt-layout', 'overlay-opt-hide-unranked', 'overlay-opt-size', 'overlay-opt-aspect', 'overlay-opt-theme', 'overlay-opt-hint', 'overlay-opt-sfx'].forEach(id => {
                 $(id).addEventListener('change', updateOverlayUrl);
             });
 

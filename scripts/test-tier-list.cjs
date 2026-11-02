@@ -26,6 +26,11 @@ test('Tier List Service: State initialization & defaults', () => {
         assert.equal(state.items.length, 0);
         assert.equal(state.activeVote, null);
         assert.equal(state.presets.length >= 4, true);
+        assert.equal(state.settings.showVoteHint, true);
+
+        // Update settings
+        service.updateConfig({ settings: { showVoteHint: false } });
+        assert.equal(service.getState().settings.showVoteHint, false);
     } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }
