@@ -1027,6 +1027,13 @@
                     details: 'Controls alert queue via GET request (?action=skip|pause|resume|clear).'
                 },
                 {
+                    method: 'POST', path: '/api/alerts/mute',
+                    desc: 'Mute or unmute alert display',
+                    companion: true,
+                    details: 'Holds alerts in the queue while muted (for panic buttons); unmuting resumes. State is `queue.muted` in GET /api/alerts. GET also works (?muted=true|false).',
+                    body: '{ "muted": true }'
+                },
+                {
                     method: 'POST', path: '/api/alerts/queue/pause',
                     desc: 'Pause alert queue',
                     companion: true,

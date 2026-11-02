@@ -315,6 +315,17 @@ function createOverlayRoutes({
             return true;
         }
 
+        if (pathname === '/api/alerts/mute' && (req.method === 'POST' || req.method === 'GET')) {
+            try {
+                const body = await parseJsonOrQuery(req, url);
+                if (body.muted !== undefined) alertEngine.setMuted(body.muted === true || body.muted === 'true' || body.muted === '1' || body.muted === 1);
+                sendJson(res, { ok: true, muted: alertEngine.getQueueState().muted, queue: alertEngine.getQueueState() });
+            } catch (err) {
+                sendError(res, err, 400);
+            }
+            return true;
+        }
+
         const mAlertQueueAction = pathname.match(/^\/api\/alerts\/queue\/(pause|resume|clear|skip)$/);
         if (mAlertQueueAction && (req.method === 'POST' || req.method === 'GET')) {
             try {

@@ -15,6 +15,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Embedded `registerHostSource`/`getHostSources` add host donation sources (listed as `hostSources` in `/api/status`).
 - Chat bot donation announcements with minimum amount, source and template; optional `{total}`/`{goal}` from host data.
 - Chat bot Live data panel lists host data with copyable `{{rep.*}}` placeholders; `GET /api/external-data` returns it read-only and size-limited.
+- `POST /api/alerts/mute` mutes alert display (e.g. NodeCG panic); `queue.muted` in `/api/alerts`.
 - `money` placeholder format, e.g. `{{placeholder|money}}` renders $1,234.00.
 
 ## [0.14.0] - 2026-11-01

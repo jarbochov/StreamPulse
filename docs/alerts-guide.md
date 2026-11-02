@@ -45,6 +45,8 @@ Alert rules can trigger external automation via HTTP POST or GET webhooks:
 - **Direct Webhook Testing**: Use the **Test Webhook** button directly inside the Actions card to verify connectivity and receive instant HTTP status feedback (`✓ 200 OK` or diagnostic advice) without needing a live stream event.
 - **Preview & Test Integration**: Clicking **Test Rule** or **Preview** runs configured actions so you can preview both on-screen overlays and external hardware triggers in tandem.
 
+- **Mute display**: `POST /api/alerts/mute` with `{ "muted": true }` holds alerts in the queue (for panic buttons such as NodeCG's `muteAlerts`); `{ "muted": false }` releases them. `GET /api/alerts` reports `queue.muted`. A Companion action, variable and feedback are included.
+
 Whether you prefer a quiet acknowledgement or a more theatrical reveal, the goal is to make the moment feel like yours—and keep the show in your hands.
 
 Browse [StreamPulse features](features.md) or [get started](quickstart.md). Already installed? **Docs** and **API Reference** are available through the app navigation.

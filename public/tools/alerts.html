@@ -141,6 +141,10 @@
         .more-menu > summary::-webkit-details-marker { display: none; }
         .more-pop { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 8px; padding: 0.6rem; display: flex; flex-direction: column; gap: 0.5rem; min-width: 240px; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
         .summary-banner { align-items: center; }
+        .vrow-slim { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+        .vpick { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--text-muted); }
+        .vpick select { width: auto; padding: 0.25rem 0.5rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.75rem; }
+        .tokens-pop { left: 0; right: auto; max-width: min(420px, 80vw); }
         .quiet-sec > summary { cursor: pointer; list-style: none; display: flex; gap: 0.5rem; align-items: baseline; }
         .quiet-sec > summary::-webkit-details-marker { display: none; }
         .quiet-sec[open] > summary { margin-bottom: 0.4rem; }
@@ -2334,17 +2338,18 @@
                     </div>
                 </div>
 
-                <details class="quiet-sec" data-persist="alerts.secTokens"${localStorage.getItem('alerts.secTokens') === '1' ? ' open' : ''}>
-                    <summary class="micro-head">Placeholders <span class="hint">click to insert into text</span></summary>
-                    <div class="tokens-bar">
-                        ${tokens.map(t => `<button type="button" class="token-chip" data-insert="{{alert.${t}}}" title="Click to insert {{alert.${t}}}">+ {{alert.${t}}}</button>`).join('')}
-                    </div>
-                </details>
-
-                ${r.variants.length > 1 ? field('Variant Selection Mode', sel_('pick', r.pick === 'sequential' ? 'sequential' : 'weighted', [
-                    ['weighted', 'Weighted Random (odds based on variant weights)'],
-                    ['sequential', 'Sequential (in order, one after another)']
-                ])) : ''}
+                <div class="vrow-slim">
+                    ${tokens.length ? `<details class="more-menu" data-persist="alerts.secTokens"${localStorage.getItem('alerts.secTokens') === '1' ? ' open' : ''}>
+                        <summary class="btn sm ghost" title="Click a placeholder to insert it into the focused text">Placeholders (${tokens.length}) ${ICONS.chevronDown}</summary>
+                        <div class="more-pop tokens-pop">
+                            <div class="tokens-bar">${tokens.map(t => `<button type="button" class="token-chip" data-insert="{{alert.${t}}}" title="Click to insert {{alert.${t}}}">{{alert.${t}}}</button>`).join('')}</div>
+                        </div>
+                    </details>` : ''}
+                    ${r.variants.length > 1 ? `<label class="vpick"><span>Pick</span>${sel_('pick', r.pick === 'sequential' ? 'sequential' : 'weighted', [
+                        ['weighted', 'Weighted random'],
+                        ['sequential', 'In order']
+                    ])}</label>` : ''}
+                </div>
 
                 <div class="micro-head">${hasMetric ? 'Base alerts and milestone tiers' : 'Variants'}</div>
                 ${r.variants.length ? '' : `<div class="empty-state" style="padding:1rem 0.5rem;"><span>No variants yet. Add one to choose what this rule shows.</span></div>`}

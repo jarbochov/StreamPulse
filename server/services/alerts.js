@@ -263,6 +263,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
     let current = null;
     let currentTimer = null;
     let paused = false;
+    let muted = false;
     const history = [];
     const eventsPath = path.join(dataDir, 'alert-events.json');
     let events = [];
@@ -606,7 +607,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
     }
 
     function pump() {
-        if (paused || current || !queue.length) return;
+        if (paused || muted || current || !queue.length) return;
         current = queue.shift();
         notify('alert', current);
         history.unshift({ ...current, shownAt: new Date().toISOString() });
@@ -752,6 +753,12 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
         return payload;
     }
 
+    function setMuted(value) {
+        muted = Boolean(value);
+        if (!muted) pump();
+        return muted;
+    }
+
     function control(action) {
         if (action === 'pause') { paused = true; return; }
         if (action === 'resume') { paused = false; pump(); return; }
@@ -862,9 +869,9 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             }
             return config;
         },
-        getQueueState: () => ({ pending: queue.length, current, paused, history, events }),
+        getQueueState: () => ({ pending: queue.length, current, paused, muted, history, events }),
         replayEvent, replayAlert,
-        handleEvent, fireRule, noteGift, control, stop,
+        handleEvent, fireRule, noteGift, control, setMuted, stop,
         alertAssetUsers, rewriteAlertReferences
     };
 }

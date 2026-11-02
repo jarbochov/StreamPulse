@@ -984,3 +984,22 @@ test('Twitch bits cheermote auto-fallback resolves official animated GIFs for bi
         cleanup();
     }
 });
+
+test('muting alerts holds display until unmuted', () => {
+    const { engine, dispatched, cleanup } = createTempEngine({
+        settings: { enabled: true },
+        rules: [{ id: 'f', trigger: 'follow', conditions: { cooldownSeconds: 0 }, variants: [{ title: 'Hi {{user}}' }] }]
+    });
+    try {
+        engine.setMuted(true);
+        engine.handleEvent({ type: 'follow', user: 'A' });
+        assert.equal(engine.getQueueState().muted, true);
+        assert.equal(engine.getQueueState().pending, 1);
+        assert.equal(dispatched.filter(d => d.type === 'alert').length, 0);
+        engine.setMuted(false);
+        assert.equal(dispatched.filter(d => d.type === 'alert').length, 1);
+        assert.equal(engine.getQueueState().muted, false);
+    } finally {
+        cleanup();
+    }
+});
