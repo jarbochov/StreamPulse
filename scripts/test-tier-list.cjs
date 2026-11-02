@@ -354,3 +354,97 @@ test('Tier List REST API Routes', async () => {
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }
 });
+
+test('Tier List Service: Audience Stats & Consensus Breakdown', () => {
+    const tiers = DEFAULT_TIERS; // S (0), A (1), B (2), C (3), D (4), F (5)
+
+    const vote = {
+        consensusMode: 'weighted_mean',
+        subMultiplier: 2,
+        votes: {
+            'u1': { user: 'Alice', tierId: 'tier-s', weight: 2, isSub: true, timestamp: 1000 },
+            'u2': { user: 'Bob', tierId: 'tier-s', weight: 1, isSub: false, timestamp: 2000 },
+            'u3': { user: 'Charlie', tierId: 'tier-a', weight: 1, isSub: false, timestamp: 3000 }
+        }
+    };
+
+    const consensus = calculateConsensus(vote, tiers);
+    assert.equal(consensus.totalVotes, 3);
+    assert.equal(consensus.subVotes, 1);
+    assert.equal(consensus.consensusTier.label, 'S');
+    // 2 out of 3 voters picked S => 2/3 = 67% voter agreement
+    assert.equal(consensus.agreementPercent, 67);
+    // Recent voters list
+    assert.equal(consensus.recentVoters.length, 3);
+    assert.equal(consensus.recentVoters[0].user, 'Charlie');
+    assert.equal(consensus.recentVoters[0].tierLabel, 'A');
+    assert.equal(consensus.recentVoters[1].user, 'Bob');
+    assert.equal(consensus.recentVoters[2].user, 'Alice');
+    assert.equal(consensus.recentVoters[2].isSub, true);
+});
+
+test('Tier List Service: Stream Deck & Bitfocus Companion GET Triggers', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tl-test-companion-'));
+    try {
+        const service = createTierListService({ dataDir: tmpDir, log: () => {} });
+        const handleRoutes = createTierListRoutes({ tierListService: service });
+
+        // Add 2 items to unranked pool
+        const item1 = service.addItem({ name: 'Chrono Trigger', imageUrl: '/chrono.png' });
+        const item2 = service.addItem({ name: 'Secret of Mana', imageUrl: '/mana.png' });
+
+        function mockReq(method, pathname) {
+            const stream = new (require('stream').Readable)();
+            stream.push(null);
+            stream.method = method;
+            stream.url = pathname;
+            stream.headers = {};
+            return stream;
+        }
+
+        function mockRes() {
+            let statusCode = 200;
+            let body = '';
+            return {
+                writeHead(code) { statusCode = code; },
+                end(data) { if (data) body += data; },
+                getStatusCode: () => statusCode,
+                getBody: () => body ? JSON.parse(body) : null
+            };
+        }
+
+        // 1. GET /api/tier-list/vote/start without itemId -> should pick item1 automatically!
+        const req1 = mockReq('GET', '/api/tier-list/vote/start?duration=45');
+        const res1 = mockRes();
+        const handled1 = await handleRoutes(req1, res1, '/api/tier-list/vote/start');
+        assert.equal(handled1, true);
+        assert.equal(res1.getStatusCode(), 200);
+        const state1 = res1.getBody();
+        assert.ok(state1.activeVote);
+        assert.equal(state1.activeVote.itemId, item1.id);
+        assert.equal(state1.activeVote.itemName, 'Chrono Trigger');
+
+        // Cast vote
+        service.castVote({ user: 'Fan', userId: 'f1', tierId: 'tier-s' });
+
+        // 2. GET /api/tier-list/vote/end?apply=1 -> should end vote and place item in Tier S
+        const req2 = mockReq('GET', '/api/tier-list/vote/end?apply=1');
+        const res2 = mockRes();
+        const handled2 = await handleRoutes(req2, res2, '/api/tier-list/vote/end');
+        assert.equal(handled2, true);
+        assert.equal(res2.getStatusCode(), 200);
+        const state2 = res2.getBody();
+        assert.equal(state2.activeVote, null);
+        assert.equal(state2.items.find(i => i.id === item1.id).tierId, 'tier-s');
+
+        // 3. GET /api/tier-list/reset -> reset placements back to unranked
+        const req3 = mockReq('GET', '/api/tier-list/reset');
+        const res3 = mockRes();
+        const handled3 = await handleRoutes(req3, res3, '/api/tier-list/reset');
+        assert.equal(handled3, true);
+        assert.equal(res3.getStatusCode(), 200);
+        assert.equal(res3.getBody().items.every(i => i.tierId === null), true);
+    } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});

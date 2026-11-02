@@ -259,6 +259,21 @@ function createSystemRoutes({
                 else if (sub === 'title') val = tourney.title || '';
                 else if (sub === 'active_match') val = tourney.activeMatchId || '';
                 else if (sub === 'champion') val = tourney.champion || '';
+            } else if (field.startsWith('tierlist_') || field.startsWith('tier_')) {
+                const sub = field.replace(/^tier(?:list)?_/, '');
+                const tl = status.tierList;
+                if (tl) {
+                    if (sub === 'voting' || sub === 'active') val = tl.activeVote ? '1' : '0';
+                    else if (sub === 'item' || sub === 'item_name') val = tl.activeVote?.itemName || '';
+                    else if (sub === 'votes' || sub === 'total_votes') val = String(tl.activeVote?.consensus?.totalVotes ?? 0);
+                    else if (sub === 'consensus' || sub === 'winning_tier') val = tl.activeVote?.consensus?.consensusTier?.label || '';
+                    else if (sub === 'time' || sub === 'remaining') {
+                        if (!tl.activeVote) val = '0';
+                        else if (!tl.activeVote.endsAt) val = 'open';
+                        else val = String(Math.max(0, Math.round((tl.activeVote.endsAt - Date.now()) / 1000)));
+                    } else if (sub === 'agreement') val = `${tl.activeVote?.consensus?.agreementPercent ?? 0}%`;
+                    else if (sub === 'title') val = tl.title || '';
+                }
             } else if (field.startsWith('counter_') || field.startsWith('var_')) {
                 const varName = field.replace(/^(counter|var)_/, '');
                 const item = (status.customVars || []).find(v => v.name.toLowerCase() === varName);

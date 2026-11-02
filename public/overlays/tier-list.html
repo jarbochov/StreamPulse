@@ -291,6 +291,54 @@
             background: #fbbf24;
         }
 
+        .hud-stat-pill {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.12);
+            color: #e6edf3;
+            letter-spacing: 0.02em;
+        }
+        .hud-stat-pill.accent {
+            background: rgba(59, 130, 246, 0.25);
+            color: #93c5fd;
+            border: 1px solid rgba(59, 130, 246, 0.4);
+        }
+        .hud-stat-pill.sub {
+            background: rgba(168, 85, 247, 0.25);
+            color: #d8b4fe;
+            border: 1px solid rgba(168, 85, 247, 0.4);
+        }
+        .hud-voters-ticker {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--tl-muted);
+            overflow: hidden;
+            max-width: 280px;
+            white-space: nowrap;
+        }
+        .voter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(255, 255, 255, 0.08);
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+            color: #e6edf3;
+            font-size: 10px;
+        }
+        .voter-tier {
+            font-weight: 800;
+            padding: 0 4px;
+            border-radius: 3px;
+            color: #000;
+            font-size: 9px;
+        }
+
         /* Sidebar Layout Mode */
         body.layout-sidebar #overlay-container {
             max-width: 440px;
@@ -330,8 +378,13 @@
     <div id="vote-hud-overlay" class="vote-hud-overlay">
         <img id="hud-img" class="hud-voter-img" src="" alt="Voting Item">
         <div class="hud-voter-text">
-            <div id="hud-name" class="hud-voter-title">Item Name</div>
-            <div class="hud-cmd" id="hud-cmd">Vote with <strong id="hud-cmd-syntax">!tier &lt;tier&gt;</strong> (<span id="hud-time-rem">30s</span>)</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <div id="hud-name" class="hud-voter-title">Item Name</div>
+                <span id="hud-sub-badge" class="hud-stat-pill sub" style="display:none;"></span>
+                <span id="hud-agreement-pill" class="hud-stat-pill accent" style="display:none;"></span>
+            </div>
+            <div class="hud-cmd" id="hud-cmd">Vote with <strong id="hud-cmd-syntax">!tier &lt;tier&gt;</strong> (<span id="hud-time-rem">30s</span>) &middot; <span id="hud-vote-count">0 votes</span></div>
+            <div id="hud-voters-ticker" class="hud-voters-ticker" style="display:none;"></div>
         </div>
         <div class="hud-breakdown-bar" id="hud-bar"></div>
         <div class="hud-consensus-pill" id="hud-consensus">Consensus</div>
@@ -367,8 +420,98 @@
                 if (hdr) hdr.style.background = 'rgba(13, 17, 23, 0.75)';
             }
 
+            const sfxParam = urlParams.get('sfx');
+            const sfxEnabled = sfxParam !== '0' && sfxParam !== 'false';
+
             let currentState = null;
             let hudInterval = null;
+            let lastVoteId = null;
+            let lastTickedSecond = null;
+
+            const TierAudio = {
+                ctx: null,
+                enabled: sfxEnabled,
+                volume: 0.75,
+
+                init() {
+                    if (this.ctx) {
+                        if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+                        return;
+                    }
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) {
+                        this.ctx = new AudioContext();
+                    }
+                },
+
+                voteStart() {
+                    if (!this.enabled) return;
+                    try {
+                        this.init();
+                        if (!this.ctx) return;
+                        const now = this.ctx.currentTime;
+                        const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+                        notes.forEach((freq, idx) => {
+                            const osc = this.ctx.createOscillator();
+                            const gain = this.ctx.createGain();
+                            osc.type = 'sine';
+                            osc.frequency.value = freq;
+                            const t = now + (idx * 0.08);
+                            const baseVol = 0.22 * this.volume;
+                            gain.gain.setValueAtTime(baseVol, t);
+                            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+                            osc.connect(gain);
+                            gain.connect(this.ctx.destination);
+                            osc.start(t);
+                            osc.stop(t + 0.45);
+                        });
+                    } catch {}
+                },
+
+                countdownTick(isFinal = false) {
+                    if (!this.enabled) return;
+                    try {
+                        this.init();
+                        if (!this.ctx) return;
+                        const now = this.ctx.currentTime;
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = isFinal ? 'triangle' : 'sine';
+                        osc.frequency.setValueAtTime(isFinal ? 880 : 587.33, now);
+                        const baseVol = (isFinal ? 0.25 : 0.15) * this.volume;
+                        gain.gain.setValueAtTime(baseVol, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 0.09);
+                    } catch {}
+                },
+
+                voteLock() {
+                    if (!this.enabled) return;
+                    try {
+                        this.init();
+                        if (!this.ctx) return;
+                        const now = this.ctx.currentTime;
+                        const chord = [523.25, 659.25, 783.99, 1046.50];
+                        chord.forEach((freq, idx) => {
+                            const osc = this.ctx.createOscillator();
+                            const gain = this.ctx.createGain();
+                            osc.type = 'triangle';
+                            osc.frequency.value = freq;
+                            const t = now + (idx * 0.06);
+                            const baseVol = 0.28 * this.volume;
+                            gain.gain.setValueAtTime(baseVol, t);
+                            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.75);
+                            osc.connect(gain);
+                            gain.connect(this.ctx.destination);
+                            osc.start(t);
+                            osc.stop(t + 0.75);
+                        });
+                    } catch {}
+                }
+            };
 
             const $ = id => document.getElementById(id);
             const esc = str => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -493,6 +636,11 @@
                 const badgeEl = $('overlay-vote-badge');
 
                 if (!vote || vote.status !== 'ACTIVE') {
+                    if (lastVoteId) {
+                        TierAudio.voteLock();
+                    }
+                    lastVoteId = null;
+                    lastTickedSecond = null;
                     hudEl.classList.remove('active');
                     badgeEl.classList.remove('active');
                     if (hudInterval) {
@@ -500,6 +648,12 @@
                         hudInterval = null;
                     }
                     return;
+                }
+
+                if (vote.id !== lastVoteId) {
+                    lastVoteId = vote.id;
+                    lastTickedSecond = null;
+                    TierAudio.voteStart();
                 }
 
                 hudEl.classList.add('active');
@@ -521,6 +675,10 @@
                     const remaining = Math.max(0, Math.round((vote.endsAt - Date.now()) / 1000));
                     $('overlay-timer').textContent = `${remaining}s`;
                     $('hud-time-rem').textContent = `${remaining}s`;
+                    if (remaining <= 5 && remaining > 0 && remaining !== lastTickedSecond) {
+                        lastTickedSecond = remaining;
+                        TierAudio.countdownTick(remaining <= 3);
+                    }
                     if (remaining <= 0) {
                         clearInterval(hudInterval);
                         hudInterval = null;
@@ -532,6 +690,27 @@
 
             function updateVoteHUDMeters(consensus) {
                 if (!consensus) return;
+                $('hud-vote-count').textContent = `${consensus.totalVotes || 0} vote${consensus.totalVotes === 1 ? '' : 's'}`;
+
+                const subBadge = $('hud-sub-badge');
+                if (currentState && currentState.activeVote && currentState.activeVote.subMultiplier > 1) {
+                    subBadge.textContent = `Subs ${currentState.activeVote.subMultiplier}x`;
+                    subBadge.style.display = 'inline-block';
+                } else if (consensus.subVotes > 0) {
+                    subBadge.textContent = `${consensus.subVotes} sub vote${consensus.subVotes === 1 ? '' : 's'}`;
+                    subBadge.style.display = 'inline-block';
+                } else {
+                    subBadge.style.display = 'none';
+                }
+
+                const agreePill = $('hud-agreement-pill');
+                if (consensus.totalVotes > 0 && consensus.agreementPercent > 0) {
+                    agreePill.textContent = `${consensus.agreementPercent}% agree`;
+                    agreePill.style.display = 'inline-block';
+                } else {
+                    agreePill.style.display = 'none';
+                }
+
                 const barEl = $('hud-bar');
                 barEl.innerHTML = '';
 
@@ -544,6 +723,20 @@
                         barEl.appendChild(seg);
                     }
                 });
+
+                const tickerEl = $('hud-voters-ticker');
+                if (consensus.recentVoters && consensus.recentVoters.length > 0) {
+                    tickerEl.innerHTML = '<span style="opacity:0.65;">Recent:</span>' + consensus.recentVoters.map(v => `
+                        <span class="voter-chip">
+                            ${v.isSub ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="color:#a371f7;display:inline-block;vertical-align:-1px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' : ''}
+                            ${esc(v.user)}:
+                            <span class="voter-tier" style="background-color:${esc(v.tierColor)};">${esc(v.tierLabel)}</span>
+                        </span>
+                    `).join('');
+                    tickerEl.style.display = 'flex';
+                } else {
+                    tickerEl.style.display = 'none';
+                }
 
                 const consensusEl = $('hud-consensus');
                 if (consensus.consensusTier) {
@@ -564,6 +757,12 @@
                     const res = await fetch('/api/tier-list');
                     if (res.ok) {
                         const data = await res.json();
+                        if (data.settings) {
+                            if (sfxParam === null) {
+                                TierAudio.enabled = data.settings.soundEnabled !== false;
+                            }
+                            TierAudio.volume = (data.settings.soundVolume !== undefined ? data.settings.soundVolume : 75) / 100;
+                        }
                         renderOverlay(data);
                     }
                 } catch (err) {

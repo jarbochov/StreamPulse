@@ -1976,6 +1976,79 @@
             ]
         },
         {
+            section: 'Tier Lists & Audience Voting',
+            items: [
+                {
+                    method: 'GET', path: '/api/tier-list',
+                    desc: 'Fetch current tier list board, items, and voting state',
+                    details: 'Returns { id, title, tiers, items, activeVote, presets, settings } including real-time consensus calculations.'
+                },
+                {
+                    method: 'POST', path: '/api/tier-list/vote/start',
+                    desc: 'Start audience chat vote for an item',
+                    companion: true,
+                    details: 'Opens chat voting (!tier <tier>) for a specific item. If itemId is omitted or null, automatically selects the next unranked item from the pool tray.',
+                    body: '{ "itemId": "tier-item-1", "duration": 60, "consensusMode": "weighted_mean" }'
+                },
+                {
+                    method: 'GET', path: '/api/tier-list/vote/start',
+                    desc: 'Companion trigger to start tier voting',
+                    companion: true,
+                    details: 'Stream Deck / Companion trigger via GET request. If ?itemId is not provided, automatically starts voting on the first unranked item in the pool tray. Optional parameters: ?itemId=...&duration=60&mode=weighted_mean|median|plurality.'
+                },
+                {
+                    method: 'POST', path: '/api/tier-list/vote/end',
+                    desc: 'Lock in active vote and place item',
+                    companion: true,
+                    details: 'Finalizes the audience vote early, calculates consensus tier, and moves the item into its winning tier. Body: { "applyConsensus": true }.'
+                },
+                {
+                    method: 'GET', path: '/api/tier-list/vote/end',
+                    desc: 'Companion trigger to lock in tier vote',
+                    companion: true,
+                    details: 'Finalizes the audience vote early via GET request (?apply=1 to place or ?apply=0 to discard).'
+                },
+                {
+                    method: 'POST', path: '/api/tier-list/vote/cancel',
+                    desc: 'Cancel active tier vote without moving item',
+                    companion: true,
+                    details: 'Aborts current vote and returns item to its original state.'
+                },
+                {
+                    method: 'GET', path: '/api/tier-list/vote/cancel',
+                    desc: 'Companion trigger to cancel active vote',
+                    companion: true,
+                    details: 'Aborts active vote immediately via GET request.'
+                },
+                {
+                    method: 'GET', path: '/api/tier-list/reset',
+                    desc: 'Companion trigger to reset all items to unranked pool',
+                    companion: true,
+                    details: 'Moves all ranked items back to the unranked tray ready for a fresh stream ranking.'
+                },
+                {
+                    method: 'GET', path: '/api/status/field/tier_voting',
+                    desc: 'Plain text status: Is tier vote active (1 or 0)',
+                    details: 'For Stream Deck button feedback and Bitfocus Companion text variables.'
+                },
+                {
+                    method: 'GET', path: '/api/status/field/tier_item',
+                    desc: 'Plain text status: Current item name being voted on',
+                    details: 'Returns current active voting item name (e.g. Elden Ring).'
+                },
+                {
+                    method: 'GET', path: '/api/status/field/tier_consensus',
+                    desc: 'Plain text status: Leading consensus tier label',
+                    details: 'Returns current leading winning tier (e.g. S or S+).'
+                },
+                {
+                    method: 'GET', path: '/api/status/field/tier_time',
+                    desc: 'Plain text status: Seconds remaining in vote',
+                    details: 'Returns countdown seconds remaining or "0".'
+                }
+            ]
+        },
+        {
             section: 'WebSocket',
             items: [
                 {

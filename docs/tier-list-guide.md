@@ -84,9 +84,72 @@ In **Settings &rarr; Vote Consensus Method**, choose how chat votes are aggregat
 - When the timer expires, the item automatically moves into the winning tier and chat is notified.
 - Click **Lock & Place** to manually end voting early, or **Cancel** to abort without moving the item.
 
+### Consensus Agreement & Voter Spotlight
+The live voting HUD on both the Maker tool and the broadcast overlay provides real-time community engagement metrics:
+- **Agreement Percent**: Displays the percentage of audience voters who agreed with the winning tier (e.g., `83% agree`).
+- **Subscriber Multiplier & Bonus**: Highlights subscriber vote weighting (e.g., `Subs 2x`).
+- **Recent Voter Spotlight**: Displays a ticker of the latest chatters to cast votes, complete with subscriber badges and colored tier chips.
+
 ---
 
-## 4. OBS Broadcast Overlay
+## 4. High-Resolution PNG Image Export
+
+When your tier list ranking is complete, export a crisp, publication-ready snapshot:
+1. Click **Export Image** in the Maker toolbar.
+2. StreamPulse renders a dedicated 1920px Canvas layout containing:
+   - Tier list title and date stamp.
+   - Distinct colored tier headers with tier labels and descriptions.
+   - Artwork thumbnails cropped to fit with clear legible captions.
+   - StreamPulse watermark badge.
+3. Automatically triggers a client-side download named `<title>-tier-list.png`.
+
+---
+
+## 5. Audio Sound Effects (SFX)
+
+Both the Tier List Maker and OBS broadcast overlay include an internal Web Audio API synthesizer for zero-latency audio cues without external file dependencies:
+- **Vote Start Chime**: 3-note ascending arpeggio (C5 &rarr; E5 &rarr; G5) announcing the start of audience voting.
+- **5-Second Countdown Ticks**: Crisp ticks during the final 5 seconds of voting, shifting to a higher frequency warning triangle wave during the final 3 seconds.
+- **Lock & Placement Fanfare**: 4-note celebration chord (C5 &rarr; E5 &rarr; G5 &rarr; C6) with exponential decay when an item is placed.
+
+### Sound Controls
+- In **Settings**, toggle sound effects on/off and adjust the master volume slider (0–100%).
+- On the OBS broadcast overlay, sound effects can be explicitly enabled or muted with URL parameters: `?sfx=1` (enabled) or `?sfx=0` (muted).
+
+---
+
+## 6. Bitfocus Companion & Stream Deck Integration
+
+Control your tier list directly from hardware buttons or external automations using standard HTTP GET and POST requests.
+
+### Hardware Triggers
+
+| Action | Method | URL | Description |
+| :--- | :--- | :--- | :--- |
+| **Start Next Vote** | `GET` / `POST` | `/api/tier-list/vote/start` | Automatically starts chat voting on the first unranked item. Optional: `?duration=60&consensusMode=weighted_mean`. |
+| **Start Item Vote** | `GET` / `POST` | `/api/tier-list/vote/start?itemId=<id>` | Starts chat voting on a specific item ID. |
+| **Lock & Place** | `GET` / `POST` | `/api/tier-list/vote/end?apply=1` | Concludes active voting immediately and moves item to consensus tier. |
+| **Cancel Vote** | `GET` / `POST` | `/api/tier-list/vote/cancel` | Aborts active vote without moving item. |
+| **Reset Placements** | `GET` / `POST` | `/api/tier-list/reset` | Moves all ranked items back to the unranked pool. |
+| **Load Preset** | `GET` / `POST` | `/api/tier-list/presets/:id/load` | Activates a saved or built-in preset template. |
+
+### Status Fields for Stream Deck Key Displays
+
+Stream Deck keys can query plain-text endpoints at `/api/status/field/:field`:
+
+| Field Endpoint | Example Return | Description |
+| :--- | :--- | :--- |
+| `/api/status/field/tier_voting` | `1` or `0` | Active voting status. |
+| `/api/status/field/tier_item` | `Super Mario Galaxy` | Name of the item currently being voted on. |
+| `/api/status/field/tier_consensus` | `S` | Leading consensus tier label. |
+| `/api/status/field/tier_agreement` | `83%` | Voter consensus agreement percentage. |
+| `/api/status/field/tier_votes` | `42` | Total votes cast in active vote. |
+| `/api/status/field/tier_time` | `28` | Seconds remaining or `open`. |
+| `/api/status/field/tier_title` | `Community Tier List` | Active tier list title. |
+
+---
+
+## 7. OBS Broadcast Overlay
 
 Add a Browser Source in OBS with URL:
 ```text
@@ -100,11 +163,13 @@ http://localhost:3000/overlays/tier-list.html
 | `layout` | `board` *(default)*, `sidebar` | Full-screen tier list board or narrow vertical sidebar. |
 | `hideUnranked` | `0` *(default)*, `1` | Hide the unranked pool tray to only display ranked tiers. |
 | `size` | `compact`, `medium` *(default)*, `large` | Card scale and artwork thumbnail sizing. |
+| `aspect` | `1/1` *(default)*, `3/4`, `16/9` | Artwork card aspect ratio. |
 | `theme` | `dark` *(default)*, `transparent` | Transparent background for clean game capture compositing. |
+| `sfx` | `1` *(default)*, `0` | Enable or disable synthesized audio cues in OBS. |
 
 ---
 
-## 5. REST API Reference
+## 8. REST API Reference
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
@@ -115,13 +180,13 @@ http://localhost:3000/overlays/tier-list.html
 | `PUT` | `/api/tier-list/item/:id` | Update an existing item's name or note. |
 | `DELETE` | `/api/tier-list/item/:id` | Delete an item. |
 | `POST` | `/api/tier-list/move` | Move an item (`{ itemId, toTier, toIndex }`). |
-| `POST` | `/api/tier-list/reset` | Move all ranked items back to the unranked pool. |
+| `GET` / `POST` | `/api/tier-list/reset` | Move all ranked items back to the unranked pool. |
 | `POST` | `/api/tier-list/clear` | Remove all items from the list. |
-| `POST` | `/api/tier-list/vote/start` | Start chat voting (`{ itemId, duration, consensusMode }`). |
+| `GET` / `POST` | `/api/tier-list/vote/start` | Start chat voting (defaults to first unranked item). |
 | `POST` | `/api/tier-list/vote/cast` | Cast a vote manually (`{ user, userId, tierId, isSub }`). |
-| `POST` | `/api/tier-list/vote/end` | Lock vote and apply consensus (`{ applyConsensus: true }`). |
-| `POST` | `/api/tier-list/vote/cancel` | Cancel the active vote. |
+| `GET` / `POST` | `/api/tier-list/vote/end` | Lock vote and apply consensus (`?apply=1` or `{ applyConsensus: true }`). |
+| `GET` / `POST` | `/api/tier-list/vote/cancel` | Cancel the active vote. |
 | `POST` | `/api/tier-list/presets/save` | Save current setup as a preset (`{ name, description }`). |
-| `POST` | `/api/tier-list/presets/:id/load` | Load a saved or built-in preset. |
+| `GET` / `POST` | `/api/tier-list/presets/:id/load` | Load a saved or built-in preset. |
 | `DELETE` | `/api/tier-list/presets/:id` | Delete any saved or built-in preset. |
 | `POST` | `/api/tier-list/presets/reset` | Restore the built-in default templates. |

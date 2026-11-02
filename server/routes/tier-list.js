@@ -84,8 +84,8 @@ function createTierListRoutes({ tierListService }) {
                 return true;
             }
 
-            // POST /api/tier-list/reset
-            if (pathname === '/api/tier-list/reset' && req.method === 'POST') {
+            // POST or GET /api/tier-list/reset (Companion friendly)
+            if (pathname === '/api/tier-list/reset' && (req.method === 'POST' || req.method === 'GET')) {
                 const state = tierListService.resetPlacements();
                 sendJson(res, state);
                 return true;
@@ -98,13 +98,17 @@ function createTierListRoutes({ tierListService }) {
                 return true;
             }
 
-            // POST /api/tier-list/vote/start
-            if (pathname === '/api/tier-list/vote/start' && req.method === 'POST') {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
-                if (!body.itemId) {
-                    sendError(res, 'Missing itemId for vote', 400);
-                    return true;
+            // POST or GET /api/tier-list/vote/start (Companion friendly: auto-selects next unranked if itemId omitted)
+            if (pathname === '/api/tier-list/vote/start' && (req.method === 'POST' || req.method === 'GET')) {
+                let body = {};
+                if (req.method === 'POST') {
+                    const raw = await readRequestBody(req);
+                    body = raw ? JSON.parse(raw) : {};
+                }
+                if (url && url.searchParams) {
+                    if (url.searchParams.has('itemId')) body.itemId = url.searchParams.get('itemId');
+                    if (url.searchParams.has('duration')) body.duration = Number(url.searchParams.get('duration'));
+                    if (url.searchParams.has('mode')) body.consensusMode = url.searchParams.get('mode');
                 }
                 const state = tierListService.startVote(body);
                 sendJson(res, state);
@@ -120,19 +124,24 @@ function createTierListRoutes({ tierListService }) {
                 return true;
             }
 
-            // POST /api/tier-list/vote/end
-            if (pathname === '/api/tier-list/vote/end' && req.method === 'POST') {
-                const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
-                const state = tierListService.endVote({
-                    applyConsensus: body.applyConsensus !== false
-                });
+            // POST or GET /api/tier-list/vote/end (Companion friendly: lock & place or discard)
+            if (pathname === '/api/tier-list/vote/end' && (req.method === 'POST' || req.method === 'GET')) {
+                let apply = true;
+                if (req.method === 'POST') {
+                    const raw = await readRequestBody(req);
+                    const body = raw ? JSON.parse(raw) : {};
+                    if (body.applyConsensus !== undefined) apply = body.applyConsensus !== false;
+                }
+                if (url && url.searchParams && url.searchParams.has('apply')) {
+                    apply = !['0', 'false', 'no'].includes(url.searchParams.get('apply'));
+                }
+                const state = tierListService.endVote({ applyConsensus: apply });
                 sendJson(res, state);
                 return true;
             }
 
-            // POST /api/tier-list/vote/cancel
-            if (pathname === '/api/tier-list/vote/cancel' && req.method === 'POST') {
+            // POST or GET /api/tier-list/vote/cancel (Companion friendly)
+            if (pathname === '/api/tier-list/vote/cancel' && (req.method === 'POST' || req.method === 'GET')) {
                 const state = tierListService.cancelVote();
                 sendJson(res, state);
                 return true;
@@ -147,8 +156,8 @@ function createTierListRoutes({ tierListService }) {
                 return true;
             }
 
-            // POST /api/tier-list/presets/:id/load
-            if (pathname.startsWith('/api/tier-list/presets/') && pathname.endsWith('/load') && req.method === 'POST') {
+            // POST or GET /api/tier-list/presets/:id/load (Companion friendly)
+            if (pathname.startsWith('/api/tier-list/presets/') && pathname.endsWith('/load') && (req.method === 'POST' || req.method === 'GET')) {
                 const presetId = pathname.slice('/api/tier-list/presets/'.length, -'/load'.length);
                 const state = tierListService.loadPreset(presetId);
                 sendJson(res, state);

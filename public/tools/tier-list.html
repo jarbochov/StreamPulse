@@ -245,6 +245,47 @@
             gap: 4px;
         }
 
+        .hud-stat-pill {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 1px 6px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #c9d1d9;
+            margin-left: 4px;
+        }
+        .hud-stat-pill.accent {
+            background: rgba(88, 166, 255, 0.18);
+            color: #58a6ff;
+            border: 1px solid rgba(88, 166, 255, 0.3);
+        }
+        .hud-voters-ticker {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            overflow: hidden;
+            font-size: 10px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            margin-top: 4px;
+        }
+        .voter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            background: rgba(255, 255, 255, 0.06);
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 10px;
+            color: var(--text);
+        }
+        .voter-chip .voter-tier {
+            font-weight: 700;
+            padding: 0 4px;
+            border-radius: 3px;
+            color: #000;
+        }
+
         .hud-actions {
             display: flex;
             align-items: center;
@@ -727,6 +768,9 @@
             </div>
 
             <div class="toolbar-group">
+                <button id="btn-export-image" title="Export completed tier list as a high-resolution PNG image">
+                    <svg class="ico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export Image
+                </button>
                 <button id="btn-overlay-options" title="Configure broadcast overlay layout, sizing, theme, and copy URL">
                     <svg class="ico" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Overlay URL &amp; Options
                 </button>
@@ -739,7 +783,6 @@
             </div>
         </div>
     </div>
-    <script src="/nav.js"></script>
 
     <!-- Live Voting HUD -->
     <div id="voting-hud">
@@ -756,10 +799,11 @@
         <div class="hud-consensus-box">
             <div class="hud-meter-wrap">
                 <div class="hud-meter-labels">
-                    <span>Votes: <strong id="hud-vote-count">0</strong></span>
-                    <span>Consensus: <strong id="hud-consensus-label">Calculating…</strong></span>
+                    <span>Votes: <strong id="hud-vote-count">0</strong> <span id="hud-sub-badge" class="hud-stat-pill" style="display:none;"></span></span>
+                    <span>Consensus: <strong id="hud-consensus-label">Calculating…</strong> <span id="hud-agreement-pill" class="hud-stat-pill accent" style="display:none;"></span></span>
                 </div>
                 <div id="hud-meter-bar" class="hud-meter-bar"></div>
+                <div id="hud-voters-ticker" class="hud-voters-ticker" style="display:none;"></div>
             </div>
             <div id="hud-result-pill" class="hud-result-pill">Tier S</div>
         </div>
@@ -956,6 +1000,16 @@
                     <input type="checkbox" id="setting-announce-chat" checked style="accent-color:var(--accent);">
                     <label for="setting-announce-chat" style="cursor:pointer;">Send chatbot announcements when vote starts &amp; ends</label>
                 </div>
+
+                <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                    <input type="checkbox" id="setting-sound" checked style="accent-color:var(--accent);">
+                    <label for="setting-sound" style="cursor:pointer;">Play audio sound effects (vote start, countdown ticks, fanfare)</label>
+                </div>
+
+                <div class="form-group" id="group-setting-volume">
+                    <label for="setting-volume">SFX Volume: <span id="setting-volume-label">75%</span></label>
+                    <input type="range" id="setting-volume" min="0" max="100" value="75" style="width:100%;accent-color:var(--accent);">
+                </div>
             </div>
             <div class="modal-footer">
                 <button data-close="modal-settings">Cancel</button>
@@ -1085,6 +1139,93 @@
             let hudTimerInterval = null;
             let libraryAssets = [];
             let selectedAssetUrls = new Set();
+            let lastVoteId = null;
+            let lastTickedSecond = null;
+
+            const TierAudio = {
+                ctx: null,
+                enabled: true,
+                volume: 0.75,
+
+                init() {
+                    if (this.ctx) {
+                        if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+                        return;
+                    }
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) {
+                        this.ctx = new AudioContext();
+                    }
+                },
+
+                voteStart() {
+                    if (!this.enabled) return;
+                    try {
+                        this.init();
+                        if (!this.ctx) return;
+                        const now = this.ctx.currentTime;
+                        const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+                        notes.forEach((freq, idx) => {
+                            const osc = this.ctx.createOscillator();
+                            const gain = this.ctx.createGain();
+                            osc.type = 'sine';
+                            osc.frequency.value = freq;
+                            const t = now + (idx * 0.08);
+                            const baseVol = 0.22 * this.volume;
+                            gain.gain.setValueAtTime(baseVol, t);
+                            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+                            osc.connect(gain);
+                            gain.connect(this.ctx.destination);
+                            osc.start(t);
+                            osc.stop(t + 0.45);
+                        });
+                    } catch {}
+                },
+
+                countdownTick(isFinal = false) {
+                    if (!this.enabled) return;
+                    try {
+                        this.init();
+                        if (!this.ctx) return;
+                        const now = this.ctx.currentTime;
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = isFinal ? 'triangle' : 'sine';
+                        osc.frequency.setValueAtTime(isFinal ? 880 : 587.33, now);
+                        const baseVol = (isFinal ? 0.25 : 0.15) * this.volume;
+                        gain.gain.setValueAtTime(baseVol, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 0.09);
+                    } catch {}
+                },
+
+                voteLock() {
+                    if (!this.enabled) return;
+                    try {
+                        this.init();
+                        if (!this.ctx) return;
+                        const now = this.ctx.currentTime;
+                        const chord = [523.25, 659.25, 783.99, 1046.50];
+                        chord.forEach((freq, idx) => {
+                            const osc = this.ctx.createOscillator();
+                            const gain = this.ctx.createGain();
+                            osc.type = 'triangle';
+                            osc.frequency.value = freq;
+                            const t = now + (idx * 0.06);
+                            const baseVol = 0.28 * this.volume;
+                            gain.gain.setValueAtTime(baseVol, t);
+                            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.75);
+                            osc.connect(gain);
+                            gain.connect(this.ctx.destination);
+                            osc.start(t);
+                            osc.stop(t + 0.75);
+                        });
+                    } catch {}
+                }
+            };
 
             const $ = id => document.getElementById(id);
 
@@ -1109,6 +1250,10 @@
                     const res = await fetch('/api/tier-list');
                     if (res.ok) {
                         state = await res.json();
+                        if (state.settings) {
+                            TierAudio.enabled = state.settings.soundEnabled !== false;
+                            TierAudio.volume = (state.settings.soundVolume !== undefined ? state.settings.soundVolume : 75) / 100;
+                        }
                         renderBoard();
                         renderHUD();
                         return state;
@@ -1270,12 +1415,23 @@
                 const vote = state.activeVote;
 
                 if (!vote || vote.status !== 'ACTIVE') {
+                    if (lastVoteId) {
+                        TierAudio.voteLock();
+                    }
+                    lastVoteId = null;
+                    lastTickedSecond = null;
                     hud.classList.remove('active');
                     if (hudTimerInterval) {
                         clearInterval(hudTimerInterval);
                         hudTimerInterval = null;
                     }
                     return;
+                }
+
+                if (vote.id !== lastVoteId) {
+                    lastVoteId = vote.id;
+                    lastTickedSecond = null;
+                    TierAudio.voteStart();
                 }
 
                 hud.classList.add('active');
@@ -1293,6 +1449,10 @@
                     }
                     const remaining = Math.max(0, Math.round((vote.endsAt - Date.now()) / 1000));
                     $('hud-timer').textContent = `${remaining}s`;
+                    if (remaining <= 5 && remaining > 0 && remaining !== lastTickedSecond) {
+                        lastTickedSecond = remaining;
+                        TierAudio.countdownTick(remaining <= 3);
+                    }
                     if (remaining <= 0) {
                         clearInterval(hudTimerInterval);
                         hudTimerInterval = null;
@@ -1305,6 +1465,27 @@
             function updateHudMeters(consensus) {
                 if (!consensus) return;
                 $('hud-vote-count').textContent = consensus.totalVotes || 0;
+
+                // Sub multiplier / count badge
+                const subBadge = $('hud-sub-badge');
+                if (state.activeVote && state.activeVote.subMultiplier > 1) {
+                    subBadge.textContent = `Subs ${state.activeVote.subMultiplier}x`;
+                    subBadge.style.display = 'inline-block';
+                } else if (consensus.subVotes > 0) {
+                    subBadge.textContent = `${consensus.subVotes} sub votes`;
+                    subBadge.style.display = 'inline-block';
+                } else {
+                    subBadge.style.display = 'none';
+                }
+
+                // Consensus agreement pill
+                const agreePill = $('hud-agreement-pill');
+                if (consensus.totalVotes > 0 && consensus.agreementPercent > 0) {
+                    agreePill.textContent = `${consensus.agreementPercent}% agree`;
+                    agreePill.style.display = 'inline-block';
+                } else {
+                    agreePill.style.display = 'none';
+                }
 
                 const meterBar = $('hud-meter-bar');
                 meterBar.innerHTML = '';
@@ -1319,6 +1500,21 @@
                         meterBar.appendChild(seg);
                     }
                 });
+
+                // Recent voters ticker
+                const tickerEl = $('hud-voters-ticker');
+                if (consensus.recentVoters && consensus.recentVoters.length > 0) {
+                    tickerEl.innerHTML = '<span style="opacity:0.75;">Recent:</span>' + consensus.recentVoters.map(v => `
+                        <span class="voter-chip">
+                            ${v.isSub ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="color:#a371f7;display:inline-block;vertical-align:-1px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' : ''}
+                            ${esc(v.user)}:
+                            <span class="voter-tier" style="background-color:${esc(v.tierColor)};">${esc(v.tierLabel)}</span>
+                        </span>
+                    `).join('');
+                    tickerEl.style.display = 'flex';
+                } else {
+                    tickerEl.style.display = 'none';
+                }
 
                 if (consensus.consensusTier) {
                     $('hud-consensus-label').textContent = `${consensus.consensusTier.label} (${consensus.totalVotes} votes)`;
@@ -2076,7 +2272,15 @@
                 $('setting-duration').value = state.settings.defaultDuration || 60;
                 $('setting-allow-change').checked = state.settings.allowVoteChange !== false;
                 $('setting-announce-chat').checked = state.settings.announceChat !== false;
+                $('setting-sound').checked = state.settings.soundEnabled !== false;
+                $('setting-volume').value = state.settings.soundVolume !== undefined ? state.settings.soundVolume : 75;
+                $('setting-volume-label').textContent = `${$('setting-volume').value}%`;
                 openModal('modal-settings');
+            });
+
+            $('setting-volume').addEventListener('input', (e) => {
+                $('setting-volume-label').textContent = `${e.target.value}%`;
+                TierAudio.volume = Number(e.target.value) / 100;
             });
 
             $('btn-save-settings').addEventListener('click', async () => {
@@ -2086,6 +2290,11 @@
                 const defaultDuration = Math.max(10, Number($('setting-duration').value) || 60);
                 const allowVoteChange = $('setting-allow-change').checked;
                 const announceChat = $('setting-announce-chat').checked;
+                const soundEnabled = $('setting-sound').checked;
+                const soundVolume = Number($('setting-volume').value) || 75;
+
+                TierAudio.enabled = soundEnabled;
+                TierAudio.volume = soundVolume / 100;
 
                 await fetch('/api/tier-list', {
                     method: 'PUT',
@@ -2097,7 +2306,9 @@
                             subMultiplier,
                             defaultDuration,
                             allowVoteChange,
-                            announceChat
+                            announceChat,
+                            soundEnabled,
+                            soundVolume
                         }
                     })
                 });
@@ -2106,6 +2317,224 @@
                 showToast('Settings saved');
                 fetchState();
             });
+
+            // ----------------------------------------------------------------
+            // High-Resolution PNG Image Export
+            // ----------------------------------------------------------------
+
+            async function exportTierListImage() {
+                showToast('Generating high-resolution tier list image…');
+
+                const width = 1920;
+                const headerHeight = 110;
+                const tierHeaderWidth = 220;
+                const cardSize = 110;
+                const cardGap = 10;
+                const rowPadding = 12;
+                const contentWidth = width - tierHeaderWidth;
+
+                const rankedTiers = state.tiers.slice();
+
+                const tierRowData = rankedTiers.map(tier => {
+                    const items = state.items
+                        .filter(i => i.tierId === tier.id)
+                        .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+                    const availableWidth = contentWidth - (rowPadding * 2);
+                    const itemsPerRow = Math.max(1, Math.floor((availableWidth + cardGap) / (cardSize + cardGap)));
+                    const rowCount = Math.max(1, Math.ceil(items.length / itemsPerRow));
+                    const rowHeight = Math.max(120, (rowCount * (cardSize + cardGap)) - cardGap + (rowPadding * 2));
+
+                    return { tier, items, itemsPerRow, rowHeight };
+                });
+
+                const totalRowsHeight = tierRowData.reduce((sum, r) => sum + r.rowHeight, 0);
+                const footerHeight = 44;
+                const totalHeight = headerHeight + totalRowsHeight + footerHeight;
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = totalHeight;
+                const ctx = canvas.getContext('2d');
+
+                // 1. Overall Dark Background
+                ctx.fillStyle = '#0d1117';
+                ctx.fillRect(0, 0, width, totalHeight);
+
+                // 2. Header
+                ctx.fillStyle = '#161b22';
+                ctx.fillRect(0, 0, width, headerHeight);
+                ctx.fillStyle = '#30363d';
+                ctx.fillRect(0, headerHeight - 1, width, 1);
+
+                // Title
+                ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                ctx.fillStyle = '#f0f6fc';
+                ctx.textBaseline = 'middle';
+                const titleText = state.title || 'Community Tier List';
+                ctx.fillText(titleText, 32, headerHeight / 2 - 12);
+
+                // Subtitle / Date
+                ctx.font = '15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                ctx.fillStyle = '#8b949e';
+                const totalRanked = state.items.filter(i => i.tierId).length;
+                const subtitle = `${totalRanked} items ranked across ${state.tiers.length} tiers · ${new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`;
+                ctx.fillText(subtitle, 32, headerHeight / 2 + 20);
+
+                // Watermark right side
+                ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                ctx.fillStyle = '#58a6ff';
+                ctx.textAlign = 'right';
+                ctx.fillText('StreamPulse', width - 32, headerHeight / 2);
+                ctx.textAlign = 'left';
+
+                const loadImage = (url) => new Promise((resolve) => {
+                    if (!url) return resolve(null);
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => resolve(img);
+                    img.onerror = () => resolve(null);
+                    img.src = url;
+                });
+
+                const imageCache = new Map();
+                for (const row of tierRowData) {
+                    for (const item of row.items) {
+                        if (item.imageUrl && !imageCache.has(item.imageUrl)) {
+                            imageCache.set(item.imageUrl, await loadImage(item.imageUrl));
+                        }
+                    }
+                }
+
+                // 3. Render Tier Rows
+                let currentY = headerHeight;
+
+                for (const row of tierRowData) {
+                    const { tier, items, itemsPerRow, rowHeight } = row;
+
+                    // Tier Header box
+                    ctx.fillStyle = tier.color || '#ff7f7f';
+                    ctx.fillRect(0, currentY, tierHeaderWidth, rowHeight);
+
+                    // Tier Header Label
+                    ctx.save();
+                    ctx.fillStyle = '#111111';
+                    ctx.shadowColor = 'rgba(255, 255, 255, 0.4)';
+                    ctx.shadowBlur = 2;
+                    ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(tier.label, tierHeaderWidth / 2, currentY + (rowHeight / 2) - (tier.description ? 10 : 0));
+                    if (tier.description) {
+                        ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+                        ctx.shadowBlur = 0;
+                        ctx.fillText(tier.description, tierHeaderWidth / 2, currentY + (rowHeight / 2) + 16);
+                    }
+                    ctx.restore();
+
+                    // Content background
+                    ctx.fillStyle = '#161b22';
+                    ctx.fillRect(tierHeaderWidth, currentY, contentWidth, rowHeight);
+
+                    // Draw items
+                    items.forEach((item, index) => {
+                        const col = index % itemsPerRow;
+                        const r = Math.floor(index / itemsPerRow);
+                        const cardX = tierHeaderWidth + rowPadding + (col * (cardSize + cardGap));
+                        const cardY = currentY + rowPadding + (r * (cardSize + cardGap));
+
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.roundRect(cardX, cardY, cardSize, cardSize, 6);
+                        ctx.clip();
+
+                        const img = imageCache.get(item.imageUrl);
+                        if (img) {
+                            const imgAspect = img.width / img.height;
+                            let sx = 0, sy = 0, sWidth = img.width, sHeight = img.height;
+                            if (imgAspect > 1) {
+                                sWidth = img.height;
+                                sx = (img.width - sWidth) / 2;
+                            } else {
+                                sHeight = img.width;
+                                sy = (img.height - sHeight) / 2;
+                            }
+                            ctx.drawImage(img, sx, sy, sWidth, sHeight, cardX, cardY, cardSize, cardSize);
+                        } else {
+                            ctx.fillStyle = '#21262d';
+                            ctx.fillRect(cardX, cardY, cardSize, cardSize);
+                            ctx.fillStyle = '#8b949e';
+                            ctx.font = '11px sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText('No Image', cardX + cardSize / 2, cardY + cardSize / 2);
+                        }
+
+                        // Caption bar
+                        const capHeight = 22;
+                        const grad = ctx.createLinearGradient(cardX, cardY + cardSize - capHeight - 8, cardX, cardY + cardSize);
+                        grad.addColorStop(0, 'rgba(0,0,0,0)');
+                        grad.addColorStop(0.3, 'rgba(0,0,0,0.7)');
+                        grad.addColorStop(1, 'rgba(0,0,0,0.92)');
+                        ctx.fillStyle = grad;
+                        ctx.fillRect(cardX, cardY + cardSize - capHeight - 8, cardSize, capHeight + 8);
+
+                        ctx.fillStyle = '#ffffff';
+                        ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(item.name, cardX + cardSize / 2, cardY + cardSize - (capHeight / 2));
+
+                        ctx.restore();
+
+                        // Border around card
+                        ctx.save();
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.roundRect(cardX, cardY, cardSize, cardSize, 6);
+                        ctx.stroke();
+                        ctx.restore();
+                    });
+
+                    // Row bottom border
+                    ctx.fillStyle = '#30363d';
+                    ctx.fillRect(0, currentY + rowHeight - 1, width, 1);
+
+                    currentY += rowHeight;
+                }
+
+                // 4. Footer
+                ctx.fillStyle = '#0d1117';
+                ctx.fillRect(0, currentY, width, footerHeight);
+                ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                ctx.fillStyle = '#6e7681';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('Created with StreamPulse Tier List Maker', 32, currentY + (footerHeight / 2));
+                ctx.textAlign = 'right';
+                ctx.fillText('https://github.com/jarbochov/StreamPulse', width - 32, currentY + (footerHeight / 2));
+
+                // 5. Trigger download
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        showToast('Failed to create image blob');
+                        return;
+                    }
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    const cleanTitle = (state.title || 'tier-list').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                    a.download = `${cleanTitle}-${Date.now().toString(36)}.png`;
+                    a.href = url;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(url), 2000);
+                    showToast('High-res tier list PNG downloaded!');
+                }, 'image/png');
+            }
+
+            $('btn-export-image').addEventListener('click', exportTierListImage);
 
             // ----------------------------------------------------------------
             // Overlay URL Options & Launcher

@@ -1735,6 +1735,12 @@ function buildStatusSnapshot() {
             obs: Boolean(config.obs?.enabled)
         },
         obs: obsService.getStatus(),
+        tierList: {
+            title: tierListService.getState().title,
+            itemsCount: tierListService.getState().items.length,
+            tiersCount: tierListService.getState().tiers.length,
+            activeVote: tierListService.getState().activeVote
+        },
         overlayClients: wsService.getSourceCount(),
         websocketClients: wsService.getClientCount(),
         sessionActive,

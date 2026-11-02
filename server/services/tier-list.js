@@ -94,8 +94,10 @@ function calculateConsensus(vote, tiers) {
     let totalWeight = 0;
     let weightedIndexSum = 0;
     const weightedVoterIndices = [];
+    let subVotes = 0;
 
     for (const v of voterEntries) {
+        if (v.isSub) subVotes++;
         const tData = tierMap.get(v.tierId);
         if (!tData) continue;
         const weight = Math.max(1, Number(v.weight) || 1);
@@ -121,11 +123,28 @@ function calculateConsensus(vote, tiers) {
         };
     });
 
+    const recentVoters = voterEntries
+        .slice()
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+        .slice(0, 8)
+        .map(v => {
+            const tData = tierMap.get(v.tierId);
+            return {
+                user: v.user,
+                tierLabel: tData ? tData.tier.label : '?',
+                tierColor: tData ? tData.tier.color : '#888',
+                isSub: Boolean(v.isSub)
+            };
+        });
+
     if (totalWeight === 0) {
         return {
             mode: vote.consensusMode || 'weighted_mean',
             totalVotes: 0,
             totalWeight: 0,
+            subVotes: 0,
+            agreementPercent: 0,
+            recentVoters: [],
             distribution,
             consensusTier: null,
             consensusIndex: null
@@ -158,10 +177,16 @@ function calculateConsensus(vote, tiers) {
     }
 
     const consensusTier = tiers[consensusIndex] || tiers[0];
+    const winningData = tierMap.get(consensusTier.id);
+    const agreementPercent = voterEntries.length > 0 ? Math.round(((winningData?.count || 0) / voterEntries.length) * 100) : 0;
+
     return {
         mode,
         totalVotes: voterEntries.length,
         totalWeight,
+        subVotes,
+        agreementPercent,
+        recentVoters,
         distribution,
         consensusTier,
         consensusIndex
@@ -196,7 +221,9 @@ function createTierListService({
             subMultiplier: 1,
             allowVoteChange: true,
             defaultDuration: 60,
-            announceChat: true
+            announceChat: true,
+            soundEnabled: true,
+            soundVolume: 75
         }
     };
 
@@ -443,13 +470,19 @@ function createTierListService({
     // ------------------------------------------------------------------------
 
     function startVote({
-        itemId,
+        itemId = null,
         duration = 60,
         consensusMode = null,
         subMultiplier = null
     } = {}) {
-        const item = state.items.find(i => i.id === itemId);
-        if (!item) throw new Error('Item not found');
+        let item = null;
+        if (itemId) {
+            item = state.items.find(i => i.id === itemId);
+        } else {
+            // Auto-select first unranked item
+            item = state.items.find(i => !i.tierId);
+        }
+        if (!item) throw new Error('Item not found or no unranked items available');
 
         if (voteTimer) {
             clearTimeout(voteTimer);

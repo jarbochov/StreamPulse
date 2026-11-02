@@ -213,6 +213,20 @@ test('Companion & API Integration: HTTP GET/POST triggers and status snapshot', 
             gamePlan: {
                 playingNow: { id: 'g1', name: 'Chrono Trigger' }
             },
+            tierList: {
+                title: 'Community Tier List',
+                itemsCount: 5,
+                tiersCount: 6,
+                activeVote: {
+                    itemId: 'i1',
+                    itemName: 'Chrono Trigger',
+                    consensus: {
+                        totalVotes: 12,
+                        agreementPercent: 83,
+                        consensusTier: { label: 'S' }
+                    }
+                }
+            },
             customVars: [{ name: 'death_count', value: 7, type: 'counter' }]
         };
     };
@@ -457,5 +471,25 @@ test('Companion & API Integration: HTTP GET/POST triggers and status snapshot', 
         const uptime = await request('/api/status/field/uptime');
         assert.equal(uptime.status, 200);
         assert.equal(uptime.text, '01:00:00');
+
+        const tierVoting = await request('/api/status/field/tier_voting');
+        assert.equal(tierVoting.status, 200);
+        assert.equal(tierVoting.text, '1');
+
+        const tierItem = await request('/api/status/field/tier_item');
+        assert.equal(tierItem.status, 200);
+        assert.equal(tierItem.text, 'Chrono Trigger');
+
+        const tierConsensus = await request('/api/status/field/tier_consensus');
+        assert.equal(tierConsensus.status, 200);
+        assert.equal(tierConsensus.text, 'S');
+
+        const tierAgreement = await request('/api/status/field/tier_agreement');
+        assert.equal(tierAgreement.status, 200);
+        assert.equal(tierAgreement.text, '83%');
+
+        const tierVotes = await request('/api/status/field/tier_votes');
+        assert.equal(tierVotes.status, 200);
+        assert.equal(tierVotes.text, '12');
     });
 });
