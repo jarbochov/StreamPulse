@@ -39,12 +39,57 @@ const TWITCH_CHEERMOTES = [
     { min: 1, id: '1', name: 'Cheer1', url: 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/1/4.gif', color: '#979797' }
 ];
 
-function getTwitchCheermote(bits = 1) {
+const makeSpecialTiers = (slug, prefix) => [
+    { min: 10000, id: '10000', name: `${prefix}10000`, url: `https://d3aqoihi2n8ty8.cloudfront.net/actions/${slug}/dark/animated/10000/4.gif`, color: '#e005b9' },
+    { min: 5000, id: '5000', name: `${prefix}5000`, url: `https://d3aqoihi2n8ty8.cloudfront.net/actions/${slug}/dark/animated/5000/4.gif`, color: '#f430ff' },
+    { min: 1000, id: '1000', name: `${prefix}1000`, url: `https://d3aqoihi2n8ty8.cloudfront.net/actions/${slug}/dark/animated/1000/4.gif`, color: '#0099fe' },
+    { min: 100, id: '100', name: `${prefix}100`, url: `https://d3aqoihi2n8ty8.cloudfront.net/actions/${slug}/dark/animated/100/4.gif`, color: '#9c3ee8' },
+    { min: 1, id: '1', name: `${prefix}1`, url: `https://d3aqoihi2n8ty8.cloudfront.net/actions/${slug}/dark/animated/1/4.gif`, color: '#979797' }
+];
+
+const TWITCH_CHEERMOTE_FAMILIES = {
+    cheer: { id: 'cheer', prefix: 'Cheer', name: 'Default Cheer', tiers: TWITCH_CHEERMOTES },
+    kappa: { id: 'kappa', prefix: 'Kappa', name: 'Kappa', tiers: makeSpecialTiers('kappa', 'Kappa') },
+    trihard: { id: 'trihard', prefix: 'TriHard', name: 'TriHard', tiers: makeSpecialTiers('trihard', 'TriHard') },
+    kreygasm: { id: 'kreygasm', prefix: 'Kreygasm', name: 'Kreygasm', tiers: makeSpecialTiers('kreygasm', 'Kreygasm') },
+    swiftrage: { id: 'swiftrage', prefix: 'SwiftRage', name: 'SwiftRage', tiers: makeSpecialTiers('swiftrage', 'SwiftRage') },
+    '4head': { id: '4head', prefix: '4Head', name: '4Head', tiers: makeSpecialTiers('4head', '4Head') },
+    pjsalt: { id: 'pjsalt', prefix: 'PJSalt', name: 'PJSalt', tiers: makeSpecialTiers('pjsalt', 'PJSalt') },
+    showlove: { id: 'showlove', prefix: 'ShowLove', name: 'ShowLove', tiers: makeSpecialTiers('showlove', 'ShowLove') },
+    party: { id: 'party', prefix: 'Party', name: 'Party', tiers: makeSpecialTiers('party', 'Party') },
+    pride: { id: 'pride', prefix: 'Pride', name: 'Pride', tiers: makeSpecialTiers('pride', 'Pride') },
+    frankerz: { id: 'frankerz', prefix: 'FrankerZ', name: 'FrankerZ', tiers: makeSpecialTiers('frankerz', 'FrankerZ') },
+    vohiyo: { id: 'vohiyo', prefix: 'VoHiYo', name: 'VoHiYo', tiers: makeSpecialTiers('vohiyo', 'VoHiYo') },
+    heyguys: { id: 'heyguys', prefix: 'HeyGuys', name: 'HeyGuys', tiers: makeSpecialTiers('heyguys', 'HeyGuys') },
+    dansgame: { id: 'dansgame', prefix: 'DansGame', name: 'DansGame', tiers: makeSpecialTiers('dansgame', 'DansGame') },
+    failfish: { id: 'failfish', prefix: 'FailFish', name: 'FailFish', tiers: makeSpecialTiers('failfish', 'FailFish') },
+    notlikethis: { id: 'notlikethis', prefix: 'NotLikeThis', name: 'NotLikeThis', tiers: makeSpecialTiers('notlikethis', 'NotLikeThis') },
+    mrdestructoid: { id: 'mrdestructoid', prefix: 'MrDestructoid', name: 'MrDestructoid', tiers: makeSpecialTiers('mrdestructoid', 'MrDestructoid') },
+    cheerwhal: { id: 'cheerwhal', prefix: 'Cheerwhal', name: 'Cheerwhal', tiers: makeSpecialTiers('cheerwhal', 'Cheerwhal') },
+    shamrock: { id: 'shamrock', prefix: 'Shamrock', name: 'Shamrock', tiers: makeSpecialTiers('shamrock', 'Shamrock') },
+    anon: { id: 'anon', prefix: 'Anon', name: 'Anon', tiers: makeSpecialTiers('anon', 'Anon') }
+};
+
+const CHEERMOTE_REGEX = /\b(cheer|kappa|trihard|kreygasm|swiftrage|4head|pjsalt|showlove|party|pride|frankerz|vohiyo|heyguys|dansgame|failfish|notlikethis|mrdestructoid|cheerwhal|shamrock|anon)(\d+)\b/i;
+
+function extractCheermoteFromText(text) {
+    if (!text || typeof text !== 'string') return null;
+    const match = text.match(CHEERMOTE_REGEX);
+    if (!match) return null;
+    return {
+        prefix: match[1].toLowerCase(),
+        bits: parseInt(match[2], 10)
+    };
+}
+
+function getTwitchCheermote(bits = 1, prefix = 'cheer') {
+    const key = String(prefix || 'cheer').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const family = TWITCH_CHEERMOTE_FAMILIES[key] || TWITCH_CHEERMOTE_FAMILIES.cheer;
     const amt = Number(bits) || 1;
-    for (const tier of TWITCH_CHEERMOTES) {
-        if (amt >= tier.min) return tier;
+    for (const tier of family.tiers) {
+        if (amt >= tier.min) return { ...tier, prefix: family.prefix };
     }
-    return TWITCH_CHEERMOTES[TWITCH_CHEERMOTES.length - 1];
+    return { ...family.tiers[family.tiers.length - 1], prefix: family.prefix };
 }
 
 const clamp = (value, min, max, fallback) => {
@@ -90,6 +135,7 @@ function normalizeVariant(input = {}, index = 0) {
             : [],
         emojiEvery: clamp(input.emojiEvery, 0, 1e6, 0),
         emojiMax: Math.round(clamp(input.emojiMax, 1, 25, 8)),
+        cheermoteFamily: str(input.cheermoteFamily || input.cheermoteStyle, 40).toLowerCase() || 'auto',
         sound: str(input.sound, 2000),
         volume: clamp(input.volume, 0, 100, 70),
         animIn: ANIM_IN.includes(input.animIn) ? input.animIn : 'pop',
@@ -442,7 +488,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
     }
 
     // Highest ladder step at or below the amount wins; "one per N" repeats it, capped by emojiMax.
-    function pickEmote(variant, amount, rule = null) {
+    function pickEmote(variant, amount, rule = null, ev = null) {
         let emoji = variant.emoji;
         let emojiUrl = variant.emojiUrl || (/^(https?:\/\/|\/|data:image\/)/i.test(variant.emoji) ? variant.emoji : '');
         for (const step of variant.emojiLadder) {
@@ -454,7 +500,11 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
         }
         // If this is a bits alert and no custom media/emote was specified, fall back to Twitch official cheermote
         if (rule && rule.trigger === 'bits' && !emoji && !emojiUrl && !variant.image && !variant.video) {
-            const cheermote = getTwitchCheermote(amount);
+            const detected = ev?.message ? extractCheermoteFromText(ev.message) : null;
+            const preferredPrefix = (variant.cheermoteFamily && variant.cheermoteFamily !== 'auto')
+                ? variant.cheermoteFamily
+                : (detected?.prefix || 'cheer');
+            const cheermote = getTwitchCheermote(amount, preferredPrefix);
             if (cheermote) {
                 emoji = cheermote.name;
                 emojiUrl = cheermote.url;
@@ -472,7 +522,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
 
     function buildPayload(rule, variant, ev, test) {
         const tokens = tokensFor(ev);
-        const emote = pickEmote(variant, eventAmount(ev), rule);
+        const emote = pickEmote(variant, eventAmount(ev), rule, ev);
         return {
             id: `a${Date.now().toString(36)}${(counter++).toString(36)}`,
             ruleId: rule.id,
@@ -487,6 +537,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             videoSound: Boolean(variant.videoSound),
             videoVolume: variant.videoVolume !== undefined ? variant.videoVolume : (variant.volume ?? 70),
             videoLoop: variant.videoLoop !== false,
+            cheermoteFamily: variant.cheermoteFamily || 'auto',
             emoji: emote.emoji,
             emojiUrl: emote.emojiUrl || '',
             emojiRepeat: emote.repeat,
@@ -813,4 +864,14 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
     };
 }
 
-module.exports = { createAlertEngine, normalizeConfig, TRIGGERS, ANIM_IN, ANIM_OUT, TWITCH_CHEERMOTES, getTwitchCheermote };
+module.exports = {
+    createAlertEngine,
+    normalizeConfig,
+    TRIGGERS,
+    ANIM_IN,
+    ANIM_OUT,
+    TWITCH_CHEERMOTES,
+    TWITCH_CHEERMOTE_FAMILIES,
+    getTwitchCheermote,
+    extractCheermoteFromText
+};

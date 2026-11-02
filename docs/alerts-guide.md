@@ -18,11 +18,14 @@ Emote-driven alerts can celebrate with 60fps broadcast animations:
 
 Adjust **Particle Density** (10 to 75 particles) and **Emote Size (%)** to fine-tune the celebration for your layout.
 
-### Official Twitch Bits Cheermotes
-Bits alerts feature out-of-the-box integration with official Twitch animated Cheermotes across all seven tiers:
-- **Tiers**: Cheer1 (Gray), Cheer100 (Purple), Cheer500 (Cyan), Cheer1000 (Blue), Cheer5000 (Magenta), Cheer10000 (Red-Pink), and Cheer100000 (Red).
-- **Auto-Fallback**: When a Bits alert rule has no custom media or emote configured, StreamPulse automatically displays the appropriate official animated Cheermote GIF corresponding to the bits amount.
-- **Ladder Preset**: Use the **Use Cheermotes Ladder** button in the Emote Ladder tab to automatically populate all seven tiers with official animated GIFs and progressive bit thresholds in a single click. Quick-pick Cheermote chips are also available to insert individual tiers easily.
+### Official Twitch Bits Cheermotes & Special Cheermotes
+Bits alerts feature comprehensive out-of-the-box integration with official Twitch animated Cheermotes across both classic and special editions:
+- **Classic Diamond Tiers**: Cheer1 (Gray), Cheer100 (Purple), Cheer500 (Cyan), Cheer1000 (Blue), Cheer5000 (Magenta), Cheer10000 (Red-Pink), and Cheer100000 (Red).
+- **Special Global Cheermote Families**: Full support for Twitch's 20 iconic animated Cheermotes across all tiers: **Kappa**, **Party**, **TriHard**, **FrankerZ**, **Kreygasm**, **ShowLove**, **Pride / Rainbow**, **SwiftRage**, **4Head**, **PJSalt**, **VoHiYo**, **HeyGuys**, **DansGame**, **FailFish**, **NotLikeThis**, **MrDestructoid**, **Cheerwhal**, **Shamrock**, and **Anon**.
+- **Auto-Detect From Viewer's Cheer**: When set to *Auto-match viewer's cheer* (default), StreamPulse automatically extracts the exact cheermote used in the cheer message (e.g., `Kappa5000`, `Party100`, `ShowLove1000`) and displays that specific animated GIF on stream.
+- **Cheermote Style Theme Selector**: Lock any variant to a preferred family (e.g. force Kappa or Party) or auto-detect from chat.
+- **Ladder Preset & Dynamic Chips**: Click **Use Cheermotes Ladder** to instantly populate the variant's ladder with animated GIFs from the selected family (e.g., Kappa 1 to 10,000). Quick-pick chips update dynamically to allow one-click insertion of individual tiers.
+- **Channel Custom Cheermotes**: When connected to the Twitch API, Affiliate and Partner custom channel Cheermotes are automatically discovered and made available in the selector.
 
 ### Emote Ladder vs. Milestone Variants for Bits
 When designing bits or subscription alerts, decide between an Emote Ladder or Milestone Variants:

@@ -894,7 +894,7 @@ test('webhook delay executes HTTP call after configured seconds and cancels clea
 });
 
 test('Twitch bits cheermote auto-fallback resolves official animated GIFs for bits alerts', () => {
-    const { TWITCH_CHEERMOTES, getTwitchCheermote } = require('../server/services/alerts.js');
+    const { TWITCH_CHEERMOTES, TWITCH_CHEERMOTE_FAMILIES, getTwitchCheermote, extractCheermoteFromText } = require('../server/services/alerts.js');
     assert.equal(TWITCH_CHEERMOTES.length, 7);
     assert.equal(getTwitchCheermote(1).name, 'Cheer1');
     assert.equal(getTwitchCheermote(50).name, 'Cheer1');
@@ -906,34 +906,78 @@ test('Twitch bits cheermote auto-fallback resolves official animated GIFs for bi
     assert.equal(getTwitchCheermote(100000).name, 'Cheer100000');
     assert.equal(getTwitchCheermote(500000).name, 'Cheer100000');
 
+    // Special global cheermotes catalog
+    assert.ok(TWITCH_CHEERMOTE_FAMILIES.kappa);
+    assert.ok(TWITCH_CHEERMOTE_FAMILIES.party);
+    assert.ok(TWITCH_CHEERMOTE_FAMILIES.trihard);
+    assert.ok(TWITCH_CHEERMOTE_FAMILIES.kreygasm);
+    assert.ok(TWITCH_CHEERMOTE_FAMILIES.showlove);
+    assert.ok(TWITCH_CHEERMOTE_FAMILIES.frankerz);
+    assert.equal(TWITCH_CHEERMOTE_FAMILIES.kappa.tiers.length, 5);
+    assert.equal(getTwitchCheermote(5000, 'kappa').name, 'Kappa5000');
+    assert.equal(getTwitchCheermote(5000, 'kappa').url, 'https://d3aqoihi2n8ty8.cloudfront.net/actions/kappa/dark/animated/5000/4.gif');
+    assert.equal(getTwitchCheermote(100, 'party').name, 'Party100');
+    assert.equal(getTwitchCheermote(100, 'party').url, 'https://d3aqoihi2n8ty8.cloudfront.net/actions/party/dark/animated/100/4.gif');
+
+    // Extract cheermote from chat text
+    const kMatch = extractCheermoteFromText('Kappa5000 That was an incredible round!');
+    assert.equal(kMatch.prefix, 'kappa');
+    assert.equal(kMatch.bits, 5000);
+    const pMatch = extractCheermoteFromText('party100 hype!');
+    assert.equal(pMatch.prefix, 'party');
+    assert.equal(pMatch.bits, 100);
+    assert.equal(extractCheermoteFromText('just regular chat text without cheers'), null);
+
     const { engine, cleanup } = createTempEngine({
         settings: { enabled: true, gapSeconds: 0 },
-        rules: [{
-            id: 'cheer-bits-rule',
-            name: 'Cheer Bits Alert',
-            enabled: true,
-            trigger: 'bits',
-            variants: [
-                { id: 'v-no-custom-emote', title: 'Cheer Bits' } // No emoji, image, or video
-            ]
-        }]
+        rules: [
+            {
+                id: 'cheer-bits-rule',
+                name: 'Cheer Bits Alert',
+                enabled: true,
+                trigger: 'bits',
+                variants: [
+                    { id: 'v-auto', title: 'Cheer Bits' } // auto-detection
+                ]
+            },
+            {
+                id: 'party-bits-rule',
+                name: 'Party Bits Alert',
+                enabled: true,
+                trigger: 'bits',
+                variants: [
+                    { id: 'v-party', title: 'Party Cheer', cheermoteFamily: 'party' }
+                ]
+            }
+        ]
     });
 
     try {
-        // 1. Cheer 500 bits: auto-resolves Cheer500 GIF
+        // 1. Cheer 500 bits (default message): auto-resolves Cheer500 GIF
         const p500 = engine.handleEvent({ type: 'bits', user: 'CheerMaster', amount: 500, bits: 500 });
         assert.ok(p500);
         assert.equal(p500.emoji, 'Cheer500');
         assert.equal(p500.emojiUrl, 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/500/4.gif');
 
-        // 2. Cheer 10000 bits: auto-resolves Cheer10000 GIF
-        const p10k = engine.handleEvent({ type: 'bits', user: 'CheerWhale', amount: 10000, bits: 10000 });
-        assert.ok(p10k);
-        assert.equal(p10k.emoji, 'Cheer10000');
-        assert.equal(p10k.emojiUrl, 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/10000/4.gif');
+        // 2. Viewer cheers with special cheermote in chat: "Kappa5000 Epic Play!" -> auto-resolves Kappa5000 GIF
+        const pKappa = engine.handleEvent({ type: 'bits', user: 'KappaKing', amount: 5000, bits: 5000, message: 'Kappa5000 Epic Play!' });
+        assert.ok(pKappa);
+        assert.equal(pKappa.emoji, 'Kappa5000');
+        assert.equal(pKappa.emojiUrl, 'https://d3aqoihi2n8ty8.cloudfront.net/actions/kappa/dark/animated/5000/4.gif');
 
-        // 3. fireRule preview also auto-resolves official Cheermote
-        const preview = engine.fireRule('cheer-bits-rule', 'v-no-custom-emote', { amount: 1000 });
+        // 3. Viewer cheers with "Party1000": auto-resolves Party1000 GIF
+        const pParty = engine.handleEvent({ type: 'bits', user: 'PartyAnimal', amount: 1000, bits: 1000, message: 'Party1000 Lets go!' });
+        assert.ok(pParty);
+        assert.equal(pParty.emoji, 'Party1000');
+        assert.equal(pParty.emojiUrl, 'https://d3aqoihi2n8ty8.cloudfront.net/actions/party/dark/animated/1000/4.gif');
+
+        // 4. Variant with explicit cheermoteFamily: 'party' forces Party even without message prefix
+        const pForced = engine.fireRule('party-bits-rule', 'v-party', { amount: 5000, message: 'Regular message' });
+        assert.equal(pForced.emoji, 'Party5000');
+        assert.equal(pForced.emojiUrl, 'https://d3aqoihi2n8ty8.cloudfront.net/actions/party/dark/animated/5000/4.gif');
+
+        // 5. fireRule preview also auto-resolves official Cheermote
+        const preview = engine.fireRule('cheer-bits-rule', 'v-auto', { amount: 1000 });
         assert.equal(preview.emoji, 'Cheer1000');
         assert.equal(preview.emojiUrl, 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/1000/4.gif');
     } finally {

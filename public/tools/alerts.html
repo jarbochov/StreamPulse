@@ -1405,13 +1405,15 @@
         { min: 100000, name: 'Cheer100000', url: 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/100000/4.gif', color: '#f64747' }
     ];
 
-    let channelEmotes = [], twitchCheermotes = [];
+    let channelEmotes = [], twitchCheermotes = [], cheermoteFamilies = {}, customCheermotes = [];
     async function loadChannelEmotes() {
         try {
             const data = await api('/api/channel-emotes');
             channelEmotes = Array.isArray(data.emotes) ? data.emotes : [];
-            twitchCheermotes = Array.isArray(data.cheermotes) ? data.cheermotes : [];
-        } catch { channelEmotes = []; twitchCheermotes = []; }
+            twitchCheermotes = Array.isArray(data.cheermotes) ? data.cheermotes : DEFAULT_CHEERMOTES;
+            cheermoteFamilies = (data.families && typeof data.families === 'object') ? data.families : {};
+            customCheermotes = Array.isArray(data.customCheermotes) ? data.customCheermotes : [];
+        } catch { channelEmotes = []; twitchCheermotes = DEFAULT_CHEERMOTES; cheermoteFamilies = {}; customCheermotes = []; }
     }
 
     async function api(url, options) {
@@ -1735,15 +1737,51 @@
                 </div>
             </div>` : '';
 
-        const cheermotesList = (twitchCheermotes.length ? twitchCheermotes : DEFAULT_CHEERMOTES);
+        const activeFamilyKey = (v.cheermoteFamily && v.cheermoteFamily !== 'auto') ? v.cheermoteFamily.toLowerCase() : 'cheer';
+        const activeFamily = cheermoteFamilies[activeFamilyKey] || customCheermotes.find(c => c.prefix.toLowerCase() === activeFamilyKey) || cheermoteFamilies.cheer;
+        const cheermotesList = activeFamily?.tiers || (twitchCheermotes.length ? twitchCheermotes : DEFAULT_CHEERMOTES);
         const cheermotesHtml = r.trigger === 'bits' ? `
             <div class="fld" style="margin-top:0.45rem;padding:0.5rem 0.65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.35rem;">
-                    <span style="font-size:0.75rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:0.35rem;">
-                        ${ICONS.zap} Official Twitch Cheermotes (${cheermotesList.length})
-                    </span>
-                    <button type="button" class="btn sm" data-populate-cheermotes="${i}" style="font-size:0.68rem;padding:2px 8px;" title="Auto-populate the ladder with official Twitch bits badges">
-                        ${ICONS.plus} Use Cheermotes Ladder
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.45rem;flex-wrap:wrap;gap:0.4rem;">
+                    <div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;">
+                        <span style="font-size:0.75rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:0.35rem;">
+                            ${ICONS.zap} Twitch Cheermotes (${activeFamily?.name || activeFamily?.prefix || 'Cheer'})
+                        </span>
+                        <select data-v="${i}.cheermoteFamily" style="background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:0.72rem;">
+                            <option value="auto"${(!v.cheermoteFamily || v.cheermoteFamily === 'auto') ? ' selected' : ''}>Auto-match viewer's cheer (Kappa, Party, Cheer, etc.)</option>
+                            <option value="cheer"${v.cheermoteFamily === 'cheer' ? ' selected' : ''}>Default Cheer (Diamond badges)</option>
+                            <optgroup label="Special Global Cheermotes">
+                                <option value="kappa"${v.cheermoteFamily === 'kappa' ? ' selected' : ''}>Kappa</option>
+                                <option value="party"${v.cheermoteFamily === 'party' ? ' selected' : ''}>Party</option>
+                                <option value="trihard"${v.cheermoteFamily === 'trihard' ? ' selected' : ''}>TriHard</option>
+                                <option value="kreygasm"${v.cheermoteFamily === 'kreygasm' ? ' selected' : ''}>Kreygasm</option>
+                                <option value="showlove"${v.cheermoteFamily === 'showlove' ? ' selected' : ''}>ShowLove</option>
+                                <option value="pride"${v.cheermoteFamily === 'pride' ? ' selected' : ''}>Pride / Rainbow</option>
+                                <option value="frankerz"${v.cheermoteFamily === 'frankerz' ? ' selected' : ''}>FrankerZ</option>
+                                <option value="swiftrage"${v.cheermoteFamily === 'swiftrage' ? ' selected' : ''}>SwiftRage</option>
+                                <option value="4head"${v.cheermoteFamily === '4head' ? ' selected' : ''}>4Head</option>
+                                <option value="pjsalt"${v.cheermoteFamily === 'pjsalt' ? ' selected' : ''}>PJSalt</option>
+                                <option value="vohiyo"${v.cheermoteFamily === 'vohiyo' ? ' selected' : ''}>VoHiYo</option>
+                                <option value="heyguys"${v.cheermoteFamily === 'heyguys' ? ' selected' : ''}>HeyGuys</option>
+                                <option value="dansgame"${v.cheermoteFamily === 'dansgame' ? ' selected' : ''}>DansGame</option>
+                                <option value="failfish"${v.cheermoteFamily === 'failfish' ? ' selected' : ''}>FailFish</option>
+                                <option value="notlikethis"${v.cheermoteFamily === 'notlikethis' ? ' selected' : ''}>NotLikeThis</option>
+                                <option value="mrdestructoid"${v.cheermoteFamily === 'mrdestructoid' ? ' selected' : ''}>MrDestructoid</option>
+                                <option value="cheerwhal"${v.cheermoteFamily === 'cheerwhal' ? ' selected' : ''}>Cheerwhal</option>
+                                <option value="shamrock"${v.cheermoteFamily === 'shamrock' ? ' selected' : ''}>Shamrock</option>
+                                <option value="anon"${v.cheermoteFamily === 'anon' ? ' selected' : ''}>Anon</option>
+                            </optgroup>
+                            ${customCheermotes.length ? `
+                                <optgroup label="Channel Custom Cheermotes">
+                                    ${customCheermotes.map(c => `
+                                        <option value="${esc(c.prefix.toLowerCase())}"${v.cheermoteFamily === c.prefix.toLowerCase() ? ' selected' : ''}>${esc(c.prefix)} (Custom)</option>
+                                    `).join('')}
+                                </optgroup>
+                            ` : ''}
+                        </select>
+                    </div>
+                    <button type="button" class="btn sm" data-populate-cheermotes="${i}" style="font-size:0.68rem;padding:2px 8px;" title="Auto-populate the ladder with bits badges from this family">
+                        ${ICONS.plus} Use ${esc(activeFamily?.prefix || 'Cheermotes')} Ladder
                     </button>
                 </div>
                 <div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
@@ -2650,7 +2688,7 @@
                 if (el.value === 'min') r.variants[i].gateMax = 0;
                 if (el.value === 'exact') r.variants[i].gateMax = r.variants[i].gateMin;
             }
-            if (key === 'videoSound' || key === 'gateMode' || key === 'gateMin' || key === 'gateMax' || key === 'gateMinOp' || key === 'gateMaxOp' || key === 'weight' || key === 'emoteEffect') renderEditor();
+            if (key === 'videoSound' || key === 'gateMode' || key === 'gateMin' || key === 'gateMax' || key === 'gateMinOp' || key === 'gateMaxOp' || key === 'weight' || key === 'emoteEffect' || key === 'cheermoteFamily') renderEditor();
         }
     });
 
@@ -2807,7 +2845,9 @@
         if (btn.dataset.populateCheermotes !== undefined) {
             const vi = Number(btn.dataset.populateCheermotes);
             if (r && r.variants[vi]) {
-                const cheermotesList = (twitchCheermotes.length ? twitchCheermotes : DEFAULT_CHEERMOTES);
+                const famKey = (r.variants[vi].cheermoteFamily && r.variants[vi].cheermoteFamily !== 'auto') ? r.variants[vi].cheermoteFamily.toLowerCase() : 'cheer';
+                const fam = cheermoteFamilies[famKey] || customCheermotes.find(c => c.prefix.toLowerCase() === famKey) || cheermoteFamilies.cheer;
+                const cheermotesList = fam?.tiers || (twitchCheermotes.length ? twitchCheermotes : DEFAULT_CHEERMOTES);
                 r.variants[vi].emojiLadder = cheermotesList.map(c => ({
                     min: c.min,
                     emoji: c.name,
@@ -2817,7 +2857,7 @@
                 r.variants[vi].emojiUrl = cheermotesList[0]?.url || '';
                 setDirty(true);
                 renderEditor();
-                toast('Populated Twitch Cheermotes ladder (1 to 100,000)');
+                toast(`Populated ${fam?.name || fam?.prefix || 'Twitch Cheermotes'} ladder (${cheermotesList.length} tiers)`);
             }
             return;
         }

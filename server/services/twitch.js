@@ -841,6 +841,41 @@ function createTwitchService(options = {}) {
         return cachedEmotes || [];
     }
 
+    let cachedCheermotes = null;
+    let cachedCheermotesAt = 0;
+
+    async function getCheermotes() {
+        const clientId = getClientId();
+        const broadcasterId = getBroadcasterId();
+        if (!clientId) return [];
+        const now = Date.now();
+        if (cachedCheermotes && now - cachedCheermotesAt < 300000) return cachedCheermotes;
+        const hasToken = await ensureToken();
+        if (!hasToken) return [];
+        try {
+            const params = broadcasterId ? { broadcaster_id: broadcasterId } : {};
+            const result = await twitchApiRequest('/bits/cheermotes', params);
+            if (result.status === 200 && Array.isArray(result.body?.data)) {
+                cachedCheermotes = result.body.data.map(item => ({
+                    prefix: item.prefix,
+                    type: item.type,
+                    tiers: (item.tiers || []).map(t => ({
+                        min: t.min_bits,
+                        id: String(t.id),
+                        name: `${item.prefix}${t.id}`,
+                        url: t.images?.dark?.animated?.['4'] || t.images?.dark?.animated?.['1'] || '',
+                        color: t.color || '#9c3ee8'
+                    }))
+                }));
+                cachedCheermotesAt = now;
+                return cachedCheermotes;
+            }
+        } catch (err) {
+            warn('[Twitch] Could not fetch cheermotes:', err.message);
+        }
+        return cachedCheermotes || [];
+    }
+
     return {
         loadStoredToken,
         saveToken,
@@ -867,6 +902,7 @@ function createTwitchService(options = {}) {
         fetchStreamInfo,
         fetchTwitchPoll,
         getChannelEmotes,
+        getCheermotes,
         recordFollowerSnapshot,
         recordSubSnapshot,
         getAccessToken: () => twitchAccessToken,

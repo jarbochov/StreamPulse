@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { sanitizeOverlayId } = require('../services/game-plan');
-const { TWITCH_CHEERMOTES } = require('../services/alerts');
+const { TWITCH_CHEERMOTES, TWITCH_CHEERMOTE_FAMILIES } = require('../services/alerts');
 const { readRequestBody, sendJson, sendText, sendError, parseJsonOrQuery } = require('./helpers');
 
 const ASSET_KIND_BY_EXT = {
@@ -356,7 +356,14 @@ function createOverlayRoutes({
                     }
                 }
                 const emotes = Array.from(emotesMap.values());
-                sendJson(res, { emotes, cheermotes: TWITCH_CHEERMOTES });
+                let customCheermotes = [];
+                if (twitchService && typeof twitchService.getCheermotes === 'function') {
+                    try {
+                        const twitchList = await twitchService.getCheermotes();
+                        customCheermotes = twitchList.filter(item => item.type === 'channel_custom' || !TWITCH_CHEERMOTE_FAMILIES[item.prefix.toLowerCase()]);
+                    } catch { /* ignore */ }
+                }
+                sendJson(res, { emotes, cheermotes: TWITCH_CHEERMOTES, families: TWITCH_CHEERMOTE_FAMILIES, customCheermotes });
             } catch (err) {
                 sendError(res, err, 500);
             }
@@ -364,7 +371,14 @@ function createOverlayRoutes({
         }
 
         if (pathname === '/api/cheermotes' && req.method === 'GET') {
-            sendJson(res, { cheermotes: TWITCH_CHEERMOTES });
+            let customCheermotes = [];
+            if (twitchService && typeof twitchService.getCheermotes === 'function') {
+                try {
+                    const twitchList = await twitchService.getCheermotes();
+                    customCheermotes = twitchList.filter(item => item.type === 'channel_custom' || !TWITCH_CHEERMOTE_FAMILIES[item.prefix.toLowerCase()]);
+                } catch { /* ignore */ }
+            }
+            sendJson(res, { cheermotes: TWITCH_CHEERMOTES, families: TWITCH_CHEERMOTE_FAMILIES, customCheermotes });
             return true;
         }
 
