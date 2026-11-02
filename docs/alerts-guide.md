@@ -18,6 +18,12 @@ Emote-driven alerts can celebrate with 60fps broadcast animations:
 
 Adjust **Particle Density** (10 to 75 particles) and **Emote Size (%)** to fine-tune the celebration for your layout.
 
+### Official Twitch Bits Cheermotes
+Bits alerts feature out-of-the-box integration with official Twitch animated Cheermotes across all seven tiers:
+- **Tiers**: Cheer1 (Gray), Cheer100 (Purple), Cheer500 (Cyan), Cheer1000 (Blue), Cheer5000 (Magenta), Cheer10000 (Red-Pink), and Cheer100000 (Red).
+- **Auto-Fallback**: When a Bits alert rule has no custom media or emote configured, StreamPulse automatically displays the appropriate official animated Cheermote GIF corresponding to the bits amount.
+- **Ladder Preset**: Use the **Use Cheermotes Ladder** button in the Emote Ladder tab to automatically populate all seven tiers with official animated GIFs and progressive bit thresholds in a single click. Quick-pick Cheermote chips are also available to insert individual tiers easily.
+
 ### Emote Ladder vs. Milestone Variants for Bits
 When designing bits or subscription alerts, decide between an Emote Ladder or Milestone Variants:
 - **Use an Emote Ladder when**: You want to keep the **same alert look and sound**, but want the emote to change (e.g. cheer badges) or trigger a heavier emote rain/party as bits increase (e.g. 100 bits drops Cheer100; 1,000 bits drops a heavy Cheer1000 party). Configure this in the **Visuals** tab under Emote Ladder.
@@ -26,7 +32,9 @@ When designing bits or subscription alerts, decide between an Emote Ladder or Mi
 ### Webhooks & External Automation (Bitfocus Companion)
 Alert rules can trigger external automation via HTTP POST or GET webhooks:
 - **Bitfocus Companion Integration**: Trigger buttons on your Stream Deck or surface by setting the URL to `http://<companion-ip>:8000/api/location/<page>/<row>/<column>/press` and choosing **POST** as the HTTP Method.
-- **Direct Webhook Testing**: Use the **Test Webhook** button directly inside the Actions card to verify connectivity and receive instant HTTP status feedback without needing a live stream event.
+- **Webhook Delay**: Set a delay in seconds (0 to 300s) before firing the HTTP request to synchronize hardware cues, lighting changes, or soundboard triggers with broadcast alert timings or video animations.
+- **Webhook Only (Silent Background Automation)**: Toggle **Webhook Only** on any rule to execute external automation and timer adjustments silently in the background without enqueuing an on-screen alert box, playing alert audio, or triggering page rotators/takeovers in custom overlays. Silent rules are recorded in the Alert Queue with a distinct cyan `Webhook` badge.
+- **Direct Webhook Testing**: Use the **Test Webhook** button directly inside the Actions card to verify connectivity and receive instant HTTP status feedback (`✓ 200 OK` or diagnostic advice) without needing a live stream event.
 - **Preview & Test Integration**: Clicking **Test Rule** or **Preview** runs configured actions so you can preview both on-screen overlays and external hardware triggers in tandem.
 
 Whether you prefer a quiet acknowledgement or a more theatrical reveal, the goal is to make the moment feel like yours—and keep the show in your hands.

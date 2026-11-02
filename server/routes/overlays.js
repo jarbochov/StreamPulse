@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { sanitizeOverlayId } = require('../services/game-plan');
+const { TWITCH_CHEERMOTES } = require('../services/alerts');
 const { readRequestBody, sendJson, sendText, sendError, parseJsonOrQuery } = require('./helpers');
 
 const ASSET_KIND_BY_EXT = {
@@ -355,10 +356,15 @@ function createOverlayRoutes({
                     }
                 }
                 const emotes = Array.from(emotesMap.values());
-                sendJson(res, { emotes });
+                sendJson(res, { emotes, cheermotes: TWITCH_CHEERMOTES });
             } catch (err) {
                 sendError(res, err, 500);
             }
+            return true;
+        }
+
+        if (pathname === '/api/cheermotes' && req.method === 'GET') {
+            sendJson(res, { cheermotes: TWITCH_CHEERMOTES });
             return true;
         }
 

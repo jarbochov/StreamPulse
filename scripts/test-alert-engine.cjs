@@ -770,3 +770,173 @@ test('POST /api/alerts/test-webhook route validates URL and returns companion no
         cleanup();
     }
 });
+
+test('webhookOnly alert rules fire webhooks silently without enqueuing to overlay or broadcasting', async () => {
+    const fetchCalls = [];
+    const origFetch = global.fetch;
+    global.fetch = async (url, opts = {}) => {
+        fetchCalls.push({ url: String(url), ...opts });
+        return { ok: true, status: 200, statusText: 'OK', text: async () => 'ok' };
+    };
+
+    const normalized = normalizeConfig({
+        rules: [
+            { id: 'r1', trigger: 'follow', webhookOnly: true },
+            { id: 'r2', trigger: 'bits', silent: true }
+        ]
+    });
+    assert.equal(normalized.rules[0].webhookOnly, true);
+    assert.equal(normalized.rules[1].webhookOnly, true);
+
+    const { engine, dispatched, cleanup } = createTempEngine({
+        settings: { enabled: true, gapSeconds: 0 },
+        rules: [{
+            id: 'silent-companion-rule',
+            name: 'Silent Companion Automation',
+            enabled: true,
+            webhookOnly: true,
+            trigger: 'bits',
+            conditions: { minAmount: 100 },
+            variants: [{ id: 'v1', title: 'Silent 100 Bits' }],
+            actions: {
+                timer: { enabled: false },
+                http: { enabled: true, url: 'http://192.168.1.4:8000/api/location/23/0/3/press/', method: 'POST' }
+            }
+        }]
+    });
+
+    try {
+        // 1. Live event handleEvent
+        const payload = engine.handleEvent({ type: 'bits', user: 'SilentDonor', amount: 100 });
+        assert.ok(payload);
+        assert.equal(payload.webhookOnly, true);
+
+        // Overlay queue and broadcasts MUST remain completely empty (silent background action)
+        const queueState = engine.getQueueState();
+        assert.equal(queueState.pending, 0, 'pending queue must be 0 for webhook-only rule');
+        assert.equal(queueState.current, null, 'current alert must be null for webhook-only rule');
+        assert.equal(dispatched.filter(d => d.type === 'alert').length, 0, 'no alert broadcast to overlays');
+
+        // Event log status should record as 'webhook'
+        assert.equal(queueState.events[0].status, 'webhook');
+        assert.equal(queueState.events[0].ruleId, 'silent-companion-rule');
+
+        await new Promise(r => setTimeout(r, 50));
+        assert.equal(fetchCalls.length, 1);
+        assert.equal(fetchCalls[0].method, 'POST');
+
+        // 2. fireRule simulation (Test preview)
+        const testPayload = engine.fireRule('silent-companion-rule', 'v1', { user: 'TestSilent' });
+        assert.ok(testPayload);
+        assert.equal(testPayload.webhookOnly, true);
+        assert.equal(engine.getQueueState().pending, 0);
+        assert.equal(engine.getQueueState().current, null);
+
+        await new Promise(r => setTimeout(r, 50));
+        assert.equal(fetchCalls.length, 2);
+    } finally {
+        global.fetch = origFetch;
+        cleanup();
+    }
+});
+
+test('webhook delay executes HTTP call after configured seconds and cancels cleanly on engine stop', async () => {
+    const fetchCalls = [];
+    const origFetch = global.fetch;
+    global.fetch = async (url, opts = {}) => {
+        fetchCalls.push({ url: String(url), time: Date.now(), ...opts });
+        return { ok: true, status: 200, statusText: 'OK', text: async () => 'ok' };
+    };
+
+    const normalized = normalizeConfig({
+        rules: [{
+            trigger: 'follow',
+            actions: { http: { enabled: true, url: 'http://localhost/test', delay: 1.5 } }
+        }]
+    });
+    assert.equal(normalized.rules[0].actions.http.delay, 1.5);
+
+    const { engine, cleanup } = createTempEngine({
+        settings: { enabled: true, gapSeconds: 0 },
+        rules: [{
+            id: 'delayed-webhook-rule',
+            name: 'Delayed Webhook',
+            enabled: true,
+            trigger: 'follow',
+            variants: [{ id: 'v1', title: 'Delayed Follow' }],
+            actions: {
+                http: { enabled: true, url: 'http://192.168.1.4:8000/api/location/1/0/0/press/', method: 'POST', delay: 0.1 } // 100ms
+            }
+        }]
+    });
+
+    try {
+        const start = Date.now();
+        engine.handleEvent({ type: 'follow', user: 'DelayedUser' });
+
+        // Immediately check: webhook has not fired yet
+        await new Promise(r => setTimeout(r, 30));
+        assert.equal(fetchCalls.length, 0, 'webhook must not fire before delay elapses');
+
+        // Wait past 100ms delay
+        await new Promise(r => setTimeout(r, 120));
+        assert.equal(fetchCalls.length, 1, 'webhook fired after delay');
+        assert.ok(fetchCalls[0].time - start >= 90, 'delay was respected');
+
+        // Test cancellation on engine.stop()
+        engine.handleEvent({ type: 'follow', user: 'CancelledUser', dedupeMs: 0 });
+        cleanup(); // triggers engine.stop() which clears activeWebhookTimers
+        await new Promise(r => setTimeout(r, 150));
+        assert.equal(fetchCalls.length, 1, 'timer was cancelled on engine stop');
+    } finally {
+        global.fetch = origFetch;
+    }
+});
+
+test('Twitch bits cheermote auto-fallback resolves official animated GIFs for bits alerts', () => {
+    const { TWITCH_CHEERMOTES, getTwitchCheermote } = require('../server/services/alerts.js');
+    assert.equal(TWITCH_CHEERMOTES.length, 7);
+    assert.equal(getTwitchCheermote(1).name, 'Cheer1');
+    assert.equal(getTwitchCheermote(50).name, 'Cheer1');
+    assert.equal(getTwitchCheermote(100).name, 'Cheer100');
+    assert.equal(getTwitchCheermote(500).name, 'Cheer500');
+    assert.equal(getTwitchCheermote(1000).name, 'Cheer1000');
+    assert.equal(getTwitchCheermote(5000).name, 'Cheer5000');
+    assert.equal(getTwitchCheermote(10000).name, 'Cheer10000');
+    assert.equal(getTwitchCheermote(100000).name, 'Cheer100000');
+    assert.equal(getTwitchCheermote(500000).name, 'Cheer100000');
+
+    const { engine, cleanup } = createTempEngine({
+        settings: { enabled: true, gapSeconds: 0 },
+        rules: [{
+            id: 'cheer-bits-rule',
+            name: 'Cheer Bits Alert',
+            enabled: true,
+            trigger: 'bits',
+            variants: [
+                { id: 'v-no-custom-emote', title: 'Cheer Bits' } // No emoji, image, or video
+            ]
+        }]
+    });
+
+    try {
+        // 1. Cheer 500 bits: auto-resolves Cheer500 GIF
+        const p500 = engine.handleEvent({ type: 'bits', user: 'CheerMaster', amount: 500, bits: 500 });
+        assert.ok(p500);
+        assert.equal(p500.emoji, 'Cheer500');
+        assert.equal(p500.emojiUrl, 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/500/4.gif');
+
+        // 2. Cheer 10000 bits: auto-resolves Cheer10000 GIF
+        const p10k = engine.handleEvent({ type: 'bits', user: 'CheerWhale', amount: 10000, bits: 10000 });
+        assert.ok(p10k);
+        assert.equal(p10k.emoji, 'Cheer10000');
+        assert.equal(p10k.emojiUrl, 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/10000/4.gif');
+
+        // 3. fireRule preview also auto-resolves official Cheermote
+        const preview = engine.fireRule('cheer-bits-rule', 'v-no-custom-emote', { amount: 1000 });
+        assert.equal(preview.emoji, 'Cheer1000');
+        assert.equal(preview.emojiUrl, 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/1000/4.gif');
+    } finally {
+        cleanup();
+    }
+});

@@ -29,6 +29,24 @@ const EVENT_LIMIT = 100;
 const GIFT_QUIET_MS = 4000;
 const GIFT_MAX_MS = 15000;
 
+const TWITCH_CHEERMOTES = [
+    { min: 100000, id: '100000', name: 'Cheer100000', url: 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/100000/4.gif', color: '#f64747' },
+    { min: 10000, id: '10000', name: 'Cheer10000', url: 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/10000/4.gif', color: '#e005b9' },
+    { min: 5000, id: '5000', name: 'Cheer5000', url: 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/5000/4.gif', color: '#f430ff' },
+    { min: 1000, id: '1000', name: 'Cheer1000', url: 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/1000/4.gif', color: '#0099fe' },
+    { min: 500, id: '500', name: 'Cheer500', url: 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/500/4.gif', color: '#1db2a5' },
+    { min: 100, id: '100', name: 'Cheer100', url: 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/100/4.gif', color: '#9c3ee8' },
+    { min: 1, id: '1', name: 'Cheer1', url: 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/1/4.gif', color: '#979797' }
+];
+
+function getTwitchCheermote(bits = 1) {
+    const amt = Number(bits) || 1;
+    for (const tier of TWITCH_CHEERMOTES) {
+        if (amt >= tier.min) return tier;
+    }
+    return TWITCH_CHEERMOTES[TWITCH_CHEERMOTES.length - 1];
+}
+
 const clamp = (value, min, max, fallback) => {
     const n = Number(value);
     return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
@@ -121,6 +139,7 @@ function normalizeRule(input = {}, index = 0) {
         id: safeId(input.id, `rule-${index + 1}`),
         name: str(input.name, 80) || TRIGGERS[trigger],
         enabled: input.enabled !== false,
+        webhookOnly: input.webhookOnly === true || input.silent === true,
         trigger,
         conditions: {
             amountMode,
@@ -153,7 +172,8 @@ function normalizeRule(input = {}, index = 0) {
             http: {
                 enabled: a.http?.enabled === true,
                 url: str(a.http?.url, 2000),
-                method: a.http?.method === 'GET' ? 'GET' : 'POST'
+                method: a.http?.method === 'GET' ? 'GET' : 'POST',
+                delay: clamp(Number(a.http?.delay ?? a.http?.delaySeconds) || 0, 0, 300, 0)
             }
         }
     };
@@ -198,7 +218,15 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
     try { events = JSON.parse(fs.readFileSync(eventsPath, 'utf8')).slice(0, EVENT_LIMIT); } catch { /* none yet */ }
     let saveEventsTimer = null;
     function recordEvent(ev, payload, status) {
-        const entry = { id: `e${Date.now().toString(36)}${(counter++).toString(36)}`, at: new Date().toISOString(), event: ev, status, title: payload ? payload.title || payload.message : '' };
+        const entry = {
+            id: `e${Date.now().toString(36)}${(counter++).toString(36)}`,
+            at: new Date().toISOString(),
+            event: ev,
+            status,
+            title: payload ? payload.title || payload.message : '',
+            ruleId: payload?.ruleId || '',
+            ruleName: payload?.ruleName || ''
+        };
         events.unshift(entry);
         events.length = Math.min(events.length, EVENT_LIMIT);
         clearTimeout(saveEventsTimer);
@@ -211,6 +239,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
     const recent = new Map();
     let nextRecentPruneAt = 0;
     const gifts = new Map();
+    const activeWebhookTimers = new Set();
     let counter = 0;
 
     function save() {
@@ -413,7 +442,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
     }
 
     // Highest ladder step at or below the amount wins; "one per N" repeats it, capped by emojiMax.
-    function pickEmote(variant, amount) {
+    function pickEmote(variant, amount, rule = null) {
         let emoji = variant.emoji;
         let emojiUrl = variant.emojiUrl || (/^(https?:\/\/|\/|data:image\/)/i.test(variant.emoji) ? variant.emoji : '');
         for (const step of variant.emojiLadder) {
@@ -421,6 +450,14 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
                 emoji = step.emoji;
                 if (step.emojiUrl) emojiUrl = step.emojiUrl;
                 else if (/^(https?:\/\/|\/|data:image\/)/i.test(step.emoji)) emojiUrl = step.emoji;
+            }
+        }
+        // If this is a bits alert and no custom media/emote was specified, fall back to Twitch official cheermote
+        if (rule && rule.trigger === 'bits' && !emoji && !emojiUrl && !variant.image && !variant.video) {
+            const cheermote = getTwitchCheermote(amount);
+            if (cheermote) {
+                emoji = cheermote.name;
+                emojiUrl = cheermote.url;
             }
         }
         let repeat = 1;
@@ -435,11 +472,12 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
 
     function buildPayload(rule, variant, ev, test) {
         const tokens = tokensFor(ev);
-        const emote = pickEmote(variant, eventAmount(ev));
+        const emote = pickEmote(variant, eventAmount(ev), rule);
         return {
             id: `a${Date.now().toString(36)}${(counter++).toString(36)}`,
             ruleId: rule.id,
             ruleName: rule.name,
+            webhookOnly: Boolean(rule.webhookOnly),
             trigger: ev.type,
             variantId: variant.id,
             title: fill(variant.title, tokens),
@@ -479,22 +517,35 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             } catch (err) { log(`[Alerts] Timer action failed: ${err.message}`); }
         }
         if (http.enabled && /^https?:\/\//i.test(http.url)) {
-            try {
-                const body = { rule: rule.id, trigger: ev.type, user: ev.user || '', amount: eventAmount(ev), message: ev.message || '', at: new Date().toISOString() };
-                let res;
-                if (http.method === 'GET') {
-                    const url = new URL(http.url);
-                    Object.entries(body).forEach(([k, v]) => url.searchParams.set(k, String(v)));
-                    res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-                } else {
-                    res = await fetch(http.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(5000) });
-                }
-                if (!res.ok) {
-                    log(`[Alerts] HTTP webhook request to ${http.url} failed with status ${res.status} ${res.statusText}`);
-                } else {
-                    log(`[Alerts] HTTP webhook request to ${http.url} succeeded (${res.status})`);
-                }
-            } catch (err) { log(`[Alerts] HTTP action failed: ${err.message}`); }
+            const sendWebhook = async () => {
+                try {
+                    const body = { rule: rule.id, trigger: ev.type, user: ev.user || '', amount: eventAmount(ev), message: ev.message || '', at: new Date().toISOString() };
+                    let res;
+                    if (http.method === 'GET') {
+                        const url = new URL(http.url);
+                        Object.entries(body).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+                        res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+                    } else {
+                        res = await fetch(http.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(5000) });
+                    }
+                    if (!res.ok) {
+                        log(`[Alerts] HTTP webhook request to ${http.url} failed with status ${res.status} ${res.statusText}`);
+                    } else {
+                        log(`[Alerts] HTTP webhook request to ${http.url} succeeded (${res.status})`);
+                    }
+                } catch (err) { log(`[Alerts] HTTP action failed: ${err.message}`); }
+            };
+
+            const delayMs = Math.max(0, Math.round((http.delay || 0) * 1000));
+            if (delayMs > 0) {
+                const timerId = setTimeout(() => {
+                    activeWebhookTimers.delete(timerId);
+                    sendWebhook();
+                }, delayMs);
+                activeWebhookTimers.add(timerId);
+            } else {
+                sendWebhook();
+            }
         }
     }
 
@@ -553,9 +604,11 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
         const variant = chooseVariant(rule, effective);
         const payload = buildPayload(rule, variant, effective, isTest);
         if (!isTest || runActionsForTest) runActions(rule, effective);
-        if (!isTest) recordEvent(effective, payload, 'shown');
-        enqueue(payload);
-        log(`[Alerts] ${isTest ? 'Test ' : ''}${rule.name}: ${payload.title || payload.message || effective.type}`);
+        if (!isTest) recordEvent(effective, payload, rule.webhookOnly ? 'webhook' : 'shown');
+        if (!rule.webhookOnly) {
+            enqueue(payload);
+        }
+        log(`[Alerts] ${isTest ? 'Test ' : ''}${rule.webhookOnly ? 'Webhook-only ' : ''}${rule.name}: ${payload.title || payload.message || effective.type}`);
         return payload;
     }
 
@@ -586,7 +639,9 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
         if (overrides.runActions !== false) {
             runActions(rule, ev);
         }
-        enqueue(payload);
+        if (!rule.webhookOnly && !overrides.webhookOnly) {
+            enqueue(payload);
+        }
         return payload;
     }
 
@@ -673,6 +728,8 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
         currentTimer = null;
         current = null;
         queue.length = 0;
+        for (const t of activeWebhookTimers) clearTimeout(t);
+        activeWebhookTimers.clear();
         for (const batch of gifts.values()) clearTimeout(batch.timer);
         gifts.clear();
         recent.clear();
@@ -756,4 +813,4 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
     };
 }
 
-module.exports = { createAlertEngine, normalizeConfig, TRIGGERS, ANIM_IN, ANIM_OUT };
+module.exports = { createAlertEngine, normalizeConfig, TRIGGERS, ANIM_IN, ANIM_OUT, TWITCH_CHEERMOTES, getTwitchCheermote };

@@ -1395,12 +1395,23 @@
     });
     const setPath = (obj, path, value) => { const keys = path.split('.'); const last = keys.pop(); keys.reduce((o, k) => o[k], obj)[last] = value; };
 
-    let channelEmotes = [];
+    const DEFAULT_CHEERMOTES = [
+        { min: 1, name: 'Cheer1', url: 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/1/4.gif', color: '#979797' },
+        { min: 100, name: 'Cheer100', url: 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/100/4.gif', color: '#9c3ee8' },
+        { min: 500, name: 'Cheer500', url: 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/500/4.gif', color: '#1db2a5' },
+        { min: 1000, name: 'Cheer1000', url: 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/1000/4.gif', color: '#0099fe' },
+        { min: 5000, name: 'Cheer5000', url: 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/5000/4.gif', color: '#f430ff' },
+        { min: 10000, name: 'Cheer10000', url: 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/10000/4.gif', color: '#e005b9' },
+        { min: 100000, name: 'Cheer100000', url: 'https://d3aqoihi2n8ty8.cloudfront.net/actions/cheer/dark/animated/100000/4.gif', color: '#f64747' }
+    ];
+
+    let channelEmotes = [], twitchCheermotes = [];
     async function loadChannelEmotes() {
         try {
             const data = await api('/api/channel-emotes');
             channelEmotes = Array.isArray(data.emotes) ? data.emotes : [];
-        } catch { channelEmotes = []; }
+            twitchCheermotes = Array.isArray(data.cheermotes) ? data.cheermotes : [];
+        } catch { channelEmotes = []; twitchCheermotes = []; }
     }
 
     async function api(url, options) {
@@ -1469,7 +1480,7 @@
                     <div class="rule-item-name">${esc(r.name)}</div>
                     <div class="rule-item-meta">
                         <span class="rule-item-tag" style="color:${meta.color};">${esc(meta.label)}</span>
-                        <span>${r.variants.length} var</span>
+                        ${r.webhookOnly ? `<span class="rule-item-tag" style="color:var(--accent);font-weight:700;background:rgba(59,130,246,0.12);padding:1px 5px;border-radius:4px;">Webhook Only</span>` : `<span>${r.variants.length} var</span>`}
                         ${amtCond ? `<span class="rule-item-tag">${esc(amtCond)}</span>` : ''}
                     </div>
                 </div>
@@ -1724,6 +1735,28 @@
                 </div>
             </div>` : '';
 
+        const cheermotesList = (twitchCheermotes.length ? twitchCheermotes : DEFAULT_CHEERMOTES);
+        const cheermotesHtml = r.trigger === 'bits' ? `
+            <div class="fld" style="margin-top:0.45rem;padding:0.5rem 0.65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.35rem;">
+                    <span style="font-size:0.75rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:0.35rem;">
+                        ${ICONS.zap} Official Twitch Cheermotes (${cheermotesList.length})
+                    </span>
+                    <button type="button" class="btn sm" data-populate-cheermotes="${i}" style="font-size:0.68rem;padding:2px 8px;" title="Auto-populate the ladder with official Twitch bits badges">
+                        ${ICONS.plus} Use Cheermotes Ladder
+                    </button>
+                </div>
+                <div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
+                    ${cheermotesList.map(c => `
+                        <button type="button" class="btn sm ghost" data-select-channel-emote="${esc(c.name)}" data-emote-url="${esc(c.url)}" data-vi="${i}" title="${esc(c.name)} (${c.min}+ bits)" style="padding:2px 6px;height:auto;gap:4px;display:inline-flex;align-items:center;background:var(--bg-card);border:1px solid var(--border);">
+                            <img src="${esc(c.url)}" alt="${esc(c.name)}" style="width:20px;height:20px;object-fit:contain;pointer-events:none;">
+                            <span style="font-size:0.69rem;font-weight:700;color:${c.color || 'var(--text)'};pointer-events:none;">&ge; ${c.min}</span>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        ` : '';
+
         return `
             <div class="vgrid c3" style="margin-bottom:0.65rem;">
                 <label class="fld">
@@ -1756,6 +1789,7 @@
                     ${emotePreview}
                 </div>
             </div>
+            ${cheermotesHtml}
             ${channelEmotesHtml}
             ${ladder}`;
     }
@@ -2047,7 +2081,11 @@
         if (r.trigger === 'redeem' && c.rewardName) when += ` for "${c.rewardName}"`;
         if (r.trigger === 'chat_word' && c.keywords.length) when += `: ${c.keywords.join(', ')}`;
         if (r.trigger === 'chat_command' && c.command) when += ` "!${c.command}" (${c.permission || 'everyone'})`;
-        const extras = [r.actions.timer.enabled ? 'trigger a timer' : '', r.actions.http.enabled ? 'send a webhook' : ''].filter(Boolean);
+        const extras = [r.actions.timer.enabled ? 'trigger a timer' : '', r.actions.http.enabled ? `send a webhook${r.actions.http.delay > 0 ? ` (after ${r.actions.http.delay}s)` : ''}` : ''].filter(Boolean);
+        if (r.webhookOnly) {
+            const actStr = extras.length ? extras.join(' and ') : 'trigger webhook only';
+            return `${when}, ${actStr} silently without on-screen overlay or page takeovers.${r.enabled ? '' : ' (This rule is currently disabled.)'}`;
+        }
         return `${when}, display ${r.variants.length > 1 ? `one of ${r.variants.length} variants` : 'the alert'}${extras.length ? ' and ' + extras.join(' and ') : ''}.${r.enabled ? '' : ' (This rule is currently disabled.)'}`;
     }
 
@@ -2133,6 +2171,10 @@
                         <input type="checkbox" data-f="enabled" data-type="check" ${r.enabled ? 'checked' : ''}>
                         <span>Active</span>
                     </label>
+                    <label class="check-row" title="Webhook Only: triggers webhooks silently without showing on-screen alert boxes, playing alert audio, or triggering page rotators" style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.18rem 0.55rem;">
+                        <input type="checkbox" data-f="webhookOnly" data-type="check" ${r.webhookOnly ? 'checked' : ''}>
+                        <span style="font-size:0.75rem;font-weight:700;color:${r.webhookOnly ? 'var(--accent)' : 'var(--text)'};">Webhook Only</span>
+                    </label>
                     <button type="button" class="btn sm" id="dup-rule" title="Duplicate rule">${ICONS.copy} Duplicate</button>
                     <button type="button" class="btn sm danger" id="del-rule" title="Delete rule">${ICONS.trash} Delete</button>
                     <div style="display:inline-flex;align-items:center;gap:0.35rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.18rem 0.45rem;" title="Adjust test sound audio preview level">
@@ -2162,6 +2204,12 @@
                 <div class="cgrid">
                     ${field('Rule Name', inp('name', r.name, 'text', 'maxlength="80" placeholder="e.g. Sub Tier 1"'))}
                     ${field('Event Trigger', sel_('trigger', r.trigger, Object.entries(TRIGGERS)))}
+                    ${r.webhookOnly ? `
+                        <div style="grid-column:1 / -1;padding:0.5rem 0.75rem;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:6px;font-size:0.75rem;display:flex;align-items:center;gap:0.4rem;color:var(--text);">
+                            ${ICONS.info}
+                            <span><b>Webhook Only Alert:</b> Triggers webhooks and actions silently in the background. On-screen alert box elements, alert sounds, and page rotators will NOT be triggered.</span>
+                        </div>
+                    ` : ''}
                     ${conditionsHtml(r)}
                 </div>
             </div>
@@ -2169,6 +2217,13 @@
             <!-- Card 2: Alert Display & Variants -->
             <div class="card">
                 ${ladderHtml}
+
+                ${r.webhookOnly ? `
+                    <div style="margin-bottom:0.75rem;padding:0.55rem 0.75rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;font-size:0.74rem;display:flex;align-items:center;gap:0.4rem;color:var(--text-muted);">
+                        ${ICONS.info}
+                        <span>On-screen alert box elements, sounds, and page rotators are bypassed when <b>Webhook Only</b> is enabled.</span>
+                    </div>
+                ` : ''}
 
                 <div class="card-head-row">
                     <h2>
@@ -2251,8 +2306,9 @@
                         </label>
                         ${a.http.enabled ? `
                             ${field('Endpoint URL', inp('actions.http.url', a.http.url, 'text', 'placeholder="http://192.168.1.4:8000/api/location/..."'), 'URL to trigger on alert. Supports Bitfocus Companion buttons, Discord webhooks, or automation.')}
-                            <div class="vgrid c2" style="align-items:end;gap:0.65rem;">
+                            <div class="vgrid c3" style="align-items:end;gap:0.65rem;">
                                 ${field('HTTP Method', sel_('actions.http.method', a.http.method, [['POST', 'POST (JSON body)'], ['GET', 'GET (Query parameters)']]))}
+                                ${field('Delay (seconds)', inp('actions.http.delay', a.http.delay ?? 0, 'number', 'min="0" max="300" step="0.5" placeholder="0"'))}
                                 <div style="display:flex;align-items:center;gap:0.45rem;padding-bottom:2px;">
                                     <button type="button" class="btn sm" id="btn-test-webhook" style="white-space:nowrap;">
                                         ${ICONS.play} <span>Test Webhook</span>
@@ -2260,7 +2316,7 @@
                                     <span id="webhook-test-result" style="font-size:0.73rem;"></span>
                                 </div>
                             </div>
-                            <span class="hint" style="font-size:0.71rem;">For <b>Bitfocus Companion</b> buttons (e.g. <code>/api/location/&lt;page&gt;/&lt;row&gt;/&lt;col&gt;/press</code>), set HTTP Method to <b>POST</b>.</span>
+                            <span class="hint" style="font-size:0.71rem;">Set delay to 0 for immediate trigger, or wait N seconds after the alert fires. For <b>Bitfocus Companion</b> buttons (e.g. <code>/api/location/&lt;page&gt;/&lt;row&gt;/&lt;col&gt;/press</code>), set HTTP Method to <b>POST</b>.</span>
                         ` : '<span class="hint" style="font-size:0.71rem;">Trigger external automation, Discord bot, Bitfocus Companion, or smart home light on alert.</span>'}
                     </div>
                 </div>
@@ -2515,6 +2571,11 @@
             else if (type === 'numlist') value = value.split(',').map(s => Number(s.trim())).filter(n => n > 0);
             setPath(r, el.dataset.f, value);
             setDirty(true);
+            if (el.dataset.f === 'webhookOnly') {
+                renderRules();
+                renderEditor();
+                return;
+            }
         }
         if (el.dataset.tierCheck) {
             const tiers = new Set(Array.isArray(r.conditions.tiers) ? r.conditions.tiers : (r.conditions.tier ? [r.conditions.tier] : []));
@@ -2743,6 +2804,23 @@
             }
             return;
         }
+        if (btn.dataset.populateCheermotes !== undefined) {
+            const vi = Number(btn.dataset.populateCheermotes);
+            if (r && r.variants[vi]) {
+                const cheermotesList = (twitchCheermotes.length ? twitchCheermotes : DEFAULT_CHEERMOTES);
+                r.variants[vi].emojiLadder = cheermotesList.map(c => ({
+                    min: c.min,
+                    emoji: c.name,
+                    emojiUrl: c.url
+                })).sort((a, b) => a.min - b.min);
+                r.variants[vi].emoji = cheermotesList[0]?.name || 'Cheer1';
+                r.variants[vi].emojiUrl = cheermotesList[0]?.url || '';
+                setDirty(true);
+                renderEditor();
+                toast('Populated Twitch Cheermotes ladder (1 to 100,000)');
+            }
+            return;
+        }
         if (btn.dataset.clearEmoteUrl !== undefined) {
             const vi = Number(btn.dataset.clearEmoteUrl);
             if (r && r.variants[vi]) {
@@ -2849,9 +2927,13 @@
                     ...(testAmount ? { amount: testAmount, months: testAmount, count: testAmount, viewers: testAmount } : {})
                 })
             });
-            const vIdx = res.alert?.variantId ? r.variants.findIndex(x => x.id === res.alert.variantId) : -1;
-            const label = vIdx >= 0 ? `Variant ${vIdx + 1}` : 'alert';
-            toast(`Test alert queued: rolled ${label}`);
+            if (r.webhookOnly) {
+                toast(`Fired test webhook for "${r.name}" (silent alert)`);
+            } else {
+                const vIdx = res.alert?.variantId ? r.variants.findIndex(x => x.id === res.alert.variantId) : -1;
+                const label = vIdx >= 0 ? `Variant ${vIdx + 1}` : 'alert';
+                toast(`Test alert queued: rolled ${label}`);
+            }
             refreshQueue();
         } else if (btn.dataset.testVariant !== undefined || btn.dataset.test !== undefined) {
             await save();
