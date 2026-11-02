@@ -554,3 +554,97 @@ test('gated variants support an equal-to amount that beats higher thresholds', (
         cleanup();
     }
 });
+
+test('emote celebration effects (showcase, rain, party, fountain, bounce) and emote ladder scaling in alert payloads', () => {
+    // Normalization check
+    const normalized = normalizeConfig({
+        rules: [{
+            trigger: 'bits',
+            variants: [
+                {
+                    emoteEffect: 'party',
+                    emoteDensity: 50,
+                    emoteScale: 150,
+                    emojiLadder: [
+                        { min: 100, emoji: 'Cheer100', emojiUrl: 'https://cdn.twitch.tv/cheer100.png' },
+                        { min: 500, emoji: 'https://cdn.twitch.tv/cheer500.png' }
+                    ],
+                    emojiEvery: 50,
+                    emojiMax: 10
+                },
+                {
+                    emoteEffect: 'invalid_effect',
+                    emoteDensity: 999, // Should clamp to 100
+                    emoteScale: 10 // Should clamp to 20
+                }
+            ]
+        }]
+    });
+
+    const v1 = normalized.rules[0].variants[0];
+    assert.equal(v1.emoteEffect, 'party');
+    assert.equal(v1.emoteDensity, 50);
+    assert.equal(v1.emoteScale, 150);
+    assert.equal(v1.emojiLadder.length, 2);
+    assert.equal(v1.emojiLadder[0].emojiUrl, 'https://cdn.twitch.tv/cheer100.png');
+    assert.equal(v1.emojiLadder[1].emojiUrl, '');
+
+    const v2 = normalized.rules[0].variants[1];
+    assert.equal(v2.emoteEffect, 'showcase', 'falls back to showcase for invalid effect');
+    assert.equal(v2.emoteDensity, 100, 'clamps density to 100');
+    assert.equal(v2.emoteScale, 20, 'clamps scale to 20');
+
+    // Engine dispatch check
+    const { engine, dispatched, cleanup } = createTempEngine({
+        settings: { enabled: true, gapSeconds: 0 },
+        rules: [{
+            id: 'bits-rule',
+            name: 'Bits Alert',
+            enabled: true,
+            trigger: 'bits',
+            conditions: { minAmount: 0 },
+            variants: [{
+                id: 'v-cheer',
+                title: '{{alert.user}} cheered {{alert.amount}} bits',
+                emoteEffect: 'rain',
+                emoteDensity: 45,
+                emoteScale: 120,
+                emoji: 'DefaultCheer',
+                emojiLadder: [
+                    { min: 100, emoji: 'Cheer100', emojiUrl: '/assets/cheer100.png' },
+                    { min: 1000, emoji: 'https://cdn.twitch.tv/cheer1000.png' }
+                ],
+                emojiEvery: 100,
+                emojiMax: 5
+            }]
+        }]
+    });
+
+    try {
+        // Amount below ladder: uses default emote
+        const p1 = engine.handleEvent({ type: 'bits', user: 'BitFan1', amount: 50, bits: 50 });
+        assert.ok(p1);
+        assert.equal(p1.emoji, 'DefaultCheer');
+        assert.equal(p1.emojiUrl, '');
+        assert.equal(p1.emoteEffect, 'rain');
+        assert.equal(p1.emoteDensity, 45);
+        assert.equal(p1.emoteScale, 120);
+        assert.equal(p1.emojiRepeat, 1);
+
+        // Amount >= 100: selects step 1 with emojiUrl
+        const p2 = engine.handleEvent({ type: 'bits', user: 'BitFan2', amount: 300, bits: 300 });
+        assert.ok(p2);
+        assert.equal(p2.emoji, 'Cheer100');
+        assert.equal(p2.emojiUrl, '/assets/cheer100.png');
+        assert.equal(p2.emojiRepeat, 3); // 300 / 100 = 3
+
+        // Amount >= 1000: selects step 2 and detects URL as emojiUrl
+        const p3 = engine.handleEvent({ type: 'bits', user: 'BitFan3', amount: 2000, bits: 2000 });
+        assert.ok(p3);
+        assert.equal(p3.emoji, 'https://cdn.twitch.tv/cheer1000.png');
+        assert.equal(p3.emojiUrl, 'https://cdn.twitch.tv/cheer1000.png');
+        assert.equal(p3.emojiRepeat, 5); // Capped by emojiMax: 5
+    } finally {
+        cleanup();
+    }
+});

@@ -1380,6 +1380,9 @@
         videoLoop: true,
         emoji: '',
         emojiUrl: '',
+        emoteEffect: 'showcase',
+        emoteDensity: 30,
+        emoteScale: 100,
         emojiLadder: [],
         emojiEvery: 0,
         emojiMax: 8,
@@ -1632,15 +1635,54 @@
 
     function emojiHtml(v, i, r) {
         const amountLabel = AMOUNT_LABEL[r.trigger] && r.trigger !== 'sub' ? AMOUNT_LABEL[r.trigger].toLowerCase() : '';
+        const emoteEffect = v.emoteEffect || 'showcase';
+        const emoteScale = v.emoteScale ?? 100;
+        const emoteDensity = v.emoteDensity ?? 30;
+
+        const effectExplainer = {
+            showcase: 'Big, prominent hero emote centered in the alert box.',
+            rain: 'Emotes stream down continuously from the top across the alert card like rain.',
+            party: 'Celebratory confetti-style explosion of emotes bursting outward in all directions.',
+            fountain: 'Emotes shoot upward from the bottom like a fireworks geyser and arc down.',
+            bounce: 'Joyful floating and bouncing emotes dancing across the alert card.'
+        }[emoteEffect] || 'Showcase hero emote centered in the alert box.';
+
         const ladder = amountLabel ? `
-            <div class="fld" style="margin-top:0.35rem;">
-                <span>Emoji / Emote Ladder (escalates by ${amountLabel})</span>
-                <div style="display:grid;gap:0.35rem;margin-top:0.25rem;">
+            <div class="fld-guide-card" style="margin-top:0.85rem;padding:0.75rem 0.9rem;background:var(--bg-inset);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;">
+                <div style="display:flex;align-items:center;gap:0.45rem;font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:0.4rem;">
+                    ${ICONS.info} <span>${AMOUNT_LABEL[r.trigger]} Guide: Emote Ladder vs. Milestone Variants — Which should you use?</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:0.65rem;font-size:0.73rem;line-height:1.45;color:var(--text-muted);">
+                    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.55rem 0.7rem;">
+                        <div style="font-weight:700;color:var(--text);margin-bottom:0.2rem;display:flex;align-items:center;gap:0.35rem;">
+                            <span style="color:var(--accent);font-weight:900;">&#9670;</span> Use an Emote Ladder when:
+                        </div>
+                        <div>You want to keep the <b>same alert look and sound</b>, but want the emote to change (e.g. cheer badges) or trigger a bigger emote rain/party as the ${amountLabel} increase.</div>
+                        <div style="margin-top:0.3rem;font-size:0.69rem;color:var(--text-faint);font-style:italic;">Example: 100 bits drops Cheer100; 1,000 bits drops a heavy Cheer1000 emote party.</div>
+                    </div>
+                    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.55rem 0.7rem;">
+                        <div style="font-weight:700;color:var(--text);margin-bottom:0.2rem;display:flex;align-items:center;gap:0.35rem;">
+                            <span style="color:var(--success);font-weight:900;">&#9670;</span> Use a Milestone Variant when:
+                        </div>
+                        <div>You want a <b>completely different alert experience</b> — such as a louder sound, custom message text, a custom video/GIF, or a longer on-screen duration.</div>
+                        <div style="margin-top:0.3rem;font-size:0.69rem;color:var(--text-faint);font-style:italic;">Example: 100+ bits plays a hype horn sound and video; 5,000+ bits triggers an epic celebration alert.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="fld" style="margin-top:0.75rem;">
+                <span style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>Emoji / Emote Ladder (escalates by ${amountLabel})</span>
+                    <span class="hint" style="font-size:0.69rem;">Changes the emote (or rain/party) when ${amountLabel} reach these levels</span>
+                </span>
+                <div style="display:grid;gap:0.4rem;margin-top:0.35rem;">
                     ${v.emojiLadder.map((step, j) => `
-                        <div class="media-row" style="align-items:center;">
-                            <span style="font-size:0.73rem;color:var(--text-muted);white-space:nowrap;">from</span>
+                        <div class="media-row" style="align-items:center;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.35rem 0.6rem;">
+                            <span style="font-size:0.75rem;font-weight:600;color:var(--text-muted);white-space:nowrap;">from &ge;</span>
                             <input type="number" min="0" style="max-width:110px;" data-lad="${i}.${j}.min" value="${esc(step.min)}">
-                            <input type="text" maxlength="2000" placeholder="e.g. HypeEmote, fa-solid fa-fire" data-lad="${i}.${j}.emoji" value="${esc(step.emoji)}">
+                            <span style="font-size:0.75rem;color:var(--text-muted);">${amountLabel}:</span>
+                            <input type="text" maxlength="2000" placeholder="e.g. HypeEmote, fa-solid fa-fire, or image URL" data-lad="${i}.${j}.emoji" value="${esc(step.emoji)}">
+                            ${step.emojiUrl ? `<img src="${esc(step.emojiUrl)}" alt="" style="width:24px;height:24px;object-fit:contain;border:1px solid var(--border);border-radius:4px;flex-shrink:0;">` : ''}
                             <button type="button" class="btn sm danger icon-btn" data-del-step="${i}.${j}" title="Remove step">${ICONS.close}</button>
                         </div>
                     `).join('')}
@@ -1648,11 +1690,10 @@
                         <button type="button" class="btn sm" data-add-step="${i}" ${v.emojiLadder.length >= 12 ? 'disabled' : ''}>${ICONS.plus} Add Ladder Step</button>
                     </div>
                 </div>
-                <span class="hint" style="font-size:0.69rem;margin-top:0.2rem;">Highest step at or below ${amountLabel} is shown; falls back to default emoji below first step.</span>
             </div>
             <div class="vgrid c3" style="margin-top:0.35rem;">
-                ${vin(i, 'emojiEvery', `One emoji per N ${amountLabel} (0 = off)`, v.emojiEvery, 'min="0"')}
-                ${vin(i, 'emojiMax', 'Max emojis', v.emojiMax, 'min="1" max="20"')}
+                ${vin(i, 'emojiEvery', `One emote per N ${amountLabel} (0 = off)`, v.emojiEvery, 'min="0"')}
+                ${vin(i, 'emojiMax', 'Max repeated emotes', v.emojiMax, 'min="1" max="25"')}
                 <label class="fld">
                     <span>Test ${amountLabel}</span>
                     <input type="number" min="0" data-test-amount value="${testAmount || ''}" placeholder="${r.conditions.minAmount || 100}">
@@ -1661,8 +1702,8 @@
 
         const emotePreview = v.emojiUrl ? `
             <div style="display:inline-flex;align-items:center;gap:0.4rem;margin-top:0.25rem;">
-                <img src="${esc(v.emojiUrl)}" alt="" style="width:24px;height:24px;object-fit:contain;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);">
-                <span style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">${esc(v.emoji || 'Channel Emote')}</span>
+                <img src="${esc(v.emojiUrl)}" alt="" style="width:28px;height:28px;object-fit:contain;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);box-shadow:0 2px 6px rgba(0,0,0,0.2);">
+                <span style="font-size:0.75rem;color:var(--text);font-weight:600;">${esc(v.emoji || 'Channel Emote')}</span>
                 <button type="button" class="btn sm ghost danger" data-clear-emote-url="${i}" style="font-size:0.68rem;padding:0.05rem 0.35rem;">Clear Emote</button>
             </div>
         ` : '';
@@ -1684,6 +1725,30 @@
             </div>` : '';
 
         return `
+            <div class="vgrid c3" style="margin-bottom:0.65rem;">
+                <label class="fld">
+                    <span>Emote Animation Effect</span>
+                    <select data-v="${i}.emoteEffect">
+                        <option value="showcase"${emoteEffect === 'showcase' ? ' selected' : ''}>Showcase (Large Hero Emote)</option>
+                        <option value="rain"${emoteEffect === 'rain' ? ' selected' : ''}>Emote Rain (Cascading down)</option>
+                        <option value="party"${emoteEffect === 'party' ? ' selected' : ''}>Emote Party (Explosion burst)</option>
+                        <option value="fountain"${emoteEffect === 'fountain' ? ' selected' : ''}>Emote Fountain (Geyser spray)</option>
+                        <option value="bounce"${emoteEffect === 'bounce' ? ' selected' : ''}>Floating &amp; Bouncing Emotes</option>
+                    </select>
+                </label>
+                ${vin(i, 'emoteScale', 'Emote Size (%)', emoteScale, 'min="40" max="250" step="10"')}
+                ${emoteEffect !== 'showcase' ? `
+                    <label class="fld">
+                        <span>Particle Density (${emoteDensity})</span>
+                        <input type="range" min="10" max="75" step="5" data-v="${i}.emoteDensity" value="${emoteDensity}">
+                    </label>
+                ` : `
+                    <div class="fld" style="justify-content:center;">
+                        <span style="font-size:0.7rem;color:var(--text-muted);">${effectExplainer}</span>
+                    </div>
+                `}
+            </div>
+            ${emoteEffect !== 'showcase' ? `<div class="hint" style="margin-bottom:0.55rem;font-size:0.72rem;display:flex;align-items:center;gap:0.35rem;">${ICONS.info} <span>${effectExplainer} Emotes celebrate across the alert for its entire duration.</span></div>` : ''}
             <div class="vgrid c2">
                 <div class="fld">
                     <span>Default Emoji / Channel Emote / FontAwesome</span>
@@ -1898,6 +1963,10 @@
                                     ${ICONS.info}
                                     <span>${gateMode === 'exact' ? `Activates when <b>${esc(metricName)} = ${v.gateMin || 0}</b>. Exact tiers beat ranges.` : `Activates when <b>${esc(metricName)} &ge; ${v.gateMin || 0}</b>${gateMode === 'range' && v.gateMax > 0 ? ` and &le; ${v.gateMax}` : ''}. Highest matching tier wins.`}</span>
                                 </div>
+                            </div>
+                            <div style="font-size:0.71rem;color:var(--text-muted);margin-top:0.35rem;display:flex;align-items:center;gap:0.4rem;padding:0.4rem 0.6rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;">
+                                ${ICONS.info}
+                                <span><b>Tip:</b> If you only want to change the emote or trigger an emote rain/party as ${esc(metricName)} scale up while keeping the same sound and layout, use the <b>Emote Ladder</b> in the Visuals tab instead of creating multiple variants.</span>
                             </div>
                         ` : ''}
                     ` : `
@@ -2501,7 +2570,7 @@
                 if (el.value === 'min') r.variants[i].gateMax = 0;
                 if (el.value === 'exact') r.variants[i].gateMax = r.variants[i].gateMin;
             }
-            if (key === 'videoSound' || key === 'gateMode' || key === 'gateMin' || key === 'gateMax' || key === 'gateMinOp' || key === 'gateMaxOp' || key === 'weight') renderEditor();
+            if (key === 'videoSound' || key === 'gateMode' || key === 'gateMin' || key === 'gateMax' || key === 'gateMinOp' || key === 'gateMaxOp' || key === 'weight' || key === 'emoteEffect') renderEditor();
         }
     });
 
@@ -2687,7 +2756,7 @@
         }
         else if (btn.dataset.addStep !== undefined) {
             const v = r.variants[btn.dataset.addStep], last = v.emojiLadder[v.emojiLadder.length - 1];
-            v.emojiLadder.push({ min: last ? last.min * 10 || 100 : 100, emoji: '' });
+            v.emojiLadder.push({ min: last ? last.min * 10 || 100 : 100, emoji: '', emojiUrl: '' });
             setDirty(true);
             renderEditor();
         } else if (btn.dataset.delStep !== undefined) {

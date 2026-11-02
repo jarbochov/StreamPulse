@@ -2097,6 +2097,104 @@
     const alertSoundName = value => (String(value || '').startsWith('builtin:') ? String(value).slice(8) : '');
 
     // Plays one alert inside `node`. Returns { stop } so a skip/clear can end it early.
+    function spawnEmoteParticles(card, payload, node) {
+        const effect = payload.emoteEffect;
+        if (!effect || effect === 'showcase' || !['rain', 'party', 'fountain', 'bounce'].includes(effect)) return;
+        const emoteUrl = payload.emojiUrl || (/^(https?:\/\/|\/|data:image\/)/i.test(payload.emoji) ? payload.emoji : '');
+        const isFa = !emoteUrl && payload.emoji && (payload.emoji.startsWith('fa-') || payload.emoji.includes('fa-'));
+        const rawEmoji = payload.emoji || '🎉';
+        if (!emoteUrl && !isFa && !rawEmoji) return;
+
+        const container = document.createElement('div');
+        container.className = `alert-emote-particles effect-${effect}`;
+
+        const density = Math.max(10, Math.min(80, Number(payload.emoteDensity) || 30));
+        const scaleFactor = Math.max(0.4, Math.min(2.5, (Number(payload.emoteScale) || 100) / 100));
+        const durMs = Math.max(3000, Number(payload.durationMs) || 6000);
+
+        for (let p = 0; p < density; p++) {
+            const item = document.createElement('div');
+            item.className = 'alert-emote-particle';
+
+            const baseSize = 30 + Math.random() * 26;
+            const size = Math.round(baseSize * scaleFactor);
+            item.style.width = `${size}px`;
+            item.style.height = `${size}px`;
+
+            if (emoteUrl) {
+                const img = document.createElement('img');
+                img.src = emoteUrl;
+                img.alt = '';
+                img.draggable = false;
+                item.appendChild(img);
+            } else if (isFa) {
+                const icon = document.createElement('i');
+                icon.className = rawEmoji;
+                icon.style.fontSize = `${size}px`;
+                item.appendChild(icon);
+            } else {
+                const span = document.createElement('span');
+                span.textContent = rawEmoji;
+                span.style.fontSize = `${size}px`;
+                span.style.lineHeight = '1';
+                item.appendChild(span);
+            }
+
+            const rot1 = `${Math.round(-35 + Math.random() * 70)}deg`;
+            const rot2 = `${Math.round(-55 + Math.random() * 110)}deg`;
+            const rot3 = `${Math.round(-120 + Math.random() * 240)}deg`;
+            item.style.setProperty('--rot1', rot1);
+            item.style.setProperty('--rot2', rot2);
+            item.style.setProperty('--rot3', rot3);
+
+            if (effect === 'rain') {
+                const left = (2 + Math.random() * 94).toFixed(1);
+                const animDur = (1.4 + Math.random() * 1.6).toFixed(2);
+                const delay = (Math.random() * (durMs > 5000 ? 3.5 : 2)).toFixed(2);
+                const drift = Math.round(-30 + Math.random() * 60);
+                item.style.left = `${left}%`;
+                item.style.top = '0';
+                item.style.setProperty('--drift', `${drift}px`);
+                item.style.setProperty('--rot', rot2);
+                item.style.animation = `alert-rain-fall ${animDur}s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${delay}s infinite`;
+            } else if (effect === 'party') {
+                const angle = Math.random() * 2 * Math.PI;
+                const distance = 90 + Math.random() * 280;
+                const vx = Math.round(Math.cos(angle) * distance);
+                const vy = Math.round(Math.sin(angle) * distance);
+                const animDur = (1.6 + Math.random() * 1.3).toFixed(2);
+                const delay = (Math.random() * 2.5).toFixed(2);
+                item.style.left = '50%';
+                item.style.top = '50%';
+                item.style.setProperty('--vx', `${vx}px`);
+                item.style.setProperty('--vy', `${vy}px`);
+                item.style.animation = `alert-party-burst ${animDur}s cubic-bezier(0.18, 0.89, 0.32, 1.28) ${delay}s infinite`;
+            } else if (effect === 'fountain') {
+                const left = (44 + Math.random() * 12).toFixed(1);
+                const fx = Math.round(-180 + Math.random() * 360);
+                const fy = Math.round(160 + Math.random() * 220);
+                const animDur = (1.8 + Math.random() * 1.2).toFixed(2);
+                const delay = (Math.random() * 2.8).toFixed(2);
+                item.style.left = `${left}%`;
+                item.style.top = '95%';
+                item.style.setProperty('--fx', `${fx}px`);
+                item.style.setProperty('--fy', `${fy}px`);
+                item.style.animation = `alert-fountain-spray ${animDur}s cubic-bezier(0.15, 0.85, 0.35, 1.2) ${delay}s infinite`;
+            } else if (effect === 'bounce') {
+                const left = (5 + Math.random() * 90).toFixed(1);
+                const top = (20 + Math.random() * 60).toFixed(1);
+                const animDur = (2.0 + Math.random() * 1.5).toFixed(2);
+                const delay = (Math.random() * 2.0).toFixed(2);
+                item.style.left = `${left}%`;
+                item.style.top = `${top}%`;
+                item.style.animation = `alert-bounce-float ${animDur}s ease-in-out ${delay}s infinite`;
+            }
+
+            container.appendChild(item);
+        }
+        card.appendChild(container);
+    }
+
     function playAlert(node, element, payload, { sound = true, onEnd } = {}) {
         const cfg = element.alert || {};
         const style = element.style || {};
@@ -2138,18 +2236,23 @@
             if (isEmoji) {
                 const emoteUrl = payload.emojiUrl || (/^(https?:\/\/|\/|data:image\/)/i.test(payload.emoji) ? payload.emoji : '');
                 const isFa = !emoteUrl && payload.emoji && (payload.emoji.startsWith('fa-') || payload.emoji.includes('fa-'));
+                const emoteScale = Math.max(20, Math.min(300, Number(payload.emoteScale) || 100)) / 100;
+                const count = Math.max(1, Math.min(25, Number(payload.emojiRepeat || 1)));
+
                 if (emoteUrl) {
                     media.style.display = 'inline-flex';
                     media.style.alignItems = 'center';
                     media.style.justifyContent = 'center';
-                    media.style.gap = '6px';
-                    const count = Math.max(1, Math.min(20, Number(payload.emojiRepeat || 1)));
+                    media.style.gap = '8px';
                     for (let c = 0; c < count; c++) {
                         const img = document.createElement('img');
                         img.className = 'alert-emote-img';
                         img.src = emoteUrl;
                         img.alt = '';
                         img.draggable = false;
+                        img.style.height = '100%';
+                        img.style.width = 'auto';
+                        img.style.maxHeight = '100%';
                         media.appendChild(img);
                     }
                 } else if (isFa) {
@@ -2164,11 +2267,14 @@
                 } else {
                     media.textContent = payload.emoji;
                 }
-                const count = emoteUrl ? (media.querySelectorAll('.alert-emote-img').length || 1) : isFa ? 1 : (Array.from(payload.emoji).length || 1);
-                const boxH = node.clientHeight * (layout === 'media' ? 0.7 : scale / 100);
-                const boxW = node.clientWidth * (layout === 'side' ? 0.5 : 1) * 0.9;
-                media.style.fontSize = `${Math.max(12, Math.min(boxH * 0.8, boxW / (count * 1.15)))}px`;
-                media.style.lineHeight = '1.1';
+                const clientH = node.clientHeight || 240;
+                const clientW = node.clientWidth || 400;
+                const boxH = clientH * (layout === 'media' ? 0.75 : scale / 100);
+                const boxW = clientW * (layout === 'side' ? 0.5 : 1) * 0.9;
+                const targetH = Math.max(48, Math.min(boxH * 0.9, clientH * 0.85)) * emoteScale;
+                media.style.fontSize = `${Math.max(28, Math.min(targetH, boxW / (count * 1.05)))}px`;
+                media.style.height = `${Math.round(targetH)}px`;
+                media.style.lineHeight = '1';
                 media.style.whiteSpace = 'nowrap';
             } else {
                 media.src = payload.video || payload.image;
@@ -2192,13 +2298,17 @@
                 media.draggable = false;
                 media.style.objectFit = cfg.mediaFit || 'contain';
             }
-            media.className = 'alert-media';
+            media.className = isEmoji ? 'alert-media is-emote' : 'alert-media';
             if (!isEmoji) {
                 if (layout === 'side') { media.style.width = `${scale}%`; media.style.maxWidth = '50%'; media.style.height = '100%'; }
                 else if (layout === 'media') { media.style.width = '100%'; media.style.height = '100%'; }
                 else { media.style.height = `${scale}%`; media.style.maxWidth = '100%'; }
             } else if (layout === 'media') {
                 media.style.position = 'absolute'; media.style.inset = '0'; media.style.display = 'flex'; media.style.alignItems = 'center'; media.style.justifyContent = 'center';
+            } else if (layout === 'side') {
+                media.style.width = `${scale}%`; media.style.maxWidth = '50%';
+            } else {
+                media.style.maxWidth = '100%';
             }
             card.appendChild(media);
         }
@@ -2265,6 +2375,9 @@
                 text.appendChild(message);
             }
             card.appendChild(text);
+        }
+        if (payload.emoteEffect && payload.emoteEffect !== 'showcase') {
+            spawnEmoteParticles(card, payload, node);
         }
         node.replaceChildren(card);
         card.classList.add(`alert-in-${payload.animIn || 'pop'}`);

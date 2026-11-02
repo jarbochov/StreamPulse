@@ -64,11 +64,14 @@ function normalizeVariant(input = {}, index = 0) {
         videoLoop: input.videoLoop !== false,
         emoji: str(input.emoji, 2000),
         emojiUrl: str(input.emojiUrl, 2000),
+        emoteEffect: ['showcase', 'rain', 'party', 'fountain', 'bounce'].includes(input.emoteEffect) ? input.emoteEffect : 'showcase',
+        emoteDensity: Math.round(clamp(input.emoteDensity, 10, 100, 30)),
+        emoteScale: Math.round(clamp(input.emoteScale, 20, 300, 100)),
         emojiLadder: Array.isArray(input.emojiLadder)
-            ? input.emojiLadder.slice(0, 12).map(step => ({ min: clamp(step?.min, 0, 1e9, 0), emoji: str(step?.emoji, 2000) })).filter(step => step.emoji).sort((a, b) => a.min - b.min)
+            ? input.emojiLadder.slice(0, 12).map(step => ({ min: clamp(step?.min, 0, 1e9, 0), emoji: str(step?.emoji, 2000), emojiUrl: str(step?.emojiUrl, 2000) })).filter(step => step.emoji || step.emojiUrl).sort((a, b) => a.min - b.min)
             : [],
         emojiEvery: clamp(input.emojiEvery, 0, 1e6, 0),
-        emojiMax: Math.round(clamp(input.emojiMax, 1, 20, 8)),
+        emojiMax: Math.round(clamp(input.emojiMax, 1, 25, 8)),
         sound: str(input.sound, 2000),
         volume: clamp(input.volume, 0, 100, 70),
         animIn: ANIM_IN.includes(input.animIn) ? input.animIn : 'pop',
@@ -410,17 +413,29 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
     }
 
     // Highest ladder step at or below the amount wins; "one per N" repeats it, capped by emojiMax.
-    function pickEmoji(variant, amount) {
+    function pickEmote(variant, amount) {
         let emoji = variant.emoji;
-        for (const step of variant.emojiLadder) if (amount >= step.min) emoji = step.emoji;
-        if (emoji && variant.emojiEvery > 0 && amount > 0) {
-            emoji = emoji.repeat(Math.max(1, Math.min(variant.emojiMax, Math.floor(amount / variant.emojiEvery))));
+        let emojiUrl = variant.emojiUrl || (/^(https?:\/\/|\/|data:image\/)/i.test(variant.emoji) ? variant.emoji : '');
+        for (const step of variant.emojiLadder) {
+            if (amount >= step.min) {
+                emoji = step.emoji;
+                if (step.emojiUrl) emojiUrl = step.emojiUrl;
+                else if (/^(https?:\/\/|\/|data:image\/)/i.test(step.emoji)) emojiUrl = step.emoji;
+            }
         }
-        return emoji;
+        let repeat = 1;
+        if (variant.emojiEvery > 0 && amount > 0) {
+            repeat = Math.max(1, Math.min(variant.emojiMax || 8, Math.floor(amount / variant.emojiEvery)));
+            if (emoji && !emojiUrl) {
+                emoji = emoji.repeat(repeat);
+            }
+        }
+        return { emoji, emojiUrl, repeat };
     }
 
     function buildPayload(rule, variant, ev, test) {
         const tokens = tokensFor(ev);
+        const emote = pickEmote(variant, eventAmount(ev));
         return {
             id: `a${Date.now().toString(36)}${(counter++).toString(36)}`,
             ruleId: rule.id,
@@ -434,8 +449,12 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             videoSound: Boolean(variant.videoSound),
             videoVolume: variant.videoVolume !== undefined ? variant.videoVolume : (variant.volume ?? 70),
             videoLoop: variant.videoLoop !== false,
-            emoji: pickEmoji(variant, eventAmount(ev)),
-            emojiUrl: variant.emojiUrl || '',
+            emoji: emote.emoji,
+            emojiUrl: emote.emojiUrl || '',
+            emojiRepeat: emote.repeat,
+            emoteEffect: variant.emoteEffect || 'showcase',
+            emoteDensity: variant.emoteDensity || 30,
+            emoteScale: variant.emoteScale || 100,
             sound: variant.sound,
             volume: variant.volume,
             animIn: variant.animIn,
