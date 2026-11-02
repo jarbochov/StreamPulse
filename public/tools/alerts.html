@@ -2250,9 +2250,18 @@
                             <span>Send Webhook (HTTP Request)</span>
                         </label>
                         ${a.http.enabled ? `
-                            ${field('Endpoint URL', inp('actions.http.url', a.http.url, 'text', 'placeholder="https://localhost:..."'), 'Payload includes rule, trigger, viewer, amount, message.')}
-                            ${field('HTTP Method', sel_('actions.http.method', a.http.method, [['POST', 'POST (JSON body)'], ['GET', 'GET (Query parameters)']]))}
-                        ` : '<span class="hint" style="font-size:0.71rem;">Trigger external automation, Discord bot, or smart home light on alert.</span>'}
+                            ${field('Endpoint URL', inp('actions.http.url', a.http.url, 'text', 'placeholder="http://192.168.1.4:8000/api/location/..."'), 'URL to trigger on alert. Supports Bitfocus Companion buttons, Discord webhooks, or automation.')}
+                            <div class="vgrid c2" style="align-items:end;gap:0.65rem;">
+                                ${field('HTTP Method', sel_('actions.http.method', a.http.method, [['POST', 'POST (JSON body)'], ['GET', 'GET (Query parameters)']]))}
+                                <div style="display:flex;align-items:center;gap:0.45rem;padding-bottom:2px;">
+                                    <button type="button" class="btn sm" id="btn-test-webhook" style="white-space:nowrap;">
+                                        ${ICONS.play} <span>Test Webhook</span>
+                                    </button>
+                                    <span id="webhook-test-result" style="font-size:0.73rem;"></span>
+                                </div>
+                            </div>
+                            <span class="hint" style="font-size:0.71rem;">For <b>Bitfocus Companion</b> buttons (e.g. <code>/api/location/&lt;page&gt;/&lt;row&gt;/&lt;col&gt;/press</code>), set HTTP Method to <b>POST</b>.</span>
+                        ` : '<span class="hint" style="font-size:0.71rem;">Trigger external automation, Discord bot, Bitfocus Companion, or smart home light on alert.</span>'}
                     </div>
                 </div>
             </div>
@@ -2497,6 +2506,16 @@
     editor.addEventListener('change', event => {
         const el = event.target, r = rule();
         if (!r) return;
+        if (el.dataset.f) {
+            const type = el.dataset.type;
+            let value = el.value;
+            if (type === 'check') value = el.checked;
+            else if (type === 'number') value = Number(value) || 0;
+            else if (type === 'list') value = value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+            else if (type === 'numlist') value = value.split(',').map(s => Number(s.trim())).filter(n => n > 0);
+            setPath(r, el.dataset.f, value);
+            setDirty(true);
+        }
         if (el.dataset.tierCheck) {
             const tiers = new Set(Array.isArray(r.conditions.tiers) ? r.conditions.tiers : (r.conditions.tier ? [r.conditions.tier] : []));
             if (el.checked) tiers.add(el.dataset.tierCheck);
@@ -2791,6 +2810,36 @@
             sel = copy.id;
             setDirty(true);
             renderAll();
+        } else if (btn.id === 'btn-test-webhook') {
+            const statusEl = $('webhook-test-result');
+            const urlInput = document.querySelector('input[data-f="actions.http.url"]');
+            const methodSelect = document.querySelector('select[data-f="actions.http.method"]');
+            const targetUrl = (urlInput ? urlInput.value : (r?.actions?.http?.url || '')).trim();
+            const method = (methodSelect ? methodSelect.value : (r?.actions?.http?.method || 'POST'));
+            if (!targetUrl) {
+                if (statusEl) statusEl.innerHTML = `<span class="pill dirty" style="font-size:0.7rem;padding:2px 8px;">Enter a URL first</span>`;
+                return;
+            }
+            if (statusEl) statusEl.innerHTML = `<span style="font-size:0.7rem;color:var(--text-muted);font-weight:600;">Testing...</span>`;
+            try {
+                const res = await api('/api/alerts/test-webhook', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: targetUrl, method, ruleId: r?.id, trigger: r?.trigger })
+                });
+                if (res.ok) {
+                    if (statusEl) statusEl.innerHTML = `<span class="pill ok" style="font-size:0.7rem;padding:2px 8px;display:inline-flex;align-items:center;gap:3px;">${ICONS.check} ${res.status} OK</span>`;
+                    toast('Webhook trigger succeeded');
+                } else {
+                    const errMsg = res.note ? `${res.status} ${res.statusText}: ${res.note}` : (res.error || `${res.status} ${res.statusText}`);
+                    if (statusEl) statusEl.innerHTML = `<span class="pill dirty" style="font-size:0.7rem;padding:2px 8px;display:inline-flex;align-items:center;gap:3px;" title="${esc(errMsg)}">${ICONS.close} ${res.status || 'Error'}</span>`;
+                    toast(`Webhook failed: ${errMsg}`, true);
+                }
+            } catch (err) {
+                if (statusEl) statusEl.innerHTML = `<span class="pill dirty" style="font-size:0.7rem;padding:2px 8px;display:inline-flex;align-items:center;gap:3px;">${ICONS.close} Error</span>`;
+                toast(`Webhook error: ${err.message}`, true);
+            }
+            return;
         } else if (btn.dataset.testRule !== undefined) {
             await save();
             const res = await api('/api/alerts/test', {

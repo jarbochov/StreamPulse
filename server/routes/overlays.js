@@ -229,13 +229,65 @@ function createOverlayRoutes({
         if (pathname === '/api/alerts/test-event' && (req.method === 'POST' || req.method === 'GET')) {
             try {
                 const body = await parseJsonOrQuery(req, url);
-                const payload = alertEngine.handleEvent({ ...body, user: body.user || 'TestViewer', dedupeMs: 0 }, { test: true });
+                const payload = alertEngine.handleEvent({ ...body, user: body.user || 'TestViewer', dedupeMs: 0 }, { test: true, runActionsForTest: true });
                 if (body.type === 'raid' && body.triggerChatbot && chatbot) {
                     chatbot.handleRaid({ user: body.user || 'TestViewer', viewers: body.amount || body.viewers || 10, isTest: true }).catch(() => {});
                 }
                 sendJson(res, { ok: true, alert: payload });
             } catch (err) {
                 sendError(res, err, 400);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/alerts/test-webhook' && (req.method === 'POST' || req.method === 'GET')) {
+            try {
+                const body = await parseJsonOrQuery(req, url);
+                const targetUrl = String(body.url || '').trim();
+                const method = String(body.method || 'POST').toUpperCase() === 'GET' ? 'GET' : 'POST';
+                if (!/^https?:\/\//i.test(targetUrl)) {
+                    throw new Error('Please enter a valid HTTP or HTTPS URL (e.g. http://192.168.1.4:8000/api/location/23/0/3/press/)');
+                }
+                const testPayload = {
+                    rule: body.ruleId || 'test-rule',
+                    trigger: body.trigger || 'test',
+                    user: 'TestViewer',
+                    amount: 100,
+                    message: 'StreamPulse webhook test',
+                    at: new Date().toISOString(),
+                    isTest: true
+                };
+                let reqUrl = targetUrl;
+                const fetchOptions = {
+                    method,
+                    signal: AbortSignal.timeout(5000)
+                };
+                if (method === 'GET') {
+                    const u = new URL(targetUrl);
+                    Object.entries(testPayload).forEach(([k, v]) => u.searchParams.set(k, String(v)));
+                    reqUrl = u.href;
+                } else {
+                    fetchOptions.headers = { 'Content-Type': 'application/json' };
+                    fetchOptions.body = JSON.stringify(testPayload);
+                }
+                const resp = await fetch(reqUrl, fetchOptions);
+                const respText = await resp.text().catch(() => '');
+                let note = '';
+                if (!resp.ok && resp.status === 404 && /api\/location\//i.test(targetUrl) && method === 'GET') {
+                    note = 'Bitfocus Companion /press endpoints require HTTP POST method.';
+                }
+                sendJson(res, {
+                    ok: resp.ok,
+                    status: resp.status,
+                    statusText: resp.statusText,
+                    response: respText.slice(0, 500),
+                    note
+                });
+            } catch (err) {
+                sendJson(res, {
+                    ok: false,
+                    error: err.name === 'TimeoutError' ? 'Request timed out after 5 seconds' : err.message
+                });
             }
             return true;
         }

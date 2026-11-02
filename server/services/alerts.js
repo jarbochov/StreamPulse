@@ -481,12 +481,18 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
         if (http.enabled && /^https?:\/\//i.test(http.url)) {
             try {
                 const body = { rule: rule.id, trigger: ev.type, user: ev.user || '', amount: eventAmount(ev), message: ev.message || '', at: new Date().toISOString() };
+                let res;
                 if (http.method === 'GET') {
                     const url = new URL(http.url);
                     Object.entries(body).forEach(([k, v]) => url.searchParams.set(k, String(v)));
-                    await fetch(url, { signal: AbortSignal.timeout(5000) });
+                    res = await fetch(url, { signal: AbortSignal.timeout(5000) });
                 } else {
-                    await fetch(http.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(5000) });
+                    res = await fetch(http.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(5000) });
+                }
+                if (!res.ok) {
+                    log(`[Alerts] HTTP webhook request to ${http.url} failed with status ${res.status} ${res.statusText}`);
+                } else {
+                    log(`[Alerts] HTTP webhook request to ${http.url} succeeded (${res.status})`);
                 }
             } catch (err) { log(`[Alerts] HTTP action failed: ${err.message}`); }
         }
@@ -577,6 +583,9 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
         };
         const variant = (variantId ? rule.variants.find(item => item.id === variantId) : null) || chooseVariant(rule, ev);
         const payload = buildPayload(rule, variant, ev, true);
+        if (overrides.runActions !== false) {
+            runActions(rule, ev);
+        }
         enqueue(payload);
         return payload;
     }

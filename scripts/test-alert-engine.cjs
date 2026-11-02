@@ -648,3 +648,125 @@ test('emote celebration effects (showcase, rain, party, fountain, bounce) and em
         cleanup();
     }
 });
+
+test('alert webhook execution: sends HTTP POST and GET with payload and executes on test preview and live events', async () => {
+    const fetchCalls = [];
+    const origFetch = global.fetch;
+    global.fetch = async (url, opts = {}) => {
+        fetchCalls.push({ url: String(url), ...opts });
+        return {
+            ok: true,
+            status: 200,
+            statusText: 'OK',
+            text: async () => 'ok'
+        };
+    };
+
+    const webhookUrl = 'http://192.168.1.4:8000/api/location/23/0/3/press/';
+    const { engine, cleanup } = createTempEngine({
+        settings: { enabled: true, gapSeconds: 0 },
+        rules: [{
+            id: 'companion-webhook-rule',
+            name: 'Companion Webhook Rule',
+            enabled: true,
+            trigger: 'bits',
+            conditions: { minAmount: 0 },
+            variants: [{ id: 'v1', title: 'Bits Cheer!' }],
+            actions: {
+                timer: { enabled: false },
+                http: { enabled: true, url: webhookUrl, method: 'POST' }
+            }
+        }]
+    });
+
+    try {
+        // 1. fireRule (used by Test Rule / Preview buttons) fires webhook
+        engine.fireRule('companion-webhook-rule', 'v1', { user: 'CompanionTester', amount: 500 });
+        await new Promise(r => setTimeout(r, 50));
+
+        assert.equal(fetchCalls.length, 1);
+        assert.equal(fetchCalls[0].url, webhookUrl);
+        assert.equal(fetchCalls[0].method, 'POST');
+        assert.equal(fetchCalls[0].headers?.['Content-Type'], 'application/json');
+        const postBody = JSON.parse(fetchCalls[0].body);
+        assert.equal(postBody.rule, 'companion-webhook-rule');
+        assert.equal(postBody.user, 'CompanionTester');
+        assert.equal(postBody.amount, 500);
+
+        // 2. handleEvent (live event) fires webhook
+        engine.handleEvent({ type: 'bits', user: 'LiveDonor', amount: 250 });
+        await new Promise(r => setTimeout(r, 50));
+
+        assert.equal(fetchCalls.length, 2);
+        assert.equal(fetchCalls[1].url, webhookUrl);
+        const liveBody = JSON.parse(fetchCalls[1].body);
+        assert.equal(liveBody.user, 'LiveDonor');
+        assert.equal(liveBody.amount, 250);
+
+        // 3. fireRule with overrides.runActions = false skips webhook
+        engine.fireRule('companion-webhook-rule', 'v1', { runActions: false });
+        await new Promise(r => setTimeout(r, 50));
+        assert.equal(fetchCalls.length, 2, 'runActions: false suppresses webhook');
+    } finally {
+        global.fetch = origFetch;
+        cleanup();
+    }
+});
+
+test('POST /api/alerts/test-webhook route validates URL and returns companion note on 404 with GET', async () => {
+    const { createOverlayRoutes } = require('../server/routes/overlays.js');
+    const { engine, cleanup } = createTempEngine();
+    const router = createOverlayRoutes({ alertEngine: engine });
+
+    const origFetch = global.fetch;
+    try {
+        global.fetch = async (url, opts = {}) => {
+            if (opts.method === 'GET' && String(url).includes('/press')) {
+                return { ok: false, status: 404, statusText: 'Not Found', text: async () => '' };
+            }
+            return { ok: true, status: 200, statusText: 'OK', text: async () => 'ok' };
+        };
+
+        const createReq = (body) => {
+            const stream = new (require('stream').Readable)();
+            stream.push(JSON.stringify(body));
+            stream.push(null);
+            stream.method = 'POST';
+            stream.headers = { 'content-type': 'application/json' };
+            return stream;
+        };
+
+        const createRes = () => {
+            let statusCode = 200, output = '';
+            return {
+                writeHead(code) { statusCode = code; return this; },
+                setHeader() { return this; },
+                end(data) { output = data; },
+                getStatusCode: () => statusCode,
+                getBody: () => JSON.parse(output || '{}')
+            };
+        };
+
+        // 1. Success POST to companion URL
+        const res1 = createRes();
+        await router(createReq({ url: 'http://192.168.1.4:8000/api/location/23/0/3/press/', method: 'POST' }), res1, new URL('http://localhost/api/alerts/test-webhook'), '/api/alerts/test-webhook');
+        assert.equal(res1.getBody().ok, true);
+        assert.equal(res1.getBody().status, 200);
+
+        // 2. GET to companion /press: detected and advised
+        const res2 = createRes();
+        await router(createReq({ url: 'http://192.168.1.4:8000/api/location/23/0/3/press/', method: 'GET' }), res2, new URL('http://localhost/api/alerts/test-webhook'), '/api/alerts/test-webhook');
+        assert.equal(res2.getBody().ok, false);
+        assert.equal(res2.getBody().status, 404);
+        assert.match(res2.getBody().note, /POST/i);
+
+        // 3. Invalid URL: returns error
+        const res3 = createRes();
+        await router(createReq({ url: 'not-a-url', method: 'POST' }), res3, new URL('http://localhost/api/alerts/test-webhook'), '/api/alerts/test-webhook');
+        assert.equal(res3.getBody().ok, false);
+        assert.match(res3.getBody().error, /valid HTTP or HTTPS URL/i);
+    } finally {
+        global.fetch = origFetch;
+        cleanup();
+    }
+});
