@@ -948,7 +948,7 @@ function normalizePages(input = {}) {
         mode: input.mode === 'auto' ? 'auto' : 'manual',
         cycleSeconds: Math.max(1, Math.min(86400, Number(input.cycleSeconds) || 10)),
         loop: input.loop !== false,
-        transition: kind === 'pages' ? 'none' : (PAGE_TRANSITIONS.includes(input.transition) ? input.transition : 'morph'),
+        transition: kind === 'pages' ? (['fade', 'slide'].includes(input.transition) ? input.transition : 'none') : (PAGE_TRANSITIONS.includes(input.transition) ? input.transition : 'morph'),
         transitionEasing: isPageEasing(input.transitionEasing) ? input.transitionEasing : 'smooth',
         enterExit: PAGE_ENTER_EXITS.includes(input.enterExit) ? input.enterExit : 'fade',
         transitionMs: Math.max(0, Math.min(5000, Number(input.transitionMs ?? (kind === 'states' ? 650 : 500)))),
