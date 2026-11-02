@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>StreamPulse — Live Tier List Broadcast Overlay</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <style>
+        :root {
+            --tl-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --tl-bg: rgba(13, 17, 23, 0.92);
+            --tl-border: rgba(255, 255, 255, 0.12);
+            --tl-text: #f0f6fc;
+            --tl-muted: #8b949e;
+            --tl-accent: #3b82f6;
+            --tl-card-size: clamp(60px, 6vw, 96px);
+            --tl-header-width: clamp(80px, 9vw, 130px);
+            --tl-gap: 8px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            overflow: hidden;
+            font-family: var(--tl-font);
+            color: var(--tl-text);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #overlay-container {
+            width: 100%;
+            height: 100%;
+            padding: clamp(12px, 2vw, 24px);
+            display: flex;
+            flex-direction: column;
+            gap: clamp(10px, 1.5vw, 16px);
+            box-sizing: border-box;
+            container-type: inline-size;
+        }
+
+        /* Overlay Header */
+        .overlay-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px;
+            background: var(--tl-bg);
+            border: 1px solid var(--tl-border);
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+            flex-shrink: 0;
+        }
+        .overlay-title {
+            font-size: clamp(15px, 1.6vw, 22px);
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            color: #fff;
+        }
+        .vote-badge {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            font-size: clamp(11px, 1.1vw, 14px);
+            font-weight: 700;
+            background: rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            padding: 4px 12px;
+            border-radius: 999px;
+            animation: pulse-glow 2s infinite;
+        }
+        .vote-badge.active {
+            display: inline-flex;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.85; transform: scale(0.98); }
+        }
+
+        /* Tier Board */
+        .overlay-board {
+            flex: 1;
+            background: var(--tl-bg);
+            border: 1px solid var(--tl-border);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .overlay-row {
+            display: flex;
+            flex: 1;
+            min-height: clamp(68px, 9vh, 120px);
+            border-bottom: 1px solid var(--tl-border);
+            position: relative;
+        }
+        .overlay-row:last-child {
+            border-bottom: none;
+        }
+
+        .overlay-row-header {
+            width: var(--tl-header-width);
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 6px;
+            color: #111;
+            font-weight: 800;
+            font-size: clamp(16px, 2vw, 26px);
+            text-align: center;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.4);
+            user-select: none;
+        }
+        .overlay-row-sub {
+            font-size: clamp(9px, 0.85vw, 11px);
+            font-weight: 600;
+            opacity: 0.85;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 95%;
+        }
+
+        .overlay-row-items {
+            flex: 1;
+            display: flex;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            gap: var(--tl-gap);
+            padding: var(--tl-gap);
+            background: rgba(13, 17, 23, 0.7);
+            position: relative;
+        }
+
+        /* Unranked Tray */
+        .overlay-unranked {
+            flex-shrink: 0;
+            background: var(--tl-bg);
+            border: 1px solid var(--tl-border);
+            border-radius: 8px;
+            padding: 10px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 160px;
+        }
+        .overlay-unranked-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--tl-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .overlay-unranked-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--tl-gap);
+            overflow-y: auto;
+            min-height: 40px;
+        }
+
+        /* Item Cards */
+        .card {
+            width: var(--tl-card-size);
+            height: var(--tl-card-size);
+            border-radius: 6px;
+            background: #1c2128;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            will-change: transform;
+            transform-origin: center center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .card.spotlight {
+            border-color: #fbbf24;
+            box-shadow: 0 0 16px rgba(251, 191, 36, 0.6);
+            transform: scale(1.05);
+            z-index: 50;
+        }
+
+        .card img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .card-caption {
+            position: relative;
+            z-index: 2;
+            background: linear-gradient(transparent, rgba(0,0,0,0.85) 60%);
+            padding: 6px 3px 2px;
+            font-size: clamp(9px, 0.85vw, 11px);
+            font-weight: 700;
+            color: #fff;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.2;
+        }
+
+        /* Active Vote Banner Overlay */
+        .vote-hud-overlay {
+            display: none;
+            position: fixed;
+            bottom: clamp(16px, 3vw, 32px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(13, 17, 23, 0.95);
+            border: 2px solid #fbbf24;
+            border-radius: 12px;
+            padding: 10px 20px;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+            z-index: 1000;
+            animation: hudSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .vote-hud-overlay.active {
+            display: flex;
+        }
+
+        @keyframes hudSlideUp {
+            from { opacity: 0; transform: translate(-50%, 20px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+
+        .hud-voter-img {
+            width: 48px;
+            height: 48px;
+            border-radius: 6px;
+            object-fit: cover;
+            border: 2px solid #fbbf24;
+        }
+        .hud-voter-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .hud-voter-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: #fff;
+        }
+        .hud-voter-cmd {
+            font-size: 12px;
+            color: var(--tl-muted);
+        }
+        .hud-voter-cmd strong {
+            color: #fbbf24;
+        }
+
+        .hud-breakdown-bar {
+            width: 180px;
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.1);
+            overflow: hidden;
+            display: flex;
+        }
+        .hud-breakdown-seg {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .hud-consensus-pill {
+            font-size: 13px;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 6px;
+            color: #000;
+            background: #fbbf24;
+        }
+
+        /* Sidebar Layout Mode */
+        body.layout-sidebar #overlay-container {
+            max-width: 440px;
+            margin: 0 0 0 auto;
+        }
+        body.layout-sidebar .overlay-row {
+            min-height: 56px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="overlay-container">
+        <div class="overlay-header" id="overlay-header">
+            <div class="overlay-title" id="overlay-title">Community Tier List</div>
+            <div class="vote-badge" id="overlay-vote-badge">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>Live Chat Vote Active &middot; <strong id="overlay-timer">30s</strong></span>
+            </div>
+        </div>
+
+        <div class="overlay-board" id="overlay-board">
+            <!-- Populated dynamically -->
+        </div>
+
+        <div class="overlay-unranked" id="overlay-unranked">
+            <div class="overlay-unranked-label">
+                <span>Unranked Pool</span>
+            </div>
+            <div class="overlay-unranked-items" id="overlay-unranked-items">
+                <!-- Unranked items -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Vote Spotlight HUD -->
+    <div id="vote-hud-overlay" class="vote-hud-overlay">
+        <img id="hud-img" class="hud-voter-img" src="" alt="Voting Item">
+        <div class="hud-voter-text">
+            <div id="hud-name" class="hud-voter-title">Item Name</div>
+            <div class="hud-cmd" id="hud-cmd">Vote with <strong id="hud-cmd-syntax">!tier &lt;tier&gt;</strong> (<span id="hud-time-rem">30s</span>)</div>
+        </div>
+        <div class="hud-breakdown-bar" id="hud-bar"></div>
+        <div class="hud-consensus-pill" id="hud-consensus">Consensus</div>
+    </div>
+
+    <script>
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const layout = urlParams.get('layout') || 'board';
+            const hideUnranked = urlParams.get('hideUnranked') === '1' || urlParams.get('hideUnranked') === 'true';
+            const cardSizeParam = urlParams.get('size');
+            const cardAspectParam = urlParams.get('aspect');
+            const themeParam = urlParams.get('theme');
+
+            if (layout === 'sidebar') {
+                document.body.classList.add('layout-sidebar');
+            }
+            if (hideUnranked) {
+                document.getElementById('overlay-unranked').style.display = 'none';
+            }
+            if (cardSizeParam === 'compact') {
+                document.documentElement.style.setProperty('--tl-card-size', '60px');
+            } else if (cardSizeParam === 'large') {
+                document.documentElement.style.setProperty('--tl-card-size', '110px');
+            }
+            if (themeParam === 'transparent') {
+                document.documentElement.style.setProperty('--tl-bg', 'transparent');
+                document.documentElement.style.setProperty('--tl-border', 'transparent');
+            }
+
+            let currentState = null;
+            let hudInterval = null;
+
+            const $ = id => document.getElementById(id);
+            const esc = str => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+            // ----------------------------------------------------------------
+            // FLIP Animation Engine
+            // ----------------------------------------------------------------
+
+            function recordCardPositions() {
+                const rectMap = new Map();
+                document.querySelectorAll('.card[data-item-id]').forEach(el => {
+                    rectMap.set(el.dataset.itemId, el.getBoundingClientRect());
+                });
+                return rectMap;
+            }
+
+            function playFLIPAnimations(firstRects) {
+                document.querySelectorAll('.card[data-item-id]').forEach(el => {
+                    const itemId = el.dataset.itemId;
+                    const firstRect = firstRects.get(itemId);
+                    if (!firstRect) {
+                        // Brand new entering item: gentle fade & scale in
+                        el.style.opacity = '0';
+                        el.style.transform = 'scale(0.8)';
+                        requestAnimationFrame(() => {
+                            el.style.transition = 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.45s ease';
+                            el.style.opacity = '1';
+                            el.style.transform = 'scale(1)';
+                        });
+                        return;
+                    }
+
+                    const lastRect = el.getBoundingClientRect();
+                    const deltaX = firstRect.left - lastRect.left;
+                    const deltaY = firstRect.top - lastRect.top;
+
+                    if (Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5) {
+                        // Invert
+                        el.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                        el.style.transition = 'none';
+                        el.offsetHeight; // force reflow
+
+                        // Play
+                        requestAnimationFrame(() => {
+                            el.style.transition = 'transform 0.65s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.65s ease';
+                            el.style.transform = 'translate(0, 0)';
+                        });
+                    }
+                });
+            }
+
+            // ----------------------------------------------------------------
+            // Render State
+            // ----------------------------------------------------------------
+
+            function renderOverlay(newState) {
+                const firstRects = recordCardPositions();
+                currentState = newState;
+
+                $('overlay-title').textContent = newState.title || 'Community Tier List';
+
+                const boardEl = $('overlay-board');
+                boardEl.innerHTML = '';
+
+                // Render tier rows
+                (newState.tiers || []).forEach(tier => {
+                    const row = document.createElement('div');
+                    row.className = 'overlay-row';
+                    row.dataset.tierId = tier.id;
+
+                    const tierItems = (newState.items || [])
+                        .filter(i => i.tierId === tier.id)
+                        .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+                    row.innerHTML = `
+                        <div class="overlay-row-header" style="background-color: ${esc(tier.color)};">
+                            <div>${esc(tier.label)}</div>
+                            ${tier.description ? `<div class="overlay-row-sub">${esc(tier.description)}</div>` : ''}
+                        </div>
+                        <div class="overlay-row-items" data-tier-id="${esc(tier.id)}">
+                            ${tierItems.map(item => renderOverlayCard(item)).join('')}
+                        </div>
+                    `;
+                    boardEl.appendChild(row);
+                });
+
+                // Render unranked tray
+                const unrankedEl = $('overlay-unranked-items');
+                if (!hideUnranked) {
+                    const unrankedItems = (newState.items || [])
+                        .filter(i => !i.tierId)
+                        .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+                    unrankedEl.innerHTML = unrankedItems.map(item => renderOverlayCard(item)).join('');
+                    $('overlay-unranked').style.display = unrankedItems.length === 0 ? 'none' : 'flex';
+                }
+
+                // Render live vote spotlight
+                renderVoteSpotlight(newState.activeVote);
+
+                // Play FLIP animations across all cards that moved
+                playFLIPAnimations(firstRects);
+            }
+
+            function renderOverlayCard(item) {
+                const isVoting = currentState && currentState.activeVote && currentState.activeVote.itemId === item.id;
+                const defaultThumb = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%2321262d'><rect width='100' height='100'/></svg>";
+                const imgSrc = item.imageUrl || defaultThumb;
+
+                return `
+                    <div class="card${isVoting ? ' spotlight' : ''}" data-item-id="${esc(item.id)}">
+                        <img src="${esc(imgSrc)}" alt="${esc(item.name)}" onerror="this.src='${defaultThumb}'">
+                        <div class="card-caption">${esc(item.name)}</div>
+                    </div>
+                `;
+            }
+
+            function renderVoteSpotlight(vote) {
+                const hudEl = $('vote-hud-overlay');
+                const badgeEl = $('overlay-vote-badge');
+
+                if (!vote || vote.status !== 'ACTIVE') {
+                    hudEl.classList.remove('active');
+                    badgeEl.classList.remove('active');
+                    if (hudInterval) {
+                        clearInterval(hudInterval);
+                        hudInterval = null;
+                    }
+                    return;
+                }
+
+                hudEl.classList.add('active');
+                badgeEl.classList.add('active');
+
+                $('hud-name').textContent = vote.itemName;
+                $('hud-img').src = vote.itemImage || '';
+
+                updateVoteHUDMeters(vote.consensus);
+
+                // Timer countdown
+                if (hudInterval) clearInterval(hudInterval);
+                const updateCountdown = () => {
+                    if (!vote.endsAt) {
+                        $('overlay-timer').textContent = 'Open';
+                        $('hud-time-rem').textContent = 'Open';
+                        return;
+                    }
+                    const remaining = Math.max(0, Math.round((vote.endsAt - Date.now()) / 1000));
+                    $('overlay-timer').textContent = `${remaining}s`;
+                    $('hud-time-rem').textContent = `${remaining}s`;
+                    if (remaining <= 0) {
+                        clearInterval(hudInterval);
+                        hudInterval = null;
+                    }
+                };
+                updateCountdown();
+                hudInterval = setInterval(updateCountdown, 1000);
+            }
+
+            function updateVoteHUDMeters(consensus) {
+                if (!consensus) return;
+                const barEl = $('hud-bar');
+                barEl.innerHTML = '';
+
+                (consensus.distribution || []).forEach(d => {
+                    if (d.percentage > 0) {
+                        const seg = document.createElement('div');
+                        seg.className = 'hud-breakdown-seg';
+                        seg.style.width = `${d.percentage}%`;
+                        seg.style.backgroundColor = d.color;
+                        barEl.appendChild(seg);
+                    }
+                });
+
+                const consensusEl = $('hud-consensus');
+                if (consensus.consensusTier) {
+                    consensusEl.textContent = `Tier ${consensus.consensusTier.label}`;
+                    consensusEl.style.backgroundColor = consensus.consensusTier.color;
+                    consensusEl.style.display = 'inline-flex';
+                } else {
+                    consensusEl.style.display = 'none';
+                }
+            }
+
+            // ----------------------------------------------------------------
+            // Data Fetch & WebSocket
+            // ----------------------------------------------------------------
+
+            async function fetchOverlayState() {
+                try {
+                    const res = await fetch('/api/tier-list');
+                    if (res.ok) {
+                        const data = await res.json();
+                        renderOverlay(data);
+                    }
+                } catch (err) {
+                    console.error('Tier list overlay fetch error:', err);
+                }
+            }
+
+            function setupOverlayWs() {
+                const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const ws = new WebSocket(`${protocol}//${location.host}/ws`);
+
+                ws.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (msg.type === 'tier-list:update' || msg.type === 'tier-list:move' ||
+                            msg.type === 'tier-list:vote-start' || msg.type === 'tier-list:vote-end' ||
+                            msg.type === 'tier-list:vote-cancel') {
+                            fetchOverlayState();
+                        } else if (msg.type === 'tier-list:vote-update') {
+                            updateVoteHUDMeters(msg.data.consensus);
+                        }
+                    } catch {}
+                };
+
+                ws.onclose = () => setTimeout(setupOverlayWs, 2500);
+            }
+
+            fetchOverlayState();
+            setupOverlayWs();
+        })();
+    </script>
+</body>
+</html>

@@ -109,6 +109,7 @@
         ]},
         { label: 'Tools', children: [
             { label: 'Poll Manager', href: '/polls.html', module: 'polls' },
+            { label: 'Tier List Maker', href: '/tools/tier-list.html' },
             { label: 'Versus', href: '/versus.html', module: 'versus', children: [
                 { label: 'Versus', href: '/versus.html' },
                 { label: 'Tournament Manager', href: '/tournament-admin.html' }

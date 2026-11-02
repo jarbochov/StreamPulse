@@ -352,6 +352,7 @@ function createSsnService({
     chatbot = null,
     alertEngine = null,
     pollService = null,
+    tierListService = null,
     takeoverPages = () => {},
     addClipCandidate = () => {},
     getClipCandidateConfig = () => ({}),
@@ -393,6 +394,7 @@ function createSsnService({
     const resolveAlertEngine = () => (typeof alertEngine === 'function' ? alertEngine() : alertEngine);
     const resolveChatbot = () => (typeof chatbot === 'function' ? chatbot() : chatbot);
     const resolvePollService = () => (typeof pollService === 'function' ? pollService() : pollService);
+    const resolveTierListService = () => (typeof tierListService === 'function' ? tierListService() : tierListService);
 
     async function cacheEmote(name, url) {
         if (emoteCache.has(name)) return;
@@ -867,6 +869,25 @@ function createSsnService({
             const messageHtml = [msg.chatmessage, contentImage].filter(Boolean).join(' ');
             const plainText = messageHtml ? messageHtml.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '') : '';
             resolvePollService().handleChatMessage({
+                chatname,
+                userId: JSON.stringify([
+                    String(msg.type || 'unknown').trim().toLowerCase(),
+                    msg.userId !== undefined && msg.userId !== null && String(msg.userId).trim()
+                        ? `id:${String(msg.userId).trim()}`
+                        : `name:${String(chatname).trim().toLowerCase()}`
+                ]),
+                message: plainText.trim(),
+                subscriber: Boolean(msg.hasMembership || msg.subscriber || msg.isSub),
+                isSub: Boolean(msg.hasMembership || msg.subscriber || msg.isSub),
+                membership: msg.membership || msg.hasMembership
+            });
+        }
+
+        if (resolveTierListService()) {
+            const contentImage = contentImageHtml(msg.contentimg);
+            const messageHtml = [msg.chatmessage, contentImage].filter(Boolean).join(' ');
+            const plainText = messageHtml ? messageHtml.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '') : '';
+            resolveTierListService().handleChatMessage({
                 chatname,
                 userId: JSON.stringify([
                     String(msg.type || 'unknown').trim().toLowerCase(),

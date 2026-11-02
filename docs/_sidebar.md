@@ -8,6 +8,7 @@
   * [Custom Overlays](custom-overlays.md)
   * [Promos & Announcements](promo-creator.md)
   * [Game Nights & Planning](game-plan-guide.md)
+  * [Tier Lists & Chat Voting](tier-list-guide.md)
   * [Polls & Tournaments](polls-guide.md)
   * [Closing Credits](credits-guide.md)
 

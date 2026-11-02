@@ -478,7 +478,73 @@ Control also accepts `GET /api/timers/:id/control?action=toggle`. Read an indivi
 
 ---
 
-## 8. WebSocket Live Push Protocol
+## 8. Standalone Tier List & Chat Voting API
+
+### `GET /api/tier-list`
+Fetches the current active tier list state including tiers, items, active vote, and presets.
+
+### `PUT /api/tier-list`
+Updates tier list configuration (title, theme, settings, or tier order).
+
+### `POST /api/tier-list/item`
+Adds a single item to the tier list or unranked pool tray.
+```json
+{
+  "name": "Chrono Trigger",
+  "imageUrl": "/custom-overlay-assets/chrono.png",
+  "tierId": null,
+  "note": "Masterpiece JRPG"
+}
+```
+
+### `POST /api/tier-list/items/batch`
+Bulk adds items (e.g. from Asset Library selection).
+
+### `POST /api/tier-list/move`
+Moves an item to a tier or reorders items.
+```json
+{
+  "itemId": "item-123",
+  "toTier": "tier-s",
+  "toIndex": 0
+}
+```
+
+### `POST /api/tier-list/vote/start`
+Starts audience chat voting on an item.
+```json
+{
+  "itemId": "item-123",
+  "duration": 60,
+  "consensusMode": "weighted_mean"
+}
+```
+
+### `POST /api/tier-list/vote/cast`
+Casts a vote manually (for testing or external integrations).
+```json
+{
+  "user": "StreamViewer",
+  "userId": "viewer-123",
+  "tierId": "tier-s",
+  "isSub": false
+}
+```
+
+### `POST /api/tier-list/vote/end`
+Ends active vote and optionally moves the item into the winning consensus tier.
+```json
+{
+  "applyConsensus": true
+}
+```
+
+### `POST /api/tier-list/vote/cancel`
+Cancels the active vote without moving the item.
+
+---
+
+## 9. WebSocket Live Push Protocol
 
 Connect to `ws://localhost:3000` (or your configured host/port). Messages use a `{ "type": "...", "data": {...} }` envelope.
 
@@ -496,7 +562,7 @@ When overlays connect, they receive live event packets in real time:
 
 Active custom-overlay alerts survive ordinary live-data rerenders. They end on completion, explicit skip/clear, page departure, or a change/removal of their layer definition.
 
-## 9. Embedded Mode (NodeCG)
+## 10. Embedded Mode (NodeCG)
 
 With `STREAMPULSE_EMBEDDED=true`, `require('streampulse/server.js')` exports `startServer`, `stopServer`, `onBroadcast`, `getSnapshots`, `setExternalData`, `registerHostSource`, `getHostSources` and `ingestEvent`.
 

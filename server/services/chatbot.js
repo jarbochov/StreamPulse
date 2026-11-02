@@ -19,6 +19,13 @@ const DEFAULT_POLL_ANNOUNCEMENTS = {
     tieTemplate: '[Poll Result] The poll ended in a tie between {choices}!',
     championTemplate: '[Tournament Champion] {champion} has won {title}!'
 };
+const DEFAULT_TIER_LIST_ANNOUNCEMENTS = {
+    enabled: true,
+    announceStart: true,
+    announceEnd: true,
+    startTemplate: '[Tier List] Rank "{item}"! Vote with {prefix}tier <tier> ({tiers}) ({duration})',
+    endTemplate: '[Tier List] Chat ranked "{item}" into {tier} with {votes} votes ({percent}%)!'
+};
 const DEFAULT_DONATION_ANNOUNCEMENTS = {
     enabled: false,
     source: 'any',
@@ -27,7 +34,7 @@ const DEFAULT_DONATION_ANNOUNCEMENTS = {
     totalVar: '',
     goalVar: ''
 };
-const DEFAULT_SETTINGS = { enabled: false, prefix: '!', tag: '[BOT]', cooldown: 5, mods: [], autoShoutout: { ...DEFAULT_AUTO_SHOUTOUT }, pollAnnouncements: { ...DEFAULT_POLL_ANNOUNCEMENTS }, donationAnnouncements: { ...DEFAULT_DONATION_ANNOUNCEMENTS } };
+const DEFAULT_SETTINGS = { enabled: false, prefix: '!', tag: '[BOT]', cooldown: 5, mods: [], autoShoutout: { ...DEFAULT_AUTO_SHOUTOUT }, pollAnnouncements: { ...DEFAULT_POLL_ANNOUNCEMENTS }, tierAnnouncements: { ...DEFAULT_TIER_LIST_ANNOUNCEMENTS }, donationAnnouncements: { ...DEFAULT_DONATION_ANNOUNCEMENTS } };
 const MAX_COMMANDS = 200;
 const MAX_QUOTES = 5000;
 const MAX_MESSAGES = 100;
@@ -120,6 +127,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         const mods = Array.isArray(input.mods) ? input.mods : String(input.mods || '').split(/[\s,]+/);
         const autoShoutout = input.autoShoutout || {};
         const pollAnnouncements = input.pollAnnouncements || {};
+        const tierAnnouncements = input.tierAnnouncements || {};
         const donations = input.donationAnnouncements || {};
         const varName = (value, fallback) => (value === undefined ? fallback : clean(value, 120).replace(/^\{\{\s*|\s*\}\}$/g, ''));
         return {
@@ -146,6 +154,13 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 endTemplate: clean(pollAnnouncements.endTemplate ?? DEFAULT_POLL_ANNOUNCEMENTS.endTemplate, 500),
                 tieTemplate: clean(pollAnnouncements.tieTemplate ?? DEFAULT_POLL_ANNOUNCEMENTS.tieTemplate, 500),
                 championTemplate: clean(pollAnnouncements.championTemplate ?? DEFAULT_POLL_ANNOUNCEMENTS.championTemplate, 500)
+            },
+            tierAnnouncements: {
+                enabled: tierAnnouncements.enabled !== undefined ? tierAnnouncements.enabled === true : DEFAULT_TIER_LIST_ANNOUNCEMENTS.enabled,
+                announceStart: tierAnnouncements.announceStart !== undefined ? tierAnnouncements.announceStart === true : DEFAULT_TIER_LIST_ANNOUNCEMENTS.announceStart,
+                announceEnd: tierAnnouncements.announceEnd !== undefined ? tierAnnouncements.announceEnd === true : DEFAULT_TIER_LIST_ANNOUNCEMENTS.announceEnd,
+                startTemplate: clean(tierAnnouncements.startTemplate ?? DEFAULT_TIER_LIST_ANNOUNCEMENTS.startTemplate, 500),
+                endTemplate: clean(tierAnnouncements.endTemplate ?? DEFAULT_TIER_LIST_ANNOUNCEMENTS.endTemplate, 500)
             },
             donationAnnouncements: {
                 enabled: donations.enabled === true,
@@ -1158,6 +1173,69 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         }
     }
 
+    async function announceTierVoteStart(voteData = {}) {
+        const readyStatus = isReady();
+        if (!readyStatus.ready) return { sent: false, reason: readyStatus.reason };
+        const cfg = data.settings.tierAnnouncements || DEFAULT_TIER_LIST_ANNOUNCEMENTS;
+        if (!cfg.enabled || !cfg.announceStart) return { sent: false, reason: 'Tier announcements disabled in settings' };
+
+        const prefix = data.settings.prefix || '!';
+        const tag = data.settings.tag || '';
+        const item = voteData.item || {};
+        const itemName = item.name || 'Item';
+        const tiers = Array.isArray(voteData.tiers) ? voteData.tiers : [];
+        const tierLabels = tiers.map(t => t.label).join(', ');
+        const durationStr = voteData.duration > 0 ? `${voteData.duration}s` : 'open';
+
+        const template = cfg.startTemplate || DEFAULT_TIER_LIST_ANNOUNCEMENTS.startTemplate;
+        const text = template
+            .replace(/\{tag\}/gi, tag)
+            .replace(/\{prefix\}/gi, prefix)
+            .replace(/\{item\}/gi, itemName)
+            .replace(/\{tiers\}/gi, tierLabels)
+            .replace(/\{duration\}s?/gi, durationStr);
+
+        try {
+            await send(text);
+            return { sent: true, text };
+        } catch (err) {
+            console.warn(`[Chatbot] Tier vote start announcement failed: ${err.message}`);
+            return { sent: false, error: err.message, text };
+        }
+    }
+
+    async function announceTierVoteEnd(resultData = {}) {
+        const readyStatus = isReady();
+        if (!readyStatus.ready) return { sent: false, reason: readyStatus.reason };
+        const cfg = data.settings.tierAnnouncements || DEFAULT_TIER_LIST_ANNOUNCEMENTS;
+        if (!cfg.enabled || !cfg.announceEnd) return { sent: false, reason: 'Tier announcements disabled in settings' };
+
+        const item = resultData.item || {};
+        const itemName = item.name || 'Item';
+        const tier = resultData.consensusTier;
+        if (!tier) return { sent: false, reason: 'No consensus tier' };
+
+        const consensus = resultData.consensus || {};
+        const matchingDist = (consensus.distribution || []).find(d => d.tierId === tier.id);
+        const percent = matchingDist ? matchingDist.percentage : 0;
+        const votes = matchingDist ? matchingDist.count : 0;
+
+        const template = cfg.endTemplate || DEFAULT_TIER_LIST_ANNOUNCEMENTS.endTemplate;
+        const text = template
+            .replace(/\{item\}/gi, itemName)
+            .replace(/\{tier\}/gi, tier.label)
+            .replace(/\{votes\}/gi, String(votes))
+            .replace(/\{percent\}/gi, String(percent));
+
+        try {
+            await send(text);
+            return { sent: true, text };
+        } catch (err) {
+            console.warn(`[Chatbot] Tier vote end announcement failed: ${err.message}`);
+            return { sent: false, error: err.message, text };
+        }
+    }
+
     const announcedDonations = new Map();
     // Every donation path calls this; ids and a short user+amount window stop repeats when two sources report one gift.
     async function announceDonation(donation = {}, { test = false } = {}) {
@@ -1240,6 +1318,8 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         announcePollStart,
         announcePollEnd,
         announceTournamentChampion,
+        announceTierVoteStart,
+        announceTierVoteEnd,
         announceDonation,
         reload: load,
         start,

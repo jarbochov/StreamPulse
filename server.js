@@ -58,6 +58,8 @@ const { createOverlayService, TEXT_SOURCE_TYPES, TEXT_SOURCE_EXTS, TEXT_SOURCE_M
 const { createClipService, normalizeClipCandidateConfig, DEFAULT_CLIP_CANDIDATE_CONFIG } = require('./server/services/clips');
 const { createPollService } = require('./server/services/polls');
 const { createMatchupService } = require('./server/services/matchup');
+const { createTierListService } = require('./server/services/tier-list');
+const { createTierListRoutes } = require('./server/routes/tier-list');
 const { safeWriteFileSync, escapeHtml } = require('./server/routes/helpers');
 const { createCrmService } = require('./server/services/crm');
 const { createCrmRoutes } = require('./server/routes/crm');
@@ -282,6 +284,7 @@ const ssnService = createSsnService({
     chatbot: () => chatbot,
     alertEngine: () => alertEngine,
     pollService: () => pollService,
+    tierListService: () => tierListService,
     takeoverPages: (kind, name, dur) => takeoverPages(kind, name, dur),
     addClipCandidate: (reason, details, ts, score) => addClipCandidate(reason, details, ts, score),
     getClipCandidateConfig: () => CLIP_CANDIDATE_CONFIG,
@@ -1060,6 +1063,7 @@ function getBackupFileSpecs() {
         { src: path.join(DATA_DIR, 'alert-events.json'), dest: 'data/alert-events.json' },
         { src: path.join(DATA_DIR, 'polls.json'), dest: 'data/polls.json' },
         { src: path.join(DATA_DIR, 'matchup.json'), dest: 'data/matchup.json' },
+        { src: path.join(DATA_DIR, 'tier-list.json'), dest: 'data/tier-list.json' },
         { src: path.join(DATA_DIR, 'chatbot.json'), dest: 'data/chatbot.json' },
         { src: path.join(DATA_DIR, 'chatbot-usage.json'), dest: 'data/chatbot-usage.json' },
         { src: path.join(DATA_DIR, 'quotes.json'), dest: 'data/quotes.json' },
@@ -1407,6 +1411,17 @@ const matchupService = createMatchupService({
     dataDir: DATA_DIR,
     broadcastToOverlays,
     onAlert: (event) => alertEngine.evaluate(event, { isTest: false })
+});
+
+const tierListService = createTierListService({
+    dataDir: DATA_DIR,
+    tierListPath: path.join(DATA_DIR, 'tier-list.json'),
+    broadcastToOverlays,
+    chatbotAnnouncer: chatbot,
+    log: console.log
+});
+const handleTierListRoutes = createTierListRoutes({
+    tierListService
 });
 
 
@@ -2022,6 +2037,7 @@ const server = createHttpServer(async (req, res) => {
     if (await handleWeatherRoutes(req, res, url, pathname)) return;
 
     if (await handleGamePlanRoutes(req, res, pathname, url)) return;
+    if (await handleTierListRoutes(req, res, pathname, url)) return;
     if (await handlePromoRoutes(req, res, pathname)) return;
 
 
