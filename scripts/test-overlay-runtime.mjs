@@ -263,7 +263,8 @@ try {
     const changed = clone(overlay);
     changed.elements.find(el => el.id === 'alert').alert.titleSize = 32;
     await update(changed);
-    assert.equal(await page.evaluate(() => window.testState.alerts.at(-1).stops), 1, 'changed alert layer must dispose its handle');
+    // A rebuilt layer replays the still-live alert (new handle); the old handle must be disposed.
+    assert.deepEqual(await page.evaluate(() => window.testState.alerts.slice(-2).map(a => a.stops)), [1, 0], 'changed alert layer must dispose its old handle and replay the live alert');
     await alert();
     await update({ ...overlay, elements: overlay.elements.filter(el => el.id !== 'alert') });
     assert.equal(await page.evaluate(() => window.testState.alerts.at(-1).stops), 1, 'removed alert layer must dispose its handle');
@@ -286,6 +287,7 @@ try {
     assert.equal((await state('auto')).paused, true, 'shared page media must retain pause');
     assert.equal(await page.evaluate(() => window.testState.alerts.at(-1).stops), 1, 'outgoing alert layers must dispose their handles');
     await page.evaluate(() => window.testState.message('custom-overlay-page', { id: 'fixture', page: 'one' }));
+    await clear('alert-clear');
     await page.keyboard.press('a');
     assert.equal(await page.evaluate(() => window.testState.alerts.at(-1).preview), true, 'preview playback must disable sound');
     const previewCount = await page.evaluate(() => window.testState.alerts.length);

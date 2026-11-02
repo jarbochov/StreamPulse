@@ -130,14 +130,37 @@
         .adv-chev { display: inline-flex; transition: transform 0.12s; color: var(--text-muted); }
         .rule-item-meta { gap: 0.3rem; }
         .alerts-toolbar { position: sticky; top: 0; z-index: 20; }
+        .btn:focus-visible, .tab-btn:focus-visible, .filter-chip:focus-visible, .variant > summary:focus-visible, .fld input:focus-visible, .fld select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .variant { border-left: 3px solid color-mix(in srgb, var(--accent) 55%, var(--border)); margin-bottom: 0.5rem; }
+        .variant:has(.tier-badge.milestone) { border-left-color: #f59e0b; margin-left: 0.9rem; }
+        .variant > summary { padding: 0.55rem 0.8rem; gap: 0.4rem; }
+        .vsum-title, .vsum-subtitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; word-break: normal; }
+        .rule-list:empty::before { content: 'No rules match.'; color: var(--text-muted); font-size: 0.78rem; padding: 0.8rem; text-align: center; border: 1px dashed var(--border); border-radius: 8px; }
+        .more-menu { position: relative; }
+        .more-menu > summary { list-style: none; cursor: pointer; }
+        .more-menu > summary::-webkit-details-marker { display: none; }
+        .more-pop { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 8px; padding: 0.6rem; display: flex; flex-direction: column; gap: 0.5rem; min-width: 240px; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+        .summary-banner { align-items: center; }
+        .quiet-sec > summary { cursor: pointer; list-style: none; display: flex; gap: 0.5rem; align-items: baseline; }
+        .quiet-sec > summary::-webkit-details-marker { display: none; }
+        .quiet-sec[open] > summary { margin-bottom: 0.4rem; }
+        .act-line { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 0.75rem; }
+        .editor-col { gap: 1.25rem; }
+        .card { padding: 1rem 1.2rem; gap: 0.9rem; }
+        .vsum-top { gap: 0.75rem; }
+        .vsum-text-col { flex: 1; min-width: 0; }
+        .vsum-title { font-size: 0.82rem; font-weight: 600; }
+        .vmeta-chips .vmeta-chip { font-size: 0.64rem; padding: 0.05rem 0.3rem; }
+        .summary-banner { padding: 0.5rem 0.9rem; border-left-width: 1px; }
+        .tier-ladder-title { font-size: 11px; letter-spacing: 0.06em; color: var(--text-muted); }
 
         /* Editor Column */
         .editor-col { display: flex; flex-direction: column; gap: 0.85rem; min-width: 0; }
         .summary-banner { background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 9px; padding: 0.65rem 0.95rem; display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; flex-wrap: wrap; }
-        .summary-left { display: flex; align-items: center; gap: 0.6rem; min-width: 0; flex: 1; }
+        .summary-left { display: flex; align-items: center; gap: 0.6rem; min-width: 0; flex: 1 1 300px; }
         .summary-icon { width: 28px; height: 28px; border-radius: 6px; background: var(--bg-inset); border: 1px solid var(--border); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .summary-text { font-size: 0.82rem; color: var(--text); line-height: 1.35; }
-        .summary-actions { display: inline-flex; align-items: center; gap: 0.4rem; }
+        .summary-text { font-size: 0.82rem; color: var(--text); line-height: 1.35; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .summary-actions { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; flex: 0 1 auto; }
 
         /* Forms */
         .cgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem 0.85rem; }
@@ -1588,7 +1611,6 @@
             html += field('Milestone Months', inp('conditions.milestones', c.milestones.join(', '), 'numlist', 'placeholder="6, 12, 24, 36"'), 'Specific anniversary milestones (comma-separated).');
             html += field('…or Every N Months', inp('conditions.everyMonths', c.everyMonths, 'number', 'min="0" max="120"'), '12 = every yearly anniversary (0 = off).');
         }
-        html += field('Cooldown (s)', inp('conditions.cooldownSeconds', c.cooldownSeconds, 'number', 'min="0"'), (t === 'chat_word' || t === 'chat_command') ? 'Prevents chat from spamming this alert repeatedly.' : '0 = no cooldown.');
         return html;
     }
 
@@ -1989,23 +2011,17 @@
                         ${tierBadge}
                         ${oddsBadge}
                     </div>
+                    <div class="vsum-text-col">
+                        <div class="vsum-title" title="${esc(v.title || '')}">${esc(v.title || '(No title template set)')}</div>
+                    </div>
                     <div class="vsum-actions">
                         <div class="vmeta-chips">
                             ${metaChips}
                         </div>
-                        <button type="button" class="btn sm v-preview-btn" data-test-variant="${i}" title="Preview this variant on overlays">
+                        <button type="button" class="btn sm ghost v-preview-btn" data-test-variant="${i}" title="Preview this variant on overlays">
                             ${ICONS.play} <span>Preview</span>
                         </button>
                         <span class="v-chevron">${ICONS.chevronDown}</span>
-                    </div>
-                </div>
-                <div class="vsum-main">
-                    <div class="v-thumb">
-                        ${thumbHtml}
-                    </div>
-                    <div class="vsum-text-col">
-                        <div class="vsum-title">${esc(v.title || '(No title template set)')}</div>
-                        ${v.message ? `<div class="vsum-subtitle">${esc(v.message)}</div>` : ''}
                     </div>
                 </div>
             </summary>
@@ -2163,7 +2179,7 @@
         const metricName = AMOUNT_LABEL[r.trigger] || (['sub', 'resub', 'milestone'].includes(r.trigger) ? 'Months' : 'Amount');
 
         let ladderHtml = '';
-        if (hasMetric) {
+        if (hasMetric && r.variants.some(v => v.variantType === 'gated' || v.gateMin > 0)) {
             const milestoneVariants = r.variants
                 .filter(v => (v.variantType === 'gated' || (v.gateMin > 0)))
                 .sort((a, b) => (Number(a.gateMin) || 0) - (Number(b.gateMin) || 0));
@@ -2219,7 +2235,7 @@
                         ${meta.icon}
                     </div>
                     <div class="summary-text">
-                        <b>${esc(summary(r))}</b>
+                        <b title="${esc(summary(r))}">${esc(summary(r))}</b>
                     </div>
                 </div>
                 <div class="summary-actions">
@@ -2227,36 +2243,49 @@
                         <input type="checkbox" data-f="enabled" data-type="check" ${r.enabled ? 'checked' : ''}>
                         <span>Active</span>
                     </label>
-                    <label class="check-row" title="Webhook Only: triggers webhooks silently without showing on-screen alert boxes, playing alert audio, or triggering page rotators" style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.18rem 0.55rem;">
-                        <input type="checkbox" data-f="webhookOnly" data-type="check" ${r.webhookOnly ? 'checked' : ''}>
-                        <span style="font-size:0.75rem;font-weight:700;color:${r.webhookOnly ? 'var(--accent)' : 'var(--text)'};">Webhook Only</span>
-                    </label>
-                    <button type="button" class="btn sm" id="dup-rule" title="Duplicate rule">${ICONS.copy} Duplicate</button>
-                    <button type="button" class="btn sm danger" id="del-rule" title="Delete rule">${ICONS.trash} Delete</button>
-                    <div style="display:inline-flex;align-items:center;gap:0.35rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.18rem 0.45rem;" title="Adjust test sound audio preview level">
-                        <span style="font-size:0.71rem;color:var(--text-muted);font-weight:600;">Preview Vol:</span>
-                        <input type="range" min="0" max="100" id="preview-vol-slider" value="${Math.round(getPreviewVolumeScale() * 100)}" style="width:55px;height:14px;accent-color:var(--accent);cursor:pointer;" oninput="localStorage.setItem('alerts.previewVolume', this.value); if(document.getElementById('preview-vol-text')) document.getElementById('preview-vol-text').textContent = this.value + '%';">
-                        <span id="preview-vol-text" style="font-size:0.68rem;color:var(--text-muted);min-width:24px;">${Math.round(getPreviewVolumeScale() * 100)}%</span>
-                    </div>
-                    ${hasMetric ? `
+
+                    <label class="gap-control" title="Minimum seconds between triggers of this rule (0 = none)">Cooldown
+                        <input type="number" min="0" data-f="conditions.cooldownSeconds" data-type="number" value="${esc(r.conditions.cooldownSeconds)}"> s</label>
+                                        ${hasMetric ? `
                         <div style="display:inline-flex;align-items:center;gap:0.35rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.18rem 0.45rem;">
                             <span style="font-size:0.71rem;color:var(--text-muted);font-weight:600;">Simulate ${esc(metricName)}:</span>
                             <input type="number" min="0" data-test-amount value="${testAmount || ''}" placeholder="${r.conditions.minAmount || 100}" style="width:72px;height:24px;padding:0.1rem 0.35rem;font-size:0.74rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:4px;color:var(--text);text-align:center;">
                         </div>
                     ` : ''}
-                    <button type="button" class="btn sm primary" data-test-rule title="Test this alert on overlays (evaluates weights and conditions)">${ICONS.play} Test Rule</button>
+
+                                        <button type="button" class="btn sm primary" data-test-rule title="Test this alert on overlays (evaluates weights and conditions)">${ICONS.play} Test Rule</button>
+
+                    <details class="more-menu" data-persist="alerts.moreOpen"${localStorage.getItem('alerts.moreOpen') === '1' ? ' open' : ''}>
+                        <summary class="btn sm ghost">More ${ICONS.chevronDown}</summary>
+                        <div class="more-pop">
+                                                <label class="check-row" title="Webhook Only: triggers webhooks silently without showing on-screen alert boxes, playing alert audio, or triggering page rotators" style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.18rem 0.55rem;">
+                        <input type="checkbox" data-f="webhookOnly" data-type="check" ${r.webhookOnly ? 'checked' : ''}>
+                        <span style="font-size:0.75rem;font-weight:700;color:${r.webhookOnly ? 'var(--accent)' : 'var(--text)'};">Webhook Only</span>
+                    </label>
+
+                                                <button type="button" class="btn sm" id="dup-rule" title="Duplicate rule">${ICONS.copy} Duplicate</button>
+                    <button type="button" class="btn sm danger" id="del-rule" title="Delete rule">${ICONS.trash} Delete</button>
+
+                                                <div style="display:inline-flex;align-items:center;gap:0.35rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.18rem 0.45rem;" title="Adjust test sound audio preview level">
+                        <span style="font-size:0.71rem;color:var(--text-muted);font-weight:600;">Preview Vol:</span>
+                        <input type="range" min="0" max="100" id="preview-vol-slider" value="${Math.round(getPreviewVolumeScale() * 100)}" style="width:55px;height:14px;accent-color:var(--accent);cursor:pointer;" oninput="localStorage.setItem('alerts.previewVolume', this.value); if(document.getElementById('preview-vol-text')) document.getElementById('preview-vol-text').textContent = this.value + '%';">
+                        <span id="preview-vol-text" style="font-size:0.68rem;color:var(--text-muted);min-width:24px;">${Math.round(getPreviewVolumeScale() * 100)}%</span>
+                    </div>
+
+                        </div>
+                    </details>
                 </div>
             </div>
 
             <!-- Card 1: Trigger & Conditions -->
-            <div class="card">
-                <h2>
-                    <span style="display:inline-flex;align-items:center;gap:0.45rem;">
-                        ${ICONS.zap}
-                        <span>1 · Event Trigger &amp; Conditions</span>
-                    </span>
-                    <span class="badge accent">${meta.label}</span>
-                </h2>
+            <details class="card adv-card" data-persist="alerts.condOpen"${localStorage.getItem('alerts.condOpen') === '1' ? ' open' : ''}>
+                <summary class="adv-toggle">
+                    <h2 style="flex:1;">
+                        <span style="display:inline-flex;align-items:center;gap:0.45rem;">${ICONS.zap}<span>1 · Trigger &amp; Conditions</span></span>
+                        <span class="badge accent">${meta.label}</span>
+                    </h2>
+                    <span class="adv-chev">${ICONS.chevronDown}</span>
+                </summary>
                 <div class="cgrid">
                     ${field('Rule Name', inp('name', r.name, 'text', 'maxlength="80" placeholder="e.g. Sub Tier 1"'))}
                     ${field('Event Trigger', sel_('trigger', r.trigger, Object.entries(TRIGGERS)))}
@@ -2268,7 +2297,7 @@
                     ` : ''}
                     ${conditionsHtml(r)}
                 </div>
-            </div>
+            </details>
 
             <!-- Card 2: Alert Display & Variants -->
             <div class="card">
@@ -2294,27 +2323,23 @@
                             ${ICONS.plus} <span>Base Variant</span>
                         </button>
                         ${hasMetric ? `
-                            <button type="button" class="btn sm primary" id="add-milestone-variant" title="Add an escalating milestone tier">
+                            <button type="button" class="btn sm" id="add-milestone-variant" title="Add an escalating milestone tier">
                                 ${ICONS.plus} <span>Milestone Tier</span>
                             </button>
                         ` : `
-                            <button type="button" class="btn sm primary" id="add-variant" title="Add a new variation">
+                            <button type="button" class="btn sm" id="add-variant" title="Add a new variation">
                                 ${ICONS.plus} <span>Add Variant</span>
                             </button>
                         `}
                     </div>
                 </div>
 
-                <!-- Clickable Token Chips -->
-                <div class="micro-head">Placeholders</div>
-                <div style="margin-top:0.1rem;">
-                    <div style="font-size:0.71rem;font-weight:600;color:var(--text-muted);margin-bottom:0.25rem;">
-                        Available Placeholders (click to insert into text):
-                    </div>
+                <details class="quiet-sec" data-persist="alerts.secTokens"${localStorage.getItem('alerts.secTokens') === '1' ? ' open' : ''}>
+                    <summary class="micro-head">Placeholders <span class="hint">click to insert into text</span></summary>
                     <div class="tokens-bar">
                         ${tokens.map(t => `<button type="button" class="token-chip" data-insert="{{alert.${t}}}" title="Click to insert {{alert.${t}}}">+ {{alert.${t}}}</button>`).join('')}
                     </div>
-                </div>
+                </details>
 
                 ${r.variants.length > 1 ? field('Variant Selection Mode', sel_('pick', r.pick === 'sequential' ? 'sequential' : 'weighted', [
                     ['weighted', 'Weighted Random (odds based on variant weights)'],
@@ -2334,10 +2359,11 @@
                     <h2 style="flex:1;">
                         <span style="display:inline-flex;align-items:center;gap:0.45rem;">
                             ${ICONS.clock}
-                            <span>3 · Advanced: Additional Actions</span>
+                            <span>3 · Actions</span>
                         </span>
                         <span class="badge${(a.timer.enabled || a.http.enabled) ? ' accent' : ''}">${(a.timer.enabled ? 1 : 0) + (a.http.enabled ? 1 : 0)} active</span>
                     </h2>
+                    <span class="hint act-line" title="${esc(a.http.enabled ? a.http.url : '')}">${[a.http.enabled ? `Webhook ${a.http.method} ${a.http.url || '(no URL)'}` : '', a.timer.enabled ? 'Timer control' : ''].filter(Boolean).join(' · ') || 'No actions'}</span>
                     <span class="adv-chev">${ICONS.chevronDown}</span>
                 </summary>
 
@@ -2727,7 +2753,7 @@
             if (el.value !== 'range') c.maxAmount = 0;
             renderEditor();
             renderRules();
-        } else if (el.dataset.f === 'pick' || ['actions.timer.enabled', 'actions.http.enabled', 'actions.timer.action'].includes(el.dataset.f)) {
+        } else if (el.dataset.f === 'pick' || ['actions.timer.enabled', 'actions.http.enabled', 'actions.timer.action', 'webhookOnly'].includes(el.dataset.f)) {
             renderEditor();
         } else if (el.dataset.soundPreset !== undefined) {
             const idx = el.dataset.soundPreset;
@@ -2772,6 +2798,10 @@
             if (key === 'videoSound' || key === 'gateMode' || key === 'gateMin' || key === 'gateMax' || key === 'gateMinOp' || key === 'gateMaxOp' || key === 'weight' || key === 'emoteEffect' || key === 'cheermoteFamily') renderEditor();
         }
     });
+
+    document.addEventListener('toggle', e => {
+        const d = e.target; if (d.dataset && d.dataset.persist) localStorage.setItem(d.dataset.persist, d.open ? '1' : '0');
+    }, true);
 
     // Asset Library Modal
     let libTarget = null, libKinds = [];
