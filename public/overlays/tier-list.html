@@ -13,9 +13,13 @@
             --tl-text: #f0f6fc;
             --tl-muted: #8b949e;
             --tl-accent: #3b82f6;
-            --tl-card-size: clamp(60px, 6vw, 96px);
-            --tl-header-width: clamp(80px, 9vw, 130px);
-            --tl-gap: 8px;
+            --tl-card-scale: 1;
+            --tl-card-size: calc(clamp(54px, 6.2cqi, 180px) * var(--tl-card-scale, 1));
+            --tl-header-width: calc(clamp(76px, 8.5cqi, 200px) * var(--tl-card-scale, 1));
+            --tl-card-aspect: 1/1;
+            --tl-cover-fit: cover;
+            --tl-gap: clamp(6px, 0.7cqi, 12px);
+            --tl-hint-scale: 1;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -32,10 +36,10 @@
         #overlay-container {
             width: 100%;
             height: 100%;
-            padding: clamp(12px, 2vw, 24px);
+            padding: clamp(10px, 1.8cqi, 28px);
             display: flex;
             flex-direction: column;
-            gap: clamp(10px, 1.5vw, 16px);
+            gap: clamp(8px, 1.2cqi, 18px);
             box-sizing: border-box;
             container-type: inline-size;
         }
@@ -53,7 +57,7 @@
             flex-shrink: 0;
         }
         .overlay-title {
-            font-size: clamp(15px, 1.6vw, 22px);
+            font-size: clamp(15px, 1.6cqi, 24px);
             font-weight: 800;
             letter-spacing: -0.01em;
             color: #fff;
@@ -62,7 +66,7 @@
             display: none;
             align-items: center;
             gap: 8px;
-            font-size: clamp(11px, 1.1vw, 14px);
+            font-size: clamp(11px, 1.1cqi, 14px);
             font-weight: 700;
             background: rgba(245, 158, 11, 0.2);
             color: #fbbf24;
@@ -95,7 +99,7 @@
         .overlay-row {
             display: flex;
             flex: 1;
-            min-height: clamp(68px, 9vh, 120px);
+            min-height: calc(var(--tl-card-size) + var(--tl-gap) * 2);
             border-bottom: 1px solid var(--tl-border);
             position: relative;
         }
@@ -110,16 +114,16 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 6px;
+            padding: clamp(4px, 0.5cqi, 10px);
             color: #111;
             font-weight: 800;
-            font-size: clamp(16px, 2vw, 26px);
+            font-size: clamp(15px, 1.8cqi, 32px);
             text-align: center;
             text-shadow: 0 1px 2px rgba(255,255,255,0.4);
             user-select: none;
         }
         .overlay-row-sub {
-            font-size: clamp(9px, 0.85vw, 11px);
+            font-size: clamp(9px, 0.85cqi, 13px);
             font-weight: 600;
             opacity: 0.85;
             margin-top: 2px;
@@ -138,6 +142,7 @@
             padding: var(--tl-gap);
             background: rgba(13, 17, 23, 0.7);
             position: relative;
+            overflow-y: auto;
         }
 
         /* Unranked Tray */
@@ -146,14 +151,14 @@
             background: var(--tl-bg);
             border: 1px solid var(--tl-border);
             border-radius: 8px;
-            padding: 10px 14px;
+            padding: clamp(8px, 1cqi, 14px);
             display: flex;
             flex-direction: column;
             gap: 8px;
-            max-height: 160px;
+            max-height: clamp(110px, 20vh, 300px);
         }
         .overlay-unranked-label {
-            font-size: 11px;
+            font-size: clamp(10px, 0.9cqi, 12px);
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.06em;
@@ -175,8 +180,8 @@
             width: var(--tl-card-size);
             height: auto;
             aspect-ratio: var(--tl-card-aspect, 1/1);
-            border-radius: 6px;
-            background: #1c2128;
+            border-radius: clamp(4px, 0.5cqi, 10px);
+            background: #111827;
             border: 1px solid rgba(255, 255, 255, 0.15);
             position: relative;
             overflow: hidden;
@@ -185,7 +190,8 @@
             justify-content: flex-end;
             will-change: transform;
             transform-origin: center center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+            flex-shrink: 0;
         }
 
         .card.spotlight {
@@ -200,15 +206,17 @@
             inset: 0;
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: var(--tl-cover-fit, cover);
+            object-position: center;
+            display: block;
         }
 
         .card-caption {
             position: relative;
             z-index: 2;
-            background: linear-gradient(transparent, rgba(0,0,0,0.85) 60%);
-            padding: 6px 3px 2px;
-            font-size: clamp(9px, 0.85vw, 11px);
+            background: linear-gradient(transparent, rgba(0,0,0,0.88) 60%);
+            padding: clamp(4px, 0.5cqi, 8px) clamp(2px, 0.3cqi, 6px) clamp(2px, 0.25cqi, 4px);
+            font-size: clamp(9px, 0.82cqi, 13px);
             font-weight: 700;
             color: #fff;
             text-align: center;
@@ -216,6 +224,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
             line-height: 1.2;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
         }
 
         /* Active Vote Banner Overlay */
@@ -245,11 +254,12 @@
         }
 
         .hud-voter-img {
-            width: 48px;
-            height: 48px;
+            width: clamp(48px, 4.5cqi, 76px);
+            height: clamp(48px, 4.5cqi, 76px);
             border-radius: 6px;
-            object-fit: cover;
+            object-fit: var(--tl-cover-fit, cover);
             border: 2px solid #fbbf24;
+            background: #111827;
         }
         .hud-voter-text {
             display: flex;
@@ -339,20 +349,23 @@
             font-size: 9px;
         }
 
-        /* Toggleable Voting Instructions Hint */
+        /* Toggleable Voting Instructions Hint Ribbon */
         .overlay-how-to-vote {
             display: none;
             align-items: center;
-            gap: 10px;
-            padding: 6px 14px;
-            background: var(--tl-bg);
-            border: 1px solid var(--tl-border);
-            border-radius: 8px;
-            font-size: clamp(11px, 1.1vw, 13px);
-            color: var(--tl-text);
-            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            gap: calc(10px * var(--tl-hint-scale, 1));
+            padding: calc(7px * var(--tl-hint-scale, 1)) calc(16px * var(--tl-hint-scale, 1));
+            background: rgba(13, 17, 23, 0.96);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: calc(8px * var(--tl-hint-scale, 1));
+            font-size: calc(clamp(12px, 1.15cqi, 16px) * var(--tl-hint-scale, 1));
+            color: #ffffff;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65);
             flex-shrink: 0;
-            transition: all 0.3s ease;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            overflow: hidden;
         }
         .overlay-how-to-vote.visible {
             display: flex;
@@ -363,36 +376,91 @@
             display: flex;
             align-items: center;
         }
+        .how-to-vote-icon svg {
+            width: calc(18px * var(--tl-hint-scale, 1));
+            height: calc(18px * var(--tl-hint-scale, 1));
+        }
         .how-to-vote-content {
             display: flex;
             align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
+            gap: calc(10px * var(--tl-hint-scale, 1));
+            flex-wrap: nowrap;
             flex: 1;
+            min-width: 0;
+            overflow-x: auto;
+        }
+        .how-to-vote-label {
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: #ffffff;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
         }
         .how-to-vote-cmd code {
             font-family: inherit;
             font-weight: 800;
             color: #fbbf24;
-            background: rgba(251, 191, 36, 0.15);
-            border: 1px solid rgba(251, 191, 36, 0.3);
-            padding: 1px 6px;
-            border-radius: 4px;
+            background: rgba(251, 191, 36, 0.2);
+            border: 1px solid rgba(251, 191, 36, 0.5);
+            padding: calc(2px * var(--tl-hint-scale, 1)) calc(8px * var(--tl-hint-scale, 1));
+            border-radius: calc(5px * var(--tl-hint-scale, 1));
+            font-size: 1.05em;
+            white-space: nowrap;
+            display: inline-block;
         }
         .how-to-vote-choices {
             display: inline-flex;
             align-items: center;
-            gap: 4px;
-            color: var(--tl-muted);
-            font-size: 0.9em;
+            gap: calc(5px * var(--tl-hint-scale, 1));
+            color: #94a3b8;
+            font-size: 0.95em;
+            white-space: nowrap;
         }
         .tier-choice-chip {
-            padding: 1px 5px;
-            border-radius: 3px;
+            padding: calc(1.5px * var(--tl-hint-scale, 1)) calc(6px * var(--tl-hint-scale, 1));
+            border-radius: calc(3px * var(--tl-hint-scale, 1));
             font-weight: 800;
-            color: #000;
-            font-size: 9px;
+            font-size: 0.88em;
             display: inline-block;
+            line-height: 1.2;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        /* Light Theme Overrides */
+        body.theme-light {
+            color: #0f172a;
+        }
+        body.theme-light .overlay-header,
+        body.theme-light .overlay-board,
+        body.theme-light .overlay-unranked {
+            background: #ffffff;
+            border-color: rgba(0, 0, 0, 0.12);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        }
+        body.theme-light .overlay-title {
+            color: #0f172a;
+        }
+        body.theme-light .overlay-row-items {
+            background: #f8fafc;
+        }
+        body.theme-light .overlay-how-to-vote {
+            background: #ffffff;
+            border-color: rgba(0, 0, 0, 0.2);
+            color: #0f172a;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+        body.theme-light .how-to-vote-label {
+            color: #0f172a;
+        }
+        body.theme-light .how-to-vote-cmd code {
+            color: #b45309;
+            background: #fef3c7;
+            border-color: #fcd34d;
+        }
+        body.theme-light .how-to-vote-choices {
+            color: #475569;
         }
 
         /* Sidebar Layout Mode */
@@ -422,7 +490,7 @@
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             </div>
             <div class="how-to-vote-content">
-                <span id="how-to-vote-label">Vote in chat:</span>
+                <span class="how-to-vote-label" id="how-to-vote-label">Vote in chat:</span>
                 <span class="how-to-vote-cmd"><code>!tier &lt;tier&gt;</code></span>
                 <span class="how-to-vote-choices" id="how-to-vote-choices"></span>
             </div>
@@ -463,8 +531,7 @@
             const urlParams = new URLSearchParams(window.location.search);
             const layout = urlParams.get('layout') || 'board';
             const hideUnranked = urlParams.get('hideUnranked') === '1' || urlParams.get('hideUnranked') === 'true';
-            const cardSizeParam = urlParams.get('size');
-            const cardAspectParam = urlParams.get('aspect');
+            const cardAspectParam = urlParams.get('aspect') || urlParams.get('coverRatio');
             const themeParam = urlParams.get('theme');
 
             if (layout === 'sidebar') {
@@ -473,19 +540,67 @@
             if (hideUnranked) {
                 document.getElementById('overlay-unranked').style.display = 'none';
             }
-            if (cardSizeParam === 'compact') {
-                document.documentElement.style.setProperty('--tl-card-size', 'clamp(50px, 4.5vw, 68px)');
-            } else if (cardSizeParam === 'large') {
-                document.documentElement.style.setProperty('--tl-card-size', 'clamp(85px, 8.5vw, 130px)');
+
+            // Card Scale & Responsive Sizing (?size=, ?scale=, ?cardScale=, ?coverScale=)
+            const scaleParam = urlParams.get('coverScale') || urlParams.get('cardScale') || urlParams.get('scale') || urlParams.get('size');
+            let cardScale = 1.0;
+            if (scaleParam) {
+                if (scaleParam === 'compact') cardScale = 0.8;
+                else if (scaleParam === 'medium') cardScale = 1.0;
+                else if (scaleParam === 'large') cardScale = 1.35;
+                else if (scaleParam === 'xlarge') cardScale = 1.7;
+                else {
+                    const parsed = parseFloat(String(scaleParam).replace('%', ''));
+                    if (!isNaN(parsed) && parsed > 0) {
+                        cardScale = parsed > 10 ? parsed / 100 : parsed;
+                    }
+                }
             }
+            document.documentElement.style.setProperty('--tl-card-scale', cardScale);
+
+            // Artwork Fit (?coverFit=cover|contain|fill|natural)
+            const coverFitParam = (urlParams.get('coverFit') || urlParams.get('coverfit') || urlParams.get('fit') || 'cover').toLowerCase();
+            if (['cover', 'contain', 'fill', 'natural'].includes(coverFitParam)) {
+                document.documentElement.style.setProperty('--tl-cover-fit', coverFitParam);
+            }
+
             if (cardAspectParam) {
                 document.documentElement.style.setProperty('--tl-card-aspect', cardAspectParam);
             }
+
+            // Voting Hint Font Scaling (?hintScale=, ?hintSize=, ?voteScale=)
+            const hintScaleParam = urlParams.get('hintScale') || urlParams.get('hintscale') || urlParams.get('voteScale') || urlParams.get('hintSize');
+            let hintScale = 1.0;
+            if (hintScaleParam) {
+                if (hintScaleParam === 'compact' || hintScaleParam === 'small') hintScale = 0.85;
+                else if (hintScaleParam === 'medium' || hintScaleParam === 'normal') hintScale = 1.0;
+                else if (hintScaleParam === 'large') hintScale = 1.25;
+                else if (hintScaleParam === 'xlarge' || hintScaleParam === 'xl') hintScale = 1.5;
+                else {
+                    const parsed = parseFloat(String(hintScaleParam).replace('%', ''));
+                    if (!isNaN(parsed) && parsed > 0) {
+                        hintScale = parsed > 10 ? parsed / 100 : parsed;
+                    }
+                }
+            } else if (scaleParam === 'compact') {
+                hintScale = 0.9;
+            } else if (scaleParam === 'large' || scaleParam === 'xlarge') {
+                hintScale = 1.2;
+            }
+            document.documentElement.style.setProperty('--tl-hint-scale', hintScale);
+
+            // Theme Styling (?theme=transparent|light|dark)
             if (themeParam === 'transparent') {
                 document.documentElement.style.setProperty('--tl-bg', 'transparent');
                 document.documentElement.style.setProperty('--tl-border', 'transparent');
                 const hdr = document.getElementById('overlay-header');
-                if (hdr) hdr.style.background = 'rgba(13, 17, 23, 0.75)';
+                if (hdr) hdr.style.background = 'rgba(13, 17, 23, 0.88)';
+            } else if (themeParam === 'light') {
+                document.body.classList.add('theme-light');
+                document.documentElement.style.setProperty('--tl-bg', '#ffffff');
+                document.documentElement.style.setProperty('--tl-border', 'rgba(0, 0, 0, 0.12)');
+                document.documentElement.style.setProperty('--tl-text', '#0f172a');
+                document.documentElement.style.setProperty('--tl-muted', '#64748b');
             }
 
             const sfxParam = urlParams.get('sfx');
@@ -494,7 +609,7 @@
             const howToVoteParam = urlParams.get('howtovote') ?? urlParams.get('hint') ?? urlParams.get('instructions');
             const customHintText = urlParams.get('hintText');
             const isHintExplicitOff = howToVoteParam === '0' || howToVoteParam === 'false' || howToVoteParam === 'none' || howToVoteParam === 'hide';
-            const isHintExplicitOn = howToVoteParam === '1' || howToVoteParam === 'true' || (howToVoteParam !== null && !isHintExplicitOff);
+            const isHintExplicitAlways = howToVoteParam === 'always' || howToVoteParam === 'test';
 
             let currentState = null;
             let hudInterval = null;
@@ -694,17 +809,32 @@
                 playFLIPAnimations(firstRects);
             }
 
+            function getContrastColor(hexColor) {
+                if (!hexColor || typeof hexColor !== 'string') return '#ffffff';
+                let hex = hexColor.replace('#', '');
+                if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+                if (hex.length !== 6) return '#ffffff';
+                const r = parseInt(hex.substr(0, 2), 16);
+                const g = parseInt(hex.substr(2, 2), 16);
+                const b = parseInt(hex.substr(4, 2), 16);
+                const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+                return yiq >= 140 ? '#111827' : '#ffffff';
+            }
+
             function updateVotingHint(state) {
                 const hintEl = $('overlay-how-to-vote');
                 if (!hintEl || !state) return;
 
+                const isVoteActive = Boolean(state.activeVote && state.activeVote.status === 'ACTIVE');
+
                 let shouldShow = false;
                 if (isHintExplicitOff) {
                     shouldShow = false;
-                } else if (isHintExplicitOn) {
+                } else if (isHintExplicitAlways) {
                     shouldShow = true;
                 } else {
-                    shouldShow = state.settings?.showVoteHint !== false;
+                    // Only display when a vote is actively in progress
+                    shouldShow = isVoteActive && state.settings?.showVoteHint !== false;
                 }
 
                 if (!shouldShow) {
@@ -729,9 +859,10 @@
 
                 const choicesEl = $('how-to-vote-choices');
                 if (state.tiers && state.tiers.length > 0) {
-                    choicesEl.innerHTML = '(e.g. ' + state.tiers.slice(0, 6).map(t =>
-                        `<span class="tier-choice-chip" style="background-color:${esc(t.color)};">${esc(t.label)}</span>`
-                    ).join('') + ')';
+                    choicesEl.innerHTML = '(e.g. ' + state.tiers.slice(0, 6).map(t => {
+                        const textColor = getContrastColor(t.color);
+                        return `<span class="tier-choice-chip" style="background-color:${esc(t.color)};color:${textColor};">${esc(t.label)}</span>`;
+                    }).join(' ') + ')';
                 } else {
                     choicesEl.innerHTML = '';
                 }

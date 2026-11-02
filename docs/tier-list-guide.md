@@ -181,10 +181,12 @@ http://localhost:3000/overlays/tier-list.html
 | :--- | :--- | :--- |
 | `layout` | `board` *(default)*, `sidebar` | Full-screen tier list board or narrow vertical sidebar. |
 | `hideUnranked` | `0` *(default)*, `1` | Hide the unranked pool tray to only display ranked tiers. |
-| `size` | `compact`, `medium` *(default)*, `large` | Card scale and artwork thumbnail sizing. |
+| `size` / `scale` | `compact`, `medium` *(default)*, `large`, or number (e.g. `1.2`) | Responsive card scaling from 720p to 4K displays. |
 | `aspect` | `1/1` *(default)*, `3/4`, `16/9` | Artwork card aspect ratio. |
-| `theme` | `dark` *(default)*, `transparent` | Transparent background for clean game capture compositing. |
-| `howtovote` | `1` *(default)*, `0` | Toggle voting instructions hint ribbon displaying chat command syntax and tier choices. |
+| `coverFit` | `cover` *(default)*, `contain`, `natural` | Media scaling: `cover` (fill & crop), `contain` (letterboxed), or `natural` (unconstrained). |
+| `theme` | `dark` *(default)*, `transparent`, `light` | Theme compositing (solid dark, alpha cutout for game capture, or light). |
+| `howtovote` | `auto` *(default: only during active vote)*, `always`, `0` | Toggle voting instructions hint ribbon displaying chat command syntax and tier choices. Only displays during active votes by default. |
+| `hintScale` | `1` *(default)*, `0.85`, `1.25`, `1.5`, or number | Font and element scaling for the voting instructions ribbon. |
 | `sfx` | `1` *(default)*, `0` | Enable or disable synthesized audio cues in OBS. |
 
 ---

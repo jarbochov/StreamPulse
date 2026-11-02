@@ -1097,6 +1097,14 @@
                         <option value="16/9">Widescreen 16:9 (Screenshots / banners)</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label for="overlay-opt-coverfit">Artwork Fit (?coverFit=)</label>
+                    <select id="overlay-opt-coverfit" class="form-control">
+                        <option value="cover">Cover (Fill &amp; crop to aspect ratio)</option>
+                        <option value="contain">Contain (Fit whole image, letterboxed)</option>
+                        <option value="natural">Natural (Preserve image aspect)</option>
+                    </select>
+                </div>
 
                 <div class="section-label" style="margin-top:0.4rem;">Theme &amp; Compositing</div>
                 <div class="form-group">
@@ -1104,6 +1112,7 @@
                     <select id="overlay-opt-theme" class="form-control">
                         <option value="dark">Dark Solid (Dark rounded container with soft shadows)</option>
                         <option value="transparent">100% Transparent (Alpha cutout for game capture overlay)</option>
+                        <option value="light">Light Solid (High contrast for bright scenes)</option>
                     </select>
                 </div>
 
@@ -1111,8 +1120,18 @@
                 <div class="form-group">
                     <label for="overlay-opt-hint">Voting Instructions Hint (?howtovote=)</label>
                     <select id="overlay-opt-hint" class="form-control">
-                        <option value="1">Show Voting Hint (Display chat command hint bar e.g. !tier &lt;tier&gt;)</option>
-                        <option value="0">Hide Voting Hint (Clean display without instructions bar)</option>
+                        <option value="auto">When Voting (Recommended: only shows during active chat vote)</option>
+                        <option value="always">Always Visible (Show instructions ribbon continuously)</option>
+                        <option value="0">Hide Hint Ribbon (Never display instructions bar)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="overlay-opt-hintscale">Voting Hint Scale (?hintScale=)</label>
+                    <select id="overlay-opt-hintscale" class="form-control">
+                        <option value="1">100% / Standard (Default)</option>
+                        <option value="1.25">125% / Large (Enhanced readability on stream)</option>
+                        <option value="1.5">150% / Extra Large (Prominent call-to-action)</option>
+                        <option value="0.85">85% / Compact (Subtle hint for high-density streams)</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -2569,8 +2588,10 @@
                 hideUnranked: '0',
                 size: 'medium',
                 aspect: '1/1',
+                coverFit: 'cover',
                 theme: 'dark',
-                howtovote: '1',
+                howtovote: 'auto',
+                hintScale: '1',
                 sfx: '1'
             };
 
@@ -2586,8 +2607,10 @@
                 $('overlay-opt-hide-unranked').value = overlayOptions.hideUnranked || '0';
                 $('overlay-opt-size').value = overlayOptions.size || 'medium';
                 $('overlay-opt-aspect').value = overlayOptions.aspect || '1/1';
+                $('overlay-opt-coverfit').value = overlayOptions.coverFit || 'cover';
                 $('overlay-opt-theme').value = overlayOptions.theme || 'dark';
-                $('overlay-opt-hint').value = overlayOptions.howtovote !== undefined ? overlayOptions.howtovote : '1';
+                $('overlay-opt-hint').value = overlayOptions.howtovote !== undefined ? overlayOptions.howtovote : 'auto';
+                $('overlay-opt-hintscale').value = overlayOptions.hintScale || '1';
                 $('overlay-opt-sfx').value = overlayOptions.sfx !== undefined ? overlayOptions.sfx : '1';
 
                 updateOverlayUrl();
@@ -2598,8 +2621,10 @@
                 overlayOptions.hideUnranked = $('overlay-opt-hide-unranked').value;
                 overlayOptions.size = $('overlay-opt-size').value;
                 overlayOptions.aspect = $('overlay-opt-aspect').value;
+                overlayOptions.coverFit = $('overlay-opt-coverfit').value;
                 overlayOptions.theme = $('overlay-opt-theme').value;
                 overlayOptions.howtovote = $('overlay-opt-hint').value;
+                overlayOptions.hintScale = $('overlay-opt-hintscale').value;
                 overlayOptions.sfx = $('overlay-opt-sfx').value;
 
                 try {
@@ -2611,9 +2636,11 @@
                 if (overlayOptions.hideUnranked === '1') params.set('hideUnranked', '1');
                 if (overlayOptions.size !== 'medium') params.set('size', overlayOptions.size);
                 if (overlayOptions.aspect !== '1/1') params.set('aspect', overlayOptions.aspect);
+                if (overlayOptions.coverFit && overlayOptions.coverFit !== 'cover') params.set('coverFit', overlayOptions.coverFit);
                 if (overlayOptions.theme !== 'dark') params.set('theme', overlayOptions.theme);
                 if (overlayOptions.howtovote === '0') params.set('howtovote', '0');
-                else if (overlayOptions.howtovote === '1') params.set('howtovote', '1');
+                else if (overlayOptions.howtovote === 'always') params.set('howtovote', 'always');
+                if (overlayOptions.hintScale && overlayOptions.hintScale !== '1') params.set('hintScale', overlayOptions.hintScale);
                 if (overlayOptions.sfx === '0') params.set('sfx', '0');
 
                 const queryString = params.toString() ? `?${params.toString()}` : '';
@@ -2632,7 +2659,7 @@
                 openModal('modal-overlay-options');
             });
 
-            ['overlay-opt-layout', 'overlay-opt-hide-unranked', 'overlay-opt-size', 'overlay-opt-aspect', 'overlay-opt-theme', 'overlay-opt-hint', 'overlay-opt-sfx'].forEach(id => {
+            ['overlay-opt-layout', 'overlay-opt-hide-unranked', 'overlay-opt-size', 'overlay-opt-aspect', 'overlay-opt-coverfit', 'overlay-opt-theme', 'overlay-opt-hint', 'overlay-opt-hintscale', 'overlay-opt-sfx'].forEach(id => {
                 $(id).addEventListener('change', updateOverlayUrl);
             });
 

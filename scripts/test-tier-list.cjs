@@ -453,3 +453,13 @@ test('Tier List Service: Stream Deck & Bitfocus Companion GET Triggers', async (
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }
 });
+
+test('Tier List Overlay: Responsive styles, cover fit, contrast helper and hint scaling present', () => {
+    const overlayHtml = fs.readFileSync(path.join(__dirname, '../public/overlays/tier-list.html'), 'utf8');
+    assert.ok(overlayHtml.includes('--tl-card-scale'));
+    assert.ok(overlayHtml.includes('--tl-cover-fit'));
+    assert.ok(overlayHtml.includes('--tl-hint-scale'));
+    assert.ok(overlayHtml.includes('getContrastColor'));
+    assert.ok(overlayHtml.includes('container-type: inline-size'));
+    assert.ok(overlayHtml.includes('isVoteActive'));
+});
