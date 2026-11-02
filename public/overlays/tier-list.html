@@ -614,6 +614,7 @@
             let currentState = null;
             let hudInterval = null;
             let lastVoteId = null;
+            let lastVoteLocked = false;
             let lastTickedSecond = null;
 
             const TierAudio = {
@@ -825,7 +826,7 @@
                 const hintEl = $('overlay-how-to-vote');
                 if (!hintEl || !state) return;
 
-                const isVoteActive = Boolean(state.activeVote && state.activeVote.status === 'ACTIVE');
+                const isVoteActive = Boolean(state.activeVote && (state.activeVote.status === 'ACTIVE' || state.activeVote.status === 'LOCKED'));
 
                 let shouldShow = false;
                 if (isHintExplicitOff) {
@@ -851,7 +852,9 @@
                 }
 
                 const activeVote = state.activeVote;
-                if (activeVote && activeVote.status === 'ACTIVE') {
+                if (activeVote && activeVote.status === 'LOCKED') {
+                    $('how-to-vote-label').innerHTML = `Chat Vote Locked: <strong style="color:#fbbf24;">${esc(activeVote.itemName)}</strong> &middot; Finalizing Consensus`;
+                } else if (activeVote && activeVote.status === 'ACTIVE') {
                     $('how-to-vote-label').innerHTML = `Live Chat Vote: <strong style="color:#fbbf24;">${esc(activeVote.itemName)}</strong> &middot; Type:`;
                 } else {
                     $('how-to-vote-label').textContent = 'Vote in chat:';
@@ -885,11 +888,12 @@
                 const hudEl = $('vote-hud-overlay');
                 const badgeEl = $('overlay-vote-badge');
 
-                if (!vote || vote.status !== 'ACTIVE') {
-                    if (lastVoteId) {
+                if (!vote || (vote.status !== 'ACTIVE' && vote.status !== 'LOCKED')) {
+                    if (lastVoteId && !lastVoteLocked) {
                         TierAudio.voteLock();
                     }
                     lastVoteId = null;
+                    lastVoteLocked = false;
                     lastTickedSecond = null;
                     hudEl.classList.remove('active');
                     badgeEl.classList.remove('active');
@@ -903,8 +907,14 @@
 
                 if (vote.id !== lastVoteId) {
                     lastVoteId = vote.id;
+                    lastVoteLocked = false;
                     lastTickedSecond = null;
                     TierAudio.voteStart();
+                }
+
+                if (vote.status === 'LOCKED' && !lastVoteLocked) {
+                    lastVoteLocked = true;
+                    TierAudio.voteLock();
                 }
 
                 hudEl.classList.add('active');
@@ -919,6 +929,11 @@
                 // Timer countdown
                 if (hudInterval) clearInterval(hudInterval);
                 const updateCountdown = () => {
+                    if (vote.status === 'LOCKED') {
+                        $('overlay-timer').textContent = 'Locked';
+                        $('hud-time-rem').textContent = 'Locked';
+                        return;
+                    }
                     if (!vote.endsAt) {
                         $('overlay-timer').textContent = 'Open';
                         $('hud-time-rem').textContent = 'Open';
@@ -1031,7 +1046,7 @@
                         const msg = JSON.parse(event.data);
                         if (msg.type === 'tier-list:update' || msg.type === 'tier-list:move' ||
                             msg.type === 'tier-list:vote-start' || msg.type === 'tier-list:vote-end' ||
-                            msg.type === 'tier-list:vote-cancel') {
+                            msg.type === 'tier-list:vote-cancel' || msg.type === 'tier-list:vote-locked') {
                             fetchOverlayState();
                         } else if (msg.type === 'tier-list:vote-update') {
                             updateVoteHUDMeters(msg.data.consensus);

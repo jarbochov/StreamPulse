@@ -992,6 +992,12 @@
                 </div>
 
                 <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                    <input type="checkbox" id="setting-auto-lock" checked style="accent-color:var(--accent);">
+                    <label for="setting-auto-lock" style="cursor:pointer;">Auto lock-in &amp; place item when countdown timer ends</label>
+                </div>
+                <div style="font-size:11px;color:var(--text-muted);margin:-2px 0 6px 20px;">When unchecked, timer closes voting and waits for streamer to click Lock &amp; Place</div>
+
+                <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
                     <input type="checkbox" id="setting-allow-change" checked style="accent-color:var(--accent);">
                     <label for="setting-allow-change" style="cursor:pointer;">Allow chatters to change vote before lock-in</label>
                 </div>
@@ -1312,8 +1318,8 @@
                     try {
                         const msg = JSON.parse(event.data);
                         if (msg.type === 'tier-list:update' || msg.type === 'tier-list:move' ||
-                            msg.type === 'tier-list:vote-start' || msg.type === 'tier-list:vote-end' ||
-                            msg.type === 'tier-list:vote-cancel') {
+                            msg.type === 'tier-list:vote-start' || msg.type === 'tier-list:vote-locked' ||
+                            msg.type === 'tier-list:vote-end' || msg.type === 'tier-list:vote-cancel') {
                             fetchState();
                         } else if (msg.type === 'tier-list:vote-update') {
                             if (state.activeVote) {
@@ -1454,7 +1460,7 @@
                 const hud = $('voting-hud');
                 const vote = state.activeVote;
 
-                if (!vote || vote.status !== 'ACTIVE') {
+                if (!vote || (vote.status !== 'ACTIVE' && vote.status !== 'LOCKED')) {
                     if (lastVoteId) {
                         TierAudio.voteLock();
                     }
@@ -1483,12 +1489,18 @@
                 // Setup countdown timer
                 if (hudTimerInterval) clearInterval(hudTimerInterval);
                 const updateCountdown = () => {
+                    if (vote.status === 'LOCKED') {
+                        $('hud-timer').textContent = 'Voting Closed';
+                        $('btn-lock-vote')?.classList.add('pulse');
+                        return;
+                    }
+                    $('btn-lock-vote')?.classList.remove('pulse');
                     if (!vote.endsAt) {
                         $('hud-timer').textContent = 'Open';
                         return;
                     }
                     const remaining = Math.max(0, Math.round((vote.endsAt - Date.now()) / 1000));
-                    $('hud-timer').textContent = `${remaining}s`;
+                    $('hud-timer').textContent = remaining > 0 ? `${remaining}s` : 'Voting Closed';
                     if (remaining <= 5 && remaining > 0 && remaining !== lastTickedSecond) {
                         lastTickedSecond = remaining;
                         TierAudio.countdownTick(remaining <= 3);
@@ -2310,6 +2322,7 @@
                 $('setting-consensus').value = state.settings.consensusMode || 'weighted_mean';
                 $('setting-sub-mult').value = state.settings.subMultiplier || 1;
                 $('setting-duration').value = state.settings.defaultDuration || 60;
+                $('setting-auto-lock').checked = state.settings.autoLockIn !== false;
                 $('setting-allow-change').checked = state.settings.allowVoteChange !== false;
                 $('setting-announce-chat').checked = state.settings.announceChat !== false;
                 $('setting-sound').checked = state.settings.soundEnabled !== false;
@@ -2329,6 +2342,7 @@
                 const consensusMode = $('setting-consensus').value;
                 const subMultiplier = Number($('setting-sub-mult').value) || 1;
                 const defaultDuration = Math.max(10, Number($('setting-duration').value) || 60);
+                const autoLockIn = $('setting-auto-lock').checked;
                 const allowVoteChange = $('setting-allow-change').checked;
                 const announceChat = $('setting-announce-chat').checked;
                 const soundEnabled = $('setting-sound').checked;
@@ -2347,6 +2361,7 @@
                             consensusMode,
                             subMultiplier,
                             defaultDuration,
+                            autoLockIn,
                             allowVoteChange,
                             announceChat,
                             soundEnabled,

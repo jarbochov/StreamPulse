@@ -1230,10 +1230,13 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         const tag = data.settings.tag || '';
         const consensus = resultData.consensus || {};
         const matchingDist = (consensus.distribution || []).find(d => d.tierId === tier.id);
-        const percent = matchingDist ? matchingDist.percentage : 0;
-        const votes = matchingDist ? matchingDist.count : 0;
-        const totalVotes = consensus.totalVotes ?? 0;
-        const agreement = consensus.agreementPercent ?? percent;
+        const tierVotes = matchingDist ? matchingDist.count : 0;
+        const tierPercent = matchingDist ? matchingDist.percentage : 0;
+        const totalVotes = consensus.totalVotes ?? tierVotes;
+        // In chat announcements, "{votes}" represents the total votes cast by chatters (e.g. 3 votes)
+        const votes = totalVotes;
+        const agreement = consensus.agreementPercent ?? (tierPercent > 0 ? tierPercent : (totalVotes > 0 ? 100 : 0));
+        const percent = agreement;
         const subVotes = consensus.subVotes ?? 0;
 
         const template = cfg.endTemplate || DEFAULT_TIER_LIST_ANNOUNCEMENTS.endTemplate;
@@ -1243,8 +1246,10 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             .replace(/\{item\}/gi, itemName)
             .replace(/\{tier\}/gi, tier.label)
             .replace(/\{votes\}/gi, String(votes))
-            .replace(/\{percent\}/gi, String(percent))
             .replace(/\{totalvotes\}/gi, String(totalVotes))
+            .replace(/\{tiervotes\}/gi, String(tierVotes))
+            .replace(/\{tierpercent\}/gi, String(tierPercent))
+            .replace(/\{percent\}/gi, String(percent))
             .replace(/\{agreement\}/gi, String(agreement))
             .replace(/\{subvotes\}/gi, String(subVotes));
 

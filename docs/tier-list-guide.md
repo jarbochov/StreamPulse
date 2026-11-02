@@ -58,11 +58,12 @@ StreamPulse allows chatters to collaboratively decide where items belong on your
 Viewers vote in chat with:
 ```text
 !tier S
-!tier A
+!tier S!
+!tier A tier
 !tier Trash
 !rank 1
 ```
-*(Case-insensitive; supports tier labels, numeric position, and prefix shortcuts).*
+*(Case-insensitive; supports tier labels, numeric positions, prefix shortcuts, and natural punctuation like exclamation marks or trailing words).*
 
 ### Vote Updating
 By default, chatters can change their vote as many times as they want while voting is open. Only their most recent vote is counted toward the final consensus.
@@ -80,9 +81,11 @@ In **Settings &rarr; Vote Consensus Method**, choose how chat votes are aggregat
 3. **Plurality (Mode)**:
    - Simple highest vote count wins.
 
-### Finalizing Votes
-- When the timer expires, the item automatically moves into the winning tier and chat is notified.
-- Click **Lock & Place** to manually end voting early, or **Cancel** to abort without moving the item.
+### Finalizing Votes & Auto Lock-In
+In **Settings &rarr; Auto Lock-In Item when Timer Expires**, choose how vote conclusions are handled:
+- **Auto Lock-In Enabled** *(Default)*: When the countdown timer reaches zero, the vote closes automatically, the item is moved into the winning consensus tier with a celebration fanfare, and the chatbot announces the final ranking in chat.
+- **Auto Lock-In Disabled**: When the timer expires, the vote transitions to a **LOCKED** state. Voting is closed and chat votes are frozen, but the item remains in the voting spotlight with a pulsing **Lock & Place** button and a "Voting Closed &middot; Ready to Lock In" indicator. This gives the streamer full control to discuss chat's decision on stream before clicking **Lock & Place** (or triggering it via Stream Deck) to apply the placement.
+- **Manual Early Lock-In**: Streamers can click **Lock & Place** at any time during an active or locked vote to conclude voting early, or **Cancel** to abort without moving the item.
 
 ### Chat Bot Announcements & Settings
 Customize automated chat announcements in **Chat Bot &rarr; Settings** (`/chatbot.html#settings`):
@@ -95,9 +98,13 @@ Customize automated chat announcements in **Chat Bot &rarr; Settings** (`/chatbo
   - `{tiers}`: Comma-separated list of available tier choices (e.g. `S, A, B, C, D, F`).
   - `{commands}`: Formatted commands list (e.g. `!tier S, !tier A, !tier B...`).
   - `{duration}`: Voting time limit (e.g. `60s` or `open`).
-  - `{votes}`: Vote count for the consensus tier.
-  - `{percent}`: Percentage of voters on the consensus tier.
-  - `{totalVotes}`: Total votes cast across all tiers.
+  - `{votes}` or `{totalVotes}`: Total number of chat votes cast across all tiers.
+  - `{percent}` or `{agreement}`: Consensus agreement percentage (e.g. `83%`).
+  - `{tiervotes}`: Direct vote count cast specifically for the winning tier.
+  - `{tierpercent}`: Percentage of voters who directly picked the winning tier.
+  - `{subVotes}`: Number of subscriber votes cast.
+  - `{prefix}` & `{tag}`: Bot command prefix and tag.
+- **Send Test Announcement**: Test bot formatting and SocialStream connection directly with a single click.
   - `{agreement}`: Consensus agreement metric.
   - `{subVotes}`: Number of subscriber votes cast.
   - `{prefix}` & `{tag}`: Bot command prefix and tag.
@@ -147,6 +154,7 @@ Control your tier list directly from hardware buttons or external automations us
 | :--- | :--- | :--- | :--- |
 | **Start Next Vote** | `GET` / `POST` | `/api/tier-list/vote/start` | Automatically starts chat voting on the first unranked item. Optional: `?duration=60&consensusMode=weighted_mean`. |
 | **Start Item Vote** | `GET` / `POST` | `/api/tier-list/vote/start?itemId=<id>` | Starts chat voting on a specific item ID. |
+| **Lock Votes (Freeze)** | `GET` / `POST` | `/api/tier-list/vote/lock` | Closes chat voting and freezes votes without moving item to tier yet. |
 | **Lock & Place** | `GET` / `POST` | `/api/tier-list/vote/end?apply=1` | Concludes active voting immediately and moves item to consensus tier. |
 | **Cancel Vote** | `GET` / `POST` | `/api/tier-list/vote/cancel` | Aborts active vote without moving item. |
 | **Reset Placements** | `GET` / `POST` | `/api/tier-list/reset` | Moves all ranked items back to the unranked pool. |

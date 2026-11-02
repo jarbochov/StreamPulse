@@ -124,6 +124,13 @@ function createTierListRoutes({ tierListService }) {
                 return true;
             }
 
+            // POST or GET /api/tier-list/vote/lock (Close voting and freeze votes without placing)
+            if (pathname === '/api/tier-list/vote/lock' && (req.method === 'POST' || req.method === 'GET')) {
+                const state = tierListService.lockVote();
+                sendJson(res, state || { error: 'No active vote to lock' });
+                return true;
+            }
+
             // POST or GET /api/tier-list/vote/end (Companion friendly: lock & place or discard)
             if (pathname === '/api/tier-list/vote/end' && (req.method === 'POST' || req.method === 'GET')) {
                 let apply = true;

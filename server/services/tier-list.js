@@ -220,6 +220,7 @@ function createTierListService({
             consensusMode: 'weighted_mean',
             subMultiplier: 1,
             allowVoteChange: true,
+            autoLockIn: true,
             defaultDuration: 60,
             announceChat: true,
             soundEnabled: true,
@@ -505,6 +506,7 @@ function createTierListService({
             consensusMode: effectiveMode,
             subMultiplier: effectiveSubMult,
             allowVoteChange: state.settings.allowVoteChange !== false,
+            autoLockIn: state.settings.autoLockIn !== false,
             votes: {},
             status: 'ACTIVE'
         };
@@ -512,7 +514,11 @@ function createTierListService({
         if (effectiveDuration > 0) {
             voteTimer = setTimeout(() => {
                 try {
-                    endVote({ applyConsensus: true });
+                    if (state.settings.autoLockIn !== false) {
+                        endVote({ applyConsensus: true });
+                    } else {
+                        lockVote();
+                    }
                 } catch (e) {
                     log(`[TierList] Auto-end vote error: ${e.message}`);
                 }
@@ -594,30 +600,42 @@ function createTierListService({
         if (/^\[(?:bot|poll|tournament|tier)/i.test(text)) return false;
         if (chatbotAnnouncer?.isBotMessage?.(text)) return false;
 
-        // Pattern: !tier <arg> or !rank <arg>
-        const match = text.match(/^(?:!tier|!rank)\s+(.+)$/i);
+        // Support configured chatbot prefix (e.g. '!') or default '!'
+        const botPrefix = (chatbotAnnouncer && typeof chatbotAnnouncer.getPrefix === 'function' ? chatbotAnnouncer.getPrefix() : '!') || '!';
+        const pfxEscaped = botPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const match = text.match(new RegExp(`^(?:${pfxEscaped}|!)(?:tier|rank)\\s+(.+)$`, 'i'));
         if (!match) return false;
 
         const rawArg = match[1].trim().toLowerCase();
         if (!rawArg) return false;
 
+        // Clean first token to be resilient against punctuation and extra words (e.g. "S!", "S tier", "S - great game")
+        const firstToken = rawArg.split(/\s+/)[0].replace(/[^a-z0-9_-]/gi, '').toLowerCase();
+
         // Match against tier labels (exact, alias, or index)
         let matchedTier = null;
 
         // 1. Check numeric index (1-based: e.g. !tier 1 => Tier S)
-        if (/^\d+$/.test(rawArg)) {
-            const idx = parseInt(rawArg, 10) - 1;
+        const numCandidate = /^\d+$/.test(firstToken) ? firstToken : (/^\d+$/.test(rawArg) ? rawArg : null);
+        if (numCandidate) {
+            const idx = parseInt(numCandidate, 10) - 1;
             if (idx >= 0 && idx < state.tiers.length) {
                 matchedTier = state.tiers[idx];
             }
         }
 
-        // 2. Check exact or lowercased label match (e.g. "s", "a", "trash")
+        // 2. Check exact or lowercased label match (check firstToken, then full rawArg)
+        if (!matchedTier && firstToken) {
+            matchedTier = state.tiers.find(t => t.label.trim().toLowerCase() === firstToken);
+        }
         if (!matchedTier) {
             matchedTier = state.tiers.find(t => t.label.trim().toLowerCase() === rawArg);
         }
 
         // 3. Check partial label prefix if unambiguous (e.g. "mast" => "Masterpiece")
+        if (!matchedTier && firstToken && firstToken.length >= 3) {
+            matchedTier = state.tiers.find(t => t.label.trim().toLowerCase().startsWith(firstToken));
+        }
         if (!matchedTier && rawArg.length >= 3) {
             matchedTier = state.tiers.find(t => t.label.trim().toLowerCase().startsWith(rawArg));
         }
@@ -630,6 +648,28 @@ function createTierListService({
             tierId: matchedTier.id,
             isSub: Boolean(msg.subscriber || msg.isSub || msg.hasMembership)
         });
+    }
+
+    function lockVote() {
+        if (!state.activeVote) return null;
+        if (state.activeVote.status === 'LOCKED') return getPublicState();
+        if (state.activeVote.status !== 'ACTIVE') return null;
+
+        if (voteTimer) {
+            clearTimeout(voteTimer);
+            voteTimer = null;
+        }
+
+        state.activeVote.status = 'LOCKED';
+        state.activeVote.endsAt = Date.now();
+        const consensus = calculateConsensus(state.activeVote, state.tiers);
+
+        broadcastState('tier-list:vote-locked', {
+            vote: Object.assign({}, state.activeVote, { consensus })
+        });
+
+        log(`[TierList] Voting locked for "${state.activeVote.itemName}". Voting closed, awaiting streamer Lock & Place.`);
+        return getPublicState();
     }
 
     function endVote({ applyConsensus = true } = {}) {
@@ -666,7 +706,7 @@ function createTierListService({
         if (state.settings.announceChat && chatbotAnnouncer && typeof chatbotAnnouncer.announceTierVoteEnd === 'function') {
             Promise.resolve().then(() => chatbotAnnouncer.announceTierVoteEnd({
                 item,
-                consensusTier: placedInTier,
+                consensusTier: placedInTier || consensus?.consensusTier,
                 consensus
             })).catch(() => {});
         }
@@ -766,6 +806,7 @@ function createTierListService({
         castVote,
         handleChatMessage,
         endVote,
+        lockVote,
         cancelVote,
         calculateConsensus: (v, t) => calculateConsensus(v, t || state.tiers),
         savePreset,

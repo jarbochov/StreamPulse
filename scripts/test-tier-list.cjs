@@ -7,6 +7,7 @@ const path = require('path');
 const os = require('os');
 const { createTierListService, calculateConsensus, DEFAULT_TIERS } = require('../server/services/tier-list');
 const { createTierListRoutes } = require('../server/routes/tier-list');
+const createChatbot = require('../server/services/chatbot');
 
 test('Tier List Service: State initialization & defaults', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tl-test-init-'));
@@ -462,4 +463,212 @@ test('Tier List Overlay: Responsive styles, cover fit, contrast helper and hint 
     assert.ok(overlayHtml.includes('getContrastColor'));
     assert.ok(overlayHtml.includes('container-type: inline-size'));
     assert.ok(overlayHtml.includes('isVoteActive'));
+});
+
+test('Chatbot Tier Vote End: Accurately announces total votes and consensus agreement', async (t) => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tl-chatbot-vote-count-'));
+    const originalFetch = globalThis.fetch;
+    const sentMessages = [];
+    globalThis.fetch = async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/sendChat/')) {
+            const decoded = decodeURIComponent(urlStr.split('/sendChat/')[1] || '');
+            sentMessages.push(decoded);
+            return { ok: true, status: 200, text: async () => 'ok' };
+        }
+        return { ok: true, status: 200, text: async () => 'ok', json: async () => ({}) };
+    };
+
+    t.after(() => {
+        globalThis.fetch = originalFetch;
+        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    });
+
+    const chatbot = createChatbot({
+        dataDir: tmpDir,
+        getConfig: () => ({ chatbot_enabled: true, ssn: { session_id: 'test-session-123' } }),
+        sessionKey: () => 'test-session'
+    });
+
+    // 1. Scenario: Weighted Mean where 1 votes A and 2 vote C => Weighted average consensus is B.
+    // 0 chatters voted directly for B. Total votes = 3.
+    const res = await chatbot.announceTierVoteEnd({
+        item: { name: 'Elden Ring' },
+        consensusTier: { id: 'tier-b', label: 'B' },
+        consensus: {
+            totalVotes: 3,
+            agreementPercent: 33,
+            distribution: [
+                { tierId: 'tier-a', label: 'A', count: 1, percentage: 33 },
+                { tierId: 'tier-c', label: 'C', count: 2, percentage: 67 }
+            ]
+        }
+    }, { test: true });
+
+    assert.equal(res.sent, true);
+    assert.equal(sentMessages.length, 1);
+    // Verifies that {votes} resolves to 3 (total votes cast) and NOT 0!
+    assert.ok(sentMessages[0].includes('with 3 votes (33%)!'), `Expected message to include 'with 3 votes (33%)!', got: ${sentMessages[0]}`);
+    assert.ok(!sentMessages[0].includes('0 votes'), 'Message should NOT state 0 votes');
+
+    // 2. Custom template with {tiervotes} and {totalvotes}
+    chatbot.getData().settings.tierAnnouncements = {
+        enabled: true,
+        announceEnd: true,
+        endTemplate: '[Tier List] {item}: {totalvotes} total votes, {tiervotes} on {tier}'
+    };
+
+    const res2 = await chatbot.announceTierVoteEnd({
+        item: { name: 'Hollow Knight' },
+        consensusTier: { id: 'tier-b', label: 'B' },
+        consensus: {
+            totalVotes: 3,
+            agreementPercent: 33,
+            distribution: [
+                { tierId: 'tier-a', label: 'A', count: 1, percentage: 33 },
+                { tierId: 'tier-c', label: 'C', count: 2, percentage: 67 }
+            ]
+        }
+    }, { test: true });
+
+    assert.equal(res2.sent, true);
+    assert.ok(res2.text.includes('3 total votes, 0 on B'), `Expected '3 total votes, 0 on B', got: ${res2.text}`);
+});
+
+test('Tier List Service: Resilient Chat Vote Argument Parsing and Punctuation Handling', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tl-test-resilient-vote-'));
+    try {
+        const service = createTierListService({
+            dataDir: tmpDir,
+            log: () => {}
+        });
+
+        const item = service.addItem({ name: 'Chrono Cross' });
+        service.startVote({ itemId: item.id, duration: 0 });
+
+        // Trailing exclamation: "!tier S!"
+        assert.equal(service.handleChatMessage({ chatname: 'User1', userId: 'u1', message: '!tier S!' }), true);
+        assert.equal(service.getState().activeVote.votes['u1'].tierId, 'tier-s');
+
+        // Trailing word: "!tier A tier"
+        assert.equal(service.handleChatMessage({ chatname: 'User2', userId: 'u2', message: '!tier A tier' }), true);
+        assert.equal(service.getState().activeVote.votes['u2'].tierId, 'tier-a');
+
+        // Trailing polite phrase: "!rank B please"
+        assert.equal(service.handleChatMessage({ chatname: 'User3', userId: 'u3', message: '!rank B please' }), true);
+        assert.equal(service.getState().activeVote.votes['u3'].tierId, 'tier-b');
+
+        // Lowercase tier: "!tier c"
+        assert.equal(service.handleChatMessage({ chatname: 'User4', userId: 'u4', message: '!tier c' }), true);
+        assert.equal(service.getState().activeVote.votes['u4'].tierId, 'tier-c');
+
+        // Invalid tier should not cast a vote
+        assert.equal(service.handleChatMessage({ chatname: 'User5', userId: 'u5', message: '!tier NONEXISTENT' }), false);
+        assert.equal(Boolean(service.getState().activeVote.votes['u5']), false);
+    } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
+test('Tier List Service: Auto Lock-In setting and Manual Finalization', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tl-test-auto-lock-'));
+    try {
+        const service = createTierListService({
+            dataDir: tmpDir,
+            log: () => {}
+        });
+
+        // 1. Verify default setting has autoLockIn: true
+        assert.equal(service.getState().settings.autoLockIn, true);
+
+        // 2. Configure autoLockIn: false
+        service.updateConfig({ settings: { autoLockIn: false } });
+        assert.equal(service.getState().settings.autoLockIn, false);
+
+        const item = service.addItem({ name: 'Super Mario 64' });
+
+        // 3. Start vote with short duration (0.05s / 50ms)
+        service.startVote({ itemId: item.id, duration: 0.05, consensusMode: 'weighted_mean' });
+        assert.equal(service.getState().activeVote.status, 'ACTIVE');
+
+        // Cast a vote
+        service.handleChatMessage({ chatname: 'N64Fan', userId: 'fan1', message: '!tier S' });
+        assert.equal(service.getState().activeVote.votes['fan1'].tierId, 'tier-s');
+
+        // 4. Wait for timer expiration (> 60ms)
+        await new Promise(resolve => setTimeout(resolve, 80));
+
+        // When autoLockIn is false, timer expiring should NOT end the vote or place the item.
+        // Instead, it should transition status to 'LOCKED'.
+        const lockedState = service.getState();
+        assert.ok(lockedState.activeVote, 'Vote should still be present in LOCKED state');
+        assert.equal(lockedState.activeVote.status, 'LOCKED');
+        const unplacedItem = lockedState.items.find(i => i.id === item.id);
+        assert.equal(unplacedItem.tierId, null, 'Item should not be placed into tier while locked');
+
+        // 5. Votes cast while LOCKED should be rejected
+        const lateVoteHandled = service.handleChatMessage({ chatname: 'LateUser', userId: 'fan2', message: '!tier A' });
+        assert.equal(lateVoteHandled, false, 'Votes cast while LOCKED should be rejected');
+        assert.equal(Boolean(service.getState().activeVote.votes['fan2']), false);
+
+        // 6. Manual lock-in by streamer via endVote
+        service.endVote({ applyConsensus: true });
+        const finalizedState = service.getState();
+        assert.equal(finalizedState.activeVote, null);
+        const placedItem = finalizedState.items.find(i => i.id === item.id);
+        assert.equal(placedItem.tierId, 'tier-s', 'Item should now be placed in Tier S');
+    } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
+test('Tier List Routes: POST and GET /api/tier-list/vote/lock', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tl-test-route-lock-'));
+    try {
+        const service = createTierListService({ dataDir: tmpDir, log: () => {} });
+        const handleRoutes = createTierListRoutes({ tierListService: service });
+        const item = service.addItem({ name: 'Zelda' });
+
+        function mockReq(method, pathname) {
+            const stream = new (require('stream').Readable)();
+            stream.push(null);
+            stream.method = method;
+            stream.url = pathname;
+            stream.headers = {};
+            return stream;
+        }
+
+        function mockRes() {
+            let statusCode = 200;
+            let body = '';
+            return {
+                writeHead(code) { statusCode = code; },
+                end(data) { if (data) body += data; },
+                getStatusCode: () => statusCode,
+                getBody: () => body ? JSON.parse(body) : null
+            };
+        }
+
+        // Start vote
+        service.startVote({ itemId: item.id, duration: 60 });
+        assert.equal(service.getState().activeVote.status, 'ACTIVE');
+
+        // POST /api/tier-list/vote/lock
+        const req1 = mockReq('POST', '/api/tier-list/vote/lock');
+        const res1 = mockRes();
+        const handled1 = await handleRoutes(req1, res1, '/api/tier-list/vote/lock');
+        assert.equal(handled1, true);
+        assert.equal(res1.getStatusCode(), 200);
+        assert.equal(res1.getBody().activeVote.status, 'LOCKED');
+
+        // GET /api/tier-list/vote/lock (Stream Deck / Companion trigger)
+        const req2 = mockReq('GET', '/api/tier-list/vote/lock');
+        const res2 = mockRes();
+        const handled2 = await handleRoutes(req2, res2, '/api/tier-list/vote/lock');
+        assert.equal(handled2, true);
+        assert.equal(res2.getStatusCode(), 200);
+        assert.equal(res2.getBody().activeVote.status, 'LOCKED');
+    } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
 });
