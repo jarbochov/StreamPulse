@@ -896,8 +896,8 @@
             randomTimers.delete(element.id);
         }
         const isStates = pages.kind ? pages.kind === 'states' : pages.transition === 'morph';
-        const ms = !isStates || pages.transition === 'none' ? 0 : pages.transitionMs;
-        const kind = isStates ? pages.transition : 'none';
+        const kind = isStates ? pages.transition : (pages.transition === 'fade' || pages.transition === 'slide' ? pages.transition : 'none');
+        const ms = !kind || kind === 'none' ? 0 : pages.transitionMs;
         const isMorph = kind === 'morph' || (!kind && pages.kind === 'states');
         const enterExit = pages.enterExit || 'fade';
         const easeName = pages.transitionEasing || 'smooth';

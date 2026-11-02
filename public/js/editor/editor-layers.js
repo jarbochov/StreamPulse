@@ -279,7 +279,7 @@ export function renderPagesPanel() {
             <button type="button" id="btn-pages-obs-setup" class="link-btn">${state.obs?.connected ? 'Connected' : 'Configure…'}</button>
         </div>` : ''}
         <details class="sub-details" open>
-            <summary>${isStates ? 'Transition &amp; Playback' : 'Page switching'} <span class="spacer"></span><span class="badge-pill">${isStates ? `${esc(transLabel)} · ${P.transition === 'none' ? '0ms' : `${P.transitionMs || 650}ms`}` : 'Instant cut'}</span></summary>
+            <summary>${isStates ? 'Transition &amp; Playback' : 'Page switching'} <span class="spacer"></span><span class="badge-pill">${isStates ? `${esc(transLabel)} · ${P.transition === 'none' ? '0ms' : `${P.transitionMs || 650}ms`}` : P.transition === 'fade' ? `Crossfade · ${P.transitionMs || 500}ms` : P.transition === 'slide' ? `Slide · ${P.transitionMs || 500}ms` : 'Instant cut'}</span></summary>
             ${isStates ? `
             ${F.select('pages.transition', 'Transition style', P.transition, [
                 ['morph', 'Liquid Morph (Glide layout, styles & cutouts)'],
@@ -301,7 +301,11 @@ export function renderPagesPanel() {
                 ['down', 'Down (enters from top, exits to bottom)']
             ]) + F.number('pages.transitionDistance', 'Slide distance (px)', P.transitionDistance || 120, { min: 10, max: 2000, step: 10 }) : ''}
             ${P.transition !== 'none' ? F.number('pages.transitionMs', 'Transition duration (ms)', P.transitionMs, { min: 50, max: 5000, step: 50 }) : ''}
-            ` : '<div class="hint">Pages switch immediately. Animation and OBS source motion belong to Scene States.</div>'}
+            ` : `
+            ${F.select('pages.transition', 'Page transition', P.transition, [['none', 'Instant cut'], ['fade', 'Crossfade'], ['slide', 'Slide']])}
+            ${P.transition === 'slide' ? F.select('pages.transitionDirection', 'Slide direction', P.transitionDirection || 'left', [['left', 'Left'], ['right', 'Right'], ['up', 'Up'], ['down', 'Down']]) + F.number('pages.transitionDistance', 'Slide distance (px)', P.transitionDistance || 120, { min: 10, max: 2000, step: 10 }) : ''}
+            ${P.transition === 'fade' || P.transition === 'slide' ? F.number('pages.transitionMs', 'Transition duration (ms)', P.transitionMs, { min: 50, max: 5000, step: 50 }) : ''}
+            <div class="hint">Animated layout changes and OBS source motion belong to Scene States.</div>`}
             ${F.select('pages.mode', 'Advance mode', P.mode, [['manual', 'Manual (editor, control panel, API)'], ['auto', 'Automatic cycle']])}
             ${P.mode === 'auto' ? `${F.number('pages.cycleSeconds', `Default seconds per ${noun}`, P.cycleSeconds, { min: 1, max: 3600 })}${F.check('pages.loop', `Loop back to first ${noun}`, P.loop)}` : ''}
             ${isStates && items.length > 1 && P.transition !== 'none' ? `<button type="button" id="btn-preview-transition" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:600"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Preview ${P.transition === 'morph' ? 'Morph' : P.transition === 'fade' ? 'Crossfade' : 'Slide'} on Canvas</button>` : ''}

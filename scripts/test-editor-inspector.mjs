@@ -236,7 +236,8 @@ try {
     assert.deepEqual(cameras.map(el => [el.page, el.x, el.visible]), [['a', 20, true], ['b', 220, false]]);
     assert.ok(cameras.every(el => !el.obsLink.enabled && !el.pageStates));
     assert.notEqual(cameras[0].group, cameras[1].group, 'groups remain independent between pages');
-    assert.equal(await page.$('[data-path="pages.transition"]'), null, 'Pages expose no animation controls');
+    assert.ok(await page.$('[data-path="pages.transition"]'), 'Pages offer cut, crossfade and slide');
+    assert.equal(await page.$('[data-path="pages.transitionEasing"]'), null, 'Pages expose no morph controls');
     await page.evaluate(() => {
         const { state, layers } = window.fixture;
         const camera = state.overlay.elements.find(el => el.page === 'b' && el.obsLink?.sourceName);

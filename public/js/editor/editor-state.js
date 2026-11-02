@@ -605,7 +605,7 @@ export function normalizeLoaded(data) {
     const next = JSON.parse(JSON.stringify(data));
     const kind = next.pages?.kind === 'states' || (!next.pages?.kind && next.pages?.transition === 'morph') ? 'states' : 'pages';
     next.pages = Object.assign(defaultPages(kind), next.pages, { kind });
-    if (kind === 'pages') next.pages.transition = 'none';
+    if (kind === 'pages' && !['none', 'fade', 'slide'].includes(next.pages.transition)) next.pages.transition = 'none';
     if (!Array.isArray(next.pages.items) || !next.pages.items.length) next.pages.items = defaultPages(kind).items;
     const pageIds = new Set(next.pages.items.map(p => p.id));
     (next.elements || []).forEach(item => { if (item.page !== '*' && !pageIds.has(item.page)) item.page = next.pages.items[0].id; });
