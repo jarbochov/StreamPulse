@@ -1003,3 +1003,25 @@ test('muting alerts holds display until unmuted', () => {
         cleanup();
     }
 });
+
+test('bits emoteSource viewer resolves cheermote family and summed tier', () => {
+    const mk = v => createTempEngine({
+        settings: { enabled: true, gapSeconds: 0 },
+        rules: [{ id: 'b', name: 'Bits', enabled: true, trigger: 'bits', variants: [v] }]
+    });
+    const { engine, cleanup } = mk({ id: 'v' });
+    const { engine: e2, cleanup: c2 } = mk({ id: 'v', emoji: 'Hype', emojiLadder: [{ min: 100, emoji: 'Big' }] });
+    const { engine: e3, cleanup: c3 } = mk({ id: 'v', emoteSource: 'custom', emoji: 'Hype', emojiLadder: [{ min: 100, emoji: 'Big' }] });
+    try {
+        const fire = (e, ev) => e.handleEvent({ type: 'bits', user: 'a', dedupeMs: 0, ...ev }, { test: true });
+        assert.equal(engine.getConfig().rules[0].variants[0].emoteSource, 'viewer');
+        assert.equal(e2.getConfig().rules[0].variants[0].emoteSource, 'custom');
+        assert.match(fire(engine, { amount: 100, message: 'PrideCheer1 hi', cheermoteSource: 'PrideCheer1' }).emoji, /pride/i);
+        const sum = fire(engine, { amount: 500, message: 'Kappa100 Kappa400', cheermoteSource: 'Kappa100 Kappa400' });
+        assert.equal(sum.emoji, 'Kappa100');
+        assert.equal(fire(engine, { amount: 500, message: 'Cheer100 Cheer400', cheermoteSource: 'Cheer100 Cheer400' }).emoji, 'Cheer500');
+        assert.match(fire(engine, { amount: 1000, message: 'thanks' }).emoji, /^Cheer1000$/);
+        assert.equal(fire(e2, { amount: 150, message: 'Kappa100' }).emoji, 'Big');
+        assert.equal(fire(e3, { amount: 150, message: 'Kappa100' }).emoji, 'Big');
+    } finally { cleanup(); c2(); c3(); }
+});

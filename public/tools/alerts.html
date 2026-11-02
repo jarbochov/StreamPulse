@@ -1428,6 +1428,7 @@
         emojiLadder: [],
         emojiEvery: 0,
         emojiMax: 8,
+        ...(trigger === 'bits' ? { emoteSource: 'viewer', cheermoteFamily: 'auto' } : {}),
         sound: '',
         volume: 70,
         animIn: 'pop',
@@ -1704,7 +1705,8 @@
             bounce: 'Joyful floating and bouncing emotes dancing across the alert card.'
         }[emoteEffect] || 'Showcase hero emote centered in the alert box.';
 
-        const ladder = amountLabel ? `
+        const viewerMode = r.trigger === 'bits' && (v.emoteSource || 'viewer') === 'viewer';
+        const ladder = amountLabel && !viewerMode ? `
             <div class="fld-guide-card" style="margin-top:0.85rem;padding:0.75rem 0.9rem;background:var(--bg-inset);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;">
                 <div style="display:flex;align-items:center;gap:0.45rem;font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:0.4rem;">
                     ${ICONS.info} <span>${AMOUNT_LABEL[r.trigger]} Guide: Emote Ladder vs. Milestone Variants — Which should you use?</span>
@@ -1784,15 +1786,48 @@
         const activeFamilyKey = (v.cheermoteFamily && v.cheermoteFamily !== 'auto') ? v.cheermoteFamily.toLowerCase() : 'cheer';
         const activeFamily = cheermoteFamilies[activeFamilyKey] || customCheermotes.find(c => c.prefix.toLowerCase() === activeFamilyKey) || cheermoteFamilies.cheer;
         const cheermotesList = activeFamily?.tiers || (twitchCheermotes.length ? twitchCheermotes : DEFAULT_CHEERMOTES);
-        const cheermotesHtml = r.trigger === 'bits' ? `
+        const cheermotesHtml = r.trigger === 'bits' && !viewerMode ? `
             <div class="fld" style="margin-top:0.45rem;padding:0.5rem 0.65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.45rem;flex-wrap:wrap;gap:0.4rem;">
                     <div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;">
                         <span style="font-size:0.75rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:0.35rem;">
                             ${ICONS.zap} Twitch Cheermotes (${activeFamily?.name || activeFamily?.prefix || 'Cheer'})
                         </span>
-                        <select data-v="${i}.cheermoteFamily" style="background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:0.72rem;">
-                            <option value="auto"${(!v.cheermoteFamily || v.cheermoteFamily === 'auto') ? ' selected' : ''}>Auto-match viewer's cheer (Kappa, Party, Cheer, etc.)</option>
+                        <span style="font-size:0.7rem;color:var(--text-muted);">Pick a cheermote to use as the emote</span>
+                    </div>
+                    <button type="button" class="btn sm" data-populate-cheermotes="${i}" style="font-size:0.68rem;padding:2px 8px;" title="Auto-populate the ladder with bits badges from this family">
+                        ${ICONS.plus} Use ${esc(activeFamily?.prefix || 'Cheermotes')} Ladder
+                    </button>
+                </div>
+                <div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
+                    ${cheermotesList.map(c => `
+                        <button type="button" class="btn sm ghost" data-select-channel-emote="${esc(c.name)}" data-emote-url="${esc(c.url)}" data-vi="${i}" title="${esc(c.name)} (${c.min}+ bits)" style="padding:2px 6px;height:auto;gap:4px;display:inline-flex;align-items:center;background:var(--bg-card);border:1px solid var(--border);">
+                            <img src="${esc(c.url)}" alt="${esc(c.name)}" style="width:20px;height:20px;object-fit:contain;pointer-events:none;">
+                            <span style="font-size:0.69rem;font-weight:700;color:${c.color || 'var(--text)'};pointer-events:none;">&ge; ${c.min}</span>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        ` : '';
+
+
+        const resolvedPreview = (() => {
+            const fam = (v.cheermoteFamily && v.cheermoteFamily !== 'auto') ? v.cheermoteFamily.toLowerCase() : 'cheer';
+            const f = cheermoteFamilies[fam] || cheermoteFamilies.cheer;
+            const amt = testAmount || r.conditions.minAmount || 100;
+            const t = (f?.tiers || DEFAULT_CHEERMOTES).find(c => amt >= c.min) || (f?.tiers || DEFAULT_CHEERMOTES).slice(-1)[0];
+            return t ? `<span style="display:inline-flex;align-items:center;gap:0.4rem;"><img src="${esc(t.url)}" alt="" style="width:28px;height:28px;object-fit:contain;"><b style="font-size:0.75rem;">${esc(t.name)}</b><span class="hint" style="font-size:0.7rem;">at ${amt} bits (Test amount)</span></span>` : '';
+        })();
+        const sourceHtml = r.trigger === 'bits' ? `
+            <div class="fld" style="margin-bottom:0.65rem;">
+                <span>Emote</span>
+                <select data-v="${i}.emoteSource">
+                    <option value="viewer"${viewerMode ? ' selected' : ''}>Viewer's cheermote</option>
+                    <option value="custom"${!viewerMode ? ' selected' : ''}>Custom</option>
+                </select>
+                <span class="hint" style="font-size:0.72rem;">${viewerMode ? "Shows the cheermote the viewer used (family and tier from their message), or Cheer at the total bits." : 'Uses the emote and ladder you set below.'}</span>
+                ${viewerMode ? `<div style="margin-top:0.3rem;">${resolvedPreview}<div style="margin-top:0.35rem;"><label class="fld" style="max-width:360px;"><span>Cheermote family override</span>                        <select data-v="${i}.cheermoteFamily" style="background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:0.72rem;">
+                            <option value="auto"${(!v.cheermoteFamily || v.cheermoteFamily === 'auto') ? ' selected' : ''}>Match the viewer's cheermote</option>
                             <option value="cheer"${v.cheermoteFamily === 'cheer' ? ' selected' : ''}>Default Cheer (Diamond badges)</option>
                             <optgroup label="Special Global Cheermotes">
                                 <option value="kappa"${v.cheermoteFamily === 'kappa' ? ' selected' : ''}>Kappa</option>
@@ -1822,24 +1857,11 @@
                                     `).join('')}
                                 </optgroup>
                             ` : ''}
-                        </select>
-                    </div>
-                    <button type="button" class="btn sm" data-populate-cheermotes="${i}" style="font-size:0.68rem;padding:2px 8px;" title="Auto-populate the ladder with bits badges from this family">
-                        ${ICONS.plus} Use ${esc(activeFamily?.prefix || 'Cheermotes')} Ladder
-                    </button>
-                </div>
-                <div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
-                    ${cheermotesList.map(c => `
-                        <button type="button" class="btn sm ghost" data-select-channel-emote="${esc(c.name)}" data-emote-url="${esc(c.url)}" data-vi="${i}" title="${esc(c.name)} (${c.min}+ bits)" style="padding:2px 6px;height:auto;gap:4px;display:inline-flex;align-items:center;background:var(--bg-card);border:1px solid var(--border);">
-                            <img src="${esc(c.url)}" alt="${esc(c.name)}" style="width:20px;height:20px;object-fit:contain;pointer-events:none;">
-                            <span style="font-size:0.69rem;font-weight:700;color:${c.color || 'var(--text)'};pointer-events:none;">&ge; ${c.min}</span>
-                        </button>
-                    `).join('')}
-                </div>
-            </div>
-        ` : '';
+                        </select></label></div></div>` : ''}
+            </div>` : '';
 
         return `
+            ${sourceHtml}
             <div class="vgrid c3" style="margin-bottom:0.65rem;">
                 <label class="fld">
                     <span>Emote Animation Effect</span>
@@ -1864,7 +1886,7 @@
                 `}
             </div>
             ${emoteEffect !== 'showcase' ? `<div class="hint" style="margin-bottom:0.55rem;font-size:0.72rem;display:flex;align-items:center;gap:0.35rem;">${ICONS.info} <span>${effectExplainer} Emotes celebrate across the alert for its entire duration.</span></div>` : ''}
-            <div class="vgrid c2">
+            <div class="vgrid c2"${viewerMode ? ' hidden' : ''}>
                 <div class="fld">
                     <span>Default Emoji / Channel Emote / FontAwesome</span>
                     <input type="text" data-v="${i}.emoji" value="${esc(v.emoji || '')}" placeholder="e.g. Kappa, fa-solid fa-bell, or pick below" maxlength="2000">
@@ -1890,7 +1912,7 @@
         const isMilestone = hasMetric && (v.variantType === 'gated' || (v.gateMin > 0) || (v.gateMax > 0));
         const gateMode = variantGateMode(v);
         const tab = variantTab.get(v.id) || 'visual';
-        const media = variantMedia.get(v.id) || (v.video ? 'video' : v.image ? 'image' : (v.emoji || v.emojiUrl || v.emojiLadder?.length) ? 'emoji' : 'image');
+        const media = variantMedia.get(v.id) || (v.video ? 'video' : v.image ? 'image' : (v.emoji || v.emojiUrl || v.emojiLadder?.length || (r.trigger === 'bits' && v.emoteSource !== 'custom')) ? 'emoji' : 'image');
 
         // Odds percentage calculation among qualifying pool at this tier level
         let pool = [];
@@ -2689,6 +2711,7 @@
             setDirty(true);
         } else if (el.dataset.testAmount !== undefined) {
             testAmount = Number(el.value) || 0;
+            if (r.trigger === 'bits') renderEditor();
         } else if (el.dataset.v) {
             const [i, key] = el.dataset.v.split('.');
             r.variants[i][key] = el.type === 'number' || el.type === 'range' ? Number(el.value) || 0 : (el.type === 'checkbox' ? el.checked : el.value);
@@ -2800,7 +2823,7 @@
                 if (el.value === 'min') r.variants[i].gateMax = 0;
                 if (el.value === 'exact') r.variants[i].gateMax = r.variants[i].gateMin;
             }
-            if (key === 'videoSound' || key === 'gateMode' || key === 'gateMin' || key === 'gateMax' || key === 'gateMinOp' || key === 'gateMaxOp' || key === 'weight' || key === 'emoteEffect' || key === 'cheermoteFamily') renderEditor();
+            if (key === 'videoSound' || key === 'gateMode' || key === 'gateMin' || key === 'gateMax' || key === 'gateMinOp' || key === 'gateMaxOp' || key === 'weight' || key === 'emoteEffect' || key === 'cheermoteFamily' || key === 'emoteSource') renderEditor();
         }
     });
 

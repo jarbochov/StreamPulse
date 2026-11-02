@@ -11,6 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- Bits alerts: per-variant Emote source (Viewer's cheermote or Custom); Viewer's cheermote uses the family from the message with the tier from the summed bits, falling back to Cheer at the total amount.
 - Alerts page: drag-and-drop (or Alt+Up/Down) alert reordering, remembered selection, and alert text that scales to fit small alert boxes.
 - Alert Webhooks & Companion Hardware Triggers: Added dedicated "Test Webhook" button with instant HTTP response status feedback, automatic test execution on alert preview and simulation, support for Bitfocus Companion `/api/location/.../press` endpoints with POST guidance, configurable webhook delay (0–300s), and "Webhook Only" silent background automation bypassing on-screen overlays, audio, and page rotators.
 - Twitch Bits Cheermotes Integration: Built-in support for official animated Twitch Cheermotes across classic Diamond tiers and 20 special global families (Kappa, Party, TriHard, FrankerZ, Kreygasm, ShowLove, Pride, SwiftRage, 4Head, PJSalt, VoHiYo, HeyGuys, DansGame, FailFish, NotLikeThis, MrDestructoid, Cheerwhal, Shamrock, Anon), auto-detection from chat cheer messages, theme style selector, one-click family ladder presets, and Twitch API discovery for Affiliate/Partner custom channel cheermotes.

@@ -82,6 +82,20 @@ function extractCheermoteFromText(text) {
     };
 }
 
+function extractAllCheermotes(text) {
+    if (!text || typeof text !== 'string') return [];
+    const re = new RegExp(CHEERMOTE_REGEX.source, 'gi');
+    return [...text.matchAll(re)].map(m => ({ prefix: m[1].toLowerCase(), bits: parseInt(m[2], 10) }));
+}
+
+// Family of the first cheermote, tier from the summed bits; null when the text has none.
+function resolveViewerCheermote(ev, amount, familyOverride = 'auto') {
+    const all = [ev?.cheermoteSource, ev?.message].map(extractAllCheermotes).find(list => list.length) || [];
+    const total = all.reduce((sum, c) => sum + (c.bits || 0), 0);
+    const prefix = familyOverride && familyOverride !== 'auto' ? familyOverride : (all[0]?.prefix || 'cheer');
+    return getTwitchCheermote(total > 0 ? total : amount, prefix);
+}
+
 function getTwitchCheermote(bits = 1, prefix = 'cheer') {
     const key = String(prefix || 'cheer').toLowerCase().replace(/[^a-z0-9]/g, '');
     let family = TWITCH_CHEERMOTE_FAMILIES[key];
@@ -140,6 +154,9 @@ function normalizeVariant(input = {}, index = 0) {
             : [],
         emojiEvery: clamp(input.emojiEvery, 0, 1e6, 0),
         emojiMax: Math.round(clamp(input.emojiMax, 1, 25, 8)),
+        emoteSource: ['viewer', 'custom'].includes(input.emoteSource)
+            ? input.emoteSource
+            : ((input.emoji || input.emojiUrl || input.image || input.video || (Array.isArray(input.emojiLadder) && input.emojiLadder.some(st => st?.emoji || st?.emojiUrl))) ? 'custom' : 'viewer'),
         cheermoteFamily: str(input.cheermoteFamily || input.cheermoteStyle, 40).toLowerCase() || 'auto',
         sound: str(input.sound, 2000),
         volume: clamp(input.volume, 0, 100, 70),
@@ -495,6 +512,12 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
 
     // Highest ladder step at or below the amount wins; "one per N" repeats it, capped by emojiMax.
     function pickEmote(variant, amount, rule = null, ev = null) {
+        if (rule && rule.trigger === 'bits' && variant.emoteSource === 'viewer') {
+            const cheermote = resolveViewerCheermote(ev, amount, variant.cheermoteFamily);
+            let repeat = 1;
+            if (variant.emojiEvery > 0 && amount > 0) repeat = Math.max(1, Math.min(variant.emojiMax || 8, Math.floor(amount / variant.emojiEvery)));
+            return { emoji: cheermote.name, emojiUrl: cheermote.url, repeat };
+        }
         let emoji = variant.emoji;
         let emojiUrl = variant.emojiUrl || (/^(https?:\/\/|\/|data:image\/)/i.test(variant.emoji) ? variant.emoji : '');
         for (const step of variant.emojiLadder) {
@@ -544,6 +567,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             videoVolume: variant.videoVolume !== undefined ? variant.videoVolume : (variant.volume ?? 70),
             videoLoop: variant.videoLoop !== false,
             cheermoteFamily: variant.cheermoteFamily || 'auto',
+            emoteSource: variant.emoteSource,
             emoji: emote.emoji,
             emojiUrl: emote.emojiUrl || '',
             emojiRepeat: emote.repeat,
@@ -691,6 +715,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             keyword: rule.conditions.keywords[0] || '',
             viewers: Number(overrides.viewers) || testAmt || 25
         };
+        if (rule.trigger === 'bits') ev.cheermoteSource = str(overrides.cheermoteSource, 200) || `Cheer${Math.max(1, Math.round(Number(ev.amount) || 1))}`;
         const variant = (variantId ? rule.variants.find(item => item.id === variantId) : null) || chooseVariant(rule, ev);
         const payload = buildPayload(rule, variant, ev, true);
         if (overrides.runActions !== false) {
@@ -885,5 +910,7 @@ module.exports = {
     TWITCH_CHEERMOTES,
     TWITCH_CHEERMOTE_FAMILIES,
     getTwitchCheermote,
-    extractCheermoteFromText
+    extractCheermoteFromText,
+    extractAllCheermotes,
+    resolveViewerCheermote
 };

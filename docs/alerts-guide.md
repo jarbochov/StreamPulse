@@ -24,6 +24,8 @@ Emote-driven alerts can celebrate with 60fps broadcast animations:
 Adjust **Particle Density** (10 to 75 particles) and **Emote Size (%)** to fine-tune the celebration for your layout.
 
 ### Official Twitch Bits Cheermotes & Special Cheermotes
+
+**Emote source:** each bits variant has an *Emote* setting. *Viewer's cheermote* (default) shows the family from the viewer's message with the tier from the summed bits (no cheermote: Cheer at the total). Ladders still pick sound, title and message by total bits. *Custom* uses your own emote and emote ladder. The Test amount drives the live preview and test alerts.
 Bits alerts feature comprehensive out-of-the-box integration with official Twitch animated Cheermotes across both classic and special editions:
 - **Classic Diamond Tiers**: Cheer1 (Gray), Cheer100 (Purple), Cheer500 (Cyan), Cheer1000 (Blue), Cheer5000 (Magenta), Cheer10000 (Red-Pink), and Cheer100000 (Red).
 - **Special Global Cheermote Families**: Full support for Twitch's 20 iconic animated Cheermotes across all tiers: **Kappa**, **Party**, **TriHard**, **FrankerZ**, **Kreygasm**, **ShowLove**, **Pride / Rainbow**, **SwiftRage**, **4Head**, **PJSalt**, **VoHiYo**, **HeyGuys**, **DansGame**, **FailFish**, **NotLikeThis**, **MrDestructoid**, **Cheerwhal**, **Shamrock**, and **Anon**.
