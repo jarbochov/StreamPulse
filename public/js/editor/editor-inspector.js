@@ -47,7 +47,7 @@ export function registerInspectorCallbacks(callbacks) {
 // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
 export const RERENDER_PATHS = new Set([
     'poll.previewMode',
-    'cutout.shape', 'obsLink.enabled', 'alert.showOnPreview', 'style.objectFit', 'mediaFilter.duotone.enabled',
+    'cutout.shape', 'obsLink.enabled', 'alert.showOnPreview', 'alert.effectsTarget', 'style.objectFit', 'mediaFilter.duotone.enabled',
     'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled',
     'mediaFilter.halftone.mode', 'mediaFilter.halftone.colorMode', 'mediaFilter.halftone.fadeMode',
     'mediaFilter.retro.display', 'mediaFilter.retro.vhs', 'mediaFilter.retro.ntsc', 'mediaFilter.retro.static',
@@ -1172,7 +1172,7 @@ export function alertSection(el) {
         </details>
         ${F.select('alert.layout', 'Layout', a.layout || 'stack', [['stack', 'Media above text'], ['side', 'Media beside text'], ['text', 'Text only'], ['media', 'Media only (text over it)']])}
         ${a.layout === 'media' ? F.check('alert.hideText', 'Hide text overlay (pure media only)', a.hideText === true) : ''}
-        ${a.layout === 'text' ? '' : `<div class="grid2">${F.number('alert.mediaScale', 'Media size (%)', a.mediaScale || 60, { min: 10, max: 100 })}${F.select('alert.mediaFit', 'Media fit', a.mediaFit || 'contain', [['contain', 'Contain'], ['cover', 'Fill (crop)']])}</div>`}
+        ${a.layout === 'text' ? '' : `<div class="field">${F.select('alert.effectsTarget', 'Apply media effects to', a.effectsTarget === 'media' ? 'media' : 'box', [['box', 'Whole box (text too)'], ['media', 'Media only (text stays crisp)']])}<span class="hint">Blur, color and tint effects from the Effects tab.</span></div><div class="grid2">${F.number('alert.mediaScale', 'Media size (%)', a.mediaScale || 60, { min: 10, max: 100 })}${F.select('alert.mediaFit', 'Media fit', a.mediaFit || 'contain', [['contain', 'Contain'], ['cover', 'Fill (crop)']])}</div>`}
         ${a.hideText && a.layout === 'media' ? '' : `<div class="grid2">${F.number('alert.titleSize', 'Title size (px)', a.titleSize || 44, { min: 8, max: 300 })}${F.number('alert.messageSize', 'Message size (px)', a.messageSize || 28, { min: 8, max: 300 })}</div>
         ${F.color('alert.titleColor', 'Title color', a.titleColor || '#ffd166')}
         ${['stack', 'side', undefined].includes(a.layout) ? F.number('alert.gap', 'Gap between media and text (px)', a.gap ?? 12, { min: 0, max: 100 }) : ''}`}

@@ -1235,6 +1235,11 @@
      */
     function applyMediaFilter(node, element) {
         if (!node || !element || !FILTERABLE(element)) return;
+        if (element.type === 'alert' && element.alert?.effectsTarget === 'media') {
+            if (node._fxSig) cleanupFilters(node);
+            if (node.style.filter) node.style.filter = '';
+            return;
+        }
         const rawF = element.mediaFilter || {};
         const defaults = defaultMediaFilter();
         const f = {

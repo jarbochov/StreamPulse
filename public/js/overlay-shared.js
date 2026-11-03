@@ -1971,7 +1971,8 @@
         }
 
         for (const key of ALERT_DECORATION) {
-            if (node.style[key]) deco[key] = node.style[key];
+            // applyElementStyle zeroes the alert's own radius, which must not overwrite the card's radius
+            if (node.style[key] && !(key === 'borderRadius' && deco.borderRadius)) deco[key] = node.style[key];
             node.style[key] = '';
         }
         if (node._borderRing) { node._borderRing.remove(); node._borderRing = null; }
@@ -2097,7 +2098,7 @@
     const alertSoundName = value => (String(value || '').startsWith('builtin:') ? String(value).slice(8) : '');
 
     // Plays one alert inside `node`. Returns { stop } so a skip/clear can end it early.
-    function spawnEmoteParticles(card, payload, node) {
+    function spawnEmoteParticles(card, payload, node, boxScale = 1) {
         const effect = payload.emoteEffect;
         if (!effect || effect === 'showcase' || !['rain', 'party', 'fountain', 'bounce'].includes(effect)) return;
         const emoteUrl = payload.emojiUrl || (/^(https?:\/\/|\/|data:image\/)/i.test(payload.emoji) ? payload.emoji : '');
@@ -2109,7 +2110,7 @@
         container.className = `alert-emote-particles effect-${effect}`;
 
         const density = Math.max(10, Math.min(80, Number(payload.emoteDensity) || 30));
-        const scaleFactor = Math.max(0.4, Math.min(2.5, (Number(payload.emoteScale) || 100) / 100));
+        const scaleFactor = Math.max(0.4, Math.min(2.5, (Number(payload.emoteScale) || 100) / 100)) * boxScale;
         const durMs = Math.max(3000, Number(payload.durationMs) || 6000);
 
         for (let p = 0; p < density; p++) {
@@ -2228,6 +2229,7 @@
         applyBorderEffects(card, style, element);
         card.style.gap = `${cfg.gap ?? 12}px`;
         card.style.padding = `${style.padding || 8}px`;
+        let mediaFxWrap = null;
         const hasMedia = layout !== 'text' && (payload.video || payload.image || payload.emoji);
         if (hasMedia) {
             const isEmoji = !payload.video && !payload.image;
@@ -2269,9 +2271,9 @@
                 }
                 const clientH = node.clientHeight || 240;
                 const clientW = node.clientWidth || 400;
-                const boxH = clientH * (layout === 'media' ? 0.75 : scale / 100);
+                const boxH = clientH * (layout === 'media' ? 1 : scale / 100);
                 const boxW = clientW * (layout === 'side' ? 0.5 : 1) * 0.9;
-                const targetH = Math.max(48, Math.min(boxH * 0.9, clientH * 0.85)) * emoteScale;
+                const targetH = layout === 'media' ? Math.max(32, Math.min(clientH * 0.9 * emoteScale, clientH * 0.95)) : Math.max(48, Math.min(boxH * 0.9, clientH * 0.85)) * emoteScale;
                 media.style.fontSize = `${Math.max(28, Math.min(targetH, boxW / (count * 1.05)))}px`;
                 media.style.height = `${Math.round(targetH)}px`;
                 media.style.lineHeight = '1';
@@ -2310,7 +2312,25 @@
             } else {
                 media.style.maxWidth = '100%';
             }
-            card.appendChild(media);
+            if (cfg.effectsTarget === 'media') {
+                const wrap = document.createElement('div');
+                wrap.className = media.className;
+                wrap.style.cssText = media.style.cssText;
+                wrap.style.position = wrap.style.position || 'relative';
+                if (!isEmoji) {
+                    wrap.style.display = 'flex';
+                    wrap.style.width = layout === 'stack' ? '' : wrap.style.width;
+                    media.className = 'alert-media-el';
+                    media.style.cssText = `height:100%;width:${layout === 'stack' ? 'auto' : '100%'};max-width:100%;object-fit:${cfg.mediaFit || 'contain'}`;
+                    wrap.appendChild(media);
+                    wrap.style.maxWidth = layout === 'side' ? '50%' : '100%';
+                    mediaFxWrap = wrap;
+                } else {
+                    mediaFxWrap = wrap;
+                    wrap.append(...media.childNodes);
+                }
+                card.appendChild(wrap);
+            } else card.appendChild(media);
         }
         const hideText = cfg.hideText === true;
         if (!hideText && (layout !== 'media' || payload.title || payload.message)) {
@@ -2377,9 +2397,15 @@
             card.appendChild(text);
         }
         if (payload.emoteEffect && payload.emoteEffect !== 'showcase') {
-            spawnEmoteParticles(card, payload, node);
+            const fillBox = layout === 'media';
+            const boxScale = fillBox ? Math.max(0.6, Math.min(2.5, Math.min(node.clientWidth || 400, node.clientHeight || 240) / 200)) : 1;
+            spawnEmoteParticles(fillBox && mediaFxWrap ? mediaFxWrap : card, payload, node, boxScale);
         }
         node.replaceChildren(card);
+        if (mediaFxWrap) {
+            const fxEl = { id: `${element.id}-alert-media`, type: mediaFxWrap.querySelector('.alert-media-el') ? 'image' : 'text', width: node.clientWidth || element.width, height: node.clientHeight || element.height, mediaFilter: element.mediaFilter, style: {} };
+            applyMediaFilter(mediaFxWrap, fxEl);
+        }
         card.classList.add(`alert-in-${payload.animIn || 'pop'}`);
         // Fixed px font sizes overflow small alert boxes and get clipped; shrink text to fit the card
         const fitTextBlock = () => {
@@ -2413,6 +2439,7 @@
             finished = true;
             clearTimeout(outTimer); clearTimeout(endTimer);
             if (audio) audio.pause();
+            if (mediaFxWrap && root.OverlayFilters?.cleanupFilters) root.OverlayFilters.cleanupFilters(mediaFxWrap);
             cleanupNode(card);
             if (card.parentNode === node) node.replaceChildren();
             if (onEnd) onEnd();

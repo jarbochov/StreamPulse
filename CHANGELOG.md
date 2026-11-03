@@ -7,6 +7,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- Alert box "Apply media effects to" setting: filters and tint can target only the alert's media so title and message text stay crisp.
 - Bits alerts: per-variant Emote source (Viewer's cheermote or Custom); Viewer's cheermote uses the family from the message with the tier from the summed bits, falling back to Cheer at the total amount.
 - Alerts page: drag-and-drop (or Alt+Up/Down) alert reordering, remembered selection, and alert text that scales to fit small alert boxes.
 - Embedded mode (`STREAMPULSE_EMBEDDED=true`) for in-process hosts such as NodeCG, with broadcast listeners and state snapshots; host data such as NodeCG replicants resolves as `{{rep.<bundle>.<name>.<path>}}` placeholders. Optional HTTPS via `STREAMPULSE_TLS_KEY`/`STREAMPULSE_TLS_CERT`.

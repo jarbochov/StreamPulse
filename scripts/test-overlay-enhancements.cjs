@@ -524,6 +524,10 @@ test('Alert element and page trigger alertMode normalization and UI configuratio
     const elLegacyWithTriggers = normalizeOverlayElement({ type: 'alert', alert: { triggers: ['sub'] } }, 3, { sub: true });
     assert.equal(elLegacyWithTriggers.alert.alertMode, 'selected', 'Alert element with triggers defaults to selected');
 
+    assert.equal(elAll.alert.effectsTarget, 'box', 'effectsTarget defaults to box');
+    assert.equal(normalizeOverlayElement({ type: 'alert', alert: { effectsTarget: 'media' } }, 4).alert.effectsTarget, 'media');
+    assert.equal(normalizeOverlayElement({ type: 'alert', alert: { effectsTarget: 'bogus' } }, 5).alert.effectsTarget, 'box');
+
     // Page trigger normalization
     const pagesAll = normalizePages({ items: [{ id: 'p1', trigger: 'alert', triggerAlertMode: 'all' }] });
     assert.equal(pagesAll.items[0].triggerAlertMode, 'all', 'Page with triggerAlertMode all is preserved');

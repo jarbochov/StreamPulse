@@ -838,6 +838,7 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
         alert: {
             layout: ['stack', 'side', 'text', 'media'].includes(element.alert?.layout) ? element.alert.layout : 'stack',
             hideText: Boolean(element.alert?.hideText),
+            effectsTarget: element.alert?.effectsTarget === 'media' ? 'media' : 'box',
             mediaFit: element.alert?.mediaFit === 'cover' ? 'cover' : 'contain',
             mediaScale: Math.max(10, Math.min(100, Number(element.alert?.mediaScale) || 60)),
             titleSize: Math.max(8, Math.min(300, Number(element.alert?.titleSize) || 44)),

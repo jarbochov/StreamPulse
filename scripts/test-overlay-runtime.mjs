@@ -259,6 +259,15 @@ try {
     await clear('alert-clear');
     assert.deepEqual(await page.evaluate(() => window.testState.alerts.at(-1).stops), 0, 'synchronous completion must not retain a handle');
     await page.evaluate(() => { window.testState.syncEnd = false; });
+    const media = clone(overlay);
+    Object.assign(media.elements.find(el => el.id === 'alert'), { mediaFilter: { grayscale: 100, blur: 2 }, style: { borderRadius: 24 }, alert: { triggers: ['follow'], showOnPreview: true, effectsTarget: 'media' } });
+    await update(media);
+    await page.evaluate(() => window.testState.message('alert', { trigger: 'follow', title: 'Fictional follower', image: '/fixture.png', durationMs: 60000, animIn: 'none', animOut: 'none' }));
+    const fx = await page.evaluate(() => { const c = document.querySelector('.alert-card'); const t = c.querySelector('.alert-title'); return { wrap: c.querySelector('.alert-media')?.querySelector('img') ? getComputedStyle(c.querySelector('.alert-media').querySelector('img')).filter : '', text: getComputedStyle(t).filter, node: c.parentNode.style.filter }; });
+    assert.match(fx.wrap, /grayscale/, 'media-only effects must filter the media');
+    assert.ok(!/grayscale|blur/.test(fx.text + fx.node), 'media-only effects must not touch text or box');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.alert-card')).borderTopLeftRadius), '24px', 'alert element radius must round the card');
+    await update(overlay);
     await alert();
     const changed = clone(overlay);
     changed.elements.find(el => el.id === 'alert').alert.titleSize = 32;
