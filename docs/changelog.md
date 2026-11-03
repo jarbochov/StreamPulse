@@ -11,6 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- Alerts page: variants grouped under Base and milestone tiers with threshold labels, odds pills and one-open-at-a-time rows; clickable ladder; live preview with Play sound; optional media thumbnails; inline warnings; rule search with Active/Inactive filters; Import/Export JSON (merge or replace); Copy/Paste style between variants; Revert; keyboard shortcuts (Cmd/Ctrl+S, Cmd/Ctrl+Enter, Cmd/Ctrl+D, /).
 - Twitch EventSub WebSocket Integration: Added native real-time EventSub WebSocket client (`wss://eventsub.wss.twitch.tv/ws`) to stream Twitch broadcast events (active polls, poll updates, poll winners, category/title changes, follows, cheers, subscriptions, gift subs, and channel point custom reward redemptions) with zero latency. Features automatic subscription registration via Helix, `session_welcome` handshake, keepalive watchdog timer, seamless reconnect migration (`session_reconnect`), event deduplication, and resilient fallback to 10-second polling loops if disconnected. Exposes live EventSub connection status in `/api/status`.
 - Modular Server Architecture: Extracted domain services from monolithic `server.js` into dedicated modules under `server/services/` (`twitch-eventsub.js`, `game-info.js`, `rate-limit.js`, `share-bundle.js`, `status.js`, `pdf.js`), reducing `server.js` footprint by ~500 lines while improving testability and code isolation.
 - StreamPulse Companion Module Updates: Added dedicated Tier Maker actions (start vote on next or specific item, lock voting, place in consensus tier, cancel vote, reset item placements, load template preset), live voting feedbacks and variables, webhook test trigger, clean categorized action naming prefixes (Alerts, Overlay, Tier Maker, Polls, Poll Tournament, Versus, Tournament, Randomizer, Chat Bot, Variables, Timer, Goal, Production, Session, Server), and contiguous action order for intuitive searching and browsing.
@@ -36,6 +37,11 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Chat bot Live data panel lists host data with copyable `{{rep.*}}` placeholders; `GET /api/external-data` returns it read-only and size-limited.
 - `POST /api/alerts/mute` mutes alert display (e.g. NodeCG panic); `queue.muted` in `/api/alerts`.
 - `money` placeholder format, e.g. `{{placeholder|money}}` renders $1,234.00.
+
+### Changed
+- Alerts page: removed the Preview Vol slider; previews play at each variant's saved Alert/Video volume. Cooldown moved into Trigger & conditions.
+
+---
 
 ## [0.14.0] - 2026-11-01
 

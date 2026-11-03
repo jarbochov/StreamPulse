@@ -7,6 +7,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- Alerts page: variants grouped under Base and milestone tiers with threshold labels, odds pills and one-open-at-a-time rows; clickable ladder; live preview with Play sound; optional media thumbnails; inline warnings; rule search with Active/Inactive filters; Import/Export JSON (merge or replace); Copy/Paste style between variants; Revert; keyboard shortcuts (Cmd/Ctrl+S, Cmd/Ctrl+Enter, Cmd/Ctrl+D, /).
 - Alert box media focal point (Focus X/Y, shown for Fill media) and custom padding.
 - Alert box "Apply media effects to" setting: filters and tint can target only the alert's media so title and message text stay crisp.
 - Bits alerts: per-variant Emote source (Viewer's cheermote or Custom); Viewer's cheermote uses the family from the message with the tier from the summed bits, falling back to Cheer at the total amount.
@@ -20,6 +21,11 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Chat bot Live data panel lists host data with copyable `{{rep.*}}` placeholders; `GET /api/external-data` returns it read-only and size-limited.
 - `POST /api/alerts/mute` mutes alert display (e.g. NodeCG panic); `queue.muted` in `/api/alerts`.
 - `money` placeholder format, e.g. `{{placeholder|money}}` renders $1,234.00.
+
+### Changed
+- Alerts page: removed the Preview Vol slider; previews play at each variant's saved Alert/Video volume. Cooldown moved into Trigger & conditions.
+
+---
 
 ## [0.14.0] - 2026-11-01
 

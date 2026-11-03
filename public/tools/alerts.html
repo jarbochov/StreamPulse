@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <link rel="stylesheet" href="/admin.css">
+    <link rel="stylesheet" href="/alert-box.css">
     <script src="/appearance.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
@@ -1006,6 +1007,49 @@
         #toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--success-strong); color: #fff; padding: 0.65rem 1.05rem; border-radius: 7px; font-size: 0.84rem; font-weight: 600; display: none; z-index: 99; box-shadow: 0 6px 20px rgba(0,0,0,0.35); }
         #toast.err { background: var(--danger); }
         .empty-state { text-align: center; color: var(--text-muted); padding: 3rem 1.5rem; font-size: 0.84rem; display: flex; flex-direction: column; align-items: center; gap: 0.65rem; }
+        .vthumb { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 6px; background: var(--bg-inset); border: 1px solid var(--border); display: inline-flex; align-items: center; justify-content: center; overflow: hidden; color: var(--text-muted); }
+        .vthumb img, .vthumb video { width: 100%; height: 100%; object-fit: cover; }
+        .vthumb.sm { width: 28px; height: 28px; border-radius: 5px; }
+        .count-pill { font-size: 0.66rem; font-weight: 700; min-width: 1.3rem; text-align: center; padding: 0.02rem 0.4rem; border-radius: 999px; background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); }
+        .sidebar-tools { display: flex; align-items: center; gap: 0.5rem; margin: 0.4rem 0 0.2rem; font-size: 0.72rem; }
+        .sidebar-tools .grow { flex: 1; }
+        .sidebar-tools .more-menu { position: relative; }
+        .tier-group { --rail: var(--border-strong); border-left: 4px solid var(--rail); border-radius: 4px 8px 8px 4px; padding: 0.3rem 0 0.1rem 0.65rem; margin-bottom: 0.7rem; transition: background 0.3s; }
+        .tier-group.milestone { --rail: #f59e0b; }
+        .tier-group.flash { background: color-mix(in srgb, var(--rail) 14%, transparent); }
+        .tier-group-head { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; font-weight: 700; margin-bottom: 0.4rem; color: var(--text); }
+        .tier-group.milestone .tier-group-head { color: #f59e0b; }
+        .tier-group-head small { font-weight: 500; color: var(--text-muted); }
+        .tier-group .variant { margin-left: 0; margin-bottom: 0.4rem; border-left-width: 1px; }
+        .variant[open] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); }
+        .vsum-line { font-size: 0.68rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .vwarn { color: #f59e0b; display: inline-flex; }
+        .tier-step-chip[data-jump-tier] { cursor: pointer; }
+        .tier-step-chip[data-jump-tier]:hover { border-color: var(--accent); }
+        .warn-list { display: flex; flex-direction: column; gap: 0.25rem; margin: 0 0 0.75rem; }
+        .warn-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; padding: 0.3rem 0.55rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-inset); color: var(--text-muted); }
+        .warn-item.warn { border-color: rgba(245,158,11,0.45); background: rgba(245,158,11,0.08); color: var(--text); }
+        .warn-item.warn .ico { color: #f59e0b; }
+        .warn-item[data-jump-variant] { cursor: pointer; }
+        .v-live-stage { position: relative; width: 100%; max-width: 420px; aspect-ratio: 16/9; border: 1px dashed var(--border-strong); border-radius: 8px; overflow: hidden; background: repeating-conic-gradient(var(--bg-inset) 0 25%, var(--bg-card) 0 50%) 0 0 / 16px 16px; }
+        .odds-row[hidden] { display: none; }
+        .name-input { font-size: 0.95rem; font-weight: 700; min-width: 160px; max-width: 280px; }
+        .rule-sentence { font-size: 0.72rem; color: var(--text-muted); }
+        .sp-dlg { background: var(--bg-card); color: var(--text); border: 1px solid var(--border-strong); border-radius: 10px; padding: 1rem 1.2rem; max-width: 440px; }
+        .sp-dlg::backdrop { background: rgba(0,0,0,0.5); }
+        .sp-dlg h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+        .sp-dlg .dlg-row { display: flex; flex-direction: column; gap: 0.4rem; margin: 0.6rem 0; font-size: 0.8rem; }
+        .sp-dlg .dlg-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.8rem; }
+        .shortcut-list { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 0.8rem; font-size: 0.74rem; white-space: nowrap; }
+        .shortcut-list kbd { font-family: inherit; font-size: 0.68rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 4px; padding: 0 0.3rem; }
+        .rule-title { font-size: 1rem; }
+        .when-sentence { font-size: 0.8rem; font-weight: 500; color: var(--text-muted); margin-left: 0.6rem; }
+        .v-adv { margin-top: 0.5rem; } .v-adv > summary { cursor: pointer; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+        .variant-body { padding: 0.7rem 0.8rem; gap: 0.6rem; } .vsection-card { padding: 0.65rem 0.8rem; gap: 0.55rem; } .role-card-desc { display: none; }
+        .anim-row select { width: auto; min-width: 7rem; }
+        .when-card[open] > summary .btn .ico { transform: rotate(180deg); }
+        .seg-pills .seg-btn { white-space: nowrap; }
+        #shortcuts-menu { position: relative; }
     </style>
 </head>
 <body>
@@ -1061,6 +1105,25 @@
                 </div>
 
                 <span id="save-state" class="pill ok">Saved</span>
+
+                <button type="button" class="btn ghost" id="revert" title="Discard unsaved changes and reload from the server">
+                    <svg class="ico" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                    <span>Revert</span>
+                </button>
+
+                <details class="more-menu" id="shortcuts-menu">
+                    <summary class="btn ghost icon-btn" title="Keyboard shortcuts" aria-label="Keyboard shortcuts">?</summary>
+                    <div class="more-pop">
+                        <div class="shortcut-list">
+                            <kbd>Cmd/Ctrl+S</kbd><span>Save</span>
+                            <kbd>Cmd/Ctrl+Enter</kbd><span>Test selected rule</span>
+                            <kbd>Cmd/Ctrl+D</kbd><span>Duplicate rule</span>
+                            <kbd>/</kbd><span>Search rules</span>
+                            <kbd>Alt+Up / Down</kbd><span>Reorder focused rule</span>
+                            <kbd>Esc</kbd><span>Close menus</span>
+                        </div>
+                    </div>
+                </details>
 
                 <button type="button" class="btn primary" id="save" title="Save all alert rules and settings">
                     <svg class="ico" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -1137,8 +1200,23 @@
                         <button type="button" class="filter-chip" data-filter-trigger="donation">Donations</button>
                         <button type="button" class="filter-chip" data-filter-trigger="redeem">Redeems</button>
                         <button type="button" class="filter-chip" data-filter-trigger="chat_command,chat_word">Chat</button>
+                        <button type="button" class="filter-chip" data-filter-state="active">Active</button>
+                        <button type="button" class="filter-chip" data-filter-state="inactive">Inactive</button>
                     </div>
 
+                    <div class="sidebar-tools">
+                        <label class="check-row" title="Show media thumbnails in rule and variant rows"><input type="checkbox" id="thumbs-toggle"><span>Thumbnails</span></label>
+                        <span class="grow"></span>
+                        <details class="more-menu" id="io-menu">
+                            <summary class="btn sm ghost">Import / Export <svg class="ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                            <div class="more-pop">
+                                <button type="button" class="btn sm" id="export-all">Export all rules</button>
+                                <button type="button" class="btn sm" id="export-rule">Export selected rule</button>
+                                <button type="button" class="btn sm" id="import-btn">Import from file…</button>
+                            </div>
+                        </details>
+                        <input type="file" id="import-file" accept="application/json,.json" hidden>
+                    </div>
                     <div class="rule-list" id="rule-list"></div>
                 </div>
 
@@ -1250,12 +1328,7 @@
 
                     <div class="sim-form-grid">
                         <div class="row"><label>Event Trigger</label><select id="sim-type"></select></div>
-                        <div class="row" id="sim-tier-row" style="display:none;"><label>Subscription Tier</label><select id="sim-tier">
-                            <option value="1000" selected>Tier 1</option>
-                            <option value="2000">Tier 2</option>
-                            <option value="3000">Tier 3</option>
-                            <option value="prime">Prime</option>
-                        </select></div>
+                        <div class="row" id="sim-tier-row" style="display:none;"><label>Subscription Tier</label><select id="sim-tier" hidden><option value="1000" selected>Tier 1</option><option value="2000">Tier 2</option><option value="3000">Tier 3</option><option value="prime">Prime</option></select><span class="seg-pills" id="sim-tier-seg"><button type="button" class="seg-btn active" data-simtier="1000">Tier 1</button><button type="button" class="seg-btn" data-simtier="2000">Tier 2</button><button type="button" class="seg-btn" data-simtier="3000">Tier 3</button><button type="button" class="seg-btn" data-simtier="prime">Prime</button></span></div>
                         <div class="row" id="sim-recipient-row" style="display:none;"><label>Gift Sub Recipient</label><input id="sim-recipient" value="LuckyViewer"></div>
                         <div class="row"><label>User Name</label><input id="sim-user" value="TestViewer"></div>
                         <div class="row"><label>Amount / Months / Viewers</label><input id="sim-amount" type="number" min="0" value="100"></div>
@@ -1293,6 +1366,22 @@
 
     <div id="toast"></div>
 
+    <dialog id="import-dlg" class="sp-dlg">
+        <h3>Import alert rules</h3>
+        <p id="import-summary" style="margin:0;font-size:0.8rem;"></p>
+        <div class="dlg-row">
+            <label class="check-row"><input type="radio" name="import-mode" value="merge" checked><span>Merge: add as new rules (new ids)</span></label>
+            <label class="check-row"><input type="radio" name="import-mode" value="replace"><span>Replace: swap out all current rules</span></label>
+            <span class="hint">Webhook URLs in the file are imported as-is. Nothing is saved until you click Save; Revert undoes the import.</span>
+        </div>
+        <div class="dlg-actions"><button type="button" class="btn" id="import-cancel">Cancel</button><button type="button" class="btn primary" id="import-apply">Import</button></div>
+    </dialog>
+    <dialog id="paste-dlg" class="sp-dlg">
+        <h3>Paste style</h3>
+        <p id="paste-summary" style="margin:0;font-size:0.8rem;"></p>
+        <div class="dlg-row" id="paste-groups"></div>
+        <div class="dlg-actions"><button type="button" class="btn" id="paste-cancel">Cancel</button><button type="button" class="btn primary" id="paste-apply">Paste</button></div>
+    </dialog>
     <script src="/overlay-shared.js"></script>
     <script src="/poll.js"></script>
     <script>
@@ -1397,10 +1486,18 @@
     };
 
     let cfg = { settings: { enabled: true, gapSeconds: 2 }, rules: [] };
-    const openVariants = new Set();
+    let openVid = localStorage.getItem('alerts.openVariant') || '';
+    const openVariants = {
+        has: id => id === openVid,
+        add: id => { openVid = id; localStorage.setItem('alerts.openVariant', id); },
+        delete: id => { if (openVid === id) { openVid = ''; localStorage.setItem('alerts.openVariant', ''); } }
+    };
+    const showThumbs = () => localStorage.getItem('alerts.thumbs') !== '0';
+    ICONS.warn = '<svg class="ico" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
     let hideUnmatched = localStorage.getItem('alerts.hideUnmatched') === '1';
     let sel = null, dirty = false, assets = [], timers = [], goals = [], queue = {};
-    let ruleSearchQuery = '', activeTriggerFilter = '';
+    let ruleSearchQuery = localStorage.getItem('alerts.search') || '', activeTriggerFilter = localStorage.getItem('alerts.filterTrigger') || '', activeStateFilter = localStorage.getItem('alerts.filterState') || '';
+    const filtering = () => !!(ruleSearchQuery.trim() || activeTriggerFilter || activeStateFilter);
     let lastFocusedInput = null;
 
     const toast = (message, err) => { const t = $('toast'); t.textContent = message; t.className = err ? 'err' : ''; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', 2600); };
@@ -1491,11 +1588,28 @@
         $('s-gap').value = cfg.settings.gapSeconds;
     }
 
+    function thumbFor(r) {
+        const v = r.variants.find(x => mediaKind(x));
+        if (!v) return '';
+        if (v.image) return `<img src="${esc(v.image)}" alt="" loading="lazy">`;
+        if (v.video) return `<video src="${esc(v.video)}" muted preload="metadata"></video>`;
+        return v.emojiUrl ? `<img src="${esc(v.emojiUrl)}" alt="" loading="lazy">` : '';
+    }
+    const persistFilters = () => { localStorage.setItem('alerts.search', ruleSearchQuery); localStorage.setItem('alerts.filterTrigger', activeTriggerFilter); localStorage.setItem('alerts.filterState', activeStateFilter); };
+    function syncFilterUi() {
+        document.querySelectorAll('[data-filter-trigger]').forEach(b => b.classList.toggle('active', b.dataset.filterTrigger === activeTriggerFilter));
+        document.querySelectorAll('[data-filter-state]').forEach(b => b.classList.toggle('active', b.dataset.filterState === activeStateFilter));
+        $('rule-search').value = ruleSearchQuery;
+        $('rule-search-clear').hidden = !ruleSearchQuery;
+    }
+
     function renderRules() {
         const q = ruleSearchQuery.toLowerCase().trim();
         const allowedTriggers = activeTriggerFilter ? activeTriggerFilter.split(',') : null;
         const filtered = cfg.rules.filter(r => {
-            if (q && !r.name.toLowerCase().includes(q) && !(TRIGGERS[r.trigger] || '').toLowerCase().includes(q)) return false;
+            if (q && !(r.name.toLowerCase().includes(q) || (TRIGGERS[r.trigger] || '').toLowerCase().includes(q) || r.trigger.includes(q) || r.variants.some(v => `${v.title || ''} ${v.message || ''}`.toLowerCase().includes(q)))) return false;
+            if (activeStateFilter === 'active' && !r.enabled) return false;
+            if (activeStateFilter === 'inactive' && r.enabled) return false;
             if (allowedTriggers && !allowedTriggers.includes(r.trigger)) return false;
             return true;
         });
@@ -1513,7 +1627,7 @@
             return;
         }
 
-        const canReorder = !q && !activeTriggerFilter;
+        const canReorder = !filtering();
         $('rule-list').innerHTML = filtered.map(r => {
             const meta = TRIGGER_META[r.trigger] || { label: r.trigger, icon: ICONS.zap, color: '#3b82f6' };
             const isSel = r.id === sel;
@@ -1521,6 +1635,7 @@
             return `
             <div class="rule-item${isSel ? ' active' : ''}${r.enabled ? '' : ' off'}" data-rule="${esc(r.id)}" tabindex="0" ${canReorder ? 'draggable="true"' : ''} title="${esc(r.name)} (${meta.label})">
                 ${canReorder ? `<span class="drag-handle" title="Drag to reorder (Alt+Up / Alt+Down)" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg></span>` : ''}
+                ${showThumbs() && thumbFor(r) ? `<span class="vthumb sm">${thumbFor(r)}</span>` : ''}
                 <div class="rule-icon-box" style="color:${meta.color};border-color:color-mix(in srgb, ${meta.color} 35%, var(--border));background:color-mix(in srgb, ${meta.color} 10%, var(--bg-card));">
                     ${meta.icon}
                 </div>
@@ -1528,10 +1643,11 @@
                     <div class="rule-item-name">${esc(r.name)}</div>
                     <div class="rule-item-meta">
                         <span class="rule-item-tag" style="color:${meta.color};">${esc(meta.label)}</span>
-                        ${r.webhookOnly ? `<span class="rule-item-tag" style="color:var(--accent);font-weight:700;background:rgba(59,130,246,0.12);padding:1px 5px;border-radius:4px;">Webhook Only</span>` : `<span class="rule-item-tag variant-pill">${r.variants.length} ${r.variants.length === 1 ? 'variant' : 'variants'}</span>`}
+                        ${r.webhookOnly ? `<span class="rule-item-tag" style="color:var(--accent);font-weight:700;background:rgba(59,130,246,0.12);padding:1px 5px;border-radius:4px;">Webhook Only</span>` : ''}
                         ${amtCond ? `<span class="rule-item-tag">${esc(amtCond)}</span>` : ''}
                     </div>
                 </div>
+                <span class="count-pill" title="${r.variants.length} variant${r.variants.length === 1 ? '' : 's'}">${r.variants.length}</span>
                 <div class="rule-item-toggle">
                     <span class="pill ${r.enabled ? 'ok' : ''}">${r.enabled ? 'On' : 'Off'}</span>
                 </div>
@@ -1543,6 +1659,10 @@
         return `<div class="row"><label>${label}</label>${inner}${hint ? `<small>${hint}</small>` : ''}</div>`;
     }
     const inp = (path, value, type = 'text', extra = '') => `<input type="${type}" data-f="${path}" data-type="${type}" value="${esc(value)}" ${extra}>`;
+    const segHtml = (attr, path, value, options) => `<span class="seg-pills"><select hidden ${attr}="${path}">${options.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(value) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>${options.map(([v, l]) => `<button type="button" class="seg-btn${String(v) === String(value) ? ' active' : ''}" data-seg="${esc(v)}">${esc(l)}</button>`).join('')}</span>`;
+    const seg_ = (path, value, options) => segHtml('data-f', path, value, options);
+    const vseg = (i, key, value, options) => segHtml('data-v', `${i}.${key}`, value, options);
+    const animOpts = (i, key, value, list) => `<select data-v="${i}.${key}">${list.map(a => `<option${a === value ? ' selected' : ''}>${a}</option>`).join('')}</select>`;
     const sel_ = (path, value, options) => `<select data-f="${path}">${options.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(value) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
 
     // Older rules only stored min/max; min == max means "equal to".
@@ -1568,7 +1688,7 @@
         if (AMOUNT_LABEL[t] && t !== 'sub') {
             const mode = amountMode(c);
             const step = t === 'donation' ? 'step="0.01" ' : '';
-            html += field(`${AMOUNT_LABEL[t]} Condition`, sel_('conditions.amountMode', mode, [['min', 'At least'], ['range', 'Between'], ['exact', 'Equal to']]), 'Equal-to rules beat ranges; otherwise the highest minimum wins.');
+            html += field(`${AMOUNT_LABEL[t]} Condition`, seg_('conditions.amountMode', mode, [['min', 'At least'], ['range', 'Between'], ['exact', 'Equal to']]), 'Equal-to rules beat ranges; otherwise the highest minimum wins.');
             if (mode === 'exact') {
                 html += field(`Exact ${AMOUNT_LABEL[t]}`, inp('conditions.exactAmount', c.exactAmount || c.minAmount || 0, 'number', `${step}min="0"`), t === 'donation' ? 'Matches within half a cent.' : '');
             } else {
@@ -1605,11 +1725,11 @@
         if (t === 'chat_word') html += field('Words or #Hashtags', inp('conditions.keywords', c.keywords.join(', '), 'list', 'placeholder="hype, #clip, gg"'), 'Comma separated. Matches whole words, case-insensitive.');
         if (t === 'chat_command') {
             html += field('Command Name', inp('conditions.command', c.command || '', 'text', 'placeholder="e.g. hype, shoutout, hydrate"'), 'Command word without the prefix (e.g. "hype" triggers on !hype).');
-            html += field('Required Permission', sel_('conditions.permission', c.permission || 'everyone', [
-                ['everyone', 'Everyone (All Chatters)'],
-                ['subs', 'Subscribers & VIPs'],
-                ['mods', 'Moderators & Broadcaster'],
-                ['streamer', 'Broadcaster Only']
+            html += field('Required Permission', seg_('conditions.permission', c.permission || 'everyone', [
+                ['everyone', 'Everyone'],
+                ['subs', 'Subs & VIPs'],
+                ['mods', 'Mods'],
+                ['streamer', 'Broadcaster']
             ]), 'Minimum role required to trigger this alert via chat.');
         }
         if (t === 'milestone') {
@@ -1654,11 +1774,7 @@
     const vsel = (i, key, label, value, options) => `<label class="fld"><span>${label}</span><select data-v="${i}.${key}">${options.map(a => `<option${a === value ? ' selected' : ''}>${a}</option>`).join('')}</select></label>`;
     const BUILTIN = OverlayShared.BUILTIN_SOUNDS;
     const builtinName = v => (String(v.sound || '').startsWith('builtin:') ? v.sound.slice(8) : '');
-    const getPreviewVolumeScale = () => {
-        const raw = localStorage.getItem('alerts.previewVolume');
-        return raw !== null ? Math.max(0, Math.min(100, Number(raw))) / 100 : 0.8;
-    };
-    let testAmount = 0;
+    let testAmount = 0, styleClip = null;
 
     function soundHtml(v, i) {
         const name = builtinName(v);
@@ -1821,10 +1937,7 @@
         const sourceHtml = r.trigger === 'bits' ? `
             <div class="fld" style="margin-bottom:0.65rem;">
                 <span>Emote</span>
-                <select data-v="${i}.emoteSource">
-                    <option value="viewer"${viewerMode ? ' selected' : ''}>Viewer's cheermote</option>
-                    <option value="custom"${!viewerMode ? ' selected' : ''}>Custom</option>
-                </select>
+                ${vseg(i, 'emoteSource', viewerMode ? 'viewer' : 'custom', [['viewer', "Viewer's cheermote"], ['custom', 'Custom']])}
                 <span class="hint" style="font-size:0.72rem;">${viewerMode ? "Shows the cheermote the viewer used (family and tier from their message), or Cheer at the total bits." : 'Uses the emote and ladder you set below.'}</span>
                 ${viewerMode ? `<div style="margin-top:0.3rem;">${resolvedPreview}<div style="margin-top:0.35rem;"><label class="fld" style="max-width:360px;"><span>Cheermote family override</span>                        <select data-v="${i}.cheermoteFamily" style="background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:0.72rem;">
                             <option value="auto"${(!v.cheermoteFamily || v.cheermoteFamily === 'auto') ? ' selected' : ''}>Match the viewer's cheermote</option>
@@ -1930,7 +2043,7 @@
         if (v.image) {
             thumbHtml = `<img src="${esc(v.image)}" alt="" onerror="this.parentElement.innerHTML='${ICONS.image.replace(/'/g, "\\'")}'">`;
         } else if (v.video) {
-            thumbHtml = `<span style="color:var(--accent);">${ICONS.video}</span>`;
+            thumbHtml = `<video src="${esc(v.video)}" muted preload="metadata"></video>`;
         } else if (v.emojiUrl) {
             thumbHtml = `<img src="${esc(v.emojiUrl)}" alt="" onerror="this.parentElement.innerHTML='${ICONS.smile.replace(/'/g, "\\'")}'">`;
         } else if (v.emoji) {
@@ -1976,6 +2089,7 @@
                 </div>
                 ${media === 'video' ? `
                     ${mediaField(i, 'video', ['video'], 'video/mp4,video/webm', 'Alert Video (WebM / MP4)')}
+                    <details class="v-adv"><summary>Advanced</summary>
                     <div class="video-options-bar">
                         <div class="video-options-left">
                             <label class="check-row">
@@ -1989,12 +2103,13 @@
                         </div>
                         ${v.videoSound ? `
                             <div class="video-vol-group">
-                                <span style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">Video Volume:</span>
+                                <span style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">Video volume</span>
                                 <input type="range" class="vol-slider" min="0" max="100" data-v="${i}.videoVolume" data-vidvol-slider="${i}" value="${v.videoVolume ?? 70}" style="width:100px;">
                                 <span class="vol-badge" id="vidvol-badge-${i}">${v.videoVolume ?? 70}%</span>
                             </div>
                         ` : ''}
                     </div>
+                    </details>
                 ` : media === 'image' ? `
                     ${mediaField(i, 'image', ['image'], 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml', 'Alert Image / GIF')}
                     ${v.video ? '<span class="hint" style="margin-top:0.35rem;display:inline-block;">Note: A video URL is also set and takes priority over the image on playback.</span>' : ''}
@@ -2008,7 +2123,7 @@
                     ${soundHtml(v, i)}
                     <div class="fld" style="margin-top:0.25rem;padding-top:0.65rem;border-top:1px solid var(--border);">
                         <div style="display:flex;justify-content:space-between;align-items:center;">
-                            <label>Audio Playback Volume</label>
+                            <label>Alert volume</label>
                             <span class="vol-badge" id="vol-badge-${i}">${v.volume ?? 70}%</span>
                         </div>
                         <div class="vol-wrap" style="margin-top:0.25rem;">
@@ -2022,8 +2137,7 @@
             timing: `
                 <div class="vgrid c3" style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.85rem 1rem;">
                     ${vin(i, 'duration', 'Show Duration (s)', v.duration, 'min="1" max="120" step="0.5"')}
-                    ${vsel(i, 'animIn', 'Animation In', v.animIn, ANIM_IN)}
-                    ${vsel(i, 'animOut', 'Animation Out', v.animOut, ANIM_OUT)}
+                    <div class="fld" style="grid-column:span 2;"><span>Animation</span><div class="anim-row" style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;">${animOpts(i, 'animIn', v.animIn, ANIM_IN)}<span style="color:var(--text-muted);">then</span>${animOpts(i, 'animOut', v.animOut, ANIM_OUT)}<button type="button" class="btn sm" data-replay="${i}" title="Replay in the live preview">${ICONS.play} <span>Replay</span></button></div></div>
                 </div>
             `
         };
@@ -2033,16 +2147,16 @@
             <summary>
                 <div class="vsum-top">
                     <div class="vsum-badges">
-                        <span class="vnum-badge">Variant ${i + 1}</span>
+                        ${showThumbs() ? `<span class="vthumb sm">${thumbHtml}</span>` : ''}<span class="vnum-badge">Variant ${i + 1}</span>
                         ${tierBadge}
                         ${oddsBadge}
                     </div>
                     <div class="vsum-text-col">
                         <div class="vsum-title" title="${esc(v.title || '')}">${esc(v.title || '(No title template set)')}</div>
+                        <div class="vsum-line">${variantWarnings(v, i, r).length ? `<span class="vwarn" title="${esc(variantWarnings(v, i, r).join('; '))}">${ICONS.warn}</span> ` : ''}${esc([mediaKind(v) || 'No media', soundLabel(v) || 'No sound', `${v.duration}s`].join(' · '))}</div>
                     </div>
                     <div class="vsum-actions">
                         <div class="vmeta-chips">
-                            ${metaChips}
                         </div>
                         <button type="button" class="btn sm ghost v-preview-btn" data-test-variant="${i}" title="Preview this variant on overlays">
                             ${ICONS.play} <span>Preview</span>
@@ -2078,9 +2192,7 @@
                             <div class="threshold-params-row">
                                 <div class="threshold-inputs">
                                     <span style="font-size:0.73rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;">${esc(metricName)}:</span>
-                                    <select data-v="${i}.gateMode" title="How ${esc(metricName)} is compared">
-                                        ${[['min', 'At least'], ['range', 'Between'], ['exact', 'Equal to']].map(([val, label]) => `<option value="${val}"${gateMode === val ? ' selected' : ''}>${label}</option>`).join('')}
-                                    </select>
+                                    ${vseg(i, 'gateMode', gateMode, [['min', 'At least'], ['range', 'Between'], ['exact', 'Equal to']])}
                                     <div class="input-affix-group" title="${gateMode === 'exact' ? 'Exact' : 'Minimum'} ${esc(metricName)} required to activate this tier">
                                         <span class="input-affix">${gateMode === 'exact' ? '=' : '&ge;'}</span>
                                         <input type="number" min="0" step="any" data-v="${i}.gateMin" value="${v.gateMin ?? 0}">
@@ -2141,6 +2253,18 @@
                     </div>
                 </div>
 
+                <div class="vsection-card">
+                    <div class="vsection-head">
+                        <span class="vsection-title">${ICONS.play} Live preview</span>
+                        <span style="display:inline-flex;gap:0.35rem;flex-wrap:wrap;">
+                            <button type="button" class="btn sm" data-play-sound="${i}" title="Play this variant's sound at its saved volume">${ICONS.volume} <span>Play sound</span></button>
+                            <button type="button" class="btn sm" data-copy-style="${i}" title="Copy this variant's style">${ICONS.copy} <span>Copy style</span></button>
+                            <button type="button" class="btn sm" data-paste-style="${i}" ${styleClip ? '' : 'disabled'} title="Paste copied style onto this variant">${ICONS.copy} <span>Paste style</span></button>
+                        </span>
+                    </div>
+                    <div class="v-live-stage" data-live="${i}"></div>
+                </div>
+
                 <!-- Section 3: Visuals, Audio & Timing -->
                 <div class="vsection-card">
                     <div class="vtabs">
@@ -2160,7 +2284,7 @@
         </details>`;
     }
 
-    function summary(r) {
+    function summary(r, whenOnly) {
         const c = r.conditions, t = TRIGGERS[r.trigger];
         const hasAmt = !!AMOUNT_LABEL[r.trigger] && r.trigger !== 'sub';
         let when = `When there is a "${t}"`;
@@ -2179,12 +2303,79 @@
         if (r.trigger === 'redeem' && c.rewardName) when += ` for "${c.rewardName}"`;
         if (r.trigger === 'chat_word' && c.keywords.length) when += `: ${c.keywords.join(', ')}`;
         if (r.trigger === 'chat_command' && c.command) when += ` "!${c.command}" (${c.permission || 'everyone'})`;
+        if (whenOnly) {
+            const m = hasAmt ? (mode === 'exact' ? `exactly ${c.exactAmount || c.minAmount}` : mode === 'range' && c.minAmount && c.maxAmount ? `${c.minAmount}-${c.maxAmount}` : c.minAmount ? `${c.minAmount}+` : '') : '';
+            const unit = { bits: 'bits', raid: 'viewers', gift: 'gifted subs', donation: '', redeem: 'points' }[r.trigger] || '';
+            const verb = { bits: 'cheers', raid: 'raids with', gift: 'gifts', donation: 'donates', follow: 'follows', sub: 'subscribes', resub: 'resubscribes', redeem: 'redeems' }[r.trigger];
+            if (verb) return `When someone ${verb}${m ? ' ' + m : ''}${unit && m ? ' ' + unit : ''}${r.trigger === 'redeem' && c.rewardName ? ` "${c.rewardName}"` : ''}${c.cooldownSeconds ? ` (${c.cooldownSeconds}s cooldown)` : ''}`;
+            return when;
+        }
         const extras = [r.actions.timer.enabled ? 'trigger a timer' : '', r.actions.http.enabled ? `send a webhook${r.actions.http.delay > 0 ? ` (after ${r.actions.http.delay}s)` : ''}` : ''].filter(Boolean);
         if (r.webhookOnly) {
             const actStr = extras.length ? extras.join(' and ') : 'trigger webhook only';
             return `${when}, ${actStr} silently without on-screen overlay or page takeovers.${r.enabled ? '' : ' (This rule is currently disabled.)'}`;
         }
         return `${when}, display ${r.variants.length > 1 ? `one of ${r.variants.length} variants` : 'the alert'}${extras.length ? ' and ' + extras.join(' and ') : ''}.${r.enabled ? '' : ' (This rule is currently disabled.)'}`;
+    }
+
+    const HAS_METRIC = ['sub', 'resub', 'gift', 'bits', 'donation', 'raid', 'redeem', 'milestone'];
+    const isMilestoneV = (v, r) => HAS_METRIC.includes(r.trigger) && (v.variantType === 'gated' || v.gateMin > 0 || v.gateMax > 0);
+    const mediaKind = v => v.video ? 'Video' : v.image ? 'Image' : (v.emoji || v.emojiUrl || v.emojiLadder?.length) ? 'Emote' : '';
+    const soundLabel = v => { const n = builtinName(v); return n ? (BUILTIN?.[n]?.label || n) : v.sound ? decodeURIComponent(String(v.sound).split('/').pop()) : ''; };
+    function variantWarnings(v, i, r) {
+        const w = [];
+        if (r.webhookOnly) return w;
+        if (!v.sound) w.push('No sound set');
+        if (!mediaKind(v) && !(r.trigger === 'bits' && v.emoteSource !== 'custom')) w.push('No media set');
+        if (isMilestoneV(v, r) && v.gateMax > 0 && v.gateMax < v.gateMin) w.push(`Unreachable: maximum ${v.gateMax} is below minimum ${v.gateMin}`);
+        return w;
+    }
+    function ruleWarnings(r) {
+        const out = [];
+        if (!HAS_METRIC.includes(r.trigger)) {
+            r.variants.forEach((v, i) => variantWarnings(v, i, r).forEach(m => out.push({ level: 'warn', text: `Variant ${i + 1}: ${m}`, vid: v.id })));
+            return out;
+        }
+        const ms = r.variants.filter(v => isMilestoneV(v, r));
+        const base = r.variants.filter(v => !isMilestoneV(v, r));
+        if (ms.length && !base.length) out.push({ level: 'warn', text: 'Milestone tiers exist but there is no Base Alert; events below the lowest tier show nothing.', vid: ms[0].id });
+        const byMin = new Map();
+        ms.forEach(v => { const k = `${variantGateMode(v)}:${Number(v.gateMin) || 0}`; byMin.set(k, (byMin.get(k) || 0) + 1); });
+        byMin.forEach((n, k) => { if (n > 1) out.push({ level: 'warn', text: `${n} variants share threshold ${k.split(':')[1]}; they roll by weight instead of escalating.` }); });
+        const minAmt = Number(r.conditions.minAmount) || 0;
+        const lowest = ms.filter(v => variantGateMode(v) === 'min').reduce((m, v) => Math.min(m, Number(v.gateMin) || 0), Infinity);
+        if (base.length && ms.length && minAmt > 0 && lowest <= minAmt) out.push({ level: 'warn', text: `Base Alert is unreachable: every event of ${minAmt}+ already meets the ${lowest} milestone.`, vid: base[0].id });
+        r.variants.forEach((v, i) => variantWarnings(v, i, r).forEach(m => out.push({ level: 'warn', text: `Variant ${i + 1}: ${m}`, vid: v.id })));
+        if (r.trigger === 'bits' && r.variants.some(v => v.emoteSource !== 'custom')) out.push({ level: 'info', text: "Viewer's cheermote uses the cheermote family from the message and the tier from the summed bits; it falls back to Cheer at the total amount. Image or video media overrides it." });
+        return out;
+    }
+    const SAMPLE_TOKENS = { user: 'TestViewer', amount: 500, months: 12, streak: 6, tier: 'Tier 1', count: 5, recipient: 'LuckyViewer', viewers: 42, reward: 'Hydrate', message: 'Thanks for the stream!', currency: 'USD', source: 'tiltify', name: 'Goal', keyword: 'gg', command: 'hype', target: 'Friend', args: '', winner: 'Option A', poll_title: 'Poll', votes: 120, percent: 60, total_votes: 200 };
+    let previewHandle = null, previewTimer = 0;
+    function mountPreview(withSound = false, animate = false) {
+        const stage = document.querySelector('#editor .variant[open] .v-live-stage');
+        if (!stage || !window.OverlayShared?.playAlert) return;
+        const r = rule(), v = r?.variants[stage.dataset.live];
+        if (!v) return;
+        try { OverlayShared.cleanupNode?.(stage); } catch { /* ignore */ }
+        stage.innerHTML = '';
+        const fill = t => String(t || '').replace(/\{\{alert\.(\w+)\}\}/g, (m, k) => SAMPLE_TOKENS[k] ?? m);
+        const viewerEmote = r.trigger === 'bits' && v.emoteSource !== 'custom' && !v.emoji && !v.emojiUrl;
+        const payload = {
+            title: fill(v.title), message: fill(v.message), image: v.video ? '' : v.image, video: v.video,
+            emoji: viewerEmote ? 'Cheer100' : v.emoji, emojiUrl: viewerEmote ? DEFAULT_CHEERMOTES[1].url : v.emojiUrl,
+            emoteScale: v.emoteScale, videoSound: !!v.videoSound, videoVolume: v.videoVolume ?? 70, videoLoop: v.videoLoop !== false,
+            animIn: animate ? v.animIn : 'none', animOut: animate ? v.animOut : 'none', durationMs: animate ? Math.max(1500, (Number(v.duration) || 6) * 1000) : 3600000
+        };
+        const element = { alert: { layout: 'stack', mediaScale: 55, titleSize: 22, messageSize: 14, videoSound: !!v.videoSound, videoVolume: v.videoVolume ?? 70 }, style: { color: '#fff', background: '#1b1f2a', borderRadius: 10, padding: 10 } };
+        try { previewHandle = OverlayShared.playAlert(stage, element, payload, { sound: withSound, onEnd: animate ? () => { if (stage.isConnected) mountPreview(); } : undefined }); } catch { stage.textContent = 'Preview unavailable'; }
+    }
+    const schedulePreview = () => { clearTimeout(previewTimer); previewTimer = setTimeout(() => mountPreview(), 150); };
+    function playVariantSound(v) {
+        const name = builtinName(v), vol = (v.volume ?? 70) / 100;
+        if (name) OverlayShared.playBuiltinSound(name, vol);
+        else if (v.sound) { const a = new Audio(v.sound); a.volume = Math.max(0, Math.min(1, vol)); a.play().catch(() => toast('Could not play that audio file', true)); }
+        if (v.video && v.videoSound) mountPreview(true);
+        if (!v.sound && !(v.video && v.videoSound)) toast('This variant has no sound');
     }
 
     function renderEditor() {
@@ -2230,14 +2421,14 @@
                         </div>
                     </div>
                     <div class="tier-steps-row">
-                        <div class="tier-step-chip base" title="Plays for any event below the lowest milestone">
+                        <div class="tier-step-chip base" data-jump-tier="base" title="Plays for any event below the lowest milestone">
                             <span class="tier-step-lbl">Base Alert</span>
                             <span class="tier-step-val">Any ${esc(metricName)}</span>
                             <span class="tier-step-count">${baseVariants.length} var</span>
                         </div>
                         ${Array.from(groups.entries()).map(([min, vars]) => `
                             <span class="tier-step-arrow">${ICONS.arrowRight}</span>
-                            <div class="tier-step-chip threshold" title="Plays when ${esc(metricName)} is &ge; ${min}">
+                            <div class="tier-step-chip threshold" data-jump-tier="${min}" title="Plays when ${esc(metricName)} is &ge; ${min}">
                                 <span class="tier-step-lbl">Milestone</span>
                                 <span class="tier-step-val">&ge; ${min} ${esc(metricName)}</span>
                                 <span class="tier-step-count">${vars.length} var</span>
@@ -2254,112 +2445,81 @@
         }
 
         $('editor').innerHTML = `
-            <!-- Rule Summary Banner -->
             <div class="summary-banner">
-                <div class="summary-left">
-                    <div class="summary-icon" style="color:${meta.color};border-color:color-mix(in srgb, ${meta.color} 35%, var(--border));">
-                        ${meta.icon}
+                <div class="summary-left" style="flex-direction:column;align-items:flex-start;gap:0.2rem;">
+                    <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">
+                        <div class="summary-icon" style="color:${meta.color};border-color:color-mix(in srgb, ${meta.color} 35%, var(--border));">${meta.icon}</div>
+                        <b class="rule-title" id="rule-title">${esc(r.name)}</b>
+                        <span class="badge accent">${meta.label}</span>
+                        <label class="check-row" title="Enable or disable this specific rule">
+                            <input type="checkbox" data-f="enabled" data-type="check" ${r.enabled ? 'checked' : ''}>
+                            <span>Active</span>
+                        </label>
                     </div>
-                    <div class="summary-text">
-                        <b title="${esc(summary(r))}">${esc(summary(r))}</b>
-                    </div>
+                    <div class="summary-text rule-sentence" hidden><b></b></div>
                 </div>
                 <div class="summary-actions">
-                    <label class="check-row" title="Enable or disable this specific rule">
-                        <input type="checkbox" data-f="enabled" data-type="check" ${r.enabled ? 'checked' : ''}>
-                        <span>Active</span>
-                    </label>
-
-                    <label class="gap-control" title="Minimum seconds between triggers of this rule (0 = none)">Cooldown
-                        <input type="number" min="0" data-f="conditions.cooldownSeconds" data-type="number" value="${esc(r.conditions.cooldownSeconds)}"> s</label>
-                                        ${hasMetric ? `
+                    ${hasMetric ? `
                         <div style="display:inline-flex;align-items:center;gap:0.35rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.18rem 0.45rem;">
                             <span style="font-size:0.71rem;color:var(--text-muted);font-weight:600;">Simulate ${esc(metricName)}:</span>
                             <input type="number" min="0" data-test-amount value="${testAmount || ''}" placeholder="${r.conditions.minAmount || 100}" style="width:72px;height:24px;padding:0.1rem 0.35rem;font-size:0.74rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:4px;color:var(--text);text-align:center;">
                         </div>
                     ` : ''}
-
-                                        <button type="button" class="btn sm primary" data-test-rule title="Test this alert on overlays (evaluates weights and conditions)">${ICONS.play} Test Rule</button>
-
+                    <button type="button" class="btn sm primary" data-test-rule title="Test this alert on overlays (Cmd/Ctrl+Enter)">${ICONS.play} Test Rule</button>
                     <details class="more-menu" data-persist="alerts.moreOpen"${localStorage.getItem('alerts.moreOpen') === '1' ? ' open' : ''}>
                         <summary class="btn sm ghost">More ${ICONS.chevronDown}</summary>
                         <div class="more-pop">
-                                                <label class="check-row" title="Webhook Only: triggers webhooks silently without showing on-screen alert boxes, playing alert audio, or triggering page rotators" style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.18rem 0.55rem;">
-                        <input type="checkbox" data-f="webhookOnly" data-type="check" ${r.webhookOnly ? 'checked' : ''}>
-                        <span style="font-size:0.75rem;font-weight:700;color:${r.webhookOnly ? 'var(--accent)' : 'var(--text)'};">Webhook Only</span>
-                    </label>
-
-                                                <button type="button" class="btn sm" id="dup-rule" title="Duplicate rule">${ICONS.copy} Duplicate</button>
-                    <button type="button" class="btn sm danger" id="del-rule" title="Delete rule">${ICONS.trash} Delete</button>
-
-                                                <div style="display:inline-flex;align-items:center;gap:0.35rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.18rem 0.45rem;" title="Adjust test sound audio preview level">
-                        <span style="font-size:0.71rem;color:var(--text-muted);font-weight:600;">Preview Vol:</span>
-                        <input type="range" min="0" max="100" id="preview-vol-slider" value="${Math.round(getPreviewVolumeScale() * 100)}" style="width:55px;height:14px;accent-color:var(--accent);cursor:pointer;" oninput="localStorage.setItem('alerts.previewVolume', this.value); if(document.getElementById('preview-vol-text')) document.getElementById('preview-vol-text').textContent = this.value + '%';">
-                        <span id="preview-vol-text" style="font-size:0.68rem;color:var(--text-muted);min-width:24px;">${Math.round(getPreviewVolumeScale() * 100)}%</span>
-                    </div>
-
+                            <label class="check-row" title="Webhook Only: triggers webhooks silently without on-screen alert boxes, alert audio, or page rotators" style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.18rem 0.55rem;">
+                                <input type="checkbox" data-f="webhookOnly" data-type="check" ${r.webhookOnly ? 'checked' : ''}>
+                                <span style="font-size:0.75rem;font-weight:700;">Webhook Only</span>
+                            </label>
+                            <button type="button" class="btn sm" id="dup-rule" title="Duplicate rule (Cmd/Ctrl+D)">${ICONS.copy} Duplicate</button>
+                            <button type="button" class="btn sm danger" id="del-rule" title="Delete rule">${ICONS.trash} Delete</button>
                         </div>
                     </details>
                 </div>
             </div>
 
-            <!-- Card 1: Trigger & Conditions -->
-            <details class="card adv-card" data-persist="alerts.condOpen"${localStorage.getItem('alerts.condOpen') === '1' ? ' open' : ''}>
+            <details class="card adv-card when-card" data-persist="alerts.whenOpen"${localStorage.getItem('alerts.whenOpen') !== '0' ? ' open' : ''}>
                 <summary class="adv-toggle">
                     <h2 style="flex:1;">
-                        <span style="display:inline-flex;align-items:center;gap:0.45rem;">${ICONS.zap}<span>1 · Trigger &amp; Conditions</span></span>
-                        <span class="badge accent">${meta.label}</span>
+                        <span style="display:inline-flex;align-items:center;gap:0.45rem;">${ICONS.zap}<span>When</span></span>
+                        <span class="when-sentence">${esc(summary(r, true))}</span>
                     </h2>
-                    <span class="adv-chev">${ICONS.chevronDown}</span>
+                    <span class="btn sm ghost">Edit ${ICONS.chevronDown}</span>
                 </summary>
                 <div class="cgrid">
                     ${field('Rule Name', inp('name', r.name, 'text', 'maxlength="80" placeholder="e.g. Sub Tier 1"'))}
                     ${field('Event Trigger', sel_('trigger', r.trigger, Object.entries(TRIGGERS)))}
+                    ${field('Cooldown (seconds)', inp('conditions.cooldownSeconds', r.conditions.cooldownSeconds, 'number', 'min="0"'), 'Minimum seconds between triggers of this rule (0 = none).')}
                     ${r.webhookOnly ? `
                         <div style="grid-column:1 / -1;padding:0.5rem 0.75rem;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:6px;font-size:0.75rem;display:flex;align-items:center;gap:0.4rem;color:var(--text);">
                             ${ICONS.info}
-                            <span><b>Webhook Only Alert:</b> Triggers webhooks and actions silently in the background. On-screen alert box elements, alert sounds, and page rotators will NOT be triggered.</span>
+                            <span><b>Webhook Only Alert:</b> Triggers webhooks and actions silently. On-screen alerts, sounds and page rotators are skipped.</span>
                         </div>
                     ` : ''}
                     ${conditionsHtml(r)}
                 </div>
             </details>
 
-            <!-- Card 2: Alert Display & Variants -->
-            <div class="card">
+            <div class="card" id="display-card">
                 ${ladderHtml}
-
                 ${r.webhookOnly ? `
                     <div style="margin-bottom:0.75rem;padding:0.55rem 0.75rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;font-size:0.74rem;display:flex;align-items:center;gap:0.4rem;color:var(--text-muted);">
                         ${ICONS.info}
                         <span>On-screen alert box elements, sounds, and page rotators are bypassed when <b>Webhook Only</b> is enabled.</span>
                     </div>
                 ` : ''}
-
                 <div class="card-head-row">
                     <h2>
-                        <span style="display:inline-flex;align-items:center;gap:0.45rem;">
-                            ${ICONS.image}
-                            <span>2 · Alert Display &amp; Variants</span>
-                        </span>
+                        <span style="display:inline-flex;align-items:center;gap:0.45rem;">${ICONS.image}<span>Show</span></span>
                         <span class="badge">${r.variants.length} variant${r.variants.length === 1 ? '' : 's'}</span>
                     </h2>
                     <div style="display:inline-flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
-                        <button type="button" class="btn sm" id="add-base-variant" title="Add a new variation to the Base Alert tier">
-                            ${ICONS.plus} <span>Base Variant</span>
-                        </button>
-                        ${hasMetric ? `
-                            <button type="button" class="btn sm" id="add-milestone-variant" title="Add an escalating milestone tier">
-                                ${ICONS.plus} <span>Milestone Tier</span>
-                            </button>
-                        ` : `
-                            <button type="button" class="btn sm" id="add-variant" title="Add a new variation">
-                                ${ICONS.plus} <span>Add Variant</span>
-                            </button>
-                        `}
+                        <button type="button" class="btn sm" id="add-base-variant" title="Add a new variation to the Base Alert tier">${ICONS.plus} <span>Base Variant</span></button>
+                        ${hasMetric ? `<button type="button" class="btn sm" id="add-milestone-variant" title="Add an escalating milestone tier">${ICONS.plus} <span>Milestone Tier</span></button>` : ''}
                     </div>
                 </div>
-
                 <div class="vrow-slim">
                     ${tokens.length ? `<details class="more-menu" data-persist="alerts.secTokens"${localStorage.getItem('alerts.secTokens') === '1' ? ' open' : ''}>
                         <summary class="btn sm ghost" title="Click a placeholder to insert it into the focused text">Placeholders (${tokens.length}) ${ICONS.chevronDown}</summary>
@@ -2367,26 +2527,32 @@
                             <div class="tokens-bar">${tokens.map(t => `<button type="button" class="token-chip" data-insert="{{alert.${t}}}" title="Click to insert {{alert.${t}}}">{{alert.${t}}}</button>`).join('')}</div>
                         </div>
                     </details>` : ''}
-                    ${r.variants.length > 1 ? `<label class="vpick"><span>Pick</span>${sel_('pick', r.pick === 'sequential' ? 'sequential' : 'weighted', [
-                        ['weighted', 'Weighted random'],
-                        ['sequential', 'In order']
-                    ])}</label>` : ''}
+                    ${r.variants.length > 1 ? `<label class="vpick"><span>Pick</span>${seg_('pick', r.pick === 'sequential' ? 'sequential' : 'weighted', [['weighted', 'Weighted random'], ['sequential', 'In order']])}</label>` : ''}
                 </div>
-
-                <div class="micro-head">${hasMetric ? 'Base alerts and milestone tiers' : 'Variants'}</div>
+                ${(() => { const ws = ruleWarnings(r); const list = `<div class="warn-list">${ws.map(x => `<div class="warn-item ${x.level}"${x.vid ? ` data-jump-variant="${esc(x.vid)}"` : ''}>${x.level === 'warn' ? ICONS.warn : ICONS.info}<span>${esc(x.text)}</span></div>`).join('')}</div>`; return !ws.length ? '' : ws.length > 2 ? `<details class="v-adv" data-persist="alerts.warnOpen"${localStorage.getItem('alerts.warnOpen') === '1' ? ' open' : ''}><summary>${ws.length} warnings</summary>${list}</details>` : list; })()}
                 ${r.variants.length ? '' : `<div class="empty-state" style="padding:1rem 0.5rem;"><span>No variants yet. Add one to choose what this rule shows.</span></div>`}
-                <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.2rem;">
-                    ${r.variants.map((v, i) => variantHtml(v, i, r)).join('')}
-                </div>
+                ${(() => {
+                    const gm = new Map();
+                    r.variants.forEach((v, i) => { const k = isMilestoneV(v, r) ? String(Number(v.gateMin) || 0) : 'base'; if (!gm.has(k)) gm.set(k, []); gm.get(k).push(i); });
+                    const keys = [...gm.keys()].sort((x, y) => x === 'base' ? -1 : y === 'base' ? 1 : Number(x) - Number(y));
+                    return keys.map(k => {
+                        const idxs = gm.get(k), ms = k !== 'base';
+                        const first = r.variants[idxs[0]];
+                        const label = !hasMetric ? 'Alert variants' : !ms ? 'Base alert' : `Milestone tier <small>${variantGateMode(first) === 'exact' ? '=' : '&gt;='} ${k} ${esc(metricName.toLowerCase())}</small>`;
+                        return `<div class="tier-group${ms ? ' milestone' : ''}" data-tier="${k}">
+                            <div class="tier-group-head">${ms ? ICONS.flag : ICONS.zap}<span>${label}</span><span class="count-pill">${idxs.length}</span>${idxs.length > 1 ? '<small>rolls by weight</small>' : ''}</div>
+                            ${idxs.map(i => variantHtml(r.variants[i], i, r)).join('')}
+                        </div>`;
+                    }).join('');
+                })()}
             </div>
 
-            <!-- Card 3: Additional Actions -->
             <details class="card adv-card" id="adv-actions"${localStorage.getItem('alerts.advOpen') === '1' ? ' open' : ''}>
                 <summary class="adv-toggle">
                     <h2 style="flex:1;">
                         <span style="display:inline-flex;align-items:center;gap:0.45rem;">
                             ${ICONS.clock}
-                            <span>3 · Actions</span>
+                            <span>Then</span>
                         </span>
                         <span class="badge${(a.timer.enabled || a.http.enabled) ? ' accent' : ''}">${(a.timer.enabled ? 1 : 0) + (a.http.enabled ? 1 : 0)} active</span>
                     </h2>
@@ -2423,7 +2589,7 @@
                         ${a.http.enabled ? `
                             ${field('Endpoint URL', inp('actions.http.url', a.http.url, 'text', 'placeholder="http://192.168.1.4:8000/api/location/..."'), 'URL to trigger on alert. Supports Bitfocus Companion buttons, Discord webhooks, or automation.')}
                             <div class="vgrid c3" style="align-items:end;gap:0.65rem;">
-                                ${field('HTTP Method', sel_('actions.http.method', a.http.method, [['POST', 'POST (JSON body)'], ['GET', 'GET (Query parameters)']]))}
+                                ${field('HTTP Method', seg_('actions.http.method', a.http.method, [['POST', 'POST'], ['GET', 'GET']]))}
                                 ${field('Delay (seconds)', inp('actions.http.delay', a.http.delay ?? 0, 'number', 'min="0" max="300" step="0.5" placeholder="0"'))}
                                 <div style="display:flex;align-items:center;gap:0.45rem;padding-bottom:2px;">
                                     <button type="button" class="btn sm" id="btn-test-webhook" style="white-space:nowrap;">
@@ -2438,6 +2604,7 @@
                 </div>
             </details>
         `;
+        mountPreview();
     }
 
     let _lastAlertsEventsHtml = '', _lastAlertsHistoryHtml = '';
@@ -2511,6 +2678,8 @@
     function renderSummary() {
         const b = document.querySelector('#editor .summary-text b');
         if (b && rule()) b.textContent = summary(rule());
+        const ws = document.querySelector('#editor .when-sentence'); if (ws && rule()) ws.textContent = summary(rule(), true);
+        const rt = $('rule-title'); if (rt && rule()) rt.textContent = rule().name;
     }
 
     function updateSimVisibility() {
@@ -2568,20 +2737,16 @@
         setHelpOpen(false);
     });
 
+    const blankRule = (trigger, id) => ({
+        id, name: 'New alert', enabled: true, trigger,
+        conditions: { amountMode: 'min', minAmount: 0, maxAmount: 0, exactAmount: 0, source: 'any', tier: '', rewardName: '', keywords: [], timerId: '', goalId: '', milestones: [], everyMonths: 0, cooldownSeconds: 0, command: '', permission: 'everyone' },
+        pick: 'random', variants: [newVariant(trigger)],
+        actions: { timer: { enabled: false, timerId: '', action: 'add_time', seconds: 30, perUnit: false }, http: { enabled: false, url: '', method: 'POST' } }
+    });
     // Add Rule
     $('add-rule').addEventListener('click', () => {
-        const trigger = 'follow';
         const id = `rule-${Date.now().toString(36)}`;
-        cfg.rules.push({
-            id,
-            name: 'New alert',
-            enabled: true,
-            trigger,
-            conditions: { amountMode: 'min', minAmount: 0, maxAmount: 0, exactAmount: 0, source: 'any', tier: '', rewardName: '', keywords: [], timerId: '', goalId: '', milestones: [], everyMonths: 0, cooldownSeconds: 0, command: '', permission: 'everyone' },
-            pick: 'random',
-            variants: [newVariant(trigger)],
-            actions: { timer: { enabled: false, timerId: '', action: 'add_time', seconds: 30, perUnit: false }, http: { enabled: false, url: '', method: 'POST' } }
-        });
+        cfg.rules.push(blankRule('follow', id));
         sel = id;
         setDirty(true);
         renderAll();
@@ -2595,8 +2760,8 @@
             ruleSearchQuery = '';
             $('rule-search').value = '';
             $('rule-search-clear').hidden = true;
-            activeTriggerFilter = '';
-            document.querySelectorAll('[data-filter-trigger]').forEach(btn => btn.classList.toggle('active', btn.dataset.filterTrigger === ''));
+            activeTriggerFilter = ''; activeStateFilter = '';
+            persistFilters(); syncFilterUi();
             renderRules();
             return;
         }
@@ -2651,7 +2816,7 @@
     $('rule-list').addEventListener('keydown', e => {
         const item = e.target.closest('[data-rule]');
         if (!item || e.target !== item) return;
-        if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !ruleSearchQuery && !activeTriggerFilter) {
+        if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !filtering()) {
             e.preventDefault();
             const i = cfg.rules.findIndex(r => r.id === item.dataset.rule);
             moveRule(item.dataset.rule, i + (e.key === 'ArrowUp' ? -1 : 1));
@@ -2661,12 +2826,14 @@
     $('rule-search').addEventListener('input', e => {
         ruleSearchQuery = e.target.value;
         $('rule-search-clear').hidden = !ruleSearchQuery;
+        persistFilters();
         renderRules();
     });
     $('rule-search-clear').addEventListener('click', () => {
         ruleSearchQuery = '';
         $('rule-search').value = '';
         $('rule-search-clear').hidden = true;
+        persistFilters();
         renderRules();
     });
 
@@ -2674,7 +2841,14 @@
         const btn = e.target.closest('[data-filter-trigger]');
         if (!btn) return;
         activeTriggerFilter = btn.dataset.filterTrigger;
-        document.querySelectorAll('[data-filter-trigger]').forEach(b => b.classList.toggle('active', b === btn));
+        persistFilters(); syncFilterUi();
+        renderRules();
+    });
+    $('trigger-filter-chips').addEventListener('click', e => {
+        const btn = e.target.closest('[data-filter-state]');
+        if (!btn) return;
+        activeStateFilter = activeStateFilter === btn.dataset.filterState ? '' : btn.dataset.filterState;
+        persistFilters(); syncFilterUi();
         renderRules();
     });
 
@@ -2682,7 +2856,12 @@
     const editor = $('editor');
     editor.addEventListener('toggle', event => {
         const d = event.target;
-        if (d.dataset?.vid) d.open ? openVariants.add(d.dataset.vid) : openVariants.delete(d.dataset.vid);
+        if (!d.dataset?.vid) return;
+        if (d.open) {
+            openVariants.add(d.dataset.vid);
+            editor.querySelectorAll('.variant[open]').forEach(o => { if (o !== d) o.open = false; });
+            mountPreview();
+        } else openVariants.delete(d.dataset.vid);
     }, true);
 
     editor.addEventListener('focusin', event => {
@@ -2729,6 +2908,7 @@
                 if (subEl) subEl.textContent = el.value;
             }
             setDirty(true);
+            schedulePreview();
         }
     });
 
@@ -2789,7 +2969,7 @@
             setDirty(true);
             renderEditor();
             if (el.value && OverlayShared.playBuiltinSound) {
-                OverlayShared.playBuiltinSound(el.value, ((r.variants[idx].volume ?? 70) / 100) * getPreviewVolumeScale());
+                OverlayShared.playBuiltinSound(el.value, (r.variants[idx].volume ?? 70) / 100);
             }
         } else if (el.dataset.variantCond !== undefined) {
             const idx = Number(el.dataset.variantCond);
@@ -2824,6 +3004,7 @@
                 if (el.value === 'exact') r.variants[i].gateMax = r.variants[i].gateMin;
             }
             if (key === 'videoSound' || key === 'gateMode' || key === 'gateMin' || key === 'gateMax' || key === 'gateMinOp' || key === 'gateMaxOp' || key === 'weight' || key === 'emoteEffect' || key === 'cheermoteFamily' || key === 'emoteSource') renderEditor();
+            else schedulePreview();
         }
     });
 
@@ -2910,6 +3091,21 @@
             return;
         }
 
+        const sb = event.target.closest('[data-seg]');
+        if (sb) {
+            const sl = sb.parentElement.querySelector('select');
+            sb.parentElement.querySelectorAll('.seg-btn').forEach(x => x.classList.toggle('active', x === sb));
+            sl.value = sb.dataset.seg;
+            sl.dispatchEvent(new Event('change', { bubbles: true }));
+            return;
+        }
+        const jt = event.target.closest('[data-jump-tier]'), jv = event.target.closest('[data-jump-variant]');
+        if (jt) {
+            const g = editor.querySelector(`.tier-group[data-tier="${CSS.escape(jt.dataset.jumpTier)}"]`);
+            if (g) { g.scrollIntoView({ behavior: 'smooth', block: 'center' }); g.classList.add('flash'); setTimeout(() => g.classList.remove('flash'), 1400); }
+            return;
+        }
+        if (jv) { openVariants.add(jv.dataset.jumpVariant); renderEditor(); editor.querySelector('.variant[open]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
         const btn = event.target.closest('button');
         if (!btn) return;
 
@@ -2944,6 +3140,16 @@
             return;
         }
 
+        if (btn.dataset.replay !== undefined) { mountPreview(false, true); return; }
+        if (btn.dataset.playSound !== undefined) { playVariantSound(r.variants[btn.dataset.playSound]); return; }
+        if (btn.dataset.copyStyle !== undefined) {
+            const v = r.variants[btn.dataset.copyStyle];
+            styleClip = JSON.parse(JSON.stringify(Object.fromEntries(Object.values(STYLE_GROUPS).flat().filter(k => k in v).map(k => [k, v[k]]))));
+            toast('Style copied; use Paste style on another variant');
+            renderEditor();
+            return;
+        }
+        if (btn.dataset.pasteStyle !== undefined && styleClip) { openPasteDialog(Number(btn.dataset.pasteStyle)); return; }
         if (btn.dataset.clearMedia) {
             const [i, key] = btn.dataset.clearMedia.split('.');
             r.variants[i][key] = '';
@@ -3042,11 +3248,10 @@
             renderEditor();
         } else if (btn.dataset.soundPreview !== undefined) {
             const v = r.variants[btn.dataset.soundPreview], name = builtinName(v);
-            const previewVol = getPreviewVolumeScale();
-            if (name) OverlayShared.playBuiltinSound(name, ((v.volume ?? 70) / 100) * previewVol);
+            if (name) OverlayShared.playBuiltinSound(name, (v.volume ?? 70) / 100);
             else if (v.sound) {
                 const audio = new Audio(v.sound);
-                audio.volume = Math.max(0, Math.min(1, ((v.volume ?? 70) / 100) * previewVol));
+                audio.volume = Math.max(0, Math.min(1, (v.volume ?? 70) / 100));
                 audio.play().catch(() => toast('Could not play that audio file'));
             }
         } else if (btn.dataset.delVariant !== undefined) {
@@ -3200,7 +3405,7 @@
             $('sim-user').value = preset.user;
             $('sim-amount').value = preset.amount;
             $('sim-text').value = preset.text;
-            if ($('sim-tier')) $('sim-tier').value = preset.tier || '1000';
+            if ($('sim-tier')) { $('sim-tier').value = preset.tier || '1000'; document.querySelectorAll('[data-simtier]').forEach(x => x.classList.toggle('active', x.dataset.simtier === $('sim-tier').value)); }
             if ($('sim-recipient')) $('sim-recipient').value = preset.recipient || 'LuckyViewer';
             updateSimVisibility();
             $('sim-go').click();
@@ -3262,10 +3467,118 @@
         } catch { /* server restarting */ }
     }
 
+    const STYLE_GROUPS = {
+        'Title and message text': ['title', 'message'],
+        'Animation and duration': ['animIn', 'animOut', 'duration'],
+        'Media settings': ['image', 'video', 'videoSound', 'videoVolume', 'videoLoop', 'emoji', 'emojiUrl', 'emoteEffect', 'emoteScale', 'emoteDensity', 'emojiLadder', 'emojiEvery', 'emojiMax', 'emoteSource', 'cheermoteFamily'],
+        'Sound and volume': ['sound', 'volume']
+    };
+    let pasteTarget = -1;
+    function openPasteDialog(i) {
+        pasteTarget = i;
+        $('paste-summary').textContent = `Choose what to paste onto Variant ${i + 1}.`;
+        $('paste-groups').innerHTML = Object.entries(STYLE_GROUPS).map(([name, keys], n) => {
+            const present = keys.filter(k => k in styleClip);
+            return `<label class="check-row"><input type="checkbox" data-paste-group="${esc(name)}" ${n < 3 ? 'checked' : ''} ${present.length ? '' : 'disabled'}><span>${esc(name)} <small style="color:var(--text-muted)">(${present.length} field${present.length === 1 ? '' : 's'})</small></span></label>`;
+        }).join('');
+        $('paste-dlg').showModal();
+    }
+    $('paste-cancel').addEventListener('click', () => $('paste-dlg').close());
+    $('paste-apply').addEventListener('click', () => {
+        const r = rule(), v = r?.variants[pasteTarget];
+        if (!v || !styleClip) return $('paste-dlg').close();
+        const done = [];
+        document.querySelectorAll('[data-paste-group]:checked').forEach(c => {
+            STYLE_GROUPS[c.dataset.pasteGroup].forEach(k => { if (k in styleClip) v[k] = JSON.parse(JSON.stringify(styleClip[k])); });
+            done.push(c.dataset.pasteGroup.toLowerCase());
+        });
+        $('paste-dlg').close();
+        if (!done.length) return;
+        setDirty(true); renderRules(); renderEditor();
+        toast(`Pasted ${done.join(', ')} onto Variant ${pasteTarget + 1}`);
+    });
+
+    // Import / export
+    const download = (name, data) => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+        a.download = name; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    };
+    const exportRules = (rules, label) => {
+        download(`streampulse-alerts-${label}-${new Date().toISOString().slice(0, 10)}.json`, { format: 'streampulse-alerts', version: 1, exportedAt: new Date().toISOString(), rules });
+        toast(`Exported ${rules.length} rule${rules.length === 1 ? '' : 's'}${rules.some(x => x.actions?.http?.url) ? '. Webhook URLs are included in the file' : ''}`);
+    };
+    const normRule = (raw, newIds) => {
+        const trigger = TRIGGERS[raw.trigger] ? raw.trigger : 'follow';
+        const base = blankRule(trigger, newIds ? `rule-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}` : String(raw.id || `rule-${Date.now().toString(36)}`));
+        const out = { ...base, ...raw, trigger, id: base.id, name: String(raw.name || base.name).slice(0, 80) };
+        out.conditions = { ...base.conditions, ...(raw.conditions || {}) };
+        out.actions = { timer: { ...base.actions.timer, ...(raw.actions?.timer || {}) }, http: { ...base.actions.http, ...(raw.actions?.http || {}) } };
+        out.variants = (Array.isArray(raw.variants) && raw.variants.length ? raw.variants : [{}]).map(v => {
+            const nv = { ...newVariant(trigger), ...v };
+            if (newIds || !v.id) nv.id = `v${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+            return nv;
+        });
+        return out;
+    };
+    let importRules = [];
+    $('export-all').addEventListener('click', () => { $('io-menu').open = false; exportRules(cfg.rules, 'all'); });
+    $('export-rule').addEventListener('click', () => { $('io-menu').open = false; const r = rule(); if (r) exportRules([r], r.name.replace(/[^\w-]+/g, '-').toLowerCase() || 'rule'); else toast('Select a rule first', true); });
+    $('import-btn').addEventListener('click', () => { $('io-menu').open = false; $('import-file').value = ''; $('import-file').click(); });
+    $('import-file').addEventListener('change', async () => {
+        try {
+            const file = $('import-file').files[0];
+            if (!file) return;
+            const data = JSON.parse(await file.text());
+            const list = Array.isArray(data) ? data : Array.isArray(data?.rules) ? data.rules : null;
+            if (!list || !list.length) throw new Error('No rules found in that file');
+            const bad = list.findIndex(x => !x || typeof x !== 'object' || !TRIGGERS[x.trigger]);
+            if (bad >= 0) throw new Error(`Rule ${bad + 1} has a missing or unknown trigger`);
+            importRules = list;
+            const hooks = list.filter(x => x.actions?.http?.url).length;
+            $('import-summary').textContent = `${list.length} rule${list.length === 1 ? '' : 's'} found (${list.reduce((n, x) => n + (x.variants?.length || 1), 0)} variants${hooks ? `, ${hooks} with webhook URLs` : ''}). You currently have ${cfg.rules.length}.`;
+            $('import-dlg').showModal();
+        } catch (err) { toast(`Import failed: ${err.message}`, true); }
+    });
+    $('import-cancel').addEventListener('click', () => $('import-dlg').close());
+    $('import-apply').addEventListener('click', () => {
+        const replace = document.querySelector('input[name="import-mode"]:checked').value === 'replace';
+        const rules = importRules.map(x => normRule(x, !replace));
+        cfg.rules = replace ? rules : cfg.rules.concat(rules);
+        sel = rules[0].id;
+        $('import-dlg').close();
+        setDirty(true); renderAll();
+        toast(`${replace ? 'Replaced with' : 'Imported'} ${rules.length} rule${rules.length === 1 ? '' : 's'}. Save to keep, Revert to undo`);
+    });
+
+    // Revert, thumbnails, shortcuts
+    $('revert').addEventListener('click', guard(async () => {
+        if (dirty && !await StreamPulse.confirm('Revert changes', 'Discard all unsaved changes and reload from the server?', { danger: true, confirmText: 'Revert' })) return;
+        await loadAll(); setDirty(false); toast('Reverted to saved alerts');
+    }));
+    $('thumbs-toggle').checked = showThumbs();
+    $('thumbs-toggle').addEventListener('change', e => { localStorage.setItem('alerts.thumbs', e.target.checked ? '1' : '0'); renderRules(); renderEditor(); });
+    syncFilterUi();
+    document.addEventListener('keydown', e => {
+        const mod = e.metaKey || e.ctrlKey, t = e.target;
+        const typing = t.matches?.('input, textarea, select, [contenteditable]') && !(t.type === 'checkbox' || t.type === 'radio' || t.type === 'range');
+        if (e.key === 'Escape') { document.querySelectorAll('details.more-menu[open]').forEach(d => { d.open = false; }); return; }
+        if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); $('save').click(); }
+        else if (mod && e.key === 'Enter') { const b = document.querySelector('[data-test-rule]'); if (b) { e.preventDefault(); b.click(); } }
+        else if (mod && e.key.toLowerCase() === 'd' && !typing) { const b = $('dup-rule'); if (b) { e.preventDefault(); b.click(); } }
+        else if (e.key === '/' && !typing && !mod && !e.altKey) { e.preventDefault(); $('rule-search').focus(); }
+    });
+
     window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
     pollVisible(refreshQueue, 3000);
     loadAll().catch(err => toast(err.message, true));
 })();
-    </script>
+        document.addEventListener('click', e => {
+        const b = e.target.closest('[data-simtier]'); if (!b) return;
+        $('sim-tier').value = b.dataset.simtier;
+        document.querySelectorAll('[data-simtier]').forEach(x => x.classList.toggle('active', x === b));
+    });
+</script>
 </body>
 </html>

@@ -49,6 +49,17 @@ Alert rules can trigger external automation via HTTP POST or GET webhooks:
 
 - **Mute display**: `POST /api/alerts/mute` with `{ "muted": true }` holds alerts in the queue (for panic buttons such as NodeCG's `muteAlerts`); `{ "muted": false }` releases them. `GET /api/alerts` reports `queue.muted`. A Companion action, variable and feedback are included.
 
+## Editing rules
+
+- **Layout:** each rule reads top-down as **When** (rule name, trigger, conditions, cooldown, with a sentence summary such as "When someone cheers 100+ bits" and an Edit toggle; open by default), **Show** (variants grouped under the Base alert and each milestone tier, with threshold label and odds pill; one variant open at a time; clickable ladder strip), then **Then** (webhook and timer actions).
+- **Controls:** options with four or fewer choices are pill groups; long lists (trigger, animations, sounds) stay dropdowns. Animation in/out is one row with a Replay button, and video audio options sit in a collapsed Advanced section per variant.
+- **Live preview:** the open variant shows its alert card as you type. **Play sound** uses the variant's saved Alert/Video volume (there is no separate preview volume).
+- **Warnings:** missing base alert, duplicate thresholds, unreachable variants, missing sound/media and bits cheermote notes appear inline.
+- **Find rules:** search by name, trigger, title or message; filter by trigger type or Active/Inactive. Toggle media thumbnails on or off.
+- **Copy style / Paste style:** copy text, animation, media and optionally sound settings between variants.
+- **Import / Export:** export all or the selected rule as JSON (webhook URLs are included), import with Merge (new ids) or Replace; nothing is saved until you Save, and Revert discards it.
+- **Shortcuts:** Cmd/Ctrl+S save, Cmd/Ctrl+Enter test, Cmd/Ctrl+D duplicate, `/` search, Alt+Up/Down reorder, Esc closes menus.
+
 Whether you prefer a quiet acknowledgement or a more theatrical reveal, the goal is to make the moment feel like yours—and keep the show in your hands.
 
 Browse [StreamPulse features](features.md) or [get started](quickstart.md). Already installed? **Docs** and **API Reference** are available through the app navigation.
