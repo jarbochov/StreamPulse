@@ -20,6 +20,7 @@ const TRIGGERS = {
     chat_word: 'Chat word or hashtag',
     chat_command: 'Chat bot command',
     poll_end: 'Poll completed / winner',
+    hype_train: 'Hype train',
     announcement: 'Announcement (manual)'
 };
 const ANIM_IN = ['none', 'fade', 'pop', 'zoom', 'bounce', 'flip', 'spin', 'slide-left', 'slide-right', 'slide-up', 'slide-down'];
@@ -240,6 +241,7 @@ function normalizeRule(input = {}, index = 0) {
             tiers,
             tier: tiers.length === 1 ? tiers[0] : (VALID_TIERS.includes(c.tier) ? c.tier : ''),
             rewardName: str(c.rewardName, 120),
+            phase: ['any', 'start', 'levelup', 'end'].includes(c.phase) ? c.phase : 'any',
             keywords: Array.isArray(c.keywords) ? c.keywords.map(k => str(k, 60).toLowerCase()).filter(Boolean).slice(0, 30) : [],
             timerId: str(c.timerId, 80),
             goalId: str(c.goalId, 80),
@@ -369,6 +371,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             case 'gift': return Number(ev.count) || 1;
             case 'sub': case 'resub': case 'milestone': return Number(ev.months) || 0;
             case 'poll_end': return Number(ev.votes ?? ev.total_votes) || 0;
+            case 'hype_train': return Number(ev.level) || 1;
             default: return Number(ev.amount) || 0;
         }
     }
@@ -391,6 +394,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             return false;
         }
         if (rule.trigger === 'redeem' && c.rewardName && !String(ev.reward || '').toLowerCase().includes(c.rewardName.toLowerCase())) return false;
+        if (rule.trigger === 'hype_train' && c.phase && c.phase !== 'any' && c.phase !== ev.phase) return false;
         if (rule.trigger === 'timer' && c.timerId && c.timerId !== ev.timerId) return false;
         if (rule.trigger === 'goal' && c.goalId && c.goalId !== ev.goalId) return false;
         if (rule.trigger === 'chat_word') {
@@ -549,6 +553,11 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             keyword: ev.keyword || '',
             command: ev.command || '',
             winner: ev.winner || '',
+            level: ev.level ?? '',
+            phase: ev.phase || '',
+            total: ev.total ?? '',
+            goal: ev.goal ?? '',
+            minutes: ev.seconds ? Math.max(1, Math.round(ev.seconds / 60)) : '',
             poll_title: ev.title || '',
             title: ev.title || '',
             votes: ev.votes ?? '',

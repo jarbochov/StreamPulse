@@ -438,6 +438,7 @@
         chat_word: 'Chat word or hashtag',
         chat_command: 'Chat bot command',
         poll_end: 'Poll completed / winner',
+        hype_train: 'Hype train',
         announcement: 'Announcement (manual only)'
     };
 
@@ -456,18 +457,20 @@
         chat_word: { label: 'Chat Word / #Tag', icon: ICONS.message, color: '#a3e635' },
         chat_command: { label: 'Chat Command', icon: ICONS.command, color: '#0ea5e9' },
         announcement: { label: 'Announcement', icon: ICONS.flag, color: '#f59e0b' },
-        poll_end: { label: 'Poll Winner', icon: ICONS.poll, color: '#10b981' }
+        poll_end: { label: 'Poll Winner', icon: ICONS.poll, color: '#10b981' },
+        hype_train: { label: 'Hype Train', icon: ICONS.zap, color: '#f59e0b' }
     };
 
     const ANIM_IN = ['pop', 'fade', 'zoom', 'bounce', 'flip', 'spin', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'none'];
     const ANIM_OUT = ['fade', 'pop', 'zoom', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'none'];
-    const AMOUNT_LABEL = { bits: 'Bits', donation: 'Amount', raid: 'Viewers', redeem: 'Point cost', gift: 'Number of gifts', sub: 'Months', resub: 'Months', poll_end: 'Winning votes' };
+    const AMOUNT_LABEL = { bits: 'Bits', donation: 'Amount', raid: 'Viewers', redeem: 'Point cost', gift: 'Number of gifts', sub: 'Months', resub: 'Months', poll_end: 'Winning votes', hype_train: 'Hype train level' };
     const TOKENS = {
         follow: ['user'], sub: ['user', 'tier'], resub: ['user', 'months', 'streak', 'tier', 'message'], milestone: ['user', 'months', 'streak', 'tier'],
         gift: ['user', 'count', 'recipient', 'tier'], bits: ['user', 'amount', 'message'], donation: ['user', 'amount', 'currency', 'source', 'message'], raid: ['user', 'viewers'],
         redeem: ['user', 'reward', 'amount'], timer: ['name'], goal: ['name', 'amount'], chat_word: ['user', 'keyword', 'message'],
         chat_command: ['user', 'command', 'target', 'args', 'message'],
-        poll_end: ['winner', 'poll_title', 'votes', 'percent', 'total_votes', 'user']
+        poll_end: ['winner', 'poll_title', 'votes', 'percent', 'total_votes', 'user'],
+        hype_train: ['level', 'user', 'total', 'goal', 'minutes']
     };
     const DEFAULT_TITLE = {
         follow: '{{alert.user}} just followed!', sub: '{{alert.user}} subscribed!', resub: '{{alert.user}} resubscribed for {{alert.months}} months!',
@@ -475,7 +478,8 @@
         donation: '{{alert.user}} donated {{alert.amount}}!', raid: '{{alert.user}} is raiding with {{alert.viewers}}!', redeem: '{{alert.user}} redeemed {{alert.reward}}',
         timer: '{{alert.name}} is done!', goal: 'Goal reached: {{alert.name}}', chat_word: '{{alert.user}} said {{alert.keyword}}',
         chat_command: '!{{alert.command}} used by {{alert.user}}!',
-        poll_end: 'Poll Winner: {{alert.winner}}!'
+        poll_end: 'Poll Winner: {{alert.winner}}!',
+        hype_train: 'Hype train level {{alert.level}}!'
     };
 
     let cfg = { settings: { enabled: true, gapSeconds: 2 }, rules: [] };
@@ -712,6 +716,7 @@
             `;
             html += field('Subscription Tiers', checkboxes, 'Check all applicable tiers (leave all checked or unchecked for Any Tier). Specific tier rules always take precedence over general rules.');
         }
+        if (t === 'hype_train') html += field('When', sel_('conditions.phase', c.phase || 'any', [['any', 'Any stage'], ['start', 'Train starts'], ['levelup', 'Each level up'], ['end', 'Train ends']]), 'Needs the channel:read:hype_train scope (reconnect Twitch once). Level thresholds below apply to the train level.');
         if (t === 'redeem') html += field('Reward Name Contains', inp('conditions.rewardName', c.rewardName, 'text', 'placeholder="e.g. Hydrate (blank = any reward)"'), 'Case-insensitive reward title match.');
         if (t === 'timer') html += field('Timer Trigger', sel_('conditions.timerId', c.timerId, [['', 'Any timer'], ...timers.map(x => [x.id, x.label || x.id])]));
         if (t === 'goal') html += field('Goal Trigger', sel_('conditions.goalId', c.goalId, [['', 'Any goal'], ...goals.map(x => [x.id, x.title])]));
@@ -1103,7 +1108,7 @@
 
     function variantHtml(v, i, r) {
         const open = r.variants.length === 1 || openVariants.has(v.id);
-        const hasMetric = ['sub', 'resub', 'gift', 'bits', 'donation', 'raid', 'redeem', 'milestone'].includes(r.trigger);
+        const hasMetric = ['sub', 'resub', 'gift', 'bits', 'donation', 'raid', 'redeem', 'milestone', 'hype_train'].includes(r.trigger);
         const metricName = AMOUNT_LABEL[r.trigger] || (['sub', 'resub', 'milestone'].includes(r.trigger) ? 'Months' : 'Amount');
         const isMilestone = hasMetric && (v.variantType === 'gated' || (v.gateMin > 0) || (v.gateMax > 0));
         const gateMode = variantGateMode(v);
@@ -1394,7 +1399,7 @@
         return `${when}, display ${r.variants.length > 1 ? `one of ${r.variants.length} variants` : 'the alert'}${extras.length ? ' and ' + extras.join(' and ') : ''}.${r.enabled ? '' : ' (This rule is currently disabled.)'}`;
     }
 
-    const HAS_METRIC = ['sub', 'resub', 'gift', 'bits', 'donation', 'raid', 'redeem', 'milestone'];
+    const HAS_METRIC = ['sub', 'resub', 'gift', 'bits', 'donation', 'raid', 'redeem', 'milestone', 'hype_train'];
     const isMilestoneV = (v, r) => HAS_METRIC.includes(r.trigger) && (v.variantType === 'gated' || v.gateMin > 0 || v.gateMax > 0);
     const mediaKind = v => v.video ? 'Video' : v.image ? 'Image' : (v.emoji || v.emojiUrl || v.emojiLadder?.length) ? 'Emote' : '';
     const soundLabel = v => { const n = builtinName(v); if (isSfx(v)) { const [g, id] = v.sound.slice(4).split('/'); return SFX_GROUPS.find(x => x.id === g)?.sounds.find(x => x.id === id)?.label || id; } return n ? (BUILTIN?.[n]?.label || n) : v.sound ? decodeURIComponent(String(v.sound).split('/').pop()) : ''; };
@@ -1422,7 +1427,7 @@
         if (base.length && ms.length && minAmt > 0 && lowest <= minAmt) out.push({ level: 'warn', text: `Base Alert is unreachable: every event of ${minAmt}+ already meets the ${lowest} milestone.`, vid: base[0].id });
         return out;
     }
-    const SAMPLE_TOKENS = { user: 'TestViewer', amount: 500, months: 12, streak: 6, tier: 'Tier 1', count: 5, recipient: 'LuckyViewer', viewers: 42, reward: 'Hydrate', message: 'Thanks for the stream!', currency: 'USD', source: 'tiltify', name: 'Goal', keyword: 'gg', command: 'hype', target: 'Friend', args: '', winner: 'Option A', poll_title: 'Poll', votes: 120, percent: 60, total_votes: 200 };
+    const SAMPLE_TOKENS = { user: 'TestViewer', amount: 500, months: 12, streak: 6, tier: 'Tier 1', count: 5, recipient: 'LuckyViewer', viewers: 42, reward: 'Hydrate', message: 'Thanks for the stream!', currency: 'USD', source: 'tiltify', name: 'Goal', keyword: 'gg', command: 'hype', target: 'Friend', args: '', winner: 'Option A', level: 3, total: 1800, goal: 2400, minutes: 5, poll_title: 'Poll', votes: 120, percent: 60, total_votes: 200 };
     let previewHandle = null, previewTimer = 0;
     function mountPreview(withSound = false, animate = false) {
         const stage = document.querySelector('#editor .variant[open] .v-live-stage');
@@ -1463,7 +1468,7 @@
         const a = r.actions;
         const meta = TRIGGER_META[r.trigger] || { label: r.trigger, icon: ICONS.zap, color: '#3b82f6' };
         const tokens = TOKENS[r.trigger] || [];
-        const hasMetric = ['sub', 'resub', 'gift', 'bits', 'donation', 'raid', 'redeem', 'milestone'].includes(r.trigger);
+        const hasMetric = ['sub', 'resub', 'gift', 'bits', 'donation', 'raid', 'redeem', 'milestone', 'hype_train'].includes(r.trigger);
         const metricName = AMOUNT_LABEL[r.trigger] || (['sub', 'resub', 'milestone'].includes(r.trigger) ? 'Months' : 'Amount');
 
         let ladderHtml = '';
@@ -1916,7 +1921,7 @@
 
     const blankRule = (trigger, id) => ({
         id, name: 'New alert', enabled: true, trigger, priority: 'normal', interrupt: false, expireSeconds: 0,
-        conditions: { amountMode: 'min', minAmount: 0, maxAmount: 0, exactAmount: 0, source: 'any', tier: '', rewardName: '', keywords: [], timerId: '', goalId: '', milestones: [], everyMonths: 0, cooldownSeconds: 0, command: '', permission: 'everyone' },
+        conditions: { amountMode: 'min', minAmount: 0, maxAmount: 0, exactAmount: 0, source: 'any', tier: '', rewardName: '', phase: 'any', keywords: [], timerId: '', goalId: '', milestones: [], everyMonths: 0, cooldownSeconds: 0, command: '', permission: 'everyone' },
         pick: 'random', variants: [newVariant(trigger)],
         actions: { timer: { enabled: false, timerId: '', action: 'add_time', seconds: 30, perUnit: false }, http: { enabled: false, url: '', method: 'POST' }, chat: { enabled: false, template: '', cooldownSeconds: 30 }, companion: { enabled: false, page: 1, row: 0, column: 0, location: '', delay: 0 } }
     });

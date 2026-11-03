@@ -21,6 +21,7 @@ function createTwitchEventSubService(options = {}) {
         onGiftSub = () => {},
         onCheer = () => {},
         onRedemption = () => {},
+        onHypeTrain = () => {},
         onStreamOnline = () => {},
         onStreamOffline = () => {},
         log = console.log,
@@ -180,6 +181,15 @@ function createTwitchEventSubService(options = {}) {
             );
         }
 
+        // Hype Train: requires channel:read:hype_train
+        if (scopes.includes('channel:read:hype_train')) {
+            candidateSubscriptions.push(
+                { type: 'channel.hype_train.begin', version: '2', condition: { broadcaster_user_id: broadcasterId } },
+                { type: 'channel.hype_train.progress', version: '2', condition: { broadcaster_user_id: broadcasterId } },
+                { type: 'channel.hype_train.end', version: '2', condition: { broadcaster_user_id: broadcasterId } }
+            );
+        }
+
         // Stream Online / Offline
         candidateSubscriptions.push(
             { type: 'stream.online', version: '1', condition: { broadcaster_user_id: broadcasterId } },
@@ -319,6 +329,25 @@ function createTwitchEventSubService(options = {}) {
                     cost: Number(ev.reward?.cost || 0),
                     userInput: ev.user_input || '',
                     redeemedAt: ev.redeemed_at || new Date().toISOString()
+                });
+                break;
+            }
+            case 'channel.hype_train.begin':
+            case 'channel.hype_train.progress':
+            case 'channel.hype_train.end': {
+                const top = Array.isArray(ev.top_contributions) ? [...ev.top_contributions].sort((a, b) => Number(b.total || 0) - Number(a.total || 0))[0] : null;
+                onHypeTrain({
+                    phase: type.endsWith('.begin') ? 'start' : type.endsWith('.end') ? 'end' : 'progress',
+                    id: ev.id,
+                    level: Number(ev.level || 1),
+                    total: Number(ev.total || 0),
+                    progress: Number(ev.progress || 0),
+                    goal: Number(ev.goal || 0),
+                    isGolden: ev.type === 'golden_kappa',
+                    topUser: top?.user_name || top?.user_login || '',
+                    startedAt: ev.started_at || '',
+                    endedAt: ev.ended_at || '',
+                    expiresAt: ev.expires_at || ''
                 });
                 break;
             }

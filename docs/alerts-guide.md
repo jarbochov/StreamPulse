@@ -63,6 +63,7 @@ Alert rules can trigger external automation via HTTP POST or GET webhooks:
 - **Live preview:** the open variant shows its alert card as you type. **Play sound** uses the variant's saved Alert/Video volume (there is no separate preview volume).
 - **Warnings:** missing base alert, duplicate thresholds, unreachable variants, missing sound/media and bits cheermote notes appear inline.
 - **Find rules:** search by name, trigger, title or message; filter by trigger type or Active/Inactive. Toggle media thumbnails on or off.
+- **Hype train trigger:** fires from Twitch EventSub on train start, each level up or end (pick one in "When"). Placeholders: `{{alert.level}}`, `{{alert.user}}` (top contributor), `{{alert.total}}`, `{{alert.goal}}`, `{{alert.minutes}}` (end only). Reconnect Twitch once to grant `channel:read:hype_train`.
 - **Duplicate:** clones a variant (text, media, sound, timing) right below it.
 - **Import / Export:** export all or the selected rule as JSON (webhook URLs are included), import with Merge (new ids) or Replace; nothing is saved until you Save, and Revert discards it.
 - **Shortcuts:** Cmd/Ctrl+S save, Cmd/Ctrl+Enter test, Cmd/Ctrl+D duplicate, `/` search, Alt+Up/Down reorder, Esc closes menus.

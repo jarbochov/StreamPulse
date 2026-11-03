@@ -1126,3 +1126,22 @@ test('chat and companion actions: chat cooldown, length cap, base URL pinned to 
     assert.equal(r.ok, false);
   } finally { engine.stop(); fs.rmSync(tempDir, { recursive: true, force: true }); }
 });
+
+test('hype train rules filter by phase and fill level tokens', () => {
+    const rules = [
+        { id: 'ht-start', trigger: 'hype_train', conditions: { phase: 'start' }, variants: [{ title: 'Train {{alert.level}}' }] },
+        { id: 'ht-end', trigger: 'hype_train', conditions: { phase: 'end' }, variants: [{ title: 'Ended at {{alert.level}} after {{alert.minutes}}m' }] }
+    ];
+    const run = ev => {
+        const { engine, dispatched, cleanup } = createTempEngine({ settings: { enabled: true }, rules });
+        try {
+            engine.handleEvent(ev);
+            return dispatched.filter(d => d.type === 'alert').map(d => d.payload.title);
+        } finally {
+            cleanup();
+        }
+    };
+    assert.deepEqual(run({ type: 'hype_train', phase: 'start', level: 1, amount: 1 }), ['Train 1']);
+    assert.deepEqual(run({ type: 'hype_train', phase: 'end', level: 4, amount: 4, seconds: 300 }), ['Ended at 4 after 5m']);
+    assert.deepEqual(run({ type: 'hype_train', phase: 'levelup', level: 2, amount: 2 }), []);
+});

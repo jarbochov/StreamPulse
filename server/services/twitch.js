@@ -5,7 +5,7 @@ const { createTwitchEventSubService } = require('./twitch-eventsub');
 
 const DEFAULT_TWITCH_CLIENT_ID = 'gbe0673k90le0942bfhw7f7ko6t865';
 const TWITCH_REQUEST_TIMEOUT_MS = 15000;
-const DEFAULT_TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers clips:edit channel:manage:clips channel:read:polls channel:read:vips moderation:read channel:manage:schedule channel:manage:broadcast channel:read:redemptions';
+const DEFAULT_TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers clips:edit channel:manage:clips channel:read:polls channel:read:vips moderation:read channel:manage:schedule channel:manage:broadcast channel:read:redemptions channel:read:hype_train';
 
 function safeReturnPath(value) {
     const v = String(value || '');
@@ -44,6 +44,7 @@ function createTwitchService(options = {}) {
         onGiftSub = () => {},
         onCheer = () => {},
         onRedemption = () => {},
+        onHypeTrain = () => {},
         onStreamOnline = () => {},
         onStreamOffline = () => {},
         log = console.log,
@@ -119,6 +120,7 @@ function createTwitchService(options = {}) {
         onGiftSub,
         onCheer,
         onRedemption,
+        onHypeTrain,
         onStreamOnline,
         onStreamOffline,
         log,

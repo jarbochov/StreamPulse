@@ -555,6 +555,19 @@ const twitchService = createTwitchService({
     onRedemption: (data) => {
         if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.handleEvent({ type: 'redeem', user: data.user, reward: data.rewardTitle, cost: data.cost, message: data.userInput });
     },
+    onHypeTrain: (data) => {
+        if (typeof alertEngine === 'undefined' || !alertEngine) return;
+        const key = data.id || 'train';
+        if (data.phase === 'start') hypeLevels.set(key, data.level);
+        if (data.phase === 'progress') {
+            if (data.level <= (hypeLevels.get(key) || 1)) return;
+            hypeLevels.set(key, data.level);
+        }
+        const phase = data.phase === 'progress' ? 'levelup' : data.phase;
+        if (phase === 'end') hypeLevels.delete(key);
+        const seconds = data.startedAt && data.endedAt ? Math.max(0, Math.round((Date.parse(data.endedAt) - Date.parse(data.startedAt)) / 1000)) : 0;
+        alertEngine.handleEvent({ type: 'hype_train', phase, level: data.level, amount: data.level, total: data.total, goal: data.goal, user: data.topUser, seconds, golden: data.isGolden });
+    },
     onStreamOnline: () => {
         if (typeof sessionService !== 'undefined' && sessionService?.pollLifecycle) sessionService.pollLifecycle();
     },
@@ -562,6 +575,7 @@ const twitchService = createTwitchService({
         if (typeof sessionService !== 'undefined' && sessionService?.pollLifecycle) sessionService.pollLifecycle();
     }
 });
+const hypeLevels = new Map();
 const loadStoredToken = () => twitchService.loadStoredToken();
 const saveToken = (tokenData) => twitchService.saveToken(tokenData);
 const clearToken = () => twitchService.clearToken();
