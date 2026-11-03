@@ -1249,6 +1249,9 @@
                         <button type="button" class="btn sm ghost v-preview-btn" data-test-variant="${i}" title="Preview this variant on overlays">
                             ${ICONS.play} <span>Preview</span>
                         </button>
+                        <button type="button" class="btn sm ghost danger" data-del-variant="${i}" ${r.variants.length < 2 ? 'disabled' : ''} title="Remove this variant">
+                            ${ICONS.trash} <span>Remove</span>
+                        </button>
                         <span class="v-chevron">${ICONS.chevronDown}</span>
                     </div>
                 </div>
@@ -1324,11 +1327,11 @@
                         <span class="vsection-title">${ICONS.type} Alert Text &amp; Placeholders</span>
                     </div>
                     <div class="full-text-field">
-                        <div class="field-label-row"><label>Title Template</label>${tokens.length ? `<button type="button" class="btn sm ghost" data-ph-open="${i}.title" title="Insert a placeholder at the cursor">{{ }} Placeholder</button>` : ''}</div>
+                        <div class="field-label-row"><label>Title Template</label><button type="button" class="btn sm ghost" data-ph-open="${i}.title" title="Insert a placeholder at the cursor">{{ }} Placeholder</button></div>
                         <input type="text" class="full-text-input" data-v="${i}.title" value="${esc(v.title || '')}" placeholder="e.g. {{alert.user}} resubscribed for {{alert.months}} months!">
                     </div>
                     <div class="al-s17 full-text-field">
-                        <div class="field-label-row"><label>Subtitle / Message (Optional)</label>${tokens.length ? `<button type="button" class="btn sm ghost" data-ph-open="${i}.message" title="Insert a placeholder at the cursor">{{ }} Placeholder</button>` : ''}</div>
+                        <div class="field-label-row"><label>Subtitle / Message (Optional)</label><button type="button" class="btn sm ghost" data-ph-open="${i}.message" title="Insert a placeholder at the cursor">{{ }} Placeholder</button></div>
                         <input type="text" class="full-text-input" data-v="${i}.message" value="${esc(v.message || '')}" placeholder="e.g. Thanks for the amazing support!">
                     </div>
                 </div>
@@ -1355,10 +1358,6 @@
                                 ${icon} <span>${label}</span>
                             </button>
                         `).join('')}
-                        <span class="vtab-grow"></span>
-                        <button type="button" class="btn sm danger" data-del-variant="${i}" ${r.variants.length < 2 ? 'disabled' : ''} title="Delete this variant">
-                            ${ICONS.trash} <span>Remove Variant</span>
-                        </button>
                     </div>
                     ${panels[tab] || panels.visual}
                 </div>
