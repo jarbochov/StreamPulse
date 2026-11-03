@@ -2791,7 +2791,6 @@
     window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
     pollVisible(refreshQueue, 3000);
     loadAll().catch(err => toast(err.message, true));
-})();
         document.addEventListener('click', e => {
         const b = e.target.closest('[data-simtier]'); if (!b) return;
         $('sim-tier').value = b.dataset.simtier;
@@ -2813,6 +2812,7 @@
         document.addEventListener('pointerup', () => { if (drag) { drag = null; renderEditor(); } });
         document.addEventListener('click', e => { const b = e.target.closest('[data-focus-reset]'); if (!b) return; const v = rule().variants[Number(b.dataset.focusReset)]; v.focusX = 50; v.focusY = 50; setDirty(true); renderEditor(); });
     })();
+})();
 </script>
 </body>
 </html>
