@@ -184,6 +184,14 @@ try {
         await page.evaluate(({ type, overrides }) => window.fixture.select(type, overrides), { type, overrides });
         assert.ok(await page.$(`[data-path="${path}"]`), `${type} conditional controls must be retained`);
     }
+    await page.evaluate(() => window.fixture.select('alert', { alert: { mediaFit: 'contain', alertMode: 'selected', triggers: ['raid'] } }));
+    assert.equal(await page.$('[data-focal]'), null, 'focus picker is hidden unless media fit is Cover');
+    assert.equal((await page.$$('.layout-card')).length, 4, 'alert layout is four visual cards');
+    assert.ok(await page.$('[data-trig-group] [data-alert-trigger="raid"]:checked'), 'When lists grouped events');
+    await page.evaluate(() => window.fixture.select('alert', { alert: { mediaFit: 'cover' } }));
+    assert.ok(await page.$('[data-focal]'), 'Cover reveals the focal-point picker');
+    await page.$eval('[data-seg-path="alert.layout"] [data-seg-value="side"]', node => node.click());
+    assert.equal(await page.evaluate(() => window.fixture.primary().alert.layout), 'side');
     await page.evaluate(() => {
         const { state, renderProperties } = window.fixture;
         state.obs = { enabled: true, connected: false, sources: [], scenes: [] };
@@ -236,7 +244,7 @@ try {
     assert.deepEqual(cameras.map(el => [el.page, el.x, el.visible]), [['a', 20, true], ['b', 220, false]]);
     assert.ok(cameras.every(el => !el.obsLink.enabled && !el.pageStates));
     assert.notEqual(cameras[0].group, cameras[1].group, 'groups remain independent between pages');
-    assert.ok(await page.$('[data-path="pages.transition"]'), 'Pages offer cut, crossfade and slide');
+    assert.ok(await page.$('[data-seg-path="pages.transition"]'), 'Pages offer cut, crossfade and slide');
     assert.equal(await page.$('[data-path="pages.transitionEasing"]'), null, 'Pages expose no morph controls');
     await page.evaluate(() => {
         const { state, layers } = window.fixture;

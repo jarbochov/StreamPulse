@@ -5,7 +5,7 @@
 import {
     $, esc, clamp, getPath, setPath, hasText, isLine, state, prefs, savePrefs,
     CANVAS_PRESETS, SYSTEM_FONTS, GOOGLE_FONT_OPTIONS, LIMITS, ICON, TYPE_META,
-    ALERT_TRIGGER_LABELS, TEXT_TYPES, FILL_TEXT_TYPES, LOCAL_MEDIA, selectedElements,
+    ALERT_TRIGGER_LABELS, ALERT_TRIGGER_META, triggerIcon, TEXT_TYPES, FILL_TEXT_TYPES, LOCAL_MEDIA, selectedElements,
     primary, byId, boundsOf, displayName, changed, toast, alertSample, variableContext,
     pagesOn, statesModeOn, isBasePage, hasPageOverride, resetElementPageState, extractElementState
 } from './editor-state.js';
@@ -1138,68 +1138,100 @@ export function gameListSection(el) {
     return what + lay + look + text;
 }
 
+const LAYOUT_CARDS = [
+    ['stack', 'Media above text', '<rect x="9" y="3" width="18" height="11" rx="2"/><path d="M8 19h20M12 23h12"/>'],
+    ['side', 'Media beside text', '<rect x="3" y="6" width="12" height="14" rx="2"/><path d="M19 10h14M19 15h10"/>'],
+    ['text', 'Text only', '<path d="M7 10h22M10 15h16M13 20h10"/>'],
+    ['media', 'Media only (text over it)', '<rect x="4" y="3" width="28" height="20" rx="2"/><path d="M10 18h16"/>']
+];
+
+const subOpen = (id, dflt = false) => (prefs.sections[id] ?? dflt) ? ' open' : '';
+const subGroup = (id, title, body, dflt = false) => `<details class="sub-details" data-sect="${id}"${subOpen(id, dflt)}><summary>${title}</summary>${body}</details>`;
+
 export function alertSection(el) {
     const a = el.alert || {};
     const only = a.triggers || [];
     const alertMode = a.alertMode || (only.length ? 'selected' : 'all');
-    return F.section('alert', 'Alert box', `
-        <p class="hint">What this box shows (text, images, sounds, animations) is set per alert in <a href="/alerts.html" target="_blank" style="color:var(--accent)">Alerts</a>. This is only the look.</p>
-        <div class="field">
-            <span>Simulate live event</span>
-            <div class="seg" style="display:flex;flex-wrap:wrap;gap:4px">
-                <button type="button" data-sim-alert="follow">Follow</button>
-                <button type="button" data-sim-alert="sub">Sub</button>
-                <button type="button" data-sim-alert="bits">Bits</button>
-                <button type="button" data-sim-alert="raid">Raid</button>
-            </div>
-            <span class="hint">Fires the full animation and layout directly on the canvas right now.</span>
+    const layout = a.layout || 'stack';
+    const hasMedia = layout !== 'text';
+    const cover = a.mediaFit === 'cover';
+    const fx = a.effectsTarget === 'media' ? 'media' : 'box';
+    const fpX = a.mediaFocusX ?? 50, fpY = a.mediaFocusY ?? 50;
+    const thumb = a.sampleImage ? `style="background-image:url('${esc(a.sampleImage)}')"` : '';
+    const keys = Object.keys(ALERT_TRIGGER_LABELS);
+    const groups = {};
+    keys.forEach(k => { (groups[ALERT_TRIGGER_META[k]?.[2] || 'Other'] ||= []).push(k); });
+
+    const preview = `
+        <span class="hint">Preview only, not saved. Fires the full animation on the canvas.</span>
+        <div class="seg sim-seg" role="group" aria-label="Simulate live event">
+            ${['follow', 'sub', 'bits', 'raid'].map(k => `<button type="button" data-sim-alert="${k}">${triggerIcon(k, 12)} ${ALERT_TRIGGER_LABELS[k].replace('New sub', 'Sub')}</button>`).join('')}
         </div>
-        <details class="sub-details"${a.sampleImage || a.sampleEmoji ? ' open' : ''}><summary>Preview media (editor only)</summary>
-        <span class="hint">Only for this editor preview. Real alerts use the media set per alert.</span>
-        <div class="field">
-            <span>Sample icon</span>
-            <span class="upload-row">
-                <input data-path="alert.sampleEmoji" data-kind="text" value="${esc(a.sampleEmoji || '')}" placeholder="e.g. fa-solid fa-bell or fa-solid fa-heart" maxlength="60">
-                <button type="button" id="pick-alert-icon">Icon…</button>
-            </span>
-            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
-                ${['fa-solid fa-heart', 'fa-solid fa-star', 'fa-solid fa-gem', 'fa-solid fa-bolt', 'fa-solid fa-fire', 'fa-solid fa-crown', 'fa-solid fa-bell', 'fa-brands fa-twitch'].map(item => {
-                    return `<button type="button" class="btn sm" data-set-alert-emoji="${esc(item)}" style="padding:4px 8px;font-size:12px;min-width:32px" title="${esc(item)}"><i class="${item}" style="font-size:12px;pointer-events:none"></i></button>`;
-                }).join('')}
+        <details class="sub-details" data-sect="alert-preview-media"${subOpen('alert-preview-media', !!(a.sampleImage || a.sampleEmoji))}><summary>Preview media (editor only)</summary>
+            <span class="hint">Only for this preview. Real alerts use the media set per alert.</span>
+            <div class="field"><span>Sample icon</span>
+                <span class="upload-row"><input data-path="alert.sampleEmoji" data-kind="text" value="${esc(a.sampleEmoji || '')}" placeholder="e.g. fa-solid fa-heart" maxlength="60"><button type="button" id="pick-alert-icon">Icon…</button></span>
+                <div class="chip-row">${['fa-solid fa-heart', 'fa-solid fa-star', 'fa-solid fa-gem', 'fa-solid fa-bolt', 'fa-solid fa-fire', 'fa-solid fa-crown', 'fa-solid fa-bell', 'fa-brands fa-twitch'].map(item => `<button type="button" class="btn sm chip-btn" data-set-alert-emoji="${esc(item)}" title="${esc(item)}"><i class="${item}"></i></button>`).join('')}</div>
             </div>
-        </div>
-        <div class="field"><span>Sample image</span><span class="upload-row"><input data-path="alert.sampleImage" data-kind="text" value="${esc(a.sampleImage || '')}" placeholder="Pick from library, or paste a URL" spellcheck="false"><button type="button" id="open-assets">Library…</button></span></div>
-        </details>
-        ${F.select('alert.layout', 'Layout', a.layout || 'stack', [['stack', 'Media above text'], ['side', 'Media beside text'], ['text', 'Text only'], ['media', 'Media only (text over it)']])}
-        ${a.layout === 'media' ? F.check('alert.hideText', 'Hide text overlay (pure media only)', a.hideText === true) : ''}
-        ${a.layout === 'text' ? '' : `<div class="field">${F.select('alert.effectsTarget', 'Apply media effects to', a.effectsTarget === 'media' ? 'media' : 'box', [['box', 'Whole box (text too)'], ['media', 'Media only (text stays crisp)']])}<span class="hint">Blur, color and tint effects from the Effects tab.</span></div><div class="grid2">${F.number('alert.mediaScale', 'Media size (%)', a.mediaScale || 60, { min: 10, max: 100 })}${F.select('alert.mediaFit', 'Media fit', a.mediaFit || 'contain', [['contain', 'Contain'], ['cover', 'Fill (crop)']])}</div>${a.mediaFit === 'cover' ? `<div class="grid2">${F.range('alert.mediaFocusX', 'Focus X', a.mediaFocusX ?? 50, { min: 0, max: 100, unit: '%', editable: true, reset: 50 })}${F.range('alert.mediaFocusY', 'Focus Y', a.mediaFocusY ?? 50, { min: 0, max: 100, unit: '%', editable: true, reset: 50 })}</div>` : ''}`}
+            <div class="field"><span>Sample image</span><span class="upload-row"><input data-path="alert.sampleImage" data-kind="text" value="${esc(a.sampleImage || '')}" placeholder="Pick from library, or paste a URL" spellcheck="false"><button type="button" id="open-assets">Library…</button></span></div>
+        </details>`;
+
+    const when = `
+        ${F.seg('alert.alertMode', 'When', alertMode, [['all', 'All events'], ['selected', 'Only these events']])}
+        ${alertMode === 'selected' ? `
+            <div class="field">
+                <div class="trig-head">
+                    <span class="hint">${only.length} of ${keys.length} events</span>
+                    <span class="trig-head-actions"><button type="button" class="btn sm" id="btn-select-all-alert-triggers">All</button><button type="button" class="btn sm ghost" id="btn-clear-alert-triggers">None</button></span>
+                </div>
+                <input type="search" class="trig-search" data-trigger-filter placeholder="Search events" aria-label="Search events" spellcheck="false">
+                <div class="trig-groups">${Object.entries(groups).map(([g, list]) => `<div class="trig-group" data-trig-group><div class="trig-group-title">${g}</div>${list.map(k => `<label class="check trig-item" data-trig-name="${esc(ALERT_TRIGGER_LABELS[k].toLowerCase())}">${triggerIcon(k)}<input type="checkbox" data-alert-trigger="${k}" ${only.includes(k) ? 'checked' : ''}> ${ALERT_TRIGGER_LABELS[k]}</label>`).join('')}</div>`).join('')}</div>
+                ${only.length === 0 ? '<span class="hint warn">No events selected. This box will not show anything.</span>' : ''}
+            </div>` : '<span class="hint">This box shows every alert event.</span>'}`;
+
+    const show = `
+        <span class="hint">Content comes from <a href="/alerts.html" target="_blank" class="link">Alerts</a> (text, media, sounds, animations). This box only sets how it looks.</span>
+        <div class="field"><span>Layout</span><span class="layout-cards" data-seg-path="alert.layout" role="group" aria-label="Layout">
+            ${LAYOUT_CARDS.map(([v, t, svg]) => `<button type="button" class="layout-card" data-seg-value="${v}" aria-pressed="${v === layout}" title="${t}" aria-label="${t}"><svg viewBox="0 0 36 26" width="36" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">${svg}</svg><small>${t.replace(' (text over it)', '')}</small></button>`).join('')}
+        </span></div>
+        ${layout === 'media' ? F.check('alert.hideText', 'Hide text overlay (pure media only)', a.hideText === true) : ''}
+        ${hasMedia ? `
+            ${F.seg('alert.effectsTarget', 'Effects apply to', fx, [['media', 'Media'], ['box', 'Entire box']])}
+            ${F.number('alert.mediaScale', 'Media size (%)', a.mediaScale || 60, { min: 10, max: 100 })}
+            ${F.seg('alert.mediaFit', 'Media fit', cover ? 'cover' : 'contain', [['contain', 'Contain'], ['cover', 'Cover']])}
+            ${cover ? `<div class="field"><span>Focus point</span>
+                <div class="focal-picker" tabindex="0" role="slider" aria-label="Focus point, arrow keys to move" aria-valuetext="${fpX}% across, ${fpY}% down" data-focal ${thumb}><span class="focal-dot" style="left:${fpX}%;top:${fpY}%"></span></div>
+                <span class="hint">Click or drag to choose what stays visible when cropped.</span></div>` : ''}` : ''}`;
+
+    const text = a.hideText && layout === 'media' ? '<span class="hint">Text is hidden for this layout.</span>' : `
+        <div class="grid2">${F.number('alert.titleSize', 'Title size (px)', a.titleSize || 44, { min: 8, max: 300 })}${F.number('alert.messageSize', 'Message size (px)', a.messageSize || 28, { min: 8, max: 300 })}</div>
+        ${F.color('alert.titleColor', 'Title color', a.titleColor || '#ffd166')}`;
+
+    const card = `
         ${F.range('alert.padding', 'Padding (px)', a.padding ?? el.style?.padding ?? 8, { min: 0, max: 200, unit: 'px', editable: true })}
-        ${a.hideText && a.layout === 'media' ? '' : `<div class="grid2">${F.number('alert.titleSize', 'Title size (px)', a.titleSize || 44, { min: 8, max: 300 })}${F.number('alert.messageSize', 'Message size (px)', a.messageSize || 28, { min: 8, max: 300 })}</div>
-        ${F.color('alert.titleColor', 'Title color', a.titleColor || '#ffd166')}
-        ${['stack', 'side', undefined].includes(a.layout) ? F.number('alert.gap', 'Gap between media and text (px)', a.gap ?? 12, { min: 0, max: 100 }) : ''}`}
+        ${F.range('style.radius', 'Corner radius (px)', el.style?.radius ?? 0, { min: 0, max: 200, unit: 'px', editable: true })}
+        ${['stack', 'side'].includes(layout) ? F.number('alert.gap', 'Gap between media and text (px)', a.gap ?? 12, { min: 0, max: 100 }) : ''}
+        <span class="hint">Background and border are in the Style tab.</span>`;
+
+    const sound = `
         ${F.check('alert.sound', 'Play alert sound effects', a.sound !== false)}
         ${F.check('alert.videoSound', 'Play video audio', a.videoSound === true)}
-        ${a.videoSound ? F.number('alert.videoVolume', 'Video volume (%)', a.videoVolume ?? 100, { min: 0, max: 100 }) : ''}
+        ${a.videoSound ? F.number('alert.videoVolume', 'Video volume (%)', a.videoSound ? (a.videoVolume ?? 100) : 100, { min: 0, max: 100 }) : ''}
+        <span class="hint">Animation timing is set per alert in Alerts.</span>`;
+
+    const adv = `
         ${F.check('alert.showOnPreview', 'Show placeholder on runtime preview', a.showOnPreview === true)}
-        ${F.select('alert.alertMode', 'Alert types to show', alertMode, [
-            ['all', 'All alerts (show every alert event)'],
-            ['selected', 'Only selected alert types']
-        ])}
-        ${alertMode === 'selected' ? `
-            <div class="field" style="margin-top:.4rem">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-                    <span style="font-size:12px;color:var(--text-muted)">Selected (${only.length} of ${Object.keys(ALERT_TRIGGER_LABELS).length})</span>
-                    <div style="display:flex;gap:4px">
-                        <button type="button" class="btn sm" id="btn-select-all-alert-triggers" style="padding:2px 8px;font-size:11px">All</button>
-                        <button type="button" class="btn sm ghost" id="btn-clear-alert-triggers" style="padding:2px 8px;font-size:11px">None</button>
-                    </div>
-                </div>
-                <div class="trigger-list">${Object.entries(ALERT_TRIGGER_LABELS).map(([key, label]) => `<label class="check"><input type="checkbox" data-alert-trigger="${key}" ${only.includes(key) ? 'checked' : ''}> ${label}</label>`).join('')}</div>
-                ${only.length === 0 ? '<span class="hint" style="color:var(--danger, #f85149);font-weight:600">No alert types selected. This box will not show any alerts.</span>' : '<span class="hint">Only checked alert types will appear in this alert box.</span>'}
-            </div>
-        ` : `
-            <div class="hint">This box shows every alert event (follows, subs, bits, raids, etc.).</div>
-        `}`);
+        ${cover ? `<div class="grid2">${F.number('alert.mediaFocusX', 'Focus X (%)', fpX, { min: 0, max: 100 })}${F.number('alert.mediaFocusY', 'Focus Y (%)', fpY, { min: 0, max: 100 })}</div>` : ''}`;
+
+    return F.section('alert', 'Alert box', [
+        subGroup('alert-g-preview', 'Preview', preview, true),
+        subGroup('alert-g-when', `When <span class="badge-pill">${alertMode === 'selected' ? `${only.length} events` : 'All events'}</span>`, when, true),
+        subGroup('alert-g-show', 'Show', show, true),
+        subGroup('alert-g-text', 'Text', text, false),
+        subGroup('alert-g-card', 'Card', card, false),
+        subGroup('alert-g-sound', 'Sound &amp; motion', sound, false),
+        subGroup('alert-g-adv', 'Advanced', adv, false)
+    ].join(''));
 }
 
 export function progressSection(el) {
@@ -1944,6 +1976,52 @@ export function initInspectorEvents() {
         propEl.addEventListener('change', event => {
             const path = event.target.closest('[data-path]')?.dataset.path;
             if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.borderAnimation.mode' || path === 'style.shadow.blur' || path === 'style.innerShadow.blur' || path === 'style.innerShadow.spread') renderProperties();
+        });
+
+        const setFocal = (picker, clientX, clientY) => {
+            const r = picker.getBoundingClientRect();
+            const x = Math.round(clamp((clientX - r.left) / Math.max(1, r.width), 0, 1) * 100);
+            const y = Math.round(clamp((clientY - r.top) / Math.max(1, r.height), 0, 1) * 100);
+            for (const el of selectedElements()) if (el.type === 'alert') el.alert = { ...(el.alert || {}), mediaFocusX: x, mediaFocusY: y };
+            const dot = picker.querySelector('.focal-dot');
+            dot.style.left = `${x}%`; dot.style.top = `${y}%`;
+            picker.setAttribute('aria-valuetext', `${x}% across, ${y}% down`);
+            for (const [k, v] of [['alert.mediaFocusX', x], ['alert.mediaFocusY', y]]) { const f = propEl.querySelector(`[data-path="${k}"]`); if (f) f.value = v; }
+            renderCanvas();
+            changed(false);
+        };
+        propEl.addEventListener('pointerdown', event => {
+            const picker = event.target.closest('[data-focal]');
+            if (!picker) return;
+            picker.setPointerCapture?.(event.pointerId);
+            picker.dataset.drag = '1';
+            picker.focus();
+            setFocal(picker, event.clientX, event.clientY);
+        });
+        propEl.addEventListener('pointermove', event => {
+            const picker = event.target.closest('[data-focal]');
+            if (picker?.dataset.drag) setFocal(picker, event.clientX, event.clientY);
+        });
+        propEl.addEventListener('pointerup', event => {
+            const picker = event.target.closest('[data-focal]');
+            if (picker?.dataset.drag) { delete picker.dataset.drag; changed(true); }
+        });
+        propEl.addEventListener('keydown', event => {
+            const picker = event.target.closest('[data-focal]');
+            const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
+            if (!picker || !d) return;
+            event.preventDefault();
+            const r = picker.getBoundingClientRect(), dot = picker.querySelector('.focal-dot');
+            const step = event.shiftKey ? 10 : 2;
+            setFocal(picker, r.left + r.width * (parseFloat(dot.style.left) + d[0] * step) / 100, r.top + r.height * (parseFloat(dot.style.top) + d[1] * step) / 100);
+            changed(true);
+        });
+        propEl.addEventListener('input', event => {
+            const q = event.target.closest('[data-trigger-filter]');
+            if (!q) return;
+            const term = q.value.trim().toLowerCase();
+            propEl.querySelectorAll('.trig-item').forEach(n => { n.hidden = !!term && !n.dataset.trigName.includes(term); });
+            propEl.querySelectorAll('[data-trig-group]').forEach(g => { g.hidden = ![...g.querySelectorAll('.trig-item')].some(n => !n.hidden); });
         });
 
         propEl.addEventListener('change', event => {

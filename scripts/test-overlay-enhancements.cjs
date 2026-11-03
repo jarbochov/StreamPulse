@@ -463,10 +463,10 @@ test('Scene States vs Page Deck: Mode switching, font size morphing, and reactio
     const layersJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-layers.js'), 'utf8');
     assert.ok(layersJs.includes("renderPagesPanel();"), 'Mode toggle must re-render pages panel');
     assert.ok(layersJs.includes("projectPageState(state.curPage);"), 'Mode toggle must project page state');
-    assert.ok(layersJs.includes("isStates ? 'Event Reaction' : 'Triggers &amp; Timing'"), 'Triggers section must adapt label in scene states mode');
-    assert.ok(layersJs.indexOf('data-pg-kind="pages"') < layersJs.indexOf('data-pg-kind="states"'), 'Pages button must be positioned on the left before Scene States');
+    assert.ok(layersJs.includes('Advanced: Scene States (Morph)'), 'Scene States must be a separate advanced mode toggle');
+    assert.ok(layersJs.includes('data-pg-kind="${isStates ? \'pages\' : \'states\'}"'), 'Mode toggle switches between pages and states');
     assert.ok(layersJs.indexOf('id="pages-enable"') < layersJs.indexOf('id="states-enable"'), 'Turn on Pages button must be on the left before Scene States');
-    assert.ok(layersJs.includes('>Pages</button>'), 'Pages button must be simply called Pages');
+    
 
     const canvasJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-canvas.js'), 'utf8');
     assert.ok(canvasJs.includes("fontSize != null && s.fontSize !== '' ? s.fontSize : 32"), 'applyNodeStyle must have fallback for font size');
@@ -483,7 +483,7 @@ test('Scene States vs Page Deck: Mode switching, font size morphing, and reactio
     assert.ok(editorCss.includes('@keyframes pg-slide-in'), 'custom-overlay-editor.css must include pg-slide-in');
 
     assert.ok(layersJs.includes("id=\"btn-preview-transition\""), 'Layers panel must have transition preview button');
-    assert.ok(layersJs.includes("P.transition === 'morph' ? 'Morph' : P.transition === 'fade' ? 'Crossfade' : 'Slide'"), 'Preview button must adapt label to transition style');
+    assert.ok(layersJs.includes("Preview ${esc(transLabel)} on canvas"), 'Preview button must adapt label to transition style');
 
     assert.ok(canvasJs.includes("export function previewEditorTransition"), 'canvas must export previewEditorTransition');
     assert.ok(canvasJs.includes("isAutoFit && prevFitted !== targetFitted"), 'canvas must detect auto text size differences across states');

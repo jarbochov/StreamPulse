@@ -7,7 +7,8 @@ import {
     pagesOn, statesModeOn, basePageId, isBasePage, hasPageOverride, resetElementPageState,
     syncWorkingStateForCurrentPage, projectPageState, extractElementState, convertStatesToPages,
     inView, visibleElements, displayName, normalizeZ, setSelection,
-    changed, flushHistory, ensureCurPage, uid, toast, defaultPages
+    changed, flushHistory, ensureCurPage, uid, toast, defaultPages,
+    ALERT_TRIGGER_LABELS, triggerIcon
 } from './editor-state.js';
 import { F, bindFields } from './editor-form.js';
 import { captureEditorStateSnapshot, previewEditorStateMorph } from './editor-canvas.js';
@@ -15,6 +16,8 @@ import { captureEditorStateSnapshot, previewEditorStateMorph } from './editor-ca
 let pgSortable = null;
 let alertRules = null;
 let liveState = null;
+const TRIGGER_NAMES = { alert: 'On alert', featured: 'Featured chat', command: 'Chat command', 'poll-end': 'Poll end', 'poll-active': 'Poll active' };
+const pageSectionOpen = (id, dflt) => (prefs.sections[`pg-${id}`] ?? dflt) ? ' open' : '';
 
 const liveId = () => (liveState?.enabled ? liveState.page : null);
 const pageSeq = () => {
@@ -93,7 +96,7 @@ export function renderLayers() {
         <div class="layer${state.selectedIds.has(el.id) ? ' selected' : ''}${el.visible === false ? ' is-hidden' : ''}${inGroup}${hasOvr ? ' has-state-override' : ''}" data-id="${esc(el.id)}">
             <span class="layer-grip" title="Drag to reorder">${ICON.grip}</span>
             <span class="layer-icon">${TYPE_META[el.type]?.icon || '•'}</span>
-            <span class="layer-name" title="Double-click to rename">${pagesOn() && el.page === '*' ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block;vertical-align:-1px;margin-right:3px;opacity:0.8;" title="${statesModeOn() ? 'Shared across all states' : 'Shared on all pages'}"><polygon points="12 2 22 12 12 22 2 12"/></svg>` : ''}${esc(displayName(el))}${obsBadge}${hasOvr ? '<span class="layer-ovr-dot" title="Overridden in this state"></span>' : ''}</span>
+            <span class="layer-name" title="Double-click to rename">${pagesOn() && el.page === '*' ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" class="shared-mark" title="${statesModeOn() ? 'Shared across all states' : 'Shared on all pages'}"><polygon points="12 2 22 12 12 22 2 12"/></svg>` : ''}${esc(displayName(el))}${obsBadge}${hasOvr ? '<span class="layer-ovr-dot" title="Overridden in this state"></span>' : ''}</span>
             <span class="layer-actions">
                 ${hasOvr ? `<button data-layer-action="reset-state" class="ovr-reset" title="Reset state override back to base layout" aria-label="Reset state override"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>` : ''}
                 <button data-layer-action="lock" class="${el.locked ? 'on' : ''}" title="${el.locked ? 'Unlock' : 'Lock'}" aria-label="${el.locked ? 'Unlock' : 'Lock'} layer">${el.locked ? ICON.lock : ICON.unlock}</button>
@@ -191,7 +194,31 @@ export function renderPageSwitch() {
     if (!on) return;
     const live = liveId(), isLive = state.curPage === live;
     box.innerHTML = `<select id="page-select" aria-label="${noun} being edited">${state.overlay.pages.items.map((p, i) => `<option value="${esc(p.id)}"${p.id === state.curPage ? ' selected' : ''}>${i + 1}. ${esc(p.name)}${i === 0 && isStates ? ' (Base)' : ''}${p.enabled === false ? ' (off)' : ''}${p.id === live ? '  [Live]' : ''}</option>`).join('')}</select>
-        <button id="live-toggle" aria-pressed="${isLive}" ${state.isNew ? 'disabled' : ''} title="${isLive ? `This ${noun.toLowerCase()} is showing on stream` : `Show this ${noun.toLowerCase()} on stream`}">${isLive ? '<span class="status-dot live" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#3fb950;margin-right:4px;"></span>Live' : 'Make live'}</button>`;
+        <button id="live-toggle" aria-pressed="${isLive}" ${state.isNew ? 'disabled' : ''} title="${isLive ? `This ${noun.toLowerCase()} is showing on stream` : `Show this ${noun.toLowerCase()} on stream`}">${isLive ? '<span class="status-dot live live-dot"></span>Live' : 'Make live'}</button>`;
+}
+
+
+function triggersSummaryHtml() {
+    const items = state.overlay.pages?.items || [];
+    const rows = [];
+    const seen = {};
+    for (const p of items.filter(x => x.trigger && x.enabled !== false)) {
+        const mode = p.triggerAlertMode || (p.triggerRules?.length ? 'selected' : 'all');
+        const when = p.trigger === 'alert' ? (mode === 'selected' ? `${(p.triggerRules || []).length} alert rule(s)` : 'All alerts') : (p.triggerName ? `${TRIGGER_NAMES[p.trigger]}: ${p.triggerName}` : TRIGGER_NAMES[p.trigger] || p.trigger);
+        const key = p.trigger === 'alert' ? `alert:${mode === 'all' ? '*' : (p.triggerRules || []).slice().sort().join(',')}` : `${p.trigger}:${p.triggerName || '*'}`;
+        (seen[key] ||= []).push(p.name);
+        rows.push({ key, name: p.name, id: p.id, kind: 'Page', when, show: p.name, forS: p.triggerSeconds ? `${p.triggerSeconds}s` : 'Default time' });
+    }
+    for (const el of state.overlay.elements.filter(e => e.type === 'alert')) {
+        const only = el.alert?.triggers || [];
+        const mode = el.alert?.alertMode || (only.length ? 'selected' : 'all');
+        rows.push({ key: '', name: displayName(el), kind: 'Alert box', when: mode === 'selected' ? (only.length ? only.map(k => ALERT_TRIGGER_LABELS[k] || k).join(', ') : 'No events selected') : 'All events', show: 'Content from Alerts', forS: 'Per alert', warn: mode === 'selected' && !only.length });
+    }
+    if (!rows.length) return '<div class="hint">No page triggers or alert boxes in this overlay.</div>';
+    return `<div class="trig-summary">${rows.map(r => {
+        const dup = r.key && seen[r.key].length > 1;
+        return `<div class="trig-row${dup || r.warn ? ' conflict' : ''}"><div class="trig-row-head"><span>${esc(r.name)} <small>${r.kind}</small></span>${r.id ? `<button type="button" class="btn sm" data-trig-test="${esc(r.id)}">Test</button>` : ''}</div><div class="trig-row-meta">When: ${esc(r.when)} · Show: ${esc(r.show)} · For: ${esc(r.forS)}</div>${dup ? `<div class="hint warn">Duplicate trigger: also used by ${esc(seen[r.key].filter(n => n !== r.name).join(', ') || 'another page')}.</div>` : ''}${r.warn ? '<div class="hint warn">No events selected. Will not show anything.</div>' : ''}</div>`;
+    }).join('')}</div>`;
 }
 
 export function renderPagesPanel() {
@@ -200,7 +227,7 @@ export function renderPagesPanel() {
     if (!pagesOn()) {
         panel.innerHTML = `
             <div class="pg-empty">
-                <div style="color:var(--accent);opacity:0.85;">
+                <div class="pg-empty-ico">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 22 12 12 22 2 12"/></svg>
                 </div>
                 <strong>Pages &amp; Dynamic Scene States</strong>
@@ -209,7 +236,7 @@ export function renderPagesPanel() {
                     <button id="pages-enable" type="button" class="primary">
                         <span>Turn on Pages</span>
                     </button>
-                    <button id="states-enable" type="button" class="ghost" style="border:1px solid var(--border)">
+                    <button id="states-enable" type="button" class="ghost bordered">
                         <span>Turn on Scene States (Morph)</span>
                         <span class="badge-beta">BETA</span>
                     </button>
@@ -246,7 +273,7 @@ export function renderPagesPanel() {
         return `
         <div class="pg-row${p.id === state.curPage ? ' current' : ''}${p.enabled === false ? ' off' : ''}" data-pid="${esc(p.id)}">
             <span class="pg-grip" title="Drag to reorder">${ICON.grip}</span>
-            <span class="pg-main"><span class="pg-name" title="Double-click to rename">${p.trigger ? `<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" style="display:inline-block;vertical-align:-1px;margin-right:3px"><title>Trigger ${noun}</title><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg> ` : ''}${esc(p.name)}</span>
+            <span class="pg-main"><span class="pg-name" title="Double-click to rename">${p.trigger ? `<span class="trig-badge" title="${esc(TRIGGER_NAMES[p.trigger] || p.trigger)}"><svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>${esc(TRIGGER_NAMES[p.trigger] || p.trigger)}</span>` : ''}${esc(p.name)}</span>
                 <span class="pg-meta">${metaParts.join(' · ')}</span></span>
             <span class="pg-actions">
                 <button data-pg="toggle" class="${p.enabled === false ? '' : 'on'}" title="${p.enabled === false ? `Enable this ${noun}` : `Disable this ${noun} (skipped on stream)`}" aria-pressed="${p.enabled !== false}" ${p.enabled !== false && items.filter(x => x.enabled !== false).length === 1 ? 'disabled' : ''}>${p.enabled === false ? ICON.eyeOff : ICON.eye}</button>
@@ -264,108 +291,66 @@ export function renderPagesPanel() {
             ? `${(cur.triggerRules || []).length} Alert${(cur.triggerRules || []).length === 1 ? '' : 's'}`
             : 'All Alerts')
         : ({ '': 'Manual / Rotation', alert: 'On Alert', featured: 'Featured Chat', command: 'Chat Command', 'poll-end': 'Poll End', 'poll-active': 'Poll Active' }[cur?.trigger || ''] || 'Manual');
-    const transLabel = { morph: 'Morph', fade: 'Crossfade', slide: 'Slide', none: 'Cut' }[P.transition || 'morph'] || 'Morph';
+    const transLabel = { morph: 'Morph', fade: 'Crossfade', slide: 'Slide', none: 'Instant' }[P.transition || 'morph'] || 'Morph';
+    const rotation = items.filter(p => !p.trigger), evPages = items.filter(p => p.trigger);
+    const showSearch = items.length > 6;
+    const transSeg = isStates
+        ? F.select('pages.transition', 'Transition', P.transition, [['morph', 'Liquid Morph'], ['fade', 'Crossfade'], ['slide', 'Slide'], ['none', 'Instant']])
+        : F.seg('pages.transition', 'Transition', P.transition || 'none', [['none', 'Instant'], ['fade', 'Crossfade'], ['slide', 'Slide']]);
+    const needMs = P.transition && P.transition !== 'none';
+    const advTrans = needMs ? `<details class="sub-details" data-sect="pg-trans-adv"${pageSectionOpen('trans-adv', false)}><summary>Transition details</summary>
+        ${isStates && P.transition === 'morph' ? F.select('pages.transitionEasing', 'Morph motion curve', P.transitionEasing || 'smooth', window.StreamPulseMotion.options()) + F.select('pages.enterExit', 'New & removed items', P.enterExit || 'fade', [['fade', 'Crossfade'], ['slide', 'Slide'], ['zoom', 'Scale pop'], ['none', 'Instant']]) : ''}
+        ${(P.transition === 'slide' || (P.transition === 'morph' && P.enterExit === 'slide')) ? F.select('pages.transitionDirection', 'Slide direction', P.transitionDirection || 'left', [['left', 'Left'], ['right', 'Right'], ['up', 'Up'], ['down', 'Down']]) + F.number('pages.transitionDistance', 'Slide distance (px)', P.transitionDistance || 120, { min: 10, max: 2000, step: 10 }) : ''}
+        ${F.number('pages.transitionMs', 'Duration (ms)', P.transitionMs, { min: 50, max: 5000, step: 50 })}</details>` : '';
+    const trigSel = F.select(`pages.items.${idx}.trigger`, 'Show when', cur?.trigger || '', [
+        ['', 'In the rotation / manual'], ['alert', 'An alert plays'], ['featured', 'A chat message is featured'],
+        ['command', 'A chat command or trigger is used'], ['poll-end', 'A Twitch poll ends'], ['poll-active', 'A Twitch poll is active']]);
     panel.innerHTML = `
-        <div class="field" style="margin-bottom:.1rem">
-            <span class="seg" id="pages-kind-seg">
-                <button type="button" data-pg-kind="pages" aria-pressed="${!isStates}">Pages</button>
-                <button type="button" data-pg-kind="states" aria-pressed="${isStates}">Scene States <span class="badge-beta" style="margin-left:3px;">BETA</span></button>
-            </span>
-        </div>
-        <div class="pg-head"><span>${nounPlural}</span><button id="page-add" title="Add a new ${noun}">+ Add ${noun}</button></div>
-        <div class="pg-list" id="pg-list">${items.filter(p => !p.trigger).map((p, i) => rowHtml(p, i)).join('')}</div>
-        ${items.some(p => p.trigger) ? `<div class="pg-sub">Triggered ${noun}s <span>not in rotation</span></div><div class="pg-list pg-trig" id="pg-trig-list">${items.filter(p => p.trigger).map((p, i) => rowHtml(p, i)).join('')}</div>` : ''}
+        <div class="pg-head"><span>Pages</span><button id="page-add" title="Add a new ${noun}">+ Add ${noun}</button></div>
+        ${showSearch ? '<input type="search" class="pg-search" id="pg-search" placeholder="Search pages" aria-label="Search pages" spellcheck="false">' : ''}
+        <div class="pg-section-title">Rotation</div>
+        <div class="pg-list" id="pg-list">${rotation.map((p, i) => rowHtml(p, i)).join('')}</div>
+        <div class="pg-section-title">Event pages <span class="hint">not in rotation</span></div>
+        ${evPages.length ? `<div class="pg-list pg-trig" id="pg-trig-list">${evPages.map((p, i) => rowHtml(p, i)).join('')}</div>` : `<div class="hint">None yet. Pick an event under “Show when” for a ${noun} to make it an event page.</div>`}
         <div class="hint">${isStates
-            ? `<b>${esc(items[0]?.name || 'State 1')}</b> is the Base Layout. Select any other state and edit position, size, colors, fonts, borders, or visibility on shared layers to record smooth morph overrides.`
-            : (shared ? `${shared} shared element${shared === 1 ? '' : 's'} show on every page.` : 'Mark an element “Show on all pages” to share it across pages.')}</div>
+            ? `<b>${esc(items[0]?.name || 'State 1')}</b> is the Base Layout. Select another state and edit shared layers to record morph overrides.`
+            : (shared ? `${shared} element${shared === 1 ? '' : 's'} show on All pages.` : 'Mark an element “Show on all pages” to share it.')}</div>
         ${!isStates && state.overlay.elements.some(el => Object.keys(el.pageStates || {}).length) ? '<div class="hint">This design still has saved state overrides. Convert them to keep each layout on an independent page.</div><button type="button" id="convert-state-pages">Convert state layouts to pages</button>' : ''}
-        ${isStates && state.obs?.enabled ? `<div class="state-override-bar${obsLinkedCount ? ' is-active' : ''}" style="margin:2px 0;">
-            <span class="state-ovr-text"><strong>OBS Sync <span class="badge-beta">BETA</span>:</strong> ${obsLinkedCount ? `${obsLinkedCount} linked source${obsLinkedCount === 1 ? '' : 's'}` : 'Link Shape/Cutout boxes'}</span>
-            <button type="button" id="btn-pages-obs-setup" class="link-btn">${state.obs?.connected ? 'Connected' : 'Configure…'}</button>
-        </div>` : ''}
-        <details class="sub-details" open>
-            <summary>${isStates ? 'Transition &amp; Playback' : 'Page switching'} <span class="spacer"></span><span class="badge-pill">${isStates ? `${esc(transLabel)} · ${P.transition === 'none' ? '0ms' : `${P.transitionMs || 650}ms`}` : P.transition === 'fade' ? `Crossfade · ${P.transitionMs || 500}ms` : P.transition === 'slide' ? `Slide · ${P.transitionMs || 500}ms` : 'Instant cut'}</span></summary>
-            ${isStates ? `
-            ${F.select('pages.transition', 'Transition style', P.transition, [
-                ['morph', 'Liquid Morph (Glide layout, styles & cutouts)'],
-                ['fade', 'Crossfade (Dissolve changing elements)'],
-                ['slide', 'Slide (Push entire layout)'],
-                ['none', 'Instant Cut (0ms)']
-            ])}
-            ${P.transition === 'morph' ? F.select('pages.transitionEasing', 'Morph motion curve', P.transitionEasing || 'smooth', window.StreamPulseMotion.options()) : ''}
-            ${P.transition === 'morph' ? F.select('pages.enterExit', 'New & removed items', P.enterExit || 'fade', [
-                ['fade', 'Crossfade In / Out (Clean dissolve)'],
-                ['slide', 'Slide In / Out (Directional glide)'],
-                ['zoom', 'Scale Pop In / Out (Zoom from 85%)'],
-                ['none', 'Instant Cut (Appear immediately)']
-            ]) : ''}
-            ${(P.transition === 'slide' || (P.transition === 'morph' && P.enterExit === 'slide')) ? F.select('pages.transitionDirection', 'Slide direction', P.transitionDirection || 'left', [
-                ['left', 'Left (enters from right, exits to left)'],
-                ['right', 'Right (enters from left, exits to right)'],
-                ['up', 'Up (enters from bottom, exits to top)'],
-                ['down', 'Down (enters from top, exits to bottom)']
-            ]) + F.number('pages.transitionDistance', 'Slide distance (px)', P.transitionDistance || 120, { min: 10, max: 2000, step: 10 }) : ''}
-            ${P.transition !== 'none' ? F.number('pages.transitionMs', 'Transition duration (ms)', P.transitionMs, { min: 50, max: 5000, step: 50 }) : ''}
-            ` : `
-            ${F.select('pages.transition', 'Page transition', P.transition, [['none', 'Instant cut'], ['fade', 'Crossfade'], ['slide', 'Slide']])}
-            ${P.transition === 'slide' ? F.select('pages.transitionDirection', 'Slide direction', P.transitionDirection || 'left', [['left', 'Left'], ['right', 'Right'], ['up', 'Up'], ['down', 'Down']]) + F.number('pages.transitionDistance', 'Slide distance (px)', P.transitionDistance || 120, { min: 10, max: 2000, step: 10 }) : ''}
-            ${P.transition === 'fade' || P.transition === 'slide' ? F.number('pages.transitionMs', 'Transition duration (ms)', P.transitionMs, { min: 50, max: 5000, step: 50 }) : ''}
-            <div class="hint">Animated layout changes and OBS source motion belong to Scene States.</div>`}
-            ${F.select('pages.mode', 'Advance mode', P.mode, [['manual', 'Manual (editor, control panel, API)'], ['auto', 'Automatic cycle']])}
-            ${P.mode === 'auto' ? `${F.number('pages.cycleSeconds', `Default seconds per ${noun}`, P.cycleSeconds, { min: 1, max: 3600 })}${F.check('pages.loop', `Loop back to first ${noun}`, P.loop)}` : ''}
-            ${isStates && items.length > 1 && P.transition !== 'none' ? `<button type="button" id="btn-preview-transition" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:600"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Preview ${P.transition === 'morph' ? 'Morph' : P.transition === 'fade' ? 'Crossfade' : 'Slide'} on Canvas</button>` : ''}
-        </details>
-        <details class="sub-details" ${cur?.trigger ? 'open' : ''}>
-            <summary>${esc(cur?.name || nounCap)} ${isStates ? 'Event Reaction' : 'Triggers &amp; Timing'} <span class="spacer"></span><span class="badge-pill${cur?.trigger ? '' : ' is-muted'}">${esc(triggerLabel)}</span></summary>
-            ${isStates ? '<div class="hint" style="margin-bottom:.35rem">Optional: automatically morph to this state when an event occurs, then morph back.</div>' : ''}
-            ${F.select(`pages.items.${idx}.trigger`, isStates ? `Event reaction trigger` : `Show this ${noun}`, cur?.trigger || '', isStates ? [
-                ['', 'None — manual, OBS sync, or Companion'],
-                ['alert', 'Auto-morph when an alert plays'],
-                ['featured', 'Auto-morph on featured chat message'],
-                ['command', 'Auto-morph on chat command or trigger'],
-                ['poll-end', 'Auto-morph on Twitch poll end'],
-                ['poll-active', 'Auto-morph while Twitch poll is active']
-            ] : [
-                ['', 'In the rotation / manual'],
-                ['alert', 'Only when an alert plays'],
-                ['featured', 'Only when a message is featured'],
-                ['command', 'Only when a chat command or trigger is used'],
-                ['poll-end', 'Only when a Twitch poll ends'],
-                ['poll-active', 'While a Twitch poll is active']
-            ])}
+        <details class="sub-details" data-sect="pg-this"${pageSectionOpen('this', true)}>
+            <summary>${esc(cur?.name || nounCap)} <span class="spacer"></span><span class="badge-pill${cur?.trigger ? '' : ' is-muted'}">${esc(triggerLabel)}</span></summary>
+            ${trigSel}
             ${cur?.trigger === 'alert' ? `
-                ${F.select(`pages.items.${idx}.triggerAlertMode`, `Alerts that trigger this ${noun}`, pageAlertMode, [
-                    ['all', 'All alerts (triggers on any alert)'],
-                    ['selected', 'Only selected alerts']
-                ])}
-                ${pageAlertMode === 'selected' ? `
-                    <div class="field">
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-                            <span>Alert rules that show this ${noun}</span>
-                            ${alertRules && alertRules.length ? `
-                            <div style="display:flex;gap:4px">
-                                <button type="button" class="btn sm" id="btn-select-all-trules" style="padding:2px 8px;font-size:11px">All</button>
-                                <button type="button" class="btn sm ghost" id="btn-clear-trules" style="padding:2px 8px;font-size:11px">None</button>
-                            </div>` : ''}
-                        </div>
-                        ${alertRules ? (alertRules.length ? `
-                            <div class="trule-list">${alertRules.map(r => `<label class="check"><input type="checkbox" data-trule="${esc(r.id)}" ${(cur.triggerRules || []).includes(r.id) ? 'checked' : ''}> ${esc(r.name || r.id)}</label>`).join('')}</div>
-                            <div class="hint">${(cur.triggerRules || []).length ? `Only the ticked alerts show this ${noun}.` : `<span style="color:var(--danger, #f85149);font-weight:600">No alerts selected. This ${noun} will not trigger.</span>`}</div>
-                        ` : '<div class="hint">No alert rules yet.</div>') : '<div class="hint">Loading alert rules...</div>'}
-                    </div>
-                ` : `
-                    <div class="hint">Triggers whenever any alert plays.</div>
-                `}
-            ` : ''}
+                ${F.seg(`pages.items.${idx}.triggerAlertMode`, 'Alerts', pageAlertMode, [['all', 'All alerts'], ['selected', 'Only these alerts']])}
+                ${pageAlertMode === 'selected' ? `<div class="field">
+                    <div class="trig-head"><span>Alert rules</span>${alertRules && alertRules.length ? '<span class="trig-head-actions"><button type="button" class="btn sm" id="btn-select-all-trules">All</button><button type="button" class="btn sm ghost" id="btn-clear-trules">None</button></span>' : ''}</div>
+                    ${alertRules ? (alertRules.length ? `<div class="trule-list">${alertRules.map(r => `<label class="check"><input type="checkbox" data-trule="${esc(r.id)}" ${(cur.triggerRules || []).includes(r.id) ? 'checked' : ''}> ${esc(r.name || r.id)}</label>`).join('')}</div>
+                    <div class="hint${(cur.triggerRules || []).length ? '' : ' warn'}">${(cur.triggerRules || []).length ? `Only the ticked alerts show this ${noun}.` : `No alerts selected. This ${noun} will not trigger.`}</div>` : '<div class="hint">No alert rules yet.</div>') : '<div class="hint">Loading alert rules...</div>'}
+                </div>` : '<div class="hint">Shows whenever any alert plays.</div>'}` : ''}
             ${cur?.trigger === 'command' ? F.text(`pages.items.${idx}.triggerName`, 'Command or trigger name (blank = any)', cur.triggerName || '') : ''}
-            ${cur?.trigger === 'poll-end' ? `<div class="hint">Shows this ${noun} when a Twitch poll completes. Leave &ldquo;Show for&rdquo; at 0 for default 15s.</div>` : ''}
-            ${cur?.trigger === 'poll-active' ? `<div class="hint">At Show for = 0, stays through voting and the longest Show results duration of visible Poll elements on this ${noun}, including shared elements.</div>` : ''}
-            ${cur?.trigger === 'featured' ? `<div class="hint">Shows this ${noun} when a chat message is clicked or featured in SocialStream Ninja. Leave &ldquo;Show for&rdquo; at 0 for default 10s.</div>` : ''}
-            ${cur?.trigger ? F.number(`pages.items.${idx}.triggerSeconds`, 'Show for (seconds, 0 = default)', cur.triggerSeconds || 0, { min: 0, max: 3600 }) : `${F.number(`pages.items.${idx}.duration`, 'Seconds on screen (auto mode, 0 = default)', cur?.duration || 0, { min: 0, max: 3600 })}`}
-            ${cur?.trigger ? `<div style="margin-top:.3rem"><button type="button" class="btn" id="btn-test-trigger" style="width:100%;font-size:12px;padding:6px 10px;display:flex;align-items:center;justify-content:center;gap:6px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text);font-weight:600;"><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Test trigger</button></div>` : ''}
+            ${cur?.trigger === 'poll-end' ? '<div class="hint">Time on screen 0 uses the default 15s.</div>' : ''}
+            ${cur?.trigger === 'poll-active' ? '<div class="hint">Time on screen 0 keeps it through voting and results.</div>' : ''}
+            ${cur?.trigger === 'featured' ? '<div class="hint">Time on screen 0 uses the default 10s.</div>' : ''}
+            ${cur?.trigger ? F.number(`pages.items.${idx}.triggerSeconds`, 'Time on screen (seconds, 0 = default)', cur.triggerSeconds || 0, { min: 0, max: 3600 }) : F.number(`pages.items.${idx}.duration`, 'Time on screen (seconds, 0 = default)', cur?.duration || 0, { min: 0, max: 3600 })}
+            ${cur?.trigger ? '<button type="button" class="btn" id="btn-test-trigger"><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Test trigger</button>' : ''}
         </details>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding-top:.2rem">
-            <a href="/overlay-control.html?id=${encodeURIComponent(state.overlay.id)}" target="_blank" style="color:var(--accent);font-size:12px">Control panel ↗</a>
+        <div class="pg-section-title">Playback</div>
+        ${F.seg('pages.mode', 'Advance', P.mode || 'manual', [['manual', 'Manual'], ['auto', 'Automatic']])}
+        ${P.mode === 'auto' ? `${F.number('pages.cycleSeconds', 'Default time per page (seconds)', P.cycleSeconds, { min: 1, max: 3600 })}${F.check('pages.loop', `Loop back to first ${noun}`, P.loop)}` : ''}
+        ${transSeg}
+        ${advTrans}
+        ${isStates && items.length > 1 && P.transition !== 'none' ? `<button type="button" id="btn-preview-transition" class="btn pg-preview"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Preview ${esc(transLabel)} on canvas</button>` : ''}
+        <details class="sub-details" data-sect="pg-states"${pageSectionOpen('states', isStates)}>
+            <summary>Advanced: Scene States (Morph) <span class="badge-beta">BETA</span> <span class="spacer"></span><span class="badge-pill${isStates ? '' : ' is-muted'}">${isStates ? 'On' : 'Off'}</span></summary>
+            <span class="hint">Animates layout, styles and OBS sources between states instead of switching pages.</span>
+            <button type="button" data-pg-kind="${isStates ? 'pages' : 'states'}" id="pg-kind-toggle" aria-pressed="${isStates}">${isStates ? 'Turn off Scene States (use Pages)' : 'Switch to Scene States'}</button>
+            ${isStates && state.obs?.enabled ? `<div class="state-override-bar${obsLinkedCount ? ' is-active' : ''}"><span class="state-ovr-text"><strong>OBS Sync:</strong> ${obsLinkedCount ? `${obsLinkedCount} linked source${obsLinkedCount === 1 ? '' : 's'}` : 'Link Shape/Cutout boxes'}</span><button type="button" id="btn-pages-obs-setup" class="link-btn">${state.obs?.connected ? 'Connected' : 'Configure…'}</button></div>` : ''}
+        </details>
+        <details class="sub-details" data-sect="pg-triggers"${pageSectionOpen('triggers', false)}>
+            <summary>Triggers summary</summary>
+            ${triggersSummaryHtml()}
+        </details>
+        <div class="pg-foot">
+            <a href="/overlay-control.html?id=${encodeURIComponent(state.overlay.id)}" target="_blank" class="link sm">Control panel ↗</a>
             <button id="pages-disable" class="ghost" title="Back to a single view. Elements are kept.">Turn off ${noun}s</button></div>`;
 
     if (pgSortable) pgSortable.destroy();
@@ -780,8 +765,8 @@ export function initLayersAndPages() {
                     return renderPagesPanel();
                 }
             }
-            if (t?.id === 'btn-test-trigger') {
-                const page = items.find(p => p.id === state.curPage);
+            if (t?.id === 'btn-test-trigger' || t?.dataset.trigTest) {
+                const page = items.find(p => p.id === (t.dataset.trigTest || state.curPage));
                 if (!page || !page.trigger) return;
                 const mode = page.triggerAlertMode || (page.triggerRules?.length ? 'selected' : 'all');
                 if (page.trigger === 'alert' && mode === 'selected' && (!page.triggerRules || !page.triggerRules.length)) {
@@ -826,6 +811,12 @@ export function initLayersAndPages() {
             if (!t && page.id !== state.curPage) switchEditPage(page.id);
         });
 
+        pagesPanel.addEventListener('input', event => {
+            if (event.target.id !== 'pg-search') return;
+            const q = event.target.value.trim().toLowerCase();
+            pagesPanel.querySelectorAll('.pg-row').forEach(r => { r.hidden = !!q && !r.querySelector('.pg-name').textContent.toLowerCase().includes(q); });
+        });
+
         pagesPanel.addEventListener('dblclick', event => {
             const row = event.target.closest('.pg-row');
             if (row && event.target.closest('.pg-name')) startPageRename(row);
@@ -840,6 +831,7 @@ export function initLayersAndPages() {
                 }
             }
             changed(false);
+            if (/^pages\.(mode|transition)$/.test(path) || /^pages\.items\.\d+\.(trigger|triggerAlertMode)$/.test(path)) renderPagesPanel();
         });
 
         pagesPanel.addEventListener('change', event => {
