@@ -762,6 +762,7 @@ function createOverlayRoutes({
                 return {
                     id, name, revision, updatedAt, createdAt, canvas,
                     elementCount: (elements || []).length,
+                    alertLooks: [...new Set((elements || []).filter(e => e.type === 'alert').flatMap(e => (e.alert?.looks || []).map(l => l.name)))],
                     pageCount: pages?.enabled ? pages.items.length : 0,
                     currentPage,
                     currentPageName,

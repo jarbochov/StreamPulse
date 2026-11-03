@@ -58,7 +58,7 @@ export const RERENDER_PATHS = new Set([
     'style.borderGlow.inner', 'style.borderAnimation.type', 'style.borderAnimation.mode',
     'style.shadow.blur', 'style.innerShadow.blur', 'style.innerShadow.spread',
     'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'video.sound', 'alert.videoSound',
-    'alert.layout', 'alert.hideText', 'alert.alertMode', 'slideshow.source', 'slideshow.advance', 'slideshow.transition',
+    'alert.layout', 'alert.hideText', 'alert.hideMessage', 'alert.alertMode', 'slideshow.source', 'slideshow.advance', 'slideshow.transition',
     'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee',
     'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.showStatusBadge',
     'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta',
@@ -1217,6 +1217,19 @@ export function alertSection(el) {
         ${a.videoSound ? F.number('alert.videoVolume', 'Video volume (%)', a.videoSound ? (a.videoVolume ?? 100) : 100, { min: 0, max: 100 }) : ''}
         <span class="hint">Animation timing is set per alert in Alerts.</span>`;
 
+    const looks = Array.isArray(a.looks) ? a.looks : [];
+    const looksHtml = `
+        <span class="hint">Named looks override this box's layout and text. Pick one per rule in <a href="/alerts.html" target="_blank" class="link">Alerts</a>; rules set to Inherit use the settings above.</span>
+        ${looks.map((l, n) => `<div class="field" style="border:1px solid var(--border);border-radius:8px;padding:8px;display:grid;gap:6px;">
+            <div style="display:flex;gap:6px;align-items:end;"><div style="flex:1">${F.text(`alert.looks.${n}.name`, 'Look name', l.name || '', 'maxlength="40"')}</div><button type="button" class="btn sm ghost" data-remove-look="${n}">Remove</button></div>
+            ${F.seg(`alert.looks.${n}.layout`, 'Layout', l.layout || 'media', [['media', 'Title over media'], ['stack', 'Stack'], ['side', 'Side'], ['text', 'Text']])}
+            ${F.check(`alert.looks.${n}.hideMessage`, 'Hide message (title only)', l.hideMessage !== false)}
+            ${F.seg(`alert.looks.${n}.mediaFit`, 'Media fit', l.mediaFit || 'cover', [['cover', 'Cover'], ['contain', 'Contain']])}
+            <div class="grid2">${F.number(`alert.looks.${n}.titleSize`, 'Title size (px)', l.titleSize || 44, { min: 8, max: 300 })}${F.number(`alert.looks.${n}.mediaScale`, 'Media size (%)', l.mediaScale || 60, { min: 10, max: 100 })}</div>
+            ${F.color(`alert.looks.${n}.titleColor`, 'Title color', l.titleColor || '#ffffff')}
+        </div>`).join('')}
+        <button type="button" class="btn sm" id="btn-add-look" ${looks.length >= 12 ? 'disabled' : ''}>Add look</button>`;
+
     const adv = `
         ${F.check('alert.showOnPreview', 'Show placeholder on runtime preview', a.showOnPreview === true)}`;
 
@@ -1226,6 +1239,7 @@ export function alertSection(el) {
         subGroup('alert-g-show', 'Show', show, true),
         subGroup('alert-g-text', 'Text', text, false),
         subGroup('alert-g-card', 'Card', card, false),
+        subGroup('alert-g-looks', `Looks <span class="badge-pill">${looks.length}</span>`, looksHtml, false),
         subGroup('alert-g-sound', 'Sound &amp; motion', sound, false),
         subGroup('alert-g-adv', 'Advanced', adv, false)
     ].join(''));
@@ -2190,6 +2204,20 @@ export function initInspectorEvents() {
             if (quick) scaleSelectionByHandler(Number(quick.dataset.scale));
             if (target.closest('#scale-apply')) scaleSelectionByHandler(Number($('scale-pct')?.value || 100));
 
+            if (target.closest('#btn-add-look') || target.closest('[data-remove-look]')) {
+                const rm = target.closest('[data-remove-look]');
+                for (const el of selectedElements()) {
+                    if (el.type !== 'alert') continue;
+                    const list = [...(el.alert?.looks || [])];
+                    if (rm) list.splice(Number(rm.dataset.removeLook), 1);
+                    else list.push({ id: `look${Date.now().toString(36)}`, name: `Look ${list.length + 1}`, layout: 'media', hideMessage: true, mediaFit: 'cover', mediaScale: 60, titleSize: 44, titleColor: '#ffffff' });
+                    el.alert = { ...(el.alert || {}), looks: list };
+                }
+                renderProperties();
+                renderCanvas();
+                changed(true);
+                return;
+            }
             if (target.closest('#btn-select-all-alert-triggers')) {
                 const allKeys = Object.keys(ALERT_TRIGGER_LABELS);
                 for (const el of selectedElements()) {

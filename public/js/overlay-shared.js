@@ -2314,7 +2314,9 @@
     }
 
     function playAlert(node, element, payload, { sound = true, onEnd } = {}) {
-        const cfg = element.alert || {};
+        const baseCfg = element.alert || {};
+        const look = payload.look && (baseCfg.looks || []).find(l => String(l.name).toLowerCase() === String(payload.look).toLowerCase());
+        const cfg = look ? { ...baseCfg, ...look } : baseCfg;
         const style = element.style || {};
         const layout = payload.image || payload.video || payload.emoji ? (cfg.layout || 'stack') : 'text';
         const card = document.createElement('div');
@@ -2508,7 +2510,7 @@
                 title.style.textAlign = textAlign;
                 text.appendChild(title);
             }
-            if (payload.message) {
+            if (payload.message && cfg.hideMessage !== true) {
                 const message = document.createElement('div');
                 message.className = 'alert-message';
                 message.textContent = payload.message;

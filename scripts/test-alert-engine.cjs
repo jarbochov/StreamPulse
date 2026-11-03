@@ -1156,3 +1156,11 @@ test('redeem rules match selected reward ids, or every redeem when none are chos
     assert.equal(run(rules, { rewardId: 'b2', reward: 'Other' }), 0);
     assert.equal(run([{ ...rules[0], conditions: { rewardIds: [] } }], { rewardId: 'b2' }), 1);
 });
+
+test('rule look is passed through to the alert payload', () => {
+    const { engine, dispatched, cleanup } = createTempEngine({ settings: { enabled: true }, rules: [{ id: 'l', trigger: 'follow', look: 'Poster', variants: [{ title: 'x' }] }] });
+    try {
+        engine.handleEvent({ type: 'follow', user: 'u' });
+        assert.equal(dispatched.find(d => d.type === 'alert').payload.look, 'Poster');
+    } finally { cleanup(); }
+});

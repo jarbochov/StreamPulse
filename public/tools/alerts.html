@@ -790,6 +790,8 @@
     let SFX_GROUPS = [];
     fetch('/sounds/manifest.json').then(r => r.json()).then(m => { SFX_GROUPS = m.groups || []; if (typeof renderEditor === 'function') try { renderEditor(); } catch {} }).catch(() => {});
     let testAmount = 0, liveStatus = {};
+    const lookNames = new Set();
+    fetch('/api/custom-overlays').then(x => x.json()).then(l => { (l || []).forEach(o => (o.alertLooks || []).forEach(n => lookNames.add(n))); if (rule()) renderEditor(); }).catch(() => {});
     const rewardList = { rewards: [], loading: false, error: '', loaded: false };
     function loadRewards() {
         if (rewardList.loaded || rewardList.loading) return;
@@ -1589,6 +1591,7 @@
                     ${r.trigger === 'announcement' ? '' : ''}
                     ${field('Priority', seg_('priority', r.priority || 'normal', [['low', 'Low'], ['normal', 'Normal'], ['high', 'High'], ['critical', 'Critical']]), 'Higher priority alerts play first when several are waiting.')}
                     ${r.priority === 'critical' ? `<label class="check-row"><input type="checkbox" data-f="interrupt" data-type="check" ${r.interrupt ? 'checked' : ''}><span>Interrupt the alert on screen</span></label>` : ''}
+                    ${r.webhookOnly ? '' : field('Look', sel_('look', r.look || '', [['', 'Inherit (Default)'], ...[...new Set([...lookNames, ...(r.look ? [r.look] : [])])].map(n => [n, n])]), 'Named look from the overlay editor Alert box (layout, title size, hide message). Set up looks there.')}
                     ${field('Expire after (seconds)', inp('expireSeconds', r.expireSeconds || 0, 'number', 'min="0" max="86400"'), 'Drop this alert if it waits in the queue longer than this (0 = never).')}
                     ${field('Cooldown (seconds)', inp('conditions.cooldownSeconds', r.conditions.cooldownSeconds, 'number', 'min="0"'), 'Minimum seconds between triggers of this rule (0 = none).')}
                     ${r.webhookOnly ? `
