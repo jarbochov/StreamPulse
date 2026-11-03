@@ -8,1084 +8,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StreamPulse — Alerts</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-page); color: var(--text); min-height: 100vh; }
-        
-        .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0.85rem 2rem; display: flex; align-items: center; justify-content: space-between; }
-        .header h1 { font-size: 1.25rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.5rem; }
-        .header h1 span { color: var(--accent); }
-
-        .ico { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; flex-shrink: 0; }
-        .ico.sm { width: 12px; height: 12px; }
-        .ico.lg { width: 16px; height: 16px; }
-
-        .container { max-width: 1360px; margin: 0 auto; padding: 1.2rem 1.8rem; display: flex; flex-direction: column; gap: 0.95rem; }
-        
-        /* Top Toolbar & Control Bar */
-        .alerts-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.85rem; flex-wrap: nowrap; min-height: 46px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 0.55rem 0.85rem; }
-        .nav-tabs-wrap { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-        .alerts-toolbar .tabs-nav { background: transparent; border: 0; border-radius: 0; padding: 0; overflow: visible; display: inline-flex; gap: 0.25rem; align-self: stretch; align-items: stretch; flex: 0 0 auto; }
-        .tab-btn { background: transparent; border: 0; color: var(--text-muted); padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none; transition: all 0.12s; }
-        .tab-btn:hover { color: var(--text); }
-        .tab-btn { border-radius: 0; border-bottom: 2px solid transparent; padding: 0.5rem 0.8rem; white-space: nowrap; }
-        .tab-btn.active { border-bottom-color: var(--accent); background: transparent !important; box-shadow: none !important; }
-        .tab-btn.active.__x { background: var(--bg-card); color: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,0.18); font-weight: 700; }
-        .tab-btn.external { color: var(--text-muted); }
-        .tab-btn.external:hover { color: var(--text); }
-        
-        .master-toggle .toggle-label { white-space: nowrap; }
-        .master-controls { display: flex; align-items: center; gap: 0.6rem; flex-wrap: nowrap; min-width: 0; height: 32px; }
-        .alerts-toolbar[data-tab="queue"] .rules-only, .alerts-toolbar[data-tab="sim"] .rules-only { display: none; }
-        @media (max-width: 1250px) { .alerts-toolbar { flex-wrap: wrap; } .master-controls { width: 100%; } }
-        .master-toggle { display: inline-flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.78rem; font-weight: 600; color: var(--text); user-select: none; }
-        .master-toggle input { display: none; }
-        .toggle-track { width: 34px; height: 18px; border-radius: 999px; background: var(--border-strong); position: relative; transition: background 0.15s; }
-        .toggle-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px; transition: transform 0.15s; }
-        .master-toggle input:checked + .toggle-track { background: var(--success); }
-        .master-toggle input:checked + .toggle-track .toggle-thumb { transform: translateX(16px); }
-
-        .gap-control { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.76rem; color: var(--text-muted); background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.22rem 0.5rem; }
-        .gap-control input { width: 44px; padding: 0.1rem 0.25rem; font-size: 0.78rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; color: var(--text); text-align: center; }
-
-        .status-box { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.76rem; color: var(--text-muted); background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.22rem 0.6rem; flex: 1 1 140px; max-width: 260px; min-width: 120px; height: 28px; overflow: hidden; white-space: nowrap; }
-        .status-box .status-dot { flex: 0 0 auto; } .status-box #queue-line { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); flex-shrink: 0; }
-        .status-dot.live { background: var(--success); box-shadow: 0 0 6px var(--success); }
-        .status-dot.paused { background: var(--warn); }
-        
-        .pill { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.12rem 0.5rem; border-radius: 999px; font-size: 0.69rem; font-weight: 600; border: 1px solid var(--border); color: var(--text-muted); }
-        .pill.dirty { color: var(--warn); border-color: var(--warn-strong); background: var(--warn-soft-bg); }
-        .pill.ok { color: var(--success); border-color: var(--success-strong); background: color-mix(in srgb, var(--success) 12%, transparent); }
-        .pill:empty { display: none; }
-
-        .btn { border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); border-radius: 6px; padding: 0.42rem 0.78rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-decoration: none; font-family: inherit; display: inline-flex; align-items: center; gap: 0.38rem; transition: all 0.12s; white-space: nowrap; line-height: 1.2; }
-        .btn:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-bg); }
-        .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-        .btn.primary { background: var(--success-strong); border-color: var(--success-strong); color: #fff; }
-        .btn.primary:hover:not(:disabled) { background: var(--success-hover); border-color: var(--success-hover); }
-        .btn.danger { background: var(--danger-soft-bg); border-color: color-mix(in srgb, var(--danger) 40%, transparent); color: var(--danger); }
-        .btn.danger:hover:not(:disabled) { border-color: var(--danger); background: var(--danger-bg); color: #fff; }
-        .btn.ghost { background: transparent; border-color: transparent; color: var(--text-muted); }
-        .btn.ghost:hover:not(:disabled) { border-color: var(--border); color: var(--text); background: var(--bg-inset); }
-        .btn.sm { padding: 0.24rem 0.52rem; font-size: 0.74rem; border-radius: 5px; }
-        /* Hidden Utility & Guide Banner */
-        [hidden] { display: none !important; }
-        .guide-banner { background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.55rem; }
-        .guide-banner[hidden] { display: none !important; }
-        .guide-head { display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; font-weight: 700; color: var(--text); }
-        .guide-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.65rem; }
-        .guide-step { display: flex; gap: 0.55rem; font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; }
-        .guide-num { width: 20px; height: 20px; border-radius: 50%; background: var(--bg-raised); border: 1px solid var(--border); color: var(--accent); font-weight: 700; font-size: 0.72rem; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .guide-step b { color: var(--text); }
-        .guide-step a { color: var(--accent); text-decoration: none; }
-        .guide-step a:hover { text-decoration: underline; }
-
-        /* Pane Layouts */
-        .tab-pane { display: none; }
-        .tab-pane.active { display: block; }
-        .rules-layout { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 1.1rem; align-items: start; }
-        @media (max-width: 960px) { .rules-layout { grid-template-columns: 1fr; } }
-
-        /* Cards */
-        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 0.85rem 1.05rem; display: flex; flex-direction: column; gap: 0.65rem; }
-        .card h2 { font-size: 0.86rem; font-weight: 700; letter-spacing: 0.02em; color: var(--text); display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-        .card-head-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
-        .hint { color: var(--text-muted); font-size: 0.75rem; line-height: 1.4; }
-        .badge { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.65rem; font-weight: 700; border-radius: 999px; padding: 0.06rem 0.45rem; background: var(--bg-raised); color: var(--text-muted); border: 1px solid var(--border); }
-        .badge.accent { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
-
-        /* Rules Sidebar */
-        .sidebar-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-        .rules-search-wrap { position: relative; display: flex; align-items: center; width: 100%; }
-        .rules-search-wrap .ico { position: absolute; left: 0.6rem; color: var(--text-faint); pointer-events: none; }
-        .rules-search-wrap input { width: 100%; padding: 0.35rem 1.8rem 0.35rem 1.85rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.78rem; font-family: inherit; }
-        .rules-search-wrap input:focus { outline: none; border-color: var(--accent); }
-        .search-clear { position: absolute; right: 0.4rem; background: none; border: 0; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; padding: 0.1rem 0.25rem; }
-        .search-clear:hover { color: var(--text); }
-
-        .filter-chips { display: flex; gap: 0.28rem; flex-wrap: wrap; margin-top: 0.1rem; }
-        .filter-chip { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 999px; padding: 0.12rem 0.5rem; font-size: 0.68rem; color: var(--text-muted); cursor: pointer; font-weight: 500; transition: all 0.12s; user-select: none; }
-        .filter-chip:hover { border-color: var(--accent); color: var(--text); }
-        .filter-chip.active { background: color-mix(in srgb, var(--accent) 18%, transparent); border-color: var(--accent); color: var(--accent); font-weight: 700; }
-
-        .rule-list { display: flex; flex-direction: column; gap: 0.42rem; max-height: 640px; overflow-y: auto; padding-right: 0.15rem; }
-        .rule-item { border: 1px solid var(--border); border-radius: 8px; padding: 0.55rem 0.7rem; background: var(--bg-inset); cursor: pointer; display: flex; align-items: center; gap: 0.65rem; transition: border-color 0.12s, background 0.12s; text-align: left; }
-        .rule-item:hover { border-color: var(--border-strong); background: var(--bg-raised); }
-        .rule-item.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg-card)); box-shadow: 0 0 0 1px var(--accent); }
-        .rule-item.off { opacity: 0.58; }
-        .rule-item.off .rule-icon-box { filter: grayscale(0.8); opacity: 0.6; }
-        
-        .rule-icon-box { width: 32px; height: 32px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid var(--border); background: var(--bg-card); }
-        .rule-item-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.18rem; }
-        .rule-item-name { font-weight: 600; font-size: 0.83rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .rule-item-meta { font-size: 0.69rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
-        .rule-item-tag { font-size: 0.65rem; font-weight: 600; padding: 0.04rem 0.35rem; border-radius: 4px; background: var(--bg-raised); border: 1px solid var(--border); }
-        .rule-item-toggle { flex-shrink: 0; }
-        .rule-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-        .drag-handle { color: var(--text-muted); cursor: grab; display: inline-flex; margin-left: -0.25rem; opacity: 0.55; }
-        .drag-handle .ico { fill: currentColor; stroke: none; width: 12px; height: 12px; }
-        .rule-item:hover .drag-handle { opacity: 1; }
-        .rule-item.dragging { opacity: 0.4; }
-        .rule-item.drop-before { box-shadow: 0 -2px 0 0 var(--accent); }
-        .rule-item.drop-after { box-shadow: 0 2px 0 0 var(--accent); }
-        .variant-pill { color: #a855f7; background: rgba(168,85,247,0.1); border-color: rgba(168,85,247,0.35); }
-        .micro-head { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin: 0.2rem 0 0.15rem; }
-        .adv-toggle { cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; list-style: none; }
-        .adv-toggle::-webkit-details-marker { display: none; }
-        details.adv-card[open] .adv-chev { transform: rotate(180deg); }
-        .adv-chev { display: inline-flex; transition: transform 0.12s; color: var(--text-muted); }
-        .rule-item-meta { gap: 0.3rem; }
-        .alerts-toolbar { position: sticky; top: 0; z-index: 20; }
-        .btn:focus-visible, .tab-btn:focus-visible, .filter-chip:focus-visible, .variant > summary:focus-visible, .fld input:focus-visible, .fld select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-        .variant { border-left: 3px solid color-mix(in srgb, var(--accent) 55%, var(--border)); margin-bottom: 0.5rem; }
-        .variant:has(.tier-badge.milestone) { border-left-color: #f59e0b; margin-left: 0.9rem; }
-        .variant > summary { padding: 0.55rem 0.8rem; gap: 0.4rem; }
-        .vsum-title, .vsum-subtitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; word-break: normal; }
-        .rule-list:empty::before { content: 'No rules match.'; color: var(--text-muted); font-size: 0.78rem; padding: 0.8rem; text-align: center; border: 1px dashed var(--border); border-radius: 8px; }
-        .more-menu { position: relative; }
-        .more-menu > summary { list-style: none; cursor: pointer; }
-        .more-menu > summary::-webkit-details-marker { display: none; }
-        .more-pop { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 8px; padding: 0.6rem; display: flex; flex-direction: column; gap: 0.5rem; min-width: 240px; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
-        .summary-banner { align-items: center; }
-        .vrow-slim { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
-        .vpick { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--text-muted); }
-        .vpick select { width: auto; padding: 0.25rem 0.5rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.75rem; }
-        .tokens-pop { left: 0; right: auto; max-width: min(420px, 80vw); }
-        .quiet-sec > summary { cursor: pointer; list-style: none; display: flex; gap: 0.5rem; align-items: baseline; }
-        .quiet-sec > summary::-webkit-details-marker { display: none; }
-        .quiet-sec[open] > summary { margin-bottom: 0.4rem; }
-        .act-line { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 0.75rem; }
-        .editor-col { gap: 1.25rem; }
-        .card { padding: 1rem 1.2rem; gap: 0.9rem; }
-        .vsum-top { gap: 0.75rem; }
-        .vsum-text-col { flex: 1; min-width: 0; }
-        .vsum-title { font-size: 0.82rem; font-weight: 600; }
-        .vmeta-chips .vmeta-chip { font-size: 0.64rem; padding: 0.05rem 0.3rem; }
-        .summary-banner { padding: 0.5rem 0.9rem; border-left-width: 1px; }
-        .tier-ladder-title { font-size: 11px; letter-spacing: 0.06em; color: var(--text-muted); }
-
-        /* Editor Column */
-        .editor-col { display: flex; flex-direction: column; gap: 0.85rem; min-width: 0; }
-        .summary-banner { background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 9px; padding: 0.65rem 0.95rem; display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; flex-wrap: wrap; }
-        .summary-left { display: flex; align-items: center; gap: 0.6rem; min-width: 0; flex: 1 1 300px; }
-        .summary-icon { width: 28px; height: 28px; border-radius: 6px; background: var(--bg-inset); border: 1px solid var(--border); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .summary-text { font-size: 0.82rem; color: var(--text); line-height: 1.35; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-        .summary-actions { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; flex: 0 1 auto; }
-
-        /* Forms */
-        .cgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem 0.85rem; }
-        @media (max-width: 700px) { .cgrid { grid-template-columns: 1fr; } }
-        .row { display: flex; flex-direction: column; gap: 0.2rem; }
-        .row > label { font-size: 0.73rem; font-weight: 600; color: var(--text-muted); }
-        .row input, .row select, .row textarea { width: 100%; min-width: 0; padding: 0.38rem 0.6rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.81rem; font-family: inherit; }
-        .row input:focus, .row select:focus, .row textarea:focus { outline: none; border-color: var(--accent); }
-        .row small { color: var(--text-muted); font-size: 0.69rem; line-height: 1.35; margin-top: 0.05rem; }
-        .check-row { display: flex; align-items: center; gap: 0.45rem; font-size: 0.77rem; color: var(--text); cursor: pointer; user-select: none; }
-        .check-row input[type="checkbox"] { accent-color: var(--accent); }
-
-        /* Token Placeholders */
-        .tokens-bar { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 0.2rem; }
-        .token-chip { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 5px; padding: 0.12rem 0.45rem; font-size: 0.68rem; font-family: ui-monospace, SFMono-Regular, monospace; color: var(--accent); cursor: pointer; transition: all 0.12s; }
-        .token-chip:hover { border-color: var(--accent); background: var(--accent-bg); }
-
-        /* ══════════════════════════════════════════════════════════════════════
-           PRESTIGE ALERT VARIANTS & ACTIVATION LADDER SYSTEM
-           ══════════════════════════════════════════════════════════════════════ */
-
-        /* Tier Activation Ladder Banner (at top of Card 2) */
-        .tier-ladder-banner {
-            background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, var(--bg-card)), var(--bg-card));
-            border: 1px solid var(--border);
-            border-radius: 9px;
-            padding: 0.8rem 1rem;
-            margin-bottom: 0.85rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.55rem;
-        }
-        .tier-ladder-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-        }
-        .tier-ladder-title {
-            font-size: 0.76rem;
-            font-weight: 700;
-            color: var(--accent);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-        .tier-ladder-hint {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-        .tier-steps-row {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-        .tier-step-chip {
-            background: var(--bg-inset);
-            border: 1px solid var(--border);
-            border-radius: 7px;
-            padding: 0.35rem 0.65rem;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.45rem;
-            font-size: 0.75rem;
-            transition: all 0.12s;
-        }
-        .tier-step-chip.base {
-            border-left: 3px solid var(--accent);
-        }
-        .tier-step-chip.threshold {
-            border-left: 3px solid #f59e0b;
-        }
-        .tier-step-lbl {
-            font-size: 0.68rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            color: var(--text-muted);
-        }
-        .tier-step-val {
-            font-weight: 700;
-            color: var(--text);
-        }
-        .tier-step-count {
-            font-size: 0.66rem;
-            padding: 0.08rem 0.38rem;
-            border-radius: 999px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-        }
-        .tier-step-arrow {
-            color: var(--text-faint);
-            font-size: 0.75rem;
-            user-select: none;
-        }
-
-        /* Variant Card */
-        .variant {
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            margin-bottom: 0.65rem;
-            background: var(--bg-card);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-            transition: border-color 0.15s, box-shadow 0.15s;
-        }
-        .variant:hover {
-            border-color: var(--border-strong);
-        }
-        .variant[open] {
-            border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-        }
-
-        /* Variant Summary (Spacious 2-Row Header, Zero Truncation) */
-        .variant > summary {
-            list-style: none;
-            cursor: pointer;
-            padding: 0.75rem 0.95rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            background: var(--bg-card);
-            transition: background 0.12s;
-            user-select: none;
-        }
-        .variant > summary::-webkit-details-marker { display: none; }
-        .variant > summary:hover {
-            background: var(--bg-raised);
-        }
-        .variant[open] > summary {
-            border-bottom: 1px solid var(--border);
-            background: color-mix(in srgb, var(--accent) 3%, var(--bg-card));
-        }
-
-        /* Top Row of Summary: Badges, Chips, Actions */
-        .vsum-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.65rem;
-            width: 100%;
-        }
-        .vsum-badges {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.45rem;
-            flex-wrap: wrap;
-        }
-        .vnum-badge {
-            font-size: 0.68rem;
-            font-weight: 700;
-            padding: 0.1rem 0.45rem;
-            border-radius: 5px;
-            background: var(--bg-inset);
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-        }
-        .tier-badge {
-            font-size: 0.71rem;
-            font-weight: 700;
-            padding: 0.14rem 0.55rem;
-            border-radius: 6px;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            letter-spacing: 0.02em;
-        }
-        .tier-badge.base {
-            background: color-mix(in srgb, var(--accent) 15%, transparent);
-            border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
-            color: var(--accent);
-        }
-        .tier-badge.milestone {
-            background: rgba(245, 158, 11, 0.14);
-            border: 1px solid rgba(245, 158, 11, 0.45);
-            color: #f59e0b;
-        }
-        .tier-badge.default {
-            background: var(--bg-raised);
-            border: 1px solid var(--border);
-            color: var(--text);
-        }
-        .odds-badge {
-            font-size: 0.68rem;
-            font-weight: 700;
-            padding: 0.1rem 0.45rem;
-            border-radius: 999px;
-            background: var(--bg-inset);
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-        }
-        .odds-badge.weighted {
-            color: var(--accent);
-            border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-        }
-
-        .vsum-actions {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.55rem;
-            flex-shrink: 0;
-        }
-        .vmeta-chips {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-        }
-        .vmeta-chip {
-            font-size: 0.68rem;
-            font-weight: 500;
-            color: var(--text-muted);
-            background: var(--bg-inset);
-            border: 1px solid var(--border);
-            border-radius: 5px;
-            padding: 0.12rem 0.42rem;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.3rem;
-        }
-        .v-preview-btn {
-            font-size: 0.74rem;
-            padding: 0.22rem 0.65rem;
-            border-radius: 6px;
-            gap: 0.35rem;
-        }
-        .v-chevron {
-            color: var(--text-muted);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            transition: transform 0.15s ease;
-        }
-        .variant[open] .v-chevron {
-            transform: rotate(180deg);
-        }
-
-        /* Bottom Row of Summary: Thumbnail & Title (Comfortable, Uncut) */
-        .vsum-main {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            min-width: 0;
-            width: 100%;
-        }
-        .v-thumb {
-            width: 38px;
-            height: 38px;
-            border-radius: 7px;
-            background: var(--bg-inset);
-            border: 1px solid var(--border);
-            overflow: hidden;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            color: var(--text-muted);
-        }
-        .v-thumb img, .v-thumb video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .vsum-text-col {
-            display: flex;
-            flex-direction: column;
-            gap: 0.15rem;
-            min-width: 0;
-            flex: 1;
-        }
-        .vsum-title {
-            font-size: 0.88rem;
-            font-weight: 700;
-            color: var(--text);
-            line-height: 1.35;
-            word-break: break-word;
-        }
-        .vsum-subtitle {
-            font-size: 0.74rem;
-            color: var(--text-muted);
-            line-height: 1.35;
-            word-break: break-word;
-        }
-
-        /* Variant Body */
-        .variant-body {
-            padding: 0.95rem 1.05rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.95rem;
-            background: var(--bg-inset);
-        }
-
-        /* Box 1: Activation & Eligibility */
-        .vsection-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.85rem 1rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-        .vsection-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-        .vsection-title {
-            font-size: 0.76rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-        
-        .role-cards-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.65rem;
-        }
-        @media (max-width: 750px) { .role-cards-grid { grid-template-columns: 1fr; } }
-        
-        .role-card-label {
-            position: relative;
-            cursor: pointer;
-            border: 1px solid var(--border);
-            background: var(--bg-inset);
-            border-radius: 8px;
-            padding: 0.65rem 0.85rem;
-            display: flex;
-            align-items: flex-start;
-            gap: 0.65rem;
-            transition: all 0.12s;
-        }
-        .role-card-label:hover {
-            border-color: var(--border-strong);
-            background: var(--bg-raised);
-        }
-        .role-card-label.active {
-            border-color: var(--accent);
-            background: color-mix(in srgb, var(--accent) 8%, var(--bg-card));
-            box-shadow: 0 0 0 1px var(--accent);
-        }
-        .role-card-label input[type="radio"] {
-            margin-top: 0.2rem;
-            accent-color: var(--accent);
-        }
-        .role-card-content {
-            display: flex;
-            flex-direction: column;
-            gap: 0.15rem;
-        }
-        .role-card-title {
-            font-size: 0.82rem;
-            font-weight: 700;
-            color: var(--text);
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-        }
-        .role-card-desc {
-            font-size: 0.71rem;
-            color: var(--text-muted);
-            line-height: 1.35;
-        }
-
-        /* Threshold Parameter Box */
-        .threshold-params-row {
-            background: var(--bg-inset);
-            border: 1px solid var(--border);
-            border-radius: 7px;
-            padding: 0.65rem 0.85rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.85rem;
-            flex-wrap: wrap;
-        }
-        .threshold-inputs {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.65rem;
-            flex-wrap: wrap;
-        }
-        .input-affix-group {
-            display: inline-flex;
-            align-items: center;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            overflow: hidden;
-        }
-        .input-affix {
-            padding: 0.32rem 0.55rem;
-            font-size: 0.74rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            background: var(--bg-raised);
-            border-right: 1px solid var(--border);
-            user-select: none;
-        }
-        .input-affix-group input {
-            border: 0;
-            background: transparent;
-            padding: 0.32rem 0.55rem;
-            font-size: 0.82rem;
-            font-weight: 600;
-            color: var(--text);
-            width: 84px;
-            text-align: center;
-        }
-        .input-affix-group input:focus {
-            outline: none;
-        }
-        .threshold-explainer {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            line-height: 1.35;
-        }
-
-        /* Odds Row */
-        .odds-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.75rem;
-            padding-top: 0.45rem;
-            border-top: 1px solid var(--border);
-            flex-wrap: wrap;
-        }
-        .odds-left {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.55rem;
-        }
-        .odds-input-box {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-        }
-        .odds-input-box input {
-            width: 58px;
-            text-align: center;
-            font-weight: 700;
-            padding: 0.28rem 0.4rem;
-            background: var(--bg-inset);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: var(--text);
-            font-size: 0.8rem;
-        }
-        .odds-pill-large {
-            font-size: 0.72rem;
-            font-weight: 700;
-            padding: 0.18rem 0.65rem;
-            border-radius: 999px;
-            background: color-mix(in srgb, var(--accent) 15%, transparent);
-            border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
-            color: var(--accent);
-        }
-        .odds-hint-text {
-            font-size: 0.71rem;
-            color: var(--text-muted);
-        }
-
-        /* Full-Width Text Fields */
-        .full-text-field {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-            width: 100%;
-        }
-        .full-text-field label {
-            font-size: 0.73rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-        .full-text-input {
-            width: 100%;
-            padding: 0.48rem 0.75rem;
-            font-size: 0.86rem;
-            font-family: inherit;
-            color: var(--text);
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 7px;
-            transition: border-color 0.12s;
-        }
-        .full-text-input:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-        .token-quick-insert {
-            display: flex;
-            align-items: center;
-            gap: 0.35rem;
-            flex-wrap: wrap;
-            margin-top: 0.2rem;
-        }
-        .token-quick-label {
-            font-size: 0.68rem;
-            color: var(--text-muted);
-            font-weight: 600;
-        }
-        .token-quick-pill {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 5px;
-            padding: 0.12rem 0.45rem;
-            font-size: 0.68rem;
-            font-family: ui-monospace, SFMono-Regular, monospace;
-            color: var(--accent);
-            cursor: pointer;
-            transition: all 0.12s;
-        }
-        .token-quick-pill:hover {
-            border-color: var(--accent);
-            background: var(--accent-bg);
-        }
-
-        /* ══════════════════════════════════════════════════════════════════════
-           PRESTIGE MEDIA, AUDIO & FX CONTROLS
-           ══════════════════════════════════════════════════════════════════════ */
-
-        /* Tabs within variant */
-        .vtabs {
-            display: flex;
-            gap: 0.35rem;
-            border-bottom: 1px solid var(--border);
-            align-items: center;
-            flex-wrap: wrap;
-            padding-bottom: 0.4rem;
-            margin-bottom: 0.65rem;
-        }
-        .vtab {
-            background: transparent;
-            border: 0;
-            border-bottom: 2px solid transparent;
-            color: var(--text-muted);
-            padding: 0.35rem 0.75rem;
-            font: inherit;
-            font-size: 0.78rem;
-            font-weight: 600;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            border-radius: 6px 6px 0 0;
-            transition: all 0.12s;
-        }
-        .vtab:hover {
-            color: var(--text);
-            background: var(--bg-raised);
-        }
-        .vtab.active {
-            color: var(--accent);
-            border-bottom-color: var(--accent);
-            background: color-mix(in srgb, var(--accent) 10%, transparent);
-        }
-        .vtab-grow { flex: 1; }
-
-        .vgrid {
-            display: grid;
-            gap: 0.65rem 0.85rem;
-        }
-        .vgrid.c2 { grid-template-columns: 1fr 1fr; }
-        .vgrid.c3 { grid-template-columns: repeat(3, 1fr); }
-        @media (max-width: 720px) {
-            .vgrid.c2, .vgrid.c3 { grid-template-columns: 1fr; }
-        }
-
-        .fld {
-            display: flex;
-            flex-direction: column;
-            gap: 0.3rem;
-            min-width: 0;
-        }
-        .fld label, .fld > span:first-child {
-            font-size: 0.73rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-        .fld input, .fld select {
-            width: 100%;
-            min-width: 0;
-            padding: 0.42rem 0.65rem;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 7px;
-            color: var(--text);
-            font-size: 0.82rem;
-            font-family: inherit;
-            transition: border-color 0.12s;
-        }
-        .fld input:focus, .fld select:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-
-        /* Segmented Mode Selector (Image / Video / Emoji) */
-        .seg-pills {
-            display: inline-flex;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 7px;
-            padding: 3px;
-            gap: 3px;
-        }
-        .seg-btn {
-            background: transparent;
-            border: 0;
-            border-radius: 5px;
-            padding: 0.28rem 0.75rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            transition: all 0.12s;
-        }
-        .seg-btn:hover {
-            color: var(--text);
-            background: var(--bg-raised);
-        }
-        .seg-btn.active {
-            background: var(--accent);
-            color: #fff;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-        }
-
-        /* Media Field Box & Preview Box */
-        .media-field-box {
-            display: flex;
-            flex-direction: column;
-            gap: 0.45rem;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.75rem 0.9rem;
-        }
-        .media-field-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
-        }
-        .media-field-label {
-            font-size: 0.73rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-        }
-        .media-field-main {
-            display: flex;
-            gap: 0.75rem;
-            align-items: center;
-        }
-        @media (max-width: 600px) {
-            .media-field-main { flex-direction: column; align-items: stretch; }
-        }
-        .media-preview-box {
-            width: 84px;
-            height: 64px;
-            border-radius: 6px;
-            background: var(--bg-inset);
-            border: 1px solid var(--border);
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            position: relative;
-        }
-        .media-preview-box img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-            display: block;
-        }
-        .media-preview-box video {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            display: block;
-            background: #000;
-        }
-        .media-row {
-            display: flex;
-            gap: 0.45rem;
-            min-width: 0;
-            flex: 1;
-            align-items: center;
-        }
-        @media (max-width: 680px) {
-            .media-row { flex-wrap: wrap; }
-        }
-        .media-row input[type="text"] {
-            flex: 1;
-            min-width: 180px;
-            padding: 0.42rem 0.65rem;
-            background: var(--bg-inset);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: var(--text);
-            font-size: 0.82rem;
-            font-family: inherit;
-        }
-        .media-row input[type="text"]:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-        .media-row select {
-            flex: 1;
-            min-width: 180px;
-            padding: 0.42rem 0.65rem;
-            background: var(--bg-inset);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: var(--text);
-            font-size: 0.82rem;
-            font-family: inherit;
-        }
-        .media-row select:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-
-        /* Video Options Row */
-        .video-options-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-            padding: 0.6rem 0.85rem;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 7px;
-            margin-top: 0.5rem;
-            flex-wrap: wrap;
-        }
-        .video-options-left {
-            display: inline-flex;
-            align-items: center;
-            gap: 1.25rem;
-            flex-wrap: wrap;
-        }
-        .video-vol-group {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.55rem;
-            margin-left: auto;
-        }
-
-        /* Audio Settings Card */
-        .audio-field-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.85rem 1rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-
-        /* Volume Slider Row */
-        .vol-wrap { display: flex; align-items: center; gap: 0.65rem; }
-        .vol-slider { flex: 1; height: 5px; accent-color: var(--accent); cursor: pointer; }
-        .vol-badge { font-size: 0.74rem; font-weight: 700; min-width: 38px; color: var(--accent); text-align: right; }
-
-        /* Queue & Events */
-        .queue-layout { display: flex; flex-direction: column; gap: 0.95rem; }
-        .queue-controls-card { padding: 0.75rem 1.05rem; }
-        .queue-status-head { display: flex; align-items: center; justify-content: space-between; gap: 0.85rem; flex-wrap: wrap; }
-        .queue-title-wrap { display: flex; align-items: center; gap: 0.6rem; }
-        .queue-action-btns { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-
-        .queue-history-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; }
-        @media (max-width: 900px) { .queue-history-grid { grid-template-columns: 1fr; } }
-        .history { display: flex; flex-direction: column; gap: 0.35rem; max-height: 520px; overflow-y: auto; padding-right: 0.2rem; }
-        .history > div { font-size: 0.76rem; padding: 0.42rem 0.65rem; align-items: center; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 7px; display: flex; justify-content: space-between; gap: 0.6rem; transition: border-color 0.12s; }
-        .history > div:hover { border-color: var(--border-strong); }
-        .history .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
-        .history .grow span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .history .t { color: var(--text-muted); font-size: 0.71rem; flex-shrink: 0; }
-        .history .st { font-size: 0.68rem; color: var(--text-muted); font-weight: 500; }
-        .history .st.shown { color: var(--success); font-weight: 600; }
-
-        /* Simulator */
-        .sim-layout { max-width: 860px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 0.85rem; }
-        .sim-presets-wrap { display: flex; flex-direction: column; gap: 0.45rem; padding: 0.65rem 0.8rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; }
-        .sim-preset-chips { display: flex; gap: 0.38rem; flex-wrap: wrap; }
-        .preset-btn { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 0.26rem 0.65rem; font-size: 0.74rem; font-weight: 600; color: var(--text); cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; transition: all 0.12s; }
-        .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
-        .sim-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.65rem; margin-top: 0.25rem; }
-        .sim-result-box { padding: 0.65rem 0.85rem; border-radius: 8px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
-        .sim-result-box.matched { background: color-mix(in srgb, var(--success) 14%, var(--bg-inset)); border: 1px solid var(--success); color: var(--success); }
-        .sim-result-box.unmatched { background: color-mix(in srgb, var(--warn) 14%, var(--bg-inset)); border: 1px solid var(--warn); color: var(--warn); }
-
-        /* Dialogs */
-        dialog.lib { margin: auto; background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 0; width: min(780px, 94vw); max-height: 82vh; box-shadow: 0 12px 36px rgba(0,0,0,0.5); }
-        dialog.lib::backdrop { background: rgba(0,0,0,0.65); backdrop-filter: blur(2px); }
-        .lib-head { display: flex; gap: 0.65rem; align-items: center; padding: 0.85rem 1.1rem; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg-card); z-index: 2; }
-        .lib-search-box { position: relative; flex: 1; display: flex; align-items: center; }
-        .lib-search-box .ico { position: absolute; left: 0.6rem; color: var(--text-faint); pointer-events: none; }
-        .lib-search-box input { width: 100%; padding: 0.42rem 0.7rem 0.42rem 1.85rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; font-size: 0.82rem; }
-        .lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.65rem; padding: 1.1rem; overflow-y: auto; max-height: calc(82vh - 3.8rem); }
-        .lib-item { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.45rem; cursor: pointer; display: flex; flex-direction: column; gap: 0.35rem; text-align: left; color: inherit; font: inherit; transition: all 0.12s; }
-        .lib-item:hover { border-color: var(--accent); background: var(--bg-raised); }
-        .lib-item .th { height: 86px; display: flex; align-items: center; justify-content: center; background: var(--bg-card); border-radius: 5px; overflow: hidden; border: 1px solid rgba(255,255,255,0.04); }
-        .lib-item .th img, .lib-item .th video { max-width: 100%; max-height: 100%; object-fit: contain; }
-        .lib-item .nm { font-size: 0.72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-weight: 500; }
-
-        /* Toast */
-        #toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--success-strong); color: #fff; padding: 0.65rem 1.05rem; border-radius: 7px; font-size: 0.84rem; font-weight: 600; display: none; z-index: 99; box-shadow: 0 6px 20px rgba(0,0,0,0.35); }
-        #toast.err { background: var(--danger); }
-        .empty-state { text-align: center; color: var(--text-muted); padding: 3rem 1.5rem; font-size: 0.84rem; display: flex; flex-direction: column; align-items: center; gap: 0.65rem; }
-        .vthumb { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 6px; background: var(--bg-inset); border: 1px solid var(--border); display: inline-flex; align-items: center; justify-content: center; overflow: hidden; color: var(--text-muted); }
-        .vthumb img, .vthumb video { width: 100%; height: 100%; object-fit: cover; }
-        .vthumb.sm { width: 28px; height: 28px; border-radius: 5px; }
-        .count-pill { font-size: 0.66rem; font-weight: 700; min-width: 1.3rem; text-align: center; padding: 0.02rem 0.4rem; border-radius: 999px; background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); }
-        .sidebar-tools { display: flex; align-items: center; gap: 0.5rem; margin: 0.4rem 0 0.2rem; font-size: 0.72rem; }
-        .sidebar-tools .grow { flex: 1; }
-        .sidebar-tools .more-menu { position: relative; }
-        .tier-group { --rail: var(--border-strong); border-left: 4px solid var(--rail); border-radius: 4px 8px 8px 4px; padding: 0.3rem 0 0.1rem 0.65rem; margin-bottom: 0.7rem; transition: background 0.3s; }
-        .tier-group.milestone { --rail: #f59e0b; }
-        .tier-group.flash { background: color-mix(in srgb, var(--rail) 14%, transparent); }
-        .tier-group-head { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; font-weight: 700; margin-bottom: 0.4rem; color: var(--text); }
-        .tier-group.milestone .tier-group-head { color: #f59e0b; }
-        .tier-group-head small { font-weight: 500; color: var(--text-muted); }
-        .tier-group .variant { margin-left: 0; margin-bottom: 0.4rem; border-left-width: 1px; }
-        .variant[open] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); }
-        .vsum-line { font-size: 0.68rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .vwarn { color: #f59e0b; display: inline-flex; }
-        .tier-step-chip[data-jump-tier] { cursor: pointer; }
-        .tier-step-chip[data-jump-tier]:hover { border-color: var(--accent); }
-        .warn-list { display: flex; flex-direction: column; gap: 0.25rem; margin: 0 0 0.75rem; }
-        .warn-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; padding: 0.3rem 0.55rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-inset); color: var(--text-muted); }
-        .warn-item.warn { border-color: rgba(245,158,11,0.45); background: rgba(245,158,11,0.08); color: var(--text); }
-        .warn-item.warn .ico { color: #f59e0b; }
-        .warn-item[data-jump-variant] { cursor: pointer; }
-        .v-live-stage { position: relative; width: 100%; max-width: 420px; aspect-ratio: 16/9; border: 1px dashed var(--border-strong); border-radius: 8px; overflow: hidden; background: repeating-conic-gradient(var(--bg-inset) 0 25%, var(--bg-card) 0 50%) 0 0 / 16px 16px; }
-        .odds-row[hidden] { display: none; }
-        .name-input { font-size: 0.95rem; font-weight: 700; min-width: 160px; max-width: 280px; }
-        .rule-sentence { font-size: 0.72rem; color: var(--text-muted); }
-        .sp-dlg { background: var(--bg-card); color: var(--text); border: 1px solid var(--border-strong); border-radius: 10px; padding: 1rem 1.2rem; max-width: 440px; }
-        .sp-dlg::backdrop { background: rgba(0,0,0,0.5); }
-        .sp-dlg h3 { margin: 0 0 0.5rem; font-size: 1rem; }
-        .sp-dlg .dlg-row { display: flex; flex-direction: column; gap: 0.4rem; margin: 0.6rem 0; font-size: 0.8rem; }
-        .sp-dlg .dlg-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.8rem; }
-        .shortcut-list { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 0.8rem; font-size: 0.74rem; white-space: nowrap; }
-        .shortcut-list kbd { font-family: inherit; font-size: 0.68rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 4px; padding: 0 0.3rem; }
-        .rule-title { font-size: 1rem; }
-        .when-sentence { font-size: 0.8rem; font-weight: 500; color: var(--text-muted); margin-left: 0.6rem; }
-        .v-adv { margin-top: 0.5rem; } .v-adv > summary { cursor: pointer; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
-        .variant-body { padding: 0.7rem 0.8rem; gap: 0.6rem; } .vsection-card { padding: 0.65rem 0.8rem; gap: 0.55rem; } .role-card-desc { display: none; }
-        .variant-body { padding: 1.1rem 1.25rem; gap: 1rem; } .vsection-card { padding: 1.1rem 1.25rem; gap: 1rem; } .vsection-card .vgrid { gap: 0.9rem; } .full-text-field + .full-text-field { margin-top: 0.9rem !important; } .video-options-bar { margin-top: 0.75rem; }
-        .live-card > summary { cursor: pointer; list-style: none; } .live-card > summary::-webkit-details-marker { display: none; } .live-card[open] .live-toggle .ico { transform: rotate(180deg); } .live-note { font-size: 0.72rem; } .live-note a { color: var(--accent); }
-        .anim-row select { width: auto; min-width: 7rem; }
-        .when-card[open] > summary .btn .ico { transform: rotate(180deg); }
-        .seg-pills .seg-btn { white-space: nowrap; }
-        #shortcuts-menu { position: relative; }
-        /* Contrast: darker page, raised cards, inset groups */
-        :root { --bg-page: color-mix(in srgb, #0f1117 70%, #000); --bg-inset: #0a0d12; --border: #3a424c; --card-shadow: 0 1px 2px rgba(0,0,0,.5), 0 4px 14px rgba(0,0,0,.28); }
-        :root[data-theme="light"] { --bg-page: #dde3ea; --bg-inset: #eef1f5; --border: #b4bdc7; --card-shadow: 0 1px 2px rgba(31,35,40,.12), 0 3px 10px rgba(31,35,40,.08); }
-        .card, .alerts-toolbar, .summary-banner, .guide-banner, .variant { box-shadow: var(--card-shadow); }
-        .media-field-box { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.7rem; }
-        .snd-chip { display: flex; align-items: center; gap: 0.45rem; background: var(--bg-card); border: 1px solid var(--accent); border-radius: 999px; padding: 0.25rem 0.35rem 0.25rem 0.3rem; }
-        .snd-chip-name { flex: 1; min-width: 0; font-size: 0.82rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 0.3rem; }
-        dialog.snd-dlg { margin: auto; background: var(--bg-card); color: var(--text); border: 1px solid var(--border-strong); border-radius: 12px; padding: 0; width: min(560px, 94vw); max-height: 82vh; box-shadow: 0 12px 36px rgba(0,0,0,0.5); }
-        dialog.snd-dlg[open] { display: flex; flex-direction: column; }
-        dialog.snd-dlg::backdrop { background: rgba(0,0,0,0.65); backdrop-filter: blur(2px); }
-        .snd-head { display: flex; gap: 0.75rem; align-items: center; padding: 0.85rem 1.1rem; border-bottom: 1px solid var(--border); }
-        .snd-head h2 { font-size: 0.95rem; white-space: nowrap; }
-        .snd-head .lib-search-box { flex: 1; }
-        .snd-tabs { display: flex; gap: 0.35rem; flex-wrap: wrap; padding: 0.7rem 1.1rem 0.3rem; }
-        .snd-tab { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem 0.65rem; font: inherit; font-size: 0.76rem; font-weight: 600; color: var(--text-muted); cursor: pointer; display: inline-flex; gap: 0.35rem; align-items: center; }
-        .snd-tab.active { border-color: var(--accent); color: var(--text); background: color-mix(in srgb, var(--accent) 16%, var(--bg-card)); }
-        .snd-list { overflow-y: auto; padding: 0.5rem 1.1rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.45rem; min-height: 160px; align-content: start; }
-        .snd-item { display: flex; align-items: center; gap: 0.5rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0.5rem; cursor: pointer; }
-        .snd-item:hover { border-color: var(--border-strong); }
-        .snd-item.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--bg-card)); }
-        .snd-item-name { flex: 1; font-size: 0.8rem; font-weight: 600; min-width: 0; }
-        .snd-item-grp { display: block; font-size: 0.68rem; color: var(--text-muted); font-weight: 500; }
-        .snd-check { color: var(--accent); width: 16px; height: 16px; }
-        .snd-empty { grid-column: 1 / -1; color: var(--text-muted); font-size: 0.8rem; padding: 1rem 0; }
-        .snd-foot { display: flex; gap: 0.5rem; align-items: center; padding: 0.7rem 1.1rem; border-top: 1px solid var(--border); }
-        #snd-none.selected { border-color: var(--accent); }
-        .snd-tab:focus-visible, .snd-item:focus-visible, .snd-dlg .btn:focus-visible, .snd-chip .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-    </style>
+    <link rel="stylesheet" href="/css/alerts.css">
 </head>
 <body>
     <div class="header">
@@ -1174,7 +97,7 @@
         <!-- Quick Guide Banner (Collapsible) -->
         <div class="guide-banner" id="help-banner" hidden>
             <div class="guide-head">
-                <span style="display:inline-flex;align-items:center;gap:0.45rem;">
+                <span class="al-s1">
                     <svg class="ico" style="color:var(--accent)" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                     <span>How StreamPulse Alerts Work</span>
                 </span>
@@ -1324,7 +247,7 @@
                     </div>
 
                     <div class="sim-presets-wrap">
-                        <span style="font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;">Quick Event Presets</span>
+                        <span class="al-s2">Quick Event Presets</span>
                         <div class="sim-preset-chips" id="sim-presets">
                             <button type="button" class="preset-btn" data-sim-preset="follow">
                                 <svg class="ico" style="color:#f43f5e" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
@@ -1370,7 +293,7 @@
                         <div class="row"><label>Message / Reward / Word</label><input id="sim-text" value="hello there!"></div>
                     </div>
 
-                    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-top:0.4rem;">
+                    <div class="al-s3">
                         <button type="button" class="btn primary" id="sim-go">
                             <svg class="ico" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                             <span>Run Event Through Rules</span>
@@ -1418,7 +341,7 @@
 
     <dialog id="import-dlg" class="sp-dlg">
         <h3>Import alert rules</h3>
-        <p id="import-summary" style="margin:0;font-size:0.8rem;"></p>
+        <p class="al-s4" id="import-summary"></p>
         <div class="dlg-row">
             <label class="check-row"><input type="radio" name="import-mode" value="merge" checked><span>Merge: add as new rules (new ids)</span></label>
             <label class="check-row"><input type="radio" name="import-mode" value="replace"><span>Replace: swap out all current rules</span></label>
@@ -1428,7 +351,7 @@
     </dialog>
     <dialog id="paste-dlg" class="sp-dlg">
         <h3>Paste style</h3>
-        <p id="paste-summary" style="margin:0;font-size:0.8rem;"></p>
+        <p class="al-s4" id="paste-summary"></p>
         <div class="dlg-row" id="paste-groups"></div>
         <div class="dlg-actions"><button type="button" class="btn" id="paste-cancel">Cancel</button><button type="button" class="btn primary" id="paste-apply">Paste</button></div>
     </dialog>
@@ -1694,7 +617,7 @@
                     <div class="rule-item-name">${esc(r.name)}</div>
                     <div class="rule-item-meta">
                         <span class="rule-item-tag" style="color:${meta.color};">${esc(meta.label)}</span>
-                        ${r.webhookOnly ? `<span class="rule-item-tag" style="color:var(--accent);font-weight:700;background:rgba(59,130,246,0.12);padding:1px 5px;border-radius:4px;">Webhook Only</span>` : ''}
+                        ${r.webhookOnly ? `<span class="al-s5 rule-item-tag">Webhook Only</span>` : ''}
                         ${amtCond ? `<span class="rule-item-tag">${esc(amtCond)}</span>` : ''}
                     </div>
                 </div>
@@ -1759,7 +682,7 @@
                 ['prime', 'Prime']
             ];
             const checkboxes = `
-                <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;padding:0.4rem 0.6rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;">
+                <div class="al-s6">
                     ${allTiers.map(([val, label]) => `
                         <label class="check-row" style="font-size:0.78rem;">
                             <input type="checkbox" data-tier-check="${val}" ${tiers.includes(val) ? 'checked' : ''}>
@@ -1958,41 +881,41 @@
 
         const viewerMode = r.trigger === 'bits' && (v.emoteSource || 'viewer') === 'viewer';
         const ladder = amountLabel && !viewerMode ? `
-            <div class="fld-guide-card" style="margin-top:0.85rem;padding:0.75rem 0.9rem;background:var(--bg-inset);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;">
-                <div style="display:flex;align-items:center;gap:0.45rem;font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:0.4rem;">
+            <div class="al-s7 fld-guide-card">
+                <div class="al-s8">
                     ${ICONS.info} <span>${AMOUNT_LABEL[r.trigger]} Guide: Emote Ladder vs. Milestone Variants — Which should you use?</span>
                 </div>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:0.65rem;font-size:0.73rem;line-height:1.45;color:var(--text-muted);">
-                    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.55rem 0.7rem;">
-                        <div style="font-weight:700;color:var(--text);margin-bottom:0.2rem;display:flex;align-items:center;gap:0.35rem;">
+                <div class="al-s9">
+                    <div class="al-s10">
+                        <div class="al-s11">
                             <span style="color:var(--accent);font-weight:900;">&#9670;</span> Use an Emote Ladder when:
                         </div>
                         <div>You want to keep the <b>same alert look and sound</b>, but want the emote to change (e.g. cheer badges) or trigger a bigger emote rain/party as the ${amountLabel} increase.</div>
-                        <div style="margin-top:0.3rem;font-size:0.69rem;color:var(--text-faint);font-style:italic;">Example: 100 bits drops Cheer100; 1,000 bits drops a heavy Cheer1000 emote party.</div>
+                        <div class="al-s12">Example: 100 bits drops Cheer100; 1,000 bits drops a heavy Cheer1000 emote party.</div>
                     </div>
-                    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.55rem 0.7rem;">
-                        <div style="font-weight:700;color:var(--text);margin-bottom:0.2rem;display:flex;align-items:center;gap:0.35rem;">
+                    <div class="al-s10">
+                        <div class="al-s11">
                             <span style="color:var(--success);font-weight:900;">&#9670;</span> Use a Milestone Variant when:
                         </div>
                         <div>You want a <b>completely different alert experience</b> — such as a louder sound, custom message text, a custom video/GIF, or a longer on-screen duration.</div>
-                        <div style="margin-top:0.3rem;font-size:0.69rem;color:var(--text-faint);font-style:italic;">Example: 100+ bits plays a hype horn sound and video; 5,000+ bits triggers an epic celebration alert.</div>
+                        <div class="al-s12">Example: 100+ bits plays a hype horn sound and video; 5,000+ bits triggers an epic celebration alert.</div>
                     </div>
                 </div>
             </div>
 
             <div class="fld" style="margin-top:0.75rem;">
-                <span style="display:flex;justify-content:space-between;align-items:center;">
+                <span class="al-s13">
                     <span>Emoji / Emote Ladder (escalates by ${amountLabel})</span>
                     <span class="hint" style="font-size:0.69rem;">Changes the emote (or rain/party) when ${amountLabel} reach these levels</span>
                 </span>
                 <div style="display:grid;gap:0.4rem;margin-top:0.35rem;">
                     ${v.emojiLadder.map((step, j) => `
-                        <div class="media-row" style="align-items:center;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.35rem 0.6rem;">
-                            <span style="font-size:0.75rem;font-weight:600;color:var(--text-muted);white-space:nowrap;">from &ge;</span>
+                        <div class="al-s14 media-row">
+                            <span class="al-s15">from &ge;</span>
                             <input type="number" min="0" style="max-width:110px;" data-lad="${i}.${j}.min" value="${esc(step.min)}">
                             <span style="font-size:0.75rem;color:var(--text-muted);">${amountLabel}:</span>
                             <input type="text" maxlength="2000" placeholder="e.g. HypeEmote, fa-solid fa-fire, or image URL" data-lad="${i}.${j}.emoji" value="${esc(step.emoji)}">
-                            ${step.emojiUrl ? `<img src="${esc(step.emojiUrl)}" alt="" style="width:24px;height:24px;object-fit:contain;border:1px solid var(--border);border-radius:4px;flex-shrink:0;">` : ''}
+                            ${step.emojiUrl ? `<img class="al-s16" src="${esc(step.emojiUrl)}" alt="">` : ''}
                             <button type="button" class="btn sm danger icon-btn" data-del-step="${i}.${j}" title="Remove step">${ICONS.close}</button>
                         </div>
                     `).join('')}
@@ -2001,7 +924,7 @@
                     </div>
                 </div>
             </div>
-            <div class="vgrid c3" style="margin-top:0.35rem;">
+            <div class="al-s17 vgrid c3">
                 ${vin(i, 'emojiEvery', `One emote per N ${amountLabel} (0 = off)`, v.emojiEvery, 'min="0"')}
                 ${vin(i, 'emojiMax', 'Max repeated emotes', v.emojiMax, 'min="1" max="25"')}
                 <label class="fld">
@@ -2011,8 +934,8 @@
             </div>` : '';
 
         const emotePreview = v.emojiUrl ? `
-            <div style="display:inline-flex;align-items:center;gap:0.4rem;margin-top:0.25rem;">
-                <img src="${esc(v.emojiUrl)}" alt="" style="width:28px;height:28px;object-fit:contain;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);box-shadow:0 2px 6px rgba(0,0,0,0.2);">
+            <div class="al-s18">
+                <img class="al-s19" src="${esc(v.emojiUrl)}" alt="">
                 <span style="font-size:0.75rem;color:var(--text);font-weight:600;">${esc(v.emoji || 'Channel Emote')}</span>
                 <button type="button" class="btn sm ghost danger" data-clear-emote-url="${i}" style="font-size:0.68rem;padding:0.05rem 0.35rem;">Clear Emote</button>
             </div>
@@ -2020,14 +943,14 @@
 
         const channelEmotesHtml = channelEmotes.length ? `
             <div class="fld" style="margin-top:0.4rem;">
-                <span style="display:flex;justify-content:space-between;align-items:center;">
+                <span class="al-s13">
                     <span>Twitch Channel Emotes (${channelEmotes.length})</span>
                     <span class="hint" style="font-size:0.68rem;">Click an emote to use it</span>
                 </span>
-                <div style="display:flex;gap:0.35rem;flex-wrap:wrap;max-height:120px;overflow-y:auto;padding:0.35rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;">
+                <div class="al-s20">
                     ${channelEmotes.map(e => `
-                        <button type="button" class="btn sm ghost" data-select-channel-emote="${esc(e.name)}" data-emote-url="${esc(e.url)}" data-vi="${i}" title="${esc(e.name)}" style="padding:2px 6px;height:auto;gap:4px;display:inline-flex;align-items:center;">
-                            <img src="${esc(e.url)}" alt="${esc(e.name)}" style="width:20px;height:20px;object-fit:contain;pointer-events:none;">
+                        <button type="button" class="al-s21 btn sm ghost" data-select-channel-emote="${esc(e.name)}" data-emote-url="${esc(e.url)}" data-vi="${i}" title="${esc(e.name)}">
+                            <img class="al-s22" src="${esc(e.url)}" alt="${esc(e.name)}">
                             <span style="font-size:0.7rem;pointer-events:none;">${esc(e.name)}</span>
                         </button>
                     `).join('')}
@@ -2038,13 +961,13 @@
         const activeFamily = cheermoteFamilies[activeFamilyKey] || customCheermotes.find(c => c.prefix.toLowerCase() === activeFamilyKey) || cheermoteFamilies.cheer;
         const cheermotesList = activeFamily?.tiers || (twitchCheermotes.length ? twitchCheermotes : DEFAULT_CHEERMOTES);
         const cheermotesHtml = r.trigger === 'bits' && !viewerMode ? `
-            <div class="fld" style="margin-top:0.45rem;padding:0.5rem 0.65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.45rem;flex-wrap:wrap;gap:0.4rem;">
+            <div class="al-s23 fld">
+                <div class="al-s24">
                     <div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;">
-                        <span style="font-size:0.75rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:0.35rem;">
+                        <span class="al-s25">
                             ${ICONS.zap} Twitch Cheermotes (${activeFamily?.name || activeFamily?.prefix || 'Cheer'})
                         </span>
-                        <span style="font-size:0.7rem;color:var(--text-muted);">Pick a cheermote to use as the emote</span>
+                        <span class="al-s26">Pick a cheermote to use as the emote</span>
                     </div>
                     <button type="button" class="btn sm" data-populate-cheermotes="${i}" style="font-size:0.68rem;padding:2px 8px;" title="Auto-populate the ladder with bits badges from this family">
                         ${ICONS.plus} Use ${esc(activeFamily?.prefix || 'Cheermotes')} Ladder
@@ -2052,8 +975,8 @@
                 </div>
                 <div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
                     ${cheermotesList.map(c => `
-                        <button type="button" class="btn sm ghost" data-select-channel-emote="${esc(c.name)}" data-emote-url="${esc(c.url)}" data-vi="${i}" title="${esc(c.name)} (${c.min}+ bits)" style="padding:2px 6px;height:auto;gap:4px;display:inline-flex;align-items:center;background:var(--bg-card);border:1px solid var(--border);">
-                            <img src="${esc(c.url)}" alt="${esc(c.name)}" style="width:20px;height:20px;object-fit:contain;pointer-events:none;">
+                        <button type="button" class="al-s27 btn sm ghost" data-select-channel-emote="${esc(c.name)}" data-emote-url="${esc(c.url)}" data-vi="${i}" title="${esc(c.name)} (${c.min}+ bits)">
+                            <img class="al-s22" src="${esc(c.url)}" alt="${esc(c.name)}">
                             <span style="font-size:0.69rem;font-weight:700;color:${c.color || 'var(--text)'};pointer-events:none;">&ge; ${c.min}</span>
                         </button>
                     `).join('')}
@@ -2070,11 +993,11 @@
             return t ? `<span style="display:inline-flex;align-items:center;gap:0.4rem;"><img src="${esc(t.url)}" alt="" style="width:28px;height:28px;object-fit:contain;"><b style="font-size:0.75rem;">${esc(t.name)}</b><span class="hint" style="font-size:0.7rem;">at ${amt} bits (Test amount)</span></span>` : '';
         })();
         const sourceHtml = r.trigger === 'bits' ? `
-            <div class="fld" style="margin-bottom:0.65rem;">
+            <div class="al-s28 fld">
                 <span>Emote</span>
                 ${vseg(i, 'emoteSource', viewerMode ? 'viewer' : 'custom', [['viewer', "Viewer's cheermote"], ['custom', 'Custom']])}
                 <span class="hint" style="font-size:0.72rem;">${viewerMode ? "Viewer's cheermote uses the cheermote family from the message and the tier from the summed bits; falls back to Cheer at the total amount. Image or video media overrides it." : 'Uses the emote and ladder you set below.'}</span>
-                ${viewerMode ? `<div style="margin-top:0.3rem;">${resolvedPreview}<div style="margin-top:0.35rem;"><label class="fld" style="max-width:360px;"><span>Cheermote family override</span>                        <select data-v="${i}.cheermoteFamily" style="background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:0.72rem;">
+                ${viewerMode ? `<div style="margin-top:0.3rem;">${resolvedPreview}<div class="al-s17"><label class="fld" style="max-width:360px;"><span>Cheermote family override</span>                        <select class="al-s29" data-v="${i}.cheermoteFamily">
                             <option value="auto"${(!v.cheermoteFamily || v.cheermoteFamily === 'auto') ? ' selected' : ''}>Match the viewer's cheermote</option>
                             <option value="cheer"${v.cheermoteFamily === 'cheer' ? ' selected' : ''}>Default Cheer (Diamond badges)</option>
                             <optgroup label="Special Global Cheermotes">
@@ -2110,7 +1033,7 @@
 
         return `
             ${sourceHtml}
-            <div class="vgrid c3" style="margin-bottom:0.65rem;">
+            <div class="al-s28 vgrid c3">
                 <label class="fld">
                     <span>Emote Animation Effect</span>
                     <select data-v="${i}.emoteEffect">
@@ -2129,11 +1052,11 @@
                     </label>
                 ` : `
                     <div class="fld" style="justify-content:center;">
-                        <span style="font-size:0.7rem;color:var(--text-muted);">${effectExplainer}</span>
+                        <span class="al-s26">${effectExplainer}</span>
                     </div>
                 `}
             </div>
-            ${emoteEffect !== 'showcase' ? `<div class="hint" style="margin-bottom:0.55rem;font-size:0.72rem;display:flex;align-items:center;gap:0.35rem;">${ICONS.info} <span>${effectExplainer} Emotes celebrate across the alert for its entire duration.</span></div>` : ''}
+            ${emoteEffect !== 'showcase' ? `<div class="al-s30 hint">${ICONS.info} <span>${effectExplainer} Emotes celebrate across the alert for its entire duration.</span></div>` : ''}
             <div class="vgrid c2"${viewerMode ? ' hidden' : ''}>
                 <div class="fld">
                     <span>Default Emoji / Channel Emote / FontAwesome</span>
@@ -2212,8 +1135,8 @@
 
         const panels = {
             visual: `
-                <div style="display:flex;align-items:center;gap:0.65rem;flex-wrap:wrap;margin-bottom:0.65rem;">
-                    <span style="font-size:0.73rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;">Media Mode:</span>
+                <div class="al-s31">
+                    <span class="al-s32">Media Mode:</span>
                     <div class="seg-pills">
                         ${[['image', 'Image / GIF', ICONS.image], ['video', 'Video', ICONS.video], ['emoji', 'Emoji & Emotes', ICONS.smile]].map(([key, label, icon]) => `
                             <button type="button" class="seg-btn${key === media ? ' active' : ''}" data-vmedia="${key}" data-vid-tab="${esc(v.id)}">
@@ -2245,22 +1168,22 @@
                     </div>
                 ` : media === 'image' ? `
                     ${mediaField(i, 'image', ['image'], 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml', 'Alert Image / GIF')}
-                    ${v.video ? '<span class="hint" style="margin-top:0.35rem;display:inline-block;">Note: A video URL is also set and takes priority over the image on playback.</span>' : ''}
+                    ${v.video ? '<span class="al-s33 hint">Note: A video URL is also set and takes priority over the image on playback.</span>' : ''}
                 ` : `
                     ${emojiHtml(v, i, r)}
-                    ${v.video || v.image ? '<span class="hint" style="margin-top:0.35rem;display:inline-block;">Emoji only display when image and video are blank.</span>' : ''}
+                    ${v.video || v.image ? '<span class="al-s33 hint">Emoji only display when image and video are blank.</span>' : ''}
                 `}
             `,
             sound: `
                 <div class="audio-field-card">
                     ${soundHtml(v, i)}
-                    <div class="fld" style="margin-top:0.25rem;padding-top:0.65rem;border-top:1px solid var(--border);">
-                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div class="al-s34 fld">
+                        <div class="al-s13">
                             <label>Alert volume</label>
                             <span class="vol-badge" id="vol-badge-${i}">${v.volume ?? 70}%</span>
                         </div>
                         <div class="vol-wrap" style="margin-top:0.25rem;">
-                            <svg class="ico sm" style="color:var(--text-muted);" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></svg>
+                            <svg class="al-s35 ico sm" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></svg>
                             <input type="range" class="vol-slider" min="0" max="100" data-v="${i}.volume" data-vol-slider="${i}" value="${v.volume ?? 70}">
                             <svg class="ico sm" style="color:var(--text);" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
                         </div>
@@ -2268,9 +1191,9 @@
                 </div>
             `,
             timing: `
-                <div class="vgrid c3" style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.85rem 1rem;">
+                <div class="al-s36 vgrid c3">
                     ${vin(i, 'duration', 'Show Duration (s)', v.duration, 'min="1" max="120" step="0.5"')}
-                    <div class="fld" style="grid-column:span 2;"><span>Animation</span><div class="anim-row" style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;">${animOpts(i, 'animIn', v.animIn, ANIM_IN)}<span style="color:var(--text-muted);">then</span>${animOpts(i, 'animOut', v.animOut, ANIM_OUT)}<button type="button" class="btn sm" data-replay="${i}" title="Replay in the live preview">${ICONS.play} <span>Replay</span></button></div></div>
+                    <div class="fld" style="grid-column:span 2;"><span>Animation</span><div class="anim-row" style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;">${animOpts(i, 'animIn', v.animIn, ANIM_IN)}<span class="al-s35">then</span>${animOpts(i, 'animOut', v.animOut, ANIM_OUT)}<button type="button" class="btn sm" data-replay="${i}" title="Replay in the live preview">${ICONS.play} <span>Replay</span></button></div></div>
                 </div>
             `
         };
@@ -2324,7 +1247,7 @@
                         ${isMilestone ? `
                             <div class="threshold-params-row">
                                 <div class="threshold-inputs">
-                                    <span style="font-size:0.73rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;">${esc(metricName)}:</span>
+                                    <span class="al-s37">${esc(metricName)}:</span>
                                     ${vseg(i, 'gateMode', gateMode, [['min', 'At least'], ['range', 'Between'], ['exact', 'Equal to']])}
                                     <div class="input-affix-group" title="${gateMode === 'exact' ? 'Exact' : 'Minimum'} ${esc(metricName)} required to activate this tier">
                                         <span class="input-affix">${gateMode === 'exact' ? '=' : '&ge;'}</span>
@@ -2341,13 +1264,13 @@
                                     <span>${gateMode === 'exact' ? `Activates when <b>${esc(metricName)} = ${v.gateMin || 0}</b>. Exact tiers beat ranges.` : `Activates when <b>${esc(metricName)} &ge; ${v.gateMin || 0}</b>${gateMode === 'range' && v.gateMax > 0 ? ` and &le; ${v.gateMax}` : ''}. Highest matching tier wins.`}</span>
                                 </div>
                             </div>
-                            <div style="font-size:0.71rem;color:var(--text-muted);margin-top:0.35rem;display:flex;align-items:center;gap:0.4rem;padding:0.4rem 0.6rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;">
+                            <div class="al-s38">
                                 ${ICONS.info}
                                 <span><b>Tip:</b> If you only want to change the emote or trigger an emote rain/party as ${esc(metricName)} scale up while keeping the same sound and layout, use the <b>Emote Ladder</b> in the Visuals tab instead of creating multiple variants.</span>
                             </div>
                         ` : ''}
                     ` : `
-                        <div style="font-size:0.75rem;color:var(--text-muted);display:flex;align-items:center;gap:0.4rem;">
+                        <div class="al-s39">
                             ${ICONS.zap} <span>Always triggers when this alert rule fires.</span>
                         </div>
                     `}
@@ -2376,7 +1299,7 @@
                             ${tokens.map(t => `<button type="button" class="token-quick-pill" data-insert-token="{{alert.${t}}}" data-token-target="${i}.title" title="Insert {{alert.${t}}} into Title">+ {{alert.${t}}}</button>`).join('')}
                         </div>
                     </div>
-                    <div class="full-text-field" style="margin-top:0.35rem;">
+                    <div class="al-s17 full-text-field">
                         <label>Subtitle / Message (Optional)</label>
                         <input type="text" class="full-text-input" data-v="${i}.message" value="${esc(v.message || '')}" placeholder="e.g. Thanks for the amazing support!">
                         <div class="token-quick-insert">
@@ -2592,16 +1515,16 @@
                 </div>
                 <div class="summary-actions">
                     ${hasMetric ? `
-                        <div style="display:inline-flex;align-items:center;gap:0.35rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.18rem 0.45rem;">
+                        <div class="al-s40">
                             <span style="font-size:0.71rem;color:var(--text-muted);font-weight:600;">Simulate ${esc(metricName)}:</span>
-                            <input type="number" min="0" data-test-amount value="${testAmount || ''}" placeholder="${r.conditions.minAmount || 100}" style="width:72px;height:24px;padding:0.1rem 0.35rem;font-size:0.74rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:4px;color:var(--text);text-align:center;">
+                            <input class="al-s41" type="number" min="0" data-test-amount value="${testAmount || ''}" placeholder="${r.conditions.minAmount || 100}">
                         </div>
                     ` : ''}
                     <button type="button" class="btn sm primary" data-test-rule title="Test this alert on overlays (Cmd/Ctrl+Enter)">${ICONS.play} Test Rule</button>
                     <details class="more-menu" data-persist="alerts.moreOpen"${localStorage.getItem('alerts.moreOpen') === '1' ? ' open' : ''}>
                         <summary class="btn sm ghost">More ${ICONS.chevronDown}</summary>
                         <div class="more-pop">
-                            <label class="check-row" title="Webhook Only: triggers webhooks silently without on-screen alert boxes, alert audio, or page rotators" style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.18rem 0.55rem;">
+                            <label class="al-s42 check-row" title="Webhook Only: triggers webhooks silently without on-screen alert boxes, alert audio, or page rotators">
                                 <input type="checkbox" data-f="webhookOnly" data-type="check" ${r.webhookOnly ? 'checked' : ''}>
                                 <span style="font-size:0.75rem;font-weight:700;">Webhook Only</span>
                             </label>
@@ -2614,8 +1537,8 @@
 
             <details class="card adv-card when-card" data-persist="alerts.whenOpen"${localStorage.getItem('alerts.whenOpen') !== '0' ? ' open' : ''}>
                 <summary class="adv-toggle">
-                    <h2 style="flex:1;">
-                        <span style="display:inline-flex;align-items:center;gap:0.45rem;">${ICONS.zap}<span>When</span></span>
+                    <h2 class="al-s43">
+                        <span class="al-s1">${ICONS.zap}<span>When</span></span>
                         <span class="when-sentence">${esc(summary(r, true))}</span>
                     </h2>
                     <span class="btn sm ghost">Edit ${ICONS.chevronDown}</span>
@@ -2625,7 +1548,7 @@
                     ${field('Event Trigger', sel_('trigger', r.trigger, Object.entries(TRIGGERS)))}
                     ${field('Cooldown (seconds)', inp('conditions.cooldownSeconds', r.conditions.cooldownSeconds, 'number', 'min="0"'), 'Minimum seconds between triggers of this rule (0 = none).')}
                     ${r.webhookOnly ? `
-                        <div style="grid-column:1 / -1;padding:0.5rem 0.75rem;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:6px;font-size:0.75rem;display:flex;align-items:center;gap:0.4rem;color:var(--text);">
+                        <div class="al-s44">
                             ${ICONS.info}
                             <span><b>Webhook Only Alert:</b> Triggers webhooks and actions silently. On-screen alerts, sounds and page rotators are skipped.</span>
                         </div>
@@ -2637,17 +1560,17 @@
             <div class="card" id="display-card">
                 ${ladderHtml}
                 ${r.webhookOnly ? `
-                    <div style="margin-bottom:0.75rem;padding:0.55rem 0.75rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;font-size:0.74rem;display:flex;align-items:center;gap:0.4rem;color:var(--text-muted);">
+                    <div class="al-s45">
                         ${ICONS.info}
                         <span>On-screen alert box elements, sounds, and page rotators are bypassed when <b>Webhook Only</b> is enabled.</span>
                     </div>
                 ` : ''}
                 <div class="card-head-row">
                     <h2>
-                        <span style="display:inline-flex;align-items:center;gap:0.45rem;">${ICONS.image}<span>Show</span></span>
+                        <span class="al-s1">${ICONS.image}<span>Show</span></span>
                         <span class="badge">${r.variants.length} variant${r.variants.length === 1 ? '' : 's'}</span>
                     </h2>
-                    <div style="display:inline-flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
+                    <div class="al-s46">
                         <button type="button" class="btn sm" id="add-base-variant" title="Add a new variation to the Base Alert tier">${ICONS.plus} <span>Base Variant</span></button>
                         ${hasMetric ? `<button type="button" class="btn sm" id="add-milestone-variant" title="Add an escalating milestone tier">${ICONS.plus} <span>Milestone Tier</span></button>` : ''}
                     </div>
@@ -2681,8 +1604,8 @@
 
             <details class="card adv-card" id="adv-actions"${localStorage.getItem('alerts.advOpen') === '1' ? ' open' : ''}>
                 <summary class="adv-toggle">
-                    <h2 style="flex:1;">
-                        <span style="display:inline-flex;align-items:center;gap:0.45rem;">
+                    <h2 class="al-s43">
+                        <span class="al-s1">
                             ${ICONS.clock}
                             <span>Then</span>
                         </span>
@@ -2694,8 +1617,8 @@
 
                 <div class="cgrid">
                     <!-- Timer Action -->
-                    <div style="display:flex;flex-direction:column;gap:0.4rem;background:var(--bg-inset);padding:0.65rem 0.8rem;border:1px solid var(--border);border-radius:8px;">
-                        <label class="check-row" style="font-weight:600;">
+                    <div class="al-s47">
+                        <label class="al-s48 check-row">
                             <input type="checkbox" data-f="actions.timer.enabled" data-type="check" ${a.timer.enabled ? 'checked' : ''}>
                             <span>Control a Timer</span>
                         </label>
@@ -2709,12 +1632,12 @@
                                     <span>Multiply by amount (e.g. 30s per 100 bits / viewer)</span>
                                 </label>
                             ` : ''}
-                        ` : '<span class="hint" style="font-size:0.71rem;">Start, pause, or adjust a timer when this alert fires.</span>'}
+                        ` : '<span class="al-s49 hint">Start, pause, or adjust a timer when this alert fires.</span>'}
                     </div>
 
                     <!-- Webhook Action -->
-                    <div style="display:flex;flex-direction:column;gap:0.4rem;background:var(--bg-inset);padding:0.65rem 0.8rem;border:1px solid var(--border);border-radius:8px;">
-                        <label class="check-row" style="font-weight:600;">
+                    <div class="al-s47">
+                        <label class="al-s48 check-row">
                             <input type="checkbox" data-f="actions.http.enabled" data-type="check" ${a.http.enabled ? 'checked' : ''}>
                             <span>Send Webhook (HTTP Request)</span>
                         </label>
@@ -2723,15 +1646,15 @@
                             <div class="vgrid c3" style="align-items:end;gap:0.65rem;">
                                 ${field('HTTP Method', seg_('actions.http.method', a.http.method, [['POST', 'POST'], ['GET', 'GET']]))}
                                 ${field('Delay (seconds)', inp('actions.http.delay', a.http.delay ?? 0, 'number', 'min="0" max="300" step="0.5" placeholder="0"'))}
-                                <div style="display:flex;align-items:center;gap:0.45rem;padding-bottom:2px;">
+                                <div class="al-s50">
                                     <button type="button" class="btn sm" id="btn-test-webhook" style="white-space:nowrap;">
                                         ${ICONS.play} <span>Test Webhook</span>
                                     </button>
                                     <span id="webhook-test-result" style="font-size:0.73rem;"></span>
                                 </div>
                             </div>
-                            <span class="hint" style="font-size:0.71rem;">Set delay to 0 for immediate trigger, or wait N seconds after the alert fires. For <b>Bitfocus Companion</b> buttons (e.g. <code>/api/location/&lt;page&gt;/&lt;row&gt;/&lt;col&gt;/press</code>), set HTTP Method to <b>POST</b>.</span>
-                        ` : '<span class="hint" style="font-size:0.71rem;">Trigger external automation, Discord bot, Bitfocus Companion, or smart home light on alert.</span>'}
+                            <span class="al-s49 hint">Set delay to 0 for immediate trigger, or wait N seconds after the alert fires. For <b>Bitfocus Companion</b> buttons (e.g. <code>/api/location/&lt;page&gt;/&lt;row&gt;/&lt;col&gt;/press</code>), set HTTP Method to <b>POST</b>.</span>
+                        ` : '<span class="al-s49 hint">Trigger external automation, Discord bot, Bitfocus Companion, or smart home light on alert.</span>'}
                     </div>
                 </div>
             </details>
@@ -2749,7 +1672,7 @@
             return `
             <div>
                 <span class="grow">
-                    <span style="display:inline-flex;align-items:center;gap:0.35rem;">
+                    <span class="al-s51">
                         <span style="color:${meta.color}">${meta.icon}</span>
                         <b>${esc(TRIGGERS[e.event.type] || e.event.type)}</b>: ${esc(e.event.user || e.event.name || 'Anonymous')}${e.event.amount ? ` · <b>${esc(e.event.amount)}</b>` : ''}
                     </span>
@@ -2759,7 +1682,7 @@
                     ${ICONS.refresh} Replay
                 </button>
             </div>`;
-        }).join('') : '<p class="hint" style="padding:1rem;text-align:center;">Real stream events appear here as they occur in real time.</p>';
+        }).join('') : '<p class="al-s52 hint">Real stream events appear here as they occur in real time.</p>';
         if (eventsHtml !== _lastAlertsEventsHtml) {
             _lastAlertsEventsHtml = eventsHtml;
             $('events').innerHTML = eventsHtml;
@@ -2790,7 +1713,7 @@
         const historyHtml = (queue.history || []).length ? queue.history.map(h => `
             <div>
                 <span class="grow">
-                    <span style="display:inline-flex;align-items:center;gap:0.35rem;">
+                    <span class="al-s51">
                         ${h.test ? '<span class="badge accent">Test</span>' : ''}
                         <span>${esc(h.title || h.message || h.ruleName)}</span>
                     </span>
@@ -2800,7 +1723,7 @@
                     ${ICONS.refresh}
                 </button>
             </div>
-        `).join('') : '<p class="hint" style="padding:1rem;text-align:center;">No alerts shown yet in this session.</p>';
+        `).join('') : '<p class="al-s52 hint">No alerts shown yet in this session.</p>';
         if (historyHtml !== _lastAlertsHistoryHtml) {
             _lastAlertsHistoryHtml = historyHtml;
             $('history').innerHTML = historyHtml;
@@ -3415,15 +2338,15 @@
                     body: JSON.stringify({ url: targetUrl, method, ruleId: r?.id, trigger: r?.trigger })
                 });
                 if (res.ok) {
-                    if (statusEl) statusEl.innerHTML = `<span class="pill ok" style="font-size:0.7rem;padding:2px 8px;display:inline-flex;align-items:center;gap:3px;">${ICONS.check} ${res.status} OK</span>`;
+                    if (statusEl) statusEl.innerHTML = `<span class="al-s53 pill ok">${ICONS.check} ${res.status} OK</span>`;
                     toast('Webhook trigger succeeded');
                 } else {
                     const errMsg = res.note ? `${res.status} ${res.statusText}: ${res.note}` : (res.error || `${res.status} ${res.statusText}`);
-                    if (statusEl) statusEl.innerHTML = `<span class="pill dirty" style="font-size:0.7rem;padding:2px 8px;display:inline-flex;align-items:center;gap:3px;" title="${esc(errMsg)}">${ICONS.close} ${res.status || 'Error'}</span>`;
+                    if (statusEl) statusEl.innerHTML = `<span class="al-s53 pill dirty" title="${esc(errMsg)}">${ICONS.close} ${res.status || 'Error'}</span>`;
                     toast(`Webhook failed: ${errMsg}`, true);
                 }
             } catch (err) {
-                if (statusEl) statusEl.innerHTML = `<span class="pill dirty" style="font-size:0.7rem;padding:2px 8px;display:inline-flex;align-items:center;gap:3px;">${ICONS.close} Error</span>`;
+                if (statusEl) statusEl.innerHTML = `<span class="al-s53 pill dirty">${ICONS.close} Error</span>`;
                 toast(`Webhook error: ${err.message}`, true);
             }
             return;
