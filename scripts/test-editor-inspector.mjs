@@ -189,7 +189,7 @@ try {
     assert.equal((await page.$$('.layout-card')).length, 4, 'alert layout is four visual cards');
     assert.ok(await page.$('[data-trig-group] [data-alert-trigger="raid"]:checked'), 'When lists grouped events');
     await page.evaluate(() => window.fixture.select('alert', { alert: { mediaFit: 'cover' } }));
-    assert.ok(await page.$('[data-focal]'), 'Cover reveals the focal-point picker');
+    assert.equal(await page.$('[data-focal]'), null, 'focus is set per alert in Alerts, not in the overlay editor');
     await page.$eval('[data-seg-path="alert.layout"] [data-seg-value="side"]', node => node.click());
     assert.equal(await page.evaluate(() => window.fixture.primary().alert.layout), 'side');
     await page.evaluate(() => {

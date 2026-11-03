@@ -731,6 +731,10 @@
         return html;
     }
 
+    function focusPicker(i, v) {
+        const x = v.focusX ?? 50, y = v.focusY ?? 50;
+        return `<div class="focus-row"><div class="focus-pick" data-focus="${i}" style="background-image:url('${esc(v.image)}')" title="Click or drag to choose what stays visible when the image is cropped"><span class="focus-dot" style="left:${x}%;top:${y}%"></span></div><span class="hint">Focus point: used when the overlay crops this image (Cover fit).</span></div>`;
+    }
     function mediaField(i, key, kinds, accept, label) {
         const v = rule().variants[i];
         const val = v[key] || '';
@@ -1186,6 +1190,7 @@
                     </div>
                 ` : media === 'image' ? `
                     ${mediaField(i, 'image', ['image'], 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml', 'Alert Image / GIF')}
+                    ${v.image ? focusPicker(i, v) : ''}
                     ${v.video ? '<span class="al-s33 hint">Note: A video URL is also set and takes priority over the image on playback.</span>' : ''}
                 ` : `
                     ${emojiHtml(v, i, r)}
@@ -1436,12 +1441,12 @@
         const fill = t => String(t || '').replace(/\{\{alert\.(\w+)\}\}/g, (m, k) => SAMPLE_TOKENS[k] ?? m);
         const viewerEmote = r.trigger === 'bits' && v.emoteSource !== 'custom' && !v.emoji && !v.emojiUrl;
         const payload = {
-            title: fill(v.title), message: fill(v.message), image: v.video ? '' : v.image, video: v.video,
+            title: fill(v.title), message: fill(v.message), image: v.video ? '' : v.image, video: v.video, focusX: v.focusX ?? 50, focusY: v.focusY ?? 50,
             emoji: viewerEmote ? 'Cheer100' : v.emoji, emojiUrl: viewerEmote ? DEFAULT_CHEERMOTES[1].url : v.emojiUrl,
             emoteScale: v.emoteScale, videoSound: !!v.videoSound, videoVolume: v.videoVolume ?? 70, videoLoop: v.videoLoop !== false,
             animIn: animate ? v.animIn : 'none', animOut: animate ? v.animOut : 'none', durationMs: animate ? Math.max(1500, (Number(v.duration) || 6) * 1000) : 3600000
         };
-        const element = { alert: { layout: 'stack', mediaScale: 55, titleSize: 22, messageSize: 14, videoSound: !!v.videoSound, videoVolume: v.videoVolume ?? 70 }, style: { color: '#fff', background: '#1b1f2a', borderRadius: 10, padding: 10 } };
+        const element = { alert: { layout: 'stack', mediaFit: 'cover', mediaScale: 55, titleSize: 22, messageSize: 14, videoSound: !!v.videoSound, videoVolume: v.videoVolume ?? 70 }, style: { color: '#fff', background: '#1b1f2a', borderRadius: 10, padding: 10 } };
         try { previewHandle = OverlayShared.playAlert(stage, element, payload, { sound: withSound, onEnd: animate ? () => { if (stage.isConnected) mountPreview(); } : undefined }); } catch { stage.textContent = 'Preview unavailable'; }
     }
     const schedulePreview = () => { clearTimeout(previewTimer); previewTimer = setTimeout(() => mountPreview(), 150); };
@@ -2750,6 +2755,21 @@
         $('sim-tier').value = b.dataset.simtier;
         document.querySelectorAll('[data-simtier]').forEach(x => x.classList.toggle('active', x === b));
     });
+    (function () {
+        let drag = null;
+        const set = e => {
+            const box = drag, rc = box.getBoundingClientRect();
+            const x = Math.round(Math.min(1, Math.max(0, (e.clientX - rc.left) / rc.width)) * 100);
+            const y = Math.round(Math.min(1, Math.max(0, (e.clientY - rc.top) / rc.height)) * 100);
+            const v = rule().variants[Number(box.dataset.focus)];
+            v.focusX = x; v.focusY = y;
+            const dot = box.querySelector('.focus-dot'); dot.style.left = x + '%'; dot.style.top = y + '%';
+            setDirty(true);
+        };
+        document.addEventListener('pointerdown', e => { const b = e.target.closest('[data-focus]'); if (!b) return; drag = b; b.setPointerCapture?.(e.pointerId); set(e); });
+        document.addEventListener('pointermove', e => { if (drag) set(e); });
+        document.addEventListener('pointerup', () => { drag = null; });
+    })();
 </script>
 </body>
 </html>

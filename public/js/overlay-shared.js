@@ -2354,7 +2354,8 @@
             const media = document.createElement(isEmoji ? 'div' : payload.video ? 'video' : 'img');
             const scale = Math.max(10, Math.min(100, Number(cfg.mediaScale) || 60));
             const focusPos = v => Number.isFinite(Number(v)) && v !== null && v !== '' ? Math.max(0, Math.min(100, Number(v))) : 50;
-            const focusPosition = `${focusPos(cfg.mediaFocusX)}% ${focusPos(cfg.mediaFocusY)}%`;
+            const hasPayloadFocus = payload.focusX !== undefined && (payload.focusX !== 50 || payload.focusY !== 50);
+            const focusPosition = hasPayloadFocus ? `${focusPos(payload.focusX)}% ${focusPos(payload.focusY)}%` : `${focusPos(cfg.mediaFocusX)}% ${focusPos(cfg.mediaFocusY)}%`;
             if (isEmoji) {
                 const emoteUrl = payload.emojiUrl || (/^(https?:\/\/|\/|data:image\/)/i.test(payload.emoji) ? payload.emoji : '');
                 const isFa = !emoteUrl && payload.emoji && (payload.emoji.startsWith('fa-') || payload.emoji.includes('fa-'));

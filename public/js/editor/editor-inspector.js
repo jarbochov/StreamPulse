@@ -1199,9 +1199,7 @@ export function alertSection(el) {
             ${F.seg('alert.effectsTarget', 'Effects apply to', fx, [['media', 'Media'], ['box', 'Entire box']])}
             ${F.number('alert.mediaScale', 'Media size (%)', a.mediaScale || 60, { min: 10, max: 100 })}
             ${F.seg('alert.mediaFit', 'Media fit', cover ? 'cover' : 'contain', [['contain', 'Contain'], ['cover', 'Cover']])}
-            ${cover ? `<div class="field"><span>Focus point</span>
-                <div class="focal-picker" tabindex="0" role="slider" aria-label="Focus point, arrow keys to move" aria-valuetext="${fpX}% across, ${fpY}% down" data-focal ${thumb}><span class="focal-dot" style="left:${fpX}%;top:${fpY}%"></span></div>
-                <span class="hint">Click or drag to choose what stays visible when cropped.</span></div>` : ''}` : ''}`;
+            ${cover ? '<span class="hint">Focus point is set per alert in Alerts.</span>' : ''}` : ''}`;
 
     const text = a.hideText && layout === 'media' ? '<span class="hint">Text is hidden for this layout.</span>' : `
         <div class="grid2">${F.number('alert.titleSize', 'Title size (px)', a.titleSize || 44, { min: 8, max: 300 })}${F.number('alert.messageSize', 'Message size (px)', a.messageSize || 28, { min: 8, max: 300 })}</div>
@@ -1220,8 +1218,7 @@ export function alertSection(el) {
         <span class="hint">Animation timing is set per alert in Alerts.</span>`;
 
     const adv = `
-        ${F.check('alert.showOnPreview', 'Show placeholder on runtime preview', a.showOnPreview === true)}
-        ${cover ? `<div class="grid2">${F.number('alert.mediaFocusX', 'Focus X (%)', fpX, { min: 0, max: 100 })}${F.number('alert.mediaFocusY', 'Focus Y (%)', fpY, { min: 0, max: 100 })}</div>` : ''}`;
+        ${F.check('alert.showOnPreview', 'Show placeholder on runtime preview', a.showOnPreview === true)}`;
 
     return F.section('alert', 'Alert box', [
         subGroup('alert-g-preview', 'Preview', preview, true),
