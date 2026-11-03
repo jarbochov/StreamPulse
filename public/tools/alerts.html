@@ -2366,7 +2366,7 @@
             $('lib-q').focus();
             return;
         }
-        if (btn.dataset.test !== undefined) event.preventDefault();
+        if (btn.dataset.test !== undefined || btn.dataset.delVariant !== undefined) event.preventDefault();
         if (btn.dataset.setVariantType) {
             const vi = Number(btn.dataset.vi);
             if (r && r.variants[vi]) {
