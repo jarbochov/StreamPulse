@@ -51,14 +51,21 @@
                 <label class="master-toggle" title="Turn all alerts on or off system-wide">
                     <input type="checkbox" id="s-enabled">
                     <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                    <span class="toggle-label">Alerts Enabled</span>
+                    <span class="toggle-label">Enabled</span>
                 </label>
 
-                <div class="gap-control" title="Gap between alerts in seconds">
-                    <label for="s-gap">Gap:</label>
-                    <input type="number" id="s-gap" min="0" max="60" step="0.5" value="2">
-                    <span>s</span>
-                </div>
+                <details class="more-menu" id="queue-settings-menu">
+                    <summary class="btn ghost icon-btn" title="Queue settings" aria-label="Queue settings">
+                        <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+                    </summary>
+                    <div class="more-pop">
+                        <div class="gap-control" title="Gap between alerts in seconds">
+                            <label for="s-gap">Gap between alerts</label>
+                            <input type="number" id="s-gap" min="0" max="60" step="0.5" value="2">
+                            <span>s</span>
+                        </div>
+                    </div>
+                </details>
 
                 <div class="status-box" title="Current queue status">
                     <span class="status-dot" id="queue-dot"></span>
@@ -68,9 +75,8 @@
 
                 <span id="save-state" class="pill ok rules-only">Saved</span>
 
-                <button type="button" class="btn ghost rules-only" id="revert" title="Discard unsaved changes and reload from the server">
+                <button type="button" class="btn ghost icon-btn rules-only" id="revert" title="Revert: discard unsaved changes and reload from the server" aria-label="Revert">
                     <svg class="ico" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-                    <span>Revert</span>
                 </button>
 
                 <details class="more-menu" id="shortcuts-menu">
