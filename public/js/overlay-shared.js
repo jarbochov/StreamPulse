@@ -2427,7 +2427,7 @@
             if (!isEmoji) {
                 if (layout === 'side') { media.style.width = `${scale}%`; media.style.maxWidth = '50%'; media.style.height = '100%'; }
                 else if (layout === 'media') { media.style.width = '100%'; media.style.height = '100%'; }
-                else { media.style.height = `${scale}%`; media.style.maxWidth = '100%'; }
+                else { media.style.height = `${scale}%`; media.style.maxWidth = '100%'; if (hasPayloadFocus) media.style.width = '100%'; }
             } else if (layout === 'media') {
                 media.style.position = 'absolute'; media.style.inset = '0'; media.style.display = 'flex'; media.style.alignItems = 'center'; media.style.justifyContent = 'center';
             } else if (layout === 'side') {
@@ -2442,9 +2442,9 @@
                 wrap.style.position = wrap.style.position || 'relative';
                 if (!isEmoji) {
                     wrap.style.display = 'flex';
-                    wrap.style.width = layout === 'stack' ? '' : wrap.style.width;
+                    wrap.style.width = layout === 'stack' && !hasPayloadFocus ? '' : wrap.style.width;
                     media.className = 'alert-media-el';
-                    media.style.cssText = `height:100%;width:${layout === 'stack' ? 'auto' : '100%'};max-width:100%;object-fit:${fitMode};object-position:${fitMode === 'cover' ? focusPosition : '50% 50%'}`;
+                    media.style.cssText = `height:100%;width:${layout === 'stack' && !hasPayloadFocus ? 'auto' : '100%'};max-width:100%;object-fit:${fitMode};object-position:${fitMode === 'cover' ? focusPosition : '50% 50%'}`;
                     wrap.appendChild(media);
                     wrap.style.maxWidth = layout === 'side' ? '50%' : '100%';
                     mediaFxWrap = wrap;

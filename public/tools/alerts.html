@@ -641,7 +641,7 @@
                     <div class="rule-item-name">${esc(r.name)}</div>
                     <div class="rule-item-meta">
                         <span class="rule-item-tag" style="color:${meta.color};">${esc(meta.label)}</span>
-                        ${r.webhookOnly ? `<span class="al-s5 rule-item-tag">Webhook Only</span>` : ''}
+                        ${r.webhookOnly ? `<span class="al-s5 rule-item-tag">Action Only</span>` : ''}
                         ${amtCond ? `<span class="rule-item-tag">${esc(amtCond)}</span>` : ''}
                     </div>
                 </div>
@@ -1391,7 +1391,7 @@
         }
         const extras = [r.actions.timer.enabled ? 'trigger a timer' : '', r.actions.http.enabled ? `send a webhook${r.actions.http.delay > 0 ? ` (after ${r.actions.http.delay}s)` : ''}` : ''].filter(Boolean);
         if (r.webhookOnly) {
-            const actStr = extras.length ? extras.join(' and ') : 'trigger webhook only';
+            const actStr = extras.length ? extras.join(' and ') : 'run its actions only';
             return `${when}, ${actStr} silently without on-screen overlay or page takeovers.${r.enabled ? '' : ' (This rule is currently disabled.)'}`;
         }
         return `${when}, display ${r.variants.length > 1 ? `one of ${r.variants.length} variants` : 'the alert'}${extras.length ? ' and ' + extras.join(' and ') : ''}.${r.enabled ? '' : ' (This rule is currently disabled.)'}`;
@@ -1537,7 +1537,7 @@
                     <span class="summary-sep" aria-hidden="true"></span>
                     ${hasMetric ? `
                         <div class="al-s40">
-                            <span style="font-size:0.71rem;color:var(--text-muted);font-weight:600;">Simulate ${esc(metricName)}:</span>
+                            <span class="sim-label">Simulate ${esc(metricName)}</span>
                             <input class="al-s41" type="number" min="0" data-test-amount value="${testAmount || ''}" placeholder="${r.conditions.minAmount || 100}">
                         </div>
                     ` : ''}
@@ -1545,9 +1545,9 @@
                     <details class="more-menu" data-persist="alerts.moreOpen"${localStorage.getItem('alerts.moreOpen') === '1' ? ' open' : ''}>
                         <summary class="btn sm ghost">More ${ICONS.chevronDown}</summary>
                         <div class="more-pop">
-                            <label class="al-s42 check-row" title="Webhook Only: triggers webhooks silently without on-screen alert boxes, alert audio, or page rotators">
+                            <label class="al-s42 check-row" title="Action Only: runs the actions (webhook, timer, chat, Companion) with no on-screen alert, text, media, sound or page">
                                 <input type="checkbox" data-f="webhookOnly" data-type="check" ${r.webhookOnly ? 'checked' : ''}>
-                                <span style="font-size:0.75rem;font-weight:700;">Webhook Only</span>
+                                <span style="font-size:0.75rem;font-weight:700;">Action only</span>
                             </label>
                             <button type="button" class="btn sm" id="dup-rule" title="Duplicate rule (Cmd/Ctrl+D)">${ICONS.copy} Duplicate</button>
                             <button type="button" class="btn sm danger" id="del-rule" title="Delete rule">${ICONS.trash} Delete</button>
@@ -1575,21 +1575,15 @@
                     ${r.webhookOnly ? `
                         <div class="al-s44">
                             ${ICONS.info}
-                            <span><b>Webhook Only Alert:</b> Triggers webhooks and actions silently. On-screen alerts, sounds and page rotators are skipped.</span>
+                            <span><b>Action only:</b> runs the actions below with no on-screen alert, sound or page.</span>
                         </div>
                     ` : ''}
                     ${conditionsHtml(r)}
                 </div>
             </details>
 
-            <div class="card" id="display-card">
+            ${r.webhookOnly ? `<div class="card" id="display-card"><div class="al-s45">${ICONS.info}<span><b>Action only:</b> this rule shows no alert, text, media or sound. It only runs the actions below.</span></div></div>` : `<div class="card" id="display-card">
                 ${ladderHtml}
-                ${r.webhookOnly ? `
-                    <div class="al-s45">
-                        ${ICONS.info}
-                        <span>On-screen alert box elements, sounds, and page rotators are bypassed when <b>Webhook Only</b> is enabled.</span>
-                    </div>
-                ` : ''}
                 <div class="card-head-row">
                     <h2>
                         <span class="al-s1">${ICONS.image}<span>Show</span></span>
@@ -1619,7 +1613,7 @@
                         </div>`;
                     }).join('');
                 })()}
-            </div>
+            </div>`}
 
             <details class="card adv-card" id="adv-actions"${localStorage.getItem('alerts.advOpen') === '1' ? ' open' : ''}>
                 <summary class="adv-toggle">
@@ -2507,7 +2501,7 @@
                 })
             });
             if (r.webhookOnly) {
-                toast(`Fired test webhook for "${r.name}" (silent alert)`);
+                toast(`Ran actions for "${r.name}" (action only)`);
             } else {
                 const vIdx = res.alert?.variantId ? r.variants.findIndex(x => x.id === res.alert.variantId) : -1;
                 const label = vIdx >= 0 ? `Variant ${vIdx + 1}` : 'alert';

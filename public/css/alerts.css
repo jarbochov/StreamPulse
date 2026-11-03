@@ -1188,3 +1188,10 @@ body .al-s53 { font-size:0.7rem; padding:2px 8px; display:inline-flex; align-ite
 .summary-banner .rule-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 32ch; }
 .summary-sep { width: 1px; height: 22px; background: var(--border); }
 .summary-actions .more-menu > summary { height: 28px; display: inline-flex; align-items: center; }
+.summary-banner .summary-left { flex: 1 1 120px; }
+.summary-banner .summary-actions { flex: 0 0 auto; }
+.summary-banner .rule-title { max-width: 100%; min-width: 0; }
+.summary-banner .summary-left > div:first-child { min-width: 0; max-width: 100%; }
+.sim-label { font-size: 0.71rem; color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+@media (max-width: 1300px) { .sim-label { display: none; } }
+.summary-banner .summary-left > div:first-child .badge { flex: 0 0 auto; }
