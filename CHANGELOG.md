@@ -7,6 +7,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- Bundled alert sound library: 22 CC0 Kenney jingle/impact clips (Celebration, Hype, Impact, Chime/Bell, Retro) plus 15 Synth and 15 layered synthesized presets (fanfares, air horn, bass drop, applause, gong) in the alert sound picker.
 - Alerts page: variants grouped under Base and milestone tiers with threshold labels, odds pills and one-open-at-a-time rows; clickable ladder; live preview with Play sound; optional media thumbnails; inline warnings; rule search with Active/Inactive filters; Import/Export JSON (merge or replace); Copy/Paste style between variants; Revert; keyboard shortcuts (Cmd/Ctrl+S, Cmd/Ctrl+Enter, Cmd/Ctrl+D, /).
 - Alert box media focal point (Focus X/Y, shown for Fill media) and custom padding.
 - Alert box "Apply media effects to" setting: filters and tint can target only the alert's media so title and message text stay crisp.

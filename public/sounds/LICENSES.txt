@@ -1,0 +1,16 @@
+StreamPulse bundled alert sounds
+
+File sounds (public/sounds/<group>/*.mp3) are derived from Kenney audio packs,
+released under Creative Commons Zero (CC0 1.0), https://creativecommons.org/publicdomain/zero/1.0/
+Converted to mono 96 kbps MP3. Attribution is not required.
+  - Interface Sounds  https://kenney.nl/assets/interface-sounds
+  - Digital Audio     https://kenney.nl/assets/digital-audio
+  - Impact Sounds     https://kenney.nl/assets/impact-sounds
+  - Music Jingles     https://kenney.nl/assets/music-jingles (Boyquotes/kenney-music-jingles-for-godot)
+All clips loudness-normalized to about -14 LUFS, true peak -1.5 dB.
+(Obtained via CC0 repackagings: github.com/Calinou/kenney-interface-sounds,
+ Boyquotes/kenney-digital-audio-for-godot, Boyquotes/kenney-impact-sounds-for-godot;
+ each includes the CC0 1.0 licence text.)
+
+Synthesized presets (builtin:zzfx_*) use a compact ZzFX-compatible generator.
+ZzFX Copyright (c) 2019 Frank Force, MIT License, https://github.com/KilledByAPixel/ZzFX

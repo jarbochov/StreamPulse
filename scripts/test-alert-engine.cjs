@@ -1025,3 +1025,34 @@ test('bits emoteSource viewer resolves cheermote family and summed tier', () => 
         assert.equal(fire(e3, { amount: 150, message: 'Kappa100' }).emoji, 'Big');
     } finally { cleanup(); c2(); c3(); }
 });
+
+test('bundled alert sound library: manifest files exist, stay small, and sfx values resolve', () => {
+    const dir = path.join(__dirname, '..', 'public', 'sounds');
+    const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8'));
+    let total = 0, count = 0;
+    for (const group of manifest.groups) {
+        assert.ok(group.id && group.label && group.sounds.length);
+        for (const s of group.sounds) {
+            const file = path.join(dir, s.file);
+            assert.ok(fs.existsSync(file), `missing ${s.file}`);
+            assert.equal(s.file.split('/')[0], group.id);
+            assert.ok(s.duration > 0 && s.duration < 3, `${s.id} duration`);
+            total += fs.statSync(file).size;
+            count++;
+        }
+    }
+    assert.ok(count >= 20);
+    assert.ok(total < 1.5 * 1024 * 1024, `total ${total}`);
+    assert.match(fs.readFileSync(path.join(dir, 'LICENSES.txt'), 'utf8'), /CC0/);
+
+    const win = {};
+    new Function('window', fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'overlay-shared.js'), 'utf8'))(win);
+    const OS = win.OverlayShared;
+    assert.equal(OS.resolveSoundUrl('sfx:hype/power_surge'), '/sounds/hype/power_surge.mp3');
+    assert.equal(OS.resolveSoundUrl('/custom-overlay-assets/a.mp3'), '/custom-overlay-assets/a.mp3');
+    assert.ok(OS.BUILTIN_SOUNDS.ding && OS.BUILTIN_SOUNDS.zz_coin);
+    const samples = OS.zzfxSamples(...OS.BUILTIN_SOUNDS.zz_coin.zzfx);
+    assert.ok(samples.length > 1000 && samples.every(Number.isFinite));
+    const { normalizeConfig: nc } = require('../server/services/alerts.js');
+    assert.ok(nc({ rules: [{ id: 'r', trigger: 'follow', variants: [{ sound: 'sfx:hype/power_surge' }] }] }).rules[0].variants[0].sound === 'sfx:hype/power_surge');
+});

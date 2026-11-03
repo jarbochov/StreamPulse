@@ -1,0 +1,166 @@
+{
+  "groups": [
+    {
+      "id": "celebration",
+      "label": "Celebration",
+      "sounds": [
+        {
+          "id": "big_win_sax",
+          "label": "Sax Big Win",
+          "file": "celebration/big_win_sax.mp3",
+          "duration": 1.74
+        },
+        {
+          "id": "fanfare_steel",
+          "label": "Steel Fanfare",
+          "file": "celebration/fanfare_steel.mp3",
+          "duration": 1.38
+        },
+        {
+          "id": "pizzicato_party",
+          "label": "Pizzicato Party",
+          "file": "celebration/pizzicato_party.mp3",
+          "duration": 1.32
+        },
+        {
+          "id": "retro_victory",
+          "label": "8-Bit Victory",
+          "file": "celebration/retro_victory.mp3",
+          "duration": 1.76
+        },
+        {
+          "id": "victory_steel",
+          "label": "Steel Victory",
+          "file": "celebration/victory_steel.mp3",
+          "duration": 1.55
+        }
+      ]
+    },
+    {
+      "id": "hype",
+      "label": "Hype",
+      "sounds": [
+        {
+          "id": "hit_big",
+          "label": "Big Hit",
+          "file": "hype/hit_big.mp3",
+          "duration": 1.16
+        },
+        {
+          "id": "hit_rise",
+          "label": "Rising Hit",
+          "file": "hype/hit_rise.mp3",
+          "duration": 0.75
+        },
+        {
+          "id": "hit_slam",
+          "label": "Slam Hit",
+          "file": "hype/hit_slam.mp3",
+          "duration": 0.75
+        },
+        {
+          "id": "hit_stinger",
+          "label": "Hit Stinger",
+          "file": "hype/hit_stinger.mp3",
+          "duration": 0.96
+        },
+        {
+          "id": "power_charge",
+          "label": "Charge Up",
+          "file": "hype/power_charge.mp3",
+          "duration": 1.15
+        },
+        {
+          "id": "power_surge",
+          "label": "Power Surge",
+          "file": "hype/power_surge.mp3",
+          "duration": 1.2
+        }
+      ]
+    },
+    {
+      "id": "impact",
+      "label": "Impact",
+      "sounds": [
+        {
+          "id": "glass_smash",
+          "label": "Glass Smash",
+          "file": "impact/glass_smash.mp3",
+          "duration": 0.43
+        },
+        {
+          "id": "metal_hit",
+          "label": "Metal Hit",
+          "file": "impact/metal_hit.mp3",
+          "duration": 0.36
+        },
+        {
+          "id": "plate_slam",
+          "label": "Plate Slam",
+          "file": "impact/plate_slam.mp3",
+          "duration": 0.56
+        },
+        {
+          "id": "punch",
+          "label": "Punch",
+          "file": "impact/punch.mp3",
+          "duration": 0.65
+        }
+      ]
+    },
+    {
+      "id": "chime",
+      "label": "Chime/Bell",
+      "sounds": [
+        {
+          "id": "bell_long",
+          "label": "Long Bell",
+          "file": "chime/bell_long.mp3",
+          "duration": 1.48
+        },
+        {
+          "id": "bell_low",
+          "label": "Low Bell",
+          "file": "chime/bell_low.mp3",
+          "duration": 0.7
+        },
+        {
+          "id": "glass_ring",
+          "label": "Glass Ring",
+          "file": "chime/glass_ring.mp3",
+          "duration": 0.71
+        }
+      ]
+    },
+    {
+      "id": "retro",
+      "label": "Retro",
+      "sounds": [
+        {
+          "id": "laser_shot",
+          "label": "Laser Shot",
+          "file": "retro/laser_shot.mp3",
+          "duration": 1.09
+        },
+        {
+          "id": "nes_jingle",
+          "label": "NES Jingle",
+          "file": "retro/nes_jingle.mp3",
+          "duration": 0.85
+        },
+        {
+          "id": "nes_level_up",
+          "label": "NES Level Up",
+          "file": "retro/nes_level_up.mp3",
+          "duration": 1.05
+        },
+        {
+          "id": "retro_power",
+          "label": "Retro Power",
+          "file": "retro/retro_power.mp3",
+          "duration": 0.47
+        }
+      ]
+    }
+  ]
+}

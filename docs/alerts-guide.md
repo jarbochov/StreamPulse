@@ -53,6 +53,7 @@ Alert rules can trigger external automation via HTTP POST or GET webhooks:
 
 - **Layout:** each rule reads top-down as **When** (rule name, trigger, conditions, cooldown, with a sentence summary such as "When someone cheers 100+ bits" and an Edit toggle; open by default), **Show** (variants grouped under the Base alert and each milestone tier, with threshold label and odds pill; one variant open at a time; clickable ladder strip), then **Then** (webhook and timer actions).
 - **Controls:** options with four or fewer choices are pill groups; long lists (trigger, animations, sounds) stay dropdowns. Animation in/out is one row with a Replay button, and video audio options sit in a collapsed Advanced section per variant.
+- **Sounds:** the sound dropdown lists built-in synthesized presets (including a Synth group) and bundled CC0 file sounds grouped by mood (Celebration, Hype, Impact, Chime/Bell, Retro) plus layered synthesized presets (fanfares, air horn, bass drop, applause, gong), stored as `builtin:<name>` or `sfx:<group>/<id>`. Custom URLs and uploads still work. Credits in `public/sounds/LICENSES.txt`.
 - **Live preview:** the open variant shows its alert card as you type. **Play sound** uses the variant's saved Alert/Video volume (there is no separate preview volume).
 - **Warnings:** missing base alert, duplicate thresholds, unreachable variants, missing sound/media and bits cheermote notes appear inline.
 - **Find rules:** search by name, trigger, title or message; filter by trigger type or Active/Inactive. Toggle media thumbnails on or off.
