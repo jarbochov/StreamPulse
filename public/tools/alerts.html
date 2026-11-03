@@ -1058,6 +1058,33 @@
         .when-card[open] > summary .btn .ico { transform: rotate(180deg); }
         .seg-pills .seg-btn { white-space: nowrap; }
         #shortcuts-menu { position: relative; }
+        /* Contrast: darker page, raised cards, inset groups */
+        :root { --bg-page: color-mix(in srgb, #0f1117 70%, #000); --bg-inset: #0a0d12; --border: #3a424c; --card-shadow: 0 1px 2px rgba(0,0,0,.5), 0 4px 14px rgba(0,0,0,.28); }
+        :root[data-theme="light"] { --bg-page: #dde3ea; --bg-inset: #eef1f5; --border: #b4bdc7; --card-shadow: 0 1px 2px rgba(31,35,40,.12), 0 3px 10px rgba(31,35,40,.08); }
+        .card, .alerts-toolbar, .summary-banner, .guide-banner, .variant { box-shadow: var(--card-shadow); }
+        .media-field-box { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.7rem; }
+        .snd-chip { display: flex; align-items: center; gap: 0.45rem; background: var(--bg-card); border: 1px solid var(--accent); border-radius: 999px; padding: 0.25rem 0.35rem 0.25rem 0.3rem; }
+        .snd-chip-name { flex: 1; min-width: 0; font-size: 0.82rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 0.3rem; }
+        dialog.snd-dlg { margin: auto; background: var(--bg-card); color: var(--text); border: 1px solid var(--border-strong); border-radius: 12px; padding: 0; width: min(560px, 94vw); max-height: 82vh; box-shadow: 0 12px 36px rgba(0,0,0,0.5); }
+        dialog.snd-dlg[open] { display: flex; flex-direction: column; }
+        dialog.snd-dlg::backdrop { background: rgba(0,0,0,0.65); backdrop-filter: blur(2px); }
+        .snd-head { display: flex; gap: 0.75rem; align-items: center; padding: 0.85rem 1.1rem; border-bottom: 1px solid var(--border); }
+        .snd-head h2 { font-size: 0.95rem; white-space: nowrap; }
+        .snd-head .lib-search-box { flex: 1; }
+        .snd-tabs { display: flex; gap: 0.35rem; flex-wrap: wrap; padding: 0.7rem 1.1rem 0.3rem; }
+        .snd-tab { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem 0.65rem; font: inherit; font-size: 0.76rem; font-weight: 600; color: var(--text-muted); cursor: pointer; display: inline-flex; gap: 0.35rem; align-items: center; }
+        .snd-tab.active { border-color: var(--accent); color: var(--text); background: color-mix(in srgb, var(--accent) 16%, var(--bg-card)); }
+        .snd-list { overflow-y: auto; padding: 0.5rem 1.1rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.45rem; min-height: 160px; align-content: start; }
+        .snd-item { display: flex; align-items: center; gap: 0.5rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0.5rem; cursor: pointer; }
+        .snd-item:hover { border-color: var(--border-strong); }
+        .snd-item.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--bg-card)); }
+        .snd-item-name { flex: 1; font-size: 0.8rem; font-weight: 600; min-width: 0; }
+        .snd-item-grp { display: block; font-size: 0.68rem; color: var(--text-muted); font-weight: 500; }
+        .snd-check { color: var(--accent); width: 16px; height: 16px; }
+        .snd-empty { grid-column: 1 / -1; color: var(--text-muted); font-size: 0.8rem; padding: 1rem 0; }
+        .snd-foot { display: flex; gap: 0.5rem; align-items: center; padding: 0.7rem 1.1rem; border-top: 1px solid var(--border); }
+        #snd-none.selected { border-color: var(--accent); }
+        .snd-tab:focus-visible, .snd-item:focus-visible, .snd-dlg .btn:focus-visible, .snd-chip .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     </style>
 </head>
 <body>
@@ -1372,6 +1399,21 @@
         <div class="lib-grid" id="lib-grid"></div>
     </dialog>
 
+    <dialog class="snd-dlg" id="snd-dlg" aria-modal="true" aria-labelledby="snd-title">
+        <div class="snd-head">
+            <h2 id="snd-title">Built-in sounds</h2>
+            <div class="lib-search-box"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input id="snd-q" type="search" placeholder="Search all sounds" aria-label="Search sounds"></div>
+        </div>
+        <div class="snd-tabs" id="snd-tabs" role="tablist" aria-label="Sound groups"></div>
+        <div class="snd-list" id="snd-list" role="listbox" aria-label="Sounds"></div>
+        <div class="snd-foot">
+            <button type="button" class="btn sm" id="snd-none">None (clear)</button>
+            <span style="flex:1"></span>
+            <button type="button" class="btn sm ghost" id="snd-cancel">Cancel</button>
+            <button type="button" class="btn sm primary" id="snd-done">Select</button>
+        </div>
+    </dialog>
+
     <div id="toast"></div>
 
     <dialog id="import-dlg" class="sp-dlg">
@@ -1400,6 +1442,7 @@
     const ICONS = {
         save: '<svg class="ico" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>',
         plus: '<svg class="ico" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+        stop: '<svg class="ico" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>',
         play: '<svg class="ico" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
         pause: '<svg class="ico" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>',
         skip: '<svg class="ico" viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>',
@@ -1787,37 +1830,117 @@
     fetch('/sounds/manifest.json').then(r => r.json()).then(m => { SFX_GROUPS = m.groups || []; if (typeof renderEditor === 'function') try { renderEditor(); } catch {} }).catch(() => {});
     let testAmount = 0, styleClip = null;
 
+    const SND_GROUPS = ['Celebration', 'Hype', 'Impact', 'Cheer/Crowd', 'Chime/Bell', 'Retro', 'Synth'];
+    const SND_MAP = { Arcade: 'Retro', Chimes: 'Chime/Bell', 'Modern UI': 'Synth', Other: 'Synth' };
+    const SFX_MAP = { celebration: 'Celebration', hype: 'Hype', impact: 'Impact', chime: 'Chime/Bell', retro: 'Retro', cheer: 'Cheer/Crowd', crowd: 'Cheer/Crowd', synth: 'Synth' };
+    function soundCatalog() {
+        const out = [];
+        for (const g of SFX_GROUPS) for (const s of g.sounds) out.push({ value: `sfx:${g.id}/${s.id}`, label: s.label, group: SFX_MAP[g.id] || g.label });
+        for (const [key, def] of Object.entries(BUILTIN || {})) out.push({ value: `builtin:${key}`, label: def.label, group: SND_MAP[def.group] || def.group || 'Synth' });
+        return out;
+    }
+    const sndName = val => (soundCatalog().find(s => s.value === val) || {}).label || String(val).replace(/^(builtin:|sfx:)/, '').replace(/^[^/]*\//, '').replace(/_/g, ' ');
+
     function soundHtml(v, i) {
-        const name = builtinName(v);
-        const file = (name || isSfx(v)) ? '' : mediaField(i, 'sound', ['audio'], 'audio/mpeg,audio/wav,audio/mp4,audio/aac,audio/ogg', 'Custom Audio File');
-        const groups = {};
-        for (const [key, def] of Object.entries(BUILTIN || {})) {
-            const grp = def.group || 'Other';
-            if (!groups[grp]) groups[grp] = [];
-            groups[grp].push([key, def.label]);
-        }
+        const isBuiltin = !!(builtinName(v) || isSfx(v));
+        const file = isBuiltin ? '' : mediaField(i, 'sound', ['audio'], 'audio/mpeg,audio/wav,audio/mp4,audio/aac,audio/ogg', 'Custom Audio File');
+        const chip = isBuiltin ? `
+            <div class="media-field-box">
+                <div class="media-field-top"><span class="media-field-label">Built-in Sound</span></div>
+                <div class="snd-chip">
+                    <button type="button" class="btn sm icon-btn" data-snd-play="${i}" aria-label="Play ${esc(sndName(v.sound))}">${ICONS.play}</button>
+                    <span class="snd-chip-name" title="${esc(v.sound)}">${esc(sndName(v.sound))}</span>
+                    <button type="button" class="btn sm" data-snd-browse="${i}">Change</button>
+                    <button type="button" class="btn sm ghost danger icon-btn" data-snd-remove="${i}" aria-label="Remove built-in sound">${ICONS.close}</button>
+                </div>
+            </div>` : '';
+        const browse = isBuiltin ? '' : `<div><button type="button" class="btn sm" data-snd-browse="${i}"><svg class="ico" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> <span>Browse built-in sounds</span></button></div>`;
         return `
         <div class="vgrid c2">
-            <div class="media-field-box">
-                <div class="media-field-top">
-                    <span class="media-field-label">Built-in Sound Preset</span>
-                </div>
-                <div class="media-row" style="margin-top:0.2rem;">
-                    <select data-sound-preset="${i}">
-                        <option value="">Custom file / None</option>
-                        ${SFX_GROUPS.map(g => `<optgroup label="${esc(g.label)} (file)">${g.sounds.map(s => { const val = `sfx:${g.id}/${s.id}`; return `<option value="${val}"${val === v.sound ? ' selected' : ''}>${esc(s.label)}</option>`; }).join('')}</optgroup>`).join('')}
-                        ${Object.entries(groups).map(([grp, items]) => `
-                            <optgroup label="${esc(grp)}">
-                                ${items.map(([key, lbl]) => `<option value="builtin:${key}"${key === name ? ' selected' : ''}>${esc(lbl)}</option>`).join('')}
-                            </optgroup>
-                        `).join('')}
-                    </select>
-                    <button type="button" class="btn sm" data-sound-preview="${i}" ${v.sound ? '' : 'disabled'}>${ICONS.play} <span>Preview</span></button>
-                </div>
-            </div>
-            ${file}
+            ${chip}${isBuiltin ? '' : `<div style="display:flex;flex-direction:column;gap:0.5rem;">${file}${browse}</div>`}
         </div>`;
     }
+
+    // Built-in sound browser
+    const snd = { idx: 0, pending: '', group: localStorage.getItem('alerts.sndGroup') || 'Celebration', q: '', audio: null, playing: '', opener: null };
+    function sndStop() { try { snd.audio && snd.audio.pause && snd.audio.pause(); } catch {} snd.audio = null; snd.playing = ''; }
+    function sndPlay(value, vol) { sndStop(); snd.playing = value; snd.audio = OverlayShared.playSoundValue(value, vol); setTimeout(() => { if (snd.playing === value) { snd.playing = ''; sndRender(); } }, 4000); }
+    function sndRender() {
+        const dlg = $('snd-dlg');
+        const all = soundCatalog();
+        const q = snd.q.trim().toLowerCase();
+        dlg.querySelector('#snd-tabs').innerHTML = SND_GROUPS.map(g => `<button type="button" role="tab" class="snd-tab${!q && g === snd.group ? ' active' : ''}" aria-selected="${!q && g === snd.group}" data-snd-group="${esc(g)}">${esc(g)} <span class="count-pill">${all.filter(s => s.group === g).length}</span></button>`).join('');
+        const items = all.filter(s => q ? (s.label + ' ' + s.group).toLowerCase().includes(q) : s.group === snd.group);
+        dlg.querySelector('#snd-list').innerHTML = (items.length ? items : []).map(s => `
+            <div class="snd-item${s.value === snd.pending ? ' selected' : ''}" data-snd-pick="${esc(s.value)}" role="option" aria-selected="${s.value === snd.pending}" tabindex="0">
+                <button type="button" class="btn sm icon-btn" data-snd-toggle="${esc(s.value)}" aria-label="${snd.playing === s.value ? 'Stop' : 'Play'} ${esc(s.label)}">${snd.playing === s.value ? ICONS.stop : ICONS.play}</button>
+                <span class="snd-item-name">${esc(s.label)}${q ? ` <span class="snd-item-grp">${esc(s.group)}</span>` : ''}</span>
+                ${s.value === snd.pending ? `<svg class="ico snd-check" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>` : ''}
+            </div>`).join('') || '<div class="snd-empty">No sounds match.</div>';
+        dlg.querySelector('#snd-none').classList.toggle('selected', !snd.pending);
+    }
+    function sndOpen(idx) {
+        const v = rule().variants[idx];
+        snd.idx = idx; snd.q = ''; snd.opener = document.activeElement;
+        snd.pending = (builtinName(v) || isSfx(v)) ? v.sound : '';
+        const cur = soundCatalog().find(s => s.value === snd.pending);
+        if (cur) snd.group = cur.group;
+        if (!SND_GROUPS.includes(snd.group)) snd.group = SND_GROUPS[0];
+        $('snd-q').value = '';
+        sndRender();
+        $('snd-dlg').showModal();
+        $('snd-q').focus();
+    }
+    function sndClose() { sndStop(); const d = $('snd-dlg'); if (d.open) d.close(); }
+    function sndCommit() {
+        const r = rule(), v = r.variants[snd.idx];
+        const was = (builtinName(v) || isSfx(v)) ? v.sound : '';
+        if (snd.pending !== was) {
+            if (snd.pending) v.sound = snd.pending; else if (was) v.sound = '';
+            setDirty(true);
+        }
+        sndClose();
+        renderEditor();
+    }
+    document.addEventListener('click', e => {
+        const t = e.target;
+        if (t.id === 'snd-dlg') return sndClose();
+        const g = t.closest('[data-snd-group]');
+        if (g) { snd.group = g.dataset.sndGroup; snd.q = ''; $('snd-q').value = ''; localStorage.setItem('alerts.sndGroup', snd.group); return sndRender(); }
+        const tg = t.closest('[data-snd-toggle]');
+        if (tg) {
+            const val = tg.dataset.sndToggle;
+            if (snd.playing === val) sndStop(); else sndPlay(val, (rule().variants[snd.idx].volume ?? 70) / 100);
+            return sndRender();
+        }
+        const pk = t.closest('[data-snd-pick]');
+        if (pk) { snd.pending = pk.dataset.sndPick; return sndRender(); }
+        if (t.closest('#snd-none')) { snd.pending = ''; return sndRender(); }
+        if (t.closest('#snd-done')) return sndCommit();
+        if (t.closest('#snd-cancel')) return sndClose();
+        const br = t.closest('[data-snd-browse]');
+        if (br) return sndOpen(br.dataset.sndBrowse);
+        const pl = t.closest('[data-snd-play]');
+        if (pl) { const v = rule().variants[pl.dataset.sndPlay]; if (v.sound) OverlayShared.playSoundValue(v.sound, (v.volume ?? 70) / 100); return; }
+        const rm = t.closest('[data-snd-remove]');
+        if (rm) { rule().variants[rm.dataset.sndRemove].sound = ''; setDirty(true); renderEditor(); }
+    });
+    document.addEventListener('input', e => { if (e.target.id === 'snd-q') { snd.q = e.target.value; sndRender(); } });
+    document.addEventListener('keydown', e => {
+        const d = $('snd-dlg');
+        if (!d || !d.open) return;
+        if (e.key === 'Tab') {
+            const f = [...d.querySelectorAll('button, input, [tabindex="0"]')].filter(x => !x.disabled && x.offsetParent !== null);
+            const first = f[0], last = f[f.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        } else if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-snd-pick]')) {
+            e.preventDefault(); snd.pending = e.target.dataset.sndPick; sndRender();
+            d.querySelector(`[data-snd-pick="${CSS.escape(snd.pending)}"]`)?.focus();
+        }
+    });
+    $('snd-dlg').addEventListener('close', () => { sndStop(); snd.opener && snd.opener.isConnected && snd.opener.focus(); });
+    $('snd-dlg').addEventListener('cancel', () => sndStop());
 
     function emojiHtml(v, i, r) {
         const amountLabel = AMOUNT_LABEL[r.trigger] && r.trigger !== 'sub' ? AMOUNT_LABEL[r.trigger].toLowerCase() : '';
