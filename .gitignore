@@ -22,4 +22,5 @@ Thumbs.db
 .nova/
 
 # Test temporary profiles
-scripts/.editor-activity-browser-*
+scripts/.*-browser-*
+scripts/.test-*

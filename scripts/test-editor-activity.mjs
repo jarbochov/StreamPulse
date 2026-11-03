@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { mkdir, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import puppeteer from 'puppeteer';
 
@@ -41,7 +42,7 @@ const server = createServer((request, response) => {
 });
 await new Promise(done => server.listen(0, '127.0.0.1', done));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const profile = resolve(`scripts/.editor-activity-browser-${process.pid}`);
+const profile = resolve(tmpdir(), `.editor-activity-browser-${process.pid}`);
 let browser;
 try {
     await mkdir(profile, { recursive: true });

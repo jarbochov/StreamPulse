@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const http = require('node:http');
 const puppeteer = require('puppeteer');
 const { createStaticRouter } = require('../server/static-router');
@@ -142,7 +143,7 @@ if (process.argv.includes('--safari-fixture')) {
         const server = fixtureServer();
         await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
         t.after(() => new Promise(resolve => server.close(resolve)));
-        const profile = path.join(__dirname, `.idle-browser-${process.pid}`);
+        const profile = path.join(os.tmpdir(), `.idle-browser-${process.pid}`);
         fs.mkdirSync(profile, { recursive: true });
         let browser;
         t.after(async () => {

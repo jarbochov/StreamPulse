@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdir, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import puppeteer from 'puppeteer';
 
@@ -21,7 +22,7 @@ const plan = {
     lists: [{ id: 'collection', name: 'Fictional Collection' }],
     periods: ['October', 'November']
 };
-const profile = resolve(`scripts/.game-plan-browser-${process.pid}`);
+const profile = resolve(tmpdir(), `.game-plan-browser-${process.pid}`);
 let browser;
 const errors = [];
 try {

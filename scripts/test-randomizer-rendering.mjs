@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdir, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import puppeteer from 'puppeteer';
 
@@ -41,7 +42,7 @@ for (const [route, file] of [
     const html = await readFile(new URL(`../public/${file}`, import.meta.url), 'utf8');
     sources.set(route, html.replace('        connectWs();', `        connectWs();\n${hooks}`));
 }
-const profile = resolve(`scripts/.randomizer-browser-${process.pid}`);
+const profile = resolve(tmpdir(), `.randomizer-browser-${process.pid}`);
 const errors = [];
 const measurements = [];
 let browser;
