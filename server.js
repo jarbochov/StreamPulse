@@ -66,11 +66,16 @@ const { createCrmRoutes } = require('./server/routes/crm');
 const { createSystemRoutes } = require('./server/routes/system');
 const { createHighlightsRoutes } = require('./server/routes/highlights');
 const { createBackupRoutes } = require('./server/routes/backup');
-const { createBackupService } = require('./server/services/backup');
+const { createBackupService, buildBackupFileSpecs } = require('./server/services/backup');
 const { normalizeSsnSessionId } = require('./server/ssn-config');
 const { createUpdateService } = require('./server/services/updates');
 const { createObsService, normalizeObsConfig } = require('./server/services/obs');
 const { createObsRoutes } = require('./server/routes/obs');
+const { createRateLimiter } = require('./server/services/rate-limit');
+const { createGameInfoService, infoKey, GAME_INFO_VERSION } = require('./server/services/game-info');
+const { createShareBundleService } = require('./server/services/share-bundle');
+const { createStatusService } = require('./server/services/status');
+const { generatePdf } = require('./server/services/pdf');
 const execFileAsync = promisify(execFile);
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 // Node refuses to spawn .cmd files without a shell on Windows (EINVAL); the arguments here are fixed.
@@ -511,6 +516,7 @@ function saveRuntimeConfigSection(updater) {
 
 const twitchService = createTwitchService({
     dataDir: DATA_DIR,
+    enableEventSub: true,
     getClientId: () => TWITCH_CLIENT_ID,
     getClientSecret: () => TWITCH_CLIENT_SECRET,
     getBroadcasterId: () => BROADCASTER_ID,
@@ -533,7 +539,28 @@ const twitchService = createTwitchService({
         broadcastToOverlays('poll-update', pollData);
     },
     onTakeover: (action, title, duration, poll) => takeoverPages(action, title, duration, poll),
-    onViewerCountUpdate: () => fetchViewerCount()
+    onViewerCountUpdate: () => fetchViewerCount(),
+    onFollow: (data) => {
+        if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.handleEvent({ type: 'follow', user: data.user });
+    },
+    onSubscribe: (data) => {
+        if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.handleEvent({ type: (data.months && data.months > 1) ? 'resub' : 'sub', user: data.user, tier: data.tier, months: data.months, message: data.message });
+    },
+    onGiftSub: (data) => {
+        if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.noteGift({ user: data.user, count: data.total, tier: data.tier });
+    },
+    onCheer: (data) => {
+        if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.handleEvent({ type: 'bits', user: data.user, amount: data.bits, message: data.message });
+    },
+    onRedemption: (data) => {
+        if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.handleEvent({ type: 'redeem', user: data.user, reward: data.rewardTitle, cost: data.cost, message: data.userInput });
+    },
+    onStreamOnline: () => {
+        if (typeof sessionService !== 'undefined' && sessionService?.pollLifecycle) sessionService.pollLifecycle();
+    },
+    onStreamOffline: () => {
+        if (typeof sessionService !== 'undefined' && sessionService?.pollLifecycle) sessionService.pollLifecycle();
+    }
 });
 const loadStoredToken = () => twitchService.loadStoredToken();
 const saveToken = (tokenData) => twitchService.saveToken(tokenData);
@@ -615,57 +642,9 @@ const handleGoalsRoutes = createGoalsRoutes({
 // RATE LIMITING
 // ============================================================================
 
-const rateLimitMap = new Map(); // IP -> { reads: [], mutations: [] }
-
-function checkRateLimit(req, res) {
-    const rl = config.rate_limit;
-    if (!rl || !rl.enabled) return false;
-
-    const ip = req.socket.remoteAddress || 'unknown';
-    const now = Date.now();
-    const windowMs = 60000;
-
-    if (!rateLimitMap.has(ip)) {
-        rateLimitMap.set(ip, { reads: [], mutations: [] });
-    }
-    const entry = rateLimitMap.get(ip);
-
-    // Prune old entries
-    entry.reads = entry.reads.filter(t => now - t < windowMs);
-    entry.mutations = entry.mutations.filter(t => now - t < windowMs);
-
-    const method = req.method;
-    if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
-        const limit = rl.mutation_per_minute || 30;
-        if (entry.mutations.length >= limit) {
-            res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
-            res.end(JSON.stringify({ error: 'Rate limit exceeded (mutations)', retry_after: 60 }));
-            return true;
-        }
-        entry.mutations.push(now);
-    } else {
-        const limit = rl.requests_per_minute || 120;
-        if (entry.reads.length >= limit) {
-            res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
-            res.end(JSON.stringify({ error: 'Rate limit exceeded', retry_after: 60 }));
-            return true;
-        }
-        entry.reads.push(now);
-    }
-    return false;
-}
-
-// Clean up stale rate limit entries every 5 minutes
-function pruneRateLimits() {
-    const now = Date.now();
-    for (const [ip, entry] of rateLimitMap) {
-        entry.reads = entry.reads.filter(t => now - t < 60000);
-        entry.mutations = entry.mutations.filter(t => now - t < 60000);
-        if (entry.reads.length === 0 && entry.mutations.length === 0) {
-            rateLimitMap.delete(ip);
-        }
-    }
-}
+const rateLimiter = createRateLimiter({ getConfig: () => config });
+const checkRateLimit = (req, res) => rateLimiter.checkRateLimit(req, res);
+const pruneRateLimits = () => rateLimiter.pruneRateLimits();
 
 function openBrowser(url) {
     const cmd = process.platform === 'darwin' ? 'open' :
@@ -717,7 +696,7 @@ const sessionService = createSessionService({
     performAutoBackup: (force) => performAutoBackup(force),
     isSessionActive: () => sessionActive,
     setSessionActive: (val) => { sessionActive = !!val; },
-    onArchivesInvalidated: () => { statusHeavyCache = null; }
+    onArchivesInvalidated: () => { if (typeof statusService !== 'undefined' && statusService) statusService.invalidateHeavyCache(); }
 });
 const noteArchivedSession = (name) => sessionService.noteArchivedSession(name);
 const sessionHasData = () => sessionService.sessionHasData();
@@ -739,119 +718,18 @@ const computeMilestones = () => sessionService.computeMilestones();
 // GAME INFO (Twitch box art + IGDB details for the current category)
 // ============================================================================
 
-const GAME_INFO_PATH = path.join(DATA_DIR, 'game-info-cache.json');
-const GAME_INFO_TTL_MS = 30 * 86400000;
-const GAME_INFO_RETRY_MS = 10 * 60000;
-const GAME_INFO_VERSION = 2;
-let gameInfoCache = {};
-try { gameInfoCache = JSON.parse(fs.readFileSync(GAME_INFO_PATH, 'utf8')); } catch { /* first run */ }
-const gameInfoPending = new Map();
-let appTokenCache = { token: '', expiresAt: 0 };
-
-async function getAppToken() {
-    // Public apps have no secret for client-credentials, so use the authorized user token instead
-    if (!TWITCH_CLIENT_SECRET) {
-        if (!(await ensureToken())) throw new Error('Connect Twitch to look up game info');
-        return twitchService.getAccessToken();
-    }
-    if (appTokenCache.token && Date.now() < appTokenCache.expiresAt) return appTokenCache.token;
-    const body = new URLSearchParams({ client_id: TWITCH_CLIENT_ID, client_secret: TWITCH_CLIENT_SECRET, grant_type: 'client_credentials' });
-    const response = await fetch('https://id.twitch.tv/oauth2/token', { method: 'POST', body });
-    const data = await response.json();
-    if (!response.ok || !data.access_token) throw new Error(data.message || `token request failed (${response.status})`);
-    appTokenCache = { token: data.access_token, expiresAt: Date.now() + Math.max(60, (data.expires_in || 3600) - 300) * 1000 };
-    return appTokenCache.token;
-}
-
-async function fetchGameInfo(name, pinnedIgdbId = '') {
-    const token = await getAppToken();
-    const headers = { 'Client-ID': TWITCH_CLIENT_ID, Authorization: `Bearer ${token}` };
-    const info = { name, fetchedAt: Date.now(), source: 'twitch' };
-
-    // A pinned IGDB id (chosen in the Game Plan editor) skips the by-name guess entirely.
-    const helix = pinnedIgdbId ? null : await fetch(`https://api.twitch.tv/helix/games?name=${encodeURIComponent(name)}`, { headers });
-    const game = helix ? (await helix.json()).data?.[0] : null;
-    if (pinnedIgdbId) info.igdbId = pinnedIgdbId;
-    if (game) {
-        info.twitchId = game.id;
-        info.boxArt = String(game.box_art_url || '').replace('{width}', '285').replace('{height}', '380');
-        info.igdbId = game.igdb_id || '';
-    }
-    info.v = GAME_INFO_VERSION;
-
-    // A Twitch category with no IGDB id (Just Chatting, Music, ...) is not a game, and a name search would match an unrelated one.
-    if (game && !info.igdbId) return info;
-
-    // IGDB shares the Twitch app credentials; Twitch box art remains the fallback if it is unavailable.
-    try {
-        const where = info.igdbId ? `where id = ${Number(info.igdbId)}` : `search "${name.replace(/["\\]/g, '')}"`;
-        const query = `fields name,url,summary,first_release_date,total_rating,cover.image_id,genres.name,platforms.abbreviation,involved_companies.developer,involved_companies.company.name; ${where}; limit 5;`;
-        const igdb = await fetch('https://api.igdb.com/v4/games', { method: 'POST', headers, body: query });
-        const results = await igdb.json();
-        if (Array.isArray(results) && results.length) {
-            const match = results.find(item => String(item.name).toLowerCase() === name.toLowerCase()) || results[0];
-            info.source = 'igdb';
-            info.igdbId = match.id;
-            info.igdbName = match.name || '';
-            info.igdbUrl = match.url || '';
-            info.summary = match.summary || '';
-            info.releaseTs = match.first_release_date ? match.first_release_date * 1000 : null;
-            info.rating = match.total_rating ? Math.round(match.total_rating) : null;
-            info.genres = (match.genres || []).map(g => g.name);
-            info.platforms = (match.platforms || []).map(p => p.abbreviation).filter(Boolean);
-            info.developers = (match.involved_companies || []).filter(c => c.developer).map(c => c.company?.name).filter(Boolean);
-            if (match.cover?.image_id) info.cover = `https://images.igdb.com/igdb/image/upload/t_cover_big/${match.cover.image_id}.jpg`;
-        }
-    } catch (err) {
-        console.error('[Game] IGDB lookup failed:', err.message);
-    }
-    return info;
-}
-
-const infoKey = (name, igdbId) => igdbId ? `igdb:${igdbId}` : String(name || '').toLowerCase();
-
-function refreshGameInfo(name, igdbId = '') {
-    if (!name || !TWITCH_CLIENT_ID) return Promise.resolve(null);
-    const key = infoKey(name, igdbId);
-    const cached = gameInfoCache[key];
-    const maxAge = cached?.failed || cached?.v !== GAME_INFO_VERSION ? (cached?.failed ? GAME_INFO_RETRY_MS : 0) : GAME_INFO_TTL_MS;
-    const needsUrl = cached?.source === 'igdb' && !cached.igdbUrl && !cached.urlTried;
-    if (needsUrl) cached.urlTried = true;
-    if (cached && !needsUrl && Date.now() - cached.fetchedAt < maxAge) return Promise.resolve(cached);
-    if (gameInfoPending.has(key)) return gameInfoPending.get(key);
-    const job = fetchGameInfo(name, igdbId).catch(err => {
-        console.error('[Game] Lookup failed:', err.message);
-        return { name, fetchedAt: Date.now(), failed: true };
-    }).then(info => {
-        gameInfoCache[key] = info;
-        try { fs.writeFileSync(GAME_INFO_PATH, JSON.stringify(gameInfoCache)); } catch { /* cache is best-effort */ }
-        gameInfoPending.delete(key);
-        return info;
-    });
-    gameInfoPending.set(key, job);
-    return job;
-}
-
-// Public shape for overlays; `cover` prefers IGDB art and falls back to Twitch box art.
-function publicGameInfo(name, igdbId = '') {
-    const info = name ? gameInfoCache[infoKey(name, igdbId)] : null;
-    if (!info || info.failed) return { name: name || '' };
-    return {
-        name: info.name,
-        igdbName: info.igdbName || '',
-        igdbUrl: info.igdbUrl || '',
-        cover: info.cover || info.boxArt || '',
-        boxArt: info.boxArt || '',
-        summary: info.summary || '',
-        releaseDate: info.releaseTs ? new Date(info.releaseTs).toISOString().slice(0, 10) : '',
-        releaseYear: info.releaseTs ? new Date(info.releaseTs).getUTCFullYear() : '',
-        rating: info.rating ?? '',
-        genres: info.genres || [],
-        platforms: info.platforms || [],
-        developers: info.developers || [],
-        source: info.source
-    };
-}
+const gameInfoService = createGameInfoService({
+    dataDir: DATA_DIR,
+    getTwitchClientId: () => TWITCH_CLIENT_ID,
+    getTwitchClientSecret: () => TWITCH_CLIENT_SECRET,
+    ensureTwitchToken: () => ensureToken(),
+    getTwitchAccessToken: () => twitchService.getAccessToken(),
+    error: console.error
+});
+const getAppToken = () => gameInfoService.getAppToken();
+const refreshGameInfo = (name, igdbId) => gameInfoService.refreshGameInfo(name, igdbId);
+const publicGameInfo = (name, igdbId) => gameInfoService.publicGameInfo(name, igdbId);
+const gameInfoCache = gameInfoService.getCache();
 
 
 // ============================================================================
@@ -1039,272 +917,7 @@ function applyRuntimeConfig(nextConfig) {
 }
 
 
-function getBackupFileSpecs() {
-    const knownFiles = [
-        { src: CONFIG_PATH, dest: 'config.json' },
-        { src: LIVE_CHAT_PATH, dest: 'data/chat.json' },
-        { src: CHAT_LOG_PATH, dest: 'data/chat-log.jsonl' },
-        { src: STATS_PATH, dest: 'data/stats.json' },
-        { src: BANNED_HASHTAGS_PATH, dest: 'data/.banned-hashtags.json' },
-        { src: TIMERS_PATH, dest: 'data/timers.json' },
-        { src: path.join(DATA_DIR, 'subs.json'), dest: 'data/subs.json' },
-        { src: path.join(DATA_DIR, 'bits.json'), dest: 'data/bits.json' },
-        { src: path.join(DATA_DIR, 'followers.json'), dest: 'data/followers.json' },
-        { src: HIGHLIGHTS_PATH, dest: 'data/highlights.jsonl' },
-        { src: CLIP_CANDIDATES_PATH, dest: 'data/clip-candidates.json' },
-        { src: CUSTOM_OVERLAYS_PATH, dest: 'data/custom-overlays.json' },
-        { src: OVERLAY_PRESETS_PATH, dest: 'data/overlay-presets.json' },
-        { src: ASSET_TAGS_PATH, dest: 'data/asset-tags.json' },
-        { src: ASSET_CAPTIONS_PATH, dest: 'data/asset-captions.json' },
-        { src: GAME_PLAN_PATH, dest: 'data/game-plan.json' },
-        { src: path.join(DATA_DIR, 'promos.json'), dest: 'data/promos.json' },
-        { src: path.join(DATA_DIR, 'promo-themes.json'), dest: 'data/promo-themes.json' },
-        { src: path.join(DATA_DIR, 'alerts.json'), dest: 'data/alerts.json' },
-        { src: path.join(DATA_DIR, 'alert-events.json'), dest: 'data/alert-events.json' },
-        { src: path.join(DATA_DIR, 'polls.json'), dest: 'data/polls.json' },
-        { src: path.join(DATA_DIR, 'matchup.json'), dest: 'data/matchup.json' },
-        { src: path.join(DATA_DIR, 'tier-list.json'), dest: 'data/tier-list.json' },
-        { src: path.join(DATA_DIR, 'chatbot.json'), dest: 'data/chatbot.json' },
-        { src: path.join(DATA_DIR, 'chatbot-usage.json'), dest: 'data/chatbot-usage.json' },
-        { src: path.join(DATA_DIR, 'quotes.json'), dest: 'data/quotes.json' },
-        { src: path.join(DATA_DIR, 'variables.json'), dest: 'data/variables.json' },
-        { src: RANDOMIZER_PRESETS_PATH, dest: 'data/randomizer-presets.json' },
-        { src: RANDOMIZER_BUTTON_PRESETS_PATH, dest: 'data/randomizer-button-presets.json' },
-        { src: RANDOMIZER_QUOTE_PRESETS_PATH, dest: 'data/randomizer-quote-presets.json' },
-        { src: path.join(DATA_DIR, 'chatter-notes.json'), dest: 'data/chatter-notes.json' },
-        { src: path.join(DATA_DIR, 'moderators.json'), dest: 'data/moderators.json' },
-        { src: path.join(DATA_DIR, 'vips.json'), dest: 'data/vips.json' },
-        { src: path.join(DATA_DIR, 'follower-history.json'), dest: 'data/follower-history.json' },
-        { src: path.join(DATA_DIR, 'sub-history.json'), dest: 'data/sub-history.json' },
-        { src: path.join(DATA_DIR, 'session-lifecycle.json'), dest: 'data/session-lifecycle.json' },
-        { src: path.join(DATA_DIR, 'game-info-cache.json'), dest: 'data/game-info-cache.json' },
-        { src: path.join(DATA_DIR, 'music-artwork.png'), dest: 'data/music-artwork.png' },
-        { src: path.join(DATA_DIR, 'music-fallback.png'), dest: 'data/music-fallback.png' }
-    ];
-
-    const seenDests = new Set(knownFiles.map(f => f.dest));
-    const dynamicFiles = [];
-    try {
-        if (fs.existsSync(DATA_DIR)) {
-            const entries = fs.readdirSync(DATA_DIR, { withFileTypes: true });
-            for (const entry of entries) {
-                if (!entry.isFile()) continue;
-                const name = entry.name;
-                if (
-                    name.startsWith('.twitch-token') ||
-                    name.startsWith('twitch-token') ||
-                    name.startsWith('.stats-backup-') ||
-                    name.startsWith('.backup-work-') ||
-                    name.startsWith('.restore-') ||
-                    name.startsWith('.chat.json.tmp') ||
-                    name.endsWith('.tmp') ||
-                    name === '.DS_Store' ||
-                    name === '.gitkeep' ||
-                    name === 'ssn-debug.log'
-                ) {
-                    continue;
-                }
-                const dest = `data/${name}`;
-                if (!seenDests.has(dest)) {
-                    seenDests.add(dest);
-                    dynamicFiles.push({ src: path.join(DATA_DIR, name), dest });
-                }
-            }
-        }
-    } catch { /* ignore dynamic discovery error */ }
-
-    return [...knownFiles, ...dynamicFiles];
-}
-
-// Selective share bundles: pick individual overlays, presets and settings to export or import.
-const SHARE_FORMAT = 'streampulse-share';
-const SHARE_MAX_BYTES = 600 * 1024 * 1024;
-const SHARE_SINGLES = {
-    gameplan: { label: 'Game Plan', path: () => GAME_PLAN_PATH, entry: 'game-plan.json' },
-    timers: { label: 'Timers', path: () => TIMERS_PATH, entry: 'timers.json' },
-    alerts: { label: 'Alerts', path: () => path.join(DATA_DIR, 'alerts.json'), entry: 'alerts.json' }
-};
-const shareAssetCodec = createShareAssetCodec({ assetsDir: CUSTOM_OVERLAY_ASSETS_DIR });
-
-function readBinaryBody(req, limit = SHARE_MAX_BYTES) {
-    return new Promise((resolve, reject) => {
-        const chunks = [];
-        let size = 0;
-        req.on('data', chunk => {
-            size += chunk.length;
-            if (size > limit) { reject(new Error('File is too large')); req.destroy(); return; }
-            chunks.push(chunk);
-        });
-        req.on('end', () => resolve(Buffer.concat(chunks)));
-        req.on('error', reject);
-    });
-}
-
-function listShareItems() {
-    const singles = Object.entries(SHARE_SINGLES)
-        .filter(([, def]) => fs.existsSync(def.path()))
-        .map(([type, def]) => ({ type, name: def.label }));
-    return {
-        overlays: Object.values(customOverlays).map(o => ({ type: 'overlay', id: o.id, name: o.name })),
-        presets: overlayService.getOverlayPresets().map(p => ({ type: 'preset', id: p.id, name: p.name, category: p.category })),
-        promos: promoShareService.listItems(),
-        singles
-    };
-}
-
-function buildShareZip(selection, includeHistory) {
-    const zip = new AdmZip();
-    const manifest = { format: SHARE_FORMAT, version: 1, createdAt: new Date().toISOString(), items: [] };
-    const assets = new Set();
-    const presetsOut = [];
-    for (const { type, id } of selection) {
-        if (type === 'overlay') {
-            const overlay = customOverlays[sanitizeOverlayId(id)];
-            if (!overlay) continue;
-            const text = JSON.stringify(overlay, null, 2);
-            zip.addFile(`overlays/${overlay.id}.json`, Buffer.from(text));
-            manifest.items.push({ type, id: overlay.id, name: overlay.name });
-            shareAssetCodec.referencedNames(text).forEach(n => assets.add(n));
-            if (includeHistory && fs.existsSync(historyFile(overlay.id))) zip.addLocalFile(historyFile(overlay.id), 'overlays', `${overlay.id}.history.json`);
-        } else if (type === 'preset') {
-            const preset = overlayService.getOverlayPresets().find(p => p.id === id);
-            if (!preset) continue;
-            presetsOut.push(preset);
-            manifest.items.push({ type, id: preset.id, name: preset.name });
-            shareAssetCodec.referencedNames(JSON.stringify(preset)).forEach(n => assets.add(n));
-        } else if (type === 'promo') {
-            const promo = promoShareService.get(id);
-            if (!promo) continue;
-            promoShareService.addToArchive(zip, manifest, promo, assets);
-        } else if (SHARE_SINGLES[type] && fs.existsSync(SHARE_SINGLES[type].path())) {
-            zip.addLocalFile(SHARE_SINGLES[type].path(), '', SHARE_SINGLES[type].entry);
-            manifest.items.push({ type, name: SHARE_SINGLES[type].label });
-        }
-    }
-    if (presetsOut.length) zip.addFile('presets.json', Buffer.from(JSON.stringify(presetsOut, null, 2)));
-    for (const name of assets) zip.addLocalFile(path.join(CUSTOM_OVERLAY_ASSETS_DIR, name), 'assets', name);
-    zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest, null, 2)));
-    return { buffer: zip.toBuffer(), count: manifest.items.length };
-}
-
-function openShareZip(buffer) {
-    const zip = new AdmZip(buffer);
-    const manifestEntry = zip.getEntry('manifest.json');
-    if (!manifestEntry) throw new Error('Not a StreamPulse share file (manifest.json is missing)');
-    const manifest = JSON.parse(manifestEntry.getData().toString('utf8'));
-    if (manifest.format !== SHARE_FORMAT) throw new Error('Not a StreamPulse share file');
-    return { zip, manifest };
-}
-
-function freeId(base, taken) {
-    let n = 2;
-    while (taken(`${base}-${n}`)) n++;
-    return `${base}-${n}`.slice(0, 60);
-}
-
-function importShareZip(buffer, selected, conflict) {
-    const { zip, manifest } = openShareZip(buffer);
-    const wanted = new Set(selected);
-    const results = [];
-    const entryText = name => { const e = zip.getEntry(name); return e ? e.getData().toString('utf8') : null; };
-    const importAssets = shareAssetCodec.createImporter(zip);
-
-    for (const item of manifest.items || []) {
-        const key = item.id ? `${item.type}:${item.id}` : item.type;
-        if (!wanted.has(key)) continue;
-        try {
-            if (item.type === 'overlay') {
-                const sourceId = sanitizeOverlayId(item.id);
-                const raw = entryText(`overlays/${sourceId}.json`);
-                if (!raw) throw new Error('missing from file');
-                const exists = !!customOverlays[sourceId];
-                if (exists && conflict === 'skip') { results.push({ key, status: 'skipped' }); continue; }
-                const targetId = exists && conflict === 'copy' ? freeId(sourceId, id => !!customOverlays[id]) : sourceId;
-                const parsed = JSON.parse(importAssets(raw));
-                if (exists && conflict === 'copy') parsed.name = `${parsed.name || sourceId} (imported)`;
-                const previous = customOverlays[targetId];
-                if (previous) recordOverlayRevision(previous);
-                const overlay = normalizeCustomOverlay({ ...parsed, revision: previous ? previous.revision + 1 : 1, updatedAt: new Date().toISOString() }, targetId);
-                customOverlays[targetId] = overlay;
-                saveCustomOverlays();
-                syncOverlayPages(overlay, previous);
-                const history = !previous && entryText(`overlays/${sourceId}.history.json`);
-                if (history) { fs.mkdirSync(CUSTOM_OVERLAY_HISTORY_DIR, { recursive: true }); fs.writeFileSync(historyFile(targetId), history); }
-                broadcastToOverlays('custom-overlay-update', { id: targetId, overlay });
-                broadcastPage(overlay);
-                results.push({ key, status: targetId === sourceId ? (previous ? 'replaced' : 'added') : 'copied', id: targetId });
-            } else if (item.type === 'preset') {
-                const raw = entryText('presets.json');
-                const source = raw && JSON.parse(raw).find(p => p.id === item.id);
-                if (!source) throw new Error('missing from file');
-                const presetsList = overlayService.getOverlayPresets();
-                const exists = presetsList.some(p => p.id === source.id);
-                if (exists && conflict === 'skip') { results.push({ key, status: 'skipped' }); continue; }
-                const targetId = exists && conflict === 'copy' ? freeId(source.id, id => presetsList.some(p => p.id === id)) : source.id;
-                const [preset] = normalizeOverlayPresets([{ ...JSON.parse(importAssets(JSON.stringify(source))), id: targetId }]);
-                if (!preset) throw new Error('invalid preset');
-                overlayService.setOverlayPresets([...presetsList.filter(p => p.id !== targetId), preset]);
-                saveOverlayPresets();
-                results.push({ key, status: exists ? (targetId === source.id ? 'replaced' : 'copied') : 'added', id: targetId });
-            } else if (item.type === 'promo') {
-                const raw = entryText(`promos/${item.id}.json`);
-                results.push(promoShareService.importItem(item, raw, conflict, importAssets, freeId));
-            } else if (SHARE_SINGLES[item.type]) {
-                const def = SHARE_SINGLES[item.type];
-                const raw = entryText(def.entry);
-                if (!raw) throw new Error('missing from file');
-                JSON.parse(raw);
-                if (conflict === 'skip' && fs.existsSync(def.path())) { results.push({ key, status: 'skipped' }); continue; }
-                if (fs.existsSync(def.path())) fs.copyFileSync(def.path(), `${def.path()}.pre-import.bak`);
-                fs.writeFileSync(def.path(), raw);
-                if (item.type === 'timers') { loadTimers(); broadcastToOverlays('timers-snapshot', buildTimersSnapshot()); }
-                if (item.type === 'alerts') alertEngine.setConfig(JSON.parse(raw));
-                results.push({ key, status: 'replaced' });
-            }
-        } catch (err) {
-            results.push({ key, status: 'failed', error: err.message });
-        }
-    }
-    return results;
-}
-
-function getJson(url) {
-    return new Promise((resolve, reject) => {
-        https.get(url, { headers: { 'User-Agent': 'StreamPulse-Updater', Accept: 'application/vnd.github+json' } }, response => {
-            let body = '';
-            response.on('data', chunk => { body += chunk; });
-            response.on('end', () => {
-                if (response.statusCode < 200 || response.statusCode >= 300) {
-                    reject(new Error(`GitHub returned HTTP ${response.statusCode}`));
-                    return;
-                }
-
-                try { resolve(JSON.parse(body)); } catch { reject(new Error('GitHub returned invalid JSON')); }
-            });
-        }).on('error', reject);
-    });
-}
-
-function downloadFile(url, destination) {
-    return new Promise((resolve, reject) => {
-        https.get(url, { headers: { 'User-Agent': 'StreamPulse-Updater' } }, response => {
-            if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-                response.resume();
-                downloadFile(response.headers.location, destination).then(resolve, reject);
-                return;
-            }
-            if (response.statusCode !== 200) {
-                response.resume();
-                reject(new Error(`GitHub download returned HTTP ${response.statusCode}`));
-                return;
-            }
-            const output = fs.createWriteStream(destination);
-            response.pipe(output);
-            output.on('finish', () => output.close(resolve));
-            output.on('error', reject);
-        }).on('error', reject);
-    });
-}
+const getBackupFileSpecs = () => buildBackupFileSpecs({ dataDir: DATA_DIR, configPath: CONFIG_PATH });
 
 let restartPromise = null;
 function restartServer() {
@@ -1333,7 +946,10 @@ function launchReplacement() {
 const { getUpdateInfo, getUpdateStatus, applyUpdate } = createUpdateService({
     rootDir: __dirname,
     packaged: process.env.STREAMPULSE_PACKAGED === 'true',
-    execFileAsync, getJson, downloadFile, performAutoBackup, runNpmCi, restartServer
+    execFileAsync,
+    performAutoBackup,
+    runNpmCi,
+    restartServer
 });
 
 
@@ -1456,39 +1072,6 @@ const MIME_TYPES = {
 };
 
 
-async function generatePdf(htmlContent) {
-    const puppeteer = require('puppeteer'); // loaded lazily; only PDF export needs it
-    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
-    try {
-        const page = await browser.newPage();
-        await page.setContent(htmlContent, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await page.evaluate(async () => {
-            /* global document */
-            const images = Array.from(document.images || []);
-            if (!images.length) return;
-
-            await Promise.race([
-                Promise.all(images.map(img => {
-                    if (img.complete) return Promise.resolve();
-                    return new Promise(resolve => {
-                        const finish = () => resolve();
-                        img.addEventListener('load', finish, { once: true });
-                        img.addEventListener('error', finish, { once: true });
-                    });
-                })),
-                new Promise(resolve => setTimeout(resolve, 1500))
-            ]);
-        });
-        const pdf = await page.pdf({ format: 'A4', margin: { top: '40px', bottom: '40px', left: '40px', right: '40px' }, printBackground: true });
-        return pdf;
-    } finally {
-        await browser.close();
-    }
-}
-
-let statusHeavyCache = null;
-
-
 const crmService = createCrmService({
     dataDir: DATA_DIR,
     sessionsDir: SESSIONS_DIR,
@@ -1562,8 +1145,39 @@ const handleSessionRoutes = createSessionRoutes({
     generatePdf
 });
 
+// Selective share bundles: pick individual overlays, presets and settings to export or import.
+const shareAssetCodec = createShareAssetCodec({ assetsDir: CUSTOM_OVERLAY_ASSETS_DIR });
 const promoService = createPromoService({ dataDir: DATA_DIR });
 const promoShareService = createPromoShareService({ promoService, shareAssets: shareAssetCodec });
+const shareBundleService = createShareBundleService({
+    assetsDir: CUSTOM_OVERLAY_ASSETS_DIR,
+    historyDir: CUSTOM_OVERLAY_HISTORY_DIR,
+    shareAssetCodec,
+    getCustomOverlays: () => customOverlays,
+    saveCustomOverlays,
+    normalizeCustomOverlay,
+    syncOverlayPages,
+    recordOverlayRevision,
+    broadcastToOverlays,
+    broadcastPage,
+    overlayService,
+    saveOverlayPresets,
+    normalizeOverlayPresets,
+    getPromoShareService: () => promoShareService,
+    gamePlanPath: GAME_PLAN_PATH,
+    timersPath: TIMERS_PATH,
+    alertsPath: path.join(DATA_DIR, 'alerts.json'),
+    loadTimers,
+    buildTimersSnapshot,
+    getAlertEngine: () => alertEngine,
+    sanitizeOverlayId
+});
+const readBinaryBody = (req, limit) => shareBundleService.readBinaryBody(req, limit);
+const listShareItems = () => shareBundleService.listShareItems();
+const buildShareZip = (selection, includeHistory) => shareBundleService.buildShareZip(selection, includeHistory);
+const openShareZip = (buffer) => shareBundleService.openShareZip(buffer);
+const importShareZip = (buffer, selected, conflict) => shareBundleService.importShareZip(buffer, selected, conflict);
+
 const handlePromoRoutes = createPromoRoutes({
     service: promoService,
     artworkService: createPromoArtworkService({
@@ -1607,160 +1221,48 @@ const handleCrmRoutes = createCrmRoutes({
     crmService
 });
 
-function buildStatusSnapshot() {
-    const nowMs = Date.now();
-    if (!statusHeavyCache || nowMs - statusHeavyCache.at > 10000) {
-        statusHeavyCache = {
-            at: nowMs,
-            archivedSessions: fs.existsSync(SESSIONS_DIR)
-                ? fs.readdirSync(SESSIONS_DIR).filter(file => file.startsWith('chat-') && file.endsWith('.json')).length
-                : 0,
-            backupFiles: fs.existsSync(BACKUPS_DIR)
-                ? fs.readdirSync(BACKUPS_DIR).filter(file => file.endsWith('.zip')).sort().reverse()
-                : [],
-            hashtagStats: collectHashtagStats(),
-            categoryTotals: archivedCategoryMinutes()
-        };
-    }
-    const { archivedSessions, backupFiles, hashtagStats, categoryTotals } = statusHeavyCache;
-    const viewerSummary = getViewerSummary();
-    const goalsSnapshot = buildGoalsSnapshot();
-    const startedAtTime = Date.parse(normalizeViewerStats(chatData.viewerStats).streamStartedAt || chatData.startedAt || '');
-    const streamUptimeSec = Number.isFinite(startedAtTime) && startedAtTime > 0
-        ? Math.max(0, Math.floor((Date.now() - startedAtTime) / 1000))
-        : Math.floor(process.uptime());
-    const formatDurationClock = s => {
-        const h = Math.floor(s / 3600);
-        const m = Math.floor((s % 3600) / 60);
-        const sec = s % 60;
-        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-    };
-    let gamePlanSummary = null;
-    try {
-        const planSnapshot = buildGamePlanSnapshot();
-        const playingNowItem = planSnapshot.items?.find(i => i.id === planSnapshot.playingNowId) || null;
-        gamePlanSummary = {
-            playingNowId: planSnapshot.playingNowId || null,
-            playingNow: playingNowItem ? {
-                id: playingNowItem.id,
-                name: playingNowItem.name,
-                category: playingNowItem.twitchCategory || playingNowItem.name,
-                notes: playingNowItem.notes || ''
-            } : null,
-            scheduledCount: (planSnapshot.items || []).filter(i => i.list === 'scheduled').length
-        };
-    } catch {}
-    return {
-        customVars: variablesStore.list(),
-        external: externalData,
-        hostSources: getHostSources(),
-        poll: (pollService ? pollService.getLatestPoll() : twitchService.getLatestPoll()),
-        tournament: pollService ? pollService.getTournament({ isPoll: false }) : null,
-        pollTournament: pollService ? pollService.getTournament({ isPoll: true }) : null,
-        matchup: matchupService ? matchupService.getMatchup() : null,
-        randomizer: overlayService.getRandomizerStatus ? overlayService.getRandomizerStatus() : null,
-        gamePlan: gamePlanSummary,
-        processStartedAt: PROCESS_STARTED_AT,
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        ssn: {
-            connected: ssnSocket?.readyState === WebSocket.OPEN,
-            session: SSN_SESSION_ID ? 'configured' : null,
-            messages: chatData.messageCount,
-            chatters: Object.keys(chatData.chatters).length,
-            emotes: Object.keys(chatData.emotes).length,
-            hashtags: Object.keys(chatData.hashtags).length,
-            raids: chatData.raids.length,
-            subscribers: chatData.subscribers.length,
-            followers: chatData.followers.length
-        },
-        twitch: {
-            broadcaster_id: BROADCASTER_ID || null,
-            hasToken: !!twitchService.getAccessToken(),
-            scopes: twitchService.getTokenScopes(),
-            refreshMinutes: REFRESH_MINUTES
-        },
-        viewers: viewerSummary,
-        music: {
-            enabled: !!MUSIC_CONFIG.enabled,
-            source: MUSIC_CONFIG.source || 'apple_music',
-            ...musicService.getState(),
-            positionAgeMs: musicService.getPolledAt() ? Date.now() - musicService.getPolledAt() : 0
-        },
-        stream: {
-            title: chatData.streamInfo?.[chatData.streamInfo.length - 1]?.title || '',
-            category: currentCategoryStats(categoryTotals),
-            game: publicGameInfo(chatData.streamInfo?.[chatData.streamInfo.length - 1]?.category),
-            uptimeSeconds: streamUptimeSec,
-            streamUptime: formatDurationClock(streamUptimeSec),
-            latestFollower: chatData.followers?.[chatData.followers.length - 1]?.chatname || '',
-            latestSubscriber: chatData.subscribers?.[chatData.subscribers.length - 1]?.chatname || ''
-        },
-        goals: goalsSnapshot.summary,
-        goalMetrics: goalsSnapshot.metrics,
-        milestones: computeMilestones(),
-        timers: timerService.getStats(),
-        library: {
-            highlights: highlights.length,
-            sessions: archivedSessions,
-            clipCandidates: clipService.getClipCandidates().length
-        },
-        hashtags: hashtagStats.summary,
-        popularHashtags: {
-            overall: hashtagStats.hashtags.slice(0, 10).map(item => ({ tag: item.tag, count: item.count })),
-            session: hashtagStats.hashtags.slice().sort((a, b) => b.sessionCount - a.sessionCount || a.tag.localeCompare(b.tag)).slice(0, 10).map(item => ({ tag: item.tag, count: item.sessionCount }))
-        },
-        backups: {
-            autoEnabled: !!config.auto_backup_on_session_end,
-            count: backupFiles.length,
-            latest: backupFiles[0] || null
-        },
-        chatbot: {
-            ...(chatbot.getStats ? chatbot.getStats() : { enabled: false, commandsCount: 0, timedCount: 0, quotesCount: 0, triggersCount: 0 }),
-            botActive: chatbot.isReady ? chatbot.isReady().ready : false
-        },
-        alerts: {
-            enabled: alertEngine ? (alertEngine.getConfig()?.settings?.enabled !== false) : false,
-            rulesCount: alertEngine ? (alertEngine.getConfig()?.rules?.length || 0) : 0,
-            queuePending: alertEngine ? (alertEngine.getQueueState()?.pending || 0) : 0,
-            paused: alertEngine ? (alertEngine.getQueueState()?.paused || false) : false,
-            current: alertEngine ? alertEngine.getQueueState()?.current || null : null
-        },
-        modules: {
-            chatbot: config.chatbot_enabled !== false,
-            clips: config.clip_candidates?.enabled !== false,
-            weather: config.weather?.enabled === true,
-            music: !!MUSIC_CONFIG.enabled,
-            hashtags: config.hashtags_enabled !== false,
-            polls: config.polls_enabled !== false,
-            versus: config.versus_enabled !== false,
-            obs: Boolean(config.obs?.enabled)
-        },
-        obs: obsService.getStatus(),
-        tierList: {
-            title: tierListService.getState().title,
-            itemsCount: tierListService.getState().items.length,
-            tiersCount: tierListService.getState().tiers.length,
-            activeVote: tierListService.getState().activeVote
-        },
-        overlayClients: wsService.getSourceCount(),
-        websocketClients: wsService.getClientCount(),
-        sessionActive,
-        lifecycle: getLifecycleStatus(),
-        sessionPhase: getSessionPhase(),
-        streamStartedAt: normalizeViewerStats(chatData.viewerStats).streamStartedAt || null,
-        lastSessionEndedAt: sessionService.getLifecycleMemo?.()?.lastArchive?.endedAt ? new Date(sessionService.getLifecycleMemo().lastArchive.endedAt).toISOString() : null,
-        startedAt: chatData.startedAt,
-        hourlyMessages: chatData.hourlyMessages,
-        streamInfo: chatData.streamInfo,
-        topChatters: Object.values(chatData.chatters)
-            .sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0))
-            .slice(0, 100)
-            .map(c => ({ chatname: c.chatname, chatimg: c.chatimg || '', messageCount: c.messageCount || 0 })),
-        recentChat: recentChatSummary(),
-        recentEvents: buildRecentEvents(12)
-    };
-}
+const statusService = createStatusService({
+    sessionsDir: SESSIONS_DIR,
+    backupsDir: BACKUPS_DIR,
+    getConfig: () => config,
+    getChatData: () => chatData,
+    getVariablesStore: () => variablesStore,
+    getExternalData: () => externalData,
+    getHostSources: () => getHostSources(),
+    getPollService: () => pollService,
+    getTwitchService: () => twitchService,
+    getMatchupService: () => matchupService,
+    getOverlayService: () => overlayService,
+    buildGamePlanSnapshot: () => buildGamePlanSnapshot(),
+    getMusicConfig: () => MUSIC_CONFIG,
+    getMusicService: () => musicService,
+    buildGoalsSnapshot: () => buildGoalsSnapshot(),
+    getTimerService: () => timerService,
+    getClipService: () => clipService,
+    getChatbot: () => chatbot,
+    getAlertEngine: () => alertEngine,
+    getObsService: () => obsService,
+    getTierListService: () => tierListService,
+    getWsService: () => wsService,
+    getSessionService: () => sessionService,
+    getProcessStartedAt: () => PROCESS_STARTED_AT,
+    isSessionActive: () => sessionActive,
+    getSsnSocket: () => ssnSocket,
+    getSsnSessionId: () => SSN_SESSION_ID,
+    getBroadcasterId: () => BROADCASTER_ID,
+    getRefreshMinutes: () => REFRESH_MINUTES,
+    collectHashtagStats: () => collectHashtagStats(),
+    archivedCategoryMinutes: () => archivedCategoryMinutes(),
+    currentCategoryStats: (cat) => currentCategoryStats(cat),
+    publicGameInfo: (name) => publicGameInfo(name),
+    computeMilestones: () => computeMilestones(),
+    normalizeViewerStats: (v) => normalizeViewerStats(v),
+    getViewerSummary: () => getViewerSummary(),
+    getHighlights: () => highlights,
+    recentChatSummary: () => recentChatSummary(),
+    buildRecentEvents: (n) => buildRecentEvents(n)
+});
+const buildStatusSnapshot = () => statusService.buildStatusSnapshot();
 
 async function handleShutdown() {
     const streamEndedAt = finalizeSessionStreamEnd();
@@ -1907,7 +1409,7 @@ const handleBackupRoutes = createBackupRoutes({
     getOverlayPresets: () => overlayService.getOverlayPresets(),
     promoExists: id => promoShareService.exists(id),
     sanitizeOverlayId,
-    shareSingles: SHARE_SINGLES
+    shareSingles: shareBundleService.shareSingles
 });
 
 const handleObsRoutes = createObsRoutes({

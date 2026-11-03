@@ -1,11 +1,49 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const https = require('https');
 const AdmZip = require('adm-zip');
 
 const REPOSITORY = 'jarbochov/StreamPulse';
 const RELEASE_URL = `https://github.com/${REPOSITORY}/releases/latest`;
 const DESKTOP_UPDATE_MESSAGE = 'Desktop apps must be updated using the desktop installer. Back up, quit StreamPulse fully, install the new version, then reopen it. Your configuration and data are stored separately from the app.';
+
+function defaultGetJson(url) {
+    return new Promise((resolve, reject) => {
+        https.get(url, { headers: { 'User-Agent': 'StreamPulse-Updater', Accept: 'application/vnd.github+json' } }, response => {
+            let body = '';
+            response.on('data', chunk => { body += chunk; });
+            response.on('end', () => {
+                if (response.statusCode < 200 || response.statusCode >= 300) {
+                    reject(new Error(`GitHub returned HTTP ${response.statusCode}`));
+                    return;
+                }
+                try { resolve(JSON.parse(body)); } catch { reject(new Error('GitHub returned invalid JSON')); }
+            });
+        }).on('error', reject);
+    });
+}
+
+function defaultDownloadFile(url, destination) {
+    return new Promise((resolve, reject) => {
+        https.get(url, { headers: { 'User-Agent': 'StreamPulse-Updater' } }, response => {
+            if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                response.resume();
+                defaultDownloadFile(response.headers.location, destination).then(resolve, reject);
+                return;
+            }
+            if (response.statusCode !== 200) {
+                response.resume();
+                reject(new Error(`GitHub download returned HTTP ${response.statusCode}`));
+                return;
+            }
+            const output = fs.createWriteStream(destination);
+            response.pipe(output);
+            output.on('finish', () => output.close(resolve));
+            output.on('error', reject);
+        }).on('error', reject);
+    });
+}
 
 // Older releases used "0.8" for package version "0.8.0".
 function sameVersion(a, b) {
@@ -15,7 +53,16 @@ function sameVersion(a, b) {
     return true;
 }
 
-function createUpdateService({ rootDir, packaged = false, execFileAsync, getJson, downloadFile, performAutoBackup, runNpmCi, restartServer }) {
+function createUpdateService({
+    rootDir,
+    packaged = false,
+    execFileAsync,
+    getJson = defaultGetJson,
+    downloadFile = defaultDownloadFile,
+    performAutoBackup,
+    runNpmCi,
+    restartServer
+}) {
     const desktop = packaged || /(?:^|[/\\])[^/\\]+\.asar(?:[/\\]|$)/i.test(rootDir);
     const installedVersion = () => String(JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8')).version || '');
 
@@ -120,4 +167,8 @@ function createUpdateService({ rootDir, packaged = false, execFileAsync, getJson
     return { getUpdateInfo, getUpdateStatus, applyUpdate };
 }
 
-module.exports = { createUpdateService };
+module.exports = {
+    createUpdateService,
+    getJson: defaultGetJson,
+    downloadFile: defaultDownloadFile
+};

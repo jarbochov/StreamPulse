@@ -12,7 +12,8 @@ StreamPulse is a lightweight, high-performance Node.js application built around 
 flowchart TD
     subgraph DataSources["Data Sources"]
         SSN["SocialStream Ninja (WebSocket ws://127.0.0.1:8080)"]
-        Twitch["Twitch Helix API (Polling)"]
+        TwitchWS["Twitch EventSub WebSocket (wss://eventsub.wss.twitch.tv/ws)"]
+        Twitch["Twitch Helix API (Fallback Polling)"]
         Media["Local Media Players (Apple Music, VLC)"]
     end
 
@@ -30,6 +31,7 @@ flowchart TD
     end
 
     SSN --> Services
+    TwitchWS --> Services
     Twitch --> Services
     Media --> Services
     
@@ -66,10 +68,16 @@ stream-credits/
 │   │   ├── alerts.js           # Rule engine and alert queue
 │   │   ├── chatbot.js          # Chat commands, timers, and triggers
 │   │   ├── crm.js              # Chatter dossier and roster tracking
+│   │   ├── game-info.js        # Twitch box art and IGDB lookup caching
 │   │   ├── game-plan.js        # IGDB game queue & broadcast scheduling
 │   │   ├── music.js            # Apple Music and VLC poller
-│   │   ├── ssn.js              # SocialStream Ninja WebSocket listener
+│   │   ├── pdf.js              # Headless PDF export generation
+│   │   ├── rate-limit.js       # Mutation & request rate limiting
 │   │   ├── session-archives.js # Shared metadata-validated archive summaries
+│   │   ├── share-bundle.js     # Selective bundle archive import/export
+│   │   ├── ssn.js              # SocialStream Ninja WebSocket listener
+│   │   ├── status.js           # Server telemetry and status snapshots
+│   │   ├── twitch-eventsub.js  # Real-time Twitch EventSub WebSocket client
 │   │   ├── twitch.js           # Twitch Helix API & token auto-refresher
 │   │   └── ...
 │   ├── static-router.js        # Cascading filesystem router
@@ -150,3 +158,23 @@ ZIP buffers still consume memory. Restore writes are atomic per file, not a whol
 OAuth/device-auth and Helix requests in `server/services/twitch.js` have a 15-second absolute deadline, including response-body consumption. Prematurely closed response streams reject instead of leaving callers pending. Existing error paths report failures; transient network failures do not clear stored refresh credentials, and a later refresh can retry. Token refresh remains single-flight.
 
 This is a per-request limit, not a timeout for a whole paginated sync. It does not cancel every background operation on server shutdown or introduce automatic retries for mutating Twitch actions.
+
+---
+
+## 5. Twitch EventSub WebSocket Architecture
+
+StreamPulse integrates directly with Twitch's native EventSub WebSocket infrastructure (`wss://eventsub.wss.twitch.tv/ws`) through `server/services/twitch-eventsub.js` for zero-latency, push-based broadcast event handling:
+
+1. **Automatic Handshake & Subscription**: Upon connecting, the server handles the `session_welcome` message and uses the provided `session_id` to register Helix subscriptions via `POST /helix/eventsub/subscriptions`:
+   - `channel.poll.begin`, `channel.poll.progress`, `channel.poll.end`
+   - `channel.update` (stream category, game ID, and title changes)
+   - `channel.follow`
+   - `channel.subscribe`, `channel.subscription.gift`
+   - `channel.cheer`
+   - `channel.channel_points_custom_reward_redemption.add`
+   - `stream.online`, `stream.offline`
+2. **Keepalive Watchdog**: A sliding watchdog timer tracks incoming `session_keepalive` frames. If no message arrives within `keepalive_timeout_seconds` + 3 seconds grace period, the connection is treated as dead and automatically reconnected.
+3. **Seamless URL Reconnection**: When Twitch initiates server maintenance via `session_reconnect`, the client immediately opens a secondary connection to the provided `reconnect_url` before severing the old connection, guaranteeing zero dropped notifications.
+4. **Immediate Ingestion & Deduplication**: Real-time events are dispatched synchronously to `alertEngine.handleEvent`, `sessionService`, and `pollManager`. The alerts engine's built-in deduplication ensures overlapping chat-based alerts (such as SocialStream Ninja bits or subs) are not fired twice.
+5. **Resilient Polling Fallback**: Background 10-second polling loops for Twitch polls and channel stream status continue to operate as a secondary fallback if EventSub is temporarily disconnected or if credentials lack EventSub scopes.
+6. **Telemetry & Observability**: Real-time connection state (`connected`, `connecting`, `idle`), active subscription counts, and session IDs are exposed via `GET /api/status` under `twitch.eventSub`.

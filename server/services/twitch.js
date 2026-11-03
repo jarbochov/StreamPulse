@@ -1,10 +1,11 @@
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const { createTwitchEventSubService } = require('./twitch-eventsub');
 
 const DEFAULT_TWITCH_CLIENT_ID = 'gbe0673k90le0942bfhw7f7ko6t865';
 const TWITCH_REQUEST_TIMEOUT_MS = 15000;
-const DEFAULT_TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers clips:edit channel:manage:clips channel:read:polls channel:read:vips moderation:read channel:manage:schedule channel:manage:broadcast';
+const DEFAULT_TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers clips:edit channel:manage:clips channel:read:polls channel:read:vips moderation:read channel:manage:schedule channel:manage:broadcast channel:read:redemptions';
 
 function safeReturnPath(value) {
     const v = String(value || '');
@@ -24,6 +25,7 @@ function createTwitchService(options = {}) {
     const {
         dataDir = process.cwd(),
         tokenPath = null,
+        enableEventSub = false,
         getClientId = () => DEFAULT_TWITCH_CLIENT_ID,
         getClientSecret = () => null,
         getBroadcasterId = () => '',
@@ -37,6 +39,13 @@ function createTwitchService(options = {}) {
         onPollUpdate = () => {},
         onTakeover = () => {},
         onViewerCountUpdate = () => {},
+        onFollow = () => {},
+        onSubscribe = () => {},
+        onGiftSub = () => {},
+        onCheer = () => {},
+        onRedemption = () => {},
+        onStreamOnline = () => {},
+        onStreamOffline = () => {},
         log = console.log,
         warn = console.warn,
         error = console.error
@@ -59,6 +68,63 @@ function createTwitchService(options = {}) {
     let previousPollState = null;
     let pollScopeWarningLogged = false;
     let lastBroadcastedPollJson = '';
+    let isEventSubEnabled = Boolean(enableEventSub);
+
+    const eventSub = createTwitchEventSubService({
+        getAccessToken: () => twitchAccessToken,
+        getClientId,
+        getBroadcasterId,
+        getTokenScopes: () => twitchTokenScopes,
+        onPollBegin: (pollData) => {
+            latestPoll = pollData;
+            previousPollState = { id: pollData.id, status: pollData.status };
+            const durationMs = pollData.duration ? pollData.duration * 1000 : 60000;
+            const elapsedMs = pollData.startedAt ? Math.max(0, Date.now() - Date.parse(pollData.startedAt)) : 0;
+            const remainingMs = Math.max(5000, durationMs - elapsedMs);
+            log(`[Twitch EventSub] Poll started: "${pollData.title}" (duration: ${pollData.duration}s, remaining: ${Math.round(remainingMs / 1000)}s)`);
+            onTakeover('poll-active', pollData.title, remainingMs);
+            lastBroadcastedPollJson = JSON.stringify(pollData);
+            onPollUpdate(pollData);
+        },
+        onPollProgress: (pollData) => {
+            latestPoll = pollData;
+            const pollJson = JSON.stringify(pollData);
+            if (pollJson !== lastBroadcastedPollJson) {
+                lastBroadcastedPollJson = pollJson;
+                onPollUpdate(pollData);
+            }
+        },
+        onPollEnd: (pollData, winner) => {
+            latestPoll = pollData;
+            previousPollState = { id: pollData.id, status: pollData.status };
+            log(`[Twitch EventSub] Poll ended: "${pollData.title}" — Winner: "${winner?.title || '(none)'}"`);
+            onTakeover('poll-end', pollData.title, 15000, pollData);
+            lastBroadcastedPollJson = JSON.stringify(pollData);
+            onPollUpdate(pollData);
+        },
+        onChannelUpdate: (data) => {
+            log(`[Twitch EventSub] Channel update: "${data.title}" (${data.categoryName || 'No category'})`);
+            const chatData = getChatData();
+            if (Array.isArray(chatData?.streamInfo)) {
+                chatData.streamInfo.push({
+                    title: data.title,
+                    category: data.categoryName,
+                    time: new Date().toISOString()
+                });
+            }
+            onStreamInfoChange(data.categoryName);
+        },
+        onFollow,
+        onSubscribe,
+        onGiftSub,
+        onCheer,
+        onRedemption,
+        onStreamOnline,
+        onStreamOffline,
+        log,
+        warn,
+        error
+    });
 
     function loadStoredToken() {
         try {
@@ -78,6 +144,7 @@ function createTwitchService(options = {}) {
                     return false;
                 }
                 log('[Twitch] Loaded stored token');
+                if (isEventSubEnabled) eventSub.start();
                 return true;
             }
         } catch { /* ignore */ }
@@ -96,9 +163,11 @@ function createTwitchService(options = {}) {
             scope: twitchTokenScopes,
             client_id: getClientId()
         }));
+        if (isEventSubEnabled) eventSub.start();
     }
 
     function clearToken() {
+        eventSub.stop();
         twitchAccessToken = null;
         twitchRefreshToken = null;
         twitchTokenExpiry = 0;
@@ -912,7 +981,11 @@ function createTwitchService(options = {}) {
         getDeviceAuth: () => deviceAuth,
         isBroadcasterSynced: () => broadcasterSyncedFromToken,
         getLatestPoll: () => latestPoll,
-        setLatestPoll: (poll) => { latestPoll = poll; }
+        setLatestPoll: (poll) => { latestPoll = poll; },
+        getEventSubStatus: () => eventSub.getStatus(),
+        startEventSub: () => { isEventSubEnabled = true; eventSub.start(); },
+        stopEventSub: () => { isEventSubEnabled = false; eventSub.stop(); },
+        getEventSub: () => eventSub
     };
 }
 
