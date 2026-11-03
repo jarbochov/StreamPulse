@@ -463,7 +463,7 @@
 
     const ANIM_IN = ['pop', 'fade', 'zoom', 'bounce', 'flip', 'spin', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'none'];
     const ANIM_OUT = ['fade', 'pop', 'zoom', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'none'];
-    const AMOUNT_LABEL = { bits: 'Bits', donation: 'Amount', raid: 'Viewers', redeem: 'Point cost', gift: 'Number of gifts', sub: 'Months', resub: 'Months', poll_end: 'Winning votes', hype_train: 'Hype train level' };
+    const AMOUNT_LABEL = { bits: 'Bits', donation: 'Amount', raid: 'Viewers', gift: 'Number of gifts', sub: 'Months', resub: 'Months', poll_end: 'Winning votes', hype_train: 'Hype train level' };
     const TOKENS = {
         follow: ['user'], sub: ['user', 'tier'], resub: ['user', 'months', 'streak', 'tier', 'message'], milestone: ['user', 'months', 'streak', 'tier'],
         gift: ['user', 'count', 'recipient', 'tier'], bits: ['user', 'amount', 'message'], donation: ['user', 'amount', 'currency', 'source', 'message'], raid: ['user', 'viewers'],
@@ -1108,7 +1108,7 @@
 
     function variantHtml(v, i, r) {
         const open = r.variants.length === 1 || openVariants.has(v.id);
-        const hasMetric = ['sub', 'resub', 'gift', 'bits', 'donation', 'raid', 'redeem', 'milestone', 'hype_train'].includes(r.trigger);
+        const hasMetric = ['sub', 'resub', 'gift', 'bits', 'donation', 'raid', 'milestone', 'hype_train'].includes(r.trigger);
         const metricName = AMOUNT_LABEL[r.trigger] || (['sub', 'resub', 'milestone'].includes(r.trigger) ? 'Months' : 'Amount');
         const isMilestone = hasMetric && (v.variantType === 'gated' || (v.gateMin > 0) || (v.gateMax > 0));
         const gateMode = variantGateMode(v);
@@ -1399,7 +1399,7 @@
         return `${when}, display ${r.variants.length > 1 ? `one of ${r.variants.length} variants` : 'the alert'}${extras.length ? ' and ' + extras.join(' and ') : ''}.${r.enabled ? '' : ' (This rule is currently disabled.)'}`;
     }
 
-    const HAS_METRIC = ['sub', 'resub', 'gift', 'bits', 'donation', 'raid', 'redeem', 'milestone', 'hype_train'];
+    const HAS_METRIC = ['sub', 'resub', 'gift', 'bits', 'donation', 'raid', 'milestone', 'hype_train'];
     const isMilestoneV = (v, r) => HAS_METRIC.includes(r.trigger) && (v.variantType === 'gated' || v.gateMin > 0 || v.gateMax > 0);
     const mediaKind = v => v.video ? 'Video' : v.image ? 'Image' : (v.emoji || v.emojiUrl || v.emojiLadder?.length) ? 'Emote' : '';
     const soundLabel = v => { const n = builtinName(v); if (isSfx(v)) { const [g, id] = v.sound.slice(4).split('/'); return SFX_GROUPS.find(x => x.id === g)?.sounds.find(x => x.id === id)?.label || id; } return n ? (BUILTIN?.[n]?.label || n) : v.sound ? decodeURIComponent(String(v.sound).split('/').pop()) : ''; };
@@ -1468,7 +1468,7 @@
         const a = r.actions;
         const meta = TRIGGER_META[r.trigger] || { label: r.trigger, icon: ICONS.zap, color: '#3b82f6' };
         const tokens = TOKENS[r.trigger] || [];
-        const hasMetric = ['sub', 'resub', 'gift', 'bits', 'donation', 'raid', 'redeem', 'milestone', 'hype_train'].includes(r.trigger);
+        const hasMetric = ['sub', 'resub', 'gift', 'bits', 'donation', 'raid', 'milestone', 'hype_train'].includes(r.trigger);
         const metricName = AMOUNT_LABEL[r.trigger] || (['sub', 'resub', 'milestone'].includes(r.trigger) ? 'Months' : 'Amount');
 
         let ladderHtml = '';
