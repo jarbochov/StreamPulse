@@ -1027,6 +1027,19 @@
                     details: 'Controls alert queue via GET request (?action=skip|pause|resume|clear).'
                 },
                 {
+                    method: 'GET', path: '/api/alerts/rules',
+                    desc: 'List alert rules and queue length',
+                    companion: true,
+                    details: 'Returns id, name, trigger, priority and first-variant text per rule, plus pending count and current alert. Used by the announcements dock and Companion dropdowns.'
+                },
+                {
+                    method: 'POST', path: '/api/alerts/trigger',
+                    desc: 'Fire a rule or announcement manually',
+                    companion: true,
+                    details: 'Behaves like a real event (history, actions, webhooks, source manual). rule is an id or name; message overrides announcement text. Returns queued, pending and playing.',
+                    body: '{ "rule": "brb", "message": "Back in 5", "user": "Name", "amount": 0, "test": false }'
+                },
+                {
                     method: 'POST', path: '/api/alerts/mute',
                     desc: 'Mute or unmute alert display',
                     companion: true,

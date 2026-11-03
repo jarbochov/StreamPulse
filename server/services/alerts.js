@@ -19,10 +19,13 @@ const TRIGGERS = {
     goal: 'Goal reached',
     chat_word: 'Chat word or hashtag',
     chat_command: 'Chat bot command',
-    poll_end: 'Poll completed / winner'
+    poll_end: 'Poll completed / winner',
+    announcement: 'Announcement (manual)'
 };
 const ANIM_IN = ['none', 'fade', 'pop', 'zoom', 'bounce', 'flip', 'spin', 'slide-left', 'slide-right', 'slide-up', 'slide-down'];
 const ANIM_OUT = ['none', 'fade', 'pop', 'zoom', 'slide-left', 'slide-right', 'slide-up', 'slide-down'];
+const PRIORITIES = ['low', 'normal', 'high', 'critical'];
+const PRIORITY_RANK = { low: 0, normal: 1, high: 2, critical: 3 };
 const TIMER_ACTIONS = ['start', 'pause', 'resume', 'reset', 'add_time', 'subtract_time'];
 const HISTORY_LIMIT = 50;
 const EVENT_LIMIT = 100;
@@ -118,8 +121,22 @@ const clamp = (value, min, max, fallback) => {
 const str = (value, max) => String(value ?? '').trim().slice(0, max);
 const safeId = (value, fallback) => (String(value || '').toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60)) || fallback;
 
+function normalizeBaseUrl(value) {
+    try {
+        const u = new URL(String(value || '').trim() || 'http://127.0.0.1:8000');
+        if (!/^https?:$/.test(u.protocol)) throw new Error('protocol');
+        return `${u.protocol}//${u.host}`;
+    } catch { return 'http://127.0.0.1:8000'; }
+}
+
+// "page/row/col" or "page row col" -> numeric parts, null when invalid
+function parseLocation(input) {
+    const parts = String(input || '').split(/[\s/,]+/).filter(Boolean).map(Number);
+    return parts.length === 3 && parts.every(n => Number.isInteger(n) && n >= 0 && n <= 999) ? parts : null;
+}
+
 function defaultSettings() {
-    return { enabled: true, gapSeconds: 2 };
+    return { enabled: true, gapSeconds: 2, queueCap: 200, companionUrl: 'http://127.0.0.1:8000' };
 }
 
 function normalizeVariant(input = {}, index = 0) {
@@ -208,6 +225,9 @@ function normalizeRule(input = {}, index = 0) {
         name: str(input.name, 80) || TRIGGERS[trigger],
         enabled: input.enabled !== false,
         webhookOnly: input.webhookOnly === true || input.silent === true,
+        priority: PRIORITIES.includes(input.priority) ? input.priority : 'normal',
+        interrupt: input.priority === 'critical' && input.interrupt === true,
+        expireSeconds: Math.round(clamp(input.expireSeconds, 0, 86400, 0)),
         trigger,
         conditions: {
             amountMode,
@@ -242,6 +262,19 @@ function normalizeRule(input = {}, index = 0) {
                 url: str(a.http?.url, 2000),
                 method: a.http?.method === 'GET' ? 'GET' : 'POST',
                 delay: clamp(Number(a.http?.delay ?? a.http?.delaySeconds) || 0, 0, 300, 0)
+            },
+            chat: {
+                enabled: a.chat?.enabled === true,
+                template: str(a.chat?.template, 1000),
+                cooldownSeconds: clamp(a.chat?.cooldownSeconds, 0, 86400, 30)
+            },
+            companion: {
+                enabled: a.companion?.enabled === true,
+                page: Math.round(clamp(a.companion?.page, 0, 999, 1)),
+                row: Math.round(clamp(a.companion?.row, 0, 999, 0)),
+                column: Math.round(clamp(a.companion?.column, 0, 999, 0)),
+                location: str(a.companion?.location, 20),
+                delay: clamp(a.companion?.delay, 0, 300, 0)
             }
         }
     };
@@ -257,7 +290,9 @@ function normalizeConfig(input = {}) {
     return {
         settings: {
             enabled: input.settings?.enabled !== false,
-            gapSeconds: clamp(input.settings?.gapSeconds, 0, 60, 2)
+            gapSeconds: clamp(input.settings?.gapSeconds, 0, 60, 2),
+            queueCap: Math.round(clamp(input.settings?.queueCap, 1, 1000, 200)),
+            companionUrl: normalizeBaseUrl(input.settings?.companionUrl)
         },
         rules
     };
@@ -270,7 +305,7 @@ function fill(template, tokens) {
     });
 }
 
-function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAction, log = console.log }) {
+function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAction, sendChat, log = console.log }) {
     const notify = typeof broadcast === 'function' ? broadcast : (typeof broadcastToOverlays === 'function' ? broadcastToOverlays : () => {});
     const filePath = path.join(dataDir, 'alerts.json');
     let config = normalizeConfig({});
@@ -301,6 +336,17 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
         clearTimeout(saveEventsTimer);
         saveEventsTimer = setTimeout(() => { try { fs.writeFileSync(eventsPath, JSON.stringify(events)); } catch { /* disk full or read-only */ } }, 1000);
         return entry;
+    }
+    const chatCooldowns = new Map();
+    async function pressCompanion(c, baseOverride) {
+        const loc = parseLocation(c.location) || [c.page, c.row, c.column];
+        const base = baseOverride ? normalizeBaseUrl(baseOverride) : config.settings.companionUrl;
+        try {
+            const res = await fetch(`${base}/api/location/${loc[0]}/${loc[1]}/${loc[2]}/press`, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(5000) });
+            return { ok: res.ok, status: res.status };
+        } catch (err) {
+            return { ok: false, error: err.name === 'TimeoutError' ? 'Timed out after 5 seconds' : err.message };
+        }
     }
     const cooldowns = new Map();
     const sequence = new Map();
@@ -502,6 +548,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             command: ev.command || '',
             winner: ev.winner || '',
             poll_title: ev.title || '',
+            title: ev.title || '',
             votes: ev.votes ?? '',
             percent: ev.percent ?? '',
             total_votes: ev.total_votes ?? '',
@@ -557,6 +604,9 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             ruleId: rule.id,
             ruleName: rule.name,
             webhookOnly: Boolean(rule.webhookOnly),
+            priority: rule.priority || 'normal',
+            interrupt: Boolean(rule.interrupt),
+            expireSeconds: rule.expireSeconds || 0,
             trigger: ev.type,
             variantId: variant.id,
             title: fill(variant.title, tokens),
@@ -590,7 +640,23 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
     }
 
     async function runActions(rule, ev) {
-        const { timer, http } = rule.actions;
+        const { timer, http, chat, companion } = rule.actions;
+        if (chat.enabled && chat.template && typeof sendChat === 'function') {
+            const last = chatCooldowns.get(rule.id) || 0;
+            if (Date.now() - last >= chat.cooldownSeconds * 1000) {
+                chatCooldowns.set(rule.id, Date.now());
+                const text = fill(chat.template, tokensFor(ev)).replace(/\s+/g, ' ').trim().slice(0, 400);
+                if (text) Promise.resolve(sendChat(text)).catch(err => log(`[Alerts] Chat action failed: ${err.message}`));
+            }
+        }
+        if (companion.enabled) {
+            const delayMs = Math.round(companion.delay * 1000);
+            const go = () => pressCompanion(companion).then(r => { if (!r.ok) log(`[Alerts] Companion action failed: ${r.error || r.status}`); });
+            if (delayMs > 0) {
+                const timerId = setTimeout(() => { activeWebhookTimers.delete(timerId); go(); }, delayMs);
+                activeWebhookTimers.add(timerId);
+            } else go();
+        }
         if (timer.enabled && timer.timerId && runTimerAction) {
             try {
                 const units = timer.perUnit ? Math.max(1, eventAmount(ev)) : 1;
@@ -630,9 +696,20 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
         }
     }
 
+    function dropPayload(payload, reason) {
+        recordEvent({ type: payload.trigger, user: payload.user }, payload, reason);
+        log(`[Alerts] Dropped (${reason}): ${payload.ruleName}`);
+    }
+
     function pump() {
-        if (paused || muted || current || !queue.length) return;
-        current = queue.shift();
+        if (paused || muted || current) return;
+        while (queue.length) {
+            const next = queue.shift();
+            if (next.expireSeconds && Date.now() - next.queuedAt > next.expireSeconds * 1000) { dropPayload(next, 'dropped'); continue; }
+            current = next;
+            break;
+        }
+        if (!current) return;
         notify('alert', current);
         history.unshift({ ...current, shownAt: new Date().toISOString() });
         history.length = Math.min(history.length, HISTORY_LIMIT);
@@ -640,9 +717,26 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
         currentTimer = setTimeout(() => { current = null; currentTimer = null; pump(); }, hold);
     }
 
+    function interruptCurrent() {
+        if (currentTimer) clearTimeout(currentTimer);
+        current = null; currentTimer = null;
+        notify('alert-skip', {});
+    }
+
     function enqueue(payload) {
-        queue.push(payload);
-        if (queue.length > 100) queue.shift();
+        payload.queuedAt = Date.now();
+        const rank = PRIORITY_RANK[payload.priority] ?? 1;
+        let at = queue.length;
+        while (at > 0 && (PRIORITY_RANK[queue[at - 1].priority] ?? 1) < rank) at--;
+        queue.splice(at, 0, payload);
+        const cap = config.settings.queueCap || 200;
+        while (queue.length > cap) {
+            // Lowest priority first, oldest within that tier
+            const lowest = PRIORITY_RANK[queue[queue.length - 1].priority] ?? 1;
+            const victim = queue.findIndex(item => (PRIORITY_RANK[item.priority] ?? 1) === lowest);
+            dropPayload(queue.splice(victim, 1)[0], 'dropped');
+        }
+        if (payload.interrupt && current && !paused && !muted && queue[0] === payload) interruptCurrent();
         pump();
     }
 
@@ -725,6 +819,39 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             enqueue(payload);
         }
         return payload;
+    }
+
+    // Manual fire (API / Companion / dock): behaves like a real event, flagged source 'manual'
+    function trigger(ref, opts = {}) {
+        const key = String(ref || '').trim().toLowerCase();
+        const rule = config.rules.find(item => item.id === key) || config.rules.find(item => item.name.toLowerCase() === key);
+        if (!rule) throw new Error('Rule not found');
+        if (!rule.variants.length) throw new Error('Rule has no variants');
+        const test = opts.test === true;
+        if (!rule.enabled && !test) throw new Error('Rule is disabled');
+        const amount = opts.amount !== undefined && opts.amount !== '' && Number.isFinite(Number(opts.amount)) ? Number(opts.amount) : 0;
+        const text = str(opts.message, 500);
+        const ev = {
+            type: rule.trigger,
+            user: str(opts.user, 60) || (rule.trigger === 'announcement' ? '' : 'Someone'),
+            amount, count: amount || undefined, months: amount || undefined, viewers: amount || undefined,
+            message: text,
+            title: str(opts.title, 200),
+            source: 'manual',
+            manual: true,
+            isTest: test
+        };
+        const variant = chooseVariant(rule, ev);
+        const payload = buildPayload(rule, variant, ev, test);
+        payload.source = 'manual';
+        if (text && rule.trigger === 'announcement') payload.message = text;
+        if (!test) {
+            runActions(rule, ev);
+            recordEvent(ev, payload, rule.webhookOnly ? 'webhook' : 'shown');
+        }
+        if (!rule.webhookOnly) enqueue(payload);
+        log(`[Alerts] Manual ${rule.name}`);
+        return { alert: payload, queued: !rule.webhookOnly, pending: queue.length, playing: current === payload };
     }
 
     // Gift subs arrive one event at a time, so batch them per gifter into a single alert
@@ -874,7 +1001,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
     }
 
     return {
-        TRIGGERS, ANIM_IN, ANIM_OUT, TIMER_ACTIONS,
+        TRIGGERS, ANIM_IN, ANIM_OUT, TIMER_ACTIONS, PRIORITIES,
         getConfig: () => config,
         setConfig(next) {
             config = normalizeConfig(next);
@@ -896,7 +1023,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
         },
         getQueueState: () => ({ pending: queue.length, current, paused, muted, history, events }),
         replayEvent, replayAlert,
-        handleEvent, fireRule, noteGift, control, setMuted, stop,
+        handleEvent, fireRule, trigger, noteGift, pressCompanion, control, setMuted, stop,
         alertAssetUsers, rewriteAlertReferences
     };
 }

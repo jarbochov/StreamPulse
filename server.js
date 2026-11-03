@@ -1011,6 +1011,7 @@ const alertEngine = createAlertEngine({
         if (type === 'alert-skip' || type === 'alert-clear') overlayService.releaseTakeovers('alert');
     },
     runTimerAction: (timerId, action, params) => applyTimerControl(getTimerOrThrow(timerId), action, params),
+    sendChat: text => chatbot.postMessage(text),
     log: message => console.log(message)
 });
 

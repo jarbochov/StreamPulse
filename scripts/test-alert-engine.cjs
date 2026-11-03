@@ -1056,3 +1056,73 @@ test('bundled alert sound library: manifest files exist, stay small, and sfx val
     const { normalizeConfig: nc } = require('../server/services/alerts.js');
     assert.ok(nc({ rules: [{ id: 'r', trigger: 'follow', variants: [{ sound: 'sfx:hype/power_surge' }] }] }).rules[0].variants[0].sound === 'sfx:hype/power_surge');
 });
+
+test('priority orders the queue, critical interrupts, expiry and cap drop alerts', async () => {
+    const mk = (id, priority, extra = {}) => ({ id, trigger: 'follow', priority, ...extra, conditions: { cooldownSeconds: 0 }, variants: [{ title: id, duration: 5 }] });
+    const { engine, dispatched, cleanup } = createTempEngine({
+        settings: { enabled: true, queueCap: 3 },
+        rules: [mk('n', 'normal'), mk('l', 'low'), mk('h', 'high'), mk('c', 'critical', { interrupt: true }), mk('bogus', 'zzz')]
+    });
+    try {
+        assert.equal(normalizeConfig({ rules: [mk('x', 'zzz')] }).rules[0].priority, 'normal');
+        assert.equal(normalizeConfig({ rules: [mk('x', 'high', { interrupt: true })] }).rules[0].interrupt, false);
+        const fire = id => engine.fireRule(id);
+        fire('n');
+        fire('l'); fire('n'); fire('h');
+        assert.deepEqual(engine.getQueueState().pending, 3);
+        fire('l');
+        assert.equal(engine.getQueueState().pending, 3, 'cap holds');
+        assert.ok(engine.getQueueState().events.some(e => e.status === 'dropped'), 'cap drop recorded');
+        const before = dispatched.filter(d => d.type === 'alert-skip').length;
+        fire('c');
+        assert.equal(dispatched.filter(d => d.type === 'alert-skip').length, before + 1, 'critical interrupt skips current');
+        assert.equal(engine.getQueueState().current.ruleId, 'c');
+        engine.control('skip');
+        assert.equal(engine.getQueueState().current.ruleId, 'h', 'high plays before normal/low');
+    } finally { cleanup(); }
+});
+
+test('queued alerts past expireSeconds are dropped', () => {
+    const { engine, cleanup } = createTempEngine({
+        settings: { enabled: true, gapSeconds: 0 },
+        rules: [{ id: 'a', trigger: 'follow', conditions: {}, variants: [{ title: 'a', duration: 1 }] }, { id: 'e', trigger: 'follow', expireSeconds: 1, conditions: {}, variants: [{ title: 'e' }] }]
+    });
+    const realNow = Date.now;
+    try {
+        engine.fireRule('a'); engine.fireRule('e');
+        Date.now = () => realNow() + 5000;
+        engine.control('skip');
+        assert.equal(engine.getQueueState().pending, 0);
+        assert.equal(engine.getQueueState().current, null);
+        assert.ok(engine.getQueueState().events.some(e => e.status === 'dropped'));
+    } finally { Date.now = realNow; cleanup(); }
+});
+
+test('manual trigger fires announcements by name with text override and records history', () => {
+    const { engine, cleanup } = createTempEngine({
+        rules: [{ id: 'brb', name: 'BRB', trigger: 'announcement', conditions: {}, variants: [{ title: 'BRB', message: 'Back soon' }] }]
+    });
+    try {
+        const r = engine.trigger('brb', { message: 'Back in 5' });
+        assert.equal(r.alert.message, 'Back in 5');
+        assert.equal(r.alert.source, 'manual');
+        assert.ok(r.playing);
+        assert.ok(engine.getQueueState().events.some(e => e.ruleId === 'brb' && e.status === 'shown'));
+        assert.throws(() => engine.trigger('nope'));
+    } finally { cleanup(); }
+});
+
+test('chat and companion actions: chat cooldown, length cap, base URL pinned to settings', async () => {
+  const sent = [];
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-act-'));
+  const engine = createAlertEngine({ dataDir: tempDir, broadcast() {}, sendChat: t => sent.push(t), log: () => {} });
+  try {
+    const cfg = engine.setConfig({ settings: { companionUrl: 'http://10.0.0.5:8000/evil/path' }, rules: [{ id: 'c', trigger: 'follow', conditions: {}, variants: [{ title: 'x' }], actions: { chat: { enabled: true, template: 'Hi {{alert.user}} ' + 'z'.repeat(600), cooldownSeconds: 60 } } }] });
+    assert.equal(cfg.settings.companionUrl, 'http://10.0.0.5:8000');
+    engine.fireRule('c'); engine.fireRule('c');
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].length, 400);
+    const r = await engine.pressCompanion({ location: '1/2/x' }, 'http://127.0.0.1:1');
+    assert.equal(r.ok, false);
+  } finally { engine.stop(); fs.rmSync(tempDir, { recursive: true, force: true }); }
+});

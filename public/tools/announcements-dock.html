@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>StreamPulse Announcements</title>
+    <link rel="stylesheet" href="/admin.css">
+    <link rel="stylesheet" href="/css/alerts.css">
+    <script src="/appearance.js"></script>
+</head>
+<body class="ann-dock">
+    <div class="ann-dock-grid" id="grid" role="group" aria-label="Fire announcements"></div>
+    <p class="hint ann-dock-status" id="status" role="status"></p>
+    <script>
+        const grid = document.getElementById('grid'), status = document.getElementById('status');
+        const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        async function load() {
+            try {
+                const data = await (await fetch('/api/alerts/rules', { cache: 'no-store' })).json();
+                const list = data.rules.filter(r => r.trigger === 'announcement' && r.enabled);
+                grid.innerHTML = list.length ? list.map(r => `<button type="button" class="btn primary ann-dock-btn" data-id="${esc(r.id)}"><b>${esc(r.name)}</b><span>${esc(r.text)}</span></button>`).join('') : '<p class="hint">No announcements. Create them in Alerts, Announcements.</p>';
+            } catch { status.textContent = 'Cannot reach StreamPulse'; }
+        }
+        grid.addEventListener('click', async e => {
+            const b = e.target.closest('button[data-id]');
+            if (!b) return;
+            try {
+                const r = await (await fetch('/api/alerts/trigger', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rule: b.dataset.id }) })).json();
+                status.textContent = r.ok ? (r.playing ? 'Fired: playing now' : `Fired: queued (${r.pending} waiting)`) : `Failed: ${r.error}`;
+            } catch { status.textContent = 'Failed: no connection'; }
+        });
+        load(); setInterval(load, 15000);
+    </script>
+</body>
+</html>

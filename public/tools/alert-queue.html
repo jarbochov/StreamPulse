@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <link rel="stylesheet" href="/admin.css">
+    <link rel="stylesheet" href="/css/alerts.css">
     <script src="/appearance.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -86,6 +87,14 @@
         </div>
     </div>
 </header>
+<h2>Announcements</h2>
+<div class="ann-dock-grid" id="ann-fire" style="padding:0 .8rem"></div>
+<script>
+(async()=>{const g=document.getElementById('ann-fire');const e=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+try{const d=await (await fetch('/api/alerts/rules')).json();const l=d.rules.filter(r=>r.trigger==='announcement'&&r.enabled);
+g.innerHTML=l.length?l.map(r=>`<button type="button" class="ann-dock-btn" data-id="${e(r.id)}"><b>${e(r.name)}</b></button>`).join(''):'<span style="color:var(--text-muted)">None yet</span>';}catch{}
+g.addEventListener('click',ev=>{const b=ev.target.closest('button[data-id]');if(b)fetch('/api/alerts/trigger',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rule:b.dataset.id})});});})();
+</script>
 <h2>Events (latest 100)</h2>
 <div class="list" id="events"></div>
 <h2>Alerts shown</h2>

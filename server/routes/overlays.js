@@ -220,6 +220,28 @@ function createOverlayRoutes({
             return true;
         }
 
+        if (pathname === '/api/alerts/rules' && req.method === 'GET') {
+            const rules = alertEngine.getConfig().rules.map(r => ({
+                id: r.id, name: r.name, trigger: r.trigger, enabled: r.enabled, priority: r.priority,
+                text: r.variants[0]?.message || r.variants[0]?.title || '',
+                duration: r.variants[0]?.duration || 0
+            }));
+            const q = alertEngine.getQueueState();
+            sendJson(res, { rules, pending: q.pending, current: q.current ? { ruleId: q.current.ruleId, title: q.current.title, message: q.current.message } : null, paused: q.paused, muted: q.muted });
+            return true;
+        }
+
+        if (pathname === '/api/alerts/trigger' && (req.method === 'POST' || req.method === 'GET')) {
+            try {
+                const body = await parseJsonOrQuery(req, url);
+                const result = alertEngine.trigger(body.rule ?? body.ruleId, { ...body, test: body.test === true || body.test === 'true' });
+                sendJson(res, { ok: true, ...result });
+            } catch (err) {
+                sendError(res, err, 400);
+            }
+            return true;
+        }
+
         if (pathname === '/api/alerts/test' && (req.method === 'POST' || req.method === 'GET')) {
             try {
                 const body = await parseJsonOrQuery(req, url);
@@ -241,6 +263,17 @@ function createOverlayRoutes({
                 sendJson(res, { ok: true, alert: payload });
             } catch (err) {
                 sendError(res, err, 400);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/alerts/test-companion' && (req.method === 'POST' || req.method === 'GET')) {
+            try {
+                const body = await parseJsonOrQuery(req, url);
+                const result = await alertEngine.pressCompanion({ page: Number(body.page) || 0, row: Number(body.row) || 0, column: Number(body.column) || 0, location: String(body.location || '') }, alertEngine.getConfig().settings.companionUrl);
+                sendJson(res, result);
+            } catch (err) {
+                sendJson(res, { ok: false, error: err.message });
             }
             return true;
         }

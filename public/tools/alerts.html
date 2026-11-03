@@ -27,6 +27,10 @@
                         <span>Rules</span>
                         <span class="badge" id="rule-count-pill">0</span>
                     </button>
+                    <button type="button" role="tab" aria-selected="false" tabindex="-1" class="tab-btn" data-tab="announce" id="tab-btn-announce">
+                        <svg class="ico" viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M16 8a5 5 0 0 1 0 8"/></svg>
+                        <span>Announcements</span>
+                    </button>
                     <button type="button" role="tab" aria-selected="false" tabindex="-1" class="tab-btn" data-tab="queue" id="tab-btn-queue">
                         <svg class="ico" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                         <span>Queue &amp; Events</span>
@@ -184,6 +188,18 @@
         </div>
 
         <!-- Pane: Queue & Events -->
+        <div class="tab-pane" id="pane-announce">
+            <div class="card ann-card">
+                <div class="card-head-row"><h2>Announcements <span class="hint">Manual alerts you fire on demand</span></h2>
+                    <details class="more-menu"><summary class="btn sm ghost">Quick add</summary><div class="more-pop" id="ann-presets"></div></details>
+                    <a class="btn sm ghost" href="/tools/announcements-dock.html" target="_blank">Fire-only page</a>
+                </div>
+                <label class="ann-override">Override text for next fire <input type="text" id="ann-override" maxlength="500" placeholder="Leave empty to use the preset text"></label>
+                <div class="ann-grid" id="ann-grid"></div>
+                <p class="hint" id="ann-status" role="status"></p>
+            </div>
+        </div>
+
         <div class="tab-pane" id="pane-queue">
             <div class="queue-layout">
                 <div class="card queue-controls-card">
@@ -420,7 +436,8 @@
         goal: 'Goal reached',
         chat_word: 'Chat word or hashtag',
         chat_command: 'Chat bot command',
-        poll_end: 'Poll completed / winner'
+        poll_end: 'Poll completed / winner',
+        announcement: 'Announcement (manual only)'
     };
 
     const TRIGGER_META = {
@@ -437,6 +454,7 @@
         goal: { label: 'Goal Reached', icon: ICONS.trophy, color: '#fbbf24' },
         chat_word: { label: 'Chat Word / #Tag', icon: ICONS.message, color: '#a3e635' },
         chat_command: { label: 'Chat Command', icon: ICONS.command, color: '#0ea5e9' },
+        announcement: { label: 'Announcement', icon: ICONS.flag, color: '#f59e0b' },
         poll_end: { label: 'Poll Winner', icon: ICONS.poll, color: '#10b981' }
     };
 
@@ -1546,6 +1564,10 @@
                 <div class="cgrid">
                     ${field('Rule Name', inp('name', r.name, 'text', 'maxlength="80" placeholder="e.g. Sub Tier 1"'))}
                     ${field('Event Trigger', sel_('trigger', r.trigger, Object.entries(TRIGGERS)))}
+                    ${r.trigger === 'announcement' ? '' : ''}
+                    ${field('Priority', seg_('priority', r.priority || 'normal', [['low', 'Low'], ['normal', 'Normal'], ['high', 'High'], ['critical', 'Critical']]), 'Higher priority alerts play first when several are waiting.')}
+                    ${r.priority === 'critical' ? `<label class="check-row"><input type="checkbox" data-f="interrupt" data-type="check" ${r.interrupt ? 'checked' : ''}><span>Interrupt the alert on screen</span></label>` : ''}
+                    ${field('Expire after (seconds)', inp('expireSeconds', r.expireSeconds || 0, 'number', 'min="0" max="86400"'), 'Drop this alert if it waits in the queue longer than this (0 = never).')}
                     ${field('Cooldown (seconds)', inp('conditions.cooldownSeconds', r.conditions.cooldownSeconds, 'number', 'min="0"'), 'Minimum seconds between triggers of this rule (0 = none).')}
                     ${r.webhookOnly ? `
                         <div class="al-s44">
@@ -1633,6 +1655,37 @@
                                 </label>
                             ` : ''}
                         ` : '<span class="al-s49 hint">Start, pause, or adjust a timer when this alert fires.</span>'}
+                    </div>
+
+                    <div class="al-s47">
+                        <label class="al-s48 check-row">
+                            <input type="checkbox" data-f="actions.chat.enabled" data-type="check" ${a.chat.enabled ? 'checked' : ''}>
+                            <span>Send Chat Message</span>
+                        </label>
+                        ${a.chat.enabled ? `
+                            ${field('Message', inp('actions.chat.template', a.chat.template, 'text', 'maxlength="1000" placeholder="Thanks {{alert.user}}!"'), 'Supports {{alert.*}} placeholders. Sent via SocialStream, trimmed to 400 characters.')}
+                            ${field('Chat cooldown (seconds)', inp('actions.chat.cooldownSeconds', a.chat.cooldownSeconds, 'number', 'min="0"'), 'Spam guard: minimum seconds between chat messages from this rule.')}
+                        ` : ''}
+                    </div>
+
+                    <div class="al-s47">
+                        <label class="al-s48 check-row">
+                            <input type="checkbox" data-f="actions.companion.enabled" data-type="check" ${a.companion.enabled ? 'checked' : ''}>
+                            <span>Press Companion Button</span>
+                        </label>
+                        ${a.companion.enabled ? `
+                            ${field('Companion address', `<input type="text" id="s-companion-url" value="${esc(cfg.settings.companionUrl || 'http://127.0.0.1:8000')}" placeholder="http://127.0.0.1:8000">`, 'Global setting. Only this host is ever contacted.')}
+                            <div class="vgrid c3">
+                                ${field('Page', inp('actions.companion.page', a.companion.page, 'number', 'min="0"'))}
+                                ${field('Row', inp('actions.companion.row', a.companion.row, 'number', 'min="0"'))}
+                                ${field('Column', inp('actions.companion.column', a.companion.column, 'number', 'min="0"'))}
+                            </div>
+                            <div class="vgrid c3">
+                                ${field('Or location', inp('actions.companion.location', a.companion.location, 'text', 'placeholder="1/0/2"'), 'Optional page/row/column; overrides the numbers.')}
+                                ${field('Delay (seconds)', inp('actions.companion.delay', a.companion.delay, 'number', 'min="0" max="300" step="0.5"'))}
+                                <div class="al-s50"><button type="button" class="btn sm" id="btn-test-companion">${ICONS.play} <span>Test Button</span></button><span id="companion-test-result" class="hint"></span></div>
+                            </div>
+                        ` : ''}
                     </div>
 
                     <!-- Webhook Action -->
@@ -1753,6 +1806,7 @@
         renderRules();
         renderEditor();
         renderQueue();
+        renderAnnouncements();
     }
 
     async function save() {
@@ -1764,6 +1818,52 @@
     }
     const guard = fn => async (...args) => { try { await fn(...args); } catch (err) { toast(err.message, true); } };
 
+    document.addEventListener('change', e => { if (e.target.id === 's-companion-url') { cfg.settings.companionUrl = e.target.value.trim(); setDirty(true); } });
+    const ANN_PRESETS = [
+        ['BRB in 5 minutes', 'Be right back in 5 minutes'], ['Starting soon', 'Stream starting soon'], ['Back from break', 'We are back!'],
+        ['Technical difficulties', 'Technical difficulties, please stand by'], ['Thanks for watching', 'Thanks for watching, see you next time!']
+    ];
+    const annRules = () => cfg.rules.filter(r => r.trigger === 'announcement');
+    function renderAnnouncements() {
+        const list = annRules();
+        $('ann-grid').innerHTML = list.length ? list.map(r => {
+            const v = r.variants[0] || {};
+            return `<div class="ann-item" draggable="true" data-ann="${esc(r.id)}">
+                <div class="ann-name">${esc(r.name)}<span class="badge">${esc(r.priority || 'normal')}</span>${r.actions.chat.enabled ? '<span class="badge accent">Chat</span>' : ''}</div>
+                <div class="ann-text">${esc(v.message || v.title || '')}</div>
+                <div class="ann-btns"><button type="button" class="btn primary ann-fire" data-fire="${esc(r.id)}">${ICONS.play} Fire</button><button type="button" class="btn sm ghost" data-ann-edit="${esc(r.id)}">Edit</button></div>
+            </div>`; }).join('') : '<p class="hint">No announcements yet. Use Quick add to create one.</p>';
+        $('ann-presets').innerHTML = ANN_PRESETS.map(([n], i) => `<button type="button" class="btn sm ghost" data-ann-add="${i}">${esc(n)}</button>`).join('');
+    }
+    async function fireAnnouncement(id) {
+        const text = $('ann-override').value.trim();
+        const st = $('ann-status');
+        try {
+            if (dirty) await save();
+            const res = await api('/api/alerts/trigger', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rule: id, message: text || undefined }) });
+            st.textContent = res.playing ? 'Fired: playing now' : `Fired: queued (${res.pending} waiting)`;
+        } catch (err) { st.textContent = `Failed: ${err.message}`; }
+    }
+    document.addEventListener('click', e => {
+        const f = e.target.closest('[data-fire]'), a = e.target.closest('[data-ann-add]'), ed = e.target.closest('[data-ann-edit]');
+        if (f) fireAnnouncement(f.dataset.fire);
+        else if (a) {
+            const [name, text] = ANN_PRESETS[a.dataset.annAdd];
+            const rule = blankRule('announcement', `ann-${Date.now().toString(36)}`);
+            rule.name = name; rule.variants[0].title = name; rule.variants[0].message = text;
+            cfg.rules.push(rule); setDirty(true); renderAll(); renderAnnouncements();
+        } else if (ed) { sel = ed.dataset.annEdit; renderAll(); setTab('rules'); }
+    });
+    let annDrag = null;
+    document.addEventListener('dragstart', e => { annDrag = e.target.closest?.('[data-ann]')?.dataset.ann || null; });
+    document.addEventListener('dragover', e => { if (annDrag && e.target.closest('[data-ann]')) e.preventDefault(); });
+    document.addEventListener('drop', e => {
+        const to = e.target.closest?.('[data-ann]')?.dataset.ann;
+        if (!annDrag || !to || to === annDrag) return;
+        const from = cfg.rules.findIndex(r => r.id === annDrag), idx = cfg.rules.findIndex(r => r.id === to);
+        cfg.rules.splice(idx, 0, cfg.rules.splice(from, 1)[0]);
+        annDrag = null; setDirty(true); renderAnnouncements();
+    });
     // Global Settings Listeners
     $('s-enabled').addEventListener('change', () => { cfg.settings.enabled = $('s-enabled').checked; setDirty(true); });
     $('s-gap').addEventListener('input', () => { cfg.settings.gapSeconds = Number($('s-gap').value) || 0; setDirty(true); });
@@ -1793,10 +1893,10 @@
     });
 
     const blankRule = (trigger, id) => ({
-        id, name: 'New alert', enabled: true, trigger,
+        id, name: 'New alert', enabled: true, trigger, priority: 'normal', interrupt: false, expireSeconds: 0,
         conditions: { amountMode: 'min', minAmount: 0, maxAmount: 0, exactAmount: 0, source: 'any', tier: '', rewardName: '', keywords: [], timerId: '', goalId: '', milestones: [], everyMonths: 0, cooldownSeconds: 0, command: '', permission: 'everyone' },
         pick: 'random', variants: [newVariant(trigger)],
-        actions: { timer: { enabled: false, timerId: '', action: 'add_time', seconds: 30, perUnit: false }, http: { enabled: false, url: '', method: 'POST' } }
+        actions: { timer: { enabled: false, timerId: '', action: 'add_time', seconds: 30, perUnit: false }, http: { enabled: false, url: '', method: 'POST' }, chat: { enabled: false, template: '', cooldownSeconds: 30 }, companion: { enabled: false, page: 1, row: 0, column: 0, location: '', delay: 0 } }
     });
     // Add Rule
     $('add-rule').addEventListener('click', () => {
@@ -2016,7 +2116,7 @@
             if (el.value !== 'range') c.maxAmount = 0;
             renderEditor();
             renderRules();
-        } else if (el.dataset.f === 'pick' || ['actions.timer.enabled', 'actions.http.enabled', 'actions.timer.action', 'webhookOnly'].includes(el.dataset.f)) {
+        } else if (el.dataset.f === 'pick' || ['priority', 'actions.chat.enabled', 'actions.companion.enabled', 'actions.timer.enabled', 'actions.http.enabled', 'actions.timer.action', 'webhookOnly'].includes(el.dataset.f)) {
             renderEditor();
         } else if (el.dataset.soundPreset !== undefined) {
             const idx = el.dataset.soundPreset;
@@ -2320,6 +2420,15 @@
             sel = copy.id;
             setDirty(true);
             renderAll();
+        } else if (btn.id === 'btn-test-companion') {
+            const out = $('companion-test-result');
+            out.textContent = 'Testing...';
+            const c = r.actions.companion;
+            try {
+                await api('/api/alerts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg) }).catch(() => {});
+                const res = await api('/api/alerts/test-companion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c) });
+                out.textContent = res.ok ? `Pressed (${res.status})` : `Failed: ${res.error || res.status}`;
+            } catch (err) { out.textContent = `Failed: ${err.message}`; }
         } else if (btn.id === 'btn-test-webhook') {
             const statusEl = $('webhook-test-result');
             const urlInput = document.querySelector('input[data-f="actions.http.url"]');
@@ -2424,13 +2533,14 @@
     // Top Tabs Navigation
     const tabBtns = [...document.querySelectorAll('[role="tab"][data-tab]')];
     function setTab(name, focus) {
-        if (!['rules', 'queue', 'sim'].includes(name)) name = 'rules';
+        if (!['rules', 'announce', 'queue', 'sim'].includes(name)) name = 'rules';
         tabBtns.forEach(x => { const on = x.dataset.tab === name; x.classList.toggle('active', on); x.setAttribute('aria-selected', on); x.tabIndex = on ? 0 : -1; if (on && focus) x.focus(); });
-        ['rules', 'queue', 'sim'].forEach(n => $('pane-' + n).classList.toggle('active', n === name));
+        ['rules', 'announce', 'queue', 'sim'].forEach(n => $('pane-' + n).classList.toggle('active', n === name));
         document.querySelector('.alerts-toolbar').dataset.tab = name;
         localStorage.setItem('alerts.tab', name);
         history.replaceState(null, '', '#' + name);
         if (name === 'queue') refreshQueue();
+        if (name === 'announce') renderAnnouncements();
     }
     tabBtns.forEach((t, i) => {
         t.addEventListener('click', () => setTab(t.dataset.tab));
@@ -2575,7 +2685,7 @@
         const base = blankRule(trigger, newIds ? `rule-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}` : String(raw.id || `rule-${Date.now().toString(36)}`));
         const out = { ...base, ...raw, trigger, id: base.id, name: String(raw.name || base.name).slice(0, 80) };
         out.conditions = { ...base.conditions, ...(raw.conditions || {}) };
-        out.actions = { timer: { ...base.actions.timer, ...(raw.actions?.timer || {}) }, http: { ...base.actions.http, ...(raw.actions?.http || {}) } };
+        out.actions = { timer: { ...base.actions.timer, ...(raw.actions?.timer || {}) }, http: { ...base.actions.http, ...(raw.actions?.http || {}) }, chat: { ...base.actions.chat, ...(raw.actions?.chat || {}) }, companion: { ...base.actions.companion, ...(raw.actions?.companion || {}) } };
         out.variants = (Array.isArray(raw.variants) && raw.variants.length ? raw.variants : [{}]).map(v => {
             const nv = { ...newVariant(trigger), ...v };
             if (newIds || !v.id) nv.id = `v${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
