@@ -163,6 +163,13 @@ function createTierListRoutes({ tierListService }) {
                 return true;
             }
 
+            // GET /api/tier-list/presets
+            if (pathname === '/api/tier-list/presets' && req.method === 'GET') {
+                const state = tierListService.getState();
+                sendJson(res, { presets: state.presets || [] });
+                return true;
+            }
+
             // POST or GET /api/tier-list/presets/:id/load (Companion friendly)
             if (pathname.startsWith('/api/tier-list/presets/') && pathname.endsWith('/load') && (req.method === 'POST' || req.method === 'GET')) {
                 const presetId = pathname.slice('/api/tier-list/presets/'.length, -'/load'.length);

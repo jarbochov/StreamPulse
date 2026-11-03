@@ -11,6 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- StreamPulse Companion Module Updates: Added dedicated Tier Maker actions (start vote on next or specific item, lock voting, place in consensus tier, cancel vote, reset item placements, load template preset), live voting feedbacks and variables, webhook test trigger, clean categorized action naming prefixes (Alerts, Overlay, Tier Maker, Polls, Poll Tournament, Versus, Tournament, Randomizer, Chat Bot, Variables, Timer, Goal, Production, Session, Server), and contiguous action order for intuitive searching and browsing.
 - Alert box media focal point (Focus X/Y, shown for Fill media) and custom padding.
 - Alert box "Apply media effects to" setting: filters and tint can target only the alert's media so title and message text stay crisp.
 - Bits alerts: per-variant Emote source (Viewer's cheermote or Custom); Viewer's cheermote uses the family from the message with the tier from the summed bits, falling back to Cheer at the total amount.

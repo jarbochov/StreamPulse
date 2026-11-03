@@ -343,7 +343,15 @@ test('Tier List REST API Routes', async () => {
         assert.equal(res6.getStatusCode(), 200);
         assert.equal(res6.getBody().activeVote, null);
 
-        // 7. Presets API: delete & reset
+        // 7. Presets API: GET /api/tier-list/presets, delete & reset
+        const reqPresets = mockReq('GET', '/api/tier-list/presets');
+        const resPresets = mockRes();
+        const handledPresets = await handleRoutes(reqPresets, resPresets, '/api/tier-list/presets');
+        assert.equal(handledPresets, true);
+        assert.equal(resPresets.getStatusCode(), 200);
+        assert.ok(Array.isArray(resPresets.getBody().presets));
+        assert.ok(resPresets.getBody().presets.some(p => p.id === 'preset-standard'));
+
         const req7 = mockReq('DELETE', '/api/tier-list/presets/preset-standard');
         const res7 = mockRes();
         const handled7 = await handleRoutes(req7, res7, '/api/tier-list/presets/preset-standard');
