@@ -1,5 +1,5 @@
 // Shared {{placeholder}} chooser used by the overlay editor and the chat bot page.
-// PlaceholderPicker.open({ getStatus, getContext, onPick(token) })
+// PlaceholderPicker.open({ getStatus, getContext, onPick(token), extraGroups?, extraValues? })
 (function (root) {
     const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
     let dialog = null, options = null;
@@ -93,6 +93,10 @@
                 },
                 ...groups
             ];
+        }
+        if (options.extraGroups?.length) {
+            Object.assign(table, options.extraValues || {});
+            groups = [...options.extraGroups, ...groups];
         }
         const html = groups.map(group => {
             const items = group.items.filter(([key, label]) => !query || `${group.label} ${key} ${label}`.toLowerCase().includes(query));

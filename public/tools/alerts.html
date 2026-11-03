@@ -378,6 +378,7 @@
         <div class="dlg-actions"><button type="button" class="btn" id="paste-cancel">Cancel</button><button type="button" class="btn primary" id="paste-apply">Paste</button></div>
     </dialog>
     <script src="/overlay-shared.js"></script>
+    <script src="/placeholder-picker.js"></script>
     <script src="/poll.js"></script>
     <script>
 (() => {
@@ -774,13 +775,14 @@
 
     const vin = (i, key, label, value, attrs = '', type = 'number') => `<label class="fld"><span>${label}</span><input type="${type}" data-v="${i}.${key}" value="${esc(value)}" ${attrs}></label>`;
     const vsel = (i, key, label, value, options) => `<label class="fld"><span>${label}</span><select data-v="${i}.${key}">${options.map(a => `<option${a === value ? ' selected' : ''}>${a}</option>`).join('')}</select></label>`;
-    const SYSTEM_TOKENS = ['stream.title', 'stream.category', 'game.name', 'weather.temp_full', 'weather.condition', 'weather.city', 'music.title', 'music.artist', 'time', 'date'];
     const BUILTIN = OverlayShared.BUILTIN_SOUNDS;
     const builtinName = v => (String(v.sound || '').startsWith('builtin:') ? v.sound.slice(8) : '');
     const isSfx = v => /^sfx:/.test(String(v.sound || ''));
     let SFX_GROUPS = [];
     fetch('/sounds/manifest.json').then(r => r.json()).then(m => { SFX_GROUPS = m.groups || []; if (typeof renderEditor === 'function') try { renderEditor(); } catch {} }).catch(() => {});
-    let testAmount = 0, styleClip = null;
+    let testAmount = 0, styleClip = null, liveStatus = {};
+    const pollStatus = () => fetch('/api/status').then(r => r.json()).then(d => { liveStatus = d; }).catch(() => {});
+    pollStatus(); setInterval(pollStatus, 15000);
 
     const SND_GROUPS = ['Celebration', 'Hype', 'Impact', 'Cheer/Crowd', 'Chime/Bell', 'Retro', 'Synth'];
     const SND_MAP = { Arcade: 'Retro', Chimes: 'Chime/Bell', 'Modern UI': 'Synth', Other: 'Synth' };
@@ -1322,11 +1324,11 @@
                         <span class="vsection-title">${ICONS.type} Alert Text &amp; Placeholders</span>
                     </div>
                     <div class="full-text-field">
-                        <div class="field-label-row"><label>Title Template</label>${tokens.length ? `<details class="more-menu ph-pick"><summary class="btn sm ghost" title="Insert a placeholder at the cursor">{{ }} Placeholder ${ICONS.chevronDown}</summary><div class="more-pop tokens-pop"><div class="tokens-bar">${tokens.map(t => `<button type="button" class="token-chip" data-insert-token="{{alert.${t}}}" data-token-target="${i}.title" title="Insert {{alert.${t}}}">{{alert.${t}}}</button>`).join('')}</div><div class="ann-label ph-sys-label">System</div><div class="tokens-bar">${SYSTEM_TOKENS.map(t => `<button type="button" class="token-chip" data-insert-token="{{${t}}}" data-token-target="${i}.title" title="Insert {{${t}}}">{{${t}}}</button>`).join('')}</div></div></details>` : ''}</div>
+                        <div class="field-label-row"><label>Title Template</label>${tokens.length ? `<button type="button" class="btn sm ghost" data-ph-open="${i}.title" title="Insert a placeholder at the cursor">{{ }} Placeholder</button>` : ''}</div>
                         <input type="text" class="full-text-input" data-v="${i}.title" value="${esc(v.title || '')}" placeholder="e.g. {{alert.user}} resubscribed for {{alert.months}} months!">
                     </div>
                     <div class="al-s17 full-text-field">
-                        <div class="field-label-row"><label>Subtitle / Message (Optional)</label>${tokens.length ? `<details class="more-menu ph-pick"><summary class="btn sm ghost" title="Insert a placeholder at the cursor">{{ }} Placeholder ${ICONS.chevronDown}</summary><div class="more-pop tokens-pop"><div class="tokens-bar">${tokens.map(t => `<button type="button" class="token-chip" data-insert-token="{{alert.${t}}}" data-token-target="${i}.message" title="Insert {{alert.${t}}}">{{alert.${t}}}</button>`).join('')}</div><div class="ann-label ph-sys-label">System</div><div class="tokens-bar">${SYSTEM_TOKENS.map(t => `<button type="button" class="token-chip" data-insert-token="{{${t}}}" data-token-target="${i}.message" title="Insert {{${t}}}">{{${t}}}</button>`).join('')}</div></div></details>` : ''}</div>
+                        <div class="field-label-row"><label>Subtitle / Message (Optional)</label>${tokens.length ? `<button type="button" class="btn sm ghost" data-ph-open="${i}.message" title="Insert a placeholder at the cursor">{{ }} Placeholder</button>` : ''}</div>
                         <input type="text" class="full-text-input" data-v="${i}.message" value="${esc(v.message || '')}" placeholder="e.g. Thanks for the amazing support!">
                     </div>
                 </div>
@@ -2294,6 +2296,18 @@
         const btn = event.target.closest('button');
         if (!btn) return;
 
+        if (btn.dataset.phOpen) {
+            const input = document.querySelector(`input[data-v="${btn.dataset.phOpen}"]`);
+            const toks = TOKENS[rule().trigger] || [];
+            PlaceholderPicker.open({
+                getStatus: () => liveStatus,
+                extraGroups: toks.length ? [{ label: 'This alert', items: toks.map(t => [`alert.${t}`, t.replace(/_/g, ' ')]) }] : [],
+                extraValues: Object.fromEntries(toks.map(t => [`alert.${t}`, SAMPLE_TOKENS[t]])),
+                onWarn: m => toast(m, true),
+                onPick: token => { if (input && document.contains(input)) PlaceholderPicker.insertInto(input, token); else { navigator.clipboard?.writeText(`{{${token}}}`); toast('Copied placeholder'); } }
+            });
+            return;
+        }
         // Quick-insert token button
         if (btn.dataset.insertToken) {
             const token = btn.dataset.insertToken;
