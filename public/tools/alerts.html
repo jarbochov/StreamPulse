@@ -371,12 +371,6 @@
         </div>
         <div class="dlg-actions"><button type="button" class="btn" id="import-cancel">Cancel</button><button type="button" class="btn primary" id="import-apply">Import</button></div>
     </dialog>
-    <dialog id="paste-dlg" class="sp-dlg">
-        <h3>Paste style</h3>
-        <p class="al-s4" id="paste-summary"></p>
-        <div class="dlg-row" id="paste-groups"></div>
-        <div class="dlg-actions"><button type="button" class="btn" id="paste-cancel">Cancel</button><button type="button" class="btn primary" id="paste-apply">Paste</button></div>
-    </dialog>
     <script src="/overlay-shared.js"></script>
     <script src="/placeholder-picker.js"></script>
     <script src="/poll.js"></script>
@@ -780,7 +774,7 @@
     const isSfx = v => /^sfx:/.test(String(v.sound || ''));
     let SFX_GROUPS = [];
     fetch('/sounds/manifest.json').then(r => r.json()).then(m => { SFX_GROUPS = m.groups || []; if (typeof renderEditor === 'function') try { renderEditor(); } catch {} }).catch(() => {});
-    let testAmount = 0, styleClip = null, liveStatus = {};
+    let testAmount = 0, liveStatus = {};
     const pollStatus = () => fetch('/api/status').then(r => r.json()).then(d => { liveStatus = d; }).catch(() => {});
     pollStatus(); setInterval(pollStatus, 15000);
 
@@ -1249,6 +1243,9 @@
                         <button type="button" class="btn sm ghost v-preview-btn" data-test-variant="${i}" title="Preview this variant on overlays">
                             ${ICONS.play} <span>Preview</span>
                         </button>
+                        <button type="button" class="btn sm ghost" data-dup-variant="${i}" title="Duplicate this variant">
+                            ${ICONS.copy} <span>Duplicate</span>
+                        </button>
                         <button type="button" class="btn sm ghost danger" data-del-variant="${i}" ${r.variants.length < 2 ? 'disabled' : ''} title="Remove this variant">
                             ${ICONS.trash} <span>Remove</span>
                         </button>
@@ -1341,8 +1338,6 @@
                         <span class="vsection-title">${ICONS.play} Live preview</span>
                         <span class="live-actions" style="display:inline-flex;gap:0.35rem;flex-wrap:wrap;">
                             <button type="button" class="btn sm" data-play-sound="${i}" title="Play this variant's sound at its saved volume">${ICONS.volume} <span>Play sound</span></button>
-                            <button type="button" class="btn sm" data-copy-style="${i}" title="Copy this variant's style">${ICONS.copy} <span>Copy style</span></button>
-                            <button type="button" class="btn sm" data-paste-style="${i}" ${styleClip ? '' : 'disabled'} title="Paste copied style onto this variant">${ICONS.copy} <span>Paste style</span></button>
                             <span class="btn sm ghost live-toggle">${ICONS.chevronDown}</span>
                         </span>
                     </summary>
@@ -2341,14 +2336,6 @@
 
         if (btn.dataset.replay !== undefined) { mountPreview(false, true); return; }
         if (btn.dataset.playSound !== undefined) { playVariantSound(r.variants[btn.dataset.playSound]); return; }
-        if (btn.dataset.copyStyle !== undefined) {
-            const v = r.variants[btn.dataset.copyStyle];
-            styleClip = JSON.parse(JSON.stringify(Object.fromEntries(Object.values(STYLE_GROUPS).flat().filter(k => k in v).map(k => [k, v[k]]))));
-            toast('Style copied; use Paste style on another variant');
-            renderEditor();
-            return;
-        }
-        if (btn.dataset.pasteStyle !== undefined && styleClip) { openPasteDialog(Number(btn.dataset.pasteStyle)); return; }
         if (btn.dataset.clearMedia) {
             const [i, key] = btn.dataset.clearMedia.split('.');
             r.variants[i][key] = '';
@@ -2366,7 +2353,7 @@
             $('lib-q').focus();
             return;
         }
-        if (btn.dataset.test !== undefined || btn.dataset.delVariant !== undefined) event.preventDefault();
+        if (btn.dataset.test !== undefined || btn.dataset.delVariant !== undefined || btn.dataset.dupVariant !== undefined) event.preventDefault();
         if (btn.dataset.setVariantType) {
             const vi = Number(btn.dataset.vi);
             if (r && r.variants[vi]) {
@@ -2416,6 +2403,16 @@
         }
         if (btn.dataset.vmedia) { variantMedia.set(btn.dataset.vidTab, btn.dataset.vmedia); openVariants.add(btn.dataset.vidTab); renderEditor(); return; }
         if (btn.dataset.vtab) { variantTab.set(btn.dataset.vidTab, btn.dataset.vtab); openVariants.add(btn.dataset.vidTab); renderEditor(); return; }
+        if (btn.dataset.dupVariant !== undefined) {
+            const idx = Number(btn.dataset.dupVariant);
+            const nv = { ...JSON.parse(JSON.stringify(r.variants[idx])), id: newVariant(r.trigger).id };
+            r.variants.splice(idx + 1, 0, nv);
+            openVariants.add(nv.id);
+            setDirty(true);
+            renderEditor();
+            toast(`Duplicated Variant ${idx + 1}`);
+            return;
+        }
         if (btn.id === 'add-base-variant' || btn.id === 'add-variant') {
             const nv = newVariant(r.trigger, 'weighted', 0);
             r.variants.push(nv);
@@ -2683,37 +2680,6 @@
             renderQueue();
         } catch { /* server restarting */ }
     }
-
-    const STYLE_GROUPS = {
-        'Title and message text': ['title', 'message'],
-        'Animation and duration': ['animIn', 'animOut', 'duration'],
-        'Media settings': ['image', 'video', 'videoSound', 'videoVolume', 'videoLoop', 'emoji', 'emojiUrl', 'emoteEffect', 'emoteScale', 'emoteDensity', 'emojiLadder', 'emojiEvery', 'emojiMax', 'emoteSource', 'cheermoteFamily'],
-        'Sound and volume': ['sound', 'volume']
-    };
-    let pasteTarget = -1;
-    function openPasteDialog(i) {
-        pasteTarget = i;
-        $('paste-summary').textContent = `Choose what to paste onto Variant ${i + 1}.`;
-        $('paste-groups').innerHTML = Object.entries(STYLE_GROUPS).map(([name, keys], n) => {
-            const present = keys.filter(k => k in styleClip);
-            return `<label class="check-row"><input type="checkbox" data-paste-group="${esc(name)}" ${n < 3 ? 'checked' : ''} ${present.length ? '' : 'disabled'}><span>${esc(name)} <small style="color:var(--text-muted)">(${present.length} field${present.length === 1 ? '' : 's'})</small></span></label>`;
-        }).join('');
-        $('paste-dlg').showModal();
-    }
-    $('paste-cancel').addEventListener('click', () => $('paste-dlg').close());
-    $('paste-apply').addEventListener('click', () => {
-        const r = rule(), v = r?.variants[pasteTarget];
-        if (!v || !styleClip) return $('paste-dlg').close();
-        const done = [];
-        document.querySelectorAll('[data-paste-group]:checked').forEach(c => {
-            STYLE_GROUPS[c.dataset.pasteGroup].forEach(k => { if (k in styleClip) v[k] = JSON.parse(JSON.stringify(styleClip[k])); });
-            done.push(c.dataset.pasteGroup.toLowerCase());
-        });
-        $('paste-dlg').close();
-        if (!done.length) return;
-        setDirty(true); renderRules(); renderEditor();
-        toast(`Pasted ${done.join(', ')} onto Variant ${pasteTarget + 1}`);
-    });
 
     // Import / export
     const download = (name, data) => {
