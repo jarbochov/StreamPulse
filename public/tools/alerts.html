@@ -647,7 +647,7 @@
                 </div>
                 <span class="count-pill" title="${r.variants.length} variant${r.variants.length === 1 ? '' : 's'}">${r.variants.length}</span>
                 <div class="rule-item-toggle">
-                    <span class="pill ${r.enabled ? 'ok' : ''}">${r.enabled ? 'On' : 'Off'}</span>
+                    <button type="button" class="rule-switch${r.enabled ? ' on' : ''}" data-rule-toggle="${esc(r.id)}" role="switch" aria-checked="${r.enabled ? 'true' : 'false'}" title="${r.enabled ? 'Active: click to disable' : 'Disabled: click to enable'}" aria-label="Rule active"><span class="rule-switch-knob"></span></button>
                 </div>
             </div>`;
         }).join('');
@@ -1947,6 +1947,12 @@
             activeTriggerFilter = ''; activeStateFilter = '';
             persistFilters(); syncFilterUi();
             renderRules();
+            return;
+        }
+        const tg = event.target.closest('[data-rule-toggle]');
+        if (tg) {
+            const r = cfg.rules.find(x => x.id === tg.dataset.ruleToggle);
+            if (r) { r.enabled = !r.enabled; setDirty(true); renderRules(); if (r.id === sel) renderEditor(); }
             return;
         }
         const item = event.target.closest('[data-rule]');

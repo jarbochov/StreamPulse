@@ -105,7 +105,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sa
 .rule-item { border: 1px solid var(--border); border-radius: 8px; padding: 0.55rem 0.7rem; background: var(--bg-inset); cursor: pointer; display: flex; align-items: center; gap: 0.65rem; transition: border-color 0.12s, background 0.12s; text-align: left; }
 .rule-item:hover { border-color: var(--border-strong); background: var(--bg-raised); }
 .rule-item.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg-card)); box-shadow: 0 0 0 1px var(--accent); }
-.rule-item.off { opacity: 0.58; }
+.rule-item { border-left: 3px solid var(--border); }
+.rule-item:not(.off) { border-left-color: var(--success); }
+.rule-item.off { opacity: 0.6; }
+.rule-item.off .rule-item-name { text-decoration: line-through; text-decoration-color: var(--text-faint); }
 .rule-item.off .rule-icon-box { filter: grayscale(0.8); opacity: 0.6; }
 
 .rule-icon-box { width: 32px; height: 32px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid var(--border); background: var(--bg-card); }
@@ -1174,3 +1177,9 @@ body .al-s53 { font-size:0.7rem; padding:2px 8px; display:inline-flex; align-ite
 .chip-btn .chip-x { padding: 0.2rem 0.55rem 0.2rem 0.3rem; color: var(--text-muted); }
 .chip-btn .chip-x:hover { color: var(--danger, #ef4444); }
 #save-state { white-space: nowrap; flex: 0 0 auto; }
+
+.rule-switch { width: 36px; height: 20px; border-radius: 999px; border: 0; padding: 0; background: var(--border-strong); position: relative; cursor: pointer; transition: background 0.15s; flex: 0 0 auto; }
+.rule-switch.on { background: var(--success); }
+.rule-switch-knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 0.15s; box-shadow: 0 1px 2px rgba(0,0,0,.35); }
+.rule-switch.on .rule-switch-knob { transform: translateX(16px); }
+.rule-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
