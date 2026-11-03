@@ -1525,14 +1525,16 @@
                         <div class="summary-icon" style="color:${meta.color};border-color:color-mix(in srgb, ${meta.color} 35%, var(--border));">${meta.icon}</div>
                         <b class="rule-title" id="rule-title">${esc(r.name)}</b>
                         <span class="badge accent">${meta.label}</span>
-                        <label class="check-row" title="Enable or disable this specific rule">
-                            <input type="checkbox" data-f="enabled" data-type="check" ${r.enabled ? 'checked' : ''}>
-                            <span>Active</span>
-                        </label>
                     </div>
                     <div class="summary-text rule-sentence" hidden><b></b></div>
                 </div>
                 <div class="summary-actions">
+                    <label class="master-toggle rule-active" title="Enable or disable this specific rule">
+                        <input type="checkbox" data-f="enabled" data-type="check" ${r.enabled ? 'checked' : ''}>
+                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                        <span class="toggle-label">Active</span>
+                    </label>
+                    <span class="summary-sep" aria-hidden="true"></span>
                     ${hasMetric ? `
                         <div class="al-s40">
                             <span style="font-size:0.71rem;color:var(--text-muted);font-weight:600;">Simulate ${esc(metricName)}:</span>

@@ -1183,3 +1183,8 @@ body .al-s53 { font-size:0.7rem; padding:2px 8px; display:inline-flex; align-ite
 .rule-switch-knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 0.15s; box-shadow: 0 1px 2px rgba(0,0,0,.35); }
 .rule-switch.on .rule-switch-knob { transform: translateX(16px); }
 .rule-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.summary-banner .summary-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: nowrap; margin-left: auto; }
+.summary-banner .summary-left > div:first-child { flex-wrap: nowrap; }
+.summary-banner .rule-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 32ch; }
+.summary-sep { width: 1px; height: 22px; background: var(--border); }
+.summary-actions .more-menu > summary { height: 28px; display: inline-flex; align-items: center; }
