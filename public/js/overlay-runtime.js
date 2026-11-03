@@ -116,6 +116,13 @@
         return { overlayName: liveStatus.overlayName };
     }
 
+    function expandAlertText(payload) {
+        if (!payload) return payload;
+        const out = { ...payload };
+        for (const k of ['title', 'message']) if (typeof out[k] === 'string' && out[k].includes('{{')) out[k] = expandVariables(out[k]);
+        return out;
+    }
+
     function expandVariables(value) {
         return shared.expandVariables(value, liveStatus, variableContext());
     }
@@ -233,7 +240,7 @@
             }
             const entry = { node, handle: null, stopping: false };
             activeAlerts.add(entry);
-            entry.handle = shared.playAlert(node, element, lastAlert.payload, {
+            entry.handle = shared.playAlert(node, element, expandAlertText(lastAlert.payload), {
                 onEnd: () => {
                     activeAlerts.delete(entry);
                     if (!entry.stopping) showAlertPreview(node, element);
@@ -257,7 +264,7 @@
             // Register before playAlert: an implementation may complete synchronously.
             const entry = { node, handle: null, stopping: false };
             activeAlerts.add(entry);
-            entry.handle = shared.playAlert(node, element, payload, {
+            entry.handle = shared.playAlert(node, element, expandAlertText(payload), {
                 onEnd: () => {
                     activeAlerts.delete(entry);
                     if (!entry.stopping) showAlertPreview(node, element);

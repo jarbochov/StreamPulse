@@ -1195,3 +1195,4 @@ body .al-s53 { font-size:0.7rem; padding:2px 8px; display:inline-flex; align-ite
 .sim-label { font-size: 0.71rem; color: var(--text-muted); font-weight: 600; white-space: nowrap; }
 @media (max-width: 1300px) { .sim-label { display: none; } }
 .summary-banner .summary-left > div:first-child .badge { flex: 0 0 auto; }
+.ph-sys-label { margin: 0.5rem 0 0.25rem; }

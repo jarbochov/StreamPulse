@@ -6,7 +6,7 @@ Alerts help important stream events feel seen without making every moment compet
 
 Give different kinds of support their own look and sound, and preview the result before it becomes part of your show. The queue helps you review recent events, revisit a missed moment, or pause the flow when you need to focus. A filter for unmatched activity makes it easier to focus on alerts that actually triggered.
 
-Amount-based rules can fire at **At least**, **Between** or **Equal to** an amount. An equal-to rule (matched to the cent) wins over overlapping ranges, so a $69.69 donation can get its own alert. Milestone variants offer the same choice. Donation rules can also be limited to one source: SocialStream, or any source an embedded host registers (see [API reference](api-reference.md#9-embedded-mode-nodecg)), and `{{alert.source}}` and `{{alert.currency}}` are available in alert text.
+Amount-based rules can fire at **At least**, **Between** or **Equal to** an amount. An equal-to rule (matched to the cent) wins over overlapping ranges, so a $69.69 donation can get its own alert. Milestone variants offer the same choice. Donation rules can also be limited to one source: SocialStream, or any source an embedded host registers (see [API reference](api-reference.md#9-embedded-mode-nodecg)), and `{{alert.source}}` and `{{alert.currency}}` are available in alert text. System placeholders such as `{{stream.title}}`, `{{game.name}}` and `{{weather.temp_full}}` also work in alert and announcement text.
 
 ### Reordering Alerts
 Drag the grip handle on an alert in the left-hand list to reorder it (a line shows the drop position), or focus a row and press **Alt+Up / Alt+Down**. Reordering is available while no search or filter is active, and the order is saved with **Save**. Your last selected alert is remembered between visits.
@@ -43,7 +43,7 @@ When designing bits or subscription alerts, decide between an Emote Ladder or Mi
 Alert rules can trigger external automation via HTTP POST or GET webhooks:
 - **Bitfocus Companion Integration**: Trigger buttons on your Stream Deck or surface by setting the URL to `http://<companion-ip>:8000/api/location/<page>/<row>/<column>/press` and choosing **POST** as the HTTP Method.
 - **Webhook Delay**: Set a delay in seconds (0 to 300s) before firing the HTTP request to synchronize hardware cues, lighting changes, or soundboard triggers with broadcast alert timings or video animations.
-- **Webhook Only (Silent Background Automation)**: Toggle **Webhook Only** on any rule to execute external automation and timer adjustments silently in the background without enqueuing an on-screen alert box, playing alert audio, or triggering page rotators/takeovers in custom overlays. Silent rules are recorded in the Alert Queue with a distinct cyan `Webhook` badge.
+- **Action only (silent automation)**: Toggle **Action only** in a rule's More menu to hide its text, media and variants and run only its actions (webhook, timer, chat, Companion) with no on-screen alert, sound or page takeover. Silent rules are recorded in the Alert Queue with a distinct cyan `Webhook` badge.
 - **Direct Webhook Testing**: Use the **Test Webhook** button directly inside the Actions card to verify connectivity and receive instant HTTP status feedback (`✓ 200 OK` or diagnostic advice) without needing a live stream event.
 - **Preview & Test Integration**: Clicking **Test Rule** or **Preview** runs configured actions so you can preview both on-screen overlays and external hardware triggers in tandem.
 

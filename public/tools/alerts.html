@@ -774,6 +774,7 @@
 
     const vin = (i, key, label, value, attrs = '', type = 'number') => `<label class="fld"><span>${label}</span><input type="${type}" data-v="${i}.${key}" value="${esc(value)}" ${attrs}></label>`;
     const vsel = (i, key, label, value, options) => `<label class="fld"><span>${label}</span><select data-v="${i}.${key}">${options.map(a => `<option${a === value ? ' selected' : ''}>${a}</option>`).join('')}</select></label>`;
+    const SYSTEM_TOKENS = ['stream.title', 'stream.category', 'game.name', 'weather.temp_full', 'weather.condition', 'weather.city', 'music.title', 'music.artist', 'time', 'date'];
     const BUILTIN = OverlayShared.BUILTIN_SOUNDS;
     const builtinName = v => (String(v.sound || '').startsWith('builtin:') ? v.sound.slice(8) : '');
     const isSfx = v => /^sfx:/.test(String(v.sound || ''));
@@ -1321,11 +1322,11 @@
                         <span class="vsection-title">${ICONS.type} Alert Text &amp; Placeholders</span>
                     </div>
                     <div class="full-text-field">
-                        <div class="field-label-row"><label>Title Template</label>${tokens.length ? `<details class="more-menu ph-pick"><summary class="btn sm ghost" title="Insert a placeholder at the cursor">{{ }} Placeholder ${ICONS.chevronDown}</summary><div class="more-pop tokens-pop"><div class="tokens-bar">${tokens.map(t => `<button type="button" class="token-chip" data-insert-token="{{alert.${t}}}" data-token-target="${i}.title" title="Insert {{alert.${t}}}">{{alert.${t}}}</button>`).join('')}</div></div></details>` : ''}</div>
+                        <div class="field-label-row"><label>Title Template</label>${tokens.length ? `<details class="more-menu ph-pick"><summary class="btn sm ghost" title="Insert a placeholder at the cursor">{{ }} Placeholder ${ICONS.chevronDown}</summary><div class="more-pop tokens-pop"><div class="tokens-bar">${tokens.map(t => `<button type="button" class="token-chip" data-insert-token="{{alert.${t}}}" data-token-target="${i}.title" title="Insert {{alert.${t}}}">{{alert.${t}}}</button>`).join('')}</div><div class="ann-label ph-sys-label">System</div><div class="tokens-bar">${SYSTEM_TOKENS.map(t => `<button type="button" class="token-chip" data-insert-token="{{${t}}}" data-token-target="${i}.title" title="Insert {{${t}}}">{{${t}}}</button>`).join('')}</div></div></details>` : ''}</div>
                         <input type="text" class="full-text-input" data-v="${i}.title" value="${esc(v.title || '')}" placeholder="e.g. {{alert.user}} resubscribed for {{alert.months}} months!">
                     </div>
                     <div class="al-s17 full-text-field">
-                        <div class="field-label-row"><label>Subtitle / Message (Optional)</label>${tokens.length ? `<details class="more-menu ph-pick"><summary class="btn sm ghost" title="Insert a placeholder at the cursor">{{ }} Placeholder ${ICONS.chevronDown}</summary><div class="more-pop tokens-pop"><div class="tokens-bar">${tokens.map(t => `<button type="button" class="token-chip" data-insert-token="{{alert.${t}}}" data-token-target="${i}.message" title="Insert {{alert.${t}}}">{{alert.${t}}}</button>`).join('')}</div></div></details>` : ''}</div>
+                        <div class="field-label-row"><label>Subtitle / Message (Optional)</label>${tokens.length ? `<details class="more-menu ph-pick"><summary class="btn sm ghost" title="Insert a placeholder at the cursor">{{ }} Placeholder ${ICONS.chevronDown}</summary><div class="more-pop tokens-pop"><div class="tokens-bar">${tokens.map(t => `<button type="button" class="token-chip" data-insert-token="{{alert.${t}}}" data-token-target="${i}.message" title="Insert {{alert.${t}}}">{{alert.${t}}}</button>`).join('')}</div><div class="ann-label ph-sys-label">System</div><div class="tokens-bar">${SYSTEM_TOKENS.map(t => `<button type="button" class="token-chip" data-insert-token="{{${t}}}" data-token-target="${i}.message" title="Insert {{${t}}}">{{${t}}}</button>`).join('')}</div></div></details>` : ''}</div>
                         <input type="text" class="full-text-input" data-v="${i}.message" value="${esc(v.message || '')}" placeholder="e.g. Thanks for the amazing support!">
                     </div>
                 </div>
