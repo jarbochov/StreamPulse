@@ -64,7 +64,7 @@ Alert rules can trigger external automation via HTTP POST or GET webhooks:
 - **Warnings:** missing base alert, duplicate thresholds, unreachable variants, missing sound/media and bits cheermote notes appear inline.
 - **Find rules:** search by name, trigger, title or message; filter by trigger type or Active/Inactive. Toggle media thumbnails on or off.
 - **Hype train trigger:** fires from Twitch EventSub on train start, each level up or end (pick one in "When"). Placeholders: `{{alert.level}}`, `{{alert.user}}` (top contributor), `{{alert.total}}`, `{{alert.goal}}`, `{{alert.minutes}}` (end only). Reconnect Twitch once to grant `channel:read:hype_train`.
-- **Look:** each rule can pick a named look defined on the Alert box in the custom overlay editor (e.g. title over media, no message). Inherit uses the box settings.
+- **Look:** named looks are set on the Alert box in the custom overlay editor (e.g. title over media, no message). Tick the rules that use each look there; other rules use the box settings. The rule shows its look here, read-only.
 - **Duplicate:** clones a variant (text, media, sound, timing) right below it.
 - **Import / Export:** export all or the selected rule as JSON (webhook URLs are included), import with Merge (new ids) or Replace; nothing is saved until you Save, and Revert discards it.
 - **Shortcuts:** Cmd/Ctrl+S save, Cmd/Ctrl+Enter test, Cmd/Ctrl+D duplicate, `/` search, Alt+Up/Down reorder, Esc closes menus.

@@ -842,6 +842,7 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
             looks: (Array.isArray(element.alert?.looks) ? element.alert.looks : []).slice(0, 12).map((l, n) => ({
                 id: String(l?.id || `look${n + 1}`).slice(0, 40),
                 name: String(l?.name || `Look ${n + 1}`).trim().slice(0, 40),
+                ruleIds: Array.isArray(l?.ruleIds) ? l.ruleIds.map(x => String(x).slice(0, 80)).slice(0, 200) : [],
                 layout: ['stack', 'side', 'text', 'media'].includes(l?.layout) ? l.layout : 'media',
                 hideText: Boolean(l?.hideText),
                 hideMessage: l?.hideMessage !== false,

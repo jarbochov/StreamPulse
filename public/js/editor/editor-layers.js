@@ -375,6 +375,8 @@ export function renderPagesPanel() {
     }
 }
 
+export const getAlertRules = () => alertRules;
+
 export function loadAlertRules() {
     if (alertRules) return;
     alertRules = [];

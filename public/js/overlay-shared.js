@@ -2315,7 +2315,7 @@
 
     function playAlert(node, element, payload, { sound = true, onEnd } = {}) {
         const baseCfg = element.alert || {};
-        const look = payload.look && (baseCfg.looks || []).find(l => String(l.name).toLowerCase() === String(payload.look).toLowerCase());
+        const look = (baseCfg.looks || []).find(l => payload.ruleId && (l.ruleIds || []).includes(payload.ruleId));
         const cfg = look ? { ...baseCfg, ...look } : baseCfg;
         const style = element.style || {};
         const layout = payload.image || payload.video || payload.emoji ? (cfg.layout || 'stack') : 'text';

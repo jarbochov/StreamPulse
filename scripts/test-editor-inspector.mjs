@@ -30,6 +30,7 @@ const server = createServer((req, res) => {
             </style><div id="stage"><div id="canvas"><div id="canvas-underlayer"></div>
             <div id="canvas-toplayer"></div></div><div id="ui"></div></div>
             <aside class="rail right"><div id="properties"></div></aside>`);
+    } else if (path === '/api/alerts') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"rules":[]}');
     } else if (path === '/favicon.ico') { res.writeHead(204); res.end(); }
     else { unexpected.push(`${req.method} ${path}`); res.writeHead(404); res.end(); }
 });

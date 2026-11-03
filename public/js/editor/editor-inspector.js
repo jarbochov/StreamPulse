@@ -14,7 +14,7 @@ import {
     renderCanvas, renderSelectionUI, syncCanvasUI, fitView,
     scheduleEditorCutoutMask, updateEditorCutoutMask
 } from './editor-canvas.js';
-import { renderLayers } from './editor-layers.js';
+import { renderLayers, getAlertRules, loadAlertRules } from './editor-layers.js';
 
 const shared = window.OverlayShared || {};
 
@@ -1218,8 +1218,10 @@ export function alertSection(el) {
         <span class="hint">Animation timing is set per alert in Alerts.</span>`;
 
     const looks = Array.isArray(a.looks) ? a.looks : [];
+    loadAlertRules();
+    const ruleList = getAlertRules() || [];
     const looksHtml = `
-        <span class="hint">Named looks override this box's layout and text. Pick one per rule in <a href="/alerts.html" target="_blank" class="link">Alerts</a>; rules set to Inherit use the settings above.</span>
+        <span class="hint">Named looks override this box's layout and text. Tick the rules that use each look; rules not ticked use the settings above.</span>
         ${looks.map((l, n) => `<div class="field" style="border:1px solid var(--border);border-radius:8px;padding:8px;display:grid;gap:6px;">
             <div style="display:flex;gap:6px;align-items:end;"><div style="flex:1">${F.text(`alert.looks.${n}.name`, 'Look name', l.name || '', 'maxlength="40"')}</div><button type="button" class="btn sm ghost" data-remove-look="${n}">Remove</button></div>
             ${F.seg(`alert.looks.${n}.layout`, 'Layout', l.layout || 'media', [['media', 'Title over media'], ['stack', 'Stack'], ['side', 'Side'], ['text', 'Text']])}
@@ -1227,6 +1229,7 @@ export function alertSection(el) {
             ${F.seg(`alert.looks.${n}.mediaFit`, 'Media fit', l.mediaFit || 'cover', [['cover', 'Cover'], ['contain', 'Contain']])}
             <div class="grid2">${F.number(`alert.looks.${n}.titleSize`, 'Title size (px)', l.titleSize || 44, { min: 8, max: 300 })}${F.number(`alert.looks.${n}.mediaScale`, 'Media size (%)', l.mediaScale || 60, { min: 10, max: 100 })}</div>
             ${F.color(`alert.looks.${n}.titleColor`, 'Title color', l.titleColor || '#ffffff')}
+            <div class="field"><span>Rules using this look</span><div class="trule-list">${ruleList.length ? ruleList.map(r => `<label class="check trig-item"><input type="checkbox" data-look-rule="${esc(r.id)}" data-look-idx="${n}" ${(l.ruleIds || []).includes(r.id) ? 'checked' : ''}><span>${esc(r.name)}</span></label>`).join('') : '<span class="hint">No alert rules yet.</span>'}</div></div>
         </div>`).join('')}
         <button type="button" class="btn sm" id="btn-add-look" ${looks.length >= 12 ? 'disabled' : ''}>Add look</button>`;
 
@@ -2204,13 +2207,25 @@ export function initInspectorEvents() {
             if (quick) scaleSelectionByHandler(Number(quick.dataset.scale));
             if (target.closest('#scale-apply')) scaleSelectionByHandler(Number($('scale-pct')?.value || 100));
 
+            const lr = target.closest('[data-look-rule]');
+            if (lr) {
+                for (const el of selectedElements()) {
+                    if (el.type !== 'alert') continue;
+                    const looks = (el.alert?.looks || []).map(l => ({ ...l, ruleIds: (l.ruleIds || []).filter(id => id !== lr.dataset.lookRule) }));
+                    if (lr.checked && looks[Number(lr.dataset.lookIdx)]) looks[Number(lr.dataset.lookIdx)].ruleIds.push(lr.dataset.lookRule);
+                    el.alert = { ...(el.alert || {}), looks };
+                }
+                renderCanvas();
+                changed(true);
+                return;
+            }
             if (target.closest('#btn-add-look') || target.closest('[data-remove-look]')) {
                 const rm = target.closest('[data-remove-look]');
                 for (const el of selectedElements()) {
                     if (el.type !== 'alert') continue;
                     const list = [...(el.alert?.looks || [])];
                     if (rm) list.splice(Number(rm.dataset.removeLook), 1);
-                    else list.push({ id: `look${Date.now().toString(36)}`, name: `Look ${list.length + 1}`, layout: 'media', hideMessage: true, mediaFit: 'cover', mediaScale: 60, titleSize: 44, titleColor: '#ffffff' });
+                    else list.push({ id: `look${Date.now().toString(36)}`, ruleIds: [], name: `Look ${list.length + 1}`, layout: 'media', hideMessage: true, mediaFit: 'cover', mediaScale: 60, titleSize: 44, titleColor: '#ffffff' });
                     el.alert = { ...(el.alert || {}), looks: list };
                 }
                 renderProperties();
