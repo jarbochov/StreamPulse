@@ -1145,3 +1145,14 @@ test('hype train rules filter by phase and fill level tokens', () => {
     assert.deepEqual(run({ type: 'hype_train', phase: 'end', level: 4, amount: 4, seconds: 300 }), ['Ended at 4 after 5m']);
     assert.deepEqual(run({ type: 'hype_train', phase: 'levelup', level: 2, amount: 2 }), []);
 });
+
+test('redeem rules match selected reward ids, or every redeem when none are chosen', () => {
+    const rules = [{ id: 'r', trigger: 'redeem', conditions: { rewardIds: ['a1'] }, variants: [{ title: 'x' }] }];
+    const run = (r, ev) => {
+        const { engine, dispatched, cleanup } = createTempEngine({ settings: { enabled: true }, rules: r });
+        try { engine.handleEvent({ type: 'redeem', user: 'u', ...ev }); return dispatched.filter(d => d.type === 'alert').length; } finally { cleanup(); }
+    };
+    assert.equal(run(rules, { rewardId: 'a1', reward: 'Hydrate' }), 1);
+    assert.equal(run(rules, { rewardId: 'b2', reward: 'Other' }), 0);
+    assert.equal(run([{ ...rules[0], conditions: { rewardIds: [] } }], { rewardId: 'b2' }), 1);
+});

@@ -553,7 +553,7 @@ const twitchService = createTwitchService({
         if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.handleEvent({ type: 'bits', user: data.user, amount: data.bits, message: data.message });
     },
     onRedemption: (data) => {
-        if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.handleEvent({ type: 'redeem', user: data.user, reward: data.rewardTitle, cost: data.cost, message: data.userInput });
+        if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.handleEvent({ type: 'redeem', user: data.user, reward: data.rewardTitle, rewardId: data.rewardId, cost: data.cost, message: data.userInput });
     },
     onHypeTrain: (data) => {
         if (typeof alertEngine === 'undefined' || !alertEngine) return;

@@ -717,7 +717,17 @@
             html += field('Subscription Tiers', checkboxes, 'Check all applicable tiers (leave all checked or unchecked for Any Tier). Specific tier rules always take precedence over general rules.');
         }
         if (t === 'hype_train') html += field('When', sel_('conditions.phase', c.phase || 'any', [['any', 'Any stage'], ['start', 'Train starts'], ['levelup', 'Each level up'], ['end', 'Train ends']]), 'Needs the channel:read:hype_train scope (reconnect Twitch once). Level thresholds below apply to the train level.');
-        if (t === 'redeem') html += field('Reward Name Contains', inp('conditions.rewardName', c.rewardName, 'text', 'placeholder="e.g. Hydrate (blank = any reward)"'), 'Case-insensitive reward title match.');
+        if (t === 'redeem') {
+            loadRewards();
+            const ids = c.rewardIds || [];
+            const list = rewardList.rewards;
+            const known = new Set(list.map(x => x.id));
+            const rows = list.map(x => `<label class="check-row"><input type="checkbox" data-reward-check="${esc(x.id)}" ${ids.includes(x.id) ? 'checked' : ''}><span>${esc(x.title)} <small style="color:var(--text-muted)">${x.cost} pts${x.enabled ? '' : ' (disabled)'}</small></span></label>`)
+                .concat(ids.filter(id => !known.has(id)).map(id => `<label class="check-row"><input type="checkbox" data-reward-check="${esc(id)}" checked><span>Unlisted reward <small style="color:var(--text-muted)">${esc(id.slice(0, 8))}</small></span></label>`)).join('');
+            const status = rewardList.loading ? 'Loading your rewards...' : rewardList.error ? `Could not load rewards: ${esc(rewardList.error)}` : (!list.length ? 'No custom rewards found.' : '');
+            html += field('Rewards', `<div class="reward-picker"><label class="check-row"><input type="checkbox" data-reward-all ${ids.length ? '' : 'checked'}><span><b>All redeems</b></span></label>${rows}${status ? `<div class="hint">${status}</div>` : ''}</div>`, 'Pick one or more rewards, or leave All redeems checked.');
+            if (c.rewardName) html += field('Name filter (legacy)', inp('conditions.rewardName', c.rewardName, 'text', 'placeholder="blank = no name filter"'), 'Older rules matched by reward title text. Clear it to rely on the checkboxes.');
+        }
         if (t === 'timer') html += field('Timer Trigger', sel_('conditions.timerId', c.timerId, [['', 'Any timer'], ...timers.map(x => [x.id, x.label || x.id])]));
         if (t === 'goal') html += field('Goal Trigger', sel_('conditions.goalId', c.goalId, [['', 'Any goal'], ...goals.map(x => [x.id, x.title])]));
         if (t === 'chat_word') html += field('Words or #Hashtags', inp('conditions.keywords', c.keywords.join(', '), 'list', 'placeholder="hype, #clip, gg"'), 'Comma separated. Matches whole words, case-insensitive.');
@@ -780,6 +790,12 @@
     let SFX_GROUPS = [];
     fetch('/sounds/manifest.json').then(r => r.json()).then(m => { SFX_GROUPS = m.groups || []; if (typeof renderEditor === 'function') try { renderEditor(); } catch {} }).catch(() => {});
     let testAmount = 0, liveStatus = {};
+    const rewardList = { rewards: [], loading: false, error: '', loaded: false };
+    function loadRewards() {
+        if (rewardList.loaded || rewardList.loading) return;
+        rewardList.loading = true;
+        fetch('/api/twitch/rewards').then(x => x.json()).then(d => { rewardList.rewards = d.rewards || []; rewardList.error = d.error || ''; }).catch(err => { rewardList.error = err.message; }).finally(() => { rewardList.loading = false; rewardList.loaded = true; if (rule()?.trigger === 'redeem') renderEditor(); });
+    }
     const pollStatus = () => fetch('/api/status').then(r => r.json()).then(d => { liveStatus = d; }).catch(() => {});
     pollStatus(); setInterval(pollStatus, 15000);
 
@@ -1382,6 +1398,7 @@
         else if (hasAmt && c.minAmount) when += ` of ${c.minAmount} or more`;
         if (r.trigger === 'donation' && c.source && c.source !== 'any') when += ` from ${sourceOptions(c.source).find(([id]) => id === c.source)?.[1] || c.source}`;
         if (r.trigger === 'redeem' && c.rewardName) when += ` for "${c.rewardName}"`;
+        else if (r.trigger === 'redeem' && c.rewardIds?.length) when += ` for ${c.rewardIds.length === 1 ? (rewardList.rewards.find(x => x.id === c.rewardIds[0])?.title || '1 reward') : c.rewardIds.length + ' rewards'}`;
         if (r.trigger === 'chat_word' && c.keywords.length) when += `: ${c.keywords.join(', ')}`;
         if (r.trigger === 'chat_command' && c.command) when += ` "!${c.command}" (${c.permission || 'everyone'})`;
         if (whenOnly) {
@@ -1921,7 +1938,7 @@
 
     const blankRule = (trigger, id) => ({
         id, name: 'New alert', enabled: true, trigger, priority: 'normal', interrupt: false, expireSeconds: 0,
-        conditions: { amountMode: 'min', minAmount: 0, maxAmount: 0, exactAmount: 0, source: 'any', tier: '', rewardName: '', phase: 'any', keywords: [], timerId: '', goalId: '', milestones: [], everyMonths: 0, cooldownSeconds: 0, command: '', permission: 'everyone' },
+        conditions: { amountMode: 'min', minAmount: 0, maxAmount: 0, exactAmount: 0, source: 'any', tier: '', rewardName: '', rewardIds: [], phase: 'any', keywords: [], timerId: '', goalId: '', milestones: [], everyMonths: 0, cooldownSeconds: 0, command: '', permission: 'everyone' },
         pick: 'random', variants: [newVariant(trigger)],
         actions: { timer: { enabled: false, timerId: '', action: 'add_time', seconds: 30, perUnit: false }, http: { enabled: false, url: '', method: 'POST' }, chat: { enabled: false, template: '', cooldownSeconds: 30 }, companion: { enabled: false, page: 1, row: 0, column: 0, location: '', delay: 0 } }
     });
@@ -2117,6 +2134,18 @@
                 renderEditor();
                 return;
             }
+        }
+        if (el.dataset.rewardCheck !== undefined || el.dataset.rewardAll !== undefined) {
+            const ids = new Set(r.conditions.rewardIds || []);
+            if (el.dataset.rewardAll !== undefined) ids.clear();
+            else if (el.checked) ids.add(el.dataset.rewardCheck);
+            else ids.delete(el.dataset.rewardCheck);
+            r.conditions.rewardIds = Array.from(ids);
+            setDirty(true);
+            renderSummary();
+            renderRules();
+            renderEditor();
+            return;
         }
         if (el.dataset.tierCheck) {
             const tiers = new Set(Array.isArray(r.conditions.tiers) ? r.conditions.tiers : (r.conditions.tier ? [r.conditions.tier] : []));

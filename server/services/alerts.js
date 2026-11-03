@@ -241,6 +241,7 @@ function normalizeRule(input = {}, index = 0) {
             tiers,
             tier: tiers.length === 1 ? tiers[0] : (VALID_TIERS.includes(c.tier) ? c.tier : ''),
             rewardName: str(c.rewardName, 120),
+            rewardIds: Array.isArray(c.rewardIds) ? [...new Set(c.rewardIds.map(x => str(x, 80)).filter(Boolean))].slice(0, 100) : [],
             phase: ['any', 'start', 'levelup', 'end'].includes(c.phase) ? c.phase : 'any',
             keywords: Array.isArray(c.keywords) ? c.keywords.map(k => str(k, 60).toLowerCase()).filter(Boolean).slice(0, 30) : [],
             timerId: str(c.timerId, 80),
@@ -393,6 +394,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
         } else if (c.tier && String(ev.tier || '') !== c.tier) {
             return false;
         }
+        if (rule.trigger === 'redeem' && c.rewardIds?.length && !c.rewardIds.includes(String(ev.rewardId || ''))) return false;
         if (rule.trigger === 'redeem' && c.rewardName && !String(ev.reward || '').toLowerCase().includes(c.rewardName.toLowerCase())) return false;
         if (rule.trigger === 'hype_train' && c.phase && c.phase !== 'any' && c.phase !== ev.phase) return false;
         if (rule.trigger === 'timer' && c.timerId && c.timerId !== ev.timerId) return false;

@@ -61,6 +61,21 @@ function createTwitchRoutes({
             return true;
         }
 
+        if (pathname === '/api/twitch/rewards' && req.method === 'GET') {
+            try {
+                await ensureToken();
+                const broadcasterId = getBroadcasterId();
+                if (!twitchService.getAccessToken() || !broadcasterId) return sendJson(res, { rewards: [], error: 'Twitch is not connected' }), true;
+                const result = await twitchService.twitchApiRequest('/channel_points/custom_rewards', { broadcaster_id: broadcasterId });
+                if (result.status !== 200) return sendJson(res, { rewards: [], error: result.body?.message || `Twitch returned ${result.status}` }), true;
+                const rewards = (result.body?.data || []).map(r => ({ id: r.id, title: r.title, cost: r.cost, enabled: r.is_enabled !== false }));
+                sendJson(res, { rewards });
+            } catch (err) {
+                sendJson(res, { rewards: [], error: err.message });
+            }
+            return true;
+        }
+
         if (pathname === '/api/twitch/auth/device/start' && req.method === 'POST') {
             try {
                 const d = await startDeviceAuth();
