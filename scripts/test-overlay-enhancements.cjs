@@ -556,3 +556,18 @@ test('Alert element and page trigger alertMode normalization and UI configuratio
     assert.ok(runtimeJs.includes('alertMatches'), 'overlay-runtime must include alertMatches function');
     assert.ok(runtimeJs.includes('lastAlert'), 'overlay-runtime must buffer lastAlert for page takeovers');
 });
+
+test('alert box media focus and padding are normalized and applied', () => {
+    const shared = fs.readFileSync(path.join(__dirname, '../public/js/overlay-shared.js'), 'utf8');
+    assert.ok(shared.includes('objectPosition = focusPosition') && shared.includes('cfg.padding'), 'playAlert must apply focus and padding');
+    const svc = fs.readFileSync(path.join(__dirname, '../server/services/overlays.js'), 'utf8');
+    assert.ok(svc.includes('mediaFocusX') && svc.includes('mediaFocusY') && /padding: element\.alert\?\.padding/.test(svc), 'overlay service must whitelist focus and padding');
+    const insp = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-inspector.js'), 'utf8');
+    assert.ok(insp.includes("'alert.mediaFit'") && insp.includes("a.mediaFit === 'cover'"), 'focus controls must be hidden unless media fills');
+});
+
+test('alert entrance/exit animations are not overridden by a decoration animation', () => {
+    const shared = fs.readFileSync(path.join(__dirname, '../public/js/overlay-shared.js'), 'utf8');
+    assert.ok(/card\.style\.animation = `\$\{entrance\}, \$\{decoAnim\}`/.test(shared), 'entrance must be combined with the inline decoration animation');
+    assert.ok(shared.includes("if (out !== 'none') card.style.animation = '';"), 'exit class must not be masked by inline animation');
+});

@@ -2228,13 +2228,16 @@
         Object.assign(card.style, deco);
         applyBorderEffects(card, style, element);
         card.style.gap = `${cfg.gap ?? 12}px`;
-        card.style.padding = `${style.padding || 8}px`;
+        const customPad = cfg.padding === null || cfg.padding === undefined || cfg.padding === '' ? NaN : Number(cfg.padding);
+        card.style.padding = `${Number.isFinite(customPad) ? Math.max(0, Math.min(200, customPad)) : (style.padding || 8)}px`;
         let mediaFxWrap = null;
         const hasMedia = layout !== 'text' && (payload.video || payload.image || payload.emoji);
         if (hasMedia) {
             const isEmoji = !payload.video && !payload.image;
             const media = document.createElement(isEmoji ? 'div' : payload.video ? 'video' : 'img');
             const scale = Math.max(10, Math.min(100, Number(cfg.mediaScale) || 60));
+            const focusPos = v => Number.isFinite(Number(v)) && v !== null && v !== '' ? Math.max(0, Math.min(100, Number(v))) : 50;
+            const focusPosition = `${focusPos(cfg.mediaFocusX)}% ${focusPos(cfg.mediaFocusY)}%`;
             if (isEmoji) {
                 const emoteUrl = payload.emojiUrl || (/^(https?:\/\/|\/|data:image\/)/i.test(payload.emoji) ? payload.emoji : '');
                 const isFa = !emoteUrl && payload.emoji && (payload.emoji.startsWith('fa-') || payload.emoji.includes('fa-'));
@@ -2299,6 +2302,7 @@
                 }
                 media.draggable = false;
                 media.style.objectFit = cfg.mediaFit || 'contain';
+                if (cfg.mediaFit === 'cover') media.style.objectPosition = focusPosition;
             }
             media.className = isEmoji ? 'alert-media is-emote' : 'alert-media';
             if (!isEmoji) {
@@ -2321,7 +2325,7 @@
                     wrap.style.display = 'flex';
                     wrap.style.width = layout === 'stack' ? '' : wrap.style.width;
                     media.className = 'alert-media-el';
-                    media.style.cssText = `height:100%;width:${layout === 'stack' ? 'auto' : '100%'};max-width:100%;object-fit:${cfg.mediaFit || 'contain'}`;
+                    media.style.cssText = `height:100%;width:${layout === 'stack' ? 'auto' : '100%'};max-width:100%;object-fit:${cfg.mediaFit || 'contain'};object-position:${cfg.mediaFit === 'cover' ? focusPosition : '50% 50%'}`;
                     wrap.appendChild(media);
                     wrap.style.maxWidth = layout === 'side' ? '50%' : '100%';
                     mediaFxWrap = wrap;
@@ -2407,6 +2411,16 @@
             applyMediaFilter(mediaFxWrap, fxEl);
         }
         card.classList.add(`alert-in-${payload.animIn || 'pop'}`);
+        // An inline decoration animation (animated gradient) overrides the entrance class, so run both
+        const decoAnim = card.style.animation;
+        if (decoAnim && payload.animIn !== 'none') {
+            card.style.animation = '';
+            const entrance = getComputedStyle(card).animation;
+            if (entrance && !entrance.startsWith('none')) {
+                card.style.animation = `${entrance}, ${decoAnim}`;
+                card.addEventListener('animationend', e => { if (e.target === card && /^alert-.*-in$/.test(e.animationName)) card.style.animation = decoAnim; }, { once: true });
+            } else card.style.animation = decoAnim;
+        }
         // Fixed px font sizes overflow small alert boxes and get clipped; shrink text to fit the card
         const fitTextBlock = () => {
             const text = card.querySelector('.alert-text');
@@ -2447,6 +2461,7 @@
         const outTimer = setTimeout(() => {
             const out = payload.animOut || 'fade';
             card.className = `alert-card layout-${layout}${out === 'none' ? '' : ` alert-out-${out}`}`;
+            if (out !== 'none') card.style.animation = '';
         }, Math.max(0, (payload.durationMs || 6000) - fadeMs));
         const endTimer = setTimeout(finish, payload.durationMs || 6000);
         return { stop: finish };
