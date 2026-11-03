@@ -197,10 +197,10 @@
         <div class="tab-pane" id="pane-announce">
             <div class="card ann-card">
                 <div class="card-head-row"><h2>Announcements <span class="hint">Manual alerts you fire on demand</span></h2>
-                    <details class="more-menu"><summary class="btn sm ghost">Quick add</summary><div class="more-pop" id="ann-presets"></div></details>
-                    <a class="btn sm ghost" href="/tools/announcements-dock.html" target="_blank">Fire-only page</a>
+                    <div class="head-actions"><a class="btn sm ghost" href="/tools/announcements-dock.html" target="_blank">Fire-only page</a><button type="button" class="btn sm primary" data-ann-new>New announcement</button></div>
                 </div>
-                <label class="ann-override">Override text for next fire <input type="text" id="ann-override" maxlength="500" placeholder="Leave empty to use the preset text"></label>
+                <div class="ann-presets"><span class="ann-label">Quick add</span><span id="ann-presets"></span><button type="button" class="btn sm ghost" id="ann-preset-reset" title="Restore the default quick add presets" hidden>Restore defaults</button></div>
+                <label class="ann-override">Override text for next fire <input type="text" id="ann-override" maxlength="500" placeholder="Leave empty to use each announcement's own text"></label>
                 <div class="ann-grid" id="ann-grid"></div>
                 <p class="hint" id="ann-status" role="status"></p>
             </div>
@@ -499,7 +499,7 @@
     let lastFocusedInput = null;
 
     const toast = (message, err) => { const t = $('toast'); t.textContent = message; t.className = err ? 'err' : ''; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', 2600); };
-    const setDirty = value => { dirty = value; $('save-state').textContent = dirty ? 'Unsaved changes' : 'Saved'; $('save-state').className = `pill ${dirty ? 'dirty' : 'ok'}`; };
+    const setDirty = value => { dirty = value; $('save-state').textContent = dirty ? 'Unsaved changes' : 'Saved'; $('save-state').classList.toggle('dirty', dirty); $('save-state').classList.toggle('ok', !dirty); };
     const rule = () => cfg.rules.find(r => r.id === sel);
     const newVariant = (trigger, role = 'weighted', defaultMin = 0) => ({
         id: `v${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
@@ -739,7 +739,7 @@
 
     function focusPicker(i, v) {
         const x = v.focusX ?? 50, y = v.focusY ?? 50;
-        return `<div class="focus-row"><div class="focus-pick" data-focus="${i}" style="background-image:url('${esc(v.image)}')" title="Click or drag to choose what stays visible when the image is cropped"><span class="focus-dot" style="left:${x}%;top:${y}%"></span></div><span class="hint">Focus point: used when the overlay crops this image (Cover fit).</span></div>`;
+        return `<div class="focus-row"><div class="focus-pick" data-focus="${i}" style="background-image:url('${esc(v.image)}')" title="Click or drag to choose what stays visible when the image is cropped"><span class="focus-dot" style="left:${x}%;top:${y}%"></span></div><span class="hint">Focus point: moving it crops the image to fill the alert and keeps this spot in view.</span>${(v.focusX ?? 50) !== 50 || (v.focusY ?? 50) !== 50 ? `<button type="button" class="btn sm ghost" data-focus-reset="${i}">Reset</button>` : ''}</div>`;
     }
     function mediaField(i, key, kinds, accept, label) {
         const v = rule().variants[i];
@@ -1321,20 +1321,12 @@
                         <span class="vsection-title">${ICONS.type} Alert Text &amp; Placeholders</span>
                     </div>
                     <div class="full-text-field">
-                        <label>Title Template</label>
+                        <div class="field-label-row"><label>Title Template</label>${tokens.length ? `<details class="more-menu ph-pick"><summary class="btn sm ghost" title="Insert a placeholder at the cursor">{{ }} Placeholder ${ICONS.chevronDown}</summary><div class="more-pop tokens-pop"><div class="tokens-bar">${tokens.map(t => `<button type="button" class="token-chip" data-insert-token="{{alert.${t}}}" data-token-target="${i}.title" title="Insert {{alert.${t}}}">{{alert.${t}}}</button>`).join('')}</div></div></details>` : ''}</div>
                         <input type="text" class="full-text-input" data-v="${i}.title" value="${esc(v.title || '')}" placeholder="e.g. {{alert.user}} resubscribed for {{alert.months}} months!">
-                        <div class="token-quick-insert">
-                            <span class="token-quick-label">Insert:</span>
-                            ${tokens.map(t => `<button type="button" class="token-quick-pill" data-insert-token="{{alert.${t}}}" data-token-target="${i}.title" title="Insert {{alert.${t}}} into Title">+ {{alert.${t}}}</button>`).join('')}
-                        </div>
                     </div>
                     <div class="al-s17 full-text-field">
-                        <label>Subtitle / Message (Optional)</label>
+                        <div class="field-label-row"><label>Subtitle / Message (Optional)</label>${tokens.length ? `<details class="more-menu ph-pick"><summary class="btn sm ghost" title="Insert a placeholder at the cursor">{{ }} Placeholder ${ICONS.chevronDown}</summary><div class="more-pop tokens-pop"><div class="tokens-bar">${tokens.map(t => `<button type="button" class="token-chip" data-insert-token="{{alert.${t}}}" data-token-target="${i}.message" title="Insert {{alert.${t}}}">{{alert.${t}}}</button>`).join('')}</div></div></details>` : ''}</div>
                         <input type="text" class="full-text-input" data-v="${i}.message" value="${esc(v.message || '')}" placeholder="e.g. Thanks for the amazing support!">
-                        <div class="token-quick-insert">
-                            <span class="token-quick-label">Insert:</span>
-                            ${tokens.map(t => `<button type="button" class="token-quick-pill" data-insert-token="{{alert.${t}}}" data-token-target="${i}.message" title="Insert {{alert.${t}}} into Subtitle">+ {{alert.${t}}}</button>`).join('')}
-                        </div>
                     </div>
                 </div>
 
@@ -1420,7 +1412,6 @@
     function ruleWarnings(r) {
         const out = [];
         if (!HAS_METRIC.includes(r.trigger)) {
-            r.variants.forEach((v, i) => variantWarnings(v, i, r).forEach(m => out.push({ level: 'warn', text: `Variant ${i + 1}: ${m}`, vid: v.id })));
             return out;
         }
         const ms = r.variants.filter(v => isMilestoneV(v, r));
@@ -1432,7 +1423,6 @@
         const minAmt = Number(r.conditions.minAmount) || 0;
         const lowest = ms.filter(v => variantGateMode(v) === 'min').reduce((m, v) => Math.min(m, Number(v.gateMin) || 0), Infinity);
         if (base.length && ms.length && minAmt > 0 && lowest <= minAmt) out.push({ level: 'warn', text: `Base Alert is unreachable: every event of ${minAmt}+ already meets the ${lowest} milestone.`, vid: base[0].id });
-        r.variants.forEach((v, i) => variantWarnings(v, i, r).forEach(m => out.push({ level: 'warn', text: `Variant ${i + 1}: ${m}`, vid: v.id })));
         return out;
     }
     const SAMPLE_TOKENS = { user: 'TestViewer', amount: 500, months: 12, streak: 6, tier: 'Tier 1', count: 5, recipient: 'LuckyViewer', viewers: 42, reward: 'Hydrate', message: 'Thanks for the stream!', currency: 'USD', source: 'tiltify', name: 'Goal', keyword: 'gg', command: 'hype', target: 'Friend', args: '', winner: 'Option A', poll_title: 'Poll', votes: 120, percent: 60, total_votes: 200 };
@@ -1609,12 +1599,6 @@
                     </div>
                 </div>
                 <div class="vrow-slim">
-                    ${tokens.length ? `<details class="more-menu" data-persist="alerts.secTokens"${localStorage.getItem('alerts.secTokens') === '1' ? ' open' : ''}>
-                        <summary class="btn sm ghost" title="Click a placeholder to insert it into the focused text">Placeholders (${tokens.length}) ${ICONS.chevronDown}</summary>
-                        <div class="more-pop tokens-pop">
-                            <div class="tokens-bar">${tokens.map(t => `<button type="button" class="token-chip" data-insert="{{alert.${t}}}" title="Click to insert {{alert.${t}}}">{{alert.${t}}}</button>`).join('')}</div>
-                        </div>
-                    </details>` : ''}
                     ${r.variants.length > 1 ? `<label class="vpick"><span>Pick</span>${seg_('pick', r.pick === 'sequential' ? 'sequential' : 'weighted', [['weighted', 'Weighted random'], ['sequential', 'In order']])}</label>` : ''}
                 </div>
                 ${(() => { const ws = ruleWarnings(r); const list = `<div class="warn-list">${ws.map(x => `<div class="warn-item ${x.level}"${x.vid ? ` data-jump-variant="${esc(x.vid)}"` : ''}>${x.level === 'warn' ? ICONS.warn : ICONS.info}<span>${esc(x.text)}</span></div>`).join('')}</div>`; return !ws.length ? '' : ws.length > 2 ? `<details class="v-adv" data-persist="alerts.warnOpen"${localStorage.getItem('alerts.warnOpen') === '1' ? ' open' : ''}><summary>${ws.length} warnings</summary>${list}</details>` : list; })()}
@@ -1830,22 +1814,41 @@
     const guard = fn => async (...args) => { try { await fn(...args); } catch (err) { toast(err.message, true); } };
 
     document.addEventListener('change', e => { if (e.target.id === 's-companion-url') { cfg.settings.companionUrl = e.target.value.trim(); setDirty(true); } });
-    const ANN_PRESETS = [
+    const ANN_DEFAULTS = [
         ['BRB in 5 minutes', 'Be right back in 5 minutes'], ['Starting soon', 'Stream starting soon'], ['Back from break', 'We are back!'],
         ['Technical difficulties', 'Technical difficulties, please stand by'], ['Thanks for watching', 'Thanks for watching, see you next time!']
     ];
+    const loadPresets = () => { try { const v = JSON.parse(localStorage.getItem('alerts.annPresets')); if (Array.isArray(v)) return v; } catch {} return ANN_DEFAULTS.slice(); };
+    let ANN_PRESETS = loadPresets();
+    const savePresets = () => { localStorage.setItem('alerts.annPresets', JSON.stringify(ANN_PRESETS)); renderAnnouncements(); };
     const annRules = () => cfg.rules.filter(r => r.trigger === 'announcement');
     function renderAnnouncements() {
         const list = annRules();
+        const del = '<svg class="ico" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
         $('ann-grid').innerHTML = list.length ? list.map(r => {
             const v = r.variants[0] || {};
             return `<div class="ann-item" draggable="true" data-ann="${esc(r.id)}">
-                <div class="ann-name">${esc(r.name)}<span class="badge">${esc(r.priority || 'normal')}</span>${r.actions.chat.enabled ? '<span class="badge accent">Chat</span>' : ''}</div>
-                <div class="ann-text">${esc(v.message || v.title || '')}</div>
-                <div class="ann-btns"><button type="button" class="btn primary ann-fire" data-fire="${esc(r.id)}">${ICONS.play} Fire</button><button type="button" class="btn sm ghost" data-ann-edit="${esc(r.id)}">Edit</button></div>
-            </div>`; }).join('') : '<p class="hint">No announcements yet. Use Quick add to create one.</p>';
-        $('ann-presets').innerHTML = ANN_PRESETS.map(([n], i) => `<button type="button" class="btn sm ghost" data-ann-add="${i}">${esc(n)}</button>`).join('');
+                <div class="ann-head"><input class="ann-name-input" type="text" data-ann-name="${esc(r.id)}" value="${esc(r.name)}" maxlength="80" aria-label="Announcement name" draggable="false">
+                    <button type="button" class="btn sm ghost icon-btn danger" data-ann-del="${esc(r.id)}" title="Delete announcement" aria-label="Delete announcement">${del}</button></div>
+                <textarea class="ann-text-input" rows="2" data-ann-msg="${esc(r.id)}" maxlength="500" placeholder="Text shown on screen" aria-label="Announcement text" draggable="false">${esc(v.message || '')}</textarea>
+                <div class="ann-meta"><span class="badge">${esc(r.priority || 'normal')}</span>${r.actions?.chat?.enabled ? '<span class="badge accent">Chat</span>' : ''}<button type="button" class="btn sm ghost" data-ann-save="${esc(r.id)}" title="Save this announcement as a quick add chip">Save as quick add</button><button type="button" class="btn sm ghost" data-ann-edit="${esc(r.id)}">Media, sound and more</button></div>
+                <button type="button" class="btn primary ann-fire" data-fire="${esc(r.id)}">${ICONS.play} Fire</button>
+            </div>`; }).join('') : '<p class="hint">No announcements yet. Create one with New announcement or Quick add.</p>';
+        $('ann-presets').innerHTML = ANN_PRESETS.map(([n], i) => `<span class="chip-btn"><button type="button" class="chip-main" data-ann-add="${i}">${esc(n)}</button><button type="button" class="chip-x" data-ann-preset-del="${i}" title="Remove this preset" aria-label="Remove preset ${esc(n)}">&times;</button></span>`).join('');
+        $('ann-preset-reset').hidden = ANN_PRESETS.length === ANN_DEFAULTS.length && ANN_PRESETS.every((p, i) => p[0] === ANN_DEFAULTS[i][0]);
     }
+    const addAnnouncement = (name, text) => {
+        const rule = blankRule('announcement', `ann-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`);
+        rule.name = name; rule.variants[0].title = name; rule.variants[0].message = text;
+        cfg.rules.push(rule); setDirty(true); renderAll(); renderAnnouncements();
+    };
+    document.addEventListener('input', e => {
+        const n = e.target.closest?.('[data-ann-name]'), m = e.target.closest?.('[data-ann-msg]');
+        const r = cfg.rules.find(x => x.id === (n || m)?.dataset[n ? 'annName' : 'annMsg']);
+        if (!r) return;
+        if (n) r.name = n.value; else { r.variants[0].message = m.value; }
+        setDirty(true);
+    });
     async function fireAnnouncement(id) {
         const text = $('ann-override').value.trim();
         const st = $('ann-status');
@@ -1857,12 +1860,27 @@
     }
     document.addEventListener('click', e => {
         const f = e.target.closest('[data-fire]'), a = e.target.closest('[data-ann-add]'), ed = e.target.closest('[data-ann-edit]');
-        if (f) fireAnnouncement(f.dataset.fire);
-        else if (a) {
-            const [name, text] = ANN_PRESETS[a.dataset.annAdd];
-            const rule = blankRule('announcement', `ann-${Date.now().toString(36)}`);
-            rule.name = name; rule.variants[0].title = name; rule.variants[0].message = text;
-            cfg.rules.push(rule); setDirty(true); renderAll(); renderAnnouncements();
+        const dl = e.target.closest('[data-ann-del]'), nw = e.target.closest('[data-ann-new]');
+        const pd = e.target.closest('[data-ann-preset-del]');
+        const sv = e.target.closest('[data-ann-save]');
+        if (sv) {
+            const r = cfg.rules.find(x => x.id === sv.dataset.annSave), msg = r?.variants[0]?.message || '';
+            if (r && !ANN_PRESETS.some(p => p[0] === r.name && p[1] === msg)) { ANN_PRESETS.push([r.name, msg]); savePresets(); toast('Saved as quick add'); }
+            else if (r) toast('Already a quick add');
+            return;
+        }
+        if (pd) { ANN_PRESETS.splice(Number(pd.dataset.annPresetDel), 1); savePresets(); }
+        else if (e.target.closest('#ann-preset-reset')) { ANN_PRESETS = ANN_DEFAULTS.slice(); savePresets(); }
+        else if (f) fireAnnouncement(f.dataset.fire);
+        else if (nw) addAnnouncement('New announcement', '');
+        else if (a) { const [name, text] = ANN_PRESETS[a.dataset.annAdd]; addAnnouncement(name, text); }
+        else if (dl) {
+            const r = cfg.rules.find(x => x.id === dl.dataset.annDel);
+            if (r && confirm(`Delete "${r.name}"?`)) {
+                cfg.rules = cfg.rules.filter(x => x !== r);
+                if (sel === r.id) sel = cfg.rules[0]?.id || null;
+                setDirty(true); renderAll(); renderAnnouncements();
+            }
         } else if (ed) { sel = ed.dataset.annEdit; renderAll(); setTab('rules'); }
     });
     let annDrag = null;
@@ -2280,6 +2298,7 @@
             const input = targetKey ? document.querySelector(`input[data-v="${targetKey}"]`) : null;
             if (input) {
                 insertAtCursor(input, token);
+                btn.closest('details')?.removeAttribute('open');
                 toast(`Inserted ${token}`);
             } else {
                 navigator.clipboard?.writeText(token);
@@ -2774,7 +2793,8 @@
         };
         document.addEventListener('pointerdown', e => { const b = e.target.closest('[data-focus]'); if (!b) return; drag = b; b.setPointerCapture?.(e.pointerId); set(e); });
         document.addEventListener('pointermove', e => { if (drag) set(e); });
-        document.addEventListener('pointerup', () => { drag = null; });
+        document.addEventListener('pointerup', () => { if (drag) { drag = null; renderEditor(); } });
+        document.addEventListener('click', e => { const b = e.target.closest('[data-focus-reset]'); if (!b) return; const v = rule().variants[Number(b.dataset.focusReset)]; v.focusX = 50; v.focusY = 50; setDirty(true); renderEditor(); });
     })();
 </script>
 </body>

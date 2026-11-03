@@ -1150,3 +1150,27 @@ body .al-s53 { font-size:0.7rem; padding:2px 8px; display:inline-flex; align-ite
 
 #queue-settings-menu .more-pop { padding: 0.6rem; }
 #queue-settings-menu .gap-control { border: 0; background: transparent; white-space: nowrap; }
+
+.ann-presets { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin: 0.5rem 0; }
+.ann-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.ann-presets #ann-presets { display: inline-flex; gap: 0.4rem; flex-wrap: wrap; }
+.chip-btn { background: var(--bg-inset); border: 1px solid var(--border); color: var(--text); border-radius: 999px; padding: 0.2rem 0.7rem; font-size: 12px; cursor: pointer; }
+.chip-btn:hover { border-color: var(--accent); }
+.ann-head { display: flex; align-items: center; gap: 0.4rem; }
+.ann-name-input { flex: 1; min-width: 0; font-weight: 700; background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 0.25rem 0.4rem; color: var(--text); }
+.ann-name-input:hover, .ann-name-input:focus { border-color: var(--border); background: var(--bg-inset); }
+.ann-text-input { width: 100%; resize: vertical; font-size: 12px; }
+.ann-meta { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.ann-meta .btn { margin-left: auto; }
+.ann-item { cursor: default; }
+
+.field-label-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.ph-pick { position: relative; }
+.ph-pick .more-pop { right: 0; left: auto; max-width: 320px; }
+.head-actions { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
+.chip-btn { display: inline-flex; align-items: center; padding: 0; overflow: hidden; }
+.chip-btn .chip-main, .chip-btn .chip-x { background: transparent; border: 0; color: inherit; font: inherit; cursor: pointer; }
+.chip-btn .chip-main { padding: 0.2rem 0.3rem 0.2rem 0.7rem; }
+.chip-btn .chip-x { padding: 0.2rem 0.55rem 0.2rem 0.3rem; color: var(--text-muted); }
+.chip-btn .chip-x:hover { color: var(--danger, #ef4444); }
+#save-state { white-space: nowrap; flex: 0 0 auto; }

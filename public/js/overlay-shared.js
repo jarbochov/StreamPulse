@@ -2355,6 +2355,7 @@
             const scale = Math.max(10, Math.min(100, Number(cfg.mediaScale) || 60));
             const focusPos = v => Number.isFinite(Number(v)) && v !== null && v !== '' ? Math.max(0, Math.min(100, Number(v))) : 50;
             const hasPayloadFocus = payload.focusX !== undefined && (payload.focusX !== 50 || payload.focusY !== 50);
+            const fitMode = hasPayloadFocus ? 'cover' : (cfg.mediaFit || 'contain');
             const focusPosition = hasPayloadFocus ? `${focusPos(payload.focusX)}% ${focusPos(payload.focusY)}%` : `${focusPos(cfg.mediaFocusX)}% ${focusPos(cfg.mediaFocusY)}%`;
             if (isEmoji) {
                 const emoteUrl = payload.emojiUrl || (/^(https?:\/\/|\/|data:image\/)/i.test(payload.emoji) ? payload.emoji : '');
@@ -2419,8 +2420,8 @@
                     media.playsInline = true;
                 }
                 media.draggable = false;
-                media.style.objectFit = cfg.mediaFit || 'contain';
-                if (cfg.mediaFit === 'cover') media.style.objectPosition = focusPosition;
+                media.style.objectFit = fitMode;
+                if (fitMode === 'cover') media.style.objectPosition = focusPosition;
             }
             media.className = isEmoji ? 'alert-media is-emote' : 'alert-media';
             if (!isEmoji) {
@@ -2443,7 +2444,7 @@
                     wrap.style.display = 'flex';
                     wrap.style.width = layout === 'stack' ? '' : wrap.style.width;
                     media.className = 'alert-media-el';
-                    media.style.cssText = `height:100%;width:${layout === 'stack' ? 'auto' : '100%'};max-width:100%;object-fit:${cfg.mediaFit || 'contain'};object-position:${cfg.mediaFit === 'cover' ? focusPosition : '50% 50%'}`;
+                    media.style.cssText = `height:100%;width:${layout === 'stack' ? 'auto' : '100%'};max-width:100%;object-fit:${fitMode};object-position:${fitMode === 'cover' ? focusPosition : '50% 50%'}`;
                     wrap.appendChild(media);
                     wrap.style.maxWidth = layout === 'side' ? '50%' : '100%';
                     mediaFxWrap = wrap;
