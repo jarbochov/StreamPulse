@@ -14,7 +14,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Alert rule priority (low to critical), optional interrupt, expiry and queue cap; manual `POST /api/alerts/trigger`; Announcements (manual alerts with Fire tab, OBS dock grid and `/tools/announcements-dock.html`); chat message and Companion button alert actions.
 - Bundled alert sound library: 22 CC0 Kenney jingle/impact clips (Celebration, Hype, Impact, Chime/Bell, Retro) plus 15 Synth and 15 layered synthesized presets (fanfares, air horn, bass drop, applause, gong) in the alert sound picker.
 - Alerts: full-presentation looks in the Alert box's Style tab, with rule assignment and canvas preview.
-- Alerts: Channel Points rules pick rewards from your Twitch reward list (checkboxes, or all redeems).
+- Alerts: Channel Points reward selection, Simulator reward matching, and selected-reward titles in test previews.
 - Alerts: Hype train trigger (Twitch EventSub; start, level up or end, with level/minutes placeholders; needs the channel:read:hype_train scope, reconnect Twitch once).
 - Alerts page: variants grouped under Base and milestone tiers with threshold labels, odds pills and one-open-at-a-time rows; clickable ladder; live preview with Play sound; optional media thumbnails; inline warnings; rule search with Active/Inactive filters; Import/Export JSON (merge or replace); Duplicate variant; Revert; keyboard shortcuts (Cmd/Ctrl+S, Cmd/Ctrl+Enter, Cmd/Ctrl+D, /).
 - Alert box media focal point (Focus X/Y, shown for Fill media) and custom padding.

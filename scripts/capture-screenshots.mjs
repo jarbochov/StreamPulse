@@ -5,6 +5,7 @@ import http from 'node:http';
 import { fileURLToPath } from 'url';
 import promoModel from '../public/js/promo-model.js';
 import staticRouter from '../server/static-router.js';
+import alertModel from '../server/services/alerts.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -696,8 +697,16 @@ async function run() {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyDossierPixelKnight) });
         } else if (url.includes('/api/chatters')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyCommunityList) });
+        } else if (new URL(url).pathname === '/api/twitch/rewards') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ rewards: [{ id: 'fictional-stretch', title: 'Fictional Stretch Break', cost: 250, enabled: true }] }) });
         } else if (url.includes('/api/alerts/events') || url.includes('/api/events')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyAlertEvents) });
+        } else if (page.url().includes('/tools/alerts.html#sim') && new URL(url).pathname === '/api/alerts') {
+            const data = alertModel.normalizeConfig({ settings: { enabled: true }, rules: [
+                { id: 'fictional-redeem', name: 'Fictional Stretch Break', trigger: 'redeem', conditions: { rewardIds: ['fictional-stretch'] },
+                    variants: [{ title: '{{alert.user}} redeemed {{alert.reward}}' }] }
+            ] });
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...data, queue: { pending: [], history: [] } }) });
         } else if (url.endsWith('/api/alerts') || url.includes('/api/alerts?')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyAlertsState) });
         } else if (url.includes('/api/chat-log')) {
@@ -1071,6 +1080,17 @@ async function run() {
             wait: 2000,
             action: async (p) => {
                 await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+            }
+        },
+        {
+            url: `${baseUrl}/tools/alerts.html#sim`,
+            file: 'alerts-reward-simulator.png',
+            wait: 1200,
+            action: async p => {
+                await p.select('#sim-type', 'redeem');
+                await p.waitForSelector('#sim-reward option[value="fictional-stretch"]');
+                await p.select('#sim-reward', 'fictional-stretch');
+                await p.$eval('#sim-text', input => { input.value = 'Time for a fictional stretch break!'; });
             }
         },
         {

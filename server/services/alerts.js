@@ -819,7 +819,8 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             tier: overrides.tier || (rule.conditions.tiers?.[0] || '1000'),
             tierLabel: overrides.tierLabel || (overrides.tier === 'prime' ? 'Prime' : overrides.tier === '2000' ? 'Tier 2' : overrides.tier === '3000' ? 'Tier 3' : 'Tier 1'),
             message: str(overrides.message, 200) || 'This is a test message',
-            reward: rule.conditions.rewardName || 'Test reward',
+            reward: str(overrides.reward, 120) || rule.conditions.rewardName || 'Test reward',
+            rewardId: str(overrides.rewardId, 80),
             name: rule.conditions.timerId || rule.conditions.goalId || 'Test',
             keyword: rule.conditions.keywords[0] || '',
             viewers: Number(overrides.viewers) || testAmt || 25

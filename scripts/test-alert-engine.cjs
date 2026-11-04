@@ -1156,3 +1156,86 @@ test('redeem rules match selected reward ids, or every redeem when none are chos
     assert.equal(run(rules, { rewardId: 'b2', reward: 'Other' }), 0);
     assert.equal(run([{ ...rules[0], conditions: { rewardIds: [] } }], { rewardId: 'b2' }), 1);
 });
+
+test('redeem rule test respects the reward title override separately from the viewer message', () => {
+    const { engine, cleanup } = createTempEngine({
+        settings: { enabled: true },
+        rules: [{ id: 'redeem-fixture', trigger: 'redeem', conditions: { rewardIds: ['fixture-reward'] },
+            variants: [{ title: '{{alert.user}} redeemed {{alert.reward}}', message: '{{alert.message}}' }] }]
+    });
+    try {
+        const payload = engine.fireRule('redeem-fixture', '', { reward: 'Fictional Stretch', rewardId: 'fixture-reward', message: 'Viewer input' });
+        assert.equal(payload.title, 'TestViewer redeemed Fictional Stretch');
+        assert.equal(payload.message, 'Viewer input');
+    } finally { cleanup(); }
+});
+
+test('Alerts Simulator sends selected reward identity and title and rule previews use the checked reward', async t => {
+    const http = require('node:http');
+    const { createStaticRouter } = require('../server/static-router');
+    const { engine, cleanup } = createTempEngine({
+        settings: { enabled: true },
+        rules: [{ id: 'redeem-fixture', name: 'Fictional redeem', trigger: 'redeem', conditions: { rewardIds: ['fixture-reward'] },
+            variants: [{ id: 'fixture-variant', title: '{{alert.user}} redeemed {{alert.reward}}', message: '{{alert.message}}' }] }]
+    });
+    t.after(cleanup);
+    const requests = [];
+    const staticRouter = createStaticRouter({ rootDir: path.resolve(__dirname, '..') });
+    const server = http.createServer(async (req, res) => {
+        const url = new URL(req.url, 'http://localhost');
+        if (!url.pathname.startsWith('/api/')) { staticRouter.handleRequest(req, res); return; }
+        let data = {};
+        let body = '';
+        for await (const chunk of req) body += chunk;
+        const parsed = body ? JSON.parse(body) : {};
+        if (url.pathname === '/api/alerts') {
+            if (req.method === 'PUT') engine.setConfig(parsed);
+            data = engine.getConfig();
+        } else if (url.pathname === '/api/twitch/rewards') {
+            data = { rewards: [{ id: 'fixture-reward', title: 'Fictional Stretch', cost: 250, enabled: true }, { id: 'other-reward', title: 'Other reward', cost: 100, enabled: true }] };
+        } else if (url.pathname === '/api/alerts/test-event') {
+            requests.push(parsed);
+            data = { alert: engine.handleEvent({ ...parsed, dedupeMs: 0 }, { test: true }) };
+        } else if (url.pathname === '/api/alerts/test') {
+            requests.push(parsed);
+            data = { alert: engine.fireRule(parsed.ruleId, parsed.variantId, parsed) };
+        } else if (url.pathname.includes('assets') || url.pathname.includes('events')) data = [];
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(data));
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => new Promise(resolve => server.close(resolve)));
+    const { default: puppeteer } = await import('puppeteer');
+    const browser = await puppeteer.launch({ headless: true });
+    t.after(() => browser.close());
+    const page = await browser.newPage();
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.goto(`http://127.0.0.1:${server.address().port}/tools/alerts.html#sim`, { waitUntil: 'networkidle0' });
+    await page.select('#sim-type', 'redeem');
+    await page.waitForSelector('#sim-reward option[value="fixture-reward"]');
+    await page.select('#sim-reward', 'fixture-reward');
+    await page.$eval('#sim-text', input => { input.value = 'Fictional viewer input'; });
+    const [response] = await Promise.all([
+        page.waitForResponse(response => response.url().endsWith('/api/alerts/test-event')),
+        page.click('#sim-go')
+    ]);
+    const data = await response.json();
+    assert.equal(requests[0].rewardId, 'fixture-reward');
+    assert.equal(requests[0].reward, 'Fictional Stretch');
+    assert.equal(requests[0].message, 'Fictional viewer input');
+    assert.match(data.alert.title, /Fictional Stretch/);
+    await page.select('#sim-reward', 'other-reward');
+    const [unmatched] = await Promise.all([
+        page.waitForResponse(response => response.url().endsWith('/api/alerts/test-event')),
+        page.click('#sim-go')
+    ]);
+    assert.equal((await unmatched.json()).alert, null);
+    await page.click('[role="tab"][data-tab="rules"]');
+    const [preview] = await Promise.all([
+        page.waitForResponse(response => response.url().endsWith('/api/alerts/test')),
+        page.click('[data-test-rule]')
+    ]);
+    assert.match((await preview.json()).alert.title, /Fictional Stretch/);
+    assert.deepEqual(errors, []);
+});

@@ -8,6 +8,16 @@ Give different kinds of support their own look and sound, and preview the result
 
 Amount-based rules can fire at **At least**, **Between** or **Equal to** an amount. An equal-to rule (matched to the cent) wins over overlapping ranges, so a $69.69 donation can get its own alert. Milestone variants offer the same choice. Donation rules can also be limited to one source: SocialStream, or any source an embedded host registers (see [API reference](api-reference.md#9-embedded-mode-nodecg)), and `{{alert.source}}` and `{{alert.currency}}` are available in alert text. System placeholders such as `{{stream.title}}`, `{{game.name}}` and `{{weather.temp_full}}` also work in alert and announcement text.
 
+### Testing Channel Point Rewards
+
+`{{alert.reward}}` is the title of the reward actually redeemed, not a list of every checked reward. The rule's reward checkboxes control which redemptions match.
+
+In **Alerts → Simulator**, choose **Channel point redeem**, then pick a reward in **Channel Point Reward** that is checked in your rule. Enter a fictional user and optional viewer message in the text field, then click **Run Event Through Rules**. The simulator sends both the Twitch reward ID and title, so reward-checkbox matching works. Picking an unchecked reward tests the no-match path (unless another active rule handles it).
+
+**Test Rule** and variant previews use the first checked reward's title; they bypass conditions. For **All redeems**, or when a selected reward is no longer listed, a test title is used. The simulator's **Custom reward title** option uses the text field as the title without an ID, so it cannot match ID-filtered rules. An unlisted selected reward can still test its saved ID with a title supplied in the text field.
+
+![Simulator with fictional reward data](images/alerts-reward-simulator.png)
+
 ### Reordering Alerts
 Drag the grip handle on an alert in the left-hand list to reorder it (a line shows the drop position), or focus a row and press **Alt+Up / Alt+Down**. Reordering is available while no search or filter is active, and the order is saved with **Save**. Your last selected alert is remembered between visits.
 

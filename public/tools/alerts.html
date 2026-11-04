@@ -308,6 +308,7 @@
 
                     <div class="sim-form-grid">
                         <div class="row"><label>Event Trigger</label><select id="sim-type"></select></div>
+                        <div class="row" id="sim-reward-row" style="display:none;"><label for="sim-reward">Channel Point Reward</label><select id="sim-reward"><option value="">Custom reward title (text below)</option></select><span class="hint" id="sim-reward-status"></span></div>
                         <div class="row" id="sim-tier-row" style="display:none;"><label>Subscription Tier</label><select id="sim-tier" hidden><option value="1000" selected>Tier 1</option><option value="2000">Tier 2</option><option value="3000">Tier 3</option><option value="prime">Prime</option></select><span class="seg-pills" id="sim-tier-seg"><button type="button" class="seg-btn active" data-simtier="1000">Tier 1</button><button type="button" class="seg-btn" data-simtier="2000">Tier 2</button><button type="button" class="seg-btn" data-simtier="3000">Tier 3</button><button type="button" class="seg-btn" data-simtier="prime">Prime</button></span></div>
                         <div class="row" id="sim-recipient-row" style="display:none;"><label>Gift Sub Recipient</label><input id="sim-recipient" value="LuckyViewer"></div>
                         <div class="row"><label>User Name</label><input id="sim-user" value="TestViewer"></div>
@@ -796,7 +797,7 @@
     function loadRewards() {
         if (rewardList.loaded || rewardList.loading) return;
         rewardList.loading = true;
-        fetch('/api/twitch/rewards').then(x => x.json()).then(d => { rewardList.rewards = d.rewards || []; rewardList.error = d.error || ''; }).catch(err => { rewardList.error = err.message; }).finally(() => { rewardList.loading = false; rewardList.loaded = true; if (rule()?.trigger === 'redeem') renderEditor(); });
+        fetch('/api/twitch/rewards').then(x => x.json()).then(d => { rewardList.rewards = d.rewards || []; rewardList.error = d.error || ''; }).catch(err => { rewardList.error = err.message; }).finally(() => { rewardList.loading = false; rewardList.loaded = true; renderSimRewards(); if (rule()?.trigger === 'redeem') renderEditor(); });
     }
     const pollStatus = () => fetch('/api/status').then(r => r.json()).then(d => { liveStatus = d; }).catch(() => {});
     pollStatus(); setInterval(pollStatus, 15000);
@@ -1455,7 +1456,9 @@
         if (!v) return;
         try { OverlayShared.cleanupNode?.(stage); } catch { /* ignore */ }
         stage.innerHTML = '';
-        const fill = t => String(t || '').replace(/\{\{alert\.(\w+)\}\}/g, (m, k) => SAMPLE_TOKENS[k] ?? m);
+        const sample = { ...SAMPLE_TOKENS };
+        if (r.trigger === 'redeem') sample.reward = rewardList.rewards.find(reward => reward.id === r.conditions.rewardIds?.[0])?.title || r.conditions.rewardName || 'Test reward';
+        const fill = t => String(t || '').replace(/\{\{alert\.(\w+)\}\}/g, (m, k) => sample[k] ?? m);
         const viewerEmote = r.trigger === 'bits' && v.emoteSource !== 'custom' && !v.emoji && !v.emojiUrl;
         const payload = {
             title: fill(v.title), message: fill(v.message), image: v.video ? '' : v.image, video: v.video, focusX: v.focusX ?? 50, focusY: v.focusY ?? 50,
@@ -1810,10 +1813,40 @@
         if (row) row.style.display = isSub ? '' : 'none';
         const recipRow = $('sim-recipient-row');
         if (recipRow) recipRow.style.display = type === 'gift' ? '' : 'none';
+        $('sim-reward-row').style.display = type === 'redeem' ? '' : 'none';
+        if (type === 'redeem') { loadRewards(); renderSimRewards(); }
+    }
+
+    function renderSimRewards() {
+        const picker = $('sim-reward');
+        const selected = picker.value;
+        const ids = [...new Set(cfg.rules.filter(r => r.trigger === 'redeem').flatMap(r => r.conditions.rewardIds || []))];
+        const missing = ids.filter(id => !rewardList.rewards.some(reward => reward.id === id));
+        picker.innerHTML = '<option value="">Custom reward title (text below)</option>'
+            + rewardList.rewards.map(reward => `<option value="${esc(reward.id)}">${esc(reward.title)} (${reward.cost} pts)</option>`).join('')
+            + missing.map(id => `<option value="${esc(id)}">Unlisted selected reward (${esc(id.slice(0, 8))})</option>`).join('');
+        picker.value = selected;
+        $('sim-reward-status').textContent = rewardList.loading ? 'Loading rewards...' : rewardList.error
+            || 'Choose the checked reward to test ID matching. Text below is the viewer message, or the title for custom/unlisted rewards.';
+    }
+
+    async function testRewardOverrides(r) {
+        if (r.trigger !== 'redeem') return {};
+        if (!rewardList.loaded) {
+            const data = await api('/api/twitch/rewards');
+            rewardList.rewards = data.rewards || [];
+            rewardList.error = data.error || '';
+            rewardList.loaded = true;
+        }
+        const rewardId = r.conditions.rewardIds?.[0];
+        const reward = rewardList.rewards.find(item => item.id === rewardId);
+        return { rewardId, reward: reward?.title || r.conditions.rewardName || 'Test reward' };
     }
 
     function renderAll() {
+        const simType = $('sim-type').value;
         $('sim-type').innerHTML = Object.entries(TRIGGERS).map(([k, l]) => `<option value="${k}">${l}</option>`).join('');
+        if (simType) $('sim-type').value = simType;
         updateSimVisibility();
         renderSettings();
         renderRules();
@@ -2545,6 +2578,7 @@
                 method: 'POST',
                 body: JSON.stringify({
                     ruleId: sel,
+                    ...await testRewardOverrides(r),
                     ...(testAmount ? { amount: testAmount, months: testAmount, count: testAmount, viewers: testAmount } : {})
                 })
             });
@@ -2565,6 +2599,7 @@
                 body: JSON.stringify({
                     ruleId: sel,
                     variantId: targetVariant.id,
+                    ...await testRewardOverrides(r),
                     ...(testAmount ? { amount: testAmount, months: testAmount, count: testAmount, viewers: testAmount } : {})
                 })
             });
@@ -2673,6 +2708,13 @@
         const tierLabel = isSub ? (tierLabels[tier] || 'Tier 1') : '';
         const recipient = type === 'gift' ? ($('sim-recipient')?.value || 'LuckyViewer') : '';
         const body = { type, user: $('sim-user').value || 'TestViewer', recipient, amount, count: amount, months: amount, viewers: amount, tier, tierLabel, message: text, reward: text, keyword: text, name: text };
+        if (type === 'redeem') {
+            const rewardId = $('sim-reward').value;
+            const reward = rewardList.rewards.find(item => item.id === rewardId);
+            body.rewardId = rewardId;
+            body.reward = reward?.title || text;
+            body.cost = reward?.cost || amount;
+        }
         if (type === 'chat_word') body.message = text;
         if (type === 'chat_command') {
             const clean = text.replace(/^!+/, '').trim();
