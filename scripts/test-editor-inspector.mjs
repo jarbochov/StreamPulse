@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import puppeteer from 'puppeteer';
+import overlays from '../server/services/overlays.js';
 
 const names = ['overlay-shared.js', 'poll-widget.js', 'editor-geometry.js', 'motion-easing.js',
     ...['state', 'canvas', 'form', 'layers', 'inspector'].map(name => `editor/editor-${name}.js`)];
@@ -30,7 +31,7 @@ const server = createServer((req, res) => {
             </style><div id="stage"><div id="canvas"><div id="canvas-underlayer"></div>
             <div id="canvas-toplayer"></div></div><div id="ui"></div></div>
             <aside class="rail right"><div id="properties"></div></aside>`);
-    } else if (path === '/api/alerts') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"rules":[]}');
+    } else if (path === '/api/alerts') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"rules":[{"id":"fictional-brb","name":"BRB in 5 minutes"},{"id":"fictional-follow","name":"Follow"}]}');
     } else if (path === '/favicon.ico') { res.writeHead(204); res.end(); }
     else { unexpected.push(`${req.method} ${path}`); res.writeHead(404); res.end(); }
 });
@@ -193,6 +194,77 @@ try {
     assert.equal(await page.$('[data-focal]'), null, 'focus is set per alert in Alerts, not in the overlay editor');
     await page.$eval('[data-seg-path="alert.layout"] [data-seg-value="side"]', node => node.click());
     assert.equal(await page.evaluate(() => window.fixture.primary().alert.layout), 'side');
+    await page.evaluate(async () => {
+        const { renderCanvas } = await import('/js/editor/editor-canvas.js');
+        window.fixture.renderCanvas = renderCanvas;
+        window.fixture.select('alert', { style: { fontFamily: 'monospace', background: '#112233' }, alert: { layout: 'stack' } });
+        renderCanvas();
+    });
+    await page.click('[data-inspector-tab="style"]');
+    assert.equal(await page.$eval('[data-sect="alert-looks"]', node => node.closest('[data-inspector-panel]').dataset.inspectorPanel), 'style');
+    await page.click('#btn-add-look');
+    await page.waitForSelector('[data-path="alert.looks.0.style.background"]');
+    const original = await page.evaluate(() => JSON.stringify(window.fixture.primary().style));
+    const edit = async (path, value) => {
+        await page.$eval(`[data-path="${path}"]`, (input, value) => {
+            input.value = value;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }, value);
+        await page.evaluate(() => new Promise(done => window.requestAnimationFrame(() => window.requestAnimationFrame(done))));
+    };
+    await edit('alert.looks.0.name', 'Poster');
+    await page.click('[data-seg-path="alert.looks.0.alert.layout"] [data-seg-value="media"]');
+    await page.click('[data-path="alert.looks.0.alert.hideMessage"]');
+    await edit('alert.looks.0.alert.titleSize', '60');
+    await edit('alert.looks.0.alert.padding', '24');
+    await edit('alert.looks.0.style.background', '#345678');
+    await edit('alert.looks.0.style.shadow.blur', '12');
+    await edit('alert.looks.0.mediaFilter.brightness', '70');
+    await page.$eval('[data-look-rule="fictional-brb"]', input => input.scrollIntoView({ block: 'center' }));
+    await page.click('[data-look-rule="fictional-brb"]');
+    await page.click('#alert-play');
+    const preview = await page.evaluate(() => {
+        const el = window.fixture.primary(), node = window.fixture.state.nodes.get(el.id);
+        return { base: JSON.stringify(el.style), layout: node.querySelector('.alert-card').classList.contains('layout-media'),
+            message: !!node.querySelector('.alert-message'), titleSize: node.querySelector('.alert-title').style.fontSize,
+            background: node.querySelector('.alert-card').style.backgroundColor, ruleIds: el.alert.looks[0].ruleIds,
+            padding: node.querySelector('.alert-text').style.bottom, font: node.querySelector('.alert-text').style.fontFamily };
+    });
+    assert.equal(preview.base, original, 'editing a look cannot change inherited styling');
+    assert.equal(preview.layout, true);
+    assert.equal(preview.message, false);
+    assert.equal(preview.titleSize, '60px');
+    assert.equal(preview.background, 'rgb(52, 86, 120)');
+    assert.deepEqual(preview.ruleIds, ['fictional-brb']);
+    assert.equal(preview.padding, '24px');
+    assert.equal(preview.font, 'monospace');
+    await page.waitForFunction(() => {
+        const node = window.fixture.state.nodes.get(window.fixture.primary().id);
+        return node.querySelector('.alert-card').style.filter.includes('brightness(70%)');
+    });
+    assert.equal(await page.evaluate(() => window.fixture.state.nodes.get(window.fixture.primary().id).style.filter), '', 'look filters apply once to the card, not its parent');
+    const saved = overlays.normalizeOverlayElement(await page.evaluate(() => window.fixture.primary()), 0);
+    await page.evaluate(saved => {
+        const { state, renderProperties, renderCanvas } = window.fixture;
+        state.overlay.elements = [saved];
+        state.selectedIds = new Set([saved.id]);
+        renderProperties(); renderCanvas();
+    }, saved);
+    assert.equal(await page.$eval('[data-path="alert.looks.0.mediaFilter.brightness"]', node => node.value), '70');
+    await page.select('#alert-look-select', '');
+    assert.equal(await page.evaluate(() => window.fixture.state.nodes.get(window.fixture.primary().id).querySelector('.alert-card').classList.contains('layout-stack')), true);
+    await page.evaluate(() => {
+        const el = window.fixture.primary(), node = window.fixture.state.nodes.get(el.id);
+        node._alertHandle?.stop();
+        node._alertHandle = window.OverlayShared.playAlert(node, el, { ...window.OverlayShared.ALERT_SAMPLE, ruleId: 'fictional-brb', animIn: 'none' }, { sound: false });
+    });
+    assert.equal(await page.evaluate(() => !!window.fixture.state.nodes.get(window.fixture.primary().id).querySelector('.alert-message')), false, 'live rule assignment resolves the same look as preview');
+    await page.select('#alert-look-select', saved.alert.looks[0].id);
+    page.once('dialog', dialog => dialog.accept());
+    await page.click('[data-remove-look="0"]');
+    assert.equal(await page.evaluate(() => window.fixture.primary().alert.looks.length), 0);
+    assert.equal(await page.$eval('#alert-look-select', node => node.value), '');
     await page.evaluate(() => {
         const { state, renderProperties } = window.fixture;
         state.obs = { enabled: true, connected: false, sources: [], scenes: [] };

@@ -6,7 +6,7 @@ import {
     $, clamp, isLine, boxOf, visualBoxOf, boundsOf, scaleSnapshot, applyScale,
     TEXT_TYPES, MIN_SIZE, LIMITS, state, prefs, byId, selectedElements,
     primary, inView, visibleElements, withGroups, setSelection, changed,
-    expand, liveSignature, alertSample, toast
+    expand, liveSignature, alertSample, toast, previewAlertElement
 } from './editor-state.js';
 import {
     snapAxis as findSnapAxis,
@@ -602,7 +602,7 @@ export function applyNodeStyle(node, el, index) {
     }
     Object.assign(node.style, {
         left: `${b.x}px`, top: `${b.y}px`, width: `${b.w}px`, height: `${b.h}px`, zIndex: index,
-        opacity: s.opacity ?? 1, background: (el.type === 'alert' || el.type === 'cutout') ? 'transparent' : (s.background || 'transparent'),
+        opacity: el.type === 'alert' ? 1 : s.opacity ?? 1, background: (el.type === 'alert' || el.type === 'cutout') ? 'transparent' : (s.background || 'transparent'),
         borderRadius: el.type === 'alert' ? '0' : el.type === 'cutout' ? cutoutRadius : `${s.borderRadius || 0}px`,
         padding: `${TEXT_TYPES.has(el.type) ? s.padding || 0 : 0}px`,
         fontFamily: s.fontFamily, fontSize: `${TEXT_TYPES.has(el.type) && el.textFit && el.textFit !== 'none' && node._fittedFontSize ? node._fittedFontSize : (s.fontSize != null && s.fontSize !== '' ? s.fontSize : 32)}px`, fontWeight: s.fontWeight, color: s.color, textAlign: s.textAlign,
@@ -628,10 +628,11 @@ export function applyNodeStyle(node, el, index) {
     } else {
         const card = node.querySelector(':scope > .alert-card');
         if (card) {
+            card.style.opacity = s.opacity ?? 1;
             card.style.background = s.background && s.background !== 'transparent' ? s.background : '';
             card.style.backgroundColor = s.background && s.background !== 'transparent' ? s.background : '';
             card.style.borderRadius = `${s.borderRadius || 0}px`;
-            card.style.padding = `${s.padding || 8}px`;
+            card.style.padding = `${el.alert?.padding ?? s.padding ?? 8}px`;
             card.style.backdropFilter = s.blur > 0 ? `blur(${s.blur}px)` : '';
             card.style.webkitBackdropFilter = s.blur > 0 ? `blur(${s.blur}px)` : '';
             if (s.gradient?.enabled && shared.decorationStyle) {
@@ -919,6 +920,7 @@ export function renderCanvas(only) {
     state.overlay.elements.forEach((el, index) => {
         if (!inView(el) || el.visible === false) return;
         if (only && !only.has(el.id)) return;
+        el = previewAlertElement(el);
         const isTop = el.type === 'cutout' || index > maxCutoutIndex;
         const targetParent = isTop ? top : under;
         let node = state.nodes.get(el.id);

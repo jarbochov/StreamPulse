@@ -140,7 +140,7 @@
             width: `${element.width || 400}px`,
             height: `${element.height || 100}px`,
             zIndex: element.zIndex || 0,
-            opacity: style.opacity ?? 1,
+            opacity: element.type === 'alert' ? 1 : style.opacity ?? 1,
             background: element.type === 'alert' ? 'transparent' : (style.background || 'transparent'),
             borderRadius: element.type === 'alert' ? '0px' : `${style.borderRadius || 0}px`,
             padding: `${style.padding || 0}px`,

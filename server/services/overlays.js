@@ -733,6 +733,32 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
     const morphId = sanitizeOverlayId(element.morphId).slice(0, 40);
     const pageStates = normalizePageStates(element.pageStates);
     const obsLink = normalizeObsLink(element.obsLink);
+    const lookRules = new Set();
+    const looks = (Array.isArray(element.alert?.looks) ? element.alert.looks : []).slice(0, 12).map((raw, n) => {
+        const l = raw || {};
+        // Normalize looks through the same presentation schema as their parent, without nested looks or behavior.
+        const keys = ['layout', 'hideText', 'hideMessage', 'effectsTarget', 'mediaFit', 'mediaFocusX', 'mediaFocusY',
+            'padding', 'mediaScale', 'titleSize', 'messageSize', 'titleColor', 'gap'];
+        const legacy = Object.fromEntries(keys.filter(k => k in l).map(k => [k, l[k]]));
+        const normalized = normalizeOverlayElement({
+            type: 'alert',
+            alert: { ...element.alert, ...legacy, ...l.alert, looks: [] },
+            style: { ...element.style, ...l.style },
+            mediaFilter: l.mediaFilter || element.mediaFilter
+        }, n, alertTriggers);
+        const { rotate: _rotate, ...style } = normalized.style;
+        const ruleIds = [...new Set(Array.isArray(l.ruleIds) ? l.ruleIds.map(x => String(x).slice(0, 80)) : [])]
+            .filter(id => id && !lookRules.has(id)).slice(0, 200);
+        ruleIds.forEach(id => lookRules.add(id));
+        return {
+            id: sanitizeOverlayId(l.id).slice(0, 40) || `look${n + 1}`,
+            name: String(l.name || `Look ${n + 1}`).trim().slice(0, 40),
+            ruleIds,
+            alert: Object.fromEntries(keys.map(k => [k, normalized.alert[k]])),
+            style,
+            mediaFilter: normalized.mediaFilter
+        };
+    });
     return {
         id: sanitizeOverlayId(element.id) || `element-${index + 1}`,
         name: String(element.name || '').trim().slice(0, 80),
@@ -839,18 +865,7 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
             layout: ['stack', 'side', 'text', 'media'].includes(element.alert?.layout) ? element.alert.layout : 'stack',
             hideText: Boolean(element.alert?.hideText),
             hideMessage: Boolean(element.alert?.hideMessage),
-            looks: (Array.isArray(element.alert?.looks) ? element.alert.looks : []).slice(0, 12).map((l, n) => ({
-                id: String(l?.id || `look${n + 1}`).slice(0, 40),
-                name: String(l?.name || `Look ${n + 1}`).trim().slice(0, 40),
-                ruleIds: Array.isArray(l?.ruleIds) ? l.ruleIds.map(x => String(x).slice(0, 80)).slice(0, 200) : [],
-                layout: ['stack', 'side', 'text', 'media'].includes(l?.layout) ? l.layout : 'media',
-                hideText: Boolean(l?.hideText),
-                hideMessage: l?.hideMessage !== false,
-                mediaFit: l?.mediaFit === 'contain' ? 'contain' : 'cover',
-                mediaScale: Math.max(10, Math.min(100, Number(l?.mediaScale) || 60)),
-                titleSize: Math.max(8, Math.min(300, Number(l?.titleSize) || 44)),
-                titleColor: String(l?.titleColor || '#ffffff').slice(0, 80)
-            })),
+            looks,
             effectsTarget: element.alert?.effectsTarget === 'media' ? 'media' : 'box',
             mediaFit: element.alert?.mediaFit === 'cover' ? 'cover' : 'contain',
             mediaFocusX: Number.isFinite(Number(element.alert?.mediaFocusX)) && element.alert?.mediaFocusX !== null && element.alert?.mediaFocusX !== '' ? Math.max(0, Math.min(100, Math.round(Number(element.alert.mediaFocusX)))) : 50,

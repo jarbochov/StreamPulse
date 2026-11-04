@@ -671,6 +671,7 @@ async function run() {
             const pathname = new URL(url).pathname;
             const data = pathname === '/api/custom-overlays/border-showcase' ? dummyCustomOverlay
                 : pathname === '/api/custom-overlays' ? [dummyCustomOverlay]
+                : pathname === '/api/alerts' ? { rules: [{ id: 'fictional-brb', name: 'BRB in 5 minutes' }, { id: 'fictional-follow', name: 'Welcome follower' }] }
                 : pathname === '/api/obs/status' ? { enabled: false, connected: false }
                 : pathname === '/api/config' || pathname === '/api/status' ? {} : [];
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
@@ -1058,6 +1059,42 @@ async function run() {
             wait: 2000,
             action: async (p) => {
                 await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+            }
+        },
+        {
+            url: `${baseUrl}/custom-overlay-editor.html?id=border-showcase`,
+            file: 'alert-looks.png',
+            wait: 1500,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.evaluate(async image => {
+                    const { state, prefs, createElementData, alertLookSelection } = await import('/js/editor/editor-state.js');
+                    const { renderProperties } = await import('/js/editor/editor-inspector.js');
+                    const { renderCanvas, fitView } = await import('/js/editor/editor-canvas.js');
+                    const { renderLayers } = await import('/js/editor/editor-layers.js');
+                    const el = createElementData('alert', {
+                        id: 'fictional-alert', page: 'page-1', x: 380, y: 300, width: 900, height: 460,
+                        style: { fontFamily: 'sans-serif', fontWeight: '700', verticalAlign: 'bottom', textAlign: 'center' },
+                        alert: { sampleImage: `data:image/svg+xml,${encodeURIComponent(image)}`, looks: [{
+                            id: 'poster', name: 'Break card', ruleIds: ['fictional-brb'],
+                            alert: { layout: 'media', hideMessage: true, mediaFit: 'cover', titleSize: 60, titleColor: '#ffffff', padding: 28 },
+                            style: { fontFamily: 'sans-serif', fontWeight: '700', textAlign: 'center', verticalAlign: 'bottom', borderRadius: 24 },
+                            mediaFilter: {}
+                        }] }
+                    });
+                    state.overlay.elements = [el];
+                    state.selectedIds = new Set([el.id]);
+                    alertLookSelection.set(el.id, 'poster');
+                    prefs.inspectorTabs.alert = 'style';
+                    renderProperties(); renderCanvas(); renderLayers(); fitView(true);
+                    const node = state.nodes.get(el.id);
+                    node._alertHandle?.stop();
+                    node._alertHandle = window.OverlayShared.playAlert(node, el, {
+                        title: 'Back in 5 minutes', message: 'This message is hidden', image: el.alert.sampleImage,
+                        ruleId: 'fictional-brb', animIn: 'none', durationMs: 3600000
+                    }, { sound: false });
+                }, dummyPromoImage);
+                await p.waitForSelector('#alert-look-select');
             }
         }
     ];

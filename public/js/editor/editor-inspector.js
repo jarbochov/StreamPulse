@@ -7,7 +7,8 @@ import {
     CANVAS_PRESETS, SYSTEM_FONTS, GOOGLE_FONT_OPTIONS, LIMITS, ICON, TYPE_META,
     ALERT_TRIGGER_LABELS, ALERT_TRIGGER_META, triggerIcon, TEXT_TYPES, FILL_TEXT_TYPES, LOCAL_MEDIA, selectedElements,
     primary, byId, boundsOf, displayName, changed, toast, alertSample, variableContext,
-    pagesOn, statesModeOn, isBasePage, hasPageOverride, resetElementPageState, extractElementState
+    pagesOn, statesModeOn, isBasePage, hasPageOverride, resetElementPageState, extractElementState,
+    alertLookSelection, previewAlertElement, uid
 } from './editor-state.js';
 import { F, bindFields } from './editor-form.js';
 import {
@@ -1142,13 +1143,13 @@ const LAYOUT_CARDS = [
     ['stack', 'Media above text', '<rect x="9" y="3" width="18" height="11" rx="2"/><path d="M8 19h20M12 23h12"/>'],
     ['side', 'Media beside text', '<rect x="3" y="6" width="12" height="14" rx="2"/><path d="M19 10h14M19 15h10"/>'],
     ['text', 'Text only', '<path d="M7 10h22M10 15h16M13 20h10"/>'],
-    ['media', 'Media only (text over it)', '<rect x="4" y="3" width="28" height="20" rx="2"/><path d="M10 18h16"/>']
+    ['media', 'Text over media', '<rect x="4" y="3" width="28" height="20" rx="2"/><path d="M10 18h16"/>']
 ];
 
 const subOpen = (id, dflt = false) => (prefs.sections[id] ?? dflt) ? ' open' : '';
 const subGroup = (id, title, body, dflt = false) => `<details class="sub-details" data-sect="${id}"${subOpen(id, dflt)}><summary>${title}</summary>${body}</details>`;
 
-export function alertSection(el) {
+export function alertSection(el, presentation = false) {
     const a = el.alert || {};
     const only = a.triggers || [];
     const alertMode = a.alertMode || (only.length ? 'selected' : 'all');
@@ -1202,12 +1203,13 @@ export function alertSection(el) {
             ${cover ? '<span class="hint">Focus point is set per alert in Alerts.</span>' : ''}` : ''}`;
 
     const text = a.hideText && layout === 'media' ? '<span class="hint">Text is hidden for this layout.</span>' : `
-        <div class="grid2">${F.number('alert.titleSize', 'Title size (px)', a.titleSize || 44, { min: 8, max: 300 })}${F.number('alert.messageSize', 'Message size (px)', a.messageSize || 28, { min: 8, max: 300 })}</div>
+        ${F.check('alert.hideMessage', 'Hide message (title only)', a.hideMessage === true)}
+        <div class="grid2">${F.number('alert.titleSize', 'Title size (px)', a.titleSize || 44, { min: 8, max: 300 })}${a.hideMessage ? '' : F.number('alert.messageSize', 'Message size (px)', a.messageSize || 28, { min: 8, max: 300 })}</div>
         ${F.color('alert.titleColor', 'Title color', a.titleColor || '#ffd166')}`;
 
     const card = `
         ${F.range('alert.padding', 'Padding (px)', a.padding ?? el.style?.padding ?? 8, { min: 0, max: 200, unit: 'px', editable: true })}
-        ${F.range('style.radius', 'Corner radius (px)', el.style?.radius ?? 0, { min: 0, max: 200, unit: 'px', editable: true })}
+        ${F.range('style.borderRadius', 'Corner radius (px)', el.style?.borderRadius ?? 0, { min: 0, max: 200, unit: 'px', editable: true })}
         ${['stack', 'side'].includes(layout) ? F.number('alert.gap', 'Gap between media and text (px)', a.gap ?? 12, { min: 0, max: 100 }) : ''}
         <span class="hint">Background and border are in the Style tab.</span>`;
 
@@ -1217,35 +1219,63 @@ export function alertSection(el) {
         ${a.videoSound ? F.number('alert.videoVolume', 'Video volume (%)', a.videoSound ? (a.videoVolume ?? 100) : 100, { min: 0, max: 100 }) : ''}
         <span class="hint">Animation timing is set per alert in Alerts.</span>`;
 
-    const looks = Array.isArray(a.looks) ? a.looks : [];
-    loadAlertRules();
-    const ruleList = getAlertRules() || [];
-    const looksHtml = `
-        <span class="hint">Named looks override this box's layout and text. Tick the rules that use each look; rules not ticked use the settings above.</span>
-        ${looks.map((l, n) => `<div class="field" style="border:1px solid var(--border);border-radius:8px;padding:8px;display:grid;gap:6px;">
-            <div style="display:flex;gap:6px;align-items:end;"><div style="flex:1">${F.text(`alert.looks.${n}.name`, 'Look name', l.name || '', 'maxlength="40"')}</div><button type="button" class="btn sm ghost" data-remove-look="${n}">Remove</button></div>
-            ${F.seg(`alert.looks.${n}.layout`, 'Layout', l.layout || 'media', [['media', 'Title over media'], ['stack', 'Stack'], ['side', 'Side'], ['text', 'Text']])}
-            ${F.check(`alert.looks.${n}.hideMessage`, 'Hide message (title only)', l.hideMessage !== false)}
-            ${F.seg(`alert.looks.${n}.mediaFit`, 'Media fit', l.mediaFit || 'cover', [['cover', 'Cover'], ['contain', 'Contain']])}
-            <div class="grid2">${F.number(`alert.looks.${n}.titleSize`, 'Title size (px)', l.titleSize || 44, { min: 8, max: 300 })}${F.number(`alert.looks.${n}.mediaScale`, 'Media size (%)', l.mediaScale || 60, { min: 10, max: 100 })}</div>
-            ${F.color(`alert.looks.${n}.titleColor`, 'Title color', l.titleColor || '#ffffff')}
-            <div class="field"><span>Rules using this look</span><div class="trule-list">${ruleList.length ? ruleList.map(r => `<label class="check trig-item"><input type="checkbox" data-look-rule="${esc(r.id)}" data-look-idx="${n}" ${(l.ruleIds || []).includes(r.id) ? 'checked' : ''}><span>${esc(r.name)}</span></label>`).join('') : '<span class="hint">No alert rules yet.</span>'}</div></div>
-        </div>`).join('')}
-        <button type="button" class="btn sm" id="btn-add-look" ${looks.length >= 12 ? 'disabled' : ''}>Add look</button>`;
-
     const adv = `
         ${F.check('alert.showOnPreview', 'Show placeholder on runtime preview', a.showOnPreview === true)}`;
 
+    if (presentation) return F.section('alert-appearance', 'Alert presentation', [
+        subGroup('alert-g-show', 'Show', show, true),
+        subGroup('alert-g-text', 'Text', text, true),
+        subGroup('alert-g-card', 'Card', card, false)
+    ].join(''));
     return F.section('alert', 'Alert box', [
         subGroup('alert-g-preview', 'Preview', preview, true),
         subGroup('alert-g-when', `When <span class="badge-pill">${alertMode === 'selected' ? `${only.length} events` : 'All events'}</span>`, when, true),
-        subGroup('alert-g-show', 'Show', show, true),
-        subGroup('alert-g-text', 'Text', text, false),
-        subGroup('alert-g-card', 'Card', card, false),
-        subGroup('alert-g-looks', `Looks <span class="badge-pill">${looks.length}</span>`, looksHtml, false),
         subGroup('alert-g-sound', 'Sound &amp; motion', sound, false),
         subGroup('alert-g-adv', 'Advanced', adv, false)
     ].join(''));
+}
+
+function alertLooksSection(el) {
+    loadAlertRules(renderProperties);
+    const looks = el.alert?.looks || [];
+    const idx = looks.findIndex(l => l.id === alertLookSelection.get(el.id));
+    const look = looks[idx];
+    const rules = getAlertRules() || [];
+    return F.section('alert-looks', 'Looks', `
+        <label class="field"><span>Editing and previewing</span><select id="alert-look-select">
+            <option value="">Inherited (base styling)</option>
+            ${looks.map(l => `<option value="${esc(l.id)}"${look?.id === l.id ? ' selected' : ''}>${esc(l.name)}</option>`).join('')}
+        </select></label>
+        <div class="btn-cluster"><button type="button" class="btn sm" id="btn-add-look"${looks.length >= 12 ? ' disabled' : ''}>Add look</button>
+        ${look ? `<button type="button" class="btn sm ghost" data-remove-look="${idx}">Remove look</button>` : ''}
+        <button type="button" class="btn sm" id="alert-play">Preview</button></div>
+        <span class="hint">The controls below edit and preview ${look ? esc(look.name) : 'the inherited styling'}. Position, size, event filters and sound permissions stay shared.</span>
+        ${look ? F.text(`alert.looks.${idx}.name`, 'Look name', look.name, 'maxlength="40"') + `
+        <details class="sub-details" data-sect="alert-look-rules"${subOpen('alert-look-rules', true)}><summary>Rules using this look</summary>
+            <input type="search" class="trig-search" data-look-rule-search placeholder="Search rules" aria-label="Search rules">
+            <div class="trule-list">${rules.map(r => `<label class="check trig-item" data-look-rule-name="${esc(r.name.toLowerCase())}"><input type="checkbox" data-look-rule="${esc(r.id)}" data-look-idx="${idx}" ${(look.ruleIds || []).includes(r.id) ? 'checked' : ''}><span>${esc(r.name)}</span></label>`).join('') || '<span class="hint">No alert rules available.</span>'}</div>
+        </details>` : '<span class="hint">Unassigned rules inherit this styling.</span>'}
+    `);
+}
+
+function lookPath(path) {
+    return path.replace(/^alert\.looks\.\d+\.(?=(style|mediaFilter|alert)\.)/, '');
+}
+
+function lookPresentationTargets() {
+    return selectedElements().map(el => {
+        const look = el.type === 'alert' && (el.alert?.looks || []).find(l => l.id === alertLookSelection.get(el.id));
+        return look ? { ...el, style: look.style, mediaFilter: look.mediaFilter, alert: look.alert } : el;
+    });
+}
+
+function initializeLook(el, look) {
+    const effective = shared.resolveAlertLook(el, { lookId: look.id });
+    look.alert = JSON.parse(JSON.stringify(Object.fromEntries(shared.ALERT_PRESENTATION_KEYS
+        .filter(k => k in effective.alert).map(k => [k, effective.alert[k]]))));
+    const { rotate: _rotate, ...style } = effective.style || {};
+    look.style = JSON.parse(JSON.stringify(style));
+    look.mediaFilter = JSON.parse(JSON.stringify(effective.mediaFilter || {}));
 }
 
 export function progressSection(el) {
@@ -1654,11 +1684,13 @@ export function renderProperties() {
         layout = scaleSection(items) + alignSection(items);
         style = appearanceSection(items[0], true) + (textual ? typographySection(items.find(hasText) || items[0]) : '');
     } else {
-        const el = items[0];
+        const base = items[0];
+        const el = previewAlertElement(base);
         const specific = { 'random-text': randomSection, progress: progressSection, poll: pollSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection, pattern: patternSection, 'procedural-pattern': proceduralPatternSection }[el.type];
-        content = contentSection(el) + (specific ? specific(el) : '');
-        layout = layoutSection(el) + scaleSection(items) + obsLinkSection(el);
-        style = (el.type === 'icon' ? iconEffectsSection(el) : '') + (hasText(el) ? typographySection(el) : '')
+        content = contentSection(base) + (specific ? specific(el.type === 'alert' ? base : el) : '');
+        layout = layoutSection(base) + scaleSection(items) + obsLinkSection(base);
+        style = (el.type === 'alert' ? alertLooksSection(base) + alertSection(el, true) : '')
+            + (el.type === 'icon' ? iconEffectsSection(el) : '') + (hasText(el) ? typographySection(el) : '')
             + (el.type !== 'cutout' ? fillSection(el) + effectsSection(el) + filterSection(el) : '');
     }
     root.dataset.inspectorKey = key;
@@ -1671,6 +1703,18 @@ export function renderProperties() {
     for (const section of root.querySelectorAll('[data-inspector-panel="content"] > [data-sect]')) {
         const tab = SPECIFIC_SECTION_TABS[section.dataset.sect];
         if (tab) root.querySelector(`[data-inspector-panel="${tab}"]`).insertBefore(section, tab === 'style' ? firstStyleSection : null);
+    }
+    const lookIdx = items.length === 1 && items[0].type === 'alert'
+        ? (items[0].alert?.looks || []).findIndex(l => l.id === alertLookSelection.get(items[0].id)) : -1;
+    if (lookIdx >= 0) {
+        const presentationPath = path => path.startsWith('style.') || path.startsWith('mediaFilter.')
+            || shared.ALERT_PRESENTATION_KEYS.includes(path.split('.')[1]) && path.startsWith('alert.');
+        for (const node of root.querySelectorAll('[data-inspector-panel="style"] [data-path], [data-inspector-panel="style"] [data-seg-path], [data-inspector-panel="style"] [data-swatch-path], [data-inspector-panel="style"] [data-reset], [data-inspector-panel="style"] [data-clear], [data-inspector-panel="style"] [data-eyedrop]')) {
+            for (const attr of ['data-path', 'data-seg-path', 'data-swatch-path', 'data-reset', 'data-clear', 'data-eyedrop']) {
+                const path = node.getAttribute(attr);
+                if (path && presentationPath(path) && path !== 'style.rotate') node.setAttribute(attr, `alert.looks.${lookIdx}.${path}`);
+            }
+        }
     }
     const tabs = INSPECTOR_TABS.filter(([tab]) => root.querySelector(`[data-inspector-panel="${tab}"]`).childElementCount);
     root.querySelector('[role="tablist"]').innerHTML = tabs.map(([tab, label]) =>
@@ -1901,6 +1945,42 @@ export function initInspectorEvents() {
 
     const propEl = $('properties');
     if (propEl) {
+        propEl.addEventListener('change', event => {
+            const lr = event.target.closest('[data-look-rule]');
+            if (lr) {
+                for (const el of selectedElements()) {
+                    if (el.type !== 'alert') continue;
+                    const looks = (el.alert?.looks || []).map(l => ({ ...l, ruleIds: (l.ruleIds || []).filter(id => id !== lr.dataset.lookRule) }));
+                    if (lr.checked && looks[Number(lr.dataset.lookIdx)]) looks[Number(lr.dataset.lookIdx)].ruleIds.push(lr.dataset.lookRule);
+                    el.alert = { ...(el.alert || {}), looks };
+                }
+                renderProperties();
+                renderCanvas();
+                changed(true);
+                return;
+            }
+            if (event.target.id !== 'alert-look-select') return;
+            const el = primary();
+            if (el?.type !== 'alert') return;
+            const id = event.target.value;
+            const look = (el.alert?.looks || []).find(l => l.id === id);
+            if (look && (!look.alert || !look.style || !look.mediaFilter)) {
+                initializeLook(el, look);
+                changed(false);
+            }
+            alertLookSelection.set(el.id, id);
+            prefs.alertLookSelection = Object.fromEntries(alertLookSelection);
+            savePrefs();
+            renderProperties();
+            renderCanvas();
+        });
+        propEl.addEventListener('input', event => {
+            if (!event.target.matches('[data-look-rule-search]')) return;
+            const query = event.target.value.trim().toLowerCase();
+            propEl.querySelectorAll('[data-look-rule-name]').forEach(row => {
+                row.hidden = !row.dataset.lookRuleName.includes(query);
+            });
+        });
         propEl.addEventListener('click', event => {
             const button = event.target.closest('[data-inspector-tab]');
             if (button) activateInspectorTab(propEl, button.dataset.inspectorTab);
@@ -1925,7 +2005,9 @@ export function initInspectorEvents() {
         });
 
         bindFields(propEl, selectedElements, (path, event) => {
-            for (const el of selectedElements()) {
+            const actualPath = path;
+            path = lookPath(path);
+            for (const el of actualPath === path ? selectedElements() : lookPresentationTargets()) {
                 el.width = clamp(el.width, 1, 3840);
                 el.height = clamp(el.height, 1, 2160);
                 if (path === 'pattern.layout' && el.pattern) {
@@ -1968,8 +2050,9 @@ export function initInspectorEvents() {
             updateStatusBarHandler();
             if (path === 'name' || path.startsWith('obsLink.')) renderLayers();
             if (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || RERENDER_PATHS.has(path) || /^style\.(gradient|textGradient|borderGradient)\.(enabled|type|animate)$/.test(path)) {
-                if (numberCrossedZero(path, event)) renderProperties();
+                if (numberCrossedZero(actualPath, event)) renderProperties();
             }
+            if (/^alert\.looks\.\d+\.name$/.test(actualPath) && event?.type === 'change') renderProperties();
             if (path === 'src') {
                 const el = selectedElements()[0];
                 if (el && (el.type === 'embed' || el.type === 'video')) renderProperties();
@@ -1988,7 +2071,7 @@ export function initInspectorEvents() {
         });
 
         propEl.addEventListener('change', event => {
-            const path = event.target.closest('[data-path]')?.dataset.path;
+            const path = lookPath(event.target.closest('[data-path]')?.dataset.path || '');
             if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.borderAnimation.mode' || path === 'style.shadow.blur' || path === 'style.innerShadow.blur' || path === 'style.innerShadow.spread') renderProperties();
         });
 
@@ -2056,7 +2139,10 @@ export function initInspectorEvents() {
             if (!select || !select.value) return;
             const preset = (shared.MEDIA_FILTER_PRESETS || []).find(item => item[0] === select.value);
             if (!preset) return;
-            selectedElements().forEach(el => { el.mediaFilter = JSON.parse(JSON.stringify(preset[2])); });
+            for (const el of selectedElements()) {
+                const look = (el.alert?.looks || []).find(l => l.id === alertLookSelection.get(el.id));
+                (look || el).mediaFilter = JSON.parse(JSON.stringify(preset[2]));
+            }
             renderCanvas();
             renderProperties();
             changed(true);
@@ -2068,7 +2154,8 @@ export function initInspectorEvents() {
             const presets = window.OverlayRetro?.RETRO_PRESETS || shared.OverlayRetro?.RETRO_PRESETS || [];
             const preset = presets.find(item => item[0] === select.value);
             if (!preset || !preset[2]) return;
-            selectedElements().forEach(el => {
+            selectedElements().forEach(base => {
+                const el = (base.alert?.looks || []).find(l => l.id === alertLookSelection.get(base.id)) || base;
                 const mf = el.mediaFilter || (shared.defaultMediaFilter ? shared.defaultMediaFilter() : {});
                 const defRetro = shared.defaultRetro ? shared.defaultRetro() : {};
                 el.mediaFilter = {
@@ -2117,7 +2204,7 @@ export function initInspectorEvents() {
                     const url = await uploadAssetHandler(event.target.files[0]);
                     const fonts = shared.loadAssetFonts ? await shared.loadAssetFonts() : [];
                     const font = fonts.find(f => f.url === url);
-                    const targets = selectedElements();
+                    const targets = lookPresentationTargets();
                     if (font) targets.forEach(item => { item.style.fontFamily = `'${font.family}', sans-serif`; });
                     renderCanvas();
                     renderProperties();
@@ -2207,27 +2294,26 @@ export function initInspectorEvents() {
             if (quick) scaleSelectionByHandler(Number(quick.dataset.scale));
             if (target.closest('#scale-apply')) scaleSelectionByHandler(Number($('scale-pct')?.value || 100));
 
-            const lr = target.closest('[data-look-rule]');
-            if (lr) {
-                for (const el of selectedElements()) {
-                    if (el.type !== 'alert') continue;
-                    const looks = (el.alert?.looks || []).map(l => ({ ...l, ruleIds: (l.ruleIds || []).filter(id => id !== lr.dataset.lookRule) }));
-                    if (lr.checked && looks[Number(lr.dataset.lookIdx)]) looks[Number(lr.dataset.lookIdx)].ruleIds.push(lr.dataset.lookRule);
-                    el.alert = { ...(el.alert || {}), looks };
-                }
-                renderCanvas();
-                changed(true);
-                return;
-            }
             if (target.closest('#btn-add-look') || target.closest('[data-remove-look]')) {
                 const rm = target.closest('[data-remove-look]');
                 for (const el of selectedElements()) {
                     if (el.type !== 'alert') continue;
                     const list = [...(el.alert?.looks || [])];
-                    if (rm) list.splice(Number(rm.dataset.removeLook), 1);
-                    else list.push({ id: `look${Date.now().toString(36)}`, ruleIds: [], name: `Look ${list.length + 1}`, layout: 'media', hideMessage: true, mediaFit: 'cover', mediaScale: 60, titleSize: 44, titleColor: '#ffffff' });
+                    if (rm) {
+                        if (!window.confirm('Remove this look? Its rules will inherit the base styling.')) return;
+                        list.splice(Number(rm.dataset.removeLook), 1);
+                        alertLookSelection.delete(el.id);
+                    } else {
+                        if (list.length >= 12) continue;
+                        const look = { id: uid('look'), ruleIds: [], name: `Look ${list.length + 1}` };
+                        initializeLook(el, look);
+                        list.push(look);
+                        alertLookSelection.set(el.id, look.id);
+                    }
                     el.alert = { ...(el.alert || {}), looks: list };
                 }
+                prefs.alertLookSelection = Object.fromEntries(alertLookSelection);
+                savePrefs();
                 renderProperties();
                 renderCanvas();
                 changed(true);
@@ -2357,7 +2443,8 @@ export function initInspectorEvents() {
                 const el = primary(), node = el && state.nodes.get(el.id);
                 if (!node) return;
                 const kind = simBtn?.dataset?.simAlert || 'follow';
-                const sample = alertSample(el);
+                const previewEl = previewAlertElement(el);
+                const sample = alertSample(previewEl);
                 const events = {
                     follow: { title: 'TwitchFan42 followed!', message: 'Thanks for the follow!', animIn: 'pop', durationMs: 4000 },
                     sub: { title: 'SubHero subscribed!', message: 'Tier 1 sub · 3 month streak', animIn: 'bounce', durationMs: 4500 },
@@ -2367,7 +2454,7 @@ export function initInspectorEvents() {
                 if (node._alertHandle) node._alertHandle.stop();
                 toast(`Simulating ${kind} alert…`, 'info', 1200);
                 if (shared.playAlert) {
-                    node._alertHandle = shared.playAlert(node, el, { ...sample, ...(events[kind] || events.follow) }, { sound: false, onEnd: () => { node._sig = null; renderCanvas(); } });
+                    node._alertHandle = shared.playAlert(node, el, { ...sample, ...(events[kind] || events.follow) }, { sound: false, lookId: alertLookSelection.get(el.id), onEnd: () => { node._sig = null; renderCanvas(); } });
                 }
                 return;
             }

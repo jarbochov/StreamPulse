@@ -163,6 +163,11 @@ export const fmt = (value, scale = 1) => String(round2((Number(value) || 0) / sc
 export const uid = type => `${type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
 export const getPath = (target, path) => path.split('.').reduce((value, key) => value?.[key], target);
+export const alertLookSelection = new Map();
+export function previewAlertElement(el) {
+    const lookId = el.type === 'alert' && (alertLookSelection.get(el.id) ?? prefs.alertLookSelection?.[el.id]);
+    return lookId ? window.OverlayShared.resolveAlertLook(el, { lookId }) : el;
+}
 export function setPath(target, path, value) {
     const keys = path.split('.');
     const last = keys.pop();
@@ -221,6 +226,7 @@ export const prefs = Object.assign({
     try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; }
     catch { return {}; }
 })());
+Object.entries(prefs.alertLookSelection || {}).forEach(([id, lookId]) => alertLookSelection.set(id, lookId));
 
 export const savePrefs = () => {
     try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch {}

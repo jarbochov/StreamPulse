@@ -557,6 +557,38 @@ test('Alert element and page trigger alertMode normalization and UI configuratio
     assert.ok(runtimeJs.includes('lastAlert'), 'overlay-runtime must buffer lastAlert for page takeovers');
 });
 
+test('alert looks preserve full presentation while excluding geometry and behavior', () => {
+    const { normalizeOverlayElement } = require('../server/services/overlays.js');
+    const raw = {
+        type: 'alert', x: 80, width: 480,
+        style: { fontFamily: 'monospace', background: '#123456', rotate: 15 },
+        alert: {
+            sound: false, alertMode: 'selected', triggers: ['follow'], layout: 'stack',
+            looks: [
+                { id: 'poster', name: 'Poster', ruleIds: ['rule1'], layout: 'media', hideMessage: true, titleSize: 60,
+                    style: { background: '#abcdef', borderWidth: 5, shadow: { blur: 10 }, rotate: 180 },
+                    alert: { sound: true, titleColor: '#00ff00' }, mediaFilter: { brightness: 70 } },
+                { id: 'other', name: 'Other', ruleIds: ['rule1', 'rule2'] }
+            ]
+        }
+    };
+    const el = normalizeOverlayElement(raw, 0, { follow: true });
+    const look = el.alert.looks[0];
+    assert.equal(look.alert.layout, 'media');
+    assert.equal(look.alert.hideMessage, true);
+    assert.equal(look.alert.titleSize, 60);
+    assert.equal(look.style.fontFamily, 'monospace');
+    assert.equal(look.style.background, '#abcdef');
+    assert.equal(look.style.shadow.blur, 10);
+    assert.equal(look.mediaFilter.brightness, 70);
+    assert.equal(look.alert.sound, undefined);
+    assert.equal(look.style.rotate, undefined);
+    assert.equal(el.style.rotate, 15);
+    assert.equal(el.alert.sound, false);
+    assert.deepEqual(el.alert.looks[1].ruleIds, ['rule2']);
+    assert.deepEqual(normalizeOverlayElement(el, 0, { follow: true }), el, 'save/reload does not alter a look');
+});
+
 test('alert box media focus and padding are normalized and applied', () => {
     const shared = fs.readFileSync(path.join(__dirname, '../public/js/overlay-shared.js'), 'utf8');
     assert.ok(shared.includes('objectPosition = focusPosition') && shared.includes('cfg.padding'), 'playAlert must apply focus and padding');

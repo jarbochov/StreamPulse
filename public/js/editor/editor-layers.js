@@ -377,12 +377,13 @@ export function renderPagesPanel() {
 
 export const getAlertRules = () => alertRules;
 
-export function loadAlertRules() {
+export function loadAlertRules(onLoad) {
     if (alertRules) return;
     alertRules = [];
     fetch('/api/alerts').then(r => r.json()).then(d => {
         alertRules = (d.rules || []).map(r => ({ id: r.id, name: r.name }));
         renderPagesPanel();
+        onLoad?.();
     }).catch(() => { alertRules = []; });
 }
 

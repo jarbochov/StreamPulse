@@ -11,7 +11,7 @@ import {
     changed, registerRenderAll, registerFitView, registerSelectionChange,
     registerStatusBar, params, initialId, LIMITS, MIN_SIZE, ICON, TEXT_TYPES,
     liveSignature, displayName, setStyleClipboard, getStyleClipboard,
-    serializeOverlayForSave, extractElementState, resetElementPageState
+    serializeOverlayForSave, extractElementState, resetElementPageState, previewAlertElement, alertLookSelection
 } from './editor-state.js';
 
 import {
@@ -164,8 +164,8 @@ export function reorder(direction) {
 
 export function copySelectionStyle() {
     const items = selectedElements();
-    const primaryEl = items[0];
-    if (!primaryEl) return;
+    if (!items[0]) return;
+    const primaryEl = previewAlertElement(items[0]);
     setStyleClipboard({
         style: JSON.parse(JSON.stringify(primaryEl.style || {})),
         mediaFilter: primaryEl.mediaFilter ? JSON.parse(JSON.stringify(primaryEl.mediaFilter)) : null
@@ -182,9 +182,13 @@ export function pasteSelectionStyle() {
     const items = selectedElements().filter(el => !el.locked);
     if (!items.length) return;
     items.forEach(el => {
-        el.style = { ...el.style, ...JSON.parse(JSON.stringify(clip.style)) };
+        const look = (el.alert?.looks || []).find(l => l.id === alertLookSelection.get(el.id));
+        const target = look || el;
+        const style = JSON.parse(JSON.stringify(clip.style));
+        if (look) delete style.rotate;
+        target.style = { ...target.style, ...style };
         if (clip.mediaFilter) {
-            el.mediaFilter = JSON.parse(JSON.stringify(clip.mediaFilter));
+            target.mediaFilter = JSON.parse(JSON.stringify(clip.mediaFilter));
         }
     });
     renderCanvas();

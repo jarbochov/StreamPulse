@@ -1235,9 +1235,14 @@
      */
     function applyMediaFilter(node, element) {
         if (!node || !element || !FILTERABLE(element)) return;
-        if (element.type === 'alert' && element.alert?.effectsTarget === 'media') {
+        if (element.type === 'alert') {
             if (node._fxSig) cleanupFilters(node);
             if (node.style.filter) node.style.filter = '';
+            const card = node.querySelector(':scope > .alert-card');
+            const effective = node._alertPresentation || element;
+            if (card && effective.alert?.effectsTarget !== 'media') {
+                applyMediaFilter(card, { ...effective, type: 'text' });
+            }
             return;
         }
         const rawF = element.mediaFilter || {};

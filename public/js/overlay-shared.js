@@ -2313,16 +2313,32 @@
         card.appendChild(container);
     }
 
-    function playAlert(node, element, payload, { sound = true, onEnd } = {}) {
-        const baseCfg = element.alert || {};
-        const look = (baseCfg.looks || []).find(l => payload.ruleId && (l.ruleIds || []).includes(payload.ruleId));
-        const cfg = look ? { ...baseCfg, ...look } : baseCfg;
+    const ALERT_PRESENTATION_KEYS = ['layout', 'hideText', 'hideMessage', 'effectsTarget', 'mediaFit',
+        'mediaFocusX', 'mediaFocusY', 'padding', 'mediaScale', 'titleSize', 'messageSize', 'titleColor', 'gap'];
+
+    function resolveAlertLook(element, { ruleId, lookId } = {}) {
+        const base = element.alert || {};
+        const look = (base.looks || []).find(l => lookId ? l.id === lookId : ruleId && (l.ruleIds || []).includes(ruleId));
+        if (!look) return element;
+        const presentation = look.alert || Object.fromEntries(ALERT_PRESENTATION_KEYS.filter(k => k in look).map(k => [k, look[k]]));
+        return {
+            ...element,
+            alert: { ...base, ...Object.fromEntries(ALERT_PRESENTATION_KEYS.filter(k => k in presentation).map(k => [k, presentation[k]])) },
+            style: { ...element.style, ...look.style, rotate: element.style?.rotate || 0 },
+            mediaFilter: look.mediaFilter || element.mediaFilter
+        };
+    }
+
+    function playAlert(node, element, payload, { sound = true, onEnd, lookId } = {}) {
+        const baseElement = element;
+        element = resolveAlertLook(element, { ruleId: payload.ruleId, lookId });
+        const cfg = element.alert || {};
         const style = element.style || {};
         const layout = payload.image || payload.video || payload.emoji ? (cfg.layout || 'stack') : 'text';
         const card = document.createElement('div');
         card.className = `alert-card layout-${layout}`;
         
-        const deco = Object.assign({}, node._alertDeco || {});
+        const deco = element === baseElement ? Object.assign({}, node._alertDeco || {}) : {};
         if (!deco.background && !deco.backgroundColor && style.background && style.background !== 'transparent') {
             deco.background = style.background;
             deco.backgroundColor = style.background;
@@ -2345,6 +2361,10 @@
         }
 
         Object.assign(card.style, deco);
+        node.style.opacity = '1';
+        card.style.opacity = style.opacity ?? 1;
+        node._alertPresentation = element;
+        loadGoogleFont(style.fontFamily);
         applyBorderEffects(card, style, element);
         card.style.gap = `${cfg.gap ?? 12}px`;
         const customPad = cfg.padding === null || cfg.padding === undefined || cfg.padding === '' ? NaN : Number(cfg.padding);
@@ -2463,6 +2483,7 @@
             text.className = 'alert-text';
             text.style.color = style.color || '#fff';
             text.style.fontFamily = style.fontFamily || 'sans-serif';
+            text.style.fontWeight = style.fontWeight || '400';
             if (style.lineHeight) text.style.lineHeight = style.lineHeight;
             if (style.letterSpacing !== undefined && style.letterSpacing !== '') text.style.letterSpacing = `${style.letterSpacing}px`;
             Object.assign(text.style, textEffectStyle(style, 'alert'));
@@ -2473,7 +2494,7 @@
 
             if (layout === 'media') {
                 const vAlign = style.verticalAlign || 'bottom';
-                const pad = style.padding || 16;
+                const pad = Number.isFinite(customPad) ? Math.max(0, Math.min(200, customPad)) : (style.padding ?? 16);
                 text.style.paddingLeft = `${Math.max(16, pad)}px`;
                 text.style.paddingRight = `${Math.max(16, pad)}px`;
                 if (vAlign === 'top') {
@@ -2507,6 +2528,7 @@
                 title.textContent = payload.title;
                 title.style.fontSize = `${cfg.titleSize || 44}px`;
                 title.style.color = cfg.titleColor || '#ffd166';
+                title.style.fontWeight = style.fontWeight || '700';
                 title.style.textAlign = textAlign;
                 text.appendChild(title);
             }
@@ -2527,10 +2549,11 @@
             spawnEmoteParticles(fillBox && mediaFxWrap ? mediaFxWrap : card, payload, node, boxScale);
         }
         node.replaceChildren(card);
-        if (mediaFxWrap) {
+        if (mediaFxWrap && cfg.effectsTarget === 'media') {
             const fxEl = { id: `${element.id}-alert-media`, type: mediaFxWrap.querySelector('.alert-media-el') ? 'image' : 'text', width: node.clientWidth || element.width, height: node.clientHeight || element.height, mediaFilter: element.mediaFilter, style: {} };
             applyMediaFilter(mediaFxWrap, fxEl);
         }
+        applyMediaFilter(node, element);
         card.classList.add(`alert-in-${payload.animIn || 'pop'}`);
         // An inline decoration animation (animated gradient) overrides the entrance class, so run both
         const decoAnim = card.style.animation;
@@ -3672,4 +3695,5 @@
 
     root.OverlayShared = { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, applyMediaFilter, shadowClipStyle };
     root.OverlayShared.borderPlacement = borderPlacement;
+    Object.assign(root.OverlayShared, { ALERT_PRESENTATION_KEYS, resolveAlertLook });
 })(window);
