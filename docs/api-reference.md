@@ -4,6 +4,17 @@ StreamPulse exposes a clean, RESTful HTTP API and a real-time WebSocket protocol
 
 All endpoints are hosted locally at `http://localhost:3000` (or your configured port). This guide covers common automation calls; the server's [interactive API reference](http://localhost:3000/api.html) lists additional endpoints.
 
+## Twitch Ban Sync
+
+| Endpoint | Result |
+| --- | --- |
+| `GET /api/twitch/bans` | Sync status: `enabled`, `users` (`id`, `login`, `name`), `count`, `lastSyncAt`, `syncing`, `error`, `scopeReady`, `liveUpdates` (permission granted) |
+| `POST /api/twitch/bans/sync` | Fetch every page of permanent bans and replace the broadcaster-scoped cached list only after success; returns status (`502` on failure, retaining the last successful list) |
+
+Enable with `PUT /api/config` and `{ "twitch_ban_sync": { "enabled": true } }`. Manual `banned_users` remain separate. Sync runs at startup and every 10 minutes; `channel.ban` / `channel.unban` EventSub notifications keep it current with `channel:moderate`. Listing requires `moderation:read` or `moderator:manage:banned_users`. Timeouts are excluded. Cached bans are stored in `data/twitch-bans.json`.
+
+Session/chat/highlight outputs and exports apply the current combined ban list retroactively without rewriting stored history. Full backups remain unfiltered. Anonymous aggregate totals are not rebuilt. See [System Config details](server-management.md#banned-accounts--twitch-sync).
+
 ## Promo Creator
 
 Promo designs are static, locally saved documents, not live overlay controls. They do not emit WebSocket events or require Companion actions. See the [Promo Creator guide](promo-creator.md) for the browser workflow.

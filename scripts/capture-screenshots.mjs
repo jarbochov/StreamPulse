@@ -667,7 +667,12 @@ async function run() {
     await page.setRequestInterception(true);
     page.on('request', req => {
         const url = req.url();
-        if (page.url().includes('custom-overlay-editor') && new URL(url).pathname.startsWith('/api/')) {
+        if (page.url().includes('config-editor') && new URL(url).pathname.startsWith('/api/')) {
+            const pathname = new URL(url).pathname;
+            const data = pathname === '/api/config' ? { banned_users: ['FictionalManualAccount'], exclude_users: ['FictionalBot'], twitch_ban_sync: { enabled: true } }
+                : pathname === '/api/twitch/bans' ? { enabled: true, count: 2, users: [{ id: 'fictional-1', login: 'fictionalblockedone' }, { id: 'fictional-2', login: 'fictionalblockedtwo' }], lastSyncAt: '2026-11-03T20:00:00Z', liveUpdates: true } : {};
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
+        } else if (page.url().includes('custom-overlay-editor') && new URL(url).pathname.startsWith('/api/')) {
             const pathname = new URL(url).pathname;
             const data = pathname === '/api/custom-overlays/border-showcase' ? dummyCustomOverlay
                 : pathname === '/api/custom-overlays' ? [dummyCustomOverlay]
@@ -734,6 +739,20 @@ async function run() {
     });
 
     const targets = [
+        {
+            url: `${baseUrl}/config-editor.html`,
+            file: 'twitch-ban-sync.png',
+            wait: 1200,
+            action: async p => {
+                await p.click('[data-tab="general"]');
+                await p.waitForFunction(() => document.querySelector('#cfg-ban-status').textContent.includes('2 permanent bans'));
+                await p.evaluate(() => {
+                    const accounts = document.querySelector('#cfg-ban-users').closest('details');
+                    accounts.open = true;
+                    accounts.closest('.card').scrollIntoView({ block: 'center' });
+                });
+            }
+        },
         {
             url: `${baseUrl}/promo-creator.html?id=fictional-promo`,
             file: 'promo-creator.png',

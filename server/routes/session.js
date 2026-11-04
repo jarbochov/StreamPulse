@@ -8,11 +8,13 @@ const {
     parseNumericAmount
 } = require('../services/ssn');
 const { getSessionStreamTimes, getSessionCategorySegments } = require('../services/session');
-const { sendJson, sendText, sendError } = require('./helpers');
+const { sendJson: sendResponseJson, sendText, sendError } = require('./helpers');
 
 function createSessionRoutes({
     sessionService,
     ssnService,
+    filterData = data => data,
+    filterRecords = records => records,
     getChatData = () => ({}),
     getStatsData = () => ({}),
     setStatsData = () => {},
@@ -28,6 +30,13 @@ function createSessionRoutes({
     sessionsDir = '',
     generatePdf = () => Promise.reject(new Error('PDF generation not available'))
 }) {
+    const sendJson = (res, data, ...args) => sendResponseJson(res, filterData(data), ...args);
+    const rawSsnService = ssnService;
+    ssnService = {
+        ...rawSsnService,
+        readChatLogFile: file => filterRecords(rawSsnService.readChatLogFile(file)),
+        getCurrentChatLogEntries: () => filterRecords(rawSsnService.getCurrentChatLogEntries())
+    };
     return async function handleSessionRoutes(req, res, url, pathname) {
         // --- 1. Viewers ---
         if (pathname === '/api/viewers' && req.method === 'GET') {
@@ -137,14 +146,14 @@ function createSessionRoutes({
             if (fs.existsSync(sessionsDir)) {
                 for (const file of fs.readdirSync(sessionsDir).filter(f => f.startsWith('chat-') && f.endsWith('.json'))) {
                     try {
-                        const data = JSON.parse(fs.readFileSync(path.join(sessionsDir, file), 'utf8'));
+                        const data = filterData(JSON.parse(fs.readFileSync(path.join(sessionsDir, file), 'utf8')));
                         const date = String(data.startedAt || file).slice(0, 10);
                         if (!range || (date >= range.from && date <= range.to)) sessions.push({ file, ...data });
                     } catch {}
                 }
             }
             const uniqueChatters = new Set();
-            const rows = sessions.map(data => {
+            const rows = sessions.map(filterData).map(data => {
                 Object.keys(data.chatters || {}).forEach(name => uniqueChatters.add(name.trim().toLowerCase()));
                 const viewers = data.viewerStats || {};
                 const isCurrent = data.file === '__current__';
@@ -372,7 +381,7 @@ function createSessionRoutes({
                         const entry = { file: f };
                         try {
                             const raw = fs.readFileSync(path.join(sessionsDir, f), 'utf8');
-                            const d = JSON.parse(raw);
+                            const d = filterData(JSON.parse(raw));
                             let streamTimes = getSessionStreamTimes(d);
                             if (!streamTimes.streamStopAt && streamTimes.streamStartAt) {
                                 const logName = f.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
@@ -506,7 +515,7 @@ function createSessionRoutes({
 
             let csv = '';
             const types = type === 'all' ? ['chatters', 'emotes', 'hashtags', 'subscribers', 'followers', 'bits', 'donations', 'raids'] : [type];
-            const statsData = getStatsData();
+            const statsData = filterData(getStatsData());
 
             for (const t of types) {
                 const data = statsData[t];
@@ -580,7 +589,7 @@ function createSessionRoutes({
 
             const allResults = [];
             function searchMessages(messages, sessionName) {
-                return filterChatMessages(messages, filters, sessionName);
+                return filterChatMessages(filterRecords(messages), filters, sessionName);
             }
 
             if (session === 'all' || session === 'current') {
@@ -665,7 +674,7 @@ function createSessionRoutes({
                 }
             }
 
-            messages = filterChatMessages(messages, filters);
+            messages = filterChatMessages(filterRecords(messages), filters);
 
             const formatTime = (ts) => {
                 if (!ts) return '';

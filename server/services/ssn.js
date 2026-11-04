@@ -585,15 +585,17 @@ function createSsnService({
 
     function recentChatSummary() {
         const now = Date.now();
+        const banned = new Set(getBannedUsers());
         while (recentChatLog.length && now - recentChatLog[0].at > 60 * 60000) recentChatLog.shift();
         const windows = {};
         for (const minutes of CHAT_WINDOWS) {
             const counts = {};
-            for (const entry of recentChatLog) if (now - entry.at <= minutes * 60000) counts[entry.name] = (counts[entry.name] || 0) + 1;
+            for (const entry of recentChatLog) if (!banned.has(entry.name.toLowerCase()) && now - entry.at <= minutes * 60000) counts[entry.name] = (counts[entry.name] || 0) + 1;
             const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
             windows[minutes] = top ? { name: top[0], count: top[1] } : null;
         }
-        return { last: recentChatLog.length ? recentChatLog[recentChatLog.length - 1].name : null, windows };
+        const last = recentChatLog.findLast(entry => !banned.has(entry.name.toLowerCase()));
+        return { last: last?.name || null, windows };
     }
 
     function updateStats(chatname, msg) {

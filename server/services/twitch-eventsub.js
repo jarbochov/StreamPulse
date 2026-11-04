@@ -22,6 +22,7 @@ function createTwitchEventSubService(options = {}) {
         onCheer = () => {},
         onRedemption = () => {},
         onHypeTrain = () => {},
+        onModerationEvent = () => {},
         onStreamOnline = () => {},
         onStreamOffline = () => {},
         log = console.log,
@@ -190,6 +191,13 @@ function createTwitchEventSubService(options = {}) {
             );
         }
 
+        if (scopes.includes('channel:moderate')) {
+            candidateSubscriptions.push(
+                { type: 'channel.ban', version: '1', condition: { broadcaster_user_id: broadcasterId } },
+                { type: 'channel.unban', version: '1', condition: { broadcaster_user_id: broadcasterId } }
+            );
+        }
+
         // Stream Online / Offline
         candidateSubscriptions.push(
             { type: 'stream.online', version: '1', condition: { broadcaster_user_id: broadcasterId } },
@@ -240,6 +248,16 @@ function createTwitchEventSubService(options = {}) {
         if (!ev) return;
 
         switch (type) {
+            case 'channel.ban':
+            case 'channel.unban': {
+                if (type === 'channel.ban' && ev.is_permanent !== true) break;
+                onModerationEvent({
+                    id: ev.user_id, login: ev.user_login, name: ev.user_name,
+                    broadcasterId: ev.broadcaster_user_id,
+                    permanent: type === 'channel.ban' && ev.is_permanent === true
+                });
+                break;
+            }
             case 'channel.poll.begin': {
                 const pollData = normalizePollEvent(ev);
                 pollData.status = 'ACTIVE';

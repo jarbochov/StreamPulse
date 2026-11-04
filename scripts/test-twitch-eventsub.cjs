@@ -45,7 +45,7 @@ test('Twitch EventSub: connects, welcomes and registers subscriptions', async ()
         getAccessToken: () => 'test-token',
         getClientId: () => 'test-client',
         getBroadcasterId: () => '12345',
-        getTokenScopes: () => ['channel:read:polls', 'moderator:read:followers', 'channel:read:subscriptions', 'bits:read'],
+        getTokenScopes: () => ['channel:read:polls', 'moderator:read:followers', 'channel:read:subscriptions', 'bits:read', 'channel:moderate'],
         fetchImpl: mockFetch,
         WebSocketImpl: MockWebSocket,
         log: () => {},
@@ -75,9 +75,23 @@ test('Twitch EventSub: connects, welcomes and registers subscriptions', async ()
     assert.ok(subscribed.includes('channel.follow'));
     assert.ok(subscribed.includes('channel.subscribe'));
     assert.ok(subscribed.includes('channel.cheer'));
+    assert.ok(subscribed.includes('channel.ban'));
+    assert.ok(subscribed.includes('channel.unban'));
 
     service.stop();
     assert.equal(service.getStatus().status, 'disconnected');
+});
+
+test('Twitch EventSub: permanent ban and unban notifications ignore timeouts', () => {
+    const events = [];
+    const service = createTwitchEventSubService({ onModerationEvent: event => events.push(event) });
+    const event = { user_id: '42', user_login: 'fixtureviewer', user_name: 'FixtureViewer', broadcaster_user_id: '99' };
+    service.handleNotification({ subscription_type: 'channel.ban' }, { event: { ...event, is_permanent: false } });
+    assert.equal(events.length, 0);
+    service.handleNotification({ subscription_type: 'channel.ban' }, { event: { ...event, is_permanent: true } });
+    service.handleNotification({ subscription_type: 'channel.unban' }, { event });
+    assert.deepEqual(events.map(e => e.permanent), [true, false]);
+    assert.equal(events[0].broadcasterId, '99');
 });
 
 test('Twitch EventSub: processes poll notifications', async () => {

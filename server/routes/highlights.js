@@ -6,6 +6,8 @@ function createHighlightsRoutes({
     saveHighlights = () => {},
     getChatLog = () => [],
     getChatData = () => ({}),
+    filterRecords = records => records,
+    isBanned = () => false,
     getClipCandidateConfig = () => ({}),
     clipSessionOverrideForName = () => null,
     addClipCandidate = () => null,
@@ -15,7 +17,7 @@ function createHighlightsRoutes({
 } = {}) {
     return async function handleHighlightsRoutes(req, res, url, pathname) {
         if (pathname === '/api/highlights/pin-last' && req.method === 'POST') {
-            const chatLog = getChatLog() || [];
+            const chatLog = filterRecords(getChatLog() || []);
             if (chatLog.length === 0) {
                 sendError(res, 'No chat messages yet', 404);
                 return true;
@@ -49,7 +51,7 @@ function createHighlightsRoutes({
             const sessionFilter = url.searchParams.get('session');
             const userFilter = (url.searchParams.get('user') || '').toLowerCase();
             const rawQuery = (url.searchParams.get('q') || '').trim().toLowerCase();
-            let data = getHighlights() || [];
+            let data = filterRecords(getHighlights() || []);
             if (sessionFilter) {
                 data = data.filter(h => h.session === sessionFilter);
             }
@@ -139,7 +141,7 @@ function createHighlightsRoutes({
         if (pathname === '/api/highlights') {
             if (req.method === 'GET') {
                 const sessionFilter = url.searchParams.get('session');
-                let result = getHighlights() || [];
+                let result = filterRecords(getHighlights() || []);
                 if (sessionFilter) {
                     result = result.filter(h => h.session === sessionFilter);
                 }
@@ -152,6 +154,7 @@ function createHighlightsRoutes({
                     const body = JSON.parse(await readRequestBody(req) || '{}');
                     const { ts, user, message, messageHtml, avatar, session } = body;
                     if (!ts || !user) throw new Error('Missing ts or user');
+                    if (isBanned(user)) throw new Error('Banned users cannot be featured.');
                     const highlights = getHighlights() || [];
                     highlights.push({
                         ts,

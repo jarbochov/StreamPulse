@@ -144,6 +144,7 @@ function createSessionService(options = {}) {
         getChatData = () => ({}),
         getChatLog = () => [],
         getStatsData = () => ({}),
+        filterData = data => data,
         getTwitchClientId = () => '',
         getBroadcasterId = () => '',
         ensureTwitchToken = async () => false,
@@ -572,7 +573,7 @@ function createSessionService(options = {}) {
         for (const data of archived.sessions) addBroadcast(data, [], false);
 
         const chatData = getChatData();
-        const statsData = getStatsData();
+        const statsData = filterData(getStatsData());
         if (chatData?.viewerStats) addBroadcast(chatData, getChatLog(), true);
 
         let totalDurationMs = 0;
@@ -668,6 +669,7 @@ function createSessionService(options = {}) {
     return {
         getArchivedSessions: () => archiveCache.getSnapshot(),
         invalidateArchives,
+        invalidatePresentation: () => { milestoneCache = { at: 0, data: null }; },
         isSessionActive,
         setSessionActive,
         lifecycle,

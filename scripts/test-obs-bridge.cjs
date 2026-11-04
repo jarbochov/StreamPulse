@@ -867,7 +867,7 @@ test('generic settings consumer never clears a redacted password on an unchanged
         CustomEvent: class { constructor(name, init) { this.detail = init.detail; } },
         console, setTimeout() {},
         clearDirty() {}, updateModuleBadges() {}, showToast() {}, showRestartNotice() {},
-        showWeatherStatus() {}, showObsStatus() {},
+        showWeatherStatus() {}, showObsStatus() {}, showBanStatus() {},
         fetch: async (url, options) => {
             if (!options) {
                 return { ok: true, json: async () => ({ obs: { enabled: true, hasPassword: true, motionEngine: 'websocket' } }) };

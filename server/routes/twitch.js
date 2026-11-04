@@ -5,6 +5,7 @@ const { readRequestBody, sendJson, sendText, sendError, escapeHtml, parseJsonOrQ
 
 function createTwitchRoutes({
     twitchService,
+    userModeration = null,
     pollService = null,
     matchupService = null,
     getTwitchClientId = () => '',
@@ -47,6 +48,15 @@ function createTwitchRoutes({
     followerHistoryPath = ''
 }) {
     return async function handleTwitchRoutes(req, res, url, pathname) {
+        if (pathname === '/api/twitch/bans' && req.method === 'GET' && userModeration) {
+            sendJson(res, userModeration.status());
+            return true;
+        }
+        if (pathname === '/api/twitch/bans/sync' && req.method === 'POST' && userModeration) {
+            const result = await userModeration.sync();
+            sendJson(res, result, result.error ? 502 : 200);
+            return true;
+        }
         // --- 1. Auth endpoints ---
         if (pathname === '/api/twitch/auth/status' && req.method === 'GET') {
             await ensureToken();

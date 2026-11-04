@@ -9,7 +9,8 @@ function createCrmService({
     getChatData = () => ({}),
     getBroadcasterName = () => 'jarbochov',
     readJsonFileSafe = (filePath, fallback) => fallback,
-    getArchivedSessions = null
+    getArchivedSessions = null,
+    isBanned = () => false
 } = {}) {
     const archives = getArchivedSessions || createSessionArchiveCache({ sessionsDir }).getSnapshot;
     const CHATTER_NOTES_FILE = path.join(dataDir, 'chatter-notes.json');
@@ -39,7 +40,7 @@ function createCrmService({
     }
 
     function getChatterDossier(username) {
-        if (!username) return null;
+        if (!username || isBanned(username)) return null;
         const key = String(username).toLowerCase().trim();
         const statsData = getStatsData() || {};
         const chatData = getChatData() || {};

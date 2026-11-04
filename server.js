@@ -62,6 +62,7 @@ const { createTierListService } = require('./server/services/tier-list');
 const { createTierListRoutes } = require('./server/routes/tier-list');
 const { safeWriteFileSync, escapeHtml } = require('./server/routes/helpers');
 const { createCrmService } = require('./server/services/crm');
+const { createUserModerationService } = require('./server/services/user-moderation');
 const { createCrmRoutes } = require('./server/routes/crm');
 const { createSystemRoutes } = require('./server/routes/system');
 const { createHighlightsRoutes } = require('./server/routes/highlights');
@@ -100,7 +101,6 @@ const cleanConfigValue = v => { const t = String(v ?? '').trim(); return /^YOUR_
 let BROADCASTER_ID = cleanConfigValue(config.broadcaster_id);
 let BROADCASTER_NAME = cleanConfigValue(config.broadcaster_name);
 let EXCLUDE_USERS = (config.exclude_users || []).map(u => u.toLowerCase());
-let BANNED_USERS = (config.banned_users || []).map(u => u.toLowerCase());
 // Shared public Twitch app (device-code flow, no secret). Users can still supply their own client_id/client_secret.
 const TWITCH_CLIENT_ID = cleanConfigValue(config.twitch?.client_id) || DEFAULT_TWITCH_CLIENT_ID;
 const TWITCH_CLIENT_SECRET = cleanConfigValue(config.twitch?.client_secret);
@@ -115,6 +115,20 @@ const VIEWER_TRACKING_CONFIG = config.viewer_tracking || { enabled: true, source
 
 const ACTIVE_SUBS_ONLY = config.active_subs_only || false; // only show subs who chatted
 const DATA_DIR = process.env.STREAMPULSE_DATA_DIR || path.join(__dirname, 'data');
+const userModeration = createUserModerationService({
+    dataDir: DATA_DIR,
+    getConfig: () => config,
+    getBroadcasterId: () => BROADCASTER_ID,
+    ensureToken: () => twitchService.ensureToken(),
+    getTokenScopes: () => twitchService.getTokenScopes(),
+    request: (endpoint, params) => twitchService.twitchApiRequest(endpoint, params),
+    safeWriteFileSync,
+    onChange: () => {
+        statusService.invalidateHeavyCache();
+        sessionService.invalidatePresentation();
+        broadcastToOverlays('update', chatData);
+    }
+});
 const isLoopbackRequest = req => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
 const backgroundIntervals = new Set();
 function repeatBackground(fn, delay) {
@@ -172,7 +186,10 @@ const staticRouter = createStaticRouter({
     publicDir: path.join(__dirname, 'public'),
     customOverlayAssetsDir: CUSTOM_OVERLAY_ASSETS_DIR,
     isLoopbackRequest,
-    getCustomOverlays: () => customOverlays
+    getCustomOverlays: () => customOverlays,
+    dataDir: DATA_DIR,
+    filterData: data => userModeration.filterData(data),
+    filterRecords: records => userModeration.filterRecords(records)
 });
 
 const variablesStore = require('./server/services/variables')({ dataDir: DATA_DIR });
@@ -210,7 +227,7 @@ let pendingChatLogEntries = [];
 const STATS_PATH = path.join(DATA_DIR, 'stats.json');
 let statsData = createEmptyStatsData();
 const wsService = createOverlayWsServer({
-    getChatData: () => chatData,
+    getChatData: () => userModeration.filterData(chatData),
     getMusicConfig: () => MUSIC_CONFIG,
     getMusicState: () => musicService.getState(),
     getViewerSummary: () => getViewerSummary(),
@@ -230,6 +247,8 @@ const obsService = createObsService({
     warn: console.warn
 });
 const broadcastToOverlays = (type, payload) => {
+    if (type === 'update' || type === 'snapshot') payload = userModeration.filterData(payload);
+    if (['chat-message', 'featured-chat', 'alert'].includes(type) && userModeration.isBanned(payload?.user || payload?.chatname, payload?.userId)) return;
     if (config?.obs?.syncOnSave !== false && type === 'custom-overlay-page' && payload?.id && payload?.page && customOverlays[payload.id]) {
         if (obsService.getStatus().activeEngine === 'frame-sync') {
             // Overlay and OBS share one scheduled start time, so neither needs a guessed offset.
@@ -273,7 +292,7 @@ const ssnService = createSsnService({
     getConfig: () => config,
     getSsnSessionId: () => SSN_SESSION_ID,
     getSsnServer: () => SSN_SERVER,
-    getBannedUsers: () => BANNED_USERS,
+    getBannedUsers: () => userModeration.bannedNames(),
     getExcludeUsers: () => EXCLUDE_USERS,
     getChatData: () => chatData,
     getStatsData: () => statsData,
@@ -541,18 +560,23 @@ const twitchService = createTwitchService({
     onTakeover: (action, title, duration, poll) => takeoverPages(action, title, duration, poll),
     onViewerCountUpdate: () => fetchViewerCount(),
     onFollow: (data) => {
+        if (userModeration.isBanned(data.user, data.userId)) return;
         if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.handleEvent({ type: 'follow', user: data.user });
     },
     onSubscribe: (data) => {
+        if (userModeration.isBanned(data.user, data.userId)) return;
         if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.handleEvent({ type: (data.months && data.months > 1) ? 'resub' : 'sub', user: data.user, tier: data.tier, months: data.months, message: data.message });
     },
     onGiftSub: (data) => {
+        if (userModeration.isBanned(data.user, data.userId)) return;
         if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.noteGift({ user: data.user, count: data.total, tier: data.tier });
     },
     onCheer: (data) => {
+        if (userModeration.isBanned(data.user, data.userId)) return;
         if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.handleEvent({ type: 'bits', user: data.user, amount: data.bits, message: data.message });
     },
     onRedemption: (data) => {
+        if (userModeration.isBanned(data.user, data.userId)) return;
         if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.handleEvent({ type: 'redeem', user: data.user, reward: data.rewardTitle, rewardId: data.rewardId, cost: data.cost, message: data.userInput });
     },
     onHypeTrain: (data) => {
@@ -573,7 +597,8 @@ const twitchService = createTwitchService({
     },
     onStreamOffline: () => {
         if (typeof sessionService !== 'undefined' && sessionService?.pollLifecycle) sessionService.pollLifecycle();
-    }
+    },
+    onModerationEvent: event => userModeration.onModerationEvent(event)
 });
 const hypeLevels = new Map();
 const loadStoredToken = () => twitchService.loadStoredToken();
@@ -633,10 +658,10 @@ const goalsService = createGoalsService({
     dataDir: DATA_DIR,
     getConfig: () => config,
     saveRuntimeConfigSection,
-    getChatData: () => chatData,
-    getStatsData: () => statsData,
+    getChatData: () => userModeration.filterData(chatData),
+    getStatsData: () => userModeration.filterData(statsData),
     getViewerSummary: () => getViewerSummary(),
-    readJsonFileSafe,
+    readJsonFileSafe: (file, fallback) => userModeration.filterData(readJsonFileSafe(file, fallback)),
     onGoalAlert: (event) => alertEngine.handleEvent(event)
 });
 const buildGoalsSnapshot = () => goalsService.buildGoalsSnapshot();
@@ -686,6 +711,7 @@ const sessionService = createSessionService({
     getChatData: () => chatData,
     getChatLog: () => chatLog,
     getStatsData: () => statsData,
+    filterData: data => userModeration.filterData(data),
     getTwitchClientId: () => TWITCH_CLIENT_ID,
     getBroadcasterId: () => BROADCASTER_ID,
     ensureTwitchToken: () => ensureToken(),
@@ -900,7 +926,7 @@ function applyRuntimeConfig(nextConfig) {
         ssnService.connectFeaturedListener();
     }
     EXCLUDE_USERS = (config.exclude_users || []).map(u => u.toLowerCase());
-    BANNED_USERS = (config.banned_users || []).map(u => u.toLowerCase());
+    userModeration.configChanged();
 
     const nextMusicConfig = config.music || { enabled: false, source: 'apple_music', poll_seconds: 5 };
     for (const key of Object.keys(MUSIC_CONFIG)) delete MUSIC_CONFIG[key];
@@ -1090,15 +1116,20 @@ const MIME_TYPES = {
 const crmService = createCrmService({
     dataDir: DATA_DIR,
     sessionsDir: SESSIONS_DIR,
-    getStatsData: () => statsData,
-    getChatData: () => chatData,
+    getStatsData: () => userModeration.filterData(statsData),
+    getChatData: () => userModeration.filterData(chatData),
     getBroadcasterName: () => BROADCASTER_NAME,
-    getArchivedSessions: () => sessionService.getArchivedSessions(),
-    readJsonFileSafe
+    getArchivedSessions: () => {
+        const snapshot = sessionService.getArchivedSessions();
+        return { ...snapshot, sessions: snapshot.sessions.map(data => userModeration.filterData(data)) };
+    },
+    isBanned: userModeration.isBanned,
+    readJsonFileSafe: (file, fallback) => userModeration.filterData(readJsonFileSafe(file, fallback))
 });
 
 const handleTwitchRoutes = createTwitchRoutes({
     twitchService,
+    userModeration,
     pollService,
     matchupService,
     getTwitchClientId: () => TWITCH_CLIENT_ID,
@@ -1135,8 +1166,8 @@ const handleTwitchRoutes = createTwitchRoutes({
     twitchCreateClipFromVod,
     saveClipCandidates,
     dataDir: DATA_DIR,
-    getStatsData: () => statsData,
-    readJsonFileSafe,
+    getStatsData: () => userModeration.filterData(statsData),
+    readJsonFileSafe: (file, fallback) => userModeration.filterData(readJsonFileSafe(file, fallback)),
     subHistoryPath: SUB_HISTORY_PATH,
     followerHistoryPath: FOLLOWER_HISTORY_PATH
 });
@@ -1144,6 +1175,8 @@ const handleTwitchRoutes = createTwitchRoutes({
 const handleSessionRoutes = createSessionRoutes({
     sessionService,
     ssnService,
+    filterData: data => userModeration.filterData(data),
+    filterRecords: records => userModeration.filterRecords(records),
     getChatData: () => chatData,
     getStatsData: () => statsData,
     setStatsData: (s) => { statsData = s; },
@@ -1240,7 +1273,7 @@ const statusService = createStatusService({
     sessionsDir: SESSIONS_DIR,
     backupsDir: BACKUPS_DIR,
     getConfig: () => config,
-    getChatData: () => chatData,
+    getChatData: () => userModeration.filterData(chatData),
     getVariablesStore: () => variablesStore,
     getExternalData: () => externalData,
     getHostSources: () => getHostSources(),
@@ -1273,7 +1306,7 @@ const statusService = createStatusService({
     computeMilestones: () => computeMilestones(),
     normalizeViewerStats: (v) => normalizeViewerStats(v),
     getViewerSummary: () => getViewerSummary(),
-    getHighlights: () => highlights,
+    getHighlights: () => userModeration.filterRecords(highlights),
     recentChatSummary: () => recentChatSummary(),
     buildRecentEvents: (n) => buildRecentEvents(n)
 });
@@ -1336,6 +1369,8 @@ const handleHighlightsRoutes = createHighlightsRoutes({
     setHighlights: (arr) => { highlights = arr; },
     saveHighlights,
     getChatLog: () => chatLog,
+    filterRecords: records => userModeration.filterRecords(records),
+    isBanned: userModeration.isBanned,
     getChatData: () => chatData,
     getClipCandidateConfig: () => CLIP_CANDIDATE_CONFIG,
     clipSessionOverrideForName,
@@ -1390,6 +1425,7 @@ function handleRestoreReload({ previousConfig }) {
     try { variablesStore.reload(); } catch (err) { console.warn('[Restore] Variables reload failed:', err.message); }
     try { alertEngine.reload(); } catch (err) { console.warn('[Restore] Alert engine reload failed:', err.message); }
     try { crmService.reload(); } catch (err) { console.warn('[Restore] CRM reload failed:', err.message); }
+    userModeration.reload();
 
     broadcastToOverlays('update', chatData);
     broadcastToOverlays('timers-snapshot', buildTimersSnapshot());
@@ -1653,6 +1689,7 @@ function initializeServer() {
     connectFeaturedListener();
 
     // Load stored Twitch token and fetch data
+    userModeration.start();
     if (twitchService.getAccessToken()) {
         fetchTwitchData();
         fetchStreamInfo();
@@ -1760,6 +1797,7 @@ function stopServer({ preserveSession = false } = {}) {
         }
         for (const timer of backgroundIntervals) clearInterval(timer);
         backgroundIntervals.clear();
+        attempt(() => userModeration.stop());
         attempt(() => ssnService.disconnectSSN());
         attempt(() => stopLifecycleWatcher());
         attempt(() => stopViewerTracking());

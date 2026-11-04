@@ -72,6 +72,16 @@ The source-installation updater does not require this shell script. It is cross-
 
 Use the **Restart StreamPulse** button on the dashboard when restarting after an outage or configuration issue. It saves the active session, waits for a new process instance, and confirms that the restarted process resumes it; use **End Session** when you intentionally want to archive and start a new session. The **Update** page uses the same verification before reporting that an update completed.
 
+## Banned Accounts & Twitch Sync
+
+In **System Config → General → Excluded & Banned Accounts**, enable **Sync permanent Twitch bans**, save, and use **Sync now**. Twitch-synced accounts remain separate from **Manually Banned Users**. Syncing is opt-in and refreshes at startup and every 10 minutes. Twitch EventSub WebSocket ban/unban notifications also update the list when authorized; reconnect Twitch once for the `channel:moderate` permission. Listing bans requires `moderation:read` (or `moderator:manage:banned_users`). Timeouts are ignored.
+
+The combined ban list blocks new chat ingestion and filters current and archived session views, chat search, timelines, credits data, highlights, community lists and their exports. This is **not deletion**: stored sessions, raw logs, private notes and backup ZIPs retain history. Unbanning on Twitch restores previously stored output unless the account remains manually banned. Turning sync off stops applying Twitch-synced bans but keeps manual bans. Lists are scoped to the connected broadcaster; failed or incomplete syncs retain the last successful list.
+
+Existing aggregate totals without per-user attribution (such as emote/hashtag counts and historical growth snapshots) are not rebuilt. Refresh an already-open history page or credits browser source to reload filtered data; an already-running credits roll is not rewritten. Permanent history cleanup is not part of automatic sync.
+
+![System Config with fictional Twitch-synced accounts](images/twitch-ban-sync.png)
+
 ## Backup & Restore
 
 Use the **Backup & Restore** studio to download a full ZIP (`GET /api/backup`), restore one (`POST /api/restore`), or download a saved automatic backup from `/api/backups`. A `HEAD /api/backup` request builds the same archive and returns its download headers without sending its contents.

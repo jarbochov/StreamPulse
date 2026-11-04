@@ -94,6 +94,9 @@ function createStaticRouter(options) {
     const emoteCacheDir = options.emoteCacheDir || path.join(rootDir, 'data', 'emote-cache');
     const isLoopbackRequest = options.isLoopbackRequest || (() => true);
     const getCustomOverlays = options.getCustomOverlays || (() => ({}));
+    const dataDir = options.dataDir || path.join(rootDir, 'data');
+    const filterData = options.filterData || (data => data);
+    const filterRecords = options.filterRecords || (records => records);
 
     // Cache to accelerate repeated lookups for flat root filenames -> resolved path
     const pathCache = new Map();
@@ -281,6 +284,19 @@ function createStaticRouter(options) {
             }
 
             const contentType = MIME_TYPES[path.extname(filePath).toLowerCase()] || 'application/octet-stream';
+            const dataRelative = path.relative(dataDir, filePath);
+            const userDataFile = /^(?:chat|stats|subs|bits|followers|sub-history|follower-history)\.json$/.test(dataRelative)
+                || /^sessions[/\\]chat-.+\.json$/.test(dataRelative);
+            const userLogFile = /^(?:chat-log|highlights)\.jsonl$/.test(dataRelative)
+                || /^sessions[/\\]chatlog-.+\.jsonl$/.test(dataRelative);
+            if (userDataFile || userLogFile) {
+                const raw = fs.readFileSync(filePath, 'utf8');
+                const content = userDataFile ? JSON.stringify(filterData(JSON.parse(raw)))
+                    : filterRecords(raw.split('\n').filter(Boolean).map(line => JSON.parse(line))).map(entry => JSON.stringify(entry)).join('\n');
+                res.writeHead(200, { 'Content-Type': userDataFile ? 'application/json' : 'application/x-ndjson', 'Cache-Control': 'no-store' });
+                res.end(req.method === 'HEAD' ? undefined : content);
+                return true;
+            }
             const etag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
             const headers = {
                 'Content-Type': contentType,

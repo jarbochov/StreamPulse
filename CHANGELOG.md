@@ -7,6 +7,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- System Config: permanent Twitch ban sync with live ban/unban updates and non-destructive filtering of current and archived community data.
 - Alerts: per-variant image focus point (click or drag on the image), used when the overlay crops with Cover fit.
 - Custom overlay editor: alert box inspector regrouped (When/Show, layout cards), Pages split into Rotation/Event pages/Playback, Triggers summary with duplicate warnings.
 - Alert rule priority (low to critical), optional interrupt, expiry and queue cap; manual `POST /api/alerts/trigger`; Announcements (manual alerts with Fire tab, OBS dock grid and `/tools/announcements-dock.html`); chat message and Companion button alert actions.

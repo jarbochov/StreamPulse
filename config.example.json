@@ -20,6 +20,7 @@
   "chat_log_enabled": true,
   "exclude_users": [],
   "banned_users": [],
+  "twitch_ban_sync": { "enabled": false },
   "auto_backup_on_session_end": false,
   "theme": {
     "font_family": "Jersey 20",

@@ -181,10 +181,17 @@
                     <div class="hint">Hidden from all stats, leaderboards, and overlays, but preserved in raw chat log history.</div>
 
                     <div class="cfg-row" style="margin-top:0.5rem;">
-                        <label>Banned Users</label>
+                        <label>Manually Banned Users</label>
                         <input type="text" id="cfg-banned" placeholder="spammer, troll_account">
                     </div>
-                    <div class="hint">Completely purged from everything — stats, analytics, overlays, and chat logs.</div>
+                    <div class="hint">Blocks new messages and hides these accounts from current and prior sessions, credits, highlights and exports. Stored history and backups are not deleted.</div>
+                    <div class="cfg-toggle" style="margin-top:0.5rem;">
+                        <input type="checkbox" id="cfg-twitch-ban-sync">
+                        <label for="cfg-twitch-ban-sync">Sync permanent Twitch bans</label>
+                    </div>
+                    <div class="hint">Twitch bans stay separate from manual entries. Timeouts are ignored; unbans restore stored history unless the account is manually banned. Refreshes every 10 minutes, with live WebSocket updates when authorized.</div>
+                    <div class="cfg-row"><button type="button" class="btn" id="cfg-ban-sync-now">Sync now</button><span class="hint" id="cfg-ban-status" role="status"></span></div>
+                    <details><summary>Twitch-synced accounts</summary><div class="hint" id="cfg-ban-users">No synced accounts.</div></details>
                 </div>
             </div>
         </div>
@@ -695,6 +702,7 @@
                 line.textContent = 'OBS WebSocket Bridge is disabled.';
                 return;
             }
+
             if (st.connected) {
                 line.textContent = `Connected to OBS ${st.obsVersion || ''} (${st.host}:${st.port}) · ${st.movePluginAvailable ? 'Move Plugin detected' : 'Built-in 60fps Engine'}`;
             } else {
@@ -703,6 +711,21 @@
         } catch {
             line.textContent = 'OBS status unavailable.';
         }
+    }
+
+    async function showBanStatus(sync = false) {
+        const line = document.getElementById('cfg-ban-status');
+        const button = document.getElementById('cfg-ban-sync-now');
+        button.disabled = true;
+        if (sync) line.textContent = 'Syncing Twitch bans...';
+        try {
+            const response = await fetch(sync ? '/api/twitch/bans/sync' : '/api/twitch/bans', { method: sync ? 'POST' : 'GET', cache: 'no-store' });
+            const data = await response.json();
+            line.textContent = data.error || (!data.enabled ? 'Sync disabled. Enable and save first.' :
+                `${data.count} permanent bans. ${data.lastSyncAt ? `Last synced ${new Date(data.lastSyncAt).toLocaleString()}.` : 'Not synced yet.'} ${data.liveUpdates ? 'Live updates authorized.' : 'Reconnect Twitch for live ban/unban updates.'}`);
+            document.getElementById('cfg-ban-users').textContent = (data.users || []).map(user => user.login).sort().join(', ') || 'No synced accounts.';
+        } catch { line.textContent = 'Twitch ban sync status unavailable.'; }
+        finally { button.disabled = false; }
     }
 
     function updateModuleBadges() {
@@ -736,6 +759,8 @@
             document.getElementById('cfg-auto-backup').checked = Boolean(cfg.auto_backup_on_session_end);
             document.getElementById('cfg-exclude').value = (cfg.exclude_users || []).join(', ');
             document.getElementById('cfg-banned').value = (cfg.banned_users || []).join(', ');
+            document.getElementById('cfg-twitch-ban-sync').checked = cfg.twitch_ban_sync?.enabled === true;
+            showBanStatus();
 
             // Stream & Lifecycle
             const sl = cfg.session_lifecycle || {};
@@ -817,6 +842,7 @@
             auto_backup_on_session_end: document.getElementById('cfg-auto-backup').checked,
             exclude_users: document.getElementById('cfg-exclude').value.split(',').map(s => s.trim()).filter(Boolean),
             banned_users: document.getElementById('cfg-banned').value.split(',').map(s => s.trim()).filter(Boolean),
+            twitch_ban_sync: { enabled: document.getElementById('cfg-twitch-ban-sync').checked },
             session_lifecycle: {
                 ...(loadedConfig?.session_lifecycle || {}),
                 auto: document.getElementById('cfg-sl-auto').checked,
@@ -897,6 +923,7 @@
                 window.dispatchEvent(new CustomEvent('streampulse:config-saved', { detail: cfg }));
                 setTimeout(showWeatherStatus, 2500);
                 setTimeout(showObsStatus, 1500);
+                setTimeout(showBanStatus, 1500);
             } else {
                 showToast(data.error || 'Save failed');
             }
@@ -924,6 +951,7 @@
     });
 
     document.getElementById('top-save-config').addEventListener('click', saveConfig);
+    document.getElementById('cfg-ban-sync-now').addEventListener('click', () => showBanStatus(true));
     document.getElementById('ssn-session-toggle').addEventListener('click', toggleSsnSession);
 
     // Module toggles update badges live
