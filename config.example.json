@@ -21,6 +21,7 @@
   "exclude_users": [],
   "banned_users": [],
   "twitch_ban_sync": { "enabled": false },
+  "message_deletion_sync": { "enabled": true },
   "auto_backup_on_session_end": false,
   "theme": {
     "font_family": "Jersey 20",

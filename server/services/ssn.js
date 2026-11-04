@@ -337,6 +337,7 @@ function createSsnService({
     getSsnSessionId = () => '',
     getSsnServer = () => 'wss://io.socialstream.ninja',
     getBannedUsers = () => [],
+    messageDeletions = null,
     getExcludeUsers = () => [],
     getChatData = () => ({}),
     getStatsData = () => ({}),
@@ -801,6 +802,7 @@ function createSsnService({
     }
 
     function processChatMessage(msg) {
+        if (messageDeletions?.handleSsn(msg)) return;
         if (msg.bot === true) return;
         const chatname = msg.chatname;
         if (!chatname) return;
@@ -830,6 +832,7 @@ function createSsnService({
             const plainText = messageHtml ? messageHtml.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '') : '';
             const urls = (plainText.match(/(?:(?:[a-z][a-z0-9+.-]*:\/\/|www\.)[^\s<>"')\]]+|(?<![@\w])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}(?:\/[^\s<>"')\]]*)?)/gi) || []);
             const chatEntry = {
+                moderation: messageDeletions?.identity(msg),
                 ts: Date.now(),
                 user: chatname,
                 avatar: msg.chatimg || null,
@@ -842,6 +845,7 @@ function createSsnService({
                 membership: msg.membership || null,
                 urls: urls.length > 0 ? urls : undefined
             };
+            messageDeletions?.observeRecord(chatEntry);
             const chatLog = getChatLog();
             chatLog.push(chatEntry);
             if (chatLog.length > MAX_IN_MEMORY_CHAT_MESSAGES) {
@@ -851,6 +855,7 @@ function createSsnService({
             const pending = getPendingChatLog();
             pending.push(chatEntry);
             setPendingChatLog(pending);
+            if (messageDeletions?.isDeleted(chatEntry)) return false;
 
             // Extract and cache emotes from messageHtml
             if (messageHtml) {
@@ -1262,12 +1267,12 @@ function createSsnService({
                 let msg = JSON.parse(raw.toString());
                 if (msg.overlayNinja) msg = msg.overlayNinja;
                 if (msg.content && typeof msg.content === 'object') msg = msg.content;
+                if (messageDeletions?.handleSsn(msg)) return;
                 if (msg && (msg.clicked || msg.featured || msg.action === 'featured')) {
                     takeoverPages('featured', '');
                 }
                 processSSNViewerUpdate(msg);
-                processChatMessage(msg);
-                resolveChatbot()?.handle(msg).catch(() => {});
+                if (processChatMessage(msg) !== false) resolveChatbot()?.handle(msg).catch(() => {});
             } catch { /* ignore parse errors */ }
         });
 

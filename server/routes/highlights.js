@@ -8,6 +8,7 @@ function createHighlightsRoutes({
     getChatData = () => ({}),
     filterRecords = records => records,
     isBanned = () => false,
+    isDeleted = () => false,
     getClipCandidateConfig = () => ({}),
     clipSessionOverrideForName = () => null,
     addClipCandidate = () => null,
@@ -38,6 +39,10 @@ function createHighlightsRoutes({
                 messageHtml: last.messageHtml || '',
                 avatar: last.avatar || null,
                 session: sessionName,
+                moderation: last.moderation,
+                type: last.type,
+                event: last.event,
+                donation: last.donation,
                 pinnedAt: Date.now()
             });
             saveHighlights();
@@ -155,6 +160,7 @@ function createHighlightsRoutes({
                     const { ts, user, message, messageHtml, avatar, session } = body;
                     if (!ts || !user) throw new Error('Missing ts or user');
                     if (isBanned(user)) throw new Error('Banned users cannot be featured.');
+                    if (isDeleted(body)) throw new Error('Deleted messages cannot be featured.');
                     const highlights = getHighlights() || [];
                     highlights.push({
                         ts,
@@ -163,6 +169,10 @@ function createHighlightsRoutes({
                         messageHtml: messageHtml || '',
                         avatar: avatar || null,
                         session: session || 'unknown',
+                        moderation: body.moderation,
+                        type: body.type,
+                        event: body.event,
+                        donation: body.donation,
                         pinnedAt: Date.now()
                     });
                     saveHighlights();

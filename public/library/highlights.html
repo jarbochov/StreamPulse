@@ -183,6 +183,8 @@
     let allHighlights = [];
 
     async function loadHighlights() {
+        const preferences = Object.fromEntries(['search', 'session-filter', 'user-filter', 'sort-filter']
+            .map(id => [id, document.getElementById(id)?.value]));
         const content = document.getElementById('content');
         const urlSession = new URLSearchParams(window.location.search).get('session') || '';
         try {
@@ -244,12 +246,27 @@
             `;
             content.innerHTML = html;
             if (urlSession) document.getElementById('session-filter').value = urlSession;
+            for (const [id, value] of Object.entries(preferences)) {
+                if (value !== undefined) document.getElementById(id).value = value;
+            }
             filterHighlights();
         } catch {
             content.innerHTML = '<div class="empty">Failed to load highlights</div>';
         }
     }
 
+    function connectModerationSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const socket = new WebSocket(`${protocol}//${window.location.host}`);
+        socket.onmessage = event => {
+            try {
+                const message = JSON.parse(event.data);
+                if (message.type === 'moderation-update') loadHighlights();
+            } catch {}
+        };
+        socket.onclose = () => setTimeout(() => { loadHighlights(); connectModerationSocket(); }, 5000);
+    }
+    connectModerationSocket();
     function filterHighlights() {
         const container = document.getElementById('results');
         if (!container) return;

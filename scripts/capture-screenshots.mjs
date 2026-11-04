@@ -670,7 +670,8 @@ async function run() {
         if (page.url().includes('config-editor') && new URL(url).pathname.startsWith('/api/')) {
             const pathname = new URL(url).pathname;
             const data = pathname === '/api/config' ? { banned_users: ['FictionalManualAccount'], exclude_users: ['FictionalBot'], twitch_ban_sync: { enabled: true } }
-                : pathname === '/api/twitch/bans' ? { enabled: true, count: 2, users: [{ id: 'fictional-1', login: 'fictionalblockedone' }, { id: 'fictional-2', login: 'fictionalblockedtwo' }], lastSyncAt: '2026-11-03T20:00:00Z', liveUpdates: true } : {};
+                : pathname === '/api/twitch/bans' ? { enabled: true, count: 2, users: [{ id: 'fictional-1', login: 'fictionalblockedone' }, { id: 'fictional-2', login: 'fictionalblockedtwo' }], lastSyncAt: '2026-11-03T20:00:00Z', liveUpdates: true }
+                : pathname === '/api/twitch/message-deletions' ? { enabled: true, events: 3, scopeReady: true, connected: true } : {};
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
         } else if (page.url().includes('custom-overlay-editor') && new URL(url).pathname.startsWith('/api/')) {
             const pathname = new URL(url).pathname;

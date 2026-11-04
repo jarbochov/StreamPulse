@@ -15,6 +15,14 @@ Enable with `PUT /api/config` and `{ "twitch_ban_sync": { "enabled": true } }`. 
 
 Session/chat/highlight outputs and exports apply the current combined ban list retroactively without rewriting stored history. Full backups remain unfiltered. Anonymous aggregate totals are not rebuilt. See [System Config details](server-management.md#banned-accounts--twitch-sync).
 
+## Message Deletion Sync
+
+`GET /api/twitch/message-deletions` returns `enabled`, `events` (saved deletion records), `lastEventAt`, `error`, `scopeReady` (`user:read:chat` granted), and `connected` (Twitch message-delete subscription registered on the active EventSub socket).
+
+`PUT /api/config` accepts `{ "message_deletion_sync": { "enabled": false } }` to stop receiving new deletion signals; syncing defaults to enabled. Existing tombstones still apply. Twitch uses `channel.chat.message_delete`, `channel.chat.clear_user_messages`, and `channel.chat.clear`, plus a non-ingesting `channel.chat.message` observer for native-ID correlation. SocialStream source deletion envelopes are handled on its existing data WebSocket.
+
+Filtered chat/highlight APIs, search, timelines, exports and direct data reads hide matching messages without rewriting logs. `moderation-update` is a content-free WebSocket notification telling clients to invalidate message/highlight caches. Deletion state lives in `data/message-deletions.json` and is included in full backups. Clears are limited to the active session/source before receipt; exact native UUIDs also match archived records. Missing/ambiguous IDs and offline events cannot be reconstructed, and aggregate stats are not rebuilt. See [matching and setup limitations](server-management.md#message-deletion-sync).
+
 ## Promo Creator
 
 Promo designs are static, locally saved documents, not live overlay controls. They do not emit WebSocket events or require Companion actions. See the [Promo Creator guide](promo-creator.md) for the browser workflow.

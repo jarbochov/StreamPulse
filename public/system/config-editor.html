@@ -192,6 +192,12 @@
                     <div class="hint">Twitch bans stay separate from manual entries. Timeouts are ignored; unbans restore stored history unless the account is manually banned. Refreshes every 10 minutes, with live WebSocket updates when authorized.</div>
                     <div class="cfg-row"><button type="button" class="btn" id="cfg-ban-sync-now">Sync now</button><span class="hint" id="cfg-ban-status" role="status"></span></div>
                     <details><summary>Twitch-synced accounts</summary><div class="hint" id="cfg-ban-users">No synced accounts.</div></details>
+                    <div class="cfg-toggle" style="margin-top:0.5rem;">
+                        <input type="checkbox" id="cfg-message-deletion-sync">
+                        <label for="cfg-message-deletion-sync">Sync message deletions</label>
+                    </div>
+                    <div class="hint">Hide messages removed upstream by Twitch or SocialStream, including pinned highlights. Twitch needs the chat-read permission (reconnect once). Only received, identifiable deletions sync; SocialStream dock-local removals may not be forwarded. History and backups remain intact.</div>
+                    <div class="hint" id="cfg-deletion-status" role="status"></div>
                 </div>
             </div>
         </div>
@@ -728,6 +734,18 @@
         finally { button.disabled = false; }
     }
 
+    async function showDeletionStatus() {
+        const line = document.getElementById('cfg-deletion-status');
+        try {
+            const response = await fetch('/api/twitch/message-deletions', { cache: 'no-store' });
+            if (!response.ok) throw new Error('Status unavailable');
+            const data = await response.json();
+            line.textContent = data.error || (data.enabled === false ? 'Sync disabled. Previously hidden messages stay hidden.' :
+                `${data.events || 0} saved deletion signals. ${!data.scopeReady ? 'Reconnect Twitch to authorize chat deletion events.' :
+                    data.connected ? 'Twitch deletion events connected.' : 'Waiting for Twitch WebSocket connection.'}`);
+        } catch { line.textContent = 'Message deletion sync status unavailable.'; }
+    }
+
     function updateModuleBadges() {
         const updateBadge = (id, active) => {
             const el = document.getElementById(id);
@@ -760,7 +778,9 @@
             document.getElementById('cfg-exclude').value = (cfg.exclude_users || []).join(', ');
             document.getElementById('cfg-banned').value = (cfg.banned_users || []).join(', ');
             document.getElementById('cfg-twitch-ban-sync').checked = cfg.twitch_ban_sync?.enabled === true;
+            document.getElementById('cfg-message-deletion-sync').checked = cfg.message_deletion_sync?.enabled !== false;
             showBanStatus();
+            showDeletionStatus();
 
             // Stream & Lifecycle
             const sl = cfg.session_lifecycle || {};
@@ -843,6 +863,7 @@
             exclude_users: document.getElementById('cfg-exclude').value.split(',').map(s => s.trim()).filter(Boolean),
             banned_users: document.getElementById('cfg-banned').value.split(',').map(s => s.trim()).filter(Boolean),
             twitch_ban_sync: { enabled: document.getElementById('cfg-twitch-ban-sync').checked },
+            message_deletion_sync: { enabled: document.getElementById('cfg-message-deletion-sync').checked },
             session_lifecycle: {
                 ...(loadedConfig?.session_lifecycle || {}),
                 auto: document.getElementById('cfg-sl-auto').checked,

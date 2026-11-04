@@ -113,11 +113,11 @@ function createSystemRoutes({
                     setInterval_('twitch_refresh_minutes', 1, 1440, 10);
                     setInterval_('twitch_stream_info_seconds', 10, 3600, 30);
 
-                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'twitch_ban_sync', 'hashtags_enabled', 'hashtag_max_length', 'chat_log_enabled', 'chatbot_enabled', 'polls_enabled', 'versus_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals', 'clip_candidates', 'session_lifecycle', 'obs'];
+                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'twitch_ban_sync', 'message_deletion_sync', 'hashtags_enabled', 'hashtag_max_length', 'chat_log_enabled', 'chatbot_enabled', 'polls_enabled', 'versus_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals', 'clip_candidates', 'session_lifecycle', 'obs'];
                     for (const key of safeFields) {
                         if (updates[key] !== undefined) {
-                            if (key === 'twitch_ban_sync') {
-                                current[key] = { enabled: updates[key]?.enabled === true };
+                            if (key === 'twitch_ban_sync' || key === 'message_deletion_sync') {
+                                current[key] = { enabled: key === 'twitch_ban_sync' ? updates[key]?.enabled === true : updates[key]?.enabled !== false };
                             } else if (key === 'hashtag_max_length') {
                                 current[key] = Math.max(10, Math.min(100, Math.round(Number(updates[key])) || 50));
                             } else if (key === 'clip_candidates') {
@@ -186,6 +186,7 @@ function createSystemRoutes({
                     exclude_users: config.exclude_users || [],
                     banned_users: config.banned_users || [],
                     twitch_ban_sync: { enabled: config.twitch_ban_sync?.enabled === true },
+                    message_deletion_sync: { enabled: config.message_deletion_sync?.enabled !== false },
                     days_filter: config.days_filter || 30,
                     credits: config.credits || {},
                     auto_backup_on_session_end: config.auto_backup_on_session_end || false,

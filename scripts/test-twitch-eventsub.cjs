@@ -77,9 +77,49 @@ test('Twitch EventSub: connects, welcomes and registers subscriptions', async ()
     assert.ok(subscribed.includes('channel.cheer'));
     assert.ok(subscribed.includes('channel.ban'));
     assert.ok(subscribed.includes('channel.unban'));
+    assert.ok(!subscribed.includes('channel.chat.message_delete'), 'chat scope gates deletion subscriptions');
 
     service.stop();
     assert.equal(service.getStatus().status, 'disconnected');
+});
+
+test('Twitch EventSub: chat identity, deletes and clears use broadcaster chat-read authorization', async () => {
+    MockWebSocket.instances = [];
+    const subscriptions = [];
+    const messages = [];
+    const deletions = [];
+    const service = createTwitchEventSubService({
+        getAccessToken: () => 'fixture-token', getClientId: () => 'fixture-client', getBroadcasterId: () => '99',
+        getTokenScopes: () => ['user:read:chat'],
+        fetchImpl: async (url, options) => { subscriptions.push(JSON.parse(options.body)); return { status: 202 }; },
+        WebSocketImpl: MockWebSocket, onChatMessage: event => messages.push(event), onChatDeletion: event => deletions.push(event),
+        log() {}, warn() {}
+    });
+    try {
+        service.start();
+        await new Promise(resolve => setTimeout(resolve, 10));
+        MockWebSocket.instances[0].emit('message', JSON.stringify({
+            metadata: { message_type: 'session_welcome' },
+            payload: { session: { id: 'fixture-session', keepalive_timeout_seconds: 10 } }
+        }));
+        await new Promise(resolve => setTimeout(resolve, 20));
+        const chat = subscriptions.filter(subscription => subscription.type.startsWith('channel.chat.'));
+        assert.equal(chat.length, 4);
+        for (const subscription of chat) assert.deepEqual(subscription.condition, { broadcaster_user_id: '99', user_id: '99' });
+        service.handleNotification({ subscription_type: 'channel.chat.message' }, { event: {
+            broadcaster_user_id: '99', chatter_user_id: '42', chatter_user_login: 'fixtureviewer', message_id: 'native-uuid', message: { text: 'fixture text' }
+        } });
+        for (const type of ['channel.chat.message_delete', 'channel.chat.clear_user_messages', 'channel.chat.clear']) {
+            service.handleNotification({ subscription_type: type }, { event: {
+                broadcaster_user_id: '99', message_id: 'native-uuid', target_user_id: '42', target_user_login: 'fixtureviewer'
+            } });
+        }
+        assert.equal(messages[0].id, 'native-uuid');
+        assert.equal(messages[0].text, 'fixture text');
+        assert.deepEqual(deletions.map(event => event.kind), ['message', 'user', 'clear']);
+        assert.equal(deletions[0].messageId, messages[0].id);
+        assert.equal(deletions[1].userId, '42');
+    } finally { service.stop(); }
 });
 
 test('Twitch EventSub: permanent ban and unban notifications ignore timeouts', () => {

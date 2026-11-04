@@ -422,16 +422,28 @@
     function connectLiveSessionSocket() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         liveSessionSocket = new WebSocket(`${protocol}//${window.location.host}`);
+        liveSessionSocket.onopen = () => refreshModeratedMessages();
         liveSessionSocket.onmessage = event => {
             try {
-                if (typeof event.data === 'string' && !event.data.includes('"type":"update"')) return;
+                if (typeof event.data === 'string' && !event.data.includes('"type":"update"') && !event.data.includes('"type":"moderation-update"')) return;
                 const message = JSON.parse(event.data);
+                if (message.type === 'moderation-update') refreshModeratedMessages();
                 if (message.type === 'update') scheduleCurrentSessionRefresh();
             } catch (err) {
                 console.warn('[Sessions] Live update parse failed:', err.message);
             }
         };
         liveSessionSocket.onclose = () => setTimeout(connectLiveSessionSocket, 5000);
+    }
+
+    async function refreshModeratedMessages() {
+        for (const key of Object.keys(chatLogCache)) delete chatLogCache[key];
+        await loadHighlightsCache();
+        const paneId = document.querySelector('#detail-panel .tab-pane.active')?.id?.replace(/^pane-/, '');
+        if (paneId === 'chatlog') await loadChatLog(activeSessionFile, true);
+        else if (paneId === 'highlights') await loadHighlightsTab();
+        else if (paneId === 'timeline') renderActiveSessionPane(activeSession, activeSessionFile, paneId);
+        else if (!activeSessionFile && (document.getElementById('global-search-input')?.value || globalSearchTypeFilter)) await globalSearch();
     }
 
     function updateDetailSummary(data) {
@@ -1159,7 +1171,7 @@
         const pinStar = isPinned ? STAR_ICON : STAR_OUTLINE_ICON;
         const pinClass = isPinned ? 'pin-btn pinned' : 'pin-btn';
         const sName = sessionName || m.session || (activeSessionFile === '__current__' ? currentSessionName() : activeSessionFile) || '';
-        const pinData = `data-ts="${m.ts}" data-user="${escapeHtml(m.user)}" data-msg="${escapeHtml(m.message || '')}" data-html="${escapeHtml(m.messageHtml || '')}" data-avatar="${escapeHtml(m.avatar || '')}" data-session="${escapeHtml(sName)}"`;
+        const pinData = `data-ts="${m.ts}" data-user="${escapeHtml(m.user)}" data-msg="${escapeHtml(m.message || '')}" data-html="${escapeHtml(m.messageHtml || '')}" data-avatar="${escapeHtml(m.avatar || '')}" data-session="${escapeHtml(sName)}" data-identity="${escapeHtml(JSON.stringify({ moderation: m.moderation, type: m.type, event: m.event, donation: m.donation }))}"`;
 
         // Detect reply from raw HTML before sanitization strips <i><small>
         const reply = formatReply(m.messageHtml, m.message);
@@ -1213,7 +1225,8 @@
                     message: btn.dataset.msg,
                     messageHtml: btn.dataset.html,
                     avatar: btn.dataset.avatar,
-                    session: btn.dataset.session
+                    session: btn.dataset.session,
+                    ...JSON.parse(btn.dataset.identity || '{}')
                 })
             });
             btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';

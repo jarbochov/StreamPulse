@@ -7,6 +7,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- Moderation: Twitch/SocialStream message deletion and chat-clear sync with persistent, non-destructive history/highlight filtering.
 - System Config: permanent Twitch ban sync with live ban/unban updates and non-destructive filtering of current and archived community data.
 - Alerts: per-variant image focus point (click or drag on the image), used when the overlay crops with Cover fit.
 - Custom overlay editor: alert box inspector regrouped (When/Show, layout cards), Pages split into Rotation/Event pages/Playback, Triggers summary with duplicate warnings.

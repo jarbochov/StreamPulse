@@ -23,6 +23,8 @@ function createTwitchEventSubService(options = {}) {
         onRedemption = () => {},
         onHypeTrain = () => {},
         onModerationEvent = () => {},
+        onChatMessage = () => {},
+        onChatDeletion = () => {},
         onStreamOnline = () => {},
         onStreamOffline = () => {},
         log = console.log,
@@ -137,6 +139,11 @@ function createTwitchEventSubService(options = {}) {
         }
 
         const candidateSubscriptions = [];
+        if (scopes.includes('user:read:chat')) {
+            for (const type of ['channel.chat.message', 'channel.chat.message_delete', 'channel.chat.clear_user_messages', 'channel.chat.clear']) {
+                candidateSubscriptions.push({ type, version: '1', condition: { broadcaster_user_id: broadcasterId, user_id: broadcasterId } });
+            }
+        }
 
         // Polls: requires channel:read:polls
         if (scopes.includes('channel:read:polls')) {
@@ -248,6 +255,23 @@ function createTwitchEventSubService(options = {}) {
         if (!ev) return;
 
         switch (type) {
+            case 'channel.chat.message': {
+                onChatMessage({
+                    id: ev.message_id, broadcasterId: ev.broadcaster_user_id,
+                    userId: ev.chatter_user_id, userLogin: ev.chatter_user_login, text: ev.message?.text || ''
+                });
+                break;
+            }
+            case 'channel.chat.message_delete':
+            case 'channel.chat.clear_user_messages':
+            case 'channel.chat.clear': {
+                onChatDeletion({
+                    kind: type === 'channel.chat.message_delete' ? 'message' : type === 'channel.chat.clear_user_messages' ? 'user' : 'clear',
+                    broadcasterId: ev.broadcaster_user_id, messageId: ev.message_id,
+                    userId: ev.target_user_id, userLogin: ev.target_user_login
+                });
+                break;
+            }
             case 'channel.ban':
             case 'channel.unban': {
                 if (type === 'channel.ban' && ev.is_permanent !== true) break;

@@ -8,6 +8,7 @@ function createUserModerationService({
     dataDir, getConfig = () => ({}), getBroadcasterId = () => '',
     ensureToken = async () => false, getTokenScopes = () => [],
     request = async () => ({}), safeWriteFileSync = fs.writeFileSync,
+    isDeleted = () => false,
     onChange = () => {}
 }) {
     const file = path.join(dataDir, 'twitch-bans.json');
@@ -46,7 +47,7 @@ function createUserModerationService({
     );
 
     function filterRecords(records = []) {
-        return records.filter(record => !blocked(record));
+        return records.filter(record => !blocked(record) && !isDeleted(record));
     }
 
     function filterData(data) {

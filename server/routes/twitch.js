@@ -6,6 +6,7 @@ const { readRequestBody, sendJson, sendText, sendError, escapeHtml, parseJsonOrQ
 function createTwitchRoutes({
     twitchService,
     userModeration = null,
+    messageDeletions = null,
     pollService = null,
     matchupService = null,
     getTwitchClientId = () => '',
@@ -48,6 +49,15 @@ function createTwitchRoutes({
     followerHistoryPath = ''
 }) {
     return async function handleTwitchRoutes(req, res, url, pathname) {
+        if (pathname === '/api/twitch/message-deletions' && req.method === 'GET' && messageDeletions) {
+            const subscriptions = twitchService.getEventSubStatus()?.activeSubscriptions || [];
+            sendJson(res, {
+                ...messageDeletions.status(),
+                scopeReady: twitchService.getTokenScopes().includes('user:read:chat'),
+                connected: subscriptions.includes('channel.chat.message_delete')
+            });
+            return true;
+        }
         if (pathname === '/api/twitch/bans' && req.method === 'GET' && userModeration) {
             sendJson(res, userModeration.status());
             return true;

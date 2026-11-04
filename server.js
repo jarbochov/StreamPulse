@@ -63,6 +63,7 @@ const { createTierListRoutes } = require('./server/routes/tier-list');
 const { safeWriteFileSync, escapeHtml } = require('./server/routes/helpers');
 const { createCrmService } = require('./server/services/crm');
 const { createUserModerationService } = require('./server/services/user-moderation');
+const { createMessageDeletionService } = require('./server/services/message-deletions');
 const { createCrmRoutes } = require('./server/routes/crm');
 const { createSystemRoutes } = require('./server/routes/system');
 const { createHighlightsRoutes } = require('./server/routes/highlights');
@@ -115,6 +116,22 @@ const VIEWER_TRACKING_CONFIG = config.viewer_tracking || { enabled: true, source
 
 const ACTIVE_SUBS_ONLY = config.active_subs_only || false; // only show subs who chatted
 const DATA_DIR = process.env.STREAMPULSE_DATA_DIR || path.join(__dirname, 'data');
+const messageDeletions = createMessageDeletionService({
+    dataDir: DATA_DIR,
+    getConfig: () => config,
+    getBroadcasterId: () => BROADCASTER_ID,
+    getSsnSessionId: () => SSN_SESSION_ID,
+    getSessionStartedAt: () => chatData.startedAt,
+    getSessionName: () => `chat-${localDateTimeStr(chatData.startedAt)}.json`,
+    getCurrentMessages: () => ssnService.getCurrentChatLogEntries(),
+    safeWriteFileSync,
+    onChange: () => {
+        statusService.invalidateHeavyCache();
+        sessionService.invalidatePresentation();
+        broadcastToOverlays('moderation-update', {});
+        broadcastToOverlays('update', chatData);
+    }
+});
 const userModeration = createUserModerationService({
     dataDir: DATA_DIR,
     getConfig: () => config,
@@ -123,6 +140,7 @@ const userModeration = createUserModerationService({
     getTokenScopes: () => twitchService.getTokenScopes(),
     request: (endpoint, params) => twitchService.twitchApiRequest(endpoint, params),
     safeWriteFileSync,
+    isDeleted: record => messageDeletions.isDeleted(record),
     onChange: () => {
         statusService.invalidateHeavyCache();
         sessionService.invalidatePresentation();
@@ -282,6 +300,7 @@ const slideshowStates = wsService.slideshowStates;
 const overlayClients = wsService.overlayClients;
 
 const ssnService = createSsnService({
+    messageDeletions,
     dataDir: DATA_DIR,
     liveChatPath: LIVE_CHAT_PATH,
     chatLogPath: CHAT_LOG_PATH,
@@ -598,7 +617,9 @@ const twitchService = createTwitchService({
     onStreamOffline: () => {
         if (typeof sessionService !== 'undefined' && sessionService?.pollLifecycle) sessionService.pollLifecycle();
     },
-    onModerationEvent: event => userModeration.onModerationEvent(event)
+    onModerationEvent: event => userModeration.onModerationEvent(event),
+    onChatMessage: message => messageDeletions.observeTwitch(message),
+    onChatDeletion: event => messageDeletions.handleTwitch(event)
 });
 const hypeLevels = new Map();
 const loadStoredToken = () => twitchService.loadStoredToken();
@@ -1130,6 +1151,7 @@ const crmService = createCrmService({
 const handleTwitchRoutes = createTwitchRoutes({
     twitchService,
     userModeration,
+    messageDeletions,
     pollService,
     matchupService,
     getTwitchClientId: () => TWITCH_CLIENT_ID,
@@ -1371,6 +1393,7 @@ const handleHighlightsRoutes = createHighlightsRoutes({
     getChatLog: () => chatLog,
     filterRecords: records => userModeration.filterRecords(records),
     isBanned: userModeration.isBanned,
+    isDeleted: messageDeletions.isDeleted,
     getChatData: () => chatData,
     getClipCandidateConfig: () => CLIP_CANDIDATE_CONFIG,
     clipSessionOverrideForName,
@@ -1426,6 +1449,8 @@ function handleRestoreReload({ previousConfig }) {
     try { alertEngine.reload(); } catch (err) { console.warn('[Restore] Alert engine reload failed:', err.message); }
     try { crmService.reload(); } catch (err) { console.warn('[Restore] CRM reload failed:', err.message); }
     userModeration.reload();
+    messageDeletions.reload();
+    broadcastToOverlays('moderation-update', {});
 
     broadcastToOverlays('update', chatData);
     broadcastToOverlays('timers-snapshot', buildTimersSnapshot());

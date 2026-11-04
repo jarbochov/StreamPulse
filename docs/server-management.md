@@ -82,6 +82,16 @@ Existing aggregate totals without per-user attribution (such as emote/hashtag co
 
 ![System Config with fictional Twitch-synced accounts](images/twitch-ban-sync.png)
 
+### Message deletion sync
+
+**Sync message deletions** is on by default, independently of permanent-ban syncing. Restart StreamPulse after updating, then reconnect Twitch to grant `user:read:chat`. The status line shows whether Twitch deletion subscriptions are connected. SocialStream needs its WebSocket data feed enabled and must actually forward the source's `{delete: ...}` signal; removing a message only inside the SSN dock may not forward a deletion.
+
+Delivered individual-message deletions, per-user chat clears (including timeouts), and channel/source clears hide identifiable messages from chat history, search, timelines, highlights and exports. Open Sessions and Highlights pages refresh automatically. A clear applies only to already-received messages in the active session/source, not future messages, other platforms or older sessions. A native message UUID can hide its exact archived message too. Deletions persist separately in `data/message-deletions.json`; unbanning a user or disabling incoming deletion sync does not restore deleted-message output. Full backups include the ledger and retain the original history.
+
+New chat entries retain SSN/source IDs and session identity. When Twitch UUIDs are absent from SSN captures, StreamPulse can bridge a unique, exact login/text match within 30 seconds of both captures; it retains up to 5,000 native observations for 30 minutes in the current process. Repeated/ambiguous captures are left untouched. Native UUID deletions remain durable; delayed captures can resolve a pending deletion within 30 seconds. Reused SSN IDs are scoped to the current session and resolved message rather than becoming global bans. Older logs without message identity cannot be reliably matched to individual upstream deletions.
+
+There is no replay of deletion events missed while disconnected. Aggregate stats already counted (messages, emotes, hashtags and leaderboards) are not rebuilt; moderation changes message visibility, not historical accounting. Refresh credits or other already-prefetched overlays to reload filtered highlights; an active credits roll or already-fired alert is not rewritten. Automatic sync does not physically erase raw logs or backups.
+
 ## Backup & Restore
 
 Use the **Backup & Restore** studio to download a full ZIP (`GET /api/backup`), restore one (`POST /api/restore`), or download a saved automatic backup from `/api/backups`. A `HEAD /api/backup` request builds the same archive and returns its download headers without sending its contents.

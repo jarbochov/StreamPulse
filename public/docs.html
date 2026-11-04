@@ -464,6 +464,7 @@
                         { param: 'chat_log_enabled', type: 'boolean', default: 'true', desc: 'Keep the per-session chat log.', hot: true },
                         { param: 'banned_users', type: 'array', default: '[]', desc: 'Manual bans: block new chat and hide stored community output without deleting history.', hot: true },
                         { param: 'twitch_ban_sync.enabled', type: 'boolean', default: 'false', desc: 'Sync permanent Twitch bans separately from manual bans; timeouts ignored.', hot: true },
+                        { param: 'message_deletion_sync.enabled', type: 'boolean', default: 'true', desc: 'Sync delivered Twitch/SSN message deletions and chat clears; keeps raw history and previously hidden messages. Twitch needs user:read:chat.', hot: true },
                         { param: 'auto_backup_on_session_end', type: 'boolean', default: 'false', desc: 'Auto-backup data when a session ends.', hot: true },
                         { param: 'rate_limit.enabled', type: 'boolean', default: 'false', desc: 'Limit API requests per client. Useful if the server is reachable by others.', restart: true },
                         { param: 'rate_limit.requests_per_minute', type: 'number', default: '120', desc: 'Read requests allowed per minute.', restart: true },
