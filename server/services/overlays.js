@@ -396,7 +396,7 @@ function normalizeSpeakerBadge(badge = {}) {
         idleBorderColor: String(rawReaction.idleBorderColor || 'rgba(255, 255, 255, 0.12)').slice(0, 60),
         borderWidth: Math.max(0, Math.min(20, Math.round(Number(rawReaction.borderWidth) || 2))),
         glowSpread: Math.max(0, Math.min(60, Math.round(Number(rawReaction.glowSpread) || 12))),
-        visualizer: ['bars', 'wave', 'pulse-ring', 'none'].includes(rawReaction.visualizer) ? rawReaction.visualizer : 'bars',
+        visualizer: ['bars', 'wave', 'pulse-ring', 'both', 'none'].includes(rawReaction.visualizer) ? rawReaction.visualizer : 'bars',
         barCount: Math.max(3, Math.min(9, Math.round(Number(rawReaction.barCount) || 5))),
         visualizerPosition: ['inline', 'avatar-badge', 'bottom'].includes(rawReaction.visualizerPosition) ? rawReaction.visualizerPosition : 'inline',
         visualizerColor: rawReaction.visualizerColor === 'match' || /^#[0-9a-f]{6}$/i.test(String(rawReaction.visualizerColor || '')) ? rawReaction.visualizerColor : 'match',

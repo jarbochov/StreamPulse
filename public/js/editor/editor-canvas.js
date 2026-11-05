@@ -602,8 +602,8 @@ export function applyNodeStyle(node, el, index) {
     }
     Object.assign(node.style, {
         left: `${b.x}px`, top: `${b.y}px`, width: `${b.w}px`, height: `${b.h}px`, zIndex: index,
-        opacity: el.type === 'alert' ? 1 : s.opacity ?? 1, background: (el.type === 'alert' || el.type === 'cutout') ? 'transparent' : (s.background || 'transparent'),
-        borderRadius: el.type === 'alert' ? '0' : el.type === 'cutout' ? cutoutRadius : `${s.borderRadius || 0}px`,
+        opacity: el.type === 'alert' ? 1 : s.opacity ?? 1, background: (el.type === 'alert' || el.type === 'cutout' || el.type === 'speaker-badge') ? 'transparent' : (s.background || 'transparent'),
+        borderRadius: (el.type === 'alert' || el.type === 'speaker-badge') ? '0' : el.type === 'cutout' ? cutoutRadius : `${s.borderRadius || 0}px`,
         padding: `${TEXT_TYPES.has(el.type) ? s.padding || 0 : 0}px`,
         fontFamily: s.fontFamily, fontSize: `${TEXT_TYPES.has(el.type) && el.textFit && el.textFit !== 'none' && node._fittedFontSize ? node._fittedFontSize : (s.fontSize != null && s.fontSize !== '' ? s.fontSize : 32)}px`, fontWeight: s.fontWeight, color: s.color, textAlign: s.textAlign,
         lineHeight: s.lineHeight, letterSpacing: `${s.letterSpacing || 0}px`,
@@ -616,7 +616,7 @@ export function applyNodeStyle(node, el, index) {
         if (s.shape === 'pill') node.style.borderRadius = '999px';
         if (s.shape === 'line') { node.style.height = `${Math.max(1, s.borderWidth || 4)}px`; node.style.border = '0'; }
     }
-    if (el.type !== 'alert') {
+    if (el.type !== 'alert' && el.type !== 'speaker-badge') {
         if (shared.decorationStyle && el.type !== 'cutout') Object.assign(node.style, shared.decorationStyle(s, el.type));
         if (el.type === 'cutout' && !(s.borderWidth && Number(s.borderWidth) > 0)) {
             if (shared.applyBorderEffects) shared.applyBorderEffects(node, { ...s, borderWidth: 0 }, el);
@@ -625,7 +625,7 @@ export function applyNodeStyle(node, el, index) {
         } else if (shared.applyBorderEffects) {
             shared.applyBorderEffects(node, s, el);
         }
-    } else {
+    } else if (el.type === 'alert') {
         const card = node.querySelector(':scope > .alert-card');
         if (card) {
             card.style.opacity = s.opacity ?? 1;
@@ -646,7 +646,7 @@ export function applyNodeStyle(node, el, index) {
     }
     if (shared.textEffectStyle) Object.assign(node.style, shared.textEffectStyle(s, el.type));
     if (shared.shadowClipStyle) Object.assign(node.style, shared.shadowClipStyle(el));
-    if (el.type === 'game-list' || el.type === 'slideshow' || el.type === 'pattern' || el.type === 'procedural-pattern' || el.type === 'poll') node.style.display = 'block';
+    if (el.type === 'game-list' || el.type === 'slideshow' || el.type === 'pattern' || el.type === 'procedural-pattern' || el.type === 'poll' || el.type === 'speaker-badge') node.style.display = 'block';
     if (el.type === 'poll') window.PollWidget.render(node, el, prefs.live ? state.liveStatus.poll : null, { preview: true });
     if (el.type === 'pattern' || el.type === 'procedural-pattern') {
         const blend = el.pattern?.blendMode || 'normal';
@@ -827,7 +827,7 @@ const usesLivePlaceholders = el => /\{\{/.test(`${el.content || ''} ${el.src || 
 
 export const contentSignature = (el, live) =>
     el.type === 'embed' ? JSON.stringify([el.type, expand(el.src), el.video]) :
-    el.type === 'speaker-badge' ? JSON.stringify([el.type, el.speakerBadge, el._simulateSpeaking, el.style?.background, el.style?.borderColor, el.style?.borderWidth, el.style?.borderRadius]) :
+    el.type === 'speaker-badge' ? JSON.stringify([el.type, el.speakerBadge, el._simulateSpeaking, el.style?.background, el.style?.borderColor, el.style?.borderWidth, el.style?.borderRadius, el.style?.color, el.style?.fontSize, el.width, el.height]) :
     el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) :
     (el.type === 'pattern' || el.type === 'procedural-pattern') ? JSON.stringify([el.type, el.pattern]) :
     el.type === 'cutout' ? JSON.stringify([el.type]) :

@@ -1552,6 +1552,30 @@ export function speakerBadgeSection(el) {
     const re = b.reaction || {};
     const layout = b.layout || 'horizontal';
 
+    const SIZES = {
+        'horizontal': [360, 80],
+        'cspan-banner': [460, 96],
+        'compact-pill': [260, 48],
+        'vertical-card': [180, 200],
+        'avatar-only': [96, 96]
+    };
+    const rec = SIZES[layout] || [360, 80];
+    const canResize = el.width !== rec[0] || el.height !== rec[1];
+
+    // Auto-populate OBS audio inputs in background if datalist is empty
+    setTimeout(async () => {
+        const dl = document.getElementById('obs-audio-inputs-list');
+        if (dl && !dl.children.length) {
+            try {
+                const res = await fetch('/api/obs/audio-inputs');
+                if (res.ok) {
+                    const data = await res.json();
+                    dl.innerHTML = (data.inputs || []).map(name => `<option value="${esc(name)}">`).join('');
+                }
+            } catch {}
+        }
+    }, 50);
+
     const profile = F.section('speakerProfile', 'Speaker Profile', `
         ${F.text('speakerBadge.speaker.name', 'Display Name', sp.name || '', 'placeholder="Alex Rivera"')}
         <div class="grid2">
@@ -1567,26 +1591,28 @@ export function speakerBadgeSection(el) {
         </div>
         <div class="grid2">
             ${F.select('speakerBadge.speaker.avatarShape', 'Avatar shape', sp.avatarShape || 'circle', [['circle', 'Circle'], ['squircle', 'Squircle'], ['square', 'Square']])}
-            ${F.select('speakerBadge.layout', 'Layout style', layout, [['horizontal', 'Horizontal Card'], ['cspan-banner', 'C-SPAN Call-In'], ['compact-pill', 'Compact Pill'], ['vertical-card', 'Vertical Card'], ['avatar-only', 'Avatar Only']])}
+            ${F.select('speakerBadge.layout', 'Layout style', layout, [['horizontal', 'Horizontal Lower-Third'], ['cspan-banner', 'Broadcast Call-In (C-SPAN Banner)'], ['compact-pill', 'Compact Pill'], ['vertical-card', 'Vertical Sidebar Card'], ['avatar-only', 'Avatar Only (Floating Halo)']])}
         </div>
-        <div class="grid3">
+        ${canResize ? `<button type="button" class="btn sm" id="btn-sb-adapt-size" style="width:100%;margin-top:0.4rem;font-size:11px;">Apply ${rec[0]}×${rec[1]} Recommended Size</button>` : ''}
+        <div class="grid3" style="margin-top:0.5rem;">
             ${F.check('speakerBadge.speaker.showAvatar', 'Avatar', sp.showAvatar !== false)}
             ${F.check('speakerBadge.speaker.showHandle', 'Handle', sp.showHandle !== false)}
             ${F.check('speakerBadge.speaker.showPronouns', 'Pronouns', sp.showPronouns !== false)}
         </div>
     `);
 
+    const isCspan = layout === 'cspan-banner';
     const cspan = F.section('speakerCallIn', 'Broadcast Call-In (C-SPAN Style)', `
-        ${F.check('speakerBadge.speaker.callIn.enabled', 'Enable Call-In mode (C-SPAN header)', callIn.enabled === true)}
+        ${F.check('speakerBadge.speaker.callIn.enabled', 'Enable Call-In mode (status tag & location)', callIn.enabled === true || isCspan)}
         <div class="grid2">
             ${F.text('speakerBadge.speaker.callIn.statusText', 'Status tag', callIn.statusText || 'ON THE LINE', 'placeholder="ON THE LINE, CALLING IN"')}
             ${F.color('speakerBadge.speaker.callIn.statusColor', 'Tag color', callIn.statusColor || '#22c55e')}
         </div>
         <div class="grid2">
-            ${F.text('speakerBadge.speaker.callIn.location', 'Caller location', callIn.location || '', 'placeholder="Chicago, IL"')}
+            ${F.text('speakerBadge.speaker.callIn.location', 'Caller location', callIn.location || '', 'placeholder="Chicago, IL or Discord"')}
             ${F.check('speakerBadge.speaker.callIn.showLocation', 'Show location', callIn.showLocation !== false)}
         </div>
-        <p class="hint">Displays an authentic broadcast call-in line badge with active speech status and caller origin.</p>
+        <p class="hint">${isCspan ? 'Displays an authentic broadcast call-in ticker banner with active live status dot and caller origin.' : 'Displays an authentic broadcast call-in badge with active live status dot and caller origin.'}</p>
     `);
 
     const audioSec = F.section('speakerAudio', 'OBS Audio & Sensitivity Gate', `
@@ -1597,28 +1623,28 @@ export function speakerBadgeSection(el) {
                 <button type="button" id="btn-refresh-obs-audio" title="Fetch inputs from OBS">Refresh</button>
             </span>
             <datalist id="obs-audio-inputs-list"></datalist>
-            <span class="hint">Name of the audio input in OBS Studio (e.g. "Mic/Aux", "Discord", "Guest 1 Browser").</span>
+            <span class="hint">Active audio mixer source in OBS Studio (e.g. "Mic/Aux", "Discord", "Guest 1 Browser").</span>
         </div>
         <div class="grid2">
-            ${F.number('speakerBadge.audio.thresholdDb', 'Sensitivity gate (dB)', audio.thresholdDb ?? -36, { min: -70, max: 0, step: 1 })}
-            ${F.number('speakerBadge.audio.holdMs', 'Release hold time (ms)', audio.holdMs ?? 280, { min: 50, max: 1500, step: 25 })}
+            ${F.range('speakerBadge.audio.thresholdDb', 'Sensitivity gate', audio.thresholdDb ?? -36, { min: -70, max: 0, step: 1, unit: ' dB', editable: true })}
+            ${F.range('speakerBadge.audio.holdMs', 'Release hold time', audio.holdMs ?? 280, { min: 50, max: 1500, step: 25, unit: ' ms', editable: true })}
         </div>
         <div style="margin-top:0.5rem;display:flex;align-items:center;gap:0.5rem;">
-            <button type="button" class="btn sm" id="btn-simulate-speaking" style="flex:1;">
-                ${el._simulateSpeaking ? 'Stop Simulating Speaking' : 'Simulate Speaking (Canvas Test)'}
+            <button type="button" class="btn sm" id="btn-simulate-speaking" style="width:100%;font-weight:600;${el._simulateSpeaking ? 'background:var(--accent);color:#fff;border-color:var(--accent);' : ''}">
+                ${el._simulateSpeaking ? 'Stop Simulating Speaking (Active)' : 'Simulate Speaking (Canvas Test)'}
             </button>
         </div>
-        <p class="hint">Hold time keeps the badge highlighted through pauses between words to avoid visual flickering.</p>
+        <p class="hint">Sensitivity gate opens when audio exceeds threshold. Release hold keeps the badge active between natural speech pauses.</p>
     `);
 
     const reactionSec = F.section('speakerReaction', 'Audio Reaction & EQ Visualizer', `
         <div class="grid2">
-            ${F.select('speakerBadge.reaction.visualizer', 'Visualizer', re.visualizer || 'bars', [['bars', 'EQ Bars'], ['pulse-ring', 'Avatar Pulse Ring'], ['none', 'None']])}
-            ${F.number('speakerBadge.reaction.barCount', 'EQ bar count', re.barCount ?? 5, { min: 3, max: 9, step: 1 })}
+            ${F.select('speakerBadge.reaction.visualizer', 'Visualizer', re.visualizer || 'bars', [['bars', 'EQ Bars'], ['pulse-ring', 'Avatar Pulse Ring'], ['both', 'EQ Bars + Pulse Ring'], ['none', 'None (Border Only)']])}
+            ${F.number('speakerBadge.reaction.barCount', 'EQ bar count', re.barCount ?? 5, { min: 3, max: 8, step: 1 })}
         </div>
         <div class="grid2">
             ${F.color('speakerBadge.reaction.activeColor', 'Speaking color', re.activeColor || '#6366f1')}
-            ${F.number('speakerBadge.reaction.glowSpread', 'Glow radius (px)', re.glowSpread ?? 12, { min: 0, max: 40, step: 2 })}
+            ${F.range('speakerBadge.reaction.glowSpread', 'Glow spread', re.glowSpread ?? 14, { min: 0, max: 40, step: 2, unit: ' px', editable: true })}
         </div>
         <div class="grid2">
             ${F.check('speakerBadge.reaction.highlightBorder', 'Highlight border & glow', re.highlightBorder !== false)}
@@ -1626,7 +1652,7 @@ export function speakerBadgeSection(el) {
         </div>
         <div class="grid2">
             ${F.check('speakerBadge.reaction.dimWhenIdle', 'Dim when silent', re.dimWhenIdle === true)}
-            ${F.number('speakerBadge.reaction.idleOpacity', 'Idle opacity', re.idleOpacity ?? 0.70, { min: 0.1, max: 1, step: 0.05 })}
+            ${F.range('speakerBadge.reaction.idleOpacity', 'Idle opacity', Math.round((re.idleOpacity ?? 0.70) * 100), { min: 10, max: 100, step: 5, unit: '%', editable: true, scale: 0.01 })}
         </div>
     `);
 
@@ -2163,6 +2189,34 @@ export function initInspectorEvents() {
         propEl.addEventListener('change', event => {
             const path = lookPath(event.target.closest('[data-path]')?.dataset.path || '');
             if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.borderAnimation.mode' || path === 'style.shadow.blur' || path === 'style.innerShadow.blur' || path === 'style.innerShadow.spread') renderProperties();
+            if (path === 'speakerBadge.layout') {
+                const el = primary();
+                if (el?.speakerBadge) {
+                    const nextLayout = el.speakerBadge.layout || 'horizontal';
+                    if (nextLayout === 'cspan-banner') {
+                        el.speakerBadge.speaker = el.speakerBadge.speaker || {};
+                        el.speakerBadge.speaker.callIn = el.speakerBadge.speaker.callIn || {};
+                        el.speakerBadge.speaker.callIn.enabled = true;
+                    }
+                    const SIZES = {
+                        'horizontal': [360, 80],
+                        'cspan-banner': [460, 96],
+                        'compact-pill': [260, 48],
+                        'vertical-card': [180, 200],
+                        'avatar-only': [96, 96]
+                    };
+                    const [rw, rh] = SIZES[nextLayout] || [360, 80];
+                    el.width = rw;
+                    el.height = rh;
+                    renderProperties();
+                    renderCanvas();
+                    changed(true);
+                }
+            } else if (path === 'speakerBadge.speaker.callIn.enabled') {
+                renderProperties();
+                renderCanvas();
+                changed(true);
+            }
         });
 
         const setFocal = (picker, clientX, clientY) => {
@@ -2534,6 +2588,26 @@ export function initInspectorEvents() {
                     el._simulateSpeaking = !el._simulateSpeaking;
                     renderCanvas();
                     renderProperties();
+                }
+                return;
+            }
+            if (target.closest('#btn-sb-adapt-size')) {
+                const el = primary();
+                if (el && el.type === 'speaker-badge') {
+                    const SIZES = {
+                        'horizontal': [360, 80],
+                        'cspan-banner': [460, 96],
+                        'compact-pill': [260, 48],
+                        'vertical-card': [180, 200],
+                        'avatar-only': [96, 96]
+                    };
+                    const curLayout = el.speakerBadge?.layout || 'horizontal';
+                    const [w, h] = SIZES[curLayout] || [360, 80];
+                    el.width = w;
+                    el.height = h;
+                    renderCanvas();
+                    renderProperties();
+                    changed(true);
                 }
                 return;
             }

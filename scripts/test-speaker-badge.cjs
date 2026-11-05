@@ -241,3 +241,167 @@ test('OBS audio inputs query route /api/obs/audio-inputs returns input list', as
     assert.equal(resStatus, 200);
     assert.deepEqual(resData, { inputs: ['Mic/Aux', 'Discord Audio', 'Guest 1 Browser'] });
 });
+
+test('Speaker Badge normalizes all 5 layouts and visualizer options', () => {
+    const layouts = ['horizontal', 'cspan-banner', 'compact-pill', 'vertical-card', 'avatar-only'];
+    for (const layout of layouts) {
+        const overlay = normalizeCustomOverlay({
+            id: `test-layout-${layout}`,
+            elements: [{
+                type: 'speaker-badge',
+                speakerBadge: { layout, reaction: { visualizer: 'both' } }
+            }]
+        });
+        assert.equal(overlay.elements[0].speakerBadge.layout, layout);
+        assert.equal(overlay.elements[0].speakerBadge.reaction.visualizer, 'both');
+    }
+});
+
+test('OverlayShared.renderSpeakerBadge renders all 5 layouts without errors or raw emojis', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+
+    class MockNode {
+        constructor(tagName = 'div') {
+            this.tagName = tagName.toUpperCase();
+            this.className = '';
+            this.styleProps = {};
+            this.style = {
+                setProperty: (k, v) => { this.styleProps[k] = String(v); },
+                getPropertyValue: (k) => this.styleProps[k] || ''
+            };
+            this.children = [];
+            this.childNodes = this.children;
+            this.innerHTML = '';
+            this.textContent = '';
+        }
+        appendChild(child) {
+            this.children.push(child);
+            child.parentNode = this;
+            return child;
+        }
+        replaceChildren(...nodes) {
+            this.children = [];
+            this.childNodes = this.children;
+            for (const n of nodes) {
+                if (n) this.appendChild(n);
+            }
+        }
+        hasChildNodes() {
+            return this.children.length > 0;
+        }
+        querySelector(selector) {
+            if (selector.includes('.sp-sb-card')) {
+                return this.children.find(c => c.className && c.className.includes('sp-sb-card')) || null;
+            }
+            if (selector.includes('.cspan-header-bar')) {
+                return this.children.find(c => c.className && c.className.includes('cspan-header-bar')) || null;
+            }
+            return null;
+        }
+        querySelectorAll(selector) {
+            const results = [];
+            const walk = node => {
+                for (const c of node.children) {
+                    if (selector.startsWith('.') && c.className && c.className.includes(selector.slice(1))) results.push(c);
+                    walk(c);
+                }
+            };
+            walk(this);
+            return results;
+        }
+        setAttribute(k, v) { this[k] = v; }
+    }
+
+    const mockDocument = {
+        getElementById: () => null,
+        createElement: tag => new MockNode(tag),
+        head: new MockNode('head'),
+        addEventListener: () => {},
+        removeEventListener: () => {}
+    };
+
+    const mockWin = {
+        document: mockDocument,
+        window: null
+    };
+    mockWin.window = mockWin;
+
+    const code = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'overlay-shared.js'), 'utf8');
+    const fn = new Function('window', 'document', code);
+    fn(mockWin, mockDocument);
+
+    const render = mockWin.OverlayShared.renderSpeakerBadge;
+    assert.equal(typeof render, 'function');
+
+    const layouts = ['horizontal', 'cspan-banner', 'compact-pill', 'vertical-card', 'avatar-only'];
+    for (const layout of layouts) {
+        const host = new MockNode('div');
+        const element = {
+            type: 'speaker-badge',
+            speakerBadge: {
+                layout,
+                speaker: {
+                    name: 'Alex Rivera',
+                    handle: '@alex',
+                    pronouns: 'they/them',
+                    callIn: {
+                        enabled: true,
+                        statusText: 'ON THE LINE',
+                        location: 'Chicago, IL',
+                        statusColor: '#22c55e'
+                    }
+                },
+                reaction: {
+                    visualizer: 'both',
+                    activeColor: '#6366f1',
+                    glowSpread: 14,
+                    highlightBorder: true,
+                    motionPop: true,
+                    dimWhenIdle: true
+                }
+            }
+        };
+
+        // Render idle
+        render(host, element, { preview: true, speaking: false });
+        const cardIdle = host.querySelector('.sp-sb-card');
+        assert.ok(cardIdle, `Layout ${layout} must create .sp-sb-card`);
+        assert.ok(cardIdle.className.includes(`layout-${layout}`), `Must contain layout-${layout}`);
+        assert.ok(cardIdle.className.includes('is-idle'));
+        assert.ok(cardIdle.className.includes('has-dim'));
+
+        // Render speaking
+        render(host, element, { preview: true, speaking: true });
+        const cardSpeaking = host.querySelector('.sp-sb-card');
+        assert.ok(cardSpeaking.className.includes('is-speaking'));
+        assert.ok(cardSpeaking.className.includes('has-highlight'));
+        assert.ok(cardSpeaking.className.includes('has-pop'));
+
+        // Verify visualizer both creates both pulse ring and EQ bars
+        const pulseRings = cardSpeaking.querySelectorAll('.sp-sb-pulse-ring');
+        assert.ok(pulseRings.length >= 1, `Layout ${layout} with visualizer=both must render pulse ring`);
+        const eqBars = cardSpeaking.querySelectorAll('.sp-sb-eq-bars');
+        assert.ok(eqBars.length >= 1, `Layout ${layout} with visualizer=both must render EQ bars`);
+
+        // Strict No-Emoji Check: ensure no raw unicode emojis in DOM tree
+        const collectText = node => (node.textContent || '') + (node.innerHTML || '') + (node.className || '') + node.children.map(collectText).join(' ');
+        const allText = collectText(host);
+        assert.ok(!/[\u{1F300}-\u{1FAFF}]/u.test(allText), `Layout ${layout} must contain zero raw emojis`);
+    }
+
+    // Explicit check for C-SPAN Banner structure
+    const cspanHost = new MockNode('div');
+    render(cspanHost, {
+        type: 'speaker-badge',
+        speakerBadge: {
+            layout: 'cspan-banner',
+            speaker: {
+                name: 'Guest Speaker',
+                callIn: { enabled: true, statusText: 'CALLING IN', location: 'Seattle, WA', statusColor: '#38bdf8' }
+            }
+        }
+    }, { speaking: true });
+    const cspanCard = cspanHost.querySelector('.sp-sb-card');
+    assert.ok(cspanCard.querySelector('.cspan-header-bar'), 'C-SPAN Banner layout must contain .cspan-header-bar');
+});

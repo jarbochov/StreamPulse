@@ -317,7 +317,7 @@ kbd { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; background: var
     z-index: 60;
     top: calc(100% + 6px);
     left: 0;
-    width: 760px;
+    width: 830px;
     max-width: calc(100vw - 2rem);
     max-height: calc(100vh - 60px);
     background: var(--panel);
@@ -398,11 +398,11 @@ kbd { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; background: var
 .menu-panel-body {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.85rem;
-    padding: 0.75rem;
+    gap: 0.95rem;
+    padding: 0.85rem;
     overflow-y: auto;
     overflow-x: hidden;
-    max-height: calc(100vh - 160px);
+    max-height: min(600px, calc(100vh - 150px));
 }
 .menu-panel-col {
     display: flex;
@@ -432,11 +432,11 @@ kbd { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; background: var
     display: flex;
     align-items: flex-start;
     justify-content: flex-start;
-    gap: 0.55rem;
+    gap: 0.6rem;
     width: 100%;
     border: 1px solid transparent;
     background: transparent;
-    padding: 0.42rem 0.5rem;
+    padding: 0.45rem 0.55rem;
     border-radius: 7px;
     text-align: left;
     cursor: pointer;
@@ -445,7 +445,7 @@ kbd { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; background: var
     text-decoration: none;
     box-sizing: border-box;
     transition: background 0.1s ease, border-color 0.1s ease;
-    min-height: 44px;
+    min-height: 48px;
 }
 .menu-item-btn:hover {
     background: color-mix(in srgb, var(--accent-strong) 14%, transparent);
@@ -488,17 +488,20 @@ kbd { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; background: var
     gap: 2px;
 }
 .menu-item-title {
-    font-size: 12px;
+    font-size: 12.5px;
     font-weight: 600;
     line-height: 1.25;
     color: var(--text);
     display: flex;
     align-items: center;
     gap: 0.35rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .menu-item-desc {
     font-size: 11px;
-    line-height: 1.3;
+    line-height: 1.35;
     color: var(--muted);
     white-space: normal;
     display: -webkit-box;
@@ -568,15 +571,15 @@ kbd { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; background: var
     margin-top: 0;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 960px) {
     .menu-panel {
-        width: 540px;
+        width: 560px;
     }
     .menu-panel-body {
         grid-template-columns: 1fr 1fr;
     }
 }
-@media (max-width: 580px) {
+@media (max-width: 620px) {
     .menu-panel {
         width: 320px;
         min-width: 290px;

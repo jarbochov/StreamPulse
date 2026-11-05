@@ -3698,47 +3698,90 @@
         const tag = document.createElement('style');
         tag.id = 'sp-speaker-badge-style';
         tag.textContent = `
-.sp-sb-card { box-sizing: border-box; display: flex; align-items: center; position: relative; width: 100%; height: 100%; transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.16s ease, box-shadow 0.16s ease, opacity 0.2s ease; overflow: hidden; user-select: none; }
-.sp-sb-card.is-speaking { border-color: var(--sb-active-color, #6366f1) !important; box-shadow: 0 0 var(--sb-glow-spread, 14px) var(--sb-active-glow, rgba(99, 102, 241, 0.45)), 0 4px 20px rgba(0,0,0,0.35) !important; }
-.sp-sb-card.is-speaking.has-pop { transform: scale(1.04); }
+.sp-sb-card { box-sizing: border-box; display: flex; position: relative; width: 100%; height: 100%; transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.18s ease, box-shadow 0.18s ease, opacity 0.2s ease; overflow: hidden; user-select: none; font-family: inherit; color: inherit; }
+.sp-sb-card.is-speaking.has-highlight { border-color: var(--sb-active-color, #6366f1) !important; box-shadow: 0 0 var(--sb-glow-spread, 14px) var(--sb-active-glow, rgba(99, 102, 241, 0.45)), 0 4px 20px rgba(0,0,0,0.35) !important; }
+.sp-sb-card.is-speaking.has-pop { transform: scale(1.03); }
 .sp-sb-card.is-idle.has-dim { opacity: var(--sb-idle-opacity, 0.7) !important; }
-.sp-sb-avatar-wrap { position: relative; flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; }
+
+/* Avatar Wrap & Shapes */
+.sp-sb-avatar-wrap { position: relative; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.sp-sb-avatar-wrap.shape-circle, .sp-sb-avatar.shape-circle, .sp-sb-avatar-placeholder.shape-circle { border-radius: 50%; }
+.sp-sb-avatar-wrap.shape-squircle, .sp-sb-avatar.shape-squircle, .sp-sb-avatar-placeholder.shape-squircle { border-radius: 26%; }
+.sp-sb-avatar-wrap.shape-square, .sp-sb-avatar.shape-square, .sp-sb-avatar-placeholder.shape-square { border-radius: 8px; }
 .sp-sb-avatar { width: 100%; height: 100%; object-fit: cover; display: block; }
-.sp-sb-avatar.shape-circle { border-radius: 50%; }
-.sp-sb-avatar.shape-squircle { border-radius: 26%; }
-.sp-sb-avatar.shape-square { border-radius: 8px; }
-.sp-sb-avatar-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); color: currentColor; }
-.sp-sb-avatar-placeholder svg { width: 60%; height: 60%; opacity: 0.7; }
-.sp-sb-pulse-ring { position: absolute; inset: -4px; border-radius: inherit; border: 2px solid var(--sb-active-color, #6366f1); opacity: 0; pointer-events: none; transform: scale(0.95); }
-.is-speaking .sp-sb-pulse-ring { animation: spSbPulse 1.4s ease-out infinite; }
-@keyframes spSbPulse { 0% { transform: scale(0.95); opacity: 0.8; } 50% { transform: scale(1.15); opacity: 0.25; } 100% { transform: scale(1.3); opacity: 0; } }
-.sp-sb-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 0 10px; }
-.sp-sb-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.sp-sb-name { font-weight: 700; font-size: 1.05em; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: inherit; }
-.sp-sb-pronouns { font-size: 0.7em; font-weight: 600; text-transform: lowercase; padding: 2px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.8); border: 1px solid rgba(255, 255, 255, 0.08); white-space: nowrap; flex-shrink: 0; }
-.sp-sb-handle { font-size: 0.8em; opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-.sp-sb-eq-bars { display: inline-flex; align-items: flex-end; gap: 2.5px; height: 18px; flex-shrink: 0; padding: 0 4px; }
-.sp-sb-eq-bar { width: 3px; border-radius: 999px; background: var(--sb-bar-color, var(--sb-active-color, #6366f1)); height: 3px; transition: height 0.12s ease, opacity 0.15s ease; opacity: 0.4; }
-.is-speaking .sp-sb-eq-bar { opacity: 1; animation: spSbEqBounce 0.55s ease-in-out infinite alternate; }
-.is-speaking .sp-sb-eq-bar:nth-child(2) { animation-delay: 0.12s; }
-.is-speaking .sp-sb-eq-bar:nth-child(3) { animation-delay: 0.25s; }
-.is-speaking .sp-sb-eq-bar:nth-child(4) { animation-delay: 0.08s; }
-.is-speaking .sp-sb-eq-bar:nth-child(5) { animation-delay: 0.18s; }
-.is-speaking .sp-sb-eq-bar:nth-child(6) { animation-delay: 0.3s; }
-.is-speaking .sp-sb-eq-bar:nth-child(7) { animation-delay: 0.15s; }
-@keyframes spSbEqBounce { 0% { height: 4px; } 50% { height: 16px; } 100% { height: 8px; } }
-.layout-cspan-banner { flex-direction: column; justify-content: space-between; padding: 8px 12px; }
-.cspan-header-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; border-bottom: 1px solid rgba(255, 255, 255, 0.12); padding-bottom: 5px; margin-bottom: 5px; }
-.cspan-status-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 0.7em; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cspan-status-color, #22c55e); }
-.cspan-live-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: inline-block; }
-.is-speaking .cspan-live-dot { box-shadow: 0 0 8px currentColor; animation: spSbBlink 0.9s infinite alternate; }
-@keyframes spSbBlink { from { opacity: 0.5; transform: scale(0.9); } to { opacity: 1; transform: scale(1.15); } }
-.cspan-location { font-size: 0.7em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.8; }
-.cspan-main-row { display: flex; align-items: center; justify-content: space-between; width: 100%; min-width: 0; }
-.layout-compact-pill { padding: 4px 12px; border-radius: 999px !important; }
-.layout-vertical-card { flex-direction: column; text-align: center; padding: 12px; justify-content: center; }
-.layout-vertical-card .sp-sb-meta { align-items: center; padding: 6px 0 0; }
-.layout-avatar-only { justify-content: center; padding: 0; background: transparent !important; border: 0 !important; box-shadow: none !important; }
+.sp-sb-avatar-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.12); color: currentColor; box-sizing: border-box; }
+.sp-sb-avatar-placeholder svg { width: 55%; height: 55%; opacity: 0.75; }
+
+/* Pulse Ring Halo */
+.sp-sb-pulse-ring { position: absolute; inset: -5px; border-radius: inherit; border: 2px solid var(--sb-active-color, #6366f1); opacity: 0; pointer-events: none; transform: scale(0.95); }
+.is-speaking .sp-sb-pulse-ring { animation: spSbPulse 1.3s ease-out infinite; }
+@keyframes spSbPulse { 0% { transform: scale(0.95); opacity: 0.85; } 50% { transform: scale(1.18); opacity: 0.3; } 100% { transform: scale(1.35); opacity: 0; } }
+
+/* Metadata & Text */
+.sp-sb-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; }
+.sp-sb-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sp-sb-subrow { gap: 8px; margin-top: 1px; }
+.sp-sb-name { font-weight: 700; font-size: var(--sb-font-size, 16px); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: inherit; }
+.sp-sb-pronouns { font-size: 11px; font-weight: 600; text-transform: lowercase; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); color: rgba(255, 255, 255, 0.9); border: 1px solid rgba(255, 255, 255, 0.1); white-space: nowrap; flex-shrink: 0; line-height: 1.2; }
+.sp-sb-handle { font-size: 12.5px; opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+.sp-sb-location { font-size: 11.5px; opacity: 0.8; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+
+/* Call-In Badges & Live Status Indicator */
+.sp-sb-callin-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--cspan-status-color, #22c55e); background: rgba(0, 0, 0, 0.36); padding: 2px 7px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--cspan-status-color, #22c55e) 35%, transparent); flex-shrink: 0; line-height: 1.2; }
+.sp-sb-callin-tag.size-compact { font-size: 9px; padding: 1px 6px; gap: 4px; }
+.sp-sb-callin-tag.size-small { font-size: 9.5px; padding: 2px 6px; }
+.cspan-live-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: inline-block; flex-shrink: 0; }
+.is-speaking .cspan-live-dot { box-shadow: 0 0 8px currentColor; animation: spSbBlink 0.8s infinite alternate; }
+@keyframes spSbBlink { from { opacity: 0.4; transform: scale(0.9); } to { opacity: 1; transform: scale(1.2); } }
+
+/* EQ Audio Visualizer Bars */
+.sp-sb-eq-bars { display: inline-flex; align-items: flex-end; gap: 3px; height: 20px; flex-shrink: 0; padding: 0 4px; }
+.sp-sb-eq-bar { width: 3.5px; border-radius: 999px; background: var(--sb-bar-color, var(--sb-active-color, #6366f1)); height: 4px; transition: height 0.12s ease, opacity 0.15s ease; opacity: 0.35; }
+.is-speaking .sp-sb-eq-bar { opacity: 1; animation: spSbEqBounce 0.5s ease-in-out infinite alternate; }
+.is-speaking .sp-sb-eq-bar:nth-child(1) { animation-delay: 0.05s; }
+.is-speaking .sp-sb-eq-bar:nth-child(2) { animation-delay: 0.18s; }
+.is-speaking .sp-sb-eq-bar:nth-child(3) { animation-delay: 0.32s; }
+.is-speaking .sp-sb-eq-bar:nth-child(4) { animation-delay: 0.12s; }
+.is-speaking .sp-sb-eq-bar:nth-child(5) { animation-delay: 0.25s; }
+.is-speaking .sp-sb-eq-bar:nth-child(6) { animation-delay: 0.08s; }
+.is-speaking .sp-sb-eq-bar:nth-child(7) { animation-delay: 0.22s; }
+.is-speaking .sp-sb-eq-bar:nth-child(8) { animation-delay: 0.38s; }
+@keyframes spSbEqBounce { 0% { height: 4px; } 30% { height: 18px; } 60% { height: 8px; } 100% { height: 20px; } }
+
+/* Layout 1: Horizontal Lower-Third */
+.sp-sb-card.layout-horizontal { flex-direction: row; align-items: center; gap: 12px; padding: 10px 16px; }
+.sp-sb-card.layout-horizontal .sp-sb-avatar-wrap { width: 48px; height: 48px; }
+
+/* Layout 2: C-SPAN Banner */
+.sp-sb-card.layout-cspan-banner { flex-direction: column; justify-content: space-between; padding: 0; }
+.sp-sb-card.layout-cspan-banner .cspan-header-bar { display: flex; align-items: center; justify-content: space-between; width: 100%; border-bottom: 1px solid rgba(255, 255, 255, 0.14); padding: 6px 14px; box-sizing: border-box; background: rgba(0, 0, 0, 0.32); font-size: 11px; flex-shrink: 0; }
+.sp-sb-card.layout-cspan-banner .cspan-status-tag { display: inline-flex; align-items: center; gap: 7px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cspan-status-color, #22c55e); }
+.sp-sb-card.layout-cspan-banner .cspan-location { font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; font-size: 10.5px; }
+.sp-sb-card.layout-cspan-banner .cspan-main-row { display: flex; align-items: center; width: 100%; min-width: 0; flex: 1; padding: 8px 14px 10px; box-sizing: border-box; gap: 12px; }
+.sp-sb-card.layout-cspan-banner .sp-sb-avatar-wrap { width: 44px; height: 44px; }
+.sp-sb-card.layout-cspan-banner .sp-sb-name { font-size: var(--sb-font-size, 18px); font-weight: 800; letter-spacing: 0.02em; }
+
+/* Layout 3: Compact Pill */
+.sp-sb-card.layout-compact-pill { flex-direction: row; align-items: center; gap: 9px; padding: 6px 14px; border-radius: 999px !important; }
+.sp-sb-card.layout-compact-pill .sp-sb-avatar-wrap { width: 32px; height: 32px; }
+.sp-sb-card.layout-compact-pill .sp-sb-name { font-size: var(--sb-font-size, 14px); font-weight: 700; }
+.sp-sb-card.layout-compact-pill .sp-sb-eq-bars { height: 16px; }
+
+/* Layout 4: Vertical Sidebar Card */
+.sp-sb-card.layout-vertical-card { flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 14px 12px; gap: 6px; }
+.sp-sb-card.layout-vertical-card .sp-sb-avatar-wrap { width: 64px; height: 64px; }
+.sp-sb-card.layout-vertical-card .sp-sb-meta { align-items: center; text-align: center; width: 100%; gap: 3px; }
+.sp-sb-card.layout-vertical-card .sp-sb-row { justify-content: center; flex-wrap: wrap; gap: 4px; }
+.sp-sb-card.layout-vertical-card .sp-sb-eq-bars { margin-top: 4px; }
+
+/* Layout 5: Avatar Only */
+.sp-sb-card.layout-avatar-only { justify-content: center; align-items: center; padding: 0 !important; background: transparent !important; border: 0 !important; box-shadow: none !important; }
+.sp-sb-card.layout-avatar-only .sp-sb-avatar-wrap { width: 100%; height: 100%; transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease; }
+.sp-sb-card.layout-avatar-only.is-speaking.has-highlight .sp-sb-avatar-wrap { box-shadow: 0 0 var(--sb-glow-spread, 16px) var(--sb-active-glow, rgba(99, 102, 241, 0.6)); }
+.sp-sb-card.layout-avatar-only.is-speaking.has-pop .sp-sb-avatar-wrap { transform: scale(1.06); }
+.sp-sb-card.layout-avatar-only .sp-sb-avatar, .sp-sb-card.layout-avatar-only .sp-sb-avatar-placeholder { border: 2.5px solid rgba(255, 255, 255, 0.2); box-sizing: border-box; transition: border-color 0.18s ease; }
+.sp-sb-card.layout-avatar-only.is-speaking.has-highlight .sp-sb-avatar, .sp-sb-card.layout-avatar-only.is-speaking.has-highlight .sp-sb-avatar-placeholder { border-color: var(--sb-active-color, #6366f1) !important; }
+.sp-sb-card.layout-avatar-only .avatar-corner-eq { position: absolute; bottom: 2px; right: 2px; background: rgba(0, 0, 0, 0.65); padding: 2px 4px; border-radius: 4px; height: 14px; }
 `;
         document.head.appendChild(tag);
     }
@@ -3749,30 +3792,66 @@
         const sp = b.speaker || {};
         const callIn = sp.callIn || {};
         const re = b.reaction || {};
-        const layout = (callIn.enabled ? 'cspan-banner' : (b.layout || 'horizontal'));
+        const s = element.style || {};
+        const layout = b.layout || 'horizontal';
         const speaking = Boolean(options.speaking);
 
         const activeColor = re.activeColor || '#6366f1';
-        const glowSpread = Math.max(0, Number(re.glowSpread) || 12);
+        const glowSpread = Math.max(0, Number(re.glowSpread) || 14);
         const barColor = re.visualizerColor === 'match' ? activeColor : (re.visualizerColor || activeColor);
 
-        node.className = `sp-sb-card layout-${layout} ${speaking ? 'is-speaking' : 'is-idle'}${re.motionPop !== false ? ' has-pop' : ''}${re.dimWhenIdle ? ' has-dim' : ''}`;
-        node.style.setProperty('--sb-active-color', activeColor);
-        node.style.setProperty('--sb-glow-spread', `${glowSpread}px`);
-        node.style.setProperty('--sb-active-glow', activeColor + (activeColor.length === 7 ? '55' : ''));
-        node.style.setProperty('--sb-idle-opacity', String(re.idleOpacity ?? 0.7));
-        node.style.setProperty('--sb-bar-color', barColor);
-        node.style.setProperty('--cspan-status-color', callIn.statusColor || '#22c55e');
+        // Keep the outer host node clean so canvas/runtime geometry & selection remain intact
+        node.style.padding = '0';
+        node.style.background = 'transparent';
+        node.style.border = '0';
+        node.style.boxShadow = 'none';
 
-        node.replaceChildren();
+        // Find or create the inner .sp-sb-card
+        let card = node.querySelector(':scope > .sp-sb-card');
+        if (!card) {
+            node.replaceChildren();
+            card = document.createElement('div');
+            node.appendChild(card);
+        }
 
+        const hasHighlight = re.highlightBorder !== false;
+        const hasPop = re.motionPop !== false;
+        const hasDim = Boolean(re.dimWhenIdle);
+
+        // Apply classes and CSS variables to the inner card
+        card.className = `sp-sb-card layout-${layout} ${speaking ? 'is-speaking' : 'is-idle'}${hasHighlight ? ' has-highlight' : ''}${hasPop ? ' has-pop' : ''}${hasDim ? ' has-dim' : ''}`;
+        card.style.setProperty('--sb-active-color', activeColor);
+        card.style.setProperty('--sb-glow-spread', `${glowSpread}px`);
+        card.style.setProperty('--sb-active-glow', activeColor + (activeColor.length === 7 ? '55' : ''));
+        card.style.setProperty('--sb-idle-opacity', String(re.idleOpacity ?? 0.7));
+        card.style.setProperty('--sb-bar-color', barColor);
+        card.style.setProperty('--cspan-status-color', callIn.statusColor || '#22c55e');
+        if (s.fontSize) card.style.setProperty('--sb-font-size', `${s.fontSize}px`);
+        card.style.color = s.color || '#ffffff';
+        if (s.fontFamily) card.style.fontFamily = s.fontFamily;
+
+        // Apply style background, borders, and border-radius to card (unless avatar-only)
+        if (layout === 'avatar-only') {
+            card.style.background = 'transparent';
+            card.style.borderColor = 'transparent';
+            card.style.borderWidth = '0';
+            card.style.borderRadius = '0';
+        } else {
+            card.style.background = s.background && s.background !== 'transparent' ? s.background : 'rgba(18, 18, 26, 0.9)';
+            card.style.borderColor = s.borderColor || 'rgba(255, 255, 255, 0.12)';
+            card.style.borderWidth = `${s.borderWidth != null && s.borderWidth !== '' ? s.borderWidth : 2}px`;
+            card.style.borderStyle = s.borderStyle || 'solid';
+            card.style.borderRadius = layout === 'compact-pill' ? '999px' : `${s.borderRadius != null && s.borderRadius !== '' ? s.borderRadius : 14}px`;
+        }
+
+        card.replaceChildren();
+
+        // 1. Avatar
         const avatarShape = sp.avatarShape || 'circle';
         const avatarWrap = document.createElement('div');
-        avatarWrap.className = 'sp-sb-avatar-wrap';
-        if (avatarShape === 'circle') avatarWrap.style.borderRadius = '50%';
-        else if (avatarShape === 'squircle') avatarWrap.style.borderRadius = '26%';
-        else avatarWrap.style.borderRadius = '8px';
+        avatarWrap.className = `sp-sb-avatar-wrap shape-${avatarShape}`;
 
+        const isCallIn = layout === 'cspan-banner' || callIn.enabled;
         if (sp.avatarSrc) {
             const img = document.createElement('img');
             img.className = `sp-sb-avatar shape-${avatarShape}`;
@@ -3783,21 +3862,27 @@
         } else {
             const placeholder = document.createElement('div');
             placeholder.className = `sp-sb-avatar-placeholder shape-${avatarShape}`;
-            placeholder.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
+            if (isCallIn) {
+                // Inline phone icon for call-in / C-SPAN (Strict No-Emoji Policy)
+                placeholder.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
+            } else {
+                // Inline user profile icon (Strict No-Emoji Policy)
+                placeholder.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
+            }
             avatarWrap.appendChild(placeholder);
         }
 
-        if (re.visualizer === 'pulse-ring' || layout === 'avatar-only') {
+        if (re.visualizer === 'pulse-ring' || re.visualizer === 'both' || layout === 'avatar-only') {
             const ring = document.createElement('div');
             ring.className = 'sp-sb-pulse-ring';
             avatarWrap.appendChild(ring);
         }
 
-        const buildEqBars = () => {
-            if (re.visualizer !== 'bars') return null;
+        const buildEqBars = (customClass = '') => {
+            if (re.visualizer !== 'bars' && re.visualizer !== 'both') return null;
             const barContainer = document.createElement('div');
-            barContainer.className = 'sp-sb-eq-bars';
-            const count = Math.max(3, Math.min(9, Number(re.barCount) || 5));
+            barContainer.className = `sp-sb-eq-bars ${customClass}`.trim();
+            const count = Math.max(3, Math.min(8, Number(re.barCount) || 5));
             for (let i = 0; i < count; i++) {
                 const bar = document.createElement('span');
                 bar.className = 'sp-sb-eq-bar';
@@ -3806,31 +3891,72 @@
             return barContainer;
         };
 
+        const buildCallInPill = (size = 'normal') => {
+            if (!callIn.enabled) return null;
+            const pill = document.createElement('span');
+            pill.className = `sp-sb-callin-tag size-${size}`;
+
+            const dot = document.createElement('span');
+            dot.className = 'cspan-live-dot';
+            pill.appendChild(dot);
+
+            const label = document.createElement('span');
+            label.className = 'cspan-status-label';
+            label.textContent = callIn.statusText || 'ON THE LINE';
+            pill.appendChild(label);
+
+            return pill;
+        };
+
+        const buildLocationEl = () => {
+            if (callIn.showLocation === false || !callIn.location) return null;
+            const loc = document.createElement('span');
+            loc.className = 'sp-sb-location';
+            loc.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;margin-right:2px;opacity:0.85;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+            const txt = document.createElement('span');
+            txt.textContent = callIn.location;
+            loc.appendChild(txt);
+            return loc;
+        };
+
+        // Layout 5: Avatar Only
         if (layout === 'avatar-only') {
-            avatarWrap.style.width = '100%';
-            avatarWrap.style.height = '100%';
-            node.appendChild(avatarWrap);
+            card.appendChild(avatarWrap);
+            const eq = buildEqBars('avatar-corner-eq');
+            if (eq) card.appendChild(eq);
             return;
         }
 
+        // Layout 2: C-SPAN Banner
         if (layout === 'cspan-banner') {
             const header = document.createElement('div');
             header.className = 'cspan-header-bar';
-            header.innerHTML = `
-                <span class="cspan-status-tag">
-                    <span class="cspan-live-dot"></span>
-                    <span>${escapeXml(callIn.statusText || 'ON THE LINE')}</span>
-                </span>
-                ${callIn.showLocation && callIn.location ? `<span class="cspan-location">${escapeXml(callIn.location)}</span>` : ''}
-            `;
-            node.appendChild(header);
+
+            const statusTag = document.createElement('span');
+            statusTag.className = 'cspan-status-tag';
+
+            const dot = document.createElement('span');
+            dot.className = 'cspan-live-dot';
+            statusTag.appendChild(dot);
+
+            const statusLabel = document.createElement('span');
+            statusLabel.className = 'cspan-status-label';
+            statusLabel.textContent = callIn.statusText || 'ON THE LINE';
+            statusTag.appendChild(statusLabel);
+            header.appendChild(statusTag);
+
+            if (callIn.showLocation !== false && callIn.location) {
+                const loc = document.createElement('span');
+                loc.className = 'cspan-location';
+                loc.textContent = callIn.location;
+                header.appendChild(loc);
+            }
+            card.appendChild(header);
 
             const mainRow = document.createElement('div');
             mainRow.className = 'cspan-main-row';
 
-            if (sp.showAvatar) {
-                avatarWrap.style.width = '42px';
-                avatarWrap.style.height = '42px';
+            if (sp.showAvatar !== false) {
                 mainRow.appendChild(avatarWrap);
             }
 
@@ -3839,12 +3965,13 @@
 
             const nameRow = document.createElement('div');
             nameRow.className = 'sp-sb-row';
+
             const nameEl = document.createElement('span');
             nameEl.className = 'sp-sb-name';
-            nameEl.textContent = sp.name || 'Speaker';
+            nameEl.textContent = sp.name || 'Caller';
             nameRow.appendChild(nameEl);
 
-            if (sp.showPronouns && sp.pronouns) {
+            if (sp.showPronouns !== false && sp.pronouns) {
                 const pro = document.createElement('span');
                 pro.className = 'sp-sb-pronouns';
                 pro.textContent = sp.pronouns;
@@ -3852,7 +3979,7 @@
             }
             meta.appendChild(nameRow);
 
-            if (sp.showHandle && sp.handle) {
+            if (sp.showHandle !== false && sp.handle) {
                 const hEl = document.createElement('span');
                 hEl.className = 'sp-sb-handle';
                 hEl.textContent = sp.handle;
@@ -3863,17 +3990,107 @@
             const eq = buildEqBars();
             if (eq) mainRow.appendChild(eq);
 
-            node.appendChild(mainRow);
+            card.appendChild(mainRow);
             return;
         }
 
-        // Standard layout (horizontal, compact-pill, vertical-card)
-        if (sp.showAvatar) {
-            if (layout === 'compact-pill') {
-                avatarWrap.style.width = '28px';
-                avatarWrap.style.height = '28px';
+        // Layout 4: Vertical Sidebar Card
+        if (layout === 'vertical-card') {
+            if (sp.showAvatar !== false) {
+                card.appendChild(avatarWrap);
             }
-            node.appendChild(avatarWrap);
+
+            const callPill = buildCallInPill('small');
+            if (callPill) card.appendChild(callPill);
+
+            const meta = document.createElement('div');
+            meta.className = 'sp-sb-meta';
+
+            const nameRow = document.createElement('div');
+            nameRow.className = 'sp-sb-row';
+
+            const nameEl = document.createElement('span');
+            nameEl.className = 'sp-sb-name';
+            nameEl.textContent = sp.name || 'Speaker';
+            nameRow.appendChild(nameEl);
+
+            if (sp.showPronouns !== false && sp.pronouns) {
+                const pro = document.createElement('span');
+                pro.className = 'sp-sb-pronouns';
+                pro.textContent = sp.pronouns;
+                nameRow.appendChild(pro);
+            }
+            meta.appendChild(nameRow);
+
+            const subRow = document.createElement('div');
+            subRow.className = 'sp-sb-row sp-sb-subrow';
+
+            if (sp.showHandle !== false && sp.handle) {
+                const hEl = document.createElement('span');
+                hEl.className = 'sp-sb-handle';
+                hEl.textContent = sp.handle;
+                subRow.appendChild(hEl);
+            }
+
+            const loc = buildLocationEl();
+            if (loc) subRow.appendChild(loc);
+
+            if (subRow.hasChildNodes()) meta.appendChild(subRow);
+            card.appendChild(meta);
+
+            const eq = buildEqBars();
+            if (eq) card.appendChild(eq);
+            return;
+        }
+
+        // Layout 3: Compact Pill
+        if (layout === 'compact-pill') {
+            if (sp.showAvatar !== false) {
+                card.appendChild(avatarWrap);
+            }
+
+            const callPill = buildCallInPill('compact');
+            if (callPill) card.appendChild(callPill);
+
+            const meta = document.createElement('div');
+            meta.className = 'sp-sb-meta';
+
+            const nameRow = document.createElement('div');
+            nameRow.className = 'sp-sb-row';
+
+            const nameEl = document.createElement('span');
+            nameEl.className = 'sp-sb-name';
+            nameEl.textContent = sp.name || 'Speaker';
+            nameRow.appendChild(nameEl);
+
+            if (sp.showPronouns !== false && sp.pronouns) {
+                const pro = document.createElement('span');
+                pro.className = 'sp-sb-pronouns';
+                pro.textContent = sp.pronouns;
+                nameRow.appendChild(pro);
+            }
+
+            if (sp.showHandle !== false && sp.handle) {
+                const hEl = document.createElement('span');
+                hEl.className = 'sp-sb-handle';
+                hEl.textContent = sp.handle;
+                nameRow.appendChild(hEl);
+            }
+
+            const loc = buildLocationEl();
+            if (loc) nameRow.appendChild(loc);
+
+            meta.appendChild(nameRow);
+            card.appendChild(meta);
+
+            const eq = buildEqBars();
+            if (eq) card.appendChild(eq);
+            return;
+        }
+
+        // Layout 1: Horizontal Lower-Third (Default)
+        if (sp.showAvatar !== false) {
+            card.appendChild(avatarWrap);
         }
 
         const meta = document.createElement('div');
@@ -3881,29 +4098,42 @@
 
         const nameRow = document.createElement('div');
         nameRow.className = 'sp-sb-row';
+
         const nameEl = document.createElement('span');
         nameEl.className = 'sp-sb-name';
         nameEl.textContent = sp.name || 'Speaker';
         nameRow.appendChild(nameEl);
 
-        if (sp.showPronouns && sp.pronouns) {
+        if (sp.showPronouns !== false && sp.pronouns) {
             const pro = document.createElement('span');
             pro.className = 'sp-sb-pronouns';
             pro.textContent = sp.pronouns;
             nameRow.appendChild(pro);
         }
+
+        const callPill = buildCallInPill('normal');
+        if (callPill) nameRow.appendChild(callPill);
+
         meta.appendChild(nameRow);
 
-        if (sp.showHandle && sp.handle && layout !== 'compact-pill') {
+        const subRow = document.createElement('div');
+        subRow.className = 'sp-sb-row sp-sb-subrow';
+
+        if (sp.showHandle !== false && sp.handle) {
             const hEl = document.createElement('span');
             hEl.className = 'sp-sb-handle';
             hEl.textContent = sp.handle;
-            meta.appendChild(hEl);
+            subRow.appendChild(hEl);
         }
-        node.appendChild(meta);
+
+        const loc = buildLocationEl();
+        if (loc) subRow.appendChild(loc);
+
+        if (subRow.hasChildNodes()) meta.appendChild(subRow);
+        card.appendChild(meta);
 
         const eq = buildEqBars();
-        if (eq) node.appendChild(eq);
+        if (eq) card.appendChild(eq);
     }
 
     root.OverlayShared = { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, renderSpeakerBadge, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, applyMediaFilter, shadowClipStyle };

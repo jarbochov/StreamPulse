@@ -142,9 +142,9 @@
             height: `${element.height || 100}px`,
             zIndex: element.zIndex || 0,
             opacity: element.type === 'alert' ? 1 : style.opacity ?? 1,
-            background: element.type === 'alert' ? 'transparent' : (style.background || 'transparent'),
-            borderRadius: element.type === 'alert' ? '0px' : `${style.borderRadius || 0}px`,
-            padding: `${style.padding || 0}px`,
+            background: (element.type === 'alert' || element.type === 'speaker-badge') ? 'transparent' : (style.background || 'transparent'),
+            borderRadius: (element.type === 'alert' || element.type === 'speaker-badge') ? '0px' : `${style.borderRadius || 0}px`,
+            padding: (element.type === 'alert' || element.type === 'speaker-badge') ? '0px' : `${style.padding || 0}px`,
             fontFamily: style.fontFamily || 'sans-serif',
             fontSize: `${style.fontSize || 32}px`,
             fontWeight: style.fontWeight || '400',
@@ -156,7 +156,7 @@
             alignItems: style.verticalAlign === 'middle' ? 'center' : style.verticalAlign === 'bottom' ? 'flex-end' : 'flex-start',
             justifyContent: style.textAlign === 'center' ? 'center' : style.textAlign === 'right' ? 'flex-end' : 'flex-start'
         });
-        if (element.type === 'alert') {
+        if (element.type === 'alert' || element.type === 'speaker-badge') {
             node.style.border = '0';
             node.style.outline = 'none';
             node.style.boxShadow = 'none';
