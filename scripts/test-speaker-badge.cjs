@@ -178,7 +178,7 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         assert.equal(callbacks.size, 0, 'old source release timer is cancelled');
     });
 
-    test('Speaker editor OBS setup hint targets the shared OBS settings in the modules tab', () => {
+    test('Speaker editor OBS setup hint targets the global OBS connection settings', () => {
         const fs = require('node:fs');
         const path = require('node:path');
         const vm = require('node:vm');
@@ -189,7 +189,7 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         const context = vm.createContext({ document: { getElementById: id => nodes[id] } });
         vm.runInContext(source.slice(start, end).replace('export ', ''), context);
         context.updateObsAudioStatus({ connected: false });
-        assert.match(nodes['sb-obs-status-hint'].innerHTML, /href="\/config-editor.html#modules"/);
+        assert.match(nodes['sb-obs-status-hint'].innerHTML, /href="\/config-editor.html#connection"/);
         assert.ok(fs.existsSync(path.join(__dirname, '../public/system/config-editor.html')));
     });
 
@@ -210,7 +210,10 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
             { id: 'guest', type: 'speaker-badge', name: 'Guest', speakerBadge: { speaker: { name: 'Fictional Guest' } } },
             { id: 'heading', type: 'text', content: 'Original heading' }]
         });
-        const overlays = { [initial.id]: initial }, events = [];
+        const overlays = { [initial.id]: initial }, events = [], configSaves = [];
+        let audioConnected = true;
+        const fixtureConfig = { obs: { enabled: true, host: '127.0.0.2', port: 4456, hasPassword: true, motionEngine: 'cut', syncOnSave: false },
+            speaker_badges_enabled: false };
         const file = path.join(dir, 'overlays.json');
         const route = createOverlayRoutes({
             getCustomOverlays: () => overlays, normalizeCustomOverlay, customOverlayHistoryDir: path.join(dir, 'history'),
@@ -226,7 +229,23 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
             const url = new URL(req.url, 'http://localhost');
             if (url.pathname === '/api/obs/audio-inputs') {
                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ connected: true, inputs: ['Mic/Aux', 'Guest Audio'] })); return;
+                res.end(JSON.stringify({ connected: audioConnected, inputs: ['Mic/Aux', 'Guest Audio'] })); return;
+            }
+            if (url.pathname === '/api/config') {
+                if (req.method === 'PUT') {
+                    const chunks = [];
+                    for await (const chunk of req) chunks.push(chunk);
+                    configSaves.push(JSON.parse(Buffer.concat(chunks).toString()));
+                }
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(req.method === 'PUT' ? { status: 'saved' } : fixtureConfig)); return;
+            }
+            if (url.pathname === '/api/custom-overlays/assets') {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify([
+                    { kind: 'image', label: 'Fictional host avatar', url: '/favicon.svg' },
+                    { kind: 'video', label: 'Fictional video', url: '/video.mp4' }
+                ])); return;
             }
             if (await route(req, res, url, url.pathname)) return;
             staticRouter.handleRequest(req, res);
@@ -245,18 +264,36 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         await page.waitForSelector('[data-speaker-form="host"] input');
         await page.$eval('[data-speaker-form="host"] [name="name"]', input => { input.value = 'Edited Host'; input.dispatchEvent(new Event('input', { bubbles: true })); });
         await page.$eval('[data-speaker-form="host"] [name="inputName"]', input => { input.value = 'Guest Audio'; input.dispatchEvent(new Event('input', { bubbles: true })); });
+        await page.click('[data-speaker-form="host"] [data-speaker-avatar]');
+        await page.waitForSelector('.mp-grid [role="option"]');
+        assert.equal(await page.$$eval('.mp-grid [role="option"]', tiles => tiles.length), 1, 'avatars only offer image assets');
+        await page.type('.mp-head input[type="search"]', 'missing');
+        await page.waitForSelector('.mp-empty');
+        await page.$eval('.mp-head input[type="search"]', input => { input.value = ''; input.dispatchEvent(new Event('input', { bubbles: true })); });
+        await page.waitForSelector('.mp-grid [role="option"]');
+        await page.evaluate(async () => { await window.loadSpeakers(); });
+        assert.equal(await page.$eval('[data-speaker-form="host"] [name="name"]', input => input.value), 'Edited Host');
+        await page.click('.mp-grid [role="option"]');
+        assert.equal(await page.$eval('[data-speaker-form="host"] [name="avatarSrc"]', input => input.value), '/favicon.svg');
+        assert.equal(await page.$eval('[data-speaker-form="guest"] [name="avatarSrc"]', input => input.value), '');
+        assert.equal(overlays[initial.id].elements[0].speakerBadge.speaker.avatarSrc, '', 'selection stays a draft until saved');
+        await page.click('[data-speaker-form="host"] [data-speaker-avatar]');
+        await page.waitForSelector('.mp-grid [role="option"]');
+        await page.click('.mp-dialog [data-close]');
+        assert.equal(await page.$eval('[data-speaker-form="host"] [name="avatarSrc"]', input => input.value), '/favicon.svg', 'cancel preserves the selected avatar');
         for (const client of sockets.clients) client.send(JSON.stringify({ type: 'custom-overlay-page', data: { id: initial.id, enabled: false } }));
         assert.equal(await page.$eval('[data-speaker-form="host"] [name="name"]', input => input.value), 'Edited Host');
         assert.equal(await page.$eval('#speaker-audio-inputs', list => list.children.length), 2);
         overlays[initial.id].elements.find(element => element.id === 'heading').content = 'Concurrent heading edit';
         const [saved] = await Promise.all([
             page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'PATCH'),
-            page.click('[data-speaker-form="host"] button')
+            page.click('[data-speaker-form="host"] button[type="submit"]')
         ]);
         assert.equal(saved.status(), 200);
         const stored = JSON.parse(fs.readFileSync(file, 'utf8'))[initial.id];
         const badge = stored.elements.find(element => element.id === 'host').speakerBadge;
         assert.equal(badge.speaker.name, 'Edited Host');
+        assert.equal(badge.speaker.avatarSrc, '/favicon.svg');
         assert.equal(badge.audio.inputName, 'Guest Audio');
         assert.equal(badge.audio.thresholdDb, -27);
         assert.equal(badge.reaction.glowSpread, 30);
@@ -271,10 +308,47 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         await page.reload({ waitUntil: 'networkidle0' });
         assert.equal(await page.$eval('#tab-speakers', tab => tab.getAttribute('aria-selected')), 'true');
         assert.equal(await page.$eval('[data-speaker-form="host"] [name="name"]', input => input.value), 'Edited Host');
-        await page.goto(`${base}/config-editor.html#modules`, { waitUntil: 'networkidle0' });
+        assert.equal(await page.$eval('[data-speaker-form="host"] [name="avatarSrc"]', input => input.value), '/favicon.svg');
+        await page.click('[data-speaker-form="host"] [data-speaker-avatar]');
+        await page.click('.mp-dialog [data-clear]');
+        assert.equal(await page.$eval('[data-speaker-form="host"] [name="avatarSrc"]', input => input.value), '');
+        audioConnected = false;
+        await page.evaluate(async () => { await window.loadAudioInputs(); });
+        const setupLink = await page.$eval('#audio-status a', link => link.getAttribute('href'));
+        assert.equal(setupLink, '/config-editor.html#connection');
+        await page.goto(`${base}${setupLink}`, { waitUntil: 'networkidle0' });
         assert.equal(await page.$eval('#cfg-obs-enabled', input => input.closest('.tab-pane').hidden), false);
-        assert.match(await page.$eval('#cfg-obs-enabled', input => input.closest('.module-card').textContent), /OBS Connection & Sync/);
+        assert.equal(await page.$eval('#cfg-obs-host', input => input.value), '127.0.0.2');
+        assert.equal(await page.$eval('#cfg-obs-port', input => input.value), '4456');
+        assert.equal(await page.$eval('#cfg-obs-password', input => input.value), '');
+        assert.match(await page.$eval('#cfg-obs-password', input => input.placeholder), /Saved/);
+        assert.equal(await page.$$eval('#pane-modules #cfg-obs-enabled, #pane-modules #cfg-obs-host, #pane-modules #cfg-obs-password', inputs => inputs.length), 0);
+        assert.equal(await page.$eval('#cfg-speaker-badges-enabled', input => input.closest('.tab-pane').hidden), true);
+        await page.click('#top-save-config');
+        await page.waitForFunction(() => document.querySelector('#toast').textContent.includes('saved and applied'));
+        assert.equal(configSaves.at(-1).obs.enabled, true);
+        assert.equal(configSaves.at(-1).obs.host, '127.0.0.2');
+        assert.equal(configSaves.at(-1).obs.port, 4456);
+        assert.equal(configSaves.at(-1).obs.motionEngine, 'cut');
+        assert.equal(configSaves.at(-1).obs.syncOnSave, false);
+        assert.equal(Object.hasOwn(configSaves.at(-1).obs, 'password'), false, 'blank password preserves the existing credential');
+        assert.equal(configSaves.at(-1).speaker_badges_enabled, false, 'global OBS enablement does not enable a module');
+        await page.click('.tabs-nav [data-tab="modules"]');
         assert.equal(await page.$eval('#cfg-speaker-badges-enabled', input => input.closest('.tab-pane').hidden), false);
+        assert.equal(await page.$eval('#cfg-obs-sync-save', input => input.closest('.tab-pane').hidden), false);
+        await page.click('#cfg-speaker-badges-enabled');
+        await page.evaluate(async () => { await window.saveConfig(); });
+        assert.equal(configSaves.at(-1).speaker_badges_enabled, true);
+        assert.equal(configSaves.at(-1).obs.enabled, true);
+        assert.equal(configSaves.at(-1).obs.syncOnSave, false, 'speaker metering does not enable automatic scene sync');
+        await page.click('#cfg-speaker-badges-enabled');
+        await page.click('.module-card a[href="#connection"]');
+        await page.waitForFunction(() => !document.querySelector('#pane-connection').hidden);
+        assert.equal(await page.$eval('#cfg-obs-enabled', input => input.checked), true, 'module toggle does not disable the shared connection');
+        await page.click('#cfg-obs-enabled');
+        await page.evaluate(async () => { await window.saveConfig(); });
+        assert.equal(configSaves.at(-1).obs.enabled, false);
+        assert.equal(configSaves.at(-1).obs.host, '127.0.0.2', 'disabling the connection retains its settings');
         assert.deepEqual(errors, []);
     });
 

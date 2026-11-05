@@ -3,6 +3,7 @@
 <head>
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
+    <script src="/js/image-picker.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -32,6 +33,9 @@
         .speaker-fields label { display:grid; gap:.3rem; font-size:.8rem; color:var(--text-muted); }
         .speaker-fields .wide { grid-column:1 / -1; }
         .speaker-fields input { width:100%; min-width:0; padding:.6rem; border:1px solid var(--border); border-radius:6px; background:var(--bg-inset); color:var(--text); font:inherit; }
+        .asset-row { display:flex; gap:.5rem; }
+        .asset-row input { flex:1; }
+        .asset-row .btn { flex:none; padding:.5rem .7rem; }
         .hint { font-size:.8rem; color:var(--text-muted); margin:.5rem 0; }
         .speaker-card { margin-bottom:.8rem; }
         .speaker-card summary { cursor:pointer; font-weight:600; }
@@ -96,7 +100,7 @@
             return `<details class="msg speaker-card" data-speaker="${esc(badge.id)}" ${open.has(badge.id) || index === 0 ? 'open' : ''}>
                 <summary>${esc(badge.name)}${badge.page ? ` <small>(${esc(badge.page)})</small>` : ''}</summary>
                 <form data-speaker-form="${esc(badge.id)}"><div class="speaker-fields">${fields.map(([key, label, max]) =>
-                    `<label class="${['avatarSrc', 'inputName'].includes(key) ? 'wide' : ''}">${label}<input name="${key}" value="${esc(values[key])}" maxlength="${max}" ${key === 'inputName' ? 'list="speaker-audio-inputs"' : ''}></label>`).join('')}</div>
+                    `<label class="${['avatarSrc', 'inputName'].includes(key) ? 'wide' : ''}">${label}${key === 'avatarSrc' ? '<span class="asset-row">' : ''}<input name="${key}" value="${esc(values[key])}" maxlength="${max}" ${key === 'inputName' ? 'list="speaker-audio-inputs"' : ''}>${key === 'avatarSrc' ? '<button class="btn" type="button" data-speaker-avatar>Library...</button></span>' : ''}</label>`).join('')}</div>
                 <button class="btn primary" type="submit">Save badge</button>
                 <span class="hint" data-speaker-status>${dirtySpeakers.has(badge.id) ? 'Unsaved changes' : ''}</span></form></details>`;
         }).join('') : '<div class="msg">No speaker badges in this overlay. Add a Speaker Badge in the custom overlay editor.</div>';
@@ -117,7 +121,7 @@
             if (!response.ok) throw new Error(data.error || 'Audio sources unavailable');
             $('speaker-audio-inputs').innerHTML = (data.inputs || []).map(name => `<option value="${esc(name)}"></option>`).join('');
             $('audio-status').textContent = data.connected ? `OBS connected · ${(data.inputs || []).length} audio sources. You can also type an exact source name.` : '';
-            if (!data.connected) $('audio-status').innerHTML = 'OBS disconnected. Configure the shared connection in <a href="/config-editor.html#modules" target="_blank" rel="noopener">System Config → Modules &amp; Services → OBS Connection &amp; Sync</a>. You can still save source names.';
+            if (!data.connected) $('audio-status').innerHTML = 'OBS disconnected. Configure the global connection in <a href="/config-editor.html#connection" target="_blank" rel="noopener">System Config → Connection &amp; Security → OBS Connection</a>. You can still save source names.';
         } catch (error) { $('audio-status').textContent = error.message; }
     }
 
@@ -133,7 +137,7 @@
         if (!form) return;
         event.preventDefault();
         const element = form.dataset.speakerForm, values = Object.fromEntries(new FormData(form));
-        const button = form.querySelector('button');
+        const button = form.querySelector('button[type="submit"]');
         button.disabled = true;
         try {
             const response = await fetch(speakersApi, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({
@@ -242,6 +246,16 @@
     document.addEventListener('click', event => {
         const t = event.target.closest('button'); if (!t) return;
         if (t.dataset.tab) return setTab(t.dataset.tab);
+        if (t.hasAttribute('data-speaker-avatar')) {
+            const form = t.closest('[data-speaker-form]'), element = form.dataset.speakerForm;
+            ImagePicker.open({ value:form.elements.avatarSrc.value, onPick: url => {
+                const current = [...document.querySelectorAll('[data-speaker-form]')].find(form => form.dataset.speakerForm === element);
+                if (!current) return;
+                current.elements.avatarSrc.value = url;
+                current.elements.avatarSrc.dispatchEvent(new Event('input', { bubbles:true }));
+            } });
+            return;
+        }
         if (t.id === 'refresh-speakers') {
             Promise.all([loadSpeakers(), loadAudioInputs()]).catch(error => { $('status').textContent = error.message; });
             return;

@@ -426,34 +426,16 @@
                     </div>
                 </div>
 
-                <!-- OBS WebSocket Bridge Card -->
+                <!-- OBS Scene Sync Card -->
                 <div class="module-card">
                     <div class="module-card-head">
                         <div class="module-card-title">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                            <span>OBS Connection &amp; Sync</span>
+                            <span>OBS Scene Sync</span>
                             <span class="beta-tag">BETA</span>
                         </div>
-                        <span class="module-badge" id="badge-obs">Disabled</span>
                     </div>
-                    <p class="hint">Shared OBS WebSocket connection for speaker-badge audio meters and camera/capture scene syncing. Speaker badges need this connection enabled; they do not require Move Plugin or automatic scene syncing.</p>
-                    <div class="cfg-toggle">
-                        <input type="checkbox" id="cfg-obs-enabled">
-                        <label for="cfg-obs-enabled">Enable OBS WebSocket v5 Bridge</label>
-                    </div>
-                    <div class="cfg-row" style="margin-top:0.35rem;">
-                        <label style="min-width:95px;">Host &amp; Port</label>
-                        <input type="text" id="cfg-obs-host" placeholder="127.0.0.1" value="127.0.0.1" style="flex:2;">
-                        <input type="number" id="cfg-obs-port" min="1" max="65535" value="4455" style="flex:1;max-width:90px;">
-                    </div>
-                    <div class="cfg-row">
-                        <label style="min-width:95px;">Password</label>
-                        <input type="password" id="cfg-obs-password" placeholder="Optional OBS WS password" autocomplete="off">
-                    </div>
-                    <div class="cfg-toggle">
-                        <input type="checkbox" id="cfg-obs-clear-password">
-                        <label for="cfg-obs-clear-password">Clear saved OBS password</label>
-                    </div>
+                    <p class="hint">Camera/capture source motion uses the global <a href="#connection">OBS Connection in Connection &amp; Security</a>. These scene-sync settings are independent of speaker audio metering.</p>
                     <div class="cfg-row">
                         <label style="min-width:95px;">Motion</label>
                         <select id="cfg-obs-engine">
@@ -467,7 +449,6 @@
                         <input type="checkbox" id="cfg-obs-sync-save" checked>
                         <label for="cfg-obs-sync-save">Auto-sync OBS on overlay save &amp; state change</label>
                     </div>
-                    <div class="hint" id="cfg-obs-status" style="margin-top:auto;font-weight:500;">OBS status checking…</div>
                 </div>
 
                 <!-- Voice-Reactive Speaker Badges Card -->
@@ -480,7 +461,7 @@
                         </div>
                         <span class="module-badge" id="badge-speaker-badges">Disabled</span>
                     </div>
-                    <p class="hint">Voice-reactive badges and call-in banners use the shared OBS Connection &amp; Sync settings on this tab. Enable both the OBS bridge and Speaker Badges, then save.</p>
+                    <p class="hint">Voice-reactive badges and call-in banners use the global <a href="#connection">OBS Connection in Connection &amp; Security</a>. Enable that connection and Speaker Badges, then save. Scene syncing and Move Plugin are not required.</p>
                     <div class="cfg-toggle" style="margin-top:auto;">
                         <input type="checkbox" id="cfg-speaker-badges-enabled">
                         <label for="cfg-speaker-badges-enabled">Enable Speaker Badges module</label>
@@ -491,6 +472,33 @@
 
         <!-- TAB 4: CONNECTION & SECURITY -->
         <div class="tab-pane" id="pane-connection" hidden>
+            <div class="card" id="obs-connection">
+                <h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    <span>OBS Connection</span>
+                    <span class="module-badge" id="badge-obs">Disabled</span>
+                </h2>
+                <p class="hint">One global OBS WebSocket v5 connection shared by all OBS-enabled features, including speaker audio meters and scene syncing. Configure it once; each module controls its own behavior separately.</p>
+                <div class="cfg-toggle">
+                    <input type="checkbox" id="cfg-obs-enabled">
+                    <label for="cfg-obs-enabled">Enable global OBS connection</label>
+                </div>
+                <div class="cfg-row" style="margin-top:0.35rem;">
+                    <label for="cfg-obs-host" style="min-width:95px;">Host</label>
+                    <input type="text" id="cfg-obs-host" placeholder="127.0.0.1" value="127.0.0.1">
+                    <label for="cfg-obs-port">Port</label>
+                    <input type="number" id="cfg-obs-port" min="1" max="65535" value="4455" style="max-width:90px;">
+                </div>
+                <div class="cfg-row">
+                    <label for="cfg-obs-password" style="min-width:95px;">Password</label>
+                    <input type="password" id="cfg-obs-password" placeholder="Optional OBS WS password" autocomplete="off">
+                </div>
+                <div class="cfg-toggle">
+                    <input type="checkbox" id="cfg-obs-clear-password">
+                    <label for="cfg-obs-clear-password">Clear saved OBS password</label>
+                </div>
+                <div class="hint" id="cfg-obs-status" style="margin-top:0.75rem;font-weight:500;">OBS status checking…</div>
+            </div>
             <div class="card">
                 <h2>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
@@ -722,12 +730,12 @@
         try {
             const st = await (await fetch('/api/obs/status', { cache: 'no-store' })).json();
             if (!st.enabled) {
-                line.textContent = 'OBS WebSocket Bridge is disabled.';
+                line.textContent = 'Global OBS connection is disabled.';
                 return;
             }
 
             if (st.connected) {
-                line.textContent = `Connected to OBS ${st.obsVersion || ''} (${st.host}:${st.port}) · ${st.movePluginAvailable ? 'Move Plugin detected' : 'Built-in 60fps Engine'}`;
+                line.textContent = `Connected to OBS ${st.obsVersion || ''} (${st.host}:${st.port}). Shared by OBS-enabled features.`;
             } else {
                 line.textContent = st.lastError ? `Disconnected: ${st.lastError}` : `Waiting for OBS at ${st.host}:${st.port}…`;
             }

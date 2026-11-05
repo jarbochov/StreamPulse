@@ -681,7 +681,9 @@ async function run() {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
         } else if (page.url().includes('config-editor') && new URL(url).pathname.startsWith('/api/')) {
             const pathname = new URL(url).pathname;
-            const data = pathname === '/api/config' ? { banned_users: ['FictionalManualAccount'], exclude_users: ['FictionalBot'], twitch_ban_sync: { enabled: true } }
+            const data = pathname === '/api/config' ? { banned_users: ['FictionalManualAccount'], exclude_users: ['FictionalBot'], twitch_ban_sync: { enabled: true },
+                obs: { enabled: true, host: '127.0.0.1', port: 4455, hasPassword: true, motionEngine: 'auto', syncOnSave: false }, speaker_badges_enabled: true }
+                : pathname === '/api/obs/status' ? { enabled: true, connected: true, obsVersion: '32.0', host: '127.0.0.1', port: 4455 }
                 : pathname === '/api/twitch/bans' ? { enabled: true, count: 2, users: [{ id: 'fictional-1', login: 'fictionalblockedone' }, { id: 'fictional-2', login: 'fictionalblockedtwo' }], lastSyncAt: '2026-11-03T20:00:00Z', liveUpdates: true }
                 : pathname === '/api/twitch/message-deletions' ? { enabled: true, events: 3, scopeReady: true, connected: true } : {};
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
@@ -760,6 +762,14 @@ async function run() {
     });
 
     const targets = [
+        {
+            url: `${baseUrl}/config-editor.html#connection`,
+            file: 'obs-connection.png',
+            wait: 1000,
+            action: async p => {
+                await p.waitForSelector('#pane-connection:not([hidden]) #cfg-obs-host');
+            }
+        },
         {
             url: `${baseUrl}/overlay-control.html?id=fictional-panel`,
             file: 'overlay-control-speakers.png',

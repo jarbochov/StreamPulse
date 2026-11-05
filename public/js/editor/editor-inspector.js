@@ -1566,7 +1566,7 @@ export function updateObsAudioStatus(data) {
         pill.style.color = '#ef4444';
         pill.style.border = '1px solid rgba(239, 68, 68, 0.3)';
         pill.innerHTML = `<span style="width:5px;height:5px;border-radius:50%;background:currentColor;"></span>OBS Disconnected`;
-        if (hint) hint.innerHTML = 'Configure the shared OBS connection in <a href="/config-editor.html#modules" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;">System Config &gt; Modules &amp; Services &gt; OBS Connection &amp; Sync</a>. Speaker badges and scene syncing use the same connection.';
+        if (hint) hint.innerHTML = 'Configure the global OBS connection in <a href="/config-editor.html#connection" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;">System Config &gt; Connection &amp; Security &gt; OBS Connection</a>. Speaker badges and scene syncing use the same connection.';
     }
 }
 
