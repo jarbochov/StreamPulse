@@ -254,4 +254,22 @@ test('Twitch EventSub: processes channel updates, follows, cheers and redemption
     assert.equal(redeemData.user, 'PointHoarder');
     assert.equal(redeemData.rewardTitle, 'Hydrate');
     assert.equal(redeemData.cost, 250);
+
+    let raidData = null;
+    const raidService = createTwitchEventSubService({
+        onRaid: (r) => { raidData = r; },
+        log: () => {},
+        warn: () => {}
+    });
+    raidService.handleNotification(
+        { subscription_type: 'channel.raid' },
+        { event: { from_broadcaster_user_id: '456', from_broadcaster_user_login: 'fellowstreamer', from_broadcaster_user_name: 'FellowStreamer', to_broadcaster_user_id: '12345', viewers: 88 } }
+    );
+    assert.deepEqual(raidData, {
+        fromBroadcasterId: '456',
+        fromBroadcasterLogin: 'fellowstreamer',
+        fromBroadcasterName: 'FellowStreamer',
+        toBroadcasterId: '12345',
+        viewers: 88
+    });
 });

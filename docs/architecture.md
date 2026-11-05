@@ -172,9 +172,11 @@ StreamPulse integrates directly with Twitch's native EventSub WebSocket infrastr
    - `channel.subscribe`, `channel.subscription.gift`
    - `channel.cheer`
    - `channel.channel_points_custom_reward_redemption.add`
+   - `channel.raid` (native incoming raids)
+   - `channel.hype_train.begin`, `channel.hype_train.progress`, `channel.hype_train.end`
    - `stream.online`, `stream.offline`
 2. **Keepalive Watchdog**: A sliding watchdog timer tracks incoming `session_keepalive` frames. If no message arrives within `keepalive_timeout_seconds` + 3 seconds grace period, the connection is treated as dead and automatically reconnected.
 3. **Seamless URL Reconnection**: When Twitch initiates server maintenance via `session_reconnect`, the client immediately opens a secondary connection to the provided `reconnect_url` before severing the old connection, guaranteeing zero dropped notifications.
-4. **Immediate Ingestion & Deduplication**: Real-time events are dispatched synchronously to `alertEngine.handleEvent`, `sessionService`, and `pollManager`. The alerts engine's built-in deduplication ensures overlapping chat-based alerts (such as SocialStream Ninja bits or subs) are not fired twice.
-5. **Resilient Polling Fallback**: Background 10-second polling loops for Twitch polls and channel stream status continue to operate as a secondary fallback if EventSub is temporarily disconnected or if credentials lack EventSub scopes.
+4. **Immediate Ingestion & Deduplication**: Real-time events are dispatched synchronously to `alertEngine.handleEvent`, `sessionService`, and `pollManager`. The alerts engine's built-in deduplication ensures overlapping chat-based alerts (such as SocialStream Ninja bits, raids, or subs) are not fired twice.
+5. **Intelligent REST Polling Throttling & Fallback**: When EventSub is connected, background REST polling for Twitch polls (`fetchTwitchPoll`), category/title info (`fetchStreamInfo`), and stream lifecycle (`pollLifecycle`) automatically relaxes (reducing redundant REST requests by >90%). If the WebSocket disconnects, the system immediately resumes 10-second polling loops as a resilient fallback.
 6. **Telemetry & Observability**: Real-time connection state (`connected`, `connecting`, `idle`), active subscription counts, and session IDs are exposed via `GET /api/status` under `twitch.eventSub`.

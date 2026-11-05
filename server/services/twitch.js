@@ -50,6 +50,7 @@ function createTwitchService(options = {}) {
         onChatDeletion = () => {},
         onStreamOnline = () => {},
         onStreamOffline = () => {},
+        onRaid = () => {},
         log = console.log,
         warn = console.warn,
         error = console.error
@@ -73,6 +74,12 @@ function createTwitchService(options = {}) {
     let pollScopeWarningLogged = false;
     let lastBroadcastedPollJson = '';
     let isEventSubEnabled = Boolean(enableEventSub);
+    let lastPollRestCheck = 0;
+    let lastStreamInfoRestCheck = 0;
+
+    function isEventSubActive() {
+        return isEventSubEnabled && eventSub && eventSub.getStatus()?.connected === true;
+    }
 
     const eventSub = createTwitchEventSubService({
         getAccessToken: () => twitchAccessToken,
@@ -129,6 +136,7 @@ function createTwitchService(options = {}) {
         onChatDeletion,
         onStreamOnline,
         onStreamOffline,
+        onRaid,
         log,
         warn,
         error
@@ -761,27 +769,32 @@ function createTwitchService(options = {}) {
         return result;
     }
 
-    async function fetchStreamInfo() {
+    async function fetchStreamInfo(force = false) {
         const clientId = getClientId();
         const broadcasterId = getBroadcasterId();
         if (!clientId || !broadcasterId) return;
+        const now = Date.now();
+        if (!force && isEventSubActive() && (now - lastStreamInfoRestCheck < 300000)) {
+            return;
+        }
         const hasToken = await ensureToken();
         if (!hasToken) return;
 
         try {
+            lastStreamInfoRestCheck = Date.now();
             const result = await twitchApiRequest('/channels', { broadcaster_id: broadcasterId });
             if (result.status !== 200 || !result.body.data?.[0]) return;
 
             const ch = result.body.data[0];
             const title = ch.title || '';
             const category = ch.game_name || '';
-            const now = new Date().toISOString();
+            const nowIso = new Date().toISOString();
 
             const chatData = getChatData();
             if (chatData && Array.isArray(chatData.streamInfo)) {
                 const last = chatData.streamInfo[chatData.streamInfo.length - 1];
                 if (!last || last.title !== title || last.category !== category) {
-                    chatData.streamInfo.push({ title, category, changedAt: now });
+                    chatData.streamInfo.push({ title, category, changedAt: nowIso });
                     if (chatData.streamInfo.length > 50) chatData.streamInfo.splice(0, chatData.streamInfo.length - 50);
                     log(`[Twitch] Stream info: "${title}" — ${category || '(no category)'}`);
                 }
@@ -792,10 +805,14 @@ function createTwitchService(options = {}) {
         }
     }
 
-    async function fetchTwitchPoll() {
+    async function fetchTwitchPoll(force = false) {
         const clientId = getClientId();
         const broadcasterId = getBroadcasterId();
         if (!clientId || !broadcasterId) return;
+        const now = Date.now();
+        if (!force && isEventSubActive() && (now - lastPollRestCheck < 120000)) {
+            return;
+        }
         if (!twitchTokenScopes.includes('channel:read:polls')) {
             if (!pollScopeWarningLogged) {
                 pollScopeWarningLogged = true;
@@ -807,6 +824,7 @@ function createTwitchService(options = {}) {
         if (!hasToken) return;
 
         try {
+            lastPollRestCheck = Date.now();
             const result = await twitchApiRequest('/polls', { broadcaster_id: broadcasterId, first: 1 });
             if (result.status === 401 || result.status === 403) {
                 if (!pollScopeWarningLogged) {
@@ -991,6 +1009,7 @@ function createTwitchService(options = {}) {
         getLatestPoll: () => latestPoll,
         setLatestPoll: (poll) => { latestPoll = poll; },
         getEventSubStatus: () => eventSub.getStatus(),
+        isEventSubActive: () => isEventSubActive(),
         startEventSub: () => { isEventSubEnabled = true; eventSub.start(); },
         stopEventSub: () => { isEventSubEnabled = false; eventSub.stop(); },
         getEventSub: () => eventSub

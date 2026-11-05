@@ -27,6 +27,7 @@ function createTwitchEventSubService(options = {}) {
         onChatDeletion = () => {},
         onStreamOnline = () => {},
         onStreamOffline = () => {},
+        onRaid = () => {},
         log = console.log,
         warn = console.warn,
         error = console.error,
@@ -209,6 +210,11 @@ function createTwitchEventSubService(options = {}) {
         candidateSubscriptions.push(
             { type: 'stream.online', version: '1', condition: { broadcaster_user_id: broadcasterId } },
             { type: 'stream.offline', version: '1', condition: { broadcaster_user_id: broadcasterId } }
+        );
+
+        // Incoming Raids (broadcaster is target)
+        candidateSubscriptions.push(
+            { type: 'channel.raid', version: '1', condition: { to_broadcaster_user_id: broadcasterId } }
         );
 
         const successful = [];
@@ -404,6 +410,16 @@ function createTwitchEventSubService(options = {}) {
             case 'stream.offline': {
                 onStreamOffline({
                     broadcasterId: ev.broadcaster_user_id
+                });
+                break;
+            }
+            case 'channel.raid': {
+                onRaid({
+                    fromBroadcasterId: ev.from_broadcaster_user_id || '',
+                    fromBroadcasterLogin: ev.from_broadcaster_user_login || '',
+                    fromBroadcasterName: ev.from_broadcaster_user_name || ev.from_broadcaster_user_login || 'Someone',
+                    toBroadcasterId: ev.to_broadcaster_user_id || '',
+                    viewers: Number(ev.viewers) || 0
                 });
                 break;
             }

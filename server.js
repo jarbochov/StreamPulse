@@ -612,10 +612,39 @@ const twitchService = createTwitchService({
         alertEngine.handleEvent({ type: 'hype_train', phase, level: data.level, amount: data.level, total: data.total, goal: data.goal, user: data.topUser, seconds, golden: data.isGolden });
     },
     onStreamOnline: () => {
-        if (typeof sessionService !== 'undefined' && sessionService?.pollLifecycle) sessionService.pollLifecycle();
+        if (typeof sessionService !== 'undefined' && sessionService?.pollLifecycle) sessionService.pollLifecycle(true);
     },
     onStreamOffline: () => {
-        if (typeof sessionService !== 'undefined' && sessionService?.pollLifecycle) sessionService.pollLifecycle();
+        if (typeof sessionService !== 'undefined' && sessionService?.pollLifecycle) sessionService.pollLifecycle(true);
+    },
+    onRaid: (data) => {
+        const username = data.fromBroadcasterName || data.fromBroadcasterLogin || 'Someone';
+        const viewers = Number(data.viewers) || 0;
+        if (userModeration.isBanned(username, data.fromBroadcasterId)) return;
+        if (typeof alertEngine !== 'undefined' && alertEngine) {
+            alertEngine.handleEvent({ type: 'raid', user: username, amount: viewers, viewers });
+        }
+        if (typeof chatbot !== 'undefined' && chatbot?.handleRaid) {
+            chatbot.handleRaid({ user: username, viewers }).catch(() => {});
+        }
+        if (chatData) {
+            if (!chatData.raids) chatData.raids = [];
+            const alreadyRaided = chatData.raids.some(r => r.chatname === username && Date.now() - r.timestamp < 60000);
+            if (!alreadyRaided) {
+                chatData.raids.push({ chatname: username, viewers: viewers || null, timestamp: Date.now() });
+                if (statsData) {
+                    const today = localDateString(new Date());
+                    const nowISO = new Date().toISOString();
+                    if (!statsData.raids) statsData.raids = {};
+                    if (!statsData.raids[username]) {
+                        statsData.raids[username] = { firstSeen: nowISO, lastSeen: nowISO, days: {} };
+                    }
+                    statsData.raids[username].days[today] = (statsData.raids[username].days[today] || 0) + 1;
+                    statsData.raids[username].lastSeen = nowISO;
+                }
+                broadcastToOverlays('update', chatData);
+            }
+        }
     },
     onModerationEvent: event => userModeration.onModerationEvent(event),
     onChatMessage: message => messageDeletions.observeTwitch(message),
@@ -755,6 +784,7 @@ const sessionService = createSessionService({
     loadCurrentSessionStateFromDisk: () => loadCurrentSessionStateFromDisk(),
     recordPlayedGames: (streamInfo, endMs, startFloorMs) => recordPlayedGames(streamInfo, endMs, startFloorMs),
     performAutoBackup: (force) => performAutoBackup(force),
+    isEventSubActive: () => (typeof twitchService !== 'undefined' && twitchService ? twitchService.isEventSubActive() : false),
     isSessionActive: () => sessionActive,
     setSessionActive: (val) => { sessionActive = !!val; },
     onArchivesInvalidated: () => { if (typeof statusService !== 'undefined' && statusService) statusService.invalidateHeavyCache(); }
@@ -1106,32 +1136,6 @@ const handleTierListRoutes = createTierListRoutes({
 // ============================================================================
 // HTTP SERVER
 // ============================================================================
-
-const MIME_TYPES = {
-    '.html': 'text/html',
-    '.css': 'text/css',
-    '.js': 'text/javascript',
-    '.json': 'application/json',
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.gif': 'image/gif',
-    '.jpeg': 'image/jpeg',
-    '.webp': 'image/webp',
-    '.mp4': 'video/mp4',
-    '.webm': 'video/webm',
-    '.ogg': 'video/ogg',
-    '.oga': 'audio/ogg',
-    '.mp3': 'audio/mpeg',
-    '.wav': 'audio/wav',
-    '.m4a': 'audio/mp4',
-    '.aac': 'audio/aac',
-    '.ttf': 'font/ttf',
-    '.otf': 'font/otf',
-    '.woff': 'font/woff',
-    '.woff2': 'font/woff2',
-    '.svg': 'image/svg+xml',
-    '.ico': 'image/x-icon'
-};
 
 
 const crmService = createCrmService({
@@ -1717,9 +1721,9 @@ function initializeServer() {
     userModeration.start();
     if (twitchService.getAccessToken()) {
         fetchTwitchData();
-        fetchStreamInfo();
+        fetchStreamInfo(true);
         fetchViewerCount();
-        fetchTwitchPoll();
+        fetchTwitchPoll(true);
     } else if (TWITCH_CLIENT_ID && process.env.STREAMPULSE_DESKTOP !== 'true') {
         const authUrl = `http://localhost:${PORT}/auth/twitch`;
         console.log(`[Twitch] No token found — opening browser to authorize...`);

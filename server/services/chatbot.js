@@ -49,7 +49,7 @@ function formatMoney(value, currency = 'USD') {
 }
 
 function formatTokens(text, { user = '', arg = '', msg = {}, viewers = '' } = {}) {
-    if (!text) return '';
+    if (!text || (!text.includes('{{') && !text.includes('$('))) return text || '';
     let out = String(text);
 
     const tokens = String(arg || '').trim().split(/\s+/).filter(Boolean);
@@ -109,6 +109,7 @@ function formatTokens(text, { user = '', arg = '', msg = {}, viewers = '' } = {}
 
 module.exports = function createChatbot({ sessionKey = () => '', onUse = () => {}, dataDir, getConfig, port = Number(process.env.PORT) || 3000, variables }) {
     const file = path.join(dataDir, 'chatbot.json');
+    const quotesFile = path.join(dataDir, 'quotes.json');
     let data = { settings: { ...DEFAULT_SETTINGS }, commands: [], quotes: [], nextQuoteId: 1, messages: [], triggers: [] };
     const startedAt = Date.now();
     let chatCount = 0;
@@ -276,13 +277,41 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         };
     }
 
+    const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    function compileTriggerMatcher(t) {
+        const mode = t.matchMode || 'contains';
+        const wholeWord = t.wholeWord !== false;
+        if (mode === 'exact') {
+            const set = new Set((t.words || []).map(w => w.toLowerCase()));
+            return (trimmed) => set.has(trimmed);
+        }
+        if (mode === 'starts_with') {
+            const words = (t.words || []).map(w => w.toLowerCase());
+            return (trimmed) => words.some(w => trimmed.startsWith(w));
+        }
+        if (mode === 'ends_with') {
+            const words = (t.words || []).map(w => w.toLowerCase());
+            return (trimmed) => words.some(w => trimmed.endsWith(w));
+        }
+        if (mode === 'regex') {
+            const regexes = [];
+            for (const w of (t.words || [])) {
+                try { regexes.push(new RegExp(w, 'iu')); } catch { /* ignore invalid regex */ }
+            }
+            return (_trimmed, text) => regexes.some(r => r.test(text));
+        }
+        const regexes = (t.words || []).map(w => new RegExp(wholeWord ? `(^|[^\\p{L}\\p{N}_])${escapeRe(w)}($|[^\\p{L}\\p{N}_])` : escapeRe(w), 'iu'));
+        return (_trimmed, text) => regexes.some(r => r.test(text));
+    }
+
     function normalizeTrigger(input = {}) {
         const words = (Array.isArray(input.words) ? input.words : String(input.words || '').split(/[\n,]+/)).map(w => clean(w, 60).toLowerCase()).filter(Boolean);
         const text = clean(input.text, 1000);
         const httpAction = normalizeHttpAction(input.httpAction);
         if (!words.length || (!text && (!httpAction || !httpAction.enabled || !httpAction.url))) return null;
         const silent = input.silent === true || (Boolean(httpAction && httpAction.enabled && httpAction.url) && !text);
-        return {
+        const trigger = {
             id: clean(input.id, 20) || newId(),
             name: clean(input.name, 60),
             enabled: input.enabled !== false,
@@ -299,6 +328,8 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             httpAction,
             text
         };
+        trigger.matcher = compileTriggerMatcher(trigger);
+        return trigger;
     }
 
     const pick = (text, random) => {
@@ -315,24 +346,65 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
 
     function load() {
         try {
-            const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+            const raw = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
             data.settings = normalizeSettings(raw.settings || (raw.enabled !== undefined ? { enabled: raw.enabled } : {}));
             const seen = new Set();
             data.commands = (raw.commands || []).map(normalizeCommand).filter(c => c && !seen.has(c.name) && seen.add(c.name)).slice(0, MAX_COMMANDS);
-            data.quotes = (raw.quotes || []).map(normalizeQuote).filter(Boolean).slice(0, MAX_QUOTES);
             data.messages = (raw.messages || []).map(normalizeMessage).filter(Boolean).slice(0, MAX_MESSAGES);
             data.triggers = (raw.triggers || []).map(normalizeTrigger).filter(Boolean).slice(0, MAX_TRIGGERS);
-            data.nextQuoteId = Math.max(Number(raw.nextQuoteId) || 1, ...data.quotes.map(q => q.id + 1), 1);
+
+            let rawQuotes = [];
+            let nextQId = 1;
+            if (fs.existsSync(quotesFile)) {
+                try {
+                    const qRaw = JSON.parse(fs.readFileSync(quotesFile, 'utf8'));
+                    rawQuotes = Array.isArray(qRaw) ? qRaw : (qRaw.quotes || []);
+                    nextQId = Number(qRaw.nextQuoteId) || 1;
+                } catch {
+                    rawQuotes = [];
+                }
+            } else if (Array.isArray(raw.quotes) && raw.quotes.length > 0) {
+                rawQuotes = raw.quotes;
+                nextQId = Number(raw.nextQuoteId) || 1;
+            }
+            data.quotes = rawQuotes.map(normalizeQuote).filter(Boolean).slice(0, MAX_QUOTES);
+            data.nextQuoteId = Math.max(nextQId, ...data.quotes.map(q => q.id + 1), 1);
+
+            if (!fs.existsSync(quotesFile) && data.quotes.length > 0) {
+                saveQuotes();
+            }
         } catch {
             data.settings = normalizeSettings({});
         }
     }
 
-    function save() {
+    function saveChatbot() {
         fs.mkdirSync(dataDir, { recursive: true });
         const tmp = `${file}.tmp`;
-        fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+        const payload = {
+            settings: data.settings,
+            commands: data.commands,
+            messages: data.messages,
+            triggers: data.triggers.map(({ matcher, ...rest }) => rest)
+        };
+        fs.writeFileSync(tmp, JSON.stringify(payload, null, 2));
         fs.renameSync(tmp, file);
+    }
+
+    function saveQuotes() {
+        fs.mkdirSync(dataDir, { recursive: true });
+        const tmp = `${quotesFile}.tmp`;
+        const payload = {
+            nextQuoteId: data.nextQuoteId,
+            quotes: data.quotes
+        };
+        fs.writeFileSync(tmp, JSON.stringify(payload, null, 2));
+        fs.renameSync(tmp, quotesFile);
+    }
+
+    function save() {
+        saveChatbot();
+        saveQuotes();
     }
 
     // The placeholder engine lives in a browser script, so run it in a sandbox with a stubbed document.
@@ -568,14 +640,14 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         if (data.quotes.length >= MAX_QUOTES) return null;
         data.nextQuoteId++;
         data.quotes.push(quote);
-        save();
+        saveQuotes();
         return quote;
     }
 
     function deleteQuote(id) {
         const before = data.quotes.length;
         data.quotes = data.quotes.filter(q => q.id !== Number(id));
-        if (data.quotes.length !== before) save();
+        if (data.quotes.length !== before) saveQuotes();
         return data.quotes.length !== before;
     }
 
@@ -700,26 +772,14 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         }
     }
 
-    const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
     async function runTriggers(text, msg) {
         const now = Date.now();
+        const trimmed = text.trim().toLowerCase();
         for (const t of data.triggers) {
             if (!t.enabled || !allowed(t.access, msg)) continue;
             if (now - (lastUsed.get(`t:${t.id}`) || 0) < (isMod(msg) ? (t.modCooldown ?? data.settings.modCooldown ?? t.cooldown) : t.cooldown) * 1000 || now - lastAny < 1000) continue;
-            const hit = t.words.some(w => {
-                const mode = t.matchMode || 'contains';
-                const trimmed = text.trim().toLowerCase();
-                const wordLower = w.toLowerCase();
-                if (mode === 'exact') return trimmed === wordLower;
-                if (mode === 'starts_with') return trimmed.startsWith(wordLower);
-                if (mode === 'ends_with') return trimmed.endsWith(wordLower);
-                if (mode === 'regex') {
-                    try { return new RegExp(w, 'iu').test(text); } catch { return false; }
-                }
-                return new RegExp(t.wholeWord ? `(^|[^\\p{L}\\p{N}_])${escapeRe(w)}($|[^\\p{L}\\p{N}_])` : escapeRe(w), 'iu').test(text);
-            });
-            if (!hit) continue;
+            const matcher = t.matcher || compileTriggerMatcher(t);
+            if (!matcher(trimmed, text)) continue;
             if (limited(`t:${t.id}`, t, msg)) continue;
             logUse('trigger', t.name || t.id, msg.chatname, { silent: Boolean(t.silent), http: Boolean(t.httpAction?.enabled) });
             if (t.httpAction && t.httpAction.enabled) {
@@ -800,7 +860,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             data.quotes.push(q);
             added++;
         }
-        if (added) save();
+        if (added) saveQuotes();
         return { added, skipped };
     }
 
@@ -835,7 +895,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 }
                 if (Array.isArray(body.messages)) data.messages = body.messages.map(normalizeMessage).filter(Boolean).slice(0, MAX_MESSAGES);
                 if (Array.isArray(body.triggers)) data.triggers = body.triggers.map(normalizeTrigger).filter(Boolean).slice(0, MAX_TRIGGERS);
-                save();
+                saveChatbot();
                 return json(200, snapshot()), true;
             }
             if (pathname === '/api/chatbot/placeholders' && req.method === 'GET') {
@@ -861,7 +921,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 const input = { ...query, ...body };
                 const action = input.action || (input.enabled !== undefined ? (input.enabled === 'true' || input.enabled === true ? 'enable' : 'disable') : 'toggle');
                 data.settings.enabled = action === 'toggle' ? !data.settings.enabled : (action === 'enable' || input.enabled === true || input.enabled === 'true');
-                save();
+                saveChatbot();
                 return json(200, snapshot()), true;
             }
             if (pathname === '/api/chatbot/export' && req.method === 'GET') {
@@ -903,7 +963,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                     }
                     data.commands = data.commands.slice(0, MAX_COMMANDS);
                 }
-                save();
+                saveChatbot();
                 return json(200, { count: data.commands.length, ...snapshot() }), true;
             }
             if (pathname === '/api/chatbot/triggers/export' && req.method === 'GET') {
@@ -927,7 +987,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                     }
                     data.triggers = data.triggers.slice(0, MAX_TRIGGERS);
                 }
-                save();
+                saveChatbot();
                 return json(200, { count: data.triggers.length, ...snapshot() }), true;
             }
             if (pathname === '/api/chatbot/quotes/import' && req.method === 'POST') {
@@ -948,7 +1008,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 quote.text = text;
                 if (body.game !== undefined) quote.game = clean(body.game, 80);
                 if (body.by !== undefined) quote.by = clean(body.by, 60);
-                save();
+                saveQuotes();
                 return json(200, snapshot()), true;
             }
             if (pathname === '/api/chatbot/recent' && req.method === 'GET') return json(200, { recent }), true;

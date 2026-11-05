@@ -167,6 +167,7 @@ function createSessionService(options = {}) {
         onArchivesInvalidated = () => {},
         isSessionActive: customIsSessionActive = null,
         setSessionActive: customSetSessionActive = null,
+        isEventSubActive = () => false,
         log = console.log,
         warn = console.warn,
         error = console.error
@@ -444,12 +445,18 @@ function createSessionService(options = {}) {
         lifecycle.liveId = null;
     }
 
-    async function pollLifecycle() {
+    let lastLifecycleRestPoll = 0;
+    async function pollLifecycle(force = false) {
         const config = getConfig();
         const cfg = normalizeLifecycleConfig(config?.session_lifecycle);
         const clientId = getTwitchClientId();
         const broadcasterId = getBroadcasterId();
         if (!cfg.auto || !clientId || !broadcasterId) return;
+        const now = Date.now();
+        if (!force && isEventSubActive() && (now - lastLifecycleRestPoll < 120000)) {
+            return;
+        }
+        lastLifecycleRestPoll = now;
         const generation = watcherGeneration;
         try {
             if (!(await ensureTwitchToken())) return;
