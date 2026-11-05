@@ -224,22 +224,23 @@ function triggersSummaryHtml() {
 export function renderPagesPanel() {
     const panel = $('pages-panel');
     if (!panel) return;
+    const sceneStatesEnabled = state.obs?.sceneSyncEnabled !== false;
     if (!pagesOn()) {
         panel.innerHTML = `
             <div class="pg-empty">
                 <div class="pg-empty-ico">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 22 12 12 22 2 12"/></svg>
                 </div>
-                <strong>Pages &amp; Dynamic Scene States</strong>
-                <p>Split your overlay into rotating pages, or add dynamic scene states that smoothly morph elements (e.g. Gameplay → Full Cam → Intermission).</p>
+                <strong>${sceneStatesEnabled ? 'Pages &amp; Dynamic Scene States' : 'Pages'}</strong>
+                <p>${sceneStatesEnabled ? 'Split your overlay into rotating pages, or add dynamic scene states that smoothly morph elements (e.g. Gameplay → Full Cam → Intermission).' : 'Split your overlay into rotating pages or switch layouts manually.'}</p>
                 <div class="pg-empty-actions">
                     <button id="pages-enable" type="button" class="primary">
                         <span>Turn on Pages</span>
                     </button>
-                    <button id="states-enable" type="button" class="ghost bordered">
+                    ${sceneStatesEnabled ? `<button id="states-enable" type="button" class="ghost bordered">
                         <span>Turn on Scene States (Morph)</span>
                         <span class="badge-beta">BETA</span>
-                    </button>
+                    </button>` : ''}
                 </div>
             </div>`;
         return;
@@ -339,12 +340,12 @@ export function renderPagesPanel() {
         ${transSeg}
         ${advTrans}
         ${isStates && items.length > 1 && P.transition !== 'none' ? `<button type="button" id="btn-preview-transition" class="btn pg-preview"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Preview ${esc(transLabel)} on canvas</button>` : ''}
-        <details class="sub-details" data-sect="pg-states"${pageSectionOpen('states', isStates)}>
+        ${sceneStatesEnabled ? `<details class="sub-details" data-sect="pg-states"${pageSectionOpen('states', isStates)}>
             <summary>Advanced: Scene States (Morph) <span class="badge-beta">BETA</span> <span class="spacer"></span><span class="badge-pill${isStates ? '' : ' is-muted'}">${isStates ? 'On' : 'Off'}</span></summary>
             <span class="hint">Animates layout and styles${state.obs?.enabled && state.obs?.sceneSyncEnabled !== false ? ', plus linked OBS sources,' : ''} between states instead of switching pages.</span>
             <button type="button" data-pg-kind="${isStates ? 'pages' : 'states'}" id="pg-kind-toggle" aria-pressed="${isStates}">${isStates ? 'Turn off Scene States (use Pages)' : 'Switch to Scene States'}</button>
             ${isStates && state.obs?.enabled && state.obs?.sceneSyncEnabled !== false ? `<div class="state-override-bar${obsLinkedCount ? ' is-active' : ''}"><span class="state-ovr-text"><strong>OBS Sync:</strong> ${obsLinkedCount ? `${obsLinkedCount} linked source${obsLinkedCount === 1 ? '' : 's'}` : 'Link Shape/Cutout boxes'}</span><button type="button" id="btn-pages-obs-setup" class="link-btn">${state.obs?.connected ? 'Connected' : 'Configure…'}</button></div>` : ''}
-        </details>
+        </details>` : ''}
         <details class="sub-details" data-sect="pg-triggers"${pageSectionOpen('triggers', false)}>
             <summary>Triggers summary</summary>
             ${triggersSummaryHtml()}
@@ -457,6 +458,7 @@ export function switchEditPage(id, { animate = true } = {}) {
 }
 
 export function setPagesEnabled(on, kind = 'pages') {
+    if (on && kind === 'states' && state.obs?.sceneSyncEnabled === false) return;
     if (!state.overlay.pages) state.overlay.pages = defaultPages();
     syncWorkingStateForCurrentPage(state.curPage);
     if (on && kind === 'pages' && statesModeOn()) convertStatesToPages();

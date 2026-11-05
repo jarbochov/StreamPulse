@@ -52,6 +52,67 @@ test('Speaker-only overlays expose controller links without enabling pages', asy
     assert.equal(response.find(overlay => overlay.id === 'video').hasControls, true, 'existing media controls remain discoverable');
 });
 
+test('Overlay Control page switches persist availability and protect the final enabled page', async t => {
+    const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), http = require('node:http');
+    const { createOverlayService } = require('../server/services/overlays');
+    const { createOverlayRoutes } = require('../server/routes/overlays');
+    const { createStaticRouter } = require('../server/static-router');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-page-control-'));
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    const file = path.join(dir, 'custom-overlays.json');
+    const overlay = normalizeCustomOverlay({ id: 'fictional-pages', pages: { enabled: true,
+        items: [{ id: 'one', name: 'Starting soon' }, { id: 'two', name: 'Main show' }, { id: 'three', name: 'Break' }] } });
+    fs.writeFileSync(file, JSON.stringify({ [overlay.id]: overlay }));
+    const events = [];
+    const service = createOverlayService({ dataDir: dir, broadcastToOverlays: (type, data) => events.push({ type, data }) });
+    const route = createOverlayRoutes({ overlayService: service, broadcastToOverlays: (type, data) => events.push({ type, data }) });
+    const staticRouter = createStaticRouter({ rootDir: path.resolve(__dirname, '..') });
+    let failPageUpdate = false;
+    const server = http.createServer(async (req, res) => {
+        const url = new URL(req.url, 'http://localhost');
+        if (failPageUpdate && url.pathname.endsWith('/page') && req.method === 'POST') {
+            res.writeHead(503, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Fictional page update failure' })); return;
+        }
+        if (await route(req, res, url, url.pathname)) return;
+        if (url.pathname.startsWith('/api/')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{}'); return;
+        }
+        staticRouter.handleRequest(req, res);
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => new Promise(resolve => server.close(resolve)));
+    const { default: puppeteer } = await import('puppeteer');
+    const browser = await puppeteer.launch({ headless: true });
+    t.after(() => browser.close());
+    const page = await browser.newPage();
+    await page.setViewport({ width: 360, height: 900 });
+    const base = `http://127.0.0.1:${server.address().port}`, endpoint = `${base}/api/custom-overlays/${overlay.id}/page`;
+    await page.goto(`${base}/overlay-control.html?id=${overlay.id}`, { waitUntil: 'networkidle0' });
+    await page.waitForSelector('[data-page-toggle="one"]');
+    await page.click('[data-page-toggle="one"]');
+    await page.waitForFunction(() => document.querySelector('[data-page="one"]').disabled);
+    assert.equal(await page.$eval('.page.current', button => button.dataset.page), 'two', 'disabling the current page advances to an enabled page');
+    assert.equal(JSON.parse(fs.readFileSync(file, 'utf8'))[overlay.id].pages.items[0].enabled, false);
+    assert.ok(events.some(event => event.type === 'custom-overlay-update'), 'page switches broadcast the persisted update');
+    await page.click('[data-page-toggle="three"]');
+    await page.waitForFunction(() => document.querySelector('[data-page-toggle="two"]').disabled);
+    const lastPage = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'disable', page: 'two' }) });
+    assert.equal(lastPage.status, 400, 'server also prevents disabling the last enabled page');
+    await page.reload({ waitUntil: 'networkidle0' });
+    assert.equal(await page.$eval('[data-page-toggle="one"]', input => input.checked), false);
+    await page.click('[data-page-toggle="one"]');
+    await page.waitForFunction(() => !document.querySelector('[data-page="one"]').disabled);
+    await page.click('[data-act="next"]');
+    await page.waitForFunction(() => document.querySelector('.page.current').dataset.page === 'one');
+    failPageUpdate = true;
+    await page.click('[data-page-toggle="two"]');
+    await page.waitForFunction(() => document.getElementById('status').textContent === 'Fictional page update failure');
+    assert.equal(await page.$eval('[data-page-toggle="two"]', input => input.checked && !input.disabled), true, 'failed changes restore the saved toggle state');
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'page toggles fit narrow OBS docks');
+});
+
 test('Speaker Badge element normalization and schema bounds', () => {
     assert.ok(CUSTOM_OVERLAY_ELEMENT_TYPES.has('speaker-badge'), 'CUSTOM_OVERLAY_ELEMENT_TYPES must include speaker-badge');
 
@@ -249,8 +310,12 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
             obs_scene_sync_enabled: false,
             speaker_badges_enabled: false };
         const file = path.join(dir, 'overlays.json');
+        const assetsDir = path.join(dir, 'assets');
+        fs.mkdirSync(assetsDir);
+        let failUploads = false;
         const route = createOverlayRoutes({
             getCustomOverlays: () => overlays, normalizeCustomOverlay, customOverlayHistoryDir: path.join(dir, 'history'),
+            customOverlayAssetsDir: assetsDir,
             saveCustomOverlays: () => fs.writeFileSync(file, JSON.stringify(overlays)),
             pageSnapshot: () => ({ id: initial.id, enabled: false }),
             broadcastToOverlays: (type, data) => {
@@ -280,12 +345,23 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
                     ? { modules: { speakerBadges: true, obsSceneSync: false } }
                     : { enabled: true, connected: true, sceneSyncEnabled: sceneSyncConnected, speakerBadgesEnabled: true, sources: [] })); return;
             }
-            if (url.pathname === '/api/custom-overlays/assets') {
+            if (url.pathname === '/api/custom-overlays/assets' && req.method === 'POST' && failUploads) {
+                res.writeHead(503, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Fictional upload failure' })); return;
+            }
+            if (url.pathname === '/api/custom-overlays/assets' && req.method === 'GET') {
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify([
                     { kind: 'image', label: 'Fictional host avatar', url: '/favicon.svg' },
                     { kind: 'video', label: 'Fictional video', url: '/video.mp4' }
                 ])); return;
+            }
+            if (url.pathname.startsWith('/custom-overlay-assets/')) {
+                const asset = path.join(assetsDir, path.basename(decodeURIComponent(url.pathname)));
+                if (fs.existsSync(asset)) {
+                    res.writeHead(200, { 'Content-Type': asset.endsWith('.svg') ? 'image/svg+xml' : 'image/png' });
+                    res.end(fs.readFileSync(asset)); return;
+                }
             }
             if (await route(req, res, url, url.pathname)) return;
             staticRouter.handleRequest(req, res);
@@ -340,6 +416,46 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         for (const key of ['showHandle', 'showPronouns', 'showAvatar', 'callInEnabled', 'showLocation']) {
             await page.click(`[data-speaker-form="host"] [name="${key}"]`);
         }
+        const uploadFile = path.join(dir, 'fictional-avatar.png');
+        fs.writeFileSync(uploadFile, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1sAAAAASUVORK5CYII=', 'base64'));
+        const [fileChooser] = await Promise.all([
+            page.waitForFileChooser(), page.click('[data-speaker-form="host"] [data-avatar-upload]')
+        ]);
+        await fileChooser.accept([uploadFile]);
+        await page.waitForSelector('[data-speaker-form="host"] [data-avatar-preview] img');
+        const uploadedUrl = await page.$eval('[data-speaker-form="host"] [name="avatarSrc"]', input => input.value);
+        assert.match(uploadedUrl, /^\/custom-overlay-assets\/.*fictional-avatar\.png$/);
+        assert.ok(fs.existsSync(path.join(assetsDir, path.basename(uploadedUrl))), 'upload persists in the real asset endpoint');
+        assert.equal(overlays[initial.id].elements[0].speakerBadge.speaker.avatarSrc, '', 'uploaded avatar is not applied until badge save');
+        await page.$eval('[data-speaker-form="host"] [name="avatarSrc"]', input => {
+            input.value = '/favicon.svg'; input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        await page.waitForFunction(() => document.querySelector('[data-speaker-form="host"] [data-avatar-preview] img')?.getAttribute('src') === '/favicon.svg');
+        await page.$eval('[data-speaker-form="host"] [data-avatar-field]', async field => {
+            const file = new window.File([await (await fetch('/favicon.svg')).blob()], 'copied-avatar.svg', { type: 'image/svg+xml' });
+            const clipboardData = new window.DataTransfer();
+            clipboardData.items.add(file);
+            field.dispatchEvent(new window.ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true }));
+        });
+        await page.waitForFunction(() => document.querySelector('[data-speaker-form="host"] [name="avatarSrc"]').value.includes('copied-avatar.svg'));
+        assert.equal(await page.$eval('[data-speaker-form="guest"] [name="avatarSrc"]', input => input.value), '', 'pasting targets only the focused badge');
+        await page.evaluate(() => {
+            Object.defineProperty(window.navigator, 'clipboard', { configurable: true, value: {
+                read: async () => [{ types: ['image/svg+xml'], getType: async () => (await fetch('/favicon.svg')).blob() }]
+            } });
+        });
+        await page.click('[data-speaker-form="host"] [data-avatar-paste]');
+        await page.waitForFunction(() => document.querySelector('[data-speaker-form="host"] [name="avatarSrc"]').value.includes('pasted-avatar.'));
+        const pastedUrl = await page.$eval('[data-speaker-form="host"] [name="avatarSrc"]', input => input.value);
+        failUploads = true;
+        await page.click('[data-speaker-form="host"] [data-avatar-paste]');
+        await page.waitForFunction(() => document.querySelector('[data-speaker-form="host"] [data-avatar-status]').textContent === 'Fictional upload failure');
+        assert.equal(await page.$eval('[data-speaker-form="host"] [name="avatarSrc"]', input => input.value), pastedUrl, 'failed upload preserves the current image');
+        failUploads = false;
+        await page.evaluate(() => Object.defineProperty(window.navigator, 'clipboard', { configurable: true, value: { read: async () => { throw new Error('Permission denied'); } } }));
+        await page.click('[data-speaker-form="host"] [data-avatar-paste]');
+        await page.waitForFunction(() => document.activeElement?.hasAttribute('data-avatar-field'));
+        assert.match(await page.$eval('[data-speaker-form="host"] [data-avatar-status]', hint => hint.textContent), /Ctrl\+V or Cmd\+V/);
         await page.click('[data-speaker-form="host"] [data-speaker-avatar]');
         await page.waitForSelector('.mp-grid [role="option"]');
         assert.equal(await page.$$eval('.mp-grid [role="option"]', tiles => tiles.length), 1, 'avatars only offer image assets');
@@ -454,9 +570,39 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         sceneSyncConnected = true;
         for (const client of sockets.clients) client.send(JSON.stringify({ type: 'obs-status', data: { enabled: true, connected: true, sceneSyncEnabled: true } }));
         await page.waitForFunction(() => !document.querySelector('#btn-obs-modal').hidden);
+        assert.ok(await page.$('#states-enable'), 'enabled module exposes Scene States in the empty Pages panel');
+        const sceneStateEntryPoints = async () => {
+            const { renderPagesPanel, setPagesEnabled } = await import('/js/editor/editor-layers.js');
+            const { defaultPages } = await import('/js/editor/editor-state.js');
+            const original = window.editorState.overlay.pages;
+            const pages = defaultPages();
+            pages.enabled = true;
+            window.editorState.overlay.pages = pages;
+            renderPagesPanel();
+            const advancedVisible = !!document.querySelector('[data-sect="pg-states"]');
+            const before = JSON.stringify(pages);
+            const disabled = window.editorState.obs.sceneSyncEnabled === false;
+            if (disabled) setPagesEnabled(true, 'states');
+            const enablingBlocked = disabled && JSON.stringify(pages) === before;
+            window.editorState.overlay.pages = { ...defaultPages('states'), enabled: true };
+            const savedStates = JSON.stringify(window.editorState.overlay.pages);
+            renderPagesPanel();
+            const savedStatesPreserved = JSON.stringify(window.editorState.overlay.pages) === savedStates;
+            window.editorState.overlay.pages = original;
+            renderPagesPanel();
+            return { advancedVisible, enablingBlocked, savedStatesPreserved };
+        };
+        const enabledEntries = await page.evaluate(sceneStateEntryPoints);
+        assert.equal(enabledEntries.advancedVisible, true);
+        assert.equal(enabledEntries.enablingBlocked, false);
         sceneSyncConnected = false;
         for (const client of sockets.clients) client.send(JSON.stringify({ type: 'obs-status', data: { enabled: true, connected: true, sceneSyncEnabled: false } }));
         await page.waitForFunction(() => document.querySelector('#btn-obs-modal').hidden);
+        assert.equal(await page.$('#states-enable'), null, 'disabled module hides the empty-state Scene States entry point immediately');
+        assert.doesNotMatch(await page.$eval('#pages-panel', panel => panel.textContent), /Dynamic Scene States/);
+        assert.deepEqual(await page.evaluate(sceneStateEntryPoints), {
+            advancedVisible: false, enablingBlocked: true, savedStatesPreserved: true
+        }, 'Scene States controls are hidden and gated without discarding existing layouts');
         await page.$eval('[data-path="speakerBadge.speaker.avatarSrc"]', input => {
             input.value = '';
             input.dispatchEvent(new Event('input', { bubbles: true }));

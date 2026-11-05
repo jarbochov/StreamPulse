@@ -671,7 +671,9 @@ async function run() {
         const url = req.url();
         if (page.url().includes('overlay-control.html') && new URL(url).pathname.startsWith('/api/')) {
             const badge = { id: 'fictional-host', name: 'Host badge', page: 'main', speakerBadge: {
-                speaker: { name: 'Fictional Host', handle: '@fictionalhost', pronouns: 'they/them', avatarSrc: '', callIn: { statusText: 'ON THE LINE', location: 'Remote studio' } },
+                speaker: { name: 'Fictional Host', handle: '@fictionalhost', pronouns: 'they/them',
+                    avatarSrc: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path fill="#233654" d="M0 0h64v64H0z"/><circle cx="32" cy="24" r="12" fill="#93b9ec"/><path d="M9 64v-5a23 23 0 0 1 46 0v5" fill="#93b9ec"/></svg>')}`,
+                    callIn: { statusText: 'ON THE LINE', location: 'Remote studio' } },
                 audio: { inputName: 'Host microphone' }
             } };
             const pathname = new URL(url).pathname;

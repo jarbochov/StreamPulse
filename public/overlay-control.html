@@ -24,6 +24,12 @@
         .page { text-align: left; display: flex; justify-content: space-between; align-items: center; }
         .page.current { border-color: var(--accent); background: var(--accent-bg); }
         .page small { color: var(--text-muted); font-weight: 400; }
+        .page-entry { display:flex; gap:.6rem; align-items:center; }
+        .page-entry .page { flex:1; min-width:0; gap:.5rem; }
+        .page-entry .page span { overflow-wrap:anywhere; }
+        .page-entry .page:disabled { opacity:.45; }
+        .page-toggle { display:flex; align-items:center; justify-content:center; width:44px; min-height:44px; flex:none; cursor:pointer; }
+        .page-toggle:has(input:disabled) { cursor:not-allowed; opacity:.5; }
         .msg { padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); }
         h2 { font-size: .95rem; margin: 1.2rem 0 .5rem; display: flex; align-items: center; gap: 6px; }
         .status { font-size: .8rem; color: var(--text-muted); margin-top: .8rem; }
@@ -37,13 +43,19 @@
         .speaker-fields input:not([type="checkbox"]) { width:100%; min-width:0; padding:.6rem; border:1px solid var(--border); border-radius:6px; background:var(--bg-inset); color:var(--text); font:inherit; }
         .speaker-input-row.has-toggle input:not([type="checkbox"]) { padding-right:52px; }
         .speaker-fields .speaker-toggle { position:absolute; right:.3rem; top:50%; transform:translateY(-50%); display:flex; align-items:center; justify-content:center; width:40px; height:36px; cursor:pointer; }
-        .speaker-toggle input { appearance:none; width:28px !important; height:16px !important; border:1px solid var(--border); border-radius:999px; background:var(--bg-inset); cursor:pointer; position:relative; flex:none; }
-        .speaker-toggle input::before { content:''; position:absolute; width:10px; height:10px; top:2px; left:2px; border-radius:50%; background:var(--text-muted); }
-        .speaker-toggle input:checked { background:var(--accent); border-color:var(--accent); }
-        .speaker-toggle input:checked::before { transform:translateX(12px); background:var(--bg-page); }
-        .speaker-toggle input:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
-        .asset-row { display:flex; gap:.5rem; }
-        .asset-row .btn { flex:none; padding:.5rem .7rem; }
+        .speaker-toggle input, .page-toggle input { appearance:none; width:28px !important; height:16px !important; border:1px solid var(--border); border-radius:999px; background:var(--bg-inset); cursor:inherit; position:relative; flex:none; }
+        .speaker-toggle input::before, .page-toggle input::before { content:''; position:absolute; width:10px; height:10px; top:2px; left:2px; border-radius:50%; background:var(--text-muted); }
+        .speaker-toggle input:checked, .page-toggle input:checked { background:var(--accent); border-color:var(--accent); }
+        .speaker-toggle input:checked::before, .page-toggle input:checked::before { transform:translateX(12px); background:var(--bg-page); }
+        .speaker-toggle input:focus-visible, .page-toggle input:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+        .avatar-source { display:grid; grid-template-columns:64px minmax(0, 1fr); gap:.75rem; align-items:start; }
+        .avatar-preview { width:64px; height:64px; display:flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:10px; background:var(--bg-inset); overflow:hidden; color:var(--text-muted); }
+        .avatar-preview img { width:100%; height:100%; object-fit:contain; }
+        .avatar-controls { display:grid; gap:.55rem; min-width:0; }
+        .avatar-actions { display:flex; flex-wrap:wrap; gap:.4rem; }
+        .avatar-actions .btn { padding:.4rem .6rem; font-size:.78rem; font-weight:500; }
+        .avatar-source .hint { margin:0; font-size:.72rem; }
+        [data-avatar-field]:focus-visible { outline:2px solid var(--accent); outline-offset:4px; border-radius:6px; }
         .hint { font-size:.8rem; color:var(--text-muted); margin:.5rem 0; }
         .speaker-card { margin-bottom:.8rem; }
         .speaker-card summary { cursor:pointer; font-weight:600; }
@@ -79,6 +91,7 @@
     let speakers = [], activeTab = localStorage.getItem(`overlay-control:${id}:tab`) || 'playback';
     const drafts = new Map();
     const dirtySpeakers = new Set();
+    const avatarUploads = new Set();
 
     function setTab(tab) {
         activeTab = tab === 'speakers' ? 'speakers' : 'playback';
@@ -111,6 +124,89 @@
         return values;
     }
 
+    function avatarField(badge, values) {
+        return `<div class="speaker-field wide" data-avatar-field tabindex="0" aria-label="Avatar image. Paste a copied image here.">
+            <label for="${esc(badge.id)}-avatarSrc">Avatar image</label>
+            <div class="avatar-source">
+                <div class="avatar-preview" data-avatar-preview></div>
+                <div class="avatar-controls">
+                    <div class="speaker-input-row has-toggle"><input id="${esc(badge.id)}-avatarSrc" name="avatarSrc" value="${esc(values.avatarSrc)}" maxlength="500" placeholder="Image URL or library path" aria-label="Avatar image URL">
+                        <label class="speaker-toggle" title="Show avatar"><input type="checkbox" role="switch" name="showAvatar" aria-label="Show avatar" ${values.showAvatar ? 'checked' : ''}></label>
+                    </div>
+                    <div class="avatar-actions">
+                        <button class="btn" type="button" data-speaker-avatar>Library...</button>
+                        <button class="btn" type="button" data-avatar-upload>Upload...</button>
+                        <button class="btn" type="button" data-avatar-paste>Paste image</button>
+                    </div>
+                    <input type="file" accept="image/*" data-avatar-file hidden>
+                    <p class="hint">Upload, paste a copied image here, or enter an image URL. Save badge to apply.</p>
+                    <p class="hint" data-avatar-status role="status" hidden></p>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function updateAvatarPreview(form) {
+        const preview = form.querySelector('[data-avatar-preview]');
+        const src = form.elements.avatarSrc.value.trim();
+        const placeholder = () => {
+            preview.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>';
+            preview.title = src ? 'Image could not be loaded' : 'No avatar image selected';
+        };
+        placeholder();
+        if (!src) return;
+        const image = new Image();
+        image.alt = 'Selected avatar';
+        image.onload = () => {
+            if (form.elements.avatarSrc.value.trim() !== src) return;
+            preview.replaceChildren(image);
+            preview.title = 'Selected avatar';
+        };
+        image.src = src;
+    }
+
+    function speakerForm(element) {
+        return [...document.querySelectorAll('[data-speaker-form]')].find(form => form.dataset.speakerForm === element);
+    }
+
+    function setAvatar(element, url) {
+        const form = speakerForm(element);
+        if (!form) return;
+        form.elements.avatarSrc.value = url;
+        form.elements.avatarSrc.dispatchEvent(new Event('input', { bubbles:true }));
+    }
+
+    function avatarStatus(element, message) {
+        const hint = speakerForm(element)?.querySelector('[data-avatar-status]');
+        if (hint) { hint.textContent = message; hint.hidden = !message; }
+    }
+
+    async function uploadAvatar(element, file) {
+        if (avatarUploads.has(element)) return;
+        if (!file.type.startsWith('image/')) { avatarStatus(element, 'Choose an image file.'); return; }
+        avatarUploads.add(element);
+        setAvatarBusy(element, true);
+        avatarStatus(element, 'Uploading image...');
+        try {
+            const response = await fetch('/api/custom-overlays/assets', {
+                method:'POST', headers:{ 'Content-Type':file.type, 'X-Asset-Name':file.name || 'pasted-avatar' }, body:file
+            });
+            const data = await response.json();
+            if (!response.ok || !data.url) throw new Error(data.error || 'Image upload failed');
+            setAvatar(element, data.url);
+            avatarStatus(element, 'Image added to the library. Save badge to apply.');
+        } catch (error) { avatarStatus(element, error.message); }
+        finally { avatarUploads.delete(element); setAvatarBusy(element, false); }
+    }
+
+    function setAvatarBusy(element, busy) {
+        const form = speakerForm(element);
+        if (!form) return;
+        form.querySelector('[data-avatar-field]').setAttribute('aria-busy', String(busy));
+        form.elements.avatarSrc.readOnly = busy;
+        form.querySelectorAll('.avatar-actions button, button[type="submit"]').forEach(button => { button.disabled = busy; });
+    }
+
     function drawSpeakers() {
         const open = new Set([...document.querySelectorAll('[data-speaker][open]')].map(card => card.dataset.speaker));
         $('speaker-badges').innerHTML = speakers.length ? speakers.map((badge, index) => {
@@ -120,11 +216,18 @@
             return `<details class="msg speaker-card" data-speaker="${esc(badge.id)}" ${open.has(badge.id) || index === 0 ? 'open' : ''}>
                 <summary>${esc(badge.name)}${badge.page ? ` <small>(${esc(badge.page)})</small>` : ''}</summary>
                 <form data-speaker-form="${esc(badge.id)}"><div class="speaker-fields">${fields.map(([key, label, max, toggle]) =>
-                    `<div class="speaker-field ${['avatarSrc', 'inputName'].includes(key) ? 'wide' : ''}"><label for="${esc(badge.id)}-${key}">${label}</label>${key === 'avatarSrc' ? '<div class="asset-row">' : ''}<div class="speaker-input-row${toggle ? ' has-toggle' : ''}"><input id="${esc(badge.id)}-${key}" name="${key}" value="${esc(values[key])}" maxlength="${max}" ${key === 'inputName' ? 'list="speaker-audio-inputs"' : ''}>${toggle ? `<label class="speaker-toggle" title="Show ${label.toLowerCase()}"><input type="checkbox" role="switch" name="${toggle}" aria-label="Show ${label.toLowerCase()}" ${values[toggle] ? 'checked' : ''}></label>` : ''}</div>${key === 'avatarSrc' ? '<button class="btn" type="button" data-speaker-avatar>Library...</button></div>' : ''}</div>`).join('')}</div>
+                    key === 'avatarSrc' ? avatarField(badge, values) : `<div class="speaker-field ${key === 'inputName' ? 'wide' : ''}"><label for="${esc(badge.id)}-${key}">${label}</label><div class="speaker-input-row${toggle ? ' has-toggle' : ''}"><input id="${esc(badge.id)}-${key}" name="${key}" value="${esc(values[key])}" maxlength="${max}" ${key === 'inputName' ? 'list="speaker-audio-inputs"' : ''}>${toggle ? `<label class="speaker-toggle" title="Show ${label.toLowerCase()}"><input type="checkbox" role="switch" name="${toggle}" aria-label="Show ${label.toLowerCase()}" ${values[toggle] ? 'checked' : ''}></label>` : ''}</div></div>`).join('')}</div>
                 <button class="btn primary" type="submit">Save badge</button>
                 <span class="hint" data-speaker-status>${dirtySpeakers.has(badge.id) ? 'Unsaved changes' : ''}</span>
                 <p class="hint" data-speaker-meter style="font-variant-numeric:tabular-nums;min-height:2.5em;">Waiting for this source's live audio meter.</p></form></details>`;
         }).join('') : '<div class="msg">No speaker badges in this overlay. Add a Speaker Badge in the custom overlay editor.</div>';
+        for (const form of document.querySelectorAll('[data-speaker-form]')) {
+            updateAvatarPreview(form);
+            if (avatarUploads.has(form.dataset.speakerForm)) {
+                setAvatarBusy(form.dataset.speakerForm, true);
+                avatarStatus(form.dataset.speakerForm, 'Uploading image...');
+            }
+        }
     }
 
     async function loadSpeakers() {
@@ -152,12 +255,34 @@
         drafts.set(form.dataset.speakerForm, readSpeakerForm(form));
         dirtySpeakers.add(form.dataset.speakerForm);
         form.querySelector('[data-speaker-status]').textContent = 'Unsaved changes';
+        if (event.target.name === 'avatarSrc') updateAvatarPreview(form);
+    });
+    document.addEventListener('change', event => {
+        if (event.target.matches('[data-page-toggle]')) {
+            const toggle = event.target;
+            toggle.disabled = true;
+            send({ action:toggle.checked ? 'enable' : 'disable', page:toggle.dataset.pageToggle });
+            return;
+        }
+        if (!event.target.matches('[data-avatar-file]')) return;
+        const file = event.target.files[0], form = event.target.closest('[data-speaker-form]');
+        event.target.value = '';
+        if (file) uploadAvatar(form.dataset.speakerForm, file);
+    });
+    document.addEventListener('paste', event => {
+        const field = event.target.closest('[data-avatar-field]');
+        if (!field) return;
+        const file = [...(event.clipboardData?.files || [])].find(item => item.type.startsWith('image/'));
+        if (!file) return;
+        event.preventDefault();
+        uploadAvatar(field.closest('[data-speaker-form]').dataset.speakerForm, file);
     });
     document.addEventListener('submit', async event => {
         const form = event.target.closest('[data-speaker-form]');
         if (!form) return;
         event.preventDefault();
         const element = form.dataset.speakerForm, values = readSpeakerForm(form);
+        if (avatarUploads.has(element)) return;
         const button = form.querySelector('button[type="submit"]');
         button.disabled = true;
         try {
@@ -239,7 +364,7 @@
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Request failed');
             state = data; draw();
-        } catch (error) { $('status').textContent = error.message; }
+        } catch (error) { draw(); $('status').textContent = error.message; }
     }
 
     function draw() {
@@ -262,20 +387,44 @@
                 <button class="btn" data-act="last">Last<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg></button>
                 <button class="btn${state.auto ? ' active' : ''}" data-act="auto">${state.auto ? 'Pause Auto' : 'Start Auto'}</button>
             </div>
-            <div class="pages">${state.pages.map((p, i) => `<button class="btn page${i === state.index ? ' current' : ''}" data-page="${esc(p.id)}"${p.enabled === false ? ' disabled style="opacity:.45"' : ''}><span>${i + 1}. ${esc(p.name)}</span><small>${p.enabled === false ? 'off' : p.duration ? `${p.duration}s` : ''}</small></button>`).join('')}</div>` + extra;
+            <p class="hint">Switch pages on or off. Changes save immediately; disabled pages are skipped during playback.</p>
+            <div class="pages">${state.pages.map((p, i) => {
+                const enabled = p.enabled !== false;
+                const lastEnabled = enabled && state.pages.filter(page => page.enabled !== false).length === 1;
+                const title = lastEnabled ? 'At least one page must stay enabled' : `${enabled ? 'Disable' : 'Enable'} ${p.name}`;
+                return `<div class="page-entry"><button class="btn page${i === state.index ? ' current' : ''}" data-page="${esc(p.id)}"${enabled ? '' : ' disabled'}><span>${i + 1}. ${esc(p.name)}</span><small>${enabled ? (p.duration ? `${p.duration}s` : '') : 'Off'}</small></button>
+                    <label class="page-toggle" title="${esc(title)}"><input type="checkbox" role="switch" data-page-toggle="${esc(p.id)}" aria-label="Enable ${esc(p.name)}" ${enabled ? 'checked' : ''} ${lastEnabled ? 'disabled' : ''}></label></div>`;
+            }).join('')}</div>` + extra;
     }
 
     document.addEventListener('click', event => {
         const t = event.target.closest('button'); if (!t) return;
         if (t.dataset.tab) return setTab(t.dataset.tab);
+        if (t.hasAttribute('data-avatar-upload')) {
+            t.closest('[data-speaker-form]').querySelector('[data-avatar-file]').click();
+            return;
+        }
+        if (t.hasAttribute('data-avatar-paste')) {
+            const form = t.closest('[data-speaker-form]'), element = form.dataset.speakerForm;
+            (async () => {
+                try {
+                    if (!navigator.clipboard?.read) throw new Error('Clipboard image access is unavailable.');
+                    const items = await navigator.clipboard.read();
+                    for (const item of items) {
+                        const type = item.types.find(type => type.startsWith('image/'));
+                        if (type) { await uploadAvatar(element, await item.getType(type)); return; }
+                    }
+                    throw new Error('No image found in the clipboard.');
+                } catch (error) {
+                    avatarStatus(element, `${error.message} Focus the avatar area and press Ctrl+V or Cmd+V to paste an image.`);
+                    speakerForm(element)?.querySelector('[data-avatar-field]').focus();
+                }
+            })();
+            return;
+        }
         if (t.hasAttribute('data-speaker-avatar')) {
             const form = t.closest('[data-speaker-form]'), element = form.dataset.speakerForm;
-            ImagePicker.open({ value:form.elements.avatarSrc.value, onPick: url => {
-                const current = [...document.querySelectorAll('[data-speaker-form]')].find(form => form.dataset.speakerForm === element);
-                if (!current) return;
-                current.elements.avatarSrc.value = url;
-                current.elements.avatarSrc.dispatchEvent(new Event('input', { bubbles:true }));
-            } });
+            ImagePicker.open({ value:form.elements.avatarSrc.value, onPick: url => setAvatar(element, url) });
             return;
         }
         if (t.id === 'refresh-speakers') {
