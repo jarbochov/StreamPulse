@@ -52,6 +52,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - `money` placeholder format, e.g. `{{placeholder|money}}` renders $1,234.00.
 
 ### Changed
+- Custom Overlay Studio: Reorganized the Add Element picker into balanced pillars (Text & Media, Shapes & Framing, Stream Widgets) with instant keyword search, keyboard navigation (Escape to close, Enter to add), scroll containment, and clean multi-line wrapping to eliminate truncated descriptions.
 - Alerts page: removed the Preview Vol slider; previews play at each variant's saved Alert/Video volume. Cooldown moved into Trigger & conditions.
 
 ---

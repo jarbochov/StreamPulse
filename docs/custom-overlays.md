@@ -6,7 +6,7 @@ Custom Overlay Studio gives you a visual place to shape the scenes and on-screen
 
 Start with a clean canvas or adapt a saved design. Use simple, independent Pages for different moments, or Scene States for animated layout changes and optional OBS source motion. Converting states to pages keeps each look as its own editable layout. Live details can keep an overlay feeling connected to the show, while custom artwork and typography make it distinctly yours.
 
-Stay focused as you build: the inspector separates content, layout, and style, with controls tailored to each kind of layer. Your preferred tab is remembered, so moving between text, artwork, and live widgets feels familiar rather than starting over.
+Stay focused as you build: the inspector separates content, layout, and style, with controls tailored to each kind of layer. The **+ Add** element picker organizes layers into intuitive categories (Text & Copy, Media & Artwork, Shapes & Graphics, Framing & Cutouts, and Stream Widgets) with instant keyword search and keyboard navigation. Your preferred inspector tab is remembered, so moving between text, artwork, and live widgets feels familiar rather than starting over.
 
 When your design is ready, use it as an OBS browser source. StreamPulse also includes focused tools for specific jobs—like schedules, timers, polls, and credits—if you want a ready-made starting point instead of a whole scene.
 

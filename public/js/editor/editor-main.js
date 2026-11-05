@@ -1131,11 +1131,97 @@ function initEventListeners() {
 
     // Add Element Dropdown Menu
     const addMenu = $('add-menu');
+    const addElementSearch = $('add-element-search');
+    const addElementSearchClear = $('add-element-search-clear');
+    const addElementEmptyClear = $('add-element-empty-clear');
+
+    function filterAddElements(query) {
+        const q = (query || '').trim().toLowerCase();
+        if (addElementSearchClear) addElementSearchClear.hidden = !q;
+
+        let visibleCount = 0;
+        const items = addMenu?.querySelectorAll('.menu-item-btn[data-add]') || [];
+        items.forEach(btn => {
+            // Respect feature flags for speaker-badge and obs-frame
+            if (btn.id === 'menu-add-speaker-badge' && !state.liveStatus?.modules?.speakerBadges) {
+                btn.hidden = true;
+                return;
+            }
+            if (btn.dataset.add === 'obs-frame' && (!state.obs?.enabled || (pagesOn() && !statesModeOn()))) {
+                btn.hidden = true;
+                return;
+            }
+
+            const title = btn.querySelector('.menu-item-title')?.textContent?.toLowerCase() || '';
+            const desc = btn.querySelector('.menu-item-desc')?.textContent?.toLowerCase() || '';
+            const keywords = btn.dataset.keywords?.toLowerCase() || '';
+            const tag = btn.dataset.add?.toLowerCase() || '';
+
+            const matches = !q || title.includes(q) || desc.includes(q) || keywords.includes(q) || tag.includes(q);
+            btn.hidden = !matches;
+            if (matches) visibleCount++;
+        });
+
+        // Hide empty sections & columns
+        addMenu?.querySelectorAll('.menu-section').forEach(sec => {
+            const hasVisible = Array.from(sec.querySelectorAll('.menu-item-btn[data-add]')).some(b => !b.hidden);
+            sec.hidden = !hasVisible;
+        });
+        addMenu?.querySelectorAll('.menu-panel-col').forEach(col => {
+            const hasVisible = Array.from(col.querySelectorAll('.menu-section')).some(s => !s.hidden);
+            col.hidden = !hasVisible;
+        });
+
+        const emptyState = $('add-element-empty');
+        if (emptyState) {
+            emptyState.hidden = visibleCount > 0;
+            const querySpan = $('add-element-empty-query');
+            if (querySpan) querySpan.textContent = q;
+        }
+    }
+
     $('add-element')?.addEventListener('click', event => {
         event.stopPropagation();
         const open = addMenu.classList.toggle('open');
         $('add-element').setAttribute('aria-expanded', String(open));
+        if (open) {
+            if (addElementSearch) {
+                addElementSearch.value = '';
+                filterAddElements('');
+                setTimeout(() => addElementSearch.focus(), 40);
+            }
+        }
     });
+
+    addElementSearch?.addEventListener('input', () => {
+        filterAddElements(addElementSearch.value);
+    });
+
+    addElementSearch?.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            event.stopPropagation();
+            addMenu.classList.remove('open');
+            $('add-element')?.setAttribute('aria-expanded', 'false');
+            $('add-element')?.focus();
+            return;
+        }
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            const firstVisible = Array.from(addMenu.querySelectorAll('.menu-item-btn[data-add]')).find(b => !b.hidden);
+            if (firstVisible) firstVisible.click();
+        }
+    });
+
+    const clearSearch = () => {
+        if (addElementSearch) {
+            addElementSearch.value = '';
+            filterAddElements('');
+            addElementSearch.focus();
+        }
+    };
+    addElementSearchClear?.addEventListener('click', clearSearch);
+    addElementEmptyClear?.addEventListener('click', clearSearch);
+
     document.addEventListener('click', event => {
         if (addMenu && !addMenu.contains(event.target)) {
             addMenu.classList.remove('open');
@@ -1650,7 +1736,11 @@ function initEventListeners() {
         }
         if (event.key === 'Escape') {
             if (ctxMenu?.classList.contains('open')) { hideContextMenu(); return; }
-            $('add-menu')?.classList.remove('open');
+            if ($('add-menu')?.classList.contains('open')) {
+                $('add-menu')?.classList.remove('open');
+                $('add-element')?.setAttribute('aria-expanded', 'false');
+                return;
+            }
             setSelection([]);
             return;
         }

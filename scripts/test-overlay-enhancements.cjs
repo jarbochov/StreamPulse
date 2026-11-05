@@ -603,3 +603,42 @@ test('alert entrance/exit animations are not overridden by a decoration animatio
     assert.ok(/card\.style\.animation = `\$\{entrance\}, \$\{decoAnim\}`/.test(shared), 'entrance must be combined with the inline decoration animation');
     assert.ok(shared.includes("if (out !== 'none') card.style.animation = '';"), 'exit class must not be masked by inline animation');
 });
+
+test('Custom Overlay Editor: Reorganized element picker and search filter', () => {
+    const html = fs.readFileSync(path.join(__dirname, '../public/editors/custom-overlay-editor.html'), 'utf8');
+    
+    // Check search elements
+    assert.ok(html.includes('id="add-element-search"'), 'Add element menu must contain search input');
+    assert.ok(html.includes('id="add-element-search-clear"'), 'Add element menu must contain search clear button');
+    assert.ok(html.includes('id="add-element-empty"'), 'Add element menu must contain empty search state');
+
+    // Check all 20 elements with data-add and data-keywords
+    const expectedElements = [
+        'text', 'random-text', 'markdown',
+        'image', 'video', 'slideshow', 'igdb-artwork',
+        'shape', 'icon', 'pattern', 'procedural-pattern', 'cutout', 'obs-frame',
+        'alert', 'speaker-badge', 'poll', 'game-list', 'progress', 'qr', 'embed'
+    ];
+    for (const elType of expectedElements) {
+        assert.ok(html.includes(`data-add="${elType}"`), `Picker must contain element ${elType}`);
+        const elRegex = new RegExp(`data-add="${elType}"[^>]*data-keywords=`);
+        assert.ok(elRegex.test(html), `Element ${elType} must have data-keywords attribute for searching`);
+    }
+
+    // Check section grouping
+    assert.ok(html.includes('Text &amp; Copy'), 'Picker must contain Text & Copy section');
+    assert.ok(html.includes('Media &amp; Artwork'), 'Picker must contain Media & Artwork section');
+    assert.ok(html.includes('Shapes &amp; Graphics'), 'Picker must contain Shapes & Graphics section');
+    assert.ok(html.includes('Framing &amp; Cutouts'), 'Picker must contain Framing & Cutouts section');
+    assert.ok(html.includes('Stream Widgets'), 'Picker must contain Stream Widgets section');
+
+    // Strict No-Emoji check
+    const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F1E6}-\u{1F1FF}]/u;
+    const menuSnippet = html.slice(html.indexOf('id="add-element"'), html.indexOf('id="open-presets"'));
+    assert.ok(!emojiRegex.test(menuSnippet), 'Add menu must strictly contain zero raw unicode emojis');
+
+    // Check editor-main.js search and keyboard listener
+    const js = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-main.js'), 'utf8');
+    assert.ok(js.includes('filterAddElements'), 'editor-main.js must define filterAddElements');
+    assert.ok(js.includes('addElementSearch'), 'editor-main.js must wire search listeners');
+});
