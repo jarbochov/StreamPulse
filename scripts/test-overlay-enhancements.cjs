@@ -628,7 +628,7 @@ test('Custom Overlay Editor: Reorganized element picker and search filter', () =
     // Check section grouping
     assert.ok(html.includes('Text &amp; Copy'), 'Picker must contain Text & Copy section');
     assert.ok(html.includes('Media &amp; Artwork'), 'Picker must contain Media & Artwork section');
-    assert.ok(html.includes('Shapes &amp; Graphics'), 'Picker must contain Shapes & Graphics section');
+    assert.ok(html.includes('Graphics &amp; Patterns') || html.includes('Shapes &amp; Graphics'), 'Picker must contain Graphics & Patterns section');
     assert.ok(html.includes('Framing &amp; Cutouts'), 'Picker must contain Framing & Cutouts section');
     assert.ok(html.includes('Stream Widgets'), 'Picker must contain Stream Widgets section');
 
