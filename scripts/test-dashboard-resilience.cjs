@@ -199,6 +199,46 @@ test('dashboard recovery and navigation polling resilience', async t => {
         await page.close();
     });
 
+    await t.test('OBS health follows the global connection independently of scene sync', async () => {
+        const { page, errors } = await open('dashboard');
+        const states = await page.evaluate(async () => {
+            const f = window.dashboardFixture;
+            const snapshot = () => ({
+                visible: document.getElementById('obs-health').getBoundingClientRect().height > 0,
+                text: document.getElementById('obs-status').textContent,
+                color: document.getElementById('dot-obs').dataset.color,
+                error: document.getElementById('obs-status').title
+            });
+            const results = [snapshot()];
+            f.data.modules.obs = true;
+            f.data.modules.obsSceneSync = false;
+            f.data.obs = { enabled: true, connected: true, sceneSyncEnabled: false };
+            await window.refresh();
+            results.push(snapshot());
+            f.data.obs = { enabled: true, connecting: true };
+            await window.refresh();
+            results.push(snapshot());
+            f.data.obs = { enabled: true, lastError: 'Fictional connection refused' };
+            await window.refresh();
+            results.push(snapshot());
+            f.data.obs = { enabled: false };
+            await window.refresh();
+            results.push(snapshot());
+            f.data.modules.obs = false;
+            await window.refresh();
+            results.push(snapshot());
+            return results;
+        });
+        assert.equal(states[0].visible, false, 'unconfigured OBS is absent from Health');
+        assert.deepEqual(states[1], { visible: true, text: 'Connected', color: 'green', error: '' });
+        assert.deepEqual(states[2], { visible: true, text: 'Connecting…', color: 'yellow', error: '' });
+        assert.deepEqual(states[3], { visible: true, text: 'Disconnected', color: 'red', error: 'Fictional connection refused' });
+        assert.equal(states[4].visible, false, 'disabled connection wins over stale module status');
+        assert.equal(states[5].visible, false, 'disabling OBS hides the row without reloading');
+        assert.deepEqual(errors, []);
+        await page.close();
+    });
+
     await t.test('single flight, stale JSON/config invalidation, HTTP errors and preserved nav interactions', async () => {
         const { page, errors } = await open('nav');
         assert.equal(await page.$eval('#nav-live-indicator .label', el => el.textContent), 'Offline');

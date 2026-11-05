@@ -11,7 +11,8 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- Speaker badges: OBS voice reactions, responsive auto-sizing, separate fonts, avatar/icon scaling, and quick profile/audio controls.
+- Dashboard Health: OBS connection status when the global connection is enabled.
+- Speaker badges: OBS voice reactions, responsive auto-sizing, separate fonts, avatar/icon scaling, and quick profile/audio/visibility controls.
 - Native Twitch EventSub Raids & Polling Optimization: Added native `channel.raid` EventSub push subscription for real-time incoming raid ingestion, alerts, and chatbot auto-shoutouts. Automatically throttles Twitch REST polling loops for polls, category/stream info, and session lifecycle when EventSub is connected, slashing redundant REST requests by >90%.
 - Chatbot Performance & Storage Modularity: Decoupled quote library into dedicated `data/quotes.json` with automatic migration to prevent full quote re-serialization on settings or command updates; implemented pre-compiled regex trigger matchers and single-pass token formatting fast-paths.
 - Server Cleanup: Removed unreferenced `MIME_TYPES` dictionary from `server.js` in favor of cascading static router.

@@ -29,17 +29,25 @@
         .status { font-size: .8rem; color: var(--text-muted); margin-top: .8rem; }
         .tabs { display:flex; gap:.5rem; margin-bottom:1rem; }
         [hidden] { display:none !important; }
-        .speaker-fields { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.7rem; margin:.8rem 0; }
+        .speaker-fields { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:1rem .8rem; margin:1rem 0; }
         .speaker-fields label { display:grid; gap:.3rem; font-size:.8rem; color:var(--text-muted); }
         .speaker-fields .wide { grid-column:1 / -1; }
-        .speaker-fields input { width:100%; min-width:0; padding:.6rem; border:1px solid var(--border); border-radius:6px; background:var(--bg-inset); color:var(--text); font:inherit; }
+        .speaker-field { display:grid; gap:.4rem; min-width:0; align-content:start; font-size:.875rem; }
+        .speaker-input-row { position:relative; min-width:0; flex:1; }
+        .speaker-fields input:not([type="checkbox"]) { width:100%; min-width:0; padding:.6rem; border:1px solid var(--border); border-radius:6px; background:var(--bg-inset); color:var(--text); font:inherit; }
+        .speaker-input-row.has-toggle input:not([type="checkbox"]) { padding-right:52px; }
+        .speaker-fields .speaker-toggle { position:absolute; right:.3rem; top:50%; transform:translateY(-50%); display:flex; align-items:center; justify-content:center; width:40px; height:36px; cursor:pointer; }
+        .speaker-toggle input { appearance:none; width:28px !important; height:16px !important; border:1px solid var(--border); border-radius:999px; background:var(--bg-inset); cursor:pointer; position:relative; flex:none; }
+        .speaker-toggle input::before { content:''; position:absolute; width:10px; height:10px; top:2px; left:2px; border-radius:50%; background:var(--text-muted); }
+        .speaker-toggle input:checked { background:var(--accent); border-color:var(--accent); }
+        .speaker-toggle input:checked::before { transform:translateX(12px); background:var(--bg-page); }
+        .speaker-toggle input:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
         .asset-row { display:flex; gap:.5rem; }
-        .asset-row input { flex:1; }
         .asset-row .btn { flex:none; padding:.5rem .7rem; }
         .hint { font-size:.8rem; color:var(--text-muted); margin:.5rem 0; }
         .speaker-card { margin-bottom:.8rem; }
         .speaker-card summary { cursor:pointer; font-weight:600; }
-        @media (max-width:400px) { .speaker-fields { grid-template-columns:1fr; } }
+        @media (max-width:520px) { .speaker-fields { grid-template-columns:1fr; } }
     </style>
 </head>
 <body>
@@ -89,19 +97,30 @@
         const config = badge.speakerBadge || {}, speaker = config.speaker || {};
         return { name: speaker.name || '', handle: speaker.handle || '', pronouns: speaker.pronouns || '',
             avatarSrc: speaker.avatarSrc || '', statusText: speaker.callIn?.statusText || '', location: speaker.callIn?.location || '',
+            showHandle: speaker.showHandle !== false, showPronouns: speaker.showPronouns !== false,
+            showAvatar: speaker.showAvatar !== false, callInEnabled: speaker.callIn?.enabled === true,
+            showLocation: speaker.callIn?.showLocation !== false,
             inputName: config.audio?.inputName || 'Mic/Aux' };
+    }
+
+    function readSpeakerForm(form) {
+        const values = Object.fromEntries(new FormData(form));
+        for (const key of ['showHandle', 'showPronouns', 'showAvatar', 'callInEnabled', 'showLocation']) {
+            values[key] = form.elements[key].checked;
+        }
+        return values;
     }
 
     function drawSpeakers() {
         const open = new Set([...document.querySelectorAll('[data-speaker][open]')].map(card => card.dataset.speaker));
         $('speaker-badges').innerHTML = speakers.length ? speakers.map((badge, index) => {
             const values = drafts.get(badge.id) || speakerValues(badge);
-            const fields = [['name', 'Display name', 80], ['handle', 'Handle / subtitle', 60], ['pronouns', 'Pronouns', 30],
-                ['avatarSrc', 'Avatar URL / library asset', 500], ['statusText', 'Call-in status', 40], ['location', 'Caller location', 80], ['inputName', 'OBS audio source', 100]];
+            const fields = [['name', 'Display name', 80], ['handle', 'Handle / subtitle', 60, 'showHandle'], ['pronouns', 'Pronouns', 30, 'showPronouns'],
+                ['avatarSrc', 'Avatar URL / library asset', 500, 'showAvatar'], ['statusText', 'Call-in status', 40, 'callInEnabled'], ['location', 'Caller location', 80, 'showLocation'], ['inputName', 'OBS audio source', 100]];
             return `<details class="msg speaker-card" data-speaker="${esc(badge.id)}" ${open.has(badge.id) || index === 0 ? 'open' : ''}>
                 <summary>${esc(badge.name)}${badge.page ? ` <small>(${esc(badge.page)})</small>` : ''}</summary>
-                <form data-speaker-form="${esc(badge.id)}"><div class="speaker-fields">${fields.map(([key, label, max]) =>
-                    `<label class="${['avatarSrc', 'inputName'].includes(key) ? 'wide' : ''}">${label}${key === 'avatarSrc' ? '<span class="asset-row">' : ''}<input name="${key}" value="${esc(values[key])}" maxlength="${max}" ${key === 'inputName' ? 'list="speaker-audio-inputs"' : ''}>${key === 'avatarSrc' ? '<button class="btn" type="button" data-speaker-avatar>Library...</button></span>' : ''}</label>`).join('')}</div>
+                <form data-speaker-form="${esc(badge.id)}"><div class="speaker-fields">${fields.map(([key, label, max, toggle]) =>
+                    `<div class="speaker-field ${['avatarSrc', 'inputName'].includes(key) ? 'wide' : ''}"><label for="${esc(badge.id)}-${key}">${label}</label>${key === 'avatarSrc' ? '<div class="asset-row">' : ''}<div class="speaker-input-row${toggle ? ' has-toggle' : ''}"><input id="${esc(badge.id)}-${key}" name="${key}" value="${esc(values[key])}" maxlength="${max}" ${key === 'inputName' ? 'list="speaker-audio-inputs"' : ''}>${toggle ? `<label class="speaker-toggle" title="Show ${label.toLowerCase()}"><input type="checkbox" role="switch" name="${toggle}" aria-label="Show ${label.toLowerCase()}" ${values[toggle] ? 'checked' : ''}></label>` : ''}</div>${key === 'avatarSrc' ? '<button class="btn" type="button" data-speaker-avatar>Library...</button></div>' : ''}</div>`).join('')}</div>
                 <button class="btn primary" type="submit">Save badge</button>
                 <span class="hint" data-speaker-status>${dirtySpeakers.has(badge.id) ? 'Unsaved changes' : ''}</span>
                 <p class="hint" data-speaker-meter style="font-variant-numeric:tabular-nums;min-height:2.5em;">Waiting for this source's live audio meter.</p></form></details>`;
@@ -130,7 +149,7 @@
     document.addEventListener('input', event => {
         const form = event.target.closest('[data-speaker-form]');
         if (!form) return;
-        drafts.set(form.dataset.speakerForm, Object.fromEntries(new FormData(form)));
+        drafts.set(form.dataset.speakerForm, readSpeakerForm(form));
         dirtySpeakers.add(form.dataset.speakerForm);
         form.querySelector('[data-speaker-status]').textContent = 'Unsaved changes';
     });
@@ -138,13 +157,14 @@
         const form = event.target.closest('[data-speaker-form]');
         if (!form) return;
         event.preventDefault();
-        const element = form.dataset.speakerForm, values = Object.fromEntries(new FormData(form));
+        const element = form.dataset.speakerForm, values = readSpeakerForm(form);
         const button = form.querySelector('button[type="submit"]');
         button.disabled = true;
         try {
             const response = await fetch(speakersApi, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({
                 element, speaker:{ name:values.name, handle:values.handle, pronouns:values.pronouns, avatarSrc:values.avatarSrc,
-                    callIn:{ statusText:values.statusText, location:values.location } }, audio:{ inputName:values.inputName }
+                    showAvatar:values.showAvatar, showHandle:values.showHandle, showPronouns:values.showPronouns,
+                    callIn:{ enabled:values.callInEnabled, showLocation:values.showLocation, statusText:values.statusText, location:values.location } }, audio:{ inputName:values.inputName }
             }) });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Could not save badge');

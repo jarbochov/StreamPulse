@@ -308,8 +308,38 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         await page.goto(`${base}/overlay-control.html?id=${initial.id}`, { waitUntil: 'networkidle0' });
         await page.click('#tab-speakers');
         await page.waitForSelector('[data-speaker-form="host"] input');
+        assert.deepEqual(await page.$eval('[name="showHandle"]', input => {
+            const box = input.getBoundingClientRect();
+            return { width: box.width, height: box.height };
+        }), { width: 28, height: 16 }, 'shared checkbox styles do not collapse the switches');
+        for (const width of [360, 640]) {
+            await page.setViewport({ width, height: 1000 });
+            const geometry = await page.$eval('[data-speaker-form="host"]', form => ({
+                fits: document.documentElement.scrollWidth <= window.innerWidth,
+                columns: getComputedStyle(form.querySelector('.speaker-fields')).gridTemplateColumns.split(' ').length,
+                insets: [...form.querySelectorAll('.has-toggle')].every(row => {
+                    const input = row.querySelector('input:not([type="checkbox"])'), toggle = row.querySelector('[role="switch"]');
+                    const box = input.getBoundingClientRect(), switchBox = toggle.getBoundingClientRect();
+                    return switchBox.width === 28 && switchBox.height === 16 &&
+                        switchBox.left >= box.right - parseFloat(getComputedStyle(input).paddingRight) &&
+                        switchBox.right <= box.right - 4 && Math.abs((switchBox.top + switchBox.bottom) - (box.top + box.bottom)) < 2;
+                })
+            }));
+            assert.equal(geometry.fits && geometry.insets, true, `visibility switches stay in their own input inset at ${width}px`);
+            assert.equal(geometry.columns, width <= 520 ? 1 : 2);
+        }
+        await page.setViewport({ width: 1600, height: 1000 });
         await page.$eval('[data-speaker-form="host"] [name="name"]', input => { input.value = 'Edited Host'; input.dispatchEvent(new Event('input', { bubbles: true })); });
         await page.$eval('[data-speaker-form="host"] [name="inputName"]', input => { input.value = 'Guest Audio'; input.dispatchEvent(new Event('input', { bubbles: true })); });
+        await page.$eval('[data-speaker-form="host"]', form => {
+            for (const [key, value] of Object.entries({ handle: '@fictionalhost', pronouns: 'they/them', statusText: 'CALLING IN', location: 'Remote studio' })) {
+                form.elements[key].value = value;
+                form.elements[key].dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
+        for (const key of ['showHandle', 'showPronouns', 'showAvatar', 'callInEnabled', 'showLocation']) {
+            await page.click(`[data-speaker-form="host"] [name="${key}"]`);
+        }
         await page.click('[data-speaker-form="host"] [data-speaker-avatar]');
         await page.waitForSelector('.mp-grid [role="option"]');
         assert.equal(await page.$$eval('.mp-grid [role="option"]', tiles => tiles.length), 1, 'avatars only offer image assets');
@@ -319,6 +349,8 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         await page.waitForSelector('.mp-grid [role="option"]');
         await page.evaluate(async () => { await window.loadSpeakers(); });
         assert.equal(await page.$eval('[data-speaker-form="host"] [name="name"]', input => input.value), 'Edited Host');
+        assert.equal(await page.$eval('[data-speaker-form="host"] [name="showAvatar"]', input => input.checked), false, 'visibility drafts survive refresh');
+        assert.equal(await page.$eval('[data-speaker-form="host"] [name="callInEnabled"]', input => input.checked), true);
         await page.click('.mp-grid [role="option"]');
         assert.equal(await page.$eval('[data-speaker-form="host"] [name="avatarSrc"]', input => input.value), '/favicon.svg');
         assert.equal(await page.$eval('[data-speaker-form="guest"] [name="avatarSrc"]', input => input.value), '');
@@ -340,6 +372,14 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         const badge = stored.elements.find(element => element.id === 'host').speakerBadge;
         assert.equal(badge.speaker.name, 'Edited Host');
         assert.equal(badge.speaker.avatarSrc, '/favicon.svg');
+        assert.equal(badge.speaker.showAvatar, false);
+        assert.equal(badge.speaker.showHandle, false);
+        assert.equal(badge.speaker.showPronouns, false);
+        assert.equal(badge.speaker.callIn.enabled, true);
+        assert.equal(badge.speaker.callIn.showLocation, false);
+        assert.equal(badge.speaker.handle, '@fictionalhost', 'hiding a field does not clear its saved value');
+        assert.equal(badge.speaker.pronouns, 'they/them');
+        assert.equal(badge.speaker.callIn.location, 'Remote studio');
         assert.equal(badge.audio.inputName, 'Guest Audio');
         assert.equal(badge.audio.thresholdDb, -27);
         assert.equal(badge.reaction.glowSpread, 30);
@@ -351,10 +391,33 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         assert.equal(bad.status, 404);
         const invalid = await fetch(endpoint, { method: 'PATCH', body: JSON.stringify({ element: 'host', audio: { inputName: 42 } }) });
         assert.equal(invalid.status, 400);
+        for (const speaker of [{ showAvatar: 'false' }, { callIn: { enabled: 1 } }]) {
+            const response = await fetch(endpoint, { method: 'PATCH', body: JSON.stringify({ element: 'host', speaker }) });
+            assert.equal(response.status, 400, 'visibility API requires real booleans');
+        }
+        const partial = await fetch(endpoint, { method: 'PATCH', body: JSON.stringify({ element: 'host', audio: { inputName: 'Guest Audio' } }) });
+        assert.equal(partial.status, 200);
+        assert.equal(overlays[initial.id].elements[0].speakerBadge.speaker.showHandle, false, 'partial updates preserve visibility');
         await page.reload({ waitUntil: 'networkidle0' });
         assert.equal(await page.$eval('#tab-speakers', tab => tab.getAttribute('aria-selected')), 'true');
         assert.equal(await page.$eval('[data-speaker-form="host"] [name="name"]', input => input.value), 'Edited Host');
         assert.equal(await page.$eval('[data-speaker-form="host"] [name="avatarSrc"]', input => input.value), '/favicon.svg');
+        for (const key of ['showHandle', 'showPronouns', 'showAvatar', 'showLocation']) {
+            assert.equal(await page.$eval(`[data-speaker-form="host"] [name="${key}"]`, input => input.checked), false);
+            await page.click(`[data-speaker-form="host"] [name="${key}"]`);
+        }
+        assert.equal(await page.$eval('[data-speaker-form="host"] [name="callInEnabled"]', input => input.checked), true);
+        await page.click('[data-speaker-form="host"] [name="callInEnabled"]');
+        const [visibilitySaved] = await Promise.all([
+            page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'PATCH'),
+            page.click('[data-speaker-form="host"] button[type="submit"]')
+        ]);
+        assert.equal(visibilitySaved.status(), 200);
+        await page.waitForFunction(() => document.querySelector('[data-speaker-status]')?.textContent === '');
+        const visibleBadge = overlays[initial.id].elements[0].speakerBadge.speaker;
+        assert.equal(visibleBadge.showAvatar && visibleBadge.showHandle && visibleBadge.showPronouns && visibleBadge.callIn.showLocation, true);
+        assert.equal(visibleBadge.callIn.enabled, false);
+        assert.equal(visibleBadge.callIn.statusText, 'CALLING IN', 'disabling call-in retains the status text');
         await page.click('[data-speaker-form="host"] [data-speaker-avatar]');
         await page.click('.mp-dialog [data-clear]');
         assert.equal(await page.$eval('[data-speaker-form="host"] [name="avatarSrc"]', input => input.value), '');

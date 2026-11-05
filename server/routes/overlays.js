@@ -821,10 +821,18 @@ function createOverlayRoutes({
                         target[key] = source[key];
                     }
                 };
+                const copyBooleans = (source, target, fields) => {
+                    for (const key of fields) if (source?.[key] !== undefined) {
+                        if (typeof source[key] !== 'boolean') throw new Error(`${key} must be a boolean`);
+                        target[key] = source[key];
+                    }
+                };
                 copyStrings(body.speaker, speaker, ['name', 'handle', 'pronouns', 'avatarSrc']);
+                copyBooleans(body.speaker, speaker, ['showAvatar', 'showHandle', 'showPronouns']);
                 if (body.speaker?.callIn !== undefined) {
                     speaker.callIn = { ...speaker.callIn };
                     copyStrings(body.speaker.callIn, speaker.callIn, ['statusText', 'location']);
+                    copyBooleans(body.speaker.callIn, speaker.callIn, ['enabled', 'showLocation']);
                 }
                 copyStrings(body.audio, audio, ['inputName']);
                 const overlay = normalizeCustomOverlay({

@@ -71,6 +71,7 @@
         .stat .sub { font-size: .64rem; color: var(--success); min-height: .9em; }
 
         .indicator { display: flex; align-items: center; gap: .5rem; padding: .22rem 0; }
+        .indicator[hidden] { display: none; }
         .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--border-strong); }
         .dot.green { background: var(--success); box-shadow: 0 0 6px var(--success); }
         .dot.red { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
@@ -147,6 +148,7 @@
             <div class="indicator"><div class="dot" id="dot-server"></div><span>Server: <span id="uptime">—</span></span></div>
             <div class="indicator"><div class="dot" id="dot-ssn"></div><span>SocialStream: <span id="ssn-status">—</span></span></div>
             <div class="indicator"><div class="dot" id="dot-twitch"></div><span>Twitch token: <span id="twitch-status">—</span></span></div>
+            <div class="indicator" id="obs-health" hidden><div class="dot" id="dot-obs"></div><span>OBS: <span id="obs-status">—</span></span></div>
             <div class="indicator"><div class="dot" id="dot-ws"></div><span>Overlay sources: <span id="ws-clients">0</span></span></div>
             <div class="detail-line" title="Resident Node process memory, including heap, native allocations and buffers. This is not Safari memory."><strong>Node RSS:</strong> <span id="memory">—</span></div>
             <div class="detail-line" title="Live JavaScript allocations / currently allocated V8 heap. RSS need not shrink immediately after garbage collection."><strong>JS heap:</strong> <span id="memory-heap">—</span></div>
@@ -635,6 +637,11 @@
         else { setDot('dot-ssn', 'yellow'); setText('ssn-status', 'Not configured'); }
         setDot('dot-twitch', data.twitch?.hasToken ? 'green' : 'red');
         setText('twitch-status', data.twitch?.hasToken ? 'Active' : 'Not authenticated');
+        const obs = data.obs || {};
+        $('obs-health').hidden = !(obs.enabled ?? data.modules?.obs);
+        setDot('dot-obs', obs.connected ? 'green' : obs.connecting ? 'yellow' : 'red');
+        setText('obs-status', obs.connected ? 'Connected' : obs.connecting ? 'Connecting…' : 'Disconnected');
+        $('obs-status').title = !obs.connected && obs.lastError ? obs.lastError : '';
         setDot('dot-ws', data.overlayClients > 0 ? 'green' : 'yellow');
         setText('ws-clients', data.overlayClients ?? 0);
         setText('overlay-clients', data.overlayClients ?? 0);

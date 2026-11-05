@@ -38,7 +38,7 @@ Some nights need a polished scene. Others need a quick countdown or a way to let
 
 Use OBS docks for your studios, or connect **[Bitfocus Companion](companion.md)** to put common actions on a Stream Deck.
 
-The dashboard brings connection health and show activity together at a glance. It recovers when a connection returns, while hidden pages pause background status checks so an idle workspace does less work.
+The dashboard brings connection health and show activity together at a glance. When the global OBS connection is enabled, **Health** shows whether OBS is connected, connecting, or disconnected, independently of the Scene Sync module. It recovers when a connection returns, while hidden pages pause background status checks so an idle workspace does less work.
 
 ## Fits alongside the tools you already use
 
