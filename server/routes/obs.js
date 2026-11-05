@@ -32,7 +32,8 @@ function createObsRoutes({
         if (pathname === '/api/obs/audio-inputs' && req.method === 'GET') {
             try {
                 const inputs = await obsService.listAudioInputs();
-                sendJson(res, { inputs });
+                const status = typeof obsService.getStatus === 'function' ? obsService.getStatus() : null;
+                sendJson(res, { inputs, connected: status ? Boolean(status.connected) : inputs.length > 0, enabled: status ? Boolean(status.enabled) : true });
             } catch (err) {
                 sendError(res, 500, err.message || 'Could not query OBS audio inputs');
             }

@@ -1544,6 +1544,32 @@ export function patternSection(el) {
         ${motion !== 'none' ? '<p class="hint">Animates continuously in the live overlay and editor. Use the Effects toggle in the top toolbar to pause animations while editing.</p>' : ''}`);
 }
 
+export function updateObsAudioStatus(data) {
+    const pill = document.getElementById('sb-obs-status-pill');
+    const hint = document.getElementById('sb-obs-status-hint');
+    const dl = document.getElementById('obs-audio-inputs-list');
+    if (dl && Array.isArray(data?.inputs)) {
+        dl.innerHTML = data.inputs.map(name => `<option value="${esc(name)}">`).join('');
+    }
+    if (!pill) return;
+    if (data?.connected) {
+        const count = Array.isArray(data.inputs) ? data.inputs.length : 0;
+        pill.className = 'badge-pill badge-now';
+        pill.style.background = 'rgba(34, 197, 94, 0.15)';
+        pill.style.color = '#22c55e';
+        pill.style.border = '1px solid rgba(34, 197, 94, 0.3)';
+        pill.innerHTML = `<span style="width:5px;height:5px;border-radius:50%;background:currentColor;"></span>OBS Connected (${count} source${count === 1 ? '' : 's'})`;
+        if (hint) hint.textContent = count ? 'Select which OBS Studio audio mixer source drives this speaker badge.' : 'OBS connected. Add or rename audio mixer sources in OBS Studio.';
+    } else {
+        pill.className = 'badge-pill badge-test';
+        pill.style.background = 'rgba(239, 68, 68, 0.15)';
+        pill.style.color = '#ef4444';
+        pill.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+        pill.innerHTML = `<span style="width:5px;height:5px;border-radius:50%;background:currentColor;"></span>OBS Disconnected`;
+        if (hint) hint.innerHTML = 'Connect OBS Studio via WebSocket in <a href="/system/settings.html#obs" target="_blank" style="color:var(--accent);text-decoration:underline;">Settings &gt; OBS Studio</a> to auto-list live audio sources.';
+    }
+}
+
 export function speakerBadgeSection(el) {
     const b = el.speakerBadge || {};
     const sp = b.speaker || {};
@@ -1564,18 +1590,16 @@ export function speakerBadgeSection(el) {
 
     // Auto-populate OBS audio inputs in background if datalist is empty
     setTimeout(async () => {
-        const dl = document.getElementById('obs-audio-inputs-list');
-        if (dl && !dl.children.length) {
-            try {
-                const res = await fetch('/api/obs/audio-inputs');
-                if (res.ok) {
-                    const data = await res.json();
-                    dl.innerHTML = (data.inputs || []).map(name => `<option value="${esc(name)}">`).join('');
-                }
-            } catch {}
-        }
+        try {
+            const res = await fetch('/api/obs/audio-inputs');
+            if (res.ok) {
+                const data = await res.json();
+                updateObsAudioStatus(data);
+            }
+        } catch {}
     }, 50);
 
+    // 1. Content Tab: Speaker Profile (Pure data, no styling)
     const profile = F.section('speakerProfile', 'Speaker Profile', `
         ${F.text('speakerBadge.speaker.name', 'Display Name', sp.name || '', 'placeholder="Alex Rivera"')}
         <div class="grid2">
@@ -1589,11 +1613,6 @@ export function speakerBadgeSection(el) {
                 <button type="button" id="open-assets-sb">Library…</button>
             </span>
         </div>
-        <div class="grid2">
-            ${F.select('speakerBadge.speaker.avatarShape', 'Avatar shape', sp.avatarShape || 'circle', [['circle', 'Circle'], ['squircle', 'Squircle'], ['square', 'Square']])}
-            ${F.select('speakerBadge.layout', 'Layout style', layout, [['horizontal', 'Horizontal Lower-Third'], ['cspan-banner', 'Broadcast Call-In (C-SPAN Banner)'], ['compact-pill', 'Compact Pill'], ['vertical-card', 'Vertical Sidebar Card'], ['avatar-only', 'Avatar Only (Floating Halo)']])}
-        </div>
-        ${canResize ? `<button type="button" class="btn sm" id="btn-sb-adapt-size" style="width:100%;margin-top:0.4rem;font-size:11px;">Apply ${rec[0]}×${rec[1]} Recommended Size</button>` : ''}
         <div class="grid3" style="margin-top:0.5rem;">
             ${F.check('speakerBadge.speaker.showAvatar', 'Avatar', sp.showAvatar !== false)}
             ${F.check('speakerBadge.speaker.showHandle', 'Handle', sp.showHandle !== false)}
@@ -1601,29 +1620,36 @@ export function speakerBadgeSection(el) {
         </div>
     `);
 
+    // 2. Content Tab: Broadcast Call-In (Pure data)
     const isCspan = layout === 'cspan-banner';
-    const cspan = F.section('speakerCallIn', 'Broadcast Call-In (C-SPAN Style)', `
-        ${F.check('speakerBadge.speaker.callIn.enabled', 'Enable Call-In mode (status tag & location)', callIn.enabled === true || isCspan)}
+    const cspan = F.section('speakerCallIn', 'Broadcast Call-In Mode', `
+        ${F.check('speakerBadge.speaker.callIn.enabled', 'Enable Call-In mode', callIn.enabled === true || isCspan)}
         <div class="grid2">
             ${F.text('speakerBadge.speaker.callIn.statusText', 'Status tag', callIn.statusText || 'ON THE LINE', 'placeholder="ON THE LINE, CALLING IN"')}
-            ${F.color('speakerBadge.speaker.callIn.statusColor', 'Tag color', callIn.statusColor || '#22c55e')}
+            ${F.text('speakerBadge.speaker.callIn.location', 'Caller location', callIn.location || '', 'placeholder="Chicago, IL or Discord"')}
         </div>
         <div class="grid2">
-            ${F.text('speakerBadge.speaker.callIn.location', 'Caller location', callIn.location || '', 'placeholder="Chicago, IL or Discord"')}
             ${F.check('speakerBadge.speaker.callIn.showLocation', 'Show location', callIn.showLocation !== false)}
         </div>
         <p class="hint">${isCspan ? 'Displays an authentic broadcast call-in ticker banner with active live status dot and caller origin.' : 'Displays an authentic broadcast call-in badge with active live status dot and caller origin.'}</p>
     `);
 
+    // 3. Content Tab: OBS Audio Input & Gate Sensitivity
     const audioSec = F.section('speakerAudio', 'OBS Audio & Sensitivity Gate', `
         <div class="field">
-            <span>OBS Audio Input</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                <span>OBS Audio Input</span>
+                <span id="sb-obs-status-pill" class="badge-pill" style="font-size:10px;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,0.08);color:var(--text-muted);display:inline-flex;align-items:center;gap:4px;">
+                    <span style="width:5px;height:5px;border-radius:50%;background:currentColor;"></span>
+                    <span>Checking OBS…</span>
+                </span>
+            </div>
             <span class="upload-row">
                 <input id="prop-sb-audio-input" data-path="speakerBadge.audio.inputName" value="${esc(audio.inputName || 'Mic/Aux')}" list="obs-audio-inputs-list" placeholder="Mic/Aux" spellcheck="false">
                 <button type="button" id="btn-refresh-obs-audio" title="Fetch inputs from OBS">Refresh</button>
             </span>
             <datalist id="obs-audio-inputs-list"></datalist>
-            <span class="hint">Active audio mixer source in OBS Studio (e.g. "Mic/Aux", "Discord", "Guest 1 Browser").</span>
+            <span class="hint" id="sb-obs-status-hint">Active audio mixer source in OBS Studio (e.g. "Mic/Aux", "Discord", "Guest 1 Browser").</span>
         </div>
         <div class="grid2">
             ${F.range('speakerBadge.audio.thresholdDb', 'Sensitivity gate', audio.thresholdDb ?? -36, { min: -70, max: 0, step: 1, unit: ' dB', editable: true })}
@@ -1637,6 +1663,22 @@ export function speakerBadgeSection(el) {
         <p class="hint">Sensitivity gate opens when audio exceeds threshold. Release hold keeps the badge active between natural speech pauses.</p>
     `);
 
+    // 4. Layout Tab: Layout Preset & Recommended Dimensions
+    const layoutSec = F.section('speakerLayout', 'Speaker Layout', `
+        ${F.select('speakerBadge.layout', 'Layout preset', layout, [['horizontal', 'Horizontal Lower-Third'], ['cspan-banner', 'Broadcast Call-In (C-SPAN Banner)'], ['compact-pill', 'Compact Pill'], ['vertical-card', 'Vertical Sidebar Card'], ['avatar-only', 'Avatar Only (Floating Halo)']])}
+        ${canResize ? `<button type="button" class="btn sm" id="btn-sb-adapt-size" style="width:100%;margin-top:0.4rem;font-size:11px;">Apply ${rec[0]}×${rec[1]} Recommended Size</button>` : ''}
+        <p class="hint">Choose a layout preset. Sizing adapts smoothly to recommended dimensions.</p>
+    `);
+
+    // 5. Style Tab: Avatar Shape & Tag Color
+    const styleSec = F.section('speakerStyle', 'Speaker Appearance', `
+        <div class="grid2">
+            ${F.select('speakerBadge.speaker.avatarShape', 'Avatar shape', sp.avatarShape || 'circle', [['circle', 'Circle'], ['squircle', 'Squircle'], ['square', 'Square']])}
+            ${F.color('speakerBadge.speaker.callIn.statusColor', 'Call-in tag color', callIn.statusColor || '#22c55e')}
+        </div>
+    `);
+
+    // 6. Style Tab: Speaking Reaction & Visualizer
     const reactionSec = F.section('speakerReaction', 'Audio Reaction & EQ Visualizer', `
         <div class="grid2">
             ${F.select('speakerBadge.reaction.visualizer', 'Visualizer', re.visualizer || 'bars', [['bars', 'EQ Bars'], ['pulse-ring', 'Avatar Pulse Ring'], ['both', 'EQ Bars + Pulse Ring'], ['none', 'None (Border Only)']])}
@@ -1656,7 +1698,7 @@ export function speakerBadgeSection(el) {
         </div>
     `);
 
-    return profile + cspan + audioSec + reactionSec;
+    return profile + cspan + audioSec + layoutSec + styleSec + reactionSec;
 }
 
 export function sharedBlock(items) {
@@ -1745,10 +1787,10 @@ export function obsLinkSection(el) {
 // ---- Property Inspector Panel Render ----------------------------------------------
 const INSPECTOR_TABS = [['content', 'Content'], ['layout', 'Layout'], ['style', 'Style']];
 const SPECIFIC_SECTION_TABS = {
-    gamelayout: 'layout', patternLayout: 'layout',
+    gamelayout: 'layout', patternLayout: 'layout', speakerLayout: 'layout',
     gamecovers: 'style', gametext: 'style', progress: 'style',
     patternMotion: 'style', proceduralMotion: 'style',
-    speakerReaction: 'style'
+    speakerStyle: 'style', speakerReaction: 'style'
 };
 
 function rememberInspectorScroll(root) {
@@ -2132,6 +2174,20 @@ export function initInspectorEvents() {
                     else if (el.pattern.layout === 'grid') { el.pattern.offsetX = 0; el.pattern.offsetY = 0; }
                     else if (el.pattern.layout === 'alternating' && !el.pattern.tileAngle && (el.pattern.alternateFlip || 'tilt') === 'tilt') { el.pattern.tileAngle = 15; }
                     else if (el.pattern.layout === 'kaleidoscope-quad' || el.pattern.layout === 'kaleidoscope-radial') { el.pattern.offsetX = 0; el.pattern.offsetY = 0; }
+                }
+                if (path === 'speakerBadge.layout' && el.speakerBadge) {
+                    const SIZES = {
+                        'horizontal': [360, 80],
+                        'cspan-banner': [460, 96],
+                        'compact-pill': [260, 48],
+                        'vertical-card': [180, 200],
+                        'avatar-only': [96, 96]
+                    };
+                    const rec = SIZES[el.speakerBadge.layout];
+                    if (rec) {
+                        el.width = rec[0];
+                        el.height = rec[1];
+                    }
                 }
                 if (path === 'mediaFilter.halftone.mode' && el.mediaFilter?.halftone) {
                     const hm = el.mediaFilter.halftone.mode;
@@ -2616,11 +2672,8 @@ export function initInspectorEvents() {
                     const res = await fetch('/api/obs/audio-inputs');
                     if (res.ok) {
                         const data = await res.json();
-                        const dl = document.getElementById('obs-audio-inputs-list');
-                        if (dl) {
-                            dl.innerHTML = (data.inputs || []).map(name => `<option value="${esc(name)}">`).join('');
-                        }
-                        toast('OBS audio inputs refreshed', 'info', 1200);
+                        updateObsAudioStatus(data);
+                        toast(data.connected ? `Found ${data.inputs?.length || 0} OBS audio source(s)` : 'OBS is not connected', data.connected ? 'info' : 'warn', 1800);
                     }
                 } catch {
                     toast('Could not query OBS audio inputs', 'error', 3000);

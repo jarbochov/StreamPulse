@@ -3698,8 +3698,8 @@
         const tag = document.createElement('style');
         tag.id = 'sp-speaker-badge-style';
         tag.textContent = `
-.sp-sb-card { box-sizing: border-box; display: flex; position: relative; width: 100%; height: 100%; transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.18s ease, box-shadow 0.18s ease, opacity 0.2s ease; overflow: hidden; user-select: none; font-family: inherit; color: inherit; }
-.sp-sb-card.is-speaking.has-highlight { border-color: var(--sb-active-color, #6366f1) !important; box-shadow: 0 0 var(--sb-glow-spread, 14px) var(--sb-active-glow, rgba(99, 102, 241, 0.45)), 0 4px 20px rgba(0,0,0,0.35) !important; }
+.sp-sb-card { box-sizing: border-box; display: flex; position: relative; width: 100%; height: 100%; transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.18s ease, box-shadow 0.18s ease, opacity 0.2s ease; overflow: hidden; user-select: none; font-family: inherit; color: inherit; box-shadow: var(--sb-base-shadow, 0 4px 16px rgba(0,0,0,0.25)); }
+.sp-sb-card.is-speaking.has-highlight { border-color: var(--sb-active-color, #6366f1) !important; box-shadow: 0 0 var(--sb-glow-spread, 14px) var(--sb-active-glow, rgba(99, 102, 241, 0.45)), var(--sb-base-shadow, 0 4px 20px rgba(0,0,0,0.35)) !important; }
 .sp-sb-card.is-speaking.has-pop { transform: scale(1.03); }
 .sp-sb-card.is-idle.has-dim { opacity: var(--sb-idle-opacity, 0.7) !important; }
 
@@ -3717,19 +3717,19 @@
 .is-speaking .sp-sb-pulse-ring { animation: spSbPulse 1.3s ease-out infinite; }
 @keyframes spSbPulse { 0% { transform: scale(0.95); opacity: 0.85; } 50% { transform: scale(1.18); opacity: 0.3; } 100% { transform: scale(1.35); opacity: 0; } }
 
-/* Metadata & Text */
+/* Metadata & Proportional Typography */
 .sp-sb-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; }
 .sp-sb-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .sp-sb-subrow { gap: 8px; margin-top: 1px; }
-.sp-sb-name { font-weight: 700; font-size: var(--sb-font-size, 16px); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: inherit; }
-.sp-sb-pronouns { font-size: 11px; font-weight: 600; text-transform: lowercase; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); color: rgba(255, 255, 255, 0.9); border: 1px solid rgba(255, 255, 255, 0.1); white-space: nowrap; flex-shrink: 0; line-height: 1.2; }
-.sp-sb-handle { font-size: 12.5px; opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-.sp-sb-location { font-size: 11.5px; opacity: 0.8; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+.sp-sb-name { font-weight: var(--sb-font-weight, 700); font-size: var(--sb-font-size, 17px); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: inherit; }
+.sp-sb-pronouns { font-size: var(--sb-pronouns-size, 11px); font-weight: 600; text-transform: lowercase; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, currentColor 14%, transparent); color: inherit; border: 1px solid color-mix(in srgb, currentColor 12%, transparent); white-space: nowrap; flex-shrink: 0; line-height: 1.2; }
+.sp-sb-handle { font-size: var(--sb-handle-size, 12px); opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; color: inherit; }
+.sp-sb-location { font-size: var(--sb-loc-size, 11px); opacity: 0.8; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; color: inherit; }
 
 /* Call-In Badges & Live Status Indicator */
-.sp-sb-callin-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--cspan-status-color, #22c55e); background: rgba(0, 0, 0, 0.36); padding: 2px 7px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--cspan-status-color, #22c55e) 35%, transparent); flex-shrink: 0; line-height: 1.2; }
-.sp-sb-callin-tag.size-compact { font-size: 9px; padding: 1px 6px; gap: 4px; }
-.sp-sb-callin-tag.size-small { font-size: 9.5px; padding: 2px 6px; }
+.sp-sb-callin-tag { display: inline-flex; align-items: center; gap: 6px; font-size: var(--sb-tag-size, 10px); font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--cspan-status-color, #22c55e); background: rgba(0, 0, 0, 0.36); padding: 2px 7px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--cspan-status-color, #22c55e) 35%, transparent); flex-shrink: 0; line-height: 1.2; }
+.sp-sb-callin-tag.size-compact { font-size: calc(var(--sb-tag-size, 10px) * 0.9); padding: 1px 6px; gap: 4px; }
+.sp-sb-callin-tag.size-small { font-size: calc(var(--sb-tag-size, 10px) * 0.95); padding: 2px 6px; }
 .cspan-live-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: inline-block; flex-shrink: 0; }
 .is-speaking .cspan-live-dot { box-shadow: 0 0 8px currentColor; animation: spSbBlink 0.8s infinite alternate; }
 @keyframes spSbBlink { from { opacity: 0.4; transform: scale(0.9); } to { opacity: 1; transform: scale(1.2); } }
@@ -3753,11 +3753,11 @@
 .sp-sb-card.layout-horizontal .sp-sb-avatar-wrap { width: 48px; height: 48px; }
 
 /* Layout 2: C-SPAN Banner */
-.sp-sb-card.layout-cspan-banner { flex-direction: column; justify-content: space-between; padding: 0; }
-.sp-sb-card.layout-cspan-banner .cspan-header-bar { display: flex; align-items: center; justify-content: space-between; width: 100%; border-bottom: 1px solid rgba(255, 255, 255, 0.14); padding: 6px 14px; box-sizing: border-box; background: rgba(0, 0, 0, 0.32); font-size: 11px; flex-shrink: 0; }
+.sp-sb-card.layout-cspan-banner { flex-direction: column; justify-content: flex-start; padding: 0; min-height: 54px; }
+.sp-sb-card.layout-cspan-banner .cspan-header-bar { display: flex; align-items: center; justify-content: space-between; width: 100%; border-bottom: 1px solid rgba(255, 255, 255, 0.14); padding: 5px 12px; box-sizing: border-box; background: rgba(0, 0, 0, 0.32); font-size: var(--sb-tag-size, 11px); flex-shrink: 0; min-height: 22px; }
 .sp-sb-card.layout-cspan-banner .cspan-status-tag { display: inline-flex; align-items: center; gap: 7px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cspan-status-color, #22c55e); }
-.sp-sb-card.layout-cspan-banner .cspan-location { font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; font-size: 10.5px; }
-.sp-sb-card.layout-cspan-banner .cspan-main-row { display: flex; align-items: center; width: 100%; min-width: 0; flex: 1; padding: 8px 14px 10px; box-sizing: border-box; gap: 12px; }
+.sp-sb-card.layout-cspan-banner .cspan-location { font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; font-size: var(--sb-loc-size, 10.5px); }
+.sp-sb-card.layout-cspan-banner .cspan-main-row { display: flex; align-items: center; width: 100%; min-width: 0; flex: 1; padding: 6px 12px; box-sizing: border-box; gap: 10px; overflow: hidden; }
 .sp-sb-card.layout-cspan-banner .sp-sb-avatar-wrap { width: 44px; height: 44px; }
 .sp-sb-card.layout-cspan-banner .sp-sb-name { font-size: var(--sb-font-size, 18px); font-weight: 800; letter-spacing: 0.02em; }
 
@@ -3826,22 +3826,85 @@
         card.style.setProperty('--sb-idle-opacity', String(re.idleOpacity ?? 0.7));
         card.style.setProperty('--sb-bar-color', barColor);
         card.style.setProperty('--cspan-status-color', callIn.statusColor || '#22c55e');
-        if (s.fontSize) card.style.setProperty('--sb-font-size', `${s.fontSize}px`);
-        card.style.color = s.color || '#ffffff';
-        if (s.fontFamily) card.style.fontFamily = s.fontFamily;
 
-        // Apply style background, borders, and border-radius to card (unless avatar-only)
+        // Typography & proportional font scaling
+        const defaultFs = layout === 'cspan-banner' ? 18 : layout === 'compact-pill' ? 14 : layout === 'vertical-card' ? 16 : 17;
+        const fs = Number(s.fontSize) > 0 ? Number(s.fontSize) : defaultFs;
+        card.style.setProperty('--sb-font-size', `${fs}px`);
+        card.style.setProperty('--sb-handle-size', `${Math.max(9, Math.round(fs * 0.72))}px`);
+        card.style.setProperty('--sb-pronouns-size', `${Math.max(9, Math.round(fs * 0.65))}px`);
+        card.style.setProperty('--sb-tag-size', `${Math.max(8, Math.round(fs * 0.60))}px`);
+        card.style.setProperty('--sb-loc-size', `${Math.max(8, Math.round(fs * 0.65))}px`);
+        if (s.fontWeight) {
+            card.style.setProperty('--sb-font-weight', String(s.fontWeight));
+        } else if (card.style.removeProperty) {
+            card.style.removeProperty('--sb-font-weight');
+        } else {
+            card.style.setProperty('--sb-font-weight', '');
+        }
+        card.style.color = s.color || '#ffffff';
+        if (s.fontFamily) {
+            card.style.fontFamily = s.fontFamily;
+            loadGoogleFont(s.fontFamily);
+        } else {
+            card.style.fontFamily = '';
+        }
+        if (s.textAlign) {
+            card.style.textAlign = s.textAlign;
+        } else {
+            card.style.textAlign = '';
+        }
+
+        // Apply style background, borders, blur, and shadows to card (unless avatar-only)
         if (layout === 'avatar-only') {
             card.style.background = 'transparent';
+            card.style.backgroundImage = 'none';
+            card.style.backgroundSize = '';
+            card.style.animation = '';
             card.style.borderColor = 'transparent';
             card.style.borderWidth = '0';
             card.style.borderRadius = '0';
+            card.style.setProperty('--sb-base-shadow', 'none');
+            card.style.backdropFilter = '';
+            card.style.webkitBackdropFilter = '';
         } else {
-            card.style.background = s.background && s.background !== 'transparent' ? s.background : 'rgba(18, 18, 26, 0.9)';
+            // Background fill & gradient
+            if (s.gradient?.enabled) {
+                const gradStyle = gradientStyle(s.gradient);
+                card.style.background = gradStyle.background;
+                card.style.backgroundSize = gradStyle.backgroundSize;
+                card.style.animation = gradStyle.animation;
+            } else if (s.background !== undefined && s.background !== '') {
+                card.style.background = s.background;
+                card.style.backgroundImage = 'none';
+                card.style.backgroundSize = '';
+                card.style.animation = '';
+            } else {
+                card.style.background = 'rgba(18, 18, 26, 0.9)';
+                card.style.backgroundImage = 'none';
+                card.style.backgroundSize = '';
+                card.style.animation = '';
+            }
+
             card.style.borderColor = s.borderColor || 'rgba(255, 255, 255, 0.12)';
             card.style.borderWidth = `${s.borderWidth != null && s.borderWidth !== '' ? s.borderWidth : 2}px`;
             card.style.borderStyle = s.borderStyle || 'solid';
             card.style.borderRadius = layout === 'compact-pill' ? '999px' : `${s.borderRadius != null && s.borderRadius !== '' ? s.borderRadius : 14}px`;
+
+            if (Number(s.blur) > 0) {
+                card.style.backdropFilter = `blur(${s.blur}px)`;
+                card.style.webkitBackdropFilter = `blur(${s.blur}px)`;
+            } else {
+                card.style.backdropFilter = '';
+                card.style.webkitBackdropFilter = '';
+            }
+
+            if (s.shadow && (Number(s.shadow.blur) > 0 || Number(s.shadow.spread) > 0 || Number(s.shadow.x) || Number(s.shadow.y))) {
+                const sh = s.shadow;
+                card.style.setProperty('--sb-base-shadow', `${sh.x || 0}px ${sh.y != null ? sh.y : 4}px ${sh.blur || 0}px ${sh.spread || 0}px ${sh.color || 'rgba(0,0,0,0.5)'}`);
+            } else {
+                card.style.setProperty('--sb-base-shadow', '0 4px 16px rgba(0,0,0,0.25)');
+            }
         }
 
         card.replaceChildren();

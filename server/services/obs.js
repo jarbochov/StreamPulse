@@ -100,6 +100,25 @@ function createObsService({
     const sceneItemIdCache = new Map();
     const lastKnownTransforms = new Map();
     const lastAudioBroadcast = new Map();
+    const meteredInputs = new Set();
+
+    function desiredSubscriptions() {
+        const isBadgesEnabled = typeof isSpeakerBadgesEnabled === 'function' ? isSpeakerBadgesEnabled() : false;
+        const baseSubscriptions = (1 << 2) | (1 << 7); // Scenes | SceneItems
+        return isBadgesEnabled ? (baseSubscriptions | (1 << 16) | (1 << 3)) : baseSubscriptions;
+    }
+
+    // Re-identify when the speaker badge module is toggled after OBS connected, so meters start/stop without a reconnect.
+    function refreshSubscriptions() {
+        const openState = WS.OPEN ?? 1;
+        if (!ws || ws.readyState !== openState || !state.identified) return false;
+        const next = desiredSubscriptions();
+        if (state.eventSubscriptions === next) return false;
+        state.eventSubscriptions = next;
+        if (!(next & (1 << 16))) meteredInputs.clear();
+        try { ws.send(JSON.stringify({ op: 3, d: { eventSubscriptions: next } })); } catch { return false; }
+        return true;
+    }
 
     let state = {
         connected: false,
@@ -195,7 +214,7 @@ function createObsService({
     }
 
     // Frame-synced batch: OBS applies one step per rendered frame, so Sleep(sleepFrames) paces the animation.
-    function requestBatch(requests, timeoutMs = 4000) {
+    function requestBatch(requests, timeoutMs = 4000, executionType = 1) {
         const openState = WS.OPEN ?? 1;
         if (!ws || ws.readyState !== openState || !state.identified) {
             return Promise.reject(new Error('OBS WebSocket is not connected'));
@@ -209,7 +228,7 @@ function createObsService({
             timer.unref?.();
             pendingRequests.set(requestId, { resolve, reject, timer });
             try {
-                ws.send(JSON.stringify({ op: 8, d: { requestId, executionType: 1, haltOnFailure: false, requests } }));
+                ws.send(JSON.stringify({ op: 8, d: { requestId, executionType, haltOnFailure: false, requests } }));
             } catch (err) {
                 clearTimeout(timer);
                 pendingRequests.delete(requestId);
@@ -324,9 +343,8 @@ function createObsService({
             const { op, d } = msg;
             if (op === 0 && d) {
                 // Hello from OBS WebSocket v5
-                const isBadgesEnabled = typeof isSpeakerBadgesEnabled === 'function' ? isSpeakerBadgesEnabled() : false;
-                const baseSubscriptions = (1 << 2) | (1 << 7); // Scenes | SceneItems
-                const eventSubscriptions = isBadgesEnabled ? (baseSubscriptions | (1 << 16) | (1 << 3)) : baseSubscriptions;
+                const eventSubscriptions = desiredSubscriptions();
+                state.eventSubscriptions = eventSubscriptions;
                 const identifyPayload = { rpcVersion: 1, eventSubscriptions };
                 if (d.authentication?.challenge && d.authentication?.salt) {
                     identifyPayload.authentication = computeObsAuthResponse(
@@ -358,6 +376,7 @@ function createObsService({
                     for (const input of d.eventData.inputs) {
                         const inputName = input?.inputName;
                         if (!inputName || !Array.isArray(input.inputLevelsMul)) continue;
+                        meteredInputs.add(inputName);
                         const last = lastAudioBroadcast.get(inputName) || 0;
                         if (now - last < 45) continue; // Throttle to ~20Hz
                         lastAudioBroadcast.set(inputName, now);
@@ -462,19 +481,30 @@ function createObsService({
         };
     }
 
+    // Lists every OBS input that carries audio (mics, desktop audio, browser sources with
+    // "Control audio via OBS", media sources, app/window audio capture, etc.).
+    // Returns an empty list when OBS is not connected; callers show a connection hint instead of fake names.
     async function listAudioInputs() {
-        if (!state.identified) {
-            return ['Mic/Aux', 'Desktop Audio'];
+        if (!state.identified) return [];
+        refreshSubscriptions();
+        const inputsRes = await request('GetInputList').catch(() => ({ inputs: [] }));
+        const names = [...new Set((Array.isArray(inputsRes.inputs) ? inputsRes.inputs : [])
+            .map(item => item?.inputName)
+            .filter(Boolean))];
+        let audio = names;
+        if (names.length) {
+            // GetInputVolume only succeeds for inputs with audio, so it is a reliable capability probe.
+            const results = await requestBatch(
+                names.map(inputName => ({ requestType: 'GetInputVolume', requestData: { inputName } })),
+                6000,
+                0 // SerialRealtime: no per-frame pacing for a simple lookup
+            ).catch(() => null);
+            if (Array.isArray(results) && results.length === names.length) {
+                audio = names.filter((_, i) => results[i]?.requestStatus?.result === true);
+            }
         }
-        try {
-            const inputsRes = await request('GetInputList').catch(() => ({ inputs: [] }));
-            const inputs = (Array.isArray(inputsRes.inputs) ? inputsRes.inputs : [])
-                .map(item => item.inputName)
-                .filter(Boolean);
-            return inputs.length ? inputs : ['Mic/Aux', 'Desktop Audio'];
-        } catch {
-            return ['Mic/Aux', 'Desktop Audio'];
-        }
+        for (const name of meteredInputs) if (!audio.includes(name)) audio.push(name);
+        return audio.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
     }
 
     async function resolveSceneItemId(sceneName, sourceName) {
@@ -1079,6 +1109,7 @@ function createObsService({
         getStatus,
         listScenesAndSources,
         listAudioInputs,
+        refreshSubscriptions,
         syncOverlayState,
         cleanupManagedFilters,
         animateItemToTarget,

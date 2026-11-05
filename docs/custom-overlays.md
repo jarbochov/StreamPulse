@@ -31,8 +31,10 @@ Pages and Scene States can automatically take over the screen when broadcast eve
 StreamPulse includes an audio-reactive **Speaker Badge** layer (`type: "speaker-badge"`) in Custom Overlay Studio. Speaker badges highlight active speakers in real time based on live OBS audio inputs (microphones, Discord/guest call tracks, or VDO.ninja browser sources).
 
 - **Modular & Zero Background Overhead**: Speaker badges are disabled by default (`"speaker_badges_enabled": false` in `config.json` or System Config). When disabled, OBS WebSocket audio volume metering is omitted entirely and the element is hidden from the studio toolbar. When enabled, StreamPulse subscribes to OBS volume meters (`InputVolumeMeters`) at a throttled 20Hz update rate.
-- **Speaker Profile**: Display name, handle or role title, pronouns, and custom avatar with selectable shapes (circle, rounded rectangle, squircle, or hexagon).
-- **OBS Audio Gate**: Link each badge to a specific OBS audio input (queried live from OBS Studio via `/api/obs/audio-inputs`). Customize speech threshold (in dB, e.g. -40 dB to 0 dB) and speech hold time (in milliseconds) to prevent rapid flickering during pauses.
+- **Clean Inspector Separation**:
+  - **Content**: Pure speaker identity data (Display Name, Handle, Pronouns, Avatar Asset), Call-In metadata (Status tag, Caller location), and OBS Audio Input selection with live connection feedback (`● OBS Connected (N sources)` vs `⚠ OBS Disconnected`), dB sensitivity gate threshold, and release hold time.
+  - **Layout**: Switch layout presets with one click; dimensions auto-adapt to recommended aspect ratios with an optional "Apply Recommended Size" button.
+  - **Style**: Visual appearance (Avatar shape: Circle, Squircle, Square; Call-In tag color), Speaking reactions & visualizers, Proportional typography (adjusting font size harmoniously scales display name, handle, pronouns, and call-in tags), Background fills (including true transparency, solid colors, and animated gradients), borders, and box shadows.
 - **Audio Reactions & Visualizers**:
   - **Border & Glow Highlighting**: Active border color and custom glow spread that illuminate when the speaker talks.
   - **Motion Pop**: Subtle scale pop animation triggered by speech onset.

@@ -827,7 +827,7 @@ const usesLivePlaceholders = el => /\{\{/.test(`${el.content || ''} ${el.src || 
 
 export const contentSignature = (el, live) =>
     el.type === 'embed' ? JSON.stringify([el.type, expand(el.src), el.video]) :
-    el.type === 'speaker-badge' ? JSON.stringify([el.type, el.speakerBadge, el._simulateSpeaking, el.style?.background, el.style?.borderColor, el.style?.borderWidth, el.style?.borderRadius, el.style?.color, el.style?.fontSize, el.width, el.height]) :
+    el.type === 'speaker-badge' ? JSON.stringify([el.type, el.speakerBadge, el._simulateSpeaking, el.style?.background, el.style?.gradient, el.style?.borderColor, el.style?.borderWidth, el.style?.borderStyle, el.style?.borderRadius, el.style?.color, el.style?.fontSize, el.style?.fontWeight, el.style?.fontFamily, el.style?.textAlign, el.style?.shadow, el.style?.blur, el.width, el.height]) :
     el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) :
     (el.type === 'pattern' || el.type === 'procedural-pattern') ? JSON.stringify([el.type, el.pattern]) :
     el.type === 'cutout' ? JSON.stringify([el.type]) :

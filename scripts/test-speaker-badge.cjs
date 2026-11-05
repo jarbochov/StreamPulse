@@ -239,7 +239,7 @@ test('OBS audio inputs query route /api/obs/audio-inputs returns input list', as
     const handled = await handleObsRoutes({ method: 'GET' }, mockRes, '/api/obs/audio-inputs');
     assert.equal(handled, true);
     assert.equal(resStatus, 200);
-    assert.deepEqual(resData, { inputs: ['Mic/Aux', 'Discord Audio', 'Guest 1 Browser'] });
+    assert.deepEqual(resData, { inputs: ['Mic/Aux', 'Discord Audio', 'Guest 1 Browser'], connected: true, enabled: true });
 });
 
 test('Speaker Badge normalizes all 5 layouts and visualizer options', () => {
@@ -268,7 +268,8 @@ test('OverlayShared.renderSpeakerBadge renders all 5 layouts without errors or r
             this.styleProps = {};
             this.style = {
                 setProperty: (k, v) => { this.styleProps[k] = String(v); },
-                getPropertyValue: (k) => this.styleProps[k] || ''
+                getPropertyValue: (k) => this.styleProps[k] || '',
+                removeProperty: (k) => { delete this.styleProps[k]; }
             };
             this.children = [];
             this.childNodes = this.children;
@@ -404,4 +405,35 @@ test('OverlayShared.renderSpeakerBadge renders all 5 layouts without errors or r
     }, { speaking: true });
     const cspanCard = cspanHost.querySelector('.sp-sb-card');
     assert.ok(cspanCard.querySelector('.cspan-header-bar'), 'C-SPAN Banner layout must contain .cspan-header-bar');
+
+    // Transparent and Gradient Background and Proportional Font Scaling checks
+    const styleHost = new MockNode('div');
+    render(styleHost, {
+        type: 'speaker-badge',
+        speakerBadge: { layout: 'horizontal', speaker: { name: 'Styling Test' } },
+        style: {
+            background: 'transparent',
+            fontSize: 30,
+            fontWeight: 800,
+            color: '#38bdf8'
+        }
+    }, {});
+    const styleCard = styleHost.querySelector('.sp-sb-card');
+    assert.equal(styleCard.style.background, 'transparent', 'Background transparent must not be overwritten with default dark color');
+    assert.equal(styleCard.style.getPropertyValue('--sb-font-size'), '30px', 'Font size must set --sb-font-size');
+    assert.equal(styleCard.style.getPropertyValue('--sb-handle-size'), '22px', 'Handle font size must scale proportionally');
+    assert.equal(styleCard.style.getPropertyValue('--sb-font-weight'), '800', 'Font weight must be applied');
+    assert.equal(styleCard.style.color, '#38bdf8', 'Text color must be applied');
+
+    // Gradient check
+    const gradHost = new MockNode('div');
+    render(gradHost, {
+        type: 'speaker-badge',
+        speakerBadge: { layout: 'horizontal', speaker: { name: 'Gradient Test' } },
+        style: {
+            gradient: { enabled: true, from: '#ff0000', to: '#0000ff', angle: 90 }
+        }
+    }, {});
+    const gradCard = gradHost.querySelector('.sp-sb-card');
+    assert.ok(gradCard.style.background.includes('linear-gradient'), 'Gradient background must be applied to card');
 });

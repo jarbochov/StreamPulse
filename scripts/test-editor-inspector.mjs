@@ -32,6 +32,7 @@ const server = createServer((req, res) => {
             <div id="canvas-toplayer"></div></div><div id="ui"></div></div>
             <aside class="rail right"><div id="properties"></div></aside>`);
     } else if (path === '/api/alerts') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"rules":[{"id":"fictional-brb","name":"BRB in 5 minutes"},{"id":"fictional-follow","name":"Follow"}]}');
+    } else if (path === '/api/obs/audio-inputs') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"inputs":["Mic/Aux","Desktop Audio"],"connected":true,"enabled":true}');
     } else if (path === '/favicon.ico') { res.writeHead(204); res.end(); }
     else { unexpected.push(`${req.method} ${path}`); res.writeHead(404); res.end(); }
 });
@@ -89,7 +90,8 @@ try {
         alert: { alert: 'content', typography: 'style' },
         slideshow: { 'slide-what': 'content', 'slide-play': 'content', 'slide-remote': 'content' },
         pattern: { content: 'content', patternLayout: 'layout', patternMotion: 'style' },
-        'procedural-pattern': { content: 'content', proceduralMotion: 'style' }
+        'procedural-pattern': { content: 'content', proceduralMotion: 'style' },
+        'speaker-badge': { speakerProfile: 'content', speakerCallIn: 'content', speakerAudio: 'content', speakerLayout: 'layout', speakerStyle: 'style', speakerReaction: 'style' }
     };
     const types = await page.evaluate(() => window.fixture.types);
     assert.deepEqual(types.sort(), Object.keys(locations).sort(), 'every supported element needs an inspector regression');
