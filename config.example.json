@@ -16,6 +16,7 @@
   "subs_source": "twitch",
   "days_filter": 30,
   "active_subs_only": false,
+  "speaker_badges_enabled": false,
   "hashtags_enabled": true,
   "chat_log_enabled": true,
   "exclude_users": [],

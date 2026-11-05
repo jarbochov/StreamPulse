@@ -29,6 +29,16 @@ function createObsRoutes({
             return true;
         }
 
+        if (pathname === '/api/obs/audio-inputs' && req.method === 'GET') {
+            try {
+                const inputs = await obsService.listAudioInputs();
+                sendJson(res, { inputs });
+            } catch (err) {
+                sendError(res, 500, err.message || 'Could not query OBS audio inputs');
+            }
+            return true;
+        }
+
         if (pathname === '/api/obs/config' && (req.method === 'POST' || req.method === 'PUT')) {
             if (!isLoopbackRequest(req)) {
                 sendError(res, 403, 'OBS WebSocket configuration requires a local loopback connection.');

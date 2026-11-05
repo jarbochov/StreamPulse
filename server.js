@@ -260,6 +260,8 @@ const wsService = createOverlayWsServer({
 });
 const obsService = createObsService({
     getConfig: () => config?.obs || {},
+    isSpeakerBadgesEnabled: () => config?.speaker_badges_enabled === true,
+    onAudioMeter: data => wsService.broadcastToOverlays('obs-audio-meter', data),
     onStatusChange: status => wsService.broadcastToOverlays('obs-status', status),
     log: console.log,
     warn: console.warn

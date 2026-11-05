@@ -469,6 +469,23 @@
                     </div>
                     <div class="hint" id="cfg-obs-status" style="margin-top:auto;font-weight:500;">OBS status checking…</div>
                 </div>
+
+                <!-- Voice-Reactive Speaker Badges Card -->
+                <div class="module-card">
+                    <div class="module-card-head">
+                        <div class="module-card-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                            <span>Voice-Reactive Speaker Badges</span>
+                            <span class="beta-tag">BETA</span>
+                        </div>
+                        <span class="module-badge" id="badge-speaker-badges">Disabled</span>
+                    </div>
+                    <p class="hint">Active speaker indicators, voice-reactive avatar cards, mini EQ visualizers, and C-SPAN call-in banners linked to OBS audio inputs.</p>
+                    <div class="cfg-toggle" style="margin-top:auto;">
+                        <input type="checkbox" id="cfg-speaker-badges-enabled">
+                        <label for="cfg-speaker-badges-enabled">Enable Speaker Badges module</label>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -760,6 +777,7 @@
         updateBadge('badge-polls', document.getElementById('cfg-polls-enabled')?.checked);
         updateBadge('badge-versus', document.getElementById('cfg-versus-enabled')?.checked);
         updateBadge('badge-obs', document.getElementById('cfg-obs-enabled')?.checked);
+        updateBadge('badge-speaker-badges', document.getElementById('cfg-speaker-badges-enabled')?.checked);
     }
 
     async function loadConfig() {
@@ -818,6 +836,7 @@
 
             const obs = cfg.obs || {};
             document.getElementById('cfg-obs-enabled').checked = Boolean(obs.enabled);
+            document.getElementById('cfg-speaker-badges-enabled').checked = cfg.speaker_badges_enabled === true;
             document.getElementById('cfg-obs-host').value = obs.host || '127.0.0.1';
             document.getElementById('cfg-obs-port').value = obs.port || 4455;
             document.getElementById('cfg-obs-password').value = '';
@@ -881,6 +900,7 @@
                 viewer_label: document.getElementById('cfg-viewer-label').value.trim() || 'viewers'
             },
             chatbot_enabled: document.getElementById('cfg-chatbot-enabled').checked,
+            speaker_badges_enabled: document.getElementById('cfg-speaker-badges-enabled').checked,
             polls_enabled: document.getElementById('cfg-polls-enabled').checked,
             versus_enabled: document.getElementById('cfg-versus-enabled').checked,
             music: {
@@ -976,7 +996,7 @@
     document.getElementById('ssn-session-toggle').addEventListener('click', toggleSsnSession);
 
     // Module toggles update badges live
-    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-obs-enabled'].forEach(id => {
+    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-obs-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', updateModuleBadges);
     });
 

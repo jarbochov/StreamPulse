@@ -391,7 +391,7 @@ export function renderAssetGrid() {
 
 export async function openAssetPicker(targetId) {
     const el = targetId ? byId(targetId) : primary();
-    if (!el || !['image', 'video', 'pattern', 'alert', ...TEXT_TYPES].includes(el.type)) return;
+    if (!el || !['image', 'video', 'pattern', 'alert', 'speaker-badge', ...TEXT_TYPES].includes(el.type)) return;
     pickerTarget = el.id;
     const titleEl = $('asset-title');
     if (titleEl) titleEl.textContent = TEXT_TYPES.has(el.type) ? 'Choose a text or Markdown file' : `Choose ${el.type === 'video' ? 'a video' : 'an image'}`;
@@ -930,6 +930,8 @@ export async function refreshLiveStatus() {
         if (!response.ok) return;
         const before = liveSignature();
         state.liveStatus = await response.json();
+        const badgeBtn = $('menu-add-speaker-badge');
+        if (badgeBtn) badgeBtn.hidden = !state.liveStatus?.modules?.speakerBadges;
         if (shared.loadLiveExtras) await shared.loadLiveExtras(state.liveStatus, state.overlay.elements);
         if (prefs.live && liveSignature() !== before) renderCanvas();
     } catch {}
@@ -1223,6 +1225,14 @@ function initEventListeners() {
                 renderCanvas(); renderProperties(); changed(true);
                 return;
             }
+            if (el.type === 'speaker-badge') {
+                el.speakerBadge = el.speakerBadge || {};
+                el.speakerBadge.speaker = el.speakerBadge.speaker || {};
+                el.speakerBadge.speaker.avatarSrc = url;
+                assetDialog?.close();
+                renderCanvas(); renderProperties(); changed(true);
+                return;
+            }
             const hadSource = !!el.src;
             el.src = url;
             assetDialog?.close();
@@ -1245,6 +1255,14 @@ function initEventListeners() {
         }
         if (el.type === 'alert') {
             el.alert.sampleImage = tile.dataset.url;
+            assetDialog?.close();
+            renderCanvas(); renderProperties(); changed(true);
+            return;
+        }
+        if (el.type === 'speaker-badge') {
+            el.speakerBadge = el.speakerBadge || {};
+            el.speakerBadge.speaker = el.speakerBadge.speaker || {};
+            el.speakerBadge.speaker.avatarSrc = tile.dataset.url;
             assetDialog?.close();
             renderCanvas(); renderProperties(); changed(true);
             return;

@@ -27,6 +27,7 @@ export const TYPE_META = {
     poll: { label: 'Poll', icon: svg('<path d="M2 4h12M2 8h8M2 12h4"/>') },
     'game-list': { label: 'Game List', icon: svg('<path d="M4 5h8a3 3 0 013 3v3a2 2 0 01-2 2h-1l-2-2H6l-2 2H3a2 2 0 01-2-2V8a3 3 0 013-3z"/><path d="M4 8.5h3M5.5 7v3"/><circle cx="11.5" cy="8" r=".7" fill="currentColor"/><circle cx="13" cy="9.5" r=".7" fill="currentColor"/>') },
     alert: { label: 'Alert Box', icon: svg('<path d="M8 2a3 3 0 00-3 3v2.5L3.5 10v1h9v-1L11 7.5V5a3 3 0 00-3-3zM6.5 12.5a1.5 1.5 0 003 0"/>') },
+    'speaker-badge': { label: 'Speaker Badge', icon: svg('<rect x="3" y="1" width="10" height="14" rx="2"/><circle cx="8" cy="5" r="2"/><path d="M5 11c0-1.5 1.5-2.5 3-2.5s3 1 3 2.5"/><path d="M1 5v6M15 5v6"/>') },
     slideshow: { label: 'Slideshow', icon: svg('<rect x="4.5" y="2" width="9.5" height="9.5" rx="1.5"/><path d="M2 5.5v7A1.5 1.5 0 003.5 14h7"/><path d="M7 7.5l2 2 1.5-1.5 2 2"/>') },
     pattern: { label: 'Pattern Tile', icon: svg('<rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/>') },
     'procedural-pattern': { label: 'Background Pattern', icon: svg('<path d="M2 5.5l3-2.5 3 2.5 3-2.5 3 2.5"/><path d="M2 10.5l3-2.5 3 2.5 3-2.5 3 2.5"/><circle cx="5" cy="8" r="1" fill="currentColor"/><circle cx="11" cy="8" r="1" fill="currentColor"/>') }
@@ -34,7 +35,7 @@ export const TYPE_META = {
 
 export const TEXT_TYPES = new Set(['text', 'random-text', 'markdown']);
 export const FILL_TEXT_TYPES = new Set([...TEXT_TYPES, 'game-list']);
-export const hasText = el => TEXT_TYPES.has(el.type) || el.type === 'progress' || el.type === 'game-list' || el.type === 'alert' || el.type === 'poll';
+export const hasText = el => TEXT_TYPES.has(el.type) || el.type === 'progress' || el.type === 'game-list' || el.type === 'alert' || el.type === 'poll' || el.type === 'speaker-badge';
 export const isLine = el => el.type === 'shape' && el.style?.shape === 'line';
 
 export const CANVAS_PRESETS = [
@@ -680,13 +681,14 @@ export function createElementData(rawType, overrides = {}) {
     const sizes = {
         text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270],
         video: [640, 360], embed: [640, 360], qr: [320, 320], icon: [160, 160], shape: isObsFrame ? [480, 270] : [480, 160],
-        cutout: [480, 270], progress: [480, 48], poll: [400, 150], 'game-list': [800, 320], alert: [640, 280], slideshow: [640, 360], pattern: [640, 360], 'procedural-pattern': [state.overlay?.canvas?.width || 1920, state.overlay?.canvas?.height || 1080]
+        cutout: [480, 270], progress: [480, 48], poll: [400, 150], 'game-list': [800, 320], alert: [640, 280], slideshow: [640, 360], pattern: [640, 360], 'procedural-pattern': [state.overlay?.canvas?.width || 1920, state.overlay?.canvas?.height || 1080],
+        'speaker-badge': [340, 84]
     };
     const [width, height] = sizes[type] || [480, 270];
     const offset = (state.overlay.elements.length % 6) * 24;
     const data = {
-        id: uid(type), name: isObsFrame ? 'OBS Source Frame' : (type === 'procedural-pattern' ? 'Background Pattern' : ''), locked: false, type,
-        content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', icon: 'fa-brands fa-twitch', shape: '', cutout: '', progress: '50', poll: '', 'game-list': '', alert: '', slideshow: '', pattern: 'fa-brands fa-twitch', 'procedural-pattern': '' }[type],
+        id: uid(type), name: isObsFrame ? 'OBS Source Frame' : (type === 'procedural-pattern' ? 'Background Pattern' : (type === 'speaker-badge' ? 'Speaker Badge' : '')), locked: false, type,
+        content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', icon: 'fa-brands fa-twitch', shape: '', cutout: '', progress: '50', poll: '', 'game-list': '', alert: '', slideshow: '', pattern: 'fa-brands fa-twitch', 'procedural-pattern': '', 'speaker-badge': '' }[type],
         textFit: 'none',
         columns: 1,
         headingSpan: 6,
@@ -704,6 +706,45 @@ export function createElementData(rawType, overrides = {}) {
         obsLink: { enabled: isObsFrame, sourceName: '', sceneName: '', fit: 'cover', syncVisibility: true },
         progress: { kind: 'bar', label: '{{progress}}%', showLabel: true, trackColor: 'rgba(255,255,255,0.18)', thickness: 10 },
         poll: type === 'poll' ? window.PollWidget.settings() : undefined,
+        speakerBadge: {
+            speaker: {
+                name: 'Alex Rivera',
+                handle: '@alexrivera',
+                pronouns: 'they/them',
+                avatarSrc: '',
+                avatarShape: 'circle',
+                showAvatar: true,
+                showHandle: true,
+                showPronouns: true,
+                callIn: {
+                    enabled: false,
+                    statusText: 'ON THE LINE',
+                    location: 'Chicago, IL',
+                    statusColor: '#22c55e',
+                    showLocation: true
+                }
+            },
+            audio: {
+                inputName: 'Mic/Aux',
+                thresholdDb: -36,
+                holdMs: 280
+            },
+            reaction: {
+                highlightBorder: true,
+                activeColor: '#6366f1',
+                idleBorderColor: 'rgba(255, 255, 255, 0.12)',
+                borderWidth: 2,
+                glowSpread: 12,
+                visualizer: 'bars',
+                barCount: 5,
+                visualizerPosition: 'inline',
+                visualizerColor: 'match',
+                motionPop: true,
+                dimWhenIdle: false,
+                idleOpacity: 0.70
+            },
+            layout: 'horizontal'
+        },
         page: statesModeOn() ? '*' : (pagesOn() ? state.curPage : state.overlay.pages?.items[0]?.id || 'page-1'),
         src: '',
         x: type === 'procedural-pattern' ? 0 : Math.round((state.overlay.canvas.width - width) / 2 + offset),
@@ -711,13 +752,13 @@ export function createElementData(rawType, overrides = {}) {
         width, height, zIndex: state.overlay.elements.length, visible: true,
         style: {
             fontFamily: 'sans-serif',
-            fontSize: type === 'poll' ? 12 : type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : 48,
+            fontSize: type === 'poll' ? 12 : type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : (type === 'speaker-badge' ? 20 : 48),
             fontWeight: type === 'alert' ? '600' : '400',
             color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0,
-            background: isObsFrame ? 'transparent' : (type === 'shape' ? '#1f6feb' : type === 'poll' ? 'rgba(13,17,23,0.85)' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent'),
-            borderColor: isObsFrame ? '#38bdf8' : '#ffffff', borderWidth: isObsFrame ? 3 : 0, borderRadius: isObsFrame ? 12 : (type === 'poll' ? 10 : type === 'alert' ? 24 : type === 'cutout' ? 16 : 0),
+            background: isObsFrame ? 'transparent' : (type === 'speaker-badge' ? 'rgba(18, 18, 26, 0.88)' : (type === 'shape' ? '#1f6feb' : type === 'poll' ? 'rgba(13,17,23,0.85)' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent')),
+            borderColor: isObsFrame ? '#38bdf8' : (type === 'speaker-badge' ? 'rgba(255, 255, 255, 0.12)' : '#ffffff'), borderWidth: isObsFrame ? 3 : (type === 'speaker-badge' ? 2 : 0), borderRadius: isObsFrame ? 12 : (type === 'speaker-badge' ? 14 : (type === 'poll' ? 10 : type === 'alert' ? 24 : type === 'cutout' ? 16 : 0)),
             borderPlacement: isObsFrame ? 'outside' : 'inside',
-            padding: 0,
+            padding: type === 'speaker-badge' ? 10 : 0,
             opacity: 1, objectFit: (type === 'pattern' || type === 'procedural-pattern') ? 'contain' : 'cover', shape: 'rectangle', fill: '#1f6feb',
             gradient: { enabled: false, from: '#1f6feb', to: '#8957e5', angle: 135 },
             blur: 0, shadow: { blur: isObsFrame ? 18 : 0, color: 'rgba(0,0,0,0.5)' }

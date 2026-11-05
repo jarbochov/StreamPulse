@@ -65,6 +65,7 @@
     const slideshows = new Map();
     let slideshowsKept = new Set();
     const cutoutStates = new Map();
+    const speakerStates = new Map();
     const elementNodes = new Map();
     let elementNodesKept = new Set();
     function stopSlideshows(ids) {
@@ -666,6 +667,9 @@
                 randomTimers.set(element.id, setInterval(() => setRandomText(existingNode, element), interval));
             } else if (element.type === 'game-list') {
                 shared.renderGameList(existingNode, element, liveStatus.gamePlan);
+            } else if (element.type === 'speaker-badge') {
+                const st = speakerStates.get(element.id);
+                shared.renderSpeakerBadge(existingNode, element, { preview: params.get('preview') === 'true', speaking: Boolean(st?.speaking) });
             } else if (element.type === 'poll') {
                 window.PollWidget.render(existingNode, element, liveStatus.poll, { preview: params.get('preview') === 'true' });
             } else if (element.type === 'progress') {
@@ -843,6 +847,9 @@
                 slideshowsKept.add(element.id);
             } else if (element.type === 'game-list') {
                 shared.renderGameList(node, element, liveStatus.gamePlan);
+            } else if (element.type === 'speaker-badge') {
+                const st = speakerStates.get(element.id);
+                shared.renderSpeakerBadge(node, element, { preview: params.get('preview') === 'true', speaking: Boolean(st?.speaking) });
             } else if (element.type === 'poll') {
                 window.PollWidget.render(node, element, liveStatus.poll, { preview: params.get('preview') === 'true' });
             } else if (element.type === 'progress') {
@@ -1389,6 +1396,47 @@
         if (liveSocket && liveSocket.readyState === WebSocket.OPEN) liveSocket.send(JSON.stringify({ type: 'slideshow-state', id: overlayId, element: elementId, ...state }));
     }
 
+    function handleObsAudioMeter(data) {
+        const inputName = String(data.input || '').toLowerCase();
+        const db = Number(data.db ?? -100);
+        for (const element of currentOverlay?.elements || []) {
+            if (element.type !== 'speaker-badge') continue;
+            const targetInput = String(element.speakerBadge?.audio?.inputName || 'Mic/Aux').toLowerCase();
+            if (targetInput !== inputName) continue;
+
+            const threshold = Number(element.speakerBadge?.audio?.thresholdDb ?? -36);
+            const holdMs = Math.max(50, Number(element.speakerBadge?.audio?.holdMs ?? 280));
+            const isAbove = db >= threshold;
+
+            let st = speakerStates.get(element.id);
+            if (!st) {
+                st = { speaking: false, timer: null };
+                speakerStates.set(element.id, st);
+            }
+
+            const node = elements.get(element.id);
+            if (!node) continue;
+
+            if (isAbove) {
+                if (st.timer) { clearTimeout(st.timer); st.timer = null; }
+                if (!st.speaking) {
+                    st.speaking = true;
+                    if (shared.renderSpeakerBadge) {
+                        shared.renderSpeakerBadge(node, element, { preview: false, speaking: true, rms: data.rms });
+                    }
+                }
+            } else if (st.speaking && !st.timer) {
+                st.timer = setTimeout(() => {
+                    st.speaking = false;
+                    st.timer = null;
+                    if (shared.renderSpeakerBadge) {
+                        shared.renderSpeakerBadge(node, element, { preview: false, speaking: false, rms: 0 });
+                    }
+                }, holdMs);
+            }
+        }
+    }
+
     function connect() {
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
         const socket = new WebSocket(`${protocol}//${location.host}`);
@@ -1424,6 +1472,9 @@
                 }
                 else if (message.type === 'custom-overlay-cutout' && message.data?.id === overlayId) {
                     handleCutoutControl(message.data.action, message.data.element);
+                }
+                else if (message.type === 'obs-audio-meter' && message.data?.input) {
+                    handleObsAudioMeter(message.data);
                 }
                 else if (message.type === 'external-update' && message.data?.key) {
                     const before = shared.variableSnapshot(liveStatus, variableContext());

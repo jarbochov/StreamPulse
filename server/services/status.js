@@ -193,6 +193,7 @@ function createStatusService({
             },
             modules: {
                 chatbot: config.chatbot_enabled !== false,
+                speakerBadges: config.speaker_badges_enabled === true,
                 clips: config.clip_candidates?.enabled !== false,
                 weather: config.weather?.enabled === true,
                 music: Boolean(musicConfig.enabled),

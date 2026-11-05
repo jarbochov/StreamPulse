@@ -1544,6 +1544,95 @@ export function patternSection(el) {
         ${motion !== 'none' ? '<p class="hint">Animates continuously in the live overlay and editor. Use the Effects toggle in the top toolbar to pause animations while editing.</p>' : ''}`);
 }
 
+export function speakerBadgeSection(el) {
+    const b = el.speakerBadge || {};
+    const sp = b.speaker || {};
+    const callIn = sp.callIn || {};
+    const audio = b.audio || {};
+    const re = b.reaction || {};
+    const layout = b.layout || 'horizontal';
+
+    const profile = F.section('speakerProfile', 'Speaker Profile', `
+        ${F.text('speakerBadge.speaker.name', 'Display Name', sp.name || '', 'placeholder="Alex Rivera"')}
+        <div class="grid2">
+            ${F.text('speakerBadge.speaker.handle', 'Handle / Subtitle', sp.handle || '', 'placeholder="@alexrivera"')}
+            ${F.text('speakerBadge.speaker.pronouns', 'Pronouns', sp.pronouns || '', 'placeholder="they/them"')}
+        </div>
+        <div class="field">
+            <span>Avatar image</span>
+            <span class="upload-row">
+                <input id="prop-sb-avatar" data-path="speakerBadge.speaker.avatarSrc" value="${esc(sp.avatarSrc || '')}" placeholder="https://… or library asset" spellcheck="false">
+                <button type="button" id="open-assets-sb">Library…</button>
+            </span>
+        </div>
+        <div class="grid2">
+            ${F.select('speakerBadge.speaker.avatarShape', 'Avatar shape', sp.avatarShape || 'circle', [['circle', 'Circle'], ['squircle', 'Squircle'], ['square', 'Square']])}
+            ${F.select('speakerBadge.layout', 'Layout style', layout, [['horizontal', 'Horizontal Card'], ['cspan-banner', 'C-SPAN Call-In'], ['compact-pill', 'Compact Pill'], ['vertical-card', 'Vertical Card'], ['avatar-only', 'Avatar Only']])}
+        </div>
+        <div class="grid3">
+            ${F.check('speakerBadge.speaker.showAvatar', 'Avatar', sp.showAvatar !== false)}
+            ${F.check('speakerBadge.speaker.showHandle', 'Handle', sp.showHandle !== false)}
+            ${F.check('speakerBadge.speaker.showPronouns', 'Pronouns', sp.showPronouns !== false)}
+        </div>
+    `);
+
+    const cspan = F.section('speakerCallIn', 'Broadcast Call-In (C-SPAN Style)', `
+        ${F.check('speakerBadge.speaker.callIn.enabled', 'Enable Call-In mode (C-SPAN header)', callIn.enabled === true)}
+        <div class="grid2">
+            ${F.text('speakerBadge.speaker.callIn.statusText', 'Status tag', callIn.statusText || 'ON THE LINE', 'placeholder="ON THE LINE, CALLING IN"')}
+            ${F.color('speakerBadge.speaker.callIn.statusColor', 'Tag color', callIn.statusColor || '#22c55e')}
+        </div>
+        <div class="grid2">
+            ${F.text('speakerBadge.speaker.callIn.location', 'Caller location', callIn.location || '', 'placeholder="Chicago, IL"')}
+            ${F.check('speakerBadge.speaker.callIn.showLocation', 'Show location', callIn.showLocation !== false)}
+        </div>
+        <p class="hint">Displays an authentic broadcast call-in line badge with active speech status and caller origin.</p>
+    `);
+
+    const audioSec = F.section('speakerAudio', 'OBS Audio & Sensitivity Gate', `
+        <div class="field">
+            <span>OBS Audio Input</span>
+            <span class="upload-row">
+                <input id="prop-sb-audio-input" data-path="speakerBadge.audio.inputName" value="${esc(audio.inputName || 'Mic/Aux')}" list="obs-audio-inputs-list" placeholder="Mic/Aux" spellcheck="false">
+                <button type="button" id="btn-refresh-obs-audio" title="Fetch inputs from OBS">Refresh</button>
+            </span>
+            <datalist id="obs-audio-inputs-list"></datalist>
+            <span class="hint">Name of the audio input in OBS Studio (e.g. "Mic/Aux", "Discord", "Guest 1 Browser").</span>
+        </div>
+        <div class="grid2">
+            ${F.number('speakerBadge.audio.thresholdDb', 'Sensitivity gate (dB)', audio.thresholdDb ?? -36, { min: -70, max: 0, step: 1 })}
+            ${F.number('speakerBadge.audio.holdMs', 'Release hold time (ms)', audio.holdMs ?? 280, { min: 50, max: 1500, step: 25 })}
+        </div>
+        <div style="margin-top:0.5rem;display:flex;align-items:center;gap:0.5rem;">
+            <button type="button" class="btn sm" id="btn-simulate-speaking" style="flex:1;">
+                ${el._simulateSpeaking ? 'Stop Simulating Speaking' : 'Simulate Speaking (Canvas Test)'}
+            </button>
+        </div>
+        <p class="hint">Hold time keeps the badge highlighted through pauses between words to avoid visual flickering.</p>
+    `);
+
+    const reactionSec = F.section('speakerReaction', 'Audio Reaction & EQ Visualizer', `
+        <div class="grid2">
+            ${F.select('speakerBadge.reaction.visualizer', 'Visualizer', re.visualizer || 'bars', [['bars', 'EQ Bars'], ['pulse-ring', 'Avatar Pulse Ring'], ['none', 'None']])}
+            ${F.number('speakerBadge.reaction.barCount', 'EQ bar count', re.barCount ?? 5, { min: 3, max: 9, step: 1 })}
+        </div>
+        <div class="grid2">
+            ${F.color('speakerBadge.reaction.activeColor', 'Speaking color', re.activeColor || '#6366f1')}
+            ${F.number('speakerBadge.reaction.glowSpread', 'Glow radius (px)', re.glowSpread ?? 12, { min: 0, max: 40, step: 2 })}
+        </div>
+        <div class="grid2">
+            ${F.check('speakerBadge.reaction.highlightBorder', 'Highlight border & glow', re.highlightBorder !== false)}
+            ${F.check('speakerBadge.reaction.motionPop', 'Scale pop on speech', re.motionPop !== false)}
+        </div>
+        <div class="grid2">
+            ${F.check('speakerBadge.reaction.dimWhenIdle', 'Dim when silent', re.dimWhenIdle === true)}
+            ${F.number('speakerBadge.reaction.idleOpacity', 'Idle opacity', re.idleOpacity ?? 0.70, { min: 0.1, max: 1, step: 0.05 })}
+        </div>
+    `);
+
+    return profile + cspan + audioSec + reactionSec;
+}
+
 export function sharedBlock(items) {
     const pagesEnabled = state.overlay.pages?.enabled === true;
     if (!pagesEnabled) return '';
@@ -1632,7 +1721,8 @@ const INSPECTOR_TABS = [['content', 'Content'], ['layout', 'Layout'], ['style', 
 const SPECIFIC_SECTION_TABS = {
     gamelayout: 'layout', patternLayout: 'layout',
     gamecovers: 'style', gametext: 'style', progress: 'style',
-    patternMotion: 'style', proceduralMotion: 'style'
+    patternMotion: 'style', proceduralMotion: 'style',
+    speakerReaction: 'style'
 };
 
 function rememberInspectorScroll(root) {
@@ -1686,7 +1776,7 @@ export function renderProperties() {
     } else {
         const base = items[0];
         const el = previewAlertElement(base);
-        const specific = { 'random-text': randomSection, progress: progressSection, poll: pollSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection, pattern: patternSection, 'procedural-pattern': proceduralPatternSection }[el.type];
+        const specific = { 'random-text': randomSection, progress: progressSection, poll: pollSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection, pattern: patternSection, 'procedural-pattern': proceduralPatternSection, 'speaker-badge': speakerBadgeSection }[el.type];
         content = contentSection(base) + (specific ? specific(el.type === 'alert' ? base : el) : '');
         layout = layoutSection(base) + scaleSection(items) + obsLinkSection(base);
         style = (el.type === 'alert' ? alertLooksSection(base) + alertSection(el, true) : '')
@@ -2434,8 +2524,33 @@ export function initInspectorEvents() {
                     button.disabled = false; button.textContent = 'Browse…';
                 }
             }
-            if (target.closest('#open-assets') || target.closest('#source-library')) {
+            if (target.closest('#open-assets') || target.closest('#source-library') || target.closest('#open-assets-sb')) {
                 openAssetDialogHandler(primary()?.id);
+                return;
+            }
+            if (target.closest('#btn-simulate-speaking')) {
+                const el = primary();
+                if (el && el.type === 'speaker-badge') {
+                    el._simulateSpeaking = !el._simulateSpeaking;
+                    renderCanvas();
+                    renderProperties();
+                }
+                return;
+            }
+            if (target.closest('#btn-refresh-obs-audio')) {
+                try {
+                    const res = await fetch('/api/obs/audio-inputs');
+                    if (res.ok) {
+                        const data = await res.json();
+                        const dl = document.getElementById('obs-audio-inputs-list');
+                        if (dl) {
+                            dl.innerHTML = (data.inputs || []).map(name => `<option value="${esc(name)}">`).join('');
+                        }
+                        toast('OBS audio inputs refreshed', 'info', 1200);
+                    }
+                } catch {
+                    toast('Could not query OBS audio inputs', 'error', 3000);
+                }
                 return;
             }
             const simBtn = target.closest('[data-sim-alert]');

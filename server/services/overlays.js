@@ -343,7 +343,7 @@ function resetPresetWeights(preset, mode = '') {
 const TEXT_SOURCE_TYPES = new Set(['text', 'random-text', 'markdown']);
 const TEXT_SOURCE_EXTS = new Set(['.txt', '.md', '.markdown', '.text']);
 const TEXT_SOURCE_MAX_BYTES = 512 * 1024;
-const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'poll', 'game-list', 'qr', 'alert', 'slideshow', 'icon', 'cutout', 'pattern', 'procedural-pattern']);
+const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'poll', 'game-list', 'qr', 'alert', 'slideshow', 'icon', 'cutout', 'pattern', 'procedural-pattern', 'speaker-badge']);
 const PAGE_TRANSITIONS = ['none', 'fade', 'slide', 'morph'];
 const Motion = require('../../public/js/motion-easing');
 const isPageEasing = name => Motion.isEasing(name);
@@ -357,6 +357,65 @@ const PATTERN_MOTIONS = ['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'swa
 const PATTERN_TRACK_MODES = ['uniform', 'opposite', 'stagger', 'sine', 'alternate-stop', 'alt-rows', 'stagger-rows', 'alt-cols', 'stagger-cols'];
 const PATTERN_FLIPS = ['none', 'tilt', 'h', 'v', 'both'];
 const PATTERN_BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion', 'luminosity', 'plus-lighter'];
+
+function normalizeSpeakerBadge(badge = {}) {
+    const rawSpeaker = badge?.speaker && typeof badge.speaker === 'object' ? badge.speaker : {};
+    const rawCallIn = rawSpeaker?.callIn && typeof rawSpeaker.callIn === 'object' ? rawSpeaker.callIn : {};
+    const rawAudio = badge?.audio && typeof badge.audio === 'object' ? badge.audio : {};
+    const rawReaction = badge?.reaction && typeof badge.reaction === 'object' ? badge.reaction : {};
+
+    const callIn = {
+        enabled: rawCallIn.enabled === true,
+        statusText: String(rawCallIn.statusText || 'ON THE LINE').trim().slice(0, 40) || 'ON THE LINE',
+        location: String(rawCallIn.location || '').trim().slice(0, 80),
+        statusColor: /^#[0-9a-f]{6}$/i.test(String(rawCallIn.statusColor || '')) ? rawCallIn.statusColor : '#22c55e',
+        showLocation: rawCallIn.showLocation !== false
+    };
+
+    const speaker = {
+        name: String(rawSpeaker.name || 'Alex Rivera').trim().slice(0, 80) || 'Alex Rivera',
+        handle: String(rawSpeaker.handle || '').trim().slice(0, 60),
+        pronouns: String(rawSpeaker.pronouns || '').trim().slice(0, 30),
+        avatarSrc: String(rawSpeaker.avatarSrc || '').trim().slice(0, 500),
+        avatarShape: ['circle', 'squircle', 'square'].includes(rawSpeaker.avatarShape) ? rawSpeaker.avatarShape : 'circle',
+        showAvatar: rawSpeaker.showAvatar !== false,
+        showHandle: rawSpeaker.showHandle !== false,
+        showPronouns: rawSpeaker.showPronouns !== false,
+        callIn
+    };
+
+    const audio = {
+        inputName: String(rawAudio.inputName || 'Mic/Aux').trim().slice(0, 100) || 'Mic/Aux',
+        thresholdDb: Math.max(-80, Math.min(0, Math.round(Number(rawAudio.thresholdDb) || -36))),
+        holdMs: Math.max(50, Math.min(2000, Math.round(Number(rawAudio.holdMs) || 280)))
+    };
+
+    const reaction = {
+        highlightBorder: rawReaction.highlightBorder !== false,
+        activeColor: /^#[0-9a-f]{6}$/i.test(String(rawReaction.activeColor || '')) ? rawReaction.activeColor : '#6366f1',
+        idleBorderColor: String(rawReaction.idleBorderColor || 'rgba(255, 255, 255, 0.12)').slice(0, 60),
+        borderWidth: Math.max(0, Math.min(20, Math.round(Number(rawReaction.borderWidth) || 2))),
+        glowSpread: Math.max(0, Math.min(60, Math.round(Number(rawReaction.glowSpread) || 12))),
+        visualizer: ['bars', 'wave', 'pulse-ring', 'none'].includes(rawReaction.visualizer) ? rawReaction.visualizer : 'bars',
+        barCount: Math.max(3, Math.min(9, Math.round(Number(rawReaction.barCount) || 5))),
+        visualizerPosition: ['inline', 'avatar-badge', 'bottom'].includes(rawReaction.visualizerPosition) ? rawReaction.visualizerPosition : 'inline',
+        visualizerColor: rawReaction.visualizerColor === 'match' || /^#[0-9a-f]{6}$/i.test(String(rawReaction.visualizerColor || '')) ? rawReaction.visualizerColor : 'match',
+        motionPop: rawReaction.motionPop !== false,
+        dimWhenIdle: rawReaction.dimWhenIdle === true,
+        idleOpacity: Math.max(0.1, Math.min(1.0, Math.round((Number(rawReaction.idleOpacity) || 0.7) * 100) / 100))
+    };
+
+    const layout = ['horizontal', 'compact-pill', 'vertical-card', 'cspan-banner', 'avatar-only'].includes(badge?.layout)
+        ? badge.layout
+        : 'horizontal';
+
+    return {
+        speaker,
+        audio,
+        reaction,
+        layout
+    };
+}
 
 function normalizePattern(p = {}) {
     const num = (value, min, max, fallback) => (Number.isFinite(Number(value)) && value !== '' && value !== null ? Math.max(min, Math.min(max, Number(value))) : fallback);
@@ -771,6 +830,7 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
         ...(obsLink ? { obsLink } : {}),
         type,
         poll: type === 'poll' ? normalizePollSettings(element.poll) : undefined,
+        speakerBadge: type === 'speaker-badge' ? normalizeSpeakerBadge(element.speakerBadge) : undefined,
         mediaFilter: normalizeMediaFilter(element.mediaFilter),
         pattern: normalizePattern(element.pattern),
         slideshow: {

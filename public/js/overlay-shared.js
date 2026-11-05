@@ -3693,7 +3693,220 @@
         return handle;
     }
 
-    root.OverlayShared = { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, applyMediaFilter, shadowClipStyle };
+    function ensureSpeakerBadgeStyle() {
+        if (document.getElementById('sp-speaker-badge-style')) return;
+        const tag = document.createElement('style');
+        tag.id = 'sp-speaker-badge-style';
+        tag.textContent = `
+.sp-sb-card { box-sizing: border-box; display: flex; align-items: center; position: relative; width: 100%; height: 100%; transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.16s ease, box-shadow 0.16s ease, opacity 0.2s ease; overflow: hidden; user-select: none; }
+.sp-sb-card.is-speaking { border-color: var(--sb-active-color, #6366f1) !important; box-shadow: 0 0 var(--sb-glow-spread, 14px) var(--sb-active-glow, rgba(99, 102, 241, 0.45)), 0 4px 20px rgba(0,0,0,0.35) !important; }
+.sp-sb-card.is-speaking.has-pop { transform: scale(1.04); }
+.sp-sb-card.is-idle.has-dim { opacity: var(--sb-idle-opacity, 0.7) !important; }
+.sp-sb-avatar-wrap { position: relative; flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; }
+.sp-sb-avatar { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sp-sb-avatar.shape-circle { border-radius: 50%; }
+.sp-sb-avatar.shape-squircle { border-radius: 26%; }
+.sp-sb-avatar.shape-square { border-radius: 8px; }
+.sp-sb-avatar-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); color: currentColor; }
+.sp-sb-avatar-placeholder svg { width: 60%; height: 60%; opacity: 0.7; }
+.sp-sb-pulse-ring { position: absolute; inset: -4px; border-radius: inherit; border: 2px solid var(--sb-active-color, #6366f1); opacity: 0; pointer-events: none; transform: scale(0.95); }
+.is-speaking .sp-sb-pulse-ring { animation: spSbPulse 1.4s ease-out infinite; }
+@keyframes spSbPulse { 0% { transform: scale(0.95); opacity: 0.8; } 50% { transform: scale(1.15); opacity: 0.25; } 100% { transform: scale(1.3); opacity: 0; } }
+.sp-sb-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 0 10px; }
+.sp-sb-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.sp-sb-name { font-weight: 700; font-size: 1.05em; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: inherit; }
+.sp-sb-pronouns { font-size: 0.7em; font-weight: 600; text-transform: lowercase; padding: 2px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.8); border: 1px solid rgba(255, 255, 255, 0.08); white-space: nowrap; flex-shrink: 0; }
+.sp-sb-handle { font-size: 0.8em; opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+.sp-sb-eq-bars { display: inline-flex; align-items: flex-end; gap: 2.5px; height: 18px; flex-shrink: 0; padding: 0 4px; }
+.sp-sb-eq-bar { width: 3px; border-radius: 999px; background: var(--sb-bar-color, var(--sb-active-color, #6366f1)); height: 3px; transition: height 0.12s ease, opacity 0.15s ease; opacity: 0.4; }
+.is-speaking .sp-sb-eq-bar { opacity: 1; animation: spSbEqBounce 0.55s ease-in-out infinite alternate; }
+.is-speaking .sp-sb-eq-bar:nth-child(2) { animation-delay: 0.12s; }
+.is-speaking .sp-sb-eq-bar:nth-child(3) { animation-delay: 0.25s; }
+.is-speaking .sp-sb-eq-bar:nth-child(4) { animation-delay: 0.08s; }
+.is-speaking .sp-sb-eq-bar:nth-child(5) { animation-delay: 0.18s; }
+.is-speaking .sp-sb-eq-bar:nth-child(6) { animation-delay: 0.3s; }
+.is-speaking .sp-sb-eq-bar:nth-child(7) { animation-delay: 0.15s; }
+@keyframes spSbEqBounce { 0% { height: 4px; } 50% { height: 16px; } 100% { height: 8px; } }
+.layout-cspan-banner { flex-direction: column; justify-content: space-between; padding: 8px 12px; }
+.cspan-header-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; border-bottom: 1px solid rgba(255, 255, 255, 0.12); padding-bottom: 5px; margin-bottom: 5px; }
+.cspan-status-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 0.7em; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cspan-status-color, #22c55e); }
+.cspan-live-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: inline-block; }
+.is-speaking .cspan-live-dot { box-shadow: 0 0 8px currentColor; animation: spSbBlink 0.9s infinite alternate; }
+@keyframes spSbBlink { from { opacity: 0.5; transform: scale(0.9); } to { opacity: 1; transform: scale(1.15); } }
+.cspan-location { font-size: 0.7em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.8; }
+.cspan-main-row { display: flex; align-items: center; justify-content: space-between; width: 100%; min-width: 0; }
+.layout-compact-pill { padding: 4px 12px; border-radius: 999px !important; }
+.layout-vertical-card { flex-direction: column; text-align: center; padding: 12px; justify-content: center; }
+.layout-vertical-card .sp-sb-meta { align-items: center; padding: 6px 0 0; }
+.layout-avatar-only { justify-content: center; padding: 0; background: transparent !important; border: 0 !important; box-shadow: none !important; }
+`;
+        document.head.appendChild(tag);
+    }
+
+    function renderSpeakerBadge(node, element, options = {}) {
+        ensureSpeakerBadgeStyle();
+        const b = element.speakerBadge || {};
+        const sp = b.speaker || {};
+        const callIn = sp.callIn || {};
+        const re = b.reaction || {};
+        const layout = (callIn.enabled ? 'cspan-banner' : (b.layout || 'horizontal'));
+        const speaking = Boolean(options.speaking);
+
+        const activeColor = re.activeColor || '#6366f1';
+        const glowSpread = Math.max(0, Number(re.glowSpread) || 12);
+        const barColor = re.visualizerColor === 'match' ? activeColor : (re.visualizerColor || activeColor);
+
+        node.className = `sp-sb-card layout-${layout} ${speaking ? 'is-speaking' : 'is-idle'}${re.motionPop !== false ? ' has-pop' : ''}${re.dimWhenIdle ? ' has-dim' : ''}`;
+        node.style.setProperty('--sb-active-color', activeColor);
+        node.style.setProperty('--sb-glow-spread', `${glowSpread}px`);
+        node.style.setProperty('--sb-active-glow', activeColor + (activeColor.length === 7 ? '55' : ''));
+        node.style.setProperty('--sb-idle-opacity', String(re.idleOpacity ?? 0.7));
+        node.style.setProperty('--sb-bar-color', barColor);
+        node.style.setProperty('--cspan-status-color', callIn.statusColor || '#22c55e');
+
+        node.replaceChildren();
+
+        const avatarShape = sp.avatarShape || 'circle';
+        const avatarWrap = document.createElement('div');
+        avatarWrap.className = 'sp-sb-avatar-wrap';
+        if (avatarShape === 'circle') avatarWrap.style.borderRadius = '50%';
+        else if (avatarShape === 'squircle') avatarWrap.style.borderRadius = '26%';
+        else avatarWrap.style.borderRadius = '8px';
+
+        if (sp.avatarSrc) {
+            const img = document.createElement('img');
+            img.className = `sp-sb-avatar shape-${avatarShape}`;
+            img.src = sp.avatarSrc;
+            img.alt = sp.name || 'Speaker avatar';
+            img.draggable = false;
+            avatarWrap.appendChild(img);
+        } else {
+            const placeholder = document.createElement('div');
+            placeholder.className = `sp-sb-avatar-placeholder shape-${avatarShape}`;
+            placeholder.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
+            avatarWrap.appendChild(placeholder);
+        }
+
+        if (re.visualizer === 'pulse-ring' || layout === 'avatar-only') {
+            const ring = document.createElement('div');
+            ring.className = 'sp-sb-pulse-ring';
+            avatarWrap.appendChild(ring);
+        }
+
+        const buildEqBars = () => {
+            if (re.visualizer !== 'bars') return null;
+            const barContainer = document.createElement('div');
+            barContainer.className = 'sp-sb-eq-bars';
+            const count = Math.max(3, Math.min(9, Number(re.barCount) || 5));
+            for (let i = 0; i < count; i++) {
+                const bar = document.createElement('span');
+                bar.className = 'sp-sb-eq-bar';
+                barContainer.appendChild(bar);
+            }
+            return barContainer;
+        };
+
+        if (layout === 'avatar-only') {
+            avatarWrap.style.width = '100%';
+            avatarWrap.style.height = '100%';
+            node.appendChild(avatarWrap);
+            return;
+        }
+
+        if (layout === 'cspan-banner') {
+            const header = document.createElement('div');
+            header.className = 'cspan-header-bar';
+            header.innerHTML = `
+                <span class="cspan-status-tag">
+                    <span class="cspan-live-dot"></span>
+                    <span>${escapeXml(callIn.statusText || 'ON THE LINE')}</span>
+                </span>
+                ${callIn.showLocation && callIn.location ? `<span class="cspan-location">${escapeXml(callIn.location)}</span>` : ''}
+            `;
+            node.appendChild(header);
+
+            const mainRow = document.createElement('div');
+            mainRow.className = 'cspan-main-row';
+
+            if (sp.showAvatar) {
+                avatarWrap.style.width = '42px';
+                avatarWrap.style.height = '42px';
+                mainRow.appendChild(avatarWrap);
+            }
+
+            const meta = document.createElement('div');
+            meta.className = 'sp-sb-meta';
+
+            const nameRow = document.createElement('div');
+            nameRow.className = 'sp-sb-row';
+            const nameEl = document.createElement('span');
+            nameEl.className = 'sp-sb-name';
+            nameEl.textContent = sp.name || 'Speaker';
+            nameRow.appendChild(nameEl);
+
+            if (sp.showPronouns && sp.pronouns) {
+                const pro = document.createElement('span');
+                pro.className = 'sp-sb-pronouns';
+                pro.textContent = sp.pronouns;
+                nameRow.appendChild(pro);
+            }
+            meta.appendChild(nameRow);
+
+            if (sp.showHandle && sp.handle) {
+                const hEl = document.createElement('span');
+                hEl.className = 'sp-sb-handle';
+                hEl.textContent = sp.handle;
+                meta.appendChild(hEl);
+            }
+            mainRow.appendChild(meta);
+
+            const eq = buildEqBars();
+            if (eq) mainRow.appendChild(eq);
+
+            node.appendChild(mainRow);
+            return;
+        }
+
+        // Standard layout (horizontal, compact-pill, vertical-card)
+        if (sp.showAvatar) {
+            if (layout === 'compact-pill') {
+                avatarWrap.style.width = '28px';
+                avatarWrap.style.height = '28px';
+            }
+            node.appendChild(avatarWrap);
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'sp-sb-meta';
+
+        const nameRow = document.createElement('div');
+        nameRow.className = 'sp-sb-row';
+        const nameEl = document.createElement('span');
+        nameEl.className = 'sp-sb-name';
+        nameEl.textContent = sp.name || 'Speaker';
+        nameRow.appendChild(nameEl);
+
+        if (sp.showPronouns && sp.pronouns) {
+            const pro = document.createElement('span');
+            pro.className = 'sp-sb-pronouns';
+            pro.textContent = sp.pronouns;
+            nameRow.appendChild(pro);
+        }
+        meta.appendChild(nameRow);
+
+        if (sp.showHandle && sp.handle && layout !== 'compact-pill') {
+            const hEl = document.createElement('span');
+            hEl.className = 'sp-sb-handle';
+            hEl.textContent = sp.handle;
+            meta.appendChild(hEl);
+        }
+        node.appendChild(meta);
+
+        const eq = buildEqBars();
+        if (eq) node.appendChild(eq);
+    }
+
+    root.OverlayShared = { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, renderSpeakerBadge, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, applyMediaFilter, shadowClipStyle };
     root.OverlayShared.borderPlacement = borderPlacement;
     Object.assign(root.OverlayShared, { ALERT_PRESENTATION_KEYS, resolveAlertLook });
 })(window);

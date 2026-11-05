@@ -80,6 +80,8 @@ function computeObsAuthResponse(password, salt, challenge) {
 function createObsService({
     getConfig,
     config = {},
+    isSpeakerBadgesEnabled = () => false,
+    onAudioMeter = () => {},
     WebSocketImpl,
     onStatusChange = () => {},
     log = console.log,
@@ -97,6 +99,7 @@ function createObsService({
     let connectionGeneration = 0;
     const sceneItemIdCache = new Map();
     const lastKnownTransforms = new Map();
+    const lastAudioBroadcast = new Map();
 
     let state = {
         connected: false,
@@ -321,7 +324,10 @@ function createObsService({
             const { op, d } = msg;
             if (op === 0 && d) {
                 // Hello from OBS WebSocket v5
-                const identifyPayload = { rpcVersion: 1, eventSubscriptions: (1 << 2) | (1 << 7) }; // Scenes | SceneItems
+                const isBadgesEnabled = typeof isSpeakerBadgesEnabled === 'function' ? isSpeakerBadgesEnabled() : false;
+                const baseSubscriptions = (1 << 2) | (1 << 7); // Scenes | SceneItems
+                const eventSubscriptions = isBadgesEnabled ? (baseSubscriptions | (1 << 16) | (1 << 3)) : baseSubscriptions;
+                const identifyPayload = { rpcVersion: 1, eventSubscriptions };
                 if (d.authentication?.challenge && d.authentication?.salt) {
                     identifyPayload.authentication = computeObsAuthResponse(
                         cfg.password,
@@ -347,6 +353,31 @@ function createObsService({
                     onStatusChange(getStatus());
                 } else if (d.eventType === 'SceneItemCreated' || d.eventType === 'SceneItemRemoved') {
                     sceneItemIdCache.clear();
+                } else if (d.eventType === 'InputVolumeMeters' && Array.isArray(d.eventData?.inputs)) {
+                    const now = Date.now();
+                    for (const input of d.eventData.inputs) {
+                        const inputName = input?.inputName;
+                        if (!inputName || !Array.isArray(input.inputLevelsMul)) continue;
+                        const last = lastAudioBroadcast.get(inputName) || 0;
+                        if (now - last < 45) continue; // Throttle to ~20Hz
+                        lastAudioBroadcast.set(inputName, now);
+
+                        let maxRms = 0;
+                        let maxPeak = 0;
+                        for (const ch of input.inputLevelsMul) {
+                            if (Array.isArray(ch)) {
+                                if (Number(ch[0]) > maxPeak) maxPeak = Number(ch[0]);
+                                if (Number(ch[1]) > maxRms) maxRms = Number(ch[1]);
+                            }
+                        }
+                        const db = maxRms > 0 ? 20 * Math.log10(maxRms) : -100;
+                        onAudioMeter({
+                            input: inputName,
+                            rms: Math.round(maxRms * 1000) / 1000,
+                            peak: Math.round(maxPeak * 1000) / 1000,
+                            db: Math.round(db * 10) / 10
+                        });
+                    }
                 }
             } else if (op === 9 && d) {
                 const pending = pendingRequests.get(d.requestId);
@@ -429,6 +460,21 @@ function createObsService({
             sources: [...sourcesSet].sort((a, b) => a.localeCompare(b)),
             byScene
         };
+    }
+
+    async function listAudioInputs() {
+        if (!state.identified) {
+            return ['Mic/Aux', 'Desktop Audio'];
+        }
+        try {
+            const inputsRes = await request('GetInputList').catch(() => ({ inputs: [] }));
+            const inputs = (Array.isArray(inputsRes.inputs) ? inputsRes.inputs : [])
+                .map(item => item.inputName)
+                .filter(Boolean);
+            return inputs.length ? inputs : ['Mic/Aux', 'Desktop Audio'];
+        } catch {
+            return ['Mic/Aux', 'Desktop Audio'];
+        }
     }
 
     async function resolveSceneItemId(sceneName, sourceName) {
@@ -1032,6 +1078,7 @@ function createObsService({
         disconnect,
         getStatus,
         listScenesAndSources,
+        listAudioInputs,
         syncOverlayState,
         cleanupManagedFilters,
         animateItemToTarget,

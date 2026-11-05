@@ -804,6 +804,8 @@ export function buildContent(node, el, playback) {
         if (shared.mountPattern) node._patternHandle = shared.mountPattern(node, el, { preview: true, animate: true, expand });
     } else if (el.type === 'game-list') {
         if (shared.renderGameList) shared.renderGameList(node, el, state.liveStatus.gamePlan);
+    } else if (el.type === 'speaker-badge') {
+        if (shared.renderSpeakerBadge) shared.renderSpeakerBadge(node, el, { preview: true, speaking: Boolean(el._simulateSpeaking) });
     } else if (el.type === 'poll') {
         window.PollWidget.render(node, el, prefs.live ? state.liveStatus.poll : null, { preview: true });
     } else if (el.type === 'progress') {
@@ -825,6 +827,7 @@ const usesLivePlaceholders = el => /\{\{/.test(`${el.content || ''} ${el.src || 
 
 export const contentSignature = (el, live) =>
     el.type === 'embed' ? JSON.stringify([el.type, expand(el.src), el.video]) :
+    el.type === 'speaker-badge' ? JSON.stringify([el.type, el.speakerBadge, el._simulateSpeaking, el.style?.background, el.style?.borderColor, el.style?.borderWidth, el.style?.borderRadius]) :
     el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) :
     (el.type === 'pattern' || el.type === 'procedural-pattern') ? JSON.stringify([el.type, el.pattern]) :
     el.type === 'cutout' ? JSON.stringify([el.type]) :
