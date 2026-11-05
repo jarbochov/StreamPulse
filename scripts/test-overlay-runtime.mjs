@@ -61,7 +61,7 @@ const transitionFixture = {
 const sources = new Map(await Promise.all(['overlay-runtime.js', 'overlay-shared.js', 'motion-easing.js'].map(async name =>
     [`/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8')]
 )));
-for (const name of ['editor/editor-state.js', 'editor/editor-canvas.js', 'editor-geometry.js']) {
+for (const name of ['editor/editor-state.js', 'editor/editor-canvas.js', 'editor/editor-speakers.js', 'editor-geometry.js']) {
     sources.set(`/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8'));
 }
 sources.set('/css/custom-overlay-editor.css', await readFile(new URL('../public/css/custom-overlay-editor.css', import.meta.url), 'utf8'));

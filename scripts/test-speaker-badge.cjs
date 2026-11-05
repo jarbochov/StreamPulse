@@ -35,6 +35,23 @@ class FixtureWebSocket extends EventEmitter {
     }
 }
 
+test('Speaker-only overlays expose controller links without enabling pages', async () => {
+    const { createOverlayRoutes } = require('../server/routes/overlays');
+    const overlays = Object.fromEntries(['speaker-badge', 'text', 'video'].map(type => [
+        type, normalizeCustomOverlay({ id: type, elements: [{ type }] })
+    ]));
+    const route = createOverlayRoutes({ getCustomOverlays: () => overlays });
+    let response;
+    const res = { writeHead() {}, end(body) { response = JSON.parse(body); } };
+    const url = new URL('http://localhost/api/custom-overlays');
+    assert.equal(await route({ method: 'GET' }, res, url, url.pathname), true);
+    const speaker = response.find(overlay => overlay.id === 'speaker-badge');
+    assert.equal(speaker.pageCount, 0);
+    assert.equal(speaker.hasControls, true, 'speaker badges support quick profile/audio controls without pages');
+    assert.equal(response.find(overlay => overlay.id === 'text').hasControls, false, 'static overlays do not gain an empty controller');
+    assert.equal(response.find(overlay => overlay.id === 'video').hasControls, true, 'existing media controls remain discoverable');
+});
+
 test('Speaker Badge element normalization and schema bounds', () => {
     assert.ok(CUSTOM_OVERLAY_ELEMENT_TYPES.has('speaker-badge'), 'CUSTOM_OVERLAY_ELEMENT_TYPES must include speaker-badge');
 
@@ -134,6 +151,21 @@ test('Speaker Badge fallback defaults for empty configuration', () => {
     assert.equal(el.speakerBadge.layout, 'horizontal');
 });
 
+test('Speaker sizing and typography preserve valid values and bound invalid input', () => {
+    const badges = normalizeCustomOverlay({ id: 'speaker-scaling', elements: [
+        { type: 'speaker-badge', speakerBadge: { autoSize: false, paddingX: 18, paddingY: 20,
+            typography: { subtitleFontFamily: 'monospace', pillFontFamily: ' Georgia, serif ' },
+            speaker: { avatarScale: 1.5, iconScale: 1.4 } } },
+        { type: 'speaker-badge', speakerBadge: { speaker: { avatarScale: -10, iconScale: 900 } } },
+        { type: 'speaker-badge', speakerBadge: { speaker: { avatarScale: 'invalid', iconScale: null } } }
+    ] }).elements.map(element => element.speakerBadge);
+    const speakers = badges.map(badge => badge.speaker);
+    assert.deepEqual(speakers.map(speaker => [speaker.avatarScale, speaker.iconScale]), [[1.5, 1.4], [0.5, 1.8], [1, 1]]);
+    assert.equal(badges[0].autoSize, false);
+    assert.deepEqual([badges[0].paddingX, badges[0].paddingY], [18, 20]);
+    assert.deepEqual(badges[0].typography, { subtitleFontFamily: 'monospace', pillFontFamily: 'Georgia, serif' });
+});
+
 test('Speaker badge normalization preserves a zero gate, border and glow', () => {
         const overlay = normalizeCustomOverlay({ id: 'speaker-zero', elements: [{ type: 'speaker-badge',
             speakerBadge: { audio: { thresholdDb: 0 }, reaction: { borderWidth: 0, glowSpread: 0 } } }] });
@@ -149,7 +181,7 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         const vm = require('node:vm');
         const source = fs.readFileSync(path.join(__dirname, '../public/js/overlay-runtime.js'), 'utf8');
         const start = source.indexOf('    function speakerState(');
-        const end = source.indexOf('\n    let elementNodesKept', start);
+        const end = source.indexOf('\n    const elementNodes =', start);
         const meterStart = source.indexOf('    function handleObsAudioMeter(');
         const meterEnd = source.indexOf('\n    function connect()', meterStart);
         const callbacks = new Map();
@@ -157,7 +189,7 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         let seq = 0;
         const element = { id: 'speaker', type: 'speaker-badge', speakerBadge: { speaker: { name: 'Original' }, audio: { inputName: 'Mic/Aux', thresholdDb: -36, holdMs: 280 } } };
         const context = vm.createContext({
-            speakerStates: new Map(), currentOverlay: { elements: [element] }, elements: new Map([['speaker', {}]]),
+            speakerStates: new Map(), currentOverlay: { elements: [element] }, elementNodes: new Map([['speaker', {}]]),
             params: new URLSearchParams(), shared: { renderSpeakerBadge: (node, element, options) => renders.push({ name: element.speakerBadge.speaker.name, ...options }) },
             setTimeout: callback => { callbacks.set(++seq, callback); return seq; },
             clearTimeout: id => callbacks.delete(id)
@@ -212,7 +244,9 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         });
         const overlays = { [initial.id]: initial }, events = [], configSaves = [];
         let audioConnected = true;
+        let sceneSyncConnected = false;
         const fixtureConfig = { obs: { enabled: true, host: '127.0.0.2', port: 4456, hasPassword: true, motionEngine: 'cut', syncOnSave: false },
+            obs_scene_sync_enabled: false,
             speaker_badges_enabled: false };
         const file = path.join(dir, 'overlays.json');
         const route = createOverlayRoutes({
@@ -240,6 +274,12 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify(req.method === 'PUT' ? { status: 'saved' } : fixtureConfig)); return;
             }
+            if (url.pathname === '/api/status' || url.pathname === '/api/obs/status') {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(url.pathname === '/api/status'
+                    ? { modules: { speakerBadges: true, obsSceneSync: false } }
+                    : { enabled: true, connected: true, sceneSyncEnabled: sceneSyncConnected, speakerBadgesEnabled: true, sources: [] })); return;
+            }
             if (url.pathname === '/api/custom-overlays/assets') {
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify([
@@ -258,7 +298,13 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         const browser = await puppeteer.launch({ headless: true });
         t.after(() => browser.close());
         const page = await browser.newPage(), errors = [];
+        await page.setViewport({ width: 1600, height: 1000 });
         page.on('pageerror', error => errors.push(error.message));
+        page.on('dialog', dialog => dialog.accept());
+        for (const list of ['custom-overlays.html', 'overlays.html']) {
+            await page.goto(`${base}/${list}`, { waitUntil: 'domcontentloaded' });
+            await page.waitForSelector(`a[href="/overlay-control.html?id=${initial.id}"]`);
+        }
         await page.goto(`${base}/overlay-control.html?id=${initial.id}`, { waitUntil: 'networkidle0' });
         await page.click('#tab-speakers');
         await page.waitForSelector('[data-speaker-form="host"] input');
@@ -312,8 +358,259 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         await page.click('[data-speaker-form="host"] [data-speaker-avatar]');
         await page.click('.mp-dialog [data-clear]');
         assert.equal(await page.$eval('[data-speaker-form="host"] [name="avatarSrc"]', input => input.value), '');
+        await page.goto(`${base}/custom-overlay-editor.html?id=${initial.id}`, { waitUntil: 'networkidle0' });
+        await page.waitForFunction(() => window.editorState?.nodes?.has('host'));
+        assert.equal(await page.$eval('#btn-obs-modal', button => button.hidden), true);
+        assert.equal(await page.$eval('[data-add="obs-frame"]', button => button.hidden), true);
+        await page.evaluate(async () => {
+            const { setSelection } = await import('/js/editor/editor-state.js');
+            setSelection(['host']);
+        });
+        await page.waitForSelector('#sb-audio-level');
+        const sendMeter = (db, input = 'Guest Audio') => {
+            for (const client of sockets.clients) client.send(JSON.stringify({ type: 'obs-audio-meter', data: { input, db, rms: 0.1 } }));
+        };
+        sendMeter(-48);
+        await page.waitForFunction(() => document.querySelector('#sb-audio-level').textContent.includes('Input: -48 dB'));
+        const firstReadout = await page.$eval('#sb-audio-level', hint => hint.textContent);
+        assert.equal(await page.evaluate(() => window.editorState.nodes.get('host').querySelector('.sp-sb-card').classList.contains('is-speaking')), false);
+        sendMeter(-15);
+        await page.waitForFunction(() => window.editorState.nodes.get('host').querySelector('.sp-sb-card').classList.contains('is-speaking'));
+        assert.equal(await page.$eval('#sb-audio-level', hint => hint.textContent), firstReadout, 'readout is rate-limited while detection is immediate');
+        sendMeter(-60);
+        assert.equal(await page.evaluate(() => window.editorState.nodes.get('host').querySelector('.sp-sb-card').classList.contains('is-speaking')), true, 'release holds across quiet speech pauses');
+        await page.waitForFunction(() => !window.editorState.nodes.get('host').querySelector('.sp-sb-card').classList.contains('is-speaking'));
+        sendMeter(-10);
+        await page.waitForFunction(() => window.editorState.nodes.get('host').querySelector('.sp-sb-card').classList.contains('is-speaking'));
+        await page.evaluate(async () => {
+            window.editorState.overlay.elements.find(element => element.id === 'host').speakerBadge.audio.inputName = 'Different source';
+            const { renderCanvas } = await import('/js/editor/editor-canvas.js');
+            renderCanvas();
+        });
+        assert.equal(await page.evaluate(() => window.editorState.nodes.get('host').querySelector('.sp-sb-card').classList.contains('is-speaking')), false);
+        sceneSyncConnected = true;
+        for (const client of sockets.clients) client.send(JSON.stringify({ type: 'obs-status', data: { enabled: true, connected: true, sceneSyncEnabled: true } }));
+        await page.waitForFunction(() => !document.querySelector('#btn-obs-modal').hidden);
+        sceneSyncConnected = false;
+        for (const client of sockets.clients) client.send(JSON.stringify({ type: 'obs-status', data: { enabled: true, connected: true, sceneSyncEnabled: false } }));
+        await page.waitForFunction(() => document.querySelector('#btn-obs-modal').hidden);
+        await page.$eval('[data-path="speakerBadge.speaker.avatarSrc"]', input => {
+            input.value = '';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        await page.waitForFunction(() => !window.editorState.overlay.elements.find(element => element.id === 'host').speakerBadge.speaker.avatarSrc);
+        await page.click('[data-inspector-tab="style"]');
+        assert.equal(await page.$('[data-path="style.fontSize"]'), null, 'auto-size overrides the manual size field');
+        await page.click('[data-path="speakerBadge.autoSize"]');
+        await page.waitForSelector('[data-path="style.fontSize"]');
+        await page.select('[data-path="speakerBadge.typography.subtitleFontFamily"]', 'monospace');
+        await page.select('[data-path="speakerBadge.typography.pillFontFamily"]', 'Georgia, serif');
+        await page.select('[data-path="speakerBadge.reaction.visualizer"]', 'pulse-ring');
+        await page.waitForFunction(() => !document.querySelector('[data-path="speakerBadge.reaction.barCount"]'));
+        await page.select('[data-path="speakerBadge.reaction.visualizer"]', 'bars');
+        await page.waitForSelector('[data-path="speakerBadge.reaction.barCount"]');
+        await page.click('[data-path="speakerBadge.reaction.highlightBorder"]');
+        await page.waitForFunction(() => !document.querySelector('[data-path="speakerBadge.reaction.glowSpread"]'));
+        await page.click('[data-path="speakerBadge.reaction.highlightBorder"]');
+        await page.waitForSelector('[data-path="speakerBadge.reaction.glowSpread"][type="range"]');
+        const glowLabelGap = await page.$eval('[data-path="speakerBadge.reaction.glowSpread"][type="range"]', input => {
+            const field = input.closest('.field');
+            return input.parentElement.getBoundingClientRect().top - field.firstElementChild.getBoundingClientRect().bottom;
+        });
+        assert.ok(glowLabelGap <= 8, 'glow slider stays directly beside its label, not stretched alongside the color picker');
+        assert.equal(await page.$('[data-path="speakerBadge.reaction.idleOpacity"].range-num'), null, 'idle opacity is hidden until dimming is enabled');
+        await page.click('[data-path="speakerBadge.reaction.dimWhenIdle"]');
+        await page.waitForSelector('[data-path="speakerBadge.reaction.idleOpacity"].range-num');
+        assert.equal(await page.$eval('[data-path="speakerBadge.reaction.idleOpacity"].range-num', input => input.value), '70', 'idle opacity is shown as a percentage, not scaled twice');
+        await page.evaluate(async () => {
+            const element = window.editorState.overlay.elements.find(item => item.id === 'host');
+            element.x = 80;
+            element.y = 80;
+            element.height = 160;
+            Object.assign(window.editorState, { zoom: 1, pan: { x: 100, y: 120 }, autoFit: false });
+            const { renderCanvas, applyView } = await import('/js/editor/editor-canvas.js');
+            applyView();
+            renderCanvas();
+        });
+        for (const field of ['avatarScale', 'iconScale']) {
+            await page.$eval(`[data-path="speakerBadge.speaker.${field}"].range-num`, input => {
+                input.value = '150';
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        }
+        await page.waitForFunction(() => {
+            const speaker = window.editorState.overlay.elements.find(element => element.id === 'host').speakerBadge.speaker;
+            return speaker.avatarScale === 1.5 && speaker.iconScale === 1.5;
+        });
+        const avatarSizes = await page.evaluate(() => {
+            const node = window.editorState.nodes.get('host');
+            return { avatar: node.querySelector('.sp-sb-avatar-wrap').getBoundingClientRect().width,
+                icon: node.querySelector('.sp-sb-avatar-placeholder svg').getBoundingClientRect().width };
+        });
+        assert.ok(Math.abs(avatarSizes.avatar - 48) < 1, 'avatar slider resizes the whole compact avatar');
+        assert.ok(Math.abs(avatarSizes.icon - 39.6) < 1, 'icon slider independently resizes the fallback drawing');
+        await page.click('#save');
+        await page.waitForFunction(() => !window.editorState.saving && !window.editorState.dirty);
+        assert.equal(overlays[initial.id].elements.find(element => element.id === 'host').speakerBadge.speaker.avatarScale, 1.5);
+        assert.equal(overlays[initial.id].elements.find(element => element.id === 'host').speakerBadge.speaker.iconScale, 1.5);
+        assert.deepEqual(overlays[initial.id].elements.find(element => element.id === 'host').speakerBadge.typography,
+            { subtitleFontFamily: 'monospace', pillFontFamily: 'Georgia, serif' });
+        const nameBounds = () => page.evaluate(() => {
+            const name = window.editorState.nodes.get('host').querySelector('.sp-sb-name').getBoundingClientRect();
+            return { x: name.x, y: name.y };
+        });
+        const horizontal = [];
+        for (const align of ['left', 'center', 'right']) {
+            await page.click(`[data-seg-path="style.textAlign"] [data-seg-value="${align}"]`);
+            horizontal.push((await nameBounds()).x);
+        }
+        assert.ok(horizontal[0] < horizontal[1] && horizontal[1] < horizontal[2], 'real typography controls reposition the name group');
+        await page.click('[data-seg-path="style.verticalAlign"] [data-seg-value="top"]');
+        const top = (await nameBounds()).y;
+        await page.click('[data-seg-path="style.verticalAlign"] [data-seg-value="bottom"]');
+        assert.ok((await nameBounds()).y > top + 10, 'vertical justification visibly repositions content');
+        await page.evaluate(async () => {
+            const element = window.editorState.overlay.elements.find(item => item.id === 'host');
+            element._simulateSpeaking = true;
+            element.speakerBadge.reaction.highlightBorder = false;
+            Object.assign(element.style, { background: '#ff0000', borderWidth: 0, shadow: { blur: 0 }, gradient: { enabled: false } });
+            const { setSelection } = await import('/js/editor/editor-state.js');
+            setSelection([]);
+            const { renderCanvas } = await import('/js/editor/editor-canvas.js');
+            renderCanvas();
+            await new Promise(resolve => setTimeout(resolve, 250));
+        });
+        const box = await page.evaluate(() => {
+            const node = window.editorState.nodes.get('host'), bounds = node.getBoundingClientRect();
+            const card = node.querySelector('.sp-sb-card'), style = getComputedStyle(card);
+            return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height, overflow: getComputedStyle(node).overflow,
+                card: { className: card.className, background: style.background, transform: style.transform, bounds: card.getBoundingClientRect().toJSON() } };
+        });
+        assert.equal(box.overflow, 'visible', 'speaker host does not clip growth or glow');
+        const screenshot = await page.screenshot({ encoding: 'base64' });
+        const painted = await page.evaluate(async (png, box) => {
+            const image = new window.Image();
+            image.src = `data:image/png;base64,${png}`;
+            await image.decode();
+            const canvas = document.createElement('canvas');
+            canvas.width = image.width; canvas.height = image.height;
+            const context = canvas.getContext('2d'); context.drawImage(image, 0, 0);
+            return [Math.floor(box.x) - 2, Math.ceil(box.x + box.width) + 2].map(x =>
+                [...context.getImageData(x, Math.round(box.y + box.height / 2), 1, 1).data]);
+        }, screenshot, box);
+        assert.ok(painted.every(([r, g, b]) => r > 200 && g < 60 && b < 60), `growth paints beyond both layer edges instead of being clipped: ${JSON.stringify({ painted, box })}`);
+        await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+        assert.equal(await page.evaluate(() => getComputedStyle(window.editorState.nodes.get('host').querySelector('.sp-sb-card')).transform), 'none');
+        const layouts = await page.evaluate(() => {
+            return ['horizontal', 'compact-pill', 'cspan-banner', 'vertical-card'].map(layout => {
+                const host = document.createElement('div');
+                host.style.cssText = 'position:absolute;left:0;top:0;width:640px;height:260px;';
+                document.body.appendChild(host);
+                const element = { type: 'speaker-badge', style: { fontSize: 20, fontWeight: '400', lineHeight: 1.4, letterSpacing: 2, verticalAlign: 'middle' },
+                    speakerBadge: { layout, speaker: { name: 'Fictional Speaker', handle: '@fictionalguest', pronouns: 'they/them' }, reaction: { motionPop: false } } };
+                const positions = ['left', 'center', 'right'].map(textAlign => {
+                    element.style.textAlign = textAlign;
+                    window.OverlayShared.renderSpeakerBadge(host, element);
+                    const name = host.querySelector('.sp-sb-name'), style = getComputedStyle(name);
+                    return { x: name.getBoundingClientRect().x, weight: style.fontWeight, lineHeight: style.lineHeight, letterSpacing: style.letterSpacing };
+                });
+                host.style.width = '240px';
+                element.speakerBadge.speaker.name = 'An intentionally very long fictional speaker name';
+                element.speakerBadge.speaker.callIn = { enabled: true, statusText: 'A very long fictional status label', location: 'A very long fictional caller location' };
+                window.OverlayShared.renderSpeakerBadge(host, element);
+                const rowsFit = [...host.querySelectorAll('.sp-sb-row, .cspan-header-bar')].every(row => row.scrollWidth <= row.clientWidth + 1);
+                host.remove();
+                return { layout, positions, rowsFit };
+            });
+        });
+        for (const { layout, positions, rowsFit } of layouts) {
+            assert.ok(positions[0].x < positions[1].x && positions[1].x < positions[2].x, `${layout}: text group aligns left/center/right when space is available`);
+            assert.ok(positions.every(position => position.weight === '400' && position.lineHeight === '28px' && position.letterSpacing === '2px'), `${layout}: name honors typography without layout overrides`);
+            assert.equal(rowsFit, true, `${layout}: long optional labels stay inside their content rows`);
+        }
+        const responsive = await page.evaluate(async () => {
+            const results = [];
+            for (const [layout, width, height] of [['horizontal', 513, 98], ['compact-pill', 260, 48], ['cspan-banner', 240, 96], ['vertical-card', 180, 200]]) {
+                const host = document.createElement('div');
+                host.style.cssText = `position:absolute;left:0;top:0;width:${width}px;height:${height}px;`;
+                document.body.appendChild(host);
+                const element = { type: 'speaker-badge', style: { fontSize: 28, fontWeight: '600' },
+                    speakerBadge: { layout, typography: { subtitleFontFamily: 'monospace', pillFontFamily: 'Georgia, serif' },
+                        speaker: { name: 'An intentionally long fictional speaker name that must remain readable',
+                        handle: '@fictionalguest', pronouns: 'they/them', avatarScale: 1.5,
+                        callIn: { enabled: true, statusText: 'CALLING IN', location: 'Remote studio' } },
+                    reaction: { visualizer: 'both', barCount: 8, motionPop: false } } };
+                window.OverlayShared.renderSpeakerBadge(host, element);
+                await new Promise(resolve => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+                const card = host.querySelector('.sp-sb-card'), name = host.querySelector('.sp-sb-name');
+                const standaloneName = name.parentElement.children.length === 1;
+                const bounds = card.getBoundingClientRect(), title = name.getBoundingClientRect();
+                const details = host.querySelector('.sp-sb-details').getBoundingClientRect();
+                const contentFits = [...card.querySelectorAll('.sp-sb-name, .sp-sb-row, .sp-sb-avatar-wrap, .sp-sb-eq-bars')].every(child => {
+                    const box = child.getBoundingClientRect();
+                    return box.left >= bounds.left - 2 && box.right <= bounds.right + 2 && box.top >= bounds.top - 2 && box.bottom <= bounds.bottom + 2;
+                });
+                const size = parseFloat(getComputedStyle(name).fontSize);
+                const paddingY = parseFloat(getComputedStyle(card).paddingTop);
+                const subtitleFont = getComputedStyle(host.querySelector('.sp-sb-handle')).fontFamily;
+                const pillFont = getComputedStyle(host.querySelector('.sp-sb-pronouns')).fontFamily;
+                const separated = () => {
+                    const meta = host.querySelector('.sp-sb-meta');
+                    const groups = [...host.querySelectorAll('.sp-sb-card, .cspan-main-row, .sp-sb-meta, .sp-sb-row')];
+                    return meta.scrollHeight <= meta.clientHeight + 1 && groups.every(group => {
+                        const children = [...group.children].map(child => child.getBoundingClientRect());
+                        return children.every((a, i) => children.slice(i + 1).every(b =>
+                            a.right <= b.left + 0.5 || b.right <= a.left + 0.5 ||
+                            a.bottom <= b.top + 0.5 || b.bottom <= a.top + 0.5));
+                    });
+                };
+                const noOverlaps = separated();
+                const minimumRowGap = parseFloat(getComputedStyle(host.querySelector('.sp-sb-meta')).rowGap);
+                host.style.width = '480px';
+                host.style.height = '260px';
+                await new Promise(resolve => window.requestAnimationFrame(() => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve))));
+                const enlargedSize = parseFloat(getComputedStyle(name).fontSize);
+                const enlargedNoOverlaps = separated();
+                element.style.fontSize = 8;
+                window.OverlayShared.renderSpeakerBadge(host, element);
+                await new Promise(resolve => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+                const autoSizeIgnoresManual = Math.abs(parseFloat(getComputedStyle(host.querySelector('.sp-sb-name')).fontSize) - enlargedSize) < 0.6;
+                results.push({ layout, fixedHeight: bounds.height === height, standaloneName,
+                    pillsBelow: details.top >= title.bottom - 1, contentFits, size,
+                    enlargedSize, savedFontSize: element.style.fontSize,
+                    paddingY, subtitleFont, pillFont, autoSizeIgnoresManual,
+                    noOverlaps, enlargedNoOverlaps, minimumRowGap });
+                window.OverlayShared.cleanupNode(host);
+                host.remove();
+            }
+            return results;
+        });
+        for (const result of responsive) {
+            assert.ok(result.fixedHeight && result.standaloneName && result.pillsBelow && result.contentFits, `${result.layout}: name has priority, pills stack below, and all content fits the fixed height: ${JSON.stringify(result)}`);
+            assert.ok(result.size < 28 && result.enlargedSize > result.size, `${result.layout}: scales down when crowded and restores size after resize: ${JSON.stringify(result)}`);
+            assert.equal(result.savedFontSize, 8, 'responsive fitting does not mutate the chosen typography');
+            assert.equal(result.autoSizeIgnoresManual, true, 'auto-size fills the space independently of the saved manual font size');
+            assert.ok(result.noOverlaps && result.enlargedNoOverlaps, `${result.layout}: metadata cannot shrink over adjacent avatar or EQ: ${JSON.stringify(result)}`);
+            assert.ok(result.minimumRowGap >= 2, `${result.layout}: fitting preserves breathing room between text rows`);
+            assert.match(result.subtitleFont, /monospace/);
+            assert.match(result.pillFont, /Georgia/);
+            if (result.layout === 'vertical-card') assert.equal(result.paddingY, 14, 'vertical padding is preserved even when contents scale down');
+        }
+        for (const preview of [true, false]) {
+            await page.goto(`${base}/custom-overlay.html?id=${initial.id}&preview=${preview}`, { waitUntil: 'networkidle0' });
+            await page.waitForSelector('[data-element-id="host"] .sp-sb-card');
+            const speaking = () => document.querySelector('[data-element-id="host"] .sp-sb-card').classList.contains('is-speaking');
+            assert.equal(await page.evaluate(speaking), false);
+            const runtimeInput = overlays[initial.id].elements.find(element => element.id === 'host').speakerBadge.audio.inputName;
+            sendMeter(-15, runtimeInput);
+            await page.waitForFunction(speaking);
+            sendMeter(-60, runtimeInput);
+            assert.equal(await page.evaluate(speaking), true, `runtime preview=${preview}: release holds through a quiet pause`);
+            await page.waitForFunction(() => !document.querySelector('[data-element-id="host"] .sp-sb-card').classList.contains('is-speaking'));
+        }
         audioConnected = false;
-        await page.evaluate(async () => { await window.loadAudioInputs(); });
+        await page.goto(`${base}/overlay-control.html?id=${initial.id}`, { waitUntil: 'networkidle0' });
         const setupLink = await page.$eval('#audio-status a', link => link.getAttribute('href'));
         assert.equal(setupLink, '/config-editor.html#connection');
         await page.goto(`${base}${setupLink}`, { waitUntil: 'networkidle0' });
@@ -333,9 +630,14 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         assert.equal(configSaves.at(-1).obs.syncOnSave, false);
         assert.equal(Object.hasOwn(configSaves.at(-1).obs, 'password'), false, 'blank password preserves the existing credential');
         assert.equal(configSaves.at(-1).speaker_badges_enabled, false, 'global OBS enablement does not enable a module');
+        assert.equal(configSaves.at(-1).obs_scene_sync_enabled, false);
         await page.click('.tabs-nav [data-tab="modules"]');
         assert.equal(await page.$eval('#cfg-speaker-badges-enabled', input => input.closest('.tab-pane').hidden), false);
         assert.equal(await page.$eval('#cfg-obs-sync-save', input => input.closest('.tab-pane').hidden), false);
+        assert.equal(await page.$eval('#obs-scene-sync-options', options => options.hidden), true);
+        await page.click('#cfg-obs-scene-sync-enabled');
+        assert.equal(await page.$eval('#obs-scene-sync-options', options => options.hidden), false);
+        await page.click('#cfg-obs-scene-sync-enabled');
         await page.click('#cfg-speaker-badges-enabled');
         await page.evaluate(async () => { await window.saveConfig(); });
         assert.equal(configSaves.at(-1).speaker_badges_enabled, true);

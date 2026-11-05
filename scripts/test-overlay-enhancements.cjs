@@ -452,7 +452,13 @@ test('Scene States: Full Visual & Style Overrides (fontSize, color, borders, fil
     assert.ok(html.includes('data-rail-tab="canvas"'), 'Left rail must include dedicated Canvas tab');
 
     const inspectorJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-inspector.js'), 'utf8');
-    assert.ok(inspectorJs.includes('if (!state.obs?.enabled) return \'\';'), 'obsLinkSection must return empty string when OBS is disabled');
+    const start = inspectorJs.indexOf('export function obsLinkSection(');
+    const end = inspectorJs.indexOf('\n// ', start);
+    const context = require('node:vm').createContext({ state: { obs: { enabled: false } }, pagesOn: () => false });
+    require('node:vm').runInContext(inspectorJs.slice(start, end).replace('export ', ''), context);
+    assert.equal(context.obsLinkSection({ type: 'shape' }), '', 'disconnected global OBS hides source links');
+    context.state.obs = { enabled: true, sceneSyncEnabled: false };
+    assert.equal(context.obsLinkSection({ type: 'shape' }), '', 'disabled Scene Sync hides source links even when OBS is connected');
 });
 
 test('Scene States vs Page Deck: Mode switching, font size morphing, and reaction triggers', () => {

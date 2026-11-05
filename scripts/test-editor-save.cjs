@@ -44,6 +44,7 @@ function fixture(isNew = false) {
         state.savedSnapshot = snapshot();
         pushHistory();
         state.obs.connected = true;
+        state.obs.sceneSyncEnabled = true;
         state.obs.syncOnSave = true;
         globalThis.editor = { state, save, snapshot, changed };
     `, context);

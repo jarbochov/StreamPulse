@@ -16,6 +16,7 @@ import {
     scheduleEditorCutoutMask, updateEditorCutoutMask
 } from './editor-canvas.js';
 import { renderLayers, getAlertRules, loadAlertRules } from './editor-layers.js';
+import { updateSpeakerMeterHint } from './editor-speakers.js';
 
 const shared = window.OverlayShared || {};
 
@@ -62,6 +63,8 @@ export const RERENDER_PATHS = new Set([
     'alert.layout', 'alert.hideText', 'alert.hideMessage', 'alert.alertMode', 'slideshow.source', 'slideshow.advance', 'slideshow.transition',
     'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee',
     'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.showStatusBadge',
+    'speakerBadge.reaction.visualizer', 'speakerBadge.reaction.highlightBorder', 'speakerBadge.reaction.dimWhenIdle',
+    'speakerBadge.autoSize',
     'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta',
     'pattern.sourceType', 'pattern.preset', 'pattern.layout', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip'
 ]);
@@ -206,6 +209,7 @@ export function iconEffectsSection(el) {
 }
 
 export function typographySection(el) {
+    if (el.type === 'speaker-badge' && el.speakerBadge?.layout === 'avatar-only') return '';
     const s = el.style || {};
     const alert = el.type === 'alert';
     const fontExtras = `<details class="sub-details"><summary>Custom font &amp; upload</summary>
@@ -213,6 +217,27 @@ export function typographySection(el) {
         <div class="field"><span>Upload font</span><span class="upload-row"><input id="font-upload" type="file" accept=".ttf,.otf,.woff,.woff2"><span></span></span><span class="hint">Uploaded fonts work in every browser, including Safari, and in OBS on any machine.</span></div></details>
         <datalist id="system-font-list">${SYSTEM_FONTS.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</datalist>`;
     const weight = F.select('style.fontWeight', 'Weight', s.fontWeight, [['400', 'Normal'], ['600', 'Semi-bold'], ['700', 'Bold'], ['900', 'Black']]);
+    if (el.type === 'speaker-badge') {
+        const badge = el.speakerBadge || {}, fonts = badge.typography || {};
+        const autoSize = badge.autoSize !== false;
+        const secondaryFont = (key, label) => {
+            const value = fonts[key] || '';
+            return `<label class="field"><span>${label}</span><select data-path="speakerBadge.typography.${key}" data-kind="text"><option value=""${!value ? ' selected' : ''}>Use name font</option>${fontOptions(value || 'sans-serif').replace(' selected', value ? ' selected' : '')}</select></label>`;
+        };
+        return F.section('typography', 'Typography', `
+            ${F.check('speakerBadge.autoSize', 'Auto-size to fill badge', autoSize)}
+            ${autoSize ? '<p class="hint">Text sizes adapt to the available space. Turn this off to set a maximum name size.</p>' : F.number('style.fontSize', 'Max name size (px)', s.fontSize, { min: 8, max: 400 })}
+            <label class="field"><span>Name font</span><select id="font-picker" data-path="style.fontFamily" data-kind="text">${fontOptions(s.fontFamily)}</select></label>
+            ${secondaryFont('subtitleFontFamily', 'Subtitle font')}
+            ${secondaryFont('pillFontFamily', 'Pill font')}
+            <div class="grid2">${weight}${F.color('style.color', 'Text color', s.color)}</div>
+            <div class="grid2">
+                ${F.seg('style.textAlign', 'Horizontal', s.textAlign || 'left', [['left', 'Align text left', ICON.textLeft], ['center', 'Center text', ICON.textCenter], ['right', 'Align text right', ICON.textRight]])}
+                ${F.seg('style.verticalAlign', 'Vertical', s.verticalAlign || 'middle', [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}
+            </div>
+            <div class="grid2">${F.number('style.lineHeight', 'Line height', s.lineHeight, { min: 0.5, max: 3, step: 0.1 })}${F.number('style.letterSpacing', 'Letter spacing', s.letterSpacing, { min: -10, max: 50, step: 0.5 })}</div>
+            ${fontExtras}`);
+    }
     const textAlign = s.textAlign || (alert ? 'center' : 'left');
     const verticalAlign = s.verticalAlign || (alert ? 'middle' : 'top');
     return F.section('typography', alert ? 'Message text' : 'Typography', `
@@ -1655,6 +1680,7 @@ export function speakerBadgeSection(el) {
             ${F.range('speakerBadge.audio.thresholdDb', 'Sensitivity gate', audio.thresholdDb ?? -36, { min: -70, max: 0, step: 1, unit: ' dB', editable: true })}
             ${F.range('speakerBadge.audio.holdMs', 'Release hold time', audio.holdMs ?? 280, { min: 50, max: 1500, step: 25, unit: ' ms', editable: true })}
         </div>
+        <p class="hint" id="sb-audio-level" style="font-variant-numeric:tabular-nums;min-height:2.5em;">Waiting for this source's live audio meter.</p>
         <div style="margin-top:0.5rem;display:flex;align-items:center;gap:0.5rem;">
             <button type="button" class="btn sm" id="btn-simulate-speaking" style="width:100%;font-weight:600;${el._simulateSpeaking ? 'background:var(--accent);color:#fff;border-color:var(--accent);' : ''}">
                 ${el._simulateSpeaking ? 'Stop Simulating Speaking (Active)' : 'Simulate Speaking (Canvas Test)'}
@@ -1668,6 +1694,7 @@ export function speakerBadgeSection(el) {
         ${F.select('speakerBadge.layout', 'Layout preset', layout, [['horizontal', 'Horizontal Lower-Third'], ['cspan-banner', 'Broadcast Call-In (C-SPAN Banner)'], ['compact-pill', 'Compact Pill'], ['vertical-card', 'Vertical Sidebar Card'], ['avatar-only', 'Avatar Only (Floating Halo)']])}
         ${canResize ? `<button type="button" class="btn sm" id="btn-sb-adapt-size" style="width:100%;margin-top:0.4rem;font-size:11px;">Apply ${rec[0]}×${rec[1]} Recommended Size</button>` : ''}
         <p class="hint">Choose a layout preset. Sizing adapts smoothly to recommended dimensions.</p>
+        ${layout !== 'avatar-only' ? `<div class="grid2">${F.number('speakerBadge.paddingX', 'Horizontal padding (px)', b.paddingX ?? (layout === 'horizontal' ? 16 : layout === 'compact-pill' ? 14 : 12), { min: 0, max: 64 })}${F.number('speakerBadge.paddingY', 'Vertical padding (px)', b.paddingY ?? (layout === 'horizontal' ? 10 : layout === 'compact-pill' ? 6 : layout === 'vertical-card' ? 14 : 6), { min: 0, max: 64 })}</div>` : ''}
     `);
 
     // 5. Style Tab: Avatar Shape & Tag Color
@@ -1676,29 +1703,30 @@ export function speakerBadgeSection(el) {
             ${F.select('speakerBadge.speaker.avatarShape', 'Avatar shape', sp.avatarShape || 'circle', [['circle', 'Circle'], ['squircle', 'Squircle'], ['square', 'Square']])}
             ${F.color('speakerBadge.speaker.callIn.statusColor', 'Call-in tag color', callIn.statusColor || '#22c55e')}
         </div>
+        ${sp.showAvatar !== false ? F.range('speakerBadge.speaker.avatarScale', 'Avatar size', sp.avatarScale ?? 1, { min: 50, max: 200, step: 5, unit: '%', editable: true, scale: 0.01, reset: 100 }) : ''}
+        ${sp.showAvatar !== false && !sp.avatarSrc ? F.range('speakerBadge.speaker.iconScale', 'Icon size', sp.iconScale ?? 1, { min: 50, max: 180, step: 5, unit: '%', editable: true, scale: 0.01, reset: 100 }) : ''}
+        ${sp.showAvatar !== false ? '<p class="hint">Avatar size affects images and icons. Icon size adjusts the person/phone drawing. Increase badge dimensions if the avatar reaches its available space.</p>' : ''}
     `);
 
-    // 6. Style Tab: Speaking Reaction & Visualizer
-    const reactionSec = F.section('speakerReaction', 'Audio Reaction & EQ Visualizer', `
-        <div class="grid2">
+    const showBarCount = re.visualizer === 'both' || !re.visualizer || re.visualizer === 'bars';
+    const visualizerSec = F.section('speakerVisualizer', 'Audio Visualizer', `
+        <div${showBarCount ? ' class="grid2"' : ''}>
             ${F.select('speakerBadge.reaction.visualizer', 'Visualizer', re.visualizer || 'bars', [['bars', 'EQ Bars'], ['pulse-ring', 'Avatar Pulse Ring'], ['both', 'EQ Bars + Pulse Ring'], ['none', 'None (Border Only)']])}
-            ${F.number('speakerBadge.reaction.barCount', 'EQ bar count', re.barCount ?? 5, { min: 3, max: 8, step: 1 })}
-        </div>
-        <div class="grid2">
-            ${F.color('speakerBadge.reaction.activeColor', 'Speaking color', re.activeColor || '#6366f1')}
-            ${F.range('speakerBadge.reaction.glowSpread', 'Glow spread', re.glowSpread ?? 14, { min: 0, max: 40, step: 2, unit: ' px', editable: true })}
-        </div>
-        <div class="grid2">
-            ${F.check('speakerBadge.reaction.highlightBorder', 'Highlight border & glow', re.highlightBorder !== false)}
-            ${F.check('speakerBadge.reaction.motionPop', 'Scale pop on speech', re.motionPop !== false)}
-        </div>
-        <div class="grid2">
-            ${F.check('speakerBadge.reaction.dimWhenIdle', 'Dim when silent', re.dimWhenIdle === true)}
-            ${F.range('speakerBadge.reaction.idleOpacity', 'Idle opacity', Math.round((re.idleOpacity ?? 0.70) * 100), { min: 10, max: 100, step: 5, unit: '%', editable: true, scale: 0.01 })}
+            ${showBarCount ? F.number('speakerBadge.reaction.barCount', 'Bar count', re.barCount ?? 5, { min: 3, max: 8, step: 1 }) : ''}
         </div>
     `);
 
-    return profile + cspan + audioSec + layoutSec + styleSec + reactionSec;
+    const reactionSec = F.section('speakerReaction', 'Speaking Reaction', `
+        ${F.color('speakerBadge.reaction.activeColor', 'Speaking color', re.activeColor || '#6366f1')}
+        ${F.check('speakerBadge.reaction.highlightBorder', 'Highlight border & glow', re.highlightBorder !== false)}
+        ${re.highlightBorder !== false ? F.range('speakerBadge.reaction.glowSpread', 'Glow spread', re.glowSpread ?? 14, { min: 0, max: 40, step: 2, unit: ' px', editable: true }) : ''}
+        <div class="sub-head">Motion &amp; idle</div>
+        ${F.check('speakerBadge.reaction.motionPop', 'Scale pop on speech', re.motionPop !== false)}
+        ${F.check('speakerBadge.reaction.dimWhenIdle', 'Dim when silent', re.dimWhenIdle === true)}
+        ${re.dimWhenIdle === true ? F.range('speakerBadge.reaction.idleOpacity', 'Idle opacity', re.idleOpacity ?? 0.70, { min: 10, max: 100, step: 5, unit: '%', editable: true, scale: 0.01 }) : ''}
+    `);
+
+    return profile + cspan + audioSec + layoutSec + styleSec + visualizerSec + reactionSec;
 }
 
 export function sharedBlock(items) {
@@ -1727,7 +1755,7 @@ export function sharedBlock(items) {
 
 export function obsLinkSection(el) {
     if (pagesOn() && !statesModeOn()) return '';
-    if (!state.obs?.enabled) return '';
+    if (!state.obs?.enabled || state.obs?.sceneSyncEnabled === false) return '';
     if (el.type !== 'shape' && el.type !== 'cutout') return '';
     const link = el.obsLink || { enabled: false, sourceName: '', sceneName: '', fit: 'cover', syncVisibility: true };
     const isCutout = el.type === 'cutout';
@@ -1790,7 +1818,7 @@ const SPECIFIC_SECTION_TABS = {
     gamelayout: 'layout', patternLayout: 'layout', speakerLayout: 'layout',
     gamecovers: 'style', gametext: 'style', progress: 'style',
     patternMotion: 'style', proceduralMotion: 'style',
-    speakerStyle: 'style', speakerReaction: 'style'
+    speakerStyle: 'style', speakerVisualizer: 'style', speakerReaction: 'style'
 };
 
 function rememberInspectorScroll(root) {
@@ -1882,6 +1910,7 @@ export function renderProperties() {
     state.lastTextField = null;
     refreshSlideCount();
     renderTagSuggestions();
+    updateSpeakerMeterHint(true);
 
     // Rebuilding the panel drops focus; restore so typing continues seamlessly
     if (focused) {

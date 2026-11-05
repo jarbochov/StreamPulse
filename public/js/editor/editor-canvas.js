@@ -14,6 +14,7 @@ import {
     computeSmartMoveSnap,
     computeSmartResizeSnap
 } from '../editor-geometry.js';
+import { speakerIsSpeaking } from './editor-speakers.js';
 
 const shared = window.OverlayShared || {};
 
@@ -805,7 +806,8 @@ export function buildContent(node, el, playback) {
     } else if (el.type === 'game-list') {
         if (shared.renderGameList) shared.renderGameList(node, el, state.liveStatus.gamePlan);
     } else if (el.type === 'speaker-badge') {
-        if (shared.renderSpeakerBadge) shared.renderSpeakerBadge(node, el, { preview: true, speaking: Boolean(el._simulateSpeaking) });
+        node._speakerSpeaking = speakerIsSpeaking(el);
+        if (shared.renderSpeakerBadge) shared.renderSpeakerBadge(node, el, { preview: true, speaking: node._speakerSpeaking });
     } else if (el.type === 'poll') {
         window.PollWidget.render(node, el, prefs.live ? state.liveStatus.poll : null, { preview: true });
     } else if (el.type === 'progress') {
@@ -827,7 +829,7 @@ const usesLivePlaceholders = el => /\{\{/.test(`${el.content || ''} ${el.src || 
 
 export const contentSignature = (el, live) =>
     el.type === 'embed' ? JSON.stringify([el.type, expand(el.src), el.video]) :
-    el.type === 'speaker-badge' ? JSON.stringify([el.type, el.speakerBadge, el._simulateSpeaking, el.style?.background, el.style?.gradient, el.style?.borderColor, el.style?.borderWidth, el.style?.borderStyle, el.style?.borderRadius, el.style?.color, el.style?.fontSize, el.style?.fontWeight, el.style?.fontFamily, el.style?.textAlign, el.style?.shadow, el.style?.blur, el.width, el.height]) :
+    el.type === 'speaker-badge' ? JSON.stringify([el.type, el.speakerBadge, speakerIsSpeaking(el), el.style, el.width, el.height]) :
     el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) :
     (el.type === 'pattern' || el.type === 'procedural-pattern') ? JSON.stringify([el.type, el.pattern]) :
     el.type === 'cutout' ? JSON.stringify([el.type]) :

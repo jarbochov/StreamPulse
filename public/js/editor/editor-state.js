@@ -301,6 +301,7 @@ export const state = {
     layerOrder: [],
     obs: {
         enabled: false,
+        sceneSyncEnabled: false,
         connected: false,
         connecting: false,
         host: '127.0.0.1',
@@ -707,12 +708,18 @@ export function createElementData(rawType, overrides = {}) {
         progress: { kind: 'bar', label: '{{progress}}%', showLabel: true, trackColor: 'rgba(255,255,255,0.18)', thickness: 10 },
         poll: type === 'poll' ? window.PollWidget.settings() : undefined,
         speakerBadge: {
+            autoSize: true,
+            paddingX: null,
+            paddingY: null,
+            typography: { subtitleFontFamily: '', pillFontFamily: '' },
             speaker: {
                 name: 'Alex Rivera',
                 handle: '@alexrivera',
                 pronouns: 'they/them',
                 avatarSrc: '',
                 avatarShape: 'circle',
+                avatarScale: 1,
+                iconScale: 1,
                 showAvatar: true,
                 showHandle: true,
                 showPronouns: true,

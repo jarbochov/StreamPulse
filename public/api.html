@@ -807,18 +807,18 @@
                 {
                     method: 'GET', path: '/api/obs/status',
                     desc: 'OBS connection and motion-engine status',
-                    details: 'Returns enabled, connected, connecting, host, port, hasPassword, syncOnSave, motionEngine, activeEngine, OBS/WebSocket versions, current scene, Move-plugin availability, and lastError. Password contents are never returned.'
+                    details: 'Returns enabled, sceneSyncEnabled, speakerBadgesEnabled, connected, connecting, host, port, hasPassword, syncOnSave, motionEngine, activeEngine, OBS/WebSocket versions, current scene, Move-plugin availability, and lastError. The global connection is independent of feature toggles. Password contents are never returned.'
                 },
                 {
                     method: 'GET', path: '/api/obs/sources',
                     desc: 'Discover OBS scenes and linked-source choices',
-                    details: 'Returns { connected, currentProgramScene, hasMovePlugin, scenes, sources, byScene }. Each byScene entry lists source names, scene-item IDs, input kinds, and visibility. Disconnected bridges return empty source lists.'
+                    details: 'Returns { connected, currentProgramScene, hasMovePlugin, scenes, sources, byScene }. Each byScene entry lists source names, scene-item IDs, input kinds, and visibility. Disconnected bridges return empty source lists. Returns HTTP 403 when obs_scene_sync_enabled is false.'
                 },
                 {
                     method: 'POST', path: '/api/obs/config',
                     desc: 'Update the optional OBS bridge configuration',
                     body: '{ "enabled": true, "host": "127.0.0.1", "port": 4455, "syncOnSave": true, "motionEngine": "auto" }',
-                    details: 'Loopback-only administration endpoint; PUT is also accepted. Accepts partial settings and persists normalized values. Omitted password preserves it; password:"" clears it. Configuration changes reconnect or disconnect as needed. The regular PUT /api/config also accepts an obs object.'
+                    details: 'Loopback-only administration endpoint; PUT is also accepted. Accepts partial settings and persists normalized values. Omitted password preserves it; password:"" clears it. Configuration changes reconnect or disconnect as needed. The regular PUT /api/config also accepts an obs object and the independent obs_scene_sync_enabled boolean (defaults true for existing configurations). Disabling Scene Sync stops motion and hides its editor controls, without disconnecting OBS or disabling speaker meters.'
                 },
                 {
                     method: 'POST', path: '/api/obs/connect',
@@ -834,13 +834,13 @@
                     method: 'POST', path: '/api/obs/cleanup-filters',
                     desc: 'Remove orphaned StreamPulse-managed OBS filters',
                     body: '{ "sceneName": "Scene", "all": false }',
-                    details: 'Loopback only. Removes StreamPulse_Move_* and StreamPulse_Fade_* filters whose source or scene item no longer exists; all=true removes every managed filter. Optional sceneName limits the scope. Your own filters are never touched.'
+                    details: 'Loopback only. Removes StreamPulse_Move_* and StreamPulse_Fade_* filters whose source or scene item no longer exists; all=true removes every managed filter. Optional sceneName limits the scope. Your own filters are never touched. Returns HTTP 403 when Scene Sync is disabled.'
                 },
                 {
                     method: 'POST', path: '/api/obs/sync',
                     desc: 'Apply linked-source transforms for an overlay state',
                     body: '{ "overlayId": "my-overlay", "pageId": "state-id", "animate": true }',
-                    details: 'Loopback only. Accepts overlayId (or id), an overlay object, optional pageId (or page), animate, and instant. Applies enabled OBS Source Frame links, not arbitrary browser-source layers. Returns { ok, synced, results }; no linked sources is a successful zero-sync result. Simple Pages return a successful zero-sync result without any OBS commands. WebSocket animation waits for final write acknowledgement; Move-plugin success confirms filter configuration/start acknowledgement, not playback completion. Superseded or rejected work is not reported as synchronized. HTTP 503 means disconnected; HTTP 502 reports source/scene/write failures with per-element reasons. Normal Scene State actions already sync linked sources when the bridge and automatic synchronization are enabled.'
+                    details: 'Loopback only. Accepts overlayId (or id), an overlay object, optional pageId (or page), animate, and instant. Applies enabled OBS Source Frame links, not arbitrary browser-source layers. Returns { ok, synced, results }; no linked sources is a successful zero-sync result. Simple Pages return a successful zero-sync result without any OBS commands. WebSocket animation waits for final write acknowledgement; Move-plugin success confirms filter configuration/start acknowledgement, not playback completion. Superseded or rejected work is not reported as synchronized. HTTP 403 means Scene Sync is disabled; HTTP 503 means disconnected; HTTP 502 reports source/scene/write failures with per-element reasons. Normal Scene State actions sync linked sources only when the global bridge, Scene Sync module and automatic synchronization are enabled.'
                 }
             ]
         },

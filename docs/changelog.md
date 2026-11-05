@@ -11,7 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- Speaker badges: OBS voice-reactive overlay layers and a Speakers controller tab for quick profile, avatar library/upload and audio-source changes, using the global OBS connection.
+- Speaker badges: OBS voice reactions, responsive auto-sizing, separate fonts, avatar/icon scaling, and quick profile/audio controls.
 - Native Twitch EventSub Raids & Polling Optimization: Added native `channel.raid` EventSub push subscription for real-time incoming raid ingestion, alerts, and chatbot auto-shoutouts. Automatically throttles Twitch REST polling loops for polls, category/stream info, and session lifecycle when EventSub is connected, slashing redundant REST requests by >90%.
 - Chatbot Performance & Storage Modularity: Decoupled quote library into dedicated `data/quotes.json` with automatic migration to prevent full quote re-serialization on settings or command updates; implemented pre-compiled regex trigger matchers and single-pass token formatting fast-paths.
 - Server Cleanup: Removed unreferenced `MIME_TYPES` dictionary from `server.js` in favor of cascading static router.
@@ -52,6 +52,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - `money` placeholder format, e.g. `{{placeholder|money}}` renders $1,234.00.
 
 ### Changed
+- OBS Scene Sync: independent module toggle disables source motion and hides its controls without disconnecting speaker meters.
 - Custom Overlay Studio: Reorganized the Add Element picker into balanced pillars (Text & Media, Shapes & Framing, Stream Widgets) with instant keyword search, keyboard navigation (Escape to close, Enter to add), scroll containment, and clean multi-line wrapping to eliminate truncated descriptions.
 - Alerts page: removed the Preview Vol slider; previews play at each variant's saved Alert/Video volume. Cooldown moved into Trigger & conditions.
 

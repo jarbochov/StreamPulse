@@ -7,7 +7,7 @@ import puppeteer from 'puppeteer';
 
 const names = [
     'overlay-shared.js', 'overlay-filters.js', 'overlay-retro.js', 'editor-geometry.js',
-    ...['state', 'canvas', 'form', 'layers', 'inspector'].map(name => `editor/editor-${name}.js`),
+    ...['state', 'canvas', 'form', 'layers', 'inspector', 'speakers'].map(name => `editor/editor-${name}.js`),
     'overlay-runtime.js'
 ];
 const sources = new Map(await Promise.all(names.map(async name =>

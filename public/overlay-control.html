@@ -53,6 +53,7 @@
     <div id="speakers-panel" role="tabpanel" aria-labelledby="tab-speakers" hidden>
         <p class="hint" id="audio-status"></p>
         <button class="btn" type="button" id="refresh-speakers">Refresh badges &amp; audio sources</button>
+        <p class="hint">Audio must exceed the badge's sensitivity gate. Adjust the gate in the overlay editor if normal speech stays below it.</p>
         <datalist id="speaker-audio-inputs"></datalist>
         <div id="speaker-badges" style="margin-top:1rem;"></div>
     </div>
@@ -102,7 +103,8 @@
                 <form data-speaker-form="${esc(badge.id)}"><div class="speaker-fields">${fields.map(([key, label, max]) =>
                     `<label class="${['avatarSrc', 'inputName'].includes(key) ? 'wide' : ''}">${label}${key === 'avatarSrc' ? '<span class="asset-row">' : ''}<input name="${key}" value="${esc(values[key])}" maxlength="${max}" ${key === 'inputName' ? 'list="speaker-audio-inputs"' : ''}>${key === 'avatarSrc' ? '<button class="btn" type="button" data-speaker-avatar>Library...</button></span>' : ''}</label>`).join('')}</div>
                 <button class="btn primary" type="submit">Save badge</button>
-                <span class="hint" data-speaker-status>${dirtySpeakers.has(badge.id) ? 'Unsaved changes' : ''}</span></form></details>`;
+                <span class="hint" data-speaker-status>${dirtySpeakers.has(badge.id) ? 'Unsaved changes' : ''}</span>
+                <p class="hint" data-speaker-meter style="font-variant-numeric:tabular-nums;min-height:2.5em;">Waiting for this source's live audio meter.</p></form></details>`;
         }).join('') : '<div class="msg">No speaker badges in this overlay. Add a Speaker Badge in the custom overlay editor.</div>';
     }
 
@@ -300,6 +302,20 @@
         socket.addEventListener('message', event => {
             try {
                 const m = JSON.parse(event.data);
+                if (m.type === 'obs-audio-meter' && Number.isFinite(m.data?.db)) {
+                    for (const form of document.querySelectorAll('[data-speaker-form]')) {
+                        if (form.elements.inputName.value !== m.data.input) continue;
+                        const badge = speakers.find(item => item.id === form.dataset.speakerForm);
+                        const gate = badge?.speakerBadge?.audio?.thresholdDb ?? -36;
+                        const hint = form.querySelector('[data-speaker-meter]'), now = Date.now();
+                        if (hint._source !== m.data.input) { hint._source = m.data.input; hint._smoothDb = m.data.db; }
+                        else hint._smoothDb += (m.data.db - hint._smoothDb) * Math.min(1, (now - hint._seenAt) / 300);
+                        hint._seenAt = now;
+                        if (now - (hint._readoutAt || 0) < 300) continue;
+                        hint._readoutAt = now;
+                        hint.textContent = `Input: ${Math.round(hint._smoothDb)} dB / Gate: ${gate} dB`;
+                    }
+                }
                 if (m.type === 'custom-overlay-page' && m.data?.id === id) { state = m.data; draw(); }
                 else if (m.type === 'custom-overlay-update' && m.data?.id === id) load().catch(error => { $('status').textContent = error.message; });
             } catch {}

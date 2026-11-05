@@ -682,7 +682,7 @@ async function run() {
         } else if (page.url().includes('config-editor') && new URL(url).pathname.startsWith('/api/')) {
             const pathname = new URL(url).pathname;
             const data = pathname === '/api/config' ? { banned_users: ['FictionalManualAccount'], exclude_users: ['FictionalBot'], twitch_ban_sync: { enabled: true },
-                obs: { enabled: true, host: '127.0.0.1', port: 4455, hasPassword: true, motionEngine: 'auto', syncOnSave: false }, speaker_badges_enabled: true }
+                obs: { enabled: true, host: '127.0.0.1', port: 4455, hasPassword: true, motionEngine: 'auto', syncOnSave: false }, speaker_badges_enabled: true, obs_scene_sync_enabled: false }
                 : pathname === '/api/obs/status' ? { enabled: true, connected: true, obsVersion: '32.0', host: '127.0.0.1', port: 4455 }
                 : pathname === '/api/twitch/bans' ? { enabled: true, count: 2, users: [{ id: 'fictional-1', login: 'fictionalblockedone' }, { id: 'fictional-2', login: 'fictionalblockedtwo' }], lastSyncAt: '2026-11-03T20:00:00Z', liveUpdates: true }
                 : pathname === '/api/twitch/message-deletions' ? { enabled: true, events: 3, scopeReady: true, connected: true } : {};
@@ -762,6 +762,52 @@ async function run() {
     });
 
     const targets = [
+        {
+            url: `${baseUrl}/custom-overlay-editor.html?id=border-showcase`,
+            file: 'speaker-badge-style.png',
+            wait: 1000,
+            action: async p => {
+                await p.waitForFunction(() => window.editorState?.overlay?.elements?.length);
+                await p.evaluate(async () => {
+                    const { state, prefs, createElementData, setSelection } = await import('/js/editor/editor-state.js');
+                    const { renderAll } = await import('/js/editor/editor-main.js');
+                    const { applyView } = await import('/js/editor/editor-canvas.js');
+                    const samples = [
+                        ['horizontal', 70, 90, 610, 110],
+                        ['compact-pill', 70, 280, 610, 72],
+                        ['cspan-banner', 70, 420, 610, 110],
+                        ['vertical-card', 760, 90, 250, 360],
+                        ['avatar-only', 835, 550, 100, 100]
+                    ];
+                    state.overlay.canvas = { width: 1180, height: 780, background: '#10172a' };
+                    state.overlay.elements = samples.map(([layout, x, y, width, height], index) => {
+                        const element = createElementData('speaker-badge');
+                        Object.assign(element, { id: `fictional-speaker-${index}`, name: `${layout} badge`, x, y, width, height, _simulateSpeaking: index % 2 === 0 });
+                        Object.assign(element.style, { fontSize: 20, fontWeight: '600', textAlign: 'center', verticalAlign: 'middle', lineHeight: 1.2,
+                            gradient: { enabled: true, from: '#1f6feb', to: '#8957e5', angle: 135 } });
+                        element.speakerBadge.layout = layout;
+                        Object.assign(element.speakerBadge.speaker, { name: layout === 'compact-pill' || layout === 'vertical-card' ? 'Guest' : 'Fictional Guest',
+                            handle: '@fictionalguest', pronouns: 'they/them', showPronouns: layout !== 'compact-pill',
+                            callIn: { enabled: true, statusText: 'CALLING IN', location: 'Remote studio', statusColor: '#a5f3fc', showLocation: layout !== 'compact-pill' } });
+                        element.speakerBadge.reaction.activeColor = '#a5f3fc';
+                        return element;
+                    });
+                    prefs.live = false;
+                    state.zoom = 0.7; state.pan = { x: 25, y: 35 }; state.autoFit = false;
+                    renderAll(); applyView(); setSelection(['fictional-speaker-0']);
+                    document.querySelector('[data-inspector-tab="style"]').click();
+                });
+            }
+        },
+        {
+            url: `${baseUrl}/config-editor.html#modules`,
+            file: 'obs-scene-sync.png',
+            wait: 1000,
+            action: async p => {
+                await p.waitForSelector('#cfg-obs-scene-sync-enabled');
+                await p.$eval('#cfg-obs-scene-sync-enabled', input => input.closest('.module-card').scrollIntoView({ block: 'center' }));
+            }
+        },
         {
             url: `${baseUrl}/config-editor.html#connection`,
             file: 'obs-connection.png',

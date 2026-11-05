@@ -378,6 +378,8 @@ function normalizeSpeakerBadge(badge = {}) {
         pronouns: String(rawSpeaker.pronouns || '').trim().slice(0, 30),
         avatarSrc: String(rawSpeaker.avatarSrc || '').trim().slice(0, 500),
         avatarShape: ['circle', 'squircle', 'square'].includes(rawSpeaker.avatarShape) ? rawSpeaker.avatarShape : 'circle',
+        avatarScale: Math.max(0.5, Math.min(2, Number.isFinite(Number(rawSpeaker.avatarScale)) && rawSpeaker.avatarScale != null ? Number(rawSpeaker.avatarScale) : 1)),
+        iconScale: Math.max(0.5, Math.min(1.8, Number.isFinite(Number(rawSpeaker.iconScale)) && rawSpeaker.iconScale != null ? Number(rawSpeaker.iconScale) : 1)),
         showAvatar: rawSpeaker.showAvatar !== false,
         showHandle: rawSpeaker.showHandle !== false,
         showPronouns: rawSpeaker.showPronouns !== false,
@@ -413,7 +415,14 @@ function normalizeSpeakerBadge(badge = {}) {
         speaker,
         audio,
         reaction,
-        layout
+        layout,
+        autoSize: badge?.autoSize !== false,
+        paddingX: badge?.paddingX != null && Number.isFinite(Number(badge.paddingX)) ? Math.max(0, Math.min(64, Number(badge.paddingX))) : null,
+        paddingY: badge?.paddingY != null && Number.isFinite(Number(badge.paddingY)) ? Math.max(0, Math.min(64, Number(badge.paddingY))) : null,
+        typography: {
+            subtitleFontFamily: String(badge?.typography?.subtitleFontFamily || '').trim().slice(0, 120),
+            pillFontFamily: String(badge?.typography?.pillFontFamily || '').trim().slice(0, 120)
+        }
     };
 }
 

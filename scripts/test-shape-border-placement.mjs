@@ -28,7 +28,7 @@ const makeFixture = (style = {}, extra = {}, normalize = true) => {
 let fixture = makeFixture();
 const sources = new Map();
 for (const name of ['overlay-shared.js', 'overlay-runtime.js', 'motion-easing.js', 'poll-widget.js', 'editor-geometry.js',
-    ...['state', 'canvas', 'form', 'layers', 'inspector'].map(name => `editor/editor-${name}.js`)]) {
+    ...['state', 'canvas', 'form', 'layers', 'inspector', 'speakers'].map(name => `editor/editor-${name}.js`)]) {
     sources.set(`/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8'));
 }
 const editorCss = await readFile(new URL('../public/css/custom-overlay-editor.css', import.meta.url), 'utf8');

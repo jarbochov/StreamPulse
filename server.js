@@ -261,6 +261,7 @@ const wsService = createOverlayWsServer({
 const obsService = createObsService({
     getConfig: () => config?.obs || {},
     isSpeakerBadgesEnabled: () => config?.speaker_badges_enabled === true,
+    isSceneSyncEnabled: () => config?.obs_scene_sync_enabled !== false,
     onAudioMeter: data => wsService.broadcastToOverlays('obs-audio-meter', data),
     onStatusChange: status => wsService.broadcastToOverlays('obs-status', status),
     log: console.log,
@@ -269,7 +270,7 @@ const obsService = createObsService({
 const broadcastToOverlays = (type, payload) => {
     if (type === 'update' || type === 'snapshot') payload = userModeration.filterData(payload);
     if (['chat-message', 'featured-chat', 'alert'].includes(type) && userModeration.isBanned(payload?.user || payload?.chatname, payload?.userId)) return;
-    if (config?.obs?.syncOnSave !== false && type === 'custom-overlay-page' && payload?.id && payload?.page && customOverlays[payload.id]) {
+    if (config?.obs_scene_sync_enabled !== false && config?.obs?.syncOnSave !== false && type === 'custom-overlay-page' && payload?.id && payload?.page && customOverlays[payload.id]) {
         if (obsService.getStatus().activeEngine === 'frame-sync') {
             // Overlay and OBS share one scheduled start time, so neither needs a guessed offset.
             const leadMs = Math.max(50, Math.min(500, Number(config?.obs?.leadMs) || 120));
@@ -293,7 +294,7 @@ const broadcastToOverlays = (type, payload) => {
         return;
     }
     wsService.broadcastToOverlays(type, payload);
-    if (type === 'custom-overlay-update' && payload?.overlay && config?.obs?.syncOnSave !== false) {
+    if (type === 'custom-overlay-update' && payload?.overlay && config?.obs_scene_sync_enabled !== false && config?.obs?.syncOnSave !== false) {
         const curPage = pageSnapshot(payload.overlay)?.page || '';
         obsService.syncOverlayState(payload.overlay, curPage, { animate: false }).catch(() => {});
     }
@@ -972,6 +973,7 @@ function applyRuntimeConfig(nextConfig) {
         obsService.disconnect();
         if (nextObs.enabled) obsService.connect();
     }
+    obsService.refreshModules();
     if (normalizeLifecycleConfig(config.session_lifecycle).poll_seconds !== prevLifecyclePoll) startLifecycleWatcher();
     if (prevSsnId !== config.ssn?.session_id || prevSsnServer !== config.ssn?.server) {
         ssnService.disconnectSSN();

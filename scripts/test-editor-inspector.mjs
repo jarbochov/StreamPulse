@@ -5,7 +5,7 @@ import puppeteer from 'puppeteer';
 import overlays from '../server/services/overlays.js';
 
 const names = ['overlay-shared.js', 'poll-widget.js', 'editor-geometry.js', 'motion-easing.js',
-    ...['state', 'canvas', 'form', 'layers', 'inspector'].map(name => `editor/editor-${name}.js`)];
+    ...['state', 'canvas', 'form', 'layers', 'inspector', 'speakers'].map(name => `editor/editor-${name}.js`)];
 const sources = new Map(await Promise.all(names.map(async name =>
     [`/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8')])));
 const css = await readFile(new URL('../public/css/custom-overlay-editor.css', import.meta.url), 'utf8');

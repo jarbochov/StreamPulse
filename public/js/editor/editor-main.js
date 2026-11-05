@@ -31,6 +31,7 @@ import {
     initInspectorEvents, registerInspectorCallbacks, loadAssetTags
 } from './editor-inspector.js';
 import { alignmentOffset } from '../editor-geometry.js';
+import { handleSpeakerMeter, clearSpeakerMeters } from './editor-speakers.js';
 
 const shared = window.OverlayShared || {};
 window.editorState = state;
@@ -72,6 +73,7 @@ export function scaleSelectionBy(percent) {
 
 // ---- Selection & Action Helpers ---------------------------------------------------
 export function addElement(type, overrides = {}) {
+    if (type === 'obs-frame' && state.obs?.sceneSyncEnabled === false) return;
     const el = createElementData(type, overrides);
     state.overlay.elements.push(el);
     normalizeZ();
@@ -694,7 +696,7 @@ export async function save() {
         pushHistory();
         renderAll();
         toast(`Saved revision ${state.overlay.revision}. Live overlays updated.${hasNewerEdits ? ' Newer edits are still unsaved.' : ''}`, 'success');
-        if (!hasNewerEdits && state.obs?.connected && state.obs?.syncOnSave !== false) {
+        if (!hasNewerEdits && state.obs?.sceneSyncEnabled !== false && state.obs?.connected && state.obs?.syncOnSave !== false) {
             syncObsState(state.curPage);
         }
     } catch (error) {
@@ -709,12 +711,13 @@ export async function save() {
 
 // ---- OBS WebSocket Bridge (Beta) --------------------------------------------------
 export function renderObsStatusUI() {
-    const enabled = Boolean(state.obs?.enabled);
+    const enabled = Boolean(state.obs?.enabled) && state.obs?.sceneSyncEnabled !== false;
     const available = enabled && (!pagesOn() || statesModeOn());
     const topBtn = $('btn-obs-modal');
     if (topBtn) topBtn.hidden = !available;
     const addObsBtn = document.querySelector('[data-add="obs-frame"]');
     if (addObsBtn) addObsBtn.hidden = !available;
+    if (!enabled) $('obs-dialog')?.close();
     const dot = $('obs-top-dot');
     if (dot) {
         dot.classList.toggle('is-connected', !!state.obs.connected);
@@ -752,13 +755,13 @@ export function renderObsStatusUI() {
 
 export async function refreshObsStatus(fetchSources = false) {
     try {
-        const wasEnabled = Boolean(state.obs?.enabled);
+        const wasEnabled = Boolean(state.obs?.enabled) && state.obs?.sceneSyncEnabled !== false;
         const res = await fetch('/api/obs/status', { cache: 'no-store' });
         if (res.ok) {
             const st = await res.json();
             Object.assign(state.obs, st);
         }
-        if (state.obs.connected && (fetchSources || !state.obs.sources.length)) {
+        if (state.obs.sceneSyncEnabled !== false && state.obs.connected && (fetchSources || !state.obs.sources.length)) {
             const srcRes = await fetch('/api/obs/sources', { cache: 'no-store' });
             if (srcRes.ok) {
                 const srcData = await srcRes.json();
@@ -768,7 +771,7 @@ export async function refreshObsStatus(fetchSources = false) {
             }
         }
         renderObsStatusUI();
-        if (Boolean(state.obs?.enabled) !== wasEnabled) {
+        if ((Boolean(state.obs?.enabled) && state.obs?.sceneSyncEnabled !== false) !== wasEnabled) {
             renderLayers();
             renderPageBar();
             renderProperties();
@@ -777,6 +780,7 @@ export async function refreshObsStatus(fetchSources = false) {
 }
 
 export async function openObsModal() {
+    if (state.obs?.sceneSyncEnabled === false) return;
     await refreshObsStatus(true);
     if ($('obs-cfg-enabled')) $('obs-cfg-enabled').checked = !!state.obs.enabled;
     if ($('obs-cfg-host')) $('obs-cfg-host').value = state.obs.host || '127.0.0.1';
@@ -803,6 +807,7 @@ export async function openObsModal() {
 }
 
 export async function saveAndConnectObs() {
+    if (state.obs?.sceneSyncEnabled === false) return;
     const btn = $('obs-save-connect');
     if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
     try {
@@ -848,6 +853,7 @@ export async function saveAndConnectObs() {
 
 export async function syncObsState(pageId) {
     if (pagesOn() && !statesModeOn()) return { ok: true, synced: 0, results: [], skipped: true };
+    if (state.obs?.sceneSyncEnabled === false) return { ok: false, error: 'OBS Scene Sync module is disabled.' };
     if (!state.obs?.connected) return { ok: false, error: 'Connect to OBS WebSocket first.' };
     const hasLinked = state.overlay.elements.some(el => el.obsLink?.enabled && el.obsLink?.sourceName);
     if (!hasLinked) return { ok: false, error: 'No linked OBS sources in this overlay.' };
@@ -873,6 +879,7 @@ export async function syncObsState(pageId) {
 }
 
 export async function snapObsLayer(el) {
+    if (state.obs?.sceneSyncEnabled === false) return;
     if (!el?.obsLink?.enabled || !el.obsLink.sourceName?.trim()) {
         toast('Enter an OBS Source Name first.', 'warn', 2500);
         return;
@@ -940,12 +947,23 @@ export async function refreshLiveStatus() {
 export function connectAlertPreview() {
     const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`);
     socket.addEventListener('message', event => {
-        if (typeof event.data === 'string' && !event.data.includes('"alert') && !event.data.includes('"poll-update"') && !event.data.includes('"custom-overlay-page"') && !event.data.includes('"obs-status"')) return;
+        if (typeof event.data === 'string' && !event.data.includes('"alert') && !event.data.includes('"poll-update"') && !event.data.includes('"custom-overlay-page"') && !event.data.includes('"obs-status"') && !event.data.includes('"obs-audio-meter"')) return;
         let message; try { message = JSON.parse(event.data); } catch { return; }
+        if (message.type === 'obs-audio-meter') {
+            handleSpeakerMeter(message.data);
+            return;
+        }
         if (message.type === 'obs-status' && message.data) {
+            const wasEnabled = state.obs.sceneSyncEnabled;
             Object.assign(state.obs, message.data);
+            if (!state.obs.connected || state.obs.speakerBadgesEnabled === false) clearSpeakerMeters();
             renderObsStatusUI();
-            if (message.data.connected && !state.obs.sources.length) {
+            if (wasEnabled !== state.obs.sceneSyncEnabled) {
+                renderLayers();
+                renderPageBar();
+                renderProperties();
+            }
+            if (state.obs.sceneSyncEnabled !== false && message.data.connected && !state.obs.sources.length) {
                 refreshObsStatus(true);
             }
             return;
@@ -977,7 +995,8 @@ export function connectAlertPreview() {
             }) : null;
         }
     });
-    socket.addEventListener('close', () => setTimeout(connectAlertPreview, 3000));
+    socket.addEventListener('close', () => { clearSpeakerMeters(); setTimeout(connectAlertPreview, 3000); });
+    window.addEventListener('pagehide', clearSpeakerMeters, { once: true });
 }
 
 export function syncToggles() {
@@ -1147,7 +1166,7 @@ function initEventListeners() {
                 btn.hidden = true;
                 return;
             }
-            if (btn.dataset.add === 'obs-frame' && (!state.obs?.enabled || (pagesOn() && !statesModeOn()))) {
+            if (btn.dataset.add === 'obs-frame' && (!state.obs?.enabled || state.obs?.sceneSyncEnabled === false || (pagesOn() && !statesModeOn()))) {
                 btn.hidden = true;
                 return;
             }

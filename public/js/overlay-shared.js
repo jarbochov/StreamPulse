@@ -1237,7 +1237,7 @@
 
     // Layers clip their content, which cuts off text shadows and glows at the box edge. Let the shadow spill out instead.
     function shadowClipStyle(element) {
-        if (element.type === 'icon') return { overflow: 'visible', overflowClipMargin: '' };
+        if (element.type === 'icon' || element.type === 'speaker-badge') return { overflow: 'visible', overflowClipMargin: '' };
         const style = element.style || {};
         if (element.type === 'shape' && (style.shape === 'line' || borderPlacement(style, element) !== 'inside' || style.borderAnimation?.type === 'pulsing')) {
             return { overflow: 'visible', overflowClipMargin: '' };
@@ -2642,6 +2642,7 @@
         cleanupMedia(node);
         if (node._borderObserver) { node._borderObserver.disconnect(); node._borderObserver = null; }
         if (node._fitObserver) { node._fitObserver.disconnect(); node._fitObserver = null; }
+        if (node._speakerFitFrame) { root.cancelAnimationFrame(node._speakerFitFrame); node._speakerFitFrame = 0; }
         if (node._slideshow?.stop) { try { node._slideshow.stop(); } catch {} node._slideshow = null; }
         if (node._slideHandle?.stop) { try { node._slideHandle.stop(); } catch {} node._slideHandle = null; }
         if (node._patternHandle?.stop) { try { node._patternHandle.stop(); } catch {} node._patternHandle = null; }
@@ -3698,19 +3699,19 @@
         const tag = document.createElement('style');
         tag.id = 'sp-speaker-badge-style';
         tag.textContent = `
-.sp-sb-card { box-sizing: border-box; display: flex; position: relative; width: 100%; height: 100%; transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.18s ease, box-shadow 0.18s ease, opacity 0.2s ease; overflow: hidden; user-select: none; font-family: inherit; color: inherit; box-shadow: var(--sb-base-shadow, 0 4px 16px rgba(0,0,0,0.25)); }
+.sp-sb-card { box-sizing: border-box; display: flex; position: relative; width: 100%; height: 100%; container-type: size; transition: transform 0.18s ease-out, border-color 0.18s ease, box-shadow 0.18s ease, opacity 0.2s ease; overflow: hidden; user-select: none; font-family: inherit; color: inherit; box-shadow: var(--sb-base-shadow, 0 4px 16px rgba(0,0,0,0.25)); }
 .sp-sb-card.is-speaking.has-highlight { border-color: var(--sb-active-color, #6366f1) !important; box-shadow: 0 0 var(--sb-glow-spread, 14px) var(--sb-active-glow, rgba(99, 102, 241, 0.45)), var(--sb-base-shadow, 0 4px 20px rgba(0,0,0,0.35)) !important; }
 .sp-sb-card.is-speaking.has-pop { transform: scale(1.03); }
 .sp-sb-card.is-idle.has-dim { opacity: var(--sb-idle-opacity, 0.7) !important; }
 
 /* Avatar Wrap & Shapes */
-.sp-sb-avatar-wrap { position: relative; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.sp-sb-avatar-wrap { position: relative; flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: var(--sb-avatar-size, 48px); height: var(--sb-avatar-size, 48px); }
 .sp-sb-avatar-wrap.shape-circle, .sp-sb-avatar.shape-circle, .sp-sb-avatar-placeholder.shape-circle { border-radius: 50%; }
 .sp-sb-avatar-wrap.shape-squircle, .sp-sb-avatar.shape-squircle, .sp-sb-avatar-placeholder.shape-squircle { border-radius: 26%; }
 .sp-sb-avatar-wrap.shape-square, .sp-sb-avatar.shape-square, .sp-sb-avatar-placeholder.shape-square { border-radius: 8px; }
 .sp-sb-avatar { width: 100%; height: 100%; object-fit: cover; display: block; }
 .sp-sb-avatar-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.12); color: currentColor; box-sizing: border-box; }
-.sp-sb-avatar-placeholder svg { width: 55%; height: 55%; opacity: 0.75; }
+.sp-sb-avatar-placeholder svg { width: calc(55% * var(--sb-icon-scale, 1)); height: calc(55% * var(--sb-icon-scale, 1)); opacity: 0.75; }
 
 /* Pulse Ring Halo */
 .sp-sb-pulse-ring { position: absolute; inset: -5px; border-radius: inherit; border: 2px solid var(--sb-active-color, #6366f1); opacity: 0; pointer-events: none; transform: scale(0.95); }
@@ -3718,25 +3719,29 @@
 @keyframes spSbPulse { 0% { transform: scale(0.95); opacity: 0.85; } 50% { transform: scale(1.18); opacity: 0.3; } 100% { transform: scale(1.35); opacity: 0; } }
 
 /* Metadata & Proportional Typography */
-.sp-sb-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; }
-.sp-sb-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.sp-sb-subrow { gap: 8px; margin-top: 1px; }
-.sp-sb-name { font-weight: var(--sb-font-weight, 700); font-size: var(--sb-font-size, 17px); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: inherit; }
-.sp-sb-pronouns { font-size: var(--sb-pronouns-size, 11px); font-weight: 600; text-transform: lowercase; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, currentColor 14%, transparent); color: inherit; border: 1px solid color-mix(in srgb, currentColor 12%, transparent); white-space: nowrap; flex-shrink: 0; line-height: 1.2; }
-.sp-sb-handle { font-size: var(--sb-handle-size, 12px); opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; color: inherit; }
-.sp-sb-location { font-size: var(--sb-loc-size, 11px); opacity: 0.8; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; color: inherit; }
+.sp-sb-meta { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: calc(3px * var(--sb-fit-scale, 1)); }
+.sp-sb-row { display: flex; flex-wrap: wrap; flex-shrink: 0; align-items: center; justify-content: var(--sb-justify, flex-start); gap: calc(4px * var(--sb-fit-scale, 1)) calc(8px * var(--sb-fit-scale, 1)); min-width: 0; width: 100%; }
+.sp-sb-subrow { margin-top: calc(1px * var(--sb-fit-scale, 1)); }
+.sp-sb-name { min-width: 0; max-width: 100%; flex-shrink: 0; font-weight: var(--sb-font-weight, 700); font-size: var(--sb-font-size, 17px); line-height: var(--sb-line-height, 1.2); white-space: normal; overflow-wrap: anywhere; color: inherit; }
+.sp-sb-pronouns { max-width: 100%; min-width: 0; flex-shrink: 0; font-family: var(--sb-pill-font, inherit); font-size: var(--sb-pronouns-size, 11px); font-weight: 600; text-transform: lowercase; padding: calc(2px * var(--sb-fit-scale, 1)) calc(8px * var(--sb-fit-scale, 1)); border-radius: 999px; background: color-mix(in srgb, currentColor 14%, transparent); color: inherit; border: 1px solid color-mix(in srgb, currentColor 12%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+.sp-sb-handle, .sp-sb-location, .cspan-location { font-family: var(--sb-subtitle-font, inherit); }
+.sp-sb-callin-tag, .cspan-status-tag { font-family: var(--sb-pill-font, inherit); }
+.sp-sb-handle { min-width: 0; max-width: 100%; flex-shrink: 0; font-size: var(--sb-handle-size, 12px); opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: var(--sb-line-height, 1.2); color: inherit; }
+.sp-sb-location { min-width: 0; max-width: 100%; flex-shrink: 0; font-size: var(--sb-loc-size, 11px); opacity: 0.8; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; color: inherit; }
 
 /* Call-In Badges & Live Status Indicator */
-.sp-sb-callin-tag { display: inline-flex; align-items: center; gap: 6px; font-size: var(--sb-tag-size, 10px); font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--cspan-status-color, #22c55e); background: rgba(0, 0, 0, 0.36); padding: 2px 7px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--cspan-status-color, #22c55e) 35%, transparent); flex-shrink: 0; line-height: 1.2; }
-.sp-sb-callin-tag.size-compact { font-size: calc(var(--sb-tag-size, 10px) * 0.9); padding: 1px 6px; gap: 4px; }
-.sp-sb-callin-tag.size-small { font-size: calc(var(--sb-tag-size, 10px) * 0.95); padding: 2px 6px; }
-.cspan-live-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: inline-block; flex-shrink: 0; }
+.sp-sb-callin-tag { display: inline-flex; align-items: center; max-width: 100%; min-width: 0; flex-shrink: 0; gap: calc(6px * var(--sb-fit-scale, 1)); font-size: var(--sb-tag-size, 10px); font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--cspan-status-color, #22c55e); background: rgba(0, 0, 0, 0.36); padding: calc(2px * var(--sb-fit-scale, 1)) calc(7px * var(--sb-fit-scale, 1)); border-radius: 999px; border: 1px solid color-mix(in srgb, var(--cspan-status-color, #22c55e) 35%, transparent); line-height: 1.2; }
+.cspan-status-label, .sp-sb-location > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-sb-callin-tag.size-compact { font-size: calc(var(--sb-tag-size, 10px) * 0.9); padding: calc(1px * var(--sb-fit-scale, 1)) calc(6px * var(--sb-fit-scale, 1)); gap: calc(4px * var(--sb-fit-scale, 1)); }
+.sp-sb-callin-tag.size-small { font-size: calc(var(--sb-tag-size, 10px) * 0.95); padding: calc(2px * var(--sb-fit-scale, 1)) calc(6px * var(--sb-fit-scale, 1)); }
+.cspan-live-dot { width: calc(7px * var(--sb-fit-scale, 1)); height: calc(7px * var(--sb-fit-scale, 1)); border-radius: 50%; background: currentColor; display: inline-block; flex-shrink: 0; }
+.sp-sb-location svg { width: calc(11px * var(--sb-fit-scale, 1)); height: calc(11px * var(--sb-fit-scale, 1)); flex-shrink: 0; }
 .is-speaking .cspan-live-dot { box-shadow: 0 0 8px currentColor; animation: spSbBlink 0.8s infinite alternate; }
 @keyframes spSbBlink { from { opacity: 0.4; transform: scale(0.9); } to { opacity: 1; transform: scale(1.2); } }
 
 /* EQ Audio Visualizer Bars */
-.sp-sb-eq-bars { display: inline-flex; align-items: flex-end; gap: 3px; height: 20px; flex-shrink: 0; padding: 0 4px; }
-.sp-sb-eq-bar { width: 3.5px; border-radius: 999px; background: var(--sb-bar-color, var(--sb-active-color, #6366f1)); height: 4px; transition: height 0.12s ease, opacity 0.15s ease; opacity: 0.35; }
+.sp-sb-eq-bars { display: inline-flex; align-items: flex-end; gap: calc(3px * var(--sb-fit-scale, 1)); height: calc(20px * var(--sb-fit-scale, 1)); flex-shrink: 0; padding: 0 calc(4px * var(--sb-fit-scale, 1)); }
+.sp-sb-eq-bar { width: calc(3.5px * var(--sb-fit-scale, 1)); border-radius: 999px; background: var(--sb-bar-color, var(--sb-active-color, #6366f1)); height: calc(4px * var(--sb-fit-scale, 1)); transition: height 0.12s ease, opacity 0.15s ease; opacity: 0.35; }
 .is-speaking .sp-sb-eq-bar { opacity: 1; animation: spSbEqBounce 0.5s ease-in-out infinite alternate; }
 .is-speaking .sp-sb-eq-bar:nth-child(1) { animation-delay: 0.05s; }
 .is-speaking .sp-sb-eq-bar:nth-child(2) { animation-delay: 0.18s; }
@@ -3746,44 +3751,104 @@
 .is-speaking .sp-sb-eq-bar:nth-child(6) { animation-delay: 0.08s; }
 .is-speaking .sp-sb-eq-bar:nth-child(7) { animation-delay: 0.22s; }
 .is-speaking .sp-sb-eq-bar:nth-child(8) { animation-delay: 0.38s; }
-@keyframes spSbEqBounce { 0% { height: 4px; } 30% { height: 18px; } 60% { height: 8px; } 100% { height: 20px; } }
+@keyframes spSbEqBounce { 0% { height: calc(4px * var(--sb-fit-scale, 1)); } 30% { height: calc(18px * var(--sb-fit-scale, 1)); } 60% { height: calc(8px * var(--sb-fit-scale, 1)); } 100% { height: calc(20px * var(--sb-fit-scale, 1)); } }
 
 /* Layout 1: Horizontal Lower-Third */
-.sp-sb-card.layout-horizontal { flex-direction: row; align-items: center; gap: 12px; padding: 10px 16px; }
-.sp-sb-card.layout-horizontal .sp-sb-avatar-wrap { width: 48px; height: 48px; }
+.sp-sb-card.layout-horizontal { flex-direction: row; align-items: var(--sb-valign, center); gap: calc(12px * var(--sb-fit-scale, 1)); padding: var(--sb-padding-y, 10px) var(--sb-padding-x, 16px); }
+.sp-sb-card.layout-horizontal .sp-sb-avatar-wrap { --sb-avatar-size: min(calc(var(--sb-avatar-base, 48px) * var(--sb-avatar-scale, 1)), 100cqh, 30cqw); }
+.sp-sb-card.layout-horizontal.is-auto-size .sp-sb-avatar-wrap { --sb-avatar-base: max(48px, min(80cqh, 24cqw)); }
 
 /* Layout 2: C-SPAN Banner */
-.sp-sb-card.layout-cspan-banner { flex-direction: column; justify-content: flex-start; padding: 0; min-height: 54px; }
-.sp-sb-card.layout-cspan-banner .cspan-header-bar { display: flex; align-items: center; justify-content: space-between; width: 100%; border-bottom: 1px solid rgba(255, 255, 255, 0.14); padding: 5px 12px; box-sizing: border-box; background: rgba(0, 0, 0, 0.32); font-size: var(--sb-tag-size, 11px); flex-shrink: 0; min-height: 22px; }
-.sp-sb-card.layout-cspan-banner .cspan-status-tag { display: inline-flex; align-items: center; gap: 7px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cspan-status-color, #22c55e); }
-.sp-sb-card.layout-cspan-banner .cspan-location { font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; font-size: var(--sb-loc-size, 10.5px); }
-.sp-sb-card.layout-cspan-banner .cspan-main-row { display: flex; align-items: center; width: 100%; min-width: 0; flex: 1; padding: 6px 12px; box-sizing: border-box; gap: 10px; overflow: hidden; }
-.sp-sb-card.layout-cspan-banner .sp-sb-avatar-wrap { width: 44px; height: 44px; }
-.sp-sb-card.layout-cspan-banner .sp-sb-name { font-size: var(--sb-font-size, 18px); font-weight: 800; letter-spacing: 0.02em; }
+.sp-sb-card.layout-cspan-banner { flex-direction: column; justify-content: flex-start; padding: 0; min-height: 0; }
+.sp-sb-card.layout-cspan-banner .cspan-header-bar { display: flex; align-items: center; justify-content: space-between; width: 100%; border-bottom: 1px solid rgba(255, 255, 255, 0.14); padding: calc(5px * var(--sb-fit-scale, 1)) calc(12px * var(--sb-fit-scale, 1)); box-sizing: border-box; background: rgba(0, 0, 0, 0.32); font-size: var(--sb-tag-size, 11px); flex-shrink: 0; min-height: calc(22px * var(--sb-fit-scale, 1)); }
+.sp-sb-card.layout-cspan-banner .cspan-status-tag { display: inline-flex; align-items: center; min-width: 0; max-width: 60%; gap: 7px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cspan-status-color, #22c55e); }
+.sp-sb-card.layout-cspan-banner .cspan-location { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; font-size: var(--sb-loc-size, 10.5px); }
+.sp-sb-card.layout-cspan-banner .cspan-main-row { display: flex; align-items: var(--sb-valign, center); width: 100%; min-width: 0; flex: 1; padding: var(--sb-padding-y, 6px) var(--sb-padding-x, 12px); box-sizing: border-box; gap: calc(10px * var(--sb-fit-scale, 1)); overflow: hidden; container-type: size; }
+.sp-sb-card.layout-cspan-banner .sp-sb-avatar-wrap { --sb-avatar-size: min(calc(var(--sb-avatar-base, 44px) * var(--sb-avatar-scale, 1)), 100cqh, 30cqw); }
+.sp-sb-card.layout-cspan-banner.is-auto-size .sp-sb-avatar-wrap { --sb-avatar-base: max(44px, min(80cqh, 24cqw)); }
+.sp-sb-card.layout-cspan-banner .sp-sb-name { font-size: var(--sb-font-size, 18px); font-weight: var(--sb-font-weight, 800); }
 
 /* Layout 3: Compact Pill */
-.sp-sb-card.layout-compact-pill { flex-direction: row; align-items: center; gap: 9px; padding: 6px 14px; border-radius: 999px !important; }
-.sp-sb-card.layout-compact-pill .sp-sb-avatar-wrap { width: 32px; height: 32px; }
-.sp-sb-card.layout-compact-pill .sp-sb-name { font-size: var(--sb-font-size, 14px); font-weight: 700; }
-.sp-sb-card.layout-compact-pill .sp-sb-eq-bars { height: 16px; }
+.sp-sb-card.layout-compact-pill { flex-direction: row; align-items: var(--sb-valign, center); gap: calc(9px * var(--sb-fit-scale, 1)); padding: var(--sb-padding-y, 6px) var(--sb-padding-x, 14px); border-radius: 999px !important; }
+.sp-sb-card.layout-compact-pill .sp-sb-avatar-wrap { --sb-avatar-size: min(calc(var(--sb-avatar-base, 32px) * var(--sb-avatar-scale, 1)), 100cqh, 30cqw); }
+.sp-sb-card.layout-compact-pill.is-auto-size .sp-sb-avatar-wrap { --sb-avatar-base: max(32px, min(80cqh, 24cqw)); }
+.sp-sb-card.layout-compact-pill .sp-sb-name { font-size: var(--sb-font-size, 14px); font-weight: var(--sb-font-weight, 700); }
+.sp-sb-card.layout-compact-pill .sp-sb-eq-bars { height: calc(16px * var(--sb-fit-scale, 1)); }
 
 /* Layout 4: Vertical Sidebar Card */
-.sp-sb-card.layout-vertical-card { flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 14px 12px; gap: 6px; }
-.sp-sb-card.layout-vertical-card .sp-sb-avatar-wrap { width: 64px; height: 64px; }
-.sp-sb-card.layout-vertical-card .sp-sb-meta { align-items: center; text-align: center; width: 100%; gap: 3px; }
-.sp-sb-card.layout-vertical-card .sp-sb-row { justify-content: center; flex-wrap: wrap; gap: 4px; }
-.sp-sb-card.layout-vertical-card .sp-sb-eq-bars { margin-top: 4px; }
+.sp-sb-card.layout-vertical-card { flex-direction: column; align-items: var(--sb-justify, center); justify-content: var(--sb-valign, center); padding: var(--sb-padding-y, 14px) var(--sb-padding-x, 12px); gap: calc(6px * var(--sb-fit-scale, 1)); }
+.sp-sb-card.layout-vertical-card .sp-sb-avatar-wrap { --sb-avatar-size: min(calc(var(--sb-avatar-base, 64px) * var(--sb-avatar-scale, 1)), 40cqh, 100cqw); }
+.sp-sb-card.layout-vertical-card.is-auto-size .sp-sb-avatar-wrap { --sb-avatar-base: max(64px, min(30cqh, 60cqw)); }
+.sp-sb-card.layout-vertical-card .sp-sb-meta { flex: 0 0 auto; width: 100%; }
+.sp-sb-card.layout-vertical-card .sp-sb-row { gap: calc(4px * var(--sb-fit-scale, 1)); }
+.sp-sb-card.layout-vertical-card .sp-sb-callin-tag, .sp-sb-card.layout-vertical-card .sp-sb-pronouns { max-width: 100%; }
+.sp-sb-card.layout-vertical-card .sp-sb-eq-bars { margin-top: calc(4px * var(--sb-fit-scale, 1)); }
 
 /* Layout 5: Avatar Only */
-.sp-sb-card.layout-avatar-only { justify-content: center; align-items: center; padding: 0 !important; background: transparent !important; border: 0 !important; box-shadow: none !important; }
-.sp-sb-card.layout-avatar-only .sp-sb-avatar-wrap { width: 100%; height: 100%; transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease; }
+.sp-sb-card.layout-avatar-only { justify-content: center; align-items: center; overflow: visible; padding: 0 !important; background: transparent !important; border: 0 !important; box-shadow: none !important; }
+.sp-sb-card.layout-avatar-only .sp-sb-avatar-wrap { width: calc(100% * var(--sb-avatar-scale, 1)); height: calc(100% * var(--sb-avatar-scale, 1)); transition: transform 0.18s ease-out, box-shadow 0.18s ease; }
 .sp-sb-card.layout-avatar-only.is-speaking.has-highlight .sp-sb-avatar-wrap { box-shadow: 0 0 var(--sb-glow-spread, 16px) var(--sb-active-glow, rgba(99, 102, 241, 0.6)); }
+.sp-sb-card.layout-avatar-only.is-speaking.has-pop { transform: none; }
 .sp-sb-card.layout-avatar-only.is-speaking.has-pop .sp-sb-avatar-wrap { transform: scale(1.06); }
 .sp-sb-card.layout-avatar-only .sp-sb-avatar, .sp-sb-card.layout-avatar-only .sp-sb-avatar-placeholder { border: 2.5px solid rgba(255, 255, 255, 0.2); box-sizing: border-box; transition: border-color 0.18s ease; }
 .sp-sb-card.layout-avatar-only.is-speaking.has-highlight .sp-sb-avatar, .sp-sb-card.layout-avatar-only.is-speaking.has-highlight .sp-sb-avatar-placeholder { border-color: var(--sb-active-color, #6366f1) !important; }
 .sp-sb-card.layout-avatar-only .avatar-corner-eq { position: absolute; bottom: 2px; right: 2px; background: rgba(0, 0, 0, 0.65); padding: 2px 4px; border-radius: 4px; height: 14px; }
+@media (prefers-reduced-motion: reduce) {
+    .sp-sb-card, .sp-sb-avatar-wrap { transition: none !important; }
+    .sp-sb-card.is-speaking.has-pop, .sp-sb-card.layout-avatar-only.is-speaking.has-pop .sp-sb-avatar-wrap { transform: none; }
+    .sp-sb-card .sp-sb-pulse-ring, .sp-sb-card .sp-sb-eq-bar, .sp-sb-card .cspan-live-dot { animation: none; }
+}
 `;
         document.head.appendChild(tag);
+    }
+
+    function fitSpeakerBadge(node) {
+        const card = node.querySelector(':scope > .sp-sb-card');
+        if (!node.isConnected || !card || card.classList.contains('layout-avatar-only') || !card.clientHeight || !card.clientWidth) return;
+        const base = card._speakerBaseFontSize;
+        const meta = card.querySelector('.sp-sb-meta');
+        const content = [...card.querySelectorAll('.sp-sb-meta, .sp-sb-name, .sp-sb-row, .sp-sb-handle, .sp-sb-avatar-wrap, .sp-sb-eq-bars, .cspan-header-bar')];
+        const groups = [card, ...card.querySelectorAll('.cspan-main-row, .sp-sb-meta, .sp-sb-row')];
+        const applySize = size => {
+            const scale = size / base;
+            // Keep structural spacing and effects comfortable independently of text fitting.
+            card.style.setProperty('--sb-fit-scale', String(Math.max(0.75, Math.min(1.5, scale))));
+            card.style.setProperty('--sb-font-size', `${size}px`);
+            for (const [key, ratio] of [['handle', 0.72], ['pronouns', 0.65], ['tag', 0.60], ['loc', 0.65]]) {
+                card.style.setProperty(`--sb-${key}-size`, `${Math.max(2.5, Math.round(size * ratio))}px`);
+            }
+            card.style.letterSpacing = `${card._speakerLetterSpacing * scale}px`;
+        };
+        const fits = size => {
+            applySize(size);
+            if (meta && meta.scrollHeight > meta.clientHeight + 1) return false;
+            const contained = content.every(child => {
+                const container = child.closest('.cspan-main-row') || card;
+                const box = container.getBoundingClientRect(), style = root.getComputedStyle(container);
+                const scale = box.width / container.offsetWidth;
+                const tolerance = 1.5 * scale;
+                const rect = child.getBoundingClientRect();
+                return rect.left >= box.left + parseFloat(style.paddingLeft) * scale - tolerance &&
+                    rect.right <= box.right - parseFloat(style.paddingRight) * scale + tolerance &&
+                    rect.top >= box.top + parseFloat(style.paddingTop) * scale - tolerance &&
+                    rect.bottom <= box.bottom - parseFloat(style.paddingBottom) * scale + tolerance &&
+                    (!child.matches('.sp-sb-name, .sp-sb-row, .sp-sb-handle') || child.scrollWidth <= child.clientWidth + 1);
+            });
+            return contained && groups.every(group => {
+                const boxes = [...group.children].map(child => child.getBoundingClientRect());
+                return boxes.every((a, i) => boxes.slice(i + 1).every(b =>
+                    a.right <= b.left + 0.5 || b.right <= a.left + 0.5 ||
+                    a.bottom <= b.top + 0.5 || b.bottom <= a.top + 0.5));
+            });
+        };
+        let lo = Math.min(4, base), hi = card._speakerAutoSize ? Math.min(160, card.clientHeight) : base;
+        if (fits(hi)) return;
+        while (hi - lo > 0.5) {
+            const mid = (lo + hi) / 2;
+            if (fits(mid)) lo = mid;
+            else hi = mid;
+        }
+        applySize(lo);
     }
 
     function renderSpeakerBadge(node, element, options = {}) {
@@ -3805,6 +3870,7 @@
         node.style.background = 'transparent';
         node.style.border = '0';
         node.style.boxShadow = 'none';
+        node.style.overflow = 'visible';
 
         // Find or create the inner .sp-sb-card
         let card = node.querySelector(':scope > .sp-sb-card');
@@ -3819,22 +3885,53 @@
         const hasDim = Boolean(re.dimWhenIdle);
 
         // Apply classes and CSS variables to the inner card
-        card.className = `sp-sb-card layout-${layout} ${speaking ? 'is-speaking' : 'is-idle'}${hasHighlight ? ' has-highlight' : ''}${hasPop ? ' has-pop' : ''}${hasDim ? ' has-dim' : ''}`;
+        card.className = `sp-sb-card layout-${layout} ${speaking ? 'is-speaking' : 'is-idle'}${b.autoSize !== false ? ' is-auto-size' : ''}${hasHighlight ? ' has-highlight' : ''}${hasPop ? ' has-pop' : ''}${hasDim ? ' has-dim' : ''}`;
         card.style.setProperty('--sb-active-color', activeColor);
         card.style.setProperty('--sb-glow-spread', `${glowSpread}px`);
         card.style.setProperty('--sb-active-glow', activeColor + (activeColor.length === 7 ? '55' : ''));
         card.style.setProperty('--sb-idle-opacity', String(re.idleOpacity ?? 0.7));
         card.style.setProperty('--sb-bar-color', barColor);
         card.style.setProperty('--cspan-status-color', callIn.statusColor || '#22c55e');
+        card.style.setProperty('--sb-avatar-scale', String(Math.max(0.5, Math.min(2, Number(sp.avatarScale) || 1))));
+        card.style.setProperty('--sb-icon-scale', String(Math.max(0.5, Math.min(1.8, Number(sp.iconScale) || 1))));
+        card.style.setProperty('--sb-fit-scale', '1');
+        const padding = layout === 'horizontal' ? [16, 10] : layout === 'compact-pill' ? [14, 6] : layout === 'vertical-card' ? [12, 14] : [12, 6];
+        card.style.setProperty('--sb-padding-x', `${b.paddingX ?? padding[0]}px`);
+        card.style.setProperty('--sb-padding-y', `${b.paddingY ?? padding[1]}px`);
+        card.style.setProperty('--sb-subtitle-font', b.typography?.subtitleFontFamily || 'inherit');
+        card.style.setProperty('--sb-pill-font', b.typography?.pillFontFamily || 'inherit');
+        for (const font of [b.typography?.subtitleFontFamily, b.typography?.pillFontFamily]) if (font) loadGoogleFont(font);
 
         // Typography & proportional font scaling
         const defaultFs = layout === 'cspan-banner' ? 18 : layout === 'compact-pill' ? 14 : layout === 'vertical-card' ? 16 : 17;
         const fs = Number(s.fontSize) > 0 ? Number(s.fontSize) : defaultFs;
+        card._speakerAutoSize = b.autoSize !== false;
+        card._speakerBaseFontSize = card._speakerAutoSize ? defaultFs : fs;
+        card._speakerLetterSpacing = Number(s.letterSpacing) || 0;
+        if (layout !== 'avatar-only' && root.requestAnimationFrame) {
+            const scheduleFit = () => {
+                if (node._speakerFitFrame) root.cancelAnimationFrame(node._speakerFitFrame);
+                node._speakerFitFrame = root.requestAnimationFrame(() => {
+                    node._speakerFitFrame = 0;
+                    fitSpeakerBadge(node);
+                });
+            };
+            scheduleFit();
+            if (!node._fitObserver && root.ResizeObserver) {
+                node._fitObserver = new root.ResizeObserver(scheduleFit);
+                node._fitObserver.observe(node);
+            }
+        }
         card.style.setProperty('--sb-font-size', `${fs}px`);
         card.style.setProperty('--sb-handle-size', `${Math.max(9, Math.round(fs * 0.72))}px`);
         card.style.setProperty('--sb-pronouns-size', `${Math.max(9, Math.round(fs * 0.65))}px`);
         card.style.setProperty('--sb-tag-size', `${Math.max(8, Math.round(fs * 0.60))}px`);
         card.style.setProperty('--sb-loc-size', `${Math.max(8, Math.round(fs * 0.65))}px`);
+        card.style.setProperty('--sb-line-height', String(Number(s.lineHeight) > 0 ? s.lineHeight : 1.2));
+        const textAlign = s.textAlign || (layout === 'vertical-card' ? 'center' : 'left');
+        card.style.setProperty('--sb-justify', textAlign === 'right' ? 'flex-end' : textAlign === 'center' ? 'center' : 'flex-start');
+        card.style.setProperty('--sb-valign', s.verticalAlign === 'top' ? 'flex-start' : s.verticalAlign === 'bottom' ? 'flex-end' : 'center');
+        card.style.letterSpacing = `${Number(s.letterSpacing) || 0}px`;
         if (s.fontWeight) {
             card.style.setProperty('--sb-font-weight', String(s.fontWeight));
         } else if (card.style.removeProperty) {
@@ -3849,11 +3946,7 @@
         } else {
             card.style.fontFamily = '';
         }
-        if (s.textAlign) {
-            card.style.textAlign = s.textAlign;
-        } else {
-            card.style.textAlign = '';
-        }
+        card.style.textAlign = textAlign;
 
         // Apply style background, borders, blur, and shadows to card (unless avatar-only)
         if (layout === 'avatar-only') {
@@ -4033,14 +4126,17 @@
             nameEl.className = 'sp-sb-name';
             nameEl.textContent = sp.name || 'Caller';
             nameRow.appendChild(nameEl);
+            const detailsRow = document.createElement('div');
+            detailsRow.className = 'sp-sb-row sp-sb-details';
 
             if (sp.showPronouns !== false && sp.pronouns) {
                 const pro = document.createElement('span');
                 pro.className = 'sp-sb-pronouns';
                 pro.textContent = sp.pronouns;
-                nameRow.appendChild(pro);
+                detailsRow.appendChild(pro);
             }
             meta.appendChild(nameRow);
+            if (detailsRow.hasChildNodes()) meta.appendChild(detailsRow);
 
             if (sp.showHandle !== false && sp.handle) {
                 const hEl = document.createElement('span');
@@ -4064,7 +4160,6 @@
             }
 
             const callPill = buildCallInPill('small');
-            if (callPill) card.appendChild(callPill);
 
             const meta = document.createElement('div');
             meta.className = 'sp-sb-meta';
@@ -4076,14 +4171,18 @@
             nameEl.className = 'sp-sb-name';
             nameEl.textContent = sp.name || 'Speaker';
             nameRow.appendChild(nameEl);
+            const detailsRow = document.createElement('div');
+            detailsRow.className = 'sp-sb-row sp-sb-details';
 
             if (sp.showPronouns !== false && sp.pronouns) {
                 const pro = document.createElement('span');
                 pro.className = 'sp-sb-pronouns';
                 pro.textContent = sp.pronouns;
-                nameRow.appendChild(pro);
+                detailsRow.appendChild(pro);
             }
+            if (callPill) detailsRow.appendChild(callPill);
             meta.appendChild(nameRow);
+            if (detailsRow.hasChildNodes()) meta.appendChild(detailsRow);
 
             const subRow = document.createElement('div');
             subRow.className = 'sp-sb-row sp-sb-subrow';
@@ -4113,7 +4212,6 @@
             }
 
             const callPill = buildCallInPill('compact');
-            if (callPill) card.appendChild(callPill);
 
             const meta = document.createElement('div');
             meta.className = 'sp-sb-meta';
@@ -4125,25 +4223,32 @@
             nameEl.className = 'sp-sb-name';
             nameEl.textContent = sp.name || 'Speaker';
             nameRow.appendChild(nameEl);
+            const detailsRow = document.createElement('div');
+            detailsRow.className = 'sp-sb-row sp-sb-details';
+            const subRow = document.createElement('div');
+            subRow.className = 'sp-sb-row sp-sb-subrow';
 
             if (sp.showPronouns !== false && sp.pronouns) {
                 const pro = document.createElement('span');
                 pro.className = 'sp-sb-pronouns';
                 pro.textContent = sp.pronouns;
-                nameRow.appendChild(pro);
+                detailsRow.appendChild(pro);
             }
+            if (callPill) detailsRow.appendChild(callPill);
 
             if (sp.showHandle !== false && sp.handle) {
                 const hEl = document.createElement('span');
                 hEl.className = 'sp-sb-handle';
                 hEl.textContent = sp.handle;
-                nameRow.appendChild(hEl);
+                subRow.appendChild(hEl);
             }
 
             const loc = buildLocationEl();
-            if (loc) nameRow.appendChild(loc);
+            if (loc) subRow.appendChild(loc);
 
             meta.appendChild(nameRow);
+            if (detailsRow.hasChildNodes()) meta.appendChild(detailsRow);
+            if (subRow.hasChildNodes()) meta.appendChild(subRow);
             card.appendChild(meta);
 
             const eq = buildEqBars();
@@ -4166,18 +4271,21 @@
         nameEl.className = 'sp-sb-name';
         nameEl.textContent = sp.name || 'Speaker';
         nameRow.appendChild(nameEl);
+        const detailsRow = document.createElement('div');
+        detailsRow.className = 'sp-sb-row sp-sb-details';
 
         if (sp.showPronouns !== false && sp.pronouns) {
             const pro = document.createElement('span');
             pro.className = 'sp-sb-pronouns';
             pro.textContent = sp.pronouns;
-            nameRow.appendChild(pro);
+            detailsRow.appendChild(pro);
         }
 
         const callPill = buildCallInPill('normal');
-        if (callPill) nameRow.appendChild(callPill);
+        if (callPill) detailsRow.appendChild(callPill);
 
         meta.appendChild(nameRow);
+        if (detailsRow.hasChildNodes()) meta.appendChild(detailsRow);
 
         const subRow = document.createElement('div');
         subRow.className = 'sp-sb-row sp-sb-subrow';

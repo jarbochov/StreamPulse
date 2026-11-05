@@ -91,7 +91,7 @@ export function renderLayers() {
         }
         const el = row.el, inGroup = row.group ? ` in-group${state.collapsedGroups.has(row.group) ? ' group-hidden' : ''}` : '';
         const hasOvr = hasPageOverride(el, state.curPage);
-        const obsBadge = (state.obs?.enabled && el.obsLink?.enabled) ? `<span class="layer-obs-badge" title="Linked to OBS source: ${esc(el.obsLink.sourceName || 'Unassigned')}">OBS</span>` : '';
+        const obsBadge = (state.obs?.enabled && state.obs?.sceneSyncEnabled !== false && el.obsLink?.enabled) ? `<span class="layer-obs-badge" title="Linked to OBS source: ${esc(el.obsLink.sourceName || 'Unassigned')}">OBS</span>` : '';
         return `
         <div class="layer${state.selectedIds.has(el.id) ? ' selected' : ''}${el.visible === false ? ' is-hidden' : ''}${inGroup}${hasOvr ? ' has-state-override' : ''}" data-id="${esc(el.id)}">
             <span class="layer-grip" title="Drag to reorder">${ICON.grip}</span>
@@ -341,9 +341,9 @@ export function renderPagesPanel() {
         ${isStates && items.length > 1 && P.transition !== 'none' ? `<button type="button" id="btn-preview-transition" class="btn pg-preview"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Preview ${esc(transLabel)} on canvas</button>` : ''}
         <details class="sub-details" data-sect="pg-states"${pageSectionOpen('states', isStates)}>
             <summary>Advanced: Scene States (Morph) <span class="badge-beta">BETA</span> <span class="spacer"></span><span class="badge-pill${isStates ? '' : ' is-muted'}">${isStates ? 'On' : 'Off'}</span></summary>
-            <span class="hint">Animates layout, styles and OBS sources between states instead of switching pages.</span>
+            <span class="hint">Animates layout and styles${state.obs?.enabled && state.obs?.sceneSyncEnabled !== false ? ', plus linked OBS sources,' : ''} between states instead of switching pages.</span>
             <button type="button" data-pg-kind="${isStates ? 'pages' : 'states'}" id="pg-kind-toggle" aria-pressed="${isStates}">${isStates ? 'Turn off Scene States (use Pages)' : 'Switch to Scene States'}</button>
-            ${isStates && state.obs?.enabled ? `<div class="state-override-bar${obsLinkedCount ? ' is-active' : ''}"><span class="state-ovr-text"><strong>OBS Sync:</strong> ${obsLinkedCount ? `${obsLinkedCount} linked source${obsLinkedCount === 1 ? '' : 's'}` : 'Link Shape/Cutout boxes'}</span><button type="button" id="btn-pages-obs-setup" class="link-btn">${state.obs?.connected ? 'Connected' : 'Configure…'}</button></div>` : ''}
+            ${isStates && state.obs?.enabled && state.obs?.sceneSyncEnabled !== false ? `<div class="state-override-bar${obsLinkedCount ? ' is-active' : ''}"><span class="state-ovr-text"><strong>OBS Sync:</strong> ${obsLinkedCount ? `${obsLinkedCount} linked source${obsLinkedCount === 1 ? '' : 's'}` : 'Link Shape/Cutout boxes'}</span><button type="button" id="btn-pages-obs-setup" class="link-btn">${state.obs?.connected ? 'Connected' : 'Configure…'}</button></div>` : ''}
         </details>
         <details class="sub-details" data-sect="pg-triggers"${pageSectionOpen('triggers', false)}>
             <summary>Triggers summary</summary>
@@ -451,7 +451,7 @@ export function switchEditPage(id, { animate = true } = {}) {
             distance: state.overlay.pages?.transitionDistance || 120
         });
     }
-    if (animate && statesModeOn() && state.obs?.connected && state.obs?.syncOnSave !== false) {
+    if (animate && statesModeOn() && state.obs?.sceneSyncEnabled !== false && state.obs?.connected && state.obs?.syncOnSave !== false) {
         syncObsStateHandler(id);
     }
 }

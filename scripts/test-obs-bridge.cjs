@@ -73,13 +73,14 @@ class FixtureWebSocket extends EventEmitter {
     }
 }
 
-function createConnectedService(overrides = {}) {
+function createConnectedService(overrides = {}, features = {}) {
     FixtureWebSocket.instances = [];
     const service = createObsService({
         getConfig: () => ({ enabled: true, host: '127.0.0.1', port: 4455, password: 'fixture-pass', ...overrides }),
         WebSocketImpl: FixtureWebSocket,
         log: () => {},
-        warn: () => {}
+        warn: () => {},
+        ...features
     });
     service.connect();
     const socket = FixtureWebSocket.instances.at(-1);
@@ -92,6 +93,73 @@ function createConnectedService(overrides = {}) {
     socket.emit('message', JSON.stringify({ op: 2, d: {} }));
     return { service, socket };
 }
+
+test('Scene Sync module disables discovery and motion without stopping speaker meters or the global connection', async () => {
+    let syncEnabled = false, badgesEnabled = true, meters = 0;
+    const { service, socket } = createConnectedService({ motionEngine: 'websocket' }, {
+        isSceneSyncEnabled: () => syncEnabled, isSpeakerBadgesEnabled: () => badgesEnabled,
+        onAudioMeter: () => meters++
+    });
+
+    try {
+        await flush();
+        assert.equal(service.getStatus().connected, true);
+        assert.equal(service.getStatus().sceneSyncEnabled, false);
+        assert.equal(socket.sent.find(message => message.op === 1).d.eventSubscriptions & (1 << 16), 1 << 16);
+        assert.equal(socket.requests.some(request => request.requestType === 'GetSourceFilterKindList'), false);
+        const overlay = { id: 'module-fixture', pages: { enabled: true, kind: 'states', transition: 'morph', transitionMs: 400, items: [{ id: 'main' }] },
+            elements: [{ id: 'camera', type: 'shape', page: '*', x: 400, y: 200, width: 640, height: 360, obsLink: { enabled: true, sourceName: 'Camera' } }] };
+        const before = socket.requests.length;
+        const disabled = await service.syncOverlayState(overlay, 'main');
+        assert.equal(disabled.ok, false);
+        assert.match(disabled.error, /disabled/);
+        assert.equal(socket.requests.length, before);
+        const route = createObsRoutes({ obsService: service, getConfig: () => ({ obs_scene_sync_enabled: false }) });
+        for (const endpoint of ['/api/obs/sync', '/api/obs/sources', '/api/obs/cleanup-filters']) {
+            let status;
+            await route({ method: endpoint.endsWith('sources') ? 'GET' : 'POST' }, { writeHead: code => { status = code; }, end: () => {} }, endpoint);
+            assert.equal(status, 403);
+        }
+        socket.emit('message', JSON.stringify({ op: 5, d: { eventType: 'InputVolumeMeters', eventData: { inputs: [{ inputName: 'Mic', inputLevelsMul: [[0.2, 0.1, 0]] }] } } }));
+        assert.equal(meters, 1);
+        badgesEnabled = false;
+        service.refreshModules();
+        assert.equal(socket.sent.at(-1).d.eventSubscriptions & (1 << 16), 0, 'module toggle updates subscriptions without reconnecting');
+        assert.equal(service.getStatus().connected, true);
+        syncEnabled = true;
+        service.refreshModules();
+        await flush();
+        const pending = service.syncOverlayState(overlay, 'main', { animate: true });
+        await new Promise(resolve => setTimeout(resolve, 35));
+        syncEnabled = false;
+        service.refreshModules();
+        const result = await pending;
+        assert.equal(result.ok, false, 'disabling cancels in-flight motion');
+        const writes = socket.requests.filter(request => request.requestType === 'SetSceneItemTransform').length;
+        await new Promise(resolve => setTimeout(resolve, 75));
+        assert.equal(socket.requests.filter(request => request.requestType === 'SetSceneItemTransform').length, writes);
+        assert.equal(service.getStatus().connected, true);
+    } finally { service.disconnect(); }
+});
+
+test('disabling Scene Sync stops Move filters already started in OBS', async () => {
+    let enabled = true;
+    const { service, socket } = createConnectedService({ motionEngine: 'move-plugin' }, { isSceneSyncEnabled: () => enabled });
+    try {
+        await flush();
+        await service.syncOverlayState({ id: 'move-disable', pages: { enabled: true, kind: 'states', transition: 'morph', transitionMs: 400 },
+            elements: [{ id: 'camera', page: '*', x: 100, y: 100, width: 640, height: 360, obsLink: { enabled: true, sourceName: 'Camera' } }] }, 'main');
+        const started = socket.requests.find(request => request.requestType === 'SetSourceFilterEnabled' && request.requestData.filterEnabled);
+        assert.ok(started);
+        enabled = false;
+        service.refreshModules();
+        const stopped = socket.requests.at(-1);
+        assert.equal(stopped.requestType, 'SetSourceFilterEnabled');
+        assert.equal(stopped.requestData.filterName, started.requestData.filterName);
+        assert.equal(stopped.requestData.filterEnabled, false);
+        assert.equal(service.getStatus().connected, true);
+    } finally { service.disconnect(); }
+});
 
 async function flush() {
     await new Promise(resolve => setImmediate(resolve));

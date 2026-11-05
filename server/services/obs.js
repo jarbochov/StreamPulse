@@ -81,6 +81,7 @@ function createObsService({
     getConfig,
     config = {},
     isSpeakerBadgesEnabled = () => false,
+    isSceneSyncEnabled = () => true,
     onAudioMeter = () => {},
     WebSocketImpl,
     onStatusChange = () => {},
@@ -101,10 +102,12 @@ function createObsService({
     const lastKnownTransforms = new Map();
     const lastAudioBroadcast = new Map();
     const meteredInputs = new Set();
+    const startedMoveFilters = new Map();
+    let sceneSyncWasEnabled = isSceneSyncEnabled();
 
     function desiredSubscriptions() {
         const isBadgesEnabled = typeof isSpeakerBadgesEnabled === 'function' ? isSpeakerBadgesEnabled() : false;
-        const baseSubscriptions = (1 << 2) | (1 << 7); // Scenes | SceneItems
+        const baseSubscriptions = isSceneSyncEnabled() ? (1 << 2) | (1 << 7) : 0;
         return isBadgesEnabled ? (baseSubscriptions | (1 << 16) | (1 << 3)) : baseSubscriptions;
     }
 
@@ -118,6 +121,19 @@ function createObsService({
         if (!(next & (1 << 16))) meteredInputs.clear();
         try { ws.send(JSON.stringify({ op: 3, d: { eventSubscriptions: next } })); } catch { return false; }
         return true;
+    }
+
+    function refreshModules() {
+        if (!isSceneSyncEnabled()) {
+            cancelAllInterpolations('OBS Scene Sync disabled');
+            for (const filter of startedMoveFilters.values()) {
+                request('SetSourceFilterEnabled', { ...filter, filterEnabled: false }).catch(() => {});
+            }
+            startedMoveFilters.clear();
+        } else if (!sceneSyncWasEnabled && state.identified) probeCapabilities();
+        sceneSyncWasEnabled = isSceneSyncEnabled();
+        refreshSubscriptions();
+        onStatusChange(getStatus());
     }
 
     let state = {
@@ -146,12 +162,14 @@ function createObsService({
         const cfg = currentConfig();
         return {
             enabled: cfg.enabled,
+            sceneSyncEnabled: isSceneSyncEnabled(),
+            speakerBadgesEnabled: isSpeakerBadgesEnabled(),
             host: cfg.host,
             port: cfg.port,
             hasPassword: Boolean(cfg.password),
             syncOnSave: cfg.syncOnSave,
             motionEngine: cfg.motionEngine,
-            activeEngine: state.identified
+            activeEngine: !isSceneSyncEnabled() ? 'disabled' : state.identified
                 ? resolveEngine(cfg)
                 : 'disconnected',
             connected: state.connected && state.identified,
@@ -244,6 +262,10 @@ function createObsService({
                 state.obsVersion = ver.obsVersion || '';
                 state.websocketVersion = ver.obsWebSocketVersion || '';
             }
+            if (!isSceneSyncEnabled()) {
+                onStatusChange(getStatus());
+                return;
+            }
             const video = await request('GetVideoSettings').catch(() => null);
             const fps = Number(video?.fpsNumerator) / Number(video?.fpsDenominator);
             state.frameMs = fps > 0 && fps <= 240 ? 1000 / fps : 0;
@@ -279,6 +301,7 @@ function createObsService({
         cancelAllInterpolations();
         clearPendingRequests('OBS disconnected');
         sceneItemIdCache.clear();
+        startedMoveFilters.clear();
         if (ws) {
             try {
                 ws.removeAllListeners();
@@ -371,7 +394,7 @@ function createObsService({
                     onStatusChange(getStatus());
                 } else if (d.eventType === 'SceneItemCreated' || d.eventType === 'SceneItemRemoved') {
                     sceneItemIdCache.clear();
-                } else if (d.eventType === 'InputVolumeMeters' && Array.isArray(d.eventData?.inputs)) {
+                } else if (d.eventType === 'InputVolumeMeters' && isSpeakerBadgesEnabled() && Array.isArray(d.eventData?.inputs)) {
                     const now = Date.now();
                     for (const input of d.eventData.inputs) {
                         const inputName = input?.inputName;
@@ -876,6 +899,7 @@ function createObsService({
                             overlay: true
                         });
                     }
+                    startedMoveFilters.set(`${sceneName}::${filterName}`, { sourceName: sceneName, filterName });
                     await call('SetSourceFilterEnabled', {
                         sourceName: sceneName,
                         filterName,
@@ -1024,6 +1048,7 @@ function createObsService({
     }
 
     async function syncOverlayStateInner(overlay, pageId, { animate, instant, startAt = 0, started, expect }) {
+        if (!isSceneSyncEnabled()) return { ok: false, synced: 0, results: [], error: 'OBS Scene Sync module is disabled' };
         if (overlay?.pages?.enabled && (overlay.pages.kind === 'pages' || (!overlay.pages.kind && overlay.pages.transition !== 'morph'))) {
             return { ok: true, synced: 0, results: [], skipped: true };
         }
@@ -1110,6 +1135,7 @@ function createObsService({
         listScenesAndSources,
         listAudioInputs,
         refreshSubscriptions,
+        refreshModules,
         syncOverlayState,
         cleanupManagedFilters,
         animateItemToTarget,

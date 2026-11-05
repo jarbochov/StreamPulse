@@ -1429,7 +1429,7 @@
 
             const st = speakerState(element);
 
-            const node = elements.get(element.id);
+            const node = elementNodes.get(element.id);
             if (!node) continue;
 
             if (isAbove) {
@@ -1446,7 +1446,7 @@
                     st.speaking = false;
                     st.timer = null;
                     const current = currentOverlay?.elements.find(item => item.id === element.id && item.type === 'speaker-badge');
-                    const currentNode = elements.get(element.id);
+                    const currentNode = elementNodes.get(element.id);
                     if (current && currentNode && speakerStates.get(element.id) === st && shared.renderSpeakerBadge) {
                         shared.renderSpeakerBadge(currentNode, current, { preview: false, speaking: false, rms: 0 });
                     }

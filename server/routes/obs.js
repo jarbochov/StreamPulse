@@ -19,6 +19,12 @@ function createObsRoutes({
             return true;
         }
 
+        if (getConfig()?.obs_scene_sync_enabled === false &&
+            ['/api/obs/sources', '/api/obs/sync', '/api/obs/cleanup-filters'].includes(pathname)) {
+            sendError(res, 403, 'OBS Scene Sync module is disabled');
+            return true;
+        }
+
         if (pathname === '/api/obs/sources' && req.method === 'GET') {
             try {
                 const data = await obsService.listScenesAndSources();

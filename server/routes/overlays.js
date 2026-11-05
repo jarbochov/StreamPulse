@@ -766,7 +766,7 @@ function createOverlayRoutes({
                     pageCount: pages?.enabled ? pages.items.length : 0,
                     currentPage,
                     currentPageName,
-                    hasControls: !!(pages?.enabled || (elements || []).some(e => ['slideshow', 'video', 'cutout'].includes(e.type) || (e.type === 'embed' && /youtube\.com|youtu\.be/i.test(e.src || ''))))
+                    hasControls: !!(pages?.enabled || (elements || []).some(e => ['slideshow', 'video', 'cutout', 'speaker-badge'].includes(e.type) || (e.type === 'embed' && /youtube\.com|youtu\.be/i.test(e.src || ''))))
                 };
             }));
             return true;

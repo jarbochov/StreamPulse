@@ -434,8 +434,14 @@
                             <span>OBS Scene Sync</span>
                             <span class="beta-tag">BETA</span>
                         </div>
+                        <span class="module-badge" id="badge-obs-scene-sync">Active</span>
                     </div>
                     <p class="hint">Camera/capture source motion uses the global <a href="#connection">OBS Connection in Connection &amp; Security</a>. These scene-sync settings are independent of speaker audio metering.</p>
+                    <div class="cfg-toggle">
+                        <input type="checkbox" id="cfg-obs-scene-sync-enabled" checked>
+                        <label for="cfg-obs-scene-sync-enabled">Enable OBS Scene Sync module</label>
+                    </div>
+                    <div id="obs-scene-sync-options">
                     <div class="cfg-row">
                         <label style="min-width:95px;">Motion</label>
                         <select id="cfg-obs-engine">
@@ -448,6 +454,7 @@
                     <div class="cfg-toggle" style="margin-top:0.2rem;">
                         <input type="checkbox" id="cfg-obs-sync-save" checked>
                         <label for="cfg-obs-sync-save">Auto-sync OBS on overlay save &amp; state change</label>
+                    </div>
                     </div>
                 </div>
 
@@ -785,6 +792,8 @@
         updateBadge('badge-polls', document.getElementById('cfg-polls-enabled')?.checked);
         updateBadge('badge-versus', document.getElementById('cfg-versus-enabled')?.checked);
         updateBadge('badge-obs', document.getElementById('cfg-obs-enabled')?.checked);
+        updateBadge('badge-obs-scene-sync', document.getElementById('cfg-obs-scene-sync-enabled')?.checked);
+        document.getElementById('obs-scene-sync-options').hidden = !document.getElementById('cfg-obs-scene-sync-enabled').checked;
         updateBadge('badge-speaker-badges', document.getElementById('cfg-speaker-badges-enabled')?.checked);
     }
 
@@ -845,6 +854,7 @@
             const obs = cfg.obs || {};
             document.getElementById('cfg-obs-enabled').checked = Boolean(obs.enabled);
             document.getElementById('cfg-speaker-badges-enabled').checked = cfg.speaker_badges_enabled === true;
+            document.getElementById('cfg-obs-scene-sync-enabled').checked = cfg.obs_scene_sync_enabled !== false;
             document.getElementById('cfg-obs-host').value = obs.host || '127.0.0.1';
             document.getElementById('cfg-obs-port').value = obs.port || 4455;
             document.getElementById('cfg-obs-password').value = '';
@@ -909,6 +919,7 @@
             },
             chatbot_enabled: document.getElementById('cfg-chatbot-enabled').checked,
             speaker_badges_enabled: document.getElementById('cfg-speaker-badges-enabled').checked,
+            obs_scene_sync_enabled: document.getElementById('cfg-obs-scene-sync-enabled').checked,
             polls_enabled: document.getElementById('cfg-polls-enabled').checked,
             versus_enabled: document.getElementById('cfg-versus-enabled').checked,
             music: {
@@ -1004,7 +1015,7 @@
     document.getElementById('ssn-session-toggle').addEventListener('click', toggleSsnSession);
 
     // Module toggles update badges live
-    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-obs-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
+    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-obs-enabled', 'cfg-obs-scene-sync-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', updateModuleBadges);
     });
 
