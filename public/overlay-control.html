@@ -117,7 +117,7 @@
             if (!response.ok) throw new Error(data.error || 'Audio sources unavailable');
             $('speaker-audio-inputs').innerHTML = (data.inputs || []).map(name => `<option value="${esc(name)}"></option>`).join('');
             $('audio-status').textContent = data.connected ? `OBS connected · ${(data.inputs || []).length} audio sources. You can also type an exact source name.` : '';
-            if (!data.connected) $('audio-status').innerHTML = 'OBS disconnected. Connect in <a href="/config-editor.html#connection" target="_blank" rel="noopener">System Config → Connection &amp; Security</a>. You can still save source names.';
+            if (!data.connected) $('audio-status').innerHTML = 'OBS disconnected. Configure the shared connection in <a href="/config-editor.html#modules" target="_blank" rel="noopener">System Config → Modules &amp; Services → OBS Connection &amp; Sync</a>. You can still save source names.';
         } catch (error) { $('audio-status').textContent = error.message; }
     }
 

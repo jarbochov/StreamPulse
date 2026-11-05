@@ -431,12 +431,12 @@
                     <div class="module-card-head">
                         <div class="module-card-title">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                            <span>OBS WebSocket Sync</span>
+                            <span>OBS Connection &amp; Sync</span>
                             <span class="beta-tag">BETA</span>
                         </div>
                         <span class="module-badge" id="badge-obs">Disabled</span>
                     </div>
-                    <p class="hint">Synchronize OBS camera &amp; capture sources with Custom Overlay Scene States (Morph) using Move Plugin or 60fps WebSocket transforms.</p>
+                    <p class="hint">Shared OBS WebSocket connection for speaker-badge audio meters and camera/capture scene syncing. Speaker badges need this connection enabled; they do not require Move Plugin or automatic scene syncing.</p>
                     <div class="cfg-toggle">
                         <input type="checkbox" id="cfg-obs-enabled">
                         <label for="cfg-obs-enabled">Enable OBS WebSocket v5 Bridge</label>
@@ -480,7 +480,7 @@
                         </div>
                         <span class="module-badge" id="badge-speaker-badges">Disabled</span>
                     </div>
-                    <p class="hint">Active speaker indicators, voice-reactive avatar cards, mini EQ visualizers, and C-SPAN call-in banners linked to OBS audio inputs.</p>
+                    <p class="hint">Voice-reactive badges and call-in banners use the shared OBS Connection &amp; Sync settings on this tab. Enable both the OBS bridge and Speaker Badges, then save.</p>
                     <div class="cfg-toggle" style="margin-top:auto;">
                         <input type="checkbox" id="cfg-speaker-badges-enabled">
                         <label for="cfg-speaker-badges-enabled">Enable Speaker Badges module</label>

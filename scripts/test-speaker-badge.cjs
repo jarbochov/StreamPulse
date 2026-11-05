@@ -178,7 +178,7 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         assert.equal(callbacks.size, 0, 'old source release timer is cancelled');
     });
 
-    test('Speaker editor OBS setup hint targets the existing System Config connection tab', () => {
+    test('Speaker editor OBS setup hint targets the shared OBS settings in the modules tab', () => {
         const fs = require('node:fs');
         const path = require('node:path');
         const vm = require('node:vm');
@@ -189,7 +189,7 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         const context = vm.createContext({ document: { getElementById: id => nodes[id] } });
         vm.runInContext(source.slice(start, end).replace('export ', ''), context);
         context.updateObsAudioStatus({ connected: false });
-        assert.match(nodes['sb-obs-status-hint'].innerHTML, /href="\/config-editor.html#connection"/);
+        assert.match(nodes['sb-obs-status-hint'].innerHTML, /href="\/config-editor.html#modules"/);
         assert.ok(fs.existsSync(path.join(__dirname, '../public/system/config-editor.html')));
     });
 
@@ -271,6 +271,10 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         await page.reload({ waitUntil: 'networkidle0' });
         assert.equal(await page.$eval('#tab-speakers', tab => tab.getAttribute('aria-selected')), 'true');
         assert.equal(await page.$eval('[data-speaker-form="host"] [name="name"]', input => input.value), 'Edited Host');
+        await page.goto(`${base}/config-editor.html#modules`, { waitUntil: 'networkidle0' });
+        assert.equal(await page.$eval('#cfg-obs-enabled', input => input.closest('.tab-pane').hidden), false);
+        assert.match(await page.$eval('#cfg-obs-enabled', input => input.closest('.module-card').textContent), /OBS Connection & Sync/);
+        assert.equal(await page.$eval('#cfg-speaker-badges-enabled', input => input.closest('.tab-pane').hidden), false);
         assert.deepEqual(errors, []);
     });
 
