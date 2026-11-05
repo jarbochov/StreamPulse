@@ -134,6 +134,146 @@ test('Speaker Badge fallback defaults for empty configuration', () => {
     assert.equal(el.speakerBadge.layout, 'horizontal');
 });
 
+test('Speaker badge normalization preserves a zero gate, border and glow', () => {
+        const overlay = normalizeCustomOverlay({ id: 'speaker-zero', elements: [{ type: 'speaker-badge',
+            speakerBadge: { audio: { thresholdDb: 0 }, reaction: { borderWidth: 0, glowSpread: 0 } } }] });
+        const badge = overlay.elements[0].speakerBadge;
+        assert.equal(badge.audio.thresholdDb, 0);
+        assert.equal(badge.reaction.borderWidth, 0);
+        assert.equal(badge.reaction.glowSpread, 0);
+    });
+
+    test('Speaker audio release uses current profile, stops on missing meters, and resets when changing source', () => {
+        const fs = require('node:fs');
+        const path = require('node:path');
+        const vm = require('node:vm');
+        const source = fs.readFileSync(path.join(__dirname, '../public/js/overlay-runtime.js'), 'utf8');
+        const start = source.indexOf('    function speakerState(');
+        const end = source.indexOf('\n    let elementNodesKept', start);
+        const meterStart = source.indexOf('    function handleObsAudioMeter(');
+        const meterEnd = source.indexOf('\n    function connect()', meterStart);
+        const callbacks = new Map();
+        const renders = [];
+        let seq = 0;
+        const element = { id: 'speaker', type: 'speaker-badge', speakerBadge: { speaker: { name: 'Original' }, audio: { inputName: 'Mic/Aux', thresholdDb: -36, holdMs: 280 } } };
+        const context = vm.createContext({
+            speakerStates: new Map(), currentOverlay: { elements: [element] }, elements: new Map([['speaker', {}]]),
+            params: new URLSearchParams(), shared: { renderSpeakerBadge: (node, element, options) => renders.push({ name: element.speakerBadge.speaker.name, ...options }) },
+            setTimeout: callback => { callbacks.set(++seq, callback); return seq; },
+            clearTimeout: id => callbacks.delete(id)
+        });
+        vm.runInContext(source.slice(start, end) + source.slice(meterStart, meterEnd), context);
+        const meter = { input: 'Mic/Aux', db: -20, rms: 0.1 };
+        context.handleObsAudioMeter(meter);
+        assert.equal(renders.at(-1).speaking, true);
+        assert.equal(callbacks.size, 1, 'silence/disconnect releases even when no further meters arrive');
+        element.speakerBadge.speaker.name = 'Edited live';
+        [...callbacks.values()][0]();
+        assert.equal(renders.at(-1).name, 'Edited live');
+        assert.equal(renders.at(-1).speaking, false);
+        callbacks.clear();
+        context.handleObsAudioMeter(meter);
+        element.speakerBadge.audio.inputName = 'Guest';
+        assert.equal(context.speakerState(element).speaking, false);
+        assert.equal(callbacks.size, 0, 'old source release timer is cancelled');
+    });
+
+    test('Speaker editor OBS setup hint targets the existing System Config connection tab', () => {
+        const fs = require('node:fs');
+        const path = require('node:path');
+        const vm = require('node:vm');
+        const source = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-inspector.js'), 'utf8');
+        const start = source.indexOf('export function updateObsAudioStatus(');
+        const end = source.indexOf('\nexport function speakerBadgeSection', start);
+        const nodes = { 'sb-obs-status-pill': { style: {} }, 'sb-obs-status-hint': {} };
+        const context = vm.createContext({ document: { getElementById: id => nodes[id] } });
+        vm.runInContext(source.slice(start, end).replace('export ', ''), context);
+        context.updateObsAudioStatus({ connected: false });
+        assert.match(nodes['sb-obs-status-hint'].innerHTML, /href="\/config-editor.html#connection"/);
+        assert.ok(fs.existsSync(path.join(__dirname, '../public/system/config-editor.html')));
+    });
+
+    test('Overlay Control speaker edits persist only badge data, preserve other edits, and keep drafts during page changes', async t => {
+        const fs = require('node:fs');
+        const os = require('node:os');
+        const path = require('node:path');
+        const http = require('node:http');
+        const { createOverlayRoutes } = require('../server/routes/overlays');
+        const { createStaticRouter } = require('../server/static-router');
+        const { WebSocketServer } = require('ws');
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-speaker-control-'));
+        t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+        const initial = normalizeCustomOverlay({
+            id: 'fictional-speakers', name: 'Fictional Panel', revision: 1,
+            elements: [{ id: 'host', type: 'speaker-badge', name: 'Host', speakerBadge: { layout: 'compact-pill',
+                speaker: { name: 'Fictional Host' }, audio: { inputName: 'Mic/Aux', thresholdDb: -27 }, reaction: { glowSpread: 30 } } },
+            { id: 'guest', type: 'speaker-badge', name: 'Guest', speakerBadge: { speaker: { name: 'Fictional Guest' } } },
+            { id: 'heading', type: 'text', content: 'Original heading' }]
+        });
+        const overlays = { [initial.id]: initial }, events = [];
+        const file = path.join(dir, 'overlays.json');
+        const route = createOverlayRoutes({
+            getCustomOverlays: () => overlays, normalizeCustomOverlay, customOverlayHistoryDir: path.join(dir, 'history'),
+            saveCustomOverlays: () => fs.writeFileSync(file, JSON.stringify(overlays)),
+            pageSnapshot: () => ({ id: initial.id, enabled: false }),
+            broadcastToOverlays: (type, data) => {
+                events.push({ type, data });
+                for (const client of sockets.clients) client.send(JSON.stringify({ type, data }));
+            }
+        });
+        const staticRouter = createStaticRouter({ rootDir: path.resolve(__dirname, '..') });
+        const server = http.createServer(async (req, res) => {
+            const url = new URL(req.url, 'http://localhost');
+            if (url.pathname === '/api/obs/audio-inputs') {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ connected: true, inputs: ['Mic/Aux', 'Guest Audio'] })); return;
+            }
+            if (await route(req, res, url, url.pathname)) return;
+            staticRouter.handleRequest(req, res);
+        });
+        const sockets = new WebSocketServer({ server });
+        await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+        t.after(() => { for (const socket of sockets.clients) socket.terminate(); sockets.close(); return new Promise(resolve => server.close(resolve)); });
+        const base = `http://127.0.0.1:${server.address().port}`, endpoint = `${base}/api/custom-overlays/${initial.id}/speakers`;
+        const { default: puppeteer } = await import('puppeteer');
+        const browser = await puppeteer.launch({ headless: true });
+        t.after(() => browser.close());
+        const page = await browser.newPage(), errors = [];
+        page.on('pageerror', error => errors.push(error.message));
+        await page.goto(`${base}/overlay-control.html?id=${initial.id}`, { waitUntil: 'networkidle0' });
+        await page.click('#tab-speakers');
+        await page.waitForSelector('[data-speaker-form="host"] input');
+        await page.$eval('[data-speaker-form="host"] [name="name"]', input => { input.value = 'Edited Host'; input.dispatchEvent(new Event('input', { bubbles: true })); });
+        await page.$eval('[data-speaker-form="host"] [name="inputName"]', input => { input.value = 'Guest Audio'; input.dispatchEvent(new Event('input', { bubbles: true })); });
+        for (const client of sockets.clients) client.send(JSON.stringify({ type: 'custom-overlay-page', data: { id: initial.id, enabled: false } }));
+        assert.equal(await page.$eval('[data-speaker-form="host"] [name="name"]', input => input.value), 'Edited Host');
+        assert.equal(await page.$eval('#speaker-audio-inputs', list => list.children.length), 2);
+        overlays[initial.id].elements.find(element => element.id === 'heading').content = 'Concurrent heading edit';
+        const [saved] = await Promise.all([
+            page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'PATCH'),
+            page.click('[data-speaker-form="host"] button')
+        ]);
+        assert.equal(saved.status(), 200);
+        const stored = JSON.parse(fs.readFileSync(file, 'utf8'))[initial.id];
+        const badge = stored.elements.find(element => element.id === 'host').speakerBadge;
+        assert.equal(badge.speaker.name, 'Edited Host');
+        assert.equal(badge.audio.inputName, 'Guest Audio');
+        assert.equal(badge.audio.thresholdDb, -27);
+        assert.equal(badge.reaction.glowSpread, 30);
+        assert.equal(badge.layout, 'compact-pill');
+        assert.equal(stored.elements.find(element => element.id === 'heading').content, 'Concurrent heading edit');
+        assert.equal(stored.elements.find(element => element.id === 'guest').speakerBadge.speaker.name, 'Fictional Guest');
+        assert.ok(events.some(event => event.type === 'custom-overlay-update'));
+        const bad = await fetch(endpoint, { method: 'PATCH', body: JSON.stringify({ element: 'heading', speaker: { name: 'Wrong' } }) });
+        assert.equal(bad.status, 404);
+        const invalid = await fetch(endpoint, { method: 'PATCH', body: JSON.stringify({ element: 'host', audio: { inputName: 42 } }) });
+        assert.equal(invalid.status, 400);
+        await page.reload({ waitUntil: 'networkidle0' });
+        assert.equal(await page.$eval('#tab-speakers', tab => tab.getAttribute('aria-selected')), 'true');
+        assert.equal(await page.$eval('[data-speaker-form="host"] [name="name"]', input => input.value), 'Edited Host');
+        assert.deepEqual(errors, []);
+    });
+
 test('OBS WebSocket subscription conditional on isSpeakerBadgesEnabled', () => {
     FixtureWebSocket.instances = [];
     let enabled = false;

@@ -7,6 +7,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- Speaker badges: OBS voice-reactive overlay layers and a Speakers controller tab for quick profile and audio-source changes.
 - Moderation: Twitch/SocialStream message deletion and chat-clear sync with persistent, non-destructive history/highlight filtering.
 - System Config: permanent Twitch ban sync with live ban/unban updates and non-destructive filtering of current and archived community data.
 - Alerts: per-variant image focus point (click or drag on the image), used when the overlay crops with Cover fit.

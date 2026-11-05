@@ -15,6 +15,18 @@ Enable with `PUT /api/config` and `{ "twitch_ban_sync": { "enabled": true } }`. 
 
 Session/chat/highlight outputs and exports apply the current combined ban list retroactively without rewriting stored history. Full backups remain unfiltered. Anonymous aggregate totals are not rebuilt. See [System Config details](server-management.md#banned-accounts--twitch-sync).
 
+## Speaker Badge Control
+
+| Endpoint | Result |
+| --- | --- |
+| `GET /api/custom-overlays/:id/speakers` | Overlay `id`, `name`, `revision` and `speakers` with badge element IDs, layer names, page and `speakerBadge` settings |
+| `PATCH /api/custom-overlays/:id/speakers` | Persist selected badge fields and broadcast the existing `custom-overlay-update` event; returns the refreshed speaker list |
+| `GET /api/obs/audio-inputs` | OBS audio-source names with connection/enabled status |
+
+Example patch: `{ "element": "guest-badge", "speaker": { "name": "Fictional Guest", "handle": "@fictional", "pronouns": "they/them", "avatarSrc": "/custom-overlay-assets/guest.png", "callIn": { "statusText": "ON THE LINE", "location": "Remote studio" } }, "audio": { "inputName": "Guest Audio" } }`. All profile fields are optional text values. Only identity, call-in text/location and input name are patched; appearance, visibility, sensitivity, other badges and layers remain unchanged. The endpoint uses overlay revision history and storage; this is not a temporary runtime override. Unknown overlays/non-badge element IDs return `404`, invalid field types return `400`.
+
+See [Speaker Badge setup and controller](custom-overlays.md#voice-reactive-speaker-badges--call-in-banners).
+
 ## Message Deletion Sync
 
 `GET /api/twitch/message-deletions` returns `enabled`, `events` (saved deletion records), `lastEventAt`, `error`, `scopeReady` (`user:read:chat` granted), and `connected` (Twitch message-delete subscription registered on the active EventSub socket).

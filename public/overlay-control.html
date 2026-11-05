@@ -26,12 +26,32 @@
         .msg { padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); }
         h2 { font-size: .95rem; margin: 1.2rem 0 .5rem; display: flex; align-items: center; gap: 6px; }
         .status { font-size: .8rem; color: var(--text-muted); margin-top: .8rem; }
+        .tabs { display:flex; gap:.5rem; margin-bottom:1rem; }
+        [hidden] { display:none !important; }
+        .speaker-fields { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.7rem; margin:.8rem 0; }
+        .speaker-fields label { display:grid; gap:.3rem; font-size:.8rem; color:var(--text-muted); }
+        .speaker-fields .wide { grid-column:1 / -1; }
+        .speaker-fields input { width:100%; min-width:0; padding:.6rem; border:1px solid var(--border); border-radius:6px; background:var(--bg-inset); color:var(--text); font:inherit; }
+        .hint { font-size:.8rem; color:var(--text-muted); margin:.5rem 0; }
+        .speaker-card { margin-bottom:.8rem; }
+        .speaker-card summary { cursor:pointer; font-weight:600; }
+        @media (max-width:400px) { .speaker-fields { grid-template-columns:1fr; } }
     </style>
 </head>
 <body>
     <h1 id="title">Overlay control</h1>
     <p class="sub" id="sub"></p>
-    <div id="body"><div class="msg">Loading…</div></div>
+    <div class="tabs" role="tablist" aria-label="Overlay controls">
+        <button class="btn" id="tab-playback" role="tab" data-tab="playback" aria-controls="body">Playback</button>
+        <button class="btn" id="tab-speakers" role="tab" data-tab="speakers" aria-controls="speakers-panel">Speakers</button>
+    </div>
+    <div id="body" role="tabpanel" aria-labelledby="tab-playback"><div class="msg">Loading…</div></div>
+    <div id="speakers-panel" role="tabpanel" aria-labelledby="tab-speakers" hidden>
+        <p class="hint" id="audio-status"></p>
+        <button class="btn" type="button" id="refresh-speakers">Refresh badges &amp; audio sources</button>
+        <datalist id="speaker-audio-inputs"></datalist>
+        <div id="speaker-badges" style="margin-top:1rem;"></div>
+    </div>
     <p class="status" id="status"></p>
     <script>
     const id = new URLSearchParams(location.search).get('id') || '';
@@ -39,9 +59,97 @@
     const slideApi = `/api/custom-overlays/${encodeURIComponent(id)}/slideshow`;
     const videoApi = `/api/custom-overlays/${encodeURIComponent(id)}/video`;
     const cutoutApi = `/api/custom-overlays/${encodeURIComponent(id)}/cutout`;
+    const speakersApi = `/api/custom-overlays/${encodeURIComponent(id)}/speakers`;
     const $ = key => document.getElementById(key);
     const esc = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     let state = null, slides = [], videos = [], cutouts = [];
+    let speakers = [], activeTab = localStorage.getItem(`overlay-control:${id}:tab`) || 'playback';
+    const drafts = new Map();
+    const dirtySpeakers = new Set();
+
+    function setTab(tab) {
+        activeTab = tab === 'speakers' ? 'speakers' : 'playback';
+        for (const button of document.querySelectorAll('[data-tab]')) {
+            const active = button.dataset.tab === activeTab;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-selected', String(active));
+            button.tabIndex = active ? 0 : -1;
+        }
+        $('body').hidden = activeTab !== 'playback';
+        $('speakers-panel').hidden = activeTab !== 'speakers';
+        localStorage.setItem(`overlay-control:${id}:tab`, activeTab);
+    }
+
+    function speakerValues(badge) {
+        const config = badge.speakerBadge || {}, speaker = config.speaker || {};
+        return { name: speaker.name || '', handle: speaker.handle || '', pronouns: speaker.pronouns || '',
+            avatarSrc: speaker.avatarSrc || '', statusText: speaker.callIn?.statusText || '', location: speaker.callIn?.location || '',
+            inputName: config.audio?.inputName || 'Mic/Aux' };
+    }
+
+    function drawSpeakers() {
+        const open = new Set([...document.querySelectorAll('[data-speaker][open]')].map(card => card.dataset.speaker));
+        $('speaker-badges').innerHTML = speakers.length ? speakers.map((badge, index) => {
+            const values = drafts.get(badge.id) || speakerValues(badge);
+            const fields = [['name', 'Display name', 80], ['handle', 'Handle / subtitle', 60], ['pronouns', 'Pronouns', 30],
+                ['avatarSrc', 'Avatar URL / library asset', 500], ['statusText', 'Call-in status', 40], ['location', 'Caller location', 80], ['inputName', 'OBS audio source', 100]];
+            return `<details class="msg speaker-card" data-speaker="${esc(badge.id)}" ${open.has(badge.id) || index === 0 ? 'open' : ''}>
+                <summary>${esc(badge.name)}${badge.page ? ` <small>(${esc(badge.page)})</small>` : ''}</summary>
+                <form data-speaker-form="${esc(badge.id)}"><div class="speaker-fields">${fields.map(([key, label, max]) =>
+                    `<label class="${['avatarSrc', 'inputName'].includes(key) ? 'wide' : ''}">${label}<input name="${key}" value="${esc(values[key])}" maxlength="${max}" ${key === 'inputName' ? 'list="speaker-audio-inputs"' : ''}></label>`).join('')}</div>
+                <button class="btn primary" type="submit">Save badge</button>
+                <span class="hint" data-speaker-status>${dirtySpeakers.has(badge.id) ? 'Unsaved changes' : ''}</span></form></details>`;
+        }).join('') : '<div class="msg">No speaker badges in this overlay. Add a Speaker Badge in the custom overlay editor.</div>';
+    }
+
+    async function loadSpeakers() {
+        const response = await fetch(speakersApi, { cache:'no-store' });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not load speaker badges');
+        speakers = data.speakers || [];
+        drawSpeakers();
+    }
+
+    async function loadAudioInputs() {
+        try {
+            const response = await fetch('/api/obs/audio-inputs', { cache:'no-store' });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Audio sources unavailable');
+            $('speaker-audio-inputs').innerHTML = (data.inputs || []).map(name => `<option value="${esc(name)}"></option>`).join('');
+            $('audio-status').textContent = data.connected ? `OBS connected · ${(data.inputs || []).length} audio sources. You can also type an exact source name.` : '';
+            if (!data.connected) $('audio-status').innerHTML = 'OBS disconnected. Connect in <a href="/config-editor.html#connection" target="_blank" rel="noopener">System Config → Connection &amp; Security</a>. You can still save source names.';
+        } catch (error) { $('audio-status').textContent = error.message; }
+    }
+
+    document.addEventListener('input', event => {
+        const form = event.target.closest('[data-speaker-form]');
+        if (!form) return;
+        drafts.set(form.dataset.speakerForm, Object.fromEntries(new FormData(form)));
+        dirtySpeakers.add(form.dataset.speakerForm);
+        form.querySelector('[data-speaker-status]').textContent = 'Unsaved changes';
+    });
+    document.addEventListener('submit', async event => {
+        const form = event.target.closest('[data-speaker-form]');
+        if (!form) return;
+        event.preventDefault();
+        const element = form.dataset.speakerForm, values = Object.fromEntries(new FormData(form));
+        const button = form.querySelector('button');
+        button.disabled = true;
+        try {
+            const response = await fetch(speakersApi, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({
+                element, speaker:{ name:values.name, handle:values.handle, pronouns:values.pronouns, avatarSrc:values.avatarSrc,
+                    callIn:{ statusText:values.statusText, location:values.location } }, audio:{ inputName:values.inputName }
+            }) });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Could not save badge');
+            dirtySpeakers.delete(element);
+            drafts.delete(element);
+            speakers = data.speakers || [];
+            drawSpeakers();
+            $('status').textContent = 'Speaker badge saved. Connected overlays update immediately.';
+        } catch (error) { form.querySelector('[data-speaker-status]').textContent = error.message; }
+        finally { button.disabled = false; }
+    });
 
     async function slide(action, element) {
         try {
@@ -133,6 +241,11 @@
 
     document.addEventListener('click', event => {
         const t = event.target.closest('button'); if (!t) return;
+        if (t.dataset.tab) return setTab(t.dataset.tab);
+        if (t.id === 'refresh-speakers') {
+            Promise.all([loadSpeakers(), loadAudioInputs()]).catch(error => { $('status').textContent = error.message; });
+            return;
+        }
         if (t.dataset.video) return videoCtl(t.dataset.video, t.dataset.el);
         if (t.dataset.cutout) return cutoutCtl(t.dataset.cutout, t.dataset.el);
         if (t.dataset.slide) return slide(t.dataset.slide, t.dataset.el);
@@ -142,6 +255,13 @@
     });
 
     document.addEventListener('keydown', event => {
+        if (event.target.matches('[data-tab]') && ['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) {
+            event.preventDefault();
+            setTab(event.key === 'Home' ? 'playback' : event.key === 'End' ? 'speakers' : activeTab === 'speakers' ? 'playback' : 'speakers');
+            $(`tab-${activeTab}`).focus();
+            return;
+        }
+        if (event.target.matches('input, textarea, select') || activeTab !== 'playback') return;
         if (event.key === 'ArrowRight') send({ action: 'next' });
         else if (event.key === 'ArrowLeft') send({ action: 'prev' });
     });
@@ -158,6 +278,7 @@
             cutouts = (list.elements || []).filter(e => e.type === 'cutout').map((e, i) => ({ id: e.id, name: e.name || `Cutout ${i + 1}`, shape: e.cutout?.shape || 'rectangle' }));
         } catch { slides = []; videos = []; cutouts = []; }
         draw();
+        await loadSpeakers();
     }
 
     function connect() {
@@ -166,12 +287,15 @@
             try {
                 const m = JSON.parse(event.data);
                 if (m.type === 'custom-overlay-page' && m.data?.id === id) { state = m.data; draw(); }
-                else if (m.type === 'custom-overlay-update' && m.data?.id === id) load();
+                else if (m.type === 'custom-overlay-update' && m.data?.id === id) load().catch(error => { $('status').textContent = error.message; });
             } catch {}
         });
         socket.addEventListener('close', () => setTimeout(connect, 2000));
     }
-    load(); connect();
+    setTab(activeTab);
+    load().catch(error => { $('status').textContent = error.message; });
+    loadAudioInputs();
+    connect();
     </script>
 </body>
 </html>

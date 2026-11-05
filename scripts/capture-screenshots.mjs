@@ -668,7 +668,18 @@ async function run() {
     await page.setRequestInterception(true);
     page.on('request', req => {
         const url = req.url();
-        if (page.url().includes('config-editor') && new URL(url).pathname.startsWith('/api/')) {
+        if (page.url().includes('overlay-control.html') && new URL(url).pathname.startsWith('/api/')) {
+            const badge = { id: 'fictional-host', name: 'Host badge', page: 'main', speakerBadge: {
+                speaker: { name: 'Fictional Host', handle: '@fictionalhost', pronouns: 'they/them', avatarSrc: '', callIn: { statusText: 'ON THE LINE', location: 'Remote studio' } },
+                audio: { inputName: 'Host microphone' }
+            } };
+            const pathname = new URL(url).pathname;
+            const data = pathname.endsWith('/speakers') ? { speakers: [badge, { ...badge, id: 'fictional-guest', name: 'Guest badge',
+                speakerBadge: { ...badge.speakerBadge, speaker: { ...badge.speakerBadge.speaker, name: 'Fictional Guest' }, audio: { inputName: 'Guest audio' } } }] }
+                : pathname === '/api/obs/audio-inputs' ? { connected: true, inputs: ['Host microphone', 'Guest audio'] }
+                : pathname.endsWith('/page') ? { enabled: false } : { elements: [] };
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
+        } else if (page.url().includes('config-editor') && new URL(url).pathname.startsWith('/api/')) {
             const pathname = new URL(url).pathname;
             const data = pathname === '/api/config' ? { banned_users: ['FictionalManualAccount'], exclude_users: ['FictionalBot'], twitch_ban_sync: { enabled: true } }
                 : pathname === '/api/twitch/bans' ? { enabled: true, count: 2, users: [{ id: 'fictional-1', login: 'fictionalblockedone' }, { id: 'fictional-2', login: 'fictionalblockedtwo' }], lastSyncAt: '2026-11-03T20:00:00Z', liveUpdates: true }
@@ -749,6 +760,15 @@ async function run() {
     });
 
     const targets = [
+        {
+            url: `${baseUrl}/overlay-control.html?id=fictional-panel`,
+            file: 'overlay-control-speakers.png',
+            wait: 1000,
+            action: async p => {
+                await p.click('#tab-speakers');
+                await p.waitForSelector('[data-speaker-form="fictional-host"]');
+            }
+        },
         {
             url: `${baseUrl}/config-editor.html`,
             file: 'twitch-ban-sync.png',

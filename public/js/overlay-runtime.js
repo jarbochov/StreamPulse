@@ -66,6 +66,20 @@
     let slideshowsKept = new Set();
     const cutoutStates = new Map();
     const speakerStates = new Map();
+    function speakerState(element) {
+        const input = String(element.speakerBadge?.audio?.inputName || 'Mic/Aux').toLowerCase();
+        let state = speakerStates.get(element.id);
+        if (state && state.input !== input) {
+            clearTimeout(state.timer);
+            speakerStates.delete(element.id);
+            state = null;
+        }
+        if (!state) {
+            state = { input, speaking: false, timer: null };
+            speakerStates.set(element.id, state);
+        }
+        return state;
+    }
     const elementNodes = new Map();
     let elementNodesKept = new Set();
     function stopSlideshows(ids) {
@@ -528,6 +542,11 @@
         if (transitioning) { pendingRender = overlay; return; }
         fitNodes.length = 0;
         currentOverlay = overlay;
+        const speakerIds = new Set(overlay.elements.filter(element => element.type === 'speaker-badge').map(element => element.id));
+        for (const [id, state] of speakerStates) if (!speakerIds.has(id)) {
+            clearTimeout(state.timer);
+            speakerStates.delete(id);
+        }
         stopRandomTimers();
         slideshowsKept = new Set();
         embedsKept = new Set();
@@ -668,7 +687,7 @@
             } else if (element.type === 'game-list') {
                 shared.renderGameList(existingNode, element, liveStatus.gamePlan);
             } else if (element.type === 'speaker-badge') {
-                const st = speakerStates.get(element.id);
+                const st = speakerState(element);
                 shared.renderSpeakerBadge(existingNode, element, { preview: params.get('preview') === 'true', speaking: Boolean(st?.speaking) });
             } else if (element.type === 'poll') {
                 window.PollWidget.render(existingNode, element, liveStatus.poll, { preview: params.get('preview') === 'true' });
@@ -848,7 +867,7 @@
             } else if (element.type === 'game-list') {
                 shared.renderGameList(node, element, liveStatus.gamePlan);
             } else if (element.type === 'speaker-badge') {
-                const st = speakerStates.get(element.id);
+                const st = speakerState(element);
                 shared.renderSpeakerBadge(node, element, { preview: params.get('preview') === 'true', speaking: Boolean(st?.speaking) });
             } else if (element.type === 'poll') {
                 window.PollWidget.render(node, element, liveStatus.poll, { preview: params.get('preview') === 'true' });
@@ -1408,11 +1427,7 @@
             const holdMs = Math.max(50, Number(element.speakerBadge?.audio?.holdMs ?? 280));
             const isAbove = db >= threshold;
 
-            let st = speakerStates.get(element.id);
-            if (!st) {
-                st = { speaking: false, timer: null };
-                speakerStates.set(element.id, st);
-            }
+            const st = speakerState(element);
 
             const node = elements.get(element.id);
             if (!node) continue;
@@ -1425,12 +1440,15 @@
                         shared.renderSpeakerBadge(node, element, { preview: false, speaking: true, rms: data.rms });
                     }
                 }
-            } else if (st.speaking && !st.timer) {
+            }
+            if (st.speaking && !st.timer) {
                 st.timer = setTimeout(() => {
                     st.speaking = false;
                     st.timer = null;
-                    if (shared.renderSpeakerBadge) {
-                        shared.renderSpeakerBadge(node, element, { preview: false, speaking: false, rms: 0 });
+                    const current = currentOverlay?.elements.find(item => item.id === element.id && item.type === 'speaker-badge');
+                    const currentNode = elements.get(element.id);
+                    if (current && currentNode && speakerStates.get(element.id) === st && shared.renderSpeakerBadge) {
+                        shared.renderSpeakerBadge(currentNode, current, { preview: false, speaking: false, rms: 0 });
                     }
                 }, holdMs);
             }

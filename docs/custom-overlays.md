@@ -30,16 +30,17 @@ Pages and Scene States can automatically take over the screen when broadcast eve
 
 StreamPulse includes an audio-reactive **Speaker Badge** layer (`type: "speaker-badge"`) in Custom Overlay Studio. Speaker badges highlight active speakers in real time based on live OBS audio inputs (microphones, Discord/guest call tracks, or VDO.ninja browser sources).
 
-- **Modular & Zero Background Overhead**: Speaker badges are disabled by default (`"speaker_badges_enabled": false` in `config.json` or System Config). When disabled, OBS WebSocket audio volume metering is omitted entirely and the element is hidden from the studio toolbar. When enabled, StreamPulse subscribes to OBS volume meters (`InputVolumeMeters`) at a throttled 20Hz update rate.
+- **Opt-in audio metering**: Speaker badges are disabled by default (`"speaker_badges_enabled": false` in `config.json` or System Config). When disabled, OBS WebSocket audio volume metering is omitted and the element is hidden from the studio toolbar. When enabled, StreamPulse subscribes to OBS volume meters (`InputVolumeMeters`) at a throttled 20Hz update rate.
 - **Clean Inspector Separation**:
-  - **Content**: Pure speaker identity data (Display Name, Handle, Pronouns, Avatar Asset), Call-In metadata (Status tag, Caller location), and OBS Audio Input selection with live connection feedback (`● OBS Connected (N sources)` vs `⚠ OBS Disconnected`), dB sensitivity gate threshold, and release hold time.
+  - **Content**: Speaker identity (Display Name, Handle, Pronouns, Avatar Asset), Call-In metadata (Status tag, Caller location), and OBS Audio Input selection with a connection-status badge, dB sensitivity gate threshold, and release hold time. The setup link opens **System Config → Connection & Security**, where the OBS bridge is configured.
   - **Layout**: Switch layout presets with one click; dimensions auto-adapt to recommended aspect ratios with an optional "Apply Recommended Size" button.
   - **Style**: Visual appearance (Avatar shape: Circle, Squircle, Square; Call-In tag color), Speaking reactions & visualizers, Proportional typography (adjusting font size harmoniously scales display name, handle, pronouns, and call-in tags), Background fills (including true transparency, solid colors, and animated gradients), borders, and box shadows.
+- **Quick speaker changes**: Open the overlay's controller (`/overlay-control.html?id=<overlay-id>`) and choose **Speakers**. Each badge has a compact form for name, handle/subtitle, pronouns, avatar URL/library asset, call-in status/location and OBS audio source. Save each badge to persist its data and update connected overlays immediately; layout, styling, gate settings and other layers are preserved. Audio sources come from OBS, with manual source names supported while disconnected. Use **Refresh badges & audio sources** to rediscover inputs. Call-in fields display only when enabled in the editor. The controller remembers its active tab and preserves unsaved speaker drafts during live page changes.
 - **Audio Reactions & Visualizers**:
   - **Border & Glow Highlighting**: Active border color and custom glow spread that illuminate when the speaker talks.
   - **Motion Pop**: Subtle scale pop animation triggered by speech onset.
   - **Idle Dimming**: Soften inactive speakers with a configurable idle opacity (e.g., 50%) so active speakers stand out immediately.
-  - **EQ Visualizer**: Built-in 3 to 8 bar audio visualizer bars that bounce dynamically while speech is detected.
+  - **EQ-style Visualizer**: Built-in 3 to 8 decorative bars animate while speech is detected; these are not frequency-band measurements. A speaker returns to idle after the release hold even if meter delivery stops, and changing the input resets the previous source's speaking state.
 - **Layout Styles**:
   - `horizontal`: Classic podcaster/streamer lower-third badge with avatar, name, handle, and pronouns.
   - `cspan-banner`: Broadcast call-in news banner featuring an uppercase status header (e.g. `LIVE CALLER`, `ON THE LINE`), animated live status dot, caller name, and location tag (e.g. `CHICAGO, IL`).
@@ -47,6 +48,8 @@ StreamPulse includes an audio-reactive **Speaker Badge** layer (`type: "speaker-
   - `vertical-card`: Tall portrait card format for sidebar and side-by-side stream layouts.
   - `avatar-only`: Audio-reactive floating avatar with glowing halo ring, ideal for placing on top of guest webcam feeds.
 - **Multi-Guest Audio Routing**: When using tools like VDO.ninja or Discord with multiple guests, route each guest's audio to an individual OBS Browser Source (with "Control audio via OBS" enabled) or Audio Input Capture. StreamPulse detects each source in the audio input picker and lights up only the badge belonging to that guest.
+
+![Overlay Control speaker forms with fictional data](images/overlay-control-speakers.png)
 
 Explore the [StreamPulse features](features.md) or [get started](quickstart.md). Already installed? **Docs** and **API Reference** are available from the app navigation.
 

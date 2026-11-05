@@ -3797,7 +3797,7 @@
         const speaking = Boolean(options.speaking);
 
         const activeColor = re.activeColor || '#6366f1';
-        const glowSpread = Math.max(0, Number(re.glowSpread) || 14);
+        const glowSpread = Math.max(0, Number(re.glowSpread ?? 14) || 0);
         const barColor = re.visualizerColor === 'match' ? activeColor : (re.visualizerColor || activeColor);
 
         // Keep the outer host node clean so canvas/runtime geometry & selection remain intact

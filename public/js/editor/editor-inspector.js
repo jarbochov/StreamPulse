@@ -1566,7 +1566,7 @@ export function updateObsAudioStatus(data) {
         pill.style.color = '#ef4444';
         pill.style.border = '1px solid rgba(239, 68, 68, 0.3)';
         pill.innerHTML = `<span style="width:5px;height:5px;border-radius:50%;background:currentColor;"></span>OBS Disconnected`;
-        if (hint) hint.innerHTML = 'Connect OBS Studio via WebSocket in <a href="/system/settings.html#obs" target="_blank" style="color:var(--accent);text-decoration:underline;">Settings &gt; OBS Studio</a> to auto-list live audio sources.';
+        if (hint) hint.innerHTML = 'Connect OBS Studio via WebSocket in <a href="/config-editor.html#connection" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;">System Config &gt; Connection &amp; Security</a> to auto-list live audio sources.';
     }
 }
 

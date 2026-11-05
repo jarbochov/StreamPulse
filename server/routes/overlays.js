@@ -794,6 +794,55 @@ function createOverlayRoutes({
         }
 
         // --- 7. Custom Overlays: Pages & Slideshows ---
+        const speakersMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)\/speakers$/);
+        if (speakersMatch && ['GET', 'PATCH'].includes(req.method)) {
+            try {
+                const id = sanitizeOverlayId(decodeURIComponent(speakersMatch[1]));
+                const body = req.method === 'PATCH' ? JSON.parse(await readRequestBody(req) || '{}') : null;
+                const customOverlays = getCustomOverlays();
+                const previous = customOverlays[id];
+                if (!previous) { sendError(res, 'Overlay not found', 404); return true; }
+                const snapshot = overlay => ({
+                    id, name: overlay.name, revision: overlay.revision,
+                    speakers: (overlay.elements || []).filter(element => element.type === 'speaker-badge')
+                        .map(element => ({ id: element.id, name: element.name || 'Speaker Badge', page: element.page, speakerBadge: element.speakerBadge }))
+                });
+                if (req.method === 'GET') { sendJson(res, snapshot(previous)); return true; }
+                const element = previous.elements.find(item => item.id === body.element && item.type === 'speaker-badge');
+                if (!element) { sendError(res, 'Speaker badge not found', 404); return true; }
+                const badge = element.speakerBadge || {};
+                const speaker = { ...badge.speaker };
+                const audio = { ...badge.audio };
+                const copyStrings = (source, target, fields) => {
+                    if (source === undefined) return;
+                    if (!source || typeof source !== 'object' || Array.isArray(source)) throw new Error('Invalid speaker fields');
+                    for (const key of fields) if (source[key] !== undefined) {
+                        if (typeof source[key] !== 'string') throw new Error(`${key} must be text`);
+                        target[key] = source[key];
+                    }
+                };
+                copyStrings(body.speaker, speaker, ['name', 'handle', 'pronouns', 'avatarSrc']);
+                if (body.speaker?.callIn !== undefined) {
+                    speaker.callIn = { ...speaker.callIn };
+                    copyStrings(body.speaker.callIn, speaker.callIn, ['statusText', 'location']);
+                }
+                copyStrings(body.audio, audio, ['inputName']);
+                const overlay = normalizeCustomOverlay({
+                    ...previous, revision: previous.revision + 1, updatedAt: new Date().toISOString(),
+                    elements: previous.elements.map(item => item.id === element.id ? { ...item, speakerBadge: { ...badge, speaker, audio } } : item)
+                }, id);
+                recordOverlayRevision(customOverlayHistoryDir, previous, customOverlayHistoryLimit);
+                customOverlays[id] = overlay;
+                saveCustomOverlays();
+                deleteOverlayThumbnail(id);
+                syncOverlayPages(overlay, previous);
+                broadcastToOverlays('custom-overlay-update', { id, overlay });
+                broadcastPage(overlay);
+                sendJson(res, snapshot(overlay));
+            } catch (err) { sendError(res, err.message, 400); }
+            return true;
+        }
+
         const overlayPageMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)\/page$/);
         if (overlayPageMatch && (req.method === 'GET' || req.method === 'POST')) {
             const customOverlays = getCustomOverlays();

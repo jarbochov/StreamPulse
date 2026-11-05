@@ -386,7 +386,7 @@ function normalizeSpeakerBadge(badge = {}) {
 
     const audio = {
         inputName: String(rawAudio.inputName || 'Mic/Aux').trim().slice(0, 100) || 'Mic/Aux',
-        thresholdDb: Math.max(-80, Math.min(0, Math.round(Number(rawAudio.thresholdDb) || -36))),
+        thresholdDb: Math.max(-80, Math.min(0, Math.round(Number.isFinite(Number(rawAudio.thresholdDb)) && rawAudio.thresholdDb != null ? Number(rawAudio.thresholdDb) : -36))),
         holdMs: Math.max(50, Math.min(2000, Math.round(Number(rawAudio.holdMs) || 280)))
     };
 
@@ -394,8 +394,8 @@ function normalizeSpeakerBadge(badge = {}) {
         highlightBorder: rawReaction.highlightBorder !== false,
         activeColor: /^#[0-9a-f]{6}$/i.test(String(rawReaction.activeColor || '')) ? rawReaction.activeColor : '#6366f1',
         idleBorderColor: String(rawReaction.idleBorderColor || 'rgba(255, 255, 255, 0.12)').slice(0, 60),
-        borderWidth: Math.max(0, Math.min(20, Math.round(Number(rawReaction.borderWidth) || 2))),
-        glowSpread: Math.max(0, Math.min(60, Math.round(Number(rawReaction.glowSpread) || 12))),
+        borderWidth: Math.max(0, Math.min(20, Math.round(Number(rawReaction.borderWidth ?? 2) || 0))),
+        glowSpread: Math.max(0, Math.min(60, Math.round(Number(rawReaction.glowSpread ?? 12) || 0))),
         visualizer: ['bars', 'wave', 'pulse-ring', 'both', 'none'].includes(rawReaction.visualizer) ? rawReaction.visualizer : 'bars',
         barCount: Math.max(3, Math.min(9, Math.round(Number(rawReaction.barCount) || 5))),
         visualizerPosition: ['inline', 'avatar-badge', 'bottom'].includes(rawReaction.visualizerPosition) ? rawReaction.visualizerPosition : 'inline',
