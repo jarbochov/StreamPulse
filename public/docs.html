@@ -1588,7 +1588,8 @@
                     </div>
                     <div class="card-body">
                         <div class="detail-text">
-                            A dedicated Bitfocus Companion module with StreamPulse actions, feedbacks and variables, so you don't have to build every button by hand. Get it from <a href="https://github.com/jarbochov/companion-module-streampulse" style="color:var(--accent);" target="_blank" rel="noopener">jarbochov/companion-module-streampulse</a>. The Generic HTTP guide below still works if you prefer it.
+                            A dedicated Bitfocus Companion module with StreamPulse actions, feedbacks and variables, so you don't have to build every button by hand. Get it from <a href="https://github.com/jarbochov/companion-module-streampulse" style="color:var(--accent);" target="_blank" rel="noopener">jarbochov/companion-module-streampulse</a>. Speaker badge actions update profile text, avatar URL/library path, OBS input name, and individual detail visibility without changing the rest of the badge. Speaker variables and feedbacks report the current profile and visibility; OBS health variables and feedbacks report connection state and Scene Sync separately. Configure the global OBS connection in System Config; Companion does not need access to the local-only OBS administration endpoints.<br><br>
+                            Live updates use WebSocket events, with HTTP fallback and background reconciliation. Overlay, preset, and command discovery runs every 30 seconds; actions refresh discovery immediately. Single-page overlays are supported. Existing action IDs and saved buttons remain compatible. The Generic HTTP guide below still works if you prefer it.
                         </div>
                     </div>
                 </div>
