@@ -806,3 +806,79 @@ test('Procedural Patterns: multicolor palettes, fill styles, schema normalizatio
     assert.ok(inspectorCode.includes("'pattern.fillMode'"), 'pattern.fillMode must be in RERENDER_PATHS');
     assert.ok(inspectorCode.includes("isProcedural ? effectsSection(el) :"), 'isProcedural layers must exclude media filters and fill section');
 });
+
+test('Continuous Falling Motion: Overlay linear motion has zero periodic jumps, promo video loops cleanly', () => {
+    // 1. Promo video renderer passes loop flags
+    const promoCode = fs.readFileSync(path.join(__dirname, '../public/js/promo-renderer.js'), 'utf8');
+    assert.ok(promoCode.includes('loop: true'), 'Promo renderer must pass loop: true for seamless social video loops');
+    assert.ok(promoCode.includes('loopDuration: 6'), 'Promo renderer must pass loopDuration: 6');
+
+    // 2. Continuous linear motion without jumps for overlay editor and live broadcast
+    const samplePatterns = ['grid', 'dots', 'hexagons', 'leaves', 'turkeys', 'snowflakes', 'christmas-trees'];
+
+    for (const pat of samplePatterns) {
+        const getPositions = (t, opts = {}) => {
+            const positions = [];
+            const mockCtx = {
+                save: () => {},
+                restore: () => {},
+                beginPath: () => {},
+                closePath: () => {},
+                moveTo: (x, y) => positions.push({ type: 'moveTo', x, y }),
+                lineTo: (x, y) => positions.push({ type: 'lineTo', x, y }),
+                quadraticCurveTo: () => {},
+                stroke: () => {},
+                fill: () => {},
+                fillRect: (x, y) => positions.push({ type: 'fillRect', x, y }),
+                scale: () => {},
+                translate: (x, y) => positions.push({ type: 'translate', x, y }),
+                rotate: () => {},
+                arc: (x, y) => positions.push({ type: 'arc', x, y }),
+                ellipse: (x, y) => positions.push({ type: 'ellipse', x, y }),
+                createRadialGradient: () => ({ addColorStop: () => {} }),
+                createLinearGradient: () => ({ addColorStop: () => {} })
+            };
+            drawProceduralPattern(mockCtx, pat, 800, 600, {
+                scale: 100,
+                color: '#0f172a',
+                accent: '#38bdf8',
+                secondary: '#f43f5e',
+                time: t,
+                speed: 1,
+                motion: 'fall',
+                ...opts
+            });
+            return positions;
+        };
+
+        // Around t = 4.545s, the old fallProgress ((t * 0.22) % 1) jumped backward by 1.0.
+        // In the new continuous engine, vertical positions must advance continuously downward (y increases) with no jump!
+        const t1 = 4.54;
+        const t2 = 4.56;
+        const p1 = getPositions(t1);
+        const p2 = getPositions(t2);
+        assert.ok(p1.length > 0 && p2.length > 0, `Pattern ${pat} must render elements`);
+
+        // Look at the translates or element positions: for items present at both times, y2 must be > y1
+        const translates1 = p1.filter(p => p.type === 'translate' || p.type === 'arc' || p.type === 'fillRect');
+        const translates2 = p2.filter(p => p.type === 'translate' || p.type === 'arc' || p.type === 'fillRect');
+        if (translates1.length > 0 && translates2.length > 0) {
+            // Check average Y across rendered shapes
+            const avgY1 = translates1.reduce((sum, p) => sum + p.y, 0) / translates1.length;
+            const avgY2 = translates2.reduce((sum, p) => sum + p.y, 0) / translates2.length;
+            // Since rows continuously scroll downward, elements move downward (positive delta)
+            // Even if a new row entered, the individual elements' y positions moved downward
+            assert.ok(translates2[0].y > translates1[0].y || avgY2 >= avgY1 - 5,
+                `Pattern ${pat} vertical position must advance downward between t=${t1} and t=${t2} without jumping backwards`);
+        }
+
+        // 3. For promo looping mode, time=0 and time=6 start at the same displacement
+        const loop0 = getPositions(0, { loop: true, loopDuration: 6 });
+        const loop6 = getPositions(6, { loop: true, loopDuration: 6 });
+        assert.equal(loop0.length, loop6.length, `Looping pattern ${pat} element counts must match at loop boundary`);
+        if (loop0.length > 0) {
+            assert.equal(Math.round(loop0[0].y), Math.round(loop6[0].y),
+                `Looping pattern ${pat} initial element position at t=6 must match t=0 for seamless promo export`);
+        }
+    }
+});

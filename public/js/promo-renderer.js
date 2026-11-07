@@ -389,7 +389,9 @@ function drawThemeBackdrop(ctx, width, height, design, pattern, motion = 'none',
             fillOpacity: bg.fillOpacity,
             motion,
             speed: bg.speed || 1,
-            time
+            time,
+            loop: true,
+            loopDuration: 6
         });
         ctx.save();
     } else {

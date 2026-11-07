@@ -205,8 +205,17 @@
         // Helper for consistent stroke width across all patterns and scales
         const getLineW = (mult = 1) => (customLineWidth > 0 ? customLineWidth : Math.max(1.2, (fullWidth / 700) * mult)) / scale;
 
-        // Continuous wrap progress for 'fall' motion
-        const fallProgress = motion === 'fall' ? (((time * 0.22 * speed) % 1 + 1) % 1) : 0;
+        // Continuous, non-jumping vertical displacement for 'fall' motion.
+        // For promo video rendering, loop over loopDuration if requested (options.loop === true).
+        // For overlay editor and live overlays, time is linear and continuous with ZERO periodic jump!
+        const isLoop = options.loop === true;
+        const loopDuration = Number(options.loopDuration) > 0 ? Number(options.loopDuration) : 6;
+        const fallVelocity = fullHeight * 0.055 * speed;
+        const fallDy = motion === 'fall'
+            ? (isLoop
+                ? (time % loopDuration) * fallVelocity
+                : time * fallVelocity)
+            : 0;
         const fallSwayX = motion === 'fall' ? Math.sin(phase * 0.8) * (fullWidth * 0.018) : 0;
 
         ctx.strokeStyle = withAlpha(accent, options.accentAlpha || '55');
@@ -214,26 +223,28 @@
 
         if (pattern === 'grid') {
             const step = Math.max(3, fullWidth / 32);
-            const dy = fallProgress * step;
             const x0 = Math.floor(minX / step) * step;
-            const y0 = Math.floor(minY / step) * step;
+            const yStart = Math.floor((minY - fallDy) / step) - 1;
+            const yEnd = Math.ceil((maxY - fallDy) / step) + 1;
             ctx.beginPath();
             for (let x = x0; x <= maxX; x += step) { ctx.moveTo(x + fallSwayX, minY); ctx.lineTo(x + fallSwayX, maxY); }
-            for (let y = y0; y <= maxY; y += step) { ctx.moveTo(minX, y + dy); ctx.lineTo(maxX, y + dy); }
+            for (let yi = yStart; yi <= yEnd; yi++) {
+                const cy = yi * step + fallDy;
+                ctx.moveTo(minX, cy); ctx.lineTo(maxX, cy);
+            }
             ctx.stroke();
             ctx.fillStyle = accent;
             ctx.fillRect(width * 0.92, height * 0.12, width * 0.012, height * 0.28);
         } else if (pattern === 'hexagons') {
             const radius = Math.max(3, fullWidth / 28), rowStep = Math.sqrt(3) * radius;
             const columnStep = radius * 1.5;
-            const dy = fallProgress * rowStep;
             ctx.lineWidth = getLineW(1);
             const cStart = Math.floor(minX / columnStep) - 1, cEnd = Math.ceil(maxX / columnStep) + 1;
-            const rStart = Math.floor(minY / rowStep) - 1, rEnd = Math.ceil(maxY / rowStep) + 1;
+            const rStart = Math.floor((minY - fallDy) / rowStep) - 1, rEnd = Math.ceil((maxY - fallDy) / rowStep) + 1;
             for (let col = cStart; col <= cEnd; col++) {
                 for (let row = rStart; row <= rEnd; row++) {
                     const cx = col * columnStep + fallSwayX;
-                    const cy = row * rowStep + (col & 1) * rowStep / 2 + dy;
+                    const cy = row * rowStep + (((col % 2) + 2) % 2) * rowStep / 2 + fallDy;
                     const color = getPatternColor(palette, col * 7 + row * 11, accent, secondary);
                     ctx.beginPath();
                     for (let point = 0; point < 6; point++) {
@@ -251,13 +262,15 @@
             }
         } else if (pattern === 'diamonds') {
             const step = Math.max(4, fullWidth / 18), radius = step * 0.46;
-            const dy = fallProgress * step;
             ctx.lineWidth = getLineW(1);
-            const x0 = Math.floor(minX / step) * step, y0 = Math.floor(minY / step) * step;
-            for (let y = y0; y <= maxY + step; y += step) {
+            const yStart = Math.floor((minY - fallDy) / step) - 1;
+            const yEnd = Math.ceil((maxY - fallDy) / step) + 1;
+            const x0 = Math.floor(minX / step) * step;
+            for (let yi = yStart; yi <= yEnd; yi++) {
+                const cy = yi * step + fallDy;
                 for (let x = x0; x <= maxX + step; x += step) {
-                    const cx = x + fallSwayX, cy = y + dy;
-                    const color = getPatternColor(palette, Math.round(x / step + y / step * 3), accent, secondary);
+                    const cx = x + fallSwayX;
+                    const color = getPatternColor(palette, Math.round(x / step + yi * 3), accent, secondary);
                     ctx.beginPath();
                     ctx.moveTo(cx, cy - radius); ctx.lineTo(cx + radius, cy); ctx.lineTo(cx, cy + radius); ctx.lineTo(cx - radius, cy); ctx.closePath();
                     if (hasFill) {
@@ -270,29 +283,33 @@
             }
         } else if (pattern === 'isometric') {
             const edge = Math.max(1, fullWidth / 20), half = edge * Math.sqrt(3) / 2, slope = Math.tan(Math.PI / 6);
-            const dy = fallProgress * edge;
             ctx.lineWidth = getLineW(1);
             ctx.beginPath();
             const x0 = Math.floor(minX / half) * half;
             for (let x = x0; x <= maxX + half; x += half) { ctx.moveTo(x, minY); ctx.lineTo(x, maxY); }
             const spanW = maxX - minX;
-            for (let c = minY - spanW * slope - edge; c <= maxY + spanW * slope + edge; c += edge) {
-                ctx.moveTo(minX, c + dy); ctx.lineTo(maxX, c + dy + spanW * slope);
-                ctx.moveTo(minX, c + dy + spanW * slope); ctx.lineTo(maxX, c + dy);
+            const cStart = Math.floor((minY - spanW * slope - edge - fallDy) / edge) * edge;
+            const cEnd = maxY + spanW * slope + edge;
+            for (let c = cStart; c <= cEnd; c += edge) {
+                const cy = c + fallDy;
+                ctx.moveTo(minX, cy); ctx.lineTo(maxX, cy + spanW * slope);
+                ctx.moveTo(minX, cy + spanW * slope); ctx.lineTo(maxX, cy);
             }
             ctx.stroke();
         } else if (pattern === 'mesh') {
             const rows = 14, columns = 20, amplitude = Math.max(1, fullWidth / 60);
             const spanW = maxX - minX, spanH = maxY - minY;
-            const dy = fallProgress * (spanH / rows);
+            const rowStep = spanH / rows;
+            const rStart = Math.floor((minY - fallDy) / rowStep) - 2;
+            const rEnd = Math.ceil((maxY - fallDy) / rowStep) + 2;
             ctx.lineWidth = getLineW(0.9);
-            for (let row = -1; row <= rows + 1; row++) {
+            for (let row = rStart; row <= rEnd; row++) {
                 const color = getPatternColor(palette, row, accent, secondary);
                 ctx.strokeStyle = withAlpha(color, '75');
                 ctx.beginPath();
                 for (let column = 0; column <= columns * 6; column++) {
                     const x = minX + column * spanW / (columns * 6);
-                    const y = minY + row * spanH / rows + dy + Math.sin((x - minX) / spanW * Math.PI * 4 + row * 0.45) * amplitude;
+                    const y = row * rowStep + fallDy + Math.sin((x - minX) / spanW * Math.PI * 4 + row * 0.45) * amplitude;
                     if (!column) ctx.moveTo(x, y); else ctx.lineTo(x, y);
                 }
                 ctx.stroke();
@@ -310,7 +327,7 @@
             }
         } else if (pattern === 'sunburst') {
             const cx = width * 0.5, cy = height * 0.5, radius = Math.hypot(maxX - minX, maxY - minY), rays = 28;
-            const rotOffset = motion === 'fall' ? fallProgress * (Math.PI * 2 / rays) : 0;
+            const rotOffset = motion === 'fall' ? (isLoop ? (time % loopDuration) : time) * speed * 0.35 : 0;
             ctx.lineWidth = getLineW(1);
             for (let i = 0; i < rays; i++) {
                 const angle = i * Math.PI * 2 / rays + rotOffset;
@@ -320,14 +337,15 @@
             }
         } else if (pattern === 'dots') {
             const step = Math.max(3, fullWidth / 24), radius = Math.max(1.2, fullWidth / 300);
-            const dy = fallProgress * step;
+            const yStart = Math.floor((minY - fallDy) / step) - 1;
+            const yEnd = Math.ceil((maxY - fallDy) / step) + 1;
             const x0 = Math.floor(minX / step) * step + step / 2;
-            const y0 = Math.floor(minY / step) * step + step / 2;
-            for (let y = y0; y <= maxY; y += step) {
+            for (let yi = yStart; yi <= yEnd; yi++) {
+                const cy = yi * step + fallDy;
                 for (let x = x0; x <= maxX; x += step) {
-                    const color = getPatternColor(palette, Math.round(x / step + y / step * 3), accent, secondary);
+                    const color = getPatternColor(palette, Math.round(x / step + yi * 3), accent, secondary);
                     ctx.fillStyle = withAlpha(color, hasFill ? fillHex : '65');
-                    ctx.beginPath(); ctx.arc(x + fallSwayX, y + dy, radius * (hasFill ? (0.8 + fillOp * 0.5) : 1), 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(x + fallSwayX, cy, radius * (hasFill ? (0.8 + fillOp * 0.5) : 1), 0, Math.PI * 2); ctx.fill();
                 }
             }
         } else if (pattern === 'starfield' || pattern === 'sparkles') {
@@ -336,12 +354,11 @@
             const refH = fullHeight * 1.44;
             const ox = (width - refW) / 2;
             const oy = (height - refH) / 2;
-            const dy = fallProgress * refH;
             for (let i = 0; i < count; i++) {
                 const u = (i * 0.61803398875) % 1;
                 const v = (i * 0.75487766625) % 1;
                 const x = ox + u * refW + fallSwayX * (0.6 + (i % 3) * 0.3);
-                const y = oy + ((v * refH + dy) % refH);
+                const y = oy + (((v * refH + fallDy) % refH + refH) % refH);
                 const twinkleMult = isAnimated ? (0.72 + 0.28 * Math.sin(phase * 1.5 + i * 1.7)) : 1;
                 const size = Math.max(1.5, fullWidth / (pattern === 'starfield' ? 420 : 250)) * (1 + (i % 3) * 0.35) * twinkleMult;
                 const pColor = getPatternColor(palette, i, accent, secondary);
@@ -355,29 +372,28 @@
             }
         } else if (pattern === 'checker') {
             const step = Math.max(4, fullWidth / 18);
-            const dy = fallProgress * (step * 2);
-            const rStart = Math.floor(minY / step) - 2, rEnd = Math.ceil(maxY / step) + 2;
+            const rStart = Math.floor((minY - fallDy) / step) - 2, rEnd = Math.ceil((maxY - fallDy) / step) + 2;
             const cStart = Math.floor(minX / step) - 2, cEnd = Math.ceil(maxX / step) + 2;
             for (let row = rStart; row <= rEnd; row++) {
+                const y = row * step + fallDy;
                 for (let col = cStart; col <= cEnd; col++) {
-                    if (((row + col) & 1) === 0) {
+                    if ((((row + col) % 2 + 2) % 2) === 0) {
                         const color = getPatternColor(palette, row * 7 + col, accent, secondary);
                         ctx.fillStyle = withAlpha(color, hasFill ? fillHex : '28');
-                        ctx.fillRect(col * step + fallSwayX, row * step + dy, step, step);
+                        ctx.fillRect(col * step + fallSwayX, y, step, step);
                     }
                 }
             }
         } else if (pattern === 'waves') {
             const rowStep = Math.max(4, fullHeight / 18), amplitude = Math.max(1, fullWidth / 100), wavelength = Math.max(8, fullWidth / 8);
             const wavePhase = time > 0 ? (time * 1.5 * speed) : 0;
-            const dy = fallProgress * rowStep;
             ctx.lineWidth = getLineW(1.3);
-            const rStart = Math.floor(minY / rowStep) - 1, rEnd = Math.ceil(maxY / rowStep) + 1;
+            const rStart = Math.floor((minY - fallDy) / rowStep) - 1, rEnd = Math.ceil((maxY - fallDy) / rowStep) + 1;
             const xStep = Math.max(2, fullWidth / 160);
             for (let row = rStart; row <= rEnd; row++) {
                 const color = getPatternColor(palette, row, accent, secondary);
                 ctx.strokeStyle = withAlpha(color, '85');
-                const baseY = row * rowStep + dy;
+                const baseY = row * rowStep + fallDy;
                 ctx.beginPath();
                 for (let x = minX; x <= maxX; x += xStep) {
                     const y = baseY + Math.sin((x / wavelength) * Math.PI * 2 + row * 0.45 + wavePhase) * amplitude;
@@ -387,7 +403,7 @@
             }
         } else if (pattern === 'rings') {
             const cx = width * 0.5, cy = height * 0.5, step = Math.max(3, fullWidth / 36);
-            const rPhase = time > 0 ? (time * 20 * speed) % step : 0;
+            const rPhase = time > 0 ? (((isLoop ? (time % loopDuration) : time) * 20 * speed) % step + step) % step : 0;
             ctx.lineWidth = getLineW(1.3);
             const maxR = Math.hypot(maxX - minX, maxY - minY);
             let rIdx = 0;
@@ -398,12 +414,11 @@
             }
         } else if (pattern === 'scales') {
             const step = Math.max(3, fullWidth / 24), rowStep = step * 0.5;
-            const dy = fallProgress * (rowStep * 2);
             ctx.lineWidth = getLineW(1);
-            const rStart = Math.floor(minY / rowStep) - 2, rEnd = Math.ceil(maxY / rowStep) + 2;
+            const rStart = Math.floor((minY - fallDy) / rowStep) - 2, rEnd = Math.ceil((maxY - fallDy) / rowStep) + 2;
             const x0 = Math.floor(minX / step) * step;
             for (let row = rStart; row <= rEnd; row++) {
-                const offset = (row & 1) * step / 2, y = row * rowStep + dy;
+                const offset = (((row % 2) + 2) % 2) * step / 2, y = row * rowStep + fallDy;
                 for (let x = x0; x <= maxX + step; x += step) {
                     const color = getPatternColor(palette, row * 5 + Math.round(x / step), accent, secondary);
                     ctx.beginPath(); ctx.arc(x + offset + fallSwayX, y, step / 2, 0, Math.PI);
@@ -417,15 +432,14 @@
             }
         } else if (pattern === 'triangles') {
             const size = Math.max(4, fullWidth / 20), rowStep = size * Math.sqrt(3) / 2;
-            const dy = fallProgress * (rowStep * 2);
             ctx.lineWidth = getLineW(1);
-            const rStart = Math.floor(minY / rowStep) - 2, rEnd = Math.ceil(maxY / rowStep) + 2;
+            const rStart = Math.floor((minY - fallDy) / rowStep) - 2, rEnd = Math.ceil((maxY - fallDy) / rowStep) + 2;
             const cStart = Math.floor(minX / size) - 2, cEnd = Math.ceil(maxX / size) + 2;
             for (let row = rStart; row <= rEnd; row++) {
                 for (let col = cStart; col <= cEnd; col++) {
                     const color1 = getPatternColor(palette, row * 7 + col * 3, accent, secondary);
                     const color2 = getPatternColor(palette, row * 7 + col * 3 + 1, secondary, accent);
-                    const x = col * size + (row & 1) * size / 2 + fallSwayX, y = row * rowStep + dy;
+                    const x = col * size + (((row % 2) + 2) % 2) * size / 2 + fallSwayX, y = row * rowStep + fallDy;
                     ctx.beginPath();
                     ctx.moveTo(x, y + rowStep); ctx.lineTo(x + size / 2, y); ctx.lineTo(x + size, y + rowStep);
                     ctx.closePath();
@@ -449,16 +463,16 @@
             }
         } else if (pattern === 'chevrons') {
             const step = Math.max(4, fullWidth / 22), rowStep = step * 0.65;
-            const dy = fallProgress * rowStep;
             ctx.lineWidth = getLineW(1.3);
-            const y0 = Math.floor(minY / rowStep) * rowStep;
+            const rStart = Math.floor((minY - fallDy) / rowStep) - 1, rEnd = Math.ceil((maxY - fallDy) / rowStep) + 1;
             const x0 = Math.floor(minX / step) * step;
-            for (let y = y0; y <= maxY + rowStep; y += rowStep) {
-                const color = getPatternColor(palette, Math.round(y / rowStep), accent, secondary);
+            for (let row = rStart; row <= rEnd; row++) {
+                const color = getPatternColor(palette, row, accent, secondary);
                 ctx.strokeStyle = withAlpha(color, '85');
                 ctx.beginPath();
+                const cy = row * rowStep + fallDy;
                 for (let x = x0; x <= maxX + step; x += step) {
-                    const cx = x + fallSwayX, cy = y + dy;
+                    const cx = x + fallSwayX;
                     ctx.moveTo(cx, cy); ctx.lineTo(cx + step / 2, cy + rowStep / 2); ctx.lineTo(cx + step, cy);
                 }
                 ctx.stroke();
@@ -482,12 +496,12 @@
             const refH = fullHeight * 1.44;
             const ox = (width - refW) / 2;
             const oy = (height - refH) / 2;
-            const dy = fallProgress * refH;
             for (let i = 0; i < 180; i++) {
                 const u = (i * 0.61803398875) % 1;
                 const v = (i * 0.75487766625) % 1;
                 const x = ox + u * refW + fallSwayX * (0.5 + (i % 4) * 0.25);
-                const y = oy + ((v * refH + dy * (0.8 + (i % 3) * 0.2)) % refH);
+                const particleDy = fallDy * (0.8 + (i % 3) * 0.2);
+                const y = oy + (((v * refH + particleDy) % refH + refH) % refH);
                 const size = Math.max(2, fullWidth / 180) * (1 + (i % 3));
                 const rot = i * 2.399 + (isAnimated ? Math.sin(phase + i * 0.7) * 0.35 : 0);
                 const color = getPatternColor(palette, i, accent, secondary);
@@ -504,14 +518,13 @@
             }
         } else if (pattern === 'circuit') {
             const step = Math.max(6, fullWidth / 16), node = Math.max(1.5, fullWidth / 220);
-            const dy = fallProgress * (step * 2);
             ctx.lineWidth = getLineW(1.3);
-            const rStart = Math.floor(minY / step) - 1, rEnd = Math.ceil(maxY / step) + 1;
+            const rStart = Math.floor((minY - fallDy) / step) - 1, rEnd = Math.ceil((maxY - fallDy) / step) + 1;
             const cStart = Math.floor(minX / step) - 1, cEnd = Math.ceil(maxX / step) + 1;
             for (let row = rStart; row <= rEnd; row++) {
                 for (let col = cStart; col <= cEnd; col++) {
-                    const x = col * step + fallSwayX, y = row * step + dy;
-                    const direction = ((row + col) & 1) ? 1 : -1;
+                    const x = col * step + fallSwayX, y = row * step + fallDy;
+                    const direction = (((row + col) % 2 + 2) % 2) ? 1 : -1;
                     const color = getPatternColor(palette, row * 5 + col, accent, secondary);
                     ctx.strokeStyle = withAlpha(color, '85');
                     ctx.beginPath();
@@ -527,19 +540,19 @@
             const stepX = Math.max(24, fullWidth / 11);
             const stepY = stepX * 0.86;
             const leafR = stepX * 0.28;
-            const dy = fallProgress * (stepY * 2);
             ctx.lineWidth = getLineW(1.15);
-            const rStart = Math.floor(minY / stepY) - 2, rEnd = Math.ceil(maxY / stepY) + 2;
+            const rStart = Math.floor((minY - fallDy) / stepY) - 2, rEnd = Math.ceil((maxY - fallDy) / stepY) + 2;
             const cStart = Math.floor(minX / stepX) - 2, cEnd = Math.ceil(maxX / stepX) + 2;
             const leafPalette = palette === 'dual' ? 'dual' : palette;
 
             for (let row = rStart; row <= rEnd; row++) {
+                const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
                     const idx = Math.abs(row * 17 + col * 31);
                     const jitterX = (((idx * 37) % 100) / 100 - 0.5) * stepX * 0.32;
                     const jitterY = (((idx * 53) % 100) / 100 - 0.5) * stepY * 0.32;
-                    const cx = col * stepX + (row & 1) * (stepX * 0.5) + jitterX + fallSwayX;
-                    const cy = row * stepY + jitterY + dy;
+                    const cx = col * stepX + rowOffset + jitterX + fallSwayX;
+                    const cy = row * stepY + jitterY + fallDy;
                     const baseAngle = ((idx % 12) / 12) * Math.PI * 2;
                     const flutter = isAnimated ? Math.sin(phase + idx * 0.9) * 0.22 : 0;
                     const leafColor = getPatternColor(leafPalette, idx, accent, secondary);
@@ -608,15 +621,15 @@
             const stepX = Math.max(38, fullWidth / 8.5);
             const stepY = stepX * 0.94;
             const r = stepX * 0.32;
-            const dy = fallProgress * (stepY * 2);
             ctx.lineWidth = getLineW(1.2);
-            const rStart = Math.floor(minY / stepY) - 2, rEnd = Math.ceil(maxY / stepY) + 2;
+            const rStart = Math.floor((minY - fallDy) / stepY) - 2, rEnd = Math.ceil((maxY - fallDy) / stepY) + 2;
             const cStart = Math.floor(minX / stepX) - 2, cEnd = Math.ceil(maxX / stepX) + 2;
             for (let row = rStart; row <= rEnd; row++) {
+                const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
                     const idx = Math.abs(row * 13 + col * 29);
-                    const cx = col * stepX + (row & 1) * (stepX * 0.5) + fallSwayX;
-                    const cy = row * stepY + dy;
+                    const cx = col * stepX + rowOffset + fallSwayX;
+                    const cy = row * stepY + fallDy;
                     const tilt = isAnimated ? Math.sin(phase + idx * 0.8) * 0.08 : 0;
                     const fanSpread = isAnimated ? (1 + Math.sin(phase * 1.4 + idx) * 0.06) : 1;
 
@@ -776,15 +789,15 @@
             const stepX = Math.max(32, fullWidth / 10);
             const stepY = stepX * 0.88;
             const r = stepX * 0.28;
-            const dy = fallProgress * (stepY * 2);
             ctx.lineWidth = getLineW(1.15);
-            const rStart = Math.floor(minY / stepY) - 2, rEnd = Math.ceil(maxY / stepY) + 2;
+            const rStart = Math.floor((minY - fallDy) / stepY) - 2, rEnd = Math.ceil((maxY - fallDy) / stepY) + 2;
             const cStart = Math.floor(minX / stepX) - 2, cEnd = Math.ceil(maxX / stepX) + 2;
             for (let row = rStart; row <= rEnd; row++) {
+                const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
                     const idx = Math.abs(row * 19 + col * 23);
-                    const cx = col * stepX + (row & 1) * (stepX * 0.5) + fallSwayX;
-                    const cy = row * stepY + dy;
+                    const cx = col * stepX + rowOffset + fallSwayX;
+                    const cy = row * stepY + fallDy;
                     const pColor = getPatternColor(palette, idx, accent, secondary);
                     const stemColor = getPatternColor(palette, idx + 2, secondary, accent);
                     const tilt = ((idx % 5) - 2) * 0.05 + (isAnimated ? Math.sin(phase + idx) * 0.06 : 0);
@@ -830,15 +843,15 @@
             const stepX = Math.max(34, fullWidth / 10);
             const stepY = stepX * 0.95;
             const r = stepX * 0.33;
-            const dy = fallProgress * (stepY * 2);
             ctx.lineWidth = getLineW(1.15);
-            const rStart = Math.floor(minY / stepY) - 2, rEnd = Math.ceil(maxY / stepY) + 2;
+            const rStart = Math.floor((minY - fallDy) / stepY) - 2, rEnd = Math.ceil((maxY - fallDy) / stepY) + 2;
             const cStart = Math.floor(minX / stepX) - 2, cEnd = Math.ceil(maxX / stepX) + 2;
             for (let row = rStart; row <= rEnd; row++) {
+                const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
                     const idx = Math.abs(row * 17 + col * 29);
-                    const cx = col * stepX + (row & 1) * (stepX * 0.5) + fallSwayX;
-                    const cy = row * stepY + dy;
+                    const cx = col * stepX + rowOffset + fallSwayX;
+                    const cy = row * stepY + fallDy;
                     const sway = isAnimated ? Math.sin(phase + idx * 0.7) * 0.05 : 0;
                     const treeColor = getPatternColor(palette, idx, accent, secondary);
                     const topperColor = getPatternColor(palette, idx + 1, secondary, accent);
@@ -902,15 +915,14 @@
             const bulbStep = Math.max(26, fullWidth / 18);
             const sag = rowStep * 0.26;
             const bulbR = Math.max(3.5, bulbStep * 0.17);
-            const dy = fallProgress * rowStep;
             ctx.lineWidth = getLineW(1.2);
 
-            const rStart = Math.floor(minY / rowStep) - 1, rEnd = Math.ceil(maxY / rowStep) + 1;
+            const rStart = Math.floor((minY - fallDy) / rowStep) - 1, rEnd = Math.ceil((maxY - fallDy) / rowStep) + 1;
             const cStart = Math.floor(minX / bulbStep) - 2, cEnd = Math.ceil(maxX / bulbStep) + 2;
 
             for (let row = rStart; row <= rEnd; row++) {
-                const baseY = row * rowStep + dy;
-                const rowPhase = (row & 1) * Math.PI;
+                const baseY = row * rowStep + fallDy;
+                const rowPhase = (((row % 2) + 2) % 2) * Math.PI;
 
                 // Draw continuous draping wire cord
                 ctx.strokeStyle = withAlpha(accent, '48');
@@ -925,8 +937,9 @@
                 ctx.stroke();
 
                 // Draw hanging light sockets & glowing bulbs along the cord
+                const colOffset = (((row % 2) + 2) % 2) * (bulbStep * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
-                    const bx = col * bulbStep + (row & 1) * (bulbStep * 0.5) + fallSwayX;
+                    const bx = col * bulbStep + colOffset + fallSwayX;
                     const wireWave = ((bx - fallSwayX) / (bulbStep * 3)) * Math.PI * 2 + rowPhase;
                     const by = baseY + Math.sin(wireWave) * sag;
                     const slope = Math.cos(wireWave) * 0.24;
@@ -964,16 +977,16 @@
             const stepX = Math.max(34, fullWidth / 10);
             const stepY = stepX * 0.86;
             const flakeR = stepX * 0.27;
-            const dy = fallProgress * (stepY * 2);
             ctx.lineWidth = getLineW(1.1);
-            const rStart = Math.floor(minY / stepY) - 2, rEnd = Math.ceil(maxY / stepY) + 2;
+            const rStart = Math.floor((minY - fallDy) / stepY) - 2, rEnd = Math.ceil((maxY - fallDy) / stepY) + 2;
             const cStart = Math.floor(minX / stepX) - 2, cEnd = Math.ceil(maxX / stepX) + 2;
 
             for (let row = rStart; row <= rEnd; row++) {
+                const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
                     const idx = Math.abs(row * 19 + col * 31);
-                    const cx = col * stepX + (row & 1) * (stepX * 0.5) + fallSwayX;
-                    const cy = row * stepY + dy;
+                    const cx = col * stepX + rowOffset + fallSwayX;
+                    const cy = row * stepY + fallDy;
                     const sColor = getPatternColor(palette, idx, accent, secondary);
                     const r = flakeR * (0.76 + (idx % 3) * 0.14);
                     const rot = (idx % 6) * (Math.PI / 6) + (isAnimated ? phase * 0.25 * ((idx & 1) ? 1 : -1) : 0);
@@ -1029,16 +1042,16 @@
             const stepX = Math.max(30, fullWidth / 11);
             const stepY = stepX * 0.88;
             const heartR = stepX * 0.24;
-            const dy = fallProgress * (stepY * 2);
             ctx.lineWidth = getLineW(1.15);
-            const rStart = Math.floor(minY / stepY) - 2, rEnd = Math.ceil(maxY / stepY) + 2;
+            const rStart = Math.floor((minY - fallDy) / stepY) - 2, rEnd = Math.ceil((maxY - fallDy) / stepY) + 2;
             const cStart = Math.floor(minX / stepX) - 2, cEnd = Math.ceil(maxX / stepX) + 2;
 
             for (let row = rStart; row <= rEnd; row++) {
+                const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
                     const idx = Math.abs(row * 17 + col * 23);
-                    const cx = col * stepX + (row & 1) * (stepX * 0.5) + fallSwayX;
-                    const cy = row * stepY + dy;
+                    const cx = col * stepX + rowOffset + fallSwayX;
+                    const cy = row * stepY + fallDy;
                     const hColor = getPatternColor(palette, idx, accent, secondary);
                     const beat = isAnimated ? (1 + 0.08 * Math.sin(phase * 2 + idx)) : 1;
                     const r = heartR * (0.82 + (idx % 3) * 0.14) * beat;
@@ -1070,16 +1083,16 @@
             const stepX = Math.max(44, fullWidth / 7.5);
             const stepY = stepX * 0.88;
             const burstR = stepX * 0.34;
-            const dy = fallProgress * (stepY * 2);
             ctx.lineWidth = getLineW(1.15);
-            const rStart = Math.floor(minY / stepY) - 1, rEnd = Math.ceil(maxY / stepY) + 1;
+            const rStart = Math.floor((minY - fallDy) / stepY) - 1, rEnd = Math.ceil((maxY - fallDy) / stepY) + 1;
             const cStart = Math.floor(minX / stepX) - 1, cEnd = Math.ceil(maxX / stepX) + 1;
 
             for (let row = rStart; row <= rEnd; row++) {
+                const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
                     const idx = Math.abs(row * 13 + col * 29);
-                    const cx = col * stepX + (row & 1) * (stepX * 0.5) + fallSwayX;
-                    const cy = row * stepY + dy;
+                    const cx = col * stepX + rowOffset + fallSwayX;
+                    const cy = row * stepY + fallDy;
                     const mainCol = getPatternColor(palette, idx, accent, secondary);
                     const subCol = getPatternColor(palette, idx + 1, secondary, accent);
                     const bloom = isAnimated ? (0.86 + 0.18 * Math.sin(phase * 1.8 + idx * 1.1)) : 1;
