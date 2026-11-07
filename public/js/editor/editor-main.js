@@ -32,6 +32,7 @@ import {
 } from './editor-inspector.js';
 import { alignmentOffset } from '../editor-geometry.js';
 import { handleSpeakerMeter, clearSpeakerMeters } from './editor-speakers.js';
+import { openImageCropper } from '../image-cropper.js';
 
 const shared = window.OverlayShared || {};
 window.editorState = state;
@@ -387,7 +388,17 @@ export function renderAssetGrid() {
     const matches = libraryAssets.filter(asset => asset.kind === wanted && asset.label.toLowerCase().includes(query) && tagFilterMatch(asset, assetTagFilter));
     renderTagChips($('asset-tags'), libraryAssets.filter(asset => asset.kind === wanted), assetTagFilter, $('asset-tag-q')?.value || '');
     assetGrid.innerHTML = matches.length
-        ? matches.map(asset => `<button type="button" class="asset-tile" data-url="${esc(asset.url)}" ${asset.url === current ? 'aria-current="true"' : ''} title="${esc(asset.label)}"><span class="thumb">${asset.kind === 'text' ? '<span style="font-size:2rem">¶</span>' : asset.kind === 'video' ? `<video src="${esc(asset.url)}" muted preload="none"></video>` : `<img src="${esc(asset.url)}" loading="lazy" decoding="async" alt="">`}</span><span class="cap">${esc(asset.label)}</span></button>`).join('')
+        ? matches.map(asset => `
+            <div class="asset-tile" data-url="${esc(asset.url)}" ${asset.url === current ? 'aria-current="true"' : ''} title="${esc(asset.label)}" role="button" tabindex="0">
+                <span class="thumb">
+                    ${asset.kind === 'text' ? '<span style="font-size:2rem">¶</span>' : asset.kind === 'video' ? `<video src="${esc(asset.url)}" muted preload="none"></video>` : `<img src="${esc(asset.url)}" loading="lazy" decoding="async" alt="">`}
+                    <span class="asset-tile-actions">
+                        <a class="asset-tile-act" href="${esc(asset.url)}" download="${esc(asset.name || asset.label)}" title="Download file to computer" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a>
+                        ${asset.kind === 'image' ? `<button type="button" class="asset-tile-act crop-act" data-url="${esc(asset.url)}" data-name="${esc(asset.name)}" title="Crop &amp; edit image" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"/></svg></button>` : ''}
+                    </span>
+                </span>
+                <span class="cap">${esc(asset.label)}</span>
+            </div>`).join('')
         : `<p class="hint">No ${wanted} assets${query ? ' match your filter' : ' uploaded yet — use the Upload field'}.</p>`;
 }
 
@@ -1348,6 +1359,24 @@ function initEventListeners() {
         }
     });
     assetGrid?.addEventListener('click', async event => {
+        const actBtn = event.target.closest('.asset-tile-act');
+        if (actBtn) {
+            if (actBtn.classList.contains('crop-act')) {
+                const url = actBtn.dataset.url;
+                const name = actBtn.dataset.name;
+                openImageCropper({
+                    url,
+                    name,
+                    onSave: async (res) => {
+                        toast(res.isNew ? `Saved ${res.name}` : `Updated ${res.name}`, 'success');
+                        const response = await fetch('/api/custom-overlays/assets', { cache: 'no-store' });
+                        if (response.ok) libraryAssets = await response.json();
+                        renderAssetGrid();
+                    }
+                });
+            }
+            return;
+        }
         const tile = event.target.closest('.asset-tile');
         const el = state.overlay.elements.find(item => item.id === pickerTarget);
         if (!tile || !el) return;
@@ -1377,6 +1406,39 @@ function initEventListeners() {
         assetDialog?.close();
         if (!hadSource && el.type !== 'pattern' && el.type !== 'procedural-pattern') await fitToMedia(el, el.src, el.type);
         renderCanvas(); renderProperties(); changed(true);
+    });
+
+    assetGrid?.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            const tile = event.target.closest('.asset-tile');
+            if (tile && !event.target.closest('.asset-tile-act')) {
+                event.preventDefault();
+                tile.click();
+            }
+        }
+    });
+
+    document.addEventListener('click', async event => {
+        const cropBtn = event.target.closest('#crop-image-btn');
+        if (cropBtn) {
+            const el = primary();
+            if (!el || !el.src) return;
+            const src = el.src;
+            const assetName = el.src.startsWith('/custom-overlay-assets/') ? el.src.split('/').pop().split('?')[0] : '';
+            openImageCropper({
+                url: src,
+                name: assetName,
+                aspectRatio: el.type === 'pattern' ? (el.pattern?.aspectRatio || '1:1') : undefined,
+                onSave: async (res) => {
+                    const nextUrl = res.url || src;
+                    el.src = nextUrl;
+                    renderCanvas();
+                    renderProperties();
+                    changed(true);
+                    toast(res.isNew ? `Saved cropped image as ${res.name}` : `Updated ${res.name}`, 'success');
+                }
+            });
+        }
     });
 
     // IGDB Game Artwork Picker Listeners

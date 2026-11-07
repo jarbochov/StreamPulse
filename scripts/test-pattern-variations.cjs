@@ -19,6 +19,7 @@ test('Pattern Tile: schema normalization and defaults for hue, jitter and twinkl
         }]
     });
     const pDef = normalizedDefault.elements[0].pattern;
+    assert.equal(pDef.aspectRatio, '1:1');
     assert.equal(pDef.hueShift, 'none');
     assert.equal(pDef.hueSpeed, 12);
     assert.equal(pDef.hueJitter, 0);
@@ -38,6 +39,7 @@ test('Pattern Tile: schema normalization and defaults for hue, jitter and twinkl
             id: 'pat-el-2',
             type: 'pattern',
             pattern: {
+                aspectRatio: '16:9',
                 hueShift: 'wave-x',
                 hueSpeed: 8.5,
                 hueJitter: 45,
@@ -52,6 +54,7 @@ test('Pattern Tile: schema normalization and defaults for hue, jitter and twinkl
         }]
     });
     const pCust = normalizedCustom.elements[0].pattern;
+    assert.equal(pCust.aspectRatio, '16:9');
     assert.equal(pCust.hueShift, 'wave-x');
     assert.equal(pCust.hueSpeed, 8.5);
     assert.equal(pCust.hueJitter, 45);
@@ -71,6 +74,7 @@ test('Pattern Tile: schema normalization and defaults for hue, jitter and twinkl
             id: 'pat-el-3',
             type: 'pattern',
             pattern: {
+                aspectRatio: 'invalid-aspect',
                 hueShift: 'invalid-mode',
                 hueSpeed: 500, // max 120
                 hueJitter: 999, // max 180
@@ -85,6 +89,7 @@ test('Pattern Tile: schema normalization and defaults for hue, jitter and twinkl
         }]
     });
     const pClamp = normalizedClamped.elements[0].pattern;
+    assert.equal(pClamp.aspectRatio, '1:1');
     assert.equal(pClamp.hueShift, 'none');
     assert.equal(pClamp.hueSpeed, 120);
     assert.equal(pClamp.hueJitter, 180);
@@ -109,11 +114,14 @@ test('Pattern Tile: editor inspector exposes Color & Hue Variation and Organic J
     assert.ok(inspectorJs.includes("pattern.rotationJitter"), 'Must contain pattern.rotationJitter range');
     assert.ok(inspectorJs.includes("pattern.positionJitter"), 'Must contain pattern.positionJitter range');
     assert.ok(inspectorJs.includes("pattern.twinkle"), 'Must contain pattern.twinkle range');
+    assert.ok(inspectorJs.includes("pattern.aspectRatio"), 'Must contain pattern.aspectRatio select');
+    assert.ok(inspectorJs.includes("crop-image-btn"), 'Must contain crop-image-btn button');
 
     const stateJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-state.js'), 'utf8');
     assert.ok(stateJs.includes("hueShift: 'none'"), 'editor-state.js must initialize hueShift');
     assert.ok(stateJs.includes("hueJitter: 0"), 'editor-state.js must initialize hueJitter');
     assert.ok(stateJs.includes("scaleJitter: 0"), 'editor-state.js must initialize scaleJitter');
+    assert.ok(stateJs.includes("aspectRatio: '1:1'"), 'editor-state.js must initialize aspectRatio');
 });
 
 test('Pattern Tile: deterministic cellHash and runtime animation lifecycle', () => {
@@ -148,3 +156,21 @@ test('Pattern Tile: deterministic cellHash and runtime animation lifecycle', () 
         }
     }
 });
+
+test('Image Cropper and Asset Overwrite: exports, routes, and UI hooks', () => {
+    const cropperJs = fs.readFileSync(path.join(__dirname, '../public/js/image-cropper.js'), 'utf8');
+    assert.ok(cropperJs.includes('export function openImageCropper'), 'Must export openImageCropper');
+    assert.ok(cropperJs.includes('sp-image-editor-dialog'), 'Must define modal dialog');
+    assert.ok(cropperJs.includes('ASPECT_RATIOS'), 'Must support aspect ratio presets');
+    assert.ok(cropperJs.includes('PUT'), 'Must support PUT asset overwrite');
+
+    const assetsHtml = fs.readFileSync(path.join(__dirname, '../public/editors/assets.html'), 'utf8');
+    assert.ok(assetsHtml.includes('image-cropper.js'), 'assets.html must load image-cropper.js');
+    assert.ok(assetsHtml.includes('download="${esc(asset.name)}"'), 'assets.html must have download attribute');
+    assert.ok(assetsHtml.includes('data-act="crop"'), 'assets.html must have crop action');
+
+    const overlayRoutesJs = fs.readFileSync(path.join(__dirname, '../server/routes/overlays.js'), 'utf8');
+    assert.ok(overlayRoutesJs.includes("pathname.match(/^\\/api\\/custom-overlays\\/assets\\/([^/]+)$/)"), 'Must define asset overwrite route');
+    assert.ok(overlayRoutesJs.includes("req.method === 'PUT'"), 'Must handle PUT method');
+});
+

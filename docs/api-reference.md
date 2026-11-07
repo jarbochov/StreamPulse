@@ -108,6 +108,16 @@ IGDB operations use the configured Twitch client credentials. Missing credential
 
 ---
 
+## Asset Library Management
+
+| Endpoint | Result |
+| --- | --- |
+| `GET /api/custom-overlays/assets` | Returns array of uploaded asset files with kind, size, modified date, usage tracking, and tags |
+| `POST /api/custom-overlays/assets` | Upload a new graphic, video, font, or audio file |
+| `PUT /api/custom-overlays/assets/:name` | Overwrite an existing asset in-place (atomic replacement for cropped/edited media without breaking references) |
+| `DELETE /api/custom-overlays/assets/:name` | Deletes an asset (blocked with HTTP 409 if currently referenced by an active overlay, timer, or tier list) |
+| `POST /api/custom-overlays/assets/:name/rename` | Renames an asset and automatically rewrites references across saved overlays |
+
 ## 1. Session Lifecycle Endpoints
 
 ### Start Live Stream Session

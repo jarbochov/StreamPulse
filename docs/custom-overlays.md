@@ -40,7 +40,7 @@ Custom Overlay Studio includes 20 specialized layer types organized into six int
 
 ### 4. Graphics & Patterns
 - **Icon (`type: "icon"`)**: Scalable vector iconography from built-in symbol libraries (FontAwesome solids and brands) and custom SVGs. Customize fill color, sizing, opacity, rotation, and alignment within layer bounds.
-- **Pattern Tile (`type: "pattern"`)**: Seamless repeating wallpaper grids and motion-graphic mosaics created from icons or image assets. Supports 7 arrangement layouts (*Grid*, *Brick*, *Stagger*, *Alternating Flip/Tilt*, *Checkerboard*, *Kaleidoscope Quad*, *Kaleidoscope Radial*) and 10 motion graphic styles (*Scroll*, *Alternating Rows/Cols*, *Weave*, *Sway*, *Spin*, *Scroll & Spin*, *Wave*, *Kaleidoscope*). Includes live **Color & Hue Variation** (rainbow color cycle, horizontal/vertical rainbow waves, deterministic hue jitter, saturation/brightness jitter, and asynchronous twinkle pulse) alongside **Organic Scatter & Jitter** (position scatter, rotation jitter, and scale jitter) to create varied, non-repetitive organic backdrops with zero idle CPU overhead.
+- **Pattern Tile (`type: "pattern"`)**: Seamless repeating wallpaper grids and motion-graphic mosaics created from icons or image assets. Supports 7 arrangement layouts (*Grid*, *Brick*, *Stagger*, *Alternating Flip/Tilt*, *Checkerboard*, *Kaleidoscope Quad*, *Kaleidoscope Radial*), non-square rectangular tile aspect ratios (*1:1*, *16:9*, *4:3*, *3:2*, *2:1*, *3:4*, *9:16*, *Natural*), and 10 motion graphic styles (*Scroll*, *Alternating Rows/Cols*, *Weave*, *Sway*, *Spin*, *Scroll & Spin*, *Wave*, *Kaleidoscope*). Includes live **Color & Hue Variation** (rainbow color cycle, horizontal/vertical rainbow waves, deterministic hue jitter, saturation/brightness jitter, and asynchronous twinkle pulse) alongside **Organic Scatter & Jitter** (position scatter, rotation jitter, and scale jitter) to create varied, non-repetitive organic backdrops with zero idle CPU overhead. Inspector settings are organized across three dedicated tabs: Content (tile asset/icon, size, focal positioning, and quick crop), Layout (grid structure, aspect ratio, tile spacing, and organic scatter), and Style (tile appearance, blend mode, hue & color variation, and motion graphics).
 - **Background Pattern (`type: "procedural-pattern"`)**: Generative animated procedural backdrops built with HTML5 canvas. Choose from multiple generative algorithms (geometric waves, retro grid lines, particle fields, neon stripes) with live controls for animation speed, line density, wave amplitude, stroke width, and dual-color palettes. Automatically respects reduced-motion preferences.
 
 ### 5. Stream Widgets
@@ -104,6 +104,16 @@ StreamPulse includes an audio-reactive **Speaker Badge** layer (`type: "speaker-
 ![Speaker badge layouts with fictional profiles and typography controls](images/speaker-badge-style.png)
 
 Explore the [StreamPulse features](features.md) or [get started](quickstart.md). Already installed? **Docs** and **API Reference** are available from the app navigation.
+
+## Asset Library & In-Editor Image Cropper
+
+StreamPulse provides built-in media and artwork management through the Asset Library (`/assets.html`) and inside Custom Overlay Studio:
+- **Direct Asset Downloads**: 1-click download actions on asset tiles and card action menus allow quick downloads of any stored graphic, video, font, or audio file.
+- **In-Editor Image Cropper**: Interactive modal cropper accessible from the Asset Library ("Crop & edit…") and the overlay inspector for Image and Pattern Tile layers ("Crop & Edit Image…").
+  - **Aspect Ratio Presets**: Freeform, 1:1 square, 16:9 widescreen, 4:3 standard, 3:2 photo, 2:1 ultrawide, 3:4 portrait, and 9:16 vertical video framing.
+  - **Transformations**: 90° clockwise/counter-clockwise rotation and horizontal flipping.
+  - **Interactive Crop Box**: 8-point drag handles with rule-of-thirds grid lines and live rendered pixel dimensions.
+  - **Save & Overwrite Options**: Save as a new asset (`POST /api/custom-overlays/assets`), overwrite the existing asset in-place (`PUT /api/custom-overlays/assets/:name`) to update all referencing layers immediately without breaking layout paths, or download the cropped image directly to your local computer.
 
 ## NodeCG replicants
 

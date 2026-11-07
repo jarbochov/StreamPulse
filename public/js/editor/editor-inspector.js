@@ -66,7 +66,7 @@ export const RERENDER_PATHS = new Set([
     'speakerBadge.reaction.visualizer', 'speakerBadge.reaction.highlightBorder', 'speakerBadge.reaction.dimWhenIdle',
     'speakerBadge.autoSize',
     'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta',
-    'pattern.sourceType', 'pattern.preset', 'pattern.layout', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip'
+    'pattern.sourceType', 'pattern.preset', 'pattern.layout', 'pattern.aspectRatio', 'pattern.hueShift', 'pattern.twinkle', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip'
 ]);
 
 export const numberWasOn = new Map();
@@ -561,6 +561,14 @@ export function contentSection(el) {
             body += `<div class="grid2">${F.number('style.textShadow.blur', 'Shadow / glow (px)', s.textShadow?.blur || 0, { min: 0, max: 60 })}${s.textShadow?.blur > 0 ? F.color('style.textShadow.color', 'Shadow color', s.textShadow?.color || 'rgba(0,0,0,0.7)') : '<span></span>'}</div>`;
         } else {
             body += mediaSourceBlock(el);
+            if (el.src && !/\{\{/.test(el.src)) {
+                body += `<div class="field"><span>Image tools</span><button type="button" id="crop-image-btn" class="crop-tool-btn" data-src="${esc(el.src)}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"/></svg>Crop &amp; Edit Image…</button></div>`;
+            }
+            body += `<div class="grid2">
+                ${F.select('style.objectFit', 'Tile image fit', el.style?.objectFit || 'contain', [['contain', 'Contain (full graphic)'], ['cover', 'Cover (crop to tile)'], ['fill', 'Stretch to tile']])}
+                <span></span>
+            </div>`;
+            body += focusField(el);
         }
     }
     if (el.type === 'qr') {
@@ -612,7 +620,12 @@ export function contentSection(el) {
         </div>`;
         body += `<div class="hint" style="margin-top:10px;padding:8px 10px;border-radius:6px;background:rgba(56, 189, 248, 0.08);border:1px solid rgba(56, 189, 248, 0.2);color:var(--text);font-size:11px;line-height:1.4;"><strong style="color:var(--accent);">OBS Alpha Punchthrough:</strong> Place this overlay above your webcam or gameplay in OBS. This element cuts a 100% transparent hole through all background graphics and cards beneath it.</div>`;
     }
-    if (media) body += mediaSourceBlock(el);
+    if (media) {
+        body += mediaSourceBlock(el);
+        if (el.type === 'image' && el.src && !/\{\{/.test(el.src)) {
+            body += `<div class="field"><span>Image tools</span><button type="button" id="crop-image-btn" class="crop-tool-btn" data-src="${esc(el.src)}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"/></svg>Crop &amp; Edit Image…</button></div>`;
+        }
+    }
     return body ? F.section('content', 'Content', body) : '';
 }
 
@@ -1518,7 +1531,7 @@ export function patternSection(el) {
             ${F.range('pattern.waveAmount', 'Internal drift depth', p.waveAmount ?? 25, { min: 5, max: 100, unit: '%', editable: true })}`;
     }
 
-    return F.section('patternLayout', 'Pattern grid & layout', `
+    const secLayout = F.section('patternLayout', 'Pattern grid & spacing', `
         ${F.select('pattern.layout', 'Grid configuration', layout, [
             ['grid', 'Standard Grid'],
             ['brick', 'Brick (Row Offset)'],
@@ -1529,30 +1542,69 @@ export function patternSection(el) {
             ['kaleidoscope-radial', 'Kaleidoscope — Radial Mandala']
         ])}
         <div class="grid2">
+            ${F.select('pattern.aspectRatio', 'Tile aspect ratio', aspectRatio, [
+                ['1:1', '1:1 Square'],
+                ['16:9', '16:9 Widescreen'],
+                ['4:3', '4:3 Standard'],
+                ['3:2', '3:2 Classic Photo'],
+                ['2:1', '2:1 Wide Banner'],
+                ['3:4', '3:4 Portrait'],
+                ['9:16', '9:16 Tall Story / Reel'],
+                ['natural', 'Natural (Original Image Aspect)']
+            ])}
             ${F.range('pattern.tileSize', 'Tile size', p.tileSize ?? 96, { min: 16, max: 512, step: 2, unit: 'px', editable: true })}
+        </div>
+        <div class="grid2">
             ${F.range('pattern.gap', 'Tile gap', p.gap ?? 16, { min: 0, max: 160, step: 1, unit: 'px', editable: true })}
-        </div>
-        <div class="grid2">
             ${F.range('pattern.offsetX', 'Row offset', p.offsetX ?? 50, { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset row offset to 0%' })}
-            ${F.range('pattern.offsetY', 'Column offset', p.offsetY ?? 0, { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset column offset to 0%' })}
         </div>
         <div class="grid2">
+            ${F.range('pattern.offsetY', 'Column offset', p.offsetY ?? 0, { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset column offset to 0%' })}
             ${F.range('pattern.angle', 'Grid tilt', p.angle ?? -15, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset grid tilt to 0°' })}
-            ${F.range('pattern.tileAngle', 'Tile tilt', p.tileAngle ?? 0, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset tile tilt to 0°' })}
         </div>
-        ${layoutExtra}
-        ${(p.sourceType || 'image') === 'icon'
-            ? F.select('pattern.blendMode', 'Blend mode', p.blendMode || 'normal', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['overlay', 'Overlay'], ['soft-light', 'Soft light'], ['hard-light', 'Hard light'], ['color-dodge', 'Color dodge'], ['color-burn', 'Color burn'], ['darken', 'Darken'], ['lighten', 'Lighten'], ['difference', 'Difference'], ['exclusion', 'Exclusion'], ['luminosity', 'Luminosity'], ['plus-lighter', 'Additive (Plus lighter)']])
-            : `<div class="grid2">
-                ${F.select('style.objectFit', 'Tile image fit', el.style?.objectFit || 'contain', [['contain', 'Contain (full graphic)'], ['cover', 'Cover (crop square)'], ['fill', 'Stretch to square']])}
-                ${F.select('pattern.blendMode', 'Blend mode', p.blendMode || 'normal', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['overlay', 'Overlay'], ['soft-light', 'Soft light'], ['hard-light', 'Hard light'], ['color-dodge', 'Color dodge'], ['color-burn', 'Color burn'], ['darken', 'Darken'], ['lighten', 'Lighten'], ['difference', 'Difference'], ['exclusion', 'Exclusion'], ['luminosity', 'Luminosity'], ['plus-lighter', 'Additive (Plus lighter)']])}
-            </div>
-            ${focusField(el)}`}
+        <div class="grid2">
+            ${F.range('pattern.tileAngle', 'Tile tilt', p.tileAngle ?? 0, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset tile tilt to 0°' })}
+            <span></span>
+        </div>
+        ${layoutExtra}`);
+
+    const secJitter = F.section('patternJitter', 'Organic scatter & jitter', `
+        <div class="grid2">
+            ${F.range('pattern.positionJitter', 'Position scatter', p.positionJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset position scatter to 0%' })}
+            ${F.range('pattern.scaleJitter', 'Scale jitter', p.scaleJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset scale jitter to 0%' })}
+        </div>
+        <div class="grid2">
+            ${F.range('pattern.rotationJitter', 'Rotation jitter', p.rotationJitter ?? 0, { min: 0, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset rotation jitter to 0%' })}
+            <span></span>
+        </div>
+        <p class="hint">Randomizes tile scale, tilt, and position to break up strict grid uniformity into an organic, scattered pattern.</p>`);
+
+    let altTilesExtra = '';
+    if (isAltOrChecker) {
+        altTilesExtra = `<div class="grid2">
+            ${F.range('pattern.altOpacity', 'Secondary tile opacity', p.altOpacity ?? 0.4, { min: 0, max: 100, scale: 0.01, unit: '%', editable: true })}
+            ${F.range('pattern.altScale', 'Secondary tile scale', p.altScale ?? 100, { min: 10, max: 200, unit: '%', editable: true })}
+        </div>`;
+    }
+
+    const secAppearance = F.section('patternAppearance', 'Tile appearance & blend', `
         <div class="grid2">
             ${F.range('pattern.tileOpacity', 'Tile opacity', p.tileOpacity ?? 1, { min: 5, max: 100, scale: 0.01, unit: '%', editable: true })}
+            ${F.select('pattern.blendMode', 'Blend mode', p.blendMode || 'normal', [
+                ['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['overlay', 'Overlay'],
+                ['soft-light', 'Soft light'], ['hard-light', 'Hard light'], ['color-dodge', 'Color dodge'],
+                ['color-burn', 'Color burn'], ['darken', 'Darken'], ['lighten', 'Lighten'],
+                ['difference', 'Difference'], ['exclusion', 'Exclusion'], ['luminosity', 'Luminosity'],
+                ['plus-lighter', 'Additive (Plus lighter)']
+            ])}
+        </div>
+        ${altTilesExtra}
+        <div class="grid2">
             ${F.range('pattern.feather', 'Edge vignette fade', p.feather ?? 0, { min: 0, max: 100, unit: '%', editable: true })}
-        </div>`)
-        + F.section('patternColor', 'Color & hue variation', `
+            <span></span>
+        </div>`);
+
+    const secColor = F.section('patternColor', 'Color & hue variation', `
         ${F.select('pattern.hueShift', 'Hue animation', p.hueShift || 'none', [
             ['none', 'None (Static color)'],
             ['cycle', 'Rainbow color cycle (All tiles)'],
@@ -1569,17 +1621,9 @@ export function patternSection(el) {
             ${F.range('pattern.twinkle', 'Twinkle / pulse', p.twinkle ?? 0, { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset twinkle to 0%' })}
         </div>
         ${(p.twinkle > 0) ? F.number('pattern.twinkleSpeed', 'Twinkle pulse cycle (sec)', p.twinkleSpeed ?? 4, { min: 0.5, max: 30, step: 0.5 }) : ''}
-        <p class="hint">Hue jitter and animation rotate tile colors across the spectrum. For icons, pick an icon color other than pure white or black to rotate through colored hues.</p>`)
-        + F.section('patternJitter', 'Organic scatter & jitter', `
-        <div class="grid2">
-            ${F.range('pattern.scaleJitter', 'Scale jitter', p.scaleJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset scale jitter to 0%' })}
-            ${F.range('pattern.rotationJitter', 'Rotation jitter', p.rotationJitter ?? 0, { min: 0, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset rotation jitter to 0°' })}
-        </div>
-        <div class="grid2">
-            ${F.range('pattern.positionJitter', 'Position scatter', p.positionJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset position scatter to 0%' })}
-        </div>
-        <p class="hint">Randomizes tile scale, tilt, and position to break up strict grid uniformity into an organic, scattered pattern.</p>`)
-        + F.section('patternMotion', 'Motion graphics animation', `
+        <p class="hint">Hue jitter and animation rotate tile colors across the spectrum. For icons, all icon colors dynamically illuminate across the spectrum.</p>`);
+
+    const secMotion = F.section('patternMotion', 'Motion graphics animation', `
         ${F.select('pattern.motion', 'Animation style', motion, [
             ['none', 'None (Static)'],
             ['scroll', 'Continuous Linear Scroll'],
@@ -1594,6 +1638,8 @@ export function patternSection(el) {
         ])}
         ${motionControls}
         ${motion !== 'none' ? '<p class="hint">Animates continuously in the live overlay and editor. Use the Effects toggle in the top toolbar to pause animations while editing.</p>' : ''}`);
+
+    return secLayout + secJitter + secAppearance + secColor + secMotion;
 }
 
 export function updateObsAudioStatus(data) {
@@ -1842,9 +1888,9 @@ export function obsLinkSection(el) {
 // ---- Property Inspector Panel Render ----------------------------------------------
 const INSPECTOR_TABS = [['content', 'Content'], ['layout', 'Layout'], ['style', 'Style']];
 const SPECIFIC_SECTION_TABS = {
-    gamelayout: 'layout', patternLayout: 'layout', speakerLayout: 'layout',
+    gamelayout: 'layout', patternLayout: 'layout', patternJitter: 'layout', speakerLayout: 'layout',
     gamecovers: 'style', gametext: 'style', progress: 'style',
-    patternMotion: 'style', proceduralMotion: 'style',
+    patternAppearance: 'style', patternColor: 'style', patternMotion: 'style', proceduralMotion: 'style',
     speakerStyle: 'style', speakerVisualizer: 'style', speakerReaction: 'style'
 };
 

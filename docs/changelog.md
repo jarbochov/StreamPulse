@@ -11,7 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- Custom Overlay Pattern Tiles: Color and hue variations (rainbow cycles, waves, hue/brightness/saturation jitter, twinkle pulses) and organic scatter (position, scale, and rotation jitter).
+- Custom Overlay Pattern Tiles: Color and hue variations (rainbow cycles, waves, hue/brightness/saturation jitter, twinkle pulses), organic scatter (position, scale, and rotation jitter), non-square rectangular aspect ratios, reorganized inspector tabs, and Asset Library downloads with an in-editor image cropper.
 - Overlay Control: per-page enable/disable switches with immediate saving.
 - Dashboard Health: OBS connection status when the global connection is enabled.
 - Speaker badges: OBS voice reactions, responsive auto-sizing, separate fonts, avatar/icon scaling, quick profile/audio/visibility controls, and avatar previews with upload/clipboard paste.

@@ -723,6 +723,44 @@ function createOverlayRoutes({
             return true;
         }
 
+        // --- 4b. Custom Overlays: Asset Overwrite / Update ---
+        const assetOverwriteMatch = pathname.match(/^\/api\/custom-overlays\/assets\/([^/]+)$/);
+        if (assetOverwriteMatch && req.method === 'PUT') {
+            const rawName = decodeURIComponent(assetOverwriteMatch[1]);
+            const target = path.join(customOverlayAssetsDir, rawName);
+            if (!rawName || rawName.includes('/') || rawName.includes('\\') || rawName.startsWith('.') || path.dirname(target) !== customOverlayAssetsDir) {
+                sendError(res, 'Invalid asset name', 400);
+                return true;
+            }
+            if (Number(req.headers['content-length'] || 0) > 100 * 1024 * 1024) {
+                sendError(res, 'Asset exceeds the 100 MB limit', 413);
+                return true;
+            }
+            const chunks = [];
+            let total = 0;
+            req.on('data', chunk => {
+                total += chunk.length;
+                if (total <= 100 * 1024 * 1024) chunks.push(chunk);
+            });
+            req.on('end', () => {
+                if (total > 100 * 1024 * 1024) {
+                    sendError(res, 'Asset exceeds the 100 MB limit', 413);
+                    return;
+                }
+                try {
+                    fs.writeFileSync(target, Buffer.concat(chunks));
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ url: `/custom-overlay-assets/${encodeURIComponent(rawName)}?t=${Date.now()}`, name: rawName, updated: true, size: total }));
+                } catch (err) {
+                    sendError(res, err.message, 500);
+                }
+            });
+            req.on('error', err => {
+                sendError(res, err.message, 400);
+            });
+            return true;
+        }
+
         // --- 5. Custom Overlays: History ---
         const historyMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)\/history(?:\/(\d+))?$/);
         if (historyMatch && req.method === 'GET') {

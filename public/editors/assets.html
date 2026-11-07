@@ -4,6 +4,7 @@
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
     <script src="/tag-chips.js"></script>
+    <script type="module" src="/js/image-cropper.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -353,11 +354,13 @@
                     <div class="i-use chips">${usageHtml(asset)}</div>
                     ${prefs.edit ? `<div class="actions">
                         <button class="btn small" data-act="copy" data-i="${index}" title="Copy the asset URL">Copy</button>
-                        <a class="btn small" href="${esc(asset.url)}" target="_blank" rel="noopener">Open</a>
+                        <a class="btn small" href="${esc(asset.url)}" download="${esc(asset.name)}" title="Download file to computer">Download</a>
                         <details class="menu"><summary class="btn small" aria-label="More actions">More</summary>
                             <div class="menu-list">
                                 <button type="button" class="narrow-only" data-act="copy" data-i="${index}">Copy URL</button>
-                                <a class="narrow-only" href="${esc(asset.url)}" target="_blank" rel="noopener">Open</a>
+                                <a href="${esc(asset.url)}" download="${esc(asset.name)}">Download file</a>
+                                <a href="${esc(asset.url)}" target="_blank" rel="noopener">Open in new tab</a>
+                                ${asset.kind === 'image' ? `<button type="button" data-act="crop" data-i="${index}">Crop &amp; edit…</button>` : ''}
                                 <button type="button" data-act="tag" data-i="${index}">Add tags…</button>
                                 ${asset.kind === 'image' || asset.kind === 'video' ? `<button type="button" data-act="caption" data-i="${index}">${asset.caption ? 'Edit caption…' : 'Add caption…'}</button>` : ''}
                                 <button type="button" data-act="rename" data-i="${index}">Rename…</button>
@@ -418,6 +421,20 @@
             return;
         }
         const asset = shown[Number(button.dataset.i)];
+        if (button.dataset.act === 'crop') {
+            if (window.StreamPulseImageCropper) {
+                window.StreamPulseImageCropper.open({
+                    url: asset.url,
+                    name: asset.name,
+                    label: asset.label,
+                    onSave: async (res) => {
+                        toast(res.isNew ? `Saved new asset: ${res.name}` : `Updated ${res.name}`);
+                        await load();
+                    }
+                });
+            }
+            return;
+        }
         if (button.dataset.act === 'copy') {
             await navigator.clipboard.writeText(new URL(asset.url, location.origin).href);
             toast('URL copied');

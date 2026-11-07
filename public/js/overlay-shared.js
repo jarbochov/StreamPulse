@@ -2995,11 +2995,11 @@
     }
 
     // ---- pattern tile (repeating mosaic & kaleidoscope motion graphics) ------------------------
-    function drawSamplePatternStamp(ctx, S) {
-        ctx.clearRect(0, 0, S, S);
+    function drawSamplePatternStamp(ctx, sw, sh = sw) {
+        ctx.clearRect(0, 0, sw, sh);
         ctx.save();
-        ctx.translate(S / 2, S / 2);
-        const r = S * 0.42;
+        ctx.translate(sw / 2, sh / 2);
+        const r = Math.min(sw, sh) * 0.42;
         const grad = ctx.createLinearGradient(-r, -r, r, r);
         grad.addColorStop(0, 'rgba(88, 166, 255, 0.92)');
         grad.addColorStop(0.5, 'rgba(163, 113, 247, 0.92)');
@@ -3017,7 +3017,7 @@
         ctx.closePath();
         ctx.fillStyle = grad;
         ctx.fill();
-        ctx.lineWidth = Math.max(1.5, S * 0.025);
+        ctx.lineWidth = Math.max(1.5, Math.min(sw, sh) * 0.025);
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
         ctx.stroke();
         // Asymmetric corner accent so rotation/flip/kaleidoscope are clearly visible
@@ -3038,7 +3038,7 @@
     const faGlyphCache = new Map();
 
     function mountPattern(node, element, options = {}) {
-        if (node._patternHandle?.update && node.querySelector(':scope > .sp-pattern-wrap')) {
+        if (node._patternHandle && !node._patternHandle.isStopped?.() && node._patternHandle.update && node.querySelector(':scope > .sp-pattern-wrap')) {
             node._patternHandle.update(element, options);
             return node._patternHandle;
         }
@@ -3072,7 +3072,7 @@
 
         let curElement = element;
         let curOptions = options;
-        let layout = 'brick', tileSize = 96, gap = 16, offsetX = 50, offsetY = 0;
+        let layout = 'brick', aspectRatio = '1:1', tileSize = 96, gap = 16, offsetX = 50, offsetY = 0;
         let gridAngleRad = 0, cosG = 1, sinG = 0, tileAngleDeg = 0, tileAngleRad = 0;
         let alternateFlip = 'tilt', tileOpacity = 1, altOpacity = 0.4, altScale = 1;
         let blendMode = 'normal', sourceType = 'image', wedges = 6, feather = 0;
@@ -3082,11 +3082,57 @@
         let brightnessJitter = 0, saturationJitter = 0;
         let scaleJitter = 0, rotationJitter = 0, positionJitter = 0;
         let twinkle = 0, twinkleSpeed = 4;
-        let dpr = 1, stampSize = 96, isKaleido = false;
+        let dpr = 1, stampW = 96, stampH = 96, isKaleido = false;
         let lastStampKey = '';
         let lastImgSrc = '';
         let cachedImg = null;
         let lastFeather = -1;
+        const iconHueCache = new Map();
+
+        function parseColorHex(c) {
+            if (!c || c === 'transparent') return { r: 255, g: 255, b: 255 };
+            if (c.startsWith('#')) {
+                let hex = c.slice(1);
+                if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+                const num = parseInt(hex, 16);
+                if (!Number.isNaN(num)) return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+            }
+            return { r: 255, g: 255, b: 255 };
+        }
+
+        function rgbToHsl(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            const max = Math.max(r, g, b), min = Math.min(r, g, b);
+            let h = 0, s = 0, l = (max + min) / 2;
+            if (max !== min) {
+                const d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+            return { h: Math.round(h * 360), s, l };
+        }
+
+        function getTileDimensions() {
+            let ar = 1;
+            if (aspectRatio === 'natural' && cachedImg && cachedImg.naturalWidth && cachedImg.naturalHeight) {
+                ar = cachedImg.naturalWidth / cachedImg.naturalHeight;
+            } else {
+                const AR_MAP = {
+                    '1:1': 1, '16:9': 16 / 9, '4:3': 4 / 3, '3:2': 1.5, '2:1': 2,
+                    '3:4': 0.75, '9:16': 9 / 16
+                };
+                ar = AR_MAP[aspectRatio] || 1;
+            }
+            ar = Math.max(0.1, Math.min(10, ar));
+            const tileW = tileSize;
+            const tileH = Math.max(8, Math.round(tileSize / ar));
+            return { tileW, tileH, ar };
+        }
 
         function cellHash(r, c, seed = 0) {
             let h = (r * 374761393 + c * 668265263 + seed * 1274126177) ^ 0x5bf03635;
@@ -3095,20 +3141,20 @@
         }
 
         function buildStampFromImage(img) {
-            const iw = img.naturalWidth || img.width || stampSize;
-            const ih = img.naturalHeight || img.height || stampSize;
-            stampCtx.clearRect(0, 0, stampSize, stampSize);
+            const iw = img.naturalWidth || img.width || stampW;
+            const ih = img.naturalHeight || img.height || stampH;
+            stampCtx.clearRect(0, 0, stampW, stampH);
             const fit = curElement.style?.objectFit || 'contain';
             const fx = (curElement.style?.focusX ?? 50) / 100;
             const fy = (curElement.style?.focusY ?? 50) / 100;
             if (fit === 'fill') {
-                stampCtx.drawImage(img, 0, 0, stampSize, stampSize);
+                stampCtx.drawImage(img, 0, 0, stampW, stampH);
             } else {
-                const scale = fit === 'cover' ? Math.max(stampSize / iw, stampSize / ih) : Math.min(stampSize / iw, stampSize / ih);
+                const scale = fit === 'cover' ? Math.max(stampW / iw, stampH / ih) : Math.min(stampW / iw, stampH / ih);
                 const dw = iw * scale;
                 const dh = ih * scale;
-                const dx = (stampSize - dw) * fx;
-                const dy = (stampSize - dh) * fy;
+                const dx = (stampW - dw) * fx;
+                const dy = (stampH - dh) * fy;
                 stampCtx.drawImage(img, dx, dy, dw, dh);
             }
         }
@@ -3149,16 +3195,16 @@
             const strokeW = Number(s.textStroke?.width) || 0;
             const shadowBlur = Number(s.textShadow?.blur) || 0;
             const padRatio = (strokeW > 0 || shadowBlur > 0) ? 0.68 : 0.78;
-            const fontPx = Math.max(12, Math.round(stampSize * padRatio));
+            const fontPx = Math.max(12, Math.round(Math.min(stampW, stampH) * padRatio));
 
-            stampCtx.clearRect(0, 0, stampSize, stampSize);
+            stampCtx.clearRect(0, 0, stampW, stampH);
             stampCtx.save();
             stampCtx.font = `${fontWeight} ${fontPx}px ${fontFamily}`;
             stampCtx.textAlign = 'center';
             stampCtx.textBaseline = 'middle';
 
-            const cx = stampSize / 2;
-            const cy = stampSize / 2;
+            const cx = stampW / 2;
+            const cy = stampH / 2;
 
             if (shadowBlur > 0) {
                 stampCtx.shadowBlur = shadowBlur * dpr;
@@ -3177,24 +3223,56 @@
             stampCtx.fillStyle = s.color || '#ffffff';
             stampCtx.fillText(glyph, cx, cy);
             stampCtx.restore();
+            iconHueCache.clear();
             return { glyph, fontFamily, fontWeight, isFa };
+        }
+
+        function getTintedIconStamp(cls, tileHue, satShift = 0, briShift = 0) {
+            const hKey = Math.round(tileHue / 6) * 6;
+            const bKey = Math.round(briShift * 10);
+            const sKey = Math.round(satShift * 10);
+            const cacheKey = `${hKey}_${bKey}_${sKey}`;
+            if (iconHueCache.has(cacheKey)) return iconHueCache.get(cacheKey);
+
+            const baseHex = curElement.style?.color || '#ffffff';
+            const rgb = parseColorHex(baseHex);
+            const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+            let h = (hsl.h + tileHue) % 360;
+            if (h < 0) h += 360;
+            let s = hsl.s < 0.08 ? 0.88 : hsl.s;
+            let l = (hsl.l > 0.95 || hsl.l < 0.08) ? 0.58 : hsl.l;
+            if (satShift !== 0) s = Math.max(0.05, Math.min(1, s + satShift));
+            if (briShift !== 0) l = Math.max(0.05, Math.min(0.95, l * (1 + briShift)));
+            const colorStr = `hsl(${Math.round(h)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;
+
+            const c = document.createElement('canvas');
+            c.width = stampW; c.height = stampH;
+            const tCtx = c.getContext('2d');
+            tCtx.drawImage(stampCanvas, 0, 0);
+            tCtx.globalCompositeOperation = 'source-in';
+            tCtx.fillStyle = colorStr;
+            tCtx.fillRect(0, 0, stampW, stampH);
+
+            if (iconHueCache.size > 80) iconHueCache.clear();
+            iconHueCache.set(cacheKey, c);
+            return c;
         }
 
         function updateKaleidoCell(t) {
             if (!cellCtx) return;
-            const S = stampSize;
-            const half = S / 2;
-            cellCtx.clearRect(0, 0, S, S);
+            const halfW = stampW / 2;
+            const halfH = stampH / 2;
+            cellCtx.clearRect(0, 0, stampW, stampH);
             const dir = spinDirection === 'ccw' ? -1 : 1;
             const kPhase = motion === 'kaleidoscope' ? (t / spinSpeed) * Math.PI * 2 * dir : 0;
-            const drift = motion === 'kaleidoscope' ? Math.sin(kPhase * 0.5) * S * 0.14 * waveAmount : 0;
+            const drift = motion === 'kaleidoscope' ? Math.sin(kPhase * 0.5) * stampW * 0.14 * waveAmount : 0;
 
             if (layout === 'kaleidoscope-radial') {
                 const wedgeAngle = (Math.PI * 2) / wedges;
-                const r = S * 0.72;
+                const r = Math.max(stampW, stampH) * 0.72;
                 for (let i = 0; i < wedges; i++) {
                     cellCtx.save();
-                    cellCtx.translate(half, half);
+                    cellCtx.translate(halfW, halfH);
                     cellCtx.rotate(i * wedgeAngle);
                     if (i & 1) cellCtx.scale(1, -1);
                     cellCtx.beginPath();
@@ -3204,32 +3282,32 @@
                     cellCtx.clip();
                     cellCtx.translate(drift, 0);
                     cellCtx.rotate(kPhase + tileAngleRad);
-                    cellCtx.drawImage(stampCanvas, -half, -half, S, S);
+                    cellCtx.drawImage(stampCanvas, -halfW, -halfH, stampW, stampH);
                     cellCtx.restore();
                 }
             } else if (layout === 'kaleidoscope-quad') {
                 const quads = [[1, 1], [-1, 1], [1, -1], [-1, -1]];
                 for (const [qx, qy] of quads) {
                     cellCtx.save();
-                    cellCtx.translate(half, half);
+                    cellCtx.translate(halfW, halfH);
                     cellCtx.scale(qx, qy);
                     cellCtx.beginPath();
-                    cellCtx.rect(0, 0, half + 0.5, half + 0.5);
+                    cellCtx.rect(0, 0, halfW + 0.5, halfH + 0.5);
                     cellCtx.clip();
-                    cellCtx.translate(half * 0.5 + drift, half * 0.5 + drift * 0.5);
+                    cellCtx.translate(halfW * 0.5 + drift, halfH * 0.5 + drift * 0.5);
                     cellCtx.rotate(kPhase + tileAngleRad);
-                    cellCtx.drawImage(stampCanvas, -half * 0.65, -half * 0.65, S * 0.65, S * 0.65);
+                    cellCtx.drawImage(stampCanvas, -halfW * 0.65, -halfH * 0.65, stampW * 0.65, stampH * 0.65);
                     cellCtx.restore();
                 }
             } else {
                 cellCtx.save();
-                cellCtx.translate(half, half);
+                cellCtx.translate(halfW, halfH);
                 cellCtx.rotate(kPhase);
-                cellCtx.drawImage(stampCanvas, -half, -half, S, S);
+                cellCtx.drawImage(stampCanvas, -halfW, -halfH, stampW, stampH);
                 cellCtx.scale(-1, 1);
                 cellCtx.globalAlpha = 0.65;
                 cellCtx.rotate(-kPhase * 2);
-                cellCtx.drawImage(stampCanvas, -half * 0.85, -half * 0.85, S * 0.85, S * 0.85);
+                cellCtx.drawImage(stampCanvas, -halfW * 0.85, -halfH * 0.85, stampW * 0.85, stampH * 0.85);
                 cellCtx.restore();
             }
         }
@@ -3286,8 +3364,9 @@
             if (isKaleido) updateKaleidoCell(t);
             const sourceBitmap = isKaleido ? cellCanvas : stampCanvas;
 
-            const stepX = Math.max(8, tileSize + gap);
-            const stepY = Math.max(8, tileSize + gap);
+            const { tileW, tileH } = getTileDimensions();
+            const stepX = Math.max(8, tileW + gap);
+            const stepY = Math.max(8, tileH + gap);
             const rowCycle = stepX * 2;
             const colCycle = stepY * 2;
             const u = t / speed;
@@ -3384,12 +3463,13 @@
 
             const halfW = logicalW / 2;
             const halfH = logicalH / 2;
-            const extentX = halfW * Math.abs(cosG) + halfH * Math.abs(sinG) + tileSize * 1.5;
-            const extentY = halfW * Math.abs(sinG) + halfH * Math.abs(cosG) + tileSize * 1.5;
+            const extentX = halfW * Math.abs(cosG) + halfH * Math.abs(sinG) + Math.max(tileW, tileH) * 1.5;
+            const extentY = halfW * Math.abs(sinG) + halfH * Math.abs(cosG) + Math.max(tileW, tileH) * 1.5;
             const cols = Math.min(64, Math.ceil(extentX / stepX) + 1);
             const rows = Math.min(64, Math.ceil(extentY / stepY) + 1);
 
-            const halfTile = tileSize / 2;
+            const halfTileW = tileW / 2;
+            const halfTileH = tileH / 2;
             const altDefaultTilt = (15 * Math.PI) / 180;
             const baseRot = (layout === 'kaleidoscope-quad' || layout === 'kaleidoscope-radial') ? 0 : tileAngleRad;
             const spinPhase = (motion === 'spin' || motion === 'scroll-spin' || motion === 'sway' || motion === 'wave') ? (t / spinSpeed) * Math.PI * 2 : 0;
@@ -3517,8 +3597,46 @@
                         lastAlpha = alpha;
                     }
 
+                    let currentBitmap = sourceBitmap;
                     let filterStr = 'none';
-                    if (hasColorFilter) {
+
+                    if (sourceType === 'icon' && hasColorFilter) {
+                        let tileHue = baseHueCycle;
+                        if (hueShift === 'wave-x') {
+                            tileHue = ((t / hueSpeed) * 360) + (col * 24);
+                        } else if (hueShift === 'wave-y') {
+                            tileHue = ((t / hueSpeed) * 360) + (row * 24);
+                        }
+                        if (hueJitter > 0) {
+                            tileHue += (cellHash(row, col, 1) * 2 - 1) * hueJitter;
+                        }
+                        tileHue = ((tileHue % 360) + 360) % 360;
+
+                        const bVal = brightnessJitter > 0 ? (cellHash(row, col, 2) * 2 - 1) * (brightnessJitter / 100) : 0;
+                        const sVal = saturationJitter > 0 ? (cellHash(row, col, 3) * 2 - 1) * (saturationJitter / 100) : 0;
+                        const cls = String(curElement.content || 'fa-brands fa-twitch').trim();
+                        const tinted = getTintedIconStamp(cls, tileHue, sVal, bVal);
+                        if (tinted) {
+                            currentBitmap = tinted;
+                        } else {
+                            currentBitmap = sourceBitmap;
+                            let fp = '';
+                            if (tileHue > 0.5 && tileHue < 359.5) {
+                                fp += `hue-rotate(${Math.round(tileHue)}deg) `;
+                            }
+                            if (bVal !== 0) {
+                                fp += `brightness(${Math.round((1 + bVal) * 100)}%) `;
+                            }
+                            if (sVal !== 0) {
+                                fp += `saturate(${Math.round((1 + sVal) * 100)}%) `;
+                            }
+                            filterStr = fp ? fp.trim() : 'none';
+                            if (lastFilter !== filterStr) {
+                                ctx.filter = filterStr;
+                                lastFilter = filterStr;
+                            }
+                        }
+                    } else if (hasColorFilter) {
                         let tileHue = baseHueCycle;
                         if (hueShift === 'wave-x') {
                             tileHue = ((t / hueSpeed) * 360) + (col * 24);
@@ -3543,15 +3661,15 @@
                             fp += `saturate(${Math.round(sVal * 100)}%) `;
                         }
                         filterStr = fp ? fp.trim() : 'none';
-                    }
 
-                    if (lastFilter !== filterStr) {
-                        ctx.filter = filterStr;
-                        lastFilter = filterStr;
+                        if (lastFilter !== filterStr) {
+                            ctx.filter = filterStr;
+                            lastFilter = filterStr;
+                        }
                     }
 
                     ctx.setTransform(cosT * sX, sinT * sX, -sinT * sY, cosT * sY, tx, ty);
-                    ctx.drawImage(sourceBitmap, -halfTile, -halfTile, tileSize, tileSize);
+                    ctx.drawImage(currentBitmap, -halfTileW, -halfTileH, tileW, tileH);
                 }
             }
 
@@ -3566,7 +3684,7 @@
         }
 
         function wake() {
-            if (fxPaused || document.hidden) {
+            if (document.hidden) {
                 if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
                 return;
             }
@@ -3575,12 +3693,15 @@
             const pMotion = curOptions.animate === false ? 'none' : (p.motion || motion || 'none');
             const pHueShift = p.hueShift || hueShift || 'none';
             const pTwinkle = Number(p.twinkle ?? twinkle);
-            const needsLoop = (pMotion !== 'none' || pHueShift !== 'none' || pTwinkle > 0) && curOptions.animate !== false;
+            const needsLoop = (pMotion !== 'none' || pHueShift !== 'none' || pTwinkle > 0) && curOptions.animate !== false && !fxPaused;
             if (!needsLoop) {
                 if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
                 drawFrame(performance.now());
-            } else if (!rafId && !fxPaused && !document.hidden) {
-                rafId = requestAnimationFrame(drawFrame);
+            } else {
+                drawFrame(performance.now());
+                if (!rafId) {
+                    rafId = requestAnimationFrame(drawFrame);
+                }
             }
         }
 
@@ -3595,14 +3716,16 @@
             }
             const config = curElement.pattern || {};
             layout = ['grid', 'brick', 'stagger', 'alternating', 'checkerboard', 'kaleidoscope-quad', 'kaleidoscope-radial'].includes(config.layout) ? config.layout : 'brick';
+            aspectRatio = ['1:1', '16:9', '4:3', '3:2', '2:1', '3:4', '9:16', 'natural'].includes(config.aspectRatio) ? config.aspectRatio : '1:1';
+            iconHueCache.clear();
             tileSize = Math.max(16, Math.min(1024, Number(config.tileSize) || 96));
             gap = Math.max(0, Math.min(256, Number(config.gap ?? 16)));
             offsetX = Math.max(0, Math.min(100, Number(config.offsetX ?? (layout === 'brick' ? 50 : 0))));
             offsetY = Math.max(0, Math.min(100, Number(config.offsetY ?? (layout === 'stagger' ? 50 : 0))));
-            gridAngleRad = ((Number(config.angle) ?? -15) * Math.PI) / 180;
+            gridAngleRad = (Number(config.angle ?? -15) * Math.PI) / 180;
             cosG = Math.cos(gridAngleRad);
             sinG = Math.sin(gridAngleRad);
-            tileAngleDeg = Number(config.tileAngle) ?? 0;
+            tileAngleDeg = Number(config.tileAngle ?? 0);
             tileAngleRad = (tileAngleDeg * Math.PI) / 180;
             alternateFlip = ['none', 'tilt', 'h', 'v', 'both'].includes(config.alternateFlip) ? config.alternateFlip : 'tilt';
             tileOpacity = Math.max(0.05, Math.min(1, Number(config.tileOpacity ?? 1)));
@@ -3615,7 +3738,7 @@
             motion = curOptions.animate === false ? 'none' : (['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'kaleidoscope'].includes(config.motion) ? config.motion : 'scroll');
             const defaultTrack = (motion === 'alt-rows' || motion === 'alt-cols') ? 'opposite' : 'uniform';
             trackMode = ['uniform', 'opposite', 'stagger', 'sine', 'alternate-stop', 'alt-rows', 'stagger-rows', 'alt-cols', 'stagger-cols'].includes(config.trackMode) ? config.trackMode : defaultTrack;
-            scrollAngleRad = ((Number(config.scrollAngle) ?? 315) * Math.PI) / 180;
+            scrollAngleRad = (Number(config.scrollAngle ?? 315) * Math.PI) / 180;
             speed = Math.max(0.5, Math.min(120, Number(config.speed) || 12));
             spinSpeed = Math.max(0.5, Math.min(120, Number(config.spinSpeed) || 8));
             spinDirection = ['cw', 'ccw', 'alternate'].includes(config.spinDirection) ? config.spinDirection : 'cw';
@@ -3665,37 +3788,40 @@
                 return;
             }
 
-            if (motion !== 'none') patternRunners.add(wake);
+            const needsRunner = (motion !== 'none' || hueShift !== 'none' || twinkle > 0) && curOptions.animate !== false;
+            if (needsRunner) patternRunners.add(wake);
             else patternRunners.delete(wake);
 
             dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-            const nextStampSize = Math.min(384, Math.max(32, Math.round(tileSize * dpr)));
+            const { tileW: curW, tileH: curH } = getTileDimensions();
+            stampW = Math.min(384, Math.max(32, Math.round(curW * dpr)));
+            stampH = Math.min(384, Math.max(32, Math.round(curH * dpr)));
+
             isKaleido = layout === 'kaleidoscope-quad' || layout === 'kaleidoscope-radial' || motion === 'kaleidoscope';
             if (isKaleido) {
                 if (!cellCanvas) {
                     cellCanvas = document.createElement('canvas');
                     cellCtx = cellCanvas.getContext('2d');
                 }
-                if (cellCanvas.width !== nextStampSize) {
-                    cellCanvas.width = nextStampSize;
-                    cellCanvas.height = nextStampSize;
+                if (cellCanvas.width !== stampW || cellCanvas.height !== stampH) {
+                    cellCanvas.width = stampW;
+                    cellCanvas.height = stampH;
                 }
             }
 
             const rawSrc = curOptions.expand ? curOptions.expand(curElement.src || '') : String(curElement.src || '');
             const nextStampKey = sourceType === 'icon'
-                ? JSON.stringify(['icon', curElement.content, nextStampSize, curElement.style?.color, curElement.style?.textStroke, curElement.style?.textShadow])
-                : JSON.stringify(['image', rawSrc, nextStampSize, curElement.style?.objectFit, curElement.style?.focusX, curElement.style?.focusY]);
+                ? JSON.stringify(['icon', curElement.content, stampW, stampH, curElement.style?.color, curElement.style?.textStroke, curElement.style?.textShadow])
+                : JSON.stringify(['image', rawSrc, stampW, stampH, curElement.style?.objectFit, curElement.style?.focusX, curElement.style?.focusY]);
 
             if (nextStampKey === lastStampKey && readyToDraw) {
                 wake();
                 return;
             }
             lastStampKey = nextStampKey;
-            stampSize = nextStampSize;
-            if (stampCanvas.width !== stampSize || stampCanvas.height !== stampSize) {
-                stampCanvas.width = stampSize;
-                stampCanvas.height = stampSize;
+            if (stampCanvas.width !== stampW || stampCanvas.height !== stampH) {
+                stampCanvas.width = stampW;
+                stampCanvas.height = stampH;
             }
 
             if (sourceType === 'icon') {
@@ -3715,7 +3841,7 @@
                             }).catch(() => {});
                         }
                     } else if (curOptions.preview) {
-                        drawSamplePatternStamp(stampCtx, stampSize);
+                        drawSamplePatternStamp(stampCtx, stampW, stampH);
                         note.textContent = 'Choose a valid Font Awesome icon or paste an emoji in Content';
                         note.style.display = 'block';
                         readyToDraw = true;
@@ -3735,7 +3861,7 @@
             } else {
                 if (!rawSrc || /\{\{/.test(rawSrc)) {
                     if (curOptions.preview) {
-                        drawSamplePatternStamp(stampCtx, stampSize);
+                        drawSamplePatternStamp(stampCtx, stampW, stampH);
                         note.textContent = rawSrc ? `${rawSrc} (sample tile shown until live value is available)` : 'Sample pattern tile — upload an image or switch to Icon / Emoji in Content';
                         note.style.display = 'block';
                         readyToDraw = true;
@@ -3762,7 +3888,7 @@
                         if (stopped || lastImgSrc !== rawSrc) return;
                         cachedImg = null;
                         if (curOptions.preview) {
-                            drawSamplePatternStamp(stampCtx, stampSize);
+                            drawSamplePatternStamp(stampCtx, stampW, stampH);
                             note.textContent = "Couldn't load tile image — showing sample pattern";
                             note.style.display = 'block';
                             readyToDraw = true;
@@ -3777,8 +3903,10 @@
         syncConfig(element, options);
 
         const handle = {
+            isStopped: () => stopped,
             stop() {
                 stopped = true;
+                if (node._patternHandle === handle) node._patternHandle = null;
                 patternRunners.delete(wake);
                 if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
                 cachedImg = null;

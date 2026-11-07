@@ -358,6 +358,7 @@ const PATTERN_TRACK_MODES = ['uniform', 'opposite', 'stagger', 'sine', 'alternat
 const PATTERN_FLIPS = ['none', 'tilt', 'h', 'v', 'both'];
 const PATTERN_BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion', 'luminosity', 'plus-lighter'];
 const PATTERN_HUE_SHIFTS = ['none', 'cycle', 'wave-x', 'wave-y'];
+const PATTERN_ASPECT_RATIOS = ['1:1', '16:9', '4:3', '3:2', '2:1', '3:4', '9:16', 'natural'];
 
 function normalizeSpeakerBadge(badge = {}) {
     const rawSpeaker = badge?.speaker && typeof badge.speaker === 'object' ? badge.speaker : {};
@@ -441,6 +442,7 @@ function normalizePattern(p = {}) {
         lineWidth: Math.max(0, Math.min(50, Number(p.lineWidth) || 0)),
         scale: Math.max(10, Math.min(1000, Math.round(Number(p.scale) || 100))),
         layout: PATTERN_LAYOUTS.includes(p.layout) ? p.layout : 'brick',
+        aspectRatio: PATTERN_ASPECT_RATIOS.includes(p.aspectRatio) ? p.aspectRatio : '1:1',
         tileSize: Math.round(num(p.tileSize, 16, 1024, 96)),
         gap: Math.round(num(p.gap, 0, 256, 16)),
         offsetX: Math.round(num(p.offsetX, 0, 100, 50)),

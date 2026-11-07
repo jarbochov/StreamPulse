@@ -166,11 +166,17 @@ details.sect > summary:hover { background: color-mix(in srgb, var(--text) 4%, tr
 #slide-grid .asset-tile[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
 #slide-grid .asset-tile[aria-pressed="true"]::after { content: ''; position: absolute; top: 4px; right: 6px; background-color: var(--accent); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E"); background-size: 12px 12px; background-position: center; background-repeat: no-repeat; border-radius: 50%; width: 20px; height: 20px; }
 #asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .6rem; max-height: 55vh; overflow: auto; margin-top: .8rem; padding: 2px; }
-.asset-tile { position: relative; padding: 0; overflow: hidden; display: flex; flex-direction: column; text-align: left; border-radius: 8px; }
+.asset-tile { position: relative; padding: 0; overflow: hidden; display: flex; flex-direction: column; text-align: left; border-radius: 8px; cursor: pointer; background: var(--bg-card); border: 1px solid var(--border); }
+.asset-tile:hover { border-color: var(--accent); }
 .asset-tile[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .asset-tile .thumb { position: relative; flex: none; align-self: stretch; height: 90px; background: repeating-conic-gradient(var(--border) 0 25%, var(--border-strong) 0 50%) 0 0 / 14px 14px; }
 .asset-tile .thumb img, .asset-tile .thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .asset-tile .cap { padding: .3rem .45rem; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asset-tile-actions { position: absolute; top: 4px; right: 4px; display: flex; gap: 4px; z-index: 3; opacity: 0; transition: opacity 0.12s; }
+.asset-tile:hover .asset-tile-actions, .asset-tile:focus-within .asset-tile-actions { opacity: 1; }
+.asset-tile-act { background: rgba(13, 17, 23, 0.88); backdrop-filter: blur(4px); border: 1px solid var(--border); border-radius: 4px; color: var(--text); padding: 3px 5px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; line-height: 1; }
+.asset-tile-act:hover { border-color: var(--accent); color: var(--accent); background: var(--bg-card); }
+.crop-tool-btn { display: inline-flex; align-items: center; gap: 6px; }
 .btn-like { border: 1px solid var(--border); border-radius: 6px; padding: .45rem .75rem; background: var(--panel-2, var(--bg-raised)); cursor: pointer; font-size: 13px; }
 .btn-like:hover { border-color: var(--accent); }
 .upload-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .4rem; }
