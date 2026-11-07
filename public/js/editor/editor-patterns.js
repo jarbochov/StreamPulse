@@ -16,25 +16,79 @@ const FALLBACK_PATTERN_CATEGORIES = [
 export function proceduralPatternContentFields(el) {
     const p = el.pattern || {};
     const patterns = (window.StreamPulsePatterns?.PATTERN_CATEGORIES) || FALLBACK_PATTERN_CATEGORIES;
-    const secColor = (p.secondary && p.secondary !== 'transparent') ? p.secondary : (p.accent || '#38bdf8');
     return `
         ${F.select('pattern.preset', 'Generative pattern', p.preset || 'hexagons', patterns)}
-        ${F.range('pattern.scale', 'Pattern scale', p.scale ?? 100, { min: 10, max: 500, step: 5, unit: '%', editable: true, reset: 100 })}
-        <div class="grid2">
-            ${F.color('pattern.accent', 'Primary / accent color', p.accent || '#58a6ff')}
-            ${F.color('pattern.secondary', 'Secondary color', secColor, { clear: true })}
-        </div>
-        <div class="grid2">
-            ${F.color('pattern.color', 'Base fill', p.color || 'transparent', { clear: true })}
-            ${F.number('pattern.lineWidth', 'Line width (px, 0=auto)', p.lineWidth || 0, { min: 0, max: 20, step: 0.5 })}
-        </div>
+        <span class="hint">Generative procedural backgrounds render pure vector geometry across the layer frame with zero seams. Customize colors, fill styles, line weights, scale, and animation under the <strong>Style</strong> tab.</span>
     `;
 }
 
 export function proceduralPatternSection(el) {
     const p = el.pattern || {};
+    const palette = p.palette || 'dual';
+    const fillMode = p.fillMode || 'tinted';
     const motion = p.motion || 'drift';
     const blendMode = p.blendMode || 'normal';
+    const secColor = (p.secondary && p.secondary !== 'transparent') ? p.secondary : (p.accent || '#38bdf8');
+    const palettesDict = window.StreamPulsePatterns?.PALETTES || {};
+
+    const paletteOptions = [
+        ['dual', 'Custom Two-Tone (Accent & Secondary)'],
+        ['multicolor', 'Festive Multicolor (7 Jewel Tones)'],
+        ['warm', 'Warm Hearth (Amber, Crimson, Gold, Rose)'],
+        ['cool', 'Cool Frost (Ice Blue, Mint, Lilac, Slate)'],
+        ['autumn', 'Autumn Harvest (Foliage Red, Orange, Gold)'],
+        ['pastel', 'Soft Pastel (Coral, Mint, Lavender)']
+    ];
+
+    let colorFields = F.select('pattern.palette', 'Color palette', palette, paletteOptions);
+
+    if (palette !== 'dual' && palettesDict[palette]) {
+        const swatches = palettesDict[palette].map(c => `<span style="flex:1;background:${c};height:100%;"></span>`).join('');
+        colorFields += `
+            <div class="pattern-palette-bar" style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin:4px 0 10px;" title="Curated palette preview">
+                ${swatches}
+            </div>
+            <p class="hint" style="margin:2px 0 8px;">Shapes, lights, and foliage alternate through the curated palette.</p>
+            <details class="sub-details" style="margin-bottom:8px;">
+                <summary>Custom fallback colors</summary>
+                <div class="grid2" style="margin-top:6px;">
+                    ${F.color('pattern.accent', 'Primary / accent', p.accent || '#58a6ff')}
+                    ${F.color('pattern.secondary', 'Secondary color', secColor, { clear: true })}
+                </div>
+            </details>
+        `;
+    } else {
+        colorFields += `
+            <div class="grid2">
+                ${F.color('pattern.accent', 'Primary / accent color', p.accent || '#58a6ff')}
+                ${F.color('pattern.secondary', 'Secondary color', secColor, { clear: true })}
+            </div>
+        `;
+    }
+
+    const fillModeOptions = [
+        ['tinted', 'Translucent Tint (Glass / Ambient)'],
+        ['solid', 'Solid Color (Vibrant Opaque)'],
+        ['outline', 'Wireframe Outlines Only']
+    ];
+
+    let fillBlock = F.select('pattern.fillMode', 'Fill style', fillMode, fillModeOptions);
+    if (fillMode !== 'outline') {
+        const defaultOp = fillMode === 'solid' ? 100 : 30;
+        fillBlock += F.range('pattern.fillOpacity', 'Fill opacity', p.fillOpacity ?? defaultOp, { min: 0, max: 100, step: 5, unit: '%', editable: true, reset: defaultOp });
+    } else {
+        fillBlock += '<span class="hint">Shapes render as clean vector outlines with hollow interiors.</span>';
+    }
+
+    const styleBlock = `
+        ${colorFields}
+        ${fillBlock}
+        <div class="grid2">
+            ${F.color('pattern.color', 'Canvas base fill', p.color || 'transparent', { clear: true })}
+            ${F.number('pattern.lineWidth', 'Line width (px, 0=auto)', p.lineWidth || 0, { min: 0, max: 20, step: 0.5 })}
+        </div>
+        ${F.range('pattern.scale', 'Geometry scale', p.scale ?? 100, { min: 10, max: 500, step: 5, unit: '%', editable: true, reset: 100 })}
+    `;
 
     let motionBlock = F.select('pattern.motion', 'Animation motion', motion, [
         ['none', 'Static (no animation)'],
@@ -75,7 +129,8 @@ export function proceduralPatternSection(el) {
 
     motionBlock += '<span class="hint">Generative procedural backgrounds render vector mathematics across the full layer frame with zero seams.</span>';
 
-    return F.section('proceduralMotion', 'Animation & Blending', motionBlock);
+    return F.section('proceduralStyle', 'Colors & Fill Style', styleBlock)
+        + F.section('proceduralMotion', 'Animation & Motion', motionBlock);
 }
 
 export function patternContentSection(el, focusFieldFn, iconEffectsSectionFn) {

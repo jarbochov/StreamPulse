@@ -361,6 +361,8 @@ const PATTERN_BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'li
 const PATTERN_HUE_SHIFTS = ['none', 'cycle', 'wave-x', 'wave-y'];
 const PATTERN_ASPECT_RATIOS = ['1:1', '16:9', '4:3', '3:2', '2:1', '3:4', '9:16', 'natural'];
 const PATTERN_DISTRIBUTIONS = ['diagonal', 'row', 'col', 'grid', 'random'];
+const PATTERN_PALETTES = ['dual', 'multicolor', 'warm', 'cool', 'autumn', 'pastel'];
+const PATTERN_FILL_MODES = ['tinted', 'solid', 'outline'];
 
 function normalizeSpeakerBadge(badge = {}) {
     const rawSpeaker = badge?.speaker && typeof badge.speaker === 'object' ? badge.speaker : {};
@@ -476,12 +478,19 @@ function normalizePattern(p = {}, isProcedural = false) {
     });
     const cleanAccent = String(p.accent && p.accent !== 'transparent' ? p.accent : '#58a6ff').slice(0, 80);
     const cleanSecondary = String(p.secondary && p.secondary !== 'transparent' ? p.secondary : cleanAccent).slice(0, 80);
+    const palette = PATTERN_PALETTES.includes(p.palette) ? p.palette : 'dual';
+    const fillMode = PATTERN_FILL_MODES.includes(p.fillMode) ? p.fillMode : 'tinted';
+    const defaultFillOpacity = fillMode === 'solid' ? 100 : (fillMode === 'outline' ? 0 : 30);
+    const fillOpacity = Math.round(num(p.fillOpacity, 0, 100, defaultFillOpacity));
     return {
         sourceType,
         tileDistribution: PATTERN_DISTRIBUTIONS.includes(p.tileDistribution) ? p.tileDistribution : 'diagonal',
         tile1Scale: Math.round(num(p.tile1Scale, 25, 200, 100)),
         tiles,
         preset: String(p.preset || 'hexagons').slice(0, 40),
+        palette,
+        fillMode,
+        fillOpacity,
         accent: cleanAccent,
         secondary: cleanSecondary,
         color: String(p.color || 'transparent').slice(0, 80),

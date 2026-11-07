@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const { PATTERNS, PATTERN_CATEGORIES, drawProceduralPattern } = require('../public/js/patterns-shared.js');
+const { PATTERNS, PATTERN_CATEGORIES, PALETTES, drawProceduralPattern } = require('../public/js/patterns-shared.js');
 
 test('Shared patterns module: exports, categories and canvas drawing', () => {
     assert.equal(Array.isArray(PATTERNS), true);
@@ -658,4 +658,116 @@ test('Custom Overlay Editor: Reorganized element picker and search filter', () =
     const js = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-main.js'), 'utf8');
     assert.ok(js.includes('filterAddElements'), 'editor-main.js must define filterAddElements');
     assert.ok(js.includes('addElementSearch'), 'editor-main.js must wire search listeners');
+});
+
+test('Procedural Patterns: multicolor palettes, fill styles, schema normalization & Style tab inspector separation', () => {
+    // 1. Palette dictionary verification
+    assert.ok(PALETTES, 'PALETTES export must exist');
+    assert.ok(Array.isArray(PALETTES.multicolor), 'multicolor palette must be an array');
+    assert.ok(PALETTES.multicolor.length >= 7, 'multicolor must have at least 7 jewel tones');
+    assert.ok(Array.isArray(PALETTES.warm), 'warm palette must be an array');
+    assert.ok(Array.isArray(PALETTES.cool), 'cool palette must be an array');
+    assert.ok(Array.isArray(PALETTES.autumn), 'autumn palette must be an array');
+    assert.ok(Array.isArray(PALETTES.pastel), 'pastel palette must be an array');
+
+    // 2. Multicolored canvas rendering across patterns
+    const fillColors = new Set();
+    const strokeColors = new Set();
+    const mockCtx = {
+        save: () => {},
+        restore: () => {},
+        beginPath: () => {},
+        closePath: () => {},
+        moveTo: () => {},
+        lineTo: () => {},
+        quadraticCurveTo: () => {},
+        stroke: () => { if (mockCtx.strokeStyle) strokeColors.add(mockCtx.strokeStyle); },
+        fill: () => { if (mockCtx.fillStyle) fillColors.add(mockCtx.fillStyle); },
+        fillRect: () => {},
+        scale: () => {},
+        translate: () => {},
+        rotate: () => {},
+        arc: () => {},
+        ellipse: () => {},
+        createRadialGradient: () => ({ addColorStop: (stop, color) => { fillColors.add(color); } }),
+        createLinearGradient: () => ({ addColorStop: () => {} })
+    };
+
+    drawProceduralPattern(mockCtx, 'christmas-lights', 1200, 400, {
+        palette: 'multicolor',
+        fillMode: 'solid',
+        fillOpacity: 100,
+        time: 0,
+        motion: 'none'
+    });
+    // With 7 colors in multicolor palette, multiple distinct palette colors should be recorded
+    assert.ok(fillColors.size >= 3, `Multicolor christmas lights must draw multiple distinct bulb/glow colors (got ${fillColors.size})`);
+
+    // 3. Fill Mode: outline should not invoke fill on geometric patterns
+    let outlineFillCalls = 0;
+    const outlineCtx = {
+        save: () => {}, restore: () => {}, beginPath: () => {}, closePath: () => {},
+        moveTo: () => {}, lineTo: () => {}, stroke: () => {},
+        fill: () => { outlineFillCalls++; },
+        fillRect: () => {}, scale: () => {}, translate: () => {}, rotate: () => {},
+        arc: () => {}, ellipse: () => {}
+    };
+    drawProceduralPattern(outlineCtx, 'hexagons', 600, 400, {
+        fillMode: 'outline',
+        time: 0,
+        motion: 'none'
+    });
+    assert.equal(outlineFillCalls, 0, 'Outline fillMode must not call ctx.fill on geometric shapes');
+
+    // 4. Schema normalization in overlays service
+    const { normalizeCustomOverlay } = require('../server/services/overlays.js');
+    const normalizedDefault = normalizeCustomOverlay({
+        id: 'proc-pat-test',
+        name: 'Procedural Test',
+        elements: [{
+            id: 'proc-el-1',
+            type: 'procedural-pattern',
+            pattern: {}
+        }]
+    });
+    const p1 = normalizedDefault.elements[0].pattern;
+    assert.equal(p1.palette, 'dual', 'Default palette must be dual');
+    assert.equal(p1.fillMode, 'tinted', 'Default fillMode must be tinted');
+    assert.equal(p1.fillOpacity, 30, 'Default fillOpacity must be 30');
+
+    const normalizedCustom = normalizeCustomOverlay({
+        id: 'proc-pat-custom',
+        name: 'Procedural Custom',
+        elements: [{
+            id: 'proc-el-2',
+            type: 'procedural-pattern',
+            pattern: {
+                palette: 'multicolor',
+                fillMode: 'solid',
+                fillOpacity: 85
+            }
+        }]
+    });
+    const p2 = normalizedCustom.elements[0].pattern;
+    assert.equal(p2.palette, 'multicolor');
+    assert.equal(p2.fillMode, 'solid');
+    assert.equal(p2.fillOpacity, 85);
+
+    // 5. Inspector Clean Architecture & Tab Separation
+    const patternsCode = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-patterns.js'), 'utf8');
+    const contentFieldsFnMatch = patternsCode.match(/export function proceduralPatternContentFields[\s\S]*?return `([\s\S]*?)`;/);
+    assert.ok(contentFieldsFnMatch, 'proceduralPatternContentFields function must exist');
+    const contentFieldsBody = contentFieldsFnMatch[1];
+    assert.ok(contentFieldsBody.includes("F.select('pattern.preset'"), 'Content tab must render generative preset selector');
+    assert.ok(!contentFieldsBody.includes("pattern.accent"), 'Content tab fields must not contain primary color styling');
+    assert.ok(!contentFieldsBody.includes("pattern.color"), 'Content tab fields must not contain base fill styling');
+    assert.ok(!contentFieldsBody.includes("pattern.lineWidth"), 'Content tab fields must not contain line width styling');
+    assert.ok(patternsCode.includes("F.section('proceduralStyle', 'Colors & Fill Style'"), 'proceduralStyle section must be created');
+    assert.ok(patternsCode.includes("F.section('proceduralMotion', 'Animation & Motion'"), 'proceduralMotion section must be created');
+
+    const inspectorCode = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-inspector.js'), 'utf8');
+    assert.ok(inspectorCode.includes("proceduralStyle: 'style'"), 'proceduralStyle section must route to Style tab');
+    assert.ok(inspectorCode.includes("proceduralMotion: 'style'"), 'proceduralMotion section must route to Style tab');
+    assert.ok(inspectorCode.includes("'pattern.palette'"), 'pattern.palette must be in RERENDER_PATHS');
+    assert.ok(inspectorCode.includes("'pattern.fillMode'"), 'pattern.fillMode must be in RERENDER_PATHS');
 });

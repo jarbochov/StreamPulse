@@ -90,7 +90,7 @@ try {
         alert: { alert: 'content', typography: 'style' },
         slideshow: { 'slide-what': 'content', 'slide-play': 'content', 'slide-remote': 'content' },
         pattern: { content: 'content', patternLayout: 'style', patternJitter: 'style', patternMotion: 'style' },
-        'procedural-pattern': { content: 'content', proceduralMotion: 'style' },
+        'procedural-pattern': { content: 'content', proceduralStyle: 'style', proceduralMotion: 'style' },
         'speaker-badge': { speakerProfile: 'content', speakerCallIn: 'content', speakerAudio: 'content', speakerLayout: 'layout', speakerStyle: 'style', speakerReaction: 'style' }
     };
     const types = await page.evaluate(() => window.fixture.types);

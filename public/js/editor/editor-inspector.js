@@ -74,7 +74,7 @@ export const RERENDER_PATHS = new Set([
     'speakerBadge.reaction.visualizer', 'speakerBadge.reaction.highlightBorder', 'speakerBadge.reaction.dimWhenIdle',
     'speakerBadge.autoSize',
     'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta',
-    'pattern.sourceType', 'pattern.tileDistribution', 'pattern.preset', 'pattern.layout', 'pattern.symmetry', 'pattern.kaleidoMorph', 'pattern.aspectRatio', 'pattern.hueShift', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip', 'pattern.animateJitter',
+    'pattern.sourceType', 'pattern.tileDistribution', 'pattern.preset', 'pattern.palette', 'pattern.fillMode', 'pattern.layout', 'pattern.symmetry', 'pattern.kaleidoMorph', 'pattern.aspectRatio', 'pattern.hueShift', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip', 'pattern.animateJitter',
     'pattern.tiles.0.sourceType', 'pattern.tiles.1.sourceType', 'pattern.tiles.2.sourceType'
 ]);
 
@@ -1539,7 +1539,8 @@ const INSPECTOR_TABS = [['content', 'Content'], ['layout', 'Layout'], ['style', 
 const SPECIFIC_SECTION_TABS = {
     gamelayout: 'layout', speakerLayout: 'layout',
     gamecovers: 'style', gametext: 'style', progress: 'style',
-    patternLayout: 'style', patternJitter: 'style', patternAppearance: 'style', patternColor: 'style', patternMotion: 'style', proceduralMotion: 'style',
+    patternLayout: 'style', patternJitter: 'style', patternAppearance: 'style', patternColor: 'style', patternMotion: 'style',
+    proceduralStyle: 'style', proceduralMotion: 'style',
     speakerStyle: 'style', speakerVisualizer: 'style', speakerReaction: 'style'
 };
 
