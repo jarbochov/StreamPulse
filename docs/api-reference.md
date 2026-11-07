@@ -27,6 +27,43 @@ Example patch: `{ "element": "guest-badge", "speaker": { "name": "Fictional Gues
 
 See [Speaker Badge setup and controller](custom-overlays.md#voice-reactive-speaker-badges--call-in-banners).
 
+## OBS Bridge (WebSocket v5)
+
+StreamPulse connects directly to OBS Studio via its built-in WebSocket v5 server (default port 4455) to drive frame-synchronized Scene State source animations, source discovery, and voice-reactive Speaker Badge volume meters.
+
+| Endpoint | Result |
+| --- | --- |
+| `GET /api/obs/status` | Bridge connection and engine status (`enabled`, `sceneSyncEnabled`, `speakerBadgesEnabled`, `connected`, `connecting`, `host`, `port`, `syncOnSave`, `motionEngine`, `activeEngine`, `obsVersion`, `currentProgramScene`, `hasMovePlugin`, `lastError`) |
+| `GET /api/obs/sources` | Discover OBS scenes, sources, and scene items grouped by scene (`scenes`, `sources`, `byScene`, `currentProgramScene`, `hasMovePlugin`). Returns `403` when Scene Sync is disabled |
+| `GET /api/obs/audio-inputs` | Discover active audio mixer sources (`inputs`, `connected`, `enabled`) using capability probing and live volume metering |
+| `POST /api/obs/config` | Update OBS bridge settings (`enabled`, `host`, `port`, `password`, `syncOnSave`, `motionEngine`). Loopback only; accepts `PUT` |
+| `POST /api/obs/connect` | Enable and initiate connection to OBS WebSocket. Loopback only |
+| `POST /api/obs/disconnect` | Disconnect the OBS WebSocket bridge. Loopback only |
+| `POST /api/obs/cleanup-filters` | Remove orphaned StreamPulse-managed Move and Fade filters (`sceneName`, `all: boolean`). Loopback only. Returns `403` when Scene Sync is disabled |
+| `POST /api/obs/sync` | Manually sync linked OBS source transforms for an overlay page or scene state. Loopback only. Returns `403` when Scene Sync is disabled |
+
+**Module Independence & Security:**
+- **Loopback Enforcement:** Configuration, connection, filter cleanup, and manual sync endpoints require requests from the local loopback interface (`127.0.0.1` / `::1`).
+- **Protected Credentials:** Password values are write-only; `GET /api/obs/status` only returns `hasPassword: true/false` and never reveals secrets.
+- **Independent Feature Modules:** The global OBS connection operates independently of feature toggles. Turning off **OBS Scene Sync** (`obs_scene_sync_enabled: false`) disables source motion and returns `403` on sync endpoints, while preserving connection health and audio volume meters for Speaker Badges.
+- **Manual Sync Payload Example:**
+  ```json
+  POST /api/obs/sync
+  {
+    "overlayId": "main-layout",
+    "pageId": "brb-state",
+    "animate": true
+  }
+  ```
+- **Filter Cleanup Payload Example:**
+  ```json
+  POST /api/obs/cleanup-filters
+  {
+    "sceneName": "Gameplay",
+    "all": false
+  }
+  ```
+
 ## Message Deletion Sync
 
 `GET /api/twitch/message-deletions` returns `enabled`, `events` (saved deletion records), `lastEventAt`, `error`, `scopeReady` (`user:read:chat` granted), and `connected` (Twitch message-delete subscription registered on the active EventSub socket).
@@ -449,6 +486,31 @@ Control also accepts `GET /api/timers/:id/control?action=toggle`. Read an indivi
 ### List Overlay Visibility States
 - **Endpoint**: `GET /api/overlay-visibility`
 - **Description**: Returns `{ "overlays": [...] }`; each entry includes its `key`, label, and `visible` boolean.
+
+### Multipage Overlay Navigation
+- **Endpoints**:
+  - `GET /api/custom-overlays/:id/page`: Returns `{ enabled, page, name, index, count, auto, pages }`.
+  - `POST /api/custom-overlays/:id/page`: Switches active page or scene state live across all connected browser sources.
+- **Body**:
+  ```json
+  {
+    "action": "goto",
+    "page": "gameplay-scene"
+  }
+  ```
+- **Actions**: `next`, `prev`, `first`, `last`, `goto`, `auto`, `enable`, `disable`, `toggle`. `page` accepts a page ID, name, or 1-based number (or array of page targets for enable/disable/toggle). Dedicated web remote available at `/overlay-control.html?id=<id>`.
+
+### Slideshow Element Remote Control
+- **Endpoint**: `POST /api/custom-overlays/:id/slideshow`
+- **Description**: Broadcasts cycling actions to slideshow layers across live browser sources.
+- **Body**:
+  ```json
+  {
+    "action": "next",
+    "element": "sponsor-slideshow"
+  }
+  ```
+- **Actions**: `next`, `prev`, `pause`, `play`, `toggle`. Omit `element` to target all slideshow layers on the overlay.
 
 ---
 

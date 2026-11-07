@@ -841,6 +841,11 @@
                     desc: 'Apply linked-source transforms for an overlay state',
                     body: '{ "overlayId": "my-overlay", "pageId": "state-id", "animate": true }',
                     details: 'Loopback only. Accepts overlayId (or id), an overlay object, optional pageId (or page), animate, and instant. Applies enabled OBS Source Frame links, not arbitrary browser-source layers. Returns { ok, synced, results }; no linked sources is a successful zero-sync result. Simple Pages return a successful zero-sync result without any OBS commands. WebSocket animation waits for final write acknowledgement; Move-plugin success confirms filter configuration/start acknowledgement, not playback completion. Superseded or rejected work is not reported as synchronized. HTTP 403 means Scene Sync is disabled; HTTP 503 means disconnected; HTTP 502 reports source/scene/write failures with per-element reasons. Normal Scene State actions sync linked sources only when the global bridge, Scene Sync module and automatic synchronization are enabled.'
+                },
+                {
+                    method: 'GET', path: '/api/obs/audio-inputs',
+                    desc: 'List active audio mixer sources from OBS Studio',
+                    details: 'Returns { inputs: [...], connected: boolean, enabled: boolean }. Dynamically discovers all OBS sources carrying audio (microphones, desktop audio, browser sources with "Control audio via OBS", media sources, and window/app captures) using capability probing and live InputVolumeMeters tracking. Disconnected bridges return an empty list with connected: false.'
                 }
             ]
         },
@@ -851,6 +856,17 @@
                     method: 'GET', path: '/api/custom-overlays',
                     desc: 'List custom overlays',
                     details: 'Returns each overlay with id, name, canvas size, revision, createdAt, updatedAt and elementCount.'
+                },
+                {
+                    method: 'GET', path: '/api/custom-overlays/:id/speakers',
+                    desc: 'List speaker badges in an overlay',
+                    details: 'Returns { id, name, revision, speakers: [...] } listing all speaker-badge elements in the overlay with their element IDs, layer names, page, and speakerBadge profile/audio/reaction settings.'
+                },
+                {
+                    method: 'PATCH', path: '/api/custom-overlays/:id/speakers',
+                    desc: 'Quickly update speaker badge profile and audio source',
+                    body: '{ "element": "guest-badge", "speaker": { "name": "Alex Rivera", "handle": "@alex", "pronouns": "they/them", "avatarSrc": "/custom-overlay-assets/alex.png", "callIn": { "enabled": true, "statusText": "ON THE LINE", "location": "Chicago, IL", "showLocation": true } }, "audio": { "inputName": "Discord Audio" } }',
+                    details: 'Persists selected badge fields and broadcasts custom-overlay-update to connected browser sources without modifying layer layout, bounds, or visual styling. Saves a new overlay revision.'
                 },
                 {
                     method: 'POST', path: '/api/custom-overlays',

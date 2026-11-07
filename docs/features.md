@@ -4,7 +4,7 @@ Some nights need a polished scene. Others need a quick countdown or a way to let
 
 ## Make the broadcast yours
 
-**[Custom Overlay Studio](custom-overlays.md)** brings text, images, video, and live information into a visual editor. Keep starting, gameplay, and break layouts together with pages, or add a single element to your existing OBS scene.
+**[Custom Overlay Studio](custom-overlays.md)** brings text, images, video, voice-reactive speaker badges, and live information into a visual editor. Keep starting, gameplay, and break layouts together with pages, or add a single element to your existing OBS scene.
 
 **[Ready-to-use overlays](overlay-wizards.md)** get a timer, community goal, game schedule, or music display on screen without building a whole layout. Apple Music and VLC displays depend on your player and setup.
 

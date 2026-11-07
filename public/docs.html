@@ -992,11 +992,12 @@
         </div>
         <div class="card-body">
             <div class="detail-text">
-                Build your own overlays on a free-form canvas in the <a href="/custom-overlay-editor.html" style="color:var(--accent);">Custom Overlay Editor</a>: text, random text pools, sanitized Markdown, images, video (HTML5 and YouTube), web embeds, QR codes, icons, geometric shapes, camera cutouts / punchouts, progress bars and rings, game lists, alert boxes, slideshows, pattern tiles, and WebGL retro shaders (CRT, scanlines, TV static). Manage them on the <a href="/custom-overlays.html" style="color:var(--accent);">Custom Overlays</a> page (search, sort, live previews, <strong>Duplicate</strong>, copy OBS URL). Each overlay is one Browser Source at its canvas size (default 1920×1080).
+                Build your own overlays on a free-form canvas in the <a href="/custom-overlay-editor.html" style="color:var(--accent);">Custom Overlay Editor</a>: text, random text pools, sanitized Markdown, images, video (HTML5 and YouTube), web embeds, QR codes, icons, geometric shapes, camera cutouts / punchouts, progress bars and rings, game lists, alert boxes, slideshows, pattern tiles, speaker badges (voice-reactive active speaker cards and broadcast call-in banners), game artwork (IGDB cover and screenshot search), background motion patterns, and WebGL retro shaders (CRT, scanlines, TV static). Manage them on the <a href="/custom-overlays.html" style="color:var(--accent);">Custom Overlays</a> page (search, sort, live previews, <strong>Duplicate</strong>, copy OBS URL). Each overlay is one Browser Source at its canvas size (default 1920×1080).
             </div>
             <div class="detail-label">OBS URL</div>
             <div class="url-box"><code>${BASE}/custom-overlay.html?id=my-overlay</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/custom-overlay.html?id=my-overlay')">Copy</button></div>
             <div class="detail-label">Editing tips</div>
+            <div class="detail-text">The <strong>+ Add</strong> element picker organizes 20 layer types into 3 balanced columns: <strong>Text &amp; Copy</strong> + <strong>Media &amp; Artwork</strong>, <strong>Framing &amp; Cutouts</strong> + <strong>Graphics &amp; Patterns</strong>, and <strong>Stream Widgets</strong> + <strong>Interactive &amp; Web</strong>, with instant keyword search and Escape/Enter keyboard navigation.</div>
             <div class="detail-text">For quick speaker changes, open the overlay controller and choose <strong>Speakers</strong>. Use <strong>Library...</strong> beside an avatar to search image assets, upload from your computer, or remove the image; URL/path entry is also supported. Choose <strong>Save badge</strong> to persist the profile and update connected overlays without changing its styling or other layers.</div>
             <div class="detail-text">Configure OBS once in <a href="/config-editor.html#connection">System Config &gt; Connection &amp; Security &gt; OBS Connection</a>. This global connection is shared by all OBS-enabled features. Disable <strong>OBS Scene Sync</strong> under <strong>Modules &amp; Services</strong> to hide its editor controls and stop manual/automatic source motion, without disconnecting OBS or disabling speaker meters. Saved source links are preserved. <strong>Auto-sync</strong> only controls automatic updates when the module is enabled; existing configurations keep Scene Sync enabled until you turn it off.</div>
             <div class="detail-text">Speaker badges react to live OBS meters in the editor when live-data preview is enabled. The audio inspector and Speakers controller show input dB levels versus the gate: lower the sensitivity gate if normal speech remains below it. The source must be active in OBS, not merely listed as audio-capable. <strong>Simulate Speaking</strong> tests styling without real audio.</div>
@@ -1007,7 +1008,29 @@
                 <li>Ctrl/⌘+C / V / D copy, paste and duplicate elements; Ctrl/⌘+G groups</li>
                 <li>The <strong>Filters</strong> section adds blur, brightness, contrast, saturation, grayscale, duotone, retro CRT shaders, and color tints</li>
             </ul></div>
-    </div>    <div class="card open">
+    </div>
+    <div class="card open">
+        <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+            <strong>Voice-Reactive Speaker Badges &amp; Call-In Banners</strong>
+            <span class="chevron">&#9654;</span>
+        </div>
+        <div class="card-body">
+            <div class="detail-text">
+                Highlight active speakers in real time based on live OBS Studio audio mixer sources (microphones, Discord capture, guest call tracks, or VDO.ninja browser sources with audio control).<br><br>
+                <strong>Modular &amp; Zero Background Overhead:</strong> Speaker badges are opt-in and disabled by default (<code>"speaker_badges_enabled": false</code> in System Config &gt; Modules &amp; Services). When disabled, OBS volume meter subscriptions are omitted and the element is hidden from the studio toolbar. When enabled, StreamPulse subscribes to OBS volume meters (<code>InputVolumeMeters</code>) throttled at ~20Hz.<br><br>
+                <strong>Clean 3-Tab Inspector Organization:</strong>
+                <ul class="checklist">
+                    <li><strong>Content:</strong> Identity metadata (Display Name, Handle/Subtitle, Pronouns, Avatar Image Asset with Library/Upload support, visibility toggles), Call-In status text and caller location, and OBS Audio Input selection with live connection feedback (<code>● OBS Connected</code> vs <code>⚠ OBS Disconnected</code>), sensitivity gate threshold (dB), release hold time (ms), and a <strong>Simulate Speaking</strong> test toggle.</li>
+                    <li><strong>Layout:</strong> 5 layout presets (Horizontal Lower-Third, Broadcast Call-In C-SPAN Banner, Compact Pill, Vertical Sidebar Card, and Avatar Only Floating Halo). Element dimensions auto-adapt to recommended bounds on preset changes with an optional <strong>Apply Recommended Size</strong> button.</li>
+                    <li><strong>Style:</strong> Visual appearance (Avatar shape: Circle, Squircle, Square; Call-In tag color), Audio Visualizers (EQ bars, avatar pulse halo ring, or both), speaking reactions (active border color, glow spread, scale pop, idle dimming opacity), proportional typography scaling, background fills (including true transparency, solid colors, and animated linear/radial gradients), borders, and box shadows.</li>
+                </ul><br>
+                <strong>Proportional Typography:</strong> Adjusting the font size dynamically scales the entire badge harmoniously (display name, handle, pronouns, location, and call-in status tags maintain their proportional relationship).<br><br>
+                <strong>Multi-Guest Audio Routing:</strong> For multi-speaker broadcasts (e.g. VDO.ninja or Discord), route each guest to a separate OBS Browser Source (with "Control audio via OBS" enabled) or Audio Input Capture. StreamPulse detects each source in the audio input picker and illuminates only the badge belonging to that active speaker.<br><br>
+                <strong>Quick Speaker Controller:</strong> Use <strong>Speakers</strong> in the Overlay Controller (<code>/overlay-control.html?id=&lt;id&gt;</code>) or <code>PATCH /api/custom-overlays/:id/speakers</code> to update guest names, handles, pronouns, avatars, call-in text, and audio sources on the fly during a live broadcast without touching layer layouts or visual styling.
+            </div>
+        </div>
+    </div>
+    <div class="card open">
         <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
             <strong>Scene States, transitions &amp; reusable components <span class="badge hot">Beta</span></strong>
             <span class="chevron">&#9654;</span>
@@ -1032,7 +1055,7 @@
             <div class="detail-text">
                 The right-hand panel groups properties into <strong>Content</strong>, <strong>Layout</strong>, and <strong>Style</strong>. Only tabs relevant to the selection appear. Content keeps sources, playback, alert previews, and poll settings together. Layout holds position, size, scaling, alignment, and optional OBS source links. Style holds typography, borders, visual effects, and element-specific appearance. Turning <strong>Effects</strong> off cancels pending pattern animation frames immediately without pausing video or slideshows.<br><br>
                 Duplicating an overlay preserves its pages, scene states, transitions, and cycling settings under a new ID. You can keep editing during a save: changes made after submission stay in the editor and remain unsaved until your next save.<br><br>
-                Game lists keep their filters in Content, grid and ticker layout in Layout, and covers and text sizes in Style. Pattern layers separate their graphic, tile layout, and motion the same way. Cutouts keep punchthrough controls in Content and geometry in Layout; multi-selection offers shared Layout and Style controls. Tab choices are remembered per element type, and each tab restores its scroll position. Use Left/Right or Home/End while a tab is focused to navigate with the keyboard.
+                Game lists keep their filters in Content, grid and ticker layout in Layout, and covers and text sizes in Style. Pattern layers separate their graphic, tile layout, and motion the same way. Cutouts keep punchthrough controls in Content and geometry in Layout; multi-selection offers shared Layout and Style controls. Speaker badges keep identity and audio sensitivity gate in Content, layout presets and dimensions in Layout, and avatar shape, reaction visualizers, proportional typography, and background fills/gradients in Style. Sizing and font size changes scale badge sub-elements (name, handle, pronouns, tags) proportionally. Tab choices are remembered per element type, and each tab restores its scroll position. Use Left/Right or Home/End while a tab is focused to navigate with the keyboard.
             </div>
         </div>
     </div>
