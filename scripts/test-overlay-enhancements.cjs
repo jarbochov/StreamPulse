@@ -7,14 +7,22 @@ const { PATTERNS, PATTERN_CATEGORIES, drawProceduralPattern } = require('../publ
 
 test('Shared patterns module: exports, categories and canvas drawing', () => {
     assert.equal(Array.isArray(PATTERNS), true);
-    assert.equal(PATTERNS.length, 20);
+    assert.equal(PATTERNS.length, 28);
     assert.ok(PATTERNS.includes('grid'));
     assert.ok(PATTERNS.includes('hexagons'));
     assert.ok(PATTERNS.includes('circuit'));
     assert.ok(PATTERNS.includes('topography'));
     assert.ok(PATTERNS.includes('starfield'));
+    assert.ok(PATTERNS.includes('leaves'));
+    assert.ok(PATTERNS.includes('turkeys'));
+    assert.ok(PATTERNS.includes('pumpkins'));
+    assert.ok(PATTERNS.includes('christmas-trees'));
+    assert.ok(PATTERNS.includes('christmas-lights'));
+    assert.ok(PATTERNS.includes('snowflakes'));
+    assert.ok(PATTERNS.includes('hearts'));
+    assert.ok(PATTERNS.includes('fireworks'));
 
-    assert.equal(PATTERN_CATEGORIES.length, 3);
+    assert.equal(PATTERN_CATEGORIES.length, 4);
     const allCategoryOptions = PATTERN_CATEGORIES.flatMap(cat => cat.options.map(opt => opt[0]));
     for (const pat of PATTERNS) {
         assert.ok(allCategoryOptions.includes(pat), `Pattern ${pat} must be categorized`);
@@ -29,6 +37,7 @@ test('Shared patterns module: exports, categories and canvas drawing', () => {
         closePath: () => calls.push('closePath'),
         moveTo: (x, y) => calls.push(`moveTo(${x},${y})`),
         lineTo: (x, y) => calls.push(`lineTo(${x},${y})`),
+        quadraticCurveTo: (cx, cy, x, y) => calls.push(`quadTo(${cx},${cy},${x},${y})`),
         stroke: () => calls.push('stroke'),
         fill: () => calls.push('fill'),
         fillRect: (x, y, w, h) => calls.push(`fillRect(${x},${y},${w},${h})`),
@@ -41,18 +50,20 @@ test('Shared patterns module: exports, categories and canvas drawing', () => {
         createLinearGradient: () => ({ addColorStop: () => {} })
     };
 
-    // Verify all 20 patterns draw without throwing
+    // Verify all 28 patterns draw without throwing across drift and fall motions
     for (const pat of PATTERNS) {
-        assert.doesNotThrow(() => {
-            drawProceduralPattern(mockCtx, pat, 640, 360, {
-                scale: 100,
-                color: '#111827',
-                accent: '#38bdf8',
-                secondary: '#818cf8',
-                time: 1.5,
-                motion: 'drift'
-            });
-        }, `Pattern ${pat} must render cleanly`);
+        for (const m of ['drift', 'fall', 'aurora']) {
+            assert.doesNotThrow(() => {
+                drawProceduralPattern(mockCtx, pat, 640, 360, {
+                    scale: 120,
+                    color: '#111827',
+                    accent: '#38bdf8',
+                    secondary: 'transparent',
+                    time: 1.5,
+                    motion: m
+                });
+            }, `Pattern ${pat} (${m}) must render cleanly`);
+        }
     }
     assert.ok(calls.length > 50, 'drawProceduralPattern executed canvas instructions');
 });

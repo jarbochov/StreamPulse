@@ -377,6 +377,18 @@ function drawThemeBackdrop(ctx, width, height, design, pattern, motion = 'none',
         ctx.beginPath(); ctx.moveTo(width * .55, 0); ctx.lineTo(width, 0); ctx.lineTo(width, height * .8); ctx.closePath(); ctx.fill();
         ctx.globalAlpha = .15;
         ctx.beginPath(); ctx.moveTo(0, height * .72); ctx.lineTo(width * .7, height); ctx.lineTo(0, height); ctx.closePath(); ctx.fill();
+    } else if (['leaves', 'turkeys', 'pumpkins', 'christmas-trees', 'christmas-lights', 'snowflakes', 'hearts', 'fireworks'].includes(pattern) && window.StreamPulsePatterns?.drawProceduralPattern) {
+        ctx.restore();
+        window.StreamPulsePatterns.drawProceduralPattern(ctx, pattern, fullWidth, fullHeight, {
+            scale: scale * 100,
+            color: 'transparent',
+            accent: colors.accent,
+            secondary: colors.secondary || colors.accent,
+            motion,
+            speed: bg.speed || 1,
+            time
+        });
+        ctx.save();
     } else {
         for (let i = 0; i < 4; i++) {
             ctx.beginPath(); ctx.ellipse(width * .85, height * .2, width * (.23 + i * .06), height * (.17 + i * .04), -.5, 0, Math.PI * 2); ctx.stroke();

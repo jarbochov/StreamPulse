@@ -4,7 +4,7 @@
     const ELEMENT_TYPES = ['text', 'image', 'qr', 'shape', 'icon'];
     const TYPE_NAMES = { text: 'Text', image: 'Image', qr: 'QR code', shape: 'Shape', icon: 'Icon' };
     const ELEMENT_ROLES = ['photo', 'artwork', 'badge', 'title', 'subtitle', 'url', 'qr'];
-    const PATTERNS = ['grid', 'geometry', 'orbits', 'hexagons', 'diamonds', 'isometric', 'mesh', 'sunburst', 'triangles', 'chevrons', 'checker', 'waves', 'rings', 'scales', 'topography', 'starfield', 'sparkles', 'dots', 'confetti', 'circuit'];
+    const PATTERNS = ['grid', 'geometry', 'orbits', 'hexagons', 'diamonds', 'isometric', 'mesh', 'sunburst', 'triangles', 'chevrons', 'checker', 'waves', 'rings', 'scales', 'topography', 'starfield', 'sparkles', 'dots', 'confetti', 'circuit', 'leaves', 'turkeys', 'pumpkins', 'christmas-trees', 'christmas-lights', 'snowflakes', 'hearts', 'fireworks'];
     const MOTIONS = ['none', 'drift', 'pulse', 'sweep', 'aurora', 'flow', 'sway', 'orbit', 'pan', 'rotate'];
     const FONT_WEIGHTS = [300, 400, 500, 600, 700, 800, 900];
     const THEMES = {

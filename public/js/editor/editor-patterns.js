@@ -6,6 +6,31 @@ import { esc, primary, selectedElements, changed, toast } from './editor-state.j
 import { F } from './editor-form.js';
 import { renderCanvas } from './editor-canvas.js';
 
+const FALLBACK_PATTERN_CATEGORIES = [
+    { group: 'Geometric', options: [['grid', 'Grid'], ['geometry', 'Geometry'], ['orbits', 'Orbits'], ['hexagons', 'Hexagons'], ['diamonds', 'Diamonds'], ['isometric', 'Isometric tiles'], ['mesh', 'Curved mesh'], ['sunburst', 'Sunburst'], ['triangles', 'Triangles'], ['chevrons', 'Chevrons'], ['checker', 'Checkerboard']] },
+    { group: 'Organic & decorative', options: [['waves', 'Waves'], ['rings', 'Rings'], ['scales', 'Scales'], ['topography', 'Topography'], ['circuit', 'Circuit board']] },
+    { group: 'Particle & field', options: [['starfield', 'Starfield'], ['sparkles', 'Sparkles'], ['dots', 'Dots'], ['confetti', 'Confetti']] },
+    { group: 'Seasonal & holiday', options: [['leaves', 'Autumn leaves'], ['turkeys', 'Thanksgiving turkeys'], ['pumpkins', 'Pumpkins & harvest'], ['christmas-trees', 'Christmas trees'], ['christmas-lights', 'Christmas string lights'], ['snowflakes', 'Snowflakes'], ['hearts', 'Floating hearts'], ['fireworks', 'Celebration fireworks']] }
+];
+
+export function proceduralPatternContentFields(el) {
+    const p = el.pattern || {};
+    const patterns = (window.StreamPulsePatterns?.PATTERN_CATEGORIES) || FALLBACK_PATTERN_CATEGORIES;
+    const secColor = (p.secondary && p.secondary !== 'transparent') ? p.secondary : (p.accent || '#38bdf8');
+    return `
+        ${F.select('pattern.preset', 'Generative pattern', p.preset || 'hexagons', patterns)}
+        ${F.range('pattern.scale', 'Pattern scale', p.scale ?? 100, { min: 10, max: 500, step: 5, unit: '%', editable: true, reset: 100 })}
+        <div class="grid2">
+            ${F.color('pattern.accent', 'Primary / accent color', p.accent || '#58a6ff')}
+            ${F.color('pattern.secondary', 'Secondary color', secColor, { clear: true })}
+        </div>
+        <div class="grid2">
+            ${F.color('pattern.color', 'Base fill', p.color || 'transparent', { clear: true })}
+            ${F.number('pattern.lineWidth', 'Line width (px, 0=auto)', p.lineWidth || 0, { min: 0, max: 20, step: 0.5 })}
+        </div>
+    `;
+}
+
 export function proceduralPatternSection(el) {
     const p = el.pattern || {};
     const motion = p.motion || 'drift';
@@ -14,10 +39,12 @@ export function proceduralPatternSection(el) {
     let motionBlock = F.select('pattern.motion', 'Animation motion', motion, [
         ['none', 'Static (no animation)'],
         ['drift', 'Drift (gentle floating drift)'],
+        ['fall', 'Fall (continuous falling cascade)'],
         ['sway', 'Sway (breathing tilt & scale)'],
         ['pulse', 'Pulse (rhythmic breath)'],
         ['orbit', 'Orbit (subtle celestial orbit)'],
         ['sweep', 'Sweep (scanner light sweep)'],
+        ['aurora', 'Aurora (glowing color ribbons)'],
         ['pan', 'Pan (continuous smooth glide)']
     ]);
 
@@ -46,7 +73,7 @@ export function proceduralPatternSection(el) {
         ]);
     }
 
-    motionBlock += '<span class="hint">Generative procedural backgrounds from Promo Creator render vector mathematics across the full layer frame with zero seams.</span>';
+    motionBlock += '<span class="hint">Generative procedural backgrounds render vector mathematics across the full layer frame with zero seams.</span>';
 
     return F.section('proceduralMotion', 'Animation & Blending', motionBlock);
 }
@@ -59,27 +86,13 @@ export function patternContentSection(el, focusFieldFn, iconEffectsSectionFn) {
     const isMultiTile = extraTiles.length > 0;
 
     if (sourceType === 'preset') {
-        const patterns = (window.StreamPulsePatterns?.PATTERN_CATEGORIES) || [
-            { group: 'Geometric', options: [['grid', 'Grid'], ['geometry', 'Geometry'], ['orbits', 'Orbits'], ['hexagons', 'Hexagons'], ['diamonds', 'Diamonds'], ['isometric', 'Isometric tiles'], ['mesh', 'Curved mesh'], ['sunburst', 'Sunburst'], ['triangles', 'Triangles'], ['chevrons', 'Chevrons'], ['checker', 'Checkerboard']] },
-            { group: 'Organic & decorative', options: [['waves', 'Waves'], ['rings', 'Rings'], ['scales', 'Scales'], ['topography', 'Topography'], ['circuit', 'Circuit board']] },
-            { group: 'Particle & field', options: [['starfield', 'Starfield'], ['sparkles', 'Sparkles'], ['dots', 'Dots'], ['confetti', 'Confetti']] }
-        ];
         return F.section('content', 'Content', `
             ${F.select('pattern.sourceType', 'Pattern mode', sourceType, [
                 ['preset', 'Procedural Vector Pattern'],
                 ['image', 'Image / Icon Tiles (1–4 Slots)'],
                 ['icon', 'Icon / Emoji Tiles (1–4 Slots)']
             ])}
-            ${F.select('pattern.preset', 'Generative pattern', p.preset || 'hexagons', patterns)}
-            ${F.range('pattern.scale', 'Pattern scale', p.scale ?? 100, { min: 10, max: 500, step: 5, unit: '%', editable: true, reset: 100 })}
-            <div class="grid2">
-                ${F.color('pattern.accent', 'Line / accent color', p.accent || '#58a6ff')}
-                ${F.color('pattern.secondary', 'Secondary color', p.secondary || p.accent || '#38bdf8', { clear: true })}
-            </div>
-            <div class="grid2">
-                ${F.color('pattern.color', 'Base fill', p.color || 'transparent', { clear: true })}
-                ${F.number('pattern.lineWidth', 'Line width (px, 0=auto)', p.lineWidth || 0, { min: 0, max: 20, step: 0.5 })}
-            </div>
+            ${proceduralPatternContentFields(el)}
             <span class="hint">Rendering full-bleed vector geometry with zero seams. Switch to Image or Icon above for repeating tile mosaics.</span>
         `);
     }

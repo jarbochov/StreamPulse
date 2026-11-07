@@ -455,7 +455,8 @@ function renderStyle() {
         { group: 'Geometric', options: [['grid', 'Grid'], ['geometry', 'Geometry'], ['orbits', 'Orbits'], ['hexagons', 'Hexagons'], ['diamonds', 'Diamonds'], ['isometric', 'Isometric tiles'], ['mesh', 'Curved mesh'], ['sunburst', 'Sunburst'], ['triangles', 'Triangles'], ['chevrons', 'Chevrons'], ['checker', 'Checkerboard']] },
         { group: 'Organic', options: [['waves', 'Waves'], ['rings', 'Concentric rings'], ['scales', 'Scales'], ['topography', 'Topographic contours']] },
         { group: 'Atmospheric', options: [['starfield', 'Starfield'], ['sparkles', 'Sparkles'], ['dots', 'Dots']] },
-        { group: 'Playful & tech', options: [['confetti', 'Confetti'], ['circuit', 'Circuit board']] }
+        { group: 'Playful & tech', options: [['confetti', 'Confetti'], ['circuit', 'Circuit board']] },
+        { group: 'Seasonal & holiday', options: [['leaves', 'Autumn leaves'], ['turkeys', 'Thanksgiving turkeys'], ['pumpkins', 'Pumpkins & harvest'], ['christmas-trees', 'Christmas trees'], ['christmas-lights', 'Christmas string lights'], ['snowflakes', 'Snowflakes'], ['hearts', 'Floating hearts'], ['fireworks', 'Celebration fireworks']] }
     ];
     let body = F.select('background.mode', 'Style', m, [['theme', 'Theme background'], ['solid', 'Solid color'], ['gradient', 'Gradient'], ['pattern', 'Pattern'], ['image', 'Image'], ['transparent', 'Transparent']]);
     if (['solid', 'pattern'].includes(m)) body += F.color('background.color', m === 'pattern' ? 'Base color' : 'Color', bg.color);

@@ -266,8 +266,13 @@ export function getDocumentColors() {
             if (el.style.borderGradient?.to) add(el.style.borderGradient.to);
         }
         if (el.qr) { add(el.qr.fg); add(el.qr.bg); }
-        if (Array.isArray(el.pattern?.tiles)) {
-            for (const t of el.pattern.tiles) if (t?.color) add(t.color);
+        if (el.pattern) {
+            add(el.pattern.accent);
+            add(el.pattern.secondary);
+            add(el.pattern.color);
+            if (Array.isArray(el.pattern.tiles)) {
+                for (const t of el.pattern.tiles) if (t?.color) add(t.color);
+            }
         }
     }
     if (Array.isArray(prefs.recentColors)) {

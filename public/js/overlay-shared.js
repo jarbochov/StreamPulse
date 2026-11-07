@@ -3620,11 +3620,13 @@
                 const presetName = p.preset || 'hexagons';
                 const pMotion = curOptions.animate === false ? 'none' : (p.motion || 'none');
                 if (patternsEngine?.drawProceduralPattern) {
+                    const cleanAccent = (p.accent && p.accent !== 'transparent') ? p.accent : '#58a6ff';
+                    const cleanSecondary = (p.secondary && p.secondary !== 'transparent') ? p.secondary : cleanAccent;
                     patternsEngine.drawProceduralPattern(ctx, presetName, cw, ch, {
                         scale: p.scale ?? 100,
                         color: p.color || 'transparent',
-                        accent: p.accent || '#58a6ff',
-                        secondary: p.secondary || p.accent || '#38bdf8',
+                        accent: cleanAccent,
+                        secondary: cleanSecondary,
                         lineWidth: Number(p.lineWidth) || 0,
                         motion: pMotion,
                         speed: Number(p.speed) || 1,

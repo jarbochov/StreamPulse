@@ -19,6 +19,7 @@ import { renderLayers, getAlertRules, loadAlertRules } from './editor-layers.js'
 import { updateSpeakerMeterHint } from './editor-speakers.js';
 import {
     proceduralPatternSection as renderProceduralPatternSection,
+    proceduralPatternContentFields,
     patternSection as renderPatternSection,
     patternContentSection,
     handlePatternInspectorClick,
@@ -511,22 +512,7 @@ export function contentSection(el) {
         body += '<span class="hint">The icon is as tall as its box. Change the height to resize it; the width only adds space for alignment.</span>';
     }
     if (el.type === 'procedural-pattern') {
-        const p = el.pattern || {};
-        const patterns = (window.StreamPulsePatterns?.PATTERN_CATEGORIES) || [
-            { group: 'Geometric', options: [['grid', 'Grid'], ['geometry', 'Geometry'], ['orbits', 'Orbits'], ['hexagons', 'Hexagons'], ['diamonds', 'Diamonds'], ['isometric', 'Isometric tiles'], ['mesh', 'Curved mesh'], ['sunburst', 'Sunburst'], ['triangles', 'Triangles'], ['chevrons', 'Chevrons'], ['checker', 'Checkerboard']] },
-            { group: 'Organic & decorative', options: [['waves', 'Waves'], ['rings', 'Rings'], ['scales', 'Scales'], ['topography', 'Topography'], ['circuit', 'Circuit board']] },
-            { group: 'Particle & field', options: [['starfield', 'Starfield'], ['sparkles', 'Sparkles'], ['dots', 'Dots'], ['confetti', 'Confetti']] }
-        ];
-        body += F.select('pattern.preset', 'Generative pattern', p.preset || 'hexagons', patterns);
-        body += F.range('pattern.scale', 'Pattern scale', p.scale ?? 100, { min: 10, max: 500, step: 5, unit: '%', editable: true, reset: 100 });
-        body += `<div class="grid2">
-            ${F.color('pattern.accent', 'Line / accent color', p.accent || '#58a6ff')}
-            ${F.color('pattern.secondary', 'Secondary color', p.secondary || p.accent || '#38bdf8', { clear: true })}
-        </div>`;
-        body += `<div class="grid2">
-            ${F.color('pattern.color', 'Base fill', p.color || 'transparent', { clear: true })}
-            ${F.number('pattern.lineWidth', 'Line width (px, 0=auto)', p.lineWidth || 0, { min: 0, max: 20, step: 0.5 })}
-        </div>`;
+        body += proceduralPatternContentFields(el);
     }
     if (el.type === 'pattern') {
         return patternContentSection(el, focusField, iconEffectsSection);
