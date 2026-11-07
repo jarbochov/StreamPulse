@@ -171,8 +171,8 @@
         .list .asset:hover .pick, .list .asset.selected .pick, body.has-selection .list .pick { opacity: 1; }
 
         /* Floating Bulk Selection Bar */
-        .bulk-bar { position: fixed; bottom: 1.1rem; left: 50%; transform: translateX(-50%) translateY(120%); background: var(--bg-card); border: 1px solid var(--accent); border-radius: 999px; padding: 0.45rem 0.9rem; display: flex; align-items: center; gap: 0.55rem; box-shadow: 0 12px 32px rgba(0,0,0,0.45); z-index: 30; transition: transform .2s cubic-bezier(0.16, 1, 0.3, 1); }
-        body.has-selection .bulk-bar { transform: translateX(-50%) translateY(0); }
+        .bulk-bar { position: fixed; bottom: 1.1rem; left: 50%; transform: translateX(-50%) translateY(calc(100% + 2rem)); opacity: 0; pointer-events: none; visibility: hidden; background: var(--bg-card); border: 1px solid var(--accent); border-radius: 999px; padding: 0.45rem 0.9rem; display: flex; align-items: center; gap: 0.55rem; box-shadow: 0 12px 32px rgba(0,0,0,0.45); z-index: 30; transition: transform .2s cubic-bezier(0.16, 1, 0.3, 1), opacity .18s ease, visibility .2s; }
+        body.has-selection .bulk-bar { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto; visibility: visible; }
         .bulk-count { font-weight: 600; font-size: 0.82rem; color: var(--accent); padding: 0 0.35rem; font-variant-numeric: tabular-nums; }
 
         #toast { position: fixed; bottom: 4.2rem; left: 50%; transform: translateX(-50%); background: var(--bg-raised); border: 1px solid var(--border); padding: 0.55rem 1rem; border-radius: 8px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 40; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
