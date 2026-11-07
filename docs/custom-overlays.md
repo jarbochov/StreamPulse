@@ -18,6 +18,42 @@ For more coordinated scene changes, optional OBS source frames let a saved state
 
 Frame borders can sit inside, centered on, or outside a shape. Linked OBS frames start with an outside border, keeping the decoration clear of the camera or video without changing its layout.
 
+## Custom Overlay Elements (20 Built-In Layers)
+
+Custom Overlay Studio includes 20 specialized layer types organized into six intuitive sections across three balanced columns in the **+ Add** element picker:
+
+### 1. Text & Copy
+- **Text (`type: "text"`)**: Displays static labels, titles, lower-thirds, subtitles, and dynamic copy. Supports real-time `{{placeholder}}` token evaluation (e.g. `{{stream.title}}`, `{{viewers.current}}`, `{{now}}`), Google fonts and uploaded typography, automatic font fitting (`textFit`) to keep text within layer bounds, alignment, line height, letter spacing, text color, and drop shadows.
+- **Random Text (`type: "random-text"`)**: Cycles through a rotating pool of phrases, quotes, chat rules, tips, or stream reminders. Configure one entry per line in Content, set the shuffle interval in seconds, choose the transition style (fade, slide, cut), and include live placeholders evaluated on every rotation.
+- **Markdown (`type: "markdown"`)**: Renders rich formatted text using sanitized CommonMark. Supports `#` through `###` headings, `**bold**`, `*italics*`, `[links](url)`, blockquotes (`>`), code spans, and ordered or unordered bullet lists, while adopting your configured typography and color styling.
+
+### 2. Media & Artwork
+- **Image (`type: "image"`)**: Renders static or animated graphics supporting PNG, JPG, SVG, WebP, and GIF formats from the local Asset Library or URLs. Offers object-fit modes (`contain`, `cover`, `fill`), interactive focus-point positioning (`object-position`), corner radiuses, and non-destructive media filters (blur, brightness, contrast, grayscale, duotone, color tint).
+- **Video (`type: "video"`)**: Plays local HTML5 video files (MP4, WebM) or embedded YouTube videos. Shares uniform playback capabilities across both formats: autoplay on load, looping, volume scaling (0–100%), mute toggles, and unified remote control (`play`, `pause`, `toggle`, `restart`, `stop`, `mute`, `unmute`, `toggle-mute`) via `/api/videos/control` or Bitfocus Companion. WebKit/Safari autoplay policies are handled with zero floating on-screen audio prompts during live production.
+- **Slideshow (`type: "slideshow"`)**: Automated image carousel cycling through chosen images from the Asset Library. Features customizable display duration per slide, smooth crossfade or slide transitions, loop toggles, and companion manual advance triggers (`/api/custom-overlays/:id/slideshow`).
+- **Game Artwork (`type: "igdb-artwork"`)**: Searches the Internet Game Database (IGDB) directly from the overlay editor to import official video game box art covers, hero banners, screenshots, and logos into your layout and Asset Library with a single click.
+
+### 3. Framing & Cutouts
+- **Camera Cutout (`type: "cutout"`)**: Punches a transparent aperture hole through underlayers and backgrounds so webcam feeds, gameplay captures, or chat windows placed underneath the browser source show through. Supports customizable shapes (rectangle, rounded rectangle, squircle, circle), border outlines, and smooth edge feathering (`cutoutFeather`) rendered with cross-browser SVG masking.
+- **OBS Source Frame (`type: "obs-frame"`)**: Layout proxy for an OBS Studio source (webcam, capture card, or media source). When using Scene States, moving or resizing the frame synchronizes the real OBS source transform and visibility via OBS WebSocket v5, matching overlay transition easing and Move-plugin timing. Frame borders default to Outside placement so real camera video is not obscured.
+- **Shape & Container (`type: "shape"`)**: Vector geometry for cards, sidebars, headers, panels, dividers, and pill containers. Supports solid fills, linear and radial gradients, customizable borders with Inside/Center/Outside placement, independent corner radiuses, and drop shadows.
+
+### 4. Graphics & Patterns
+- **Icon (`type: "icon"`)**: Scalable vector iconography from built-in symbol libraries (FontAwesome solids and brands) and custom SVGs. Customize fill color, sizing, opacity, rotation, and alignment within layer bounds.
+- **Pattern Tile (`type: "pattern"`)**: Seamless repeating wallpaper grids created from icons or image assets. Configure horizontal and vertical tile spacing, scaling, angle, opacity, and blend modes for textured broadcast backdrops.
+- **Background Pattern (`type: "procedural-pattern"`)**: Generative animated procedural backdrops built with HTML5 canvas. Choose from multiple generative algorithms (geometric waves, retro grid lines, particle fields, neon stripes) with live controls for animation speed, line density, wave amplitude, stroke width, and dual-color palettes. Automatically respects reduced-motion preferences.
+
+### 5. Stream Widgets
+- **Alert Box (`type: "alert"`)**: Live broadcast alert popups triggered by Twitch follows, subscriptions, gift subs, cheers/bits, raids, and tips. Supports per-box event type filtering, customizable visual looks, media effects targeting (`alert.effectsTarget: "media"`), focus points, celebration particle animations, and audio volume controls. See [Page Triggers & Alert Event Reactions](#page-triggers--alert-event-reactions) below.
+- **Speaker Badge (`type: "speaker-badge"`)**: Voice-reactive active speaker cards and broadcast call-in banners powered by live OBS Studio audio mixer inputs. Features 5 layout presets (*Horizontal Lower-Third*, *Broadcast Call-In C-SPAN Banner*, *Compact Pill*, *Vertical Sidebar Card*, *Avatar Only Floating Halo*), customizable dB speech gates, release hold times, speaking border/glow highlights, animated EQ visualizer bars, proportional typography scaling, and live broadcast guest editing via the Speakers controller. See [Voice-Reactive Speaker Badges & Call-In Banners](#voice-reactive-speaker-badges--call-in-banners) below.
+- **Twitch Poll (`type: "poll"`)**: Live interactive audience voting display synced with active Twitch channel polls. Automatically displays the poll title, countdown timer, vote bars with percentages and counts, blind voting mode, and winner celebration highlights.
+- **Game Plan (`type: "game-list"`)**: Broadcast schedule and lineup widget showing tonight's stream lineup, upcoming scheduled titles, or backlog picks with official cover art, titles, and tags. Supports list, grid, and ticker layout modes with responsive cover scaling.
+
+### 6. Interactive & Web
+- **Progress Goal (`type: "progress"`)**: Visual progress tracking bars and radial countdown rings for community tip goals, follower milestones, subathons, and manual counters with custom currency or unit prefixes/suffixes.
+- **QR Code (`type: "qr"`)**: Dynamic vector QR codes for tip jars, Discord invites, social links, or websites with custom colors, corner radiuses, and optional center logo cutouts.
+- **Web Embed (`type: "embed"`)**: Sandboxed browser iframe container for embedding external web pages, live dashboards, interactive web apps, or chat widgets directly into the overlay.
+
 ## Page Triggers & Alert Event Reactions
 
 Pages and Scene States can automatically take over the screen when broadcast events happen, and return smoothly when the event completes:

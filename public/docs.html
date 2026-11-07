@@ -1011,6 +1011,106 @@
     </div>
     <div class="card open">
         <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+            <strong>Custom Overlay Elements (20 Built-In Layers)</strong>
+            <span class="chevron">&#9654;</span>
+        </div>
+        <div class="card-body">
+            <div class="detail-text">
+                The <strong>+ Add</strong> element picker organizes 20 layer types across six functional categories in three balanced columns. Each element provides specialized Content, Layout, and Style controls in the inspector:
+            </div>
+            <table>
+                <tr><th style="width:130px;">Category</th><th style="width:160px;">Element</th><th>Purpose &amp; Capabilities</th></tr>
+                <tr>
+                    <td rowspan="3"><strong>Text &amp; Copy</strong></td>
+                    <td><code>text</code><br><strong>Text</strong></td>
+                    <td>Single or multi-line titles, labels, or copy with font picker, auto-fit text sizing, alignment, letter spacing, shadows, and real-time <code>{{token}}</code> placeholder replacement.</td>
+                </tr>
+                <tr>
+                    <td><code>random-text</code><br><strong>Random Text</strong></td>
+                    <td>Rotating pool of stream reminders, tips, rules, or quotes. Supports line-by-line entry, customizable shuffle timers, smooth transitions, and live placeholder tokens.</td>
+                </tr>
+                <tr>
+                    <td><code>markdown</code><br><strong>Markdown</strong></td>
+                    <td>Sanitized rich text formatting supporting headings (H1–H3), bold, italics, links, blockquotes, code blocks, and bullet or numbered lists.</td>
+                </tr>
+                <tr>
+                    <td rowspan="4"><strong>Media &amp; Artwork</strong></td>
+                    <td><code>image</code><br><strong>Image</strong></td>
+                    <td>Static or animated graphics (PNG, JPG, WebP, SVG, GIF) from the Asset Library or URLs. Offers contain/cover/fill fit, interactive focus points, corner radiuses, and non-destructive filters.</td>
+                </tr>
+                <tr>
+                    <td><code>video</code><br><strong>Video</strong></td>
+                    <td>HTML5 videos (MP4/WebM) and YouTube embeds sharing unified autoplay, infinite loop, volume scaling (0–100%), mute controls, and remote control via API or Companion.</td>
+                </tr>
+                <tr>
+                    <td><code>slideshow</code><br><strong>Slideshow</strong></td>
+                    <td>Automated carousel cycling through selected image assets with customizable slide duration, crossfade/slide transitions, loop toggles, and manual advance controls.</td>
+                </tr>
+                <tr>
+                    <td><code>igdb-artwork</code><br><strong>Game Artwork</strong></td>
+                    <td>Integrated IGDB database search and one-click import of official video game box art, hero banners, screenshots, and logos into the canvas and Asset Library.</td>
+                </tr>
+                <tr>
+                    <td rowspan="3"><strong>Framing &amp; Cutouts</strong></td>
+                    <td><code>cutout</code><br><strong>Camera Cutout</strong></td>
+                    <td>Transparent punchout aperture masking underlayers for webcams or gameplay captures. Features rectangle, rounded, squircle, or circle shapes with edge feathering and borders.</td>
+                </tr>
+                <tr>
+                    <td><code>obs-frame</code><br><strong>OBS Source Frame <span class="badge hot">Beta</span></strong></td>
+                    <td>Layout proxy linked to an OBS Studio source via WebSocket v5. Moving or resizing the frame in Scene States synchronizes real OBS source bounds and Move animations.</td>
+                </tr>
+                <tr>
+                    <td><code>shape</code><br><strong>Shape &amp; Container</strong></td>
+                    <td>Geometric cards, panels, headers, dividers, and pill containers with solid fills, linear/radial gradients, inside/center/outside borders, radiuses, and drop shadows.</td>
+                </tr>
+                <tr>
+                    <td rowspan="3"><strong>Graphics &amp; Patterns</strong></td>
+                    <td><code>icon</code><br><strong>Icon</strong></td>
+                    <td>Scalable vector icons from FontAwesome solid and brand libraries or custom SVGs with custom color, sizing, rotation, and alignment.</td>
+                </tr>
+                <tr>
+                    <td><code>pattern</code><br><strong>Pattern Tile</strong></td>
+                    <td>Seamless repeating wallpaper grid generated from icons or images with customizable tile spacing, scaling, angle, and opacity.</td>
+                </tr>
+                <tr>
+                    <td><code>procedural-pattern</code><br><strong>Background Pattern</strong></td>
+                    <td>Generative animated canvas backdrops (geometric waves, retro grids, particle fields, neon stripes) with speed, density, amplitude, and dual-color palettes.</td>
+                </tr>
+                <tr>
+                    <td rowspan="4"><strong>Stream Widgets</strong></td>
+                    <td><code>alert</code><br><strong>Alert Box</strong></td>
+                    <td>Real-time alerts for follows, subs, gifts, cheers, raids, and tips. Supports per-box event filtering, custom visual looks, media effects targeting, and celebration animations.</td>
+                </tr>
+                <tr>
+                    <td><code>speaker-badge</code><br><strong>Speaker Badge</strong></td>
+                    <td>Audio-reactive host/guest cards powered by live OBS volume meters. Features 5 layout presets (including C-SPAN call-in banner), EQ visualizers, active glow, and fast live editing.</td>
+                </tr>
+                <tr>
+                    <td><code>poll</code><br><strong>Twitch Poll</strong></td>
+                    <td>Live audience voting overlay displaying active Twitch polls, remaining countdown timer, vote percentage bars, blind voting support, and winner celebration highlights.</td>
+                </tr>
+                <tr>
+                    <td><code>game-list</code><br><strong>Game Plan</strong></td>
+                    <td>Stream schedule and lineup widget showing tonight's stream lineup, upcoming scheduled titles, or backlog games with box art and list, grid, or ticker layouts.</td>
+                </tr>
+                <tr>
+                    <td rowspan="3"><strong>Interactive &amp; Web</strong></td>
+                    <td><code>progress</code><br><strong>Progress Goal</strong></td>
+                    <td>Visual progress bars and radial countdown rings for tip goals, follower milestones, subathons, and manual counters with custom prefixes and suffixes.</td>
+                </tr>
+                <tr>
+                    <td><code>qr</code><br><strong>QR Code</strong></td>
+                    <td>Dynamic vector QR codes for tip jars, Discord invites, social links, or websites with custom colors, corner radiuses, and optional center logo cutouts.</td>
+                </tr>
+                <tr>
+                    <td><code>embed</code><br><strong>Web Embed</strong></td>
+                    <td>Sandboxed browser iframe container for embedding external web pages, live dashboards, interactive web apps, or chat widgets directly into the overlay.</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <div class="card open">
+        <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
             <strong>Voice-Reactive Speaker Badges &amp; Call-In Banners</strong>
             <span class="chevron">&#9654;</span>
         </div>
