@@ -433,6 +433,9 @@ function normalizePattern(p = {}) {
     const motion = PATTERN_MOTIONS.includes(p.motion) ? p.motion : (p.sourceType === 'preset' ? 'drift' : 'scroll');
     const defaultTrack = (motion === 'alt-rows' || motion === 'alt-cols') ? 'opposite' : 'uniform';
     const sourceType = (p.sourceType === 'icon' || p.sourceType === 'preset') ? p.sourceType : 'image';
+    const layout = PATTERN_LAYOUTS.includes(p.layout) ? p.layout : 'brick';
+    const defaultOffsetX = layout === 'brick' ? 50 : 0;
+    const defaultOffsetY = layout === 'stagger' ? 50 : 0;
     return {
         sourceType,
         preset: String(p.preset || 'hexagons').slice(0, 40),
@@ -441,12 +444,12 @@ function normalizePattern(p = {}) {
         color: String(p.color || 'transparent').slice(0, 80),
         lineWidth: Math.max(0, Math.min(50, Number(p.lineWidth) || 0)),
         scale: Math.max(10, Math.min(1000, Math.round(Number(p.scale) || 100))),
-        layout: PATTERN_LAYOUTS.includes(p.layout) ? p.layout : 'brick',
+        layout,
         aspectRatio: PATTERN_ASPECT_RATIOS.includes(p.aspectRatio) ? p.aspectRatio : '1:1',
         tileSize: Math.round(num(p.tileSize, 16, 1024, 96)),
         gap: Math.round(num(p.gap, 0, 256, 16)),
-        offsetX: Math.round(num(p.offsetX, 0, 100, 50)),
-        offsetY: Math.round(num(p.offsetY, 0, 100, 0)),
+        offsetX: Math.round(num(p.offsetX, 0, 100, defaultOffsetX)),
+        offsetY: Math.round(num(p.offsetY, 0, 100, defaultOffsetY)),
         angle: Math.round(num(p.angle, -180, 180, -15)),
         tileAngle: Math.round(num(p.tileAngle, -180, 180, 0)),
         alternateFlip: PATTERN_FLIPS.includes(p.alternateFlip) ? p.alternateFlip : 'tilt',

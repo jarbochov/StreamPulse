@@ -1550,8 +1550,8 @@ export function patternSection(el) {
         </div>
         ${F.range('pattern.tileSize', 'Tile size', p.tileSize ?? 96, { min: 16, max: 512, step: 2, unit: 'px', editable: true })}
         ${F.range('pattern.gap', 'Tile gap', p.gap ?? 16, { min: 0, max: 160, step: 1, unit: 'px', editable: true })}
-        ${F.range('pattern.offsetX', 'Row offset', p.offsetX ?? 50, { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset row offset to 0%' })}
-        ${F.range('pattern.offsetY', 'Column offset', p.offsetY ?? 0, { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset column offset to 0%' })}
+        ${F.range('pattern.offsetX', 'Row offset', p.offsetX ?? (layout === 'brick' ? 50 : 0), { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset row offset to 0%' })}
+        ${F.range('pattern.offsetY', 'Column offset', p.offsetY ?? (layout === 'stagger' ? 50 : 0), { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset column offset to 0%' })}
         ${F.range('pattern.angle', 'Grid tilt', p.angle ?? -15, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset grid tilt to 0°' })}
         ${F.range('pattern.tileAngle', 'Tile tilt', p.tileAngle ?? 0, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset tile tilt to 0°' })}
         ${layoutExtra}`);
@@ -2277,6 +2277,14 @@ export function initInspectorEvents() {
                     } else if (hm === 'pixelate' && (el.mediaFilter.halftone.size || 6) < 4) {
                         el.mediaFilter.halftone.size = 6;
                     }
+                }
+            }
+            if (path === 'pattern.layout') {
+                for (const el of selectedElements()) {
+                    if (!el.pattern) continue;
+                    const l = el.pattern.layout;
+                    el.pattern.offsetX = l === 'brick' ? 50 : 0;
+                    el.pattern.offsetY = l === 'stagger' ? 50 : 0;
                 }
             }
             if (path === 'cutout.feather') {

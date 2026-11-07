@@ -81,13 +81,25 @@
         .thumb .sample { position: absolute; inset: 0; display: grid; place-items: center; padding: 0.6rem; font-size: 1.15rem; text-align: center; overflow: hidden; }
         .thumb .icon { position: absolute; inset: 0; display: grid; place-items: center; font-size: calc(var(--thumb, 196px) * 0.28); color: var(--accent); }
         .thumb audio { position: absolute; left: 6px; right: 6px; bottom: 6px; width: calc(100% - 12px); height: 32px; z-index: 2; }
-        .thumb-badges { position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; gap: 4px; pointer-events: none; }
-        .thumb-pill { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 6px; border-radius: 5px; background: rgba(13, 17, 23, 0.76); color: #e6edf3; border: 1px solid rgba(255,255,255,0.12); backdrop-filter: blur(4px); font-variant-numeric: tabular-nums; }
-        .thumb-inspect-hint { position: absolute; bottom: 8px; right: 8px; z-index: 2; padding: 3px 7px; border-radius: 6px; background: rgba(13, 17, 23, 0.78); color: #fff; font-size: 0.7rem; font-weight: 500; opacity: 0; transition: opacity .14s; pointer-events: none; display: inline-flex; align-items: center; gap: 4px; }
+        .thumb-badges { position: absolute; top: 6px; right: 6px; z-index: 2; display: flex; gap: 4px; pointer-events: none; max-width: calc(100% - 36px); }
+        .thumb-dim-pill { position: absolute; bottom: 6px; left: 6px; z-index: 2; pointer-events: none; max-width: calc(100% - 12px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .thumb-pill { font-size: 0.63rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 6px; border-radius: 5px; background: rgba(13, 17, 23, 0.84); color: #e6edf3; border: 1px solid rgba(255,255,255,0.18); backdrop-filter: blur(4px); font-variant-numeric: tabular-nums; box-shadow: 0 2px 6px rgba(0,0,0,0.35); }
+        .thumb-inspect-hint { position: absolute; bottom: 6px; right: 6px; z-index: 2; padding: 3px 7px; border-radius: 6px; background: rgba(13, 17, 23, 0.84); color: #fff; font-size: 0.68rem; font-weight: 500; opacity: 0; transition: opacity .14s; pointer-events: none; display: inline-flex; align-items: center; gap: 4px; border: 1px solid rgba(255,255,255,0.14); }
         .thumb:hover .thumb-inspect-hint { opacity: 1; }
 
-        .pick { position: absolute; top: 8px; left: 8px; z-index: 3; width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; opacity: 0; transition: opacity .12s; }
-        .asset:hover .pick, .asset.selected .pick, .pick:focus-visible, body.has-selection .pick { opacity: 1; }
+        .pick-wrap { position: absolute; top: 6px; left: 6px; z-index: 3; width: 22px; height: 22px; border-radius: 6px; background: rgba(13, 17, 23, 0.86); border: 1.5px solid rgba(255,255,255,0.42); box-shadow: 0 2px 6px rgba(0,0,0,0.45); display: grid; place-items: center; cursor: pointer; opacity: 0.88; transition: opacity .12s, border-color .12s, background .12s, transform .1s; }
+        .pick-wrap:hover { opacity: 1; border-color: var(--accent); transform: scale(1.05); }
+        .asset:hover .pick-wrap, .asset.selected .pick-wrap, .pick-wrap:focus-within, body.has-selection .pick-wrap { opacity: 1; }
+        .asset.selected .pick-wrap { border-color: var(--accent); background: rgba(13, 17, 23, 0.94); }
+        .pick { width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+
+        @container (max-width: 150px) {
+            .thumb-pill { font-size: 0.56rem; padding: 1px 4px; }
+            .thumb-inspect-hint { display: none; }
+        }
+        @container (max-width: 115px) {
+            .thumb-badges { display: none; }
+        }
 
         .info { padding: 0.65rem 0.75rem 0.75rem; display: flex; flex-direction: column; gap: 0.45rem; font-size: 0.8rem; min-width: 0; flex: 1; }
         .i-head { min-width: 0; }
@@ -167,8 +179,9 @@
         .list .actions { display: flex; margin: 0 0 0 auto; padding: 0; border: 0; flex: none; }
         .list .actions > .btn { flex: none; padding-inline: 0.6rem; }
         .list .menu-list { bottom: auto; top: calc(100% + 6px); }
-        .list .pick { top: 50%; left: 8px; transform: translateY(-50%); }
-        .list .asset:hover .pick, .list .asset.selected .pick, body.has-selection .list .pick { opacity: 1; }
+        .list .pick-wrap { top: 50%; left: 8px; transform: translateY(-50%); }
+        .list .pick-wrap:hover { transform: translateY(-50%) scale(1.05); }
+        .list .asset:hover .pick-wrap, .list .asset.selected .pick-wrap, body.has-selection .list .pick-wrap { opacity: 1; }
 
         /* Floating Bulk Selection Bar */
         .bulk-bar { position: fixed; bottom: 1.1rem; left: 50%; transform: translateX(-50%) translateY(calc(100% + 2rem)); opacity: 0; pointer-events: none; visibility: hidden; background: var(--bg-card); border: 1px solid var(--accent); border-radius: 999px; padding: 0.45rem 0.9rem; display: flex; align-items: center; gap: 0.55rem; box-shadow: 0 12px 32px rgba(0,0,0,0.45); z-index: 30; transition: transform .2s cubic-bezier(0.16, 1, 0.3, 1), opacity .18s ease, visibility .2s; }
@@ -317,6 +330,7 @@
     const selected = new Set();
     const imageDims = new Map();
     let inspectedAssetName = null;
+    let lastPickedIndex = -1;
 
     const savePrefs = () => localStorage.setItem('assetLibraryPrefs', JSON.stringify(prefs));
     const formatSize = bytes => bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -421,9 +435,9 @@
     function thumbHtml(asset) {
         const knownDim = imageDims.get(asset.name);
         const badges = `<div class="thumb-badges">
-            ${asset.kind === 'image' ? `<span class="thumb-pill" data-dim-pill ${knownDim ? '' : 'hidden'}>${esc(knownDim || '')}</span>` : ''}
             <span class="thumb-pill">${esc(asset.kind)}</span>
         </div>
+        ${asset.kind === 'image' ? `<span class="thumb-pill thumb-dim-pill" data-dim-pill ${knownDim ? '' : 'hidden'}>${esc(knownDim || '')}</span>` : ''}
         <span class="thumb-inspect-hint"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Inspect</span>`;
         if (asset.kind === 'image') return `<img src="${esc(asset.url)}" alt="${esc(asset.label)}" loading="lazy" decoding="async" onload="window.__onAssetImgLoad(this, '${esc(asset.name)}')">${badges}`;
         if (asset.kind === 'video') return `<video src="${esc(asset.url)}" muted preload="metadata" loop onmouseenter="this.play().catch(()=>{})" onmouseleave="this.pause()"></video>${badges}`;
@@ -547,9 +561,9 @@
         items.className = prefs.view === 'list' ? 'list' : 'grid';
         items.style.setProperty('--thumb', `${prefs.size}px`);
         items.innerHTML = shown.length ? shown.map((asset, index) => `
-            <article class="asset${selected.has(asset.name) ? ' selected' : ''}">
-                <input class="pick" type="checkbox" data-pick="${index}" aria-label="Select ${esc(asset.label)}" ${selected.has(asset.name) ? 'checked' : ''}>
-                <div class="thumb" data-inspect="${index}" title="Click to inspect ${esc(asset.label)}">${thumbHtml(asset)}</div>
+            <article class="asset${selected.has(asset.name) ? ' selected' : ''}" data-card-index="${index}">
+                <label class="pick-wrap" title="Select (${esc(asset.label)}) — Shift+click for range, ⌘/Ctrl+click anywhere on card"><input class="pick" type="checkbox" data-pick="${index}" aria-label="Select ${esc(asset.label)}" ${selected.has(asset.name) ? 'checked' : ''}></label>
+                <div class="thumb" data-inspect="${index}" title="Click to inspect · ⌘/Ctrl+click or Shift+click to select">${thumbHtml(asset)}</div>
                 <div class="info">
                     <div class="i-head"><div class="name" data-inspect="${index}" title="${esc(asset.label)}">${esc(asset.label)}</div><div class="meta">${esc(asset.kind)} · ${formatSize(asset.size)} · ${formatDate(asset.modifiedAt)}</div></div>
                     ${prefs.tags !== false ? tagsHtml(asset, index) : ''}
@@ -717,13 +731,52 @@
         await load();
     }
 
+    function applyRangeSelection(idx, shouldSelect, shiftKey) {
+        if (shiftKey && lastPickedIndex >= 0 && lastPickedIndex < shown.length) {
+            const start = Math.min(lastPickedIndex, idx);
+            const end = Math.max(lastPickedIndex, idx);
+            for (let i = start; i <= end; i++) {
+                const a = shown[i];
+                if (!a) continue;
+                if (shouldSelect) selected.add(a.name); else selected.delete(a.name);
+            }
+            $('items').querySelectorAll('[data-pick]').forEach(cb => {
+                const a = shown[Number(cb.dataset.pick)];
+                const isSel = Boolean(a && selected.has(a.name));
+                cb.checked = isSel;
+                cb.closest('.asset')?.classList.toggle('selected', isSel);
+            });
+        } else {
+            const asset = shown[idx];
+            if (!asset) return;
+            if (shouldSelect) selected.add(asset.name); else selected.delete(asset.name);
+            const card = $('items').querySelector(`[data-card-index="${idx}"]`);
+            if (card) {
+                card.classList.toggle('selected', shouldSelect);
+                const cb = card.querySelector('[data-pick]');
+                if (cb) cb.checked = shouldSelect;
+            }
+        }
+        lastPickedIndex = idx;
+        syncSelectionUI();
+    }
+
     $('items').addEventListener('click', async event => {
         const pick = event.target.closest('[data-pick]');
         if (pick) {
-            const asset = shown[Number(pick.dataset.pick)];
-            if (pick.checked) selected.add(asset.name); else selected.delete(asset.name);
-            pick.closest('.asset')?.classList.toggle('selected', pick.checked);
-            syncSelectionUI();
+            const idx = Number(pick.dataset.pick);
+            applyRangeSelection(idx, pick.checked, event.shiftKey);
+            return;
+        }
+        const card = event.target.closest('[data-card-index]');
+        if (card && (event.metaKey || event.ctrlKey || event.shiftKey) && !event.target.closest('[data-act], [data-untag], .menu, a, audio, video')) {
+            event.preventDefault();
+            window.getSelection?.()?.removeAllRanges();
+            const idx = Number(card.dataset.cardIndex);
+            const asset = shown[idx];
+            if (!asset) return;
+            const nextState = event.shiftKey ? true : !selected.has(asset.name);
+            applyRangeSelection(idx, nextState, event.shiftKey);
             return;
         }
         const inspectEl = event.target.closest('[data-inspect]');
@@ -831,6 +884,26 @@
             cb.closest('.asset')?.classList.remove('selected');
         });
         syncSelectionUI();
+    });
+    document.addEventListener('keydown', event => {
+        if (event.target.matches('input, textarea, select, [contenteditable]')) return;
+        if (document.querySelector('dialog[open]')) return;
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a') {
+            event.preventDefault();
+            shown.forEach(asset => selected.add(asset.name));
+            $('items').querySelectorAll('[data-pick]').forEach(cb => {
+                cb.checked = true;
+                cb.closest('.asset')?.classList.add('selected');
+            });
+            syncSelectionUI();
+        } else if (event.key === 'Escape' && selected.size > 0) {
+            selected.clear();
+            $('items').querySelectorAll('[data-pick]').forEach(cb => {
+                cb.checked = false;
+                cb.closest('.asset')?.classList.remove('selected');
+            });
+            syncSelectionUI();
+        }
     });
     $('purge').addEventListener('click', () => removeAssets(assets.filter(asset => !asset.usedBy.length)));
 

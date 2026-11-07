@@ -3093,6 +3093,8 @@
         let cachedImg = null;
         let lastFeather = -1;
         const iconHueCache = new Map();
+        const rawStampCanvas = document.createElement('canvas');
+        const rawStampCtx = rawStampCanvas.getContext('2d');
         let baseStampData = null;
         let baseStampIsMonochrome = false;
 
@@ -3102,6 +3104,15 @@
             baseStampIsMonochrome = false;
             try {
                 if (stampW > 0 && stampH > 0) {
+                    if (rawStampCanvas.width !== stampW || rawStampCanvas.height !== stampH) {
+                        rawStampCanvas.width = stampW;
+                        rawStampCanvas.height = stampH;
+                    }
+                    rawStampCtx.clearRect(0, 0, stampW, stampH);
+                    rawStampCtx.drawImage(stampCanvas, 0, 0);
+                    if ((layout === 'kaleidoscope-quad' || layout === 'kaleidoscope-radial') && motion !== 'kaleidoscope') {
+                        renderKaleidoCell(stampCtx, rawStampCanvas, 0);
+                    }
                     baseStampData = stampCtx.getImageData(0, 0, stampW, stampH);
                     const d = baseStampData.data;
                     let visible = 0;
@@ -3374,58 +3385,85 @@
             return c;
         }
 
-        function updateKaleidoCell(t) {
-            if (!cellCtx) return;
+        function renderKaleidoCell(targetCtx, srcBitmap, t) {
+            if (!targetCtx || !srcBitmap) return;
             const halfW = stampW / 2;
             const halfH = stampH / 2;
-            cellCtx.clearRect(0, 0, stampW, stampH);
+            targetCtx.clearRect(0, 0, stampW, stampH);
             const dir = spinDirection === 'ccw' ? -1 : 1;
             const kPhase = motion === 'kaleidoscope' ? (t / spinSpeed) * Math.PI * 2 * dir : 0;
-            const drift = motion === 'kaleidoscope' ? Math.sin(kPhase * 0.5) * stampW * 0.14 * waveAmount : 0;
+            const drift = motion === 'kaleidoscope' ? Math.sin(kPhase * 0.5) * stampW * 0.16 * waveAmount : 0;
 
-            if (layout === 'kaleidoscope-radial') {
-                const wedgeAngle = (Math.PI * 2) / wedges;
-                const r = Math.max(stampW, stampH) * 0.72;
-                for (let i = 0; i < wedges; i++) {
-                    cellCtx.save();
-                    cellCtx.translate(halfW, halfH);
-                    cellCtx.rotate(i * wedgeAngle);
-                    if (i & 1) cellCtx.scale(1, -1);
-                    cellCtx.beginPath();
-                    cellCtx.moveTo(0, 0);
-                    cellCtx.arc(0, 0, r, -wedgeAngle / 2 - 0.012, wedgeAngle / 2 + 0.012);
-                    cellCtx.closePath();
-                    cellCtx.clip();
-                    cellCtx.translate(drift, 0);
-                    cellCtx.rotate(kPhase + tileAngleRad);
-                    cellCtx.drawImage(stampCanvas, -halfW, -halfH, stampW, stampH);
-                    cellCtx.restore();
-                }
-            } else if (layout === 'kaleidoscope-quad') {
+            if (layout === 'kaleidoscope-quad') {
                 const quads = [[1, 1], [-1, 1], [1, -1], [-1, -1]];
+                const pW = stampW * 0.54, pH = stampH * 0.54;
+                const cW = stampW * 0.34, cH = stampH * 0.34;
                 for (const [qx, qy] of quads) {
-                    cellCtx.save();
-                    cellCtx.translate(halfW, halfH);
-                    cellCtx.scale(qx, qy);
-                    cellCtx.beginPath();
-                    cellCtx.rect(0, 0, halfW + 0.5, halfH + 0.5);
-                    cellCtx.clip();
-                    cellCtx.translate(halfW * 0.5 + drift, halfH * 0.5 + drift * 0.5);
-                    cellCtx.rotate(kPhase + tileAngleRad);
-                    cellCtx.drawImage(stampCanvas, -halfW * 0.65, -halfH * 0.65, stampW * 0.65, stampH * 0.65);
-                    cellCtx.restore();
+                    targetCtx.save();
+                    targetCtx.translate(halfW, halfH);
+                    targetCtx.scale(qx, qy);
+                    targetCtx.beginPath();
+                    targetCtx.rect(-0.75, -0.75, halfW + 1.5, halfH + 1.5);
+                    targetCtx.clip();
+
+                    // Primary quadrant medallion motif angled toward mirror center
+                    targetCtx.save();
+                    targetCtx.translate(halfW * 0.48 + drift * 0.45, halfH * 0.48 + drift * 0.45);
+                    targetCtx.rotate(kPhase + tileAngleRad - Math.PI / 4);
+                    targetCtx.drawImage(srcBitmap, -pW / 2, -pH / 2, pW, pH);
+                    targetCtx.restore();
+
+                    // Central crosshair diamond bridge
+                    targetCtx.save();
+                    targetCtx.globalAlpha = 0.82;
+                    targetCtx.translate(halfW * 0.14 - drift * 0.25, halfH * 0.14 - drift * 0.25);
+                    targetCtx.rotate(-kPhase * 0.75 + tileAngleRad + Math.PI / 4);
+                    targetCtx.drawImage(srcBitmap, -cW / 2, -cH / 2, cW, cH);
+                    targetCtx.restore();
+
+                    targetCtx.restore();
                 }
             } else {
-                cellCtx.save();
-                cellCtx.translate(halfW, halfH);
-                cellCtx.rotate(kPhase);
-                cellCtx.drawImage(stampCanvas, -halfW, -halfH, stampW, stampH);
-                cellCtx.scale(-1, 1);
-                cellCtx.globalAlpha = 0.65;
-                cellCtx.rotate(-kPhase * 2);
-                cellCtx.drawImage(stampCanvas, -halfW * 0.85, -halfH * 0.85, stampW * 0.85, stampH * 0.85);
-                cellCtx.restore();
+                // Radial Mandala (used for 'kaleidoscope-radial' and 'motion: kaleidoscope' on standard grids)
+                const numWedges = Math.max(4, wedges || 6);
+                const wedgeAngle = (Math.PI * 2) / numWedges;
+                const r = Math.hypot(halfW, halfH) * 1.05;
+                const pW = stampW * 0.62, pH = stampH * 0.62;
+                const cW = stampW * 0.36, cH = stampH * 0.36;
+                for (let i = 0; i < numWedges; i++) {
+                    targetCtx.save();
+                    targetCtx.translate(halfW, halfH);
+                    targetCtx.rotate(i * wedgeAngle - Math.PI / 2);
+                    if (i & 1) targetCtx.scale(1, -1);
+                    targetCtx.beginPath();
+                    targetCtx.moveTo(0, 0);
+                    targetCtx.arc(0, 0, r, -wedgeAngle / 2 - 0.018, wedgeAngle / 2 + 0.018);
+                    targetCtx.closePath();
+                    targetCtx.clip();
+
+                    // Outer radial petal
+                    targetCtx.save();
+                    targetCtx.translate(halfW * 0.46 + drift, drift * 0.22);
+                    targetCtx.rotate(kPhase + tileAngleRad + Math.PI / 2);
+                    targetCtx.drawImage(srcBitmap, -pW / 2, -pH / 2, pW, pH);
+                    targetCtx.restore();
+
+                    // Inner mandala rosette core
+                    targetCtx.save();
+                    targetCtx.globalAlpha = 0.86;
+                    targetCtx.translate(halfW * 0.16 - drift * 0.35, 0);
+                    targetCtx.rotate(-kPhase * 0.65 + tileAngleRad);
+                    targetCtx.drawImage(srcBitmap, -cW / 2, -cH / 2, cW, cH);
+                    targetCtx.restore();
+
+                    targetCtx.restore();
+                }
             }
+        }
+
+        function updateKaleidoCell(t) {
+            if (!cellCtx) return;
+            renderKaleidoCell(cellCtx, rawStampCanvas, t);
         }
 
         function drawFrame(now) {
@@ -3488,8 +3526,9 @@
                 }
                 return;
             }
-            if (isKaleido) updateKaleidoCell(t);
-            const sourceBitmap = isKaleido ? cellCanvas : stampCanvas;
+            const isDynamicKaleido = motion === 'kaleidoscope';
+            if (isDynamicKaleido) updateKaleidoCell(t);
+            const sourceBitmap = isDynamicKaleido ? cellCanvas : stampCanvas;
 
             const { tileW, tileH } = getTileDimensions();
             const stepX = Math.max(8, tileW + gap);
@@ -3753,7 +3792,7 @@
 
                     let currentBitmap = sourceBitmap;
 
-                    if (hasColorFilter && !isKaleido) {
+                    if (hasColorFilter && !isDynamicKaleido) {
                         let slot = 0;
                         if (hasHue) {
                             let tileHue = baseHueCycle;
@@ -3901,9 +3940,10 @@
             }
 
             const rawSrc = curOptions.expand ? curOptions.expand(curElement.src || '') : String(curElement.src || '');
+            const kaleidoBakeKey = ((layout === 'kaleidoscope-quad' || layout === 'kaleidoscope-radial') && motion !== 'kaleidoscope') ? `${layout}:${wedges}:${tileAngleDeg}` : 'raw';
             const nextStampKey = sourceType === 'icon'
-                ? JSON.stringify(['icon', curElement.content, stampW, stampH, aspectRatio, curElement.style?.color, curElement.style?.textStroke, curElement.style?.textShadow])
-                : JSON.stringify(['image', rawSrc, stampW, stampH, aspectRatio, curElement.style?.objectFit, curElement.style?.focusX, curElement.style?.focusY]);
+                ? JSON.stringify(['icon', curElement.content, stampW, stampH, aspectRatio, curElement.style?.color, curElement.style?.textStroke, curElement.style?.textShadow, kaleidoBakeKey])
+                : JSON.stringify(['image', rawSrc, stampW, stampH, aspectRatio, curElement.style?.objectFit, curElement.style?.focusX, curElement.style?.focusY, kaleidoBakeKey]);
 
             const nextPaletteKey = JSON.stringify([nextStampKey, hueShift !== 'none' || hueJitter > 0, saturationJitter, brightnessJitter]);
             if (nextPaletteKey !== lastPaletteKey) {
@@ -3981,7 +4021,8 @@
                         cachedImg = img;
                         note.style.display = 'none';
                         buildStampFromImage(img);
-                        lastStampKey = JSON.stringify(['image', rawSrc, stampW, stampH, aspectRatio, curElement.style?.objectFit, curElement.style?.focusX, curElement.style?.focusY]);
+                        const onloadBakeKey = ((layout === 'kaleidoscope-quad' || layout === 'kaleidoscope-radial') && motion !== 'kaleidoscope') ? `${layout}:${wedges}:${tileAngleDeg}` : 'raw';
+                        lastStampKey = JSON.stringify(['image', rawSrc, stampW, stampH, aspectRatio, curElement.style?.objectFit, curElement.style?.focusX, curElement.style?.focusY, onloadBakeKey]);
                         lastPaletteKey = JSON.stringify([lastStampKey, hueShift !== 'none' || hueJitter > 0, saturationJitter, brightnessJitter]);
                         readyToDraw = true;
                         wake();
