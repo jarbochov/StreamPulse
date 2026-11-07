@@ -682,7 +682,7 @@
                 const m = timeMatch[1].match(/^(?:(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?|(\d+))$/);
                 if (m) {
                     if (m[4]) start = Number(m[4]);
-                    else start = (Number(m[1] || 0) * 3600) + (Number(m[2] || 0) * 60) + Number(secMatch?.[3] || m[3] || 0);
+                    else start = (Number(m[1] || 0) * 3600) + (Number(m[2] || 0) * 60) + Number(m[3] || 0);
                 }
             }
             return { type: 'video', id: match[1], list: listMatch ? listMatch[1] : null, start };

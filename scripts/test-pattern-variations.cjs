@@ -117,6 +117,44 @@ test('Pattern Tile: editor inspector exposes Color & Hue Variation and Organic J
     assert.ok(inspectorJs.includes("pattern.aspectRatio"), 'Must contain pattern.aspectRatio select');
     assert.ok(inspectorJs.includes("crop-image-btn"), 'Must contain crop-image-btn button');
 
+    // Live execution test of patternSection(el) to guarantee no ReferenceError or missing variables
+    const F = {
+        section: (id, title, content) => `<section data-sect="${id}">${content}</section>`,
+        select: (path, label, value, options) => `<select data-path="${path}" value="${value}"></select>`,
+        range: (path, label, value, opts) => `<input type="range" data-path="${path}" value="${value}"/>`,
+        number: (path, label, value, opts) => `<input type="number" data-path="${path}" value="${value}"/>`,
+        color: (path, label, value, opts) => `<input type="color" data-path="${path}" value="${value}"/>`,
+        text: (path, label, value, opts) => `<input type="text" data-path="${path}" value="${value}"/>`,
+        seg: (path, label, value, opts) => `<div data-path="${path}">${value}</div>`
+    };
+    const match = inspectorJs.match(/export function patternSection\(el\) \{([\s\S]*?)\n\}/);
+    assert.ok(match, 'patternSection must be defined in editor-inspector.js');
+    const patternSectionFn = new Function('el', 'F', 'proceduralPatternSection', match[1]);
+    const mockEl = {
+        type: 'pattern',
+        pattern: {
+            sourceType: 'image',
+            layout: 'grid',
+            aspectRatio: '16:9',
+            tileSize: 120,
+            gap: 10,
+            motion: 'scroll',
+            scrollAngle: 315,
+            speed: 12,
+            hueShift: 'wave-x',
+            hueSpeed: 10,
+            hueJitter: 45,
+            saturationJitter: 15,
+            brightnessJitter: 20,
+            twinkle: 30,
+            twinkleSpeed: 3
+        }
+    };
+    const renderedHtml = patternSectionFn(mockEl, F, () => '');
+    assert.ok(renderedHtml.includes('data-sect="patternLayout"'), 'Rendered HTML must include patternLayout');
+    assert.ok(renderedHtml.includes('data-sect="patternColor"'), 'Rendered HTML must include patternColor');
+    assert.ok(renderedHtml.includes('data-path="pattern.aspectRatio"'), 'Rendered HTML must bind pattern.aspectRatio');
+
     const stateJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-state.js'), 'utf8');
     assert.ok(stateJs.includes("hueShift: 'none'"), 'editor-state.js must initialize hueShift');
     assert.ok(stateJs.includes("hueJitter: 0"), 'editor-state.js must initialize hueJitter');

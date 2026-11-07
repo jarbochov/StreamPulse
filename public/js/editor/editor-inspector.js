@@ -1393,6 +1393,7 @@ export function patternSection(el) {
     const motion = p.motion || 'scroll';
     const altFlip = p.alternateFlip || 'tilt';
     const isAltOrChecker = layout === 'alternating' || layout === 'checkerboard';
+    const aspectRatio = p.aspectRatio || '1:1';
 
     let layoutExtra = '';
     if (layout === 'alternating') {
