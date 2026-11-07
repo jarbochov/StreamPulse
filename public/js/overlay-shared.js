@@ -3184,10 +3184,12 @@
         }
 
         function getStampDimensions() {
-            const { ar } = getTileDimensions();
-            const base = 96;
-            const w = ar >= 1 ? base : Math.max(24, Math.round(base * ar));
-            const h = ar >= 1 ? Math.max(24, Math.round(base / ar)) : base;
+            const { tileW, tileH, ar } = getTileDimensions();
+            const maxScale = Math.max(1, altScale) * (1 + scaleJitter / 100);
+            const targetMax = Math.max(tileW, tileH) * dpr * maxScale;
+            const base = Math.min(512, Math.max(192, Math.round(targetMax / 16) * 16));
+            const w = ar >= 1 ? base : Math.max(32, Math.round(base * ar));
+            const h = ar >= 1 ? Math.max(32, Math.round(base / ar)) : base;
             return { w, h };
         }
 
@@ -3205,9 +3207,15 @@
                 stampCanvas.width = stampW;
                 stampCanvas.height = stampH;
             }
+            if (cellCanvas && (cellCanvas.width !== stampW || cellCanvas.height !== stampH)) {
+                cellCanvas.width = stampW;
+                cellCanvas.height = stampH;
+            }
             const iw = img.naturalWidth || img.width || stampW;
             const ih = img.naturalHeight || img.height || stampH;
             stampCtx.clearRect(0, 0, stampW, stampH);
+            stampCtx.imageSmoothingEnabled = true;
+            stampCtx.imageSmoothingQuality = 'high';
             const fit = curElement.style?.objectFit || 'contain';
             const fx = (curElement.style?.focusX ?? 50) / 100;
             const fy = (curElement.style?.focusY ?? 50) / 100;
@@ -3522,9 +3530,9 @@
 
             const logicalW = Math.max(1, Number(curElement.width) || node.clientWidth || 300);
             const logicalH = Math.max(1, Number(curElement.height) || node.clientHeight || 200);
-            // Match OBS 1080p 1:1 on large layers and cap editor preview to 1280px during active animation
-            const maxDpr = (logicalW * logicalH > 600000 || curOptions.preview) ? 1 : Math.min(dpr, 1.5);
-            const maxDim = (curOptions.preview && hasDynamicAnim) ? 1280 : 1920;
+            // Render at 1:1 native layer resolution up to 1080p, or up to 1.5x DPR on smaller badges/strips
+            const maxDpr = (logicalW * logicalH > 600000) ? 1 : Math.min(dpr, 1.5);
+            const maxDim = 1920;
             const scaleCap = Math.min(maxDpr, maxDim / Math.max(logicalW, logicalH, 1));
             const cw = Math.max(1, Math.round(logicalW * scaleCap));
             const ch = Math.max(1, Math.round(logicalH * scaleCap));
@@ -3532,7 +3540,7 @@
                 canvas.width = cw;
                 canvas.height = ch;
                 ctx.imageSmoothingEnabled = true;
-                ctx.imageSmoothingQuality = 'low';
+                ctx.imageSmoothingQuality = 'medium';
             }
 
             ctx.setTransform(1, 0, 0, 1, 0, 0);
