@@ -125,6 +125,7 @@ test('Pattern Tile: editor inspector exposes Color & Hue Variation and Organic J
         number: (path, label, value, opts) => `<input type="number" data-path="${path}" value="${value}"/>`,
         color: (path, label, value, opts) => `<input type="color" data-path="${path}" value="${value}"/>`,
         text: (path, label, value, opts) => `<input type="text" data-path="${path}" value="${value}"/>`,
+        check: (path, label, value) => `<input type="checkbox" data-path="${path}" checked="${Boolean(value)}"/>`,
         seg: (path, label, value, opts) => `<div data-path="${path}">${value}</div>`
     };
     const match = inspectorJs.match(/export function patternSection\(el\) \{([\s\S]*?)\n\}/);

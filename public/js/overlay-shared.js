@@ -3084,6 +3084,7 @@
         let hueShift = 'none', hueSpeed = 12, hueJitter = 0;
         let brightnessJitter = 0, saturationJitter = 0;
         let scaleJitter = 0, rotationJitter = 0, positionJitter = 0;
+        let animateJitter = false, jitterSpeed = 6;
         let twinkle = 0, twinkleSpeed = 4;
         let dpr = 1, stampW = 96, stampH = 96, isKaleido = false;
         let lastStampKey = '';
@@ -3433,7 +3434,8 @@
             const ts = now || performance.now();
             if (!startTime) startTime = ts;
 
-            const hasDynamicAnim = motion !== 'none' || hueShift !== 'none' || twinkle > 0;
+            const isFloating = (motion === 'float' || (animateJitter && (positionJitter > 0 || scaleJitter > 0 || rotationJitter > 0))) && curOptions.animate !== false;
+            const hasDynamicAnim = motion !== 'none' || hueShift !== 'none' || twinkle > 0 || isFloating;
             // Frame-rate pacing in editor preview: cap continuous animation loops at ~60fps on 120Hz displays
             if (!dirtyFrame && curOptions.preview && hasDynamicAnim && lastDrawTs && (ts - lastDrawTs < 15)) {
                 rafId = requestAnimationFrame(drawFrame);
@@ -3629,6 +3631,7 @@
             const hasColorFilter = hueJitter > 0 || hueShift !== 'none' || brightnessJitter > 0 || saturationJitter > 0;
             const hasHue = hueShift !== 'none' || hueJitter > 0;
             const baseHueCycle = hueShift === 'cycle' ? ((t / hueSpeed) * 360) : 0;
+            const floatBasePhase = isFloating ? (t / jitterSpeed) * Math.PI * 2 : 0;
 
             for (let r = -rows; r <= rows; r++) {
                 const oddRow = (r & 1) !== 0;
@@ -3647,8 +3650,22 @@
 
                     if (positionJitter > 0) {
                         const pj = (positionJitter / 100) * 0.45;
-                        cx += (cellHash(row, col, 7) * 2 - 1) * stepX * pj;
-                        cy += (cellHash(row, col, 8) * 2 - 1) * stepY * pj;
+                        const jx = (cellHash(row, col, 7) * 2 - 1) * stepX * pj;
+                        const jy = (cellHash(row, col, 8) * 2 - 1) * stepY * pj;
+                        if (isFloating) {
+                            const fSeedX = cellHash(row, col, 10) * Math.PI * 2;
+                            const fSeedY = cellHash(row, col, 11) * Math.PI * 2;
+                            cx += jx * Math.sin(floatBasePhase + fSeedX);
+                            cy += jy * Math.cos(floatBasePhase * 0.85 + fSeedY);
+                        } else {
+                            cx += jx;
+                            cy += jy;
+                        }
+                    } else if (motion === 'float') {
+                        const fSeedX = cellHash(row, col, 10) * Math.PI * 2;
+                        const fSeedY = cellHash(row, col, 11) * Math.PI * 2;
+                        cx += Math.sin(floatBasePhase + fSeedX) * stepX * waveAmount * 0.32;
+                        cy += Math.cos(floatBasePhase * 0.85 + fSeedY) * stepY * waveAmount * 0.32;
                     }
 
                     let wavePhase = 0;
@@ -3682,8 +3699,11 @@
                     }
 
                     if (scaleJitter > 0) {
-                        const sj = 1 + (cellHash(row, col, 5) * 2 - 1) * (scaleJitter / 100);
+                        const rawSj = (cellHash(row, col, 5) * 2 - 1) * (scaleJitter / 100);
+                        const sj = isFloating ? 1 + rawSj * Math.sin(floatBasePhase + cellHash(row, col, 12) * Math.PI * 2) : 1 + rawSj;
                         scale *= Math.max(0.05, sj);
+                    } else if (motion === 'float') {
+                        scale *= Math.max(0.1, 1 + Math.sin(floatBasePhase + cellHash(row, col, 12) * Math.PI * 2) * waveAmount * 0.18);
                     }
 
                     if (motion === 'wave') {
@@ -3701,7 +3721,10 @@
 
                     let rotJitterRad = 0;
                     if (rotationJitter > 0) {
-                        rotJitterRad = ((cellHash(row, col, 6) * 2 - 1) * rotationJitter * Math.PI) / 180;
+                        const rawRj = ((cellHash(row, col, 6) * 2 - 1) * rotationJitter * Math.PI) / 180;
+                        rotJitterRad = isFloating ? rawRj * Math.cos(floatBasePhase + cellHash(row, col, 13) * Math.PI * 2) : rawRj;
+                    } else if (motion === 'float') {
+                        rotJitterRad = Math.cos(floatBasePhase + cellHash(row, col, 13) * Math.PI * 2) * waveAmount * 0.35;
                     }
 
                     let cosT = oddCell ? cosOdd : cosEven;
@@ -3801,7 +3824,7 @@
             sourceType = ['preset', 'icon', 'image'].includes(config.sourceType) ? config.sourceType : (config.preset ? 'preset' : 'image');
             wedges = Math.max(4, Math.min(16, Math.round((Number(config.wedges) || 6) / 2) * 2));
             feather = Math.max(0, Math.min(100, Number(config.feather) || 0));
-            motion = curOptions.animate === false ? 'none' : (['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'kaleidoscope'].includes(config.motion) ? config.motion : 'scroll');
+            motion = curOptions.animate === false ? 'none' : (['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'float', 'kaleidoscope'].includes(config.motion) ? config.motion : 'scroll');
             const defaultTrack = (motion === 'alt-rows' || motion === 'alt-cols') ? 'opposite' : 'uniform';
             trackMode = ['uniform', 'opposite', 'stagger', 'sine', 'alternate-stop', 'alt-rows', 'stagger-rows', 'alt-cols', 'stagger-cols'].includes(config.trackMode) ? config.trackMode : defaultTrack;
             scrollAngleRad = (Number(config.scrollAngle ?? 315) * Math.PI) / 180;
@@ -3817,6 +3840,8 @@
             scaleJitter = Math.max(0, Math.min(50, Number(config.scaleJitter) || 0));
             rotationJitter = Math.max(0, Math.min(180, Number(config.rotationJitter) || 0));
             positionJitter = Math.max(0, Math.min(50, Number(config.positionJitter) || 0));
+            animateJitter = config.animateJitter === true;
+            jitterSpeed = Math.max(0.5, Math.min(60, Number(config.jitterSpeed) || 6));
             twinkle = Math.max(0, Math.min(100, Number(config.twinkle) || 0));
             twinkleSpeed = Math.max(0.5, Math.min(30, Number(config.twinkleSpeed) || 4));
 
@@ -3854,7 +3879,7 @@
                 return;
             }
 
-            const needsRunner = (motion !== 'none' || hueShift !== 'none' || twinkle > 0) && curOptions.animate !== false;
+            const needsRunner = (motion !== 'none' || hueShift !== 'none' || twinkle > 0 || (animateJitter && (positionJitter > 0 || scaleJitter > 0 || rotationJitter > 0))) && curOptions.animate !== false;
             if (needsRunner) patternRunners.add(wake);
             else patternRunners.delete(wake);
 

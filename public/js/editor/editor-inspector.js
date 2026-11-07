@@ -66,7 +66,7 @@ export const RERENDER_PATHS = new Set([
     'speakerBadge.reaction.visualizer', 'speakerBadge.reaction.highlightBorder', 'speakerBadge.reaction.dimWhenIdle',
     'speakerBadge.autoSize',
     'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta',
-    'pattern.sourceType', 'pattern.preset', 'pattern.layout', 'pattern.aspectRatio', 'pattern.hueShift', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip'
+    'pattern.sourceType', 'pattern.preset', 'pattern.layout', 'pattern.aspectRatio', 'pattern.hueShift', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip', 'pattern.animateJitter'
 ]);
 
 export const numberWasOn = new Map();
@@ -1510,6 +1510,10 @@ export function patternSection(el) {
         motionControls = `
             ${F.number('pattern.spinSpeed', 'Wave cycle (sec)', p.spinSpeed ?? 8, { min: 0.5, max: 120, step: 0.5 })}
             ${F.range('pattern.waveAmount', 'Wave pulse intensity', p.waveAmount ?? 25, { min: 5, max: 100, unit: '%', editable: true })}`;
+    } else if (motion === 'float') {
+        motionControls = `
+            ${F.number('pattern.jitterSpeed', 'Float cycle (sec)', p.jitterSpeed ?? 6, { min: 0.5, max: 60, step: 0.5 })}
+            ${F.range('pattern.waveAmount', 'Float intensity', p.waveAmount ?? 25, { min: 5, max: 100, unit: '%', editable: true })}`;
     } else if (motion === 'kaleidoscope') {
         motionControls = `
             <div class="grid2">
@@ -1556,7 +1560,7 @@ export function patternSection(el) {
         ${F.range('pattern.positionJitter', 'Position scatter', p.positionJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset position scatter to 0%' })}
         ${F.range('pattern.scaleJitter', 'Scale jitter', p.scaleJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset scale jitter to 0%' })}
         ${F.range('pattern.rotationJitter', 'Rotation jitter', p.rotationJitter ?? 0, { min: 0, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset rotation jitter to 0%' })}
-        <p class="hint">Applies deterministic per-tile random variation to position, scale, and tilt to break up strict grid uniformity into an organic, scattered layout.</p>`);
+        <p class="hint">Applies deterministic static per-tile variation to position, scale, and tilt to break up strict grid uniformity into an organic, scattered layout.</p>`);
 
     let altTilesExtra = '';
     if (isAltOrChecker) {
@@ -1603,10 +1607,13 @@ export function patternSection(el) {
             ['spin', 'Tile Spin in Place'],
             ['scroll-spin', 'Scroll + Tile Spin'],
             ['wave', 'Traveling Scale Wave'],
+            ['float', 'Organic Per-Tile Float & Bob'],
             ['kaleidoscope', 'Kaleidoscope Internal Morph']
         ])}
         ${motionControls}
-        ${motion !== 'none' ? '<p class="hint">Animates continuously in the live overlay and editor. Use the Effects toggle in the top toolbar to pause animations while editing.</p>' : ''}`);
+        ${motion !== 'float' ? F.check('pattern.animateJitter', 'Animate organic jitter (per-tile float & bob)', p.animateJitter === true) : ''}
+        ${(p.animateJitter && motion !== 'float') ? F.number('pattern.jitterSpeed', 'Jitter float cycle (sec)', p.jitterSpeed ?? 6, { min: 0.5, max: 60, step: 0.5 }) : ''}
+        ${(motion !== 'none' || p.animateJitter) ? '<p class="hint">Animates continuously in the live overlay and editor. Use the Effects toggle in the top toolbar to pause animations while editing.</p>' : ''}`);
 
     return secLayout + secMotion + secAppearance + secJitter + secColor;
 }

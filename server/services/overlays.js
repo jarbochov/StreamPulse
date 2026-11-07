@@ -353,7 +353,7 @@ const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge',
 const BORDER_PLACEMENTS = ['inside', 'center', 'outside'];
 const BORDER_ANIM_TYPES = ['none', 'rotating', 'radial', 'pulsing', 'gradient', 'rainbow', 'marching'];
 const PATTERN_LAYOUTS = ['grid', 'brick', 'stagger', 'alternating', 'checkerboard', 'kaleidoscope-quad', 'kaleidoscope-radial'];
-const PATTERN_MOTIONS = ['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'kaleidoscope', 'drift', 'orbit', 'pulse', 'pan', 'sweep'];
+const PATTERN_MOTIONS = ['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'float', 'kaleidoscope', 'drift', 'orbit', 'pulse', 'pan', 'sweep'];
 const PATTERN_TRACK_MODES = ['uniform', 'opposite', 'stagger', 'sine', 'alternate-stop', 'alt-rows', 'stagger-rows', 'alt-cols', 'stagger-cols'];
 const PATTERN_FLIPS = ['none', 'tilt', 'h', 'v', 'both'];
 const PATTERN_BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion', 'luminosity', 'plus-lighter'];
@@ -471,6 +471,8 @@ function normalizePattern(p = {}) {
         scaleJitter: Math.round(num(p.scaleJitter, 0, 50, 0)),
         rotationJitter: Math.round(num(p.rotationJitter, 0, 180, 0)),
         positionJitter: Math.round(num(p.positionJitter, 0, 50, 0)),
+        animateJitter: p.animateJitter === true,
+        jitterSpeed: Math.round(num(p.jitterSpeed, 0.5, 60, 6) * 10) / 10,
         twinkle: Math.round(num(p.twinkle, 0, 100, 0)),
         twinkleSpeed: Math.round(num(p.twinkleSpeed, 0.5, 30, 4) * 10) / 10
     };
