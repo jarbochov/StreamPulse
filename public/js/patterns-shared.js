@@ -63,10 +63,18 @@
 
     const PALETTES = {
         multicolor: ['#ef4444', '#10b981', '#f59e0b', '#3b82f6', '#a855f7', '#f97316', '#06b6d4'],
-        warm: ['#f59e0b', '#ef4444', '#d97706', '#fef3c7', '#fb7185'],
-        cool: ['#38bdf8', '#60a5fa', '#34d399', '#c084fc', '#e2e8f0'],
-        autumn: ['#dc2626', '#ea580c', '#eab308', '#65a30d', '#92400e'],
-        pastel: ['#fca5a5', '#fdba74', '#fde047', '#86efac', '#93c5fd', '#d8b4fe']
+        christmas: ['#15803d', '#dc2626', '#facc15', '#ffffff', '#b91c1c', '#166534', '#eab308'],
+        autumn: ['#dc2626', '#ea580c', '#eab308', '#65a30d', '#92400e', '#78350f', '#f97316'],
+        halloween: ['#f97316', '#a855f7', '#22c55e', '#27272a', '#eab308', '#7c3aed', '#10b981'],
+        winter: ['#38bdf8', '#60a5fa', '#818cf8', '#1e3a8a', '#f8fafc', '#bae6fd', '#c7d2fe'],
+        valentines: ['#be123c', '#f43f5e', '#fb7185', '#fda4af', '#ffffff', '#e11d48', '#fecdd3'],
+        neon: ['#00f5d4', '#ff007f', '#70e000', '#fee440', '#9b5de5', '#00bbf9', '#f15bb5'],
+        warm: ['#f59e0b', '#ef4444', '#d97706', '#fef3c7', '#fb7185', '#b45309'],
+        cool: ['#38bdf8', '#60a5fa', '#34d399', '#c084fc', '#e2e8f0', '#0284c7'],
+        pastel: ['#fca5a5', '#fdba74', '#fde047', '#86efac', '#93c5fd', '#d8b4fe', '#fbcfe8'],
+        forest: ['#14532d', '#16a34a', '#84cc16', '#ca8a04', '#78350f', '#15803d', '#3f6212'],
+        sunset: ['#4c1d95', '#c026d3', '#f43f5e', '#fb923c', '#facc15', '#e11d48', '#7c3aed'],
+        monochrome: ['#ffffff', '#e2e8f0', '#94a3b8', '#475569', '#1e293b', '#64748b', '#0f172a']
     };
 
     function withAlpha(color, hexAlpha) {
@@ -596,12 +604,12 @@
                 }
             }
         } else if (pattern === 'turkeys') {
-            // Festive Thanksgiving turkeys with radiating tail feathers
-            const stepX = Math.max(36, fullWidth / 9);
-            const stepY = stepX * 0.92;
-            const r = stepX * 0.31;
+            // Festive Thanksgiving turkeys with radiating tail fan, tipped plumage, folded wings, eyes, beak, wattle, and claw feet
+            const stepX = Math.max(38, fullWidth / 8.5);
+            const stepY = stepX * 0.94;
+            const r = stepX * 0.32;
             const dy = fallProgress * (stepY * 2);
-            ctx.lineWidth = getLineW(1.15);
+            ctx.lineWidth = getLineW(1.2);
             const rStart = Math.floor(minY / stepY) - 2, rEnd = Math.ceil(maxY / stepY) + 2;
             const cStart = Math.floor(minX / stepX) - 2, cEnd = Math.ceil(maxX / stepX) + 2;
             for (let row = rStart; row <= rEnd; row++) {
@@ -616,60 +624,148 @@
                     ctx.translate(cx, cy);
                     ctx.rotate(tilt);
 
-                    // 7 radiating tail feathers
+                    // 1. Radiating fanned tail feathers (semi-circle fan behind the body)
                     const feathers = 7;
                     for (let f = 0; f < feathers; f++) {
                         const fNorm = (f - (feathers - 1) / 2) / ((feathers - 1) / 2);
-                        const fAng = fNorm * (Math.PI * 0.42) * fanSpread;
-                        const fCol = getPatternColor(palette, f + idx * 2, accent, secondary);
+                        const fAng = fNorm * (Math.PI * 0.44) * fanSpread;
+                        const fCol = getPatternColor(palette, f * 2 + idx, accent, secondary);
+                        const tipCol = getPatternColor(palette, f * 2 + idx + 1, secondary, accent);
                         ctx.save();
-                        ctx.translate(0, r * 0.18);
+                        ctx.translate(0, r * 0.22);
                         ctx.rotate(fAng);
-                        ctx.fillStyle = withAlpha(fCol, hasFill ? fillHex : '38');
-                        ctx.strokeStyle = withAlpha(fCol, '95');
+
+                        // Main feather paddle
+                        ctx.fillStyle = withAlpha(fCol, hasFill ? fillHex : '40');
+                        ctx.strokeStyle = withAlpha(fCol, 'c0');
                         ctx.beginPath();
-                        ctx.ellipse(0, -r * 0.62, r * 0.19, r * 0.48, 0, 0, Math.PI * 2);
+                        ctx.ellipse(0, -r * 0.68, r * 0.20, r * 0.48, 0, 0, Math.PI * 2);
                         if (hasFill) ctx.fill();
                         ctx.stroke();
+
+                        // Feather tip band (signature turkey tail feather plumage)
+                        ctx.fillStyle = withAlpha(tipCol, hasFill ? (fillMode === 'solid' ? 'ff' : fillHex) : '70');
+                        ctx.strokeStyle = withAlpha(tipCol, 'e0');
+                        ctx.beginPath();
+                        ctx.ellipse(0, -r * 1.02, r * 0.16, r * 0.12, 0, 0, Math.PI * 2);
+                        if (hasFill) ctx.fill();
+                        ctx.stroke();
+
+                        // Feather center quill line
+                        ctx.strokeStyle = withAlpha(fCol, '65');
+                        ctx.beginPath();
+                        ctx.moveTo(0, -r * 0.22);
+                        ctx.lineTo(0, -r * 0.94);
+                        ctx.stroke();
+
                         ctx.restore();
                     }
 
-                    // Plump turkey body
+                    // 2. Plump turkey body (layered over feathers)
                     const bodyCol = getPatternColor(palette, idx, accent, secondary);
-                    ctx.fillStyle = withAlpha(bodyCol, hasFill ? fillHex : '4d');
-                    ctx.strokeStyle = withAlpha(bodyCol, 'b0');
+                    ctx.fillStyle = withAlpha(bodyCol, hasFill ? fillHex : '48');
+                    ctx.strokeStyle = withAlpha(bodyCol, 'd0');
                     ctx.beginPath();
-                    ctx.arc(0, r * 0.24, r * 0.42, 0, Math.PI * 2);
+                    ctx.ellipse(0, r * 0.28, r * 0.44, r * 0.40, 0, 0, Math.PI * 2);
                     if (hasFill) ctx.fill();
                     ctx.stroke();
 
-                    // Turkey head
-                    ctx.fillStyle = withAlpha(bodyCol, hasFill ? fillHex : '60');
+                    // 3. Folded wings on left & right of body
+                    const wingCol = getPatternColor(palette, idx + 3, secondary, accent);
+                    ctx.fillStyle = withAlpha(wingCol, hasFill ? (fillMode === 'solid' ? withAlpha(wingCol, 'ee') : fillHex) : '35');
+                    ctx.strokeStyle = withAlpha(wingCol, 'c8');
+                    // Left wing
                     ctx.beginPath();
-                    ctx.arc(0, -r * 0.22, r * 0.24, 0, Math.PI * 2);
+                    ctx.ellipse(-r * 0.26, r * 0.28, r * 0.14, r * 0.26, -0.22, 0, Math.PI * 2);
+                    if (hasFill) ctx.fill();
+                    ctx.stroke();
+                    // Right wing
+                    ctx.beginPath();
+                    ctx.ellipse(r * 0.26, r * 0.28, r * 0.14, r * 0.26, 0.22, 0, Math.PI * 2);
                     if (hasFill) ctx.fill();
                     ctx.stroke();
 
-                    // Beak & wattle
-                    const beakCol = getPatternColor(palette, idx + 1, secondary, accent);
-                    ctx.fillStyle = withAlpha(beakCol, 'cc');
+                    // 4. Turkey head & neck
+                    ctx.fillStyle = withAlpha(bodyCol, hasFill ? fillHex : '55');
+                    ctx.strokeStyle = withAlpha(bodyCol, 'd8');
                     ctx.beginPath();
-                    ctx.moveTo(-r * 0.09, -r * 0.2);
-                    ctx.lineTo(r * 0.09, -r * 0.2);
-                    ctx.lineTo(0, -r * 0.04);
+                    ctx.ellipse(0, -r * 0.18, r * 0.22, r * 0.24, 0, 0, Math.PI * 2);
+                    if (hasFill) ctx.fill();
+                    ctx.stroke();
+
+                    // 5. Turkey eyes (white sclera + dark pupils for unmistakable character)
+                    const eyeY = -r * 0.24;
+                    const eyeSpacing = r * 0.085;
+                    const eyeR = r * 0.052;
+                    const pupilR = r * 0.026;
+
+                    // Left eye
+                    ctx.fillStyle = '#ffffff';
+                    ctx.strokeStyle = '#27272a';
+                    ctx.beginPath();
+                    ctx.arc(-eyeSpacing, eyeY, eyeR, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.fillStyle = '#18181b';
+                    ctx.beginPath();
+                    ctx.arc(-eyeSpacing + r * 0.01, eyeY, pupilR, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Right eye
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(eyeSpacing, eyeY, eyeR, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.fillStyle = '#18181b';
+                    ctx.beginPath();
+                    ctx.arc(eyeSpacing - r * 0.01, eyeY, pupilR, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // 6. Beak (bright triangular beak pointing downward)
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.strokeStyle = '#d97706';
+                    ctx.beginPath();
+                    ctx.moveTo(-r * 0.08, -r * 0.16);
+                    ctx.lineTo(r * 0.08, -r * 0.16);
+                    ctx.lineTo(0, -r * 0.01);
                     ctx.closePath();
                     ctx.fill();
+                    ctx.stroke();
 
-                    // Wattle teardrop
+                    // 7. Signature red snood/wattle draping over the side of the beak
+                    ctx.fillStyle = '#dc2626';
+                    ctx.strokeStyle = '#991b1b';
                     ctx.beginPath();
-                    ctx.arc(r * 0.09, -r * 0.1, r * 0.065, 0, Math.PI * 2);
+                    ctx.moveTo(r * 0.02, -r * 0.17);
+                    quadTo(ctx, r * 0.14, -r * 0.10, r * 0.12, r * 0.02);
+                    quadTo(ctx, r * 0.11, r * 0.12, r * 0.05, r * 0.10);
+                    quadTo(ctx, 0, r * 0.07, r * 0.01, -r * 0.03);
+                    ctx.closePath();
                     ctx.fill();
+                    ctx.stroke();
 
-                    // Feet
-                    ctx.strokeStyle = withAlpha(beakCol, '95');
+                    // 8. Claw feet with 3 splayed toes in amber/orange
+                    const legCol = '#f59e0b';
+                    ctx.strokeStyle = legCol;
+                    ctx.lineWidth = getLineW(1.4);
+                    // Left leg & toes
                     ctx.beginPath();
-                    ctx.moveTo(-r * 0.16, r * 0.65); ctx.lineTo(-r * 0.2, r * 0.84);
-                    ctx.moveTo(r * 0.16, r * 0.65); ctx.lineTo(r * 0.2, r * 0.84);
+                    ctx.moveTo(-r * 0.18, r * 0.65);
+                    ctx.lineTo(-r * 0.20, r * 0.84);
+                    ctx.lineTo(-r * 0.30, r * 0.92);
+                    ctx.moveTo(-r * 0.20, r * 0.84);
+                    ctx.lineTo(-r * 0.20, r * 0.94);
+                    ctx.moveTo(-r * 0.20, r * 0.84);
+                    ctx.lineTo(-r * 0.10, r * 0.92);
+                    // Right leg & toes
+                    ctx.moveTo(r * 0.18, r * 0.65);
+                    ctx.lineTo(r * 0.20, r * 0.84);
+                    ctx.lineTo(r * 0.10, r * 0.92);
+                    ctx.moveTo(r * 0.20, r * 0.84);
+                    ctx.lineTo(r * 0.20, r * 0.94);
+                    ctx.moveTo(r * 0.20, r * 0.84);
+                    ctx.lineTo(r * 0.30, r * 0.92);
                     ctx.stroke();
 
                     ctx.restore();

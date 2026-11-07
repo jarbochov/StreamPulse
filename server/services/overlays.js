@@ -361,7 +361,7 @@ const PATTERN_BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'li
 const PATTERN_HUE_SHIFTS = ['none', 'cycle', 'wave-x', 'wave-y'];
 const PATTERN_ASPECT_RATIOS = ['1:1', '16:9', '4:3', '3:2', '2:1', '3:4', '9:16', 'natural'];
 const PATTERN_DISTRIBUTIONS = ['diagonal', 'row', 'col', 'grid', 'random'];
-const PATTERN_PALETTES = ['dual', 'multicolor', 'warm', 'cool', 'autumn', 'pastel'];
+const PATTERN_PALETTES = ['dual', 'multicolor', 'christmas', 'autumn', 'halloween', 'winter', 'valentines', 'neon', 'warm', 'cool', 'pastel', 'forest', 'sunset', 'monochrome'];
 const PATTERN_FILL_MODES = ['tinted', 'solid', 'outline'];
 
 function normalizeSpeakerBadge(badge = {}) {

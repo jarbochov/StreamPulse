@@ -34,10 +34,18 @@ export function proceduralPatternSection(el) {
     const paletteOptions = [
         ['dual', 'Custom Two-Tone (Accent & Secondary)'],
         ['multicolor', 'Festive Multicolor (7 Jewel Tones)'],
-        ['warm', 'Warm Hearth (Amber, Crimson, Gold, Rose)'],
-        ['cool', 'Cool Frost (Ice Blue, Mint, Lilac, Slate)'],
-        ['autumn', 'Autumn Harvest (Foliage Red, Orange, Gold)'],
-        ['pastel', 'Soft Pastel (Coral, Mint, Lavender)']
+        ['christmas', 'Holiday Classic (Emerald, Ruby, Gold)'],
+        ['autumn', 'Autumn Harvest (Crimson, Orange, Gold, Chestnut)'],
+        ['halloween', 'Spooky Halloween (Pumpkin, Witch Violet, Slime)'],
+        ['winter', 'Winter Frost (Ice Blue, Periwinkle, Snow)'],
+        ['valentines', 'Romance (Crimson, Rose, Blush Pink)'],
+        ['neon', 'Cyber Neon (Electric Cyan, Hot Pink, Lime)'],
+        ['warm', 'Warm Hearth (Amber, Crimson, Gold)'],
+        ['cool', 'Cool Breeze (Sky, Mint, Ocean Teal)'],
+        ['pastel', 'Soft Pastel (Coral, Peach, Mint, Lavender)'],
+        ['forest', 'Forest & Moss (Deep Pine, Sage, Earth)'],
+        ['sunset', 'Dusk & Sunset (Twilight Violet, Coral, Gold)'],
+        ['monochrome', 'Sleek Monochrome (White, Silver, Slate)']
     ];
 
     let colorFields = F.select('pattern.palette', 'Color palette', palette, paletteOptions);
@@ -80,13 +88,23 @@ export function proceduralPatternSection(el) {
         fillBlock += '<span class="hint">Shapes render as clean vector outlines with hollow interiors.</span>';
     }
 
+    const blendBlock = F.select('pattern.blendMode', 'Blend type', blendMode, [
+        ['normal', 'Normal'],
+        ['screen', 'Screen (glow on dark)'],
+        ['overlay', 'Overlay (contrast)'],
+        ['soft-light', 'Soft light'],
+        ['hard-light', 'Hard light'],
+        ['color-dodge', 'Color dodge (vivid glow)'],
+        ['multiply', 'Multiply (darken on light)'],
+        ['luminosity', 'Luminosity']
+    ]);
+
     const styleBlock = `
         ${colorFields}
         ${fillBlock}
-        <div class="grid2">
-            ${F.color('pattern.color', 'Canvas base fill', p.color || 'transparent', { clear: true })}
-            ${F.number('pattern.lineWidth', 'Line width (px, 0=auto)', p.lineWidth || 0, { min: 0, max: 20, step: 0.5 })}
-        </div>
+        ${blendBlock}
+        ${F.color('pattern.color', 'Canvas base fill', p.color || 'transparent', { clear: true })}
+        ${F.range('pattern.lineWidth', 'Line width', p.lineWidth ?? 0, { min: 0, max: 20, step: 0.5, unit: 'px', editable: true, reset: 0, resetTitle: 'Reset to auto thickness (0 = auto)' })}
         ${F.range('pattern.scale', 'Geometry scale', p.scale ?? 100, { min: 10, max: 500, step: 5, unit: '%', editable: true, reset: 100 })}
     `;
 
@@ -103,28 +121,7 @@ export function proceduralPatternSection(el) {
     ]);
 
     if (motion !== 'none') {
-        motionBlock += `<div class="grid2">
-            ${F.number('pattern.speed', 'Motion speed (multiplier)', p.speed ?? 1, { min: 0.1, max: 10, step: 0.1 })}
-            ${F.select('pattern.blendMode', 'Blend mode', blendMode, [
-                ['normal', 'Normal'],
-                ['screen', 'Screen (glow on dark)'],
-                ['overlay', 'Overlay'],
-                ['color-dodge', 'Color dodge'],
-                ['multiply', 'Multiply'],
-                ['soft-light', 'Soft light'],
-                ['luminosity', 'Luminosity']
-            ])}
-        </div>`;
-    } else {
-        motionBlock += F.select('pattern.blendMode', 'Blend mode', blendMode, [
-            ['normal', 'Normal'],
-            ['screen', 'Screen (glow on dark)'],
-            ['overlay', 'Overlay'],
-            ['color-dodge', 'Color dodge'],
-            ['multiply', 'Multiply'],
-            ['soft-light', 'Soft light'],
-            ['luminosity', 'Luminosity']
-        ]);
+        motionBlock += F.range('pattern.speed', 'Motion speed', p.speed ?? 1, { min: 0.1, max: 10, step: 0.1, unit: 'x', editable: true, reset: 1, resetTitle: 'Reset to 1x speed' });
     }
 
     motionBlock += '<span class="hint">Generative procedural backgrounds render vector mathematics across the full layer frame with zero seams.</span>';

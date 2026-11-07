@@ -1598,9 +1598,10 @@ export function renderProperties() {
         const specific = { 'random-text': randomSection, progress: progressSection, poll: pollSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection, pattern: patternSection, 'procedural-pattern': proceduralPatternSection, 'speaker-badge': speakerBadgeSection }[el.type];
         content = contentSection(base) + (specific ? specific(el.type === 'alert' ? base : el) : '');
         layout = layoutSection(base) + scaleSection(items) + obsLinkSection(base);
+        const isProcedural = el.type === 'procedural-pattern' || (el.type === 'pattern' && el.pattern?.sourceType === 'preset');
         style = (el.type === 'alert' ? alertLooksSection(base) + alertSection(el, true) : '')
             + (el.type === 'icon' ? iconEffectsSection(el) : '') + (hasText(el) ? typographySection(el) : '')
-            + (el.type !== 'cutout' ? fillSection(el) + effectsSection(el) + filterSection(el) : '');
+            + (isProcedural ? effectsSection(el) : (el.type !== 'cutout' ? fillSection(el) + effectsSection(el) + filterSection(el) : ''));
     }
     root.dataset.inspectorKey = key;
     const bodies = { content, layout, style };

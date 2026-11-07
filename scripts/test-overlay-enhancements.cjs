@@ -665,10 +665,18 @@ test('Procedural Patterns: multicolor palettes, fill styles, schema normalizatio
     assert.ok(PALETTES, 'PALETTES export must exist');
     assert.ok(Array.isArray(PALETTES.multicolor), 'multicolor palette must be an array');
     assert.ok(PALETTES.multicolor.length >= 7, 'multicolor must have at least 7 jewel tones');
+    assert.ok(Array.isArray(PALETTES.christmas), 'christmas palette must be an array');
+    assert.ok(Array.isArray(PALETTES.halloween), 'halloween palette must be an array');
+    assert.ok(Array.isArray(PALETTES.winter), 'winter palette must be an array');
+    assert.ok(Array.isArray(PALETTES.valentines), 'valentines palette must be an array');
+    assert.ok(Array.isArray(PALETTES.neon), 'neon palette must be an array');
     assert.ok(Array.isArray(PALETTES.warm), 'warm palette must be an array');
     assert.ok(Array.isArray(PALETTES.cool), 'cool palette must be an array');
     assert.ok(Array.isArray(PALETTES.autumn), 'autumn palette must be an array');
     assert.ok(Array.isArray(PALETTES.pastel), 'pastel palette must be an array');
+    assert.ok(Array.isArray(PALETTES.forest), 'forest palette must be an array');
+    assert.ok(Array.isArray(PALETTES.sunset), 'sunset palette must be an array');
+    assert.ok(Array.isArray(PALETTES.monochrome), 'monochrome palette must be an array');
 
     // 2. Multicolored canvas rendering across patterns
     const fillColors = new Set();
@@ -702,6 +710,30 @@ test('Procedural Patterns: multicolor palettes, fill styles, schema normalizatio
     });
     // With 7 colors in multicolor palette, multiple distinct palette colors should be recorded
     assert.ok(fillColors.size >= 3, `Multicolor christmas lights must draw multiple distinct bulb/glow colors (got ${fillColors.size})`);
+
+    // Verify turkeys draw feathers, body, eyes, beak, wattle, and feet in fillMode: 'solid'
+    const turkeyFills = new Set();
+    const turkeyCtx = {
+        save: () => {}, restore: () => {}, beginPath: () => {}, closePath: () => {},
+        moveTo: () => {}, lineTo: () => {}, quadraticCurveTo: () => {},
+        stroke: () => {},
+        fill: () => { if (turkeyCtx.fillStyle) turkeyFills.add(turkeyCtx.fillStyle); },
+        fillRect: () => {}, scale: () => {}, translate: () => {}, rotate: () => {},
+        arc: () => {}, ellipse: () => {}
+    };
+    drawProceduralPattern(turkeyCtx, 'turkeys', 800, 400, {
+        palette: 'autumn',
+        fillMode: 'solid',
+        fillOpacity: 100,
+        time: 0,
+        motion: 'none'
+    });
+    // Turkeys should have white eyes (#ffffff), dark pupils (#18181b), yellow beak (#f59e0b), red wattle (#dc2626), and feather fills
+    assert.ok(turkeyFills.has('#ffffff'), 'Turkeys must draw white eyes');
+    assert.ok(turkeyFills.has('#18181b'), 'Turkeys must draw dark pupils');
+    assert.ok(turkeyFills.has('#f59e0b'), 'Turkeys must draw golden beak');
+    assert.ok(turkeyFills.has('#dc2626'), 'Turkeys must draw signature red snood/wattle');
+    assert.ok(turkeyFills.size >= 5, 'Turkeys in solid fill must have distinct plumage and facial feature fills');
 
     // 3. Fill Mode: outline should not invoke fill on geometric patterns
     let outlineFillCalls = 0;
@@ -763,6 +795,8 @@ test('Procedural Patterns: multicolor palettes, fill styles, schema normalizatio
     assert.ok(!contentFieldsBody.includes("pattern.color"), 'Content tab fields must not contain base fill styling');
     assert.ok(!contentFieldsBody.includes("pattern.lineWidth"), 'Content tab fields must not contain line width styling');
     assert.ok(patternsCode.includes("F.section('proceduralStyle', 'Colors & Fill Style'"), 'proceduralStyle section must be created');
+    assert.ok(patternsCode.includes("F.select('pattern.blendMode', 'Blend type'"), 'proceduralStyle must expose Blend type');
+    assert.ok(patternsCode.includes("F.range('pattern.lineWidth', 'Line width'"), 'proceduralStyle must render Line width as an F.range control');
     assert.ok(patternsCode.includes("F.section('proceduralMotion', 'Animation & Motion'"), 'proceduralMotion section must be created');
 
     const inspectorCode = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-inspector.js'), 'utf8');
@@ -770,4 +804,5 @@ test('Procedural Patterns: multicolor palettes, fill styles, schema normalizatio
     assert.ok(inspectorCode.includes("proceduralMotion: 'style'"), 'proceduralMotion section must route to Style tab');
     assert.ok(inspectorCode.includes("'pattern.palette'"), 'pattern.palette must be in RERENDER_PATHS');
     assert.ok(inspectorCode.includes("'pattern.fillMode'"), 'pattern.fillMode must be in RERENDER_PATHS');
+    assert.ok(inspectorCode.includes("isProcedural ? effectsSection(el) :"), 'isProcedural layers must exclude media filters and fill section');
 });
