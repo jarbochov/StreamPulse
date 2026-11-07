@@ -99,17 +99,33 @@ export function proceduralPatternSection(el) {
         ['luminosity', 'Luminosity']
     ]);
 
+    const inPlace = p.inPlace || (motion !== 'none' ? 'auto' : 'none');
+    const snowflakeBlock = (p.preset === 'snowflakes') ? `
+        ${F.select('pattern.snowflakeStyle', 'Snowflake variety', p.snowflakeStyle || 'all', [
+            ['all', 'All snowflake varieties (mixed blizzard)'],
+            ['dendrite', 'Stellar dendrites (feathery lace)'],
+            ['plate', 'Crystal plates (faceted hexagons)'],
+            ['fern', 'Fernlike lace (triple-tiered pine needles)'],
+            ['rosette', 'Jewel rosettes (scalloped lace loops)'],
+            ['cross', 'Scandinavian cross stars (arrowheads & crossbars)'],
+            ['needle', 'Minimalist needle stars (satellite pearls)']
+        ])}
+    ` : '';
+
     const styleBlock = `
         ${colorFields}
         ${fillBlock}
         ${blendBlock}
+        ${snowflakeBlock}
         ${F.color('pattern.color', 'Canvas base fill', p.color || 'transparent', { clear: true })}
         ${F.range('pattern.lineWidth', 'Line width', p.lineWidth ?? 0, { min: 0, max: 20, step: 0.5, unit: 'px', editable: true, reset: 0, resetTitle: 'Reset to auto thickness (0 = auto)' })}
         ${F.range('pattern.scale', 'Geometry scale', p.scale ?? 100, { min: 10, max: 500, step: 5, unit: '%', editable: true, reset: 100 })}
+        ${F.range('pattern.sizeVariance', 'Size variance', p.sizeVariance ?? p.scaleJitter ?? 0, { min: 0, max: 100, step: 5, unit: '%', editable: true, reset: 0, resetTitle: 'Reset to uniform sizing' })}
+        ${F.range('pattern.scatter', 'Organic scatter', p.scatter ?? p.positionJitter ?? 0, { min: 0, max: 100, step: 5, unit: '%', editable: true, reset: 0, resetTitle: 'Reset to grid alignment' })}
     `;
 
-    let motionBlock = F.select('pattern.motion', 'Animation motion', motion, [
-        ['none', 'Static (no animation)'],
+    let motionBlock = F.select('pattern.motion', 'Canvas movement', motion, [
+        ['none', 'Static (no canvas movement)'],
         ['drift', 'Drift (gentle floating drift)'],
         ['fall', 'Fall (continuous falling cascade)'],
         ['sway', 'Sway (breathing tilt & scale)'],
@@ -121,10 +137,22 @@ export function proceduralPatternSection(el) {
     ]);
 
     if (motion !== 'none') {
-        motionBlock += F.range('pattern.speed', 'Motion speed', p.speed ?? 1, { min: 0.1, max: 10, step: 0.1, unit: 'x', editable: true, reset: 1, resetTitle: 'Reset to 1x speed' });
+        motionBlock += F.range('pattern.speed', 'Movement speed', p.speed ?? 1, { min: 0.1, max: 10, step: 0.1, unit: 'x', editable: true, reset: 1, resetTitle: 'Reset to 1x speed' });
     }
 
-    motionBlock += '<span class="hint">Generative procedural backgrounds render vector mathematics across the full layer frame with zero seams.</span>';
+    motionBlock += F.select('pattern.inPlace', 'In-place animation', inPlace, [
+        ['auto', 'Twinkle, pulse & rotate in place'],
+        ['pulse', 'Vivid rhythmic pulse & glow'],
+        ['gentle', 'Gentle slow shimmer & rotation'],
+        ['sparkle', 'Fast twinkle & shimmer'],
+        ['none', 'Frozen (no in-place motion)']
+    ]);
+
+    if (inPlace !== 'none') {
+        motionBlock += F.range('pattern.inPlaceSpeed', 'Twinkle & rotation speed', p.inPlaceSpeed ?? 1, { min: 0.2, max: 5, step: 0.1, unit: 'x', editable: true, reset: 1, resetTitle: 'Reset to 1x speed' });
+    }
+
+    motionBlock += '<span class="hint">In-place animation allows lights to pulse and snowflakes, stars, and leaves to rotate and shimmer even when canvas movement is set to Static.</span>';
 
     return F.section('proceduralStyle', 'Colors & Fill Style', styleBlock)
         + F.section('proceduralMotion', 'Animation & Motion', motionBlock);

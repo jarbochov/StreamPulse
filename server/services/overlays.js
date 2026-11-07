@@ -363,6 +363,8 @@ const PATTERN_ASPECT_RATIOS = ['1:1', '16:9', '4:3', '3:2', '2:1', '3:4', '9:16'
 const PATTERN_DISTRIBUTIONS = ['diagonal', 'row', 'col', 'grid', 'random'];
 const PATTERN_PALETTES = ['dual', 'multicolor', 'christmas', 'autumn', 'halloween', 'winter', 'valentines', 'neon', 'warm', 'cool', 'pastel', 'forest', 'sunset', 'monochrome'];
 const PATTERN_FILL_MODES = ['tinted', 'solid', 'outline'];
+const PATTERN_IN_PLACE_MODES = ['auto', 'gentle', 'pulse', 'sparkle', 'none'];
+const SNOWFLAKE_STYLES = ['all', 'dendrite', 'plate', 'fern', 'rosette', 'cross', 'needle'];
 
 function normalizeSpeakerBadge(badge = {}) {
     const rawSpeaker = badge?.speaker && typeof badge.speaker === 'object' ? badge.speaker : {};
@@ -482,6 +484,11 @@ function normalizePattern(p = {}, isProcedural = false) {
     const fillMode = PATTERN_FILL_MODES.includes(p.fillMode) ? p.fillMode : 'tinted';
     const defaultFillOpacity = fillMode === 'solid' ? 100 : (fillMode === 'outline' ? 0 : 30);
     const fillOpacity = Math.round(num(p.fillOpacity, 0, 100, defaultFillOpacity));
+    const inPlace = PATTERN_IN_PLACE_MODES.includes(p.inPlace) ? p.inPlace : (motion !== 'none' ? 'auto' : 'none');
+    const snowflakeStyle = SNOWFLAKE_STYLES.includes(p.snowflakeStyle) ? p.snowflakeStyle : 'all';
+    const sizeVariance = Math.round(num(p.sizeVariance ?? p.scaleJitter, 0, 100, 0));
+    const scatter = Math.round(num(p.scatter ?? p.positionJitter, 0, 100, 0));
+    const inPlaceSpeed = Math.round(num(p.inPlaceSpeed ?? p.twinkleSpeed, 0.2, 10, 1) * 10) / 10;
     return {
         sourceType,
         tileDistribution: PATTERN_DISTRIBUTIONS.includes(p.tileDistribution) ? p.tileDistribution : 'diagonal',
@@ -491,6 +498,11 @@ function normalizePattern(p = {}, isProcedural = false) {
         palette,
         fillMode,
         fillOpacity,
+        inPlace,
+        inPlaceSpeed,
+        snowflakeStyle,
+        sizeVariance,
+        scatter,
         accent: cleanAccent,
         secondary: cleanSecondary,
         color: String(p.color || 'transparent').slice(0, 80),

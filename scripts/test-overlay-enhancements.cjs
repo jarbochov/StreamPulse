@@ -882,3 +882,146 @@ test('Continuous Falling Motion: Overlay linear motion has zero periodic jumps, 
         }
     }
 });
+
+test('Decoupled In-Place Animation, Speed Calibration & Snowflake Morphologies', () => {
+    const { SNOWFLAKE_STYLES } = require('../public/js/patterns-shared.js');
+    assert.ok(Array.isArray(SNOWFLAKE_STYLES), 'SNOWFLAKE_STYLES array must be exported');
+    assert.equal(SNOWFLAKE_STYLES.length, 7);
+    assert.deepEqual(SNOWFLAKE_STYLES, ['all', 'dendrite', 'plate', 'fern', 'rosette', 'cross', 'needle']);
+
+    // 1. In-place animation with motion === 'none' (static canvas, dynamic in-place rotation and pulse)
+    const rotations = [];
+    const mockCtx = {
+        save: () => {},
+        restore: () => {},
+        beginPath: () => {},
+        closePath: () => {},
+        moveTo: () => {},
+        lineTo: () => {},
+        quadraticCurveTo: () => {},
+        stroke: () => {},
+        fill: () => {},
+        fillRect: () => {},
+        scale: () => {},
+        translate: () => {},
+        rotate: (r) => rotations.push(r),
+        arc: () => {},
+        ellipse: () => {},
+        createRadialGradient: () => ({ addColorStop: () => {} }),
+        createLinearGradient: () => ({ addColorStop: () => {} })
+    };
+
+    // When motion is 'none', but inPlace is 'auto', rotation must change between t=0 and t=2.0
+    rotations.length = 0;
+    drawProceduralPattern(mockCtx, 'snowflakes', 640, 360, {
+        scale: 100,
+        accent: '#38bdf8',
+        time: 0,
+        motion: 'none',
+        inPlace: 'auto'
+    });
+    const r0 = [...rotations];
+
+    rotations.length = 0;
+    drawProceduralPattern(mockCtx, 'snowflakes', 640, 360, {
+        scale: 100,
+        accent: '#38bdf8',
+        time: 2.0,
+        motion: 'none',
+        inPlace: 'auto'
+    });
+    const r2 = [...rotations];
+
+    assert.ok(r0.length > 0 && r2.length > 0, 'Snowflakes must render rotation calls');
+    assert.notEqual(r0[0], r2[0], 'In-place rotation must animate even when canvas motion is static (none)');
+
+    // When inPlace is 'none', rotations must remain identical between t=0 and t=2.0
+    rotations.length = 0;
+    drawProceduralPattern(mockCtx, 'snowflakes', 640, 360, {
+        scale: 100,
+        accent: '#38bdf8',
+        time: 0,
+        motion: 'none',
+        inPlace: 'none'
+    });
+    const frozen0 = [...rotations];
+
+    rotations.length = 0;
+    drawProceduralPattern(mockCtx, 'snowflakes', 640, 360, {
+        scale: 100,
+        accent: '#38bdf8',
+        time: 2.0,
+        motion: 'none',
+        inPlace: 'none'
+    });
+    const frozen2 = [...rotations];
+    assert.deepEqual(frozen0, frozen2, 'inPlace: none must completely freeze rotation when motion is static');
+
+    // 2. All 6 individual snowflake varieties render cleanly without errors
+    for (const style of ['all', 'dendrite', 'plate', 'fern', 'rosette', 'cross', 'needle']) {
+        assert.doesNotThrow(() => {
+            drawProceduralPattern(mockCtx, 'snowflakes', 640, 360, {
+                scale: 100,
+                accent: '#38bdf8',
+                time: 1.5,
+                motion: 'fall',
+                snowflakeStyle: style
+            });
+        }, `Snowflake style ${style} must render cleanly`);
+    }
+
+    // 3. Size variance and organic scatter
+    const positions = [];
+    const trackingCtx = {
+        ...mockCtx,
+        translate: (x, y) => positions.push({ x, y })
+    };
+    positions.length = 0;
+    drawProceduralPattern(trackingCtx, 'snowflakes', 640, 360, {
+        scale: 100,
+        accent: '#38bdf8',
+        time: 1,
+        motion: 'none',
+        scatter: 50,
+        sizeVariance: 40
+    });
+    assert.ok(positions.length > 10, 'Scatter and size variance must produce translated elements');
+
+    // 4. Schema normalization in overlays service
+    const { normalizeCustomOverlay } = require('../server/services/overlays.js');
+    const normalized = normalizeCustomOverlay({
+        id: 'proc-pat-test-2',
+        name: 'Procedural In-Place Test',
+        elements: [{
+            id: 'proc-el-3',
+            type: 'procedural-pattern',
+            pattern: {
+                preset: 'snowflakes',
+                motion: 'none',
+                inPlace: 'pulse',
+                inPlaceSpeed: 1.5,
+                snowflakeStyle: 'rosette',
+                sizeVariance: 45,
+                scatter: 30
+            }
+        }]
+    });
+    const pat = normalized.elements[0].pattern;
+    assert.equal(pat.inPlace, 'pulse', 'inPlace mode must be normalized');
+    assert.equal(pat.inPlaceSpeed, 1.5, 'inPlaceSpeed must be normalized');
+    assert.equal(pat.snowflakeStyle, 'rosette', 'snowflakeStyle must be normalized');
+    assert.equal(pat.sizeVariance, 45, 'sizeVariance must be normalized');
+    assert.equal(pat.scatter, 30, 'scatter must be normalized');
+
+    // 5. Inspector exposes in-place animation and snowflake variety
+    const patternsCode = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-patterns.js'), 'utf8');
+    assert.ok(patternsCode.includes("F.select('pattern.inPlace'"), 'Editor must expose In-place animation selector');
+    assert.ok(patternsCode.includes("F.range('pattern.inPlaceSpeed'"), 'Editor must expose in-place speed control');
+    assert.ok(patternsCode.includes("F.range('pattern.sizeVariance'"), 'Editor must expose size variance range');
+    assert.ok(patternsCode.includes("F.range('pattern.scatter'"), 'Editor must expose organic scatter range');
+    assert.ok(patternsCode.includes("F.select('pattern.snowflakeStyle'"), 'Editor must expose snowflake variety when snowflakes preset is active');
+
+    const inspectorCode = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-inspector.js'), 'utf8');
+    assert.ok(inspectorCode.includes("'pattern.inPlace'"), 'pattern.inPlace must be in RERENDER_PATHS');
+    assert.ok(inspectorCode.includes("'pattern.snowflakeStyle'"), 'pattern.snowflakeStyle must be in RERENDER_PATHS');
+});

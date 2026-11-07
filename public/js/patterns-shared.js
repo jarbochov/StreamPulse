@@ -135,7 +135,10 @@
         const scale = Math.max(0.05, (options.scale || 100) / 100);
         const time = options.time || 0;
         const motion = options.motion || 'none';
-        const speed = options.speed || 1;
+        const rawSpeed = Number(options.speed) > 0 ? Number(options.speed) : 1;
+        // Calibrate speed scale so 1x normal speed is calm, broadcast-ready and ambient (previously 1x was ~3x too fast, requiring 0.3)
+        const SPEED_SCALE = 0.35;
+        const speed = rawSpeed * SPEED_SCALE;
         const baseColor = options.color || options.background || '';
         const palette = options.palette || 'dual';
         const fillMode = options.fillMode || 'tinted';
@@ -160,7 +163,19 @@
 
         ctx.save();
         const phase = time * Math.PI / 3 * speed;
-        const isAnimated = motion !== 'none' && time > 0;
+        // In-place animation (twinkles, pulsing, rotating, leaf flutter) decoupled from overall canvas movement
+        const inPlace = options.inPlace ?? (motion !== 'none' ? 'auto' : 'none');
+        const hasInPlaceAnim = inPlace !== 'none' && inPlace !== false && inPlace !== 0 && time > 0;
+        const isAnimated = (motion !== 'none' || hasInPlaceAnim) && time > 0;
+        const inPlaceMult = inPlace === 'sparkle' ? 2.6 : (inPlace === 'pulse' ? 1.8 : (inPlace === 'gentle' ? 0.6 : 1.0));
+        const inPlaceSpeed = Number(options.inPlaceSpeed) > 0 ? Number(options.inPlaceSpeed) : 1.0;
+        const inPlacePhase = hasInPlaceAnim ? (time * speed * inPlaceMult * inPlaceSpeed) : 0;
+
+        // Size variance and organic scatter (lessons from Pattern Tile)
+        const sizeVarAmount = Math.max(0, Math.min(1, (Number(options.sizeVariance ?? options.scaleJitter) || 0) / 100));
+        const scatterAmount = Math.max(0, Math.min(1, (Number(options.scatter ?? options.positionJitter) || 0) / 100));
+        const rotVarAmount = Math.max(0, Math.min(1, (Number(options.rotationVariance ?? options.rotationJitter) || 0) / 100));
+
         const pulse = motion === 'pulse' ? (1 - Math.cos(phase)) / 2 : 0;
 
         // Pattern scale around canvas center so changing scale zooms smoothly without scrambling coordinates
@@ -357,10 +372,12 @@
             for (let i = 0; i < count; i++) {
                 const u = (i * 0.61803398875) % 1;
                 const v = (i * 0.75487766625) % 1;
+                const sizeHash = (((i * 7919 + 104729) % 1000) / 1000);
+                const sizeVarMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
                 const x = ox + u * refW + fallSwayX * (0.6 + (i % 3) * 0.3);
                 const y = oy + (((v * refH + fallDy) % refH + refH) % refH);
-                const twinkleMult = isAnimated ? (0.72 + 0.28 * Math.sin(phase * 1.5 + i * 1.7)) : 1;
-                const size = Math.max(1.5, fullWidth / (pattern === 'starfield' ? 420 : 250)) * (1 + (i % 3) * 0.35) * twinkleMult;
+                const twinkleMult = hasInPlaceAnim ? (0.70 + 0.30 * Math.sin(inPlacePhase * 1.5 + i * 1.7)) : 1;
+                const size = Math.max(1.5, fullWidth / (pattern === 'starfield' ? 420 : 250)) * (1 + (i % 3) * 0.35) * twinkleMult * sizeVarMult;
                 const pColor = getPatternColor(palette, i, accent, secondary);
                 ctx.fillStyle = withAlpha(pColor, hasFill ? fillHex : '85');
                 if (pattern === 'starfield' && i % 4) {
@@ -499,11 +516,13 @@
             for (let i = 0; i < 180; i++) {
                 const u = (i * 0.61803398875) % 1;
                 const v = (i * 0.75487766625) % 1;
+                const sizeHash = (((i * 7919 + 104729) % 1000) / 1000);
+                const sizeVarMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
                 const x = ox + u * refW + fallSwayX * (0.5 + (i % 4) * 0.25);
                 const particleDy = fallDy * (0.8 + (i % 3) * 0.2);
                 const y = oy + (((v * refH + particleDy) % refH + refH) % refH);
-                const size = Math.max(2, fullWidth / 180) * (1 + (i % 3));
-                const rot = i * 2.399 + (isAnimated ? Math.sin(phase + i * 0.7) * 0.35 : 0);
+                const size = Math.max(2, fullWidth / 180) * (1 + (i % 3)) * sizeVarMult;
+                const rot = i * 2.399 + (hasInPlaceAnim ? Math.sin(inPlacePhase + i * 0.7) * 0.45 : 0);
                 const color = getPatternColor(palette, i, accent, secondary);
                 ctx.save();
                 ctx.translate(x, y);
@@ -551,12 +570,16 @@
                     const idx = Math.abs(row * 17 + col * 31);
                     const jitterX = (((idx * 37) % 100) / 100 - 0.5) * stepX * 0.32;
                     const jitterY = (((idx * 53) % 100) / 100 - 0.5) * stepY * 0.32;
-                    const cx = col * stepX + rowOffset + jitterX + fallSwayX;
-                    const cy = row * stepY + jitterY + fallDy;
+                    const extraScatterX = ((((idx * 43) % 100) / 100 - 0.5) * stepX * 0.55) * scatterAmount;
+                    const extraScatterY = ((((idx * 67) % 100) / 100 - 0.5) * stepY * 0.55) * scatterAmount;
+                    const cx = col * stepX + rowOffset + jitterX + extraScatterX + fallSwayX;
+                    const cy = row * stepY + jitterY + extraScatterY + fallDy;
                     const baseAngle = ((idx % 12) / 12) * Math.PI * 2;
-                    const flutter = isAnimated ? Math.sin(phase + idx * 0.9) * 0.22 : 0;
+                    const flutter = hasInPlaceAnim ? Math.sin(inPlacePhase + idx * 0.9) * 0.22 : 0;
                     const leafColor = getPatternColor(leafPalette, idx, accent, secondary);
-                    const r = leafR * (0.85 + (idx % 3) * 0.12);
+                    const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
+                    const sizeMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
+                    const r = leafR * (0.85 + (idx % 3) * 0.12) * sizeMult;
 
                     ctx.save();
                     ctx.translate(cx, cy);
@@ -620,7 +643,7 @@
             // Festive Thanksgiving turkeys with radiating tail fan, tipped plumage, folded wings, eyes, beak, wattle, and claw feet
             const stepX = Math.max(38, fullWidth / 8.5);
             const stepY = stepX * 0.94;
-            const r = stepX * 0.32;
+            const baseR = stepX * 0.32;
             ctx.lineWidth = getLineW(1.2);
             const rStart = Math.floor((minY - fallDy) / stepY) - 2, rEnd = Math.ceil((maxY - fallDy) / stepY) + 2;
             const cStart = Math.floor(minX / stepX) - 2, cEnd = Math.ceil(maxX / stepX) + 2;
@@ -628,10 +651,15 @@
                 const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
                     const idx = Math.abs(row * 13 + col * 29);
-                    const cx = col * stepX + rowOffset + fallSwayX;
-                    const cy = row * stepY + fallDy;
-                    const tilt = isAnimated ? Math.sin(phase + idx * 0.8) * 0.08 : 0;
-                    const fanSpread = isAnimated ? (1 + Math.sin(phase * 1.4 + idx) * 0.06) : 1;
+                    const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
+                    const sizeMult = (1 - sizeVarAmount * 0.4) + sizeHash * (sizeVarAmount * 0.8);
+                    const r = baseR * sizeMult;
+                    const scatterX = ((((idx * 43) % 100) / 100 - 0.5) * stepX * 0.45) * scatterAmount;
+                    const scatterY = ((((idx * 67) % 100) / 100 - 0.5) * stepY * 0.45) * scatterAmount;
+                    const cx = col * stepX + rowOffset + scatterX + fallSwayX;
+                    const cy = row * stepY + scatterY + fallDy;
+                    const tilt = hasInPlaceAnim ? Math.sin(inPlacePhase + idx * 0.8) * 0.08 : 0;
+                    const fanSpread = hasInPlaceAnim ? (1 + Math.sin(inPlacePhase * 1.4 + idx) * 0.06) : 1;
 
                     ctx.save();
                     ctx.translate(cx, cy);
@@ -788,7 +816,7 @@
             // Harvest ribbed pumpkins with curly vine tendrils
             const stepX = Math.max(32, fullWidth / 10);
             const stepY = stepX * 0.88;
-            const r = stepX * 0.28;
+            const baseR = stepX * 0.28;
             ctx.lineWidth = getLineW(1.15);
             const rStart = Math.floor((minY - fallDy) / stepY) - 2, rEnd = Math.ceil((maxY - fallDy) / stepY) + 2;
             const cStart = Math.floor(minX / stepX) - 2, cEnd = Math.ceil(maxX / stepX) + 2;
@@ -796,11 +824,16 @@
                 const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
                     const idx = Math.abs(row * 19 + col * 23);
-                    const cx = col * stepX + rowOffset + fallSwayX;
-                    const cy = row * stepY + fallDy;
+                    const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
+                    const sizeMult = (1 - sizeVarAmount * 0.4) + sizeHash * (sizeVarAmount * 0.8);
+                    const r = baseR * sizeMult;
+                    const scatterX = ((((idx * 43) % 100) / 100 - 0.5) * stepX * 0.45) * scatterAmount;
+                    const scatterY = ((((idx * 67) % 100) / 100 - 0.5) * stepY * 0.45) * scatterAmount;
+                    const cx = col * stepX + rowOffset + scatterX + fallSwayX;
+                    const cy = row * stepY + scatterY + fallDy;
                     const pColor = getPatternColor(palette, idx, accent, secondary);
                     const stemColor = getPatternColor(palette, idx + 2, secondary, accent);
-                    const tilt = ((idx % 5) - 2) * 0.05 + (isAnimated ? Math.sin(phase + idx) * 0.06 : 0);
+                    const tilt = ((idx % 5) - 2) * 0.05 + (hasInPlaceAnim ? Math.sin(inPlacePhase + idx) * 0.06 : 0);
 
                     ctx.save();
                     ctx.translate(cx, cy);
@@ -842,7 +875,7 @@
             // Tiered evergreen pine trees with star toppers and twinkling ornaments
             const stepX = Math.max(34, fullWidth / 10);
             const stepY = stepX * 0.95;
-            const r = stepX * 0.33;
+            const baseR = stepX * 0.33;
             ctx.lineWidth = getLineW(1.15);
             const rStart = Math.floor((minY - fallDy) / stepY) - 2, rEnd = Math.ceil((maxY - fallDy) / stepY) + 2;
             const cStart = Math.floor(minX / stepX) - 2, cEnd = Math.ceil(maxX / stepX) + 2;
@@ -850,9 +883,14 @@
                 const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
                     const idx = Math.abs(row * 17 + col * 29);
-                    const cx = col * stepX + rowOffset + fallSwayX;
-                    const cy = row * stepY + fallDy;
-                    const sway = isAnimated ? Math.sin(phase + idx * 0.7) * 0.05 : 0;
+                    const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
+                    const sizeMult = (1 - sizeVarAmount * 0.4) + sizeHash * (sizeVarAmount * 0.8);
+                    const r = baseR * sizeMult;
+                    const scatterX = ((((idx * 43) % 100) / 100 - 0.5) * stepX * 0.45) * scatterAmount;
+                    const scatterY = ((((idx * 67) % 100) / 100 - 0.5) * stepY * 0.45) * scatterAmount;
+                    const cx = col * stepX + rowOffset + scatterX + fallSwayX;
+                    const cy = row * stepY + scatterY + fallDy;
+                    const sway = hasInPlaceAnim ? Math.sin(inPlacePhase + idx * 0.7) * 0.05 : 0;
                     const treeColor = getPatternColor(palette, idx, accent, secondary);
                     const topperColor = getPatternColor(palette, idx + 1, secondary, accent);
 
@@ -893,7 +931,7 @@
                     ];
                     ornaments.forEach(([ox, oy], oIdx) => {
                         const ornColor = getPatternColor(palette === 'dual' ? 'multicolor' : palette, oIdx + idx, secondary, accent);
-                        const twinkleAlpha = isAnimated && ((Math.floor(time * 2 + idx + oIdx) % 2) === 0) ? 'ff' : '90';
+                        const twinkleAlpha = hasInPlaceAnim && ((Math.floor(time * 2 * inPlaceMult * inPlaceSpeed + idx + oIdx) % 2) === 0) ? 'ff' : '90';
                         ctx.fillStyle = withAlpha(ornColor, twinkleAlpha);
                         ctx.beginPath();
                         ctx.arc(ox, oy, r * 0.065, 0, Math.PI * 2);
@@ -901,7 +939,7 @@
                     });
 
                     // Glowing 4-point star topper
-                    const starScale = isAnimated ? (1 + 0.18 * Math.sin(phase * 2 + idx)) : 1;
+                    const starScale = hasInPlaceAnim ? (1 + 0.18 * Math.sin(inPlacePhase * 2 + idx)) : 1;
                     ctx.fillStyle = withAlpha(topperColor, 'eb');
                     drawFourPointStar(ctx, 0, -r * 0.92, r * 0.22 * starScale);
                     ctx.fill();
@@ -914,7 +952,7 @@
             const rowStep = Math.max(36, fullHeight / 6.5);
             const bulbStep = Math.max(26, fullWidth / 18);
             const sag = rowStep * 0.26;
-            const bulbR = Math.max(3.5, bulbStep * 0.17);
+            const baseBulbR = Math.max(3.5, bulbStep * 0.17);
             ctx.lineWidth = getLineW(1.2);
 
             const rStart = Math.floor((minY - fallDy) / rowStep) - 1, rEnd = Math.ceil((maxY - fallDy) / rowStep) + 1;
@@ -944,12 +982,15 @@
                     const by = baseY + Math.sin(wireWave) * sag;
                     const slope = Math.cos(wireWave) * 0.24;
                     const idx = Math.abs(row * 13 + col * 7);
+                    const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
+                    const sizeMult = (1 - sizeVarAmount * 0.3) + sizeHash * (sizeVarAmount * 0.6);
+                    const bulbR = baseBulbR * sizeMult;
                     const bColor = getPatternColor(palette, col + row * 3, accent, secondary);
-                    const glowPulse = isAnimated ? (0.65 + 0.35 * Math.sin(phase * 2.2 + idx * 1.3)) : 0.9;
+                    const glowPulse = hasInPlaceAnim ? (0.65 + 0.35 * Math.sin(inPlacePhase * 2.2 + idx * 1.3)) : 0.9;
 
                     ctx.save();
                     ctx.translate(bx, by);
-                    ctx.rotate(-slope * 0.5 + (isAnimated ? Math.sin(phase + col * 0.5) * 0.08 : 0));
+                    ctx.rotate(-slope * 0.5 + (hasInPlaceAnim ? Math.sin(inPlacePhase + col * 0.5) * 0.08 : 0));
 
                     // Outer soft bulb halo glow
                     ctx.fillStyle = withAlpha(bColor, glowPulse > 0.8 ? (hasFill ? '40' : '26') : '14');
@@ -973,66 +1014,306 @@
                 }
             }
         } else if (pattern === 'snowflakes') {
-            // 6-branch crystalline dendritic snowflakes
+            // Diverse 6-morphology crystalline snowflakes with size variance, organic scatter, and in-place rotation/shimmer
             const stepX = Math.max(34, fullWidth / 10);
             const stepY = stepX * 0.86;
-            const flakeR = stepX * 0.27;
+            const baseFlakeR = stepX * 0.27;
             ctx.lineWidth = getLineW(1.1);
             const rStart = Math.floor((minY - fallDy) / stepY) - 2, rEnd = Math.ceil((maxY - fallDy) / stepY) + 2;
             const cStart = Math.floor(minX / stepX) - 2, cEnd = Math.ceil(maxX / stepX) + 2;
+            const snowflakeStyle = options.snowflakeStyle || 'all';
 
             for (let row = rStart; row <= rEnd; row++) {
                 const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
                     const idx = Math.abs(row * 19 + col * 31);
-                    const cx = col * stepX + rowOffset + fallSwayX;
-                    const cy = row * stepY + fallDy;
+                    const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
+                    const sizeMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
+                    const r = baseFlakeR * (0.80 + (idx % 3) * 0.12) * sizeMult;
+
+                    const scatterX = ((((idx * 43) % 100) / 100 - 0.5) * stepX * 0.55) * scatterAmount;
+                    const scatterY = ((((idx * 67) % 100) / 100 - 0.5) * stepY * 0.55) * scatterAmount;
+                    const cx = col * stepX + rowOffset + scatterX + fallSwayX;
+                    const cy = row * stepY + scatterY + fallDy;
+
+                    const randomAngle = ((((idx * 137) % 360) / 360) * Math.PI * 2) * rotVarAmount;
+                    const baseRot = (idx % 6) * (Math.PI / 6) + randomAngle;
+                    const rotDir = (idx & 1) ? 1 : -1;
+                    const inPlaceRot = hasInPlaceAnim ? (inPlacePhase * 0.22 * rotDir) : 0;
+                    const rot = baseRot + inPlaceRot;
+
                     const sColor = getPatternColor(palette, idx, accent, secondary);
-                    const r = flakeR * (0.76 + (idx % 3) * 0.14);
-                    const rot = (idx % 6) * (Math.PI / 6) + (isAnimated ? phase * 0.25 * ((idx & 1) ? 1 : -1) : 0);
+                    const shimmer = hasInPlaceAnim ? (0.84 + 0.16 * Math.sin(inPlacePhase * 1.6 + idx)) : 1;
+                    const alphaHex = Math.max(0, Math.min(255, Math.round(0.95 * shimmer * 255))).toString(16).padStart(2, '0');
+
+                    // Select morphology
+                    let morphology = idx % 6;
+                    if (snowflakeStyle === 'dendrite') morphology = 0;
+                    else if (snowflakeStyle === 'plate') morphology = 1;
+                    else if (snowflakeStyle === 'fern') morphology = 2;
+                    else if (snowflakeStyle === 'rosette') morphology = 3;
+                    else if (snowflakeStyle === 'cross') morphology = 4;
+                    else if (snowflakeStyle === 'needle') morphology = 5;
 
                     ctx.save();
                     ctx.translate(cx, cy);
                     ctx.rotate(rot);
-                    ctx.strokeStyle = withAlpha(sColor, '95');
+                    ctx.strokeStyle = withAlpha(sColor, alphaHex);
 
-                    ctx.beginPath();
-                    for (let arm = 0; arm < 6; arm++) {
-                        const a = (arm * Math.PI) / 3;
-                        const cosA = Math.cos(a), sinA = Math.sin(a);
-                        // Main crystal branch
-                        ctx.moveTo(0, 0);
-                        ctx.lineTo(cosA * r, sinA * r);
-
-                        // Outer & inner V-dendrites
-                        for (const dist of [0.48, 0.76]) {
-                            const bx = cosA * (r * dist);
-                            const by = sinA * (r * dist);
-                            const branchLen = r * (dist === 0.48 ? 0.32 : 0.24);
+                    if (morphology === 0) {
+                        // 0. Intricate Stellar Dendrite (Classic Feathery Lace)
+                        ctx.beginPath();
+                        for (let arm = 0; arm < 6; arm++) {
+                            const a = (arm * Math.PI) / 3;
+                            const cosA = Math.cos(a), sinA = Math.sin(a);
+                            ctx.moveTo(0, 0);
+                            ctx.lineTo(cosA * r, sinA * r);
+                            // Spearhead tip
+                            const tipLen = r * 0.16;
                             for (const side of [-1, 1]) {
-                                const ba = a + side * (Math.PI / 3);
-                                ctx.moveTo(bx, by);
-                                ctx.lineTo(bx + Math.cos(ba) * branchLen, by + Math.sin(ba) * branchLen);
+                                const ba = a + side * (Math.PI / 4);
+                                ctx.moveTo(cosA * r, sinA * r);
+                                ctx.lineTo(cosA * r - Math.cos(ba) * tipLen, sinA * r - Math.sin(ba) * tipLen);
+                            }
+                            // Dual V-dendrites
+                            for (const dist of [0.44, 0.74]) {
+                                const bx = cosA * (r * dist), by = sinA * (r * dist);
+                                const bLen = r * (dist === 0.44 ? 0.35 : 0.25);
+                                for (const side of [-1, 1]) {
+                                    const ba = a + side * (Math.PI / 3);
+                                    const ex = bx + Math.cos(ba) * bLen, ey = by + Math.sin(ba) * bLen;
+                                    ctx.moveTo(bx, by);
+                                    ctx.lineTo(ex, ey);
+                                    if (dist === 0.44) {
+                                        const subLen = bLen * 0.38;
+                                        const sa = ba + side * (Math.PI / 3);
+                                        ctx.moveTo(bx + Math.cos(ba) * (bLen * 0.55), by + Math.sin(ba) * (bLen * 0.55));
+                                        ctx.lineTo(bx + Math.cos(ba) * (bLen * 0.55) + Math.cos(sa) * subLen, by + Math.sin(ba) * (bLen * 0.55) + Math.sin(sa) * subLen);
+                                    }
+                                }
                             }
                         }
-                    }
-                    ctx.stroke();
+                        ctx.stroke();
 
-                    // Inner hexagonal crystal ring
-                    ctx.beginPath();
-                    for (let p = 0; p < 6; p++) {
-                        const a = (p * Math.PI) / 3;
-                        const hx = Math.cos(a) * r * 0.24;
-                        const hy = Math.sin(a) * r * 0.24;
-                        if (p === 0) ctx.moveTo(hx, hy);
-                        else ctx.lineTo(hx, hy);
+                        // Inner hexagonal starlet ring
+                        ctx.beginPath();
+                        for (let p = 0; p < 6; p++) {
+                            const a = (p * Math.PI) / 3;
+                            const hx = Math.cos(a) * r * 0.22, hy = Math.sin(a) * r * 0.22;
+                            if (p === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy);
+                        }
+                        ctx.closePath();
+                        if (hasFill) {
+                            ctx.fillStyle = withAlpha(sColor, fillHex);
+                            ctx.fill();
+                        }
+                        ctx.stroke();
+                    } else if (morphology === 1) {
+                        // 1. Geometric Crystal Plate (Faceted Hexagon Plate)
+                        ctx.beginPath();
+                        for (let p = 0; p < 12; p++) {
+                            const a = (p * Math.PI) / 6;
+                            const rad = (p % 2 === 0) ? (r * 0.88) : (r * 0.45);
+                            const x = Math.cos(a) * rad, y = Math.sin(a) * rad;
+                            if (p === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                        }
+                        ctx.closePath();
+                        if (hasFill) {
+                            ctx.fillStyle = withAlpha(sColor, fillHex);
+                            ctx.fill();
+                        }
+                        ctx.stroke();
+
+                        // Internal diamond kite facets on each branch
+                        ctx.beginPath();
+                        for (let arm = 0; arm < 6; arm++) {
+                            const a = (arm * Math.PI) / 3;
+                            const cosA = Math.cos(a), sinA = Math.sin(a);
+                            ctx.moveTo(0, 0); ctx.lineTo(cosA * r, sinA * r);
+                            const midR = r * 0.55;
+                            const sideA1 = a - Math.PI / 12, sideA2 = a + Math.PI / 12;
+                            ctx.moveTo(cosA * (r * 0.28), sinA * (r * 0.28));
+                            ctx.lineTo(Math.cos(sideA1) * midR, Math.sin(sideA1) * midR);
+                            ctx.lineTo(cosA * (r * 0.82), sinA * (r * 0.82));
+                            ctx.lineTo(Math.cos(sideA2) * midR, Math.sin(sideA2) * midR);
+                            ctx.closePath();
+                        }
+                        ctx.stroke();
+
+                        // Center hex jewel
+                        ctx.beginPath();
+                        for (let p = 0; p < 6; p++) {
+                            const a = (p * Math.PI) / 3;
+                            const hx = Math.cos(a) * (r * 0.18), hy = Math.sin(a) * (r * 0.18);
+                            if (p === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy);
+                        }
+                        ctx.closePath();
+                        if (hasFill) {
+                            ctx.fillStyle = withAlpha(accent, 'ee');
+                            ctx.fill();
+                        }
+                        ctx.stroke();
+                    } else if (morphology === 2) {
+                        // 2. Fernlike Pine Needle Crystal (Triple-Tiered Arbor)
+                        ctx.beginPath();
+                        for (let arm = 0; arm < 6; arm++) {
+                            const a = (arm * Math.PI) / 3;
+                            const cosA = Math.cos(a), sinA = Math.sin(a);
+                            ctx.moveTo(0, 0); ctx.lineTo(cosA * r, sinA * r);
+                            const tiers = [0.36, 0.58, 0.78];
+                            const bLens = [r * 0.32, r * 0.26, r * 0.18];
+                            for (let t = 0; t < 3; t++) {
+                                const bx = cosA * (r * tiers[t]), by = sinA * (r * tiers[t]);
+                                const bl = bLens[t];
+                                for (const side of [-1, 1]) {
+                                    const ba = a + side * (Math.PI * 0.38);
+                                    ctx.moveTo(bx, by);
+                                    ctx.lineTo(bx + Math.cos(ba) * bl, by + Math.sin(ba) * bl);
+                                }
+                            }
+                        }
+                        ctx.stroke();
+
+                        // Center 6-point starlet
+                        ctx.beginPath();
+                        for (let p = 0; p < 12; p++) {
+                            const a = (p * Math.PI) / 6;
+                            const rad = (p % 2 === 0) ? (r * 0.22) : (r * 0.11);
+                            const x = Math.cos(a) * rad, y = Math.sin(a) * rad;
+                            if (p === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                        }
+                        ctx.closePath();
+                        if (hasFill) {
+                            ctx.fillStyle = withAlpha(sColor, fillHex);
+                            ctx.fill();
+                        }
+                        ctx.stroke();
+                    } else if (morphology === 3) {
+                        // 3. Jewel Rosette (Scalloped Lace Loops & Center Core)
+                        ctx.beginPath();
+                        for (let arm = 0; arm < 6; arm++) {
+                            const a = (arm * Math.PI) / 3;
+                            const cosA = Math.cos(a), sinA = Math.sin(a);
+                            ctx.moveTo(0, 0); ctx.lineTo(cosA * r, sinA * r);
+
+                            const baseDist = r * 0.25, peakDist = r * 0.75;
+                            const leftA = a - Math.PI / 6, rightA = a + Math.PI / 6;
+                            const loopW = r * 0.28;
+                            ctx.moveTo(cosA * baseDist, sinA * baseDist);
+                            quadTo(ctx, cosA * (r * 0.45) + Math.cos(leftA) * loopW, sinA * (r * 0.45) + Math.sin(leftA) * loopW, cosA * peakDist, sinA * peakDist);
+                            quadTo(ctx, cosA * (r * 0.45) + Math.cos(rightA) * loopW, sinA * (r * 0.45) + Math.sin(rightA) * loopW, cosA * baseDist, sinA * baseDist);
+                        }
+                        if (hasFill) {
+                            ctx.fillStyle = withAlpha(sColor, fillHex);
+                            ctx.fill();
+                        }
+                        ctx.stroke();
+
+                        // Outer finial points & center jewel
+                        ctx.beginPath();
+                        for (let arm = 0; arm < 6; arm++) {
+                            const a = (arm * Math.PI) / 3;
+                            const cosA = Math.cos(a), sinA = Math.sin(a);
+                            const p1x = Math.cos(a - Math.PI / 12) * (r * 0.85);
+                            const p1y = Math.sin(a - Math.PI / 12) * (r * 0.85);
+                            const p2x = Math.cos(a + Math.PI / 12) * (r * 0.85);
+                            const p2y = Math.sin(a + Math.PI / 12) * (r * 0.85);
+                            ctx.moveTo(p1x, p1y);
+                            ctx.lineTo(cosA * r, sinA * r);
+                            ctx.lineTo(p2x, p2y);
+                        }
+                        ctx.stroke();
+                        ctx.beginPath(); ctx.arc(0, 0, r * 0.16, 0, Math.PI * 2);
+                        if (hasFill) {
+                            ctx.fillStyle = withAlpha(sColor, fillMode === 'solid' ? 'ff' : fillHex);
+                            ctx.fill();
+                        }
+                        ctx.stroke();
+                    } else if (morphology === 4) {
+                        // 4. Scandinavian Double-Bar Cross Crystal
+                        ctx.beginPath();
+                        for (let arm = 0; arm < 6; arm++) {
+                            const a = (arm * Math.PI) / 3;
+                            const cosA = Math.cos(a), sinA = Math.sin(a);
+                            ctx.moveTo(0, 0); ctx.lineTo(cosA * r, sinA * r);
+
+                            // Perpendicular crossbar at 0.52 * r
+                            const cDist = r * 0.52, cLen = r * 0.22;
+                            const cx2 = cosA * cDist, cy2 = sinA * cDist;
+                            const perpA = a + Math.PI / 2;
+                            const perpCos = Math.cos(perpA), perpSin = Math.sin(perpA);
+                            ctx.moveTo(cx2 - perpCos * cLen, cy2 - perpSin * cLen);
+                            ctx.lineTo(cx2 + perpCos * cLen, cy2 + perpSin * cLen);
+                            for (const sign of [-1, 1]) {
+                                const ex = cx2 + perpCos * (cLen * sign), ey = cy2 + perpSin * (cLen * sign);
+                                ctx.moveTo(ex, ey);
+                                ctx.lineTo(ex + cosA * (r * 0.08), ey + sinA * (r * 0.08));
+                            }
+
+                            // Outer arrowhead
+                            const arrowBaseX = cosA * (r * 0.78), arrowBaseY = sinA * (r * 0.78);
+                            const aw = r * 0.16;
+                            ctx.moveTo(arrowBaseX - perpCos * aw, arrowBaseY - perpSin * aw);
+                            ctx.lineTo(cosA * r, sinA * r);
+                            ctx.lineTo(arrowBaseX + perpCos * aw, arrowBaseY + perpSin * aw);
+                            ctx.closePath();
+                        }
+                        if (hasFill) {
+                            ctx.fillStyle = withAlpha(sColor, fillHex);
+                            ctx.fill();
+                        }
+                        ctx.stroke();
+
+                        // Inner 12-sided faceted ring
+                        ctx.beginPath();
+                        for (let p = 0; p < 12; p++) {
+                            const a = (p * Math.PI) / 6;
+                            const rad = (p % 2 === 0) ? (r * 0.26) : (r * 0.14);
+                            const x = Math.cos(a) * rad, y = Math.sin(a) * rad;
+                            if (p === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                        }
+                        ctx.closePath();
+                        ctx.stroke();
+                    } else {
+                        // 5. Sleek Needle Flurry (Diamond Nodes & Satellite Pearls)
+                        ctx.beginPath();
+                        for (let arm = 0; arm < 6; arm++) {
+                            const a = (arm * Math.PI) / 3;
+                            const cosA = Math.cos(a), sinA = Math.sin(a);
+                            ctx.moveTo(0, 0); ctx.lineTo(cosA * r, sinA * r);
+
+                            // Diamond node at 0.44 * r
+                            const nDist = r * 0.44, nw = r * 0.10, nh = r * 0.14;
+                            const nx = cosA * nDist, ny = sinA * nDist;
+                            const perpA = a + Math.PI / 2;
+                            const perpCos = Math.cos(perpA), perpSin = Math.sin(perpA);
+                            ctx.moveTo(nx - cosA * nh, ny - sinA * nh);
+                            ctx.lineTo(nx + perpCos * nw, ny + perpSin * nw);
+                            ctx.lineTo(nx + cosA * nh, ny + sinA * nh);
+                            ctx.lineTo(nx - perpCos * nw, ny - perpSin * nw);
+                            ctx.closePath();
+
+                            // Satellite pearl crystal at 0.88 * r
+                            const px = cosA * (r * 0.88), py = sinA * (r * 0.88);
+                            ctx.moveTo(px + r * 0.05, py);
+                            ctx.arc(px, py, r * 0.05, 0, Math.PI * 2);
+                        }
+                        if (hasFill) {
+                            ctx.fillStyle = withAlpha(sColor, fillHex);
+                            ctx.fill();
+                        }
+                        ctx.stroke();
+
+                        // Inner tiny hex hub
+                        ctx.beginPath();
+                        for (let p = 0; p < 6; p++) {
+                            const a = (p * Math.PI) / 3;
+                            const hx = Math.cos(a) * (r * 0.15), hy = Math.sin(a) * (r * 0.15);
+                            if (p === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy);
+                        }
+                        ctx.closePath();
+                        ctx.stroke();
                     }
-                    ctx.closePath();
-                    if (hasFill) {
-                        ctx.fillStyle = withAlpha(sColor, fillHex);
-                        ctx.fill();
-                    }
-                    ctx.stroke();
 
                     ctx.restore();
                 }
@@ -1041,7 +1322,7 @@
             // Smooth floating vector hearts
             const stepX = Math.max(30, fullWidth / 11);
             const stepY = stepX * 0.88;
-            const heartR = stepX * 0.24;
+            const baseHeartR = stepX * 0.24;
             ctx.lineWidth = getLineW(1.15);
             const rStart = Math.floor((minY - fallDy) / stepY) - 2, rEnd = Math.ceil((maxY - fallDy) / stepY) + 2;
             const cStart = Math.floor(minX / stepX) - 2, cEnd = Math.ceil(maxX / stepX) + 2;
@@ -1050,12 +1331,16 @@
                 const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
                     const idx = Math.abs(row * 17 + col * 23);
-                    const cx = col * stepX + rowOffset + fallSwayX;
-                    const cy = row * stepY + fallDy;
+                    const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
+                    const sizeMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
+                    const scatterX = ((((idx * 43) % 100) / 100 - 0.5) * stepX * 0.50) * scatterAmount;
+                    const scatterY = ((((idx * 67) % 100) / 100 - 0.5) * stepY * 0.50) * scatterAmount;
+                    const cx = col * stepX + rowOffset + scatterX + fallSwayX;
+                    const cy = row * stepY + scatterY + fallDy;
                     const hColor = getPatternColor(palette, idx, accent, secondary);
-                    const beat = isAnimated ? (1 + 0.08 * Math.sin(phase * 2 + idx)) : 1;
-                    const r = heartR * (0.82 + (idx % 3) * 0.14) * beat;
-                    const tilt = ((idx % 5) - 2) * 0.08 + (isAnimated ? Math.sin(phase + idx) * 0.08 : 0);
+                    const beat = hasInPlaceAnim ? (1 + 0.09 * Math.sin(inPlacePhase * 2 + idx)) : 1;
+                    const r = baseHeartR * (0.82 + (idx % 3) * 0.14) * beat * sizeMult;
+                    const tilt = ((idx % 5) - 2) * 0.08 + (hasInPlaceAnim ? Math.sin(inPlacePhase + idx) * 0.08 : 0);
 
                     ctx.save();
                     ctx.translate(cx, cy);
@@ -1082,7 +1367,7 @@
             // Celebration starburst fireworks with sparkle cores
             const stepX = Math.max(44, fullWidth / 7.5);
             const stepY = stepX * 0.88;
-            const burstR = stepX * 0.34;
+            const baseBurstR = stepX * 0.34;
             ctx.lineWidth = getLineW(1.15);
             const rStart = Math.floor((minY - fallDy) / stepY) - 1, rEnd = Math.ceil((maxY - fallDy) / stepY) + 1;
             const cStart = Math.floor(minX / stepX) - 1, cEnd = Math.ceil(maxX / stepX) + 1;
@@ -1091,12 +1376,16 @@
                 const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
                     const idx = Math.abs(row * 13 + col * 29);
-                    const cx = col * stepX + rowOffset + fallSwayX;
-                    const cy = row * stepY + fallDy;
+                    const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
+                    const sizeMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
+                    const scatterX = ((((idx * 43) % 100) / 100 - 0.5) * stepX * 0.45) * scatterAmount;
+                    const scatterY = ((((idx * 67) % 100) / 100 - 0.5) * stepY * 0.45) * scatterAmount;
+                    const cx = col * stepX + rowOffset + scatterX + fallSwayX;
+                    const cy = row * stepY + scatterY + fallDy;
                     const mainCol = getPatternColor(palette, idx, accent, secondary);
                     const subCol = getPatternColor(palette, idx + 1, secondary, accent);
-                    const bloom = isAnimated ? (0.86 + 0.18 * Math.sin(phase * 1.8 + idx * 1.1)) : 1;
-                    const r = burstR * (0.8 + (idx % 3) * 0.12) * bloom;
+                    const bloom = hasInPlaceAnim ? (0.86 + 0.18 * Math.sin(inPlacePhase * 1.8 + idx * 1.1)) : 1;
+                    const r = baseBurstR * (0.8 + (idx % 3) * 0.12) * bloom * sizeMult;
                     const rays = 12;
 
                     ctx.save();
@@ -1187,10 +1476,13 @@
         }
     }
 
+    const SNOWFLAKE_STYLES = ['all', 'dendrite', 'plate', 'fern', 'rosette', 'cross', 'needle'];
+
     const exported = {
         PATTERNS,
         PATTERN_CATEGORIES,
         PALETTES,
+        SNOWFLAKE_STYLES,
         drawProceduralPattern
     };
 
