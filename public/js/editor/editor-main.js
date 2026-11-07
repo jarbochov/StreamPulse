@@ -368,7 +368,7 @@ export async function addMediaFiles(files, point) {
 
 // ---- Asset Picker Dialog ----------------------------------------------------------
 const assetDialog = $('asset-dialog'), assetGrid = $('asset-grid'), assetSearch = $('asset-search');
-let libraryAssets = [], pickerTarget = null, assetTagFilter = '';
+let libraryAssets = [], pickerTarget = null, pickerOnPick = null, assetTagFilter = '';
 const tagFilterMatch = window.TagChips?.matches || (() => true);
 
 function renderTagChips(container, assets, active, query) {
@@ -402,10 +402,12 @@ export function renderAssetGrid() {
         : `<p class="hint">No ${wanted} assets${query ? ' match your filter' : ' uploaded yet — use the Upload field'}.</p>`;
 }
 
-export async function openAssetPicker(targetId) {
+export async function openAssetPicker(targetId, onPick = null) {
     const el = targetId ? byId(targetId) : primary();
     if (!el || !['image', 'video', 'pattern', 'alert', 'speaker-badge', ...TEXT_TYPES].includes(el.type)) return;
     pickerTarget = el.id;
+    pickerOnPick = typeof onPick === 'function' ? onPick : null;
+    if (typeof window !== 'undefined' && typeof openImageCropper === 'function') window.openImageCropper = openImageCropper;
     const titleEl = $('asset-title');
     if (titleEl) titleEl.textContent = TEXT_TYPES.has(el.type) ? 'Choose a text or Markdown file' : `Choose ${el.type === 'video' ? 'a video' : 'an image'}`;
     if (assetSearch) assetSearch.value = '';
@@ -1328,6 +1330,13 @@ function initEventListeners() {
         try {
             toast('Uploading…', 'info', 1500);
             const url = await uploadAsset(file);
+            if (pickerOnPick) {
+                const cb = pickerOnPick;
+                pickerOnPick = null;
+                assetDialog?.close();
+                cb(url);
+                return;
+            }
             if (TEXT_TYPES.has(el.type)) {
                 assetDialog?.close();
                 el.source = { ...(el.source || { split: 'lines' }), mode: 'library', path: url };
@@ -1380,6 +1389,13 @@ function initEventListeners() {
         const tile = event.target.closest('.asset-tile');
         const el = state.overlay.elements.find(item => item.id === pickerTarget);
         if (!tile || !el) return;
+        if (pickerOnPick) {
+            const cb = pickerOnPick;
+            pickerOnPick = null;
+            assetDialog?.close();
+            cb(tile.dataset.url);
+            return;
+        }
         if (TEXT_TYPES.has(el.type)) {
             assetDialog?.close();
             el.source = { ...(el.source || { split: 'lines' }), mode: 'library', path: tile.dataset.url };
@@ -1418,6 +1434,7 @@ function initEventListeners() {
         }
     });
 
+    if (typeof window !== 'undefined' && typeof openImageCropper === 'function') window.openImageCropper = openImageCropper;
     document.addEventListener('click', async event => {
         const cropBtn = event.target.closest('#crop-image-btn');
         if (cropBtn) {

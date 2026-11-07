@@ -35,6 +35,43 @@ test('Pattern Tile: schema normalization and defaults for hue, jitter and twinkl
     assert.equal(pDef.positionJitter, 0);
     assert.equal(pDef.twinkle, 0);
     assert.equal(pDef.twinkleSpeed, 4);
+    assert.equal(pDef.tileDistribution, 'diagonal');
+    assert.equal(pDef.tile1Scale, 100);
+    assert.deepEqual(pDef.tiles, []);
+
+    // 1c. Multi-tile slots (1-4 tiles) normalization and clamping
+    const normalizedMultiTile = normalizeCustomOverlay({
+        id: 'test-pat-multi',
+        name: 'Pattern Multi Tile',
+        elements: [{
+            id: 'pat-el-multi',
+            type: 'pattern',
+            pattern: {
+                aspectRatio: 'natural',
+                tileDistribution: 'grid',
+                tile1Scale: 135,
+                tiles: [
+                    { sourceType: 'image', src: '/api/assets/tile2.png', scale: 85 },
+                    { sourceType: 'icon', content: 'fa-solid fa-bolt', color: '#ff0055', scale: 250 },
+                    { sourceType: 'image', src: '/api/assets/tile4.png', scale: 10 },
+                    { sourceType: 'image', src: '/api/assets/tile5-ignored.png', scale: 100 }
+                ]
+            }
+        }]
+    });
+    const pMulti = normalizedMultiTile.elements[0].pattern;
+    assert.equal(pMulti.aspectRatio, 'natural');
+    assert.equal(pMulti.tileDistribution, 'grid');
+    assert.equal(pMulti.tile1Scale, 135);
+    assert.equal(pMulti.tiles.length, 3, 'Should cap extra tiles at 3 (total 4 slots)');
+    assert.equal(pMulti.tiles[0].sourceType, 'image');
+    assert.equal(pMulti.tiles[0].src, '/api/assets/tile2.png');
+    assert.equal(pMulti.tiles[0].scale, 85);
+    assert.equal(pMulti.tiles[1].sourceType, 'icon');
+    assert.equal(pMulti.tiles[1].content, 'fa-solid fa-bolt');
+    assert.equal(pMulti.tiles[1].color, '#ff0055');
+    assert.equal(pMulti.tiles[1].scale, 200, 'Should clamp tile scale max to 200');
+    assert.equal(pMulti.tiles[2].scale, 25, 'Should clamp tile scale min to 25');
 
     // 1b. Legacy kaleidoscope migration
     const normalizedLegacy = normalizeCustomOverlay({
@@ -126,22 +163,27 @@ test('Pattern Tile: schema normalization and defaults for hue, jitter and twinkl
     assert.equal(pClamp.twinkleSpeed, 0.5);
 });
 
-test('Pattern Tile: editor inspector exposes Color & Hue Variation and Organic Jitter sections', () => {
+test('Pattern Tile: editor inspector and modular editor-patterns.js expose Color, Organic Jitter, and Multi-Tile slots', () => {
     const inspectorJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-inspector.js'), 'utf8');
-    assert.ok(inspectorJs.includes("F.section('patternColor', 'Color & hue variation'"), 'Must contain patternColor inspector section');
-    assert.ok(inspectorJs.includes("F.section('patternJitter', 'Organic scatter & jitter'"), 'Must contain patternJitter inspector section');
-    assert.ok(inspectorJs.includes("pattern.hueShift"), 'Must contain pattern.hueShift field');
-    assert.ok(inspectorJs.includes("pattern.hueJitter"), 'Must contain pattern.hueJitter range');
-    assert.ok(inspectorJs.includes("pattern.brightnessJitter"), 'Must contain pattern.brightnessJitter range');
-    assert.ok(inspectorJs.includes("pattern.saturationJitter"), 'Must contain pattern.saturationJitter range');
-    assert.ok(inspectorJs.includes("pattern.scaleJitter"), 'Must contain pattern.scaleJitter range');
-    assert.ok(inspectorJs.includes("pattern.rotationJitter"), 'Must contain pattern.rotationJitter range');
-    assert.ok(inspectorJs.includes("pattern.positionJitter"), 'Must contain pattern.positionJitter range');
-    assert.ok(inspectorJs.includes("pattern.twinkle"), 'Must contain pattern.twinkle range');
-    assert.ok(inspectorJs.includes("pattern.aspectRatio"), 'Must contain pattern.aspectRatio select');
-    assert.ok(inspectorJs.includes("crop-image-btn"), 'Must contain crop-image-btn button');
+    const patternsJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-patterns.js'), 'utf8');
+    const combinedJs = inspectorJs + '\n' + patternsJs;
 
-    // Live execution test of patternSection(el) to guarantee no ReferenceError or missing variables
+    assert.ok(patternsJs.includes("F.section('patternColor', 'Color & hue variation'"), 'Must contain patternColor inspector section in editor-patterns.js');
+    assert.ok(patternsJs.includes("F.section('patternJitter', 'Organic scatter & jitter'"), 'Must contain patternJitter inspector section in editor-patterns.js');
+    assert.ok(patternsJs.includes("pattern.hueShift"), 'Must contain pattern.hueShift field');
+    assert.ok(patternsJs.includes("pattern.hueJitter"), 'Must contain pattern.hueJitter range');
+    assert.ok(patternsJs.includes("pattern.brightnessJitter"), 'Must contain pattern.brightnessJitter range');
+    assert.ok(patternsJs.includes("pattern.saturationJitter"), 'Must contain pattern.saturationJitter range');
+    assert.ok(patternsJs.includes("pattern.scaleJitter"), 'Must contain pattern.scaleJitter range');
+    assert.ok(patternsJs.includes("pattern.rotationJitter"), 'Must contain pattern.rotationJitter range');
+    assert.ok(patternsJs.includes("pattern.positionJitter"), 'Must contain pattern.positionJitter range');
+    assert.ok(patternsJs.includes("pattern.twinkle"), 'Must contain pattern.twinkle range');
+    assert.ok(patternsJs.includes("pattern.aspectRatio"), 'Must contain pattern.aspectRatio select');
+    assert.ok(patternsJs.includes("pattern.tileDistribution"), 'Must contain pattern.tileDistribution select');
+    assert.ok(patternsJs.includes("pattern-add-slot-btn"), 'Must contain add tile slot button');
+    assert.ok(combinedJs.includes("crop-image-btn"), 'Must contain crop-image-btn button');
+
+    // Live execution test of buildPatternSection(el) from editor-patterns.js to guarantee no ReferenceError or missing variables
     const F = {
         section: (id, title, content) => `<section data-sect="${id}">${content}</section>`,
         select: (path, label, value, options) => `<select data-path="${path}" value="${value}"></select>`,
@@ -152,8 +194,8 @@ test('Pattern Tile: editor inspector exposes Color & Hue Variation and Organic J
         check: (path, label, value) => `<input type="checkbox" data-path="${path}" checked="${Boolean(value)}"/>`,
         seg: (path, label, value, opts) => `<div data-path="${path}">${value}</div>`
     };
-    const match = inspectorJs.match(/export function patternSection\(el\) \{([\s\S]*?)\n\}/);
-    assert.ok(match, 'patternSection must be defined in editor-inspector.js');
+    const match = patternsJs.match(/export function patternSection\(el\) \{([\s\S]*?)\n\}/);
+    assert.ok(match, 'patternSection must be defined in editor-patterns.js');
     const patternSectionFn = new Function('el', 'F', 'proceduralPatternSection', match[1]);
     const mockEl = {
         type: 'pattern',
@@ -185,6 +227,8 @@ test('Pattern Tile: editor inspector exposes Color & Hue Variation and Organic J
     assert.ok(stateJs.includes("hueJitter: 0"), 'editor-state.js must initialize hueJitter');
     assert.ok(stateJs.includes("scaleJitter: 0"), 'editor-state.js must initialize scaleJitter');
     assert.ok(stateJs.includes("aspectRatio: '1:1'"), 'editor-state.js must initialize aspectRatio');
+    assert.ok(stateJs.includes("tileDistribution: 'diagonal'"), 'editor-state.js must initialize tileDistribution');
+    assert.ok(stateJs.includes("tile1Scale: 100"), 'editor-state.js must initialize tile1Scale');
 
     assert.ok(inspectorJs.includes("patternLayout: 'style'"), 'patternLayout must be in Style tab');
     assert.ok(inspectorJs.includes("patternJitter: 'style'"), 'patternJitter must be in Style tab');

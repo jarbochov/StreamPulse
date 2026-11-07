@@ -173,7 +173,11 @@ export function setPath(target, path, value) {
     const keys = path.split('.');
     const last = keys.pop();
     let cursor = target;
-    for (const key of keys) cursor = cursor[key] ??= {};
+    for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
+        const nextKey = i + 1 < keys.length ? keys[i + 1] : last;
+        cursor = cursor[key] ??= (/^\d+$/.test(nextKey) ? [] : {});
+    }
     cursor[last] = value;
 }
 
@@ -262,6 +266,9 @@ export function getDocumentColors() {
             if (el.style.borderGradient?.to) add(el.style.borderGradient.to);
         }
         if (el.qr) { add(el.qr.fg); add(el.qr.bg); }
+        if (Array.isArray(el.pattern?.tiles)) {
+            for (const t of el.pattern.tiles) if (t?.color) add(t.color);
+        }
     }
     if (Array.isArray(prefs.recentColors)) {
         for (const c of prefs.recentColors) add(c);
@@ -664,7 +671,9 @@ export function normalizeLoaded(data) {
         if (item.type === 'cutout') item.cutout = Object.assign({ shape: 'rectangle', feather: 0 }, item.cutout);
         item.obsLink = Object.assign({ enabled: false, sourceName: '', sceneName: '', fit: 'cover', syncVisibility: true }, item.obsLink);
         if (item.type === 'pattern') {
-            item.pattern = Object.assign({ sourceType: 'image', layout: 'brick', symmetry: 'none', kaleidoMorph: true, kaleidoSpeed: 8, kaleidoDirection: 'cw', kaleidoDepth: 35, aspectRatio: '1:1', tileSize: 96, gap: 16, offsetX: 50, offsetY: 0, angle: -15, tileAngle: 0, alternateFlip: 'tilt', tileOpacity: 1, altOpacity: 0.4, altScale: 100, blendMode: 'normal', wedges: 6, feather: 0, motion: 'scroll', trackMode: 'uniform', scrollAngle: 315, speed: 12, spinSpeed: 8, spinDirection: 'cw', waveAmount: 25, hueShift: 'none', hueSpeed: 12, hueJitter: 0, brightnessJitter: 0, saturationJitter: 0, scaleJitter: 0, rotationJitter: 0, positionJitter: 0, animateJitter: false, jitterSpeed: 6, twinkle: 0, twinkleSpeed: 4 }, item.pattern);
+            item.pattern = Object.assign({ sourceType: 'image', tileDistribution: 'diagonal', tile1Scale: 100, tiles: [], layout: 'brick', symmetry: 'none', kaleidoMorph: true, kaleidoSpeed: 8, kaleidoDirection: 'cw', kaleidoDepth: 35, aspectRatio: '1:1', tileSize: 96, gap: 16, offsetX: 50, offsetY: 0, angle: -15, tileAngle: 0, alternateFlip: 'tilt', tileOpacity: 1, altOpacity: 0.4, altScale: 100, blendMode: 'normal', wedges: 6, feather: 0, motion: 'scroll', trackMode: 'uniform', scrollAngle: 315, speed: 12, spinSpeed: 8, spinDirection: 'cw', waveAmount: 25, hueShift: 'none', hueSpeed: 12, hueJitter: 0, brightnessJitter: 0, saturationJitter: 0, scaleJitter: 0, rotationJitter: 0, positionJitter: 0, animateJitter: false, jitterSpeed: 6, twinkle: 0, twinkleSpeed: 4 }, item.pattern);
+            if (!Array.isArray(item.pattern.tiles)) item.pattern.tiles = [];
+            else item.pattern.tiles = item.pattern.tiles.slice(0, 3).map(t => Object.assign({ sourceType: 'image', src: '', content: 'fa-solid fa-star', color: '#ffffff', scale: 100 }, t));
             if (item.pattern.layout === 'kaleidoscope-quad') {
                 item.pattern.symmetry = 'quad';
                 item.pattern.layout = 'grid';
@@ -714,7 +723,7 @@ export function createElementData(rawType, overrides = {}) {
         group: '', qr: { fg: '#000000', bg: '#ffffff', margin: 2, ecc: 'M' },
         gameList: { filter: 'scheduled', period: '', layout: 'grid', coverFit: 'cover', fit: 'none', coverScale: 100, headingSize: 0, titleSize: 0, titleWrap: 'ellipsis', columns: 3, gap: 12, max: 0, showCovers: true, showTitles: true, meta: 'none', headings: true, highlightCurrent: true, accent: '#3fb950' },
         slideshow: { source: 'tags', tags: [], tagMode: 'any', files: [], kinds: 'image', seconds: 5, order: 'sequential', fit: 'cover', transition: 'fade', direction: 'left', transitionMs: 800, caption: false, kenBurns: false },
-        pattern: type === 'procedural-pattern' ? { preset: 'hexagons', accent: '#58a6ff', secondary: '#38bdf8', color: 'transparent', lineWidth: 0, scale: 100, motion: 'drift', speed: 1, blendMode: 'normal' } : { sourceType: 'image', layout: 'brick', symmetry: 'none', kaleidoMorph: true, kaleidoSpeed: 8, kaleidoDirection: 'cw', kaleidoDepth: 35, aspectRatio: '1:1', tileSize: 96, gap: 16, offsetX: 50, offsetY: 0, angle: -15, tileAngle: 0, alternateFlip: 'tilt', tileOpacity: 1, altOpacity: 0.4, altScale: 100, blendMode: 'normal', wedges: 6, feather: 0, motion: 'scroll', trackMode: 'uniform', scrollAngle: 315, speed: 12, spinSpeed: 8, spinDirection: 'cw', waveAmount: 25, hueShift: 'none', hueSpeed: 12, hueJitter: 0, brightnessJitter: 0, saturationJitter: 0, scaleJitter: 0, rotationJitter: 0, positionJitter: 0, animateJitter: false, jitterSpeed: 6, twinkle: 0, twinkleSpeed: 4 },
+        pattern: type === 'procedural-pattern' ? { preset: 'hexagons', accent: '#58a6ff', secondary: '#38bdf8', color: 'transparent', lineWidth: 0, scale: 100, motion: 'drift', speed: 1, blendMode: 'normal' } : { sourceType: 'image', tileDistribution: 'diagonal', tile1Scale: 100, tiles: [], layout: 'brick', symmetry: 'none', kaleidoMorph: true, kaleidoSpeed: 8, kaleidoDirection: 'cw', kaleidoDepth: 35, aspectRatio: '1:1', tileSize: 96, gap: 16, offsetX: 50, offsetY: 0, angle: -15, tileAngle: 0, alternateFlip: 'tilt', tileOpacity: 1, altOpacity: 0.4, altScale: 100, blendMode: 'normal', wedges: 6, feather: 0, motion: 'scroll', trackMode: 'uniform', scrollAngle: 315, speed: 12, spinSpeed: 8, spinDirection: 'cw', waveAmount: 25, hueShift: 'none', hueSpeed: 12, hueJitter: 0, brightnessJitter: 0, saturationJitter: 0, scaleJitter: 0, rotationJitter: 0, positionJitter: 0, animateJitter: false, jitterSpeed: 6, twinkle: 0, twinkleSpeed: 4 },
         video: { loop: true, sound: false, volume: 100 },
         alert: { layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, showOnPreview: false, alertMode: 'all', triggers: [] },
         cutout: { shape: 'rectangle', feather: 0 },

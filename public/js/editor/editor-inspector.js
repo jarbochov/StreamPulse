@@ -17,6 +17,13 @@ import {
 } from './editor-canvas.js';
 import { renderLayers, getAlertRules, loadAlertRules } from './editor-layers.js';
 import { updateSpeakerMeterHint } from './editor-speakers.js';
+import {
+    proceduralPatternSection as renderProceduralPatternSection,
+    patternSection as renderPatternSection,
+    patternContentSection,
+    handlePatternInspectorClick,
+    handlePatternInspectorChange
+} from './editor-patterns.js';
 
 const shared = window.OverlayShared || {};
 
@@ -66,7 +73,8 @@ export const RERENDER_PATHS = new Set([
     'speakerBadge.reaction.visualizer', 'speakerBadge.reaction.highlightBorder', 'speakerBadge.reaction.dimWhenIdle',
     'speakerBadge.autoSize',
     'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta',
-    'pattern.sourceType', 'pattern.preset', 'pattern.layout', 'pattern.symmetry', 'pattern.kaleidoMorph', 'pattern.aspectRatio', 'pattern.hueShift', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip', 'pattern.animateJitter'
+    'pattern.sourceType', 'pattern.tileDistribution', 'pattern.preset', 'pattern.layout', 'pattern.symmetry', 'pattern.kaleidoMorph', 'pattern.aspectRatio', 'pattern.hueShift', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip', 'pattern.animateJitter',
+    'pattern.tiles.0.sourceType', 'pattern.tiles.1.sourceType', 'pattern.tiles.2.sourceType'
 ]);
 
 export const numberWasOn = new Map();
@@ -521,55 +529,7 @@ export function contentSection(el) {
         </div>`;
     }
     if (el.type === 'pattern') {
-        const isLegacyPreset = el.pattern?.sourceType === 'preset';
-        const sourceType = isLegacyPreset ? 'preset' : (el.pattern?.sourceType === 'icon' ? 'icon' : 'image');
-        const imgIcon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Image';
-        const faIcon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Icon / Emoji';
-        const segOptions = isLegacyPreset ? [
-            ['preset', 'Procedural', '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><path d="M2 5.5l3-2.5 3 2.5 3-2.5 3 2.5"/><path d="M2 10.5l3-2.5 3 2.5 3-2.5 3 2.5"/></svg>Procedural'],
-            ['image', 'Custom image', imgIcon],
-            ['icon', 'Icon / Emoji', faIcon]
-        ] : [
-            ['image', 'Custom image', imgIcon],
-            ['icon', 'Icon / Emoji', faIcon]
-        ];
-        body += F.seg('pattern.sourceType', 'Tile graphic', sourceType, segOptions);
-        if (sourceType === 'preset') {
-            const p = el.pattern || {};
-            const patterns = (window.StreamPulsePatterns?.PATTERN_CATEGORIES) || [
-                { group: 'Geometric', options: [['grid', 'Grid'], ['geometry', 'Geometry'], ['orbits', 'Orbits'], ['hexagons', 'Hexagons'], ['diamonds', 'Diamonds'], ['isometric', 'Isometric tiles'], ['mesh', 'Curved mesh'], ['sunburst', 'Sunburst'], ['triangles', 'Triangles'], ['chevrons', 'Chevrons'], ['checker', 'Checkerboard']] },
-                { group: 'Organic & decorative', options: [['waves', 'Waves'], ['rings', 'Rings'], ['scales', 'Scales'], ['topography', 'Topography'], ['circuit', 'Circuit board']] },
-                { group: 'Particle & field', options: [['starfield', 'Starfield'], ['sparkles', 'Sparkles'], ['dots', 'Dots'], ['confetti', 'Confetti']] }
-            ];
-            body += F.select('pattern.preset', 'Generative pattern', p.preset || 'hexagons', patterns);
-            body += F.range('pattern.scale', 'Pattern scale', p.scale ?? 100, { min: 10, max: 500, step: 5, unit: '%', editable: true, reset: 100 });
-            body += `<div class="grid2">
-                ${F.color('pattern.accent', 'Line / accent color', p.accent || '#58a6ff')}
-                ${F.color('pattern.secondary', 'Secondary color', p.secondary || p.accent || '#38bdf8', { clear: true })}
-            </div>`;
-            body += `<div class="grid2">
-                ${F.color('pattern.color', 'Base fill', p.color || 'transparent', { clear: true })}
-                ${F.number('pattern.lineWidth', 'Line width (px, 0=auto)', p.lineWidth || 0, { min: 0, max: 20, step: 0.5 })}
-            </div>`;
-            body += '<span class="hint">Rendering full-bleed vector geometry with zero seams. Switch to Image or Icon above for repeating tile mosaics, or use the Background Pattern layer.</span>';
-        } else if (sourceType === 'icon') {
-            const s = el.style || {};
-            body += F.text('content', 'Font Awesome icon or emoji', el.content || 'fa-brands fa-twitch', 'placeholder="fa-brands fa-twitch or paste an emoji" spellcheck="false"');
-            body += `<div class="field"><span>Icon</span><button type="button" id="pick-icon">Choose icon…</button><span class="hint">Pick a Font Awesome icon above, or paste any emoji / symbol directly into the text box.</span></div>`;
-            body += F.color('style.color', 'Icon color', s.color || '#ffffff');
-            body += `<div class="grid2">${F.number('style.textStroke.width', 'Outline (px)', s.textStroke?.width || 0, { min: 0, max: 20, step: 0.5 })}${s.textStroke?.width > 0 ? F.color('style.textStroke.color', 'Outline color', s.textStroke?.color || '#000000') : '<span></span>'}</div>`;
-            body += `<div class="grid2">${F.number('style.textShadow.blur', 'Shadow / glow (px)', s.textShadow?.blur || 0, { min: 0, max: 60 })}${s.textShadow?.blur > 0 ? F.color('style.textShadow.color', 'Shadow color', s.textShadow?.color || 'rgba(0,0,0,0.7)') : '<span></span>'}</div>`;
-        } else {
-            body += mediaSourceBlock(el);
-            if (el.src && !/\{\{/.test(el.src)) {
-                body += `<div class="field"><span>Image tools</span><button type="button" id="crop-image-btn" class="crop-tool-btn" data-src="${esc(el.src)}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"/></svg>Crop &amp; Edit Image…</button></div>`;
-            }
-            body += `<div class="grid2">
-                ${F.select('style.objectFit', 'Tile image fit', el.style?.objectFit || 'contain', [['contain', 'Contain (full graphic)'], ['cover', 'Cover (crop to tile)'], ['fill', 'Stretch to tile']])}
-                <span></span>
-            </div>`;
-            body += focusField(el);
-        }
+        return patternContentSection(el, focusField, iconEffectsSection);
     }
     if (el.type === 'qr') {
         const q = el.qr || {};
@@ -1340,295 +1300,11 @@ export function randomSection(el) {
 }
 
 export function proceduralPatternSection(el) {
-    const p = el.pattern || {};
-    const motion = p.motion || 'drift';
-    const blendMode = p.blendMode || 'normal';
-
-    let motionBlock = F.select('pattern.motion', 'Animation motion', motion, [
-        ['none', 'Static (no animation)'],
-        ['drift', 'Drift (gentle floating drift)'],
-        ['sway', 'Sway (breathing tilt & scale)'],
-        ['pulse', 'Pulse (rhythmic breath)'],
-        ['orbit', 'Orbit (subtle celestial orbit)'],
-        ['sweep', 'Sweep (scanner light sweep)'],
-        ['pan', 'Pan (continuous smooth glide)']
-    ]);
-
-    if (motion !== 'none') {
-        motionBlock += `<div class="grid2">
-            ${F.number('pattern.speed', 'Motion speed (multiplier)', p.speed ?? 1, { min: 0.1, max: 10, step: 0.1 })}
-            ${F.select('pattern.blendMode', 'Blend mode', blendMode, [
-                ['normal', 'Normal'],
-                ['screen', 'Screen (glow on dark)'],
-                ['overlay', 'Overlay'],
-                ['color-dodge', 'Color dodge'],
-                ['multiply', 'Multiply'],
-                ['soft-light', 'Soft light'],
-                ['luminosity', 'Luminosity']
-            ])}
-        </div>`;
-    } else {
-        motionBlock += F.select('pattern.blendMode', 'Blend mode', blendMode, [
-            ['normal', 'Normal'],
-            ['screen', 'Screen (glow on dark)'],
-            ['overlay', 'Overlay'],
-            ['color-dodge', 'Color dodge'],
-            ['multiply', 'Multiply'],
-            ['soft-light', 'Soft light'],
-            ['luminosity', 'Luminosity']
-        ]);
-    }
-
-    motionBlock += '<span class="hint">Generative procedural backgrounds from Promo Creator render vector mathematics across the full layer frame with zero seams.</span>';
-
-    return F.section('proceduralMotion', 'Animation & Blending', motionBlock);
+    return renderProceduralPatternSection(el);
 }
 
 export function patternSection(el) {
-    if (el.type === 'procedural-pattern' || el.pattern?.sourceType === 'preset') {
-        return proceduralPatternSection(el);
-    }
-    const p = el.pattern || {};
-    const rawLayout = p.layout || 'brick';
-    const rawMotion = p.motion || 'scroll';
-    const symmetry = ['none', 'quad', 'radial'].includes(p.symmetry)
-        ? p.symmetry
-        : (rawLayout === 'kaleidoscope-quad' ? 'quad' : (rawLayout === 'kaleidoscope-radial' || rawMotion === 'kaleidoscope' ? 'radial' : 'none'));
-    const layout = (rawLayout === 'kaleidoscope-quad' || rawLayout === 'kaleidoscope-radial') ? 'grid' : rawLayout;
-    const motion = rawMotion === 'kaleidoscope' ? 'none' : rawMotion;
-    const kaleidoMorph = p.kaleidoMorph !== false;
-    const altFlip = p.alternateFlip || 'tilt';
-    const isAltOrChecker = layout === 'alternating' || layout === 'checkerboard';
-    const aspectRatio = p.aspectRatio || '1:1';
-
-    let layoutExtra = '';
-    if (layout === 'alternating') {
-        layoutExtra += F.select('pattern.alternateFlip', 'Alternating variation', altFlip, [
-            ['tilt', 'Opposite tilt (+ / −)'],
-            ['h', 'Mirror horizontally'],
-            ['v', 'Mirror vertically'],
-            ['both', 'Mirror both axes'],
-            ['none', 'Scale / opacity only']
-        ]);
-    }
-
-    let symmetryControls = '';
-    if (symmetry !== 'none') {
-        symmetryControls = `
-            ${symmetry === 'radial' ? F.select('pattern.wedges', 'Mirror wedges', String(p.wedges || 6), [
-                ['4', '4 wedges (quad)'],
-                ['6', '6 wedges (hexagonal)'],
-                ['8', '8 wedges (octagonal)'],
-                ['10', '10 wedges'],
-                ['12', '12 wedges'],
-                ['16', '16 wedges (mandala)']
-            ]) : ''}
-            ${F.check('pattern.kaleidoMorph', 'Animate internal kaleidoscope morph', kaleidoMorph)}
-            ${kaleidoMorph ? `
-                <div class="grid2">
-                    ${F.number('pattern.kaleidoSpeed', 'Morph cycle (sec)', p.kaleidoSpeed ?? p.spinSpeed ?? 8, { min: 0.5, max: 120, step: 0.5 })}
-                    ${F.select('pattern.kaleidoDirection', 'Morph direction', p.kaleidoDirection || (p.spinDirection === 'ccw' ? 'ccw' : 'cw'), [
-                        ['cw', 'Clockwise'],
-                        ['ccw', 'Counter-clockwise']
-                    ])}
-                </div>
-                ${F.range('pattern.kaleidoDepth', 'Internal drift depth', p.kaleidoDepth ?? p.waveAmount ?? 35, { min: 5, max: 100, unit: '%', editable: true })}
-            ` : ''}`;
-    }
-
-    let motionControls = '';
-    if (motion === 'scroll') {
-        const tm = ['uniform', 'alt-rows', 'stagger-rows', 'alt-cols', 'stagger-cols'].includes(p.trackMode) ? p.trackMode : 'uniform';
-        motionControls = `
-            ${F.range('pattern.scrollAngle', 'Scroll direction (°)', p.scrollAngle ?? 315, { min: 0, max: 360, step: 5, unit: '°', editable: true, reset: 315 })}
-            <div class="grid2">
-                ${F.number('pattern.speed', 'Scroll cycle speed (sec)', p.speed ?? 12, { min: 0.5, max: 120, step: 0.5 })}
-                ${F.select('pattern.trackMode', 'Row / column offset', tm, [
-                    ['uniform', 'Uniform (all together)'],
-                    ['alt-rows', 'Counter-scrolling rows'],
-                    ['stagger-rows', 'Offset speed rows'],
-                    ['alt-cols', 'Counter-scrolling columns'],
-                    ['stagger-cols', 'Offset speed columns']
-                ])}
-            </div>`;
-    } else if (motion === 'alt-rows' || motion === 'alt-cols') {
-        const isRow = motion === 'alt-rows';
-        const tm = ['opposite', 'stagger', 'sine', 'alternate-stop'].includes(p.trackMode) ? p.trackMode : 'opposite';
-        motionControls = `
-            ${F.select('pattern.trackMode', isRow ? 'Row motion behavior' : 'Column motion behavior', tm, [
-                ['opposite', isRow ? 'Opposite directions (Odd ← / Even →)' : 'Opposite directions (Odd ↑ / Even ↓)'],
-                ['stagger', isRow ? 'Offset speeds (2× / 1× parallax rows)' : 'Offset speeds (2× / 1× parallax columns)'],
-                ['sine', isRow ? 'Alternating sine slide (back & forth)' : 'Alternating sine slide (up & down)'],
-                ['alternate-stop', isRow ? 'Every other row (Even slides / Odd static)' : 'Every other column (Even slides / Odd static)']
-            ])}
-            <div class="grid2">
-                ${F.number('pattern.speed', 'Cycle speed (sec)', p.speed ?? 12, { min: 0.5, max: 120, step: 0.5 })}
-                ${F.select('pattern.spinDirection', 'Direction', p.spinDirection === 'ccw' ? 'ccw' : 'cw', [
-                    ['cw', isRow ? 'Forward (Even →)' : 'Forward (Even ↓)'],
-                    ['ccw', isRow ? 'Reverse (Even ←)' : 'Reverse (Even ↑)']
-                ])}
-            </div>
-            ${tm === 'sine' ? F.range('pattern.waveAmount', 'Slide distance', p.waveAmount ?? 25, { min: 5, max: 100, unit: '%', editable: true }) : ''}`;
-    } else if (motion === 'weave') {
-        const tm = ['opposite', 'alternate-stop'].includes(p.trackMode) ? p.trackMode : 'opposite';
-        motionControls = `
-            <div class="grid2">
-                ${F.number('pattern.speed', 'Weave cycle (sec)', p.speed ?? 12, { min: 0.5, max: 120, step: 0.5 })}
-                ${F.select('pattern.spinDirection', 'Direction', p.spinDirection === 'ccw' ? 'ccw' : 'cw', [
-                    ['cw', 'Forward step'],
-                    ['ccw', 'Reverse step']
-                ])}
-            </div>
-            ${F.select('pattern.trackMode', 'Weave style', tm, [
-                ['opposite', 'Counter-sliding rows then columns'],
-                ['alternate-stop', 'Single-track step (Even rows then Odd columns)']
-            ])}`;
-    } else if (motion === 'scroll-spin') {
-        const tm = ['uniform', 'alt-rows', 'stagger-rows', 'alt-cols', 'stagger-cols'].includes(p.trackMode) ? p.trackMode : 'uniform';
-        motionControls = `
-            ${F.range('pattern.scrollAngle', 'Scroll direction (°)', p.scrollAngle ?? 315, { min: 0, max: 360, step: 5, unit: '°', editable: true, reset: 315 })}
-            <div class="grid2">
-                ${F.number('pattern.speed', 'Scroll speed (sec)', p.speed ?? 12, { min: 0.5, max: 120, step: 0.5 })}
-                ${F.number('pattern.spinSpeed', 'Tile spin speed (sec)', p.spinSpeed ?? 8, { min: 0.5, max: 120, step: 0.5 })}
-            </div>
-            <div class="grid2">
-                ${F.select('pattern.trackMode', 'Row / column offset', tm, [
-                    ['uniform', 'Uniform (all together)'],
-                    ['alt-rows', 'Counter-scrolling rows'],
-                    ['stagger-rows', 'Offset speed rows'],
-                    ['alt-cols', 'Counter-scrolling columns'],
-                    ['stagger-cols', 'Offset speed columns']
-                ])}
-                ${F.select('pattern.spinDirection', 'Tile spin direction', p.spinDirection || 'cw', [
-                    ['cw', 'Clockwise'],
-                    ['ccw', 'Counter-clockwise'],
-                    ['alternate', 'Alternating tiles (CW / CCW)']
-                ])}
-            </div>`;
-    } else if (motion === 'spin') {
-        motionControls = `
-            <div class="grid2">
-                ${F.number('pattern.spinSpeed', 'Spin speed (sec/turn)', p.spinSpeed ?? 8, { min: 0.5, max: 120, step: 0.5 })}
-                ${F.select('pattern.spinDirection', 'Spin direction', p.spinDirection || 'cw', [
-                    ['cw', 'Clockwise'],
-                    ['ccw', 'Counter-clockwise'],
-                    ['alternate', 'Alternating tiles (CW / CCW)']
-                ])}
-            </div>`;
-    } else if (motion === 'sway') {
-        motionControls = `
-            <div class="grid2">
-                ${F.number('pattern.speed', 'Drift cycle (sec)', p.speed ?? 12, { min: 0.5, max: 120, step: 0.5 })}
-                ${F.number('pattern.spinSpeed', 'Rocking cycle (sec)', p.spinSpeed ?? 8, { min: 0.5, max: 120, step: 0.5 })}
-            </div>
-            ${F.range('pattern.waveAmount', 'Sway amplitude', p.waveAmount ?? 25, { min: 5, max: 100, unit: '%', editable: true })}
-            ${F.select('pattern.spinDirection', 'Rocking phase', p.spinDirection || 'cw', [
-                ['cw', 'Uniform'],
-                ['alternate', 'Alternating tiles']
-            ])}`;
-    } else if (motion === 'wave') {
-        motionControls = `
-            ${F.number('pattern.spinSpeed', 'Wave cycle (sec)', p.spinSpeed ?? 8, { min: 0.5, max: 120, step: 0.5 })}
-            ${F.range('pattern.waveAmount', 'Wave pulse intensity', p.waveAmount ?? 25, { min: 5, max: 100, unit: '%', editable: true })}`;
-    } else if (motion === 'float') {
-        motionControls = `
-            ${F.number('pattern.jitterSpeed', 'Float cycle (sec)', p.jitterSpeed ?? 6, { min: 0.5, max: 60, step: 0.5 })}
-            ${F.range('pattern.waveAmount', 'Float intensity', p.waveAmount ?? 25, { min: 5, max: 100, unit: '%', editable: true })}`;
-    }
-
-    const secLayout = F.section('patternLayout', 'Pattern grid & spacing', `
-        <div class="grid2">
-            ${F.select('pattern.layout', 'Grid configuration', layout, [
-                ['grid', 'Standard Grid'],
-                ['brick', 'Brick (Row Offset)'],
-                ['stagger', 'Staggered (Column Offset)'],
-                ['alternating', 'Alternating Tilt / Mirror'],
-                ['checkerboard', 'Checkerboard (Primary / Secondary)']
-            ])}
-            ${F.select('pattern.aspectRatio', 'Tile aspect ratio', aspectRatio, [
-                ['1:1', '1:1 Square'],
-                ['16:9', '16:9 Widescreen'],
-                ['4:3', '4:3 Standard'],
-                ['3:2', '3:2 Classic Photo'],
-                ['2:1', '2:1 Wide Banner'],
-                ['3:4', '3:4 Portrait'],
-                ['9:16', '9:16 Tall Story / Reel'],
-                ['natural', 'Natural (Original Image Aspect)']
-            ])}
-        </div>
-        ${F.select('pattern.symmetry', 'Tile symmetry / kaleidoscope', symmetry, [
-            ['none', 'None (Standard Tile)'],
-            ['quad', 'Kaleidoscope — 4-Way Quad Mirror'],
-            ['radial', 'Kaleidoscope — Radial Mandala']
-        ])}
-        ${symmetryControls}
-        ${F.range('pattern.tileSize', 'Tile size', p.tileSize ?? 96, { min: 16, max: 512, step: 2, unit: 'px', editable: true })}
-        ${F.range('pattern.gap', 'Tile gap', p.gap ?? 16, { min: 0, max: 160, step: 1, unit: 'px', editable: true })}
-        ${F.range('pattern.offsetX', 'Row offset', p.offsetX ?? (layout === 'brick' ? 50 : 0), { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset row offset to 0%' })}
-        ${F.range('pattern.offsetY', 'Column offset', p.offsetY ?? (layout === 'stagger' ? 50 : 0), { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset column offset to 0%' })}
-        ${F.range('pattern.angle', 'Grid tilt', p.angle ?? -15, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset grid tilt to 0°' })}
-        ${F.range('pattern.tileAngle', 'Tile tilt', p.tileAngle ?? 0, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset tile tilt to 0°' })}
-        ${layoutExtra}`);
-
-    const secJitter = F.section('patternJitter', 'Organic scatter & jitter', `
-        ${F.range('pattern.positionJitter', 'Position scatter', p.positionJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset position scatter to 0%' })}
-        ${F.range('pattern.scaleJitter', 'Scale jitter', p.scaleJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset scale jitter to 0%' })}
-        ${F.range('pattern.rotationJitter', 'Rotation jitter', p.rotationJitter ?? 0, { min: 0, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset rotation jitter to 0%' })}
-        ${F.check('pattern.animateJitter', 'Animate organic jitter (per-tile float & bob)', p.animateJitter === true)}
-        ${p.animateJitter ? F.number('pattern.jitterSpeed', 'Jitter float cycle (sec)', p.jitterSpeed ?? 6, { min: 0.5, max: 60, step: 0.5 }) : ''}
-        <p class="hint">Applies deterministic per-tile variation to position, scale, and tilt to break up strict grid uniformity into an organic, scattered layout.</p>`);
-
-    let altTilesExtra = '';
-    if (isAltOrChecker) {
-        altTilesExtra = `
-            ${F.range('pattern.altOpacity', 'Secondary tile opacity', p.altOpacity ?? 0.4, { min: 0, max: 100, scale: 0.01, unit: '%', editable: true })}
-            ${F.range('pattern.altScale', 'Secondary tile scale', p.altScale ?? 100, { min: 10, max: 200, unit: '%', editable: true })}`;
-    }
-
-    const secAppearance = F.section('patternAppearance', 'Tile appearance & blend', `
-        ${F.select('pattern.blendMode', 'Blend mode', p.blendMode || 'normal', [
-            ['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['overlay', 'Overlay'],
-            ['soft-light', 'Soft light'], ['hard-light', 'Hard light'], ['color-dodge', 'Color dodge'],
-            ['color-burn', 'Color burn'], ['darken', 'Darken'], ['lighten', 'Lighten'],
-            ['difference', 'Difference'], ['exclusion', 'Exclusion'], ['luminosity', 'Luminosity'],
-            ['plus-lighter', 'Additive (Plus lighter)']
-        ])}
-        ${F.range('pattern.tileOpacity', 'Tile opacity', p.tileOpacity ?? 1, { min: 5, max: 100, scale: 0.01, unit: '%', editable: true })}
-        ${altTilesExtra}
-        ${F.range('pattern.feather', 'Edge vignette fade', p.feather ?? 0, { min: 0, max: 100, unit: '%', editable: true })}`);
-
-    const secColor = F.section('patternColor', 'Color & hue variation', `
-        ${F.select('pattern.hueShift', 'Hue animation', p.hueShift || 'none', [
-            ['none', 'None (Static color)'],
-            ['cycle', 'Rainbow color cycle (All tiles)'],
-            ['wave-x', 'Horizontal rainbow wave'],
-            ['wave-y', 'Vertical rainbow wave']
-        ])}
-        ${(p.hueShift && p.hueShift !== 'none') ? F.number('pattern.hueSpeed', 'Color cycle speed (sec)', p.hueSpeed ?? 12, { min: 1, max: 120, step: 0.5 }) : ''}
-        ${F.range('pattern.hueJitter', 'Hue jitter / color spread', p.hueJitter ?? 0, { min: 0, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset hue jitter to 0°' })}
-        ${F.range('pattern.saturationJitter', 'Saturation jitter', p.saturationJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset saturation jitter to 0%' })}
-        ${F.range('pattern.brightnessJitter', 'Brightness jitter', p.brightnessJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset brightness jitter to 0%' })}
-        ${F.range('pattern.twinkle', 'Twinkle / pulse', p.twinkle ?? 0, { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset twinkle to 0%' })}
-        ${F.number('pattern.twinkleSpeed', 'Twinkle pulse cycle (sec)', p.twinkleSpeed ?? 4, { min: 0.5, max: 30, step: 0.5 })}
-        <p class="hint">Hue jitter and animation rotate tile colors across the spectrum. Works on both uploaded images and icons.</p>`);
-
-    const secMotion = F.section('patternMotion', 'Motion graphics animation', `
-        ${F.select('pattern.motion', 'Animation style', motion, [
-            ['none', 'None (Static)'],
-            ['scroll', 'Continuous Linear Scroll'],
-            ['alt-rows', 'Alternating Rows (Row Offset Scroll)'],
-            ['alt-cols', 'Alternating Columns (Column Offset Scroll)'],
-            ['weave', 'Row & Column Step Weave'],
-            ['sway', 'Pendulum Sway & Drift'],
-            ['spin', 'Tile Spin in Place'],
-            ['scroll-spin', 'Scroll + Tile Spin'],
-            ['wave', 'Traveling Scale Wave'],
-            ['float', 'Organic Per-Tile Float & Bob']
-        ])}
-        ${motionControls}
-        ${motion !== 'none' ? '<p class="hint">Animates continuously in the live overlay and editor. Use the Effects toggle in the top toolbar to pause animations while editing.</p>' : ''}`);
-
-    return secLayout + secMotion + secAppearance + secJitter + secColor;
+    return renderPatternSection(el);
 }
 
 export function updateObsAudioStatus(data) {
@@ -2500,6 +2176,7 @@ export function initInspectorEvents() {
         });
 
         propEl.addEventListener('change', async event => {
+            if (await handlePatternInspectorChange(event, { renderProperties, uploadAsset: uploadAssetHandler })) return;
             if (event.target.id === 'font-upload' && event.target.files[0]) {
                 try {
                     toast('Uploading font…', 'info', 1500);
@@ -2577,6 +2254,7 @@ export function initInspectorEvents() {
         });
 
         propEl.addEventListener('click', async event => {
+            if (handlePatternInspectorClick(event, { renderProperties, openAssetDialog: openAssetDialogHandler, propEl })) return;
             const target = event.target;
             const act = target.closest('[data-act]')?.dataset.act;
             if (act) { runActionHandler(act); return; }

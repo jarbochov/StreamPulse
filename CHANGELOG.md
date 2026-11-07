@@ -31,6 +31,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Chat bot Live data panel lists host data with copyable `{{rep.*}}` placeholders; `GET /api/external-data` returns it read-only and size-limited.
 - `POST /api/alerts/mute` mutes alert display (e.g. NodeCG panic); `queue.muted` in `/api/alerts`.
 - `money` placeholder format, e.g. `{{placeholder|money}}` renders $1,234.00.
+- Pattern Tile layers: 1–4 mixed image/icon tile slots with per-slot scaling, 5 multi-tile sequence modes, area-balanced natural aspect ratios, dedicated Kaleidoscope symmetry (`quad`/`radial`), and modularized pattern inspector (`editor-patterns.js`).
 
 ### Changed
 - Alerts page: removed the Preview Vol slider; previews play at each variant's saved Alert/Video volume. Cooldown moved into Trigger & conditions.

@@ -360,6 +360,7 @@ const PATTERN_FLIPS = ['none', 'tilt', 'h', 'v', 'both'];
 const PATTERN_BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion', 'luminosity', 'plus-lighter'];
 const PATTERN_HUE_SHIFTS = ['none', 'cycle', 'wave-x', 'wave-y'];
 const PATTERN_ASPECT_RATIOS = ['1:1', '16:9', '4:3', '3:2', '2:1', '3:4', '9:16', 'natural'];
+const PATTERN_DISTRIBUTIONS = ['diagonal', 'row', 'col', 'grid', 'random'];
 
 function normalizeSpeakerBadge(badge = {}) {
     const rawSpeaker = badge?.speaker && typeof badge.speaker === 'object' ? badge.speaker : {};
@@ -462,8 +463,21 @@ function normalizePattern(p = {}) {
     const symmetry = PATTERN_SYMMETRIES.includes(rawSymmetry) ? rawSymmetry : 'none';
     const defaultOffsetX = layout === 'brick' ? 50 : 0;
     const defaultOffsetY = layout === 'stagger' ? 50 : 0;
+    const tiles = (Array.isArray(p.tiles) ? p.tiles : []).slice(0, 3).map(raw => {
+        const t = raw && typeof raw === 'object' ? raw : {};
+        return {
+            sourceType: t.sourceType === 'icon' ? 'icon' : 'image',
+            src: String(t.src || '').trim().slice(0, 2000),
+            content: String(t.content || 'fa-solid fa-star').trim().slice(0, 200),
+            color: String(t.color || '#ffffff').trim().slice(0, 80),
+            scale: Math.round(num(t.scale, 25, 200, 100))
+        };
+    });
     return {
         sourceType,
+        tileDistribution: PATTERN_DISTRIBUTIONS.includes(p.tileDistribution) ? p.tileDistribution : 'diagonal',
+        tile1Scale: Math.round(num(p.tile1Scale, 25, 200, 100)),
+        tiles,
         preset: String(p.preset || 'hexagons').slice(0, 40),
         accent: String(p.accent || '#58a6ff').slice(0, 80),
         secondary: String(p.secondary || p.accent || '#38bdf8').slice(0, 80),
