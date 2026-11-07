@@ -831,7 +831,7 @@ export const contentSignature = (el, live) =>
     el.type === 'embed' ? JSON.stringify([el.type, expand(el.src), el.video]) :
     el.type === 'speaker-badge' ? JSON.stringify([el.type, el.speakerBadge, speakerIsSpeaking(el), el.style, el.width, el.height]) :
     el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) :
-    (el.type === 'pattern' || el.type === 'procedural-pattern') ? JSON.stringify([el.type, el.pattern]) :
+    (el.type === 'pattern' || el.type === 'procedural-pattern') ? JSON.stringify([el.type, el.pattern, expand(el.src), el.content, el.style?.color, el.style?.objectFit, el.style?.focusX, el.style?.focusY, el.style?.textStroke, el.style?.textShadow]) :
     el.type === 'cutout' ? JSON.stringify([el.type]) :
     el.type === 'shape' ? JSON.stringify([el.type]) :
     el.type === 'poll' ? JSON.stringify([el.type]) :
@@ -962,6 +962,7 @@ export function renderCanvas(only) {
             const isPlainShape = el.type === 'shape';
             const isTextType = el.type === 'text' && !el.random?.typewriter && !el.random?.marquee;
             const canReuseText = isTextType && node._content === el.content && node._src === el.src;
+            const canReusePattern = (el.type === 'pattern' || el.type === 'procedural-pattern') && node._patternHandle && !node._patternHandle.isStopped?.() && node.querySelector(':scope > .sp-pattern-wrap');
 
             if (canReuseImg) {
                 node._sig = signature;
@@ -970,6 +971,14 @@ export function renderCanvas(only) {
                 node._fy = el.style?.focusY;
                 existingImg.style.objectFit = el.style?.objectFit || 'cover';
                 existingImg.style.objectPosition = `${el.style?.focusX ?? 50}% ${el.style?.focusY ?? 50}%`;
+            } else if (canReusePattern) {
+                node._sig = signature;
+                node._src = el.src;
+                node._content = el.content;
+                node._fit = el.style?.objectFit;
+                node._fx = el.style?.focusX;
+                node._fy = el.style?.focusY;
+                node._patternHandle.update(el, { preview: true, animate: true, expand });
             } else if (canReuseVid) {
                 node._sig = signature;
                 const v = el.video || {};

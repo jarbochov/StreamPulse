@@ -89,7 +89,7 @@ try {
         'game-list': { gamelist: 'content', gamelayout: 'layout', gamecovers: 'style', gametext: 'style' },
         alert: { alert: 'content', typography: 'style' },
         slideshow: { 'slide-what': 'content', 'slide-play': 'content', 'slide-remote': 'content' },
-        pattern: { content: 'content', patternLayout: 'layout', patternMotion: 'style' },
+        pattern: { content: 'content', patternLayout: 'style', patternJitter: 'style', patternMotion: 'style' },
         'procedural-pattern': { content: 'content', proceduralMotion: 'style' },
         'speaker-badge': { speakerProfile: 'content', speakerCallIn: 'content', speakerAudio: 'content', speakerLayout: 'layout', speakerStyle: 'style', speakerReaction: 'style' }
     };

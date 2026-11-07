@@ -70,12 +70,14 @@ details.sect > summary:hover { background: color-mix(in srgb, var(--text) 4%, tr
 .field { display: grid; gap: .25rem; margin: 0; color: var(--muted); font-size: 11px; min-width: 0; }
 .field > span:first-child { font-weight: 500; }
 .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .5rem; }
+.grid2 > .field:has(.range-field) { grid-column: 1 / -1; }
 .sect[data-sect^="speaker"] .grid2 { align-items: start; }
 .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
 .check { display: flex; align-items: center; gap: .5rem; color: var(--text); font-size: 12px; cursor: pointer; }
 .color-field { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: .4rem; align-items: center; }
 .color-field.has-actions { grid-template-columns: 38px minmax(0, 1fr) auto auto; }
 .range-field { display: grid; grid-template-columns: minmax(0, 1fr) 3.2rem; gap: .5rem; align-items: center; }
+.range-field input[type="range"] { width: 100%; min-width: 0; }
 .range-field.has-number { grid-template-columns: minmax(0, 1fr) 4.2rem; }
 .range-field.has-number.has-reset { grid-template-columns: minmax(0, 1fr) 4.2rem 28px; }
 .range-field.has-reset:not(.has-number) { grid-template-columns: minmax(0, 1fr) 3.2rem 28px; }

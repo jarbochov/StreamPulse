@@ -66,7 +66,7 @@ export const RERENDER_PATHS = new Set([
     'speakerBadge.reaction.visualizer', 'speakerBadge.reaction.highlightBorder', 'speakerBadge.reaction.dimWhenIdle',
     'speakerBadge.autoSize',
     'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta',
-    'pattern.sourceType', 'pattern.preset', 'pattern.layout', 'pattern.aspectRatio', 'pattern.hueShift', 'pattern.twinkle', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip'
+    'pattern.sourceType', 'pattern.preset', 'pattern.layout', 'pattern.aspectRatio', 'pattern.hueShift', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip'
 ]);
 
 export const numberWasOn = new Map();
@@ -1405,12 +1405,6 @@ export function patternSection(el) {
             ['none', 'Scale / opacity only']
         ]);
     }
-    if (isAltOrChecker) {
-        layoutExtra += `<div class="grid2">
-            ${F.range('pattern.altOpacity', 'Secondary tile opacity', p.altOpacity ?? 0.4, { min: 0, max: 100, scale: 0.01, unit: '%', editable: true })}
-            ${F.range('pattern.altScale', 'Secondary tile scale', p.altScale ?? 100, { min: 10, max: 200, unit: '%', editable: true })}
-        </div>`;
-    }
     if (layout === 'kaleidoscope-radial') {
         layoutExtra += F.select('pattern.wedges', 'Mirror wedges', String(p.wedges || 6), [
             ['4', '4 wedges (quad)'],
@@ -1507,19 +1501,15 @@ export function patternSection(el) {
                 ${F.number('pattern.speed', 'Drift cycle (sec)', p.speed ?? 12, { min: 0.5, max: 120, step: 0.5 })}
                 ${F.number('pattern.spinSpeed', 'Rocking cycle (sec)', p.spinSpeed ?? 8, { min: 0.5, max: 120, step: 0.5 })}
             </div>
-            <div class="grid2">
-                ${F.range('pattern.waveAmount', 'Sway amplitude', p.waveAmount ?? 25, { min: 5, max: 100, unit: '%', editable: true })}
-                ${F.select('pattern.spinDirection', 'Rocking phase', p.spinDirection || 'cw', [
-                    ['cw', 'Uniform'],
-                    ['alternate', 'Alternating tiles']
-                ])}
-            </div>`;
+            ${F.range('pattern.waveAmount', 'Sway amplitude', p.waveAmount ?? 25, { min: 5, max: 100, unit: '%', editable: true })}
+            ${F.select('pattern.spinDirection', 'Rocking phase', p.spinDirection || 'cw', [
+                ['cw', 'Uniform'],
+                ['alternate', 'Alternating tiles']
+            ])}`;
     } else if (motion === 'wave') {
         motionControls = `
-            <div class="grid2">
-                ${F.number('pattern.spinSpeed', 'Wave cycle (sec)', p.spinSpeed ?? 8, { min: 0.5, max: 120, step: 0.5 })}
-                ${F.range('pattern.waveAmount', 'Wave pulse intensity', p.waveAmount ?? 25, { min: 5, max: 100, unit: '%', editable: true })}
-            </div>`;
+            ${F.number('pattern.spinSpeed', 'Wave cycle (sec)', p.spinSpeed ?? 8, { min: 0.5, max: 120, step: 0.5 })}
+            ${F.range('pattern.waveAmount', 'Wave pulse intensity', p.waveAmount ?? 25, { min: 5, max: 100, unit: '%', editable: true })}`;
     } else if (motion === 'kaleidoscope') {
         motionControls = `
             <div class="grid2">
@@ -1533,16 +1523,16 @@ export function patternSection(el) {
     }
 
     const secLayout = F.section('patternLayout', 'Pattern grid & spacing', `
-        ${F.select('pattern.layout', 'Grid configuration', layout, [
-            ['grid', 'Standard Grid'],
-            ['brick', 'Brick (Row Offset)'],
-            ['stagger', 'Staggered (Column Offset)'],
-            ['alternating', 'Alternating Tilt / Mirror'],
-            ['checkerboard', 'Checkerboard (Primary / Secondary)'],
-            ['kaleidoscope-quad', 'Kaleidoscope — 4-Way Quad Mirror'],
-            ['kaleidoscope-radial', 'Kaleidoscope — Radial Mandala']
-        ])}
         <div class="grid2">
+            ${F.select('pattern.layout', 'Grid configuration', layout, [
+                ['grid', 'Standard Grid'],
+                ['brick', 'Brick (Row Offset)'],
+                ['stagger', 'Staggered (Column Offset)'],
+                ['alternating', 'Alternating Tilt / Mirror'],
+                ['checkerboard', 'Checkerboard (Primary / Secondary)'],
+                ['kaleidoscope-quad', 'Kaleidoscope — 4-Way Quad Mirror'],
+                ['kaleidoscope-radial', 'Kaleidoscope — Radial Mandala']
+            ])}
             ${F.select('pattern.aspectRatio', 'Tile aspect ratio', aspectRatio, [
                 ['1:1', '1:1 Square'],
                 ['16:9', '16:9 Widescreen'],
@@ -1553,57 +1543,39 @@ export function patternSection(el) {
                 ['9:16', '9:16 Tall Story / Reel'],
                 ['natural', 'Natural (Original Image Aspect)']
             ])}
-            ${F.range('pattern.tileSize', 'Tile size', p.tileSize ?? 96, { min: 16, max: 512, step: 2, unit: 'px', editable: true })}
         </div>
-        <div class="grid2">
-            ${F.range('pattern.gap', 'Tile gap', p.gap ?? 16, { min: 0, max: 160, step: 1, unit: 'px', editable: true })}
-            ${F.range('pattern.offsetX', 'Row offset', p.offsetX ?? 50, { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset row offset to 0%' })}
-        </div>
-        <div class="grid2">
-            ${F.range('pattern.offsetY', 'Column offset', p.offsetY ?? 0, { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset column offset to 0%' })}
-            ${F.range('pattern.angle', 'Grid tilt', p.angle ?? -15, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset grid tilt to 0°' })}
-        </div>
-        <div class="grid2">
-            ${F.range('pattern.tileAngle', 'Tile tilt', p.tileAngle ?? 0, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset tile tilt to 0°' })}
-            <span></span>
-        </div>
+        ${F.range('pattern.tileSize', 'Tile size', p.tileSize ?? 96, { min: 16, max: 512, step: 2, unit: 'px', editable: true })}
+        ${F.range('pattern.gap', 'Tile gap', p.gap ?? 16, { min: 0, max: 160, step: 1, unit: 'px', editable: true })}
+        ${F.range('pattern.offsetX', 'Row offset', p.offsetX ?? 50, { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset row offset to 0%' })}
+        ${F.range('pattern.offsetY', 'Column offset', p.offsetY ?? 0, { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset column offset to 0%' })}
+        ${F.range('pattern.angle', 'Grid tilt', p.angle ?? -15, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset grid tilt to 0°' })}
+        ${F.range('pattern.tileAngle', 'Tile tilt', p.tileAngle ?? 0, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset tile tilt to 0°' })}
         ${layoutExtra}`);
 
     const secJitter = F.section('patternJitter', 'Organic scatter & jitter', `
-        <div class="grid2">
-            ${F.range('pattern.positionJitter', 'Position scatter', p.positionJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset position scatter to 0%' })}
-            ${F.range('pattern.scaleJitter', 'Scale jitter', p.scaleJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset scale jitter to 0%' })}
-        </div>
-        <div class="grid2">
-            ${F.range('pattern.rotationJitter', 'Rotation jitter', p.rotationJitter ?? 0, { min: 0, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset rotation jitter to 0%' })}
-            <span></span>
-        </div>
+        ${F.range('pattern.positionJitter', 'Position scatter', p.positionJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset position scatter to 0%' })}
+        ${F.range('pattern.scaleJitter', 'Scale jitter', p.scaleJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset scale jitter to 0%' })}
+        ${F.range('pattern.rotationJitter', 'Rotation jitter', p.rotationJitter ?? 0, { min: 0, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset rotation jitter to 0%' })}
         <p class="hint">Randomizes tile scale, tilt, and position to break up strict grid uniformity into an organic, scattered pattern.</p>`);
 
     let altTilesExtra = '';
     if (isAltOrChecker) {
-        altTilesExtra = `<div class="grid2">
+        altTilesExtra = `
             ${F.range('pattern.altOpacity', 'Secondary tile opacity', p.altOpacity ?? 0.4, { min: 0, max: 100, scale: 0.01, unit: '%', editable: true })}
-            ${F.range('pattern.altScale', 'Secondary tile scale', p.altScale ?? 100, { min: 10, max: 200, unit: '%', editable: true })}
-        </div>`;
+            ${F.range('pattern.altScale', 'Secondary tile scale', p.altScale ?? 100, { min: 10, max: 200, unit: '%', editable: true })}`;
     }
 
     const secAppearance = F.section('patternAppearance', 'Tile appearance & blend', `
-        <div class="grid2">
-            ${F.range('pattern.tileOpacity', 'Tile opacity', p.tileOpacity ?? 1, { min: 5, max: 100, scale: 0.01, unit: '%', editable: true })}
-            ${F.select('pattern.blendMode', 'Blend mode', p.blendMode || 'normal', [
-                ['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['overlay', 'Overlay'],
-                ['soft-light', 'Soft light'], ['hard-light', 'Hard light'], ['color-dodge', 'Color dodge'],
-                ['color-burn', 'Color burn'], ['darken', 'Darken'], ['lighten', 'Lighten'],
-                ['difference', 'Difference'], ['exclusion', 'Exclusion'], ['luminosity', 'Luminosity'],
-                ['plus-lighter', 'Additive (Plus lighter)']
-            ])}
-        </div>
+        ${F.select('pattern.blendMode', 'Blend mode', p.blendMode || 'normal', [
+            ['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['overlay', 'Overlay'],
+            ['soft-light', 'Soft light'], ['hard-light', 'Hard light'], ['color-dodge', 'Color dodge'],
+            ['color-burn', 'Color burn'], ['darken', 'Darken'], ['lighten', 'Lighten'],
+            ['difference', 'Difference'], ['exclusion', 'Exclusion'], ['luminosity', 'Luminosity'],
+            ['plus-lighter', 'Additive (Plus lighter)']
+        ])}
+        ${F.range('pattern.tileOpacity', 'Tile opacity', p.tileOpacity ?? 1, { min: 5, max: 100, scale: 0.01, unit: '%', editable: true })}
         ${altTilesExtra}
-        <div class="grid2">
-            ${F.range('pattern.feather', 'Edge vignette fade', p.feather ?? 0, { min: 0, max: 100, unit: '%', editable: true })}
-            <span></span>
-        </div>`);
+        ${F.range('pattern.feather', 'Edge vignette fade', p.feather ?? 0, { min: 0, max: 100, unit: '%', editable: true })}`);
 
     const secColor = F.section('patternColor', 'Color & hue variation', `
         ${F.select('pattern.hueShift', 'Hue animation', p.hueShift || 'none', [
@@ -1613,16 +1585,12 @@ export function patternSection(el) {
             ['wave-y', 'Vertical rainbow wave']
         ])}
         ${(p.hueShift && p.hueShift !== 'none') ? F.number('pattern.hueSpeed', 'Color cycle speed (sec)', p.hueSpeed ?? 12, { min: 1, max: 120, step: 0.5 }) : ''}
-        <div class="grid2">
-            ${F.range('pattern.hueJitter', 'Hue jitter / color spread', p.hueJitter ?? 0, { min: 0, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset hue jitter to 0°' })}
-            ${F.range('pattern.saturationJitter', 'Saturation jitter', p.saturationJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset saturation jitter to 0%' })}
-        </div>
-        <div class="grid2">
-            ${F.range('pattern.brightnessJitter', 'Brightness jitter', p.brightnessJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset brightness jitter to 0%' })}
-            ${F.range('pattern.twinkle', 'Twinkle / pulse', p.twinkle ?? 0, { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset twinkle to 0%' })}
-        </div>
-        ${(p.twinkle > 0) ? F.number('pattern.twinkleSpeed', 'Twinkle pulse cycle (sec)', p.twinkleSpeed ?? 4, { min: 0.5, max: 30, step: 0.5 }) : ''}
-        <p class="hint">Hue jitter and animation rotate tile colors across the spectrum. For icons, all icon colors dynamically illuminate across the spectrum.</p>`);
+        ${F.range('pattern.hueJitter', 'Hue jitter / color spread', p.hueJitter ?? 0, { min: 0, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset hue jitter to 0°' })}
+        ${F.range('pattern.saturationJitter', 'Saturation jitter', p.saturationJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset saturation jitter to 0%' })}
+        ${F.range('pattern.brightnessJitter', 'Brightness jitter', p.brightnessJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset brightness jitter to 0%' })}
+        ${F.range('pattern.twinkle', 'Twinkle / pulse', p.twinkle ?? 0, { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset twinkle to 0%' })}
+        ${F.number('pattern.twinkleSpeed', 'Twinkle pulse cycle (sec)', p.twinkleSpeed ?? 4, { min: 0.5, max: 30, step: 0.5 })}
+        <p class="hint">Hue jitter and animation rotate tile colors across the spectrum. Works on both uploaded images and icons.</p>`);
 
     const secMotion = F.section('patternMotion', 'Motion graphics animation', `
         ${F.select('pattern.motion', 'Animation style', motion, [
@@ -1750,10 +1718,8 @@ export function speakerBadgeSection(el) {
             <datalist id="obs-audio-inputs-list"></datalist>
             <span class="hint" id="sb-obs-status-hint">Active audio mixer source in OBS Studio (e.g. "Mic/Aux", "Discord", "Guest 1 Browser").</span>
         </div>
-        <div class="grid2">
-            ${F.range('speakerBadge.audio.thresholdDb', 'Sensitivity gate', audio.thresholdDb ?? -36, { min: -70, max: 0, step: 1, unit: ' dB', editable: true })}
-            ${F.range('speakerBadge.audio.holdMs', 'Release hold time', audio.holdMs ?? 280, { min: 50, max: 1500, step: 25, unit: ' ms', editable: true })}
-        </div>
+        ${F.range('speakerBadge.audio.thresholdDb', 'Sensitivity gate', audio.thresholdDb ?? -36, { min: -70, max: 0, step: 1, unit: ' dB', editable: true })}
+        ${F.range('speakerBadge.audio.holdMs', 'Release hold time', audio.holdMs ?? 280, { min: 50, max: 1500, step: 25, unit: ' ms', editable: true })}
         <p class="hint" id="sb-audio-level" style="font-variant-numeric:tabular-nums;min-height:2.5em;">Waiting for this source's live audio meter.</p>
         <div style="margin-top:0.5rem;display:flex;align-items:center;gap:0.5rem;">
             <button type="button" class="btn sm" id="btn-simulate-speaking" style="width:100%;font-weight:600;${el._simulateSpeaking ? 'background:var(--accent);color:#fff;border-color:var(--accent);' : ''}">
@@ -1889,9 +1855,9 @@ export function obsLinkSection(el) {
 // ---- Property Inspector Panel Render ----------------------------------------------
 const INSPECTOR_TABS = [['content', 'Content'], ['layout', 'Layout'], ['style', 'Style']];
 const SPECIFIC_SECTION_TABS = {
-    gamelayout: 'layout', patternLayout: 'layout', patternJitter: 'layout', speakerLayout: 'layout',
+    gamelayout: 'layout', speakerLayout: 'layout',
     gamecovers: 'style', gametext: 'style', progress: 'style',
-    patternAppearance: 'style', patternColor: 'style', patternMotion: 'style', proceduralMotion: 'style',
+    patternLayout: 'style', patternJitter: 'style', patternAppearance: 'style', patternColor: 'style', patternMotion: 'style', proceduralMotion: 'style',
     speakerStyle: 'style', speakerVisualizer: 'style', speakerReaction: 'style'
 };
 

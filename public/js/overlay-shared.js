@@ -3084,10 +3084,39 @@
         let twinkle = 0, twinkleSpeed = 4;
         let dpr = 1, stampW = 96, stampH = 96, isKaleido = false;
         let lastStampKey = '';
+        let lastPaletteKey = '';
         let lastImgSrc = '';
         let cachedImg = null;
         let lastFeather = -1;
         const iconHueCache = new Map();
+        let baseStampData = null;
+        let baseStampIsMonochrome = false;
+
+        function captureBaseStampData() {
+            iconHueCache.clear();
+            baseStampData = null;
+            baseStampIsMonochrome = false;
+            try {
+                if (stampW > 0 && stampH > 0) {
+                    baseStampData = stampCtx.getImageData(0, 0, stampW, stampH);
+                    const d = baseStampData.data;
+                    let visible = 0;
+                    let chromatic = 0;
+                    for (let i = 0; i < d.length; i += 16) {
+                        if (d[i + 3] > 32) {
+                            visible++;
+                            const r = d[i], g = d[i + 1], b = d[i + 2];
+                            const mx = r > g ? (r > b ? r : b) : (g > b ? g : b);
+                            const mn = r < g ? (r < b ? r : b) : (g < b ? g : b);
+                            if (mx - mn > 18) chromatic++;
+                        }
+                    }
+                    baseStampIsMonochrome = visible > 0 && (chromatic / visible) < 0.05;
+                }
+            } catch {
+                baseStampData = null;
+            }
+        }
 
         function parseColorHex(c) {
             if (!c || c === 'transparent') return { r: 255, g: 255, b: 255 };
@@ -3134,6 +3163,14 @@
             return { tileW, tileH, ar };
         }
 
+        function getStampDimensions() {
+            const { ar } = getTileDimensions();
+            const base = 128;
+            const w = ar >= 1 ? base : Math.max(24, Math.round(base * ar));
+            const h = ar >= 1 ? Math.max(24, Math.round(base / ar)) : base;
+            return { w, h };
+        }
+
         function cellHash(r, c, seed = 0) {
             let h = (r * 374761393 + c * 668265263 + seed * 1274126177) ^ 0x5bf03635;
             h = Math.imul(h ^ (h >>> 13), 1274126177);
@@ -3141,6 +3178,13 @@
         }
 
         function buildStampFromImage(img) {
+            const { w, h } = getStampDimensions();
+            stampW = w;
+            stampH = h;
+            if (stampCanvas.width !== stampW || stampCanvas.height !== stampH) {
+                stampCanvas.width = stampW;
+                stampCanvas.height = stampH;
+            }
             const iw = img.naturalWidth || img.width || stampW;
             const ih = img.naturalHeight || img.height || stampH;
             stampCtx.clearRect(0, 0, stampW, stampH);
@@ -3157,6 +3201,7 @@
                 const dy = (stampH - dh) * fy;
                 stampCtx.drawImage(img, dx, dy, dw, dh);
             }
+            captureBaseStampData();
         }
 
         function buildStampFromIcon(cls) {
@@ -3223,38 +3268,100 @@
             stampCtx.fillStyle = s.color || '#ffffff';
             stampCtx.fillText(glyph, cx, cy);
             stampCtx.restore();
-            iconHueCache.clear();
+            captureBaseStampData();
             return { glyph, fontFamily, fontWeight, isFa };
         }
 
-        function getTintedIconStamp(cls, tileHue, satShift = 0, briShift = 0) {
-            const hKey = Math.round(tileHue / 6) * 6;
-            const bKey = Math.round(briShift * 10);
-            const sKey = Math.round(satShift * 10);
-            const cacheKey = `${hKey}_${bKey}_${sKey}`;
-            if (iconHueCache.has(cacheKey)) return iconHueCache.get(cacheKey);
+        function getTintedIconStamp(slot) {
+            const idx = ((slot % 24) + 24) % 24;
+            if (iconHueCache.has(idx)) return iconHueCache.get(idx);
 
-            const baseHex = curElement.style?.color || '#ffffff';
-            const rgb = parseColorHex(baseHex);
-            const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-            let h = (hsl.h + tileHue) % 360;
-            if (h < 0) h += 360;
-            let s = hsl.s < 0.08 ? 0.88 : hsl.s;
-            let l = (hsl.l > 0.95 || hsl.l < 0.08) ? 0.58 : hsl.l;
-            if (satShift !== 0) s = Math.max(0.05, Math.min(1, s + satShift));
-            if (briShift !== 0) l = Math.max(0.05, Math.min(0.95, l * (1 + briShift)));
-            const colorStr = `hsl(${Math.round(h)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;
+            const hasHue = hueShift !== 'none' || hueJitter > 0;
+            const hKey = hasHue ? (idx * 15) : 0;
+            const satShift = saturationJitter > 0 ? (((idx * 7) % 11 - 5) / 5) * (saturationJitter / 100) : 0;
+            const briShift = brightnessJitter > 0 ? (((idx * 13) % 11 - 5) / 5) * (brightnessJitter / 100) : 0;
+
+            if (hKey === 0 && satShift === 0 && briShift === 0) {
+                iconHueCache.set(idx, null);
+                return null;
+            }
 
             const c = document.createElement('canvas');
             c.width = stampW; c.height = stampH;
             const tCtx = c.getContext('2d');
-            tCtx.drawImage(stampCanvas, 0, 0);
-            tCtx.globalCompositeOperation = 'source-in';
-            tCtx.fillStyle = colorStr;
-            tCtx.fillRect(0, 0, stampW, stampH);
 
-            if (iconHueCache.size > 80) iconHueCache.clear();
-            iconHueCache.set(cacheKey, c);
+            if (sourceType === 'icon' || (baseStampIsMonochrome && hKey !== 0)) {
+                const baseHex = sourceType === 'icon' ? (curElement.style?.color || '#ffffff') : '#ffffff';
+                const rgb = parseColorHex(baseHex);
+                const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+                let h = (hsl.h + hKey) % 360;
+                if (h < 0) h += 360;
+                let s = hsl.s < 0.08 ? 0.88 : hsl.s;
+                let l = (hsl.l > 0.95 || hsl.l < 0.08) ? 0.58 : hsl.l;
+                if (satShift !== 0) s = Math.max(0.05, Math.min(1, s + satShift));
+                if (briShift !== 0) l = Math.max(0.05, Math.min(0.95, l * (1 + briShift)));
+                const colorStr = `hsl(${Math.round(h)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;
+
+                tCtx.drawImage(stampCanvas, 0, 0);
+                tCtx.globalCompositeOperation = 'source-in';
+                tCtx.fillStyle = colorStr;
+                tCtx.fillRect(0, 0, stampW, stampH);
+            } else if (baseStampData && baseStampData.width === stampW && baseStampData.height === stampH) {
+                const rad = (hKey * Math.PI) / 180;
+                const cosA = Math.cos(rad);
+                const sinA = Math.sin(rad);
+                const satMult = Math.max(0, 1 + satShift);
+                const briMult = Math.max(0.05, 1 + briShift);
+
+                const h00 = 0.213 + cosA * 0.787 - sinA * 0.213;
+                const h01 = 0.715 - cosA * 0.715 - sinA * 0.715;
+                const h02 = 0.072 - cosA * 0.072 + sinA * 0.928;
+                const h10 = 0.213 - cosA * 0.213 + sinA * 0.143;
+                const h11 = 0.715 + cosA * 0.285 + sinA * 0.140;
+                const h12 = 0.072 - cosA * 0.072 - sinA * 0.283;
+                const h20 = 0.213 - cosA * 0.213 - sinA * 0.787;
+                const h21 = 0.715 - cosA * 0.715 + sinA * 0.715;
+                const h22 = 0.072 + cosA * 0.928 + sinA * 0.072;
+
+                const s00 = (0.213 + 0.787 * satMult) * briMult;
+                const s01 = (0.715 - 0.715 * satMult) * briMult;
+                const s02 = (0.072 - 0.072 * satMult) * briMult;
+                const s10 = (0.213 - 0.213 * satMult) * briMult;
+                const s11 = (0.715 + 0.285 * satMult) * briMult;
+                const s12 = (0.072 - 0.072 * satMult) * briMult;
+                const s20 = (0.213 - 0.213 * satMult) * briMult;
+                const s21 = (0.715 - 0.715 * satMult) * briMult;
+                const s22 = (0.072 + 0.928 * satMult) * briMult;
+
+                const m00 = Math.round((h00 * s00 + h01 * s10 + h02 * s20) * 1024);
+                const m01 = Math.round((h00 * s01 + h01 * s11 + h02 * s21) * 1024);
+                const m02 = Math.round((h00 * s02 + h01 * s12 + h02 * s22) * 1024);
+                const m10 = Math.round((h10 * s00 + h11 * s10 + h12 * s20) * 1024);
+                const m11 = Math.round((h10 * s01 + h11 * s11 + h12 * s21) * 1024);
+                const m12 = Math.round((h10 * s02 + h11 * s12 + h12 * s22) * 1024);
+                const m20 = Math.round((h20 * s00 + h21 * s10 + h22 * s20) * 1024);
+                const m21 = Math.round((h20 * s01 + h21 * s11 + h22 * s21) * 1024);
+                const m22 = Math.round((h20 * s02 + h21 * s12 + h22 * s22) * 1024);
+
+                const srcData = baseStampData.data;
+                const outImg = tCtx.createImageData(stampW, stampH);
+                const dstData = outImg.data;
+                const len = srcData.length;
+                for (let i = 0; i < len; i += 4) {
+                    const a = srcData[i + 3];
+                    if (a === 0) continue;
+                    const r = srcData[i], g = srcData[i + 1], b = srcData[i + 2];
+                    dstData[i]     = (r * m00 + g * m01 + b * m02) >> 10;
+                    dstData[i + 1] = (r * m10 + g * m11 + b * m12) >> 10;
+                    dstData[i + 2] = (r * m20 + g * m21 + b * m22) >> 10;
+                    dstData[i + 3] = a;
+                }
+                tCtx.putImageData(outImg, 0, 0);
+            } else {
+                return null;
+            }
+
+            iconHueCache.set(idx, c);
             return c;
         }
 
@@ -3495,15 +3602,12 @@
             const cosOdd = Math.cos(gridAngleRad + oddRot), sinOdd = Math.sin(gridAngleRad + oddRot);
 
             let lastAlpha = 1;
-            let lastFilter = 'none';
-            if (ctx.filter && ctx.filter !== 'none') {
-                ctx.filter = 'none';
-            }
             const staticRowShift = (offsetX / 100) * stepX;
             const staticColShift = (offsetY / 100) * stepY;
 
             const hasDynamicAnim = motion !== 'none' || hueShift !== 'none' || twinkle > 0;
             const hasColorFilter = hueJitter > 0 || hueShift !== 'none' || brightnessJitter > 0 || saturationJitter > 0;
+            const hasHue = hueShift !== 'none' || hueJitter > 0;
             const baseHueCycle = hueShift === 'cycle' ? ((t / hueSpeed) * 360) : 0;
 
             for (let r = -rows; r <= rows; r++) {
@@ -3598,84 +3702,30 @@
                     }
 
                     let currentBitmap = sourceBitmap;
-                    let filterStr = 'none';
 
-                    if (sourceType === 'icon' && hasColorFilter) {
-                        let tileHue = baseHueCycle;
-                        if (hueShift === 'wave-x') {
-                            tileHue = ((t / hueSpeed) * 360) + (col * 24);
-                        } else if (hueShift === 'wave-y') {
-                            tileHue = ((t / hueSpeed) * 360) + (row * 24);
-                        }
-                        if (hueJitter > 0) {
-                            tileHue += (cellHash(row, col, 1) * 2 - 1) * hueJitter;
-                        }
-                        tileHue = ((tileHue % 360) + 360) % 360;
-
-                        const bVal = brightnessJitter > 0 ? (cellHash(row, col, 2) * 2 - 1) * (brightnessJitter / 100) : 0;
-                        const sVal = saturationJitter > 0 ? (cellHash(row, col, 3) * 2 - 1) * (saturationJitter / 100) : 0;
-                        const cls = String(curElement.content || 'fa-brands fa-twitch').trim();
-                        const tinted = getTintedIconStamp(cls, tileHue, sVal, bVal);
-                        if (tinted) {
-                            currentBitmap = tinted;
+                    if (hasColorFilter && !isKaleido) {
+                        let slot = 0;
+                        if (hasHue) {
+                            let tileHue = baseHueCycle;
+                            if (hueShift === 'wave-x') {
+                                tileHue = ((t / hueSpeed) * 360) + (col * 24);
+                            } else if (hueShift === 'wave-y') {
+                                tileHue = ((t / hueSpeed) * 360) + (row * 24);
+                            }
+                            if (hueJitter > 0) {
+                                tileHue += (cellHash(row, col, 1) * 2 - 1) * hueJitter;
+                            }
+                            slot = ((Math.round(tileHue / 15) % 24) + 24) % 24;
                         } else {
-                            currentBitmap = sourceBitmap;
-                            let fp = '';
-                            if (tileHue > 0.5 && tileHue < 359.5) {
-                                fp += `hue-rotate(${Math.round(tileHue)}deg) `;
-                            }
-                            if (bVal !== 0) {
-                                fp += `brightness(${Math.round((1 + bVal) * 100)}%) `;
-                            }
-                            if (sVal !== 0) {
-                                fp += `saturate(${Math.round((1 + sVal) * 100)}%) `;
-                            }
-                            filterStr = fp ? fp.trim() : 'none';
-                            if (lastFilter !== filterStr) {
-                                ctx.filter = filterStr;
-                                lastFilter = filterStr;
-                            }
+                            slot = Math.floor(cellHash(row, col, 2) * 24) % 24;
                         }
-                    } else if (hasColorFilter) {
-                        let tileHue = baseHueCycle;
-                        if (hueShift === 'wave-x') {
-                            tileHue = ((t / hueSpeed) * 360) + (col * 24);
-                        } else if (hueShift === 'wave-y') {
-                            tileHue = ((t / hueSpeed) * 360) + (row * 24);
-                        }
-                        if (hueJitter > 0) {
-                            tileHue += (cellHash(row, col, 1) * 2 - 1) * hueJitter;
-                        }
-                        tileHue = ((tileHue % 360) + 360) % 360;
-
-                        let fp = '';
-                        if (tileHue > 0.5 && tileHue < 359.5) {
-                            fp += `hue-rotate(${Math.round(tileHue)}deg) `;
-                        }
-                        if (brightnessJitter > 0) {
-                            const bVal = 1 + (cellHash(row, col, 2) * 2 - 1) * (brightnessJitter / 100);
-                            fp += `brightness(${Math.round(bVal * 100)}%) `;
-                        }
-                        if (saturationJitter > 0) {
-                            const sVal = 1 + (cellHash(row, col, 3) * 2 - 1) * (saturationJitter / 100);
-                            fp += `saturate(${Math.round(sVal * 100)}%) `;
-                        }
-                        filterStr = fp ? fp.trim() : 'none';
-
-                        if (lastFilter !== filterStr) {
-                            ctx.filter = filterStr;
-                            lastFilter = filterStr;
-                        }
+                        const tinted = getTintedIconStamp(slot);
+                        if (tinted) currentBitmap = tinted;
                     }
 
                     ctx.setTransform(cosT * sX, sinT * sX, -sinT * sY, cosT * sY, tx, ty);
                     ctx.drawImage(currentBitmap, -halfTileW, -halfTileH, tileW, tileH);
                 }
-            }
-
-            if (lastFilter !== 'none') {
-                ctx.filter = 'none';
-                lastFilter = 'none';
             }
 
             if (hasDynamicAnim && curOptions.animate !== false && !fxPaused && !document.hidden) {
@@ -3717,7 +3767,6 @@
             const config = curElement.pattern || {};
             layout = ['grid', 'brick', 'stagger', 'alternating', 'checkerboard', 'kaleidoscope-quad', 'kaleidoscope-radial'].includes(config.layout) ? config.layout : 'brick';
             aspectRatio = ['1:1', '16:9', '4:3', '3:2', '2:1', '3:4', '9:16', 'natural'].includes(config.aspectRatio) ? config.aspectRatio : '1:1';
-            iconHueCache.clear();
             tileSize = Math.max(16, Math.min(1024, Number(config.tileSize) || 96));
             gap = Math.max(0, Math.min(256, Number(config.gap ?? 16)));
             offsetX = Math.max(0, Math.min(100, Number(config.offsetX ?? (layout === 'brick' ? 50 : 0))));
@@ -3793,9 +3842,9 @@
             else patternRunners.delete(wake);
 
             dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-            const { tileW: curW, tileH: curH } = getTileDimensions();
-            stampW = Math.min(384, Math.max(32, Math.round(curW * dpr)));
-            stampH = Math.min(384, Math.max(32, Math.round(curH * dpr)));
+            const { w: sW, h: sH } = getStampDimensions();
+            stampW = sW;
+            stampH = sH;
 
             isKaleido = layout === 'kaleidoscope-quad' || layout === 'kaleidoscope-radial' || motion === 'kaleidoscope';
             if (isKaleido) {
@@ -3811,8 +3860,14 @@
 
             const rawSrc = curOptions.expand ? curOptions.expand(curElement.src || '') : String(curElement.src || '');
             const nextStampKey = sourceType === 'icon'
-                ? JSON.stringify(['icon', curElement.content, stampW, stampH, curElement.style?.color, curElement.style?.textStroke, curElement.style?.textShadow])
-                : JSON.stringify(['image', rawSrc, stampW, stampH, curElement.style?.objectFit, curElement.style?.focusX, curElement.style?.focusY]);
+                ? JSON.stringify(['icon', curElement.content, stampW, stampH, aspectRatio, curElement.style?.color, curElement.style?.textStroke, curElement.style?.textShadow])
+                : JSON.stringify(['image', rawSrc, stampW, stampH, aspectRatio, curElement.style?.objectFit, curElement.style?.focusX, curElement.style?.focusY]);
+
+            const nextPaletteKey = JSON.stringify([nextStampKey, hueShift !== 'none' || hueJitter > 0, saturationJitter, brightnessJitter]);
+            if (nextPaletteKey !== lastPaletteKey) {
+                lastPaletteKey = nextPaletteKey;
+                iconHueCache.clear();
+            }
 
             if (nextStampKey === lastStampKey && readyToDraw) {
                 wake();
@@ -3842,6 +3897,7 @@
                         }
                     } else if (curOptions.preview) {
                         drawSamplePatternStamp(stampCtx, stampW, stampH);
+                        captureBaseStampData();
                         note.textContent = 'Choose a valid Font Awesome icon or paste an emoji in Content';
                         note.style.display = 'block';
                         readyToDraw = true;
@@ -3862,6 +3918,7 @@
                 if (!rawSrc || /\{\{/.test(rawSrc)) {
                     if (curOptions.preview) {
                         drawSamplePatternStamp(stampCtx, stampW, stampH);
+                        captureBaseStampData();
                         note.textContent = rawSrc ? `${rawSrc} (sample tile shown until live value is available)` : 'Sample pattern tile — upload an image or switch to Icon / Emoji in Content';
                         note.style.display = 'block';
                         readyToDraw = true;
@@ -3875,20 +3932,29 @@
                 } else {
                     lastImgSrc = rawSrc;
                     const img = new Image();
+                    if (/^https?:\/\//i.test(rawSrc)) img.crossOrigin = 'anonymous';
                     img.decoding = 'async';
                     img.onload = () => {
                         if (stopped || lastImgSrc !== rawSrc) return;
                         cachedImg = img;
                         note.style.display = 'none';
                         buildStampFromImage(img);
+                        lastStampKey = JSON.stringify(['image', rawSrc, stampW, stampH, aspectRatio, curElement.style?.objectFit, curElement.style?.focusX, curElement.style?.focusY]);
+                        lastPaletteKey = JSON.stringify([lastStampKey, hueShift !== 'none' || hueJitter > 0, saturationJitter, brightnessJitter]);
                         readyToDraw = true;
                         wake();
                     };
                     img.onerror = () => {
                         if (stopped || lastImgSrc !== rawSrc) return;
+                        if (img.crossOrigin) {
+                            img.removeAttribute('crossorigin');
+                            img.src = rawSrc;
+                            return;
+                        }
                         cachedImg = null;
                         if (curOptions.preview) {
                             drawSamplePatternStamp(stampCtx, stampW, stampH);
+                            captureBaseStampData();
                             note.textContent = "Couldn't load tile image — showing sample pattern";
                             note.style.display = 'block';
                             readyToDraw = true;

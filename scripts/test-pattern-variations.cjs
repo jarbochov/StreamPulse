@@ -160,6 +160,9 @@ test('Pattern Tile: editor inspector exposes Color & Hue Variation and Organic J
     assert.ok(stateJs.includes("hueJitter: 0"), 'editor-state.js must initialize hueJitter');
     assert.ok(stateJs.includes("scaleJitter: 0"), 'editor-state.js must initialize scaleJitter');
     assert.ok(stateJs.includes("aspectRatio: '1:1'"), 'editor-state.js must initialize aspectRatio');
+
+    assert.ok(inspectorJs.includes("patternLayout: 'style'"), 'patternLayout must be in Style tab');
+    assert.ok(inspectorJs.includes("patternJitter: 'style'"), 'patternJitter must be in Style tab');
 });
 
 test('Pattern Tile: deterministic cellHash and runtime animation lifecycle', () => {

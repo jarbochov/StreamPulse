@@ -99,7 +99,7 @@
             { label: 'Goals Manager', href: '/goals-editor.html' },
             { label: 'Game Plan Manager', href: '/game-plan-editor.html' },
             { label: 'Music Settings', href: '/music-editor.html', module: 'music' },
-            { label: 'Overlay Assets', href: '/assets.html' },
+            { label: 'Asset Library', href: '/assets.html' },
             { heading: 'URL Wizards' },
             { label: 'Credits, Goals & Stats', href: '/overlay-url-wizard.html' },
             { label: 'Timers', href: '/timer-url-wizard.html' },
@@ -193,7 +193,7 @@
         list.push({ label: 'Goals Manager', href: '/goals-editor.html', group: 'Editors & Studios' });
         list.push({ label: 'Game Plan Manager', href: '/game-plan-editor.html', group: 'Editors & Studios' });
         list.push({ label: 'Music Settings', href: '/music-editor.html', group: 'Editors & Studios', module: 'music' });
-        list.push({ label: 'Overlay Assets', href: '/assets.html', group: 'Editors & Studios' });
+        list.push({ label: 'Asset Library', href: '/assets.html', group: 'Editors & Studios', keywords: 'overlay assets media library images videos audio fonts upload crop' });
 
         // 3. Stream Tools & Automation
         list.push({ label: 'Poll Manager', href: '/polls.html', group: 'Stream Tools', module: 'polls' });
