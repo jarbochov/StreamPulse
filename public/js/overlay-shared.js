@@ -3078,11 +3078,21 @@
         let blendMode = 'normal', sourceType = 'image', wedges = 6, feather = 0;
         let motion = 'scroll', trackMode = 'uniform', scrollAngleRad = 0;
         let speed = 12, spinSpeed = 8, spinDirection = 'cw', waveAmount = 0.25;
+        let hueShift = 'none', hueSpeed = 12, hueJitter = 0;
+        let brightnessJitter = 0, saturationJitter = 0;
+        let scaleJitter = 0, rotationJitter = 0, positionJitter = 0;
+        let twinkle = 0, twinkleSpeed = 4;
         let dpr = 1, stampSize = 96, isKaleido = false;
         let lastStampKey = '';
         let lastImgSrc = '';
         let cachedImg = null;
         let lastFeather = -1;
+
+        function cellHash(r, c, seed = 0) {
+            let h = (r * 374761393 + c * 668265263 + seed * 1274126177) ^ 0x5bf03635;
+            h = Math.imul(h ^ (h >>> 13), 1274126177);
+            return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+        }
 
         function buildStampFromImage(img) {
             const iw = img.naturalWidth || img.width || stampSize;
@@ -3405,8 +3415,16 @@
             const cosOdd = Math.cos(gridAngleRad + oddRot), sinOdd = Math.sin(gridAngleRad + oddRot);
 
             let lastAlpha = 1;
+            let lastFilter = 'none';
+            if (ctx.filter && ctx.filter !== 'none') {
+                ctx.filter = 'none';
+            }
             const staticRowShift = (offsetX / 100) * stepX;
             const staticColShift = (offsetY / 100) * stepY;
+
+            const hasDynamicAnim = motion !== 'none' || hueShift !== 'none' || twinkle > 0;
+            const hasColorFilter = hueJitter > 0 || hueShift !== 'none' || brightnessJitter > 0 || saturationJitter > 0;
+            const baseHueCycle = hueShift === 'cycle' ? ((t / hueSpeed) * 360) : 0;
 
             for (let r = -rows; r <= rows; r++) {
                 const oddRow = (r & 1) !== 0;
@@ -3417,14 +3435,21 @@
                     const oddCol = (c & 1) !== 0;
                     const cwWrap = oddCol ? oddColW : evenColW;
 
-                    const cx = c * stepX + rw.rem + rowShiftX;
-                    if (cx < -extentX || cx > extentX) continue;
+                    let cx = c * stepX + rw.rem + rowShiftX;
                     let cy = r * stepY + cwWrap.rem + (oddCol ? staticColShift : 0);
-                    if (cy < -extentY || cy > extentY) continue;
 
                     const row = r - cwWrap.base;
                     const col = c - rw.base;
                     const oddCell = ((row + col) & 1) !== 0;
+
+                    if (positionJitter > 0) {
+                        const pj = (positionJitter / 100) * 0.45;
+                        cx += (cellHash(row, col, 7) * 2 - 1) * stepX * pj;
+                        cy += (cellHash(row, col, 8) * 2 - 1) * stepY * pj;
+                    }
+
+                    if (cx < -extentX || cx > extentX) continue;
+                    if (cy < -extentY || cy > extentY) continue;
 
                     let alpha = tileOpacity;
                     let scale = 1;
@@ -3443,20 +3468,43 @@
                         }
                     }
 
+                    if (scaleJitter > 0) {
+                        const sj = 1 + (cellHash(row, col, 5) * 2 - 1) * (scaleJitter / 100);
+                        scale *= Math.max(0.05, sj);
+                    }
+
+                    if (twinkle > 0) {
+                        const twSeed = cellHash(row, col, 9);
+                        const twPhase = ((t / twinkleSpeed) * Math.PI * 2) + (twSeed * Math.PI * 2);
+                        const twPulse = 1 - (Math.cos(twPhase) * 0.5 + 0.5) * (twinkle / 100) * 0.85;
+                        alpha *= Math.max(0.01, twPulse);
+                    }
+
                     if (alpha < 0.01 || scale < 0.02) continue;
+
+                    let rotJitterRad = 0;
+                    if (rotationJitter > 0) {
+                        rotJitterRad = ((cellHash(row, col, 6) * 2 - 1) * rotationJitter * Math.PI) / 180;
+                    }
 
                     let cosT = oddCell ? cosOdd : cosEven;
                     let sinT = oddCell ? sinOdd : sinEven;
 
-                    if (isSway) {
-                        const swayDir = spinDirection === 'alternate' ? (oddCell ? -1 : 1) : 1;
-                        const rot = (oddCell ? oddRot : evenRot) + swayDir * Math.sin(spinPhase + (row + col) * 0.4) * (waveAmount * 0.65);
-                        cosT = Math.cos(gridAngleRad + rot);
-                        sinT = Math.sin(gridAngleRad + rot);
-                    } else if (motion === 'wave') {
+                    if (motion === 'wave') {
                         const wavePhase = spinPhase - (col * 0.45 + row * 0.45);
                         scale *= Math.max(0.1, 1 + Math.sin(wavePhase) * waveAmount * 0.45);
                         cy += Math.cos(wavePhase) * tileSize * waveAmount * 0.16;
+                    }
+
+                    if (isSway) {
+                        const swayDir = spinDirection === 'alternate' ? (oddCell ? -1 : 1) : 1;
+                        const rot = (oddCell ? oddRot : evenRot) + swayDir * Math.sin(spinPhase + (row + col) * 0.4) * (waveAmount * 0.65) + rotJitterRad;
+                        cosT = Math.cos(gridAngleRad + rot);
+                        sinT = Math.sin(gridAngleRad + rot);
+                    } else if (rotJitterRad !== 0) {
+                        const rot = (oddCell ? oddRot : evenRot) + rotJitterRad;
+                        cosT = Math.cos(gridAngleRad + rot);
+                        sinT = Math.sin(gridAngleRad + rot);
                     }
 
                     const tx = (halfW + cx * cosG - cy * sinG) * scaleCap;
@@ -3468,12 +3516,51 @@
                         ctx.globalAlpha = alpha;
                         lastAlpha = alpha;
                     }
+
+                    let filterStr = 'none';
+                    if (hasColorFilter) {
+                        let tileHue = baseHueCycle;
+                        if (hueShift === 'wave-x') {
+                            tileHue = ((t / hueSpeed) * 360) + (col * 24);
+                        } else if (hueShift === 'wave-y') {
+                            tileHue = ((t / hueSpeed) * 360) + (row * 24);
+                        }
+                        if (hueJitter > 0) {
+                            tileHue += (cellHash(row, col, 1) * 2 - 1) * hueJitter;
+                        }
+                        tileHue = ((tileHue % 360) + 360) % 360;
+
+                        let fp = '';
+                        if (tileHue > 0.5 && tileHue < 359.5) {
+                            fp += `hue-rotate(${Math.round(tileHue)}deg) `;
+                        }
+                        if (brightnessJitter > 0) {
+                            const bVal = 1 + (cellHash(row, col, 2) * 2 - 1) * (brightnessJitter / 100);
+                            fp += `brightness(${Math.round(bVal * 100)}%) `;
+                        }
+                        if (saturationJitter > 0) {
+                            const sVal = 1 + (cellHash(row, col, 3) * 2 - 1) * (saturationJitter / 100);
+                            fp += `saturate(${Math.round(sVal * 100)}%) `;
+                        }
+                        filterStr = fp ? fp.trim() : 'none';
+                    }
+
+                    if (lastFilter !== filterStr) {
+                        ctx.filter = filterStr;
+                        lastFilter = filterStr;
+                    }
+
                     ctx.setTransform(cosT * sX, sinT * sX, -sinT * sY, cosT * sY, tx, ty);
                     ctx.drawImage(sourceBitmap, -halfTile, -halfTile, tileSize, tileSize);
                 }
             }
 
-            if (motion !== 'none' && !fxPaused && !document.hidden) {
+            if (lastFilter !== 'none') {
+                ctx.filter = 'none';
+                lastFilter = 'none';
+            }
+
+            if (hasDynamicAnim && curOptions.animate !== false && !fxPaused && !document.hidden) {
                 rafId = requestAnimationFrame(drawFrame);
             }
         }
@@ -3484,8 +3571,12 @@
                 return;
             }
             if (stopped || !readyToDraw || curElement.visible === false || node.classList.contains('hidden')) return;
-            const pMotion = curOptions.animate === false ? 'none' : (curElement.pattern?.motion || motion || 'none');
-            if (pMotion === 'none') {
+            const p = curElement.pattern || {};
+            const pMotion = curOptions.animate === false ? 'none' : (p.motion || motion || 'none');
+            const pHueShift = p.hueShift || hueShift || 'none';
+            const pTwinkle = Number(p.twinkle ?? twinkle);
+            const needsLoop = (pMotion !== 'none' || pHueShift !== 'none' || pTwinkle > 0) && curOptions.animate !== false;
+            if (!needsLoop) {
                 if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
                 drawFrame(performance.now());
             } else if (!rafId && !fxPaused && !document.hidden) {
@@ -3529,6 +3620,16 @@
             spinSpeed = Math.max(0.5, Math.min(120, Number(config.spinSpeed) || 8));
             spinDirection = ['cw', 'ccw', 'alternate'].includes(config.spinDirection) ? config.spinDirection : 'cw';
             waveAmount = Math.max(5, Math.min(100, Number(config.waveAmount) || 25)) / 100;
+            hueShift = ['none', 'cycle', 'wave-x', 'wave-y'].includes(config.hueShift) ? config.hueShift : 'none';
+            hueSpeed = Math.max(0.5, Math.min(120, Number(config.hueSpeed) || 12));
+            hueJitter = Math.max(0, Math.min(180, Number(config.hueJitter) || 0));
+            brightnessJitter = Math.max(0, Math.min(50, Number(config.brightnessJitter) || 0));
+            saturationJitter = Math.max(0, Math.min(50, Number(config.saturationJitter) || 0));
+            scaleJitter = Math.max(0, Math.min(50, Number(config.scaleJitter) || 0));
+            rotationJitter = Math.max(0, Math.min(180, Number(config.rotationJitter) || 0));
+            positionJitter = Math.max(0, Math.min(50, Number(config.positionJitter) || 0));
+            twinkle = Math.max(0, Math.min(100, Number(config.twinkle) || 0));
+            twinkleSpeed = Math.max(0.5, Math.min(30, Number(config.twinkleSpeed) || 4));
 
             const hasFill = hasBoxFill(curElement.style || {});
             if (hasFill && blendMode !== 'normal') {

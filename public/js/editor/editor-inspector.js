@@ -1552,6 +1552,33 @@ export function patternSection(el) {
             ${F.range('pattern.tileOpacity', 'Tile opacity', p.tileOpacity ?? 1, { min: 5, max: 100, scale: 0.01, unit: '%', editable: true })}
             ${F.range('pattern.feather', 'Edge vignette fade', p.feather ?? 0, { min: 0, max: 100, unit: '%', editable: true })}
         </div>`)
+        + F.section('patternColor', 'Color & hue variation', `
+        ${F.select('pattern.hueShift', 'Hue animation', p.hueShift || 'none', [
+            ['none', 'None (Static color)'],
+            ['cycle', 'Rainbow color cycle (All tiles)'],
+            ['wave-x', 'Horizontal rainbow wave'],
+            ['wave-y', 'Vertical rainbow wave']
+        ])}
+        ${(p.hueShift && p.hueShift !== 'none') ? F.number('pattern.hueSpeed', 'Color cycle speed (sec)', p.hueSpeed ?? 12, { min: 1, max: 120, step: 0.5 }) : ''}
+        <div class="grid2">
+            ${F.range('pattern.hueJitter', 'Hue jitter / color spread', p.hueJitter ?? 0, { min: 0, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset hue jitter to 0°' })}
+            ${F.range('pattern.saturationJitter', 'Saturation jitter', p.saturationJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset saturation jitter to 0%' })}
+        </div>
+        <div class="grid2">
+            ${F.range('pattern.brightnessJitter', 'Brightness jitter', p.brightnessJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset brightness jitter to 0%' })}
+            ${F.range('pattern.twinkle', 'Twinkle / pulse', p.twinkle ?? 0, { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset twinkle to 0%' })}
+        </div>
+        ${(p.twinkle > 0) ? F.number('pattern.twinkleSpeed', 'Twinkle pulse cycle (sec)', p.twinkleSpeed ?? 4, { min: 0.5, max: 30, step: 0.5 }) : ''}
+        <p class="hint">Hue jitter and animation rotate tile colors across the spectrum. For icons, pick an icon color other than pure white or black to rotate through colored hues.</p>`)
+        + F.section('patternJitter', 'Organic scatter & jitter', `
+        <div class="grid2">
+            ${F.range('pattern.scaleJitter', 'Scale jitter', p.scaleJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset scale jitter to 0%' })}
+            ${F.range('pattern.rotationJitter', 'Rotation jitter', p.rotationJitter ?? 0, { min: 0, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset rotation jitter to 0°' })}
+        </div>
+        <div class="grid2">
+            ${F.range('pattern.positionJitter', 'Position scatter', p.positionJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset position scatter to 0%' })}
+        </div>
+        <p class="hint">Randomizes tile scale, tilt, and position to break up strict grid uniformity into an organic, scattered pattern.</p>`)
         + F.section('patternMotion', 'Motion graphics animation', `
         ${F.select('pattern.motion', 'Animation style', motion, [
             ['none', 'None (Static)'],

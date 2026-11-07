@@ -40,7 +40,7 @@ Custom Overlay Studio includes 20 specialized layer types organized into six int
 
 ### 4. Graphics & Patterns
 - **Icon (`type: "icon"`)**: Scalable vector iconography from built-in symbol libraries (FontAwesome solids and brands) and custom SVGs. Customize fill color, sizing, opacity, rotation, and alignment within layer bounds.
-- **Pattern Tile (`type: "pattern"`)**: Seamless repeating wallpaper grids created from icons or image assets. Configure horizontal and vertical tile spacing, scaling, angle, opacity, and blend modes for textured broadcast backdrops.
+- **Pattern Tile (`type: "pattern"`)**: Seamless repeating wallpaper grids and motion-graphic mosaics created from icons or image assets. Supports 7 arrangement layouts (*Grid*, *Brick*, *Stagger*, *Alternating Flip/Tilt*, *Checkerboard*, *Kaleidoscope Quad*, *Kaleidoscope Radial*) and 10 motion graphic styles (*Scroll*, *Alternating Rows/Cols*, *Weave*, *Sway*, *Spin*, *Scroll & Spin*, *Wave*, *Kaleidoscope*). Includes live **Color & Hue Variation** (rainbow color cycle, horizontal/vertical rainbow waves, deterministic hue jitter, saturation/brightness jitter, and asynchronous twinkle pulse) alongside **Organic Scatter & Jitter** (position scatter, rotation jitter, and scale jitter) to create varied, non-repetitive organic backdrops with zero idle CPU overhead.
 - **Background Pattern (`type: "procedural-pattern"`)**: Generative animated procedural backdrops built with HTML5 canvas. Choose from multiple generative algorithms (geometric waves, retro grid lines, particle fields, neon stripes) with live controls for animation speed, line density, wave amplitude, stroke width, and dual-color palettes. Automatically respects reduced-motion preferences.
 
 ### 5. Stream Widgets

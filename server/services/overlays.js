@@ -357,6 +357,7 @@ const PATTERN_MOTIONS = ['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'swa
 const PATTERN_TRACK_MODES = ['uniform', 'opposite', 'stagger', 'sine', 'alternate-stop', 'alt-rows', 'stagger-rows', 'alt-cols', 'stagger-cols'];
 const PATTERN_FLIPS = ['none', 'tilt', 'h', 'v', 'both'];
 const PATTERN_BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion', 'luminosity', 'plus-lighter'];
+const PATTERN_HUE_SHIFTS = ['none', 'cycle', 'wave-x', 'wave-y'];
 
 function normalizeSpeakerBadge(badge = {}) {
     const rawSpeaker = badge?.speaker && typeof badge.speaker === 'object' ? badge.speaker : {};
@@ -459,7 +460,17 @@ function normalizePattern(p = {}) {
         speed: Math.round(num(p.speed, 0.1, 120, (p.sourceType === 'preset' ? 1 : 12)) * 10) / 10,
         spinSpeed: Math.round(num(p.spinSpeed, 0.5, 120, 8) * 10) / 10,
         spinDirection: ['cw', 'ccw', 'alternate'].includes(p.spinDirection) ? p.spinDirection : 'cw',
-        waveAmount: Math.round(num(p.waveAmount, 5, 100, 25))
+        waveAmount: Math.round(num(p.waveAmount, 5, 100, 25)),
+        hueShift: PATTERN_HUE_SHIFTS.includes(p.hueShift) ? p.hueShift : 'none',
+        hueSpeed: Math.round(num(p.hueSpeed, 1, 120, 12) * 10) / 10,
+        hueJitter: Math.round(num(p.hueJitter, 0, 180, 0)),
+        brightnessJitter: Math.round(num(p.brightnessJitter, 0, 50, 0)),
+        saturationJitter: Math.round(num(p.saturationJitter, 0, 50, 0)),
+        scaleJitter: Math.round(num(p.scaleJitter, 0, 50, 0)),
+        rotationJitter: Math.round(num(p.rotationJitter, 0, 180, 0)),
+        positionJitter: Math.round(num(p.positionJitter, 0, 50, 0)),
+        twinkle: Math.round(num(p.twinkle, 0, 100, 0)),
+        twinkleSpeed: Math.round(num(p.twinkleSpeed, 0.5, 30, 4) * 10) / 10
     };
 }
 

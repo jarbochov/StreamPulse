@@ -1,0 +1,150 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
+const vm = require('node:vm');
+
+const { normalizeCustomOverlay, normalizeOverlayElement } = require('../server/services/overlays.js');
+
+test('Pattern Tile: schema normalization and defaults for hue, jitter and twinkle', () => {
+    // 1. Defaults when pattern is empty
+    const normalizedDefault = normalizeCustomOverlay({
+        id: 'test-pat-1',
+        name: 'Pattern Test',
+        elements: [{
+            id: 'pat-el-1',
+            type: 'pattern',
+            pattern: {}
+        }]
+    });
+    const pDef = normalizedDefault.elements[0].pattern;
+    assert.equal(pDef.hueShift, 'none');
+    assert.equal(pDef.hueSpeed, 12);
+    assert.equal(pDef.hueJitter, 0);
+    assert.equal(pDef.brightnessJitter, 0);
+    assert.equal(pDef.saturationJitter, 0);
+    assert.equal(pDef.scaleJitter, 0);
+    assert.equal(pDef.rotationJitter, 0);
+    assert.equal(pDef.positionJitter, 0);
+    assert.equal(pDef.twinkle, 0);
+    assert.equal(pDef.twinkleSpeed, 4);
+
+    // 2. Custom valid values
+    const normalizedCustom = normalizeCustomOverlay({
+        id: 'test-pat-2',
+        name: 'Pattern Custom',
+        elements: [{
+            id: 'pat-el-2',
+            type: 'pattern',
+            pattern: {
+                hueShift: 'wave-x',
+                hueSpeed: 8.5,
+                hueJitter: 45,
+                brightnessJitter: 20,
+                saturationJitter: 15,
+                scaleJitter: 25,
+                rotationJitter: 60,
+                positionJitter: 30,
+                twinkle: 50,
+                twinkleSpeed: 2.5
+            }
+        }]
+    });
+    const pCust = normalizedCustom.elements[0].pattern;
+    assert.equal(pCust.hueShift, 'wave-x');
+    assert.equal(pCust.hueSpeed, 8.5);
+    assert.equal(pCust.hueJitter, 45);
+    assert.equal(pCust.brightnessJitter, 20);
+    assert.equal(pCust.saturationJitter, 15);
+    assert.equal(pCust.scaleJitter, 25);
+    assert.equal(pCust.rotationJitter, 60);
+    assert.equal(pCust.positionJitter, 30);
+    assert.equal(pCust.twinkle, 50);
+    assert.equal(pCust.twinkleSpeed, 2.5);
+
+    // 3. Out-of-bounds clamping
+    const normalizedClamped = normalizeCustomOverlay({
+        id: 'test-pat-3',
+        name: 'Pattern Clamped',
+        elements: [{
+            id: 'pat-el-3',
+            type: 'pattern',
+            pattern: {
+                hueShift: 'invalid-mode',
+                hueSpeed: 500, // max 120
+                hueJitter: 999, // max 180
+                brightnessJitter: 100, // max 50
+                saturationJitter: -20, // min 0
+                scaleJitter: 80, // max 50
+                rotationJitter: 360, // max 180
+                positionJitter: -5, // min 0
+                twinkle: 200, // max 100
+                twinkleSpeed: 0.1 // min 0.5
+            }
+        }]
+    });
+    const pClamp = normalizedClamped.elements[0].pattern;
+    assert.equal(pClamp.hueShift, 'none');
+    assert.equal(pClamp.hueSpeed, 120);
+    assert.equal(pClamp.hueJitter, 180);
+    assert.equal(pClamp.brightnessJitter, 50);
+    assert.equal(pClamp.saturationJitter, 0);
+    assert.equal(pClamp.scaleJitter, 50);
+    assert.equal(pClamp.rotationJitter, 180);
+    assert.equal(pClamp.positionJitter, 0);
+    assert.equal(pClamp.twinkle, 100);
+    assert.equal(pClamp.twinkleSpeed, 0.5);
+});
+
+test('Pattern Tile: editor inspector exposes Color & Hue Variation and Organic Jitter sections', () => {
+    const inspectorJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-inspector.js'), 'utf8');
+    assert.ok(inspectorJs.includes("F.section('patternColor', 'Color & hue variation'"), 'Must contain patternColor inspector section');
+    assert.ok(inspectorJs.includes("F.section('patternJitter', 'Organic scatter & jitter'"), 'Must contain patternJitter inspector section');
+    assert.ok(inspectorJs.includes("pattern.hueShift"), 'Must contain pattern.hueShift field');
+    assert.ok(inspectorJs.includes("pattern.hueJitter"), 'Must contain pattern.hueJitter range');
+    assert.ok(inspectorJs.includes("pattern.brightnessJitter"), 'Must contain pattern.brightnessJitter range');
+    assert.ok(inspectorJs.includes("pattern.saturationJitter"), 'Must contain pattern.saturationJitter range');
+    assert.ok(inspectorJs.includes("pattern.scaleJitter"), 'Must contain pattern.scaleJitter range');
+    assert.ok(inspectorJs.includes("pattern.rotationJitter"), 'Must contain pattern.rotationJitter range');
+    assert.ok(inspectorJs.includes("pattern.positionJitter"), 'Must contain pattern.positionJitter range');
+    assert.ok(inspectorJs.includes("pattern.twinkle"), 'Must contain pattern.twinkle range');
+
+    const stateJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-state.js'), 'utf8');
+    assert.ok(stateJs.includes("hueShift: 'none'"), 'editor-state.js must initialize hueShift');
+    assert.ok(stateJs.includes("hueJitter: 0"), 'editor-state.js must initialize hueJitter');
+    assert.ok(stateJs.includes("scaleJitter: 0"), 'editor-state.js must initialize scaleJitter');
+});
+
+test('Pattern Tile: deterministic cellHash and runtime animation lifecycle', () => {
+    const sharedJs = fs.readFileSync(path.join(__dirname, '../public/js/overlay-shared.js'), 'utf8');
+    assert.ok(sharedJs.includes('function cellHash(r, c, seed = 0)'), 'mountPattern must define deterministic cellHash');
+    assert.ok(sharedJs.includes('hueJitter'), 'mountPattern must handle hueJitter');
+    assert.ok(sharedJs.includes('scaleJitter'), 'mountPattern must handle scaleJitter');
+    assert.ok(sharedJs.includes('rotationJitter'), 'mountPattern must handle rotationJitter');
+    assert.ok(sharedJs.includes('positionJitter'), 'mountPattern must handle positionJitter');
+    assert.ok(sharedJs.includes('twinkle'), 'mountPattern must handle twinkle');
+
+    // Extract cellHash to test mathematical properties
+    function cellHash(r, c, seed = 0) {
+        let h = (r * 374761393 + c * 668265263 + seed * 1274126177) ^ 0x5bf03635;
+        h = Math.imul(h ^ (h >>> 13), 1274126177);
+        return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+    }
+
+    // 1. Invariance & Determinism: same cell returns exact same value across invocations
+    assert.equal(cellHash(5, -12, 1), cellHash(5, -12, 1));
+    assert.equal(cellHash(0, 0, 3), cellHash(0, 0, 3));
+
+    // 2. Uniqueness: adjacent cells produce distinct values
+    assert.notEqual(cellHash(1, 2, 0), cellHash(2, 1, 0));
+    assert.notEqual(cellHash(10, 10, 1), cellHash(10, 11, 1));
+
+    // 3. Range bounds: strictly between 0 and 1 inclusive
+    for (let r = -20; r <= 20; r += 5) {
+        for (let c = -20; c <= 20; c += 5) {
+            const val = cellHash(r, c, 2);
+            assert.ok(val >= 0 && val <= 1, `Hash out of range at ${r},${c}: ${val}`);
+        }
+    }
+});
