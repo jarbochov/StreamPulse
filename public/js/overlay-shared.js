@@ -3075,7 +3075,8 @@
 
         let curElement = element;
         let curOptions = options;
-        let layout = 'brick', aspectRatio = '1:1', tileSize = 96, gap = 16, offsetX = 50, offsetY = 0;
+        let layout = 'brick', symmetry = 'none', kaleidoMorph = true, kaleidoSpeed = 8, kaleidoDirection = 'cw', kaleidoDepth = 0.35;
+        let aspectRatio = '1:1', tileSize = 96, gap = 16, offsetX = 50, offsetY = 0;
         let gridAngleRad = 0, cosG = 1, sinG = 0, tileAngleDeg = 0, tileAngleRad = 0;
         let alternateFlip = 'tilt', tileOpacity = 1, altOpacity = 0.4, altScale = 1;
         let blendMode = 'normal', sourceType = 'image', wedges = 6, feather = 0;
@@ -3093,6 +3094,9 @@
         let cachedImg = null;
         let lastFeather = -1;
         const iconHueCache = new Map();
+        const kaleidoSlotCanvases = new Array(16);
+        const kaleidoSlotFrameTags = new Int32Array(16);
+        let currentFrameId = 0;
         const rawStampCanvas = document.createElement('canvas');
         const rawStampCtx = rawStampCanvas.getContext('2d');
         let baseStampData = null;
@@ -3100,6 +3104,7 @@
 
         function captureBaseStampData() {
             iconHueCache.clear();
+            kaleidoSlotFrameTags.fill(0);
             baseStampData = null;
             baseStampIsMonochrome = false;
             try {
@@ -3110,10 +3115,7 @@
                     }
                     rawStampCtx.clearRect(0, 0, stampW, stampH);
                     rawStampCtx.drawImage(stampCanvas, 0, 0);
-                    if ((layout === 'kaleidoscope-quad' || layout === 'kaleidoscope-radial') && motion !== 'kaleidoscope') {
-                        renderKaleidoCell(stampCtx, rawStampCanvas, 0);
-                    }
-                    baseStampData = stampCtx.getImageData(0, 0, stampW, stampH);
+                    baseStampData = rawStampCtx.getImageData(0, 0, stampW, stampH);
                     const d = baseStampData.data;
                     let visible = 0;
                     let chromatic = 0;
@@ -3127,6 +3129,9 @@
                         }
                     }
                     baseStampIsMonochrome = visible > 0 && (chromatic / visible) < 0.05;
+                    if (symmetry !== 'none' && !(kaleidoMorph && curOptions.animate !== false)) {
+                        renderKaleidoCell(stampCtx, rawStampCanvas, 0);
+                    }
                 }
             } catch {
                 baseStampData = null;
@@ -3317,10 +3322,11 @@
                 if (briShift !== 0) l = Math.max(0.05, Math.min(0.95, l * (1 + briShift)));
                 const colorStr = `hsl(${Math.round(h)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;
 
-                tCtx.drawImage(stampCanvas, 0, 0);
+                tCtx.drawImage(rawStampCanvas, 0, 0);
                 tCtx.globalCompositeOperation = 'source-in';
                 tCtx.fillStyle = colorStr;
                 tCtx.fillRect(0, 0, stampW, stampH);
+                tCtx.globalCompositeOperation = 'source-over';
             } else if (baseStampData && baseStampData.width === stampW && baseStampData.height === stampH) {
                 const rad = (hKey * Math.PI) / 180;
                 const cosA = Math.cos(rad);
@@ -3381,8 +3387,37 @@
                 return null;
             }
 
+            if (symmetry !== 'none' && !(kaleidoMorph && curOptions.animate !== false)) {
+                const baked = document.createElement('canvas');
+                baked.width = stampW;
+                baked.height = stampH;
+                renderKaleidoCell(baked.getContext('2d'), c, 0);
+                iconHueCache.set(idx, baked);
+                return baked;
+            }
+
             iconHueCache.set(idx, c);
             return c;
+        }
+
+        function getDynamicKaleidoStamp(slot, t) {
+            const idx = ((slot % 16) + 16) % 16;
+            if (kaleidoSlotFrameTags[idx] === currentFrameId && kaleidoSlotCanvases[idx]) {
+                return kaleidoSlotCanvases[idx];
+            }
+            let kc = kaleidoSlotCanvases[idx];
+            if (!kc) {
+                kc = document.createElement('canvas');
+                kaleidoSlotCanvases[idx] = kc;
+            }
+            if (kc.width !== stampW || kc.height !== stampH) {
+                kc.width = stampW;
+                kc.height = stampH;
+            }
+            const tintedRaw = getTintedIconStamp(idx) || rawStampCanvas;
+            renderKaleidoCell(kc.getContext('2d'), tintedRaw, t);
+            kaleidoSlotFrameTags[idx] = currentFrameId;
+            return kc;
         }
 
         function renderKaleidoCell(targetCtx, srcBitmap, t) {
@@ -3390,11 +3425,12 @@
             const halfW = stampW / 2;
             const halfH = stampH / 2;
             targetCtx.clearRect(0, 0, stampW, stampH);
-            const dir = spinDirection === 'ccw' ? -1 : 1;
-            const kPhase = motion === 'kaleidoscope' ? (t / spinSpeed) * Math.PI * 2 * dir : 0;
-            const drift = motion === 'kaleidoscope' ? Math.sin(kPhase * 0.5) * stampW * 0.16 * waveAmount : 0;
+            const isMorphing = kaleidoMorph && curOptions.animate !== false;
+            const dir = kaleidoDirection === 'ccw' ? -1 : 1;
+            const kPhase = isMorphing ? (t / kaleidoSpeed) * Math.PI * 2 * dir : 0;
+            const drift = isMorphing ? Math.sin(kPhase * 0.5) * stampW * 0.18 * kaleidoDepth : 0;
 
-            if (layout === 'kaleidoscope-quad') {
+            if (symmetry === 'quad') {
                 const quads = [[1, 1], [-1, 1], [1, -1], [-1, -1]];
                 const pW = stampW * 0.54, pH = stampH * 0.54;
                 const cW = stampW * 0.34, cH = stampH * 0.34;
@@ -3424,7 +3460,7 @@
                     targetCtx.restore();
                 }
             } else {
-                // Radial Mandala (used for 'kaleidoscope-radial' and 'motion: kaleidoscope' on standard grids)
+                // Radial Mandala
                 const numWedges = Math.max(4, wedges || 6);
                 const wedgeAngle = (Math.PI * 2) / numWedges;
                 const r = Math.hypot(halfW, halfH) * 1.05;
@@ -3473,7 +3509,8 @@
             if (!startTime) startTime = ts;
 
             const isFloating = (motion === 'float' || (animateJitter && (positionJitter > 0 || scaleJitter > 0 || rotationJitter > 0))) && curOptions.animate !== false;
-            const hasDynamicAnim = motion !== 'none' || hueShift !== 'none' || twinkle > 0 || isFloating;
+            const isDynamicKaleido = symmetry !== 'none' && kaleidoMorph && curOptions.animate !== false;
+            const hasDynamicAnim = motion !== 'none' || isDynamicKaleido || hueShift !== 'none' || twinkle > 0 || isFloating;
             // Frame-rate pacing in editor preview: cap continuous animation loops at ~60fps on 120Hz displays
             if (!dirtyFrame && curOptions.preview && hasDynamicAnim && lastDrawTs && (ts - lastDrawTs < 15)) {
                 rafId = requestAnimationFrame(drawFrame);
@@ -3481,6 +3518,7 @@
             }
             dirtyFrame = false;
             lastDrawTs = ts;
+            currentFrameId = (currentFrameId + 1) | 0;
 
             const logicalW = Math.max(1, Number(curElement.width) || node.clientWidth || 300);
             const logicalH = Math.max(1, Number(curElement.height) || node.clientHeight || 200);
@@ -3526,9 +3564,9 @@
                 }
                 return;
             }
-            const isDynamicKaleido = motion === 'kaleidoscope';
-            if (isDynamicKaleido) updateKaleidoCell(t);
-            const sourceBitmap = isDynamicKaleido ? cellCanvas : stampCanvas;
+            const hasColorFilter = hueJitter > 0 || hueShift !== 'none' || brightnessJitter > 0 || saturationJitter > 0;
+            if (isDynamicKaleido && !hasColorFilter) updateKaleidoCell(t);
+            const sourceBitmap = (isDynamicKaleido && !hasColorFilter) ? cellCanvas : stampCanvas;
 
             const { tileW, tileH } = getTileDimensions();
             const stepX = Math.max(8, tileW + gap);
@@ -3640,7 +3678,7 @@
             const halfTileW = tileW / 2;
             const halfTileH = tileH / 2;
             const altDefaultTilt = (15 * Math.PI) / 180;
-            const baseRot = (layout === 'kaleidoscope-quad' || layout === 'kaleidoscope-radial') ? 0 : tileAngleRad;
+            const baseRot = symmetry !== 'none' ? 0 : tileAngleRad;
             const spinPhase = (motion === 'spin' || motion === 'scroll-spin' || motion === 'sway' || motion === 'wave') ? (t / spinSpeed) * Math.PI * 2 : 0;
 
             // Precompute trig for even/odd cells when rotation is not position-dependent ('sway')
@@ -3667,7 +3705,6 @@
             const staticRowShift = (offsetX / 100) * stepX;
             const staticColShift = (offsetY / 100) * stepY;
 
-            const hasColorFilter = hueJitter > 0 || hueShift !== 'none' || brightnessJitter > 0 || saturationJitter > 0;
             const hasHue = hueShift !== 'none' || hueJitter > 0;
             const baseHueCycle = hueShift === 'cycle' ? ((t / hueSpeed) * 360) : 0;
             const floatBasePhase = isFloating ? (t / jitterSpeed) * Math.PI * 2 : 0;
@@ -3792,7 +3829,7 @@
 
                     let currentBitmap = sourceBitmap;
 
-                    if (hasColorFilter && !isDynamicKaleido) {
+                    if (hasColorFilter) {
                         let slot = 0;
                         if (hasHue) {
                             let tileHue = baseHueCycle;
@@ -3808,8 +3845,12 @@
                         } else {
                             slot = Math.floor(cellHash(row, col, 2) * 16) % 16;
                         }
-                        const tinted = getTintedIconStamp(slot);
-                        if (tinted) currentBitmap = tinted;
+                        if (isDynamicKaleido) {
+                            currentBitmap = getDynamicKaleidoStamp(slot, t);
+                        } else {
+                            const tinted = getTintedIconStamp(slot);
+                            if (tinted) currentBitmap = tinted;
+                        }
                     }
 
                     ctx.setTransform(cosT * sX, sinT * sX, -sinT * sY, cosT * sY, tx, ty);
@@ -3844,7 +3885,16 @@
                 return;
             }
             const config = curElement.pattern || {};
-            layout = ['grid', 'brick', 'stagger', 'alternating', 'checkerboard', 'kaleidoscope-quad', 'kaleidoscope-radial'].includes(config.layout) ? config.layout : 'brick';
+            const rawLayout = config.layout || 'brick';
+            const rawMotion = config.motion || 'scroll';
+            symmetry = ['none', 'quad', 'radial'].includes(config.symmetry)
+                ? config.symmetry
+                : (rawLayout === 'kaleidoscope-quad' ? 'quad' : (rawLayout === 'kaleidoscope-radial' || rawMotion === 'kaleidoscope' ? 'radial' : 'none'));
+            layout = ['grid', 'brick', 'stagger', 'alternating', 'checkerboard'].includes(rawLayout) ? rawLayout : 'grid';
+            kaleidoMorph = config.kaleidoMorph !== undefined ? Boolean(config.kaleidoMorph) : true;
+            kaleidoSpeed = Math.max(0.5, Math.min(120, Number(config.kaleidoSpeed ?? config.spinSpeed) || 8));
+            kaleidoDirection = config.kaleidoDirection === 'ccw' ? 'ccw' : (config.spinDirection === 'ccw' ? 'ccw' : 'cw');
+            kaleidoDepth = Math.max(5, Math.min(100, Number(config.kaleidoDepth ?? config.waveAmount) || 35)) / 100;
             aspectRatio = ['1:1', '16:9', '4:3', '3:2', '2:1', '3:4', '9:16', 'natural'].includes(config.aspectRatio) ? config.aspectRatio : '1:1';
             tileSize = Math.max(16, Math.min(1024, Number(config.tileSize) || 96));
             gap = Math.max(0, Math.min(256, Number(config.gap ?? 16)));
@@ -3863,7 +3913,8 @@
             sourceType = ['preset', 'icon', 'image'].includes(config.sourceType) ? config.sourceType : (config.preset ? 'preset' : 'image');
             wedges = Math.max(4, Math.min(16, Math.round((Number(config.wedges) || 6) / 2) * 2));
             feather = Math.max(0, Math.min(100, Number(config.feather) || 0));
-            motion = curOptions.animate === false ? 'none' : (['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'float', 'kaleidoscope'].includes(config.motion) ? config.motion : 'scroll');
+            const cleanMotion = rawMotion === 'kaleidoscope' ? 'none' : rawMotion;
+            motion = curOptions.animate === false ? 'none' : (['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'float'].includes(cleanMotion) ? cleanMotion : 'scroll');
             const defaultTrack = (motion === 'alt-rows' || motion === 'alt-cols') ? 'opposite' : 'uniform';
             trackMode = ['uniform', 'opposite', 'stagger', 'sine', 'alternate-stop', 'alt-rows', 'stagger-rows', 'alt-cols', 'stagger-cols'].includes(config.trackMode) ? config.trackMode : defaultTrack;
             scrollAngleRad = (Number(config.scrollAngle ?? 315) * Math.PI) / 180;
@@ -3918,7 +3969,8 @@
                 return;
             }
 
-            const needsRunner = (motion !== 'none' || hueShift !== 'none' || twinkle > 0 || (animateJitter && (positionJitter > 0 || scaleJitter > 0 || rotationJitter > 0))) && curOptions.animate !== false;
+            const isDynamicKaleido = symmetry !== 'none' && kaleidoMorph && curOptions.animate !== false;
+            const needsRunner = (motion !== 'none' || isDynamicKaleido || hueShift !== 'none' || twinkle > 0 || (animateJitter && (positionJitter > 0 || scaleJitter > 0 || rotationJitter > 0))) && curOptions.animate !== false;
             if (needsRunner) patternRunners.add(wake);
             else patternRunners.delete(wake);
 
@@ -3927,7 +3979,7 @@
             stampW = sW;
             stampH = sH;
 
-            isKaleido = layout === 'kaleidoscope-quad' || layout === 'kaleidoscope-radial' || motion === 'kaleidoscope';
+            isKaleido = symmetry !== 'none';
             if (isKaleido) {
                 if (!cellCanvas) {
                     cellCanvas = document.createElement('canvas');
@@ -3940,15 +3992,16 @@
             }
 
             const rawSrc = curOptions.expand ? curOptions.expand(curElement.src || '') : String(curElement.src || '');
-            const kaleidoBakeKey = ((layout === 'kaleidoscope-quad' || layout === 'kaleidoscope-radial') && motion !== 'kaleidoscope') ? `${layout}:${wedges}:${tileAngleDeg}` : 'raw';
+            const kaleidoBakeKey = (symmetry !== 'none' && !isDynamicKaleido) ? `${symmetry}:${wedges}:${tileAngleDeg}` : 'raw';
             const nextStampKey = sourceType === 'icon'
                 ? JSON.stringify(['icon', curElement.content, stampW, stampH, aspectRatio, curElement.style?.color, curElement.style?.textStroke, curElement.style?.textShadow, kaleidoBakeKey])
                 : JSON.stringify(['image', rawSrc, stampW, stampH, aspectRatio, curElement.style?.objectFit, curElement.style?.focusX, curElement.style?.focusY, kaleidoBakeKey]);
 
-            const nextPaletteKey = JSON.stringify([nextStampKey, hueShift !== 'none' || hueJitter > 0, saturationJitter, brightnessJitter]);
+            const nextPaletteKey = JSON.stringify([nextStampKey, symmetry, wedges, tileAngleDeg, isDynamicKaleido, hueShift !== 'none' || hueJitter > 0, saturationJitter, brightnessJitter]);
             if (nextPaletteKey !== lastPaletteKey) {
                 lastPaletteKey = nextPaletteKey;
                 iconHueCache.clear();
+                kaleidoSlotFrameTags.fill(0);
             }
 
             if (nextStampKey === lastStampKey && readyToDraw) {
@@ -4021,9 +4074,10 @@
                         cachedImg = img;
                         note.style.display = 'none';
                         buildStampFromImage(img);
-                        const onloadBakeKey = ((layout === 'kaleidoscope-quad' || layout === 'kaleidoscope-radial') && motion !== 'kaleidoscope') ? `${layout}:${wedges}:${tileAngleDeg}` : 'raw';
+                        const onloadDynamicKaleido = symmetry !== 'none' && kaleidoMorph && curOptions.animate !== false;
+                        const onloadBakeKey = (symmetry !== 'none' && !onloadDynamicKaleido) ? `${symmetry}:${wedges}:${tileAngleDeg}` : 'raw';
                         lastStampKey = JSON.stringify(['image', rawSrc, stampW, stampH, aspectRatio, curElement.style?.objectFit, curElement.style?.focusX, curElement.style?.focusY, onloadBakeKey]);
-                        lastPaletteKey = JSON.stringify([lastStampKey, hueShift !== 'none' || hueJitter > 0, saturationJitter, brightnessJitter]);
+                        lastPaletteKey = JSON.stringify([lastStampKey, symmetry, wedges, tileAngleDeg, onloadDynamicKaleido, hueShift !== 'none' || hueJitter > 0, saturationJitter, brightnessJitter]);
                         readyToDraw = true;
                         wake();
                     };

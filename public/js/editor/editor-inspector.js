@@ -66,7 +66,7 @@ export const RERENDER_PATHS = new Set([
     'speakerBadge.reaction.visualizer', 'speakerBadge.reaction.highlightBorder', 'speakerBadge.reaction.dimWhenIdle',
     'speakerBadge.autoSize',
     'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta',
-    'pattern.sourceType', 'pattern.preset', 'pattern.layout', 'pattern.aspectRatio', 'pattern.hueShift', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip', 'pattern.animateJitter'
+    'pattern.sourceType', 'pattern.preset', 'pattern.layout', 'pattern.symmetry', 'pattern.kaleidoMorph', 'pattern.aspectRatio', 'pattern.hueShift', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip', 'pattern.animateJitter'
 ]);
 
 export const numberWasOn = new Map();
@@ -1389,8 +1389,14 @@ export function patternSection(el) {
         return proceduralPatternSection(el);
     }
     const p = el.pattern || {};
-    const layout = p.layout || 'brick';
-    const motion = p.motion || 'scroll';
+    const rawLayout = p.layout || 'brick';
+    const rawMotion = p.motion || 'scroll';
+    const symmetry = ['none', 'quad', 'radial'].includes(p.symmetry)
+        ? p.symmetry
+        : (rawLayout === 'kaleidoscope-quad' ? 'quad' : (rawLayout === 'kaleidoscope-radial' || rawMotion === 'kaleidoscope' ? 'radial' : 'none'));
+    const layout = (rawLayout === 'kaleidoscope-quad' || rawLayout === 'kaleidoscope-radial') ? 'grid' : rawLayout;
+    const motion = rawMotion === 'kaleidoscope' ? 'none' : rawMotion;
+    const kaleidoMorph = p.kaleidoMorph !== false;
     const altFlip = p.alternateFlip || 'tilt';
     const isAltOrChecker = layout === 'alternating' || layout === 'checkerboard';
     const aspectRatio = p.aspectRatio || '1:1';
@@ -1405,15 +1411,29 @@ export function patternSection(el) {
             ['none', 'Scale / opacity only']
         ]);
     }
-    if (layout === 'kaleidoscope-radial') {
-        layoutExtra += F.select('pattern.wedges', 'Mirror wedges', String(p.wedges || 6), [
-            ['4', '4 wedges (quad)'],
-            ['6', '6 wedges (hexagonal)'],
-            ['8', '8 wedges (octagonal)'],
-            ['10', '10 wedges'],
-            ['12', '12 wedges'],
-            ['16', '16 wedges (mandala)']
-        ]);
+
+    let symmetryControls = '';
+    if (symmetry !== 'none') {
+        symmetryControls = `
+            ${symmetry === 'radial' ? F.select('pattern.wedges', 'Mirror wedges', String(p.wedges || 6), [
+                ['4', '4 wedges (quad)'],
+                ['6', '6 wedges (hexagonal)'],
+                ['8', '8 wedges (octagonal)'],
+                ['10', '10 wedges'],
+                ['12', '12 wedges'],
+                ['16', '16 wedges (mandala)']
+            ]) : ''}
+            ${F.check('pattern.kaleidoMorph', 'Animate internal kaleidoscope morph', kaleidoMorph)}
+            ${kaleidoMorph ? `
+                <div class="grid2">
+                    ${F.number('pattern.kaleidoSpeed', 'Morph cycle (sec)', p.kaleidoSpeed ?? p.spinSpeed ?? 8, { min: 0.5, max: 120, step: 0.5 })}
+                    ${F.select('pattern.kaleidoDirection', 'Morph direction', p.kaleidoDirection || (p.spinDirection === 'ccw' ? 'ccw' : 'cw'), [
+                        ['cw', 'Clockwise'],
+                        ['ccw', 'Counter-clockwise']
+                    ])}
+                </div>
+                ${F.range('pattern.kaleidoDepth', 'Internal drift depth', p.kaleidoDepth ?? p.waveAmount ?? 35, { min: 5, max: 100, unit: '%', editable: true })}
+            ` : ''}`;
     }
 
     let motionControls = '';
@@ -1514,16 +1534,6 @@ export function patternSection(el) {
         motionControls = `
             ${F.number('pattern.jitterSpeed', 'Float cycle (sec)', p.jitterSpeed ?? 6, { min: 0.5, max: 60, step: 0.5 })}
             ${F.range('pattern.waveAmount', 'Float intensity', p.waveAmount ?? 25, { min: 5, max: 100, unit: '%', editable: true })}`;
-    } else if (motion === 'kaleidoscope') {
-        motionControls = `
-            <div class="grid2">
-                ${F.number('pattern.spinSpeed', 'Morph cycle (sec)', p.spinSpeed ?? 8, { min: 0.5, max: 120, step: 0.5 })}
-                ${F.select('pattern.spinDirection', 'Morph direction', p.spinDirection || 'cw', [
-                    ['cw', 'Clockwise'],
-                    ['ccw', 'Counter-clockwise']
-                ])}
-            </div>
-            ${F.range('pattern.waveAmount', 'Internal drift depth', p.waveAmount ?? 25, { min: 5, max: 100, unit: '%', editable: true })}`;
     }
 
     const secLayout = F.section('patternLayout', 'Pattern grid & spacing', `
@@ -1533,9 +1543,7 @@ export function patternSection(el) {
                 ['brick', 'Brick (Row Offset)'],
                 ['stagger', 'Staggered (Column Offset)'],
                 ['alternating', 'Alternating Tilt / Mirror'],
-                ['checkerboard', 'Checkerboard (Primary / Secondary)'],
-                ['kaleidoscope-quad', 'Kaleidoscope — 4-Way Quad Mirror'],
-                ['kaleidoscope-radial', 'Kaleidoscope — Radial Mandala']
+                ['checkerboard', 'Checkerboard (Primary / Secondary)']
             ])}
             ${F.select('pattern.aspectRatio', 'Tile aspect ratio', aspectRatio, [
                 ['1:1', '1:1 Square'],
@@ -1548,6 +1556,12 @@ export function patternSection(el) {
                 ['natural', 'Natural (Original Image Aspect)']
             ])}
         </div>
+        ${F.select('pattern.symmetry', 'Tile symmetry / kaleidoscope', symmetry, [
+            ['none', 'None (Standard Tile)'],
+            ['quad', 'Kaleidoscope — 4-Way Quad Mirror'],
+            ['radial', 'Kaleidoscope — Radial Mandala']
+        ])}
+        ${symmetryControls}
         ${F.range('pattern.tileSize', 'Tile size', p.tileSize ?? 96, { min: 16, max: 512, step: 2, unit: 'px', editable: true })}
         ${F.range('pattern.gap', 'Tile gap', p.gap ?? 16, { min: 0, max: 160, step: 1, unit: 'px', editable: true })}
         ${F.range('pattern.offsetX', 'Row offset', p.offsetX ?? (layout === 'brick' ? 50 : 0), { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset row offset to 0%' })}
@@ -1609,8 +1623,7 @@ export function patternSection(el) {
             ['spin', 'Tile Spin in Place'],
             ['scroll-spin', 'Scroll + Tile Spin'],
             ['wave', 'Traveling Scale Wave'],
-            ['float', 'Organic Per-Tile Float & Bob'],
-            ['kaleidoscope', 'Kaleidoscope Internal Morph']
+            ['float', 'Organic Per-Tile Float & Bob']
         ])}
         ${motionControls}
         ${motion !== 'none' ? '<p class="hint">Animates continuously in the live overlay and editor. Use the Effects toggle in the top toolbar to pause animations while editing.</p>' : ''}`);
@@ -2249,7 +2262,12 @@ export function initInspectorEvents() {
                     else if (el.pattern.layout === 'stagger') { el.pattern.offsetX = 0; el.pattern.offsetY = 50; }
                     else if (el.pattern.layout === 'grid') { el.pattern.offsetX = 0; el.pattern.offsetY = 0; }
                     else if (el.pattern.layout === 'alternating' && !el.pattern.tileAngle && (el.pattern.alternateFlip || 'tilt') === 'tilt') { el.pattern.tileAngle = 15; }
-                    else if (el.pattern.layout === 'kaleidoscope-quad' || el.pattern.layout === 'kaleidoscope-radial') { el.pattern.offsetX = 0; el.pattern.offsetY = 0; }
+                }
+                if (path === 'pattern.symmetry' && el.pattern) {
+                    if (el.pattern.symmetry === 'quad' || el.pattern.symmetry === 'radial') {
+                        if (el.pattern.kaleidoMorph === undefined) el.pattern.kaleidoMorph = true;
+                        if (el.pattern.layout === 'kaleidoscope-quad' || el.pattern.layout === 'kaleidoscope-radial') el.pattern.layout = 'grid';
+                    }
                 }
                 if (path === 'speakerBadge.layout' && el.speakerBadge) {
                     const SIZES = {

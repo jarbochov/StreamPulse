@@ -20,6 +20,11 @@ test('Pattern Tile: schema normalization and defaults for hue, jitter and twinkl
     });
     const pDef = normalizedDefault.elements[0].pattern;
     assert.equal(pDef.aspectRatio, '1:1');
+    assert.equal(pDef.symmetry, 'none');
+    assert.equal(pDef.kaleidoMorph, true);
+    assert.equal(pDef.kaleidoSpeed, 8);
+    assert.equal(pDef.kaleidoDirection, 'cw');
+    assert.equal(pDef.kaleidoDepth, 35);
     assert.equal(pDef.hueShift, 'none');
     assert.equal(pDef.hueSpeed, 12);
     assert.equal(pDef.hueJitter, 0);
@@ -30,6 +35,25 @@ test('Pattern Tile: schema normalization and defaults for hue, jitter and twinkl
     assert.equal(pDef.positionJitter, 0);
     assert.equal(pDef.twinkle, 0);
     assert.equal(pDef.twinkleSpeed, 4);
+
+    // 1b. Legacy kaleidoscope migration
+    const normalizedLegacy = normalizeCustomOverlay({
+        id: 'test-pat-legacy',
+        name: 'Pattern Legacy Kaleido',
+        elements: [{
+            id: 'pat-el-leg',
+            type: 'pattern',
+            pattern: {
+                layout: 'kaleidoscope-radial',
+                motion: 'kaleidoscope'
+            }
+        }]
+    });
+    const pLeg = normalizedLegacy.elements[0].pattern;
+    assert.equal(pLeg.layout, 'grid');
+    assert.equal(pLeg.symmetry, 'radial');
+    assert.equal(pLeg.kaleidoMorph, true);
+    assert.equal(pLeg.motion, 'none');
 
     // 2. Custom valid values
     const normalizedCustom = normalizeCustomOverlay({

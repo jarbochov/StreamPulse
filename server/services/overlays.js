@@ -352,8 +352,9 @@ const PAGE_DIRECTIONS = ['left', 'right', 'up', 'down'];
 const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset'];
 const BORDER_PLACEMENTS = ['inside', 'center', 'outside'];
 const BORDER_ANIM_TYPES = ['none', 'rotating', 'radial', 'pulsing', 'gradient', 'rainbow', 'marching'];
-const PATTERN_LAYOUTS = ['grid', 'brick', 'stagger', 'alternating', 'checkerboard', 'kaleidoscope-quad', 'kaleidoscope-radial'];
-const PATTERN_MOTIONS = ['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'float', 'kaleidoscope', 'drift', 'orbit', 'pulse', 'pan', 'sweep'];
+const PATTERN_LAYOUTS = ['grid', 'brick', 'stagger', 'alternating', 'checkerboard'];
+const PATTERN_SYMMETRIES = ['none', 'quad', 'radial'];
+const PATTERN_MOTIONS = ['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'float', 'drift', 'orbit', 'pulse', 'pan', 'sweep'];
 const PATTERN_TRACK_MODES = ['uniform', 'opposite', 'stagger', 'sine', 'alternate-stop', 'alt-rows', 'stagger-rows', 'alt-cols', 'stagger-cols'];
 const PATTERN_FLIPS = ['none', 'tilt', 'h', 'v', 'both'];
 const PATTERN_BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion', 'luminosity', 'plus-lighter'];
@@ -430,10 +431,35 @@ function normalizeSpeakerBadge(badge = {}) {
 
 function normalizePattern(p = {}) {
     const num = (value, min, max, fallback) => (Number.isFinite(Number(value)) && value !== '' && value !== null ? Math.max(min, Math.min(max, Number(value))) : fallback);
-    const motion = PATTERN_MOTIONS.includes(p.motion) ? p.motion : (p.sourceType === 'preset' ? 'drift' : 'scroll');
+    let rawLayout = p.layout;
+    let rawMotion = p.motion;
+    let rawSymmetry = p.symmetry;
+    let rawKaleidoMorph = p.kaleidoMorph;
+    if (!PATTERN_SYMMETRIES.includes(rawSymmetry)) {
+        if (rawLayout === 'kaleidoscope-quad') {
+            rawSymmetry = 'quad';
+            rawLayout = 'grid';
+        } else if (rawLayout === 'kaleidoscope-radial') {
+            rawSymmetry = 'radial';
+            rawLayout = 'grid';
+        } else if (rawMotion === 'kaleidoscope') {
+            rawSymmetry = 'radial';
+            rawKaleidoMorph = true;
+            rawMotion = 'none';
+        } else {
+            rawSymmetry = 'none';
+        }
+    }
+    if (rawLayout === 'kaleidoscope-quad' || rawLayout === 'kaleidoscope-radial') rawLayout = 'grid';
+    if (rawMotion === 'kaleidoscope') {
+        rawKaleidoMorph = true;
+        rawMotion = 'none';
+    }
+    const motion = PATTERN_MOTIONS.includes(rawMotion) ? rawMotion : (p.sourceType === 'preset' ? 'drift' : 'scroll');
     const defaultTrack = (motion === 'alt-rows' || motion === 'alt-cols') ? 'opposite' : 'uniform';
     const sourceType = (p.sourceType === 'icon' || p.sourceType === 'preset') ? p.sourceType : 'image';
-    const layout = PATTERN_LAYOUTS.includes(p.layout) ? p.layout : 'brick';
+    const layout = PATTERN_LAYOUTS.includes(rawLayout) ? rawLayout : 'brick';
+    const symmetry = PATTERN_SYMMETRIES.includes(rawSymmetry) ? rawSymmetry : 'none';
     const defaultOffsetX = layout === 'brick' ? 50 : 0;
     const defaultOffsetY = layout === 'stagger' ? 50 : 0;
     return {
@@ -445,6 +471,11 @@ function normalizePattern(p = {}) {
         lineWidth: Math.max(0, Math.min(50, Number(p.lineWidth) || 0)),
         scale: Math.max(10, Math.min(1000, Math.round(Number(p.scale) || 100))),
         layout,
+        symmetry,
+        kaleidoMorph: rawKaleidoMorph !== undefined ? Boolean(rawKaleidoMorph) : true,
+        kaleidoSpeed: Math.round(num(p.kaleidoSpeed ?? p.spinSpeed, 0.5, 120, 8) * 10) / 10,
+        kaleidoDirection: p.kaleidoDirection === 'ccw' ? 'ccw' : (p.spinDirection === 'ccw' ? 'ccw' : 'cw'),
+        kaleidoDepth: Math.round(num(p.kaleidoDepth ?? p.waveAmount, 5, 100, 35)),
         aspectRatio: PATTERN_ASPECT_RATIOS.includes(p.aspectRatio) ? p.aspectRatio : '1:1',
         tileSize: Math.round(num(p.tileSize, 16, 1024, 96)),
         gap: Math.round(num(p.gap, 0, 256, 16)),
