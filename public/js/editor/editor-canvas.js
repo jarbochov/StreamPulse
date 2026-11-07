@@ -655,8 +655,13 @@ export function applyNodeStyle(node, el, index) {
         node.style.mixBlendMode = (!hasFill && blend !== 'normal') ? blend : '';
         const wrap = node.querySelector(':scope > .sp-pattern-wrap');
         if (wrap) wrap.style.mixBlendMode = (hasFill && blend !== 'normal') ? blend : '';
-        if (node._patternHandle?.update) node._patternHandle.update(el, { preview: true, animate: true, expand });
-        else if (node._patternHandle?.redraw) node._patternHandle.redraw();
+        if (node._patW !== b.w || node._patH !== b.h || node._patHasFill !== hasFill) {
+            node._patW = b.w;
+            node._patH = b.h;
+            node._patHasFill = hasFill;
+            if (node._patternHandle?.update) node._patternHandle.update(el, { preview: true, animate: true, expand });
+            else if (node._patternHandle?.redraw) node._patternHandle.redraw();
+        }
     } else {
         node.style.mixBlendMode = '';
     }

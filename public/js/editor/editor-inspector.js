@@ -1556,7 +1556,7 @@ export function patternSection(el) {
         ${F.range('pattern.positionJitter', 'Position scatter', p.positionJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset position scatter to 0%' })}
         ${F.range('pattern.scaleJitter', 'Scale jitter', p.scaleJitter ?? 0, { min: 0, max: 50, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset scale jitter to 0%' })}
         ${F.range('pattern.rotationJitter', 'Rotation jitter', p.rotationJitter ?? 0, { min: 0, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset rotation jitter to 0%' })}
-        <p class="hint">Randomizes tile scale, tilt, and position to break up strict grid uniformity into an organic, scattered pattern.</p>`);
+        <p class="hint">Applies deterministic per-tile random variation to position, scale, and tilt to break up strict grid uniformity into an organic, scattered layout.</p>`);
 
     let altTilesExtra = '';
     if (isAltOrChecker) {
@@ -1608,7 +1608,7 @@ export function patternSection(el) {
         ${motionControls}
         ${motion !== 'none' ? '<p class="hint">Animates continuously in the live overlay and editor. Use the Effects toggle in the top toolbar to pause animations while editing.</p>' : ''}`);
 
-    return secLayout + secJitter + secAppearance + secColor + secMotion;
+    return secLayout + secMotion + secAppearance + secJitter + secColor;
 }
 
 export function updateObsAudioStatus(data) {

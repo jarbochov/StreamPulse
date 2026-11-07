@@ -3052,7 +3052,7 @@
         wrap.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none;border-radius:inherit;contain:strict;';
         const canvas = document.createElement('canvas');
         canvas.className = 'sp-pattern-canvas';
-        canvas.style.cssText = 'width:100%;height:100%;display:block;will-change:contents;';
+        canvas.style.cssText = 'width:100%;height:100%;display:block;';
         wrap.appendChild(canvas);
 
         const note = document.createElement('div');
@@ -3068,7 +3068,10 @@
         let stopped = false;
         let rafId = 0;
         let readyToDraw = false;
+        let dirtyFrame = true;
         let startTime = 0;
+        let lastDrawTs = 0;
+        let scratchImgData = null;
 
         let curElement = element;
         let curOptions = options;
@@ -3165,7 +3168,7 @@
 
         function getStampDimensions() {
             const { ar } = getTileDimensions();
-            const base = 128;
+            const base = 96;
             const w = ar >= 1 ? base : Math.max(24, Math.round(base * ar));
             const h = ar >= 1 ? Math.max(24, Math.round(base / ar)) : base;
             return { w, h };
@@ -3273,11 +3276,11 @@
         }
 
         function getTintedIconStamp(slot) {
-            const idx = ((slot % 24) + 24) % 24;
+            const idx = ((slot % 16) + 16) % 16;
             if (iconHueCache.has(idx)) return iconHueCache.get(idx);
 
             const hasHue = hueShift !== 'none' || hueJitter > 0;
-            const hKey = hasHue ? (idx * 15) : 0;
+            const hKey = hasHue ? (idx * 22.5) : 0;
             const satShift = saturationJitter > 0 ? (((idx * 7) % 11 - 5) / 5) * (saturationJitter / 100) : 0;
             const briShift = brightnessJitter > 0 ? (((idx * 13) % 11 - 5) / 5) * (brightnessJitter / 100) : 0;
 
@@ -3344,19 +3347,24 @@
                 const m22 = Math.round((h20 * s02 + h21 * s12 + h22 * s22) * 1024);
 
                 const srcData = baseStampData.data;
-                const outImg = tCtx.createImageData(stampW, stampH);
-                const dstData = outImg.data;
+                if (!scratchImgData || scratchImgData.width !== stampW || scratchImgData.height !== stampH) {
+                    scratchImgData = tCtx.createImageData(stampW, stampH);
+                }
+                const dstData = scratchImgData.data;
                 const len = srcData.length;
                 for (let i = 0; i < len; i += 4) {
                     const a = srcData[i + 3];
-                    if (a === 0) continue;
+                    if (a === 0) {
+                        dstData[i + 3] = 0;
+                        continue;
+                    }
                     const r = srcData[i], g = srcData[i + 1], b = srcData[i + 2];
                     dstData[i]     = (r * m00 + g * m01 + b * m02) >> 10;
                     dstData[i + 1] = (r * m10 + g * m11 + b * m12) >> 10;
                     dstData[i + 2] = (r * m20 + g * m21 + b * m22) >> 10;
                     dstData[i + 3] = a;
                 }
-                tCtx.putImageData(outImg, 0, 0);
+                tCtx.putImageData(scratchImgData, 0, 0);
             } else {
                 return null;
             }
@@ -3425,18 +3433,28 @@
             const ts = now || performance.now();
             if (!startTime) startTime = ts;
 
+            const hasDynamicAnim = motion !== 'none' || hueShift !== 'none' || twinkle > 0;
+            // Frame-rate pacing in editor preview: cap continuous animation loops at ~60fps on 120Hz displays
+            if (!dirtyFrame && curOptions.preview && hasDynamicAnim && lastDrawTs && (ts - lastDrawTs < 15)) {
+                rafId = requestAnimationFrame(drawFrame);
+                return;
+            }
+            dirtyFrame = false;
+            lastDrawTs = ts;
+
             const logicalW = Math.max(1, Number(curElement.width) || node.clientWidth || 300);
             const logicalH = Math.max(1, Number(curElement.height) || node.clientHeight || 200);
-            // Match OBS 1080p 1:1 on large layers to avoid 4K Retina fill-rate bottlenecks
-            const maxDpr = (logicalW * logicalH > 600000) ? 1 : Math.min(dpr, 1.5);
-            const scaleCap = Math.min(maxDpr, 1920 / Math.max(logicalW, logicalH, 1));
+            // Match OBS 1080p 1:1 on large layers and cap editor preview to 1280px during active animation
+            const maxDpr = (logicalW * logicalH > 600000 || curOptions.preview) ? 1 : Math.min(dpr, 1.5);
+            const maxDim = (curOptions.preview && hasDynamicAnim) ? 1280 : 1920;
+            const scaleCap = Math.min(maxDpr, maxDim / Math.max(logicalW, logicalH, 1));
             const cw = Math.max(1, Math.round(logicalW * scaleCap));
             const ch = Math.max(1, Math.round(logicalH * scaleCap));
             if (canvas.width !== cw || canvas.height !== ch) {
                 canvas.width = cw;
                 canvas.height = ch;
                 ctx.imageSmoothingEnabled = true;
-                ctx.imageSmoothingQuality = 'medium';
+                ctx.imageSmoothingQuality = 'low';
             }
 
             ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -3559,8 +3577,7 @@
             }
 
             const wrapAxis = (val, step) => {
-                const raw = Math.floor(val / step);
-                const base = raw - (raw & 1);
+                const base = Math.round(val / (step * 2)) * 2;
                 return { base, rem: val - base * step };
             };
             const evenRowW = wrapAxis(evenRowX, stepX);
@@ -3570,10 +3587,14 @@
 
             const halfW = logicalW / 2;
             const halfH = logicalH / 2;
-            const extentX = halfW * Math.abs(cosG) + halfH * Math.abs(sinG) + Math.max(tileW, tileH) * 1.5;
-            const extentY = halfW * Math.abs(sinG) + halfH * Math.abs(cosG) + Math.max(tileW, tileH) * 1.5;
-            const cols = Math.min(64, Math.ceil(extentX / stepX) + 1);
-            const rows = Math.min(64, Math.ceil(extentY / stepY) + 1);
+            const maxScale = (1 + scaleJitter / 100) * Math.max(1, altScale) * (motion === 'wave' ? 1 + waveAmount * 0.45 : 1);
+            const tileRadius = Math.hypot(tileW, tileH) * 0.55 * maxScale;
+            const cullW = halfW + tileRadius;
+            const cullH = halfH + tileRadius;
+            const extentX = halfW * Math.abs(cosG) + halfH * Math.abs(sinG) + tileRadius;
+            const extentY = halfW * Math.abs(sinG) + halfH * Math.abs(cosG) + tileRadius;
+            const cols = Math.min(64, Math.ceil(extentX / stepX) + 2);
+            const rows = Math.min(64, Math.ceil(extentY / stepY) + 2);
 
             const halfTileW = tileW / 2;
             const halfTileH = tileH / 2;
@@ -3605,7 +3626,6 @@
             const staticRowShift = (offsetX / 100) * stepX;
             const staticColShift = (offsetY / 100) * stepY;
 
-            const hasDynamicAnim = motion !== 'none' || hueShift !== 'none' || twinkle > 0;
             const hasColorFilter = hueJitter > 0 || hueShift !== 'none' || brightnessJitter > 0 || saturationJitter > 0;
             const hasHue = hueShift !== 'none' || hueJitter > 0;
             const baseHueCycle = hueShift === 'cycle' ? ((t / hueSpeed) * 360) : 0;
@@ -3624,7 +3644,6 @@
 
                     const row = r - cwWrap.base;
                     const col = c - rw.base;
-                    const oddCell = ((row + col) & 1) !== 0;
 
                     if (positionJitter > 0) {
                         const pj = (positionJitter / 100) * 0.45;
@@ -3632,9 +3651,19 @@
                         cy += (cellHash(row, col, 8) * 2 - 1) * stepY * pj;
                     }
 
-                    if (cx < -extentX || cx > extentX) continue;
-                    if (cy < -extentY || cy > extentY) continue;
+                    let wavePhase = 0;
+                    if (motion === 'wave') {
+                        wavePhase = spinPhase - (col * 0.45 + row * 0.45);
+                        cy += Math.cos(wavePhase) * tileSize * waveAmount * 0.16;
+                    }
 
+                    // Screen-space viewport culling (skips off-screen corner tiles on rotated grids)
+                    const rx = cx * cosG - cy * sinG;
+                    if (rx < -cullW || rx > cullW) continue;
+                    const ry = cx * sinG + cy * cosG;
+                    if (ry < -cullH || ry > cullH) continue;
+
+                    const oddCell = ((row + col) & 1) !== 0;
                     let alpha = tileOpacity;
                     let scale = 1;
                     let sx = 1, sy = 1;
@@ -3657,6 +3686,10 @@
                         scale *= Math.max(0.05, sj);
                     }
 
+                    if (motion === 'wave') {
+                        scale *= Math.max(0.1, 1 + Math.sin(wavePhase) * waveAmount * 0.45);
+                    }
+
                     if (twinkle > 0) {
                         const twSeed = cellHash(row, col, 9);
                         const twPhase = ((t / twinkleSpeed) * Math.PI * 2) + (twSeed * Math.PI * 2);
@@ -3674,12 +3707,6 @@
                     let cosT = oddCell ? cosOdd : cosEven;
                     let sinT = oddCell ? sinOdd : sinEven;
 
-                    if (motion === 'wave') {
-                        const wavePhase = spinPhase - (col * 0.45 + row * 0.45);
-                        scale *= Math.max(0.1, 1 + Math.sin(wavePhase) * waveAmount * 0.45);
-                        cy += Math.cos(wavePhase) * tileSize * waveAmount * 0.16;
-                    }
-
                     if (isSway) {
                         const swayDir = spinDirection === 'alternate' ? (oddCell ? -1 : 1) : 1;
                         const rot = (oddCell ? oddRot : evenRot) + swayDir * Math.sin(spinPhase + (row + col) * 0.4) * (waveAmount * 0.65) + rotJitterRad;
@@ -3691,8 +3718,8 @@
                         sinT = Math.sin(gridAngleRad + rot);
                     }
 
-                    const tx = (halfW + cx * cosG - cy * sinG) * scaleCap;
-                    const ty = (halfH + cx * sinG + cy * cosG) * scaleCap;
+                    const tx = (halfW + rx) * scaleCap;
+                    const ty = (halfH + ry) * scaleCap;
                     const sX = sx * scale * scaleCap;
                     const sY = sy * scale * scaleCap;
 
@@ -3708,16 +3735,16 @@
                         if (hasHue) {
                             let tileHue = baseHueCycle;
                             if (hueShift === 'wave-x') {
-                                tileHue = ((t / hueSpeed) * 360) + (col * 24);
+                                tileHue = ((t / hueSpeed) * 360) + (col * 22.5);
                             } else if (hueShift === 'wave-y') {
-                                tileHue = ((t / hueSpeed) * 360) + (row * 24);
+                                tileHue = ((t / hueSpeed) * 360) + (row * 22.5);
                             }
                             if (hueJitter > 0) {
                                 tileHue += (cellHash(row, col, 1) * 2 - 1) * hueJitter;
                             }
-                            slot = ((Math.round(tileHue / 15) % 24) + 24) % 24;
+                            slot = ((Math.round(tileHue / 22.5) % 16) + 16) % 16;
                         } else {
-                            slot = Math.floor(cellHash(row, col, 2) * 24) % 24;
+                            slot = Math.floor(cellHash(row, col, 2) * 16) % 16;
                         }
                         const tinted = getTintedIconStamp(slot);
                         if (tinted) currentBitmap = tinted;
@@ -3739,19 +3766,9 @@
                 return;
             }
             if (stopped || !readyToDraw || curElement.visible === false || node.classList.contains('hidden')) return;
-            const p = curElement.pattern || {};
-            const pMotion = curOptions.animate === false ? 'none' : (p.motion || motion || 'none');
-            const pHueShift = p.hueShift || hueShift || 'none';
-            const pTwinkle = Number(p.twinkle ?? twinkle);
-            const needsLoop = (pMotion !== 'none' || pHueShift !== 'none' || pTwinkle > 0) && curOptions.animate !== false && !fxPaused;
-            if (!needsLoop) {
-                if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
-                drawFrame(performance.now());
-            } else {
-                drawFrame(performance.now());
-                if (!rafId) {
-                    rafId = requestAnimationFrame(drawFrame);
-                }
+            dirtyFrame = true;
+            if (!rafId) {
+                rafId = requestAnimationFrame(drawFrame);
             }
         }
 
