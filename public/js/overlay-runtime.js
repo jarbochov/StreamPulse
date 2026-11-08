@@ -1440,8 +1440,7 @@
                         shared.renderSpeakerBadge(node, element, { preview: false, speaking: true, rms: data.rms });
                     }
                 }
-            }
-            if (st.speaking && !st.timer) {
+            } else if (st.speaking && !st.timer) {
                 st.timer = setTimeout(() => {
                     st.speaking = false;
                     st.timer = null;

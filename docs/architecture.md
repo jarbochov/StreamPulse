@@ -180,3 +180,39 @@ StreamPulse integrates directly with Twitch's native EventSub WebSocket infrastr
 4. **Immediate Ingestion & Deduplication**: Real-time events are dispatched synchronously to `alertEngine.handleEvent`, `sessionService`, and `pollManager`. The alerts engine's built-in deduplication ensures overlapping chat-based alerts (such as SocialStream Ninja bits, raids, or subs) are not fired twice.
 5. **Intelligent REST Polling Throttling & Fallback**: When EventSub is connected, background REST polling for Twitch polls (`fetchTwitchPoll`), category/title info (`fetchStreamInfo`), and stream lifecycle (`pollLifecycle`) automatically relaxes (reducing redundant REST requests by >90%). If the WebSocket disconnects, the system immediately resumes 10-second polling loops as a resilient fallback.
 6. **Telemetry & Observability**: Real-time connection state (`connected`, `connecting`, `idle`), active subscription counts, and session IDs are exposed via `GET /api/status` under `twitch.eventSub`.
+
+---
+
+## 6. Universal State Machine Architecture
+
+StreamPulse coordinates complex asynchronous lifecycles across server services and client runtimes using a lightweight, zero-dependency, isomorphic State Machine engine (`server/services/state-machine.js` and `public/js/state-machine.js`).
+
+### Core Design Principles
+1. **User Experience (UX)**: Zero flashing or premature alert pops; transitions between states are guarded, deterministic, and clean up background animation frames and timers.
+2. **Developer Experience (DX)**: Replaces scattered constellations of multi-variable boolean flags (`paused`, `muted`, `currentTimer !== null`) with declarative transition tables, explicit state guards, and centralized entry/exit hooks.
+3. **Agent Experience (AX)**: AI coding assistants, Bitfocus Companion controllers, and external scripts can query machine state and allowable transitions programmatically via `.getState()`, `.can(transition)`, `.getValidTransitions()`, and `.toSnapshot()`.
+
+### Alert Engine State Machine
+The Alert Engine (`server/services/alerts.js`) is governed by an explicit finite state machine with states:
+- `IDLE`: No active alert, queue empty. Ready to enqueue or dispatch.
+- `QUEUED`: Alerts waiting in queue.
+- `PLAYING`: Alert actively displaying on-screen.
+- `PAUSED`: Queue processing halted.
+- `MUTED`: Alerts held silently.
+
+Every call to `engine.getQueueState()` exposes `state` and `machine` metadata alongside backward-compatible queue counters:
+```json
+{
+  "pending": 0,
+  "current": null,
+  "paused": false,
+  "muted": false,
+  "state": "IDLE",
+  "machine": {
+    "id": "alert-engine",
+    "state": "IDLE",
+    "validTransitions": ["ENQUEUE", "PAUSE", "MUTE"]
+  }
+}
+```
+

@@ -4,6 +4,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { createStateMachine } = require('./state-machine');
 
 const TRIGGERS = {
     follow: 'Follow',
@@ -321,6 +322,102 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
     let currentTimer = null;
     let paused = false;
     let muted = false;
+
+    const alertMachine = createStateMachine({
+        id: 'alert-engine',
+        initial: 'IDLE',
+        context: {
+            get pending() { return queue.length; },
+            get current() { return current; },
+            get paused() { return paused; },
+            get muted() { return muted; }
+        },
+        states: {
+            IDLE: {
+                on: {
+                    ENQUEUE: 'QUEUED',
+                    DISPATCH: 'PLAYING',
+                    PAUSE: 'PAUSED',
+                    MUTE: 'MUTED'
+                }
+            },
+            QUEUED: {
+                on: {
+                    ENQUEUE: 'QUEUED',
+                    DISPATCH: 'PLAYING',
+                    PAUSE: 'PAUSED',
+                    MUTE: 'MUTED',
+                    CLEAR: 'IDLE'
+                }
+            },
+            PLAYING: {
+                on: {
+                    ENQUEUE: 'PLAYING',
+                    DISPATCH: 'PLAYING',
+                    FINISH: { target: 'IDLE', guard: () => queue.length === 0 && !paused && !muted },
+                    FINISH_TO_QUEUED: { target: 'QUEUED', guard: () => queue.length > 0 && !paused && !muted },
+                    FINISH_TO_PAUSED: { target: 'PAUSED', guard: () => paused },
+                    FINISH_TO_MUTED: { target: 'MUTED', guard: () => muted },
+                    SKIP: { target: 'IDLE', guard: () => queue.length === 0 },
+                    SKIP_TO_PLAYING: { target: 'PLAYING', guard: () => queue.length > 0 && !paused && !muted },
+                    INTERRUPT: 'PLAYING',
+                    PAUSE: 'PAUSED',
+                    MUTE: 'MUTED',
+                    CLEAR: 'IDLE'
+                }
+            },
+            PAUSED: {
+                on: {
+                    ENQUEUE: 'PAUSED',
+                    RESUME_TO_PLAYING: { target: 'PLAYING', guard: () => current !== null },
+                    RESUME_TO_QUEUED: { target: 'QUEUED', guard: () => current === null && queue.length > 0 },
+                    RESUME_TO_IDLE: { target: 'IDLE', guard: () => current === null && queue.length === 0 },
+                    MUTE: 'MUTED',
+                    CLEAR: 'PAUSED'
+                }
+            },
+            MUTED: {
+                on: {
+                    ENQUEUE: 'MUTED',
+                    UNMUTE_TO_PLAYING: { target: 'PLAYING', guard: () => current !== null },
+                    UNMUTE_TO_QUEUED: { target: 'QUEUED', guard: () => current === null && queue.length > 0 },
+                    UNMUTE_TO_IDLE: { target: 'IDLE', guard: () => current === null && queue.length === 0 },
+                    PAUSE: 'PAUSED',
+                    CLEAR: 'MUTED'
+                }
+            }
+        }
+    });
+
+    function syncMachineState() {
+        if (paused) {
+            if (!alertMachine.matches('PAUSED')) alertMachine.send('PAUSE');
+        } else if (muted) {
+            if (!alertMachine.matches('MUTED')) alertMachine.send('MUTE');
+        } else if (current) {
+            if (!alertMachine.matches('PLAYING')) {
+                if (alertMachine.can('DISPATCH')) alertMachine.send('DISPATCH');
+                else if (alertMachine.can('INTERRUPT')) alertMachine.send('INTERRUPT');
+                else if (alertMachine.can('RESUME_TO_PLAYING')) alertMachine.send('RESUME_TO_PLAYING');
+                else if (alertMachine.can('UNMUTE_TO_PLAYING')) alertMachine.send('UNMUTE_TO_PLAYING');
+            }
+        } else if (queue.length > 0) {
+            if (!alertMachine.matches('QUEUED')) {
+                if (alertMachine.can('ENQUEUE')) alertMachine.send('ENQUEUE');
+                else if (alertMachine.can('RESUME_TO_QUEUED')) alertMachine.send('RESUME_TO_QUEUED');
+                else if (alertMachine.can('UNMUTE_TO_QUEUED')) alertMachine.send('UNMUTE_TO_QUEUED');
+                else if (alertMachine.can('FINISH_TO_QUEUED')) alertMachine.send('FINISH_TO_QUEUED');
+            }
+        } else {
+            if (!alertMachine.matches('IDLE')) {
+                if (alertMachine.can('FINISH')) alertMachine.send('FINISH');
+                else if (alertMachine.can('CLEAR')) alertMachine.send('CLEAR');
+                else if (alertMachine.can('RESUME_TO_IDLE')) alertMachine.send('RESUME_TO_IDLE');
+                else if (alertMachine.can('UNMUTE_TO_IDLE')) alertMachine.send('UNMUTE_TO_IDLE');
+                else if (alertMachine.can('SKIP')) alertMachine.send('SKIP');
+            }
+        }
+    }
     const history = [];
     const eventsPath = path.join(dataDir, 'alert-events.json');
     let events = [];
@@ -717,25 +814,33 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
     }
 
     function pump() {
-        if (paused || muted || current) return;
+        if (paused || muted || current) {
+            syncMachineState();
+            return;
+        }
         while (queue.length) {
             const next = queue.shift();
             if (next.expireSeconds && Date.now() - next.queuedAt > next.expireSeconds * 1000) { dropPayload(next, 'dropped'); continue; }
             current = next;
             break;
         }
-        if (!current) return;
+        if (!current) {
+            syncMachineState();
+            return;
+        }
+        syncMachineState();
         notify('alert', current);
         history.unshift({ ...current, shownAt: new Date().toISOString() });
         history.length = Math.min(history.length, HISTORY_LIMIT);
         const hold = current.durationMs + (config.settings.gapSeconds * 1000);
-        currentTimer = setTimeout(() => { current = null; currentTimer = null; pump(); }, hold);
+        currentTimer = setTimeout(() => { current = null; currentTimer = null; syncMachineState(); pump(); }, hold);
     }
 
     function interruptCurrent() {
         if (currentTimer) clearTimeout(currentTimer);
         current = null; currentTimer = null;
         notify('alert-skip', {});
+        syncMachineState();
     }
 
     function enqueue(payload) {
@@ -751,6 +856,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             const victim = queue.findIndex(item => (PRIORITY_RANK[item.priority] ?? 1) === lowest);
             dropPayload(queue.splice(victim, 1)[0], 'dropped');
         }
+        syncMachineState();
         if (payload.interrupt && current && !paused && !muted && queue[0] === payload) interruptCurrent();
         pump();
     }
@@ -923,18 +1029,30 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
 
     function setMuted(value) {
         muted = Boolean(value);
+        syncMachineState();
         if (!muted) pump();
         return muted;
     }
 
     function control(action) {
-        if (action === 'pause') { paused = true; return; }
-        if (action === 'resume') { paused = false; pump(); return; }
+        if (action === 'pause') {
+            paused = true;
+            syncMachineState();
+            return;
+        }
+        if (action === 'resume') {
+            paused = false;
+            syncMachineState();
+            pump();
+            return;
+        }
         if (action === 'clear') {
             queue.length = 0;
             notify('alert-clear', {});
             if (currentTimer) clearTimeout(currentTimer);
-            current = null; currentTimer = null;
+            current = null;
+            currentTimer = null;
+            syncMachineState();
             return;
         }
         if (action === 'clear-log') {
@@ -946,8 +1064,10 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
         }
         if (action === 'skip') {
             if (currentTimer) clearTimeout(currentTimer);
-            current = null; currentTimer = null;
+            current = null;
+            currentTimer = null;
             notify('alert-skip', {});
+            syncMachineState();
             pump();
             return;
         }
@@ -959,6 +1079,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
         currentTimer = null;
         current = null;
         queue.length = 0;
+        syncMachineState();
         for (const t of activeWebhookTimers) clearTimeout(t);
         activeWebhookTimers.clear();
         for (const batch of gifts.values()) clearTimeout(batch.timer);
@@ -1037,7 +1158,17 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             }
             return config;
         },
-        getQueueState: () => ({ pending: queue.length, current, paused, muted, history, events }),
+        getQueueState: () => ({
+            pending: queue.length,
+            current,
+            paused,
+            muted,
+            history,
+            events,
+            state: alertMachine.getState(),
+            machine: alertMachine.toSnapshot()
+        }),
+        getStateMachine: () => alertMachine,
         replayEvent, replayAlert,
         handleEvent, fireRule, trigger, noteGift, pressCompanion, control, setMuted, stop,
         alertAssetUsers, rewriteAlertReferences

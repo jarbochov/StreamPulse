@@ -192,6 +192,7 @@ function buildTimerRecord(input) {
             mode,
             durationMs,
             targetAt,
+            originalTargetAt: targetAt,
             startAt,
             timezone: String(input.timezone || '').trim(),
             progress: input.progress !== false,
@@ -393,6 +394,7 @@ function createTimerService({
                     timer.mode = rawTimer.mode === 'date' ? 'date' : 'duration';
                     timer.durationMs = Math.max(0, Number(rawTimer.durationMs) || 0);
                     timer.targetAt = rawTimer.targetAt || null;
+                    timer.originalTargetAt = rawTimer.originalTargetAt || rawTimer.targetAt || null;
                     timer.startAt = rawTimer.startAt || null;
                     timer.timezone = String(rawTimer.timezone || '');
                     timer.progress = rawTimer.progress !== false;
@@ -492,6 +494,9 @@ function createTimerService({
                 timer.state = 'idle';
                 timer.startedAt = null;
                 timer.completedAt = null;
+                if (timer.mode === 'date' && timer.originalTargetAt) {
+                    timer.targetAt = timer.originalTargetAt;
+                }
                 timer.remainingMs = timer.mode === 'date'
                     ? Math.max(0, Date.parse(timer.targetAt || '') - now)
                     : Math.max(0, timer.durationMs || 0);

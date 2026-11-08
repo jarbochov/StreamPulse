@@ -11,6 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- **State Machine Architecture**: Universal, zero-dependency state machine engine (`server/services/state-machine.js` and `public/js/state-machine.js`) with declarative transitions, state guards, and queryable introspection for alerts, overlay lifecycles, and companion controllers.
 - **Speaker Badges**: OBS voice-reactive overlay layers with 5 layout presets, dB speech gates, EQ visualizers, and a Speakers controller tab for live profile, avatar, audio-source, and field-visibility updates.
 - **Tier List Maker**: Standalone tier list studio and 60fps animated OBS overlay with live chat consensus voting (`!tier`), clipboard/drag-and-drop/Asset Library imports, preset management, and PNG export.
 - **Embedded & Host Integration**: In-process embedded mode (`STREAMPULSE_EMBEDDED=true`, e.g. NodeCG) with `{{rep.*}}` host data placeholders, external donation ingestion (`ingestEvent`, source filtering, `{{...|money}}` formatting), alert mute API (`POST /api/alerts/mute`), and chatbot donation announcements.

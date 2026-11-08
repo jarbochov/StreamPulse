@@ -1513,6 +1513,7 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
 
     stage.addEventListener('pointerup', endGesture);
     stage.addEventListener('pointercancel', endGesture);
+    window.addEventListener('blur', () => { if (state.gesture) endGesture({}); });
 
     function openCanvasInlineEditor(el, node) {
         if (!el || !TEXT_TYPES.has(el.type) || !canvasEl) return;
