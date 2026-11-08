@@ -63,6 +63,95 @@
             }
         }
 
+        /* ── Tabs Navigation ─────────────────────────────────────── */
+        .studio-tabs {
+            display: flex;
+            gap: 0.35rem;
+            background: var(--bg-inset, #0d1117);
+            border: 1px solid var(--border, #30363d);
+            padding: 0.35rem;
+            border-radius: 8px;
+            align-items: center;
+        }
+
+        .studio-tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted, #8b949e);
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.45rem 0.95rem;
+            border-radius: 6px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            transition: all 0.15s ease;
+            text-decoration: none;
+        }
+
+        .studio-tab-btn:hover {
+            color: var(--text, #f0f6fc);
+        }
+
+        .studio-tab-btn.active {
+            background: var(--bg-card, #161b22);
+            color: var(--accent, #58a6ff);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .theming-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(380px, 480px);
+            gap: 1.5rem;
+            padding: 1.5rem 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+            flex: 1;
+        }
+
+        @media (max-width: 1100px) {
+            .theming-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ── Preview Canvas & Viewport Scaler ────────────────────── */
+        .preview-container.checkerboard {
+            background: repeating-conic-gradient(#1c2128 0% 25%, #0d1117 0% 50%) 50% / 16px 16px;
+        }
+
+        .preview-container.solid-dark {
+            background: #090d16;
+        }
+
+        .preset-chip-btn {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.3rem 0.65rem;
+            border-radius: 999px;
+            border: 1px solid var(--border, #30363d);
+            background: var(--bg-card, #161b22);
+            color: var(--text, #c9d1d9);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .preset-chip-btn:hover {
+            border-color: var(--accent, #58a6ff);
+            color: var(--accent, #58a6ff);
+        }
+
+        .preset-chip-btn.active {
+            background: var(--accent, #58a6ff);
+            color: #fff;
+            border-color: var(--accent, #58a6ff);
+        }
+
         /* ── Cards & Section Panels ──────────────────────────────── */
         .panel {
             background: var(--bg-card, #161b22);
@@ -583,7 +672,26 @@
         <script src="/js/nav.js"></script>
     </div>
 
-    <div class="studio-layout">
+    <!-- Navigation Tabs (Full Width) -->
+    <div style="max-width: 1600px; margin: 1.25rem auto 0; padding: 0 2rem; width: 100%;">
+        <div class="studio-tabs">
+            <button type="button" class="studio-tab-btn active" id="tab-btn-studio" onclick="switchTab('studio')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                <span>Questions &amp; Gameplay</span>
+            </button>
+            <button type="button" class="studio-tab-btn" id="tab-btn-theming" onclick="switchTab('theming')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10c0 3.04-1.5 5.5-4 5.5s-2.5-1.5-4-1.5c-1 0-1.5.5-1.5 1.5 0 2-2 3.5-4 3.5a10 10 0 0 1-6.5-19"></path></svg>
+                <span>Overlay &amp; Theming</span>
+            </button>
+            <a href="/overlays/trivia.html" target="_blank" rel="noopener noreferrer" class="studio-tab-btn" style="margin-left: auto; text-decoration: none;" title="Open live overlay in new window">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                <span>Open Overlay &nearr;</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Tab 1: Questions & Gameplay Controller -->
+    <div id="panel-studio" class="studio-layout">
         <!-- Main / Left Column -->
         <div style="display: flex; flex-direction: column; gap: 1.5rem;">
             <!-- Live Monitor Panel -->
@@ -759,8 +867,120 @@
 
                 <button type="button" class="btn primary" id="btn-save-settings">Save Settings</button>
             </div>
+        </div>
+    </div>
 
-            <!-- Overlay Theme & Typography Panel -->
+    <!-- Tab 2: Overlay Theming & Interactive Live Preview -->
+    <div id="panel-theming" class="theming-layout" style="display: none;">
+        <!-- Left Column: Live Overlay Preview + OBS Browser Source Link -->
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <!-- Live Overlay Preview Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        <span>Live Overlay Preview</span>
+                    </span>
+                    <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Interactive Real-time View</span>
+                </div>
+
+                <!-- Global Canvas Backdrop & Phase Bar -->
+                <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-inset, #0d1117); padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid var(--border, #30363d); flex-wrap: wrap; gap: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+                        <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-right: 0.25rem;">Preview Phase:</span>
+                        <button type="button" class="preset-chip-btn phase-chip-btn active" data-phase="question" onclick="setPreviewPhase('question')">Question Phase</button>
+                        <button type="button" class="preset-chip-btn phase-chip-btn" data-phase="answer" onclick="setPreviewPhase('answer')">Answer Reveal</button>
+                        <button type="button" class="preset-chip-btn phase-chip-btn" data-phase="auto" onclick="setPreviewPhase('auto')">Live Session</button>
+                    </div>
+                    <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
+                        <button type="button" class="btn" id="prev-btn-bg" onclick="togglePreviewBackdrop()" title="Toggle dark background vs checkerboard transparency grid" style="font-size: 11px; padding: 0.25rem 0.65rem;">
+                            Canvas: Dark
+                        </button>
+                        <button type="button" class="btn active" id="prev-btn-sample" onclick="togglePreviewSampleData()" title="Toggle sample question to preview populated layouts immediately" style="font-size: 11px; padding: 0.25rem 0.65rem;">
+                            Sample: ON
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Viewport Resolution Chips -->
+                <div style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-right: 0.25rem;">Viewport:</span>
+                    <button type="button" class="preset-chip-btn viewport-chip-btn active" id="chip-vp-full" onclick="setPreviewViewport(1920, 1080, this, 'full')">1920×1080 (Broadcast Fullscreen)</button>
+                    <button type="button" class="preset-chip-btn viewport-chip-btn" id="chip-vp-compact" onclick="setPreviewViewport(1920, 360, this, 'compact')">1920×360 (Lower-Third Strip)</button>
+                    <button type="button" class="preset-chip-btn viewport-chip-btn" id="chip-vp-hud" onclick="setPreviewViewport(520, 680, this, 'hud')">520×680 (Corner HUD)</button>
+                    <button type="button" class="preset-chip-btn viewport-chip-btn" id="chip-vp-vertical" onclick="setPreviewViewport(1080, 1920, this, 'full')">1080×1920 (Vertical 9:16)</button>
+                </div>
+
+                <!-- Preview Viewport Scaler Wrapper -->
+                <div id="preview-viewport-wrapper" style="width: 100%; display: flex; justify-content: center; align-items: center; background: #050811; border-radius: 8px; border: 1px solid var(--border, #30363d); padding: 0.75rem; overflow: hidden; min-height: 280px; transition: all 0.2s ease;">
+                    <div id="preview-viewport-scaler" style="position: relative; overflow: hidden; width: 100%; height: 420px; transition: width 0.2s ease, height 0.2s ease; display: flex; justify-content: center; align-items: center;">
+                        <div id="trivia-preview-box" class="preview-container solid-dark" style="position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; transform-origin: top left; transition: transform 0.2s ease;">
+                            <iframe id="trivia-preview-iframe" src="/overlays/trivia.html?preview=1&sample=1" style="width: 100%; height: 100%; border: none; background: transparent;" allow="autoplay"></iframe>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OBS Browser Source Link Generator -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                        <span>OBS Browser Source Link</span>
+                    </span>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
+                    <div class="form-row">
+                        <label>Layout Mode</label>
+                        <select id="obs-mode">
+                            <option value="full">Fullscreen Broadcast Card (1920×1080)</option>
+                            <option value="compact">Lower-Third Strip (1920×240)</option>
+                            <option value="hud">Corner HUD (440×540)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <label>Display / Screen Lock</label>
+                        <select id="obs-view">
+                            <option value="auto">Live Cycle (Shows Question then Reveals Answer)</option>
+                            <option value="question">Question Only (Locks to Question Screen for Players)</option>
+                            <option value="answer">Answer Reveal Only (Locks to Revealed Answer View)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <label>Visual Theme</label>
+                        <select id="obs-theme">
+                            <option value="modern">Modern Glass (StreamPulse)</option>
+                            <option value="broadcast-text">Broadcast Floating Text (Pure Floating Text)</option>
+                            <option value="arcade">Retro 8-Bit Arcade (Pixel Borders &amp; Neon)</option>
+                            <option value="esports">Championship Esports (Angular Cuts)</option>
+                            <option value="minimal">Clean Minimal (Flat Lower Third)</option>
+                            <option value="neon">Cyber Neon</option>
+                            <option value="retro">Synthwave Retro</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="url-box" style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.25rem;">
+                    <a id="obs-url-link" href="#" target="_blank" rel="noopener noreferrer" style="color: var(--accent); font-family: monospace; font-size: 11px; word-break: break-all; text-decoration: underline; flex: 1;">http://localhost:3000/overlays/trivia.html</a>
+                    <div style="display: flex; gap: 0.35rem; flex-shrink: 0;">
+                        <a id="btn-open-url" class="btn" href="#" target="_blank" rel="noopener noreferrer" style="font-size: 11px; padding: 0.2rem 0.5rem;" title="Open in new window">Open</a>
+                        <button type="button" class="icon-btn" id="btn-copy-url" title="Copy URL">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div style="font-size: 11px; color: var(--text-muted); line-height: 1.5; margin-top: 0.25rem;">
+                    <strong>OBS Setup Tip:</strong> Add as a Browser Source set to your target resolution (e.g. 1920×1080 at 60 FPS). Enable &quot;Shutdown source when not visible&quot; and &quot;Refresh browser when scene becomes active&quot;.
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Overlay Theme & Typography Panel -->
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
             <div class="panel">
                 <div class="panel-header">
                     <span class="panel-title">
@@ -1023,57 +1243,6 @@
                 </div>
 
                 <button type="button" class="btn primary" id="btn-save-theme" style="margin-top: 0.75rem;">Save Theme</button>
-            </div>
-
-            <!-- OBS Browser Source Link Generator -->
-            <div class="panel">
-                <div class="panel-header">
-                    <span class="panel-title">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                        <span>OBS Browser Source</span>
-                    </span>
-                </div>
-
-                <div class="form-row">
-                    <label>Layout Mode</label>
-                    <select id="obs-mode">
-                        <option value="full">Fullscreen Broadcast Card (1920×1080)</option>
-                        <option value="compact">Lower-Third Strip (1920×240)</option>
-                        <option value="hud">Corner HUD (440×540)</option>
-                    </select>
-                </div>
-
-                <div class="form-row">
-                    <label>Display / Screen Lock</label>
-                    <select id="obs-view">
-                        <option value="auto">Live Cycle (Shows Question then Reveals Answer)</option>
-                        <option value="question">Question Only (Locks to Question Screen for Players)</option>
-                        <option value="answer">Answer Reveal Only (Locks to Revealed Answer View)</option>
-                    </select>
-                </div>
-
-                <div class="form-row">
-                    <label>Visual Theme</label>
-                    <select id="obs-theme">
-                        <option value="modern">Modern Glass (StreamPulse)</option>
-                        <option value="broadcast-text">Broadcast Floating Text (Pure Floating Text)</option>
-                        <option value="arcade">Retro 8-Bit Arcade (Pixel Borders &amp; Neon)</option>
-                        <option value="esports">Championship Esports (Angular Cuts)</option>
-                        <option value="minimal">Clean Minimal (Flat Lower Third)</option>
-                        <option value="neon">Cyber Neon</option>
-                        <option value="retro">Synthwave Retro</option>
-                    </select>
-                </div>
-
-                <div class="url-box" style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
-                    <a id="obs-url-link" href="#" target="_blank" rel="noopener noreferrer" style="color: var(--accent); font-family: monospace; font-size: 11px; word-break: break-all; text-decoration: underline; flex: 1;">http://localhost:3000/overlays/trivia.html</a>
-                    <div style="display: flex; gap: 0.35rem; flex-shrink: 0;">
-                        <a id="btn-open-url" class="btn" href="#" target="_blank" rel="noopener noreferrer" style="font-size: 11px; padding: 0.2rem 0.5rem;" title="Open in new window">Open</a>
-                        <button type="button" class="icon-btn" id="btn-copy-url" title="Copy URL">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                        </button>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -1496,6 +1665,118 @@
             retro: { style: 'cards', accent: '#9333ea', correct: '#10b981', cardBg: '#18122b', cardBorder: '#9333ea', choiceBg: '#251b45', blur: 12, hintColor: '#f59e0b', catColor: '#eab308', funfactColor: '#f59e0b', collapse: false }
         };
 
+        let activeTab = 'studio';
+        let currentViewportW = 1920;
+        let currentViewportH = 1080;
+        let previewBackdrop = 'dark';
+        let previewPhase = 'question';
+        let previewSample = true;
+        let previewIframeDebounce = null;
+
+        function switchTab(tab) {
+            activeTab = tab;
+            try { localStorage.setItem('trivia-active-tab', tab); } catch {}
+            document.getElementById('tab-btn-studio')?.classList.toggle('active', tab === 'studio');
+            document.getElementById('tab-btn-theming')?.classList.toggle('active', tab === 'theming');
+
+            const studioPanel = document.getElementById('panel-studio');
+            const themingPanel = document.getElementById('panel-theming');
+            if (studioPanel) studioPanel.style.display = (tab === 'studio') ? 'grid' : 'none';
+            if (themingPanel) themingPanel.style.display = (tab === 'theming') ? 'grid' : 'none';
+
+            if (tab === 'theming') {
+                applyViewportScale();
+                updateObsUrl();
+            }
+        }
+
+        function setPreviewPhase(phase) {
+            previewPhase = phase;
+            try { localStorage.setItem('trivia-preview-phase', phase); } catch {}
+            document.querySelectorAll('.phase-chip-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.phase === phase);
+            });
+            updateObsUrl();
+        }
+
+        function togglePreviewBackdrop() {
+            previewBackdrop = previewBackdrop === 'dark' ? 'checkerboard' : 'dark';
+            try { localStorage.setItem('trivia-preview-backdrop', previewBackdrop); } catch {}
+            applyPreviewBackdrop();
+        }
+
+        function applyPreviewBackdrop() {
+            const box = document.getElementById('trivia-preview-box');
+            const btn = document.getElementById('prev-btn-bg');
+            if (box) {
+                box.classList.toggle('checkerboard', previewBackdrop === 'checkerboard');
+                box.classList.toggle('solid-dark', previewBackdrop === 'dark');
+            }
+            if (btn) {
+                btn.textContent = previewBackdrop === 'dark' ? 'Canvas: Dark' : 'Canvas: Grid';
+            }
+        }
+
+        function togglePreviewSampleData() {
+            previewSample = !previewSample;
+            try { localStorage.setItem('trivia-preview-sample', previewSample ? '1' : '0'); } catch {}
+            const btn = document.getElementById('prev-btn-sample');
+            if (btn) {
+                btn.textContent = previewSample ? 'Sample: ON' : 'Sample: OFF';
+                btn.classList.toggle('active', previewSample);
+            }
+            updateObsUrl();
+        }
+
+        function setPreviewViewport(w, h, btn, mode) {
+            currentViewportW = w;
+            currentViewportH = h;
+            if (btn) {
+                document.querySelectorAll('.viewport-chip-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            }
+            if (mode && document.getElementById('obs-mode')) {
+                document.getElementById('obs-mode').value = mode;
+            }
+            try {
+                localStorage.setItem('trivia-preview-viewport', JSON.stringify({
+                    w,
+                    h,
+                    chipId: btn ? btn.id : '',
+                    mode: mode || ''
+                }));
+            } catch {}
+            applyViewportScale();
+            updateObsUrl();
+        }
+
+        function applyViewportScale() {
+            const wrapper = document.getElementById('preview-viewport-wrapper');
+            const scaler = document.getElementById('preview-viewport-scaler');
+            const box = document.getElementById('trivia-preview-box');
+            if (!wrapper || !scaler || !box) return;
+
+            const availW = Math.max(280, wrapper.clientWidth - 24);
+            const maxAvailH = 540;
+
+            const scale = Math.min(availW / currentViewportW, maxAvailH / currentViewportH, 1.0);
+            const scaledW = Math.round(currentViewportW * scale);
+            const scaledH = Math.round(currentViewportH * scale);
+
+            scaler.style.width = `${scaledW}px`;
+            scaler.style.height = `${scaledH}px`;
+
+            box.style.position = 'absolute';
+            box.style.top = '0';
+            box.style.left = '0';
+            box.style.width = `${currentViewportW}px`;
+            box.style.height = `${currentViewportH}px`;
+            box.style.transform = `scale(${scale})`;
+            box.style.transformOrigin = 'top left';
+        }
+
+        window.addEventListener('resize', applyViewportScale);
+
         function updateObsUrl() {
             const mode = document.getElementById('obs-mode')?.value || 'full';
             const view = document.getElementById('obs-view')?.value || 'auto';
@@ -1606,6 +1887,30 @@
             }
             if (openEl) {
                 openEl.href = url;
+            }
+
+            // Build live preview URL
+            let previewUrl = url + '&preview=1';
+            if (previewSample) {
+                previewUrl += '&sample=1';
+            }
+            if (previewPhase && previewPhase !== 'auto') {
+                if (previewUrl.includes('&view=')) {
+                    previewUrl = previewUrl.replace(/&view=[^&]*/, `&view=${previewPhase}`);
+                } else {
+                    previewUrl += `&view=${previewPhase}`;
+                }
+            }
+
+            const iframe = document.getElementById('trivia-preview-iframe');
+            if (iframe) {
+                clearTimeout(previewIframeDebounce);
+                previewIframeDebounce = setTimeout(() => {
+                    if (iframe.dataset.lastSrc !== previewUrl) {
+                        iframe.dataset.lastSrc = previewUrl;
+                        iframe.src = previewUrl;
+                    }
+                }, 80);
             }
         }
 
@@ -2261,6 +2566,51 @@
             };
             ws.onclose = () => setTimeout(connectWs, 2500);
         }
+
+        document.getElementById('obs-mode')?.addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (val === 'compact') {
+                setPreviewViewport(1920, 360, document.getElementById('chip-vp-compact'), 'compact');
+            } else if (val === 'hud') {
+                setPreviewViewport(520, 680, document.getElementById('chip-vp-hud'), 'hud');
+            } else {
+                setPreviewViewport(1920, 1080, document.getElementById('chip-vp-full'), 'full');
+            }
+        });
+
+        // Restore saved studio tab & preview preferences
+        try {
+            const savedTab = localStorage.getItem('trivia-active-tab');
+            if (savedTab && (savedTab === 'theming' || savedTab === 'studio')) {
+                switchTab(savedTab);
+            }
+            const savedBackdrop = localStorage.getItem('trivia-preview-backdrop');
+            if (savedBackdrop) {
+                previewBackdrop = savedBackdrop;
+                applyPreviewBackdrop();
+            }
+            const savedPhase = localStorage.getItem('trivia-preview-phase');
+            if (savedPhase) {
+                setPreviewPhase(savedPhase);
+            }
+            const savedSample = localStorage.getItem('trivia-preview-sample');
+            if (savedSample !== null) {
+                previewSample = (savedSample === '1');
+                const sampleBtn = document.getElementById('prev-btn-sample');
+                if (sampleBtn) {
+                    sampleBtn.textContent = previewSample ? 'Sample: ON' : 'Sample: OFF';
+                    sampleBtn.classList.toggle('active', previewSample);
+                }
+            }
+            const savedVp = localStorage.getItem('trivia-preview-viewport');
+            if (savedVp) {
+                const parsed = JSON.parse(savedVp);
+                if (parsed.w && parsed.h) {
+                    const chipBtn = parsed.chipId ? document.getElementById(parsed.chipId) : null;
+                    setPreviewViewport(parsed.w, parsed.h, chipBtn, parsed.mode);
+                }
+            }
+        } catch {}
 
         populateFontDropdowns();
         fetchState();

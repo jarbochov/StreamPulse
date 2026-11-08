@@ -1372,8 +1372,26 @@
             const hideLetters = params.has('hideLetters') || params.get('letters') === '0' || t.showLetterBadges === false;
             document.body.dataset.hideLetters = hideLetters ? 'true' : 'false';
 
-            const q = data.activeQuestion;
-            if (!q || data.status === 'idle') {
+            const SAMPLE_QUESTION = {
+                id: 'sample-preview',
+                category: 'Retro Gaming',
+                question: 'Which legendary 1990 launch title introduced Yoshi to the gaming world?',
+                choices: [
+                    { letter: 'A', text: 'Super Mario Bros. 3', votes: 14, percent: 18 },
+                    { letter: 'B', text: 'Super Mario World', votes: 52, percent: 68 },
+                    { letter: 'C', text: 'Yoshi’s Island', votes: 7, percent: 9 },
+                    { letter: 'D', text: 'Super Mario Kart', votes: 4, percent: 5 }
+                ],
+                correctIndex: 1,
+                funfact: 'Super Mario World was created by a 16-person Nintendo team and took three years to develop.',
+                totalVotes: 77
+            };
+
+            const sampleParam = params.get('sample') === '1';
+            const isSample = sampleParam || (previewParam && (!data.activeQuestion || data.status === 'idle'));
+            const q = isSample ? (data.activeQuestion || SAMPLE_QUESTION) : data.activeQuestion;
+
+            if (!q || (!isSample && data.status === 'idle')) {
                 if (!previewParam) {
                     rootEl.classList.remove('active');
                     if (timerRaf) cancelAnimationFrame(timerRaf);
@@ -1385,7 +1403,7 @@
 
             // Category & Counter
             categoryTextEl.textContent = q?.category || 'General';
-            counterEl.textContent = `Question ${(data.currentIndex ?? 0) + 1} of ${data.totalQuestions || 1}`;
+            counterEl.textContent = isSample ? 'Question 1 of 5' : `Question ${(data.currentIndex ?? 0) + 1} of ${data.totalQuestions || 1}`;
 
             // Phase / Reveal state determined by displayMode parameter or live server state
             let isReveal = false;
