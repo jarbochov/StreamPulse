@@ -227,6 +227,13 @@ test('Companion & API Integration: HTTP GET/POST triggers and status snapshot', 
                     }
                 }
             },
+            trivia: {
+                status: 'question',
+                activeCategory: 'Retro Gaming',
+                activeQuestionText: 'What year was Super Mario World released?',
+                totalVotes: 18,
+                remainingSeconds: 12
+            },
             customVars: [{ name: 'death_count', value: 7, type: 'counter' }]
         };
     };
@@ -491,5 +498,17 @@ test('Companion & API Integration: HTTP GET/POST triggers and status snapshot', 
         const tierVotes = await request('/api/status/field/tier_votes');
         assert.equal(tierVotes.status, 200);
         assert.equal(tierVotes.text, '12');
+
+        const triviaState = await request('/api/status/field/trivia_state');
+        assert.equal(triviaState.status, 200);
+        assert.equal(triviaState.text, 'question');
+
+        const triviaQ = await request('/api/status/field/trivia_question');
+        assert.equal(triviaQ.status, 200);
+        assert.equal(triviaQ.text, 'What year was Super Mario World released?');
+
+        const triviaVotes = await request('/api/status/field/trivia_votes');
+        assert.equal(triviaVotes.status, 200);
+        assert.equal(triviaVotes.text, '18');
     });
 });

@@ -666,7 +666,78 @@ Restores the built-in default presets.
 
 ---
 
-## 9. WebSocket Live Push Protocol
+## 9. Interactive Trivia & Audience Chat Voting API
+
+### `GET /api/trivia`
+Returns the public trivia game state. Add query `?includeAnswers=true` for admin view including hidden correct indexes and fun facts.
+
+### `GET /api/trivia/status`
+Lightweight summary for Companion buttons and dashboard widgets (`status`, `currentIndex`, `totalQuestions`, `activeCategory`, `activeQuestionText`, `totalVotes`, `remainingSeconds`).
+
+### `POST /api/trivia/question/start` (or `GET`)
+Starts the current or target question timer and opens audience chat voting. Supports query params `?id=<id>` or `?index=<index>` and `?duration=<seconds>`.
+
+### `POST /api/trivia/question/reveal` (or `GET`)
+Concludes question voting, displays the correct answer, broadcasts reveal fanfare, and reveals optional background fun facts.
+
+### `POST /api/trivia/question/next` (or `GET`)
+Advances to the next question in the bank and starts its countdown timer.
+
+### `POST /api/trivia/question/prev` (or `GET`)
+Returns to the previous question in the bank.
+
+### `POST /api/trivia/reset` (or `GET`)
+Halts any active question timers, clears active votes, and resets trivia state to `idle`.
+
+### `POST /api/trivia/vote`
+Casts a vote manually or via API:
+```json
+{
+  "choiceIndex": 1,
+  "user": "CoolViewer",
+  "userId": "cool_viewer_123"
+}
+```
+
+### `POST /api/trivia/question`
+Adds a new question to the bank:
+```json
+{
+  "category": "Gaming",
+  "question": "What year was Super Mario World released in Japan?",
+  "choices": ["1988", "1990", "1991", "1992"],
+  "correctIndex": 1,
+  "funfact": "Launch title for the Super Famicom in Japan on November 21, 1990."
+}
+```
+
+### `PUT /api/trivia/question/:id`
+Updates an existing question in the bank.
+
+### `DELETE /api/trivia/question/:id`
+Deletes a question by ID.
+
+### `POST /api/trivia/questions/reorder`
+Reorders questions by array of IDs: `{ "ids": ["q-2", "q-1", "q-3"] }`.
+
+### `POST /api/trivia/questions/import`
+Batch imports questions: `{ "questions": [...], "replace": false }`.
+
+### `GET /api/trivia/presets`
+Lists saved and built-in trivia question packs.
+
+### `POST /api/trivia/presets/save`
+Saves current questions and themes as a reusable preset pack: `{ "name": "Speedrun Lore", "description": "Custom questions" }`.
+
+### `POST /api/trivia/presets/:id/load` (or `GET`)
+Loads a preset quiz pack into the question bank.
+
+### `DELETE /api/trivia/presets/:id`
+Deletes a custom user preset pack.
+
+---
+
+## 10. WebSocket Live Push Protocol
 
 Connect to `ws://localhost:3000` (or your configured host/port). Messages use a `{ "type": "...", "data": {...} }` envelope.
 
@@ -684,7 +755,7 @@ When overlays connect, they receive live event packets in real time:
 
 Active custom-overlay alerts survive ordinary live-data rerenders. They end on completion, explicit skip/clear, page departure, or a change/removal of their layer definition.
 
-## 10. Embedded Mode (NodeCG)
+## 11. Embedded Mode (NodeCG)
 
 With `STREAMPULSE_EMBEDDED=true`, `require('streampulse/server.js')` exports `startServer`, `stopServer`, `onBroadcast`, `getSnapshots`, `setExternalData`, `registerHostSource`, `getHostSources` and `ingestEvent`.
 

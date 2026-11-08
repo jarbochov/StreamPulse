@@ -69,7 +69,7 @@
     document.head.appendChild(style);
 
     const MODULE_STORAGE_KEY = 'streampulse:modules';
-    let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true, polls: true, versus: true };
+    let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true, polls: true, versus: true, trivia: false };
     try {
         const cached = localStorage.getItem(MODULE_STORAGE_KEY);
         if (cached) {
@@ -109,6 +109,7 @@
         ]},
         { label: 'Tools', children: [
             { label: 'Poll Manager', href: '/polls.html', module: 'polls' },
+            { label: 'Trivia Studio', href: '/tools/trivia.html', module: 'trivia' },
             { label: 'Tier List Maker', href: '/tools/tier-list.html' },
             { label: 'Versus', href: '/versus.html', module: 'versus', children: [
                 { label: 'Versus', href: '/versus.html' },

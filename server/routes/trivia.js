@@ -1,0 +1,222 @@
+'use strict';
+
+const { readRequestBody, sendJson, sendError } = require('./helpers');
+
+/**
+ * Creates the HTTP request router for the Trivia module
+ * 
+ * Supports both standard REST methods (POST, PUT, DELETE) and Companion-friendly
+ * GET triggers for Stream Deck / Bitfocus Companion automation buttons.
+ */
+function createTriviaRoutes({ triviaService, isTriviaEnabled = () => true }) {
+    return async function handleTriviaRoutes(req, res, pathname, url) {
+        if (!pathname.startsWith('/api/trivia')) return false;
+
+        // Check if module is disabled (unless checking public overlay status or config)
+        if (!isTriviaEnabled() && pathname !== '/api/trivia/status') {
+            sendError(res, 'Trivia module is disabled in System Config', 403);
+            return true;
+        }
+
+        try {
+            // GET /api/trivia - Full public state (includeAnswers query parameter for admin view)
+            if (pathname === '/api/trivia' && req.method === 'GET') {
+                const includeAnswers = url.searchParams.get('includeAnswers') === 'true' || url.searchParams.get('admin') === 'true';
+                sendJson(res, triviaService.getPublicState({ includeAnswers }));
+                return true;
+            }
+
+            // GET /api/trivia/status - Lightweight status for Companion/widgets
+            if (pathname === '/api/trivia/status' && req.method === 'GET') {
+                sendJson(res, triviaService.getStatusSummary());
+                return true;
+            }
+
+            // PUT /api/trivia - Update settings and/or theme
+            if (pathname === '/api/trivia' && req.method === 'PUT') {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                if (body.settings) triviaService.updateSettings(body.settings);
+                if (body.theme) triviaService.updateTheme(body.theme);
+                sendJson(res, triviaService.getPublicState({ includeAnswers: true }));
+                return true;
+            }
+
+            // POST or GET /api/trivia/question/start (Companion friendly)
+            if ((pathname === '/api/trivia/question/start' || pathname === '/api/trivia/start') && (req.method === 'POST' || req.method === 'GET')) {
+                let targetIdOrIndex = null;
+                let duration = null;
+
+                if (req.method === 'POST') {
+                    const raw = await readRequestBody(req);
+                    if (raw) {
+                        try {
+                            const body = JSON.parse(raw);
+                            if (body.id !== undefined) targetIdOrIndex = body.id;
+                            else if (body.index !== undefined) targetIdOrIndex = Number(body.index);
+                            if (body.duration) duration = Number(body.duration);
+                        } catch {}
+                    }
+                }
+
+                // Check query parameters (GET or fallback)
+                if (targetIdOrIndex === null) {
+                    if (url.searchParams.has('id')) targetIdOrIndex = url.searchParams.get('id');
+                    else if (url.searchParams.has('index')) targetIdOrIndex = parseInt(url.searchParams.get('index'), 10);
+                }
+                if (!duration && url.searchParams.has('duration')) {
+                    duration = parseInt(url.searchParams.get('duration'), 10);
+                }
+
+                const result = triviaService.startQuestion(targetIdOrIndex, { duration });
+                sendJson(res, result);
+                return true;
+            }
+
+            // POST or GET /api/trivia/question/reveal (Companion friendly)
+            if ((pathname === '/api/trivia/question/reveal' || pathname === '/api/trivia/reveal') && (req.method === 'POST' || req.method === 'GET')) {
+                const result = triviaService.revealAnswer();
+                sendJson(res, result);
+                return true;
+            }
+
+            // POST or GET /api/trivia/question/next (Companion friendly)
+            if ((pathname === '/api/trivia/question/next' || pathname === '/api/trivia/next') && (req.method === 'POST' || req.method === 'GET')) {
+                const result = triviaService.nextQuestion();
+                sendJson(res, result);
+                return true;
+            }
+
+            // POST or GET /api/trivia/question/prev (Companion friendly)
+            if ((pathname === '/api/trivia/question/prev' || pathname === '/api/trivia/prev') && (req.method === 'POST' || req.method === 'GET')) {
+                const result = triviaService.previousQuestion();
+                sendJson(res, result);
+                return true;
+            }
+
+            // POST or GET /api/trivia/reset (Companion friendly)
+            if (pathname === '/api/trivia/reset' && (req.method === 'POST' || req.method === 'GET')) {
+                const result = triviaService.resetTrivia();
+                sendJson(res, result);
+                return true;
+            }
+
+            // POST /api/trivia/vote - Manual or API vote casting
+            if (pathname === '/api/trivia/vote' && req.method === 'POST') {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const accepted = triviaService.castVote({
+                    user: body.user || 'api_user',
+                    userId: body.userId || body.user || 'api_user',
+                    choiceIndex: Number(body.choiceIndex ?? body.index),
+                    isSub: Boolean(body.isSub)
+                });
+                sendJson(res, { success: accepted });
+                return true;
+            }
+
+            // POST /api/trivia/question - Add new question
+            if (pathname === '/api/trivia/question' && req.method === 'POST') {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const created = triviaService.addQuestion(body);
+                sendJson(res, created, 201);
+                return true;
+            }
+
+            // PUT /api/trivia/question/:id - Update question
+            if (pathname.startsWith('/api/trivia/question/') && req.method === 'PUT') {
+                const questionId = decodeURIComponent(pathname.slice('/api/trivia/question/'.length));
+                const raw = await readRequestBody(req);
+                const updates = raw ? JSON.parse(raw) : {};
+                const updated = triviaService.updateQuestion(questionId, updates);
+                sendJson(res, updated);
+                return true;
+            }
+
+            // DELETE /api/trivia/question/:id - Delete question
+            if (pathname.startsWith('/api/trivia/question/') && req.method === 'DELETE') {
+                const questionId = decodeURIComponent(pathname.slice('/api/trivia/question/'.length));
+                const success = triviaService.deleteQuestion(questionId);
+                sendJson(res, { success });
+                return true;
+            }
+
+            // POST /api/trivia/questions/reorder - Reorder questions
+            if (pathname === '/api/trivia/questions/reorder' && req.method === 'POST') {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const ids = Array.isArray(body) ? body : (body.ids || []);
+                const reordered = triviaService.reorderQuestions(ids);
+                sendJson(res, { success: true, count: reordered.length });
+                return true;
+            }
+
+            // POST /api/trivia/questions/import - Import question bank
+            if (pathname === '/api/trivia/questions/import' && req.method === 'POST') {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const items = Array.isArray(body) ? body : (body.questions || []);
+                const replace = Boolean(body.replace);
+                const imported = triviaService.importQuestions(items, { replace });
+                sendJson(res, { success: true, count: imported.length }, 201);
+                return true;
+            }
+
+            // POST /api/trivia/questions/clear - Clear question bank
+            if (pathname === '/api/trivia/questions/clear' && req.method === 'POST') {
+                triviaService.clearQuestions();
+                sendJson(res, { success: true, count: 0 });
+                return true;
+            }
+
+            // GET /api/trivia/presets - List presets
+            if (pathname === '/api/trivia/presets' && req.method === 'GET') {
+                const state = triviaService.getPublicState({ includeAnswers: false });
+                sendJson(res, state.presets);
+                return true;
+            }
+
+            // POST /api/trivia/presets/save - Save preset
+            if (pathname === '/api/trivia/presets/save' && req.method === 'POST') {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const preset = triviaService.savePreset(body.name, body.description);
+                sendJson(res, preset, 201);
+                return true;
+            }
+
+            // POST or GET /api/trivia/presets/:id/load (Companion friendly)
+            if (pathname.startsWith('/api/trivia/presets/') && pathname.endsWith('/load') && (req.method === 'POST' || req.method === 'GET')) {
+                const presetId = pathname.slice('/api/trivia/presets/'.length, -'/load'.length);
+                const state = triviaService.loadPreset(presetId);
+                sendJson(res, state);
+                return true;
+            }
+
+            // DELETE /api/trivia/presets/:id - Delete preset
+            if (pathname.startsWith('/api/trivia/presets/') && req.method === 'DELETE') {
+                const presetId = pathname.slice('/api/trivia/presets/'.length);
+                const success = triviaService.deletePreset(presetId);
+                sendJson(res, { success });
+                return true;
+            }
+
+            // POST /api/trivia/presets/reset - Reset to built-in presets
+            if (pathname === '/api/trivia/presets/reset' && req.method === 'POST') {
+                const presets = triviaService.resetPresets();
+                sendJson(res, presets);
+                return true;
+            }
+
+            return false;
+        } catch (err) {
+            sendError(res, err.message, 400);
+            return true;
+        }
+    };
+}
+
+module.exports = {
+    createTriviaRoutes
+};

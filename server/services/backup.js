@@ -218,6 +218,7 @@ function buildBackupFileSpecs({
         { src: path.join(dataDir, 'polls.json'), dest: 'data/polls.json' },
         { src: path.join(dataDir, 'matchup.json'), dest: 'data/matchup.json' },
         { src: path.join(dataDir, 'tier-list.json'), dest: 'data/tier-list.json' },
+        { src: path.join(dataDir, 'trivia.json'), dest: 'data/trivia.json' },
         { src: path.join(dataDir, 'chatbot.json'), dest: 'data/chatbot.json' },
         { src: path.join(dataDir, 'chatbot-usage.json'), dest: 'data/chatbot-usage.json' },
         { src: path.join(dataDir, 'quotes.json'), dest: 'data/quotes.json' },

@@ -60,6 +60,8 @@ const { createPollService } = require('./server/services/polls');
 const { createMatchupService } = require('./server/services/matchup');
 const { createTierListService } = require('./server/services/tier-list');
 const { createTierListRoutes } = require('./server/routes/tier-list');
+const { createTriviaService } = require('./server/services/trivia');
+const { createTriviaRoutes } = require('./server/routes/trivia');
 const { safeWriteFileSync, escapeHtml } = require('./server/routes/helpers');
 const { createCrmService } = require('./server/services/crm');
 const { createUserModerationService } = require('./server/services/user-moderation');
@@ -331,6 +333,7 @@ const ssnService = createSsnService({
     alertEngine: () => alertEngine,
     pollService: () => pollService,
     tierListService: () => tierListService,
+    triviaService: () => triviaService,
     takeoverPages: (kind, name, dur) => takeoverPages(kind, name, dur),
     addClipCandidate: (reason, details, ts, score) => addClipCandidate(reason, details, ts, score),
     getClipCandidateConfig: () => CLIP_CANDIDATE_CONFIG,
@@ -1136,6 +1139,18 @@ const handleTierListRoutes = createTierListRoutes({
     tierListService
 });
 
+const triviaService = createTriviaService({
+    dataDir: DATA_DIR,
+    triviaPath: path.join(DATA_DIR, 'trivia.json'),
+    broadcastToOverlays,
+    chatbotAnnouncer: chatbot,
+    log: console.log
+});
+const handleTriviaRoutes = createTriviaRoutes({
+    triviaService,
+    isTriviaEnabled: () => config.trivia_enabled === true
+});
+
 
 // ============================================================================
 // HTTP SERVER
@@ -1321,6 +1336,7 @@ const statusService = createStatusService({
     getAlertEngine: () => alertEngine,
     getObsService: () => obsService,
     getTierListService: () => tierListService,
+    getTriviaService: () => triviaService,
     getWsService: () => wsService,
     getSessionService: () => sessionService,
     getProcessStartedAt: () => PROCESS_STARTED_AT,
@@ -1632,6 +1648,7 @@ const server = createHttpServer(async (req, res) => {
 
     if (await handleGamePlanRoutes(req, res, pathname, url)) return;
     if (await handleTierListRoutes(req, res, pathname, url)) return;
+    if (await handleTriviaRoutes(req, res, pathname, url)) return;
     if (await handlePromoRoutes(req, res, pathname)) return;
 
 

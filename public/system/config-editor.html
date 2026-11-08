@@ -426,6 +426,27 @@
                     </div>
                 </div>
 
+                <!-- Trivia Studio Card -->
+                <div class="module-card">
+                    <div class="module-card-head">
+                        <div class="module-card-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                            <span>Interactive Trivia</span>
+                            <span class="beta-tag">NEW</span>
+                        </div>
+                        <span class="module-badge" id="badge-trivia">Disabled</span>
+                    </div>
+                    <p class="hint">Interactive stream trivia questions, live audience chat voting (!a, !b, !c, !d), answer reveals, and quiz pack presets.</p>
+                    <div class="cfg-toggle" style="margin-top:auto;">
+                        <input type="checkbox" id="cfg-trivia-enabled">
+                        <label for="cfg-trivia-enabled">Enable Interactive Trivia module</label>
+                    </div>
+                    <div style="margin-top:0.5rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
+                        <a class="btn" href="/tools/trivia.html" style="text-decoration:none;">Open Trivia Studio →</a>
+                        <a class="btn" href="/overlays/trivia.html?preview=true" target="_blank" style="text-decoration:none;">Overlay Preview ↗</a>
+                    </div>
+                </div>
+
                 <!-- OBS Scene Sync Card -->
                 <div class="module-card">
                     <div class="module-card-head">
@@ -791,6 +812,7 @@
         updateBadge('badge-clips', document.getElementById('cfg-clips-enabled')?.checked);
         updateBadge('badge-polls', document.getElementById('cfg-polls-enabled')?.checked);
         updateBadge('badge-versus', document.getElementById('cfg-versus-enabled')?.checked);
+        updateBadge('badge-trivia', document.getElementById('cfg-trivia-enabled')?.checked);
         updateBadge('badge-obs', document.getElementById('cfg-obs-enabled')?.checked);
         updateBadge('badge-obs-scene-sync', document.getElementById('cfg-obs-scene-sync-enabled')?.checked);
         document.getElementById('obs-scene-sync-options').hidden = !document.getElementById('cfg-obs-scene-sync-enabled').checked;
@@ -850,6 +872,7 @@
             document.getElementById('cfg-clips-enabled').checked = clips.enabled !== false;
             document.getElementById('cfg-polls-enabled').checked = cfg.polls_enabled !== false;
             document.getElementById('cfg-versus-enabled').checked = cfg.versus_enabled !== false;
+            document.getElementById('cfg-trivia-enabled').checked = Boolean(cfg.trivia_enabled);
 
             const obs = cfg.obs || {};
             document.getElementById('cfg-obs-enabled').checked = Boolean(obs.enabled);
@@ -922,6 +945,7 @@
             obs_scene_sync_enabled: document.getElementById('cfg-obs-scene-sync-enabled').checked,
             polls_enabled: document.getElementById('cfg-polls-enabled').checked,
             versus_enabled: document.getElementById('cfg-versus-enabled').checked,
+            trivia_enabled: document.getElementById('cfg-trivia-enabled').checked,
             music: {
                 ...(loadedConfig?.music || {}),
                 enabled: document.getElementById('cfg-music-enabled').checked,
@@ -1015,7 +1039,7 @@
     document.getElementById('ssn-session-toggle').addEventListener('click', toggleSsnSession);
 
     // Module toggles update badges live
-    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-obs-enabled', 'cfg-obs-scene-sync-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
+    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-trivia-enabled', 'cfg-obs-enabled', 'cfg-obs-scene-sync-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', updateModuleBadges);
     });
 

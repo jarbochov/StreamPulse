@@ -113,12 +113,12 @@ function createSystemRoutes({
                     setInterval_('twitch_refresh_minutes', 1, 1440, 10);
                     setInterval_('twitch_stream_info_seconds', 10, 3600, 30);
 
-                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'twitch_ban_sync', 'message_deletion_sync', 'hashtags_enabled', 'hashtag_max_length', 'chat_log_enabled', 'chatbot_enabled', 'speaker_badges_enabled', 'obs_scene_sync_enabled', 'polls_enabled', 'versus_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals', 'clip_candidates', 'session_lifecycle', 'obs'];
+                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'twitch_ban_sync', 'message_deletion_sync', 'hashtags_enabled', 'hashtag_max_length', 'chat_log_enabled', 'chatbot_enabled', 'speaker_badges_enabled', 'obs_scene_sync_enabled', 'polls_enabled', 'versus_enabled', 'trivia_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals', 'clip_candidates', 'session_lifecycle', 'obs'];
                     for (const key of safeFields) {
                         if (updates[key] !== undefined) {
                             if (key === 'twitch_ban_sync' || key === 'message_deletion_sync') {
                                 current[key] = { enabled: key === 'twitch_ban_sync' ? updates[key]?.enabled === true : updates[key]?.enabled !== false };
-                            } else if (key === 'speaker_badges_enabled' || key === 'obs_scene_sync_enabled') {
+                            } else if (key === 'speaker_badges_enabled' || key === 'obs_scene_sync_enabled' || key === 'trivia_enabled') {
                                 current[key] = updates[key] === true;
                             } else if (key === 'hashtag_max_length') {
                                 current[key] = Math.max(10, Math.min(100, Math.round(Number(updates[key])) || 50));
@@ -172,6 +172,7 @@ function createSystemRoutes({
                     chatbot_enabled: config.chatbot_enabled !== false,
                     polls_enabled: config.polls_enabled !== false,
                     versus_enabled: config.versus_enabled !== false,
+                    trivia_enabled: config.trivia_enabled === true,
                     chat_log_enabled: config.chat_log_enabled !== false,
                     broadcaster_name: broadcasterName,
                     connection: {
@@ -281,6 +282,18 @@ function createSystemRoutes({
                         else val = String(Math.max(0, Math.round((tl.activeVote.endsAt - Date.now()) / 1000)));
                     } else if (sub === 'agreement') val = `${tl.activeVote?.consensus?.agreementPercent ?? 0}%`;
                     else if (sub === 'title') val = tl.title || '';
+                }
+            } else if (field.startsWith('trivia_')) {
+                const sub = field.replace('trivia_', '');
+                const tr = status.trivia;
+                if (tr) {
+                    if (sub === 'state' || sub === 'status') val = tr.status || 'idle';
+                    else if (sub === 'question') val = tr.activeQuestionText || '';
+                    else if (sub === 'category') val = tr.activeCategory || '';
+                    else if (sub === 'votes' || sub === 'total_votes') val = String(tr.totalVotes || 0);
+                    else if (sub === 'time' || sub === 'remaining') val = String(tr.remainingSeconds || 0);
+                    else if (sub === 'index') val = String(tr.currentIndex ?? 0);
+                    else if (sub === 'total') val = String(tr.totalQuestions ?? 0);
                 }
             } else if (field.startsWith('counter_') || field.startsWith('var_')) {
                 const varName = field.replace(/^(counter|var)_/, '');

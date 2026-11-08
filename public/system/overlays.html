@@ -53,7 +53,7 @@
     <div id="toast" role="status"></div>
     <script>
         const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true, polls: true, versus: true };
+        let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true, polls: true, versus: true, trivia: false };
         try {
             const cached = localStorage.getItem('streampulse:modules');
             if (cached) Object.assign(moduleState, JSON.parse(cached));
@@ -108,6 +108,11 @@
             { title: 'Versus & Tournaments', module: 'versus', manage: ['Versus Studio', '/versus.html'], items: [
                 { name: 'Matchup Scoreboard Overlay', desc: 'Versus and match scoreboard for 2–4 players/teams. Top bar, EVO FGC, split corners, speedrun race, lower-third, compact bug, and versus card layouts.', path: '/matchup.html', customize: ['/versus.html', 'Versus Studio'] },
                 { name: 'Tournament Bracket Overlay', desc: 'Live single/double elimination and round robin tournament bracket with game/round pips and champion victory ceremony.', path: '/tournament.html', customize: ['/versus.html', 'Versus Studio'] }
+            ] },
+            { title: 'Interactive Trivia', module: 'trivia', manage: ['Trivia Studio', '/tools/trivia.html'], items: [
+                { name: 'Live Trivia Card (Fullscreen)', desc: 'Television-grade live trivia card with countdown timer bar, choices A–D, live chat voting meters, and answer reveal fanfare.', path: '/overlays/trivia.html', customize: ['/tools/trivia.html', 'Open Studio'] },
+                { name: 'Trivia Lower-Third Strip', desc: 'Compact horizontal banner showing active question and real-time choice voting bars.', path: '/overlays/trivia.html?mode=compact', customize: ['/tools/trivia.html', 'Open Studio'] },
+                { name: 'Trivia Corner HUD', desc: 'Minimal corner HUD showing active question and answer reveal countdown.', path: '/overlays/trivia.html?mode=hud', customize: ['/tools/trivia.html', 'Open Studio'] }
             ] },
             { id: 'timers', title: 'Timers', manage: ['Timer manager', '/timers-editor.html'], items: [] },
             { id: 'custom', title: 'Custom overlays', manage: ['All custom overlays & assets', '/custom-overlays.html'], items: [] }

@@ -354,6 +354,7 @@ function createSsnService({
     alertEngine = null,
     pollService = null,
     tierListService = null,
+    triviaService = null,
     takeoverPages = () => {},
     addClipCandidate = () => {},
     getClipCandidateConfig = () => ({}),
@@ -396,6 +397,7 @@ function createSsnService({
     const resolveChatbot = () => (typeof chatbot === 'function' ? chatbot() : chatbot);
     const resolvePollService = () => (typeof pollService === 'function' ? pollService() : pollService);
     const resolveTierListService = () => (typeof tierListService === 'function' ? tierListService() : tierListService);
+    const resolveTriviaService = () => (typeof triviaService === 'function' ? triviaService() : triviaService);
 
     async function cacheEmote(name, url) {
         if (emoteCache.has(name)) return;
@@ -902,6 +904,27 @@ function createSsnService({
                         ? `id:${String(msg.userId).trim()}`
                         : `name:${String(chatname).trim().toLowerCase()}`
                 ]),
+                message: plainText.trim(),
+                subscriber: Boolean(msg.hasMembership || msg.subscriber || msg.isSub),
+                isSub: Boolean(msg.hasMembership || msg.subscriber || msg.isSub),
+                membership: msg.membership || msg.hasMembership
+            });
+        }
+
+        if (resolveTriviaService()) {
+            const contentImage = contentImageHtml(msg.contentimg);
+            const messageHtml = [msg.chatmessage, contentImage].filter(Boolean).join(' ');
+            const plainText = messageHtml ? messageHtml.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '') : '';
+            resolveTriviaService().handleChatMessage({
+                chatname,
+                user: chatname,
+                userId: JSON.stringify([
+                    String(msg.type || 'unknown').trim().toLowerCase(),
+                    msg.userId !== undefined && msg.userId !== null && String(msg.userId).trim()
+                        ? `id:${String(msg.userId).trim()}`
+                        : `name:${String(chatname).trim().toLowerCase()}`
+                ]),
+                comment: plainText.trim(),
                 message: plainText.trim(),
                 subscriber: Boolean(msg.hasMembership || msg.subscriber || msg.isSub),
                 isSub: Boolean(msg.hasMembership || msg.subscriber || msg.isSub),

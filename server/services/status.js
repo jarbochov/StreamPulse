@@ -30,6 +30,7 @@ function createStatusService({
     getAlertEngine = () => null,
     getObsService = () => null,
     getTierListService = () => null,
+    getTriviaService = () => null,
     getWsService = () => null,
     getSessionService = () => null,
     getProcessStartedAt = () => new Date().toISOString(),
@@ -84,6 +85,7 @@ function createStatusService({
         const alertEngine = getAlertEngine();
         const obsService = getObsService();
         const tierListService = getTierListService();
+        const triviaService = getTriviaService();
         const wsService = getWsService();
         const sessionService = getSessionService();
         const variablesStore = getVariablesStore();
@@ -201,6 +203,7 @@ function createStatusService({
                 hashtags: config.hashtags_enabled !== false,
                 polls: config.polls_enabled !== false,
                 versus: config.versus_enabled !== false,
+                trivia: config.trivia_enabled === true,
                 obs: Boolean(config.obs?.enabled)
             },
             obs: obsService ? obsService.getStatus() : { connected: false },
@@ -210,6 +213,7 @@ function createStatusService({
                 tiersCount: tierListService.getState().tiers.length,
                 activeVote: tierListService.getState().activeVote
             } : {},
+            trivia: triviaService ? triviaService.getStatusSummary() : { status: 'idle', totalQuestions: 0 },
             overlayClients: wsService ? wsService.getSourceCount() : 0,
             websocketClients: wsService ? wsService.getClientCount() : 0,
             sessionActive: isSessionActive(),
