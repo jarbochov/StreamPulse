@@ -4254,7 +4254,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
     for (const [key, value] of Object.entries(status.external || {})) {
       const items = Object.keys(flattenExternal(value, `rep.${key}`, {})).slice(0, 200).map((name) => [name, name.slice(`rep.${key}.`.length) || key]);
-      if (items.length) groups.push({ label: `NodeCG: ${key}`, items });
+      if (items.length) groups.push({ label: `Host: ${key}`, items });
     }
     groups.push({ label: "Game (IGDB)", items: GAME_ITEMS });
     groups.push({ label: "Game plan", items: [...PLAN_ITEMS, ...(status.gamePlan?.lists || []).map((list) => [`plan.list.${list.id}`, `${list.name} list (comma list)`])] });

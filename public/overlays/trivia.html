@@ -281,8 +281,8 @@
             letter-spacing: 0.02em !important;
         }
 
-        /* ── NodeCG Broadcast (Pure Floating Text / No Card Boxes) ── */
-        body[data-theme="nodecg"], body[data-style="text"] {
+        /* ── Broadcast Floating Text (Pure Floating Text / No Card Boxes) ── */
+        body[data-theme="broadcast-text"], body[data-theme="nodecg"], body[data-style="text"] {
             --font-family: 'Montserrat', 'Bebas Neue', 'Impact', sans-serif;
             --question-font: 'Montserrat', 'Bebas Neue', 'Impact', sans-serif;
             --choice-font: 'Montserrat', sans-serif;
@@ -303,8 +303,8 @@
             --correct-glow: none !important;
         }
 
-        body[data-theme="nodecg"] #card, body[data-style="text"] #card,
-        body[data-theme="nodecg"] .trivia-card, body[data-style="text"] .trivia-card {
+        body[data-theme="broadcast-text"] #card, body[data-theme="nodecg"] #card, body[data-style="text"] #card,
+        body[data-theme="broadcast-text"] .trivia-card, body[data-theme="nodecg"] .trivia-card, body[data-style="text"] .trivia-card {
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
@@ -312,7 +312,7 @@
             padding: 1rem 0 !important;
         }
 
-        body[data-theme="nodecg"] .choice-card, body[data-style="text"] .choice-card {
+        body[data-theme="broadcast-text"] .choice-card, body[data-theme="nodecg"] .choice-card, body[data-style="text"] .choice-card {
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
@@ -322,7 +322,7 @@
             min-height: auto !important;
         }
 
-        body[data-theme="nodecg"] .choice-letter, body[data-style="text"] .choice-letter {
+        body[data-theme="broadcast-text"] .choice-letter, body[data-theme="nodecg"] .choice-letter, body[data-style="text"] .choice-letter {
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
@@ -334,7 +334,7 @@
             align-self: center !important;
         }
 
-        body[data-theme="nodecg"] .question-title, body[data-style="text"] .question-title {
+        body[data-theme="broadcast-text"] .question-title, body[data-theme="nodecg"] .question-title, body[data-style="text"] .question-title {
             font-size: clamp(2rem, 4.5vw, 3.8rem) !important;
             line-height: 1.18 !important;
             text-align: center !important;
@@ -343,7 +343,7 @@
             font-family: var(--question-font) !important;
         }
 
-        body[data-theme="nodecg"] .choice-text, body[data-style="text"] .choice-text {
+        body[data-theme="broadcast-text"] .choice-text, body[data-theme="nodecg"] .choice-text, body[data-style="text"] .choice-text {
             font-size: clamp(1.2rem, 2.5vw, 2rem) !important;
             line-height: 1.25 !important;
             text-shadow: var(--choice-shadow) !important;
@@ -354,28 +354,28 @@
             word-break: normal !important;
         }
 
-        body[data-theme="nodecg"] .choice-card.correct .choice-text, body[data-style="text"] .choice-card.correct .choice-text {
+        body[data-theme="broadcast-text"] .choice-card.correct .choice-text, body[data-theme="nodecg"] .choice-card.correct .choice-text, body[data-style="text"] .choice-card.correct .choice-text {
             color: var(--correct-color) !important;
             text-shadow: 0 0 15px rgba(74, 222, 128, 0.7), 3px 3px 6px #000 !important;
         }
 
-        body[data-theme="nodecg"] .choice-meter, body[data-style="text"] .choice-meter {
+        body[data-theme="broadcast-text"] .choice-meter, body[data-theme="nodecg"] .choice-meter, body[data-style="text"] .choice-meter {
             display: none !important;
         }
 
-        body[data-theme="nodecg"] .timer-track, body[data-style="text"] .timer-track {
+        body[data-theme="broadcast-text"] .timer-track, body[data-theme="nodecg"] .timer-track, body[data-style="text"] .timer-track {
             background: rgba(255, 255, 255, 0.2) !important;
             height: 8px !important;
             border-radius: 4px !important;
             box-shadow: 0 2px 6px #000 !important;
         }
 
-        body[data-theme="nodecg"] .trivia-footer, body[data-style="text"] .trivia-footer {
+        body[data-theme="broadcast-text"] .trivia-footer, body[data-theme="nodecg"] .trivia-footer, body[data-style="text"] .trivia-footer {
             border-top: none !important;
             text-shadow: 2px 2px 4px #000 !important;
         }
 
-        body[data-theme="nodecg"] .category-pill, body[data-style="text"] .category-pill {
+        body[data-theme="broadcast-text"] .category-pill, body[data-theme="nodecg"] .category-pill, body[data-style="text"] .category-pill {
             background: transparent !important;
             border: none !important;
             padding: 0 !important;
@@ -383,7 +383,7 @@
             font-size: 1.1rem !important;
         }
 
-        body[data-theme="nodecg"] .question-counter, body[data-style="text"] .question-counter {
+        body[data-theme="broadcast-text"] .question-counter, body[data-theme="nodecg"] .question-counter, body[data-style="text"] .question-counter {
             text-shadow: 2px 2px 4px #000 !important;
         }
 
@@ -554,12 +554,6 @@
             color: #38bdf8;
             border: 1px solid rgba(56, 189, 248, 0.4);
             animation: pulse-border 2s infinite ease-in-out;
-        }
-
-        .state-badge.live-question {
-            background: color-mix(in srgb, var(--accent-color, #38bdf8) 16%, transparent);
-            color: var(--accent-color, #38bdf8);
-            border: 1px solid color-mix(in srgb, var(--accent-color, #38bdf8) 45%, transparent);
         }
 
         .state-badge.reveal {
@@ -793,7 +787,7 @@
             transform: scale(0.99);
         }
 
-        /* ── NodeCG-Style Collapsed Incorrect Choices on Reveal ───── */
+        /* ── Collapsed Incorrect Choices on Reveal ───── */
         .trivia-card.phase-reveal.collapse-incorrect .choice-card.incorrect {
             max-height: 0 !important;
             min-height: 0 !important;
@@ -989,7 +983,7 @@
                 </span>
                 <div class="header-meta">
                     <span class="question-counter" id="counter">Question 1 of 5</span>
-                    <span class="state-badge question" id="state-badge">Active</span>
+                    <span class="state-badge" id="state-badge" style="display: none;"></span>
                 </div>
             </div>
 
@@ -1072,6 +1066,7 @@
 
         const PRESET_FONTS = {
             modern: 'Inter',
+            'broadcast-text': 'Montserrat',
             nodecg: 'Montserrat',
             arcade: 'Press Start 2P',
             esports: 'Rajdhani',
@@ -1085,6 +1080,15 @@
             const clean = String(raw).replace(/["';\\]/g, '').trim();
             if (!clean) return '';
             return `"${clean}", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        }
+
+        function formatCssColor(val) {
+            if (!val || typeof val !== 'string') return '';
+            const s = val.trim();
+            if (!s) return '';
+            if (s.toLowerCase() === 'transparent') return 'transparent';
+            if (/^[0-9a-fA-F]{3,8}$/.test(s)) return '#' + s;
+            return s;
         }
 
         function applyCssVar(name, value) {
@@ -1196,7 +1200,7 @@
             document.body.dataset.theme = activePreset;
 
             const styleParam = (params.get('style') || '').toLowerCase();
-            const activeStyle = styleParam || t.cardStyle || (activePreset === 'nodecg' ? 'text' : 'cards');
+            const activeStyle = styleParam || t.cardStyle || ((activePreset === 'broadcast-text' || activePreset === 'nodecg') ? 'text' : 'cards');
             document.body.dataset.style = activeStyle;
 
             // Preload signature font for preset
@@ -1208,19 +1212,19 @@
             // 2. Custom container styles (from service theme or URL parameters)
             const cardBgParam = params.get('cardbg') || params.get('cardBg') || params.get('bg') || params.get('glassbg');
             const cardBgVal = cardBgParam || t.cardBg;
-            if (cardBgVal) applyCssVar('--card-bg', cardBgVal);
+            if (cardBgVal) applyCssVar('--card-bg', formatCssColor(cardBgVal));
 
             const cardBorderParam = params.get('cardborder') || params.get('cardBorder') || params.get('border');
             const cardBorderVal = cardBorderParam || t.cardBorder || t.cardBorderColor;
-            if (cardBorderVal) applyCssVar('--card-border', cardBorderVal);
+            if (cardBorderVal) applyCssVar('--card-border', formatCssColor(cardBorderVal));
 
             const choiceBgParam = params.get('choicebg') || params.get('choiceBg');
             const choiceBgVal = choiceBgParam || t.choiceBg;
-            if (choiceBgVal) applyCssVar('--choice-bg', choiceBgVal);
+            if (choiceBgVal) applyCssVar('--choice-bg', formatCssColor(choiceBgVal));
 
             const choiceBorderParam = params.get('choiceborder') || params.get('choiceBorder');
             const choiceBorderVal = choiceBorderParam || t.choiceBorder || t.choiceBorderColor;
-            if (choiceBorderVal) applyCssVar('--choice-border', choiceBorderVal);
+            if (choiceBorderVal) applyCssVar('--choice-border', formatCssColor(choiceBorderVal));
 
             const blurParam = params.get('blur');
             const blurVal = blurParam !== null && blurParam !== undefined ? `${blurParam}px` : (t.cardBlur !== undefined ? `${t.cardBlur}px` : null);
@@ -1229,29 +1233,29 @@
                 applyCssVar('--choice-blur', blurVal);
             }
 
-            if (t.textColor) applyCssVar('--text-color', t.textColor);
+            if (t.textColor) applyCssVar('--text-color', formatCssColor(t.textColor));
             if (t.choiceBorderWidth !== undefined) applyCssVar('--choice-border-width', `${t.choiceBorderWidth}px`);
             if (t.choiceRadius !== undefined) applyCssVar('--choice-radius', `${t.choiceRadius}px`);
             if (t.cardRadius !== undefined) applyCssVar('--card-radius', `${t.cardRadius}px`);
-            if (t.timerColor) applyCssVar('--timer-color', t.timerColor);
-            if (t.timerWarningColor) applyCssVar('--timer-warning-color', t.timerWarningColor);
-            if (t.timerCriticalColor) applyCssVar('--timer-critical-color', t.timerCriticalColor);
+            if (t.timerColor) applyCssVar('--timer-color', formatCssColor(t.timerColor));
+            if (t.timerWarningColor) applyCssVar('--timer-warning-color', formatCssColor(t.timerWarningColor));
+            if (t.timerCriticalColor) applyCssVar('--timer-critical-color', formatCssColor(t.timerCriticalColor));
 
             const hintColorParam = params.get('hintcolor') || params.get('hintColor');
             const hintColorVal = hintColorParam || t.hintColor;
-            if (hintColorVal) applyCssVar('--hint-color', hintColorVal);
+            if (hintColorVal) applyCssVar('--hint-color', formatCssColor(hintColorVal));
 
             const catColorParam = params.get('catcolor') || params.get('categoryColor');
             const catColorVal = catColorParam || t.categoryColor;
-            if (catColorVal) applyCssVar('--category-color', catColorVal);
+            if (catColorVal) applyCssVar('--category-color', formatCssColor(catColorVal));
 
             const ffColorParam = params.get('fcolor') || params.get('funfactcolor') || params.get('funfactColor');
             const ffColorVal = ffColorParam || t.funfactColor;
-            if (ffColorVal) applyCssVar('--funfact-color', ffColorVal);
+            if (ffColorVal) applyCssVar('--funfact-color', formatCssColor(ffColorVal));
 
             const ffBgParam = params.get('fbg') || params.get('funfactbg') || params.get('funfactBg');
             const ffBgVal = ffBgParam || t.funfactBg;
-            if (ffBgVal) applyCssVar('--funfact-bg', ffBgVal);
+            if (ffBgVal) applyCssVar('--funfact-bg', formatCssColor(ffBgVal));
 
             if (t.incorrectOpacity !== undefined) applyCssVar('--incorrect-opacity', t.incorrectOpacity);
 
@@ -1260,13 +1264,15 @@
             const correctParam = params.get('correct') || params.get('correctColor');
             const accentVal = accentParam || t.accentColor;
             if (accentVal) {
-                applyCssVar('--accent-color', accentVal);
-                applyCssVar('--accent', accentVal);
+                const formattedAccent = formatCssColor(accentVal);
+                applyCssVar('--accent-color', formattedAccent);
+                applyCssVar('--accent', formattedAccent);
             }
             const correctVal = correctParam || t.correctColor;
             if (correctVal) {
-                applyCssVar('--correct-color', correctVal);
-                applyCssVar('--correct', correctVal);
+                const formattedCorrect = formatCssColor(correctVal);
+                applyCssVar('--correct-color', formattedCorrect);
+                applyCssVar('--correct', formattedCorrect);
             }
 
             // 4. Granular Typography & Shadows
@@ -1403,17 +1409,20 @@
                 isVotingOpen = chatVotingSetting && chatVotingActive && chatbotEnabled;
             }
 
-            const shouldCollapse = Boolean(document.body.dataset.collapse === 'true' || t.collapseIncorrect || activePreset === 'nodecg' || activeStyle === 'text' || params.get('collapse') === '1');
+            const shouldCollapse = Boolean(document.body.dataset.collapse === 'true' || t.collapseIncorrect || activePreset === 'broadcast-text' || activePreset === 'nodecg' || activeStyle === 'text' || params.get('collapse') === '1');
 
             if (isReveal) {
                 stateBadgeEl.textContent = 'Answer Reveal';
                 stateBadgeEl.className = 'state-badge reveal';
+                stateBadgeEl.style.display = '';
             } else if (isVotingOpen) {
                 stateBadgeEl.textContent = 'Voting Open';
                 stateBadgeEl.className = 'state-badge question';
+                stateBadgeEl.style.display = '';
             } else {
-                stateBadgeEl.textContent = 'Live Question';
-                stateBadgeEl.className = 'state-badge live-question';
+                stateBadgeEl.textContent = '';
+                stateBadgeEl.className = 'state-badge';
+                stateBadgeEl.style.display = 'none';
             }
             cardEl.className = `trivia-card ${isReveal ? 'phase-reveal' : 'phase-question'} ${shouldCollapse ? 'collapse-incorrect' : ''}`;
 

@@ -57,7 +57,7 @@ const DEFAULT_THEME = {
     correctGlow: '0 0 24px rgba(34, 197, 94, 0.45)',
     incorrectColor: '#ef4444',
     incorrectOpacity: 0.35,
-    collapseIncorrect: false, // NodeCG full screen trivia style
+    collapseIncorrect: false, // Full screen broadcast trivia style
     timerColor: '#38bdf8',
     timerWarningColor: '#f59e0b',
     timerCriticalColor: '#ef4444',
@@ -67,7 +67,7 @@ const DEFAULT_THEME = {
     funfactColor: '#eab308',
     funfactBg: 'rgba(234, 179, 8, 0.12)',
     funfactShadow: 'none',
-    cardStyle: 'cards', // 'cards' | 'text' (NodeCG pure floating text broadcast mode)
+    cardStyle: 'cards', // 'cards' | 'text' (pure floating text broadcast mode)
     // Toggleable visual elements
     showCategory: true,
     showQuestionNumber: true,

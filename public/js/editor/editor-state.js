@@ -187,7 +187,7 @@ export function getStyleClipboard() { return styleClipboard; }
 
 /**
  * Pluggable Host Adapter
- * Decouples the editor from StreamPulse-specific routes, enabling seamless porting to NodeCG replicants or other backends.
+ * Decouples the editor from StreamPulse-specific routes, enabling seamless porting to embedded host state or other backends.
  */
 export const OverlayAdapter = {
     fetchOverlay: async (id) => {

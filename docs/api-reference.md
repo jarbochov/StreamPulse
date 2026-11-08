@@ -782,14 +782,14 @@ When overlays connect, they receive live event packets in real time:
 
 Active custom-overlay alerts survive ordinary live-data rerenders. They end on completion, explicit skip/clear, page departure, or a change/removal of their layer definition.
 
-## 11. Embedded Mode (NodeCG)
+## 11. Embedded Mode
 
 With `STREAMPULSE_EMBEDDED=true`, `require('streampulse/server.js')` exports `startServer`, `stopServer`, `onBroadcast`, `getSnapshots`, `setExternalData`, `registerHostSource`, `getHostSources` and `ingestEvent`.
 
-- **`registerHostSource({ id, label })`**: adds a donation source (for example `{ id: 'tiltify', label: 'Tiltify (NodeCG)' }`) to the alert rule and chat bot announcement source pickers. Listed in `/api/status` as `hostSources`. `getHostSources()` returns the list.
+- **`registerHostSource({ id, label })`**: adds a donation source (for example `{ id: 'tiltify', label: 'Tiltify' }`) to the alert rule and chat bot announcement source pickers. Listed in `/api/status` as `hostSources`. `getHostSources()` returns the list.
 
 - **`ingestEvent({ type: 'donation', id, user, amount, currency, message, source, avatar })`**: feeds an external donation (for example Tiltify) through the same path as Social Stream Ninja donations: donation feed and latest-event placeholders, donation goals, session stats and the alerts engine. Returns the alert payload, or `null` when no rule matched or the `id` was already ingested. Other types throw.
 
-### NodeCG integration
+### Embedded Host Integration
 
-The NodeCG bundle (`nodecg-streampulse`) shares replicants as `{{rep.<bundle>.<name>.<path>}}` placeholders, forwards new Tiltify donations through `ingestEvent` with `source: 'tiltify'` (`tiltifyDonations` in its config) and registers `tiltify` as a host source. Chat bot `{total}`/`{goal}` can then use `rep.nodecg-tiltify.total` and `rep.nodecg-tiltify.campaignGoal`, and commands can show `{{rep.nodecg-tiltify.total|money}}`. Its `scripts/migrate-legacy.cjs` imports legacy 4s7p-event donation alerts and the large-donation chat announcement as Tiltify-only. See the bundle README.
+Embedded host bundles share external variables as `{{rep.<bundle>.<name>.<path>}}` placeholders, forward external donations through `ingestEvent` with `source: 'tiltify'` and register external host sources. Chat bot `{total}`/`{goal}` can then use `rep.tiltify.total` and `rep.tiltify.campaignGoal`, and commands can show `{{rep.tiltify.total|money}}`.

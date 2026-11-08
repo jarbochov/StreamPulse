@@ -1,5 +1,5 @@
 'use strict';
-// Contract for hosts that embed StreamPulse in-process (NodeCG bundle, desktop app).
+// Contract for hosts that embed StreamPulse in-process (embedded host bundle, desktop app).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');

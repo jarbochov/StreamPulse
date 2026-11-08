@@ -777,7 +777,7 @@
                     <label>Theme Preset</label>
                     <select id="cfg-theme-preset">
                         <option value="modern">Modern Glass (StreamPulse)</option>
-                        <option value="nodecg">NodeCG Text Broadcast (Pure Floating Text)</option>
+                        <option value="broadcast-text">Broadcast Floating Text (Pure Floating Text)</option>
                         <option value="arcade">Retro 8-Bit Arcade (Pixel Borders &amp; Neon)</option>
                         <option value="esports">Championship Esports (Angular Cuts)</option>
                         <option value="minimal">Clean Minimal (Flat Lower Third)</option>
@@ -790,7 +790,7 @@
                     <label>Card &amp; Container Style</label>
                     <select id="cfg-theme-card-style">
                         <option value="cards">Cards &amp; Boxes (Glass Containers)</option>
-                        <option value="text">Pure Floating Text (No Boxes / NodeCG Style)</option>
+                        <option value="text">Pure Floating Text (No Card Boxes)</option>
                     </select>
                 </div>
 
@@ -893,21 +893,33 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
                     <div class="form-row">
                         <label>Panel Background</label>
-                        <input type="color" id="cfg-theme-card-bg" value="#0d1117" style="height: 32px; padding: 2px; cursor: pointer;">
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <input type="color" id="cfg-theme-card-bg" value="#0d1117" style="width: 38px; height: 32px; padding: 2px; border: 1px solid var(--border, rgba(255,255,255,0.12)); border-radius: 6px; cursor: pointer; background: transparent; flex-shrink: 0;">
+                            <input type="text" id="cfg-theme-card-bg-hex" class="form-control" value="#0D1117" style="font-family: monospace; font-size: 11px; text-transform: uppercase; height: 32px; padding: 0.35rem 0.5rem;" placeholder="#0D1117">
+                        </div>
                     </div>
                     <div class="form-row">
                         <label>Panel Border</label>
-                        <input type="color" id="cfg-theme-card-border" value="#38bdf8" style="height: 32px; padding: 2px; cursor: pointer;">
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <input type="color" id="cfg-theme-card-border" value="#38bdf8" style="width: 38px; height: 32px; padding: 2px; border: 1px solid var(--border, rgba(255,255,255,0.12)); border-radius: 6px; cursor: pointer; background: transparent; flex-shrink: 0;">
+                            <input type="text" id="cfg-theme-card-border-hex" class="form-control" value="#38BDF8" style="font-family: monospace; font-size: 11px; text-transform: uppercase; height: 32px; padding: 0.35rem 0.5rem;" placeholder="#38BDF8">
+                        </div>
                     </div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
                     <div class="form-row">
                         <label>Choice Background</label>
-                        <input type="color" id="cfg-theme-choice-bg" value="#161b22" style="height: 32px; padding: 2px; cursor: pointer;">
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <input type="color" id="cfg-theme-choice-bg" value="#161b22" style="width: 38px; height: 32px; padding: 2px; border: 1px solid var(--border, rgba(255,255,255,0.12)); border-radius: 6px; cursor: pointer; background: transparent; flex-shrink: 0;">
+                            <input type="text" id="cfg-theme-choice-bg-hex" class="form-control" value="#161B22" style="font-family: monospace; font-size: 11px; text-transform: uppercase; height: 32px; padding: 0.35rem 0.5rem;" placeholder="#161B22">
+                        </div>
                     </div>
                     <div class="form-row">
                         <label>Choice Border</label>
-                        <input type="color" id="cfg-theme-choice-border" value="#30363d" style="height: 32px; padding: 2px; cursor: pointer;">
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <input type="color" id="cfg-theme-choice-border" value="#30363d" style="width: 38px; height: 32px; padding: 2px; border: 1px solid var(--border, rgba(255,255,255,0.12)); border-radius: 6px; cursor: pointer; background: transparent; flex-shrink: 0;">
+                            <input type="text" id="cfg-theme-choice-border-hex" class="form-control" value="#30363D" style="font-family: monospace; font-size: 11px; text-transform: uppercase; height: 32px; padding: 0.35rem 0.5rem;" placeholder="#30363D">
+                        </div>
                     </div>
                 </div>
                 <div class="form-row">
@@ -925,26 +937,41 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
                     <div class="form-row">
                         <label>Accent Color</label>
-                        <input type="color" id="cfg-theme-accent-color" value="#3b82f6" style="height: 32px; padding: 2px; cursor: pointer;">
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <input type="color" id="cfg-theme-accent-color" value="#3b82f6" style="width: 38px; height: 32px; padding: 2px; border: 1px solid var(--border, rgba(255,255,255,0.12)); border-radius: 6px; cursor: pointer; background: transparent; flex-shrink: 0;">
+                            <input type="text" id="cfg-theme-accent-color-hex" class="form-control" value="#3B82F6" style="font-family: monospace; font-size: 11px; text-transform: uppercase; height: 32px; padding: 0.35rem 0.5rem;" placeholder="#3B82F6">
+                        </div>
                     </div>
                     <div class="form-row">
                         <label>Correct Answer</label>
-                        <input type="color" id="cfg-theme-correct-color" value="#22c55e" style="height: 32px; padding: 2px; cursor: pointer;">
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <input type="color" id="cfg-theme-correct-color" value="#22c55e" style="width: 38px; height: 32px; padding: 2px; border: 1px solid var(--border, rgba(255,255,255,0.12)); border-radius: 6px; cursor: pointer; background: transparent; flex-shrink: 0;">
+                            <input type="text" id="cfg-theme-correct-color-hex" class="form-control" value="#22C55E" style="font-family: monospace; font-size: 11px; text-transform: uppercase; height: 32px; padding: 0.35rem 0.5rem;" placeholder="#22C55E">
+                        </div>
                     </div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
                     <div class="form-row">
                         <label>Category Color</label>
-                        <input type="color" id="cfg-theme-category-color" value="#a855f7" style="height: 32px; padding: 2px; cursor: pointer;">
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <input type="color" id="cfg-theme-category-color" value="#a855f7" style="width: 38px; height: 32px; padding: 2px; border: 1px solid var(--border, rgba(255,255,255,0.12)); border-radius: 6px; cursor: pointer; background: transparent; flex-shrink: 0;">
+                            <input type="text" id="cfg-theme-category-color-hex" class="form-control" value="#A855F7" style="font-family: monospace; font-size: 11px; text-transform: uppercase; height: 32px; padding: 0.35rem 0.5rem;" placeholder="#A855F7">
+                        </div>
                     </div>
                     <div class="form-row">
                         <label>Hint / Instructions</label>
-                        <input type="color" id="cfg-theme-hint-color" value="#94a3b8" style="height: 32px; padding: 2px; cursor: pointer;">
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <input type="color" id="cfg-theme-hint-color" value="#94a3b8" style="width: 38px; height: 32px; padding: 2px; border: 1px solid var(--border, rgba(255,255,255,0.12)); border-radius: 6px; cursor: pointer; background: transparent; flex-shrink: 0;">
+                            <input type="text" id="cfg-theme-hint-color-hex" class="form-control" value="#94A3B8" style="font-family: monospace; font-size: 11px; text-transform: uppercase; height: 32px; padding: 0.35rem 0.5rem;" placeholder="#94A3B8">
+                        </div>
                     </div>
                 </div>
                 <div class="form-row">
                     <label>Fun Fact Accent</label>
-                    <input type="color" id="cfg-theme-funfact-color" value="#eab308" style="height: 32px; padding: 2px; cursor: pointer;">
+                    <div style="display: flex; gap: 6px; align-items: center; max-width: 50%;">
+                        <input type="color" id="cfg-theme-funfact-color" value="#eab308" style="width: 38px; height: 32px; padding: 2px; border: 1px solid var(--border, rgba(255,255,255,0.12)); border-radius: 6px; cursor: pointer; background: transparent; flex-shrink: 0;">
+                        <input type="text" id="cfg-theme-funfact-color-hex" class="form-control" value="#EAB308" style="font-family: monospace; font-size: 11px; text-transform: uppercase; height: 32px; padding: 0.35rem 0.5rem;" placeholder="#EAB308">
+                    </div>
                 </div>
 
                 <!-- Section: Layout & Behavior -->
@@ -953,7 +980,7 @@
                 </div>
                 <label class="checkbox-row">
                     <input type="checkbox" id="cfg-theme-collapse-incorrect">
-                    <span>Collapse incorrect choices on reveal (NodeCG style)</span>
+                    <span>Collapse incorrect choices on reveal</span>
                 </label>
 
                 <!-- Toggleable Visual Elements -->
@@ -1029,7 +1056,7 @@
                     <label>Visual Theme</label>
                     <select id="obs-theme">
                         <option value="modern">Modern Glass (StreamPulse)</option>
-                        <option value="nodecg">NodeCG Text Broadcast (Pure Floating Text)</option>
+                        <option value="broadcast-text">Broadcast Floating Text (Pure Floating Text)</option>
                         <option value="arcade">Retro 8-Bit Arcade (Pixel Borders &amp; Neon)</option>
                         <option value="esports">Championship Esports (Angular Cuts)</option>
                         <option value="minimal">Clean Minimal (Flat Lower Third)</option>
@@ -1194,6 +1221,75 @@
             }
         }
 
+        function normalizeColor(val) {
+            if (!val || typeof val !== 'string') return null;
+            let s = val.trim();
+            if (s.toLowerCase() === 'transparent') return '#00000000';
+            if (!s.startsWith('#') && /^[0-9a-fA-F]{3,8}$/.test(s)) {
+                s = '#' + s;
+            }
+            if (/^#[0-9a-fA-F]{4}$/.test(s)) {
+                return ('#' + s[1] + s[1] + s[2] + s[2] + s[3] + s[3] + s[4] + s[4]).toUpperCase();
+            }
+            if (/^#[0-9a-fA-F]{3}$/.test(s)) {
+                return ('#' + s[1] + s[1] + s[2] + s[2] + s[3] + s[3]).toUpperCase();
+            }
+            if (/^#[0-9a-fA-F]{6}$/.test(s)) {
+                return s.toUpperCase();
+            }
+            if (/^#[0-9a-fA-F]{8}$/.test(s)) {
+                return s.toUpperCase();
+            }
+            if (/^rgba?\s*\(.*\)$/i.test(s)) {
+                return s;
+            }
+            return null;
+        }
+
+        function toRgbHex(colorVal) {
+            if (!colorVal || typeof colorVal !== 'string') return '#000000';
+            let s = colorVal.trim();
+            if (s.toLowerCase() === 'transparent') return '#000000';
+            if (!s.startsWith('#') && /^[0-9a-fA-F]{3,8}$/.test(s)) s = '#' + s;
+            if (/^#[0-9a-fA-F]{8}$/.test(s)) {
+                return ('#' + s.slice(1, 7)).toLowerCase();
+            }
+            if (/^#[0-9a-fA-F]{6}$/.test(s)) {
+                return s.toLowerCase();
+            }
+            if (/^#[0-9a-fA-F]{4}$/.test(s)) {
+                return ('#' + s[1] + s[1] + s[2] + s[2] + s[3] + s[3]).toLowerCase();
+            }
+            if (/^#[0-9a-fA-F]{3}$/.test(s)) {
+                return ('#' + s[1] + s[1] + s[2] + s[2] + s[3] + s[3]).toLowerCase();
+            }
+            return '#000000';
+        }
+
+        function setFieldColor(id, val, fallback) {
+            const colorEl = document.getElementById(id);
+            const hexEl = document.getElementById(id + '-hex');
+            const norm = normalizeColor(val) || normalizeColor(fallback) || '#000000';
+            if (colorEl) {
+                colorEl.value = toRgbHex(norm);
+            }
+            if (hexEl) {
+                hexEl.value = norm;
+            }
+        }
+
+        function getColorFieldValue(id, fallback = '') {
+            const hexEl = document.getElementById(id + '-hex');
+            if (hexEl && hexEl.value.trim()) {
+                const norm = normalizeColor(hexEl.value.trim());
+                if (norm) return norm;
+                return hexEl.value.trim();
+            }
+            const colorEl = document.getElementById(id);
+            if (colorEl && colorEl.value) return colorEl.value;
+            return fallback;
+        }
+
         function renderState() {
             if (!currentState) return;
 
@@ -1327,9 +1423,7 @@
             const theme = currentState.theme || {};
             document.getElementById('cfg-theme-preset').value = theme.preset || 'modern';
             if (document.getElementById('obs-theme')) document.getElementById('obs-theme').value = theme.preset || 'modern';
-            document.getElementById('cfg-theme-card-style').value = theme.cardStyle || (theme.preset === 'nodecg' ? 'text' : 'cards');
-            document.getElementById('cfg-theme-accent-color').value = theme.accentColor || '#3b82f6';
-            document.getElementById('cfg-theme-correct-color').value = theme.correctColor || '#22c55e';
+            document.getElementById('cfg-theme-card-style').value = theme.cardStyle || ((theme.preset === 'broadcast-text' || theme.preset === 'nodecg') ? 'text' : 'cards');
             document.getElementById('cfg-theme-collapse-incorrect').checked = Boolean(theme.collapseIncorrect);
             const scale = parseFloat(theme.fontScale || theme.scale || 1.0) || 1.0;
             document.getElementById('cfg-theme-scale').value = scale;
@@ -1341,10 +1435,10 @@
             if (document.getElementById('cfg-theme-funfact-weight')) document.getElementById('cfg-theme-funfact-weight').value = theme.funfactWeight || '';
 
             const defTheme = PRESET_DEFAULTS[theme.preset || 'modern'] || PRESET_DEFAULTS.modern;
-            if (document.getElementById('cfg-theme-card-bg')) document.getElementById('cfg-theme-card-bg').value = (theme.cardBg && theme.cardBg.startsWith('#')) ? theme.cardBg : (defTheme.cardBg || '#0d1117');
-            if (document.getElementById('cfg-theme-card-border')) document.getElementById('cfg-theme-card-border').value = (theme.cardBorderColor && theme.cardBorderColor.startsWith('#')) ? theme.cardBorderColor : (defTheme.cardBorder || '#38bdf8');
-            if (document.getElementById('cfg-theme-choice-bg')) document.getElementById('cfg-theme-choice-bg').value = (theme.choiceBg && theme.choiceBg.startsWith('#')) ? theme.choiceBg : (defTheme.choiceBg || '#161b22');
-            if (document.getElementById('cfg-theme-choice-border')) document.getElementById('cfg-theme-choice-border').value = (theme.choiceBorderColor && theme.choiceBorderColor.startsWith('#')) ? theme.choiceBorderColor : '#30363d';
+            setFieldColor('cfg-theme-card-bg', theme.cardBg, defTheme.cardBg || '#0d1117');
+            setFieldColor('cfg-theme-card-border', theme.cardBorderColor || theme.cardBorder, defTheme.cardBorder || '#38bdf8');
+            setFieldColor('cfg-theme-choice-bg', theme.choiceBg, defTheme.choiceBg || '#161b22');
+            setFieldColor('cfg-theme-choice-border', theme.choiceBorderColor || theme.choiceBorder, defTheme.choiceBorder || '#30363d');
 
             const blurVal = theme.cardBlur !== undefined ? Number(theme.cardBlur) : (defTheme.blur ?? 12);
             if (document.getElementById('cfg-theme-blur')) {
@@ -1352,9 +1446,11 @@
                 document.getElementById('cfg-theme-blur-val').textContent = `${blurVal}px`;
             }
 
-            if (document.getElementById('cfg-theme-category-color')) document.getElementById('cfg-theme-category-color').value = theme.categoryColor || defTheme.catColor || '#a855f7';
-            if (document.getElementById('cfg-theme-hint-color')) document.getElementById('cfg-theme-hint-color').value = theme.hintColor || defTheme.hintColor || '#94a3b8';
-            if (document.getElementById('cfg-theme-funfact-color')) document.getElementById('cfg-theme-funfact-color').value = theme.funfactColor || defTheme.funfactColor || '#eab308';
+            setFieldColor('cfg-theme-accent-color', theme.accentColor, defTheme.accent || '#3b82f6');
+            setFieldColor('cfg-theme-correct-color', theme.correctColor, defTheme.correct || '#22c55e');
+            setFieldColor('cfg-theme-category-color', theme.categoryColor, defTheme.catColor || '#a855f7');
+            setFieldColor('cfg-theme-hint-color', theme.hintColor, defTheme.hintColor || '#94a3b8');
+            setFieldColor('cfg-theme-funfact-color', theme.funfactColor, defTheme.funfactColor || '#eab308');
 
             // Real-time Chatbot status pill
             const chatbotPill = document.getElementById('chatbot-status-pill');
@@ -1365,7 +1461,7 @@
                     chatbotPill.style.background = 'rgba(139, 148, 158, 0.15)';
                     chatbotPill.style.borderColor = 'rgba(139, 148, 158, 0.35)';
                     chatbotPill.style.color = '#8b949e';
-                    chatbotDesc.textContent = 'Chat Bot is turned off in Settings. Questions will display in Live Question mode without chat voting badges.';
+                    chatbotDesc.textContent = 'Chat Bot is turned off in Settings. Questions will display in broadcast presentation mode without chat voting badges.';
                 } else {
                     chatbotPill.textContent = 'Chat Bot: Active';
                     chatbotPill.style.background = 'rgba(34, 197, 94, 0.15)';
@@ -1391,7 +1487,8 @@
 
         const PRESET_DEFAULTS = {
             modern: { style: 'cards', accent: '#3b82f6', correct: '#22c55e', cardBg: '#0d1117', cardBorder: '#38bdf8', choiceBg: '#161b22', blur: 12, hintColor: '#94a3b8', catColor: '#a855f7', funfactColor: '#eab308', collapse: false },
-            nodecg: { style: 'text', accent: '#38bdf8', correct: '#4ade80', cardBg: '#000000', cardBorder: '#000000', choiceBg: '#000000', blur: 0, hintColor: '#e2e8f0', catColor: '#facc15', funfactColor: '#facc15', collapse: true },
+            'broadcast-text': { style: 'text', accent: '#38bdf8', correct: '#4ade80', cardBg: '#00000000', cardBorder: '#00000000', choiceBg: '#00000000', choiceBorder: '#00000000', blur: 0, hintColor: '#e2e8f0', catColor: '#facc15', funfactColor: '#facc15', collapse: true },
+            nodecg: { style: 'text', accent: '#38bdf8', correct: '#4ade80', cardBg: '#00000000', cardBorder: '#00000000', choiceBg: '#00000000', choiceBorder: '#00000000', blur: 0, hintColor: '#e2e8f0', catColor: '#facc15', funfactColor: '#facc15', collapse: true },
             arcade: { style: 'cards', accent: '#facc15', correct: '#4ade80', cardBg: '#050508', cardBorder: '#facc15', choiceBg: '#111116', blur: 0, hintColor: '#facc15', catColor: '#f43f5e', funfactColor: '#facc15', collapse: false },
             esports: { style: 'cards', accent: '#06b6d4', correct: '#10b981', cardBg: '#090d16', cardBorder: '#06b6d4', choiceBg: '#0f172a', blur: 12, hintColor: '#38bdf8', catColor: '#06b6d4', funfactColor: '#38bdf8', collapse: false },
             minimal: { style: 'cards', accent: '#38bdf8', correct: '#22c55e', cardBg: '#111827', cardBorder: '#374151', choiceBg: '#1f2937', blur: 0, hintColor: '#94a3b8', catColor: '#94a3b8', funfactColor: '#38bdf8', collapse: false },
@@ -1405,8 +1502,8 @@
             const theme = document.getElementById('cfg-theme-preset')?.value || document.getElementById('obs-theme')?.value || 'modern';
             const style = document.getElementById('cfg-theme-card-style')?.value || 'cards';
             const scale = parseFloat(document.getElementById('cfg-theme-scale')?.value) || 1.0;
-            const accent = document.getElementById('cfg-theme-accent-color')?.value;
-            const correct = document.getElementById('cfg-theme-correct-color')?.value;
+            const accent = getColorFieldValue('cfg-theme-accent-color');
+            const correct = getColorFieldValue('cfg-theme-correct-color');
             const defs = PRESET_DEFAULTS[theme] || PRESET_DEFAULTS.modern;
 
             let url = `${window.location.origin}/overlays/trivia.html?layout=${mode}&theme=${theme}`;
@@ -1429,17 +1526,21 @@
             }
 
             // Glass panels & borders
-            const cardBg = document.getElementById('cfg-theme-card-bg')?.value;
+            const cardBg = getColorFieldValue('cfg-theme-card-bg');
             if (cardBg && cardBg.toLowerCase() !== (defs.cardBg || '#0d1117').toLowerCase()) {
                 url += `&cardbg=${encodeURIComponent(cardBg)}`;
             }
-            const cardBorder = document.getElementById('cfg-theme-card-border')?.value;
+            const cardBorder = getColorFieldValue('cfg-theme-card-border');
             if (cardBorder && cardBorder.toLowerCase() !== (defs.cardBorder || '#38bdf8').toLowerCase()) {
                 url += `&cardborder=${encodeURIComponent(cardBorder)}`;
             }
-            const choiceBg = document.getElementById('cfg-theme-choice-bg')?.value;
+            const choiceBg = getColorFieldValue('cfg-theme-choice-bg');
             if (choiceBg && choiceBg.toLowerCase() !== (defs.choiceBg || '#161b22').toLowerCase()) {
                 url += `&choicebg=${encodeURIComponent(choiceBg)}`;
+            }
+            const choiceBorder = getColorFieldValue('cfg-theme-choice-border');
+            if (choiceBorder && choiceBorder.toLowerCase() !== (defs.choiceBorder || '#30363d').toLowerCase()) {
+                url += `&choiceborder=${encodeURIComponent(choiceBorder)}`;
             }
             const blur = parseInt(document.getElementById('cfg-theme-blur')?.value, 10);
             if (!isNaN(blur) && blur !== (defs.blur ?? 12)) {
@@ -1447,15 +1548,15 @@
             }
 
             // Hint color, category color, fun fact color
-            const hintColor = document.getElementById('cfg-theme-hint-color')?.value;
+            const hintColor = getColorFieldValue('cfg-theme-hint-color');
             if (hintColor && hintColor.toLowerCase() !== (defs.hintColor || '#94a3b8').toLowerCase()) {
                 url += `&hintcolor=${encodeURIComponent(hintColor)}`;
             }
-            const catColor = document.getElementById('cfg-theme-category-color')?.value;
+            const catColor = getColorFieldValue('cfg-theme-category-color');
             if (catColor && catColor.toLowerCase() !== (defs.catColor || '#a855f7').toLowerCase()) {
                 url += `&catcolor=${encodeURIComponent(catColor)}`;
             }
-            const ffColor = document.getElementById('cfg-theme-funfact-color')?.value;
+            const ffColor = getColorFieldValue('cfg-theme-funfact-color');
             if (ffColor && ffColor.toLowerCase() !== (defs.funfactColor || '#eab308').toLowerCase()) {
                 url += `&fcolor=${encodeURIComponent(ffColor)}`;
             }
@@ -1549,17 +1650,19 @@
                         const ffEl = document.getElementById('cfg-theme-funfact-color');
 
                         if (styleEl) styleEl.value = def.style;
-                        if (accentEl) accentEl.value = def.accent;
-                        if (correctEl) correctEl.value = def.correct;
                         if (collapseEl) collapseEl.checked = def.collapse;
-                        if (cardBgEl) cardBgEl.value = def.cardBg;
-                        if (cardBorderEl) cardBorderEl.value = def.cardBorder;
-                        if (choiceBgEl) choiceBgEl.value = def.choiceBg;
                         if (blurEl) blurEl.value = def.blur;
                         if (blurValEl) blurValEl.textContent = `${def.blur}px`;
-                        if (hintEl) hintEl.value = def.hintColor;
-                        if (catEl) catEl.value = def.catColor;
-                        if (ffEl) ffEl.value = def.funfactColor;
+
+                        setFieldColor('cfg-theme-card-bg', def.cardBg, '#0d1117');
+                        setFieldColor('cfg-theme-card-border', def.cardBorder, '#38bdf8');
+                        setFieldColor('cfg-theme-choice-bg', def.choiceBg, '#161b22');
+                        setFieldColor('cfg-theme-choice-border', def.choiceBorder || '#30363d', '#30363d');
+                        setFieldColor('cfg-theme-accent-color', def.accent, '#3b82f6');
+                        setFieldColor('cfg-theme-correct-color', def.correct, '#22c55e');
+                        setFieldColor('cfg-theme-category-color', def.catColor, '#a855f7');
+                        setFieldColor('cfg-theme-hint-color', def.hintColor, '#94a3b8');
+                        setFieldColor('cfg-theme-funfact-color', def.funfactColor, '#eab308');
                     }
                 }
                 updateObsUrl();
@@ -1583,9 +1686,56 @@
                 document.getElementById('cfg-theme-blur-val').textContent = e.target.value + 'px';
                 updateObsUrl();
             });
-            ['cfg-theme-card-bg', 'cfg-theme-card-border', 'cfg-theme-choice-bg', 'cfg-theme-choice-border', 'cfg-theme-accent-color', 'cfg-theme-correct-color', 'cfg-theme-category-color', 'cfg-theme-hint-color', 'cfg-theme-funfact-color'].forEach(id => {
-                document.getElementById(id)?.addEventListener(evt, updateObsUrl);
-            });
+        });
+
+        // Two-way synchronization between color pickers and hex text inputs (with #RRGGBBAA opacity support)
+        const colorInputPairs = [
+            'cfg-theme-card-bg',
+            'cfg-theme-card-border',
+            'cfg-theme-choice-bg',
+            'cfg-theme-choice-border',
+            'cfg-theme-accent-color',
+            'cfg-theme-correct-color',
+            'cfg-theme-category-color',
+            'cfg-theme-hint-color',
+            'cfg-theme-funfact-color'
+        ];
+
+        colorInputPairs.forEach(id => {
+            const colorEl = document.getElementById(id);
+            const hexEl = document.getElementById(id + '-hex');
+            if (colorEl && hexEl) {
+                colorEl.addEventListener('input', () => {
+                    const currentHex = hexEl.value.trim();
+                    const newRgb = colorEl.value.toUpperCase();
+                    // Retain existing alpha channel if user specified 8-digit hex (e.g. #00000000)
+                    if (/^#[0-9a-fA-F]{8}$/.test(currentHex)) {
+                        hexEl.value = newRgb + currentHex.slice(7, 9).toUpperCase();
+                    } else {
+                        hexEl.value = newRgb;
+                    }
+                    updateObsUrl();
+                });
+
+                hexEl.addEventListener('input', () => {
+                    const norm = normalizeColor(hexEl.value);
+                    if (norm) {
+                        colorEl.value = toRgbHex(norm);
+                    }
+                    updateObsUrl();
+                });
+
+                hexEl.addEventListener('blur', () => {
+                    const norm = normalizeColor(hexEl.value);
+                    if (norm) {
+                        hexEl.value = norm;
+                        colorEl.value = toRgbHex(norm);
+                    } else if (colorEl.value) {
+                        hexEl.value = colorEl.value.toUpperCase();
+                    }
+                    updateObsUrl();
+                });
+            }
         });
 
         document.getElementById('btn-copy-url').addEventListener('click', () => {
@@ -2064,16 +2214,16 @@
                     funfactFont: document.getElementById('cfg-theme-funfact-font').value.trim(),
                     funfactWeight: document.getElementById('cfg-theme-funfact-weight').value,
                     fontScale: parseFloat(document.getElementById('cfg-theme-scale').value) || 1.0,
-                    cardBg: document.getElementById('cfg-theme-card-bg').value,
-                    cardBorderColor: document.getElementById('cfg-theme-card-border').value,
-                    choiceBg: document.getElementById('cfg-theme-choice-bg').value,
-                    choiceBorderColor: document.getElementById('cfg-theme-choice-border').value,
+                    cardBg: getColorFieldValue('cfg-theme-card-bg'),
+                    cardBorderColor: getColorFieldValue('cfg-theme-card-border'),
+                    choiceBg: getColorFieldValue('cfg-theme-choice-bg'),
+                    choiceBorderColor: getColorFieldValue('cfg-theme-choice-border'),
                     cardBlur: parseInt(document.getElementById('cfg-theme-blur').value, 10) || 12,
-                    accentColor: document.getElementById('cfg-theme-accent-color').value,
-                    correctColor: document.getElementById('cfg-theme-correct-color').value,
-                    categoryColor: document.getElementById('cfg-theme-category-color').value,
-                    hintColor: document.getElementById('cfg-theme-hint-color').value,
-                    funfactColor: document.getElementById('cfg-theme-funfact-color').value,
+                    accentColor: getColorFieldValue('cfg-theme-accent-color'),
+                    correctColor: getColorFieldValue('cfg-theme-correct-color'),
+                    categoryColor: getColorFieldValue('cfg-theme-category-color'),
+                    hintColor: getColorFieldValue('cfg-theme-hint-color'),
+                    funfactColor: getColorFieldValue('cfg-theme-funfact-color'),
                     collapseIncorrect: document.getElementById('cfg-theme-collapse-incorrect').checked,
                     showCategory: document.getElementById('cfg-elem-category').checked,
                     showQuestionNumber: document.getElementById('cfg-elem-question-number').checked,

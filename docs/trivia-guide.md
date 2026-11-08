@@ -12,7 +12,7 @@ StreamPulse includes an interactive Live Trivia Studio and broadcast OBS overlay
 - **Transition Control**: Choose between automatic answer reveal when the countdown timer hits zero or **Manual Transition** allowing the host to discuss responses before triggering the reveal.
 - **Distinct Visual Themes**:
   - **Modern**: Glassmorphism with rounded cards, neon cyan/purple accents, and subtle glowing borders.
-  - **Pure Floating Text (Broadcast / NodeCG Style)**: Transparent floating typography with massive drop shadows, zero card boxes, staggered text entrances, and automatic collapse of incorrect answers on reveal.
+  - **Pure Floating Text (Broadcast Style)**: Transparent floating typography with massive drop shadows, zero card boxes, staggered text entrances, and automatic collapse of incorrect answers on reveal.
   - **Arcade (8-Bit Retro)**: Sharp 0px corners, high-contrast black backgrounds, solid neon yellow borders, and chunky retro styling.
   - **Esports**: Angular polygon clip paths, carbon brushed backgrounds, and electric telemetry meters.
   - **Minimal**: Clean, low-distraction lower-third slate cards for casual talk shows and desktop streams.
@@ -58,7 +58,7 @@ Add this URL as a Browser Source in OBS Studio at `1920x1080` (or `3840x2160`).
   - `Pure Floating Text`: Eliminates all bounding boxes and background panels, rendering floating text directly over your camera or game capture with deep drop shadows.
 - **Collapse Incorrect Choices**: When enabled in reveal mode, incorrect choices smoothly collapse and fade out, spotlighting the winning answer and fun fact.
 - **Visibility & Parameter Controls**: Configure parameters in the studio or pass them directly in the overlay URL:
-  - `?theme=arcade`: Selects visual preset (`modern`, `nodecg`, `arcade`, `esports`, `minimal`, `neon`, `retro`).
+  - `?theme=arcade`: Selects visual preset (`modern`, `broadcast-text`, `arcade`, `esports`, `minimal`, `neon`, `retro`).
   - `?style=text`: Forces pure floating text broadcast mode.
   - `?scale=1.2`: Scales overlay typography and elements.
   - `?cardbg=#1a202c`: Custom glass panel background color.
@@ -71,7 +71,7 @@ Add this URL as a Browser Source in OBS Studio at `1920x1080` (or `3840x2160`).
   - `?cfont=Inter` & `?cweight=600`: Choice font family and weight (400–800).
   - `?hfont=Rajdhani` & `?hweight=700`: Header / category font family and weight.
   - `?ffont=Oswald` & `?fweight=700`: Did You Know? Fun fact font family and weight.
-  - `?voting=0` / `?voting=1`: Controls chat voting mode. When the Chat Bot is turned off or chat voting is disabled, the overlay automatically displays `Live Question` (instead of `Voting Open`) and conceals the chat voting helper footer and vote counter.
+  - `?voting=0` / `?voting=1`: Controls chat voting mode. When the Chat Bot is turned off or chat voting is disabled, the overlay automatically conceals the voting badge, chat voting helper footer, and vote counter to keep the broadcast graphics clean.
   - `?category=0`: Hides category badge.
   - `?counter=0`: Hides question counter (e.g. "Question 1 of 5").
   - `?timer=0`: Hides countdown bar.

@@ -1521,7 +1521,7 @@ const handleObsRoutes = createObsRoutes({
     isLoopbackRequest
 });
 
-// Donation sources an embedded host adds (e.g. NodeCG registers Tiltify); listed in /api/status for the source pickers.
+// Donation sources an embedded host adds (e.g. host bundle registers Tiltify); listed in /api/status for the source pickers.
 const hostSources = new Map();
 function registerHostSource({ id, label } = {}) {
     const key = String(id || '').toLowerCase().trim();
@@ -1531,7 +1531,7 @@ function registerHostSource({ id, label } = {}) {
 }
 const getHostSources = () => [...hostSources.values()];
 
-// Data pushed in by an embedded host (e.g. NodeCG replicants), keyed "<bundle>.<name>".
+// Data pushed in by an embedded host (e.g. host replicants/state), keyed "<bundle>.<name>".
 const externalData = {};
 function setExternalData(key, value) {
     const id = String(key || '').trim();
@@ -1541,7 +1541,7 @@ function setExternalData(key, value) {
     broadcastToOverlays('external-update', { key: id, value: externalData[id] ?? null });
 }
 
-// Events from an embedded host (e.g. Tiltify donations from NodeCG) take the same path as SSN donations.
+// Events from an embedded host (e.g. external Tiltify donations) take the same path as SSN donations.
 const ingestedEventIds = new Set();
 function ingestEvent(input = {}) {
     if (input.type !== 'donation') throw new Error(`Unsupported event type: ${input.type}`);
@@ -1578,7 +1578,7 @@ function ingestEvent(input = {}) {
     return alertEngine.handleEvent({ type: 'donation', user, avatar, amount, currency, message, source, ...(id ? { dedupeMs: 0 } : {}) });
 }
 
-// Embedded hosts (NodeCG) can serve HTTPS so pages embed in an HTTPS dashboard.
+// Embedded hosts can serve HTTPS so pages embed in an HTTPS dashboard.
 function createHttpServer(handler) {
     const keyPath = process.env.STREAMPULSE_TLS_KEY;
     const certPath = process.env.STREAMPULSE_TLS_CERT;
@@ -1904,7 +1904,7 @@ async function gracefulShutdown(signal, shouldExit = true) {
     }
 }
 
-// Embedded hosts (NodeCG) own process signals and lifecycle.
+// Embedded hosts own process signals and lifecycle.
 const EMBEDDED = process.env.STREAMPULSE_EMBEDDED === 'true';
 if (!EMBEDDED) {
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));

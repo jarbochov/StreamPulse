@@ -446,14 +446,16 @@ test('Trivia Service: Themes and element visibility toggles', (t) => {
     assert.equal(theme.showTimer, true);
     assert.equal(theme.showVoteCounts, true);
 
-    // Update to NodeCG text broadcast mode with comprehensive typography and glass panel options
+    // Update to broadcast text mode with 8-digit hex opacity (#00000000), comprehensive typography and glass panel options
     service.updateTheme({
-        preset: 'nodecg',
+        preset: 'broadcast-text',
         cardStyle: 'text',
-        cardBg: '#0b0f19',
-        cardBorderColor: '#00f0ff',
+        cardBg: '#00000000',
+        cardBorderColor: '#00000000',
         cardBlur: 16,
-        choiceBg: '#121827',
+        choiceBg: '#00000000',
+        choiceBorderColor: '#00000000',
+        accentColor: '#38bdf880',
         hintColor: '#38bdf8',
         funfactFont: 'Oswald',
         funfactWeight: '600',
@@ -467,12 +469,14 @@ test('Trivia Service: Themes and element visibility toggles', (t) => {
     });
 
     const updated = service.getState().theme;
-    assert.equal(updated.preset, 'nodecg');
+    assert.equal(updated.preset, 'broadcast-text');
     assert.equal(updated.cardStyle, 'text');
-    assert.equal(updated.cardBg, '#0b0f19');
-    assert.equal(updated.cardBorderColor, '#00f0ff');
+    assert.equal(updated.cardBg, '#00000000');
+    assert.equal(updated.cardBorderColor, '#00000000');
     assert.equal(updated.cardBlur, 16);
-    assert.equal(updated.choiceBg, '#121827');
+    assert.equal(updated.choiceBg, '#00000000');
+    assert.equal(updated.choiceBorderColor, '#00000000');
+    assert.equal(updated.accentColor, '#38bdf880');
     assert.equal(updated.hintColor, '#38bdf8');
     assert.equal(updated.funfactFont, 'Oswald');
     assert.equal(updated.funfactWeight, '600');

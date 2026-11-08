@@ -130,7 +130,7 @@ function weatherValues(status) {
     return out;
 }
 
-// External host data (NodeCG replicants): {{rep.<bundle>.<name>.<path>}}, arrays by index.
+// External host data (host variables): {{rep.<bundle>.<name>.<path>}}, arrays by index.
 function flattenExternal(value, prefix, out, depth = 0) {
     if (value === null || value === undefined) { out[prefix] = ''; return out; }
     if (typeof value !== 'object') { out[prefix] = value; return out; }
@@ -229,7 +229,7 @@ function variableGroups(status = {}) {
     }
     for (const [key, value] of Object.entries(status.external || {})) {
         const items = Object.keys(flattenExternal(value, `rep.${key}`, {})).slice(0, 200).map(name => [name, name.slice(`rep.${key}.`.length) || key]);
-        if (items.length) groups.push({ label: `NodeCG: ${key}`, items });
+        if (items.length) groups.push({ label: `Host: ${key}`, items });
     }
     groups.push({ label: 'Game (IGDB)', items: GAME_ITEMS });
     groups.push({ label: 'Game plan', items: [...PLAN_ITEMS, ...(status.gamePlan?.lists || []).map(list => [`plan.list.${list.id}`, `${list.name} list (comma list)`])] });

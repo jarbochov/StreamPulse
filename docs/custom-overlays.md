@@ -123,6 +123,6 @@ StreamPulse provides built-in media and artwork management through the Asset Lib
   - **Interactive Crop Box**: 8-point drag handles with rule-of-thirds grid lines and live rendered pixel dimensions.
   - **Save & Overwrite Options**: Save as a new asset (`POST /api/custom-overlays/assets`), overwrite the existing asset in-place (`PUT /api/custom-overlays/assets/:name`) to update all referencing layers immediately without breaking layout paths, or download the cropped image directly to your local computer.
 
-## NodeCG replicants
+## Host Replicants & External Variables
 
-When StreamPulse runs inside NodeCG through the [nodecg-streampulse](https://github.com/jarbochov/nodecg-streampulse) bundle, replicants listed in `cfg/streampulse.json` appear in the variable picker under **NodeCG** and resolve as `{{rep.<bundle>.<name>.<path>}}`, for example `{{rep.nodecg-tiltify.total.amount}}`. Array items use their index (`.0.name`). Values update live.
+When StreamPulse runs inside an embedded host bundle, external variables listed in `cfg/streampulse.json` appear in the variable picker under **Host** and resolve as `{{rep.<bundle>.<name>.<path>}}`, for example `{{rep.tiltify.total.amount}}`. Array items use their index (`.0.name`). Values update live.
