@@ -1681,8 +1681,8 @@ test('Procedural Patterns: Rendering Efficiency, 60fps Frame Pacing, Triangle Mo
     assert.ok(patternsSharedCode.includes('padX = Math.max(80, (fullWidth / scale) * 0.06)'), 'Overscan padding must scale tightly with canvas dimensions instead of arbitrary 35% inflation');
 
     // 3. Turkey feather drawing eliminates per-feather ctx.save() and ctx.restore()
-    const turkeySection = patternsSharedCode.slice(patternsSharedCode.indexOf("pattern === 'turkeys'"), patternsSharedCode.indexOf("pattern === 'pumpkins'"));
-    const featherLoop = turkeySection.slice(turkeySection.indexOf('for (let f = 0; f < feathers; f++)'), turkeySection.indexOf('// 2. Plump turkey body'));
+    const turkeyMotifDef = patternsSharedCode.slice(patternsSharedCode.indexOf('function drawTurkeyMotif('), patternsSharedCode.indexOf('function drawPumpkinMotif('));
+    const featherLoop = turkeyMotifDef.slice(turkeyMotifDef.indexOf('for (let f = 0; f < feathers; f++)'), turkeyMotifDef.indexOf('// 2. Plump turkey body'));
     assert.ok(!featherLoop.includes('ctx.save()'), 'Turkey feather loop must not invoke ctx.save() on every feather');
     assert.ok(!featherLoop.includes('ctx.restore()'), 'Turkey feather loop must not invoke ctx.restore() on every feather');
 
@@ -1756,5 +1756,19 @@ test('Procedural Patterns: Rendering Efficiency, 60fps Frame Pacing, Triangle Mo
     // 6. Style tab inspector exposes filterSection (Color exposure & Film grain) for procedural patterns
     assert.ok(inspectorCode.includes("isProcedural ? effectsSection(el) + filterSection(el) :"), 'Inspector must include filterSection for procedural pattern layers');
     assert.ok(inspectorCode.includes("const media = ['image', 'video', 'slideshow', 'embed', 'pattern', 'procedural-pattern'].includes(el.type);"), 'Inspector media filter must treat procedural-pattern as a media element');
+
+    // 7. Offscreen sprite stamp caching and in-canvas feathering architecture
+    assert.ok(patternsSharedCode.includes('motifStampCache'), 'patterns-shared.js must maintain a motif stamp cache');
+    assert.ok(patternsSharedCode.includes('vignetteGradCache'), 'patterns-shared.js must cache vignette radial gradients');
+    assert.ok(patternsSharedCode.includes('getOrCreateStamp'), 'patterns-shared.js must implement getOrCreateStamp');
+    assert.ok(patternsSharedCode.includes('drawTurkeyMotif'), 'patterns-shared.js must extract drawTurkeyMotif');
+    assert.ok(patternsSharedCode.includes('drawSnowflakeMotif'), 'patterns-shared.js must extract drawSnowflakeMotif');
+    assert.ok(patternsSharedCode.includes('drawChristmasTreeMotif'), 'patterns-shared.js must extract drawChristmasTreeMotif');
+    assert.ok(patternsSharedCode.includes('drawPumpkinMotif'), 'patterns-shared.js must extract drawPumpkinMotif');
+    assert.ok(patternsSharedCode.includes('drawLeafMotif'), 'patterns-shared.js must extract drawLeafMotif');
+    assert.ok(patternsSharedCode.includes('drawHeartMotif'), 'patterns-shared.js must extract drawHeartMotif');
+
+    assert.ok(overlaySharedCode.includes("ctx.globalCompositeOperation = 'destination-in'"), 'overlay-shared.js must feather via in-canvas destination-in');
+    assert.ok(overlaySharedCode.includes("wrap.style.webkitMaskImage = ''"), 'overlay-shared.js must eliminate DOM CSS mask compositing');
 });
 

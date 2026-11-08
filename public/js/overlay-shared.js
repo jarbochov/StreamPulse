@@ -3662,6 +3662,21 @@
                         time: t
                     });
                 }
+                const pFeather = Number(curElement.feather ?? curElement.pattern?.feather) || 0;
+                if (pFeather > 0) {
+                    ctx.save();
+                    ctx.setTransform(1, 0, 0, 1, 0, 0);
+                    ctx.globalAlpha = 1;
+                    ctx.globalCompositeOperation = 'destination-in';
+                    const stop = Math.max(0, 100 - pFeather);
+                    const maxR = Math.hypot(cw, ch) / 2;
+                    const radGrad = ctx.createRadialGradient(cw / 2, ch / 2, maxR * (stop / 100), cw / 2, ch / 2, maxR);
+                    radGrad.addColorStop(0, '#000000');
+                    radGrad.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.fillStyle = radGrad;
+                    ctx.fillRect(0, 0, cw, ch);
+                    ctx.restore();
+                }
                 if (hasDynamicAnim && !fxPaused && !document.hidden) {
                     rafId = requestAnimationFrame(drawFrame);
                 }
@@ -3990,6 +4005,21 @@
                 }
             }
 
+            if (feather > 0) {
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.globalAlpha = 1;
+                ctx.globalCompositeOperation = 'destination-in';
+                const stop = Math.max(0, 100 - feather);
+                const maxR = Math.hypot(cw, ch) / 2;
+                const radGrad = ctx.createRadialGradient(cw / 2, ch / 2, maxR * (stop / 100), cw / 2, ch / 2, maxR);
+                radGrad.addColorStop(0, '#000000');
+                radGrad.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = radGrad;
+                ctx.fillRect(0, 0, cw, ch);
+                ctx.restore();
+            }
+
             if (hasDynamicAnim && curOptions.animate !== false && !fxPaused && !document.hidden) {
                 rafId = requestAnimationFrame(drawFrame);
             }
@@ -4229,18 +4259,8 @@
                 node.style.mixBlendMode = blendMode !== 'normal' ? blendMode : '';
             }
 
-            if (feather !== lastFeather) {
-                lastFeather = feather;
-                if (feather > 0) {
-                    const stop = Math.max(0, 100 - feather);
-                    const mask = `radial-gradient(ellipse at center, #000 ${stop}%, transparent 100%)`;
-                    wrap.style.webkitMaskImage = mask;
-                    wrap.style.maskImage = mask;
-                } else {
-                    wrap.style.webkitMaskImage = '';
-                    wrap.style.maskImage = '';
-                }
-            }
+            wrap.style.webkitMaskImage = '';
+            wrap.style.maskImage = '';
 
             const isProcedural = curElement.type === 'procedural-pattern' || config.sourceType === 'preset' || config.mode === 'procedural';
             if (isProcedural) {
