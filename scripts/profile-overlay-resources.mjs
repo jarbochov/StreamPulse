@@ -7,7 +7,7 @@ import puppeteer from 'puppeteer';
 const serveOnly = process.argv.includes('--serve');
 const seconds = Number(process.env.PROFILE_SECONDS || 60);
 if (!Number.isFinite(seconds) || seconds < 10 || seconds > 600) throw new Error('PROFILE_SECONDS must be 10–600');
-const files = ['overlay-shared.js', 'overlay-retro.js', 'overlay-filters.js', 'editor-geometry.js', 'editor/editor-state.js', 'editor/editor-canvas.js'];
+const files = ['overlay-shared.js', 'overlay-retro.js', 'overlay-filters.js', 'editor-geometry.js', 'editor/editor-state.js', 'editor/editor-canvas.js', 'editor/editor-speakers.js'];
 const sources = new Map(await Promise.all(files.map(async name => [
     `/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8')
 ])));
@@ -103,7 +103,12 @@ try {
             else { unexpected.push(req.url()); req.abort(); }
         });
         await page.goto(origin);
-        await page.waitForFunction(() => window.fixtureReady);
+        try {
+            await page.waitForFunction(() => window.fixtureReady);
+        } catch (error) {
+            const errors = await page.evaluate(() => window.profileErrors || []);
+            throw new Error(`Resource fixture did not initialize: ${JSON.stringify({ errors, unexpected })}`, { cause: error });
+        }
         const cdp = await page.createCDPSession();
         await cdp.send('Performance.enable');
         const collect = async () => {

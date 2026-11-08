@@ -38,6 +38,16 @@ npm run desktop:dev
 
 StreamPulse enforces strict code quality checks via ESLint (using ESLint Flat Config) and Node.js syntax verification.
 
+### Shared Overlay Sources
+
+Edit `public/js/overlay/`, not the generated `public/js/overlay-shared.js`. The source modules separate text/data, styles/widgets, media/audio/alerts, slideshows, patterns, speakers, and lifecycle management. Run `npm run build:overlays` after source changes and commit the generated browser bundle alongside them.
+
+The bundle remains a synchronous classic script exposing `window.OverlayShared`. Both legacy and `/js/` URLs remain supported, and filter extensions still augment that same object. Production `npm start` serves the committed bundle without requiring esbuild or development dependencies.
+
+`npm test` first checks that the bundle matches its sources and runs `npm run test:overlay-rendering`. Those browser fixtures cover shared API compatibility, animation cleanup, dense tile coverage, cached seasonal stroke settings, seamless loop output, and bounded drawing work. Work-count assertions are not universal FPS, CPU, GPU, or Safari/OBS guarantees.
+
+`StreamPulsePatterns.drawProceduralPattern(..., { detail: 'exact' })` bypasses dense procedural sampling for fidelity checks; the default samples selected motifs at zoom <=20% on canvases of at least 768×768 equivalent area. Browser loop exports use two scratch surfaces for a forward-motion seam crossfade. Canvas-less test contexts retain the vector fallback rather than that raster transition.
+
 ### Run Full Test Suite
 
 ```bash

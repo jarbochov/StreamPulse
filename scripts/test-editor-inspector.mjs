@@ -33,6 +33,9 @@ const server = createServer((req, res) => {
             <aside class="rail right"><div id="properties"></div></aside>`);
     } else if (path === '/api/alerts') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"rules":[{"id":"fictional-brb","name":"BRB in 5 minutes"},{"id":"fictional-follow","name":"Follow"}]}');
     } else if (path === '/api/obs/audio-inputs') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"inputs":["Mic/Aux","Desktop Audio"],"connected":true,"enabled":true}');
+    } else if (['/surviving-upload.png', '/newer.png', '/second.png'].includes(path)) {
+        res.writeHead(200, { 'Content-Type': 'image/svg+xml' });
+        res.end('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#abcdef"/></svg>');
     } else if (path === '/favicon.ico') { res.writeHead(204); res.end(); }
     else { unexpected.push(`${req.method} ${path}`); res.writeHead(404); res.end(); }
 });
@@ -73,6 +76,101 @@ try {
         });
     };
     await setup();
+    const tileEdits = await page.evaluate(async () => {
+        const patterns = await import('/js/editor/editor-patterns.js');
+        const { state, createElementData } = window.fixture;
+        const results = {};
+        const makePattern = () => {
+            const el = createElementData('pattern', { pattern: { sourceType: 'image', tiles: [
+                { sourceType: 'image', src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' },
+                { sourceType: 'image', src: 'second.png' }
+            ] } });
+            state.overlay.elements = [el];
+            state.selectedIds = new Set([el.id]);
+            return el;
+        };
+        const callbacks = { renderProperties() {} };
+        const upload = (el, idx = 0) => {
+            let resolve;
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.dataset.patternSlotUpload = String(idx);
+            const file = new window.File(['dummy'], 'tile.png', { type: 'image/png' });
+            const transfer = new window.DataTransfer();
+            transfer.items.add(file);
+            input.files = transfer.files;
+            const pending = patterns.handlePatternInspectorChange({ target: input }, {
+                ...callbacks, uploadAsset: () => new Promise(done => { resolve = done; })
+            });
+            return { pending, resolve };
+        };
+        let el = makePattern();
+        let operation = upload(el);
+        el.pattern.tiles.splice(0, 1);
+        operation.resolve('removed-upload.png');
+        await operation.pending;
+        results.removedUpload = el.pattern.tiles[0].src;
+
+        el = makePattern();
+        operation = upload(el, 1);
+        const surviving = el.pattern.tiles[1];
+        el.pattern.tiles.splice(0, 1);
+        operation.resolve('surviving-upload.png');
+        await operation.pending;
+        results.survivingUpload = surviving.src;
+
+        el = makePattern();
+        const first = upload(el);
+        const second = upload(el);
+        second.resolve('newer.png');
+        await second.pending;
+        first.resolve('older.png');
+        await first.pending;
+        results.newerUpload = el.pattern.tiles[0].src;
+
+        el = makePattern();
+        operation = upload(el);
+        el.pattern.tiles[0].src = 'typed.png';
+        operation.resolve('old-upload.png');
+        await operation.pending;
+        results.typedDuringUpload = el.pattern.tiles[0].src;
+
+        el = makePattern();
+        operation = upload(el);
+        state.overlay = { ...state.overlay, elements: [] };
+        operation.resolve('old-document.png');
+        await operation.pending;
+        results.oldDocument = el.pattern.tiles[0].src;
+
+        el = makePattern();
+        let pick;
+        const library = document.createElement('button');
+        library.dataset.patternSlotLib = '0';
+        patterns.handlePatternInspectorClick({ target: library }, {
+            ...callbacks, openAssetDialog: (_id, callback) => { pick = callback; }
+        });
+        el.pattern.tiles.splice(0, 1);
+        pick('old-library.png');
+        results.removedLibrary = el.pattern.tiles[0].src;
+
+        el = makePattern();
+        let save;
+        const crop = document.createElement('button');
+        crop.dataset.patternSlotCrop = '0';
+        window.openImageCropper = options => { save = options.onSave; };
+        patterns.handlePatternInspectorClick({ target: crop }, callbacks);
+        el.pattern.tiles.splice(0, 1);
+        await save({ url: 'old-crop.png', name: 'Crop', isNew: true });
+        results.removedCrop = el.pattern.tiles[0].src;
+        delete window.openImageCropper;
+        return results;
+    });
+    assert.deepEqual(tileEdits, {
+        removedUpload: 'second.png', survivingUpload: 'surviving-upload.png',
+        newerUpload: 'newer.png', typedDuringUpload: 'typed.png',
+        oldDocument: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>',
+        removedLibrary: 'second.png', removedCrop: 'second.png'
+    }, 'asynchronous tile edits follow identity, reject stale results, and never overwrite shifted slots');
     const locations = {
         text: { content: 'content', typography: 'style' },
         'random-text': { content: 'content', behavior: 'content', typography: 'style' },

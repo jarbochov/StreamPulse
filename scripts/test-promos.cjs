@@ -58,7 +58,7 @@ test('promo model preserves independent layouts and validates export-safe images
     assert.equal(model.background({ vignette: 140 }).vignette, 100);
     assert.equal(model.background({ motion: 'sweep' }).motion, 'sweep');
     assert.equal(model.background({ motion: 'unexpected' }).motion, 'none');
-    assert.equal(model.PATTERNS.length, 20, 'the model publishes the expanded pattern library');
+    assert.equal(model.PATTERNS.length, 28, 'the model publishes the expanded pattern library');
     assert.equal(model.normalize().background.vignette, 18, 'new promos start with a subtle vignette');
     assert.equal(model.normalize({ background: { mode: 'pattern', pattern: 'hexagons' } }).background.vignette, 0, 'existing layouts do not gain a vignette during migration');
     const fresh = model.normalize(), overlaps = (a, b) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
@@ -621,6 +621,29 @@ test('promo persistence, image references and actual studio export work without 
     });
     assert.notEqual(motionFrames[0], motionFrames[1], 'animated motion changes rendered frames');
     assert.equal(motionFrames[0], motionFrames[2], 'pattern motion returns to the same frame for a seamless six-second loop');
+    const seasonalLoops = await page.evaluate(async () => {
+        const { makeBackdrop } = await import('/js/promo-renderer.js');
+        const results = [];
+        for (const pattern of ['leaves', 'turkeys', 'pumpkins', 'christmas-trees', 'christmas-lights', 'snowflakes', 'hearts', 'fireworks']) {
+            const design = window.PromoModel.normalize();
+            design.background = window.PromoModel.background({ mode: 'pattern', pattern, motion: 'drift', bar: 'none' });
+            const frames = [];
+            for (const time of [0, 1.5, 6]) {
+                const canvas = await makeBackdrop(design, 'square', time, false);
+                frames.push(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data);
+            }
+            results.push({
+                pattern,
+                closes: frames[0].every((value, index) => value === frames[2][index]),
+                moves: frames[0].some((value, index) => value !== frames[1][index])
+            });
+        }
+        return results;
+    });
+    for (const { pattern, closes, moves } of seasonalLoops) {
+        assert.equal(closes, true, `${pattern} closes its actual promo backdrop at the six-second loop boundary`);
+        assert.equal(moves, true, `${pattern} still animates between loop endpoints`);
+    }
     assert.ok(backgroundPixels.hexGridEdgeContrast.every(contrast => contrast > 8), 'all six edges around an interior hexagon are drawn in a connected tessellation');
     assert.equal(model.background({ pattern: 'hexagons' }).pattern, 'hexagons', 'hexagon pattern is persisted by normalization');
     assert.equal(model.background({ pattern: 'topography' }).pattern, 'topography', 'new patterns are preserved by normalization');

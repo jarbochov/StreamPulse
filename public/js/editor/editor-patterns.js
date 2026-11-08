@@ -2,7 +2,7 @@
  * StreamPulse Custom Overlay Editor — Pattern Tile & Procedural Pattern Inspector Module
  */
 
-import { esc, primary, selectedElements, changed, toast } from './editor-state.js';
+import { state, esc, primary, selectedElements, changed, toast } from './editor-state.js';
 import { F } from './editor-form.js';
 import { renderCanvas } from './editor-canvas.js';
 
@@ -12,6 +12,24 @@ const FALLBACK_PATTERN_CATEGORIES = [
     { group: 'Particle & field', options: [['starfield', 'Starfield'], ['sparkles', 'Sparkles'], ['dots', 'Dots'], ['confetti', 'Confetti']] },
     { group: 'Seasonal & holiday', options: [['leaves', 'Autumn leaves'], ['turkeys', 'Thanksgiving turkeys'], ['pumpkins', 'Pumpkins & harvest'], ['christmas-trees', 'Christmas trees'], ['christmas-lights', 'Christmas string lights'], ['snowflakes', 'Snowflakes'], ['hearts', 'Floating hearts'], ['fireworks', 'Celebration fireworks']] }
 ];
+
+const tileEdits = new WeakMap();
+
+function tileEditTarget(el, idx) {
+    const slot = el?.pattern?.tiles?.[idx];
+    if (!slot || !state.overlay?.elements.includes(el)) return null;
+    const edit = {};
+    const overlay = state.overlay;
+    const src = slot.src;
+    const sourceType = slot.sourceType;
+    tileEdits.set(slot, edit);
+    return {
+        slot,
+        current: () => state.overlay === overlay && overlay.elements.includes(el)
+            && el.pattern?.tiles?.includes(slot) && tileEdits.get(slot) === edit
+            && slot.src === src && slot.sourceType === sourceType
+    };
+}
 
 export function proceduralPatternContentFields(el) {
     const p = el.pattern || {};
@@ -749,10 +767,11 @@ export function handlePatternInspectorClick(event, { renderProperties, openAsset
     if (libBtn) {
         const idx = Number(libBtn.dataset.patternSlotLib);
         const el = primary();
-        if (el && el.type === 'pattern') {
+        const edit = el?.type === 'pattern' ? tileEditTarget(el, idx) : null;
+        if (edit) {
             openAssetDialog(el.id, url => {
-                if (!Array.isArray(el.pattern?.tiles) || !el.pattern.tiles[idx]) return;
-                el.pattern.tiles[idx].src = url;
+                if (!edit.current()) return;
+                edit.slot.src = url;
                 renderCanvas();
                 renderProperties();
                 changed(true);
@@ -783,16 +802,17 @@ export function handlePatternInspectorClick(event, { renderProperties, openAsset
     if (cropBtn && typeof window.openImageCropper === 'function') {
         const idx = Number(cropBtn.dataset.patternSlotCrop);
         const el = primary();
-        const slot = el?.pattern?.tiles?.[idx];
-        if (el && slot?.src) {
-            const src = slot.src;
+        const edit = el?.type === 'pattern' ? tileEditTarget(el, idx) : null;
+        if (edit?.slot.src) {
+            const src = edit.slot.src;
             const assetName = src.startsWith('/custom-overlay-assets/') ? src.split('/').pop().split('?')[0] : '';
             window.openImageCropper({
                 url: src,
                 name: assetName,
                 aspectRatio: el.pattern?.aspectRatio || '1:1',
                 onSave: async res => {
-                    slot.src = res.url || src;
+                    if (!edit.current()) return;
+                    edit.slot.src = res.url || src;
                     renderCanvas();
                     renderProperties();
                     changed(true);
@@ -811,17 +831,20 @@ export async function handlePatternInspectorChange(event, { renderProperties, up
     if (!uploadInput || !uploadInput.files?.[0]) return false;
     const idx = Number(uploadInput.dataset.patternSlotUpload);
     const el = primary();
-    if (!el || el.type !== 'pattern' || !el.pattern?.tiles?.[idx]) return false;
+    const edit = el?.type === 'pattern' ? tileEditTarget(el, idx) : null;
+    if (!edit) return false;
     const file = uploadInput.files[0];
     try {
         toast('Uploading tile image…', 'info', 1500);
         const url = await uploadAsset(file);
-        el.pattern.tiles[idx].src = url;
+        if (!edit.current()) return true;
+        edit.slot.src = url;
         renderCanvas();
         renderProperties();
         changed(true);
         toast(`Tile ${idx + 2} image uploaded`, 'success', 1800);
     } catch (error) {
+        if (!edit.current()) return true;
         toast(error.message, 'error', 5000);
         uploadInput.value = '';
     }

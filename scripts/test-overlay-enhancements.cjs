@@ -107,8 +107,8 @@ test('Procedural Patterns vs Repeating Pattern Tiles separation', () => {
     assert.ok(inspectorJs.includes('export function proceduralPatternSection'), 'editor-inspector must export proceduralPatternSection');
     assert.ok(inspectorJs.includes("'procedural-pattern': proceduralPatternSection"), 'specific map must route procedural-pattern to its section');
 
-    const sharedJs = fs.readFileSync(path.join(__dirname, '../public/js/overlay-shared.js'), 'utf8');
-    assert.ok(sharedJs.includes("const isProcedural = curElement.type === 'procedural-pattern' || curElement.pattern?.sourceType === 'preset'"), 'mountPattern must detect procedural elements');
+    const sharedJs = ['patterns', 'pattern-procedural'].map(name => fs.readFileSync(path.join(__dirname, `../public/js/overlay/${name}.js`), 'utf8')).join('\n');
+    assert.ok(sharedJs.includes("const isProceduralPattern = element => element.type === 'procedural-pattern' || element.pattern?.sourceType === 'preset'"), 'mountPattern must detect procedural elements');
     assert.ok(sharedJs.includes('patternsEngine.drawProceduralPattern(ctx, presetName, cw, ch'), 'mountPattern must render procedural pattern across full canvas');
 });
 
@@ -616,7 +616,7 @@ test('alert box media focus and padding are normalized and applied', () => {
 });
 
 test('alert entrance/exit animations are not overridden by a decoration animation', () => {
-    const shared = fs.readFileSync(path.join(__dirname, '../public/js/overlay-shared.js'), 'utf8');
+    const shared = fs.readFileSync(path.join(__dirname, '../public/js/overlay/alerts.js'), 'utf8');
     assert.ok(/card\.style\.animation = `\$\{entrance\}, \$\{decoAnim\}`/.test(shared), 'entrance must be combined with the inline decoration animation');
     assert.ok(shared.includes("if (out !== 'none') card.style.animation = '';"), 'exit class must not be masked by inline animation');
 });
@@ -1670,15 +1670,15 @@ test('Procedural Patterns: Universal Color Placement, Continuous Seamless Pan, a
 
 test('Procedural Patterns: Rendering Efficiency, 60fps Frame Pacing, Triangle Mosaic Dispersion & Color/Grain Filters', () => {
     const patternsSharedCode = fs.readFileSync(path.join(__dirname, '../public/js/patterns-shared.js'), 'utf8');
-    const overlaySharedCode = fs.readFileSync(path.join(__dirname, '../public/js/overlay-shared.js'), 'utf8');
+    const overlaySharedCode = ['pattern-tiles', 'pattern-procedural'].map(name => fs.readFileSync(path.join(__dirname, `../public/js/overlay/${name}.js`), 'utf8')).join('\n');
     const inspectorCode = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-inspector.js'), 'utf8');
 
     // 1. Frame-rate pacing caps continuous loops at ~60fps across high-refresh displays
-    assert.ok(overlaySharedCode.includes('hasProcAnim = isProcedural'), 'OverlayShared must check procedural animation state for frame pacing');
+    assert.ok(overlaySharedCode.includes('if (!dirtyFrame && hasProcAnim && lastDrawTs'), 'OverlayShared must check procedural animation state for frame pacing');
     assert.ok(overlaySharedCode.includes('ts - lastDrawTs < 15.8'), 'OverlayShared must throttle animations exceeding ~60fps (15.8ms interval)');
 
     // 2. Tight, scalable overscan bounds preventing off-screen geometry explosion
-    assert.ok(patternsSharedCode.includes('padX = Math.max(80, (fullWidth / scale) * 0.06)'), 'Overscan padding must scale tightly with canvas dimensions instead of arbitrary 35% inflation');
+    assert.ok(patternsSharedCode.includes('viewW * (viewport ? 0.2 : 0.06)'), 'Overscan must remain tight for the full viewport and cover transformed tile edges');
 
     // 3. Turkey feather drawing eliminates per-feather ctx.save() and ctx.restore()
     const turkeyMotifDef = patternsSharedCode.slice(patternsSharedCode.indexOf('function drawTurkeyMotif('), patternsSharedCode.indexOf('function drawPumpkinMotif('));
@@ -1771,4 +1771,3 @@ test('Procedural Patterns: Rendering Efficiency, 60fps Frame Pacing, Triangle Mo
     assert.ok(overlaySharedCode.includes("ctx.globalCompositeOperation = 'destination-in'"), 'overlay-shared.js must feather via in-canvas destination-in');
     assert.ok(overlaySharedCode.includes("wrap.style.webkitMaskImage = ''"), 'overlay-shared.js must eliminate DOM CSS mask compositing');
 });
-

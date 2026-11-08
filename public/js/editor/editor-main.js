@@ -369,6 +369,7 @@ export async function addMediaFiles(files, point) {
 // ---- Asset Picker Dialog ----------------------------------------------------------
 const assetDialog = $('asset-dialog'), assetGrid = $('asset-grid'), assetSearch = $('asset-search');
 let libraryAssets = [], pickerTarget = null, pickerOnPick = null, assetTagFilter = '';
+let pickerSession = 0;
 const tagFilterMatch = window.TagChips?.matches || (() => true);
 
 function renderTagChips(container, assets, active, query) {
@@ -406,6 +407,7 @@ export async function openAssetPicker(targetId, onPick = null) {
     const el = targetId ? byId(targetId) : primary();
     if (!el || !['image', 'video', 'pattern', 'alert', 'speaker-badge', ...TEXT_TYPES].includes(el.type)) return;
     pickerTarget = el.id;
+    const session = ++pickerSession;
     pickerOnPick = typeof onPick === 'function' ? onPick : null;
     if (typeof window !== 'undefined' && typeof openImageCropper === 'function') window.openImageCropper = openImageCropper;
     const titleEl = $('asset-title');
@@ -421,9 +423,12 @@ export async function openAssetPicker(targetId, onPick = null) {
     try {
         const response = await fetch('/api/custom-overlays/assets', { cache: 'no-store' });
         if (!response.ok) throw new Error();
-        libraryAssets = await response.json();
+        const assets = await response.json();
+        if (session !== pickerSession) return;
+        libraryAssets = assets;
         renderAssetGrid();
     } catch {
+        if (session !== pickerSession) return;
         if (assetGrid) assetGrid.innerHTML = '<p class="hint">Could not load assets. Is the StreamPulse server running?</p>';
     }
 }
@@ -1317,6 +1322,8 @@ function initEventListeners() {
     $('asset-tag-q')?.addEventListener('input', renderAssetGrid);
     $('asset-close')?.addEventListener('click', () => assetDialog?.close());
     assetDialog?.addEventListener('close', () => {
+        pickerSession++;
+        pickerOnPick = null;
         if (assetGrid) {
             if (shared.cleanupMedia) shared.cleanupMedia(assetGrid);
             assetGrid.innerHTML = '';
@@ -1325,16 +1332,19 @@ function initEventListeners() {
     $('asset-upload')?.addEventListener('change', async event => {
         const file = event.target.files[0];
         const el = state.overlay.elements.find(item => item.id === pickerTarget);
+        const overlay = state.overlay;
+        const session = ++pickerSession;
+        const onPick = pickerOnPick;
         event.target.value = '';
         if (!file || !el) return;
         try {
             toast('Uploading…', 'info', 1500);
             const url = await uploadAsset(file);
-            if (pickerOnPick) {
-                const cb = pickerOnPick;
+            if (session !== pickerSession || state.overlay !== overlay || !overlay.elements.includes(el)) return;
+            if (onPick) {
                 pickerOnPick = null;
                 assetDialog?.close();
-                cb(url);
+                onPick(url);
                 return;
             }
             if (TEXT_TYPES.has(el.type)) {
@@ -1364,6 +1374,7 @@ function initEventListeners() {
             if (!hadSource && el.type !== 'pattern' && el.type !== 'procedural-pattern') await fitToMedia(el, url, el.type);
             renderCanvas(); renderProperties(); changed(true);
         } catch (error) {
+            if (session !== pickerSession) return;
             toast(error.message, 'error', 5000);
         }
     });

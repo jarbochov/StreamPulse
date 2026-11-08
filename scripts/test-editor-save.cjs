@@ -10,6 +10,54 @@ const stateSource = fs.readFileSync(path.join(__dirname, '../public/js/editor/ed
 const mainSource = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-main.js'), 'utf8');
 const saveSource = mainSource.slice(mainSource.indexOf('function applyServerOverlay('), mainSource.indexOf('// ---- OBS WebSocket Bridge')).replace(/^export /gm, '');
 
+test('Asset Library uploads cannot select a new picker target or overwrite a newer upload', async () => {
+    const source = mainSource.slice(mainSource.indexOf("    $('asset-upload')?.addEventListener"), mainSource.indexOf("    assetGrid?.addEventListener"));
+    const picks = [];
+    const pending = [];
+    let handler;
+    const context = vm.createContext({
+        picks,
+        $: () => ({ addEventListener: (_type, callback) => { handler = callback; } }),
+        uploadAsset: () => new Promise(resolve => pending.push(resolve)),
+        toast() {},
+        renderCanvas() {},
+        renderProperties() {},
+        changed() {}
+    });
+    vm.runInContext(`
+        const el = { id: 'pattern', type: 'pattern' };
+        const state = { overlay: { elements: [el] } };
+        let pickerTarget = el.id, pickerSession = 1;
+        let pickerOnPick = url => picks.push(['first', url]);
+        const assetDialog = { close() { pickerSession++; pickerOnPick = null; } };
+        const TEXT_TYPES = new Set();
+        globalThis.selectNewPicker = () => { pickerSession++; pickerOnPick = url => picks.push(['second', url]); };
+        globalThis.currentState = state;
+    ` + source, context);
+    const event = () => ({ target: { files: [{}], value: '' } });
+    let first = handler(event());
+    context.selectNewPicker();
+    pending.shift()('stale.png');
+    await first;
+    assert.deepEqual(picks, [], 'old uploads cannot invoke the newly opened tile callback');
+
+    first = handler(event());
+    const second = handler(event());
+    const oldResolve = pending.shift();
+    pending.shift()('newer.png');
+    await second;
+    oldResolve('older.png');
+    await first;
+    assert.deepEqual(picks.map(pick => Array.from(pick)), [['second', 'newer.png']], 'latest upload wins within the same picker');
+
+    context.selectNewPicker();
+    const removed = handler(event());
+    context.currentState.overlay = { elements: [] };
+    pending.shift()('removed.png');
+    await removed;
+    assert.equal(picks.length, 1, 'uploads for removed documents are not selected');
+});
+
 function fixture(isNew = false) {
     const controls = new Map();
     const toasts = [];

@@ -168,9 +168,15 @@
 
     const motifStampCache = new Map();
     const vignetteGradCache = new Map();
-    const MAX_STAMP_CACHE = 64;
+    let patternTileCanvas = null;
+    let patternSeamCanvas = null;
+    let patternBlendCanvas = null;
+    let loopOutgoingCanvas = null;
+    let loopIncomingCanvas = null;
+    // 48 RGBA 384px stamps use at most 27 MiB, regardless of editor changes.
+    const MAX_STAMP_CACHE = 48;
 
-    function getOrCreateStamp(cacheKey, drawFn, stampDim = 256) {
+    function getOrCreateStamp(cacheKey, drawFn, stampDim = 384) {
         if (motifStampCache.has(cacheKey)) {
             return motifStampCache.get(cacheKey);
         }
@@ -788,14 +794,18 @@
      * @param {string} pattern - Pattern identifier (e.g. 'hexagons', 'leaves', 'christmas-lights')
      * @param {number} width - Canvas or tile width
      * @param {number} height - Canvas or tile height
-     * @param {object} options - Custom options (scale, color, accent, secondary, palette, fillMode, fillOpacity, time, motion, speed, lineWidth)
+     * @param {object} options - Scale, colors, animation, lineWidth and detail ('exact' bypasses dense sampling)
      */
     function drawProceduralPattern(ctx, pattern, width, height, options = {}) {
         if (!pattern || !ctx || !(width > 0) || !(height > 0)) return;
 
         const fullWidth = width, fullHeight = height;
         const scale = Math.max(0.05, (options.scale || 100) / 100);
-        const time = options.time || 0;
+        const isLoop = options.loop === true;
+        const loopDuration = Number(options.loopDuration) > 0 ? Number(options.loopDuration) : 6;
+        const rawTime = Number(options.time) || 0;
+        const loopPosition = ((rawTime % loopDuration) + loopDuration) % loopDuration;
+        const time = isLoop ? loopPosition : rawTime;
         const motion = options.motion || 'none';
         const rawSpeed = Number(options.speed) > 0 ? Number(options.speed) : 1;
         // Calibrate speed scale so 1x normal speed is calm, broadcast-ready and ambient (previously 1x was ~3x too fast, requiring 0.3)
@@ -817,20 +827,145 @@
             : ((options.altColor && options.altColor !== 'transparent') ? options.altColor : accent);
         const customLineWidth = Number(options.lineWidth) || 0;
 
+        // Two forward-moving snapshots crossfade only during the last fifth of a
+        // promo loop. Arbitrary speeds and non-integer local rotations then meet
+        // at the seam without making fall or spin reverse halfway through.
+        if (isLoop && loopPosition > loopDuration * 0.8 && typeof document !== 'undefined') {
+            try {
+                const outgoing = loopOutgoingCanvas || (loopOutgoingCanvas = document.createElement('canvas'));
+                const incoming = loopIncomingCanvas || (loopIncomingCanvas = document.createElement('canvas'));
+                const canvasWidth = Math.ceil(fullWidth), canvasHeight = Math.ceil(fullHeight);
+                if (outgoing.width !== canvasWidth || outgoing.height !== canvasHeight) {
+                    outgoing.width = canvasWidth;
+                    outgoing.height = canvasHeight;
+                }
+                if (incoming.width !== canvasWidth || incoming.height !== canvasHeight) {
+                    incoming.width = canvasWidth;
+                    incoming.height = canvasHeight;
+                }
+                const outCtx = outgoing.getContext('2d'), inCtx = incoming.getContext('2d');
+                if (outCtx && inCtx) {
+                    outCtx.setTransform(1, 0, 0, 1, 0, 0);
+                    outCtx.globalAlpha = 1;
+                    outCtx.globalCompositeOperation = 'source-over';
+                    outCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+                    inCtx.setTransform(1, 0, 0, 1, 0, 0);
+                    inCtx.globalAlpha = 1;
+                    inCtx.globalCompositeOperation = 'source-over';
+                    inCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+                    drawProceduralPattern(outCtx, pattern, width, height, { ...options, loop: false, _loopColorCentered: true, time });
+                    drawProceduralPattern(inCtx, pattern, width, height, { ...options, loop: false, _loopColorCentered: true, time: time - loopDuration });
+                    const u = (loopPosition / loopDuration - 0.8) / 0.2;
+                    const blend = u * u * (3 - 2 * u);
+                    outCtx.save();
+                    outCtx.globalCompositeOperation = 'destination-in';
+                    outCtx.fillStyle = `rgba(0,0,0,${1 - blend})`;
+                    outCtx.fillRect(0, 0, fullWidth, fullHeight);
+                    outCtx.globalCompositeOperation = 'lighter';
+                    outCtx.globalAlpha = blend;
+                    outCtx.drawImage(incoming, 0, 0);
+                    outCtx.restore();
+                    ctx.drawImage(outgoing, 0, 0);
+                    return;
+                }
+            } catch {
+                // Non-browser contexts continue to render without the raster crossfade.
+                loopOutgoingCanvas = null;
+                loopIncomingCanvas = null;
+            }
+        }
+
         // Base fill if specified
         if (baseColor && baseColor !== 'transparent') {
             ctx.fillStyle = baseColor;
             ctx.fillRect(0, 0, width, height);
         }
 
+        // At tiny scales, repeat a centered sample at the requested scale. The
+        // overlap crossfade joins edges without reversing the lattice direction.
+        let tiled = false;
+        const tileSize = Math.round(Math.max(192, Math.min(384, 384 * scale / 0.1)));
+        const tilePatterns = ['dots', 'diamonds', 'hexagons', 'triangles', 'scales', 'circuit',
+            'checker', 'chevrons', 'leaves', 'turkeys', 'pumpkins', 'christmas-trees',
+            'christmas-lights', 'snowflakes', 'hearts', 'fireworks'];
+        if (options.detail !== 'exact' && !options._patternViewport && scale <= 0.2 && fullWidth * fullHeight >= 768 * 768 &&
+            tilePatterns.includes(pattern) && typeof document !== 'undefined' && typeof ctx.createPattern === 'function') {
+            try {
+                const tile = patternTileCanvas || (patternTileCanvas = document.createElement('canvas'));
+                if (tile.width !== tileSize || tile.height !== tileSize) {
+                    tile.width = tile.height = tileSize;
+                }
+                const tileCtx = tile.getContext('2d');
+                if (tileCtx) {
+                    tileCtx.clearRect(0, 0, tile.width, tile.height);
+                    tileCtx.save();
+                    tileCtx.beginPath(); tileCtx.rect(0, 0, tileSize, tileSize); tileCtx.clip();
+                    tileCtx.translate((tileSize - fullWidth) / 2, (tileSize - fullHeight) / 2);
+                    drawProceduralPattern(tileCtx, pattern, fullWidth, fullHeight, {
+                        ...options, color: 'transparent', background: 'transparent',
+                        _patternViewport: tileSize, _skipPatternEffects: true
+                    });
+                    tileCtx.restore();
+                    const period = Math.round(tileSize * 0.75), overlap = tileSize - period;
+                    const seam = patternSeamCanvas || (patternSeamCanvas = document.createElement('canvas'));
+                    const blendCanvas = patternBlendCanvas || (patternBlendCanvas = document.createElement('canvas'));
+                    seam.width = period; seam.height = tileSize;
+                    blendCanvas.width = period; blendCanvas.height = tileSize;
+                    const seamCtx = seam.getContext('2d'), blendCtx = blendCanvas.getContext('2d');
+                    if (!seamCtx || !blendCtx) throw new Error('Canvas unavailable');
+                    seamCtx.drawImage(tile, 0, 0);
+                    let gradient = seamCtx.createLinearGradient(0, 0, overlap, 0);
+                    gradient.addColorStop(0, 'transparent'); gradient.addColorStop(1, '#000');
+                    seamCtx.globalCompositeOperation = 'destination-in';
+                    seamCtx.fillStyle = gradient; seamCtx.fillRect(0, 0, period, tileSize);
+                    blendCtx.drawImage(tile, period, 0, overlap, tileSize, 0, 0, overlap, tileSize);
+                    gradient = blendCtx.createLinearGradient(0, 0, overlap, 0);
+                    gradient.addColorStop(0, '#000'); gradient.addColorStop(1, 'transparent');
+                    blendCtx.globalCompositeOperation = 'destination-in';
+                    blendCtx.fillStyle = gradient; blendCtx.fillRect(0, 0, period, tileSize);
+                    seamCtx.globalCompositeOperation = 'lighter';
+                    seamCtx.drawImage(blendCanvas, 0, 0);
+
+                    // Reuse the sample and blend canvases for the vertical join.
+                    tile.width = tile.height = period;
+                    blendCanvas.width = blendCanvas.height = period;
+                    tileCtx.drawImage(seam, 0, 0);
+                    gradient = tileCtx.createLinearGradient(0, 0, 0, overlap);
+                    gradient.addColorStop(0, 'transparent'); gradient.addColorStop(1, '#000');
+                    tileCtx.globalCompositeOperation = 'destination-in';
+                    tileCtx.fillStyle = gradient; tileCtx.fillRect(0, 0, period, period);
+                    blendCtx.drawImage(seam, 0, period, period, overlap, 0, 0, period, overlap);
+                    gradient = blendCtx.createLinearGradient(0, 0, 0, overlap);
+                    gradient.addColorStop(0, '#000'); gradient.addColorStop(1, 'transparent');
+                    blendCtx.globalCompositeOperation = 'destination-in';
+                    blendCtx.fillStyle = gradient; blendCtx.fillRect(0, 0, period, period);
+                    tileCtx.globalCompositeOperation = 'lighter';
+                    tileCtx.drawImage(blendCanvas, 0, 0);
+                    const repeating = ctx.createPattern(tile, 'repeat');
+                    if (repeating) {
+                        ctx.save();
+                        const tileX = (fullWidth - tileSize) / 2, tileY = (fullHeight - tileSize) / 2;
+                        ctx.translate(tileX, tileY);
+                        ctx.fillStyle = repeating;
+                        ctx.fillRect(-tileX, -tileY, fullWidth, fullHeight);
+                        ctx.restore();
+                        tiled = true;
+                    }
+                }
+            } catch {
+                // Canvas-less and restricted contexts retain the exact renderer.
+                patternTileCanvas = null;
+                patternSeamCanvas = null;
+                patternBlendCanvas = null;
+            }
+        }
+
+        if (!tiled) {
         ctx.save();
-        const isLoop = options.loop === true;
-        const loopDuration = Number(options.loopDuration) > 0 ? Number(options.loopDuration) : 6;
         const phase = time * Math.PI / 3 * speed;
         // In-place animation (twinkles, pulsing, rotating, leaf flutter) decoupled from overall canvas movement
         const inPlace = options.inPlace ?? (motion !== 'none' ? 'auto' : 'none');
-        const hasInPlaceAnim = inPlace !== 'none' && inPlace !== false && inPlace !== 0 && time > 0;
-        const isAnimated = (motion !== 'none' || hasInPlaceAnim) && time > 0;
+        const hasInPlaceAnim = inPlace !== 'none' && inPlace !== false && inPlace !== 0;
         const inPlaceMult = inPlace === 'sparkle' ? 2.6 : (inPlace === 'pulse' ? 1.8 : (inPlace === 'gentle' ? 0.6 : 1.0));
         const inPlaceSpeed = Number(options.inPlaceSpeed) > 0 ? Number(options.inPlaceSpeed) : 1.0;
         const inPlacePhase = hasInPlaceAnim ? (time * speed * inPlaceMult * inPlaceSpeed) : 0;
@@ -846,7 +981,7 @@
         const spinSpeed = rawSpinSpeed * SPEED_SCALE;
         const hasSpin = spinMode !== 'none';
         let continuousSpinAngle = 0;
-        if (hasSpin && time > 0) {
+        if (hasSpin) {
             if (spinMode === 'reverse') {
                 continuousSpinAngle = -time * Math.PI * 0.8 * spinSpeed;
             } else if (spinMode === 'sway') {
@@ -904,7 +1039,7 @@
             } else {
                 // Continuous single-direction glide: linear velocity without bounds clipping or wrapping jumps
                 const panVelocity = fullHeight * 0.055 * speed;
-                const panDist = isLoop ? (time % loopDuration) * panVelocity : (time * panVelocity);
+                const panDist = time * panVelocity;
                 motionTransX = Math.cos(panAngleRad) * panDist;
                 motionTransY = Math.sin(panAngleRad) * panDist;
             }
@@ -913,24 +1048,32 @@
 
         // Dynamic overscan bounds that automatically expand to cover the canvas viewport
         // regardless of pan distance or canvas translation, with zero blank edges or seams
-        const padX = Math.max(80, (fullWidth / scale) * 0.06);
-        const padY = Math.max(80, (fullHeight / scale) * 0.06);
-        const minX = -padX - motionTransX;
-        const maxX = width + padX - motionTransX;
-        const minY = -padY - motionTransY;
-        const maxY = height + padY - motionTransY;
+        const viewport = options._patternViewport;
+        const viewW = viewport ? viewport / scale : width;
+        const viewH = viewport ? viewport / scale : height;
+        const padX = Math.max(80, viewW * (viewport ? 0.2 : 0.06));
+        const padY = Math.max(80, viewH * (viewport ? 0.2 : 0.06));
+        const minX = (width - viewW) / 2 - padX - motionTransX;
+        const maxX = (width + viewW) / 2 + padX - motionTransX;
+        const minY = (height - viewH) / 2 - padY - motionTransY;
+        const maxY = (height + viewH) / 2 + padY - motionTransY;
 
         // Helper for consistent stroke width across all patterns and scales
         const getLineW = (mult = 1) => (customLineWidth > 0 ? customLineWidth : Math.max(1.2, (fullWidth / 700) * mult)) / scale;
+        // Quantize in stamp space, with finer buckets when enlarged so the
+        // on-screen error remains below 1/16px. Draw extreme widths directly.
+        const stampLineW = (lineW, radius, referenceRadius) => {
+            const enlargement = Math.max(1, radius * scale / referenceRadius);
+            const quantum = 0.125 / Math.pow(2, Math.ceil(Math.log2(enlargement)));
+            return Math.max(quantum, Math.round(lineW * referenceRadius / radius / quantum) * quantum);
+        };
 
         // Continuous, non-jumping vertical displacement for 'fall' motion.
-        // For promo video rendering, loop over loopDuration if requested (options.loop === true).
+        // Promo loops use the periodic clock above.
         // For overlay editor and live overlays, time is linear and continuous with ZERO periodic jump!
         const fallVelocity = fullHeight * 0.055 * speed;
         const fallDy = motion === 'fall'
-            ? (isLoop
-                ? (time % loopDuration) * fallVelocity
-                : time * fallVelocity)
+            ? time * fallVelocity
             : 0;
         const fallSwayX = motion === 'fall' ? Math.sin(phase * 0.8) * (fullWidth * 0.018) : 0;
 
@@ -941,7 +1084,7 @@
         const colorAnim = options.colorAnim || 'none';
         const colorSpeed = Number(options.colorSpeed) > 0 ? Number(options.colorSpeed) : 1;
         const colorShift = colorAnim === 'cycle'
-            ? (isLoop ? (time % loopDuration) * (loopDuration * 0.8) : time * 1.8) * colorSpeed
+            ? time * 1.8 * colorSpeed
             : (colorAnim === 'breathe' ? Math.sin(time * 1.8 * colorSpeed) * 2.2 : 0);
 
         function getCellColorIndex(row, col, cellX, cellY, extraIdx = 0) {
@@ -977,7 +1120,8 @@
                 h = Math.imul(h ^ (h >>> 13), 1274126177);
                 base = ((h ^ (h >>> 16)) >>> 0) % 997;
             }
-            return Math.floor(base + colorShift + (extraIdx && colorMode !== 'mosaic' ? extraIdx : 0));
+            const centeredLoopColor = (isLoop || options._loopColorCentered) && colorAnim !== 'none' ? 0.5 : 0;
+            return Math.floor(base + colorShift + centeredLoopColor + (extraIdx && colorMode !== 'mosaic' ? extraIdx : 0));
         }
 
         if (pattern === 'grid') {
@@ -1127,7 +1271,7 @@
             const rowStep = spanH / rows;
             const rStart = Math.floor((minY - fallDy) / rowStep) - 2;
             const rEnd = Math.ceil((maxY - fallDy) / rowStep) + 2;
-            const meshPhase = (hasInPlaceAnim ? (inPlacePhase * 1.5) : 0) + (motion !== 'none' && time > 0 ? (time * 1.2 * speed) : 0);
+            const meshPhase = (hasInPlaceAnim ? (inPlacePhase * 1.5) : 0) + (motion !== 'none' ? (time * 1.2 * speed) : 0);
             ctx.lineWidth = getLineW(0.9);
             for (let row = rStart; row <= rEnd; row++) {
                 const cy = row * rowStep + fallDy;
@@ -1162,7 +1306,7 @@
         } else if (pattern === 'sunburst') {
             const cx = width * 0.5, cy = height * 0.5, radius = Math.hypot(maxX - minX, maxY - minY);
             const rays = Math.max(4, Math.min(180, Math.round(Number(options.density ?? options.rays) || 28)));
-            const rotOffset = motion === 'fall' ? (isLoop ? (time % loopDuration) : time) * speed * 0.35 : 0;
+            const rotOffset = motion === 'fall' ? time * speed * 0.35 : 0;
             const sunRot = hasSpin ? (continuousSpinAngle * 0.2) : (hasInPlaceAnim ? (inPlacePhase * 0.15) : 0);
             ctx.lineWidth = getLineW(1);
             for (let i = 0; i < rays; i++) {
@@ -1271,7 +1415,7 @@
             }
         } else if (pattern === 'waves') {
             const rowStep = Math.max(4, fullHeight / 18), baseAmp = Math.max(1, fullWidth / 100), wavelength = Math.max(8, fullWidth / 8);
-            const wavePhase = (hasInPlaceAnim ? (inPlacePhase * 1.6) : 0) + (motion !== 'none' && time > 0 ? (time * 1.5 * speed) : 0);
+            const wavePhase = (hasInPlaceAnim ? (inPlacePhase * 1.6) : 0) + (motion !== 'none' ? (time * 1.5 * speed) : 0);
             ctx.lineWidth = getLineW(1.3);
             const rStart = Math.floor((minY - fallDy) / rowStep) - 1, rEnd = Math.ceil((maxY - fallDy) / rowStep) + 1;
             const xStep = Math.max(2, fullWidth / 160);
@@ -1292,7 +1436,7 @@
             }
         } else if (pattern === 'rings') {
             const cx = width * 0.5 - motionTransX, cy = height * 0.5 - motionTransY, step = Math.max(3, fullWidth / 36);
-            const rippleDistance = (hasInPlaceAnim ? (inPlacePhase * 20) : (motion !== 'none' && time > 0 ? (time * 20 * speed) : 0));
+            const rippleDistance = (hasInPlaceAnim ? (inPlacePhase * 20) : (motion !== 'none' ? (time * 20 * speed) : 0));
             const continuousCycle = rippleDistance / step;
             const baseCycle = Math.floor(continuousCycle);
             const rPhase = (continuousCycle - baseCycle) * step;
@@ -1533,13 +1677,14 @@
                     ctx.translate(cx, cy);
                     ctx.rotate(baseAngle + randomAngle + leafSpin + flutter);
 
-                    const cacheKey = `leaf:${leafType}:${leafColor}:${hasFill}:${fillHex}`;
-                    const stamp = getOrCreateStamp(cacheKey, (sCtx, stampCx, stampCy) => {
-                        drawLeafMotif(sCtx, stampCx, stampCy, 95, leafType, leafColor, hasFill, fillHex, 2.2);
-                    }, 256);
+                    const lineW = stampLineW(getLineW(1.15), r, 95);
+                    const cacheKey = `leaf:${leafType}:${leafColor}:${hasFill}:${fillHex}:${lineW}`;
+                    const stamp = lineW <= 64 && (motifStampCache.get(cacheKey) || getOrCreateStamp(cacheKey, (sCtx, stampCx, stampCy) => {
+                        drawLeafMotif(sCtx, stampCx, stampCy, 95, leafType, leafColor, hasFill, fillHex, lineW);
+                    }));
 
                     if (stamp) {
-                        const drawDim = (r / 95) * 256;
+                        const drawDim = (r / 95) * 384;
                         ctx.drawImage(stamp, -drawDim / 2, -drawDim / 2, drawDim, drawDim);
                     } else {
                         drawLeafMotif(ctx, 0, 0, r, leafType, leafColor, hasFill, fillHex, getLineW(1.15));
@@ -1581,13 +1726,14 @@
                     ctx.translate(cx, cy);
                     ctx.rotate(randomAngle + turkeySpin + tilt);
 
-                    const cacheKey = `turkey:${fCol}:${tipCol}:${bodyCol}:${wingCol}:${hasFill}:${fillHex}:${fillMode}`;
-                    const stamp = getOrCreateStamp(cacheKey, (sCtx, stampCx, stampCy) => {
-                        drawTurkeyMotif(sCtx, stampCx, stampCy, 90, hasFill, fillHex, fillMode, fCol, tipCol, bodyCol, wingCol, 2.2);
-                    }, 256);
+                    const lineW = stampLineW(getLineW(1.2), r, 90);
+                    const cacheKey = `turkey:${fCol}:${tipCol}:${bodyCol}:${wingCol}:${hasFill}:${fillHex}:${fillMode}:${lineW}`;
+                    const stamp = lineW <= 64 && (motifStampCache.get(cacheKey) || getOrCreateStamp(cacheKey, (sCtx, stampCx, stampCy) => {
+                        drawTurkeyMotif(sCtx, stampCx, stampCy, 90, hasFill, fillHex, fillMode, fCol, tipCol, bodyCol, wingCol, lineW);
+                    }));
 
                     if (stamp) {
-                        const drawDim = (r / 90) * 256;
+                        const drawDim = (r / 90) * 384;
                         ctx.drawImage(stamp, -drawDim / 2, -drawDim / 2, drawDim, drawDim);
                     } else {
                         drawTurkeyMotif(ctx, 0, 0, r, hasFill, fillHex, fillMode, fCol, tipCol, bodyCol, wingCol, getLineW(1.2));
@@ -1626,13 +1772,14 @@
                     ctx.translate(cx, cy);
                     ctx.rotate(randomAngle + pumpkinSpin + tilt);
 
-                    const cacheKey = `pumpkin:${pColor}:${stemColor}:${hasFill}:${fillHex}`;
-                    const stamp = getOrCreateStamp(cacheKey, (sCtx, stampCx, stampCy) => {
-                        drawPumpkinMotif(sCtx, stampCx, stampCy, 100, pColor, stemColor, hasFill, fillHex, 2.2);
-                    }, 256);
+                    const lineW = stampLineW(getLineW(1.15), r, 100);
+                    const cacheKey = `pumpkin:${pColor}:${stemColor}:${hasFill}:${fillHex}:${lineW}`;
+                    const stamp = lineW <= 64 && (motifStampCache.get(cacheKey) || getOrCreateStamp(cacheKey, (sCtx, stampCx, stampCy) => {
+                        drawPumpkinMotif(sCtx, stampCx, stampCy, 100, pColor, stemColor, hasFill, fillHex, lineW);
+                    }));
 
                     if (stamp) {
-                        const drawDim = (r / 100) * 256;
+                        const drawDim = (r / 100) * 384;
                         ctx.drawImage(stamp, -drawDim / 2, -drawDim / 2, drawDim, drawDim);
                     } else {
                         drawPumpkinMotif(ctx, 0, 0, r, pColor, stemColor, hasFill, fillHex, getLineW(1.15));
@@ -1669,13 +1816,14 @@
                     ctx.translate(cx, cy);
                     ctx.rotate(sway);
 
-                    const cacheKey = `tree:${treeColor}:${topperColor}:${hasFill}:${fillHex}`;
-                    const stamp = getOrCreateStamp(cacheKey, (sCtx, stampCx, stampCy) => {
-                        drawChristmasTreeMotif(sCtx, stampCx, stampCy, 95, treeColor, topperColor, hasFill, fillHex, 2.2);
-                    }, 256);
+                    const lineW = stampLineW(getLineW(1.15), r, 95);
+                    const cacheKey = `tree:${treeColor}:${topperColor}:${hasFill}:${fillHex}:${lineW}`;
+                    const stamp = lineW <= 64 && (motifStampCache.get(cacheKey) || getOrCreateStamp(cacheKey, (sCtx, stampCx, stampCy) => {
+                        drawChristmasTreeMotif(sCtx, stampCx, stampCy, 95, treeColor, topperColor, hasFill, fillHex, lineW);
+                    }));
 
                     if (stamp) {
-                        const drawDim = (r / 95) * 256;
+                        const drawDim = (r / 95) * 384;
                         ctx.drawImage(stamp, -drawDim / 2, -drawDim / 2, drawDim, drawDim);
                     } else {
                         drawChristmasTreeMotif(ctx, 0, 0, r, treeColor, topperColor, hasFill, fillHex, getLineW(1.15));
@@ -1784,7 +1932,6 @@
                     const cIdx = getCellColorIndex(row, col, cx, cy, idx);
                     const sColor = getPatternColor(palette, cIdx, accent, secondary);
                     const shimmer = hasInPlaceAnim ? (0.84 + 0.16 * Math.sin(inPlacePhase * 1.6 + idx)) : 1;
-                    const alphaHex = Math.max(0, Math.min(255, Math.round(0.95 * shimmer * 255))).toString(16).padStart(2, '0');
 
                     // Select morphology
                     let morphology = idx % 6;
@@ -1799,18 +1946,19 @@
                     ctx.translate(cx, cy);
                     ctx.rotate(rot);
 
-                    const cacheKey = `flake:${morphology}:${sColor}:${hasFill}:${fillHex}:${accent}`;
-                    const stamp = getOrCreateStamp(cacheKey, (sCtx, stampCx, stampCy) => {
-                        drawSnowflakeMotif(sCtx, stampCx, stampCy, 105, morphology, sColor, hasFill, fillHex, 2.2, accent);
-                    }, 256);
+                    const lineW = stampLineW(getLineW(1.1), r, 105);
+                    const cacheKey = `flake:${morphology}:${sColor}:${hasFill}:${fillHex}:${accent}:${lineW}`;
+                    const stamp = lineW <= 64 && (motifStampCache.get(cacheKey) || getOrCreateStamp(cacheKey, (sCtx, stampCx, stampCy) => {
+                        drawSnowflakeMotif(sCtx, stampCx, stampCy, 105, morphology, sColor, hasFill, fillHex, lineW, accent);
+                    }));
 
                     if (stamp) {
-                        const drawDim = (r / 105) * 256;
-                        if (shimmer < 0.99) ctx.globalAlpha = shimmer;
+                        const drawDim = (r / 105) * 384;
+                        if (shimmer < 0.99) ctx.globalAlpha *= shimmer;
                         ctx.drawImage(stamp, -drawDim / 2, -drawDim / 2, drawDim, drawDim);
-                        if (shimmer < 0.99) ctx.globalAlpha = 1;
                     } else {
-                        drawSnowflakeMotif(ctx, 0, 0, r, morphology, withAlpha(sColor, alphaHex), hasFill, fillHex, getLineW(1.1), accent);
+                        if (shimmer < 0.99) ctx.globalAlpha *= shimmer;
+                        drawSnowflakeMotif(ctx, 0, 0, r, morphology, sColor, hasFill, fillHex, getLineW(1.1), accent);
                     }
 
                     ctx.restore();
@@ -1847,19 +1995,19 @@
                     ctx.translate(cx, cy);
                     ctx.rotate(randomAngle + heartSpin + tilt);
 
-                    const cacheKey = `heart:${hColor}:${hasFill}:${fillHex}`;
-                    const stamp = getOrCreateStamp(cacheKey, (sCtx, stampCx, stampCy) => {
-                        drawHeartMotif(sCtx, stampCx, stampCy, 100, hColor, hasFill, fillHex, 2.2);
-                    }, 256);
+                    const lineW = stampLineW(getLineW(1.15), r, 100);
+                    const cacheKey = `heart:${hColor}:${hasFill}:${fillHex}:${lineW}`;
+                    const stamp = lineW <= 64 && (motifStampCache.get(cacheKey) || getOrCreateStamp(cacheKey, (sCtx, stampCx, stampCy) => {
+                        drawHeartMotif(sCtx, stampCx, stampCy, 100, hColor, hasFill, fillHex, lineW);
+                    }));
 
                     if (stamp) {
-                        const drawDim = (r / 100) * 256;
-                        if (beat < 0.99) ctx.globalAlpha = beat;
+                        const drawDim = (r / 100) * 384;
+                        if (beat < 0.99) ctx.globalAlpha *= beat;
                         ctx.drawImage(stamp, -drawDim / 2, -drawDim / 2, drawDim, drawDim);
-                        if (beat < 0.99) ctx.globalAlpha = 1;
                     } else {
-                        const strokeAlpha = hasInPlaceAnim ? Math.max(25, Math.min(255, Math.round(0x98 * beat))).toString(16).padStart(2, '0') : '98';
-                        drawHeartMotif(ctx, 0, 0, r, withAlpha(hColor, strokeAlpha), hasFill, fillHex, getLineW(1.15));
+                        if (beat < 0.99) ctx.globalAlpha *= beat;
+                        drawHeartMotif(ctx, 0, 0, r, hColor, hasFill, fillHex, getLineW(1.15));
                     }
 
                     ctx.restore();
@@ -1959,8 +2107,9 @@
             }
         }
         ctx.restore();
+        }
 
-        if (motion === 'aurora' || motion === 'flow') {
+        if (!options._skipPatternEffects && (motion === 'aurora' || motion === 'flow')) {
             const t = (time / 6) * Math.PI * 2 * speed;
             const span = Math.hypot(fullWidth, fullHeight);
             ctx.save();
@@ -1981,7 +2130,7 @@
             ctx.restore();
         }
 
-        if (motion === 'sweep') {
+        if (!options._skipPatternEffects && motion === 'sweep') {
             const t = ((time / 6 * speed) % 1 + 1) % 1;
             const eased = t * t * (3 - 2 * t);
             const span = fullWidth + fullHeight, band = span * 0.22;
@@ -1999,7 +2148,7 @@
 
         // Cinematic vignette overlay (smooth radial edge darkening)
         const vignetteAmount = Math.max(0, Math.min(100, Number(options.vignette) || 0)) / 100;
-        if (vignetteAmount > 0) {
+        if (!options._skipPatternEffects && vignetteAmount > 0) {
             const vColor = (options.vignetteColor && options.vignetteColor !== 'transparent') ? options.vignetteColor : '#000000';
             const vKey = `${fullWidth}:${fullHeight}:${vColor}:${vignetteAmount}`;
             let vigGrad = vignetteGradCache.get(vKey);
