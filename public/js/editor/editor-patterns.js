@@ -140,12 +140,52 @@ export function proceduralPatternSection(el) {
     if (caps.scatter) {
         elementGeometryBlock += F.range('pattern.scatter', 'Organic scatter', p.scatter ?? p.positionJitter ?? 0, { min: 0, max: 100, step: 5, unit: '%', editable: true, reset: 0, resetTitle: 'Reset to grid alignment' });
     }
-    if (!caps.sizeVariance && !caps.scatter) {
+    if (caps.density) {
+        if (preset === 'starfield') {
+            elementGeometryBlock += F.range('pattern.density', 'Starfield density', p.density ?? 600, { min: 50, max: 6000, step: 50, unit: ' stars', editable: true, reset: 600, resetTitle: 'Reset to default density (600 stars)' });
+        } else if (preset === 'sunburst') {
+            elementGeometryBlock += F.range('pattern.density', 'Sunburst density', p.density ?? 28, { min: 6, max: 120, step: 2, unit: ' rays', editable: true, reset: 28, resetTitle: 'Reset to default density (28 rays)' });
+        } else if (preset === 'sparkles') {
+            elementGeometryBlock += F.range('pattern.density', 'Sparkles density', p.density ?? 75, { min: 10, max: 500, step: 5, unit: ' sparkles', editable: true, reset: 75, resetTitle: 'Reset to default density (75 sparkles)' });
+        }
+    }
+    if (!caps.sizeVariance && !caps.scatter && !caps.density) {
         elementGeometryBlock = `<span class="hint">${caps.hint || 'Continuous vector lattice. Geometry scale, line width, and in-place animation adjust this background.'}</span>`;
+    }
+
+    let colorPlacementBlock = '';
+    if (caps.colorMode) {
+        const colorMode = p.colorMode || 'mosaic';
+        const colorAnim = p.colorAnim || 'none';
+        const colorSpeed = p.colorSpeed ?? 1;
+        const colorModeOptions = [
+            ['mosaic', 'Mosaic scatter (organic dispersion)'],
+            ['radial', 'Concentric radial (rings from center)'],
+            ['rows', 'Horizontal rows (striped bands)'],
+            ['columns', 'Vertical columns (striped bands)'],
+            ['diagonal', 'Diagonal waves (angled bands)'],
+            ['spiral', 'Spiral vortex (twisting outward)'],
+            ['checker', 'Checkerboard rhythm (alternating)']
+        ];
+        const colorAnimOptions = [
+            ['none', 'Static (still color layout)'],
+            ['cycle', 'Continuous cycle (flowing color wave)'],
+            ['breathe', 'Breathe (pulsing color wave)']
+        ];
+        colorPlacementBlock = `
+            <div class="grid2">
+                ${F.select('pattern.colorMode', 'Color placement', colorMode, colorModeOptions)}
+                ${F.select('pattern.colorAnim', 'Color animation', colorAnim, colorAnimOptions)}
+            </div>
+        `;
+        if (colorAnim !== 'none') {
+            colorPlacementBlock += F.range('pattern.colorSpeed', 'Color wave speed', colorSpeed, { min: 0.2, max: 3.0, step: 0.1, unit: 'x', editable: true, reset: 1.0, resetTitle: 'Reset to normal speed (1.0x)' });
+        }
     }
 
     const styleBlock = `
         ${colorFields}
+        ${colorPlacementBlock}
         ${fillBlock}
         ${blendBlock}
         ${snowflakeBlock}

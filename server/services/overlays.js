@@ -366,6 +366,8 @@ const PATTERN_FILL_MODES = ['tinted', 'solid', 'outline'];
 const PATTERN_IN_PLACE_MODES = ['auto', 'gentle', 'pulse', 'sparkle', 'none'];
 const PATTERN_SPIN_MODES = ['none', 'auto', 'spin', 'reverse', 'sway'];
 const PATTERN_PAN_DIRECTIONS = ['continuous', 'oscillate'];
+const PATTERN_COLOR_MODES = ['mosaic', 'radial', 'rows', 'columns', 'diagonal', 'spiral', 'checker'];
+const PATTERN_COLOR_ANIMS = ['none', 'cycle', 'breathe'];
 const SNOWFLAKE_STYLES = ['all', 'dendrite', 'plate', 'fern', 'rosette', 'cross', 'needle'];
 
 function normalizeSpeakerBadge(badge = {}) {
@@ -498,6 +500,11 @@ function normalizePattern(p = {}, isProcedural = false) {
     const vignette = Math.round(num(p.vignette, 0, 100, 0));
     const vignetteColor = String(p.vignetteColor || '#000000').slice(0, 80);
     const rotationVariance = Math.round(num(p.rotationVariance ?? p.rotationJitter, 0, 100, 0));
+    const colorMode = PATTERN_COLOR_MODES.includes(p.colorMode) ? p.colorMode : 'mosaic';
+    const colorAnim = PATTERN_COLOR_ANIMS.includes(p.colorAnim) ? p.colorAnim : 'none';
+    const colorSpeed = Math.round(num(p.colorSpeed, 0.1, 10, 1) * 10) / 10;
+    const defaultDensity = p.preset === 'sunburst' ? 28 : (p.preset === 'starfield' ? 600 : (p.preset === 'sparkles' ? 75 : 100));
+    const density = Math.round(num(p.density, 4, 8000, defaultDensity));
     return {
         sourceType,
         tileDistribution: PATTERN_DISTRIBUTIONS.includes(p.tileDistribution) ? p.tileDistribution : 'diagonal',
@@ -516,6 +523,10 @@ function normalizePattern(p = {}, isProcedural = false) {
         vignette,
         vignetteColor,
         rotationVariance,
+        colorMode,
+        colorAnim,
+        colorSpeed,
+        density,
         snowflakeStyle,
         sizeVariance,
         scatter,
@@ -2333,5 +2344,7 @@ module.exports = {
     DEFAULT_RANDOMIZER_QUOTE_PRESETS,
     PATTERN_PALETTES,
     PATTERN_SPIN_MODES,
-    PATTERN_PAN_DIRECTIONS
+    PATTERN_PAN_DIRECTIONS,
+    PATTERN_COLOR_MODES,
+    PATTERN_COLOR_ANIMS
 };

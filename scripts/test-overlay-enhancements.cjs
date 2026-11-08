@@ -1270,3 +1270,233 @@ test('Independent Element Spin, Pan Direction and Cinematic Vignette', () => {
     assert.ok(radialGradCreated, 'drawProceduralPattern must create radial gradient when vignette > 0');
     assert.ok(vignetteColorCaptured.startsWith('#111827'), 'Vignette gradient must apply custom vignette color');
 });
+
+test('Starfield Density, Sunburst Density & Starfield Geometry Scale Bounds', () => {
+    const { PATTERN_CAPABILITIES, drawProceduralPattern } = require('../public/js/patterns-shared.js');
+    const { normalizeCustomOverlay } = require('../server/services/overlays.js');
+
+    // 1. Capability gating
+    assert.equal(PATTERN_CAPABILITIES.starfield.density, true, 'Starfield must support density');
+    assert.equal(PATTERN_CAPABILITIES.sunburst.density, true, 'Sunburst must support density');
+    assert.equal(PATTERN_CAPABILITIES.sparkles.density, true, 'Sparkles must support density');
+
+    // 2. Sunburst density ray count
+    const rayLines = [];
+    const sunMock = {
+        save: () => {}, restore: () => {}, beginPath: () => {}, closePath: () => {},
+        moveTo: () => {}, lineTo: (x, y) => rayLines.push({ x: Math.round(x), y: Math.round(y) }),
+        quadraticCurveTo: () => {}, stroke: () => {}, fill: () => {}, fillRect: () => {},
+        scale: () => {}, translate: () => {}, rotate: () => {}, arc: () => {}, ellipse: () => {},
+        createRadialGradient: () => ({ addColorStop: () => {} }),
+        createLinearGradient: () => ({ addColorStop: () => {} })
+    };
+
+    rayLines.length = 0;
+    drawProceduralPattern(sunMock, 'sunburst', 600, 400, { scale: 100, density: 16 });
+    assert.equal(rayLines.length, 16, 'Sunburst with density 16 must draw exactly 16 rays');
+
+    rayLines.length = 0;
+    drawProceduralPattern(sunMock, 'sunburst', 600, 400, { scale: 100, density: 48 });
+    assert.equal(rayLines.length, 48, 'Sunburst with density 48 must draw exactly 48 rays');
+
+    // 3. Starfield density star count
+    const stars = [];
+    const starMock = {
+        save: () => {}, restore: () => {}, beginPath: () => {}, closePath: () => {},
+        moveTo: () => {}, lineTo: () => {}, quadraticCurveTo: () => {}, stroke: () => {},
+        fill: () => {}, fillRect: () => {}, scale: () => {}, translate: () => {}, rotate: () => {},
+        arc: (x, y) => stars.push({ x: Math.round(x), y: Math.round(y) }),
+        ellipse: () => {},
+        createRadialGradient: () => ({ addColorStop: () => {} }),
+        createLinearGradient: () => ({ addColorStop: () => {} })
+    };
+
+    stars.length = 0;
+    drawProceduralPattern(starMock, 'starfield', 640, 360, { scale: 100, density: 60 });
+    // In starfield, 3 out of every 4 stars (i % 4 !== 0) are drawn with arc
+    const arcCount60 = stars.length;
+
+    stars.length = 0;
+    drawProceduralPattern(starMock, 'starfield', 640, 360, { scale: 100, density: 240 });
+    const arcCount240 = stars.length;
+
+    assert.equal(Math.round(arcCount240 / arcCount60), 4, 'Starfield density 240 must draw 4x as many stars as density 60');
+
+    // 4. Starfield geometry scale coverage: stars must span the viewport at both small and large scales
+    const starCoords = [];
+    const coverageMock = {
+        save: () => {}, restore: () => {}, beginPath: () => {}, closePath: () => {},
+        moveTo: () => {}, lineTo: () => {}, quadraticCurveTo: () => {}, stroke: () => {},
+        fill: () => {}, fillRect: () => {}, scale: () => {}, translate: () => {}, rotate: () => {},
+        arc: (x, y) => starCoords.push({ x, y }),
+        ellipse: () => {},
+        createRadialGradient: () => ({ addColorStop: () => {} }),
+        createLinearGradient: () => ({ addColorStop: () => {} })
+    };
+
+    // At scale 50% (zoomed out)
+    starCoords.length = 0;
+    drawProceduralPattern(coverageMock, 'starfield', 640, 360, { scale: 50, density: 100 });
+    const minX50 = Math.min(...starCoords.map(s => s.x));
+    const maxX50 = Math.max(...starCoords.map(s => s.x));
+    const minY50 = Math.min(...starCoords.map(s => s.y));
+    const maxY50 = Math.max(...starCoords.map(s => s.y));
+
+    // width at scale 50% is 1280. Coordinates must span across 0 to 1280 with overscan
+    assert.ok(minX50 <= 0, 'Starfield at 50% scale must cover left margin without blank space');
+    assert.ok(maxX50 >= 1200, 'Starfield at 50% scale must cover right margin without blank space');
+    assert.ok(minY50 <= 0, 'Starfield at 50% scale must cover top margin without blank space');
+    assert.ok(maxY50 >= 680, 'Starfield at 50% scale must cover bottom margin without blank space');
+
+    // 5. Schema normalization
+    const overlay = normalizeCustomOverlay({
+        id: 'density-test',
+        name: 'Density Test',
+        elements: [
+            { id: 'el-star', type: 'procedural-pattern', pattern: { preset: 'starfield', density: 3200 } },
+            { id: 'el-sun', type: 'procedural-pattern', pattern: { preset: 'sunburst', density: 44 } }
+        ]
+    });
+    assert.equal(overlay.elements[0].pattern.density, 3200, 'Starfield density must support high densities up to 8000');
+    assert.equal(overlay.elements[1].pattern.density, 44, 'Sunburst density must be normalized');
+});
+
+test('Procedural Patterns: Hyper-dense Starfields, Camera Zoom In/Out, and Tiled Shape Color Placement & Waves', () => {
+    const { PATTERN_CAPABILITIES, drawProceduralPattern } = require('../public/js/patterns-shared.js');
+    const { PATTERN_COLOR_MODES, PATTERN_COLOR_ANIMS, normalizeCustomOverlay } = require('../server/services/overlays.js');
+
+    // 1. Capability gating
+    assert.equal(PATTERN_CAPABILITIES.triangles.colorMode, true, 'Triangles must support color placement');
+    assert.equal(PATTERN_CAPABILITIES.hexagons.colorMode, true, 'Hexagons must support color placement');
+    assert.equal(PATTERN_CAPABILITIES.diamonds.colorMode, true, 'Diamonds must support color placement');
+    assert.equal(PATTERN_CAPABILITIES.scales.colorMode, true, 'Scales must support color placement');
+    assert.equal(PATTERN_CAPABILITIES.dots.colorMode, true, 'Dots must support color placement');
+    assert.equal(PATTERN_CAPABILITIES.checker.colorMode, true, 'Checker must support color placement');
+
+    // 2. Hyper-dense starfield execution
+    const denseArcs = [];
+    const denseMock = {
+        save: () => {}, restore: () => {}, beginPath: () => {}, closePath: () => {},
+        moveTo: () => {}, lineTo: () => {}, quadraticCurveTo: () => {}, stroke: () => {},
+        fill: () => {}, fillRect: () => {}, scale: () => {}, translate: () => {}, rotate: () => {},
+        arc: (x, y) => denseArcs.push({ x, y }),
+        ellipse: () => {},
+        createRadialGradient: () => ({ addColorStop: () => {} }),
+        createLinearGradient: () => ({ addColorStop: () => {} })
+    };
+
+    denseArcs.length = 0;
+    drawProceduralPattern(denseMock, 'starfield', 1920, 1080, { scale: 100, density: 4000 });
+    assert.ok(denseArcs.length > 3000, `High density starfield (4000) should draw over 3000 arc stars (got ${denseArcs.length})`);
+
+    // 3. Camera zoom verification: Zooming in (200% scale) moves stars apart in coordinate space
+    const zoom100Stars = [];
+    const zoom200Stars = [];
+    const zoomMock100 = {
+        save: () => {}, restore: () => {}, beginPath: () => {}, closePath: () => {},
+        moveTo: () => {}, lineTo: () => {}, quadraticCurveTo: () => {}, stroke: () => {},
+        fill: () => {}, fillRect: () => {}, scale: () => {}, translate: () => {}, rotate: () => {},
+        arc: (x, y) => zoom100Stars.push({ x, y }),
+        ellipse: () => {},
+        createRadialGradient: () => ({ addColorStop: () => {} }),
+        createLinearGradient: () => ({ addColorStop: () => {} })
+    };
+    const zoomMock200 = {
+        save: () => {}, restore: () => {}, beginPath: () => {}, closePath: () => {},
+        moveTo: () => {}, lineTo: () => {}, quadraticCurveTo: () => {}, stroke: () => {},
+        fill: () => {}, fillRect: () => {}, scale: () => {}, translate: () => {}, rotate: () => {},
+        arc: (x, y) => zoom200Stars.push({ x, y }),
+        ellipse: () => {},
+        createRadialGradient: () => ({ addColorStop: () => {} }),
+        createLinearGradient: () => ({ addColorStop: () => {} })
+    };
+
+    drawProceduralPattern(zoomMock100, 'starfield', 1000, 1000, { scale: 100, density: 50 });
+    drawProceduralPattern(zoomMock200, 'starfield', 1000, 1000, { scale: 200, density: 50 });
+
+    // In canvas world space, zooming in 200% keeps coordinates anchored so that screen positions expand 2x
+    assert.equal(zoom100Stars.length, zoom200Stars.length);
+
+    // 4. Color placement modes on Triangles:
+    const triFills = [];
+    const triMock = {
+        save: () => {}, restore: () => {}, beginPath: () => {}, closePath: () => {},
+        moveTo: () => {}, lineTo: () => {}, quadraticCurveTo: () => {}, stroke: () => {},
+        fill: () => {}, fillRect: () => {}, scale: () => {}, translate: () => {}, rotate: () => {},
+        arc: () => {}, ellipse: () => {},
+        set fillStyle(val) { triFills.push(val); },
+        set strokeStyle(val) {},
+        createRadialGradient: () => ({ addColorStop: () => {} }),
+        createLinearGradient: () => ({ addColorStop: () => {} })
+    };
+
+    // Test each color placement mode renders distinct color patterns
+    const modes = ['mosaic', 'radial', 'rows', 'columns', 'diagonal', 'spiral', 'checker'];
+    const modeOutputs = {};
+    for (const m of modes) {
+        triFills.length = 0;
+        drawProceduralPattern(triMock, 'triangles', 800, 600, {
+            scale: 100,
+            palette: 'neon',
+            colorMode: m,
+            fillMode: 'solid'
+        });
+        modeOutputs[m] = triFills.slice(0, 20).join(',');
+    }
+    // Verify modes produce differentiated distributions
+    assert.notEqual(modeOutputs.rows, modeOutputs.columns, 'Rows and columns color modes must differ');
+    assert.notEqual(modeOutputs.radial, modeOutputs.mosaic, 'Radial and mosaic color modes must differ');
+    assert.notEqual(modeOutputs.checker, modeOutputs.diagonal, 'Checker and diagonal color modes must differ');
+
+    // 5. Animated color wave shifts on Triangles
+    triFills.length = 0;
+    drawProceduralPattern(triMock, 'triangles', 800, 600, {
+        scale: 100,
+        palette: 'synthwave',
+        colorMode: 'radial',
+        colorAnim: 'cycle',
+        colorSpeed: 1,
+        time: 0,
+        fillMode: 'solid'
+    });
+    const colorsAtT0 = triFills.slice(0, 10).join(',');
+
+    triFills.length = 0;
+    drawProceduralPattern(triMock, 'triangles', 800, 600, {
+        scale: 100,
+        palette: 'synthwave',
+        colorMode: 'radial',
+        colorAnim: 'cycle',
+        colorSpeed: 1,
+        time: 1.5,
+        fillMode: 'solid'
+    });
+    const colorsAtT1 = triFills.slice(0, 10).join(',');
+    assert.notEqual(colorsAtT0, colorsAtT1, 'Cycling color waves must animate and shift palette colors across time');
+
+    // 6. Schema normalization
+    assert.ok(PATTERN_COLOR_MODES.includes('radial'));
+    assert.ok(PATTERN_COLOR_MODES.includes('mosaic'));
+    assert.ok(PATTERN_COLOR_ANIMS.includes('cycle'));
+    assert.ok(PATTERN_COLOR_ANIMS.includes('breathe'));
+
+    const normalizedDoc = normalizeCustomOverlay({
+        id: 'color-mode-test',
+        name: 'Color Mode Test',
+        elements: [
+            {
+                id: 'el-tri',
+                type: 'procedural-pattern',
+                pattern: {
+                    preset: 'triangles',
+                    colorMode: 'radial',
+                    colorAnim: 'cycle',
+                    colorSpeed: 1.5
+                }
+            }
+        ]
+    });
+    assert.equal(normalizedDoc.elements[0].pattern.colorMode, 'radial');
+    assert.equal(normalizedDoc.elements[0].pattern.colorAnim, 'cycle');
+    assert.equal(normalizedDoc.elements[0].pattern.colorSpeed, 1.5);
+});

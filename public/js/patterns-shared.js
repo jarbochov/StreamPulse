@@ -12,14 +12,14 @@
 
     const PATTERN_CAPABILITIES = {
         // Discrete element patterns: size variance + organic scatter + in-place animation + spin
-        dots: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, label: 'Dots matrix' },
-        diamonds: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, label: 'Diamonds grid' },
-        hexagons: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, label: 'Hexagons honeycomb' },
-        triangles: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, label: 'Triangles mosaic' },
-        scales: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, label: 'Scales pattern' },
+        dots: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, colorMode: true, label: 'Dots matrix' },
+        diamonds: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, colorMode: true, label: 'Diamonds grid' },
+        hexagons: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, colorMode: true, label: 'Hexagons honeycomb' },
+        triangles: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, colorMode: true, label: 'Triangles mosaic' },
+        scales: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, colorMode: true, label: 'Scales pattern' },
         circuit: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: false, label: 'Circuit board' },
-        starfield: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, label: 'Starfield' },
-        sparkles: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, label: 'Sparkles' },
+        starfield: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, density: true, label: 'Starfield' },
+        sparkles: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, density: true, label: 'Sparkles' },
         confetti: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, label: 'Confetti' },
         leaves: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, label: 'Autumn leaves' },
         turkeys: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, label: 'Thanksgiving turkeys' },
@@ -36,10 +36,10 @@
         mesh: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, label: 'Curved mesh', hint: 'Continuous curved wire mesh. Adjust wave amplitude with scale, and in-place 3D wave oscillation.' },
         waves: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, label: 'Waves', hint: 'Continuous horizontal contour waves. Line width, geometry scale, and in-place ocean swell adjust this pattern.' },
         rings: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, label: 'Rings', hint: 'Infinite concentric ripple rings expand continuously from the center point with zero seams or jumps.' },
-        sunburst: { sizeVariance: false, scatter: false, inPlace: true, spin: true, fill: false, label: 'Sunburst', hint: 'Radial rays expanding from center. Line width, ray count, and celestial ray rotation adjust this pattern.' },
+        sunburst: { sizeVariance: false, scatter: false, inPlace: true, spin: true, fill: false, density: true, label: 'Sunburst', hint: 'Radial rays expanding from center. Adjust ray count with sunburst density, line width, and celestial rotation.' },
         topography: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, label: 'Topography', hint: 'Elevation contour lines. Contour lines gently morph and breathe with in-place elevation drift.' },
         chevrons: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, label: 'Chevrons', hint: 'Continuous herringbone zig-zag strips. Shimmers along rows with in-place wave animation.' },
-        checker: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: true, label: 'Checkerboard', hint: 'Continuous checkerboard mosaic tiles. Alternates tile brightness with in-place pulse.' },
+        checker: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: true, colorMode: true, label: 'Checkerboard', hint: 'Continuous checkerboard mosaic tiles. Choose color placement and animated color waves.' },
         geometry: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: true, label: 'Geometry', hint: 'Abstract background geometric shapes with breathing in-place opacity.' },
         orbits: { sizeVariance: false, scatter: false, inPlace: true, spin: true, fill: false, label: 'Orbits', hint: 'Planetary orbit arcs with subtle in-place orbital drift.' }
     };
@@ -145,6 +145,12 @@
         } else {
             ctx.lineTo(x, y);
         }
+    }
+
+    function hash2D(i, seed) {
+        let h = (i * 374761393 + seed * 668265263) | 0;
+        h = Math.imul(h ^ (h >>> 13), 1274126177);
+        return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
     }
 
     function drawFourPointStar(ctx, x, y, r) {
@@ -305,6 +311,44 @@
         ctx.strokeStyle = withAlpha(accent, options.accentAlpha || '55');
         ctx.lineWidth = getLineW(1);
 
+        const colorMode = options.colorMode || 'mosaic';
+        const colorAnim = options.colorAnim || 'none';
+        const colorSpeed = Number(options.colorSpeed) > 0 ? Number(options.colorSpeed) : 1;
+        const colorShift = colorAnim === 'cycle'
+            ? (isLoop ? (time % loopDuration) * (loopDuration * 0.8) : time * 1.8) * colorSpeed
+            : (colorAnim === 'breathe' ? Math.sin(time * 1.8 * colorSpeed) * 2.2 : 0);
+
+        function getCellColorIndex(row, col, cellX, cellY, extraIdx = 0) {
+            let base = 0;
+            if (colorMode === 'rows') {
+                base = row;
+            } else if (colorMode === 'columns') {
+                base = col;
+            } else if (colorMode === 'diagonal') {
+                base = row + col;
+            } else if (colorMode === 'checker') {
+                base = (row + col) & 1;
+            } else if (colorMode === 'radial') {
+                const dx = cellX - (width * 0.5);
+                const dy = cellY - (height * 0.5);
+                const dist = Math.hypot(dx, dy);
+                const ringStep = Math.max(20, fullWidth / 20);
+                base = Math.floor(dist / ringStep);
+            } else if (colorMode === 'spiral') {
+                const dx = cellX - (width * 0.5);
+                const dy = cellY - (height * 0.5);
+                const dist = Math.hypot(dx, dy);
+                const angle = Math.atan2(dy, dx);
+                const ringStep = Math.max(24, fullWidth / 18);
+                const normAngle = (angle + Math.PI) / (Math.PI * 2);
+                base = Math.floor((dist / ringStep) * 2 + normAngle * 4);
+            } else {
+                // 'mosaic' / default: integer prime hashing distributes palette tones organically without diagonal striping
+                base = Math.abs((row * 7919 + col * 104729 + extraIdx * 1237) % 997);
+            }
+            return Math.floor(base + colorShift + (extraIdx && colorMode !== 'mosaic' ? extraIdx : 0));
+        }
+
         if (pattern === 'grid') {
             const step = Math.max(3, fullWidth / 32);
             const x0 = Math.floor(minX / step) * step;
@@ -339,9 +383,8 @@
 
                     const cx = col * columnStep + scatterX + fallSwayX;
                     const cy = row * rowStep + (((col % 2) + 2) % 2) * rowStep / 2 + scatterY + fallDy;
-                    // Color scattering: integer prime hashing distributes palette jewel tones in an organic mosaic
-                    const colorHash = Math.abs((col * 7919 + row * 104729) % 997);
-                    const color = getPatternColor(palette, colorHash, accent, secondary);
+                    const cIdx = getCellColorIndex(row, col, cx, cy);
+                    const color = getPatternColor(palette, cIdx, accent, secondary);
                     ctx.beginPath();
                     for (let point = 0; point < 6; point++) {
                         const angle = point * Math.PI / 3, x = cx + Math.cos(angle) * radius, y = cy + Math.sin(angle) * radius;
@@ -376,8 +419,8 @@
                     const radius = baseRadius * sizeMult * breathe;
                     const cx = x + scatterX + fallSwayX;
                     const finalCy = cy + scatterY;
-                    const colorHash = Math.abs((yi * 7919 + col * 104729) % 997);
-                    const color = getPatternColor(palette, colorHash, accent, secondary);
+                    const cIdx = getCellColorIndex(yi, col, cx, finalCy);
+                    const color = getPatternColor(palette, cIdx, accent, secondary);
 
                     const randomAngle = ((((idx * 137) % 360) / 360) * Math.PI * 2) * rotVarAmount;
                     const diamondSpin = hasSpin ? (spinMode === 'sway' ? Math.sin(continuousSpinAngle + idx) * 0.15 : continuousSpinAngle * ((idx & 1) ? 1 : -1) * 0.5) : 0;
@@ -450,7 +493,8 @@
                 ctx.stroke();
             }
         } else if (pattern === 'sunburst') {
-            const cx = width * 0.5, cy = height * 0.5, radius = Math.hypot(maxX - minX, maxY - minY), rays = 28;
+            const cx = width * 0.5, cy = height * 0.5, radius = Math.hypot(maxX - minX, maxY - minY);
+            const rays = Math.max(4, Math.min(180, Math.round(Number(options.density ?? options.rays) || 28)));
             const rotOffset = motion === 'fall' ? (isLoop ? (time % loopDuration) : time) * speed * 0.35 : 0;
             const sunRot = hasSpin ? (continuousSpinAngle * 0.2) : (hasInPlaceAnim ? (inPlacePhase * 0.15) : 0);
             ctx.lineWidth = getLineW(1);
@@ -480,8 +524,8 @@
                     const dotR = baseRadius * (hasFill ? (0.8 + fillOp * 0.5) : 1) * sizeMult * twinkle;
                     const cx = x + scatterX + fallSwayX;
                     const finalCy = cy + scatterY;
-                    const colorHash = Math.abs((yi * 7919 + col * 104729) % 997);
-                    const color = getPatternColor(palette, colorHash, accent, secondary);
+                    const cIdx = getCellColorIndex(yi, col, cx, finalCy);
+                    const color = getPatternColor(palette, cIdx, accent, secondary);
                     const alphaHex = (hasInPlaceAnim && inPlace === 'sparkle')
                         ? (twinkle > 0.85 ? 'ff' : '45')
                         : (hasFill ? fillHex : Math.max(20, Math.min(255, Math.round(0x65 * twinkle))).toString(16).padStart(2, '0'));
@@ -490,25 +534,37 @@
                 }
             }
         } else if (pattern === 'starfield' || pattern === 'sparkles') {
-            const count = pattern === 'starfield' ? 190 : 75;
-            const refW = fullWidth * 1.44;
-            const refH = fullHeight * 1.44;
-            const ox = (width - refW) / 2;
-            const oy = (height - refH) / 2;
+            const defaultCount = pattern === 'starfield' ? 600 : 100;
+            const count = Math.max(6, Math.min(8000, Math.round(Number(options.density ?? options.count) || defaultCount)));
+            const cx = width * 0.5, cy = height * 0.5;
+            // Universe dimensions anchored in world space: zooming in expands stars apart, zooming out contracts them
+            const universeW = Math.max(fullWidth * 2.5, width * 1.25);
+            const universeH = Math.max(fullHeight * 2.5, height * 1.25);
+
             for (let i = 0; i < count; i++) {
-                const u = (i * 0.61803398875) % 1;
-                const v = (i * 0.75487766625) % 1;
-                const sizeHash = (((i * 7919 + 104729) % 1000) / 1000);
+                const u = hash2D(i, 1);
+                const v = hash2D(i, 2);
+                const sizeHash = hash2D(i, 3);
                 const sizeVarMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
-                const scatterX = ((((i * 43) % 100) / 100 - 0.5) * (fullWidth * 0.15)) * scatterAmount;
-                const scatterY = ((((i * 67) % 100) / 100 - 0.5) * (fullHeight * 0.15)) * scatterAmount;
-                const x = ox + u * refW + scatterX + fallSwayX * (0.6 + (i % 3) * 0.3);
-                const y = oy + (((v * refH + fallDy + scatterY) % refH + refH) % refH);
+                const scatterX = (hash2D(i, 5) - 0.5) * (fullWidth * 0.35) * scatterAmount;
+                const scatterY = (hash2D(i, 6) - 0.5) * (fullHeight * 0.35) * scatterAmount;
+
+                // Center-anchored world coordinates that zoom in and out with Geometry Scale
+                const rawX = (u - 0.5) * universeW;
+                const rawY = (v - 0.5) * universeH;
+                const x = cx + rawX + scatterX + fallSwayX * (0.6 + (i % 3) * 0.3);
+                const y = cy + ((((rawY + fallDy + scatterY + universeH * 100) % universeH) - universeH * 0.5));
+
                 const twinkleMult = hasInPlaceAnim ? (0.70 + 0.30 * Math.sin(inPlacePhase * 1.5 + i * 1.7)) : 1;
-                const size = Math.max(1.5, fullWidth / (pattern === 'starfield' ? 420 : 250)) * (1 + (i % 3) * 0.35) * twinkleMult * sizeVarMult;
+                // Multi-magnitude astronomical distribution: micro-pinpricks (70%), medium stars (20%), prominent beacons (10%)
+                const tier = hash2D(i, 8);
+                const mag = tier > 0.90 ? 2.2 : (tier > 0.70 ? 1.3 : 0.75);
+                const baseSize = Math.max(0.8, (fullWidth / (pattern === 'starfield' ? 460 : 250))) * mag * (1 + (i % 3) * 0.25) * twinkleMult * sizeVarMult;
+                const size = baseSize / Math.pow(scale, 0.45);
                 const pColor = getPatternColor(palette, i, accent, secondary);
-                ctx.fillStyle = withAlpha(pColor, hasFill ? fillHex : '85');
-                if (pattern === 'starfield' && i % 4) {
+                ctx.fillStyle = withAlpha(pColor, hasFill ? fillHex : (tier > 0.7 ? 'cc' : '80'));
+
+                if (pattern === 'starfield' && tier <= 0.88) {
                     ctx.beginPath(); ctx.arc(x, y, size * 0.55, 0, Math.PI * 2); ctx.fill();
                 } else {
                     const randomAngle = ((((i * 137) % 360) / 360) * Math.PI * 2) * rotVarAmount;
@@ -532,7 +588,10 @@
                 for (let col = cStart; col <= cEnd; col++) {
                     if ((((row + col) % 2 + 2) % 2) === 0) {
                         const checkPulse = hasInPlaceAnim ? (0.72 + 0.28 * Math.sin(inPlacePhase * 1.6 + (row + col) * 0.5)) : 1;
-                        const color = getPatternColor(palette, row * 7 + col, accent, secondary);
+                        const checkX = col * step + fallSwayX + step / 2;
+                        const checkY = y + step / 2;
+                        const cIdx = getCellColorIndex(row, col, checkX, checkY);
+                        const color = getPatternColor(palette, cIdx, accent, secondary);
                         const rawHex = hasFill ? fillHex : '28';
                         const checkHex = Math.max(10, Math.min(255, Math.round(Number.parseInt(rawHex, 16) * checkPulse))).toString(16).padStart(2, '0');
                         ctx.fillStyle = withAlpha(color, checkHex);
@@ -600,10 +659,11 @@
                     const scatterY = ((((idx * 67) % 100) / 100 - 0.5) * rowStep * 0.45) * scatterAmount;
                     const breathe = hasInPlaceAnim ? (0.88 + 0.12 * Math.sin(inPlacePhase * 1.5 + idx * 0.6)) : 1;
                     const arcR = (step / 2) * sizeMult * breathe;
-                    // Color scattering across repeating scales
-                    const colorHash = Math.abs((row * 7919 + col * 104729) % 997);
-                    const color = getPatternColor(palette, colorHash, accent, secondary);
-                    ctx.beginPath(); ctx.arc(x + offset + scatterX + fallSwayX, y + scatterY, Math.max(1, arcR), 0, Math.PI);
+                    const scaleCenterX = x + offset + scatterX + fallSwayX;
+                    const scaleCenterY = y + scatterY;
+                    const cIdx = getCellColorIndex(row, col, scaleCenterX, scaleCenterY);
+                    const color = getPatternColor(palette, cIdx, accent, secondary);
+                    ctx.beginPath(); ctx.arc(scaleCenterX, scaleCenterY, Math.max(1, arcR), 0, Math.PI);
                     if (hasFill) {
                         ctx.fillStyle = withAlpha(color, fillHex);
                         ctx.fill();
@@ -628,13 +688,12 @@
                     const triPulse1 = hasInPlaceAnim ? (0.84 + 0.16 * Math.sin(inPlacePhase * 1.6 + idx)) : 1;
                     const triPulse2 = hasInPlaceAnim ? (0.84 + 0.16 * Math.cos(inPlacePhase * 1.6 + idx)) : 1;
 
-                    // Color scattering: integer prime hashing distributes palette tones organically without diagonal striping
-                    const colorHash1 = Math.abs((row * 7919 + col * 104729) % 997);
-                    const colorHash2 = Math.abs((row * 6173 + col * 8311 + 547) % 997);
-                    const color1 = getPatternColor(palette, colorHash1, accent, secondary);
-                    const color2 = getPatternColor(palette, colorHash2, secondary, accent);
                     const x = col * baseSize + (((row % 2) + 2) % 2) * baseSize / 2 + scatterX + fallSwayX, y = row * rowStep + scatterY + fallDy;
                     const size = baseSize * sizeMult;
+                    const cIdx1 = getCellColorIndex(row, col, x + size * 0.5, y + rowStep * 0.5, 0);
+                    const cIdx2 = getCellColorIndex(row, col, x + size, y + rowStep * 0.5, 1);
+                    const color1 = getPatternColor(palette, cIdx1, accent, secondary);
+                    const color2 = getPatternColor(palette, cIdx2, secondary, accent);
 
                     ctx.beginPath();
                     ctx.moveTo(x, y + rowStep); ctx.lineTo(x + size / 2, y); ctx.lineTo(x + size, y + rowStep);
@@ -693,20 +752,20 @@
                 }
             }
         } else if (pattern === 'confetti') {
-            const refW = fullWidth * 1.44;
-            const refH = fullHeight * 1.44;
-            const ox = (width - refW) / 2;
-            const oy = (height - refH) / 2;
+            const spanW = maxX - minX;
+            const spanH = maxY - minY;
+            const ox = minX;
+            const oy = minY;
             for (let i = 0; i < 180; i++) {
-                const u = (i * 0.61803398875) % 1;
-                const v = (i * 0.75487766625) % 1;
-                const sizeHash = (((i * 7919 + 104729) % 1000) / 1000);
+                const u = hash2D(i, 10);
+                const v = hash2D(i, 11);
+                const sizeHash = hash2D(i, 12);
                 const sizeVarMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
-                const scatterX = ((((i * 43) % 100) / 100 - 0.5) * (fullWidth * 0.15)) * scatterAmount;
-                const scatterY = ((((i * 67) % 100) / 100 - 0.5) * (fullHeight * 0.15)) * scatterAmount;
-                const x = ox + u * refW + scatterX + fallSwayX * (0.5 + (i % 4) * 0.25);
+                const scatterX = (hash2D(i, 14) - 0.5) * (spanW * 0.15) * scatterAmount;
+                const scatterY = (hash2D(i, 15) - 0.5) * (spanH * 0.15) * scatterAmount;
+                const x = ox + u * spanW + scatterX + fallSwayX * (0.5 + (i % 4) * 0.25);
                 const particleDy = fallDy * (0.8 + (i % 3) * 0.2);
-                const y = oy + (((v * refH + particleDy + scatterY) % refH + refH) % refH);
+                const y = oy + (((v * spanH + particleDy + scatterY) % spanH + spanH) % spanH);
                 const size = Math.max(2, fullWidth / 180) * (1 + (i % 3)) * sizeVarMult;
                 const randomAngle = ((((i * 137) % 360) / 360) * Math.PI * 2) * rotVarAmount;
                 const confettiSpin = hasSpin ? (spinMode === 'sway' ? Math.sin(continuousSpinAngle + i) * 0.35 : continuousSpinAngle * ((i & 1) ? 1 : -0.8)) : 0;

@@ -3621,7 +3621,10 @@
                 const pMotion = curOptions.animate === false ? 'none' : (p.motion || 'none');
                 const pInPlace = curOptions.animate === false ? 'none' : (p.inPlace ?? (pMotion !== 'none' ? 'auto' : 'none'));
                 const pSpin = curOptions.animate === false ? 'none' : (p.spin || 'none');
-                const hasDynamicAnim = pMotion !== 'none' || (pInPlace !== 'none' && pInPlace !== false && pInPlace !== 0) || (pSpin !== 'none' && pSpin !== false);
+                const pColorMode = p.colorMode || 'mosaic';
+                const pColorAnim = curOptions.animate === false ? 'none' : (p.colorAnim || 'none');
+                const pColorSpeed = Number(p.colorSpeed) || 1;
+                const hasDynamicAnim = pMotion !== 'none' || (pInPlace !== 'none' && pInPlace !== false && pInPlace !== 0) || (pSpin !== 'none' && pSpin !== false) || (pColorAnim !== 'none');
                 if (patternsEngine?.drawProceduralPattern) {
                     const cleanAccent = (p.accent && p.accent !== 'transparent') ? p.accent : '#58a6ff';
                     const cleanSecondary = (p.secondary && p.secondary !== 'transparent') ? p.secondary : cleanAccent;
@@ -3647,6 +3650,10 @@
                         rotationVariance: Number(p.rotationVariance ?? p.rotationJitter) || 0,
                         vignette: Number(p.vignette) || 0,
                         vignetteColor: p.vignetteColor || '#000000',
+                        density: Number(p.density) || undefined,
+                        colorMode: pColorMode,
+                        colorAnim: pColorAnim,
+                        colorSpeed: pColorSpeed,
                         snowflakeStyle: p.snowflakeStyle || 'all',
                         time: t
                     });
@@ -4234,8 +4241,12 @@
             const isProcedural = curElement.type === 'procedural-pattern' || config.sourceType === 'preset' || config.mode === 'procedural';
             if (isProcedural) {
                 const pMotion = curOptions.animate === false ? 'none' : (config.motion || 'none');
+                const pInPlace = curOptions.animate === false ? 'none' : (config.inPlace ?? (pMotion !== 'none' ? 'auto' : 'none'));
+                const pSpin = curOptions.animate === false ? 'none' : (config.spin || 'none');
+                const pColorAnim = curOptions.animate === false ? 'none' : (config.colorAnim || 'none');
+                const needsRunner = pMotion !== 'none' || (pInPlace !== 'none' && pInPlace !== false && pInPlace !== 0) || (pSpin !== 'none' && pSpin !== false) || (pColorAnim !== 'none');
                 motion = pMotion;
-                if (motion !== 'none') patternRunners.add(wake);
+                if (needsRunner) patternRunners.add(wake);
                 else patternRunners.delete(wake);
                 note.style.display = 'none';
                 readyToDraw = true;
