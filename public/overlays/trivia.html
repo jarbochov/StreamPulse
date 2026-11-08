@@ -80,6 +80,7 @@
 
         /* ── Theme Presets ───────────────────────────────────────── */
         body[data-theme="modern"] {
+            --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             --card-bg: rgba(13, 17, 23, 0.94);
             --card-border: rgba(56, 189, 248, 0.35);
             --accent-color: #3b82f6;
@@ -90,8 +91,13 @@
         }
 
         body[data-theme="neon"] {
+            --font-family: 'Orbitron', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --question-font: 'Orbitron', sans-serif;
+            --choice-font: 'Orbitron', sans-serif;
+            --header-font: 'Orbitron', sans-serif;
+            --category-font: 'Orbitron', sans-serif;
             --card-bg: rgba(10, 10, 20, 0.96);
-            --card-border: rgba(236, 72, 153, 0.5);
+            --card-border: rgba(236, 72, 153, 0.6);
             --accent-color: #ec4899;
             --category-color: #06b6d4;
             --timer-color: #ec4899;
@@ -99,16 +105,40 @@
             --correct-bg: rgba(16, 185, 129, 0.2);
         }
 
+        body[data-theme="neon"] .trivia-card {
+            box-shadow: 0 0 35px rgba(236, 72, 153, 0.35), inset 0 0 20px rgba(6, 182, 212, 0.15) !important;
+        }
+
+        body[data-theme="neon"] .question-title {
+            letter-spacing: 0.03em !important;
+            text-shadow: 0 0 12px rgba(236, 72, 153, 0.6) !important;
+        }
+
         body[data-theme="retro"] {
+            --font-family: 'Righteous', 'Montserrat', cursive, sans-serif;
+            --question-font: 'Righteous', sans-serif;
+            --choice-font: 'Righteous', sans-serif;
+            --header-font: 'Righteous', sans-serif;
+            --category-font: 'Righteous', sans-serif;
             --card-bg: rgba(24, 18, 43, 0.96);
-            --card-border: rgba(147, 51, 234, 0.5);
+            --card-border: rgba(147, 51, 234, 0.6);
             --accent-color: #9333ea;
             --category-color: #eab308;
             --timer-color: #f97316;
             --correct-color: #10b981;
         }
 
+        body[data-theme="retro"] .question-title {
+            letter-spacing: 0.02em !important;
+            text-shadow: 0 0 15px rgba(147, 51, 234, 0.7) !important;
+        }
+
         body[data-theme="clean"], body[data-theme="minimal"] {
+            --font-family: 'Roboto', 'Inter', system-ui, sans-serif;
+            --question-font: 'Roboto', 'Inter', sans-serif;
+            --choice-font: 'Roboto', 'Inter', sans-serif;
+            --header-font: 'Roboto', 'Inter', sans-serif;
+            --category-font: 'Roboto', 'Inter', sans-serif;
             --card-bg: #111827;
             --card-border: rgba(255, 255, 255, 0.14);
             --card-radius: 8px;
@@ -131,6 +161,11 @@
 
         /* ── Retro 8-Bit Arcade ─────────────────────────────────── */
         body[data-theme="arcade"] {
+            --font-family: 'Press Start 2P', monospace;
+            --question-font: 'Press Start 2P', monospace;
+            --choice-font: 'Press Start 2P', monospace;
+            --header-font: 'Press Start 2P', monospace;
+            --category-font: 'Press Start 2P', monospace;
             --card-bg: #050508;
             --card-border: #facc15;
             --card-radius: 0px;
@@ -172,6 +207,18 @@
             text-transform: uppercase !important;
         }
 
+        body[data-theme="arcade"] .question-title {
+            font-size: clamp(0.95rem, 2vw, 1.45rem) !important;
+            line-height: 1.55 !important;
+            letter-spacing: 0.02em !important;
+        }
+
+        body[data-theme="arcade"] .choice-text {
+            font-size: clamp(0.72rem, 1.35vw, 0.95rem) !important;
+            line-height: 1.5 !important;
+            letter-spacing: 0.02em !important;
+        }
+
         body[data-theme="arcade"] .timer-track {
             border-radius: 0px !important;
             height: 10px !important;
@@ -185,6 +232,11 @@
 
         /* ── Championship Esports ───────────────────────────────── */
         body[data-theme="esports"] {
+            --font-family: 'Rajdhani', 'Oswald', sans-serif;
+            --question-font: 'Rajdhani', 'Oswald', sans-serif;
+            --choice-font: 'Rajdhani', 'Oswald', sans-serif;
+            --header-font: 'Rajdhani', 'Oswald', sans-serif;
+            --category-font: 'Rajdhani', 'Oswald', sans-serif;
             --card-bg: linear-gradient(135deg, rgba(10, 15, 29, 0.98), rgba(15, 23, 42, 0.95));
             --card-border: #06b6d4;
             --card-radius: 0px;
@@ -214,11 +266,24 @@
         body[data-theme="esports"] .question-title {
             text-transform: uppercase !important;
             font-style: italic !important;
-            letter-spacing: -0.02em !important;
+            letter-spacing: 0.01em !important;
+            font-size: clamp(1.4rem, 3.2vw, 2.3rem) !important;
+            font-weight: 800 !important;
+        }
+
+        body[data-theme="esports"] .choice-text {
+            font-size: clamp(1.05rem, 1.8vw, 1.35rem) !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.02em !important;
         }
 
         /* ── NodeCG Broadcast (Pure Floating Text / No Card Boxes) ── */
         body[data-theme="nodecg"], body[data-style="text"] {
+            --font-family: 'Montserrat', 'Bebas Neue', 'Impact', sans-serif;
+            --question-font: 'Montserrat', 'Bebas Neue', 'Impact', sans-serif;
+            --choice-font: 'Montserrat', sans-serif;
+            --header-font: 'Montserrat', sans-serif;
+            --category-font: 'Montserrat', sans-serif;
             --card-bg: transparent !important;
             --card-border: transparent !important;
             --choice-bg: transparent !important;
@@ -248,34 +313,41 @@
             border: none !important;
             box-shadow: none !important;
             backdrop-filter: none !important;
-            padding: 0.75rem 0.5rem !important;
+            padding: 0.65rem 0.5rem !important;
             border-radius: 0 !important;
+            min-height: auto !important;
         }
 
         body[data-theme="nodecg"] .choice-letter, body[data-style="text"] .choice-letter {
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
-            font-size: 1.45rem !important;
+            font-size: clamp(1.4rem, 2.8vw, 2.2rem) !important;
             font-weight: 800 !important;
             color: var(--accent-color) !important;
             min-width: 2.2rem !important;
             text-shadow: var(--choice-shadow) !important;
+            align-self: center !important;
         }
 
         body[data-theme="nodecg"] .question-title, body[data-style="text"] .question-title {
-            font-size: clamp(2.4rem, 5.8vw, 4.4rem) !important;
-            line-height: 1.15 !important;
+            font-size: clamp(2rem, 4.5vw, 3.8rem) !important;
+            line-height: 1.18 !important;
             text-align: center !important;
             text-shadow: var(--question-shadow) !important;
             font-weight: 800 !important;
+            font-family: var(--question-font) !important;
         }
 
         body[data-theme="nodecg"] .choice-text, body[data-style="text"] .choice-text {
-            font-size: clamp(1.4rem, 3.2vw, 2.4rem) !important;
+            font-size: clamp(1.2rem, 2.5vw, 2rem) !important;
             line-height: 1.25 !important;
             text-shadow: var(--choice-shadow) !important;
             font-weight: 700 !important;
+            font-family: var(--choice-font) !important;
+            white-space: normal !important;
+            overflow-wrap: break-word !important;
+            word-break: normal !important;
         }
 
         body[data-theme="nodecg"] .choice-card.correct .choice-text, body[data-style="text"] .choice-card.correct .choice-text {
@@ -533,43 +605,82 @@
         .choices-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 1rem;
+            gap: 0.85rem;
             transition: all 0.4s ease;
+        }
+
+        .choices-grid[data-count="1"] {
+            grid-template-columns: 1fr;
+            max-width: 760px;
+            margin: 0 auto;
         }
 
         .choices-grid[data-count="2"] {
             grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+        }
+
+        .choices-grid[data-count="2"] .choice-card {
+            padding: 1.25rem 1.6rem;
+            min-height: 76px;
+        }
+
+        .choices-grid[data-count="2"] .choice-text {
+            font-size: clamp(1.2rem, 2.3vw, 1.65rem);
+            font-weight: 700;
+        }
+
+        .choices-grid[data-count="2"] .choice-letter {
+            width: 38px;
+            height: 38px;
+            font-size: 1.1rem;
         }
 
         .choices-grid[data-count="3"] {
             grid-template-columns: repeat(3, 1fr);
+            gap: 0.85rem;
         }
 
         .choices-grid[data-count="4"] {
             grid-template-columns: 1fr 1fr;
+            gap: 0.85rem;
         }
 
-        .choices-grid[data-count="5"] {
-            grid-template-columns: repeat(3, 1fr);
-        }
-
+        .choices-grid[data-count="5"],
         .choices-grid[data-count="6"] {
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        /* Adaptive density when choices have long multi-sentence answers */
+        .choices-grid.dense-text {
+            gap: 0.65rem;
+        }
+
+        .choices-grid.dense-text .choice-card {
+            padding: 0.75rem 1.05rem;
+            min-height: 52px;
+        }
+
+        .choices-grid.dense-text .choice-text {
+            font-size: clamp(0.88rem, 1.4vw, 1.08rem);
+            line-height: 1.28;
         }
 
         .choice-card {
             background: var(--choice-bg);
             border: var(--choice-border-width) solid var(--choice-border);
             border-radius: var(--choice-radius);
-            padding: 1rem 1.25rem;
+            padding: 0.95rem 1.25rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 1rem;
             position: relative;
             overflow: hidden;
+            min-height: 58px;
+            box-sizing: border-box;
             transition: opacity 0.45s ease, max-height 0.45s ease, padding 0.45s ease, margin 0.45s ease, transform 0.45s ease, border-width 0.45s ease, background 0.3s ease, border-color 0.3s ease;
-            max-height: 160px;
         }
 
         /* Dynamic Vote Fill meter behind choice */
@@ -610,15 +721,19 @@
             transition: all 0.3s ease;
         }
 
+        /* Full text wrapping — never truncate with ellipsis in broadcast */
         .choice-text {
             font-family: var(--choice-font);
-            font-size: 1.12rem;
+            font-size: clamp(0.96rem, 1.6vw, 1.25rem);
             font-weight: var(--choice-weight);
             color: var(--choice-color);
             text-shadow: var(--choice-shadow);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            white-space: normal;
+            overflow-wrap: break-word;
+            word-break: normal;
+            line-height: 1.34;
+            flex: 1;
+            min-width: 0;
         }
 
         .choice-stats {
@@ -668,6 +783,7 @@
         /* ── NodeCG-Style Collapsed Incorrect Choices on Reveal ───── */
         .trivia-card.phase-reveal.collapse-incorrect .choice-card.incorrect {
             max-height: 0 !important;
+            min-height: 0 !important;
             opacity: 0 !important;
             padding-top: 0 !important;
             padding-bottom: 0 !important;
@@ -926,6 +1042,38 @@
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         let audioCtx = null;
 
+        const PRESET_FONTS = {
+            modern: 'Inter',
+            nodecg: 'Montserrat',
+            arcade: 'Press Start 2P',
+            esports: 'Rajdhani',
+            minimal: 'Roboto',
+            neon: 'Orbitron',
+            retro: 'Righteous'
+        };
+
+        function formatFontFamily(raw) {
+            if (!raw || raw === 'inherit' || raw === 'default') return '';
+            const clean = String(raw).replace(/["';\\]/g, '').trim();
+            if (!clean) return '';
+            return `"${clean}", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        }
+
+        function applyCssVar(name, value) {
+            if (value === undefined || value === null || value === '') return;
+            document.documentElement.style.setProperty(name, value);
+            document.body.style.setProperty(name, value);
+        }
+
+        function applyFontVar(cssVar, fontName) {
+            if (!fontName) return;
+            window.loadUrlFont?.(fontName);
+            const formatted = formatFontFamily(fontName);
+            if (formatted) {
+                applyCssVar(cssVar, formatted);
+            }
+        }
+
         function playSound(type) {
             if (!soundParam) return;
             try {
@@ -1013,109 +1161,139 @@
             if (!data) return;
             currentState = data;
 
-            // Apply custom theme variables if passed from service
-            if (data.theme) {
-                const root = document.documentElement;
-                const t = data.theme;
-                if (t.cardBg) root.style.setProperty('--card-bg', t.cardBg);
-                if (t.cardBorder) root.style.setProperty('--card-border', t.cardBorder);
-                if (t.textColor) root.style.setProperty('--text-color', t.textColor);
-                if (t.accentColor) root.style.setProperty('--accent-color', t.accentColor);
-                if (t.correctColor) root.style.setProperty('--correct-color', t.correctColor);
-                if (t.correctBg) root.style.setProperty('--correct-bg', t.correctBg);
-                if (t.correctGlow) root.style.setProperty('--correct-glow', t.correctGlow);
-                if (t.incorrectColor) root.style.setProperty('--incorrect-color', t.incorrectColor);
-                if (t.incorrectOpacity !== undefined) root.style.setProperty('--incorrect-opacity', t.incorrectOpacity);
-                if (t.choiceBg) root.style.setProperty('--choice-bg', t.choiceBg);
-                if (t.choiceBorder) root.style.setProperty('--choice-border', t.choiceBorder);
-                if (t.choiceBorderWidth !== undefined) root.style.setProperty('--choice-border-width', `${t.choiceBorderWidth}px`);
-                if (t.choiceRadius !== undefined) root.style.setProperty('--choice-radius', `${t.choiceRadius}px`);
-                if (t.timerColor) root.style.setProperty('--timer-color', t.timerColor);
-                if (t.timerWarningColor) root.style.setProperty('--timer-warning-color', t.timerWarningColor);
-                if (t.timerCriticalColor) root.style.setProperty('--timer-critical-color', t.timerCriticalColor);
-                if (t.categoryColor) root.style.setProperty('--category-color', t.categoryColor);
-                if (t.funfactColor) root.style.setProperty('--funfact-color', t.funfactColor);
-                if (t.funfactBg) root.style.setProperty('--funfact-bg', t.funfactBg);
-                if (t.cardRadius !== undefined) root.style.setProperty('--card-radius', `${t.cardRadius}px`);
+            const t = data.theme || {};
 
-                // Granular Typography & Shadows
-                if (t.headerFont) { root.style.setProperty('--header-font', t.headerFont); window.loadUrlFont?.(t.headerFont); }
-                if (t.headerColor) root.style.setProperty('--header-color', t.headerColor);
-                if (t.headerWeight) root.style.setProperty('--header-weight', t.headerWeight);
-                if (t.headerTransform) root.style.setProperty('--header-transform', t.headerTransform);
-                if (t.headerShadow) root.style.setProperty('--header-shadow', t.headerShadow);
+            // 1. Determine active preset & card style
+            const activePreset = (hasThemeParam && themeParam) ? themeParam : (t.preset || 'modern');
+            document.body.dataset.theme = activePreset;
 
-                if (t.categoryFont) { root.style.setProperty('--category-font', t.categoryFont); window.loadUrlFont?.(t.categoryFont); }
-                if (t.categoryWeight) root.style.setProperty('--category-weight', t.categoryWeight);
-                if (t.categoryTransform) root.style.setProperty('--category-transform', t.categoryTransform);
+            const styleParam = (params.get('style') || '').toLowerCase();
+            const activeStyle = styleParam || t.cardStyle || (activePreset === 'nodecg' ? 'text' : 'cards');
+            document.body.dataset.style = activeStyle;
 
-                if (t.questionFont) { root.style.setProperty('--question-font', t.questionFont); window.loadUrlFont?.(t.questionFont); }
-                if (t.questionColor) root.style.setProperty('--question-color', t.questionColor);
-                if (t.questionWeight) root.style.setProperty('--question-weight', t.questionWeight);
-                if (t.questionShadow) root.style.setProperty('--question-shadow', t.questionShadow);
-
-                if (t.choiceFont) { root.style.setProperty('--choice-font', t.choiceFont); window.loadUrlFont?.(t.choiceFont); }
-                if (t.choiceColor) root.style.setProperty('--choice-color', t.choiceColor);
-                if (t.choiceWeight) root.style.setProperty('--choice-weight', t.choiceWeight);
-                if (t.choiceShadow) root.style.setProperty('--choice-shadow', t.choiceShadow);
-
-                if (t.funfactFont) { root.style.setProperty('--funfact-font', t.funfactFont); window.loadUrlFont?.(t.funfactFont); }
-                if (t.funfactShadow) root.style.setProperty('--funfact-shadow', t.funfactShadow);
-
-                if ((t.fontScale || t.scale) && !scaleParam) {
-                    const s = parseFloat(t.fontScale || t.scale);
-                    if (s > 0) root.style.setProperty('--font-scale', s);
-                }
-
-                const activePreset = (hasThemeParam && themeParam) ? themeParam : (t.preset || 'modern');
-                document.body.dataset.theme = activePreset;
-
-                const styleParam = (params.get('style') || '').toLowerCase();
-                const activeStyle = styleParam || t.cardStyle || (activePreset === 'nodecg' ? 'text' : 'cards');
-                document.body.dataset.style = activeStyle;
-
-                // Font & color parameters from URL (with fallback to saved theme)
-                const qFontParam = params.get('qfont') || params.get('questionFont');
-                const hFontParam = params.get('hfont') || params.get('headerFont');
-                const cFontParam = params.get('cfont') || params.get('choiceFont');
-                const accentParam = params.get('accent') || params.get('accentColor');
-                const correctParam = params.get('correct') || params.get('correctColor');
-
-                if (qFontParam) { root.style.setProperty('--question-font', qFontParam); window.loadUrlFont?.(qFontParam); }
-                if (hFontParam) { root.style.setProperty('--header-font', hFontParam); window.loadUrlFont?.(hFontParam); }
-                if (cFontParam) { root.style.setProperty('--choice-font', cFontParam); window.loadUrlFont?.(cFontParam); }
-                if (accentParam) root.style.setProperty('--accent', accentParam);
-                if (correctParam) root.style.setProperty('--correct-color', correctParam);
-                if (params.has('collapse')) document.body.dataset.collapse = params.get('collapse') === '1' ? 'true' : 'false';
-
-                // Element visibility toggles: URL parameters take precedence over saved theme options
-                const hideCategory = params.has('hideCategory') || params.get('category') === '0' || t.showCategory === false;
-                document.body.dataset.hideCategory = hideCategory ? 'true' : 'false';
-
-                const hideCounter = params.has('hideCounter') || params.get('counter') === '0' || params.get('questionNumber') === '0' || t.showQuestionNumber === false;
-                document.body.dataset.hideCounter = hideCounter ? 'true' : 'false';
-
-                const hideBadge = params.has('hideBadge') || params.get('badge') === '0';
-                document.body.dataset.hideBadge = hideBadge ? 'true' : 'false';
-
-                const hideTimer = params.has('hideTimer') || params.get('timer') === '0' || params.get('showTimer') === '0' || t.showTimer === false;
-                document.body.dataset.hideTimer = hideTimer ? 'true' : 'false';
-
-                const hideVotes = params.has('hideVotes') || params.get('votes') === '0' || params.get('showVotes') === '0' || t.showVoteCounts === false;
-                document.body.dataset.hideVotes = hideVotes ? 'true' : 'false';
-
-                const hidePercentages = params.has('hidePercentages') || params.get('percentages') === '0' || params.get('stats') === '0' || t.showPercentages === false;
-                document.body.dataset.hidePercentages = hidePercentages ? 'true' : 'false';
-
-                const hideHint = params.has('hideHint') || params.get('hint') === '0' || params.get('chat') === '0' || t.showChatHint === false;
-                document.body.dataset.hideHint = hideHint ? 'true' : 'false';
-
-                const hideFunFact = params.has('hideFunFact') || params.get('funfact') === '0' || params.get('showFunFact') === '0' || t.showFunFact === false;
-                document.body.dataset.hideFunFact = hideFunFact ? 'true' : 'false';
-
-                const hideLetters = params.has('hideLetters') || params.get('letters') === '0' || t.showLetterBadges === false;
-                document.body.dataset.hideLetters = hideLetters ? 'true' : 'false';
+            // Preload signature font for preset
+            const presetFont = PRESET_FONTS[activePreset];
+            if (presetFont) {
+                window.loadUrlFont?.(presetFont);
             }
+
+            // 2. Custom container styles (from service theme)
+            if (t.cardBg) applyCssVar('--card-bg', t.cardBg);
+            if (t.cardBorder) applyCssVar('--card-border', t.cardBorder);
+            if (t.textColor) applyCssVar('--text-color', t.textColor);
+            if (t.choiceBg) applyCssVar('--choice-bg', t.choiceBg);
+            if (t.choiceBorder) applyCssVar('--choice-border', t.choiceBorder);
+            if (t.choiceBorderWidth !== undefined) applyCssVar('--choice-border-width', `${t.choiceBorderWidth}px`);
+            if (t.choiceRadius !== undefined) applyCssVar('--choice-radius', `${t.choiceRadius}px`);
+            if (t.cardRadius !== undefined) applyCssVar('--card-radius', `${t.cardRadius}px`);
+            if (t.timerColor) applyCssVar('--timer-color', t.timerColor);
+            if (t.timerWarningColor) applyCssVar('--timer-warning-color', t.timerWarningColor);
+            if (t.timerCriticalColor) applyCssVar('--timer-critical-color', t.timerCriticalColor);
+            if (t.categoryColor) applyCssVar('--category-color', t.categoryColor);
+            if (t.funfactColor) applyCssVar('--funfact-color', t.funfactColor);
+            if (t.funfactBg) applyCssVar('--funfact-bg', t.funfactBg);
+            if (t.incorrectOpacity !== undefined) applyCssVar('--incorrect-opacity', t.incorrectOpacity);
+
+            // 3. Colors from URL parameters or saved theme
+            const accentParam = params.get('accent') || params.get('accentColor');
+            const correctParam = params.get('correct') || params.get('correctColor');
+            const accentVal = accentParam || t.accentColor;
+            if (accentVal) {
+                applyCssVar('--accent-color', accentVal);
+                applyCssVar('--accent', accentVal);
+            }
+            const correctVal = correctParam || t.correctColor;
+            if (correctVal) {
+                applyCssVar('--correct-color', correctVal);
+                applyCssVar('--correct', correctVal);
+            }
+
+            // 4. Granular Typography & Shadows
+            const qFontParam = params.get('qfont') || params.get('questionFont');
+            const hFontParam = params.get('hfont') || params.get('headerFont');
+            const cFontParam = params.get('cfont') || params.get('choiceFont');
+            const globalFontParam = params.get('font') || params.get('fontfamily');
+
+            const qFont = qFontParam || t.questionFont;
+            if (qFont) applyFontVar('--question-font', qFont);
+            if (t.questionColor) applyCssVar('--question-color', t.questionColor);
+            if (t.questionWeight) applyCssVar('--question-weight', t.questionWeight);
+            if (t.questionShadow) applyCssVar('--question-shadow', t.questionShadow);
+
+            const hFont = hFontParam || t.headerFont;
+            if (hFont) {
+                applyFontVar('--header-font', hFont);
+                applyFontVar('--category-font', hFont);
+            }
+            if (t.headerColor) applyCssVar('--header-color', t.headerColor);
+            if (t.headerWeight) applyCssVar('--header-weight', t.headerWeight);
+            if (t.headerTransform) applyCssVar('--header-transform', t.headerTransform);
+            if (t.headerShadow) applyCssVar('--header-shadow', t.headerShadow);
+
+            if (t.categoryFont) applyFontVar('--category-font', t.categoryFont);
+            if (t.categoryWeight) applyCssVar('--category-weight', t.categoryWeight);
+            if (t.categoryTransform) applyCssVar('--category-transform', t.categoryTransform);
+
+            const cFont = cFontParam || t.choiceFont;
+            if (cFont) applyFontVar('--choice-font', cFont);
+            if (t.choiceColor) applyCssVar('--choice-color', t.choiceColor);
+            if (t.choiceWeight) applyCssVar('--choice-weight', t.choiceWeight);
+            if (t.choiceShadow) applyCssVar('--choice-shadow', t.choiceShadow);
+
+            if (t.funfactFont) applyFontVar('--funfact-font', t.funfactFont);
+            if (t.funfactShadow) applyCssVar('--funfact-shadow', t.funfactShadow);
+
+            const globalFont = globalFontParam || t.font;
+            if (globalFont) {
+                applyFontVar('--font-family', globalFont);
+                if (!qFont) applyFontVar('--question-font', globalFont);
+                if (!hFont) {
+                    applyFontVar('--header-font', globalFont);
+                    applyFontVar('--category-font', globalFont);
+                }
+                if (!cFont) applyFontVar('--choice-font', globalFont);
+            }
+
+            // 5. Typography Scale
+            const scaleVal = scaleParam > 0 ? scaleParam : parseFloat(t.fontScale || t.scale || 1.0);
+            if (scaleVal > 0) {
+                applyCssVar('--font-scale', scaleVal);
+            }
+
+            // 6. Collapse incorrect choices
+            if (params.has('collapse')) {
+                document.body.dataset.collapse = params.get('collapse') === '1' ? 'true' : 'false';
+            } else if (t.collapseIncorrect !== undefined) {
+                document.body.dataset.collapse = t.collapseIncorrect ? 'true' : 'false';
+            }
+
+            // 7. Element visibility toggles: URL parameters take precedence over saved theme options
+            const hideCategory = params.has('hideCategory') || params.get('category') === '0' || t.showCategory === false;
+            document.body.dataset.hideCategory = hideCategory ? 'true' : 'false';
+
+            const hideCounter = params.has('hideCounter') || params.get('counter') === '0' || params.get('questionNumber') === '0' || t.showQuestionNumber === false;
+            document.body.dataset.hideCounter = hideCounter ? 'true' : 'false';
+
+            const hideBadge = params.has('hideBadge') || params.get('badge') === '0';
+            document.body.dataset.hideBadge = hideBadge ? 'true' : 'false';
+
+            const hideTimer = params.has('hideTimer') || params.get('timer') === '0' || params.get('showTimer') === '0' || t.showTimer === false;
+            document.body.dataset.hideTimer = hideTimer ? 'true' : 'false';
+
+            const hideVotes = params.has('hideVotes') || params.get('votes') === '0' || params.get('showVotes') === '0' || t.showVoteCounts === false;
+            document.body.dataset.hideVotes = hideVotes ? 'true' : 'false';
+
+            const hidePercentages = params.has('hidePercentages') || params.get('percentages') === '0' || params.get('stats') === '0' || t.showPercentages === false;
+            document.body.dataset.hidePercentages = hidePercentages ? 'true' : 'false';
+
+            const hideHint = params.has('hideHint') || params.get('hint') === '0' || params.get('chat') === '0' || t.showChatHint === false;
+            document.body.dataset.hideHint = hideHint ? 'true' : 'false';
+
+            const hideFunFact = params.has('hideFunFact') || params.get('funfact') === '0' || params.get('showFunFact') === '0' || t.showFunFact === false;
+            document.body.dataset.hideFunFact = hideFunFact ? 'true' : 'false';
+
+            const hideLetters = params.has('hideLetters') || params.get('letters') === '0' || t.showLetterBadges === false;
+            document.body.dataset.hideLetters = hideLetters ? 'true' : 'false';
 
             const q = data.activeQuestion;
             if (!q || data.status === 'idle') {
@@ -1142,7 +1320,7 @@
                 isReveal = (data.status === 'reveal');
             }
 
-            const shouldCollapse = Boolean(data.theme?.collapseIncorrect || document.body.dataset.theme === 'nodecg' || document.body.dataset.style === 'text' || params.get('collapse') === '1');
+            const shouldCollapse = Boolean(document.body.dataset.collapse === 'true' || t.collapseIncorrect || activePreset === 'nodecg' || activeStyle === 'text' || params.get('collapse') === '1');
 
             stateBadgeEl.textContent = isReveal ? 'Answer Reveal' : 'Voting Open';
             stateBadgeEl.className = `state-badge ${isReveal ? 'reveal' : 'question'}`;
@@ -1163,6 +1341,13 @@
             const choices = q?.choices || [];
             const correctIdx = q?.correctIndex;
             choicesGridEl.dataset.count = choices.length;
+
+            const maxTextLen = choices.reduce((max, c) => Math.max(max, String(c.text || '').length), 0);
+            if (maxTextLen > 75) {
+                choicesGridEl.classList.add('dense-text');
+            } else {
+                choicesGridEl.classList.remove('dense-text');
+            }
 
             choicesGridEl.innerHTML = choices.map((c, idx) => {
                 const letter = c.letter || String.fromCharCode(65 + idx);

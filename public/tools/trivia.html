@@ -1201,6 +1201,7 @@
             // Theme inputs
             const theme = currentState.theme || {};
             document.getElementById('cfg-theme-preset').value = theme.preset || 'modern';
+            if (document.getElementById('obs-theme')) document.getElementById('obs-theme').value = theme.preset || 'modern';
             document.getElementById('cfg-theme-card-style').value = theme.cardStyle || (theme.preset === 'nodecg' ? 'text' : 'cards');
             document.getElementById('cfg-theme-accent-color').value = theme.accentColor || '#3b82f6';
             document.getElementById('cfg-theme-correct-color').value = theme.correctColor || '#22c55e';
@@ -1223,12 +1224,25 @@
             updateObsUrl();
         }
 
+        const PRESET_DEFAULTS = {
+            modern: { style: 'cards', accent: '#3b82f6', correct: '#22c55e', collapse: false },
+            nodecg: { style: 'text', accent: '#38bdf8', correct: '#4ade80', collapse: true },
+            arcade: { style: 'cards', accent: '#facc15', correct: '#4ade80', collapse: false },
+            esports: { style: 'cards', accent: '#06b6d4', correct: '#10b981', collapse: false },
+            minimal: { style: 'cards', accent: '#38bdf8', correct: '#22c55e', collapse: false },
+            neon: { style: 'cards', accent: '#ec4899', correct: '#10b981', collapse: false },
+            retro: { style: 'cards', accent: '#9333ea', correct: '#10b981', collapse: false }
+        };
+
         function updateObsUrl() {
-            const mode = document.getElementById('obs-mode').value;
-            const view = document.getElementById('obs-view').value;
-            const theme = document.getElementById('cfg-theme-preset').value || document.getElementById('obs-theme')?.value || 'modern';
-            const style = document.getElementById('cfg-theme-card-style').value;
-            const scale = parseFloat(document.getElementById('cfg-theme-scale').value) || 1.0;
+            const mode = document.getElementById('obs-mode')?.value || 'full';
+            const view = document.getElementById('obs-view')?.value || 'auto';
+            const theme = document.getElementById('cfg-theme-preset')?.value || document.getElementById('obs-theme')?.value || 'modern';
+            const style = document.getElementById('cfg-theme-card-style')?.value || 'cards';
+            const scale = parseFloat(document.getElementById('cfg-theme-scale')?.value) || 1.0;
+            const accent = document.getElementById('cfg-theme-accent-color')?.value;
+            const correct = document.getElementById('cfg-theme-correct-color')?.value;
+
             let url = `${window.location.origin}/overlays/trivia.html?layout=${mode}&theme=${theme}`;
             if (view && view !== 'auto') {
                 url += `&view=${view}`;
@@ -1239,15 +1253,30 @@
             if (Math.abs(scale - 1.0) > 0.01) {
                 url += `&scale=${scale.toFixed(2)}`;
             }
-            if (!document.getElementById('cfg-elem-category').checked) url += '&category=0';
-            if (!document.getElementById('cfg-elem-question-number').checked) url += '&counter=0';
-            if (!document.getElementById('cfg-elem-timer').checked) url += '&timer=0';
-            if (!document.getElementById('cfg-elem-letter-badges').checked) url += '&letters=0';
-            if (!document.getElementById('cfg-elem-votes').checked) url += '&votes=0';
-            if (!document.getElementById('cfg-elem-percentages').checked) url += '&percentages=0';
-            if (!document.getElementById('cfg-elem-chat-hint').checked) url += '&hint=0';
-            if (!document.getElementById('cfg-elem-funfact').checked) url += '&funfact=0';
-            if (document.getElementById('cfg-theme-collapse-incorrect').checked) url += '&collapse=1';
+
+            // Custom accent & correct color parameters
+            if (accent) {
+                const defAccent = PRESET_DEFAULTS[theme]?.accent || '#3b82f6';
+                if (accent.toLowerCase() !== defAccent.toLowerCase()) {
+                    url += `&accent=${encodeURIComponent(accent)}`;
+                }
+            }
+            if (correct) {
+                const defCorrect = PRESET_DEFAULTS[theme]?.correct || '#22c55e';
+                if (correct.toLowerCase() !== defCorrect.toLowerCase()) {
+                    url += `&correct=${encodeURIComponent(correct)}`;
+                }
+            }
+
+            if (!document.getElementById('cfg-elem-category')?.checked) url += '&category=0';
+            if (!document.getElementById('cfg-elem-question-number')?.checked) url += '&counter=0';
+            if (!document.getElementById('cfg-elem-timer')?.checked) url += '&timer=0';
+            if (!document.getElementById('cfg-elem-letter-badges')?.checked) url += '&letters=0';
+            if (!document.getElementById('cfg-elem-votes')?.checked) url += '&votes=0';
+            if (!document.getElementById('cfg-elem-percentages')?.checked) url += '&percentages=0';
+            if (!document.getElementById('cfg-elem-chat-hint')?.checked) url += '&hint=0';
+            if (!document.getElementById('cfg-elem-funfact')?.checked) url += '&funfact=0';
+            if (document.getElementById('cfg-theme-collapse-incorrect')?.checked) url += '&collapse=1';
 
             const qFont = document.getElementById('cfg-theme-question-font')?.value.trim();
             if (qFont) url += `&qfont=${encodeURIComponent(qFont)}`;
@@ -1277,32 +1306,46 @@
         ];
         themeInputIds.forEach(id => {
             document.getElementById(id)?.addEventListener('change', (e) => {
-                if (id === 'cfg-theme-preset') {
-                    const val = e.target.value;
-                    const obsThemeEl = document.getElementById('obs-theme');
-                    if (obsThemeEl) obsThemeEl.value = val;
-                    if (val === 'nodecg') {
-                        document.getElementById('cfg-theme-card-style').value = 'text';
-                        document.getElementById('cfg-theme-collapse-incorrect').checked = true;
-                    } else if (val === 'arcade' || val === 'esports' || val === 'modern') {
-                        document.getElementById('cfg-theme-card-style').value = 'cards';
-                    }
-                } else if (id === 'obs-theme') {
+                if (id === 'cfg-theme-preset' || id === 'obs-theme') {
                     const val = e.target.value;
                     const cfgThemeEl = document.getElementById('cfg-theme-preset');
+                    const obsThemeEl = document.getElementById('obs-theme');
                     if (cfgThemeEl) cfgThemeEl.value = val;
-                    if (val === 'nodecg') {
-                        document.getElementById('cfg-theme-card-style').value = 'text';
-                        document.getElementById('cfg-theme-collapse-incorrect').checked = true;
+                    if (obsThemeEl) obsThemeEl.value = val;
+
+                    const def = PRESET_DEFAULTS[val];
+                    if (def) {
+                        const styleEl = document.getElementById('cfg-theme-card-style');
+                        const accentEl = document.getElementById('cfg-theme-accent-color');
+                        const correctEl = document.getElementById('cfg-theme-correct-color');
+                        const collapseEl = document.getElementById('cfg-theme-collapse-incorrect');
+                        if (styleEl) styleEl.value = def.style;
+                        if (accentEl) accentEl.value = def.accent;
+                        if (correctEl) correctEl.value = def.correct;
+                        if (collapseEl) collapseEl.checked = def.collapse;
                     }
                 }
                 updateObsUrl();
             });
         });
-        document.getElementById('cfg-theme-scale')?.addEventListener('input', (e) => {
-            document.getElementById('cfg-theme-scale-val').textContent = parseFloat(e.target.value).toFixed(2) + '×';
-            updateObsUrl();
+
+        ['cfg-theme-question-font', 'cfg-theme-header-font', 'cfg-theme-choice-font'].forEach(id => {
+            document.getElementById(id)?.addEventListener('change', (e) => {
+                const val = e.target.value;
+                if (val) window.loadUrlFont?.(val);
+                updateObsUrl();
+            });
         });
+
+        ['input', 'change'].forEach(evt => {
+            document.getElementById('cfg-theme-scale')?.addEventListener(evt, (e) => {
+                document.getElementById('cfg-theme-scale-val').textContent = parseFloat(e.target.value).toFixed(2) + '×';
+                updateObsUrl();
+            });
+            document.getElementById('cfg-theme-accent-color')?.addEventListener(evt, updateObsUrl);
+            document.getElementById('cfg-theme-correct-color')?.addEventListener(evt, updateObsUrl);
+        });
+
         document.getElementById('btn-copy-url').addEventListener('click', () => {
             const url = document.getElementById('obs-url-link')?.href || `${window.location.origin}/overlays/trivia.html`;
             navigator.clipboard.writeText(url).then(() => toast('OBS URL copied to clipboard!'));
@@ -1371,38 +1414,43 @@
         }
 
         // Font Dropdowns Population
-        let fontsPopulated = false;
+        let cachedFontList = null;
         async function populateFontDropdowns() {
-            if (fontsPopulated) return;
             const qSelect = document.getElementById('cfg-theme-question-font');
             const hSelect = document.getElementById('cfg-theme-header-font');
             const cSelect = document.getElementById('cfg-theme-choice-font');
             if (!qSelect || !hSelect || !cSelect) return;
 
-            let fontList = [];
-            try {
-                if (window.OverlayFonts && typeof window.OverlayFonts.getDeduplicatedFontFamilies === 'function') {
-                    fontList = await window.OverlayFonts.getDeduplicatedFontFamilies();
-                } else if (window.OverlayFonts) {
-                    const assets = await window.OverlayFonts.getAssetFonts?.() || [];
-                    fontList = [
-                        ...assets.map(a => ({ name: a.family || a.name, source: 'asset' })),
-                        ...(window.OverlayFonts.google || []).map(g => ({ name: g, source: 'google' })),
-                        ...(window.OverlayFonts.system || []).map(s => ({ name: s, source: 'system' }))
-                    ];
+            if (!cachedFontList) {
+                let fontList = [];
+                try {
+                    if (window.OverlayFonts && typeof window.OverlayFonts.getDeduplicatedFontFamilies === 'function') {
+                        fontList = await window.OverlayFonts.getDeduplicatedFontFamilies();
+                    } else if (window.OverlayFonts) {
+                        const assets = await window.OverlayFonts.getAssetFonts?.() || [];
+                        fontList = [
+                            ...assets.map(a => ({ name: a.family || a.name, source: 'asset' })),
+                            ...(window.OverlayFonts.google || []).map(g => ({ name: g, source: 'google' })),
+                            ...(window.OverlayFonts.system || []).map(s => ({ name: s, source: 'system' }))
+                        ];
+                    }
+                } catch {
+                    fontList = [];
                 }
-            } catch {
-                fontList = [];
+
+                if (!fontList || fontList.length === 0) {
+                    const fallback = [
+                        'Inter', 'Montserrat', 'Oswald', 'Roboto', 'Bebas Neue', 'Jersey 15', 'Jersey 20',
+                        'Press Start 2P', 'Rajdhani', 'Orbitron', 'Righteous', 'Russo One', 'Impact', 'Arial'
+                    ];
+                    fontList = fallback.map(name => ({ name, source: 'google' }));
+                }
+                cachedFontList = fontList;
             }
 
-            if (!fontList || fontList.length === 0) {
-                const fallback = ['Inter', 'Montserrat', 'Oswald', 'Roboto', 'Bebas Neue', 'Jersey 15', 'Jersey 20', 'Press Start 2P', 'Impact', 'Arial'];
-                fontList = fallback.map(name => ({ name, source: 'google' }));
-            }
-
-            const assetFonts = fontList.filter(f => f.source === 'asset');
-            const googleFonts = fontList.filter(f => f.source === 'google' || !f.source);
-            const systemFonts = fontList.filter(f => f.source === 'system');
+            const assetFonts = cachedFontList.filter(f => f.source === 'asset');
+            const googleFonts = cachedFontList.filter(f => f.source === 'google' || !f.source);
+            const systemFonts = cachedFontList.filter(f => f.source === 'system');
 
             function buildOptions(currentVal) {
                 let html = '<option value="">(Theme Default)</option>';
@@ -1431,10 +1479,23 @@
             }
 
             const theme = currentState?.theme || {};
-            qSelect.innerHTML = buildOptions(theme.questionFont || '');
-            hSelect.innerHTML = buildOptions(theme.headerFont || '');
-            cSelect.innerHTML = buildOptions(theme.choiceFont || '');
-            fontsPopulated = true;
+            const qVal = theme.questionFont || qSelect.value || '';
+            const hVal = theme.headerFont || hSelect.value || '';
+            const cVal = theme.choiceFont || cSelect.value || '';
+
+            qSelect.innerHTML = buildOptions(qVal);
+            hSelect.innerHTML = buildOptions(hVal);
+            cSelect.innerHTML = buildOptions(cVal);
+
+            qSelect.value = qVal;
+            hSelect.value = hVal;
+            cSelect.value = cVal;
+
+            if (qVal) window.loadUrlFont?.(qVal);
+            if (hVal) window.loadUrlFont?.(hVal);
+            if (cVal) window.loadUrlFont?.(cVal);
+
+            updateObsUrl();
         }
 
         // Reset Done status on questions
@@ -1791,6 +1852,7 @@
             ws.onclose = () => setTimeout(connectWs, 2500);
         }
 
+        populateFontDropdowns();
         fetchState();
         connectWs();
     </script>

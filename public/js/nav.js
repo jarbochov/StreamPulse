@@ -110,6 +110,7 @@
             { heading: 'Broadcast & Media' },
             { label: 'Alerts & SFX', href: '/alerts.html' },
             { label: 'Chat Bot', href: '/chatbot.html', module: 'chatbot' },
+            { label: 'Clips', href: '/clips.html', module: 'clips' },
             { label: 'Promo Creator', href: '/promo-creator.html' },
             { heading: 'Audience & Interactive' },
             { label: 'Trivia Studio', href: '/tools/trivia.html', module: 'trivia' },
@@ -126,7 +127,6 @@
         { label: 'Library', children: [
             { label: 'Asset Library', href: '/assets.html' },
             { label: 'Highlights', href: '/highlights.html' },
-            { label: 'Clips', href: '/clips.html', module: 'clips' },
             { label: 'Sessions', href: '/sessions.html?session=__current__' },
             { label: 'Categories', href: '/categories.html' },
             { label: 'Analytics & Community', href: '/analytics.html' },
@@ -203,6 +203,7 @@
         // 3. Stream Tools & Automation
         list.push({ label: 'Alerts & SFX', href: '/alerts.html', group: 'Stream Tools' });
         list.push({ label: 'Chat Bot', href: '/chatbot.html', group: 'Stream Tools', module: 'chatbot' });
+        list.push({ label: 'Clips', href: '/clips.html', group: 'Stream Tools', module: 'clips', keywords: 'clips twitch video vod highlights markers' });
         list.push({ label: 'Trivia Studio', href: '/tools/trivia.html', group: 'Stream Tools', module: 'trivia', keywords: 'trivia quiz audience voting question bank true false questions game' });
         list.push({ label: 'Tier List Maker', href: '/tools/tier-list.html', group: 'Stream Tools', keywords: 'tier list maker ranking rank chat voting tiers' });
         list.push({ label: 'Poll Manager', href: '/polls.html', group: 'Stream Tools', module: 'polls' });
@@ -241,7 +242,6 @@
         list.push({ label: 'Subscribers & Growth', href: '/analytics.html#growth', group: 'Library & Analytics' });
         list.push({ label: 'Sessions', href: '/sessions.html?session=__current__', group: 'Library & Analytics' });
         list.push({ label: 'Highlights', href: '/highlights.html', group: 'Library & Analytics' });
-        list.push({ label: 'Clips', href: '/clips.html', group: 'Library & Analytics', module: 'clips' });
         list.push({ label: 'Categories', href: '/categories.html', group: 'Library & Analytics' });
         list.push({ label: 'Hashtag Stats', href: '/hashtag-stats.html', group: 'Library & Analytics', module: 'hashtags' });
 

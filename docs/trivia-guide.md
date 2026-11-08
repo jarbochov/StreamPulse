@@ -26,7 +26,7 @@ StreamPulse includes an interactive Live Trivia Studio and broadcast OBS overlay
 
 ## 2. Using the Trivia Studio
 
-Open the studio at `http://localhost:3000/tools/trivia.html` or navigate to **Tools &rarr; Interactive Trivia** in the StreamPulse navigation.
+Open the studio at `http://localhost:3000/tools/trivia.html` or navigate to **Tools &rarr; Trivia Studio** in the StreamPulse navigation.
 
 ### Managing Questions
 1. **Add Question**: Click **Add Question** in the toolbar. Enter a category, question prompt, between 2 and 6 choices, designate the correct choice, and provide an optional fun fact or trivia explanation.
