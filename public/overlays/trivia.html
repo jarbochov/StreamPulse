@@ -17,6 +17,7 @@
             --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             --card-bg: rgba(13, 17, 23, 0.94);
             --card-border: rgba(56, 189, 248, 0.35);
+            --card-blur: 12px;
             --text-color: #f0f6fc;
             --text-muted: #8b949e;
             --accent-color: #3b82f6;
@@ -29,6 +30,7 @@
             --choice-border: rgba(255, 255, 255, 0.12);
             --choice-border-width: 1.5px;
             --choice-radius: calc(var(--card-radius) - 4px);
+            --choice-blur: 8px;
             --choice-font: inherit;
             --choice-color: var(--text-color);
             --choice-weight: 600;
@@ -36,6 +38,7 @@
             --timer-color: #38bdf8;
             --timer-warning-color: #f59e0b;
             --timer-critical-color: #ef4444;
+            --hint-color: #94a3b8;
             --category-font: inherit;
             --category-color: #a855f7;
             --category-weight: 700;
@@ -50,6 +53,7 @@
             --question-weight: 700;
             --question-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
             --funfact-font: inherit;
+            --funfact-weight: 500;
             --funfact-color: #eab308;
             --funfact-bg: color-mix(in srgb, var(--funfact-color) 12%, rgba(0, 0, 0, 0.4));
             --funfact-shadow: none;
@@ -476,7 +480,8 @@
             border-radius: var(--card-radius);
             padding: 1.8rem 2.2rem;
             box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65), 0 0 24px rgba(56, 189, 248, 0.12);
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(var(--card-blur, 12px));
+            -webkit-backdrop-filter: blur(var(--card-blur, 12px));
             display: flex;
             flex-direction: column;
             gap: 1.25rem;
@@ -549,6 +554,12 @@
             color: #38bdf8;
             border: 1px solid rgba(56, 189, 248, 0.4);
             animation: pulse-border 2s infinite ease-in-out;
+        }
+
+        .state-badge.live-question {
+            background: color-mix(in srgb, var(--accent-color, #38bdf8) 16%, transparent);
+            color: var(--accent-color, #38bdf8);
+            border: 1px solid color-mix(in srgb, var(--accent-color, #38bdf8) 45%, transparent);
         }
 
         .state-badge.reveal {
@@ -680,6 +691,8 @@
             overflow: hidden;
             min-height: 58px;
             box-sizing: border-box;
+            backdrop-filter: blur(var(--choice-blur, 8px));
+            -webkit-backdrop-filter: blur(var(--choice-blur, 8px));
             transition: opacity 0.45s ease, max-height 0.45s ease, padding 0.45s ease, margin 0.45s ease, transform 0.45s ease, border-width 0.45s ease, background 0.3s ease, border-color 0.3s ease;
         }
 
@@ -811,9 +824,12 @@
             padding: 0.85rem 1.15rem;
             font-size: 0.95rem;
             font-family: var(--funfact-font);
+            font-weight: var(--funfact-weight, 500);
             line-height: 1.45;
             color: var(--text-color);
             box-shadow: var(--funfact-shadow);
+            backdrop-filter: blur(var(--card-blur, 8px));
+            -webkit-backdrop-filter: blur(var(--card-blur, 8px));
             align-items: flex-start;
             gap: 0.65rem;
             animation: slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -841,6 +857,12 @@
             letter-spacing: 0.06em;
             display: block;
             margin-bottom: 0.15rem;
+            font-weight: 800;
+        }
+
+        .funfact-text span {
+            font-family: var(--funfact-font);
+            font-weight: var(--funfact-weight, 500);
         }
 
         @keyframes slide-up {
@@ -864,12 +886,18 @@
             align-items: center;
             gap: 0.4rem;
             flex-wrap: wrap;
+            color: var(--hint-color, var(--text-muted));
         }
 
         .chat-hint kbd {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: color-mix(in srgb, var(--hint-color, #ffffff) 10%, rgba(255, 255, 255, 0.08));
+            border: 1px solid color-mix(in srgb, var(--hint-color, #ffffff) 25%, rgba(255, 255, 255, 0.18));
             border-radius: 4px;
+            padding: 0.1rem 0.35rem;
+            font-family: monospace;
+            font-weight: 700;
+            color: var(--hint-color, var(--text-color));
+        }
             padding: 0.1rem 0.35rem;
             font-family: monospace;
             font-weight: 700;
@@ -1177,21 +1205,54 @@
                 window.loadUrlFont?.(presetFont);
             }
 
-            // 2. Custom container styles (from service theme)
-            if (t.cardBg) applyCssVar('--card-bg', t.cardBg);
-            if (t.cardBorder) applyCssVar('--card-border', t.cardBorder);
+            // 2. Custom container styles (from service theme or URL parameters)
+            const cardBgParam = params.get('cardbg') || params.get('cardBg') || params.get('bg') || params.get('glassbg');
+            const cardBgVal = cardBgParam || t.cardBg;
+            if (cardBgVal) applyCssVar('--card-bg', cardBgVal);
+
+            const cardBorderParam = params.get('cardborder') || params.get('cardBorder') || params.get('border');
+            const cardBorderVal = cardBorderParam || t.cardBorder || t.cardBorderColor;
+            if (cardBorderVal) applyCssVar('--card-border', cardBorderVal);
+
+            const choiceBgParam = params.get('choicebg') || params.get('choiceBg');
+            const choiceBgVal = choiceBgParam || t.choiceBg;
+            if (choiceBgVal) applyCssVar('--choice-bg', choiceBgVal);
+
+            const choiceBorderParam = params.get('choiceborder') || params.get('choiceBorder');
+            const choiceBorderVal = choiceBorderParam || t.choiceBorder || t.choiceBorderColor;
+            if (choiceBorderVal) applyCssVar('--choice-border', choiceBorderVal);
+
+            const blurParam = params.get('blur');
+            const blurVal = blurParam !== null && blurParam !== undefined ? `${blurParam}px` : (t.cardBlur !== undefined ? `${t.cardBlur}px` : null);
+            if (blurVal) {
+                applyCssVar('--card-blur', blurVal);
+                applyCssVar('--choice-blur', blurVal);
+            }
+
             if (t.textColor) applyCssVar('--text-color', t.textColor);
-            if (t.choiceBg) applyCssVar('--choice-bg', t.choiceBg);
-            if (t.choiceBorder) applyCssVar('--choice-border', t.choiceBorder);
             if (t.choiceBorderWidth !== undefined) applyCssVar('--choice-border-width', `${t.choiceBorderWidth}px`);
             if (t.choiceRadius !== undefined) applyCssVar('--choice-radius', `${t.choiceRadius}px`);
             if (t.cardRadius !== undefined) applyCssVar('--card-radius', `${t.cardRadius}px`);
             if (t.timerColor) applyCssVar('--timer-color', t.timerColor);
             if (t.timerWarningColor) applyCssVar('--timer-warning-color', t.timerWarningColor);
             if (t.timerCriticalColor) applyCssVar('--timer-critical-color', t.timerCriticalColor);
-            if (t.categoryColor) applyCssVar('--category-color', t.categoryColor);
-            if (t.funfactColor) applyCssVar('--funfact-color', t.funfactColor);
-            if (t.funfactBg) applyCssVar('--funfact-bg', t.funfactBg);
+
+            const hintColorParam = params.get('hintcolor') || params.get('hintColor');
+            const hintColorVal = hintColorParam || t.hintColor;
+            if (hintColorVal) applyCssVar('--hint-color', hintColorVal);
+
+            const catColorParam = params.get('catcolor') || params.get('categoryColor');
+            const catColorVal = catColorParam || t.categoryColor;
+            if (catColorVal) applyCssVar('--category-color', catColorVal);
+
+            const ffColorParam = params.get('fcolor') || params.get('funfactcolor') || params.get('funfactColor');
+            const ffColorVal = ffColorParam || t.funfactColor;
+            if (ffColorVal) applyCssVar('--funfact-color', ffColorVal);
+
+            const ffBgParam = params.get('fbg') || params.get('funfactbg') || params.get('funfactBg');
+            const ffBgVal = ffBgParam || t.funfactBg;
+            if (ffBgVal) applyCssVar('--funfact-bg', ffBgVal);
+
             if (t.incorrectOpacity !== undefined) applyCssVar('--incorrect-opacity', t.incorrectOpacity);
 
             // 3. Colors from URL parameters or saved theme
@@ -1212,12 +1273,14 @@
             const qFontParam = params.get('qfont') || params.get('questionFont');
             const hFontParam = params.get('hfont') || params.get('headerFont');
             const cFontParam = params.get('cfont') || params.get('choiceFont');
+            const ffFontParam = params.get('ffont') || params.get('funfactfont') || params.get('funfactFont');
             const globalFontParam = params.get('font') || params.get('fontfamily');
 
             const qFont = qFontParam || t.questionFont;
             if (qFont) applyFontVar('--question-font', qFont);
             if (t.questionColor) applyCssVar('--question-color', t.questionColor);
-            if (t.questionWeight) applyCssVar('--question-weight', t.questionWeight);
+            const qWeight = params.get('qweight') || params.get('questionWeight') || t.questionWeight;
+            if (qWeight) applyCssVar('--question-weight', qWeight);
             if (t.questionShadow) applyCssVar('--question-shadow', t.questionShadow);
 
             const hFont = hFontParam || t.headerFont;
@@ -1226,7 +1289,11 @@
                 applyFontVar('--category-font', hFont);
             }
             if (t.headerColor) applyCssVar('--header-color', t.headerColor);
-            if (t.headerWeight) applyCssVar('--header-weight', t.headerWeight);
+            const hWeight = params.get('hweight') || params.get('headerWeight') || t.headerWeight;
+            if (hWeight) {
+                applyCssVar('--header-weight', hWeight);
+                applyCssVar('--category-weight', hWeight);
+            }
             if (t.headerTransform) applyCssVar('--header-transform', t.headerTransform);
             if (t.headerShadow) applyCssVar('--header-shadow', t.headerShadow);
 
@@ -1237,10 +1304,14 @@
             const cFont = cFontParam || t.choiceFont;
             if (cFont) applyFontVar('--choice-font', cFont);
             if (t.choiceColor) applyCssVar('--choice-color', t.choiceColor);
-            if (t.choiceWeight) applyCssVar('--choice-weight', t.choiceWeight);
+            const cWeight = params.get('cweight') || params.get('choiceWeight') || t.choiceWeight;
+            if (cWeight) applyCssVar('--choice-weight', cWeight);
             if (t.choiceShadow) applyCssVar('--choice-shadow', t.choiceShadow);
 
-            if (t.funfactFont) applyFontVar('--funfact-font', t.funfactFont);
+            const ffFont = ffFontParam || t.funfactFont;
+            if (ffFont) applyFontVar('--funfact-font', ffFont);
+            const ffWeight = params.get('fweight') || params.get('funfactweight') || params.get('funfactWeight') || t.funfactWeight;
+            if (ffWeight) applyCssVar('--funfact-weight', ffWeight);
             if (t.funfactShadow) applyCssVar('--funfact-shadow', t.funfactShadow);
 
             const globalFont = globalFontParam || t.font;
@@ -1320,10 +1391,30 @@
                 isReveal = (data.status === 'reveal');
             }
 
+            // Voting capability check
+            const votingParam = params.get('voting') ?? params.get('chat') ?? params.get('chatvoting');
+            let isVotingOpen = false;
+            if (votingParam !== null && votingParam !== undefined) {
+                isVotingOpen = (votingParam === '1' || votingParam === 'true' || votingParam === 'on');
+            } else {
+                const chatVotingSetting = (data.settings?.chatVoting !== false);
+                const chatVotingActive = (data.chatVotingActive !== false);
+                const chatbotEnabled = (data.chatbotEnabled !== false || data.settings?.forceChatVoting === true);
+                isVotingOpen = chatVotingSetting && chatVotingActive && chatbotEnabled;
+            }
+
             const shouldCollapse = Boolean(document.body.dataset.collapse === 'true' || t.collapseIncorrect || activePreset === 'nodecg' || activeStyle === 'text' || params.get('collapse') === '1');
 
-            stateBadgeEl.textContent = isReveal ? 'Answer Reveal' : 'Voting Open';
-            stateBadgeEl.className = `state-badge ${isReveal ? 'reveal' : 'question'}`;
+            if (isReveal) {
+                stateBadgeEl.textContent = 'Answer Reveal';
+                stateBadgeEl.className = 'state-badge reveal';
+            } else if (isVotingOpen) {
+                stateBadgeEl.textContent = 'Voting Open';
+                stateBadgeEl.className = 'state-badge question';
+            } else {
+                stateBadgeEl.textContent = 'Live Question';
+                stateBadgeEl.className = 'state-badge live-question';
+            }
             cardEl.className = `trivia-card ${isReveal ? 'phase-reveal' : 'phase-question'} ${shouldCollapse ? 'collapse-incorrect' : ''}`;
 
             // Question Title
@@ -1383,17 +1474,26 @@
 
             // Chat hint footer for True/False and 2-6 choices
             const chatHintEl = document.getElementById('chat-hint');
-            if (chatHintEl && choices.length > 0) {
-                const isTrueFalse = q?.isTrueFalse || (choices.length === 2 && choices.every(c => /^(true|false)$/i.test(String(c.text || '').trim())));
-                if (isTrueFalse) {
-                    chatHintEl.innerHTML = `<span>Vote in chat:</span> <kbd>!true</kbd> <kbd>!false</kbd> <span>or</span> <kbd>!a</kbd> <kbd>!b</kbd>`;
+            if (chatHintEl) {
+                if (!isVotingOpen || hideHint || isReveal || choices.length === 0) {
+                    chatHintEl.style.display = 'none';
                 } else {
-                    const kbds = choices.map((c, i) => `<kbd>!${(c.letter || String.fromCharCode(65 + i)).toLowerCase()}</kbd>`).join(' ');
-                    chatHintEl.innerHTML = `<span>Vote in chat:</span> ${kbds}`;
+                    chatHintEl.style.display = 'inline-flex';
+                    const isTrueFalse = q?.isTrueFalse || (choices.length === 2 && choices.every(c => /^(true|false)$/i.test(String(c.text || '').trim())));
+                    if (isTrueFalse) {
+                        chatHintEl.innerHTML = `<span>Vote in chat:</span> <kbd>!true</kbd> <kbd>!false</kbd> <span>or</span> <kbd>!a</kbd> <kbd>!b</kbd>`;
+                    } else {
+                        const kbds = choices.map((c, i) => `<kbd>!${(c.letter || String.fromCharCode(65 + i)).toLowerCase()}</kbd>`).join(' ');
+                        chatHintEl.innerHTML = `<span>Vote in chat:</span> ${kbds}`;
+                    }
                 }
             }
 
             // Total Votes
+            const votesWrapEl = document.querySelector('.total-votes-count');
+            if (votesWrapEl) {
+                votesWrapEl.style.display = (!isVotingOpen && !isReveal) ? 'none' : '';
+            }
             votesCountEl.textContent = q?.totalVotes || 0;
         }
 

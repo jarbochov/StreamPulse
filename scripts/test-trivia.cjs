@@ -446,10 +446,21 @@ test('Trivia Service: Themes and element visibility toggles', (t) => {
     assert.equal(theme.showTimer, true);
     assert.equal(theme.showVoteCounts, true);
 
-    // Update to NodeCG text broadcast mode
+    // Update to NodeCG text broadcast mode with comprehensive typography and glass panel options
     service.updateTheme({
         preset: 'nodecg',
         cardStyle: 'text',
+        cardBg: '#0b0f19',
+        cardBorderColor: '#00f0ff',
+        cardBlur: 16,
+        choiceBg: '#121827',
+        hintColor: '#38bdf8',
+        funfactFont: 'Oswald',
+        funfactWeight: '600',
+        funfactColor: '#facc15',
+        questionWeight: '800',
+        choiceWeight: '700',
+        headerWeight: '800',
         collapseIncorrect: true,
         showCategory: false,
         showTimer: false
@@ -458,9 +469,73 @@ test('Trivia Service: Themes and element visibility toggles', (t) => {
     const updated = service.getState().theme;
     assert.equal(updated.preset, 'nodecg');
     assert.equal(updated.cardStyle, 'text');
+    assert.equal(updated.cardBg, '#0b0f19');
+    assert.equal(updated.cardBorderColor, '#00f0ff');
+    assert.equal(updated.cardBlur, 16);
+    assert.equal(updated.choiceBg, '#121827');
+    assert.equal(updated.hintColor, '#38bdf8');
+    assert.equal(updated.funfactFont, 'Oswald');
+    assert.equal(updated.funfactWeight, '600');
+    assert.equal(updated.funfactColor, '#facc15');
+    assert.equal(updated.questionWeight, '800');
+    assert.equal(updated.choiceWeight, '700');
+    assert.equal(updated.headerWeight, '800');
     assert.equal(updated.collapseIncorrect, true);
     assert.equal(updated.showCategory, false);
     assert.equal(updated.showTimer, false);
+});
+
+test('Trivia Service: Chatbot enabled/disabled voting state awareness', (t) => {
+    const testDir = path.join(__dirname, '..', 'data', `.test-trivia-cb-${Date.now()}`);
+    fs.mkdirSync(testDir, { recursive: true });
+    t.after(() => { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} });
+
+    let botEnabled = false;
+    const mockBot = {
+        getStats: () => ({ enabled: botEnabled }),
+        announceTriviaQuestion: () => {},
+        announceTriviaAnswer: () => {}
+    };
+
+    const service = createTriviaService({
+        dataDir: testDir,
+        triviaPath: path.join(testDir, 'trivia.json'),
+        chatbotAnnouncer: mockBot
+    });
+
+    // 1. When chatbot is disabled:
+    botEnabled = false;
+    let pub = service.getPublicState();
+    assert.equal(pub.chatbotEnabled, false);
+    assert.equal(pub.chatVotingActive, false);
+    let summary = service.getStatusSummary();
+    assert.equal(summary.chatbotEnabled, false);
+    assert.equal(summary.chatVotingActive, false);
+
+    // Votes should not register when chat voting is inactive
+    service.startQuestion(0);
+    const voteDisabled = service.handleChatMessage({ user: 'voter1', message: '!a' });
+    assert.equal(voteDisabled, false);
+
+    // 2. When forceChatVoting is true, allow voting even if bot announcer is off:
+    service.updateSettings({ forceChatVoting: true });
+    pub = service.getPublicState();
+    assert.equal(pub.chatbotEnabled, false);
+    assert.equal(pub.chatVotingActive, true);
+    const voteForced = service.handleChatMessage({ user: 'voter2', message: '!a' });
+    assert.equal(voteForced, true);
+
+    // 3. When chatbot is active:
+    service.updateSettings({ forceChatVoting: false });
+    botEnabled = true;
+    pub = service.getPublicState();
+    assert.equal(pub.chatbotEnabled, true);
+    assert.equal(pub.chatVotingActive, true);
+    summary = service.getStatusSummary();
+    assert.equal(summary.chatbotEnabled, true);
+    assert.equal(summary.chatVotingActive, true);
+    const voteActive = service.handleChatMessage({ user: 'voter3', message: '!b' });
+    assert.equal(voteActive, true);
 });
 
 test('Chatbot Service: Trivia question and answer announcements', async (t) => {

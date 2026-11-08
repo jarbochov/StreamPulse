@@ -737,6 +737,10 @@
                     <input type="checkbox" id="cfg-chat-voting" checked>
                     <span>Enable Chat Voting (!a, !b, !c, !d)</span>
                 </label>
+                <div id="chatbot-status-row" style="margin: -0.25rem 0 0.5rem 1.6rem; font-size: 11px; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                    <span id="chatbot-status-pill" class="pill-badge" style="background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.35); color: #eab308; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px;">Chat Bot: Checking...</span>
+                    <span id="chatbot-status-desc" style="color: var(--text-muted); font-size: 11px;">Viewers vote via Twitch chat (!a-!f, !true/!false)</span>
+                </div>
 
                 <label class="checkbox-row">
                     <input type="checkbox" id="cfg-auto-advance">
@@ -765,6 +769,10 @@
                     </span>
                 </div>
 
+                <!-- Section: Theme Preset & Style -->
+                <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin: 0.25rem 0 0.5rem;">
+                    Theme Preset &amp; Mode
+                </div>
                 <div class="form-row">
                     <label>Theme Preset</label>
                     <select id="cfg-theme-preset">
@@ -786,25 +794,88 @@
                     </select>
                 </div>
 
-                <div class="form-row">
-                    <label>Question Font Family</label>
-                    <select id="cfg-theme-question-font">
-                        <option value="">(Theme Default)</option>
-                    </select>
+                <!-- Section: Typography & Weights -->
+                <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin: 0.85rem 0 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--border, rgba(255,255,255,0.08));">
+                    Typography &amp; Font Weights
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 110px; gap: 0.5rem;">
+                    <div class="form-row">
+                        <label>Question Font</label>
+                        <select id="cfg-theme-question-font">
+                            <option value="">(Theme Default)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>Weight</label>
+                        <select id="cfg-theme-question-weight">
+                            <option value="">Default</option>
+                            <option value="400">Regular (400)</option>
+                            <option value="500">Medium (500)</option>
+                            <option value="600">Semi-Bold (600)</option>
+                            <option value="700">Bold (700)</option>
+                            <option value="800">Extra-Bold (800)</option>
+                            <option value="900">Black (900)</option>
+                        </select>
+                    </div>
                 </div>
 
-                <div class="form-row">
-                    <label>Header / Category Font</label>
-                    <select id="cfg-theme-header-font">
-                        <option value="">(Theme Default)</option>
-                    </select>
+                <div style="display: grid; grid-template-columns: 1fr 110px; gap: 0.5rem;">
+                    <div class="form-row">
+                        <label>Choice Text Font</label>
+                        <select id="cfg-theme-choice-font">
+                            <option value="">(Theme Default)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>Weight</label>
+                        <select id="cfg-theme-choice-weight">
+                            <option value="">Default</option>
+                            <option value="400">Regular (400)</option>
+                            <option value="500">Medium (500)</option>
+                            <option value="600">Semi-Bold (600)</option>
+                            <option value="700">Bold (700)</option>
+                            <option value="800">Extra-Bold (800)</option>
+                        </select>
+                    </div>
                 </div>
 
-                <div class="form-row">
-                    <label>Choice Font Family</label>
-                    <select id="cfg-theme-choice-font">
-                        <option value="">(Theme Default)</option>
-                    </select>
+                <div style="display: grid; grid-template-columns: 1fr 110px; gap: 0.5rem;">
+                    <div class="form-row">
+                        <label>Header / Cat Font</label>
+                        <select id="cfg-theme-header-font">
+                            <option value="">(Theme Default)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>Weight</label>
+                        <select id="cfg-theme-header-weight">
+                            <option value="">Default</option>
+                            <option value="400">Regular (400)</option>
+                            <option value="600">Semi-Bold (600)</option>
+                            <option value="700">Bold (700)</option>
+                            <option value="800">Extra-Bold (800)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 110px; gap: 0.5rem;">
+                    <div class="form-row">
+                        <label>Fun Fact Font</label>
+                        <select id="cfg-theme-funfact-font">
+                            <option value="">(Theme Default)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>Weight</label>
+                        <select id="cfg-theme-funfact-weight">
+                            <option value="">Default</option>
+                            <option value="400">Regular (400)</option>
+                            <option value="500">Medium (500)</option>
+                            <option value="600">Semi-Bold (600)</option>
+                            <option value="700">Bold (700)</option>
+                            <option value="800">Extra-Bold (800)</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="form-row">
@@ -815,17 +886,71 @@
                     <input type="range" id="cfg-theme-scale" min="0.6" max="2.0" step="0.05" value="1.0">
                 </div>
 
+                <!-- Section: Glass Panels & Containers -->
+                <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin: 0.85rem 0 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--border, rgba(255,255,255,0.08));">
+                    Glass Panels &amp; Containers
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <div class="form-row">
+                        <label>Panel Background</label>
+                        <input type="color" id="cfg-theme-card-bg" value="#0d1117" style="height: 32px; padding: 2px; cursor: pointer;">
+                    </div>
+                    <div class="form-row">
+                        <label>Panel Border</label>
+                        <input type="color" id="cfg-theme-card-border" value="#38bdf8" style="height: 32px; padding: 2px; cursor: pointer;">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <div class="form-row">
+                        <label>Choice Background</label>
+                        <input type="color" id="cfg-theme-choice-bg" value="#161b22" style="height: 32px; padding: 2px; cursor: pointer;">
+                    </div>
+                    <div class="form-row">
+                        <label>Choice Border</label>
+                        <input type="color" id="cfg-theme-choice-border" value="#30363d" style="height: 32px; padding: 2px; cursor: pointer;">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <label style="margin: 0;">Backdrop Glass Blur</label>
+                        <span id="cfg-theme-blur-val" style="font-weight: 700; color: var(--accent); font-size: 11px;">12px</span>
+                    </div>
+                    <input type="range" id="cfg-theme-blur" min="0" max="32" step="1" value="12">
+                </div>
+
+                <!-- Section: Broadcast Colors & Accents -->
+                <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin: 0.85rem 0 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--border, rgba(255,255,255,0.08));">
+                    Broadcast Colors &amp; Accents
+                </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
                     <div class="form-row">
                         <label>Accent Color</label>
                         <input type="color" id="cfg-theme-accent-color" value="#3b82f6" style="height: 32px; padding: 2px; cursor: pointer;">
                     </div>
                     <div class="form-row">
-                        <label>Correct Color</label>
+                        <label>Correct Answer</label>
                         <input type="color" id="cfg-theme-correct-color" value="#22c55e" style="height: 32px; padding: 2px; cursor: pointer;">
                     </div>
                 </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <div class="form-row">
+                        <label>Category Color</label>
+                        <input type="color" id="cfg-theme-category-color" value="#a855f7" style="height: 32px; padding: 2px; cursor: pointer;">
+                    </div>
+                    <div class="form-row">
+                        <label>Hint / Instructions</label>
+                        <input type="color" id="cfg-theme-hint-color" value="#94a3b8" style="height: 32px; padding: 2px; cursor: pointer;">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label>Fun Fact Accent</label>
+                    <input type="color" id="cfg-theme-funfact-color" value="#eab308" style="height: 32px; padding: 2px; cursor: pointer;">
+                </div>
 
+                <!-- Section: Layout & Behavior -->
+                <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin: 0.85rem 0 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--border, rgba(255,255,255,0.08));">
+                    Layout &amp; Reveal Behavior
+                </div>
                 <label class="checkbox-row">
                     <input type="checkbox" id="cfg-theme-collapse-incorrect">
                     <span>Collapse incorrect choices on reveal (NodeCG style)</span>
@@ -1210,6 +1335,46 @@
             document.getElementById('cfg-theme-scale').value = scale;
             document.getElementById('cfg-theme-scale-val').textContent = scale.toFixed(2) + '×';
 
+            if (document.getElementById('cfg-theme-question-weight')) document.getElementById('cfg-theme-question-weight').value = theme.questionWeight || '';
+            if (document.getElementById('cfg-theme-choice-weight')) document.getElementById('cfg-theme-choice-weight').value = theme.choiceWeight || '';
+            if (document.getElementById('cfg-theme-header-weight')) document.getElementById('cfg-theme-header-weight').value = theme.headerWeight || '';
+            if (document.getElementById('cfg-theme-funfact-weight')) document.getElementById('cfg-theme-funfact-weight').value = theme.funfactWeight || '';
+
+            const defTheme = PRESET_DEFAULTS[theme.preset || 'modern'] || PRESET_DEFAULTS.modern;
+            if (document.getElementById('cfg-theme-card-bg')) document.getElementById('cfg-theme-card-bg').value = (theme.cardBg && theme.cardBg.startsWith('#')) ? theme.cardBg : (defTheme.cardBg || '#0d1117');
+            if (document.getElementById('cfg-theme-card-border')) document.getElementById('cfg-theme-card-border').value = (theme.cardBorderColor && theme.cardBorderColor.startsWith('#')) ? theme.cardBorderColor : (defTheme.cardBorder || '#38bdf8');
+            if (document.getElementById('cfg-theme-choice-bg')) document.getElementById('cfg-theme-choice-bg').value = (theme.choiceBg && theme.choiceBg.startsWith('#')) ? theme.choiceBg : (defTheme.choiceBg || '#161b22');
+            if (document.getElementById('cfg-theme-choice-border')) document.getElementById('cfg-theme-choice-border').value = (theme.choiceBorderColor && theme.choiceBorderColor.startsWith('#')) ? theme.choiceBorderColor : '#30363d';
+
+            const blurVal = theme.cardBlur !== undefined ? Number(theme.cardBlur) : (defTheme.blur ?? 12);
+            if (document.getElementById('cfg-theme-blur')) {
+                document.getElementById('cfg-theme-blur').value = blurVal;
+                document.getElementById('cfg-theme-blur-val').textContent = `${blurVal}px`;
+            }
+
+            if (document.getElementById('cfg-theme-category-color')) document.getElementById('cfg-theme-category-color').value = theme.categoryColor || defTheme.catColor || '#a855f7';
+            if (document.getElementById('cfg-theme-hint-color')) document.getElementById('cfg-theme-hint-color').value = theme.hintColor || defTheme.hintColor || '#94a3b8';
+            if (document.getElementById('cfg-theme-funfact-color')) document.getElementById('cfg-theme-funfact-color').value = theme.funfactColor || defTheme.funfactColor || '#eab308';
+
+            // Real-time Chatbot status pill
+            const chatbotPill = document.getElementById('chatbot-status-pill');
+            const chatbotDesc = document.getElementById('chatbot-status-desc');
+            if (chatbotPill && chatbotDesc) {
+                if (currentState.chatbotEnabled === false) {
+                    chatbotPill.textContent = 'Chat Bot: Turned Off';
+                    chatbotPill.style.background = 'rgba(139, 148, 158, 0.15)';
+                    chatbotPill.style.borderColor = 'rgba(139, 148, 158, 0.35)';
+                    chatbotPill.style.color = '#8b949e';
+                    chatbotDesc.textContent = 'Chat Bot is turned off in Settings. Questions will display in Live Question mode without chat voting badges.';
+                } else {
+                    chatbotPill.textContent = 'Chat Bot: Active';
+                    chatbotPill.style.background = 'rgba(34, 197, 94, 0.15)';
+                    chatbotPill.style.borderColor = 'rgba(34, 197, 94, 0.35)';
+                    chatbotPill.style.color = '#22c55e';
+                    chatbotDesc.textContent = 'Viewers vote via Twitch chat (!a-!f, !true/!false).';
+                }
+            }
+
             // Element visibility toggles
             document.getElementById('cfg-elem-category').checked = theme.showCategory !== false;
             document.getElementById('cfg-elem-question-number').checked = theme.showQuestionNumber !== false;
@@ -1225,13 +1390,13 @@
         }
 
         const PRESET_DEFAULTS = {
-            modern: { style: 'cards', accent: '#3b82f6', correct: '#22c55e', collapse: false },
-            nodecg: { style: 'text', accent: '#38bdf8', correct: '#4ade80', collapse: true },
-            arcade: { style: 'cards', accent: '#facc15', correct: '#4ade80', collapse: false },
-            esports: { style: 'cards', accent: '#06b6d4', correct: '#10b981', collapse: false },
-            minimal: { style: 'cards', accent: '#38bdf8', correct: '#22c55e', collapse: false },
-            neon: { style: 'cards', accent: '#ec4899', correct: '#10b981', collapse: false },
-            retro: { style: 'cards', accent: '#9333ea', correct: '#10b981', collapse: false }
+            modern: { style: 'cards', accent: '#3b82f6', correct: '#22c55e', cardBg: '#0d1117', cardBorder: '#38bdf8', choiceBg: '#161b22', blur: 12, hintColor: '#94a3b8', catColor: '#a855f7', funfactColor: '#eab308', collapse: false },
+            nodecg: { style: 'text', accent: '#38bdf8', correct: '#4ade80', cardBg: '#000000', cardBorder: '#000000', choiceBg: '#000000', blur: 0, hintColor: '#e2e8f0', catColor: '#facc15', funfactColor: '#facc15', collapse: true },
+            arcade: { style: 'cards', accent: '#facc15', correct: '#4ade80', cardBg: '#050508', cardBorder: '#facc15', choiceBg: '#111116', blur: 0, hintColor: '#facc15', catColor: '#f43f5e', funfactColor: '#facc15', collapse: false },
+            esports: { style: 'cards', accent: '#06b6d4', correct: '#10b981', cardBg: '#090d16', cardBorder: '#06b6d4', choiceBg: '#0f172a', blur: 12, hintColor: '#38bdf8', catColor: '#06b6d4', funfactColor: '#38bdf8', collapse: false },
+            minimal: { style: 'cards', accent: '#38bdf8', correct: '#22c55e', cardBg: '#111827', cardBorder: '#374151', choiceBg: '#1f2937', blur: 0, hintColor: '#94a3b8', catColor: '#94a3b8', funfactColor: '#38bdf8', collapse: false },
+            neon: { style: 'cards', accent: '#ec4899', correct: '#10b981', cardBg: '#0a0a14', cardBorder: '#ec4899', choiceBg: '#121124', blur: 16, hintColor: '#06b6d4', catColor: '#06b6d4', funfactColor: '#ec4899', collapse: false },
+            retro: { style: 'cards', accent: '#9333ea', correct: '#10b981', cardBg: '#18122b', cardBorder: '#9333ea', choiceBg: '#251b45', blur: 12, hintColor: '#f59e0b', catColor: '#eab308', funfactColor: '#f59e0b', collapse: false }
         };
 
         function updateObsUrl() {
@@ -1242,6 +1407,7 @@
             const scale = parseFloat(document.getElementById('cfg-theme-scale')?.value) || 1.0;
             const accent = document.getElementById('cfg-theme-accent-color')?.value;
             const correct = document.getElementById('cfg-theme-correct-color')?.value;
+            const defs = PRESET_DEFAULTS[theme] || PRESET_DEFAULTS.modern;
 
             let url = `${window.location.origin}/overlays/trivia.html?layout=${mode}&theme=${theme}`;
             if (view && view !== 'auto') {
@@ -1255,19 +1421,72 @@
             }
 
             // Custom accent & correct color parameters
-            if (accent) {
-                const defAccent = PRESET_DEFAULTS[theme]?.accent || '#3b82f6';
-                if (accent.toLowerCase() !== defAccent.toLowerCase()) {
-                    url += `&accent=${encodeURIComponent(accent)}`;
-                }
+            if (accent && accent.toLowerCase() !== (defs.accent || '#3b82f6').toLowerCase()) {
+                url += `&accent=${encodeURIComponent(accent)}`;
             }
-            if (correct) {
-                const defCorrect = PRESET_DEFAULTS[theme]?.correct || '#22c55e';
-                if (correct.toLowerCase() !== defCorrect.toLowerCase()) {
-                    url += `&correct=${encodeURIComponent(correct)}`;
-                }
+            if (correct && correct.toLowerCase() !== (defs.correct || '#22c55e').toLowerCase()) {
+                url += `&correct=${encodeURIComponent(correct)}`;
             }
 
+            // Glass panels & borders
+            const cardBg = document.getElementById('cfg-theme-card-bg')?.value;
+            if (cardBg && cardBg.toLowerCase() !== (defs.cardBg || '#0d1117').toLowerCase()) {
+                url += `&cardbg=${encodeURIComponent(cardBg)}`;
+            }
+            const cardBorder = document.getElementById('cfg-theme-card-border')?.value;
+            if (cardBorder && cardBorder.toLowerCase() !== (defs.cardBorder || '#38bdf8').toLowerCase()) {
+                url += `&cardborder=${encodeURIComponent(cardBorder)}`;
+            }
+            const choiceBg = document.getElementById('cfg-theme-choice-bg')?.value;
+            if (choiceBg && choiceBg.toLowerCase() !== (defs.choiceBg || '#161b22').toLowerCase()) {
+                url += `&choicebg=${encodeURIComponent(choiceBg)}`;
+            }
+            const blur = parseInt(document.getElementById('cfg-theme-blur')?.value, 10);
+            if (!isNaN(blur) && blur !== (defs.blur ?? 12)) {
+                url += `&blur=${blur}`;
+            }
+
+            // Hint color, category color, fun fact color
+            const hintColor = document.getElementById('cfg-theme-hint-color')?.value;
+            if (hintColor && hintColor.toLowerCase() !== (defs.hintColor || '#94a3b8').toLowerCase()) {
+                url += `&hintcolor=${encodeURIComponent(hintColor)}`;
+            }
+            const catColor = document.getElementById('cfg-theme-category-color')?.value;
+            if (catColor && catColor.toLowerCase() !== (defs.catColor || '#a855f7').toLowerCase()) {
+                url += `&catcolor=${encodeURIComponent(catColor)}`;
+            }
+            const ffColor = document.getElementById('cfg-theme-funfact-color')?.value;
+            if (ffColor && ffColor.toLowerCase() !== (defs.funfactColor || '#eab308').toLowerCase()) {
+                url += `&fcolor=${encodeURIComponent(ffColor)}`;
+            }
+
+            // Fonts & Weights
+            const qFont = document.getElementById('cfg-theme-question-font')?.value.trim();
+            if (qFont) url += `&qfont=${encodeURIComponent(qFont)}`;
+            const qWeight = document.getElementById('cfg-theme-question-weight')?.value;
+            if (qWeight) url += `&qweight=${qWeight}`;
+
+            const hFont = document.getElementById('cfg-theme-header-font')?.value.trim();
+            if (hFont) url += `&hfont=${encodeURIComponent(hFont)}`;
+            const hWeight = document.getElementById('cfg-theme-header-weight')?.value;
+            if (hWeight) url += `&hweight=${hWeight}`;
+
+            const cFont = document.getElementById('cfg-theme-choice-font')?.value.trim();
+            if (cFont) url += `&cfont=${encodeURIComponent(cFont)}`;
+            const cWeight = document.getElementById('cfg-theme-choice-weight')?.value;
+            if (cWeight) url += `&cweight=${cWeight}`;
+
+            const ffFont = document.getElementById('cfg-theme-funfact-font')?.value.trim();
+            if (ffFont) url += `&ffont=${encodeURIComponent(ffFont)}`;
+            const ffWeight = document.getElementById('cfg-theme-funfact-weight')?.value;
+            if (ffWeight) url += `&fweight=${ffWeight}`;
+
+            // Chat voting flag
+            if (!document.getElementById('cfg-chat-voting')?.checked) {
+                url += '&voting=0';
+            }
+
+            // Element visibility toggles
             if (!document.getElementById('cfg-elem-category')?.checked) url += '&category=0';
             if (!document.getElementById('cfg-elem-question-number')?.checked) url += '&counter=0';
             if (!document.getElementById('cfg-elem-timer')?.checked) url += '&timer=0';
@@ -1277,13 +1496,6 @@
             if (!document.getElementById('cfg-elem-chat-hint')?.checked) url += '&hint=0';
             if (!document.getElementById('cfg-elem-funfact')?.checked) url += '&funfact=0';
             if (document.getElementById('cfg-theme-collapse-incorrect')?.checked) url += '&collapse=1';
-
-            const qFont = document.getElementById('cfg-theme-question-font')?.value.trim();
-            if (qFont) url += `&qfont=${encodeURIComponent(qFont)}`;
-            const hFont = document.getElementById('cfg-theme-header-font')?.value.trim();
-            if (hFont) url += `&hfont=${encodeURIComponent(hFont)}`;
-            const cFont = document.getElementById('cfg-theme-choice-font')?.value.trim();
-            if (cFont) url += `&cfont=${encodeURIComponent(cFont)}`;
 
             const linkEl = document.getElementById('obs-url-link');
             const openEl = document.getElementById('btn-open-url');
@@ -1298,8 +1510,16 @@
 
         const themeInputIds = [
             'obs-mode', 'obs-view', 'obs-theme', 'cfg-theme-preset', 'cfg-theme-card-style',
-            'cfg-theme-question-font', 'cfg-theme-header-font', 'cfg-theme-choice-font',
-            'cfg-theme-accent-color', 'cfg-theme-correct-color', 'cfg-theme-collapse-incorrect',
+            'cfg-theme-question-font', 'cfg-theme-question-weight',
+            'cfg-theme-header-font', 'cfg-theme-header-weight',
+            'cfg-theme-choice-font', 'cfg-theme-choice-weight',
+            'cfg-theme-funfact-font', 'cfg-theme-funfact-weight',
+            'cfg-theme-card-bg', 'cfg-theme-card-border',
+            'cfg-theme-choice-bg', 'cfg-theme-choice-border',
+            'cfg-theme-accent-color', 'cfg-theme-correct-color',
+            'cfg-theme-category-color', 'cfg-theme-hint-color', 'cfg-theme-funfact-color',
+            'cfg-theme-collapse-incorrect',
+            'cfg-chat-voting',
             'cfg-elem-category', 'cfg-elem-question-number', 'cfg-elem-timer',
             'cfg-elem-letter-badges', 'cfg-elem-votes', 'cfg-elem-percentages',
             'cfg-elem-chat-hint', 'cfg-elem-funfact'
@@ -1319,17 +1539,34 @@
                         const accentEl = document.getElementById('cfg-theme-accent-color');
                         const correctEl = document.getElementById('cfg-theme-correct-color');
                         const collapseEl = document.getElementById('cfg-theme-collapse-incorrect');
+                        const cardBgEl = document.getElementById('cfg-theme-card-bg');
+                        const cardBorderEl = document.getElementById('cfg-theme-card-border');
+                        const choiceBgEl = document.getElementById('cfg-theme-choice-bg');
+                        const blurEl = document.getElementById('cfg-theme-blur');
+                        const blurValEl = document.getElementById('cfg-theme-blur-val');
+                        const hintEl = document.getElementById('cfg-theme-hint-color');
+                        const catEl = document.getElementById('cfg-theme-category-color');
+                        const ffEl = document.getElementById('cfg-theme-funfact-color');
+
                         if (styleEl) styleEl.value = def.style;
                         if (accentEl) accentEl.value = def.accent;
                         if (correctEl) correctEl.value = def.correct;
                         if (collapseEl) collapseEl.checked = def.collapse;
+                        if (cardBgEl) cardBgEl.value = def.cardBg;
+                        if (cardBorderEl) cardBorderEl.value = def.cardBorder;
+                        if (choiceBgEl) choiceBgEl.value = def.choiceBg;
+                        if (blurEl) blurEl.value = def.blur;
+                        if (blurValEl) blurValEl.textContent = `${def.blur}px`;
+                        if (hintEl) hintEl.value = def.hintColor;
+                        if (catEl) catEl.value = def.catColor;
+                        if (ffEl) ffEl.value = def.funfactColor;
                     }
                 }
                 updateObsUrl();
             });
         });
 
-        ['cfg-theme-question-font', 'cfg-theme-header-font', 'cfg-theme-choice-font'].forEach(id => {
+        ['cfg-theme-question-font', 'cfg-theme-header-font', 'cfg-theme-choice-font', 'cfg-theme-funfact-font'].forEach(id => {
             document.getElementById(id)?.addEventListener('change', (e) => {
                 const val = e.target.value;
                 if (val) window.loadUrlFont?.(val);
@@ -1342,8 +1579,13 @@
                 document.getElementById('cfg-theme-scale-val').textContent = parseFloat(e.target.value).toFixed(2) + '×';
                 updateObsUrl();
             });
-            document.getElementById('cfg-theme-accent-color')?.addEventListener(evt, updateObsUrl);
-            document.getElementById('cfg-theme-correct-color')?.addEventListener(evt, updateObsUrl);
+            document.getElementById('cfg-theme-blur')?.addEventListener(evt, (e) => {
+                document.getElementById('cfg-theme-blur-val').textContent = e.target.value + 'px';
+                updateObsUrl();
+            });
+            ['cfg-theme-card-bg', 'cfg-theme-card-border', 'cfg-theme-choice-bg', 'cfg-theme-choice-border', 'cfg-theme-accent-color', 'cfg-theme-correct-color', 'cfg-theme-category-color', 'cfg-theme-hint-color', 'cfg-theme-funfact-color'].forEach(id => {
+                document.getElementById(id)?.addEventListener(evt, updateObsUrl);
+            });
         });
 
         document.getElementById('btn-copy-url').addEventListener('click', () => {
@@ -1419,6 +1661,7 @@
             const qSelect = document.getElementById('cfg-theme-question-font');
             const hSelect = document.getElementById('cfg-theme-header-font');
             const cSelect = document.getElementById('cfg-theme-choice-font');
+            const fSelect = document.getElementById('cfg-theme-funfact-font');
             if (!qSelect || !hSelect || !cSelect) return;
 
             if (!cachedFontList) {
@@ -1482,18 +1725,22 @@
             const qVal = theme.questionFont || qSelect.value || '';
             const hVal = theme.headerFont || hSelect.value || '';
             const cVal = theme.choiceFont || cSelect.value || '';
+            const fVal = theme.funfactFont || fSelect?.value || '';
 
             qSelect.innerHTML = buildOptions(qVal);
             hSelect.innerHTML = buildOptions(hVal);
             cSelect.innerHTML = buildOptions(cVal);
+            if (fSelect) fSelect.innerHTML = buildOptions(fVal);
 
             qSelect.value = qVal;
             hSelect.value = hVal;
             cSelect.value = cVal;
+            if (fSelect) fSelect.value = fVal;
 
             if (qVal) window.loadUrlFont?.(qVal);
             if (hVal) window.loadUrlFont?.(hVal);
             if (cVal) window.loadUrlFont?.(cVal);
+            if (fVal) window.loadUrlFont?.(fVal);
 
             updateObsUrl();
         }
@@ -1809,11 +2056,24 @@
                     preset: document.getElementById('cfg-theme-preset').value,
                     cardStyle: document.getElementById('cfg-theme-card-style').value,
                     questionFont: document.getElementById('cfg-theme-question-font').value.trim(),
+                    questionWeight: document.getElementById('cfg-theme-question-weight').value,
                     headerFont: document.getElementById('cfg-theme-header-font').value.trim(),
+                    headerWeight: document.getElementById('cfg-theme-header-weight').value,
                     choiceFont: document.getElementById('cfg-theme-choice-font').value.trim(),
+                    choiceWeight: document.getElementById('cfg-theme-choice-weight').value,
+                    funfactFont: document.getElementById('cfg-theme-funfact-font').value.trim(),
+                    funfactWeight: document.getElementById('cfg-theme-funfact-weight').value,
                     fontScale: parseFloat(document.getElementById('cfg-theme-scale').value) || 1.0,
+                    cardBg: document.getElementById('cfg-theme-card-bg').value,
+                    cardBorderColor: document.getElementById('cfg-theme-card-border').value,
+                    choiceBg: document.getElementById('cfg-theme-choice-bg').value,
+                    choiceBorderColor: document.getElementById('cfg-theme-choice-border').value,
+                    cardBlur: parseInt(document.getElementById('cfg-theme-blur').value, 10) || 12,
                     accentColor: document.getElementById('cfg-theme-accent-color').value,
                     correctColor: document.getElementById('cfg-theme-correct-color').value,
+                    categoryColor: document.getElementById('cfg-theme-category-color').value,
+                    hintColor: document.getElementById('cfg-theme-hint-color').value,
+                    funfactColor: document.getElementById('cfg-theme-funfact-color').value,
                     collapseIncorrect: document.getElementById('cfg-theme-collapse-incorrect').checked,
                     showCategory: document.getElementById('cfg-elem-category').checked,
                     showQuestionNumber: document.getElementById('cfg-elem-question-number').checked,

@@ -57,18 +57,29 @@ Add this URL as a Browser Source in OBS Studio at `1920x1080` (or `3840x2160`).
   - `Cards & Boxes`: Standard framed card containers with backgrounds and borders.
   - `Pure Floating Text`: Eliminates all bounding boxes and background panels, rendering floating text directly over your camera or game capture with deep drop shadows.
 - **Collapse Incorrect Choices**: When enabled in reveal mode, incorrect choices smoothly collapse and fade out, spotlighting the winning answer and fun fact.
-- **Visibility Toggles**: Toggle any element on or off in the studio or via URL query parameters:
+- **Visibility & Parameter Controls**: Configure parameters in the studio or pass them directly in the overlay URL:
+  - `?theme=arcade`: Selects visual preset (`modern`, `nodecg`, `arcade`, `esports`, `minimal`, `neon`, `retro`).
+  - `?style=text`: Forces pure floating text broadcast mode.
+  - `?scale=1.2`: Scales overlay typography and elements.
+  - `?cardbg=#1a202c`: Custom glass panel background color.
+  - `?cardborder=#38bdf8`: Custom glass panel border color.
+  - `?choicebg=#161b22`: Custom choice card background color.
+  - `?blur=16`: Custom backdrop blur radius (in px).
+  - `?hintcolor=#f6e05e`: Custom color for chat voting instructions and keycap badges.
+  - `?catcolor=#a855f7`: Custom category pill color.
+  - `?qfont=Oswald` & `?qweight=800`: Question font family and weight (400–900).
+  - `?cfont=Inter` & `?cweight=600`: Choice font family and weight (400–800).
+  - `?hfont=Rajdhani` & `?hweight=700`: Header / category font family and weight.
+  - `?ffont=Oswald` & `?fweight=700`: Did You Know? Fun fact font family and weight.
+  - `?voting=0` / `?voting=1`: Controls chat voting mode. When the Chat Bot is turned off or chat voting is disabled, the overlay automatically displays `Live Question` (instead of `Voting Open`) and conceals the chat voting helper footer and vote counter.
   - `?category=0`: Hides category badge.
-  - `?qnum=0`: Hides question number tracker.
+  - `?counter=0`: Hides question counter (e.g. "Question 1 of 5").
   - `?timer=0`: Hides countdown bar.
   - `?votes=0`: Hides numerical vote totals.
   - `?percentages=0`: Hides percentage displays on choices.
   - `?hint=0`: Hides the "!a / !b in chat" helper bar.
   - `?funfact=0`: Hides fun fact callouts on answer reveal.
   - `?letters=0`: Hides letter badges (A, B, C, D) on choices.
-  - `?style=text`: Forces pure floating text mode.
-  - `?theme=arcade`: Selects theme preset (`modern`, `nodecg`, `arcade`, `esports`, `minimal`).
-  - `?scale=1.2`: Scales overlay typography and elements.
 
 ---
 

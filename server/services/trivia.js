@@ -24,6 +24,7 @@ const DEFAULT_THEME = {
     cardBorderColor: 'rgba(56, 189, 248, 0.35)',
     cardBorderWidth: 2,
     cardRadius: 16,
+    cardBlur: 12,
     cardShadow: '0 16px 48px rgba(0, 0, 0, 0.65), 0 0 24px rgba(56, 189, 248, 0.12)',
     fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     textColor: '#f0f6fc',
@@ -60,7 +61,9 @@ const DEFAULT_THEME = {
     timerColor: '#38bdf8',
     timerWarningColor: '#f59e0b',
     timerCriticalColor: '#ef4444',
+    hintColor: '#94a3b8',
     funfactFont: '',
+    funfactWeight: '500',
     funfactColor: '#eab308',
     funfactBg: 'rgba(234, 179, 8, 0.12)',
     funfactShadow: 'none',
@@ -82,6 +85,7 @@ const DEFAULT_SETTINGS = {
     autoAdvance: false,
     randomOrder: false,
     chatVoting: true,
+    forceChatVoting: false, // allow chat voting even if chatbot announcer is off
     autoReveal: true, // auto-transition to answer on timer expiration
     manualTransition: false, // when true, requires manual transition to reveal answer
     showTimer: true,
@@ -326,6 +330,24 @@ function createTriviaService({
         }
     }
 
+    function isChatbotEnabled() {
+        if (!chatbotAnnouncer) return false;
+        if (typeof chatbotAnnouncer.getStats === 'function') {
+            const stats = chatbotAnnouncer.getStats();
+            return stats && stats.enabled === true;
+        }
+        return true;
+    }
+
+    function isChatVotingActive() {
+        if (state.settings.chatVoting === false) return false;
+        // If chatbot announcer is attached and disabled, chat voting is inactive unless explicitly forced on
+        if (chatbotAnnouncer && !isChatbotEnabled() && !state.settings.forceChatVoting) {
+            return false;
+        }
+        return true;
+    }
+
     function sanitizeActiveQuestion(q, includeAnswer = false) {
         if (!q) return null;
         const totalVotes = userVotes.size;
@@ -381,6 +403,8 @@ function createTriviaService({
             activeQuestion: sanitizeActiveQuestion(state.activeQuestion, state.status === 'reveal'),
             theme: state.theme,
             settings: state.settings,
+            chatbotEnabled: isChatbotEnabled(),
+            chatVotingActive: isChatVotingActive(),
             ...extra
         };
         broadcastToOverlays(eventType, payload);
@@ -597,7 +621,7 @@ function createTriviaService({
 
     function castVote({ user = '', userId = '', choiceIndex = -1, isSub = false } = {}) {
         if (state.status !== 'question') return false;
-        if (!state.settings.chatVoting) return false;
+        if (!isChatVotingActive()) return false;
         const choiceCount = state.activeQuestion?.choices?.length || 4;
         if (typeof choiceIndex !== 'number' || choiceIndex < 0 || choiceIndex >= choiceCount) return false;
 
@@ -617,7 +641,7 @@ function createTriviaService({
     }
 
     function handleChatMessage(msg = {}) {
-        if (state.status !== 'question' || !state.settings.chatVoting) return false;
+        if (state.status !== 'question' || !isChatVotingActive()) return false;
         if (!state.activeQuestion) return false;
 
         const comment = String(msg.comment || msg.message || '').trim();
@@ -966,6 +990,8 @@ function createTriviaService({
             playedQuestionIds: Array.from(playedQuestionIds),
             unplayedCount: state.questions.filter(q => !playedQuestionIds.has(q.id) && !q.done).length,
             activeQuestion: sanitizeActiveQuestion(state.activeQuestion, Boolean(includeAnswers || state.status === 'reveal')),
+            chatbotEnabled: isChatbotEnabled(),
+            chatVotingActive: isChatVotingActive(),
             questions: state.questions.map(q => ({
                 id: q.id,
                 category: q.category,
@@ -1003,7 +1029,9 @@ function createTriviaService({
             activeCategory: active ? active.category : null,
             activeQuestionText: active ? active.question : null,
             totalVotes: active ? active.totalVotes : 0,
-            remainingSeconds: active ? active.remainingSeconds : 0
+            remainingSeconds: active ? active.remainingSeconds : 0,
+            chatbotEnabled: isChatbotEnabled(),
+            chatVotingActive: isChatVotingActive()
         };
     }
 
