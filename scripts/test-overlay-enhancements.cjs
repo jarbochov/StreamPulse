@@ -804,7 +804,7 @@ test('Procedural Patterns: multicolor palettes, fill styles, schema normalizatio
     assert.ok(inspectorCode.includes("proceduralMotion: 'style'"), 'proceduralMotion section must route to Style tab');
     assert.ok(inspectorCode.includes("'pattern.palette'"), 'pattern.palette must be in RERENDER_PATHS');
     assert.ok(inspectorCode.includes("'pattern.fillMode'"), 'pattern.fillMode must be in RERENDER_PATHS');
-    assert.ok(inspectorCode.includes("isProcedural ? effectsSection(el) :"), 'isProcedural layers must exclude media filters and fill section');
+    assert.ok(inspectorCode.includes("isProcedural ? effectsSection(el) + filterSection(el) :"), 'isProcedural layers include filterSection for color exposure and film grain');
 });
 
 test('Continuous Falling Motion: Overlay linear motion has zero periodic jumps, promo video loops cleanly', () => {
@@ -1667,3 +1667,94 @@ test('Procedural Patterns: Universal Color Placement, Continuous Seamless Pan, a
         assert.ok(allColors.length > 5, `Pattern ${pat} must render multiple colored elements with colorMode: radial`);
     }
 });
+
+test('Procedural Patterns: Rendering Efficiency, 60fps Frame Pacing, Triangle Mosaic Dispersion & Color/Grain Filters', () => {
+    const patternsSharedCode = fs.readFileSync(path.join(__dirname, '../public/js/patterns-shared.js'), 'utf8');
+    const overlaySharedCode = fs.readFileSync(path.join(__dirname, '../public/js/overlay-shared.js'), 'utf8');
+    const inspectorCode = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-inspector.js'), 'utf8');
+
+    // 1. Frame-rate pacing caps continuous loops at ~60fps across high-refresh displays
+    assert.ok(overlaySharedCode.includes('hasProcAnim = isProcedural'), 'OverlayShared must check procedural animation state for frame pacing');
+    assert.ok(overlaySharedCode.includes('ts - lastDrawTs < 15.8'), 'OverlayShared must throttle animations exceeding ~60fps (15.8ms interval)');
+
+    // 2. Tight, scalable overscan bounds preventing off-screen geometry explosion
+    assert.ok(patternsSharedCode.includes('padX = Math.max(80, (fullWidth / scale) * 0.06)'), 'Overscan padding must scale tightly with canvas dimensions instead of arbitrary 35% inflation');
+
+    // 3. Turkey feather drawing eliminates per-feather ctx.save() and ctx.restore()
+    const turkeySection = patternsSharedCode.slice(patternsSharedCode.indexOf("pattern === 'turkeys'"), patternsSharedCode.indexOf("pattern === 'pumpkins'"));
+    const featherLoop = turkeySection.slice(turkeySection.indexOf('for (let f = 0; f < feathers; f++)'), turkeySection.indexOf('// 2. Plump turkey body'));
+    assert.ok(!featherLoop.includes('ctx.save()'), 'Turkey feather loop must not invoke ctx.save() on every feather');
+    assert.ok(!featherLoop.includes('ctx.restore()'), 'Turkey feather loop must not invoke ctx.restore() on every feather');
+
+    // 4. Triangle mosaic dispersion: Adjacent triangles have diverse colors without diagonal striping
+    const triColors = [];
+    const triMock = {
+        save: () => {}, restore: () => {}, translate: () => {}, scale: () => {}, rotate: () => {},
+        beginPath: () => {}, closePath: () => {}, moveTo: () => {}, lineTo: () => {},
+        arc: () => {}, ellipse: () => {},
+        set strokeStyle(val) {},
+        set fillStyle(val) { triColors.push(val); },
+        stroke: () => {}, fill: () => {}, fillRect: () => {}, clearRect: () => {},
+        setTransform: () => {}
+    };
+
+    drawProceduralPattern(triMock, 'triangles', 800, 600, {
+        palette: 'dual',
+        accent: '#58a6ff',
+        secondary: '#f97316',
+        colorMode: 'mosaic',
+        fillMode: 'solid'
+    });
+
+    const hasAccent = triColors.some(c => c.includes('58a6ff'));
+    const hasSecondary = triColors.some(c => c.includes('f97316'));
+    assert.ok(hasAccent, 'Triangle mosaic must contain accent color');
+    assert.ok(hasSecondary, 'Triangle mosaic must contain secondary color');
+
+    // Verify non-striping by checking color transitions between consecutive triangles
+    let differentColorNeighbors = 0;
+    for (let i = 0; i < triColors.length - 1; i++) {
+        if (triColors[i] !== triColors[i + 1]) differentColorNeighbors++;
+    }
+    assert.ok(differentColorNeighbors > triColors.length * 0.3, 'Triangle mosaic must show diverse color variation across adjacent triangles');
+
+    // 5. In-place animation geometry locking across all 28 patterns
+    const mock = {
+        save: () => {}, restore: () => {}, translate: () => {}, scale: () => {}, rotate: () => {},
+        beginPath: () => {}, closePath: () => {}, moveTo: () => {}, lineTo: () => {},
+        arc: () => {}, ellipse: () => {},
+        set strokeStyle(val) {}, set fillStyle(val) {},
+        stroke: () => {}, fill: () => {}, fillRect: () => {}, clearRect: () => {},
+        createLinearGradient: () => ({ addColorStop: () => {} }),
+        createRadialGradient: () => ({ addColorStop: () => {} }),
+        setTransform: () => {}
+    };
+
+    const allPatterns = [
+        'grid', 'hexagons', 'diamonds', 'isometric', 'mesh', 'sunburst', 'dots',
+        'starfield', 'sparkles', 'checker', 'waves', 'rings', 'scales', 'triangles',
+        'chevrons', 'topography', 'confetti', 'circuit', 'leaves', 'turkeys',
+        'pumpkins', 'christmas-trees', 'christmas-lights', 'snowflakes', 'hearts',
+        'fireworks', 'geometry', 'orbits'
+    ];
+
+    for (const pat of allPatterns) {
+        assert.doesNotThrow(() => {
+            drawProceduralPattern(mock, pat, 600, 400, {
+                inPlace: 'pulse',
+                inPlaceSpeed: 2,
+                spin: 'sway',
+                spinSpeed: 2,
+                time: 1.5,
+                sizeVariance: 0,
+                scatter: 0,
+                fillMode: 'tinted'
+            });
+        }, `Pattern ${pat} must render cleanly with in-place animations and sizeVariance: 0`);
+    }
+
+    // 6. Style tab inspector exposes filterSection (Color exposure & Film grain) for procedural patterns
+    assert.ok(inspectorCode.includes("isProcedural ? effectsSection(el) + filterSection(el) :"), 'Inspector must include filterSection for procedural pattern layers');
+    assert.ok(inspectorCode.includes("const media = ['image', 'video', 'slideshow', 'embed', 'pattern', 'procedural-pattern'].includes(el.type);"), 'Inspector media filter must treat procedural-pattern as a media element');
+});
+

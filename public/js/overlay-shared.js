@@ -3580,11 +3580,21 @@
             const ts = now || performance.now();
             if (!startTime) startTime = ts;
 
+            const isProcedural = curElement.type === 'procedural-pattern' || curElement.pattern?.sourceType === 'preset' || curElement.pattern?.mode === 'procedural';
+            const procP = isProcedural ? (curElement.pattern || {}) : null;
+            const pMotion = curOptions.animate === false ? 'none' : (procP?.motion || 'none');
+            const pInPlace = curOptions.animate === false ? 'none' : (procP?.inPlace ?? (pMotion !== 'none' ? 'auto' : 'none'));
+            const pSpin = curOptions.animate === false ? 'none' : (procP?.spin || 'none');
+            const pColorAnim = curOptions.animate === false ? 'none' : (procP?.colorAnim || 'none');
+            const hasProcAnim = isProcedural && (pMotion !== 'none' || (pInPlace !== 'none' && pInPlace !== false && pInPlace !== 0) || (pSpin !== 'none' && pSpin !== false) || (pColorAnim !== 'none'));
+
             const isFloating = (motion === 'float' || (animateJitter && (positionJitter > 0 || scaleJitter > 0 || rotationJitter > 0))) && curOptions.animate !== false;
             const isDynamicKaleido = symmetry !== 'none' && kaleidoMorph && curOptions.animate !== false;
-            const hasDynamicAnim = motion !== 'none' || isDynamicKaleido || hueShift !== 'none' || twinkle > 0 || isFloating;
-            // Frame-rate pacing in editor preview: cap continuous animation loops at ~60fps on 120Hz displays
-            if (!dirtyFrame && curOptions.preview && hasDynamicAnim && lastDrawTs && (ts - lastDrawTs < 15)) {
+            const hasTileAnim = !isProcedural && (motion !== 'none' || isDynamicKaleido || hueShift !== 'none' || twinkle > 0 || isFloating);
+            const hasDynamicAnim = hasProcAnim || hasTileAnim;
+
+            // Frame-rate pacing: cap continuous animation loops at ~60fps (15.8ms interval) across 120Hz/144Hz displays
+            if (!dirtyFrame && hasDynamicAnim && lastDrawTs && (ts - lastDrawTs < 15.8)) {
                 rafId = requestAnimationFrame(drawFrame);
                 return;
             }
@@ -3613,18 +3623,12 @@
 
             const t = Math.max(0, (ts - startTime) / 1000);
 
-            const isProcedural = curElement.type === 'procedural-pattern' || curElement.pattern?.sourceType === 'preset' || curElement.pattern?.mode === 'procedural';
             if (isProcedural) {
                 const patternsEngine = window.StreamPulsePatterns || root.OverlayShared?.Patterns;
-                const p = curElement.pattern || {};
+                const p = procP || curElement.pattern || {};
                 const presetName = p.preset || 'hexagons';
-                const pMotion = curOptions.animate === false ? 'none' : (p.motion || 'none');
-                const pInPlace = curOptions.animate === false ? 'none' : (p.inPlace ?? (pMotion !== 'none' ? 'auto' : 'none'));
-                const pSpin = curOptions.animate === false ? 'none' : (p.spin || 'none');
                 const pColorMode = p.colorMode || 'mosaic';
-                const pColorAnim = curOptions.animate === false ? 'none' : (p.colorAnim || 'none');
                 const pColorSpeed = Number(p.colorSpeed) || 1;
-                const hasDynamicAnim = pMotion !== 'none' || (pInPlace !== 'none' && pInPlace !== false && pInPlace !== 0) || (pSpin !== 'none' && pSpin !== false) || (pColorAnim !== 'none');
                 if (patternsEngine?.drawProceduralPattern) {
                     const cleanAccent = (p.accent && p.accent !== 'transparent') ? p.accent : '#58a6ff';
                     const cleanSecondary = (p.secondary && p.secondary !== 'transparent') ? p.secondary : cleanAccent;

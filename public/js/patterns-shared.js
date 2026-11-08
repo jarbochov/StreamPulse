@@ -299,8 +299,8 @@
 
         // Dynamic overscan bounds that automatically expand to cover the canvas viewport
         // regardless of pan distance or canvas translation, with zero blank edges or seams
-        const padX = width * 0.35;
-        const padY = height * 0.35;
+        const padX = Math.max(80, (fullWidth / scale) * 0.06);
+        const padY = Math.max(80, (fullHeight / scale) * 0.06);
         const minX = -padX - motionTransX;
         const maxX = width + padX - motionTransX;
         const minY = -padY - motionTransY;
@@ -358,8 +358,10 @@
                 const normAngle = (angle + Math.PI) / (Math.PI * 2);
                 base = Math.floor((dist / ringStep) * 2 + normAngle * 4);
             } else {
-                // 'mosaic' / default: integer prime hashing distributes palette tones organically without diagonal striping
-                base = Math.abs((row * 7919 + col * 104729 + extraIdx * 1237) % 997);
+                // 'mosaic' / default: integer hash distributes palette tones organically without diagonal striping or monochromatic blocking
+                let h = (row * 374761393 + col * 668265263 + extraIdx * 1274126177) ^ 0x5bf03635;
+                h = Math.imul(h ^ (h >>> 13), 1274126177);
+                base = ((h ^ (h >>> 16)) >>> 0) % 997;
             }
             return Math.floor(base + colorShift + (extraIdx && colorMode !== 'mosaic' ? extraIdx : 0));
         }
@@ -751,7 +753,7 @@
                     const cIdx1 = getCellColorIndex(row, col, x + size * 0.5, y + rowStep * 0.5, 0);
                     const cIdx2 = getCellColorIndex(row, col, x + size, y + rowStep * 0.5, 1);
                     const color1 = getPatternColor(palette, cIdx1, accent, secondary);
-                    const color2 = getPatternColor(palette, cIdx2, secondary, accent);
+                    const color2 = getPatternColor(palette, cIdx2, accent, secondary);
                     const baseFillVal = Number.parseInt(fillHex, 16);
 
                     ctx.beginPath();
@@ -1000,40 +1002,44 @@
 
                     // 1. Radiating fanned tail feathers (semi-circle fan behind the body)
                     const feathers = 7;
+                    const pivotY = r * 0.22;
                     for (let f = 0; f < feathers; f++) {
                         const fNorm = (f - (feathers - 1) / 2) / ((feathers - 1) / 2);
                         const fAng = fNorm * (Math.PI * 0.44) * fanSpread;
+                        const sinA = Math.sin(fAng), cosA = Math.cos(fAng);
                         const cIdx = getCellColorIndex(row, col, cx, cy, f);
                         const fCol = getPatternColor(palette, cIdx, accent, secondary);
-                        const tipCol = getPatternColor(palette, cIdx + 1, secondary, accent);
-                        ctx.save();
-                        ctx.translate(0, r * 0.22);
-                        ctx.rotate(fAng);
+                        const tipCol = getPatternColor(palette, cIdx + 1, accent, secondary);
 
                         // Main feather paddle
+                        const distPaddle = r * 0.90;
+                        const px = distPaddle * sinA;
+                        const py = pivotY - distPaddle * cosA;
                         ctx.fillStyle = withAlpha(fCol, hasFill ? fillHex : '40');
                         ctx.strokeStyle = withAlpha(fCol, 'c0');
                         ctx.beginPath();
-                        ctx.ellipse(0, -r * 0.68, r * 0.20, r * 0.48, 0, 0, Math.PI * 2);
+                        ctx.ellipse(px, py, r * 0.20, r * 0.48, fAng, 0, Math.PI * 2);
                         if (hasFill) ctx.fill();
                         ctx.stroke();
 
                         // Feather tip band (signature turkey tail feather plumage)
+                        const distTip = r * 1.24;
+                        const tx = distTip * sinA;
+                        const ty = pivotY - distTip * cosA;
                         ctx.fillStyle = withAlpha(tipCol, hasFill ? (fillMode === 'solid' ? 'ff' : fillHex) : '70');
                         ctx.strokeStyle = withAlpha(tipCol, 'e0');
                         ctx.beginPath();
-                        ctx.ellipse(0, -r * 1.02, r * 0.16, r * 0.12, 0, 0, Math.PI * 2);
+                        ctx.ellipse(tx, ty, r * 0.16, r * 0.12, fAng, 0, Math.PI * 2);
                         if (hasFill) ctx.fill();
                         ctx.stroke();
 
                         // Feather center quill line
+                        const distQuill = r * 1.16;
                         ctx.strokeStyle = withAlpha(fCol, '65');
                         ctx.beginPath();
-                        ctx.moveTo(0, -r * 0.22);
-                        ctx.lineTo(0, -r * 0.94);
+                        ctx.moveTo(0, pivotY);
+                        ctx.lineTo(distQuill * sinA, pivotY - distQuill * cosA);
                         ctx.stroke();
-
-                        ctx.restore();
                     }
 
                     // 2. Plump turkey body (layered over feathers)
@@ -1046,7 +1052,7 @@
                     ctx.stroke();
 
                     // 3. Folded wings on left & right of body
-                    const wingCol = getPatternColor(palette, idx + 3, secondary, accent);
+                    const wingCol = getPatternColor(palette, idx + 1, accent, secondary);
                     ctx.fillStyle = withAlpha(wingCol, hasFill ? (fillMode === 'solid' ? withAlpha(wingCol, 'ee') : fillHex) : '35');
                     ctx.strokeStyle = withAlpha(wingCol, 'c8');
                     // Left wing
@@ -1167,7 +1173,7 @@
                     const cy = row * stepY + scatterY + fallDy;
                     const cIdx = getCellColorIndex(row, col, cx, cy, idx);
                     const pColor = getPatternColor(palette, cIdx, accent, secondary);
-                    const stemColor = getPatternColor(palette, cIdx + 2, secondary, accent);
+                    const stemColor = getPatternColor(palette, cIdx + 1, accent, secondary);
                     const randomAngle = ((((idx * 137) % 360) / 360) * Math.PI * 2 - Math.PI) * 0.2 * rotVarAmount;
                     const pumpkinSpin = hasSpin ? (spinMode === 'sway' ? Math.sin(continuousSpinAngle + idx * 0.7) * 0.22 : (continuousSpinAngle * 0.35 * ((idx & 1) ? 1 : -1))) : 0;
                     const tilt = ((idx % 5) - 2) * 0.05 + (hasInPlaceAnim ? Math.sin(inPlacePhase + idx) * 0.05 : 0);
@@ -1230,7 +1236,7 @@
                     const sway = hasInPlaceAnim ? Math.sin(inPlacePhase + idx * 0.7) * 0.05 : 0;
                     const cIdx = getCellColorIndex(row, col, cx, cy, idx);
                     const treeColor = getPatternColor(palette, cIdx, accent, secondary);
-                    const topperColor = getPatternColor(palette, cIdx + 1, secondary, accent);
+                    const topperColor = getPatternColor(palette, cIdx + 1, accent, secondary);
 
                     ctx.save();
                     ctx.translate(cx, cy);
@@ -1731,7 +1737,7 @@
                     const cy = row * stepY + scatterY + fallDy;
                     const cIdx = getCellColorIndex(row, col, cx, cy, idx);
                     const mainCol = getPatternColor(palette, cIdx, accent, secondary);
-                    const subCol = getPatternColor(palette, cIdx + 1, secondary, accent);
+                    const subCol = getPatternColor(palette, cIdx + 1, accent, secondary);
                     const bloom = hasInPlaceAnim ? (0.75 + 0.25 * Math.sin(inPlacePhase * 1.8 + idx * 1.1)) : 1;
                     const r = baseBurstR * (sizeVarAmount > 0 ? (0.8 + (idx % 3) * 0.12) * sizeMult : 1);
                     const rays = 12;
@@ -1783,7 +1789,7 @@
             const cIdx1 = getCellColorIndex(0, 0, width * 0.7, height * 0.3);
             const cIdx2 = getCellColorIndex(1, 0, width * 0.3, height * 0.7);
             const color1 = getPatternColor(palette, cIdx1, accent, secondary);
-            const color2 = getPatternColor(palette, cIdx2, secondary, accent);
+            const color2 = getPatternColor(palette, cIdx2, accent, secondary);
             ctx.fillStyle = withAlpha(color1, alpha1);
             ctx.beginPath(); ctx.moveTo(width * 0.55 + geomMorph, minY); ctx.lineTo(maxX, minY); ctx.lineTo(maxX, height * 0.85); ctx.closePath(); ctx.fill();
             ctx.fillStyle = withAlpha(color2, alpha2);

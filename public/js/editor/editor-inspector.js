@@ -682,7 +682,7 @@ export function filterSection(el) {
     const hasRetro = retroNorm.display !== 'none' || retroNorm.vhs || retroNorm.ntsc || retroNorm.static;
 
     const presets = shared.MEDIA_FILTER_PRESETS || [];
-    const media = ['image', 'video', 'slideshow', 'embed', 'pattern'].includes(el.type);
+    const media = ['image', 'video', 'slideshow', 'embed', 'pattern', 'procedural-pattern'].includes(el.type);
     const matchingPreset = presets.find(([id, name, pFilter]) => {
         if (!el.mediaFilter && id === 'none') return true;
         if (!el.mediaFilter) return false;
@@ -1601,7 +1601,7 @@ export function renderProperties() {
         const isProcedural = el.type === 'procedural-pattern' || (el.type === 'pattern' && el.pattern?.sourceType === 'preset');
         style = (el.type === 'alert' ? alertLooksSection(base) + alertSection(el, true) : '')
             + (el.type === 'icon' ? iconEffectsSection(el) : '') + (hasText(el) ? typographySection(el) : '')
-            + (isProcedural ? effectsSection(el) : (el.type !== 'cutout' ? fillSection(el) + effectsSection(el) + filterSection(el) : ''));
+            + (isProcedural ? effectsSection(el) + filterSection(el) : (el.type !== 'cutout' ? fillSection(el) + effectsSection(el) + filterSection(el) : ''));
     }
     root.dataset.inspectorKey = key;
     const bodies = { content, layout, style };
