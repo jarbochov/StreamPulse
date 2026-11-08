@@ -1025,3 +1025,248 @@ test('Decoupled In-Place Animation, Speed Calibration & Snowflake Morphologies',
     assert.ok(inspectorCode.includes("'pattern.inPlace'"), 'pattern.inPlace must be in RERENDER_PATHS');
     assert.ok(inspectorCode.includes("'pattern.snowflakeStyle'"), 'pattern.snowflakeStyle must be in RERENDER_PATHS');
 });
+
+test('Universal In-Place Animation and Pattern Capabilities Gating', () => {
+    const { PATTERNS, PATTERN_CAPABILITIES, drawProceduralPattern } = require('../public/js/patterns-shared.js');
+    assert.ok(PATTERN_CAPABILITIES, 'PATTERN_CAPABILITIES must be exported');
+    assert.equal(Object.keys(PATTERN_CAPABILITIES).length, 28, 'All 28 patterns must have capability entries');
+
+    // 1. Verify in-place animation works across all 28 patterns when canvas movement is static (motion: 'none')
+    for (const pat of PATTERNS) {
+        const caps = PATTERN_CAPABILITIES[pat];
+        assert.ok(caps, `Pattern ${pat} must exist in PATTERN_CAPABILITIES`);
+        assert.equal(caps.inPlace, true, `Pattern ${pat} must support in-place animation`);
+
+        const getSnapshot = (t, inPlaceMode = 'auto') => {
+            const records = [];
+            const mock = {
+                save: () => {}, restore: () => {}, beginPath: () => {}, closePath: () => {},
+                moveTo: (x, y) => records.push(`M:${Math.round(x)},${Math.round(y)}`),
+                lineTo: (x, y) => records.push(`L:${Math.round(x)},${Math.round(y)}`),
+                quadraticCurveTo: () => {},
+                stroke: () => { if (mock.strokeStyle) records.push(`S:${mock.strokeStyle}`); },
+                fill: () => { if (mock.fillStyle) records.push(`F:${mock.fillStyle}`); },
+                fillRect: (x, y, w, h) => records.push(`R:${Math.round(x)},${Math.round(y)},${Math.round(w)},${Math.round(h)}:${mock.fillStyle}`),
+                scale: () => {}, translate: (x, y) => records.push(`T:${Math.round(x)},${Math.round(y)}`),
+                rotate: (r) => records.push(`Rot:${r.toFixed(3)}`),
+                arc: (x, y, r) => records.push(`A:${Math.round(x)},${Math.round(y)},${r.toFixed(2)}`),
+                ellipse: (x, y, rx, ry) => records.push(`E:${Math.round(x)},${Math.round(y)},${rx.toFixed(2)},${ry.toFixed(2)}`),
+                createRadialGradient: () => ({ addColorStop: () => {} }),
+                createLinearGradient: () => ({ addColorStop: () => {} })
+            };
+            drawProceduralPattern(mock, pat, 600, 400, {
+                scale: 100,
+                accent: '#38bdf8',
+                secondary: '#f43f5e',
+                time: t,
+                motion: 'none',
+                inPlace: inPlaceMode
+            });
+            return records.join('|');
+        };
+
+        const snap0 = getSnapshot(0, 'auto');
+        const snap1 = getSnapshot(1.5, 'auto');
+        assert.ok(snap0.length > 0, `Pattern ${pat} must render content`);
+        assert.notEqual(snap0, snap1, `Pattern ${pat} must visually animate in place when motion is static (none)`);
+
+        // When inPlace is 'none', t=0 and t=1.5 must be identical
+        const frozen0 = getSnapshot(0, 'none');
+        const frozen1 = getSnapshot(1.5, 'none');
+        assert.equal(frozen0, frozen1, `Pattern ${pat} must freeze completely when inPlace is none`);
+    }
+
+    // 2. Verify dots, diamonds, hexagons, triangles, and scales respond to size variance and scatter
+    for (const pat of ['dots', 'diamonds', 'hexagons', 'triangles', 'scales', 'circuit']) {
+        const getGeomSnapshot = (opts = {}) => {
+            const records = [];
+            const mock = {
+                save: () => {}, restore: () => {}, beginPath: () => {}, closePath: () => {},
+                moveTo: (x, y) => records.push(`M:${Math.round(x)},${Math.round(y)}`),
+                lineTo: (x, y) => records.push(`L:${Math.round(x)},${Math.round(y)}`),
+                quadraticCurveTo: () => {}, stroke: () => {}, fill: () => {},
+                fillRect: (x, y, w, h) => records.push(`R:${Math.round(x)},${Math.round(y)},${Math.round(w)},${Math.round(h)}:${mock.fillStyle}`),
+                scale: () => {}, translate: (x, y) => records.push(`T:${Math.round(x)},${Math.round(y)}`),
+                rotate: () => {},
+                arc: (x, y, r) => records.push(`A:${Math.round(x)},${Math.round(y)},${r.toFixed(2)}`),
+                ellipse: (x, y, rx, ry) => records.push(`E:${Math.round(x)},${Math.round(y)},${rx.toFixed(2)},${ry.toFixed(2)}`),
+                createRadialGradient: () => ({ addColorStop: () => {} }),
+                createLinearGradient: () => ({ addColorStop: () => {} })
+            };
+            drawProceduralPattern(mock, pat, 600, 400, {
+                scale: 100,
+                accent: '#38bdf8',
+                secondary: '#f43f5e',
+                time: 0,
+                motion: 'none',
+                ...opts
+            });
+            return records.join('|');
+        };
+
+        const baseSnap = getGeomSnapshot({ sizeVariance: 0, scatter: 0 });
+        const sizeVarSnap = getGeomSnapshot({ sizeVariance: 75, scatter: 0 });
+        const scatterSnap = getGeomSnapshot({ sizeVariance: 0, scatter: 75 });
+        assert.notEqual(baseSnap, sizeVarSnap, `Pattern ${pat} must respond to size variance`);
+        assert.notEqual(baseSnap, scatterSnap, `Pattern ${pat} must respond to organic scatter`);
+    }
+
+    // 3. Verify inspector gating
+    const patternsCode = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-patterns.js'), 'utf8');
+    assert.ok(patternsCode.includes('PATTERN_CAPABILITIES'), 'editor-patterns must query PATTERN_CAPABILITIES');
+    assert.ok(patternsCode.includes('caps.sizeVariance'), 'editor-patterns must check caps.sizeVariance before rendering slider');
+    assert.ok(patternsCode.includes('caps.scatter'), 'editor-patterns must check caps.scatter before rendering slider');
+    assert.ok(patternsCode.includes('caps.fill !== false'), 'editor-patterns must check caps.fill before rendering fill section');
+});
+
+test('Infinite Non-Jumping Concentric Rings, Persistent Identity & Seam Elimination', () => {
+    const { drawProceduralPattern } = require('../public/js/patterns-shared.js');
+    const ringCaptures = [];
+    const mockCtx = {
+        save: () => {}, restore: () => {}, beginPath: () => {}, closePath: () => {},
+        moveTo: () => {}, lineTo: () => {}, quadraticCurveTo: () => {}, stroke: () => {}, fill: () => {},
+        fillRect: () => {}, scale: () => {}, translate: () => {}, rotate: () => {},
+        arc: (x, y, r) => ringCaptures.push({ r: Math.round(r), stroke: mockCtx.strokeStyle }),
+        ellipse: () => {},
+        createRadialGradient: () => ({ addColorStop: () => {} }),
+        createLinearGradient: () => ({ addColorStop: () => {} }),
+        strokeStyle: '#000000'
+    };
+
+    // Render rings at t=0 and t=1.0 and t=2.0
+    ringCaptures.length = 0;
+    drawProceduralPattern(mockCtx, 'rings', 720, 720, {
+        scale: 100,
+        palette: 'warm',
+        time: 0,
+        motion: 'drift',
+        speed: 1
+    });
+    const rings0 = [...ringCaptures];
+
+    ringCaptures.length = 0;
+    drawProceduralPattern(mockCtx, 'rings', 720, 720, {
+        scale: 100,
+        palette: 'warm',
+        time: 1.0,
+        motion: 'drift',
+        speed: 1
+    });
+    const rings1 = [...ringCaptures];
+
+    assert.ok(rings0.length > 5, 'Rings must render concentric arcs');
+    assert.ok(rings1.length > 5, 'Rings must render concentric arcs at t=1.0');
+
+    // Continuous radial expansion: rings expand outward without collapsing or jumping
+    assert.ok(rings1[1].r > rings0[0].r, 'Expanding ripple rings must continuously increase in radius with time');
+    assert.ok(rings1[0].r > 0 && rings1[0].r < rings0[0].r, 'New ring smoothly emerges and fades in from center');
+});
+
+test('Independent Element Spin, Pan Direction and Cinematic Vignette', () => {
+    const { PATTERN_CAPABILITIES, PALETTES, drawProceduralPattern } = require('../public/js/patterns-shared.js');
+    const { PATTERN_PALETTES, PATTERN_SPIN_MODES, PATTERN_PAN_DIRECTIONS, normalizeCustomOverlay } = require('../server/services/overlays.js');
+
+    // 1. Palettes verification (22 curated palettes)
+    const newPalettes = ['synthwave', 'galaxy', 'terracotta', 'vaporwave', 'ocean', 'royal', 'sakura', 'coffee'];
+    for (const pal of newPalettes) {
+        assert.ok(PALETTES[pal], `PALETTES must include ${pal}`);
+        assert.ok(PATTERN_PALETTES.includes(pal), `PATTERN_PALETTES in overlays service must include ${pal}`);
+        assert.ok(Array.isArray(PALETTES[pal]) && PALETTES[pal].length >= 5, `${pal} must have at least 5 curated tones`);
+    }
+
+    // 2. Spin modes verification
+    assert.deepEqual(PATTERN_SPIN_MODES, ['none', 'auto', 'spin', 'reverse', 'sway']);
+    assert.deepEqual(PATTERN_PAN_DIRECTIONS, ['continuous', 'oscillate']);
+
+    // 3. Schema normalization for spin, pan, and vignette
+    const overlay = normalizeCustomOverlay({
+        id: 'spin-pan-vignette-test',
+        name: 'Test Overlay',
+        elements: [{
+            id: 'bg-pat',
+            type: 'procedural-pattern',
+            pattern: {
+                preset: 'snowflakes',
+                spin: 'reverse',
+                spinSpeed: 2.5,
+                rotationVariance: 40,
+                panDirection: 'continuous',
+                panAngle: 120,
+                vignette: 55,
+                vignetteColor: '#1e1b4b'
+            }
+        }]
+    });
+    const p = overlay.elements[0].pattern;
+    assert.equal(p.spin, 'reverse', 'spin must be normalized');
+    assert.equal(p.spinSpeed, 2.5, 'spinSpeed must be normalized');
+    assert.equal(p.rotationVariance, 40, 'rotationVariance must be normalized');
+    assert.equal(p.panDirection, 'continuous', 'panDirection must be normalized');
+    assert.equal(p.panAngle, 120, 'panAngle must be normalized');
+    assert.equal(p.vignette, 55, 'vignette must be normalized');
+    assert.equal(p.vignetteColor, '#1e1b4b', 'vignetteColor must be normalized');
+
+    // 4. Dedicated element spin execution
+    const rotations = [];
+    const mock = {
+        save: () => {}, restore: () => {}, beginPath: () => {}, closePath: () => {},
+        moveTo: () => {}, lineTo: () => {}, quadraticCurveTo: () => {}, stroke: () => {}, fill: () => {},
+        fillRect: () => {}, scale: () => {}, translate: () => {},
+        rotate: (r) => rotations.push(r),
+        arc: () => {}, ellipse: () => {},
+        createRadialGradient: () => ({ addColorStop: () => {} }),
+        createLinearGradient: () => ({ addColorStop: () => {} })
+    };
+
+    // Spin reverse should yield negative delta compared to forward spin
+    rotations.length = 0;
+    drawProceduralPattern(mock, 'diamonds', 600, 400, {
+        scale: 100,
+        time: 1.0,
+        motion: 'none',
+        inPlace: 'none',
+        spin: 'spin',
+        spinSpeed: 1
+    });
+    const forwardSpin = rotations[0];
+
+    rotations.length = 0;
+    drawProceduralPattern(mock, 'diamonds', 600, 400, {
+        scale: 100,
+        time: 1.0,
+        motion: 'none',
+        inPlace: 'none',
+        spin: 'reverse',
+        spinSpeed: 1
+    });
+    const reverseSpin = rotations[0];
+
+    assert.ok(Math.abs(forwardSpin) > 0, 'Spin must produce element rotation');
+    assert.equal(forwardSpin, -reverseSpin, 'Reverse spin must exactly invert spin angle');
+
+    // 5. Cinematic vignette gradient creation
+    let radialGradCreated = false;
+    let vignetteColorCaptured = '';
+    const vigMock = {
+        save: () => {}, restore: () => {}, beginPath: () => {}, closePath: () => {},
+        moveTo: () => {}, lineTo: () => {}, quadraticCurveTo: () => {}, stroke: () => {}, fill: () => {},
+        fillRect: () => {}, scale: () => {}, translate: () => {}, rotate: () => {}, arc: () => {}, ellipse: () => {},
+        createRadialGradient: (cx, cy, r0, cx2, cy2, r1) => {
+            radialGradCreated = true;
+            return {
+                addColorStop: (offset, color) => {
+                    if (offset === 1) vignetteColorCaptured = color;
+                }
+            };
+        },
+        createLinearGradient: () => ({ addColorStop: () => {} })
+    };
+
+    drawProceduralPattern(vigMock, 'hexagons', 600, 400, {
+        scale: 100,
+        vignette: 60,
+        vignetteColor: '#111827'
+    });
+    assert.ok(radialGradCreated, 'drawProceduralPattern must create radial gradient when vignette > 0');
+    assert.ok(vignetteColorCaptured.startsWith('#111827'), 'Vignette gradient must apply custom vignette color');
+});

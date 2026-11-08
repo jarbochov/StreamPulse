@@ -3620,7 +3620,8 @@
                 const presetName = p.preset || 'hexagons';
                 const pMotion = curOptions.animate === false ? 'none' : (p.motion || 'none');
                 const pInPlace = curOptions.animate === false ? 'none' : (p.inPlace ?? (pMotion !== 'none' ? 'auto' : 'none'));
-                const hasDynamicAnim = pMotion !== 'none' || (pInPlace !== 'none' && pInPlace !== false && pInPlace !== 0);
+                const pSpin = curOptions.animate === false ? 'none' : (p.spin || 'none');
+                const hasDynamicAnim = pMotion !== 'none' || (pInPlace !== 'none' && pInPlace !== false && pInPlace !== 0) || (pSpin !== 'none' && pSpin !== false);
                 if (patternsEngine?.drawProceduralPattern) {
                     const cleanAccent = (p.accent && p.accent !== 'transparent') ? p.accent : '#58a6ff';
                     const cleanSecondary = (p.secondary && p.secondary !== 'transparent') ? p.secondary : cleanAccent;
@@ -3635,11 +3636,17 @@
                         lineWidth: Number(p.lineWidth) || 0,
                         motion: pMotion,
                         speed: Number(p.speed) || 1,
+                        panDirection: p.panDirection || 'continuous',
+                        panAngle: Number.isFinite(Number(p.panAngle)) ? Number(p.panAngle) : (Number.isFinite(Number(p.angle)) ? Number(p.angle) : 45),
                         inPlace: pInPlace,
                         inPlaceSpeed: Number(p.inPlaceSpeed) || 1,
+                        spin: pSpin,
+                        spinSpeed: Number(p.spinSpeed) || 1,
                         sizeVariance: Number(p.sizeVariance ?? p.scaleJitter) || 0,
                         scatter: Number(p.scatter ?? p.positionJitter) || 0,
                         rotationVariance: Number(p.rotationVariance ?? p.rotationJitter) || 0,
+                        vignette: Number(p.vignette) || 0,
+                        vignetteColor: p.vignetteColor || '#000000',
                         snowflakeStyle: p.snowflakeStyle || 'all',
                         time: t
                     });

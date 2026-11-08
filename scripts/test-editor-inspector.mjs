@@ -4,8 +4,8 @@ import { readFile } from 'node:fs/promises';
 import puppeteer from 'puppeteer';
 import overlays from '../server/services/overlays.js';
 
-const names = ['overlay-shared.js', 'poll-widget.js', 'editor-geometry.js', 'motion-easing.js',
-    ...['state', 'canvas', 'form', 'layers', 'inspector', 'speakers'].map(name => `editor/editor-${name}.js`)];
+const names = ['overlay-shared.js', 'poll-widget.js', 'patterns-shared.js', 'editor-geometry.js', 'motion-easing.js',
+    ...['state', 'canvas', 'form', 'layers', 'inspector', 'speakers', 'patterns'].map(name => `editor/editor-${name}.js`)];
 const sources = new Map(await Promise.all(names.map(async name =>
     [`/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8')])));
 const css = await readFile(new URL('../public/css/custom-overlay-editor.css', import.meta.url), 'utf8');
@@ -51,7 +51,7 @@ try {
     });
     const setup = async () => {
         await page.goto(origin);
-        for (const name of names.slice(0, 2)) await page.addScriptTag({ url: `${origin}/js/${name}` });
+        for (const name of names.slice(0, 3)) await page.addScriptTag({ url: `${origin}/js/${name}` });
         await page.addScriptTag({ url: `${origin}/js/motion-easing.js` });
         await page.evaluate(async () => {
             window.OverlayShared.slideshowItems = async () => [];

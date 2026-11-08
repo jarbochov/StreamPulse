@@ -45,6 +45,14 @@ export function proceduralPatternSection(el) {
         ['pastel', 'Soft Pastel (Coral, Peach, Mint, Lavender)'],
         ['forest', 'Forest & Moss (Deep Pine, Sage, Earth)'],
         ['sunset', 'Dusk & Sunset (Twilight Violet, Coral, Gold)'],
+        ['synthwave', 'Synthwave (Neon Magenta, Deep Violet, Electric Cyan)'],
+        ['galaxy', 'Cosmic Galaxy (Deep Void, Royal Purple, Bright Teal, Lavender)'],
+        ['terracotta', 'Terracotta & Clay (Burnt Sienna, Rust, Sage, Ochre)'],
+        ['vaporwave', 'Vaporwave (Hot Pink, Cyan, Mint, Lilac, Pastel Yellow)'],
+        ['ocean', 'Deep Ocean (Deep Teal, Emerald, Coral, Gold)'],
+        ['royal', 'Imperial Royal (Velvet Crimson, Burgundy, Antique Gold)'],
+        ['sakura', 'Cherry Blossom Sakura (Blush Pink, Sage, Tender Green)'],
+        ['coffee', 'Warm Coffee & Mocha (Espresso, Warm Caramel, Cream, Chestnut)'],
         ['monochrome', 'Sleek Monochrome (White, Silver, Slate)']
     ];
 
@@ -74,18 +82,31 @@ export function proceduralPatternSection(el) {
         `;
     }
 
+    const preset = p.preset || 'hexagons';
+    const caps = (window.StreamPulsePatterns?.PATTERN_CAPABILITIES && window.StreamPulsePatterns.PATTERN_CAPABILITIES[preset]) || {
+        sizeVariance: true,
+        scatter: true,
+        inPlace: true,
+        fill: true
+    };
+
     const fillModeOptions = [
         ['tinted', 'Translucent Tint (Glass / Ambient)'],
         ['solid', 'Solid Color (Vibrant Opaque)'],
         ['outline', 'Wireframe Outlines Only']
     ];
 
-    let fillBlock = F.select('pattern.fillMode', 'Fill style', fillMode, fillModeOptions);
-    if (fillMode !== 'outline') {
-        const defaultOp = fillMode === 'solid' ? 100 : 30;
-        fillBlock += F.range('pattern.fillOpacity', 'Fill opacity', p.fillOpacity ?? defaultOp, { min: 0, max: 100, step: 5, unit: '%', editable: true, reset: defaultOp });
+    let fillBlock = '';
+    if (caps.fill !== false) {
+        fillBlock = F.select('pattern.fillMode', 'Fill style', fillMode, fillModeOptions);
+        if (fillMode !== 'outline') {
+            const defaultOp = fillMode === 'solid' ? 100 : 30;
+            fillBlock += F.range('pattern.fillOpacity', 'Fill opacity', p.fillOpacity ?? defaultOp, { min: 0, max: 100, step: 5, unit: '%', editable: true, reset: defaultOp });
+        } else {
+            fillBlock += '<span class="hint">Shapes render as clean vector outlines with hollow interiors.</span>';
+        }
     } else {
-        fillBlock += '<span class="hint">Shapes render as clean vector outlines with hollow interiors.</span>';
+        fillBlock = '<span class="hint">Line-based vector pattern. Wireframe lines are styled with palette and line width.</span>';
     }
 
     const blendBlock = F.select('pattern.blendMode', 'Blend type', blendMode, [
@@ -100,7 +121,7 @@ export function proceduralPatternSection(el) {
     ]);
 
     const inPlace = p.inPlace || (motion !== 'none' ? 'auto' : 'none');
-    const snowflakeBlock = (p.preset === 'snowflakes') ? `
+    const snowflakeBlock = (preset === 'snowflakes') ? `
         ${F.select('pattern.snowflakeStyle', 'Snowflake variety', p.snowflakeStyle || 'all', [
             ['all', 'All snowflake varieties (mixed blizzard)'],
             ['dendrite', 'Stellar dendrites (feathery lace)'],
@@ -112,6 +133,17 @@ export function proceduralPatternSection(el) {
         ])}
     ` : '';
 
+    let elementGeometryBlock = '';
+    if (caps.sizeVariance) {
+        elementGeometryBlock += F.range('pattern.sizeVariance', 'Size variance', p.sizeVariance ?? p.scaleJitter ?? 0, { min: 0, max: 100, step: 5, unit: '%', editable: true, reset: 0, resetTitle: 'Reset to uniform sizing' });
+    }
+    if (caps.scatter) {
+        elementGeometryBlock += F.range('pattern.scatter', 'Organic scatter', p.scatter ?? p.positionJitter ?? 0, { min: 0, max: 100, step: 5, unit: '%', editable: true, reset: 0, resetTitle: 'Reset to grid alignment' });
+    }
+    if (!caps.sizeVariance && !caps.scatter) {
+        elementGeometryBlock = `<span class="hint">${caps.hint || 'Continuous vector lattice. Geometry scale, line width, and in-place animation adjust this background.'}</span>`;
+    }
+
     const styleBlock = `
         ${colorFields}
         ${fillBlock}
@@ -120,8 +152,9 @@ export function proceduralPatternSection(el) {
         ${F.color('pattern.color', 'Canvas base fill', p.color || 'transparent', { clear: true })}
         ${F.range('pattern.lineWidth', 'Line width', p.lineWidth ?? 0, { min: 0, max: 20, step: 0.5, unit: 'px', editable: true, reset: 0, resetTitle: 'Reset to auto thickness (0 = auto)' })}
         ${F.range('pattern.scale', 'Geometry scale', p.scale ?? 100, { min: 10, max: 500, step: 5, unit: '%', editable: true, reset: 100 })}
-        ${F.range('pattern.sizeVariance', 'Size variance', p.sizeVariance ?? p.scaleJitter ?? 0, { min: 0, max: 100, step: 5, unit: '%', editable: true, reset: 0, resetTitle: 'Reset to uniform sizing' })}
-        ${F.range('pattern.scatter', 'Organic scatter', p.scatter ?? p.positionJitter ?? 0, { min: 0, max: 100, step: 5, unit: '%', editable: true, reset: 0, resetTitle: 'Reset to grid alignment' })}
+        ${elementGeometryBlock}
+        ${F.range('pattern.vignette', 'Cinematic vignette', p.vignette ?? 0, { min: 0, max: 100, step: 5, unit: '%', editable: true, reset: 0, resetTitle: 'Disable vignette' })}
+        ${(Number(p.vignette) || 0) > 0 ? F.color('pattern.vignetteColor', 'Vignette shadow color', p.vignetteColor || '#000000', { clear: true }) : ''}
     `;
 
     let motionBlock = F.select('pattern.motion', 'Canvas movement', motion, [
@@ -140,19 +173,49 @@ export function proceduralPatternSection(el) {
         motionBlock += F.range('pattern.speed', 'Movement speed', p.speed ?? 1, { min: 0.1, max: 10, step: 0.1, unit: 'x', editable: true, reset: 1, resetTitle: 'Reset to 1x speed' });
     }
 
-    motionBlock += F.select('pattern.inPlace', 'In-place animation', inPlace, [
-        ['auto', 'Twinkle, pulse & rotate in place'],
-        ['pulse', 'Vivid rhythmic pulse & glow'],
-        ['gentle', 'Gentle slow shimmer & rotation'],
-        ['sparkle', 'Fast twinkle & shimmer'],
-        ['none', 'Frozen (no in-place motion)']
-    ]);
-
-    if (inPlace !== 'none') {
-        motionBlock += F.range('pattern.inPlaceSpeed', 'Twinkle & rotation speed', p.inPlaceSpeed ?? 1, { min: 0.2, max: 5, step: 0.1, unit: 'x', editable: true, reset: 1, resetTitle: 'Reset to 1x speed' });
+    if (motion === 'pan') {
+        motionBlock += F.select('pattern.panDirection', 'Pan glide style', p.panDirection || 'continuous', [
+            ['continuous', 'Single-direction continuous glide'],
+            ['oscillate', 'Back-and-forth oscillation']
+        ]);
+        motionBlock += F.range('pattern.panAngle', 'Glide direction angle', p.panAngle ?? p.angle ?? 45, { min: 0, max: 360, step: 15, unit: '°', editable: true, reset: 45 });
     }
 
-    motionBlock += '<span class="hint">In-place animation allows lights to pulse and snowflakes, stars, and leaves to rotate and shimmer even when canvas movement is set to Static.</span>';
+    const inPlaceLabels = caps.spin ? [
+        ['auto', 'Twinkle & pulse in place'],
+        ['pulse', 'Vivid rhythmic pulse & glow'],
+        ['gentle', 'Gentle slow shimmer'],
+        ['sparkle', 'Fast twinkle & shimmer'],
+        ['none', 'Frozen (no in-place motion)']
+    ] : [
+        ['auto', 'In-place motion (shimmer, pulse & swell)'],
+        ['pulse', 'Vivid rhythmic pulse & swell'],
+        ['gentle', 'Gentle subtle shimmer'],
+        ['sparkle', 'Fast twinkle & shimmer'],
+        ['none', 'Frozen (no in-place motion)']
+    ];
+
+    motionBlock += F.select('pattern.inPlace', 'In-place animation', inPlace, inPlaceLabels);
+
+    if (inPlace !== 'none') {
+        motionBlock += F.range('pattern.inPlaceSpeed', 'Twinkle & pulse speed', p.inPlaceSpeed ?? 1, { min: 0.2, max: 5, step: 0.1, unit: 'x', editable: true, reset: 1, resetTitle: 'Reset to 1x speed' });
+    }
+
+    if (caps.spin) {
+        const spin = p.spin || 'auto';
+        motionBlock += F.select('pattern.spin', 'Element rotation / spin', spin, [
+            ['auto', 'Clockwise continuous spin'],
+            ['reverse', 'Counter-clockwise continuous spin'],
+            ['sway', 'Gentle pendulum sway'],
+            ['none', 'Static angle (no spinning)']
+        ]);
+        if (spin !== 'none') {
+            motionBlock += F.range('pattern.spinSpeed', 'Spin speed', p.spinSpeed ?? 1, { min: 0.1, max: 5, step: 0.1, unit: 'x', editable: true, reset: 1, resetTitle: 'Reset to 1x speed' });
+        }
+        motionBlock += F.range('pattern.rotationVariance', 'Rotation variance', p.rotationVariance ?? p.rotationJitter ?? 0, { min: 0, max: 100, step: 5, unit: '%', editable: true, reset: 0, resetTitle: 'Reset to uniform orientation' });
+    }
+
+    motionBlock += '<span class="hint">In-place animation and element spin allow shapes, stars, and foliage to pulse, shimmer, or rotate independently of whole-canvas movement.</span>';
 
     return F.section('proceduralStyle', 'Colors & Fill Style', styleBlock)
         + F.section('proceduralMotion', 'Animation & Motion', motionBlock);

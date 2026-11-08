@@ -74,14 +74,14 @@ export const RERENDER_PATHS = new Set([
     'speakerBadge.reaction.visualizer', 'speakerBadge.reaction.highlightBorder', 'speakerBadge.reaction.dimWhenIdle',
     'speakerBadge.autoSize',
     'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta',
-    'pattern.sourceType', 'pattern.tileDistribution', 'pattern.preset', 'pattern.palette', 'pattern.fillMode', 'pattern.inPlace', 'pattern.snowflakeStyle', 'pattern.layout', 'pattern.symmetry', 'pattern.kaleidoMorph', 'pattern.aspectRatio', 'pattern.hueShift', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip', 'pattern.animateJitter',
+    'pattern.sourceType', 'pattern.tileDistribution', 'pattern.preset', 'pattern.palette', 'pattern.fillMode', 'pattern.inPlace', 'pattern.spin', 'pattern.panDirection', 'pattern.vignette', 'pattern.snowflakeStyle', 'pattern.layout', 'pattern.symmetry', 'pattern.kaleidoMorph', 'pattern.aspectRatio', 'pattern.hueShift', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip', 'pattern.animateJitter',
     'pattern.tiles.0.sourceType', 'pattern.tiles.1.sourceType', 'pattern.tiles.2.sourceType'
 ]);
 
 export const numberWasOn = new Map();
 
 export function numberCrossedZero(path, event) {
-    if (!/^style\.(textStroke\.width|textShadow\.blur|borderWidth|shadow\.blur|innerShadow\.blur|innerShadow\.spread)$/.test(path) || event?.target?.dataset?.kind !== 'number' || event.type !== 'input') return true;
+    if (!/^(style\.(textStroke\.width|textShadow\.blur|borderWidth|shadow\.blur|innerShadow\.blur|innerShadow\.spread)|pattern\.vignette)$/.test(path) || event?.target?.dataset?.kind !== 'number' || event.type !== 'input') return true;
     const now = Number(getPath(selectedElements()[0], path)) > 0;
     const crossed = numberWasOn.get(path) !== now;
     numberWasOn.set(path, now);

@@ -10,6 +10,40 @@
         'snowflakes', 'pumpkins', 'hearts', 'fireworks'
     ];
 
+    const PATTERN_CAPABILITIES = {
+        // Discrete element patterns: size variance + organic scatter + in-place animation + spin
+        dots: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, label: 'Dots matrix' },
+        diamonds: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, label: 'Diamonds grid' },
+        hexagons: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, label: 'Hexagons honeycomb' },
+        triangles: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, label: 'Triangles mosaic' },
+        scales: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, label: 'Scales pattern' },
+        circuit: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: false, label: 'Circuit board' },
+        starfield: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, label: 'Starfield' },
+        sparkles: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, label: 'Sparkles' },
+        confetti: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, label: 'Confetti' },
+        leaves: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, label: 'Autumn leaves' },
+        turkeys: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, label: 'Thanksgiving turkeys' },
+        pumpkins: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, label: 'Pumpkins & harvest' },
+        'christmas-trees': { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, label: 'Christmas trees' },
+        'christmas-lights': { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, label: 'Christmas string lights' },
+        snowflakes: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, label: 'Snowflakes' },
+        hearts: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, label: 'Floating hearts' },
+        fireworks: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, label: 'Celebration fireworks' },
+
+        // Continuous line & vector mesh patterns: in-place animation (swells, ripples, rotations, line shimmers)
+        grid: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, label: 'Grid', hint: 'Continuous Cartesian coordinate grid. Line width, geometry scale, and in-place line shimmer adjust this pattern.' },
+        isometric: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, label: 'Isometric tiles', hint: 'Continuous 3D isometric line grid. Line width, geometry scale, and in-place pulse adjust this pattern.' },
+        mesh: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, label: 'Curved mesh', hint: 'Continuous curved wire mesh. Adjust wave amplitude with scale, and in-place 3D wave oscillation.' },
+        waves: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, label: 'Waves', hint: 'Continuous horizontal contour waves. Line width, geometry scale, and in-place ocean swell adjust this pattern.' },
+        rings: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, label: 'Rings', hint: 'Infinite concentric ripple rings expand continuously from the center point with zero seams or jumps.' },
+        sunburst: { sizeVariance: false, scatter: false, inPlace: true, spin: true, fill: false, label: 'Sunburst', hint: 'Radial rays expanding from center. Line width, ray count, and celestial ray rotation adjust this pattern.' },
+        topography: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, label: 'Topography', hint: 'Elevation contour lines. Contour lines gently morph and breathe with in-place elevation drift.' },
+        chevrons: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, label: 'Chevrons', hint: 'Continuous herringbone zig-zag strips. Shimmers along rows with in-place wave animation.' },
+        checker: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: true, label: 'Checkerboard', hint: 'Continuous checkerboard mosaic tiles. Alternates tile brightness with in-place pulse.' },
+        geometry: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: true, label: 'Geometry', hint: 'Abstract background geometric shapes with breathing in-place opacity.' },
+        orbits: { sizeVariance: false, scatter: false, inPlace: true, spin: true, fill: false, label: 'Orbits', hint: 'Planetary orbit arcs with subtle in-place orbital drift.' }
+    };
+
     const PATTERN_CATEGORIES = [
         {
             group: 'Geometric',
@@ -74,6 +108,14 @@
         pastel: ['#fca5a5', '#fdba74', '#fde047', '#86efac', '#93c5fd', '#d8b4fe', '#fbcfe8'],
         forest: ['#14532d', '#16a34a', '#84cc16', '#ca8a04', '#78350f', '#15803d', '#3f6212'],
         sunset: ['#4c1d95', '#c026d3', '#f43f5e', '#fb923c', '#facc15', '#e11d48', '#7c3aed'],
+        synthwave: ['#f72585', '#7209b7', '#3a0ca3', '#4361ee', '#4cc9f0'],
+        galaxy: ['#240046', '#5a189a', '#9d4edd', '#00b4d8', '#c77dff', '#e0aaff'],
+        terracotta: ['#c86446', '#9e472a', '#e6b89c', '#d99b42', '#778465', '#d4a373'],
+        vaporwave: ['#ff71ce', '#01cdfe', '#05ffa1', '#b967ff', '#fffb96'],
+        ocean: ['#0f4c5c', '#06d6a0', '#118ab2', '#f78c6b', '#ffd166', '#e36414'],
+        royal: ['#580c1f', '#74121d', '#8b263e', '#c99700', '#f1e0ac', '#3d0c11'],
+        sakura: ['#ffb7b2', '#ffdac1', '#b5e7a0', '#86af49', '#e2f0d9', '#ff9aa2'],
+        coffee: ['#2c1810', '#4a2c1d', '#8c5835', '#c4a482', '#f5ede2', '#a07855'],
         monochrome: ['#ffffff', '#e2e8f0', '#94a3b8', '#475569', '#1e293b', '#64748b', '#0f172a']
     };
 
@@ -176,6 +218,23 @@
         const scatterAmount = Math.max(0, Math.min(1, (Number(options.scatter ?? options.positionJitter) || 0) / 100));
         const rotVarAmount = Math.max(0, Math.min(1, (Number(options.rotationVariance ?? options.rotationJitter) || 0) / 100));
 
+        // Dedicated element spin & rotation control (decoupled from twinkle/pulse)
+        const spinMode = options.spin !== undefined ? options.spin : (hasInPlaceAnim ? 'auto' : 'none');
+        const rawSpinSpeed = Number(options.spinSpeed) > 0 ? Number(options.spinSpeed) : 1;
+        const spinSpeed = rawSpinSpeed * SPEED_SCALE;
+        const hasSpin = spinMode !== 'none';
+        let continuousSpinAngle = 0;
+        if (hasSpin && time > 0) {
+            if (spinMode === 'reverse') {
+                continuousSpinAngle = -time * Math.PI * 0.8 * spinSpeed;
+            } else if (spinMode === 'sway') {
+                continuousSpinAngle = Math.sin(time * Math.PI * 0.6 * spinSpeed) * 0.28;
+            } else {
+                // 'auto' or 'spin'
+                continuousSpinAngle = time * Math.PI * 0.8 * spinSpeed;
+            }
+        }
+
         const pulse = motion === 'pulse' ? (1 - Math.cos(phase)) / 2 : 0;
 
         // Pattern scale around canvas center so changing scale zooms smoothly without scrambling coordinates
@@ -205,15 +264,25 @@
             ctx.translate(-width / 2, -height / 2);
             ctx.globalAlpha = 0.65 + 0.35 * pulse;
         } else if (motion === 'pan') {
-            const angle = ((options.angle ?? 45) - 90) * Math.PI / 180;
-            const u = Math.sin(time / 6 * speed * Math.PI * 2);
-            const mx = width * 0.12, my = height * 0.12;
-            ctx.translate(Math.cos(angle) * mx * u, Math.sin(angle) * my * u);
+            const panAngleRaw = Number.isFinite(Number(options.panAngle)) ? Number(options.panAngle) : (Number.isFinite(Number(options.angle)) ? Number(options.angle) : 45);
+            const panAngleRad = (panAngleRaw - 90) * Math.PI / 180;
+            const panMode = options.panDirection === 'oscillate' ? 'oscillate' : 'continuous';
+            if (panMode === 'oscillate') {
+                const u = Math.sin(time / 6 * speed * Math.PI * 2);
+                const mx = width * 0.16, my = height * 0.16;
+                ctx.translate(Math.cos(panAngleRad) * mx * u, Math.sin(panAngleRad) * my * u);
+            } else {
+                // Continuous single-direction glide
+                const loopSpan = Math.max(width, height) * 1.5;
+                const glideDist = isLoop ? (time % loopDuration) * (loopSpan / loopDuration) : ((time * fullHeight * 0.055 * speed) % loopSpan);
+                ctx.translate(-Math.cos(panAngleRad) * glideDist, -Math.sin(panAngleRad) * glideDist);
+            }
         }
 
         // Overscan bounds so drift/sway/orbit/pan/fall never expose blank canvas edges
-        const padX = width * 0.22;
-        const padY = height * 0.22;
+        const isContinuousPan = motion === 'pan' && options.panDirection !== 'oscillate';
+        const padX = width * (isContinuousPan ? 0.65 : 0.25);
+        const padY = height * (isContinuousPan ? 0.65 : 0.25);
         const minX = -padX, maxX = width + padX;
         const minY = -padY, maxY = height + padY;
 
@@ -241,6 +310,8 @@
             const x0 = Math.floor(minX / step) * step;
             const yStart = Math.floor((minY - fallDy) / step) - 1;
             const yEnd = Math.ceil((maxY - fallDy) / step) + 1;
+            const gridPulse = hasInPlaceAnim ? (0.70 + 0.30 * Math.sin(inPlacePhase * 1.5)) : 1;
+            ctx.strokeStyle = withAlpha(accent, Math.max(10, Math.min(255, Math.round(Number.parseInt(options.accentAlpha || '55', 16) * gridPulse))).toString(16).padStart(2, '0'));
             ctx.beginPath();
             for (let x = x0; x <= maxX; x += step) { ctx.moveTo(x + fallSwayX, minY); ctx.lineTo(x + fallSwayX, maxY); }
             for (let yi = yStart; yi <= yEnd; yi++) {
@@ -248,19 +319,29 @@
                 ctx.moveTo(minX, cy); ctx.lineTo(maxX, cy);
             }
             ctx.stroke();
-            ctx.fillStyle = accent;
+            ctx.fillStyle = withAlpha(accent, Math.max(10, Math.min(255, Math.round(255 * gridPulse))).toString(16).padStart(2, '0'));
             ctx.fillRect(width * 0.92, height * 0.12, width * 0.012, height * 0.28);
         } else if (pattern === 'hexagons') {
-            const radius = Math.max(3, fullWidth / 28), rowStep = Math.sqrt(3) * radius;
-            const columnStep = radius * 1.5;
+            const baseRadius = Math.max(3, fullWidth / 28), rowStep = Math.sqrt(3) * baseRadius;
+            const columnStep = baseRadius * 1.5;
             ctx.lineWidth = getLineW(1);
-            const cStart = Math.floor(minX / columnStep) - 1, cEnd = Math.ceil(maxX / columnStep) + 1;
-            const rStart = Math.floor((minY - fallDy) / rowStep) - 1, rEnd = Math.ceil((maxY - fallDy) / rowStep) + 1;
+            const cStart = Math.floor(minX / columnStep) - 2, cEnd = Math.ceil(maxX / columnStep) + 2;
+            const rStart = Math.floor((minY - fallDy) / rowStep) - 2, rEnd = Math.ceil((maxY - fallDy) / rowStep) + 2;
             for (let col = cStart; col <= cEnd; col++) {
                 for (let row = rStart; row <= rEnd; row++) {
-                    const cx = col * columnStep + fallSwayX;
-                    const cy = row * rowStep + (((col % 2) + 2) % 2) * rowStep / 2 + fallDy;
-                    const color = getPatternColor(palette, col * 7 + row * 11, accent, secondary);
+                    const idx = Math.abs(col * 19 + row * 23);
+                    const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
+                    const sizeMult = (1 - sizeVarAmount * 0.4) + sizeHash * (sizeVarAmount * 0.8);
+                    const scatterX = ((((idx * 43) % 100) / 100 - 0.5) * columnStep * 0.55) * scatterAmount;
+                    const scatterY = ((((idx * 67) % 100) / 100 - 0.5) * rowStep * 0.55) * scatterAmount;
+                    const cellPulse = hasInPlaceAnim ? (0.86 + 0.14 * Math.sin(inPlacePhase * 1.6 + idx * 0.7)) : 1;
+                    const radius = baseRadius * sizeMult * cellPulse;
+
+                    const cx = col * columnStep + scatterX + fallSwayX;
+                    const cy = row * rowStep + (((col % 2) + 2) % 2) * rowStep / 2 + scatterY + fallDy;
+                    // Color scattering: integer prime hashing distributes palette jewel tones in an organic mosaic
+                    const colorHash = Math.abs((col * 7919 + row * 104729) % 997);
+                    const color = getPatternColor(palette, colorHash, accent, secondary);
                     ctx.beginPath();
                     for (let point = 0; point < 6; point++) {
                         const angle = point * Math.PI / 3, x = cx + Math.cos(angle) * radius, y = cy + Math.sin(angle) * radius;
@@ -271,34 +352,57 @@
                         ctx.fillStyle = withAlpha(color, fillHex);
                         ctx.fill();
                     }
-                    ctx.strokeStyle = withAlpha(color, '95');
+                    const strokeAlpha = hasInPlaceAnim ? Math.max(30, Math.min(255, Math.round(0x95 * cellPulse))).toString(16).padStart(2, '0') : '95';
+                    ctx.strokeStyle = withAlpha(color, strokeAlpha);
                     ctx.stroke();
                 }
             }
         } else if (pattern === 'diamonds') {
-            const step = Math.max(4, fullWidth / 18), radius = step * 0.46;
+            const step = Math.max(4, fullWidth / 18), baseRadius = step * 0.46;
             ctx.lineWidth = getLineW(1);
-            const yStart = Math.floor((minY - fallDy) / step) - 1;
-            const yEnd = Math.ceil((maxY - fallDy) / step) + 1;
+            const yStart = Math.floor((minY - fallDy) / step) - 2;
+            const yEnd = Math.ceil((maxY - fallDy) / step) + 2;
             const x0 = Math.floor(minX / step) * step;
             for (let yi = yStart; yi <= yEnd; yi++) {
                 const cy = yi * step + fallDy;
                 for (let x = x0; x <= maxX + step; x += step) {
-                    const cx = x + fallSwayX;
-                    const color = getPatternColor(palette, Math.round(x / step + yi * 3), accent, secondary);
+                    const col = Math.round(x / step);
+                    const idx = Math.abs(yi * 31 + col * 19);
+                    const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
+                    const sizeMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
+                    const scatterX = ((((idx * 43) % 100) / 100 - 0.5) * step * 0.55) * scatterAmount;
+                    const scatterY = ((((idx * 67) % 100) / 100 - 0.5) * step * 0.55) * scatterAmount;
+                    const breathe = hasInPlaceAnim ? (0.84 + 0.16 * Math.sin(inPlacePhase * 1.8 + idx)) : 1;
+                    const radius = baseRadius * sizeMult * breathe;
+                    const cx = x + scatterX + fallSwayX;
+                    const finalCy = cy + scatterY;
+                    const colorHash = Math.abs((yi * 7919 + col * 104729) % 997);
+                    const color = getPatternColor(palette, colorHash, accent, secondary);
+
+                    const randomAngle = ((((idx * 137) % 360) / 360) * Math.PI * 2) * rotVarAmount;
+                    const diamondSpin = hasSpin ? (spinMode === 'sway' ? Math.sin(continuousSpinAngle + idx) * 0.15 : continuousSpinAngle * ((idx & 1) ? 1 : -1) * 0.5) : 0;
+                    const rot = randomAngle + diamondSpin;
+
+                    ctx.save();
+                    ctx.translate(cx, finalCy);
+                    if (rot !== 0) ctx.rotate(rot);
                     ctx.beginPath();
-                    ctx.moveTo(cx, cy - radius); ctx.lineTo(cx + radius, cy); ctx.lineTo(cx, cy + radius); ctx.lineTo(cx - radius, cy); ctx.closePath();
+                    ctx.moveTo(0, -radius); ctx.lineTo(radius, 0); ctx.lineTo(0, radius); ctx.lineTo(-radius, 0); ctx.closePath();
                     if (hasFill) {
                         ctx.fillStyle = withAlpha(color, fillHex);
                         ctx.fill();
                     }
-                    ctx.strokeStyle = withAlpha(color, '95');
+                    const strokeAlpha = hasInPlaceAnim ? Math.max(30, Math.min(255, Math.round(0x95 * breathe))).toString(16).padStart(2, '0') : '95';
+                    ctx.strokeStyle = withAlpha(color, strokeAlpha);
                     ctx.stroke();
+                    ctx.restore();
                 }
             }
         } else if (pattern === 'isometric') {
             const edge = Math.max(1, fullWidth / 20), half = edge * Math.sqrt(3) / 2, slope = Math.tan(Math.PI / 6);
+            const isoPulse = hasInPlaceAnim ? (0.75 + 0.25 * Math.sin(inPlacePhase * 1.4)) : 1;
             ctx.lineWidth = getLineW(1);
+            ctx.strokeStyle = withAlpha(accent, Math.max(15, Math.min(255, Math.round(0x85 * isoPulse))).toString(16).padStart(2, '0'));
             ctx.beginPath();
             const x0 = Math.floor(minX / half) * half;
             for (let x = x0; x <= maxX + half; x += half) { ctx.moveTo(x, minY); ctx.lineTo(x, maxY); }
@@ -312,30 +416,35 @@
             }
             ctx.stroke();
         } else if (pattern === 'mesh') {
-            const rows = 14, columns = 20, amplitude = Math.max(1, fullWidth / 60);
+            const rows = 14, columns = 20, baseAmp = Math.max(1, fullWidth / 60);
             const spanW = maxX - minX, spanH = maxY - minY;
             const rowStep = spanH / rows;
             const rStart = Math.floor((minY - fallDy) / rowStep) - 2;
             const rEnd = Math.ceil((maxY - fallDy) / rowStep) + 2;
+            const meshPhase = (hasInPlaceAnim ? (inPlacePhase * 1.5) : 0) + (motion !== 'none' && time > 0 ? (time * 1.2 * speed) : 0);
             ctx.lineWidth = getLineW(0.9);
             for (let row = rStart; row <= rEnd; row++) {
                 const color = getPatternColor(palette, row, accent, secondary);
-                ctx.strokeStyle = withAlpha(color, '75');
+                const rowPulse = hasInPlaceAnim ? (0.75 + 0.25 * Math.sin(meshPhase + row * 0.5)) : 1;
+                const amplitude = baseAmp * rowPulse;
+                ctx.strokeStyle = withAlpha(color, Math.max(20, Math.min(255, Math.round(0x75 * rowPulse))).toString(16).padStart(2, '0'));
                 ctx.beginPath();
                 for (let column = 0; column <= columns * 6; column++) {
                     const x = minX + column * spanW / (columns * 6);
-                    const y = row * rowStep + fallDy + Math.sin((x - minX) / spanW * Math.PI * 4 + row * 0.45) * amplitude;
+                    const y = row * rowStep + fallDy + Math.sin((x - minX) / spanW * Math.PI * 4 + row * 0.45 + meshPhase) * amplitude;
                     if (!column) ctx.moveTo(x, y); else ctx.lineTo(x, y);
                 }
                 ctx.stroke();
             }
             for (let column = -1; column <= columns + 1; column++) {
                 const color = getPatternColor(palette, column, secondary, accent);
-                ctx.strokeStyle = withAlpha(color, '75');
+                const colPulse = hasInPlaceAnim ? (0.75 + 0.25 * Math.cos(meshPhase + column * 0.5)) : 1;
+                const amplitude = baseAmp * colPulse;
+                ctx.strokeStyle = withAlpha(color, Math.max(20, Math.min(255, Math.round(0x75 * colPulse))).toString(16).padStart(2, '0'));
                 ctx.beginPath();
                 for (let row = 0; row <= rows * 6; row++) {
                     const y = minY + row * spanH / (rows * 6);
-                    const x = minX + column * spanW / columns + fallSwayX + Math.sin((y - minY) / spanH * Math.PI * 3 + column * 0.5) * amplitude;
+                    const x = minX + column * spanW / columns + fallSwayX + Math.sin((y - minY) / spanH * Math.PI * 3 + column * 0.5 + meshPhase) * amplitude;
                     if (!row) ctx.moveTo(x, y); else ctx.lineTo(x, y);
                 }
                 ctx.stroke();
@@ -343,24 +452,41 @@
         } else if (pattern === 'sunburst') {
             const cx = width * 0.5, cy = height * 0.5, radius = Math.hypot(maxX - minX, maxY - minY), rays = 28;
             const rotOffset = motion === 'fall' ? (isLoop ? (time % loopDuration) : time) * speed * 0.35 : 0;
+            const sunRot = hasSpin ? (continuousSpinAngle * 0.2) : (hasInPlaceAnim ? (inPlacePhase * 0.15) : 0);
             ctx.lineWidth = getLineW(1);
             for (let i = 0; i < rays; i++) {
-                const angle = i * Math.PI * 2 / rays + rotOffset;
+                const angle = i * Math.PI * 2 / rays + rotOffset + sunRot;
                 const color = getPatternColor(palette, i, accent, secondary);
-                ctx.strokeStyle = withAlpha(color, '85');
+                const rayPulse = hasInPlaceAnim ? (0.75 + 0.25 * Math.sin(inPlacePhase * 1.8 + i * 0.6)) : 1;
+                const alphaHex = Math.max(20, Math.min(255, Math.round(0x85 * rayPulse))).toString(16).padStart(2, '0');
+                ctx.strokeStyle = withAlpha(color, alphaHex);
                 ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius); ctx.stroke();
             }
         } else if (pattern === 'dots') {
-            const step = Math.max(3, fullWidth / 24), radius = Math.max(1.2, fullWidth / 300);
-            const yStart = Math.floor((minY - fallDy) / step) - 1;
-            const yEnd = Math.ceil((maxY - fallDy) / step) + 1;
+            const step = Math.max(3, fullWidth / 24), baseRadius = Math.max(1.2, fullWidth / 300);
+            const yStart = Math.floor((minY - fallDy) / step) - 2;
+            const yEnd = Math.ceil((maxY - fallDy) / step) + 2;
             const x0 = Math.floor(minX / step) * step + step / 2;
             for (let yi = yStart; yi <= yEnd; yi++) {
                 const cy = yi * step + fallDy;
-                for (let x = x0; x <= maxX; x += step) {
-                    const color = getPatternColor(palette, Math.round(x / step + yi * 3), accent, secondary);
-                    ctx.fillStyle = withAlpha(color, hasFill ? fillHex : '65');
-                    ctx.beginPath(); ctx.arc(x + fallSwayX, cy, radius * (hasFill ? (0.8 + fillOp * 0.5) : 1), 0, Math.PI * 2); ctx.fill();
+                for (let x = x0; x <= maxX + step; x += step) {
+                    const col = Math.round(x / step);
+                    const idx = Math.abs(yi * 29 + col * 17);
+                    const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
+                    const sizeMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
+                    const scatterX = ((((idx * 43) % 100) / 100 - 0.5) * step * 0.55) * scatterAmount;
+                    const scatterY = ((((idx * 67) % 100) / 100 - 0.5) * step * 0.55) * scatterAmount;
+                    const twinkle = hasInPlaceAnim ? (0.70 + 0.30 * Math.sin(inPlacePhase * 2 + idx * 1.5)) : 1;
+                    const dotR = baseRadius * (hasFill ? (0.8 + fillOp * 0.5) : 1) * sizeMult * twinkle;
+                    const cx = x + scatterX + fallSwayX;
+                    const finalCy = cy + scatterY;
+                    const colorHash = Math.abs((yi * 7919 + col * 104729) % 997);
+                    const color = getPatternColor(palette, colorHash, accent, secondary);
+                    const alphaHex = (hasInPlaceAnim && inPlace === 'sparkle')
+                        ? (twinkle > 0.85 ? 'ff' : '45')
+                        : (hasFill ? fillHex : Math.max(20, Math.min(255, Math.round(0x65 * twinkle))).toString(16).padStart(2, '0'));
+                    ctx.fillStyle = withAlpha(color, alphaHex);
+                    ctx.beginPath(); ctx.arc(cx, finalCy, Math.max(0.5, dotR), 0, Math.PI * 2); ctx.fill();
                 }
             }
         } else if (pattern === 'starfield' || pattern === 'sparkles') {
@@ -374,8 +500,10 @@
                 const v = (i * 0.75487766625) % 1;
                 const sizeHash = (((i * 7919 + 104729) % 1000) / 1000);
                 const sizeVarMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
-                const x = ox + u * refW + fallSwayX * (0.6 + (i % 3) * 0.3);
-                const y = oy + (((v * refH + fallDy) % refH + refH) % refH);
+                const scatterX = ((((i * 43) % 100) / 100 - 0.5) * (fullWidth * 0.15)) * scatterAmount;
+                const scatterY = ((((i * 67) % 100) / 100 - 0.5) * (fullHeight * 0.15)) * scatterAmount;
+                const x = ox + u * refW + scatterX + fallSwayX * (0.6 + (i % 3) * 0.3);
+                const y = oy + (((v * refH + fallDy + scatterY) % refH + refH) % refH);
                 const twinkleMult = hasInPlaceAnim ? (0.70 + 0.30 * Math.sin(inPlacePhase * 1.5 + i * 1.7)) : 1;
                 const size = Math.max(1.5, fullWidth / (pattern === 'starfield' ? 420 : 250)) * (1 + (i % 3) * 0.35) * twinkleMult * sizeVarMult;
                 const pColor = getPatternColor(palette, i, accent, secondary);
@@ -383,8 +511,16 @@
                 if (pattern === 'starfield' && i % 4) {
                     ctx.beginPath(); ctx.arc(x, y, size * 0.55, 0, Math.PI * 2); ctx.fill();
                 } else {
-                    drawFourPointStar(ctx, x, y, size * 2);
+                    const randomAngle = ((((i * 137) % 360) / 360) * Math.PI * 2) * rotVarAmount;
+                    const starSpin = (pattern === 'sparkles' && hasSpin)
+                        ? (spinMode === 'sway' ? Math.sin(continuousSpinAngle + i) * 0.35 : continuousSpinAngle * ((i & 1) ? 1 : -0.7))
+                        : 0;
+                    ctx.save();
+                    ctx.translate(x, y);
+                    if (randomAngle !== 0 || starSpin !== 0) ctx.rotate(randomAngle + starSpin);
+                    drawFourPointStar(ctx, 0, 0, size * 2);
                     ctx.fill();
+                    ctx.restore();
                 }
             }
         } else if (pattern === 'checker') {
@@ -395,21 +531,27 @@
                 const y = row * step + fallDy;
                 for (let col = cStart; col <= cEnd; col++) {
                     if ((((row + col) % 2 + 2) % 2) === 0) {
+                        const checkPulse = hasInPlaceAnim ? (0.72 + 0.28 * Math.sin(inPlacePhase * 1.6 + (row + col) * 0.5)) : 1;
                         const color = getPatternColor(palette, row * 7 + col, accent, secondary);
-                        ctx.fillStyle = withAlpha(color, hasFill ? fillHex : '28');
+                        const rawHex = hasFill ? fillHex : '28';
+                        const checkHex = Math.max(10, Math.min(255, Math.round(Number.parseInt(rawHex, 16) * checkPulse))).toString(16).padStart(2, '0');
+                        ctx.fillStyle = withAlpha(color, checkHex);
                         ctx.fillRect(col * step + fallSwayX, y, step, step);
                     }
                 }
             }
         } else if (pattern === 'waves') {
-            const rowStep = Math.max(4, fullHeight / 18), amplitude = Math.max(1, fullWidth / 100), wavelength = Math.max(8, fullWidth / 8);
-            const wavePhase = time > 0 ? (time * 1.5 * speed) : 0;
+            const rowStep = Math.max(4, fullHeight / 18), baseAmp = Math.max(1, fullWidth / 100), wavelength = Math.max(8, fullWidth / 8);
+            const wavePhase = (hasInPlaceAnim ? (inPlacePhase * 1.6) : 0) + (motion !== 'none' && time > 0 ? (time * 1.5 * speed) : 0);
             ctx.lineWidth = getLineW(1.3);
             const rStart = Math.floor((minY - fallDy) / rowStep) - 1, rEnd = Math.ceil((maxY - fallDy) / rowStep) + 1;
             const xStep = Math.max(2, fullWidth / 160);
             for (let row = rStart; row <= rEnd; row++) {
                 const color = getPatternColor(palette, row, accent, secondary);
-                ctx.strokeStyle = withAlpha(color, '85');
+                const swell = hasInPlaceAnim ? (0.85 + 0.25 * Math.sin(inPlacePhase * 0.8 + row * 0.6)) : 1;
+                const amplitude = baseAmp * swell;
+                const alphaHex = hasInPlaceAnim ? Math.max(25, Math.min(255, Math.round(0x85 * swell))).toString(16).padStart(2, '0') : '85';
+                ctx.strokeStyle = withAlpha(color, alphaHex);
                 const baseY = row * rowStep + fallDy;
                 ctx.beginPath();
                 for (let x = minX; x <= maxX; x += xStep) {
@@ -420,13 +562,26 @@
             }
         } else if (pattern === 'rings') {
             const cx = width * 0.5, cy = height * 0.5, step = Math.max(3, fullWidth / 36);
-            const rPhase = time > 0 ? (((isLoop ? (time % loopDuration) : time) * 20 * speed) % step + step) % step : 0;
+            const rippleDistance = (hasInPlaceAnim ? (inPlacePhase * 20) : (motion !== 'none' && time > 0 ? (time * 20 * speed) : 0));
+            const continuousCycle = rippleDistance / step;
+            const baseCycle = Math.floor(continuousCycle);
+            const rPhase = (continuousCycle - baseCycle) * step;
             ctx.lineWidth = getLineW(1.3);
             const maxR = Math.hypot(maxX - minX, maxY - minY);
-            let rIdx = 0;
-            for (let radius = step + rPhase; radius < maxR + step; radius += step) {
-                const color = getPatternColor(palette, rIdx++, accent, secondary);
-                ctx.strokeStyle = withAlpha(color, '85');
+            const numRings = Math.ceil(maxR / step) + 2;
+            for (let i = 0; i <= numRings; i++) {
+                const radius = rPhase + i * step;
+                if (radius <= 0) continue;
+                // Persistent ring identity: ringId remains constant throughout each ring's expansion lifetime
+                const ringId = Math.abs(baseCycle - i);
+                const color = getPatternColor(palette, ringId, accent, secondary);
+                const centerFade = Math.min(1, radius / step);
+                const edgeFade = Math.min(1, Math.max(0, (maxR - radius) / (step * 2)));
+                const ringPulse = hasInPlaceAnim ? (0.78 + 0.22 * Math.sin(inPlacePhase * 1.2 + ringId * 0.5)) : 1;
+                const alphaVal = Math.round(0x85 * ringPulse * centerFade * edgeFade);
+                if (alphaVal <= 2) continue;
+                const alphaHex = Math.max(0, Math.min(255, alphaVal)).toString(16).padStart(2, '0');
+                ctx.strokeStyle = withAlpha(color, alphaHex);
                 ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.stroke();
             }
         } else if (pattern === 'scales') {
@@ -437,26 +592,50 @@
             for (let row = rStart; row <= rEnd; row++) {
                 const offset = (((row % 2) + 2) % 2) * step / 2, y = row * rowStep + fallDy;
                 for (let x = x0; x <= maxX + step; x += step) {
-                    const color = getPatternColor(palette, row * 5 + Math.round(x / step), accent, secondary);
-                    ctx.beginPath(); ctx.arc(x + offset + fallSwayX, y, step / 2, 0, Math.PI);
+                    const col = Math.round(x / step);
+                    const idx = Math.abs(row * 17 + col * 23);
+                    const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
+                    const sizeMult = (1 - sizeVarAmount * 0.4) + sizeHash * (sizeVarAmount * 0.8);
+                    const scatterX = ((((idx * 43) % 100) / 100 - 0.5) * step * 0.45) * scatterAmount;
+                    const scatterY = ((((idx * 67) % 100) / 100 - 0.5) * rowStep * 0.45) * scatterAmount;
+                    const breathe = hasInPlaceAnim ? (0.88 + 0.12 * Math.sin(inPlacePhase * 1.5 + idx * 0.6)) : 1;
+                    const arcR = (step / 2) * sizeMult * breathe;
+                    // Color scattering across repeating scales
+                    const colorHash = Math.abs((row * 7919 + col * 104729) % 997);
+                    const color = getPatternColor(palette, colorHash, accent, secondary);
+                    ctx.beginPath(); ctx.arc(x + offset + scatterX + fallSwayX, y + scatterY, Math.max(1, arcR), 0, Math.PI);
                     if (hasFill) {
                         ctx.fillStyle = withAlpha(color, fillHex);
                         ctx.fill();
                     }
-                    ctx.strokeStyle = withAlpha(color, '95');
+                    const strokeAlpha = hasInPlaceAnim ? Math.max(25, Math.min(255, Math.round(0x95 * breathe))).toString(16).padStart(2, '0') : '95';
+                    ctx.strokeStyle = withAlpha(color, strokeAlpha);
                     ctx.stroke();
                 }
             }
         } else if (pattern === 'triangles') {
-            const size = Math.max(4, fullWidth / 20), rowStep = size * Math.sqrt(3) / 2;
+            const baseSize = Math.max(4, fullWidth / 20), rowStep = baseSize * Math.sqrt(3) / 2;
             ctx.lineWidth = getLineW(1);
             const rStart = Math.floor((minY - fallDy) / rowStep) - 2, rEnd = Math.ceil((maxY - fallDy) / rowStep) + 2;
-            const cStart = Math.floor(minX / size) - 2, cEnd = Math.ceil(maxX / size) + 2;
+            const cStart = Math.floor(minX / baseSize) - 2, cEnd = Math.ceil(maxX / baseSize) + 2;
             for (let row = rStart; row <= rEnd; row++) {
                 for (let col = cStart; col <= cEnd; col++) {
-                    const color1 = getPatternColor(palette, row * 7 + col * 3, accent, secondary);
-                    const color2 = getPatternColor(palette, row * 7 + col * 3 + 1, secondary, accent);
-                    const x = col * size + (((row % 2) + 2) % 2) * size / 2 + fallSwayX, y = row * rowStep + fallDy;
+                    const idx = Math.abs(row * 19 + col * 29);
+                    const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
+                    const sizeMult = (1 - sizeVarAmount * 0.35) + sizeHash * (sizeVarAmount * 0.7);
+                    const scatterX = ((((idx * 43) % 100) / 100 - 0.5) * baseSize * 0.45) * scatterAmount;
+                    const scatterY = ((((idx * 67) % 100) / 100 - 0.5) * rowStep * 0.45) * scatterAmount;
+                    const triPulse1 = hasInPlaceAnim ? (0.84 + 0.16 * Math.sin(inPlacePhase * 1.6 + idx)) : 1;
+                    const triPulse2 = hasInPlaceAnim ? (0.84 + 0.16 * Math.cos(inPlacePhase * 1.6 + idx)) : 1;
+
+                    // Color scattering: integer prime hashing distributes palette tones organically without diagonal striping
+                    const colorHash1 = Math.abs((row * 7919 + col * 104729) % 997);
+                    const colorHash2 = Math.abs((row * 6173 + col * 8311 + 547) % 997);
+                    const color1 = getPatternColor(palette, colorHash1, accent, secondary);
+                    const color2 = getPatternColor(palette, colorHash2, secondary, accent);
+                    const x = col * baseSize + (((row % 2) + 2) % 2) * baseSize / 2 + scatterX + fallSwayX, y = row * rowStep + scatterY + fallDy;
+                    const size = baseSize * sizeMult;
+
                     ctx.beginPath();
                     ctx.moveTo(x, y + rowStep); ctx.lineTo(x + size / 2, y); ctx.lineTo(x + size, y + rowStep);
                     ctx.closePath();
@@ -464,7 +643,7 @@
                         ctx.fillStyle = withAlpha(color1, fillHex);
                         ctx.fill();
                     }
-                    ctx.strokeStyle = withAlpha(color1, '95');
+                    ctx.strokeStyle = withAlpha(color1, hasInPlaceAnim ? Math.max(30, Math.min(255, Math.round(0x95 * triPulse1))).toString(16).padStart(2, '0') : '95');
                     ctx.stroke();
 
                     ctx.beginPath();
@@ -474,7 +653,7 @@
                         ctx.fillStyle = withAlpha(color2, fillHex);
                         ctx.fill();
                     }
-                    ctx.strokeStyle = withAlpha(color2, '95');
+                    ctx.strokeStyle = withAlpha(color2, hasInPlaceAnim ? Math.max(30, Math.min(255, Math.round(0x95 * triPulse2))).toString(16).padStart(2, '0') : '95');
                     ctx.stroke();
                 }
             }
@@ -485,7 +664,8 @@
             const x0 = Math.floor(minX / step) * step;
             for (let row = rStart; row <= rEnd; row++) {
                 const color = getPatternColor(palette, row, accent, secondary);
-                ctx.strokeStyle = withAlpha(color, '85');
+                const chevPulse = hasInPlaceAnim ? (0.75 + 0.25 * Math.sin(inPlacePhase * 1.8 + row * 0.5)) : 1;
+                ctx.strokeStyle = withAlpha(color, Math.max(25, Math.min(255, Math.round(0x85 * chevPulse))).toString(16).padStart(2, '0'));
                 ctx.beginPath();
                 const cy = row * rowStep + fallDy;
                 for (let x = x0; x <= maxX + step; x += step) {
@@ -501,10 +681,14 @@
             let cIdx = 0;
             for (const [cx, cy] of centers) {
                 const color = getPatternColor(palette, cIdx++, accent, secondary);
-                ctx.strokeStyle = withAlpha(color, '75');
                 for (let ring = 1; ring <= 12; ring++) {
+                    const morphScale = hasInPlaceAnim ? (1 + 0.08 * Math.sin(inPlacePhase * 1.1 + ring * 0.4 + cIdx)) : 1;
+                    const morphX = hasInPlaceAnim ? Math.sin(inPlacePhase * 0.7 + ring * 0.3 + cIdx) * (step * 0.35) : 0;
+                    const morphY = hasInPlaceAnim ? Math.cos(inPlacePhase * 0.7 + ring * 0.3 + cIdx) * (step * 0.35) : 0;
+                    const ringPulse = hasInPlaceAnim ? (0.75 + 0.25 * Math.sin(inPlacePhase * 1.4 + ring * 0.3)) : 1;
+                    ctx.strokeStyle = withAlpha(color, Math.max(25, Math.min(255, Math.round(0x75 * ringPulse))).toString(16).padStart(2, '0'));
                     ctx.beginPath();
-                    ctx.ellipse(width * cx + fallSwayX, height * cy, step * ring, step * ring * (0.58 + (ring % 3) * 0.08), ring * 0.13, 0, Math.PI * 2);
+                    ctx.ellipse(width * cx + morphX + fallSwayX, height * cy + morphY, step * ring * morphScale, step * ring * (0.58 + (ring % 3) * 0.08) * morphScale, ring * 0.13, 0, Math.PI * 2);
                     ctx.stroke();
                 }
             }
@@ -518,11 +702,15 @@
                 const v = (i * 0.75487766625) % 1;
                 const sizeHash = (((i * 7919 + 104729) % 1000) / 1000);
                 const sizeVarMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
-                const x = ox + u * refW + fallSwayX * (0.5 + (i % 4) * 0.25);
+                const scatterX = ((((i * 43) % 100) / 100 - 0.5) * (fullWidth * 0.15)) * scatterAmount;
+                const scatterY = ((((i * 67) % 100) / 100 - 0.5) * (fullHeight * 0.15)) * scatterAmount;
+                const x = ox + u * refW + scatterX + fallSwayX * (0.5 + (i % 4) * 0.25);
                 const particleDy = fallDy * (0.8 + (i % 3) * 0.2);
-                const y = oy + (((v * refH + particleDy) % refH + refH) % refH);
+                const y = oy + (((v * refH + particleDy + scatterY) % refH + refH) % refH);
                 const size = Math.max(2, fullWidth / 180) * (1 + (i % 3)) * sizeVarMult;
-                const rot = i * 2.399 + (hasInPlaceAnim ? Math.sin(inPlacePhase + i * 0.7) * 0.45 : 0);
+                const randomAngle = ((((i * 137) % 360) / 360) * Math.PI * 2) * rotVarAmount;
+                const confettiSpin = hasSpin ? (spinMode === 'sway' ? Math.sin(continuousSpinAngle + i) * 0.35 : continuousSpinAngle * ((i & 1) ? 1 : -0.8)) : 0;
+                const rot = i * 2.399 + randomAngle + confettiSpin + (hasInPlaceAnim ? Math.sin(inPlacePhase + i * 0.7) * 0.25 : 0);
                 const color = getPatternColor(palette, i, accent, secondary);
                 ctx.save();
                 ctx.translate(x, y);
@@ -536,22 +724,35 @@
                 ctx.restore();
             }
         } else if (pattern === 'circuit') {
-            const step = Math.max(6, fullWidth / 16), node = Math.max(1.5, fullWidth / 220);
+            const step = Math.max(6, fullWidth / 16), baseNode = Math.max(1.5, fullWidth / 220);
             ctx.lineWidth = getLineW(1.3);
             const rStart = Math.floor((minY - fallDy) / step) - 1, rEnd = Math.ceil((maxY - fallDy) / step) + 1;
             const cStart = Math.floor(minX / step) - 1, cEnd = Math.ceil(maxX / step) + 1;
             for (let row = rStart; row <= rEnd; row++) {
                 for (let col = cStart; col <= cEnd; col++) {
-                    const x = col * step + fallSwayX, y = row * step + fallDy;
+                    const idx = Math.abs(row * 13 + col * 27);
+                    const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
+                    const nodeSizeMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
+                    const scatterX = ((((idx * 43) % 100) / 100 - 0.5) * step * 0.35) * scatterAmount;
+                    const scatterY = ((((idx * 67) % 100) / 100 - 0.5) * step * 0.35) * scatterAmount;
+                    const nodePulse = hasInPlaceAnim ? (0.65 + 0.35 * Math.sin(inPlacePhase * 2.2 + idx * 1.2)) : 1;
+                    const node = baseNode * nodeSizeMult * (hasInPlaceAnim ? (0.8 + nodePulse * 0.5) : 1);
+
+                    const x = col * step + scatterX + fallSwayX, y = row * step + scatterY + fallDy;
                     const direction = (((row + col) % 2 + 2) % 2) ? 1 : -1;
                     const color = getPatternColor(palette, row * 5 + col, accent, secondary);
-                    ctx.strokeStyle = withAlpha(color, '85');
+                    const traceAlpha = hasInPlaceAnim ? Math.max(25, Math.min(255, Math.round(0x85 * (0.75 + 0.25 * Math.sin(inPlacePhase * 1.6 + row + col))))).toString(16).padStart(2, '0') : '85';
+                    ctx.strokeStyle = withAlpha(color, traceAlpha);
                     ctx.beginPath();
                     ctx.moveTo(x, y); ctx.lineTo(x + step * 0.32, y);
                     ctx.lineTo(x + step * 0.32, y + step * 0.55 * direction);
                     ctx.lineTo(x + step * 0.78, y + step * 0.55 * direction);
                     ctx.stroke();
-                    ctx.beginPath(); ctx.arc(x + step * 0.78, y + step * 0.55 * direction, node, 0, Math.PI * 2); ctx.stroke();
+
+                    const nodeAlpha = hasInPlaceAnim ? (nodePulse > 0.8 ? 'ff' : 'b0') : 'ff';
+                    ctx.fillStyle = withAlpha(color, nodeAlpha);
+                    ctx.beginPath(); ctx.arc(x + step * 0.78, y + step * 0.55 * direction, Math.max(1, node), 0, Math.PI * 2); ctx.fill();
+                    ctx.stroke();
                 }
             }
         } else if (pattern === 'leaves') {
@@ -575,7 +776,9 @@
                     const cx = col * stepX + rowOffset + jitterX + extraScatterX + fallSwayX;
                     const cy = row * stepY + jitterY + extraScatterY + fallDy;
                     const baseAngle = ((idx % 12) / 12) * Math.PI * 2;
-                    const flutter = hasInPlaceAnim ? Math.sin(inPlacePhase + idx * 0.9) * 0.22 : 0;
+                    const randomAngle = ((((idx * 137) % 360) / 360) * Math.PI * 2) * rotVarAmount;
+                    const leafSpin = hasSpin ? (spinMode === 'sway' ? Math.sin(continuousSpinAngle + idx * 0.8) * 0.35 : continuousSpinAngle * ((idx & 1) ? 0.6 : -0.6)) : 0;
+                    const flutter = hasInPlaceAnim ? Math.sin(inPlacePhase + idx * 0.9) * 0.18 : 0;
                     const leafColor = getPatternColor(leafPalette, idx, accent, secondary);
                     const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
                     const sizeMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
@@ -583,7 +786,7 @@
 
                     ctx.save();
                     ctx.translate(cx, cy);
-                    ctx.rotate(baseAngle + flutter);
+                    ctx.rotate(baseAngle + randomAngle + leafSpin + flutter);
                     ctx.strokeStyle = withAlpha(leafColor, '98');
 
                     if (idx % 2 === 0) {
@@ -658,12 +861,14 @@
                     const scatterY = ((((idx * 67) % 100) / 100 - 0.5) * stepY * 0.45) * scatterAmount;
                     const cx = col * stepX + rowOffset + scatterX + fallSwayX;
                     const cy = row * stepY + scatterY + fallDy;
-                    const tilt = hasInPlaceAnim ? Math.sin(inPlacePhase + idx * 0.8) * 0.08 : 0;
+                    const randomAngle = ((((idx * 137) % 360) / 360) * Math.PI * 2 - Math.PI) * 0.15 * rotVarAmount;
+                    const turkeySpin = hasSpin ? (spinMode === 'sway' ? Math.sin(continuousSpinAngle + idx * 0.8) * 0.18 : (continuousSpinAngle * 0.3 * ((idx & 1) ? 1 : -1))) : 0;
+                    const tilt = hasInPlaceAnim ? Math.sin(inPlacePhase + idx * 0.8) * 0.06 : 0;
                     const fanSpread = hasInPlaceAnim ? (1 + Math.sin(inPlacePhase * 1.4 + idx) * 0.06) : 1;
 
                     ctx.save();
                     ctx.translate(cx, cy);
-                    ctx.rotate(tilt);
+                    ctx.rotate(randomAngle + turkeySpin + tilt);
 
                     // 1. Radiating fanned tail feathers (semi-circle fan behind the body)
                     const feathers = 7;
@@ -833,11 +1038,13 @@
                     const cy = row * stepY + scatterY + fallDy;
                     const pColor = getPatternColor(palette, idx, accent, secondary);
                     const stemColor = getPatternColor(palette, idx + 2, secondary, accent);
-                    const tilt = ((idx % 5) - 2) * 0.05 + (hasInPlaceAnim ? Math.sin(inPlacePhase + idx) * 0.06 : 0);
+                    const randomAngle = ((((idx * 137) % 360) / 360) * Math.PI * 2 - Math.PI) * 0.2 * rotVarAmount;
+                    const pumpkinSpin = hasSpin ? (spinMode === 'sway' ? Math.sin(continuousSpinAngle + idx * 0.7) * 0.22 : (continuousSpinAngle * 0.35 * ((idx & 1) ? 1 : -1))) : 0;
+                    const tilt = ((idx % 5) - 2) * 0.05 + (hasInPlaceAnim ? Math.sin(inPlacePhase + idx) * 0.05 : 0);
 
                     ctx.save();
                     ctx.translate(cx, cy);
-                    ctx.rotate(tilt);
+                    ctx.rotate(randomAngle + pumpkinSpin + tilt);
 
                     // Stem & tendril
                     ctx.strokeStyle = withAlpha(stemColor, 'aa');
@@ -1039,8 +1246,9 @@
                     const randomAngle = ((((idx * 137) % 360) / 360) * Math.PI * 2) * rotVarAmount;
                     const baseRot = (idx % 6) * (Math.PI / 6) + randomAngle;
                     const rotDir = (idx & 1) ? 1 : -1;
-                    const inPlaceRot = hasInPlaceAnim ? (inPlacePhase * 0.22 * rotDir) : 0;
-                    const rot = baseRot + inPlaceRot;
+                    const flakeSpin = hasSpin ? (spinMode === 'sway' ? Math.sin(continuousSpinAngle + idx * 0.8) * 0.35 : continuousSpinAngle * rotDir * 0.5) : 0;
+                    const inPlaceFlutter = hasInPlaceAnim ? Math.sin(inPlacePhase + idx * 0.7) * 0.08 : 0;
+                    const rot = baseRot + flakeSpin + inPlaceFlutter;
 
                     const sColor = getPatternColor(palette, idx, accent, secondary);
                     const shimmer = hasInPlaceAnim ? (0.84 + 0.16 * Math.sin(inPlacePhase * 1.6 + idx)) : 1;
@@ -1340,11 +1548,13 @@
                     const hColor = getPatternColor(palette, idx, accent, secondary);
                     const beat = hasInPlaceAnim ? (1 + 0.09 * Math.sin(inPlacePhase * 2 + idx)) : 1;
                     const r = baseHeartR * (0.82 + (idx % 3) * 0.14) * beat * sizeMult;
-                    const tilt = ((idx % 5) - 2) * 0.08 + (hasInPlaceAnim ? Math.sin(inPlacePhase + idx) * 0.08 : 0);
+                    const randomAngle = ((((idx * 137) % 360) / 360) * Math.PI * 2 - Math.PI) * 0.15 * rotVarAmount;
+                    const heartSpin = hasSpin ? (spinMode === 'sway' ? Math.sin(continuousSpinAngle + idx * 0.8) * 0.25 : (continuousSpinAngle * 0.4 * ((idx & 1) ? 1 : -1))) : 0;
+                    const tilt = ((idx % 5) - 2) * 0.08 + (hasInPlaceAnim ? Math.sin(inPlacePhase + idx) * 0.06 : 0);
 
                     ctx.save();
                     ctx.translate(cx, cy);
-                    ctx.rotate(tilt);
+                    ctx.rotate(randomAngle + heartSpin + tilt);
                     ctx.strokeStyle = withAlpha(hColor, '98');
 
                     ctx.beginPath();
@@ -1388,8 +1598,12 @@
                     const r = baseBurstR * (0.8 + (idx % 3) * 0.12) * bloom * sizeMult;
                     const rays = 12;
 
+                    const randomAngle = ((((idx * 137) % 360) / 360) * Math.PI * 2) * rotVarAmount;
+                    const fwSpin = hasSpin ? (spinMode === 'sway' ? Math.sin(continuousSpinAngle + idx) * 0.25 : continuousSpinAngle * ((idx & 1) ? 0.5 : -0.5)) : 0;
+
                     ctx.save();
                     ctx.translate(cx, cy);
+                    if (randomAngle !== 0 || fwSpin !== 0) ctx.rotate(randomAngle + fwSpin);
 
                     // Outer radiating firework streaks
                     ctx.strokeStyle = withAlpha(mainCol, '95');
@@ -1422,17 +1636,22 @@
                 }
             }
         } else if (pattern === 'geometry') {
-            ctx.fillStyle = withAlpha(accent, '70');
-            ctx.globalAlpha *= 0.5;
-            ctx.beginPath(); ctx.moveTo(width * 0.55, minY); ctx.lineTo(maxX, minY); ctx.lineTo(maxX, height * 0.85); ctx.closePath(); ctx.fill();
-            ctx.globalAlpha *= 0.3;
-            ctx.fillStyle = withAlpha(secondary, '70');
-            ctx.beginPath(); ctx.moveTo(minX, height * 0.68); ctx.lineTo(width * 0.72, maxY); ctx.lineTo(minX, maxY); ctx.closePath(); ctx.fill();
+            const geomPulse = hasInPlaceAnim ? (0.75 + 0.25 * Math.sin(inPlacePhase * 1.4)) : 1;
+            const geomMorph = hasInPlaceAnim ? Math.sin(inPlacePhase * 0.9) * (width * 0.02) : 0;
+            const alpha1 = Math.max(10, Math.min(255, Math.round(0x70 * geomPulse))).toString(16).padStart(2, '0');
+            const alpha2 = Math.max(10, Math.min(255, Math.round(0x70 * (0.75 + 0.25 * Math.cos(inPlacePhase * 1.4))))).toString(16).padStart(2, '0');
+            ctx.fillStyle = withAlpha(accent, alpha1);
+            ctx.beginPath(); ctx.moveTo(width * 0.55 + geomMorph, minY); ctx.lineTo(maxX, minY); ctx.lineTo(maxX, height * 0.85); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = withAlpha(secondary, alpha2);
+            ctx.beginPath(); ctx.moveTo(minX, height * 0.68 - geomMorph); ctx.lineTo(width * 0.72, maxY); ctx.lineTo(minX, maxY); ctx.closePath(); ctx.fill();
         } else {
             // Orbits (default fallback)
+            const orbitRot = (hasSpin ? continuousSpinAngle * 0.25 : 0) + (hasInPlaceAnim ? Math.sin(inPlacePhase * 0.8) * 0.05 : 0);
+            const orbitPulse = hasInPlaceAnim ? (0.8 + 0.2 * Math.sin(inPlacePhase * 1.5)) : 1;
+            ctx.strokeStyle = withAlpha(accent, Math.max(20, Math.min(255, Math.round(0x55 * orbitPulse))).toString(16).padStart(2, '0'));
             for (let i = 0; i < 4; i++) {
                 ctx.beginPath();
-                ctx.ellipse(width * 0.85, height * 0.2, width * (0.23 + i * 0.06), height * (0.17 + i * 0.04), -0.5, 0, Math.PI * 2);
+                ctx.ellipse(width * 0.85, height * 0.2, width * (0.23 + i * 0.06) * orbitPulse, height * (0.17 + i * 0.04) * orbitPulse, -0.5 + orbitRot, 0, Math.PI * 2);
                 ctx.stroke();
             }
         }
@@ -1474,6 +1693,23 @@
             ctx.fillRect(0, 0, fullWidth, fullHeight);
             ctx.restore();
         }
+
+        // Cinematic vignette overlay (smooth radial edge darkening)
+        const vignetteAmount = Math.max(0, Math.min(100, Number(options.vignette) || 0)) / 100;
+        if (vignetteAmount > 0) {
+            const vColor = (options.vignetteColor && options.vignetteColor !== 'transparent') ? options.vignetteColor : '#000000';
+            const cx = fullWidth / 2, cy = fullHeight / 2;
+            const outerR = Math.hypot(fullWidth, fullHeight) / 2;
+            const innerR = outerR * 0.22;
+            const vigGrad = ctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR);
+            vigGrad.addColorStop(0, withAlpha(vColor, '00'));
+            vigGrad.addColorStop(0.65, withAlpha(vColor, Math.round(0x65 * vignetteAmount).toString(16).padStart(2, '0')));
+            vigGrad.addColorStop(1, withAlpha(vColor, Math.round(0xff * vignetteAmount).toString(16).padStart(2, '0')));
+            ctx.save();
+            ctx.fillStyle = vigGrad;
+            ctx.fillRect(0, 0, fullWidth, fullHeight);
+            ctx.restore();
+        }
     }
 
     const SNOWFLAKE_STYLES = ['all', 'dendrite', 'plate', 'fern', 'rosette', 'cross', 'needle'];
@@ -1481,6 +1717,7 @@
     const exported = {
         PATTERNS,
         PATTERN_CATEGORIES,
+        PATTERN_CAPABILITIES,
         PALETTES,
         SNOWFLAKE_STYLES,
         drawProceduralPattern

@@ -361,9 +361,11 @@ const PATTERN_BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'li
 const PATTERN_HUE_SHIFTS = ['none', 'cycle', 'wave-x', 'wave-y'];
 const PATTERN_ASPECT_RATIOS = ['1:1', '16:9', '4:3', '3:2', '2:1', '3:4', '9:16', 'natural'];
 const PATTERN_DISTRIBUTIONS = ['diagonal', 'row', 'col', 'grid', 'random'];
-const PATTERN_PALETTES = ['dual', 'multicolor', 'christmas', 'autumn', 'halloween', 'winter', 'valentines', 'neon', 'warm', 'cool', 'pastel', 'forest', 'sunset', 'monochrome'];
+const PATTERN_PALETTES = ['dual', 'multicolor', 'christmas', 'autumn', 'halloween', 'winter', 'valentines', 'neon', 'warm', 'cool', 'pastel', 'forest', 'sunset', 'synthwave', 'galaxy', 'terracotta', 'vaporwave', 'ocean', 'royal', 'sakura', 'coffee', 'monochrome'];
 const PATTERN_FILL_MODES = ['tinted', 'solid', 'outline'];
 const PATTERN_IN_PLACE_MODES = ['auto', 'gentle', 'pulse', 'sparkle', 'none'];
+const PATTERN_SPIN_MODES = ['none', 'auto', 'spin', 'reverse', 'sway'];
+const PATTERN_PAN_DIRECTIONS = ['continuous', 'oscillate'];
 const SNOWFLAKE_STYLES = ['all', 'dendrite', 'plate', 'fern', 'rosette', 'cross', 'needle'];
 
 function normalizeSpeakerBadge(badge = {}) {
@@ -489,6 +491,13 @@ function normalizePattern(p = {}, isProcedural = false) {
     const sizeVariance = Math.round(num(p.sizeVariance ?? p.scaleJitter, 0, 100, 0));
     const scatter = Math.round(num(p.scatter ?? p.positionJitter, 0, 100, 0));
     const inPlaceSpeed = Math.round(num(p.inPlaceSpeed ?? p.twinkleSpeed, 0.2, 10, 1) * 10) / 10;
+    const spin = PATTERN_SPIN_MODES.includes(p.spin) ? p.spin : 'auto';
+    const spinSpeed = Math.round(num(p.spinSpeed, 0.1, 120, isPreset ? 1 : 8) * 10) / 10;
+    const panDirection = PATTERN_PAN_DIRECTIONS.includes(p.panDirection) ? p.panDirection : 'continuous';
+    const panAngle = Math.round(num(p.panAngle, 0, 360, 45));
+    const vignette = Math.round(num(p.vignette, 0, 100, 0));
+    const vignetteColor = String(p.vignetteColor || '#000000').slice(0, 80);
+    const rotationVariance = Math.round(num(p.rotationVariance ?? p.rotationJitter, 0, 100, 0));
     return {
         sourceType,
         tileDistribution: PATTERN_DISTRIBUTIONS.includes(p.tileDistribution) ? p.tileDistribution : 'diagonal',
@@ -500,6 +509,13 @@ function normalizePattern(p = {}, isProcedural = false) {
         fillOpacity,
         inPlace,
         inPlaceSpeed,
+        spin,
+        spinSpeed,
+        panDirection,
+        panAngle,
+        vignette,
+        vignetteColor,
+        rotationVariance,
         snowflakeStyle,
         sizeVariance,
         scatter,
@@ -532,7 +548,6 @@ function normalizePattern(p = {}, isProcedural = false) {
         trackMode: PATTERN_TRACK_MODES.includes(p.trackMode) ? p.trackMode : defaultTrack,
         scrollAngle: Math.round(num(p.scrollAngle, 0, 360, 315)),
         speed: Math.round(num(p.speed, 0.1, 120, (isPreset ? 1 : 12)) * 10) / 10,
-        spinSpeed: Math.round(num(p.spinSpeed, 0.5, 120, 8) * 10) / 10,
         spinDirection: ['cw', 'ccw', 'alternate'].includes(p.spinDirection) ? p.spinDirection : 'cw',
         waveAmount: Math.round(num(p.waveAmount, 5, 100, 25)),
         hueShift: PATTERN_HUE_SHIFTS.includes(p.hueShift) ? p.hueShift : 'none',
@@ -2315,5 +2330,8 @@ module.exports = {
     CUSTOM_OVERLAY_ELEMENT_TYPES,
     DEFAULT_RANDOMIZER_PRESETS,
     DEFAULT_RANDOMIZER_BUTTON_PRESETS,
-    DEFAULT_RANDOMIZER_QUOTE_PRESETS
+    DEFAULT_RANDOMIZER_QUOTE_PRESETS,
+    PATTERN_PALETTES,
+    PATTERN_SPIN_MODES,
+    PATTERN_PAN_DIRECTIONS
 };
