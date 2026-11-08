@@ -1500,3 +1500,170 @@ test('Procedural Patterns: Hyper-dense Starfields, Camera Zoom In/Out, and Tiled
     assert.equal(normalizedDoc.elements[0].pattern.colorAnim, 'cycle');
     assert.equal(normalizedDoc.elements[0].pattern.colorSpeed, 1.5);
 });
+
+test('Procedural Patterns: Universal Color Placement, Continuous Seamless Pan, and In-Place Geometry Lock', () => {
+    const { PATTERNS, PATTERN_CAPABILITIES, drawProceduralPattern } = require('../public/js/patterns-shared.js');
+
+    // 1. All procedural patterns have colorMode capability enabled
+    for (const pat of PATTERNS) {
+        const caps = PATTERN_CAPABILITIES[pat];
+        assert.ok(caps, `Capabilities must exist for pattern ${pat}`);
+        assert.equal(caps.colorMode, true, `Pattern ${pat} must have colorMode: true`);
+    }
+
+    // 2. Physical geometry lock when sizeVariance is 0
+    function captureRadii(pattern) {
+        const radii = [];
+        const mock = {
+            save: () => {}, restore: () => {}, translate: () => {}, scale: () => {}, rotate: () => {},
+            beginPath: () => {}, closePath: () => {}, moveTo: () => {}, lineTo: () => {},
+            arc: (x, y, r) => radii.push(r),
+            ellipse: (x, y, rx, ry) => radii.push(rx),
+            stroke: () => {}, fill: () => {}, fillRect: () => {}, clearRect: () => {},
+            createLinearGradient: () => ({ addColorStop: () => {} }),
+            createRadialGradient: () => ({ addColorStop: () => {} }),
+            setTransform: () => {}
+        };
+        const samples = [];
+        for (const t of [0, 0.8, 1.6, 2.7, 3.9]) {
+            radii.length = 0;
+            drawProceduralPattern(mock, pattern, 800, 600, {
+                sizeVariance: 0,
+                inPlace: 'pulse',
+                inPlaceSpeed: 1,
+                time: t
+            });
+            samples.push(radii[0]);
+        }
+        return samples;
+    }
+
+    for (const pat of ['dots', 'scales', 'circuit', 'fireworks', 'snowflakes']) {
+        const samples = captureRadii(pat);
+        const maxDelta = Math.max(...samples) - Math.min(...samples);
+        assert.ok(maxDelta < 0.0001, `Pattern ${pat} must not alter physical element dimensions when sizeVariance is 0 (delta: ${maxDelta})`);
+    }
+
+    // 3. Hexagons & Diamonds vertex position stability across animation when sizeVariance is 0
+    function captureFirstVertexY(pattern) {
+        const vertices = [];
+        const mock = {
+            save: () => {}, restore: () => {}, translate: () => {}, scale: () => {}, rotate: () => {},
+            beginPath: () => {}, closePath: () => {},
+            moveTo: (x, y) => vertices.push(y),
+            lineTo: () => {}, arc: () => {}, ellipse: () => {},
+            stroke: () => {}, fill: () => {}, fillRect: () => {}, clearRect: () => {},
+            createLinearGradient: () => ({ addColorStop: () => {} }),
+            createRadialGradient: () => ({ addColorStop: () => {} }),
+            setTransform: () => {}
+        };
+        const samples = [];
+        for (const t of [0, 0.8, 1.6, 2.7, 3.9]) {
+            vertices.length = 0;
+            drawProceduralPattern(mock, pattern, 800, 600, {
+                sizeVariance: 0,
+                inPlace: 'pulse',
+                inPlaceSpeed: 1,
+                time: t
+            });
+            samples.push(vertices[0]);
+        }
+        return samples;
+    }
+
+    for (const pat of ['hexagons', 'diamonds', 'hearts', 'leaves']) {
+        const samples = captureFirstVertexY(pat);
+        const maxDelta = Math.max(...samples) - Math.min(...samples);
+        assert.ok(maxDelta < 0.0001, `Pattern ${pat} must keep vertex geometry constant when sizeVariance is 0 (delta: ${maxDelta})`);
+    }
+
+    // 4. Continuous single-direction pan glides seamlessly across long time durations without blanks or crashes
+    function createTrackingContext() {
+        let transX = 0, transY = 0;
+        const stack = [];
+        const points = [];
+        return {
+            save: () => stack.push({ transX, transY }),
+            restore: () => {
+                const s = stack.pop();
+                if (s) { transX = s.transX; transY = s.transY; }
+            },
+            translate: (x, y) => { transX += x; transY += y; },
+            scale: () => {}, rotate: () => {}, beginPath: () => {}, closePath: () => {},
+            moveTo: (x, y) => points.push({ sx: x + transX, sy: y + transY }),
+            lineTo: (x, y) => points.push({ sx: x + transX, sy: y + transY }),
+            arc: (x, y, r) => {
+                points.push({ sx: x - r + transX, sy: y - r + transY });
+                points.push({ sx: x + r + transX, sy: y + r + transY });
+            },
+            ellipse: (x, y, rx, ry) => {
+                points.push({ sx: x - rx + transX, sy: y - ry + transY });
+                points.push({ sx: x + rx + transX, sy: y + ry + transY });
+            },
+            stroke: () => {}, fill: () => {},
+            fillRect: (x, y, w, h) => {
+                points.push({ sx: x + transX, sy: y + transY });
+                points.push({ sx: x + w + transX, sy: y + h + transY });
+            },
+            clearRect: () => {},
+            createLinearGradient: () => ({ addColorStop: () => {} }),
+            createRadialGradient: () => ({ addColorStop: () => {} }),
+            setTransform: () => {},
+            _points: points
+        };
+    }
+
+    const w = 800, h = 600;
+    const continuousCoveragePatterns = ['grid', 'hexagons', 'diamonds', 'dots', 'starfield', 'sparkles', 'scales', 'triangles', 'chevrons', 'circuit', 'snowflakes', 'hearts', 'fireworks'];
+    for (const pat of continuousCoveragePatterns) {
+        for (const t of [0, 15, 60, 120]) {
+            const ctx = createTrackingContext();
+            drawProceduralPattern(ctx, pat, w, h, {
+                motion: 'pan',
+                panDirection: 'continuous',
+                panAngle: 45,
+                speed: 1,
+                time: t,
+                sizeVariance: 0
+            });
+            const xs = ctx._points.map(p => p.sx);
+            const ys = ctx._points.map(p => p.sy);
+            const minX = Math.min(...xs), maxX = Math.max(...xs);
+            const minY = Math.min(...ys), maxY = Math.max(...ys);
+            assert.ok(minX <= 0, `Pattern ${pat} at t=${t}s must cover left edge (minX: ${minX})`);
+            assert.ok(maxX >= w, `Pattern ${pat} at t=${t}s must cover right edge (maxX: ${maxX})`);
+            assert.ok(minY <= 0, `Pattern ${pat} at t=${t}s must cover top edge (minY: ${minY})`);
+            assert.ok(maxY >= h, `Pattern ${pat} at t=${t}s must cover bottom edge (maxY: ${maxY})`);
+        }
+    }
+
+    // 5. Universal color placement modes across non-tiled patterns
+    const strokeColors = [];
+    const fillColors = [];
+    const colorTestMock = {
+        save: () => {}, restore: () => {}, translate: () => {}, scale: () => {}, rotate: () => {},
+        beginPath: () => {}, closePath: () => {}, moveTo: () => {}, lineTo: () => {},
+        arc: () => {}, ellipse: () => {},
+        set strokeStyle(val) { strokeColors.push(val); },
+        set fillStyle(val) { fillColors.push(val); },
+        stroke: () => {}, fill: () => {}, fillRect: () => {}, clearRect: () => {},
+        createLinearGradient: () => ({ addColorStop: () => {} }),
+        createRadialGradient: () => ({ addColorStop: () => {} }),
+        setTransform: () => {}
+    };
+
+    for (const pat of ['starfield', 'sunburst', 'waves', 'rings', 'snowflakes', 'leaves', 'hearts', 'circuit']) {
+        strokeColors.length = 0;
+        fillColors.length = 0;
+        drawProceduralPattern(colorTestMock, pat, 800, 600, {
+            palette: 'neon',
+            colorMode: 'radial',
+            colorAnim: 'cycle',
+            colorSpeed: 1,
+            time: 0,
+            fillMode: 'tinted'
+        });
+        const allColors = [...strokeColors, ...fillColors];
+        assert.ok(allColors.length > 5, `Pattern ${pat} must render multiple colored elements with colorMode: radial`);
+    }
+});

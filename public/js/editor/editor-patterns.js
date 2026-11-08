@@ -154,7 +154,7 @@ export function proceduralPatternSection(el) {
     }
 
     let colorPlacementBlock = '';
-    if (caps.colorMode) {
+    if (caps.colorMode !== false) {
         const colorMode = p.colorMode || 'mosaic';
         const colorAnim = p.colorAnim || 'none';
         const colorSpeed = p.colorSpeed ?? 1;
