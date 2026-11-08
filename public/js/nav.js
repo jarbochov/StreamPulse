@@ -69,7 +69,7 @@
     document.head.appendChild(style);
 
     const MODULE_STORAGE_KEY = 'streampulse:modules';
-    let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true, polls: true, versus: true, trivia: false };
+    let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true, polls: true, versus: true, trivia: true };
     try {
         const cached = localStorage.getItem(MODULE_STORAGE_KEY);
         if (cached) {
@@ -99,7 +99,6 @@
             { label: 'Goals Manager', href: '/goals-editor.html' },
             { label: 'Game Plan Manager', href: '/game-plan-editor.html' },
             { label: 'Music Settings', href: '/music-editor.html', module: 'music' },
-            { label: 'Asset Library', href: '/assets.html' },
             { heading: 'URL Wizards' },
             { label: 'Credits, Goals & Stats', href: '/overlay-url-wizard.html' },
             { label: 'Timers', href: '/timer-url-wizard.html' },
@@ -108,20 +107,24 @@
             { label: 'Milestones', href: '/milestone-url-wizard.html' }
         ]},
         { label: 'Tools', children: [
-            { label: 'Poll Manager', href: '/polls.html', module: 'polls' },
+            { heading: 'Broadcast & Media' },
+            { label: 'Alerts & SFX', href: '/alerts.html' },
+            { label: 'Chat Bot', href: '/chatbot.html', module: 'chatbot' },
+            { label: 'Promo Creator', href: '/promo-creator.html' },
+            { heading: 'Audience & Interactive' },
             { label: 'Trivia Studio', href: '/tools/trivia.html', module: 'trivia' },
             { label: 'Tier List Maker', href: '/tools/tier-list.html' },
+            { label: 'Poll Manager', href: '/polls.html', module: 'polls' },
             { label: 'Versus', href: '/versus.html', module: 'versus', children: [
                 { label: 'Versus', href: '/versus.html' },
                 { label: 'Tournament Manager', href: '/tournament-admin.html' }
             ]},
-            { label: 'Promo Creator', href: '/promo-creator.html' },
-            { label: 'Chat Bot', href: '/chatbot.html', module: 'chatbot' },
-            { label: 'Alerts & SFX', href: '/alerts.html' },
+            { heading: 'Data & Social' },
             { label: 'Placeholders & Variables', href: '/placeholders.html' },
             { label: 'Hashtag Tools', href: '/manage-hashtags.html', module: 'hashtags' }
         ]},
         { label: 'Library', children: [
+            { label: 'Asset Library', href: '/assets.html' },
             { label: 'Highlights', href: '/highlights.html' },
             { label: 'Clips', href: '/clips.html', module: 'clips' },
             { label: 'Sessions', href: '/sessions.html?session=__current__' },
@@ -145,6 +148,8 @@
     const pageParentMap = {
         '/tournaments.html': '/versus.html', '/competitions.html': '/versus.html', '/tournament-admin.html': '/versus.html',
         '/tier-list.html': '/tools/tier-list.html',
+        '/trivia.html': '/tools/trivia.html',
+        '/tools/trivia.html': '/tools/trivia.html',
         '/custom-overlay-editor.html': '/custom-overlays.html',
         '/alert-queue.html': '/alerts.html',
         '/commands.html': '/chatbot.html',
@@ -194,16 +199,16 @@
         list.push({ label: 'Goals Manager', href: '/goals-editor.html', group: 'Editors & Studios' });
         list.push({ label: 'Game Plan Manager', href: '/game-plan-editor.html', group: 'Editors & Studios' });
         list.push({ label: 'Music Settings', href: '/music-editor.html', group: 'Editors & Studios', module: 'music' });
-        list.push({ label: 'Asset Library', href: '/assets.html', group: 'Editors & Studios', keywords: 'overlay assets media library images videos audio fonts upload crop' });
 
         // 3. Stream Tools & Automation
-        list.push({ label: 'Poll Manager', href: '/polls.html', group: 'Stream Tools', module: 'polls' });
+        list.push({ label: 'Alerts & SFX', href: '/alerts.html', group: 'Stream Tools' });
+        list.push({ label: 'Chat Bot', href: '/chatbot.html', group: 'Stream Tools', module: 'chatbot' });
+        list.push({ label: 'Trivia Studio', href: '/tools/trivia.html', group: 'Stream Tools', module: 'trivia', keywords: 'trivia quiz audience voting question bank true false questions game' });
         list.push({ label: 'Tier List Maker', href: '/tools/tier-list.html', group: 'Stream Tools', keywords: 'tier list maker ranking rank chat voting tiers' });
+        list.push({ label: 'Poll Manager', href: '/polls.html', group: 'Stream Tools', module: 'polls' });
         list.push({ label: 'Versus', href: '/versus.html', group: 'Stream Tools', module: 'versus', keywords: 'versus studio matchup scoreboard fight card fightcard' });
         list.push({ label: 'Tournament Manager', href: '/tournament-admin.html', group: 'Stream Tools', module: 'versus', keywords: 'tournament bracket scorekeeper elimination round robin' });
         list.push({ label: 'Promo Creator', href: '/promo-creator.html', group: 'Stream Tools' });
-        list.push({ label: 'Chat Bot', href: '/chatbot.html', group: 'Stream Tools', module: 'chatbot' });
-        list.push({ label: 'Alerts & SFX', href: '/alerts.html', group: 'Stream Tools' });
         list.push({ label: 'Placeholders & Variables', href: '/placeholders.html', group: 'Stream Tools' });
         list.push({ label: 'Hashtag Tools', href: '/manage-hashtags.html', group: 'Stream Tools', module: 'hashtags' });
         list.push({ label: 'Chat Commands Cheat Sheet', href: '/commands.html', group: 'Stream Tools', module: 'chatbot' });
@@ -229,6 +234,7 @@
         list.push({ label: 'New Custom Overlay Builder', href: '/custom-overlay-editor.html?new=1', group: 'Overlays Hub' });
 
         // 7. Library & Analytics
+        list.push({ label: 'Asset Library', href: '/assets.html', group: 'Library & Analytics', keywords: 'overlay assets media library images videos audio fonts upload crop' });
         list.push({ label: 'Analytics & Community', href: '/analytics.html', group: 'Library & Analytics' });
         list.push({ label: 'Milestones & Streaks', href: '/analytics.html#milestones', group: 'Library & Analytics' });
         list.push({ label: 'Chatters & Notes (Community CRM)', href: '/analytics.html#crm', group: 'Library & Analytics' });
@@ -750,6 +756,10 @@
             }
             if (event.detail.versus_enabled !== undefined && moduleState.versus !== (event.detail.versus_enabled !== false)) {
                 moduleState.versus = event.detail.versus_enabled !== false;
+                changed = true;
+            }
+            if (event.detail.trivia_enabled !== undefined && moduleState.trivia !== (event.detail.trivia_enabled !== false)) {
+                moduleState.trivia = event.detail.trivia_enabled !== false;
                 changed = true;
             }
             if (changed) {

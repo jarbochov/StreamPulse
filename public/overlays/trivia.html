@@ -889,7 +889,8 @@
     <script>
         // URL Parameter handling
         const params = new URLSearchParams(window.location.search);
-        const themeParam = params.get('theme') || 'modern';
+        const hasThemeParam = params.has('theme');
+        const themeParam = params.get('theme') || '';
         const rawMode = (params.get('mode') || '').toLowerCase();
         const rawLayout = (params.get('layout') || '').toLowerCase();
         const rawView = (params.get('view') || params.get('display') || '').toLowerCase();
@@ -912,7 +913,7 @@
             document.documentElement.style.setProperty('--font-scale', scaleParam);
         }
 
-        document.body.dataset.theme = themeParam;
+        document.body.dataset.theme = (hasThemeParam && themeParam) ? themeParam : 'modern';
         document.body.dataset.mode = layout;
         document.body.dataset.layout = layout;
         document.body.dataset.displayMode = displayMode;
@@ -1066,16 +1067,26 @@
                     if (s > 0) root.style.setProperty('--font-scale', s);
                 }
 
-                if (!params.has('theme')) {
-                    document.body.dataset.theme = t.preset || 'modern';
-                }
-
-                const activePreset = themeParam || t.preset || 'modern';
+                const activePreset = (hasThemeParam && themeParam) ? themeParam : (t.preset || 'modern');
                 document.body.dataset.theme = activePreset;
 
                 const styleParam = (params.get('style') || '').toLowerCase();
                 const activeStyle = styleParam || t.cardStyle || (activePreset === 'nodecg' ? 'text' : 'cards');
                 document.body.dataset.style = activeStyle;
+
+                // Font & color parameters from URL (with fallback to saved theme)
+                const qFontParam = params.get('qfont') || params.get('questionFont');
+                const hFontParam = params.get('hfont') || params.get('headerFont');
+                const cFontParam = params.get('cfont') || params.get('choiceFont');
+                const accentParam = params.get('accent') || params.get('accentColor');
+                const correctParam = params.get('correct') || params.get('correctColor');
+
+                if (qFontParam) { root.style.setProperty('--question-font', qFontParam); window.loadUrlFont?.(qFontParam); }
+                if (hFontParam) { root.style.setProperty('--header-font', hFontParam); window.loadUrlFont?.(hFontParam); }
+                if (cFontParam) { root.style.setProperty('--choice-font', cFontParam); window.loadUrlFont?.(cFontParam); }
+                if (accentParam) root.style.setProperty('--accent', accentParam);
+                if (correctParam) root.style.setProperty('--correct-color', correctParam);
+                if (params.has('collapse')) document.body.dataset.collapse = params.get('collapse') === '1' ? 'true' : 'false';
 
                 // Element visibility toggles: URL parameters take precedence over saved theme options
                 const hideCategory = params.has('hideCategory') || params.get('category') === '0' || t.showCategory === false;

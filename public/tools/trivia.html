@@ -903,11 +903,13 @@
                 <div class="form-row">
                     <label>Visual Theme</label>
                     <select id="obs-theme">
-                        <option value="modern">Modern Dark (StreamPulse)</option>
+                        <option value="modern">Modern Glass (StreamPulse)</option>
+                        <option value="nodecg">NodeCG Text Broadcast (Pure Floating Text)</option>
+                        <option value="arcade">Retro 8-Bit Arcade (Pixel Borders &amp; Neon)</option>
+                        <option value="esports">Championship Esports (Angular Cuts)</option>
+                        <option value="minimal">Clean Minimal (Flat Lower Third)</option>
                         <option value="neon">Cyber Neon</option>
-                        <option value="retro">Arcade Retro</option>
-                        <option value="clean">Clean Minimal</option>
-                        <option value="nodecg">Fullscreen Show (NodeCG)</option>
+                        <option value="retro">Synthwave Retro</option>
                     </select>
                 </div>
 
@@ -1224,7 +1226,7 @@
         function updateObsUrl() {
             const mode = document.getElementById('obs-mode').value;
             const view = document.getElementById('obs-view').value;
-            const theme = document.getElementById('obs-theme').value;
+            const theme = document.getElementById('cfg-theme-preset').value || document.getElementById('obs-theme')?.value || 'modern';
             const style = document.getElementById('cfg-theme-card-style').value;
             const scale = parseFloat(document.getElementById('cfg-theme-scale').value) || 1.0;
             let url = `${window.location.origin}/overlays/trivia.html?layout=${mode}&theme=${theme}`;
@@ -1245,6 +1247,14 @@
             if (!document.getElementById('cfg-elem-percentages').checked) url += '&percentages=0';
             if (!document.getElementById('cfg-elem-chat-hint').checked) url += '&hint=0';
             if (!document.getElementById('cfg-elem-funfact').checked) url += '&funfact=0';
+            if (document.getElementById('cfg-theme-collapse-incorrect').checked) url += '&collapse=1';
+
+            const qFont = document.getElementById('cfg-theme-question-font')?.value.trim();
+            if (qFont) url += `&qfont=${encodeURIComponent(qFont)}`;
+            const hFont = document.getElementById('cfg-theme-header-font')?.value.trim();
+            if (hFont) url += `&hfont=${encodeURIComponent(hFont)}`;
+            const cFont = document.getElementById('cfg-theme-choice-font')?.value.trim();
+            if (cFont) url += `&cfont=${encodeURIComponent(cFont)}`;
 
             const linkEl = document.getElementById('obs-url-link');
             const openEl = document.getElementById('btn-open-url');
@@ -1257,14 +1267,39 @@
             }
         }
 
-        document.getElementById('obs-mode').addEventListener('change', updateObsUrl);
-        document.getElementById('obs-view').addEventListener('change', updateObsUrl);
-        document.getElementById('obs-theme').addEventListener('change', updateObsUrl);
-        document.getElementById('cfg-theme-card-style').addEventListener('change', updateObsUrl);
-        ['cfg-elem-category', 'cfg-elem-question-number', 'cfg-elem-timer', 'cfg-elem-letter-badges', 'cfg-elem-votes', 'cfg-elem-percentages', 'cfg-elem-chat-hint', 'cfg-elem-funfact'].forEach(id => {
-            document.getElementById(id)?.addEventListener('change', updateObsUrl);
+        const themeInputIds = [
+            'obs-mode', 'obs-view', 'obs-theme', 'cfg-theme-preset', 'cfg-theme-card-style',
+            'cfg-theme-question-font', 'cfg-theme-header-font', 'cfg-theme-choice-font',
+            'cfg-theme-accent-color', 'cfg-theme-correct-color', 'cfg-theme-collapse-incorrect',
+            'cfg-elem-category', 'cfg-elem-question-number', 'cfg-elem-timer',
+            'cfg-elem-letter-badges', 'cfg-elem-votes', 'cfg-elem-percentages',
+            'cfg-elem-chat-hint', 'cfg-elem-funfact'
+        ];
+        themeInputIds.forEach(id => {
+            document.getElementById(id)?.addEventListener('change', (e) => {
+                if (id === 'cfg-theme-preset') {
+                    const val = e.target.value;
+                    const obsThemeEl = document.getElementById('obs-theme');
+                    if (obsThemeEl) obsThemeEl.value = val;
+                    if (val === 'nodecg') {
+                        document.getElementById('cfg-theme-card-style').value = 'text';
+                        document.getElementById('cfg-theme-collapse-incorrect').checked = true;
+                    } else if (val === 'arcade' || val === 'esports' || val === 'modern') {
+                        document.getElementById('cfg-theme-card-style').value = 'cards';
+                    }
+                } else if (id === 'obs-theme') {
+                    const val = e.target.value;
+                    const cfgThemeEl = document.getElementById('cfg-theme-preset');
+                    if (cfgThemeEl) cfgThemeEl.value = val;
+                    if (val === 'nodecg') {
+                        document.getElementById('cfg-theme-card-style').value = 'text';
+                        document.getElementById('cfg-theme-collapse-incorrect').checked = true;
+                    }
+                }
+                updateObsUrl();
+            });
         });
-        document.getElementById('cfg-theme-scale').addEventListener('input', (e) => {
+        document.getElementById('cfg-theme-scale')?.addEventListener('input', (e) => {
             document.getElementById('cfg-theme-scale-val').textContent = parseFloat(e.target.value).toFixed(2) + '×';
             updateObsUrl();
         });
@@ -1408,6 +1443,17 @@
             if (res.ok) {
                 toast('All questions marked as unplayed!');
                 fetchState();
+            }
+        });
+
+        // Shuffle questions in bank
+        document.getElementById('btn-shuffle-q').addEventListener('click', async () => {
+            const res = await fetch('/api/trivia/questions/shuffle', { method: 'POST' });
+            if (res.ok) {
+                toast('Question bank shuffled!');
+                fetchState();
+            } else {
+                toast('Failed to shuffle questions');
             }
         });
 
@@ -1725,15 +1771,7 @@
             });
             if (res.ok) {
                 toast('Theme saved!');
-                fetchState();
-            }
-        });
-                method: 'PUT',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (res.ok) {
-                toast('Theme saved!');
+                updateObsUrl();
                 fetchState();
             }
         });
