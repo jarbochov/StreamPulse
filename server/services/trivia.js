@@ -4,9 +4,11 @@
  * StreamPulse Trivia Service
  * 
  * Manages interactive stream trivia:
- * - Question bank management with categories, choices, correct answers, and fun facts
+ * - 2 to 6 answers per question (including True/False support)
+ * - Question bank management with reordering, shuffle / random order, and categories
  * - Live lifecycle state machine: IDLE -> QUESTION -> REVEAL -> IDLE
- * - Real-time audience voting via chat commands (!a, !b, !c, !d, !1, !2, !3, !4, !trivia)
+ * - Granular theming (colors, fonts, weights, shadows, border radiuses, collapse modes)
+ * - Real-time audience voting via chat (!a-!f, !1-!6, !true/!false, !trivia)
  * - Saved and deletable presets with built-in starter templates
  * - Companion & REST API friendly controls (both GET and POST supported)
  * - WebSocket broadcast synchronization with overlays
@@ -19,23 +21,69 @@ const { safeWriteFileSync } = require('../routes/helpers');
 const DEFAULT_THEME = {
     preset: 'modern',
     cardBg: 'rgba(13, 17, 23, 0.94)',
+    cardBorderColor: 'rgba(56, 189, 248, 0.35)',
+    cardBorderWidth: 2,
+    cardRadius: 16,
+    cardShadow: '0 16px 48px rgba(0, 0, 0, 0.65), 0 0 24px rgba(56, 189, 248, 0.12)',
+    fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     textColor: '#f0f6fc',
+    headerFont: '',
+    headerColor: '#f0f6fc',
+    headerWeight: '700',
+    headerTransform: 'uppercase',
+    headerShadow: 'none',
+    categoryFont: '',
+    categoryColor: '#a855f7',
+    categoryWeight: '700',
+    categoryTransform: 'uppercase',
+    questionFont: '',
+    questionColor: '#f0f6fc',
+    questionWeight: '700',
+    questionShadow: '0 2px 4px rgba(0, 0, 0, 0.6)',
+    questionTransform: 'none',
+    choiceFont: '',
+    choiceColor: '#f0f6fc',
+    choiceWeight: '600',
+    choiceShadow: 'none',
+    choiceTransform: 'none',
+    choiceBg: 'rgba(22, 27, 34, 0.88)',
+    choiceBorderColor: 'rgba(255, 255, 255, 0.12)',
+    choiceBorderWidth: 1.5,
+    choiceRadius: 12,
     accentColor: '#3b82f6',
     correctColor: '#22c55e',
+    correctBg: 'rgba(34, 197, 94, 0.16)',
+    correctGlow: '0 0 24px rgba(34, 197, 94, 0.45)',
     incorrectColor: '#ef4444',
-    choiceBg: 'rgba(22, 27, 34, 0.85)',
+    incorrectOpacity: 0.35,
+    collapseIncorrect: false, // NodeCG full screen trivia style
     timerColor: '#38bdf8',
-    categoryColor: '#a855f7',
+    timerWarningColor: '#f59e0b',
+    timerCriticalColor: '#ef4444',
+    funfactFont: '',
     funfactColor: '#eab308',
-    cardRadius: 16,
-    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    funfactBg: 'rgba(234, 179, 8, 0.12)',
+    funfactShadow: 'none',
+    cardStyle: 'cards', // 'cards' | 'text' (NodeCG pure floating text broadcast mode)
+    // Toggleable visual elements
+    showCategory: true,
+    showQuestionNumber: true,
+    showTimer: true,
+    showVoteCounts: true,
+    showPercentages: true,
+    showChatHint: true,
+    showFunFact: true,
+    showLetterBadges: true
 };
 
 const DEFAULT_SETTINGS = {
     defaultDuration: 20,
     revealDelay: 6,
     autoAdvance: false,
+    randomOrder: false,
     chatVoting: true,
+    autoReveal: true, // auto-transition to answer on timer expiration
+    manualTransition: false, // when true, requires manual transition to reveal answer
     showTimer: true,
     showVotes: true,
     showFunFact: true,
@@ -63,6 +111,16 @@ const BUILTIN_PRESETS = [
                 points: 100
             },
             {
+                id: 'gc-tf-1',
+                category: 'Nintendo Lore',
+                question: 'True or False: Mario was originally known as "Jumpman" in the 1981 arcade game Donkey Kong.',
+                choices: ['True', 'False'],
+                correctIndex: 0,
+                funfact: 'Shigeru Miyamoto originally called him Jumpman, and he was depicted as a carpenter before becoming a plumber.',
+                duration: 15,
+                points: 50
+            },
+            {
                 id: 'gc-2',
                 category: 'Nintendo History',
                 question: 'What was the code name for the Nintendo GameCube during development?',
@@ -83,22 +141,22 @@ const BUILTIN_PRESETS = [
                 points: 100
             },
             {
+                id: 'gc-multi-1',
+                category: 'Pokemon Lore',
+                question: 'Which of the following was NOT an original Generation 1 starter or mascot in Pokemon Red and Blue?',
+                choices: ['Bulbasaur', 'Charmander', 'Squirtle', 'Pikachu', 'Eevee', 'Togepi'],
+                correctIndex: 5,
+                funfact: 'Togepi was introduced in Generation 2 (Gold and Silver), famously carried by Misty in the anime.',
+                duration: 25,
+                points: 150
+            },
+            {
                 id: 'gc-4',
                 category: 'Speedrunning',
                 question: 'Which classic game popularized the speedrunning glitch known as the "BLJ" (Backwards Long Jump)?',
                 choices: ['Banjo-Kazooie', 'Super Mario 64', 'The Legend of Zelda: Ocarina of Time', 'Super Mario Sunshine'],
                 correctIndex: 1,
                 funfact: 'BLJ allows players to accumulate uncapped reverse velocity on stairs to bypass key doors.',
-                duration: 20,
-                points: 100
-            },
-            {
-                id: 'gc-5',
-                category: 'PC Gaming',
-                question: 'What was the first commercial game to run on the Source Engine in 2004?',
-                choices: ['Half-Life 2', 'Counter-Strike: Source', 'Team Fortress 2', 'Portal'],
-                correctIndex: 1,
-                funfact: 'Counter-Strike: Source was released in October 2004 for cyber cafes, one month before Half-Life 2 launched in November.',
                 duration: 20,
                 points: 100
             }
@@ -122,10 +180,20 @@ const BUILTIN_PRESETS = [
                 points: 100
             },
             {
+                id: 'pc-tf-1',
+                category: 'Star Wars Lore',
+                question: 'True or False: Darth Vader explicitly says the line "Luke, I am your father" in The Empire Strikes Back.',
+                choices: ['True', 'False'],
+                correctIndex: 1,
+                funfact: 'One of the most famous misquotes in cinema! Vader actually says: "No, I am your father."',
+                duration: 15,
+                points: 50
+            },
+            {
                 id: 'pc-2',
                 category: 'Comics & Marvel',
                 question: 'What is the fictional metal alloy bonded to Wolverine\'s skeleton in the X-Men universe?',
-                choices: ['Vibranium', 'Adamantium', 'Beskar', 'Uru'],
+                choices: ['Vibranium', 'Adamantium', 'Beskar', 'Uru', 'Kryptonite'],
                 correctIndex: 1,
                 funfact: 'Adamantium was first introduced in Avengers #66 in 1969, created by writer Roy Thomas.',
                 duration: 20,
@@ -161,12 +229,22 @@ const BUILTIN_PRESETS = [
                 points: 100
             },
             {
+                id: 'sl-tf-1',
+                category: 'Emote Trivia',
+                question: 'True or False: The famous "Kappa" emote depicts real-life Justin.tv software engineer Josh DeSeno.',
+                choices: ['True', 'False'],
+                correctIndex: 0,
+                funfact: 'Josh DeSeno worked on the chat client at Justin.tv and added his own grayscale photo as an emote.',
+                duration: 15,
+                points: 50
+            },
+            {
                 id: 'sl-2',
                 category: 'Community Events',
                 question: 'Which social gaming phenomenon in 2014 allowed thousands of viewers to simultaneously control a Game Boy game via chat?',
-                choices: ['Twitch Plays Pokémon', 'Raid Boss Live', 'Chat Plays Dark Souls', 'Crowd Control Live'],
+                choices: ['Twitch Plays Pokemon', 'Raid Boss Live', 'Chat Plays Dark Souls', 'Crowd Control Live'],
                 correctIndex: 0,
-                funfact: 'Twitch Plays Pokémon beat Pokémon Red in 16 days with over 1.1 million simultaneous participants.',
+                funfact: 'Twitch Plays Pokemon beat Pokemon Red in 16 days with over 1.1 million simultaneous participants.',
                 duration: 20,
                 points: 100
             }
@@ -197,6 +275,7 @@ function createTriviaService({
     let questionTimer = null;
     let revealTimer = null;
     const userVotes = new Map(); // userId/username -> choiceIndex
+    const playedQuestionIds = new Set();
 
     function save() {
         try {
@@ -250,9 +329,11 @@ function createTriviaService({
     function sanitizeActiveQuestion(q, includeAnswer = false) {
         if (!q) return null;
         const totalVotes = userVotes.size;
-        const voteCounts = [0, 0, 0, 0];
+        const choiceCount = Array.isArray(q.choices) ? q.choices.length : 4;
+        const voteCounts = new Array(choiceCount).fill(0);
+
         for (const choiceIdx of userVotes.values()) {
-            if (choiceIdx >= 0 && choiceIdx < 4) {
+            if (choiceIdx >= 0 && choiceIdx < choiceCount) {
                 voteCounts[choiceIdx]++;
             }
         }
@@ -260,7 +341,7 @@ function createTriviaService({
         const choices = (q.choices || []).map((text, idx) => ({
             index: idx,
             text,
-            letter: String.fromCharCode(65 + idx), // 'A', 'B', 'C', 'D'
+            letter: String.fromCharCode(65 + idx), // 'A', 'B', 'C', 'D', 'E', 'F'
             votes: voteCounts[idx] || 0,
             percent: totalVotes > 0 ? Math.round(((voteCounts[idx] || 0) / totalVotes) * 100) : 0
         }));
@@ -268,11 +349,18 @@ function createTriviaService({
         const now = Date.now();
         const remainingSeconds = q.endsAt ? Math.max(0, Math.ceil((q.endsAt - now) / 1000)) : 0;
 
+        // Check if question is True/False format
+        const isTrueFalse = choices.length === 2 &&
+            choices.some(c => /^true$/i.test(c.text.trim())) &&
+            choices.some(c => /^false$/i.test(c.text.trim()));
+
         return {
             id: q.id,
             category: q.category || 'General',
             question: q.question || '',
             choices,
+            choiceCount: choices.length,
+            isTrueFalse,
             correctIndex: (includeAnswer || state.status === 'reveal') ? q.correctIndex : null,
             funfact: (includeAnswer || state.status === 'reveal') ? (q.funfact || '') : '',
             points: q.points || 100,
@@ -314,21 +402,44 @@ function createTriviaService({
         clearTimers();
         userVotes.clear();
 
+        let opts = options;
+        let queryTarget = indexOrId;
+        if (indexOrId && typeof indexOrId === 'object') {
+            opts = { ...indexOrId, ...options };
+            queryTarget = indexOrId.questionId ?? indexOrId.id ?? indexOrId.index ?? null;
+        }
+
         if (state.questions.length === 0) {
             throw new Error('No questions in the trivia bank');
         }
 
         let targetIndex = state.currentIndex;
-        if (typeof indexOrId === 'number' && indexOrId >= 0 && indexOrId < state.questions.length) {
-            targetIndex = indexOrId;
-        } else if (typeof indexOrId === 'string' && indexOrId) {
-            const idx = state.questions.findIndex(q => q.id === indexOrId);
+        if (typeof queryTarget === 'number' && queryTarget >= 0 && queryTarget < state.questions.length) {
+            targetIndex = queryTarget;
+        } else if (typeof queryTarget === 'string' && queryTarget) {
+            const idx = state.questions.findIndex(q => q.id === queryTarget);
             if (idx !== -1) targetIndex = idx;
+        } else if (state.settings.randomOrder) {
+            let unplayed = state.questions.filter(q => !playedQuestionIds.has(q.id));
+            if (unplayed.length === 0) {
+                playedQuestionIds.clear();
+                unplayed = state.questions;
+            }
+            const picked = unplayed[Math.floor(Math.random() * unplayed.length)];
+            targetIndex = state.questions.findIndex(q => q.id === picked.id);
+        } else {
+            let unplayed = state.questions.filter(q => !playedQuestionIds.has(q.id));
+            if (unplayed.length > 0) {
+                const nextUnplayed = state.questions.find((q, i) => i >= state.currentIndex && !playedQuestionIds.has(q.id)) || unplayed[0];
+                targetIndex = state.questions.findIndex(q => q.id === nextUnplayed.id);
+            }
         }
 
         state.currentIndex = targetIndex;
         const rawQuestion = state.questions[targetIndex];
-        const durationSec = Number(options.duration) || rawQuestion.duration || state.settings.defaultDuration || 20;
+        playedQuestionIds.add(rawQuestion.id);
+
+        const durationSec = Number(opts.duration) || rawQuestion.duration || state.settings.defaultDuration || 20;
         const now = Date.now();
 
         state.status = 'question';
@@ -339,8 +450,14 @@ function createTriviaService({
             duration: durationSec
         };
 
-        // Schedule auto-reveal when question timer expires
-        if (durationSec > 0) {
+        // Schedule auto-reveal when question timer expires (unless manual transition is enabled)
+        const shouldAutoReveal = opts.autoReveal !== undefined
+            ? Boolean(opts.autoReveal)
+            : (opts.manualTransition !== undefined
+                ? !opts.manualTransition
+                : (state.settings.autoReveal !== false && !state.settings.manualTransition));
+
+        if (durationSec > 0 && shouldAutoReveal) {
             questionTimer = setTimeout(() => {
                 revealAnswer();
             }, durationSec * 1000);
@@ -382,7 +499,7 @@ function createTriviaService({
 
         if (chatbotAnnouncer && typeof chatbotAnnouncer.announceTriviaAnswer === 'function') {
             try {
-                chatbotAnnouncer.announceTriviaAnswer(state.activeQuestion);
+                chatbotAnnouncer.announceTriviaAnswer(sanitizeActiveQuestion(state.activeQuestion, true));
             } catch (err) {
                 log('[Trivia] Chatbot answer announce failed:', err.message);
             }
@@ -405,8 +522,59 @@ function createTriviaService({
 
     function nextQuestion() {
         if (state.questions.length === 0) throw new Error('No questions available');
-        const nextIdx = (state.currentIndex + 1) % state.questions.length;
-        return startQuestion(nextIdx);
+
+        let targetIndex;
+        if (state.settings.randomOrder) {
+            let unplayed = state.questions.filter(q => !playedQuestionIds.has(q.id));
+            if (unplayed.length === 0) {
+                playedQuestionIds.clear();
+                unplayed = state.questions;
+            }
+            const picked = unplayed[Math.floor(Math.random() * unplayed.length)];
+            targetIndex = state.questions.findIndex(q => q.id === picked.id);
+        } else {
+            let unplayed = state.questions.filter(q => !playedQuestionIds.has(q.id));
+            if (unplayed.length > 0) {
+                const nextUnplayed = state.questions.find((q, i) => i > state.currentIndex && !playedQuestionIds.has(q.id)) || unplayed[0];
+                targetIndex = state.questions.findIndex(q => q.id === nextUnplayed.id);
+            } else {
+                targetIndex = (state.currentIndex + 1) % state.questions.length;
+            }
+        }
+
+        return startQuestion(targetIndex);
+    }
+
+    function resetDoneQuestions() {
+        playedQuestionIds.clear();
+        for (const q of state.questions) {
+            q.done = false;
+        }
+        save();
+        broadcastState('trivia:state');
+        return true;
+    }
+
+    function toggleQuestionDone(id, forcedValue = null) {
+        const q = state.questions.find(item => item.id === id);
+        if (!q) throw new Error('Question not found');
+        const isDone = playedQuestionIds.has(id) || Boolean(q.done);
+        const nextDone = typeof forcedValue === 'boolean' ? forcedValue : !isDone;
+        if (nextDone) {
+            playedQuestionIds.add(id);
+            q.done = true;
+        } else {
+            playedQuestionIds.delete(id);
+            q.done = false;
+        }
+        save();
+        broadcastState('trivia:state');
+        const unplayed = state.questions.filter(item => !playedQuestionIds.has(item.id) && !item.done).length;
+        return { id, done: nextDone, unplayedCount: unplayed };
+    }
+
+    function setQuestionDone(id, isDone = true) {
+        return toggleQuestionDone(id, Boolean(isDone));
     }
 
     function previousQuestion() {
@@ -418,6 +586,7 @@ function createTriviaService({
     function resetTrivia() {
         clearTimers();
         userVotes.clear();
+        playedQuestionIds.clear();
         state.status = 'idle';
         state.activeQuestion = null;
 
@@ -429,7 +598,8 @@ function createTriviaService({
     function castVote({ user = '', userId = '', choiceIndex = -1, isSub = false } = {}) {
         if (state.status !== 'question') return false;
         if (!state.settings.chatVoting) return false;
-        if (typeof choiceIndex !== 'number' || choiceIndex < 0 || choiceIndex >= 4) return false;
+        const choiceCount = state.activeQuestion?.choices?.length || 4;
+        if (typeof choiceIndex !== 'number' || choiceIndex < 0 || choiceIndex >= choiceCount) return false;
 
         const voterKey = (userId || user || '').trim().toLowerCase();
         if (!voterKey) return false;
@@ -448,6 +618,7 @@ function createTriviaService({
 
     function handleChatMessage(msg = {}) {
         if (state.status !== 'question' || !state.settings.chatVoting) return false;
+        if (!state.activeQuestion) return false;
 
         const comment = String(msg.comment || msg.message || '').trim();
         if (!comment) return false;
@@ -455,49 +626,72 @@ function createTriviaService({
         const user = String(msg.user || msg.username || msg.author || '').trim();
         const userId = String(msg.userId || msg.authorId || user).trim();
         const isSub = Boolean(msg.subscriber || msg.isSub || msg.hasMembership);
-
-        // Normalize command token: e.g. "!a", "!1", "!trivia b", "a"
         const lower = comment.toLowerCase();
+        const choices = state.activeQuestion.choices || [];
+        const choiceCount = choices.length;
 
-        // 1. Check direct letter commands: "!a", "!b", "!c", "!d"
-        const directMatch = lower.match(/^!([a-d1-4])\b/);
+        // 1. Check True/False voting if question has 2 choices and represents true/false
+        if (choiceCount === 2) {
+            const trueIdx = choices.findIndex(c => /^true$/i.test(c.trim()));
+            const falseIdx = choices.findIndex(c => /^false$/i.test(c.trim()));
+
+            if (trueIdx !== -1 && falseIdx !== -1) {
+                if (lower === '!true' || lower === '!t' || lower === 'true' || lower === 't') {
+                    return castVote({ user, userId, choiceIndex: trueIdx, isSub });
+                }
+                if (lower === '!false' || lower === '!f' || lower === 'false' || lower === 'f') {
+                    return castVote({ user, userId, choiceIndex: falseIdx, isSub });
+                }
+            }
+        }
+
+        // 2. Direct letter or number command: "!a" to "!f", or "!1" to "!6"
+        const directMatch = lower.match(/^!([a-f1-6])\b/);
         if (directMatch) {
             const token = directMatch[1];
             let choiceIndex = -1;
-            if (token >= 'a' && token <= 'd') {
-                choiceIndex = token.charCodeAt(0) - 97; // 0, 1, 2, 3
-            } else if (token >= '1' && token <= '4') {
-                choiceIndex = parseInt(token, 10) - 1; // 0, 1, 2, 3
+            if (token >= 'a' && token <= 'f') {
+                choiceIndex = token.charCodeAt(0) - 97; // 0..5
+            } else if (token >= '1' && token <= '6') {
+                choiceIndex = parseInt(token, 10) - 1; // 0..5
             }
-            if (choiceIndex >= 0) {
+            if (choiceIndex >= 0 && choiceIndex < choiceCount) {
                 return castVote({ user, userId, choiceIndex, isSub });
             }
         }
 
-        // 2. Check "!trivia <choice>"
-        const triviaCmdMatch = lower.match(/^!trivia\s+([a-d1-4])\b/);
+        // 3. Command "!trivia <choice>"
+        const triviaCmdMatch = lower.match(/^!trivia\s+([a-f1-6]|true|false|t|f)\b/);
         if (triviaCmdMatch) {
             const token = triviaCmdMatch[1];
+            if (choiceCount === 2 && (token === 'true' || token === 't')) {
+                const trueIdx = choices.findIndex(c => /^true$/i.test(c.trim()));
+                if (trueIdx !== -1) return castVote({ user, userId, choiceIndex: trueIdx, isSub });
+            }
+            if (choiceCount === 2 && (token === 'false' || token === 'f')) {
+                const falseIdx = choices.findIndex(c => /^false$/i.test(c.trim()));
+                if (falseIdx !== -1) return castVote({ user, userId, choiceIndex: falseIdx, isSub });
+            }
             let choiceIndex = -1;
-            if (token >= 'a' && token <= 'd') {
+            if (token >= 'a' && token <= 'f') {
                 choiceIndex = token.charCodeAt(0) - 97;
-            } else if (token >= '1' && token <= '4') {
+            } else if (token >= '1' && token <= '6') {
                 choiceIndex = parseInt(token, 10) - 1;
             }
-            if (choiceIndex >= 0) {
+            if (choiceIndex >= 0 && choiceIndex < choiceCount) {
                 return castVote({ user, userId, choiceIndex, isSub });
             }
         }
 
-        // 3. Optional bare letter vote (only if exactly 1 character and matches a-d or 1-4)
-        if (lower.length === 1 && /^[a-d1-4]$/.test(lower)) {
+        // 4. Bare single letter or single number vote
+        if (lower.length === 1 && /^[a-f1-6]$/.test(lower)) {
             let choiceIndex = -1;
-            if (lower >= 'a' && lower <= 'd') {
+            if (lower >= 'a' && lower <= 'f') {
                 choiceIndex = lower.charCodeAt(0) - 97;
-            } else if (lower >= '1' && lower <= '4') {
+            } else if (lower >= '1' && lower <= '6') {
                 choiceIndex = parseInt(lower, 10) - 1;
             }
-            if (choiceIndex >= 0) {
+            if (choiceIndex >= 0 && choiceIndex < choiceCount) {
                 return castVote({ user, userId, choiceIndex, isSub });
             }
         }
@@ -505,17 +699,32 @@ function createTriviaService({
         return false;
     }
 
+    function checkIsTrueFalse(choices = []) {
+        return choices.length === 2 &&
+            choices.some(c => /^true$/i.test(String(c).trim())) &&
+            choices.some(c => /^false$/i.test(String(c).trim()));
+    }
+
     // Question Management CRUD
     function addQuestion(item) {
-        if (!item || !item.question || !Array.isArray(item.choices) || item.choices.length === 0) {
-            throw new Error('Question and choices are required');
+        if (!item || !item.question || !Array.isArray(item.choices)) {
+            throw new Error('Question and choices array are required');
         }
+        if (item.choices.length < 2 || item.choices.length > 6) {
+            throw new Error('A question must have between 2 and 6 choices');
+        }
+        const choiceSlice = item.choices.map(c => String(c || '').trim()).filter(Boolean);
+        if (choiceSlice.length < 2 || choiceSlice.length > 6) {
+            throw new Error('A question must have between 2 and 6 choices');
+        }
+
         const newQuestion = {
             id: `q_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
             category: String(item.category || 'General').trim(),
             question: String(item.question || '').trim(),
-            choices: item.choices.map(c => String(c || '').trim()).slice(0, 4),
-            correctIndex: Math.max(0, Math.min(3, parseInt(item.correctIndex, 10) || 0)),
+            choices: choiceSlice,
+            isTrueFalse: checkIsTrueFalse(choiceSlice),
+            correctIndex: Math.max(0, Math.min(choiceSlice.length - 1, parseInt(item.correctIndex, 10) || 0)),
             funfact: String(item.funfact || '').trim(),
             duration: Math.max(5, Math.min(300, parseInt(item.duration, 10) || state.settings.defaultDuration || 20)),
             points: Math.max(10, parseInt(item.points, 10) || 100)
@@ -532,17 +741,25 @@ function createTriviaService({
         if (idx === -1) throw new Error('Question not found');
 
         const existing = state.questions[idx];
+        let choices = existing.choices;
+        if (updates.choices && Array.isArray(updates.choices)) {
+            const filtered = updates.choices.map(c => String(c || '').trim()).filter(Boolean).slice(0, 6);
+            if (filtered.length >= 2) choices = filtered;
+        }
+
+        let correctIndex = existing.correctIndex;
+        if (updates.correctIndex !== undefined) {
+            correctIndex = Math.max(0, Math.min(choices.length - 1, parseInt(updates.correctIndex, 10) || 0));
+        }
+
         const updated = {
             ...existing,
             ...updates,
-            id: existing.id
+            id: existing.id,
+            choices,
+            isTrueFalse: checkIsTrueFalse(choices),
+            correctIndex
         };
-        if (updates.choices && Array.isArray(updates.choices)) {
-            updated.choices = updates.choices.map(c => String(c || '').trim()).slice(0, 4);
-        }
-        if (updates.correctIndex !== undefined) {
-            updated.correctIndex = Math.max(0, Math.min(3, parseInt(updates.correctIndex, 10) || 0));
-        }
 
         state.questions[idx] = updated;
         if (state.activeQuestion && state.activeQuestion.id === id) {
@@ -559,6 +776,7 @@ function createTriviaService({
         if (idx === -1) return false;
 
         state.questions.splice(idx, 1);
+        playedQuestionIds.delete(id);
         if (state.currentIndex >= state.questions.length) {
             state.currentIndex = Math.max(0, state.questions.length - 1);
         }
@@ -581,11 +799,36 @@ function createTriviaService({
                 qMap.delete(id);
             }
         }
-        // Append any not explicitly in ids
         for (const remaining of qMap.values()) {
             reordered.push(remaining);
         }
         state.questions = reordered;
+        save();
+        broadcastState('trivia:state');
+        return state.questions;
+    }
+
+    function moveQuestion(id, direction) {
+        const idx = state.questions.findIndex(q => q.id === id);
+        if (idx === -1) return state.questions;
+        const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (targetIdx < 0 || targetIdx >= state.questions.length) return state.questions;
+
+        const temp = state.questions[idx];
+        state.questions[idx] = state.questions[targetIdx];
+        state.questions[targetIdx] = temp;
+        save();
+        broadcastState('trivia:state');
+        return state.questions;
+    }
+
+    function shuffleQuestions() {
+        for (let i = state.questions.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [state.questions[i], state.questions[j]] = [state.questions[j], state.questions[i]];
+        }
+        state.currentIndex = 0;
+        playedQuestionIds.clear();
         save();
         broadcastState('trivia:state');
         return state.questions;
@@ -600,20 +843,26 @@ function createTriviaService({
 
     function importQuestions(items, { replace = false } = {}) {
         if (!Array.isArray(items)) throw new Error('Import items must be an array');
-        const validated = items.map((it, idx) => ({
-            id: it.id || `q_imp_${Date.now()}_${idx}`,
-            category: String(it.category || 'General').trim(),
-            question: String(it.question || '').trim(),
-            choices: Array.isArray(it.choices) ? it.choices.map(c => String(c || '').trim()).slice(0, 4) : ['A', 'B', 'C', 'D'],
-            correctIndex: Math.max(0, Math.min(3, parseInt(it.correctIndex, 10) || 0)),
-            funfact: String(it.funfact || '').trim(),
-            duration: Math.max(5, Math.min(300, parseInt(it.duration, 10) || state.settings.defaultDuration || 20)),
-            points: Math.max(10, parseInt(it.points, 10) || 100)
-        })).filter(q => q.question.length > 0 && q.choices.length >= 2);
+        const validated = items.map((it, idx) => {
+            const choices = Array.isArray(it.choices)
+                ? it.choices.map(c => String(c || '').trim()).filter(Boolean).slice(0, 6)
+                : ['True', 'False'];
+            return {
+                id: it.id || `q_imp_${Date.now()}_${idx}`,
+                category: String(it.category || 'General').trim(),
+                question: String(it.question || '').trim(),
+                choices: choices.length >= 2 ? choices : ['True', 'False'],
+                correctIndex: Math.max(0, Math.min(choices.length - 1, parseInt(it.correctIndex, 10) || 0)),
+                funfact: String(it.funfact || '').trim(),
+                duration: Math.max(5, Math.min(300, parseInt(it.duration, 10) || state.settings.defaultDuration || 20)),
+                points: Math.max(10, parseInt(it.points, 10) || 100)
+            };
+        }).filter(q => q.question.length > 0 && q.choices.length >= 2);
 
         if (replace) {
             state.questions = validated;
             state.currentIndex = 0;
+            playedQuestionIds.clear();
         } else {
             state.questions.push(...validated);
         }
@@ -659,13 +908,13 @@ function createTriviaService({
             state.settings = { ...DEFAULT_SETTINGS, ...preset.settings };
         }
         state.currentIndex = 0;
+        playedQuestionIds.clear();
         resetTrivia();
 
         return getPublicState();
     }
 
     function deletePreset(presetId) {
-        // Built-in presets cannot be deleted
         if (BUILTIN_PRESETS.some(bp => bp.id === presetId)) {
             throw new Error('Built-in presets cannot be deleted');
         }
@@ -714,16 +963,24 @@ function createTriviaService({
             status: state.status,
             currentIndex: state.currentIndex,
             totalQuestions: state.questions.length,
-            activeQuestion: sanitizeActiveQuestion(state.activeQuestion, includeAnswerOrReveal(includeAnswers)),
+            playedQuestionIds: Array.from(playedQuestionIds),
+            unplayedCount: state.questions.filter(q => !playedQuestionIds.has(q.id) && !q.done).length,
+            activeQuestion: sanitizeActiveQuestion(state.activeQuestion, Boolean(includeAnswers || state.status === 'reveal')),
             questions: state.questions.map(q => ({
                 id: q.id,
                 category: q.category,
                 question: q.question,
                 choices: q.choices,
+                choiceCount: q.choices.length,
+                isTrueFalse: q.choices.length === 2 &&
+                    q.choices.some(c => /^true$/i.test(c.trim())) &&
+                    q.choices.some(c => /^false$/i.test(c.trim())),
                 correctIndex: includeAnswers ? q.correctIndex : undefined,
                 funfact: q.funfact,
                 duration: q.duration,
-                points: q.points
+                points: q.points,
+                done: playedQuestionIds.has(q.id) || Boolean(q.done),
+                played: playedQuestionIds.has(q.id) || Boolean(q.done)
             })),
             theme: state.theme,
             settings: state.settings,
@@ -735,10 +992,6 @@ function createTriviaService({
                 isBuiltin: BUILTIN_PRESETS.some(bp => bp.id === p.id)
             }))
         };
-    }
-
-    function includeAnswerOrReveal(include) {
-        return Boolean(include || state.status === 'reveal');
     }
 
     function getStatusSummary() {
@@ -754,7 +1007,6 @@ function createTriviaService({
         };
     }
 
-    // Initialize state from disk
     load();
 
     return {
@@ -771,6 +1023,11 @@ function createTriviaService({
         updateQuestion,
         deleteQuestion,
         reorderQuestions,
+        moveQuestion,
+        shuffleQuestions,
+        resetDoneQuestions,
+        toggleQuestionDone,
+        setQuestionDone,
         clearQuestions,
         importQuestions,
         savePreset,
@@ -779,6 +1036,8 @@ function createTriviaService({
         resetPresets,
         updateSettings,
         updateTheme,
+        stop: () => clearTimers(),
+        destroy: () => clearTimers(),
         getState: () => state
     };
 }

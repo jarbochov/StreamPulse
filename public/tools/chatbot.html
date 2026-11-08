@@ -427,7 +427,37 @@
                 </div>
             </details>
 
-            <!-- 6. Donation Chat Announcements -->
+            <!-- 6. Trivia Chat Announcements -->
+            <details class="settings-section" data-section="trivia" open>
+                <summary class="settings-summary">
+                    <div class="settings-summary-left">
+                        <h2 class="settings-summary-title">Trivia Chat Announcements</h2>
+                        <p class="settings-summary-desc">Broadcast questions and reveal correct answers in chat during live trivia.</p>
+                    </div>
+                    <div class="settings-summary-right">
+                        <label class="check" onclick="event.stopPropagation()" style="font-weight:600;"><input type="checkbox" id="s-trivia-announce-enabled"> Enable trivia announcements</label>
+                        <span class="settings-chevron">
+                            <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </span>
+                    </div>
+                </summary>
+                <div class="settings-content">
+                    <div class="row" style="gap:1.5rem;flex-wrap:wrap;">
+                        <label class="check"><input type="checkbox" id="s-trivia-announce-start"> Post when question starts</label>
+                        <label class="check"><input type="checkbox" id="s-trivia-announce-end"> Post answer &amp; results on reveal</label>
+                    </div>
+                    <div class="grid">
+                        <label class="f" style="grid-column:1/-1;"><span>Question Start Template</span><textarea id="s-trivia-template-start" rows="2" maxlength="500" placeholder="[Trivia] {category}: {question} — Choices: {choices} — Vote with {commands} ({duration})"></textarea></label>
+                        <label class="f" style="grid-column:1/-1;"><span>Answer / Reveal Template</span><input id="s-trivia-template-end" maxlength="500" placeholder="[Trivia Answer] Correct: {answer}! ({percent}% voted correctly, {votes} total votes){funfact}"></label>
+                    </div>
+                    <p class="muted" style="margin:0;font-size:.8rem;">Supported tokens: <code>{category}</code>, <code>{question}</code>, <code>{choices}</code>, <code>{commands}</code>, <code>{duration}</code>, <code>{seconds}</code>, <code>{answer}</code>, <code>{answerText}</code>, <code>{correctLetter}</code>, <code>{percent}</code>, <code>{votes}</code>, <code>{totalVotes}</code>, <code>{correctVotes}</code>, <code>{funfact}</code>, <code>{prefix}</code>, <code>{tag}</code>.</p>
+                    <div class="row">
+                        <button class="btn small" id="test-trivia-announce" type="button">Send test announcement</button>
+                    </div>
+                </div>
+            </details>
+
+            <!-- 7. Donation Chat Announcements -->
             <details class="settings-section" data-section="donations" open>
                 <summary class="settings-summary">
                     <div class="settings-summary-left">
@@ -838,6 +868,12 @@ function renderSettings() {
     $('s-tier-announce-end').checked = ta.announceEnd !== false;
     $('s-tier-template-start').value = ta.startTemplate ?? '';
     $('s-tier-template-end').value = ta.endTemplate ?? '';
+    const tra = s.triviaAnnouncements || {};
+    $('s-trivia-announce-enabled').checked = tra.enabled !== false;
+    $('s-trivia-announce-start').checked = tra.announceStart !== false;
+    $('s-trivia-announce-end').checked = tra.announceEnd !== false;
+    $('s-trivia-template-start').value = tra.startTemplate ?? '';
+    $('s-trivia-template-end').value = tra.endTemplate ?? '';
     const da = s.donationAnnouncements || {};
     $('s-don-enabled').checked = da.enabled === true;
     renderDonationSources(da.source || 'any');
@@ -1394,6 +1430,13 @@ $('save-settings').onclick = async () => {
                     startTemplate: $('s-tier-template-start').value,
                     endTemplate: $('s-tier-template-end').value
                 },
+                triviaAnnouncements: {
+                    enabled: $('s-trivia-announce-enabled').checked,
+                    announceStart: $('s-trivia-announce-start').checked,
+                    announceEnd: $('s-trivia-announce-end').checked,
+                    startTemplate: $('s-trivia-template-start').value,
+                    endTemplate: $('s-trivia-template-end').value
+                },
                 donationAnnouncements: {
                     enabled: $('s-don-enabled').checked,
                     source: $('s-don-source').value,
@@ -1495,6 +1538,18 @@ $('test-poll-announce')?.addEventListener('click', async () => {
 $('test-tier-announce')?.addEventListener('click', async () => {
     try {
         const res = await api('/api/chatbot/test-tier-announce', 'POST');
+        if (res.sent) {
+            toast('Test announcement posted to chat');
+        } else {
+            toast(`Chatbot not ready: ${res.reason || res.error || 'Check SocialStream connection'}`);
+        }
+    } catch (e) {
+        toast(`Test failed: ${e.message}`);
+    }
+});
+$('test-trivia-announce')?.addEventListener('click', async () => {
+    try {
+        const res = await api('/api/chatbot/test-trivia-announce', 'POST');
         if (res.sent) {
             toast('Test announcement posted to chat');
         } else {

@@ -20,7 +20,7 @@ Some nights need a polished scene. Others need a quick countdown or a way to let
 
 **[Polls and tournaments](polls-guide.md)** turn decisions into live moments. Run audience votes, build a voting bracket, or control a competitive scoreboard with single- or double-elimination tournaments and round-robin standings.
 
-**[Interactive Trivia](trivia.html)** brings television-grade quiz moments to your broadcast. Run multi-choice questions with progress timers, live audience chat voting (`!a`, `!b`, `!c`, `!d`), answer reveal fanfares, and quiz pack presets.
+**[Interactive Trivia](trivia-guide.md)** brings television-grade quiz moments to your broadcast. Run 2 to 6 choice questions and True/False binary votes, drag-and-drop question reordering, played question tracking, progress countdown timers, live audience chat voting (`!a`, `!b`, `!true`, `!false`), distinct visual themes (including pure floating broadcast text), answer reveal fanfares, and quiz pack presets.
 
 **[Choice Randomizer](randomizer-guide.md)** reveals games, challenges, or participants through a wheel, roller, or card display. Prepare the list before the show and let the reveal have its moment.
 

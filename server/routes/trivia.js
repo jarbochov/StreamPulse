@@ -47,6 +47,7 @@ function createTriviaRoutes({ triviaService, isTriviaEnabled = () => true }) {
                 let targetIdOrIndex = null;
                 let duration = null;
 
+                const startOptions = {};
                 if (req.method === 'POST') {
                     const raw = await readRequestBody(req);
                     if (raw) {
@@ -55,6 +56,8 @@ function createTriviaRoutes({ triviaService, isTriviaEnabled = () => true }) {
                             if (body.id !== undefined) targetIdOrIndex = body.id;
                             else if (body.index !== undefined) targetIdOrIndex = Number(body.index);
                             if (body.duration) duration = Number(body.duration);
+                            if (body.autoReveal !== undefined) startOptions.autoReveal = Boolean(body.autoReveal);
+                            if (body.manualTransition !== undefined) startOptions.manualTransition = Boolean(body.manualTransition);
                         } catch {}
                     }
                 }
@@ -67,8 +70,15 @@ function createTriviaRoutes({ triviaService, isTriviaEnabled = () => true }) {
                 if (!duration && url.searchParams.has('duration')) {
                     duration = parseInt(url.searchParams.get('duration'), 10);
                 }
+                if (duration !== undefined) startOptions.duration = duration;
+                if (url.searchParams.has('manualTransition')) {
+                    startOptions.manualTransition = url.searchParams.get('manualTransition') === '1' || url.searchParams.get('manualTransition') === 'true';
+                }
+                if (url.searchParams.has('autoReveal')) {
+                    startOptions.autoReveal = url.searchParams.get('autoReveal') === '1' || url.searchParams.get('autoReveal') === 'true';
+                }
 
-                const result = triviaService.startQuestion(targetIdOrIndex, { duration });
+                const result = triviaService.startQuestion(targetIdOrIndex, startOptions);
                 sendJson(res, result);
                 return true;
             }
@@ -105,10 +115,18 @@ function createTriviaRoutes({ triviaService, isTriviaEnabled = () => true }) {
             if (pathname === '/api/trivia/vote' && req.method === 'POST') {
                 const raw = await readRequestBody(req);
                 const body = raw ? JSON.parse(raw) : {};
+                let choiceIdx = body.choiceIndex ?? body.index;
+                if (choiceIdx === undefined && body.choice !== undefined) {
+                    const c = String(body.choice).toLowerCase().trim();
+                    if (/^[a-f]$/.test(c)) choiceIdx = c.charCodeAt(0) - 97;
+                    else if (/^[1-6]$/.test(c)) choiceIdx = parseInt(c, 10) - 1;
+                    else if (c === 'true' || c === 't') choiceIdx = 0;
+                    else if (c === 'false' || c === 'f') choiceIdx = 1;
+                }
                 const accepted = triviaService.castVote({
                     user: body.user || 'api_user',
                     userId: body.userId || body.user || 'api_user',
-                    choiceIndex: Number(body.choiceIndex ?? body.index),
+                    choiceIndex: Number(choiceIdx),
                     isSub: Boolean(body.isSub)
                 });
                 sendJson(res, { success: accepted });
@@ -139,6 +157,73 @@ function createTriviaRoutes({ triviaService, isTriviaEnabled = () => true }) {
                 const questionId = decodeURIComponent(pathname.slice('/api/trivia/question/'.length));
                 const success = triviaService.deleteQuestion(questionId);
                 sendJson(res, { success });
+                return true;
+            }
+
+            // POST or GET /api/trivia/question/toggle-done (Companion friendly)
+            if (pathname === '/api/trivia/question/toggle-done' && (req.method === 'POST' || req.method === 'GET')) {
+                let id = url.searchParams.get('id');
+                let doneVal = null;
+                if (!id && req.method === 'POST') {
+                    const raw = await readRequestBody(req);
+                    const body = raw ? JSON.parse(raw) : {};
+                    id = body.id || body.questionId;
+                    if (body.done !== undefined) doneVal = Boolean(body.done);
+                }
+                if (!id) {
+                    const pub = triviaService.getPublicState();
+                    id = pub.activeQuestion ? pub.activeQuestion.id : (pub.questions[pub.currentIndex] || {}).id;
+                }
+                if (!id) {
+                    sendJson(res, { error: 'No question id specified' }, 400);
+                    return true;
+                }
+                const result = triviaService.toggleQuestionDone(id, doneVal);
+                sendJson(res, { success: true, ...result });
+                return true;
+            }
+
+            // POST /api/trivia/question/:id/toggle-done - Toggle played/done state
+            if (pathname.startsWith('/api/trivia/question/') && pathname.endsWith('/toggle-done') && req.method === 'POST') {
+                const questionId = decodeURIComponent(pathname.slice('/api/trivia/question/'.length, -'/toggle-done'.length));
+                const result = triviaService.toggleQuestionDone(questionId);
+                sendJson(res, { success: true, ...result });
+                return true;
+            }
+
+            // POST /api/trivia/question/:id/done - Set played/done state explicitly
+            if (pathname.startsWith('/api/trivia/question/') && pathname.endsWith('/done') && req.method === 'POST') {
+                const questionId = decodeURIComponent(pathname.slice('/api/trivia/question/'.length, -'/done'.length));
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const isDone = body.done !== undefined ? Boolean(body.done) : true;
+                const result = triviaService.setQuestionDone(questionId, isDone);
+                sendJson(res, { success: true, ...result });
+                return true;
+            }
+
+            // POST /api/trivia/question/:id/move - Move question up (-1) or down (1)
+            if (pathname.startsWith('/api/trivia/question/') && pathname.endsWith('/move') && req.method === 'POST') {
+                const questionId = decodeURIComponent(pathname.slice('/api/trivia/question/'.length, -'/move'.length));
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const direction = Number(body.direction || (body.up ? -1 : 1)) || 1;
+                const reordered = triviaService.moveQuestion(questionId, direction);
+                sendJson(res, { success: true, count: reordered.length });
+                return true;
+            }
+
+            // POST /api/trivia/questions/shuffle - Randomize question bank order
+            if (pathname === '/api/trivia/questions/shuffle' && req.method === 'POST') {
+                const shuffled = triviaService.shuffleQuestions();
+                sendJson(res, { success: true, count: shuffled.length });
+                return true;
+            }
+
+            // POST /api/trivia/questions/reset-done - Reset played/done flags on all questions
+            if (pathname === '/api/trivia/questions/reset-done' && req.method === 'POST') {
+                triviaService.resetDoneQuestions();
+                sendJson(res, { success: true });
                 return true;
             }
 

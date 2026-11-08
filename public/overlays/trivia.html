@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StreamPulse Trivia Overlay</title>
+    <script src="/js/overlay-theme.js"></script>
     <style>
         *, *::before, *::after {
             box-sizing: border-box;
@@ -12,6 +13,7 @@
         }
 
         :root {
+            --font-scale: 1;
             --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             --card-bg: rgba(13, 17, 23, 0.94);
             --card-border: rgba(56, 189, 248, 0.35);
@@ -19,18 +21,44 @@
             --text-muted: #8b949e;
             --accent-color: #3b82f6;
             --correct-color: #22c55e;
+            --correct-bg: color-mix(in srgb, var(--correct-color) 16%, var(--choice-bg));
+            --correct-glow: 0 0 20px color-mix(in srgb, var(--correct-color) 45%, transparent);
             --incorrect-color: #ef4444;
+            --incorrect-opacity: 0.38;
             --choice-bg: rgba(22, 27, 34, 0.88);
             --choice-border: rgba(255, 255, 255, 0.12);
+            --choice-border-width: 1.5px;
+            --choice-radius: calc(var(--card-radius) - 4px);
+            --choice-font: inherit;
+            --choice-color: var(--text-color);
+            --choice-weight: 600;
+            --choice-shadow: none;
             --timer-color: #38bdf8;
+            --timer-warning-color: #f59e0b;
+            --timer-critical-color: #ef4444;
+            --category-font: inherit;
             --category-color: #a855f7;
+            --category-weight: 700;
+            --category-transform: uppercase;
+            --header-font: inherit;
+            --header-color: var(--text-color);
+            --header-weight: 700;
+            --header-transform: none;
+            --header-shadow: none;
+            --question-font: inherit;
+            --question-color: var(--text-color);
+            --question-weight: 700;
+            --question-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+            --funfact-font: inherit;
             --funfact-color: #eab308;
+            --funfact-bg: color-mix(in srgb, var(--funfact-color) 12%, rgba(0, 0, 0, 0.4));
+            --funfact-shadow: none;
             --card-radius: 16px;
         }
 
         /* Responsive base root scaling clamp from 720p to 4K */
         html {
-            font-size: clamp(12px, calc(100vw / 100), 28px);
+            font-size: calc(clamp(12px, calc(100vw / 100), 28px) * var(--font-scale, 1));
             background: transparent;
             width: 100%;
             height: 100%;
@@ -51,6 +79,16 @@
         }
 
         /* ── Theme Presets ───────────────────────────────────────── */
+        body[data-theme="modern"] {
+            --card-bg: rgba(13, 17, 23, 0.94);
+            --card-border: rgba(56, 189, 248, 0.35);
+            --accent-color: #3b82f6;
+            --category-color: #a855f7;
+            --timer-color: #38bdf8;
+            --correct-color: #22c55e;
+            --correct-bg: rgba(34, 197, 94, 0.16);
+        }
+
         body[data-theme="neon"] {
             --card-bg: rgba(10, 10, 20, 0.96);
             --card-border: rgba(236, 72, 153, 0.5);
@@ -58,6 +96,7 @@
             --category-color: #06b6d4;
             --timer-color: #ec4899;
             --correct-color: #10b981;
+            --correct-bg: rgba(16, 185, 129, 0.2);
         }
 
         body[data-theme="retro"] {
@@ -69,23 +108,278 @@
             --correct-color: #10b981;
         }
 
-        body[data-theme="clean"] {
-            --card-bg: rgba(15, 23, 42, 0.95);
-            --card-border: rgba(255, 255, 255, 0.15);
+        body[data-theme="clean"], body[data-theme="minimal"] {
+            --card-bg: #111827;
+            --card-border: rgba(255, 255, 255, 0.14);
+            --card-radius: 8px;
+            --choice-bg: rgba(31, 41, 55, 0.9);
+            --choice-border: rgba(255, 255, 255, 0.08);
+            --choice-border-width: 1px;
+            --choice-radius: 6px;
             --accent-color: #38bdf8;
-            --category-color: #818cf8;
+            --category-color: #94a3b8;
             --timer-color: #38bdf8;
-            --correct-color: #34d399;
+            --correct-color: #22c55e;
+            --correct-bg: rgba(34, 197, 94, 0.2);
+            --correct-glow: none;
         }
 
+        body[data-theme="clean"] .trivia-card, body[data-theme="minimal"] .trivia-card {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
+            backdrop-filter: none !important;
+        }
+
+        /* ── Retro 8-Bit Arcade ─────────────────────────────────── */
         body[data-theme="arcade"] {
-            --card-bg: rgba(0, 0, 0, 0.95);
+            --card-bg: #050508;
             --card-border: #facc15;
+            --card-radius: 0px;
+            --choice-bg: #111116;
+            --choice-border: #38bdf8;
+            --choice-border-width: 3px;
+            --choice-radius: 0px;
             --accent-color: #facc15;
             --category-color: #f43f5e;
             --timer-color: #facc15;
             --correct-color: #4ade80;
-            --choice-bg: rgba(30, 30, 30, 0.9);
+            --correct-bg: #14351f;
+            --correct-glow: 0 0 20px #4ade80;
+        }
+
+        body[data-theme="arcade"] .trivia-card {
+            border: 4px solid var(--card-border) !important;
+            box-shadow: 0 0 24px rgba(250, 204, 21, 0.4), inset 0 0 12px rgba(250, 204, 21, 0.15) !important;
+            border-radius: 0px !important;
+        }
+
+        body[data-theme="arcade"] .choice-card {
+            border: 3px solid var(--choice-border) !important;
+            border-radius: 0px !important;
+            box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.8) !important;
+        }
+
+        body[data-theme="arcade"] .choice-letter {
+            border-radius: 0px !important;
+            background: var(--accent-color) !important;
+            color: #000 !important;
+            font-weight: 900 !important;
+            border: 2px solid #fff !important;
+        }
+
+        body[data-theme="arcade"] .category-pill, body[data-theme="arcade"] .state-badge {
+            border-radius: 0px !important;
+            border-width: 2px !important;
+            text-transform: uppercase !important;
+        }
+
+        body[data-theme="arcade"] .timer-track {
+            border-radius: 0px !important;
+            height: 10px !important;
+            border: 2px solid #fff !important;
+            background: #000 !important;
+        }
+
+        body[data-theme="arcade"] .timer-bar {
+            border-radius: 0px !important;
+        }
+
+        /* ── Championship Esports ───────────────────────────────── */
+        body[data-theme="esports"] {
+            --card-bg: linear-gradient(135deg, rgba(10, 15, 29, 0.98), rgba(15, 23, 42, 0.95));
+            --card-border: #06b6d4;
+            --card-radius: 0px;
+            --choice-bg: rgba(15, 23, 42, 0.85);
+            --choice-border: rgba(6, 182, 212, 0.4);
+            --choice-border-width: 1.5px;
+            --choice-radius: 0px;
+            --accent-color: #06b6d4;
+            --category-color: #f97316;
+            --timer-color: #06b6d4;
+            --correct-color: #10b981;
+            --correct-bg: rgba(16, 185, 129, 0.2);
+            --correct-glow: 0 0 25px rgba(16, 185, 129, 0.5);
+        }
+
+        body[data-theme="esports"] .trivia-card {
+            clip-path: polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% 100%, 24px 100%, 0 calc(100% - 24px));
+            border: 2px solid var(--card-border) !important;
+            border-radius: 0 !important;
+        }
+
+        body[data-theme="esports"] .choice-card {
+            clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+            border-radius: 0 !important;
+        }
+
+        body[data-theme="esports"] .question-title {
+            text-transform: uppercase !important;
+            font-style: italic !important;
+            letter-spacing: -0.02em !important;
+        }
+
+        /* ── NodeCG Broadcast (Pure Floating Text / No Card Boxes) ── */
+        body[data-theme="nodecg"], body[data-style="text"] {
+            --card-bg: transparent !important;
+            --card-border: transparent !important;
+            --choice-bg: transparent !important;
+            --choice-border: transparent !important;
+            --choice-border-width: 0px !important;
+            --question-shadow: 4px 4px 8px #000, 2px 2px 4px #000;
+            --choice-shadow: 3px 3px 6px #000, 1px 1px 3px #000;
+            --header-shadow: 4px 4px 8px #000;
+            --category-color: #facc15;
+            --accent-color: #38bdf8;
+            --correct-color: #4ade80;
+            --correct-bg: transparent !important;
+            --correct-glow: none !important;
+        }
+
+        body[data-theme="nodecg"] #card, body[data-style="text"] #card,
+        body[data-theme="nodecg"] .trivia-card, body[data-style="text"] .trivia-card {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            padding: 1rem 0 !important;
+        }
+
+        body[data-theme="nodecg"] .choice-card, body[data-style="text"] .choice-card {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            padding: 0.75rem 0.5rem !important;
+            border-radius: 0 !important;
+        }
+
+        body[data-theme="nodecg"] .choice-letter, body[data-style="text"] .choice-letter {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            font-size: 1.45rem !important;
+            font-weight: 800 !important;
+            color: var(--accent-color) !important;
+            min-width: 2.2rem !important;
+            text-shadow: var(--choice-shadow) !important;
+        }
+
+        body[data-theme="nodecg"] .question-title, body[data-style="text"] .question-title {
+            font-size: clamp(2.4rem, 5.8vw, 4.4rem) !important;
+            line-height: 1.15 !important;
+            text-align: center !important;
+            text-shadow: var(--question-shadow) !important;
+            font-weight: 800 !important;
+        }
+
+        body[data-theme="nodecg"] .choice-text, body[data-style="text"] .choice-text {
+            font-size: clamp(1.4rem, 3.2vw, 2.4rem) !important;
+            line-height: 1.25 !important;
+            text-shadow: var(--choice-shadow) !important;
+            font-weight: 700 !important;
+        }
+
+        body[data-theme="nodecg"] .choice-card.correct .choice-text, body[data-style="text"] .choice-card.correct .choice-text {
+            color: var(--correct-color) !important;
+            text-shadow: 0 0 15px rgba(74, 222, 128, 0.7), 3px 3px 6px #000 !important;
+        }
+
+        body[data-theme="nodecg"] .choice-meter, body[data-style="text"] .choice-meter {
+            display: none !important;
+        }
+
+        body[data-theme="nodecg"] .timer-track, body[data-style="text"] .timer-track {
+            background: rgba(255, 255, 255, 0.2) !important;
+            height: 8px !important;
+            border-radius: 4px !important;
+            box-shadow: 0 2px 6px #000 !important;
+        }
+
+        body[data-theme="nodecg"] .trivia-footer, body[data-style="text"] .trivia-footer {
+            border-top: none !important;
+            text-shadow: 2px 2px 4px #000 !important;
+        }
+
+        body[data-theme="nodecg"] .category-pill, body[data-style="text"] .category-pill {
+            background: transparent !important;
+            border: none !important;
+            padding: 0 !important;
+            text-shadow: var(--header-shadow) !important;
+            font-size: 1.1rem !important;
+        }
+
+        body[data-theme="nodecg"] .question-counter, body[data-style="text"] .question-counter {
+            text-shadow: 2px 2px 4px #000 !important;
+        }
+
+        /* Staggered entrance animation for choices */
+        .choices-grid .choice-card:nth-child(1) { animation: choiceFadeIn 0.5s ease backwards; animation-delay: 0.1s; }
+        .choices-grid .choice-card:nth-child(2) { animation: choiceFadeIn 0.5s ease backwards; animation-delay: 0.22s; }
+        .choices-grid .choice-card:nth-child(3) { animation: choiceFadeIn 0.5s ease backwards; animation-delay: 0.34s; }
+        .choices-grid .choice-card:nth-child(4) { animation: choiceFadeIn 0.5s ease backwards; animation-delay: 0.46s; }
+        .choices-grid .choice-card:nth-child(5) { animation: choiceFadeIn 0.5s ease backwards; animation-delay: 0.58s; }
+        .choices-grid .choice-card:nth-child(6) { animation: choiceFadeIn 0.5s ease backwards; animation-delay: 0.7s; }
+
+        @keyframes choiceFadeIn {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Toggleable Elements Visibility Rules ────────────────────── */
+        body.hide-category #category,
+        body[data-hide-category="true"] #category {
+            display: none !important;
+        }
+
+        body.hide-counter #counter,
+        body[data-hide-counter="true"] #counter {
+            display: none !important;
+        }
+
+        body.hide-state-badge #state-badge,
+        body[data-hide-badge="true"] #state-badge {
+            display: none !important;
+        }
+
+        body.hide-header .trivia-header,
+        body[data-hide-header="true"] .trivia-header {
+            display: none !important;
+        }
+
+        body.hide-timer #timer-track,
+        body[data-hide-timer="true"] #timer-track {
+            display: none !important;
+        }
+
+        body.hide-votes .total-votes-count,
+        body[data-hide-votes="true"] .total-votes-count {
+            display: none !important;
+        }
+
+        body.hide-percentages .choice-stats,
+        body.hide-stats .choice-stats,
+        body[data-hide-percentages="true"] .choice-stats,
+        body[data-hide-stats="true"] .choice-stats {
+            display: none !important;
+        }
+
+        body.hide-hint #chat-hint,
+        body[data-hide-hint="true"] #chat-hint {
+            display: none !important;
+        }
+
+        body.hide-footer .trivia-footer,
+        body[data-hide-footer="true"] .trivia-footer {
+            display: none !important;
+        }
+
+        body.hide-funfact #funfact-box,
+        body[data-hide-funfact="true"] #funfact-box {
+            display: none !important;
+        }
+
+        body.hide-letters .choice-letter,
+        body[data-hide-letters="true"] .choice-letter {
+            display: none !important;
         }
 
         /* ── Container Layouts ─────────────────────────────────────── */
@@ -124,6 +418,11 @@
             align-items: center;
             justify-content: space-between;
             gap: 1rem;
+            font-family: var(--header-font);
+            color: var(--header-color);
+            font-weight: var(--header-weight);
+            text-transform: var(--header-transform);
+            text-shadow: var(--header-shadow);
         }
 
         .category-pill {
@@ -136,9 +435,10 @@
             padding: 0.3rem 0.8rem;
             border-radius: 999px;
             font-size: 0.85rem;
-            font-weight: 700;
+            font-family: var(--category-font);
+            font-weight: var(--category-weight);
             letter-spacing: 0.05em;
-            text-transform: uppercase;
+            text-transform: var(--category-transform);
         }
 
         .category-pill svg {
@@ -193,10 +493,11 @@
         /* ── Question Text ────────────────────────────────────────── */
         .question-title {
             font-size: 1.55rem;
-            font-weight: 700;
+            font-family: var(--question-font);
+            font-weight: var(--question-weight);
+            color: var(--question-color);
             line-height: 1.35;
-            color: var(--text-color);
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+            text-shadow: var(--question-shadow);
         }
 
         /* ── Progress Timer Bar ───────────────────────────────────── */
@@ -219,26 +520,47 @@
         }
 
         .timer-bar.warning {
-            background: #f59e0b;
-            box-shadow: 0 0 10px #f59e0b;
+            background: var(--timer-warning-color);
+            box-shadow: 0 0 10px var(--timer-warning-color);
         }
 
         .timer-bar.critical {
-            background: #ef4444;
-            box-shadow: 0 0 12px #ef4444;
+            background: var(--timer-critical-color);
+            box-shadow: 0 0 12px var(--timer-critical-color);
         }
 
-        /* ── Choices Grid ─────────────────────────────────────────── */
+        /* ── Choices Dynamic Grid (2 to 6 Choices) ───────────────── */
         .choices-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 1rem;
+            transition: all 0.4s ease;
+        }
+
+        .choices-grid[data-count="2"] {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .choices-grid[data-count="3"] {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .choices-grid[data-count="4"] {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .choices-grid[data-count="5"] {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .choices-grid[data-count="6"] {
+            grid-template-columns: repeat(3, 1fr);
         }
 
         .choice-card {
             background: var(--choice-bg);
-            border: 1.5px solid var(--choice-border);
-            border-radius: calc(var(--card-radius) - 4px);
+            border: var(--choice-border-width) solid var(--choice-border);
+            border-radius: var(--choice-radius);
             padding: 1rem 1.25rem;
             display: flex;
             align-items: center;
@@ -246,7 +568,8 @@
             gap: 1rem;
             position: relative;
             overflow: hidden;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: opacity 0.45s ease, max-height 0.45s ease, padding 0.45s ease, margin 0.45s ease, transform 0.45s ease, border-width 0.45s ease, background 0.3s ease, border-color 0.3s ease;
+            max-height: 160px;
         }
 
         /* Dynamic Vote Fill meter behind choice */
@@ -288,9 +611,11 @@
         }
 
         .choice-text {
+            font-family: var(--choice-font);
             font-size: 1.12rem;
-            font-weight: 600;
-            color: var(--text-color);
+            font-weight: var(--choice-weight);
+            color: var(--choice-color);
+            text-shadow: var(--choice-shadow);
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -319,8 +644,8 @@
         /* ── Reveal Phase States ──────────────────────────────────── */
         .trivia-card.phase-reveal .choice-card.correct {
             border-color: var(--correct-color);
-            background: color-mix(in srgb, var(--correct-color) 16%, var(--choice-bg));
-            box-shadow: 0 0 20px color-mix(in srgb, var(--correct-color) 45%, transparent);
+            background: var(--correct-bg);
+            box-shadow: var(--correct-glow);
             transform: scale(1.02);
         }
 
@@ -335,21 +660,44 @@
         }
 
         .trivia-card.phase-reveal .choice-card.incorrect {
-            opacity: 0.38;
+            opacity: var(--incorrect-opacity);
             filter: grayscale(0.4);
             transform: scale(0.99);
+        }
+
+        /* ── NodeCG-Style Collapsed Incorrect Choices on Reveal ───── */
+        .trivia-card.phase-reveal.collapse-incorrect .choice-card.incorrect {
+            max-height: 0 !important;
+            opacity: 0 !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+            border-width: 0 !important;
+            overflow: hidden !important;
+            pointer-events: none !important;
+            transform: scaleY(0) !important;
+        }
+
+        .trivia-card.phase-reveal.collapse-incorrect .choices-grid {
+            grid-template-columns: 1fr !important;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
         }
 
         /* ── Fun Fact Card ────────────────────────────────────────── */
         .funfact-box {
             display: none;
-            background: color-mix(in srgb, var(--funfact-color) 12%, rgba(0, 0, 0, 0.4));
+            background: var(--funfact-bg);
             border: 1px solid color-mix(in srgb, var(--funfact-color) 35%, transparent);
             border-radius: calc(var(--card-radius) - 4px);
             padding: 0.85rem 1.15rem;
             font-size: 0.95rem;
+            font-family: var(--funfact-font);
             line-height: 1.45;
             color: var(--text-color);
+            box-shadow: var(--funfact-shadow);
             align-items: flex-start;
             gap: 0.65rem;
             animation: slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -399,6 +747,7 @@
             display: inline-flex;
             align-items: center;
             gap: 0.4rem;
+            flex-wrap: wrap;
         }
 
         .chat-hint kbd {
@@ -416,55 +765,71 @@
             font-variant-numeric: tabular-nums;
         }
 
-        /* ── Compact Lower-Third Mode (?mode=compact) ──────────────── */
-        body[data-mode="compact"] {
+        /* ── Compact Lower-Third Mode (?layout=compact or ?mode=compact) ── */
+        body[data-layout="compact"], body[data-mode="compact"] {
             padding: 1rem;
             align-items: flex-end;
         }
 
-        body[data-mode="compact"] #trivia-root {
+        body[data-layout="compact"] #trivia-root, body[data-mode="compact"] #trivia-root {
             max-width: 100%;
         }
 
-        body[data-mode="compact"] .trivia-card {
+        body[data-layout="compact"] .trivia-card, body[data-mode="compact"] .trivia-card {
             padding: 1rem 1.4rem;
             gap: 0.75rem;
         }
 
-        body[data-mode="compact"] .question-title {
+        body[data-layout="compact"] .question-title, body[data-mode="compact"] .question-title {
             font-size: 1.15rem;
         }
 
-        body[data-mode="compact"] .choices-grid {
+        body[data-layout="compact"] .choices-grid, body[data-mode="compact"] .choices-grid {
             grid-template-columns: repeat(4, 1fr);
             gap: 0.6rem;
         }
 
-        body[data-mode="compact"] .choice-card {
+        body[data-layout="compact"] .choices-grid[data-count="2"], body[data-mode="compact"] .choices-grid[data-count="2"] {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        body[data-layout="compact"] .choices-grid[data-count="3"], body[data-mode="compact"] .choices-grid[data-count="3"] {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        body[data-layout="compact"] .choices-grid[data-count="5"], body[data-mode="compact"] .choices-grid[data-count="5"] {
+            grid-template-columns: repeat(5, 1fr);
+        }
+
+        body[data-layout="compact"] .choices-grid[data-count="6"], body[data-mode="compact"] .choices-grid[data-count="6"] {
+            grid-template-columns: repeat(6, 1fr);
+        }
+
+        body[data-layout="compact"] .choice-card, body[data-mode="compact"] .choice-card {
             padding: 0.6rem 0.85rem;
         }
 
-        body[data-mode="compact"] .choice-text {
+        body[data-layout="compact"] .choice-text, body[data-mode="compact"] .choice-text {
             font-size: 0.95rem;
         }
 
-        /* ── Corner HUD Mode (?mode=hud) ──────────────────────────── */
-        body[data-mode="hud"] {
+        /* ── Corner HUD Mode (?layout=hud or ?mode=hud) ───────────── */
+        body[data-layout="hud"], body[data-mode="hud"] {
             padding: 1.5rem;
             align-items: flex-start;
             justify-content: flex-start;
         }
 
-        body[data-mode="hud"] #trivia-root {
+        body[data-layout="hud"] #trivia-root, body[data-mode="hud"] #trivia-root {
             max-width: 440px;
         }
 
-        body[data-mode="hud"] .choices-grid {
+        body[data-layout="hud"] .choices-grid, body[data-mode="hud"] .choices-grid {
             grid-template-columns: 1fr;
             gap: 0.5rem;
         }
 
-        body[data-mode="hud"] .question-title {
+        body[data-layout="hud"] .question-title, body[data-mode="hud"] .question-title {
             font-size: 1.1rem;
         }
     </style>
@@ -525,15 +890,32 @@
         // URL Parameter handling
         const params = new URLSearchParams(window.location.search);
         const themeParam = params.get('theme') || 'modern';
-        const modeParam = params.get('mode') || 'full';
+        const rawMode = (params.get('mode') || '').toLowerCase();
+        const rawLayout = (params.get('layout') || '').toLowerCase();
+        const rawView = (params.get('view') || params.get('display') || '').toLowerCase();
+
+        let layout = 'full';
+        if (['compact', 'hud'].includes(rawLayout)) layout = rawLayout;
+        else if (['compact', 'hud'].includes(rawMode)) layout = rawMode;
+
+        let displayMode = 'auto';
+        if (['question', 'answer'].includes(rawView)) displayMode = rawView;
+        else if (['question', 'answer'].includes(rawMode)) displayMode = rawMode;
+
         const soundParam = params.get('sound') !== '0';
         const showVotesParam = params.get('showVotes') !== '0';
         const showTimerParam = params.get('showTimer') !== '0';
         const showFunFactParam = params.get('showFunFact') !== '0';
         const previewParam = params.get('preview') === 'true';
+        const scaleParam = parseFloat(params.get('scale') || params.get('fontscale') || '0');
+        if (scaleParam > 0) {
+            document.documentElement.style.setProperty('--font-scale', scaleParam);
+        }
 
         document.body.dataset.theme = themeParam;
-        document.body.dataset.mode = modeParam;
+        document.body.dataset.mode = layout;
+        document.body.dataset.layout = layout;
+        document.body.dataset.displayMode = displayMode;
 
         if (!showTimerParam) {
             document.getElementById('timer-track').style.display = 'none';
@@ -633,17 +1015,95 @@
             // Apply custom theme variables if passed from service
             if (data.theme) {
                 const root = document.documentElement;
-                if (data.theme.cardBg) root.style.setProperty('--card-bg', data.theme.cardBg);
-                if (data.theme.textColor) root.style.setProperty('--text-color', data.theme.textColor);
-                if (data.theme.accentColor) root.style.setProperty('--accent-color', data.theme.accentColor);
-                if (data.theme.correctColor) root.style.setProperty('--correct-color', data.theme.correctColor);
-                if (data.theme.incorrectColor) root.style.setProperty('--incorrect-color', data.theme.incorrectColor);
-                if (data.theme.choiceBg) root.style.setProperty('--choice-bg', data.theme.choiceBg);
-                if (data.theme.timerColor) root.style.setProperty('--timer-color', data.theme.timerColor);
-                if (data.theme.categoryColor) root.style.setProperty('--category-color', data.theme.categoryColor);
-                if (data.theme.funfactColor) root.style.setProperty('--funfact-color', data.theme.funfactColor);
-                if (data.theme.cardRadius) root.style.setProperty('--card-radius', `${data.theme.cardRadius}px`);
-                if (data.theme.preset && !params.has('theme')) document.body.dataset.theme = data.theme.preset;
+                const t = data.theme;
+                if (t.cardBg) root.style.setProperty('--card-bg', t.cardBg);
+                if (t.cardBorder) root.style.setProperty('--card-border', t.cardBorder);
+                if (t.textColor) root.style.setProperty('--text-color', t.textColor);
+                if (t.accentColor) root.style.setProperty('--accent-color', t.accentColor);
+                if (t.correctColor) root.style.setProperty('--correct-color', t.correctColor);
+                if (t.correctBg) root.style.setProperty('--correct-bg', t.correctBg);
+                if (t.correctGlow) root.style.setProperty('--correct-glow', t.correctGlow);
+                if (t.incorrectColor) root.style.setProperty('--incorrect-color', t.incorrectColor);
+                if (t.incorrectOpacity !== undefined) root.style.setProperty('--incorrect-opacity', t.incorrectOpacity);
+                if (t.choiceBg) root.style.setProperty('--choice-bg', t.choiceBg);
+                if (t.choiceBorder) root.style.setProperty('--choice-border', t.choiceBorder);
+                if (t.choiceBorderWidth !== undefined) root.style.setProperty('--choice-border-width', `${t.choiceBorderWidth}px`);
+                if (t.choiceRadius !== undefined) root.style.setProperty('--choice-radius', `${t.choiceRadius}px`);
+                if (t.timerColor) root.style.setProperty('--timer-color', t.timerColor);
+                if (t.timerWarningColor) root.style.setProperty('--timer-warning-color', t.timerWarningColor);
+                if (t.timerCriticalColor) root.style.setProperty('--timer-critical-color', t.timerCriticalColor);
+                if (t.categoryColor) root.style.setProperty('--category-color', t.categoryColor);
+                if (t.funfactColor) root.style.setProperty('--funfact-color', t.funfactColor);
+                if (t.funfactBg) root.style.setProperty('--funfact-bg', t.funfactBg);
+                if (t.cardRadius !== undefined) root.style.setProperty('--card-radius', `${t.cardRadius}px`);
+
+                // Granular Typography & Shadows
+                if (t.headerFont) { root.style.setProperty('--header-font', t.headerFont); window.loadUrlFont?.(t.headerFont); }
+                if (t.headerColor) root.style.setProperty('--header-color', t.headerColor);
+                if (t.headerWeight) root.style.setProperty('--header-weight', t.headerWeight);
+                if (t.headerTransform) root.style.setProperty('--header-transform', t.headerTransform);
+                if (t.headerShadow) root.style.setProperty('--header-shadow', t.headerShadow);
+
+                if (t.categoryFont) { root.style.setProperty('--category-font', t.categoryFont); window.loadUrlFont?.(t.categoryFont); }
+                if (t.categoryWeight) root.style.setProperty('--category-weight', t.categoryWeight);
+                if (t.categoryTransform) root.style.setProperty('--category-transform', t.categoryTransform);
+
+                if (t.questionFont) { root.style.setProperty('--question-font', t.questionFont); window.loadUrlFont?.(t.questionFont); }
+                if (t.questionColor) root.style.setProperty('--question-color', t.questionColor);
+                if (t.questionWeight) root.style.setProperty('--question-weight', t.questionWeight);
+                if (t.questionShadow) root.style.setProperty('--question-shadow', t.questionShadow);
+
+                if (t.choiceFont) { root.style.setProperty('--choice-font', t.choiceFont); window.loadUrlFont?.(t.choiceFont); }
+                if (t.choiceColor) root.style.setProperty('--choice-color', t.choiceColor);
+                if (t.choiceWeight) root.style.setProperty('--choice-weight', t.choiceWeight);
+                if (t.choiceShadow) root.style.setProperty('--choice-shadow', t.choiceShadow);
+
+                if (t.funfactFont) { root.style.setProperty('--funfact-font', t.funfactFont); window.loadUrlFont?.(t.funfactFont); }
+                if (t.funfactShadow) root.style.setProperty('--funfact-shadow', t.funfactShadow);
+
+                if ((t.fontScale || t.scale) && !scaleParam) {
+                    const s = parseFloat(t.fontScale || t.scale);
+                    if (s > 0) root.style.setProperty('--font-scale', s);
+                }
+
+                if (!params.has('theme')) {
+                    document.body.dataset.theme = t.preset || 'modern';
+                }
+
+                const activePreset = themeParam || t.preset || 'modern';
+                document.body.dataset.theme = activePreset;
+
+                const styleParam = (params.get('style') || '').toLowerCase();
+                const activeStyle = styleParam || t.cardStyle || (activePreset === 'nodecg' ? 'text' : 'cards');
+                document.body.dataset.style = activeStyle;
+
+                // Element visibility toggles: URL parameters take precedence over saved theme options
+                const hideCategory = params.has('hideCategory') || params.get('category') === '0' || t.showCategory === false;
+                document.body.dataset.hideCategory = hideCategory ? 'true' : 'false';
+
+                const hideCounter = params.has('hideCounter') || params.get('counter') === '0' || params.get('questionNumber') === '0' || t.showQuestionNumber === false;
+                document.body.dataset.hideCounter = hideCounter ? 'true' : 'false';
+
+                const hideBadge = params.has('hideBadge') || params.get('badge') === '0';
+                document.body.dataset.hideBadge = hideBadge ? 'true' : 'false';
+
+                const hideTimer = params.has('hideTimer') || params.get('timer') === '0' || params.get('showTimer') === '0' || t.showTimer === false;
+                document.body.dataset.hideTimer = hideTimer ? 'true' : 'false';
+
+                const hideVotes = params.has('hideVotes') || params.get('votes') === '0' || params.get('showVotes') === '0' || t.showVoteCounts === false;
+                document.body.dataset.hideVotes = hideVotes ? 'true' : 'false';
+
+                const hidePercentages = params.has('hidePercentages') || params.get('percentages') === '0' || params.get('stats') === '0' || t.showPercentages === false;
+                document.body.dataset.hidePercentages = hidePercentages ? 'true' : 'false';
+
+                const hideHint = params.has('hideHint') || params.get('hint') === '0' || params.get('chat') === '0' || t.showChatHint === false;
+                document.body.dataset.hideHint = hideHint ? 'true' : 'false';
+
+                const hideFunFact = params.has('hideFunFact') || params.get('funfact') === '0' || params.get('showFunFact') === '0' || t.showFunFact === false;
+                document.body.dataset.hideFunFact = hideFunFact ? 'true' : 'false';
+
+                const hideLetters = params.has('hideLetters') || params.get('letters') === '0' || t.showLetterBadges === false;
+                document.body.dataset.hideLetters = hideLetters ? 'true' : 'false';
             }
 
             const q = data.activeQuestion;
@@ -661,11 +1121,21 @@
             categoryTextEl.textContent = q?.category || 'General';
             counterEl.textContent = `Question ${(data.currentIndex ?? 0) + 1} of ${data.totalQuestions || 1}`;
 
-            // Phase Badge
-            const isReveal = data.status === 'reveal';
+            // Phase / Reveal state determined by displayMode parameter or live server state
+            let isReveal = false;
+            if (displayMode === 'question') {
+                isReveal = false;
+            } else if (displayMode === 'answer') {
+                isReveal = true;
+            } else {
+                isReveal = (data.status === 'reveal');
+            }
+
+            const shouldCollapse = Boolean(data.theme?.collapseIncorrect || document.body.dataset.theme === 'nodecg' || document.body.dataset.style === 'text' || params.get('collapse') === '1');
+
             stateBadgeEl.textContent = isReveal ? 'Answer Reveal' : 'Voting Open';
             stateBadgeEl.className = `state-badge ${isReveal ? 'reveal' : 'question'}`;
-            cardEl.className = `trivia-card ${isReveal ? 'phase-reveal' : 'phase-question'}`;
+            cardEl.className = `trivia-card ${isReveal ? 'phase-reveal' : 'phase-question'} ${shouldCollapse ? 'collapse-incorrect' : ''}`;
 
             // Question Title
             questionTextEl.textContent = q?.question || 'Question title';
@@ -678,9 +1148,10 @@
                 timerBarEl.style.width = isReveal ? '0%' : '100%';
             }
 
-            // Choices Grid
+            // Choices Grid (2-6 dynamic count)
             const choices = q?.choices || [];
             const correctIdx = q?.correctIndex;
+            choicesGridEl.dataset.count = choices.length;
 
             choicesGridEl.innerHTML = choices.map((c, idx) => {
                 const letter = c.letter || String.fromCharCode(65 + idx);
@@ -712,6 +1183,18 @@
                 funfactBoxEl.classList.add('active');
             } else {
                 funfactBoxEl.classList.remove('active');
+            }
+
+            // Chat hint footer for True/False and 2-6 choices
+            const chatHintEl = document.getElementById('chat-hint');
+            if (chatHintEl && choices.length > 0) {
+                const isTrueFalse = q?.isTrueFalse || (choices.length === 2 && choices.every(c => /^(true|false)$/i.test(String(c.text || '').trim())));
+                if (isTrueFalse) {
+                    chatHintEl.innerHTML = `<span>Vote in chat:</span> <kbd>!true</kbd> <kbd>!false</kbd> <span>or</span> <kbd>!a</kbd> <kbd>!b</kbd>`;
+                } else {
+                    const kbds = choices.map((c, i) => `<kbd>!${(c.letter || String.fromCharCode(65 + i)).toLowerCase()}</kbd>`).join(' ');
+                    chatHintEl.innerHTML = `<span>Vote in chat:</span> ${kbds}`;
+                }
             }
 
             // Total Votes

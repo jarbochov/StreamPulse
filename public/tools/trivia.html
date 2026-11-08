@@ -6,6 +6,7 @@
     <title>StreamPulse — Trivia Studio</title>
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
+    <script src="/js/overlay-theme.js"></script>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -312,8 +313,88 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 1rem;
-            transition: border-color 0.15s ease;
+            gap: 0.75rem;
+            transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+            user-select: none;
+        }
+
+        .question-item.dragging {
+            opacity: 0.45;
+            border: 1.5px dashed var(--accent, #58a6ff);
+            background: color-mix(in srgb, #58a6ff 6%, var(--bg-raised, #21262d));
+        }
+
+        .question-item.drag-over {
+            border-top: 2px solid var(--accent, #58a6ff);
+            transform: translateY(2px);
+        }
+
+        .drag-handle {
+            cursor: grab;
+            color: var(--text-muted, #8b949e);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            border-radius: 4px;
+            flex-shrink: 0;
+            transition: color 0.15s ease;
+        }
+
+        .drag-handle:hover {
+            color: var(--text, #f0f6fc);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+
+        .badge-done {
+            background: rgba(139, 148, 158, 0.18);
+            color: #8b949e;
+            border: 1px solid rgba(139, 148, 158, 0.35);
+            font-size: 9px;
+            padding: 2px 7px;
+            border-radius: 999px;
+            text-transform: uppercase;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .badge-done:hover {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.4);
+        }
+
+        .badge-unplayed {
+            background: rgba(34, 197, 94, 0.14);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            font-size: 9px;
+            padding: 2px 7px;
+            border-radius: 999px;
+            text-transform: uppercase;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .badge-unplayed:hover {
+            background: rgba(34, 197, 94, 0.28);
+            border-color: #4ade80;
+        }
+
+        .icon-btn.btn-done-active {
+            color: #4ade80;
+            border-color: rgba(74, 222, 128, 0.4);
+            background: rgba(74, 222, 128, 0.1);
         }
 
         .question-item.active-item {
@@ -574,10 +655,18 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
                         <span>Question Bank (<span id="q-count">0</span>)</span>
                     </span>
-                    <div style="display: flex; gap: 0.5rem;">
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                         <button type="button" class="btn primary" id="btn-add-q">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                             <span>Add Question</span>
+                        </button>
+                        <button type="button" class="btn" id="btn-shuffle-q" title="Shuffle questions in bank">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+                            <span>Shuffle</span>
+                        </button>
+                        <button type="button" class="btn" id="btn-reset-done" title="Clear Done status on all questions so they can be replayed">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l6 5.81"/></svg>
+                            <span>Reset Done</span>
                         </button>
                         <button type="button" class="btn" id="btn-import-modal">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -636,6 +725,14 @@
                     <input type="number" id="cfg-reveal-delay" min="1" max="60" value="6">
                 </div>
 
+                <div class="form-row">
+                    <label>Transition to Answer</label>
+                    <select id="cfg-transition-mode">
+                        <option value="auto">Auto-Reveal (Timer expires -> answer reveals)</option>
+                        <option value="manual">Manual Transition (Host controls when answer reveals)</option>
+                    </select>
+                </div>
+
                 <label class="checkbox-row">
                     <input type="checkbox" id="cfg-chat-voting" checked>
                     <span>Enable Chat Voting (!a, !b, !c, !d)</span>
@@ -647,11 +744,133 @@
                 </label>
 
                 <label class="checkbox-row">
+                    <input type="checkbox" id="cfg-random-order">
+                    <span>Random Question Order (Shuffle on play)</span>
+                </label>
+
+                <label class="checkbox-row">
                     <input type="checkbox" id="cfg-sound-enabled" checked>
                     <span>Synthesized Audio Chimes</span>
                 </label>
 
                 <button type="button" class="btn primary" id="btn-save-settings">Save Settings</button>
+            </div>
+
+            <!-- Overlay Theme & Typography Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10c0 3.04-1.5 5.5-4 5.5s-2.5-1.5-4-1.5c-1 0-1.5.5-1.5 1.5 0 2-2 3.5-4 3.5a10 10 0 0 1-6.5-19"></path></svg>
+                        <span>Overlay Theme &amp; Typography</span>
+                    </span>
+                </div>
+
+                <div class="form-row">
+                    <label>Theme Preset</label>
+                    <select id="cfg-theme-preset">
+                        <option value="modern">Modern Glass (StreamPulse)</option>
+                        <option value="nodecg">NodeCG Text Broadcast (Pure Floating Text)</option>
+                        <option value="arcade">Retro 8-Bit Arcade (Pixel Borders &amp; Neon)</option>
+                        <option value="esports">Championship Esports (Angular Cuts)</option>
+                        <option value="minimal">Clean Minimal (Flat Lower Third)</option>
+                        <option value="neon">Cyber Neon</option>
+                        <option value="retro">Synthwave Retro</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <label>Card &amp; Container Style</label>
+                    <select id="cfg-theme-card-style">
+                        <option value="cards">Cards &amp; Boxes (Glass Containers)</option>
+                        <option value="text">Pure Floating Text (No Boxes / NodeCG Style)</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <label>Question Font Family</label>
+                    <select id="cfg-theme-question-font">
+                        <option value="">(Theme Default)</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <label>Header / Category Font</label>
+                    <select id="cfg-theme-header-font">
+                        <option value="">(Theme Default)</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <label>Choice Font Family</label>
+                    <select id="cfg-theme-choice-font">
+                        <option value="">(Theme Default)</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <label style="margin: 0;">Overlay Font Scaling</label>
+                        <span id="cfg-theme-scale-val" style="font-weight: 700; color: var(--accent); font-size: 11px;">1.00×</span>
+                    </div>
+                    <input type="range" id="cfg-theme-scale" min="0.6" max="2.0" step="0.05" value="1.0">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <div class="form-row">
+                        <label>Accent Color</label>
+                        <input type="color" id="cfg-theme-accent-color" value="#3b82f6" style="height: 32px; padding: 2px; cursor: pointer;">
+                    </div>
+                    <div class="form-row">
+                        <label>Correct Color</label>
+                        <input type="color" id="cfg-theme-correct-color" value="#22c55e" style="height: 32px; padding: 2px; cursor: pointer;">
+                    </div>
+                </div>
+
+                <label class="checkbox-row">
+                    <input type="checkbox" id="cfg-theme-collapse-incorrect">
+                    <span>Collapse incorrect choices on reveal (NodeCG style)</span>
+                </label>
+
+                <!-- Toggleable Visual Elements -->
+                <div style="margin-top: 0.85rem; padding-top: 0.85rem; border-top: 1px solid var(--border, rgba(255,255,255,0.08));">
+                    <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">
+                        Overlay Elements &amp; Visibility
+                    </div>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cfg-elem-category" checked>
+                        <span>Category Badge</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cfg-elem-question-number" checked>
+                        <span>Question Counter (e.g. Q1 of 5)</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cfg-elem-timer" checked>
+                        <span>Countdown Timer Bar</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cfg-elem-letter-badges" checked>
+                        <span>Choice Letter Badges (A - F)</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cfg-elem-votes" checked>
+                        <span>Total Audience Votes Count</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cfg-elem-percentages" checked>
+                        <span>Choice Percentages &amp; Stat Pills</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cfg-elem-chat-hint" checked>
+                        <span>Chat Voting Instructions Hint (!a - !d)</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cfg-elem-funfact" checked>
+                        <span>Did You Know? Fun Fact on Reveal</span>
+                    </label>
+                </div>
+
+                <button type="button" class="btn primary" id="btn-save-theme" style="margin-top: 0.75rem;">Save Theme</button>
             </div>
 
             <!-- OBS Browser Source Link Generator -->
@@ -673,20 +892,33 @@
                 </div>
 
                 <div class="form-row">
+                    <label>Display / Screen Lock</label>
+                    <select id="obs-view">
+                        <option value="auto">Live Cycle (Shows Question then Reveals Answer)</option>
+                        <option value="question">Question Only (Locks to Question Screen for Players)</option>
+                        <option value="answer">Answer Reveal Only (Locks to Revealed Answer View)</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
                     <label>Visual Theme</label>
                     <select id="obs-theme">
                         <option value="modern">Modern Dark (StreamPulse)</option>
                         <option value="neon">Cyber Neon</option>
                         <option value="retro">Arcade Retro</option>
                         <option value="clean">Clean Minimal</option>
+                        <option value="nodecg">Fullscreen Show (NodeCG)</option>
                     </select>
                 </div>
 
-                <div class="url-box">
-                    <span id="obs-url-display">http://localhost:3000/overlays/trivia.html</span>
-                    <button type="button" class="icon-btn" id="btn-copy-url" title="Copy URL">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                    </button>
+                <div class="url-box" style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+                    <a id="obs-url-link" href="#" target="_blank" rel="noopener noreferrer" style="color: var(--accent); font-family: monospace; font-size: 11px; word-break: break-all; text-decoration: underline; flex: 1;">http://localhost:3000/overlays/trivia.html</a>
+                    <div style="display: flex; gap: 0.35rem; flex-shrink: 0;">
+                        <a id="btn-open-url" class="btn" href="#" target="_blank" rel="noopener noreferrer" style="font-size: 11px; padding: 0.2rem 0.5rem;" title="Open in new window">Open</a>
+                        <button type="button" class="icon-btn" id="btn-copy-url" title="Copy URL">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -715,29 +947,22 @@
             </div>
 
             <div class="form-row">
-                <label>Choice A</label>
-                <input type="text" id="edit-q-choice-0" placeholder="Option A">
-            </div>
-            <div class="form-row">
-                <label>Choice B</label>
-                <input type="text" id="edit-q-choice-1" placeholder="Option B">
-            </div>
-            <div class="form-row">
-                <label>Choice C</label>
-                <input type="text" id="edit-q-choice-2" placeholder="Option C">
-            </div>
-            <div class="form-row">
-                <label>Choice D</label>
-                <input type="text" id="edit-q-choice-3" placeholder="Option D">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem;">
+                    <label style="margin: 0;">Choices (2 to 6 answers)</label>
+                    <div style="display: flex; gap: 0.35rem;">
+                        <button type="button" class="btn" id="btn-set-truefalse" style="font-size: 11px; padding: 0.2rem 0.5rem;" title="Quick True / False Question">Set True / False</button>
+                        <button type="button" class="btn" id="btn-add-choice" style="font-size: 11px; padding: 0.2rem 0.5rem;">+ Add Choice</button>
+                    </div>
+                </div>
+                <div id="edit-q-choices-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <!-- Dynamically populated choices A through F -->
+                </div>
             </div>
 
             <div class="form-row">
                 <label>Correct Answer</label>
                 <select id="edit-q-correct">
-                    <option value="0">Choice A</option>
-                    <option value="1">Choice B</option>
-                    <option value="2">Choice C</option>
-                    <option value="3">Choice D</option>
+                    <!-- Populated dynamically based on choices -->
                 </select>
             </div>
 
@@ -745,6 +970,11 @@
                 <label>Did you know? / Fun Fact (Optional explanation on reveal)</label>
                 <textarea id="edit-q-funfact" rows="2" placeholder="Interesting background trivia…"></textarea>
             </div>
+
+            <label class="checkbox-row" style="margin-top: 0.5rem;">
+                <input type="checkbox" id="edit-q-done">
+                <span>Marked as Done (Played — skipped during random order)</span>
+            </label>
 
             <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
                 <button type="button" class="btn" id="btn-cancel-q">Cancel</button>
@@ -897,21 +1127,44 @@
 
             // Questions list
             const questions = currentState.questions || [];
+            const playedIds = new Set(currentState.playedQuestionIds || []);
             document.getElementById('q-count').textContent = questions.length;
             const container = document.getElementById('questions-container');
 
             container.innerHTML = questions.map((q, idx) => {
                 const isActive = (currentState.currentIndex === idx && currentState.status !== 'idle');
+                const isDone = q.done || q.played || playedIds.has(q.id);
                 const choicesStr = (q.choices || []).join(' · ');
                 return `
-                    <div class="question-item ${isActive ? 'active-item' : ''}" data-id="${esc(q.id)}">
+                    <div class="question-item ${isActive ? 'active-item' : ''}" data-id="${esc(q.id)}" draggable="true">
+                        <span class="drag-handle" title="Drag to reorder">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="14" height="14">
+                                <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
+                                <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+                                <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+                            </svg>
+                        </span>
                         <div class="question-meta">
-                            <span class="question-category">${esc(q.category)} · Q${idx + 1}</span>
+                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                <span class="question-category">${esc(q.category)} · Q${idx + 1}</span>
+                                <button type="button" class="${isDone ? 'badge-done' : 'badge-unplayed'}" onclick="toggleQuestionDone('${esc(q.id)}')" title="${isDone ? 'Marked as Done (click to mark Unplayed)' : 'Unplayed (click to mark Done)'}">
+                                    ${isDone ? 'Done' : 'Unplayed'}
+                                </button>
+                            </div>
                             <span class="question-item-text">${esc(q.question)}</span>
                             <span class="question-answer-preview">Choices: ${esc(choicesStr)}</span>
                         </div>
                         <div class="question-actions">
                             <button type="button" class="btn" onclick="startSpecificQuestion('${esc(q.id)}')">Start</button>
+                            <button type="button" class="icon-btn ${isDone ? 'btn-done-active' : ''}" onclick="toggleQuestionDone('${esc(q.id)}')" title="${isDone ? 'Marked as Done (click to mark Unplayed)' : 'Mark as Done'}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="14" height="14" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </button>
+                            <button type="button" class="icon-btn" onclick="moveQuestion('${esc(q.id)}', -1)" title="Move Up" ${idx === 0 ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                            </button>
+                            <button type="button" class="icon-btn" onclick="moveQuestion('${esc(q.id)}', 1)" title="Move Down" ${idx === questions.length - 1 ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </button>
                             <button type="button" class="icon-btn" onclick="openEditModal('${esc(q.id)}')" title="Edit">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                             </button>
@@ -922,6 +1175,8 @@
                     </div>
                 `;
             }).join('');
+
+            attachDragAndDrop();
 
             // Presets dropdown
             const presets = currentState.presets || [];
@@ -934,25 +1189,226 @@
             const settings = currentState.settings || {};
             document.getElementById('cfg-duration').value = settings.defaultDuration || 20;
             document.getElementById('cfg-reveal-delay').value = settings.revealDelay || 6;
+            const isManualTransition = Boolean(settings.manualTransition || settings.autoReveal === false);
+            document.getElementById('cfg-transition-mode').value = isManualTransition ? 'manual' : 'auto';
             document.getElementById('cfg-chat-voting').checked = settings.chatVoting !== false;
             document.getElementById('cfg-auto-advance').checked = Boolean(settings.autoAdvance);
+            document.getElementById('cfg-random-order').checked = Boolean(settings.randomOrder);
             document.getElementById('cfg-sound-enabled').checked = settings.soundEnabled !== false;
 
+            // Theme inputs
+            const theme = currentState.theme || {};
+            document.getElementById('cfg-theme-preset').value = theme.preset || 'modern';
+            document.getElementById('cfg-theme-card-style').value = theme.cardStyle || (theme.preset === 'nodecg' ? 'text' : 'cards');
+            document.getElementById('cfg-theme-accent-color').value = theme.accentColor || '#3b82f6';
+            document.getElementById('cfg-theme-correct-color').value = theme.correctColor || '#22c55e';
+            document.getElementById('cfg-theme-collapse-incorrect').checked = Boolean(theme.collapseIncorrect);
+            const scale = parseFloat(theme.fontScale || theme.scale || 1.0) || 1.0;
+            document.getElementById('cfg-theme-scale').value = scale;
+            document.getElementById('cfg-theme-scale-val').textContent = scale.toFixed(2) + '×';
+
+            // Element visibility toggles
+            document.getElementById('cfg-elem-category').checked = theme.showCategory !== false;
+            document.getElementById('cfg-elem-question-number').checked = theme.showQuestionNumber !== false;
+            document.getElementById('cfg-elem-timer').checked = theme.showTimer !== false;
+            document.getElementById('cfg-elem-letter-badges').checked = theme.showLetterBadges !== false;
+            document.getElementById('cfg-elem-votes').checked = theme.showVoteCounts !== false;
+            document.getElementById('cfg-elem-percentages').checked = theme.showPercentages !== false;
+            document.getElementById('cfg-elem-chat-hint').checked = theme.showChatHint !== false;
+            document.getElementById('cfg-elem-funfact').checked = theme.showFunFact !== false;
+
+            populateFontDropdowns();
             updateObsUrl();
         }
 
         function updateObsUrl() {
             const mode = document.getElementById('obs-mode').value;
+            const view = document.getElementById('obs-view').value;
             const theme = document.getElementById('obs-theme').value;
-            const url = `${window.location.origin}/overlays/trivia.html?mode=${mode}&theme=${theme}`;
-            document.getElementById('obs-url-display').textContent = url;
+            const style = document.getElementById('cfg-theme-card-style').value;
+            const scale = parseFloat(document.getElementById('cfg-theme-scale').value) || 1.0;
+            let url = `${window.location.origin}/overlays/trivia.html?layout=${mode}&theme=${theme}`;
+            if (view && view !== 'auto') {
+                url += `&view=${view}`;
+            }
+            if (style && style !== 'cards') {
+                url += `&style=${style}`;
+            }
+            if (Math.abs(scale - 1.0) > 0.01) {
+                url += `&scale=${scale.toFixed(2)}`;
+            }
+            if (!document.getElementById('cfg-elem-category').checked) url += '&category=0';
+            if (!document.getElementById('cfg-elem-question-number').checked) url += '&counter=0';
+            if (!document.getElementById('cfg-elem-timer').checked) url += '&timer=0';
+            if (!document.getElementById('cfg-elem-letter-badges').checked) url += '&letters=0';
+            if (!document.getElementById('cfg-elem-votes').checked) url += '&votes=0';
+            if (!document.getElementById('cfg-elem-percentages').checked) url += '&percentages=0';
+            if (!document.getElementById('cfg-elem-chat-hint').checked) url += '&hint=0';
+            if (!document.getElementById('cfg-elem-funfact').checked) url += '&funfact=0';
+
+            const linkEl = document.getElementById('obs-url-link');
+            const openEl = document.getElementById('btn-open-url');
+            if (linkEl) {
+                linkEl.href = url;
+                linkEl.textContent = url;
+            }
+            if (openEl) {
+                openEl.href = url;
+            }
         }
 
         document.getElementById('obs-mode').addEventListener('change', updateObsUrl);
+        document.getElementById('obs-view').addEventListener('change', updateObsUrl);
         document.getElementById('obs-theme').addEventListener('change', updateObsUrl);
+        document.getElementById('cfg-theme-card-style').addEventListener('change', updateObsUrl);
+        ['cfg-elem-category', 'cfg-elem-question-number', 'cfg-elem-timer', 'cfg-elem-letter-badges', 'cfg-elem-votes', 'cfg-elem-percentages', 'cfg-elem-chat-hint', 'cfg-elem-funfact'].forEach(id => {
+            document.getElementById(id)?.addEventListener('change', updateObsUrl);
+        });
+        document.getElementById('cfg-theme-scale').addEventListener('input', (e) => {
+            document.getElementById('cfg-theme-scale-val').textContent = parseFloat(e.target.value).toFixed(2) + '×';
+            updateObsUrl();
+        });
         document.getElementById('btn-copy-url').addEventListener('click', () => {
-            const url = document.getElementById('obs-url-display').textContent;
+            const url = document.getElementById('obs-url-link')?.href || `${window.location.origin}/overlays/trivia.html`;
             navigator.clipboard.writeText(url).then(() => toast('OBS URL copied to clipboard!'));
+        });
+
+        // Drag & Drop Reordering Logic
+        let draggedItem = null;
+
+        function attachDragAndDrop() {
+            const items = document.querySelectorAll('#questions-container .question-item');
+            items.forEach((item) => {
+                item.addEventListener('dragstart', (e) => {
+                    draggedItem = item;
+                    item.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', item.dataset.id);
+                });
+                item.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (item !== draggedItem) {
+                        item.classList.add('drag-over');
+                    }
+                });
+                item.addEventListener('dragleave', () => {
+                    item.classList.remove('drag-over');
+                });
+                item.addEventListener('dragend', () => {
+                    items.forEach(el => el.classList.remove('drag-over', 'dragging'));
+                    draggedItem = null;
+                });
+                item.addEventListener('drop', async (e) => {
+                    e.preventDefault();
+                    item.classList.remove('drag-over');
+                    if (!draggedItem || draggedItem === item) return;
+
+                    const container = document.getElementById('questions-container');
+                    const allItems = [...container.querySelectorAll('.question-item')];
+                    const srcIdx = allItems.indexOf(draggedItem);
+                    const dstIdx = allItems.indexOf(item);
+
+                    if (srcIdx === -1 || dstIdx === -1) return;
+
+                    if (srcIdx < dstIdx) {
+                        container.insertBefore(draggedItem, item.nextSibling);
+                    } else {
+                        container.insertBefore(draggedItem, item);
+                    }
+
+                    const newIds = [...container.querySelectorAll('.question-item')].map(el => el.dataset.id);
+                    try {
+                        const res = await fetch('/api/trivia/questions/reorder', {
+                            method: 'POST',
+                            headers: { 'content-type': 'application/json' },
+                            body: JSON.stringify({ ids: newIds })
+                        });
+                        if (res.ok) {
+                            toast('Question bank reordered!');
+                            fetchState();
+                        }
+                    } catch (err) {
+                        console.warn('Reorder failed:', err);
+                    }
+                });
+            });
+        }
+
+        // Font Dropdowns Population
+        let fontsPopulated = false;
+        async function populateFontDropdowns() {
+            if (fontsPopulated) return;
+            const qSelect = document.getElementById('cfg-theme-question-font');
+            const hSelect = document.getElementById('cfg-theme-header-font');
+            const cSelect = document.getElementById('cfg-theme-choice-font');
+            if (!qSelect || !hSelect || !cSelect) return;
+
+            let fontList = [];
+            try {
+                if (window.OverlayFonts && typeof window.OverlayFonts.getDeduplicatedFontFamilies === 'function') {
+                    fontList = await window.OverlayFonts.getDeduplicatedFontFamilies();
+                } else if (window.OverlayFonts) {
+                    const assets = await window.OverlayFonts.getAssetFonts?.() || [];
+                    fontList = [
+                        ...assets.map(a => ({ name: a.family || a.name, source: 'asset' })),
+                        ...(window.OverlayFonts.google || []).map(g => ({ name: g, source: 'google' })),
+                        ...(window.OverlayFonts.system || []).map(s => ({ name: s, source: 'system' }))
+                    ];
+                }
+            } catch {
+                fontList = [];
+            }
+
+            if (!fontList || fontList.length === 0) {
+                const fallback = ['Inter', 'Montserrat', 'Oswald', 'Roboto', 'Bebas Neue', 'Jersey 15', 'Jersey 20', 'Press Start 2P', 'Impact', 'Arial'];
+                fontList = fallback.map(name => ({ name, source: 'google' }));
+            }
+
+            const assetFonts = fontList.filter(f => f.source === 'asset');
+            const googleFonts = fontList.filter(f => f.source === 'google' || !f.source);
+            const systemFonts = fontList.filter(f => f.source === 'system');
+
+            function buildOptions(currentVal) {
+                let html = '<option value="">(Theme Default)</option>';
+                if (assetFonts.length) {
+                    html += '<optgroup label="Custom Asset Fonts">';
+                    assetFonts.forEach(f => {
+                        html += `<option value="${esc(f.name)}" ${f.name === currentVal ? 'selected' : ''}>${esc(f.name)}</option>`;
+                    });
+                    html += '</optgroup>';
+                }
+                if (googleFonts.length) {
+                    html += '<optgroup label="Streaming & Esports Fonts">';
+                    googleFonts.forEach(f => {
+                        html += `<option value="${esc(f.name)}" ${f.name === currentVal ? 'selected' : ''}>${esc(f.name)}</option>`;
+                    });
+                    html += '</optgroup>';
+                }
+                if (systemFonts.length) {
+                    html += '<optgroup label="System Fonts">';
+                    systemFonts.forEach(f => {
+                        html += `<option value="${esc(f.name)}" ${f.name === currentVal ? 'selected' : ''}>${esc(f.name)}</option>`;
+                    });
+                    html += '</optgroup>';
+                }
+                return html;
+            }
+
+            const theme = currentState?.theme || {};
+            qSelect.innerHTML = buildOptions(theme.questionFont || '');
+            hSelect.innerHTML = buildOptions(theme.headerFont || '');
+            cSelect.innerHTML = buildOptions(theme.choiceFont || '');
+            fontsPopulated = true;
+        }
+
+        // Reset Done status on questions
+        document.getElementById('btn-reset-done').addEventListener('click', async () => {
+            const res = await fetch('/api/trivia/questions/reset-done', { method: 'POST' });
+            if (res.ok) {
+                toast('All questions marked as unplayed!');
+                fetchState();
+            }
         });
 
         // Trigger handlers
@@ -1036,18 +1492,72 @@
             }
         });
 
+        // Dynamic Modal Choices State
+        let modalChoices = [];
+
+        function renderModalChoices(selectedIndex = 0) {
+            const container = document.getElementById('edit-q-choices-container');
+            container.innerHTML = modalChoices.map((choice, i) => {
+                const letter = String.fromCharCode(65 + i);
+                return `
+                    <div style="display: flex; align-items: center; gap: 0.5rem;" data-choice-index="${i}">
+                        <span class="monitor-choice-letter" style="width: 24px; height: 24px; border-radius: 4px; font-weight: 700; flex-shrink: 0;">${letter}</span>
+                        <input type="text" class="modal-choice-input" value="${esc(choice)}" placeholder="Choice ${letter}" oninput="modalChoices[${i}] = this.value; updateCorrectOptions(${selectedIndex});">
+                        ${modalChoices.length > 2 ? `
+                            <button type="button" class="icon-btn" onclick="removeModalChoice(${i})" title="Remove Choice">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            updateCorrectOptions(selectedIndex);
+            document.getElementById('btn-add-choice').style.display = modalChoices.length >= 6 ? 'none' : 'inline-flex';
+        }
+
+        function updateCorrectOptions(selectedIndex = 0) {
+            const correctSelect = document.getElementById('edit-q-correct');
+            const currentVal = parseInt(correctSelect.value, 10);
+            const keepIndex = !isNaN(currentVal) && currentVal < modalChoices.length ? currentVal : selectedIndex;
+            const isTF = (modalChoices.length === 2 && modalChoices[0].toLowerCase() === 'true' && modalChoices[1].toLowerCase() === 'false');
+
+            correctSelect.innerHTML = modalChoices.map((c, i) => {
+                const letter = String.fromCharCode(65 + i);
+                const label = isTF ? (i === 0 ? 'True' : 'False') : `Choice ${letter} (${c || 'Option ' + letter})`;
+                return `<option value="${i}" ${i === keepIndex ? 'selected' : ''}>${esc(label)}</option>`;
+            }).join('');
+        }
+
+        window.removeModalChoice = (index) => {
+            if (modalChoices.length <= 2) return;
+            modalChoices.splice(index, 1);
+            const currentCorrect = Math.min(modalChoices.length - 1, parseInt(document.getElementById('edit-q-correct').value, 10) || 0);
+            renderModalChoices(currentCorrect);
+        };
+
+        document.getElementById('btn-add-choice').addEventListener('click', () => {
+            if (modalChoices.length >= 6) return;
+            modalChoices.push('');
+            const currentCorrect = parseInt(document.getElementById('edit-q-correct').value, 10) || 0;
+            renderModalChoices(currentCorrect);
+        });
+
+        document.getElementById('btn-set-truefalse').addEventListener('click', () => {
+            modalChoices = ['True', 'False'];
+            renderModalChoices(0);
+        });
+
         // Question Add/Edit Modal
         document.getElementById('btn-add-q').addEventListener('click', () => {
             document.getElementById('q-modal-title').textContent = 'Add Trivia Question';
             document.getElementById('edit-q-id').value = '';
             document.getElementById('edit-q-category').value = '';
             document.getElementById('edit-q-text').value = '';
-            document.getElementById('edit-q-choice-0').value = '';
-            document.getElementById('edit-q-choice-1').value = '';
-            document.getElementById('edit-q-choice-2').value = '';
-            document.getElementById('edit-q-choice-3').value = '';
-            document.getElementById('edit-q-correct').value = '0';
             document.getElementById('edit-q-funfact').value = '';
+            document.getElementById('edit-q-done').checked = false;
+            modalChoices = ['', '', '', ''];
+            renderModalChoices(0);
             document.getElementById('q-modal').classList.add('open');
         });
 
@@ -1058,13 +1568,28 @@
             document.getElementById('edit-q-id').value = q.id;
             document.getElementById('edit-q-category').value = q.category || '';
             document.getElementById('edit-q-text').value = q.question || '';
-            document.getElementById('edit-q-choice-0').value = q.choices?.[0] || '';
-            document.getElementById('edit-q-choice-1').value = q.choices?.[1] || '';
-            document.getElementById('edit-q-choice-2').value = q.choices?.[2] || '';
-            document.getElementById('edit-q-choice-3').value = q.choices?.[3] || '';
-            document.getElementById('edit-q-correct').value = String(q.correctIndex || 0);
             document.getElementById('edit-q-funfact').value = q.funfact || '';
+            const isDone = Boolean(q.done || q.played || (currentState?.playedQuestionIds || []).includes(q.id));
+            document.getElementById('edit-q-done').checked = isDone;
+            modalChoices = Array.isArray(q.choices) && q.choices.length >= 2 ? [...q.choices] : ['', '', '', ''];
+            renderModalChoices(q.correctIndex || 0);
             document.getElementById('q-modal').classList.add('open');
+        };
+
+        window.toggleQuestionDone = async (id) => {
+            try {
+                const res = await fetch(`/api/trivia/question/${encodeURIComponent(id)}/toggle-done`, { method: 'POST' });
+                if (res.ok) {
+                    const data = await res.json();
+                    toast(data.done ? 'Marked as Done (Played)' : 'Marked as Unplayed');
+                    fetchState();
+                } else {
+                    const err = await res.json();
+                    toast(`Failed to toggle done: ${err.error || 'Server error'}`);
+                }
+            } catch (err) {
+                toast(`Failed to toggle done: ${err.message}`);
+            }
         };
 
         document.getElementById('btn-close-q-modal').addEventListener('click', () => document.getElementById('q-modal').classList.remove('open'));
@@ -1073,19 +1598,16 @@
             const id = document.getElementById('edit-q-id').value;
             const category = document.getElementById('edit-q-category').value.trim() || 'General';
             const question = document.getElementById('edit-q-text').value.trim();
-            const choices = [
-                document.getElementById('edit-q-choice-0').value.trim(),
-                document.getElementById('edit-q-choice-1').value.trim(),
-                document.getElementById('edit-q-choice-2').value.trim(),
-                document.getElementById('edit-q-choice-3').value.trim()
-            ].filter(Boolean);
+            const choices = modalChoices.map(c => String(c || '').trim()).filter(Boolean);
             const correctIndex = parseInt(document.getElementById('edit-q-correct').value, 10);
             const funfact = document.getElementById('edit-q-funfact').value.trim();
+            const isDone = document.getElementById('edit-q-done').checked;
 
             if (!question) return alert('Please enter question text');
             if (choices.length < 2) return alert('Please enter at least 2 choices');
+            if (choices.length > 6) return alert('Maximum 6 choices allowed');
 
-            const payload = { category, question, choices, correctIndex, funfact };
+            const payload = { category, question, choices, correctIndex, funfact, done: isDone };
             let res;
             if (id) {
                 res = await fetch(`/api/trivia/question/${encodeURIComponent(id)}`, {
@@ -1093,6 +1615,13 @@
                     headers: { 'content-type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
+                if (res.ok) {
+                    await fetch(`/api/trivia/question/${encodeURIComponent(id)}/done`, {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ done: isDone })
+                    });
+                }
             } else {
                 res = await fetch('/api/trivia/question', {
                     method: 'POST',
@@ -1142,12 +1671,16 @@
 
         // Save Settings
         document.getElementById('btn-save-settings').addEventListener('click', async () => {
+            const transitionMode = document.getElementById('cfg-transition-mode').value;
             const payload = {
                 settings: {
                     defaultDuration: parseInt(document.getElementById('cfg-duration').value, 10) || 20,
                     revealDelay: parseInt(document.getElementById('cfg-reveal-delay').value, 10) || 6,
+                    autoReveal: transitionMode === 'auto',
+                    manualTransition: transitionMode === 'manual',
                     chatVoting: document.getElementById('cfg-chat-voting').checked,
                     autoAdvance: document.getElementById('cfg-auto-advance').checked,
+                    randomOrder: document.getElementById('cfg-random-order').checked,
                     soundEnabled: document.getElementById('cfg-sound-enabled').checked
                 }
             };
@@ -1158,6 +1691,49 @@
             });
             if (res.ok) {
                 toast('Settings saved!');
+                fetchState();
+            }
+        });
+
+        // Save Theme
+        document.getElementById('btn-save-theme').addEventListener('click', async () => {
+            const payload = {
+                theme: {
+                    preset: document.getElementById('cfg-theme-preset').value,
+                    cardStyle: document.getElementById('cfg-theme-card-style').value,
+                    questionFont: document.getElementById('cfg-theme-question-font').value.trim(),
+                    headerFont: document.getElementById('cfg-theme-header-font').value.trim(),
+                    choiceFont: document.getElementById('cfg-theme-choice-font').value.trim(),
+                    fontScale: parseFloat(document.getElementById('cfg-theme-scale').value) || 1.0,
+                    accentColor: document.getElementById('cfg-theme-accent-color').value,
+                    correctColor: document.getElementById('cfg-theme-correct-color').value,
+                    collapseIncorrect: document.getElementById('cfg-theme-collapse-incorrect').checked,
+                    showCategory: document.getElementById('cfg-elem-category').checked,
+                    showQuestionNumber: document.getElementById('cfg-elem-question-number').checked,
+                    showTimer: document.getElementById('cfg-elem-timer').checked,
+                    showLetterBadges: document.getElementById('cfg-elem-letter-badges').checked,
+                    showVoteCounts: document.getElementById('cfg-elem-votes').checked,
+                    showPercentages: document.getElementById('cfg-elem-percentages').checked,
+                    showChatHint: document.getElementById('cfg-elem-chat-hint').checked,
+                    showFunFact: document.getElementById('cfg-elem-funfact').checked
+                }
+            };
+            const res = await fetch('/api/trivia', {
+                method: 'PUT',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                toast('Theme saved!');
+                fetchState();
+            }
+        });
+                method: 'PUT',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                toast('Theme saved!');
                 fetchState();
             }
         });

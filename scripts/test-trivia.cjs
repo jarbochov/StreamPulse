@@ -266,3 +266,260 @@ test('Trivia Routes & Companion HTTP Endpoints', async (t) => {
     const rDisabled = await request('/api/trivia');
     assert.equal(rDisabled.status, 403, 'Disabled trivia module should return 403');
 });
+
+test('Trivia Service: 2 to 6 choices validation and True/False questions', (t) => {
+    const testDir = path.join(__dirname, '..', 'data', `.test-trivia-tf-${Date.now()}`);
+    fs.mkdirSync(testDir, { recursive: true });
+    let service;
+    t.after(() => {
+        if (service) service.destroy();
+        try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
+    });
+
+    service = createTriviaService({ dataDir: testDir, triviaPath: path.join(testDir, 'trivia.json') });
+
+    // 1. True/False Question (2 choices)
+    const tfQ = service.addQuestion({
+        category: 'Science',
+        question: 'Light travels faster than sound in a vacuum.',
+        choices: ['True', 'False'],
+        correctIndex: 0
+    });
+    assert.equal(tfQ.choices.length, 2);
+    assert.equal(tfQ.isTrueFalse, true);
+
+    // 2. 6-choice Question
+    const sixQ = service.addQuestion({
+        category: 'Geography',
+        question: 'Which of the following are continents?',
+        choices: ['Asia', 'Africa', 'Europe', 'North America', 'South America', 'Australia'],
+        correctIndex: 0
+    });
+    assert.equal(sixQ.choices.length, 6);
+
+    // 3. Validation: Under 2 choices should throw
+    assert.throws(() => {
+        service.addQuestion({
+            question: 'Only one choice?',
+            choices: ['Only one'],
+            correctIndex: 0
+        });
+    }, /A question must have between 2 and 6 choices/);
+
+    // 4. Validation: Over 6 choices should throw
+    assert.throws(() => {
+        service.addQuestion({
+            question: 'Seven choices?',
+            choices: ['1', '2', '3', '4', '5', '6', '7'],
+            correctIndex: 0
+        });
+    }, /A question must have between 2 and 6 choices/);
+
+    // 5. Test True/False chat voting keywords
+    service.startQuestion({ questionId: tfQ.id });
+    assert.equal(service.getState().activeQuestion.isTrueFalse, true);
+
+    // User A votes !true
+    service.handleChatMessage({ user: 'UserA', comment: '!true' });
+    // User B votes !false
+    service.handleChatMessage({ user: 'UserB', comment: '!false' });
+    // User C votes !t (short for true)
+    service.handleChatMessage({ user: 'UserC', comment: '!t' });
+    // User D votes !f (short for false)
+    service.handleChatMessage({ user: 'UserD', comment: '!f' });
+
+    const activeQ = service.getPublicState({ includeAnswers: false }).activeQuestion;
+    assert.equal(activeQ.totalVotes, 4);
+    assert.equal(activeQ.choices[0].votes, 2, 'True should have 2 votes');
+    assert.equal(activeQ.choices[1].votes, 2, 'False should have 2 votes');
+});
+
+test('Trivia Service: Move, Shuffle, and Reorder Questions', (t) => {
+    const testDir = path.join(__dirname, '..', 'data', `.test-trivia-reorder-${Date.now()}`);
+    fs.mkdirSync(testDir, { recursive: true });
+    t.after(() => { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} });
+
+    const service = createTriviaService({ dataDir: testDir, triviaPath: path.join(testDir, 'trivia.json') });
+    service.importQuestions([
+        { question: 'Q1', choices: ['A', 'B'], correctIndex: 0 },
+        { question: 'Q2', choices: ['A', 'B'], correctIndex: 0 },
+        { question: 'Q3', choices: ['A', 'B'], correctIndex: 0 }
+    ], { replace: true });
+
+    const questions = service.getState().questions;
+    const q1Id = questions[0].id;
+    const q2Id = questions[1].id;
+
+    // moveQuestion down
+    service.moveQuestion(q1Id, 'down');
+    let currentQuestions = service.getState().questions;
+    const q1IdxAfterDown = currentQuestions.findIndex(q => q.id === q1Id);
+    const q2IdxAfterDown = currentQuestions.findIndex(q => q.id === q2Id);
+    assert.ok(q1IdxAfterDown > q2IdxAfterDown, 'Q1 should move below Q2');
+
+    // moveQuestion up
+    service.moveQuestion(q1Id, 'up');
+    currentQuestions = service.getState().questions;
+    assert.equal(currentQuestions[0].id, q1Id, 'Q1 should move back to first');
+
+    // shuffleQuestions
+    const shuffled = service.shuffleQuestions();
+    assert.equal(shuffled.length, 3);
+});
+
+test('Trivia Service: (Done) played question tracking, toggleQuestionDone, and resetDoneQuestions', (t) => {
+    const testDir = path.join(__dirname, '..', 'data', `.test-trivia-done-${Date.now()}`);
+    fs.mkdirSync(testDir, { recursive: true });
+    t.after(() => { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} });
+
+    const service = createTriviaService({ dataDir: testDir, triviaPath: path.join(testDir, 'trivia.json') });
+    const batch = [
+        { category: 'General', question: 'Q1?', choices: ['A', 'B'], correctIndex: 0 },
+        { category: 'General', question: 'Q2?', choices: ['A', 'B'], correctIndex: 0 },
+        { category: 'General', question: 'Q3?', choices: ['A', 'B'], correctIndex: 0 }
+    ];
+    service.importQuestions(batch, { replace: true });
+
+    let pubState = service.getPublicState();
+    assert.equal(pubState.unplayedCount, 3);
+    assert.equal(pubState.questions[0].done, false);
+
+    // Play first question
+    service.startQuestion({ index: 0 });
+    service.revealAnswer();
+
+    pubState = service.getPublicState();
+    assert.equal(pubState.unplayedCount, 2);
+    assert.equal(pubState.questions[0].done, true);
+    assert.equal(pubState.questions[1].done, false);
+
+    // Toggle done on second question
+    const q2Id = pubState.questions[1].id;
+    const toggled = service.toggleQuestionDone(q2Id);
+    assert.equal(toggled.done, true);
+    assert.equal(toggled.unplayedCount, 1);
+
+    // Toggle done again to unmark
+    const unToggled = service.toggleQuestionDone(q2Id);
+    assert.equal(unToggled.done, false);
+    assert.equal(unToggled.unplayedCount, 2);
+
+    // Reset done questions
+    service.resetDoneQuestions();
+    pubState = service.getPublicState();
+    assert.equal(pubState.unplayedCount, 3);
+    assert.equal(pubState.questions[0].done, false);
+});
+
+test('Trivia Service: Manual transition to answer and autoReveal option', (t) => {
+    const testDir = path.join(__dirname, '..', 'data', `.test-trivia-manual-${Date.now()}`);
+    fs.mkdirSync(testDir, { recursive: true });
+    t.after(() => { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} });
+
+    const service = createTriviaService({ dataDir: testDir, triviaPath: path.join(testDir, 'trivia.json') });
+
+    // Enable manual transition
+    service.updateSettings({ manualTransition: true, autoReveal: false });
+    assert.equal(service.getState().settings.manualTransition, true);
+    assert.equal(service.getState().settings.autoReveal, false);
+
+    // Start question with manual transition - verify status is 'question'
+    const qState = service.startQuestion({ index: 0, duration: 1 });
+    assert.equal(qState.status, 'question');
+
+    // Host manually calls revealAnswer()
+    const rState = service.revealAnswer();
+    assert.equal(rState.status, 'reveal');
+});
+
+test('Trivia Service: Themes and element visibility toggles', (t) => {
+    const testDir = path.join(__dirname, '..', 'data', `.test-trivia-theme-${Date.now()}`);
+    fs.mkdirSync(testDir, { recursive: true });
+    t.after(() => { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} });
+
+    const service = createTriviaService({ dataDir: testDir, triviaPath: path.join(testDir, 'trivia.json') });
+
+    // Default theme includes element toggles and cardStyle
+    const theme = service.getState().theme;
+    assert.equal(theme.cardStyle, 'cards');
+    assert.equal(theme.showCategory, true);
+    assert.equal(theme.showTimer, true);
+    assert.equal(theme.showVoteCounts, true);
+
+    // Update to NodeCG text broadcast mode
+    service.updateTheme({
+        preset: 'nodecg',
+        cardStyle: 'text',
+        collapseIncorrect: true,
+        showCategory: false,
+        showTimer: false
+    });
+
+    const updated = service.getState().theme;
+    assert.equal(updated.preset, 'nodecg');
+    assert.equal(updated.cardStyle, 'text');
+    assert.equal(updated.collapseIncorrect, true);
+    assert.equal(updated.showCategory, false);
+    assert.equal(updated.showTimer, false);
+});
+
+test('Chatbot Service: Trivia question and answer announcements', async (t) => {
+    const testDir = path.join(__dirname, '..', 'data', `.test-trivia-bot-${Date.now()}`);
+    fs.mkdirSync(testDir, { recursive: true });
+
+    const createChatbotService = require('../server/services/chatbot');
+    const sentMessages = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/sendChat/')) {
+            sentMessages.push(decodeURIComponent(urlStr.split('/sendChat/')[1]));
+            return { ok: true, status: 200, text: async () => 'ok' };
+        }
+        return { ok: true, status: 200, json: async () => ({}) };
+    };
+
+    const bot = createChatbotService({
+        dataDir: testDir,
+        getConfig: () => ({ chatbot_enabled: true, ssn: { session_id: 'test-sess' } }),
+        isOnline: () => true,
+        getChannelMods: () => []
+    });
+
+    t.after(() => {
+        globalThis.fetch = originalFetch;
+        bot.stop();
+        try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
+    });
+
+    bot.getData().settings.enabled = true;
+
+    // 1. Announce Question (test mode)
+    const qData = {
+        category: 'Gaming',
+        question: 'Who is Mario\'s brother?',
+        choices: [
+            { letter: 'A', text: 'Luigi' },
+            { letter: 'B', text: 'Wario' }
+        ],
+        duration: 20
+    };
+    const resQ = await bot.announceTriviaQuestion(qData, { test: true });
+    assert.equal(resQ.sent, true);
+    assert.ok(sentMessages.some(m => m.includes('[Trivia]') && m.includes('Who is Mario\'s brother?')));
+
+    // 2. Announce Answer (test mode)
+    const aData = {
+        category: 'Gaming',
+        question: 'Who is Mario\'s brother?',
+        answerText: 'Luigi',
+        correctLetter: 'A',
+        percent: 90,
+        totalVotes: 10,
+        correctVotes: 9,
+        funfact: 'Luigi first appeared in Mario Bros. in 1983.'
+    };
+    const resA = await bot.announceTriviaAnswer(aData, { test: true });
+    assert.equal(resA.sent, true);
+    assert.ok(sentMessages.some(m => m.includes('[Trivia Answer]') && m.includes('Luigi')));
+});

@@ -26,6 +26,13 @@ const DEFAULT_TIER_LIST_ANNOUNCEMENTS = {
     startTemplate: '[Tier List] Rank "{item}"! Vote with {prefix}tier <tier> ({tiers}) ({duration})',
     endTemplate: '[Tier List] Chat ranked "{item}" into {tier} with {votes} votes ({percent}%)!'
 };
+const DEFAULT_TRIVIA_ANNOUNCEMENTS = {
+    enabled: true,
+    announceStart: true,
+    announceEnd: true,
+    startTemplate: '[Trivia] {category}: {question} — Choices: {choices} — Vote with {commands} ({duration})',
+    endTemplate: '[Trivia Answer] Correct: {answer}! ({percent}% voted correctly, {votes} total votes){funfact}'
+};
 const DEFAULT_DONATION_ANNOUNCEMENTS = {
     enabled: false,
     source: 'any',
@@ -34,7 +41,7 @@ const DEFAULT_DONATION_ANNOUNCEMENTS = {
     totalVar: '',
     goalVar: ''
 };
-const DEFAULT_SETTINGS = { enabled: false, prefix: '!', tag: '[BOT]', cooldown: 5, mods: [], autoShoutout: { ...DEFAULT_AUTO_SHOUTOUT }, pollAnnouncements: { ...DEFAULT_POLL_ANNOUNCEMENTS }, tierAnnouncements: { ...DEFAULT_TIER_LIST_ANNOUNCEMENTS }, donationAnnouncements: { ...DEFAULT_DONATION_ANNOUNCEMENTS } };
+const DEFAULT_SETTINGS = { enabled: false, prefix: '!', tag: '[BOT]', cooldown: 5, mods: [], autoShoutout: { ...DEFAULT_AUTO_SHOUTOUT }, pollAnnouncements: { ...DEFAULT_POLL_ANNOUNCEMENTS }, tierAnnouncements: { ...DEFAULT_TIER_LIST_ANNOUNCEMENTS }, triviaAnnouncements: { ...DEFAULT_TRIVIA_ANNOUNCEMENTS }, donationAnnouncements: { ...DEFAULT_DONATION_ANNOUNCEMENTS } };
 const MAX_COMMANDS = 200;
 const MAX_QUOTES = 5000;
 const MAX_MESSAGES = 100;
@@ -129,6 +136,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         const autoShoutout = input.autoShoutout || {};
         const pollAnnouncements = input.pollAnnouncements || {};
         const tierAnnouncements = input.tierAnnouncements || {};
+        const triviaAnnouncements = input.triviaAnnouncements || {};
         const donations = input.donationAnnouncements || {};
         const varName = (value, fallback) => (value === undefined ? fallback : clean(value, 120).replace(/^\{\{\s*|\s*\}\}$/g, ''));
         return {
@@ -162,6 +170,13 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 announceEnd: tierAnnouncements.announceEnd !== undefined ? tierAnnouncements.announceEnd === true : DEFAULT_TIER_LIST_ANNOUNCEMENTS.announceEnd,
                 startTemplate: clean(tierAnnouncements.startTemplate ?? DEFAULT_TIER_LIST_ANNOUNCEMENTS.startTemplate, 500),
                 endTemplate: clean(tierAnnouncements.endTemplate ?? DEFAULT_TIER_LIST_ANNOUNCEMENTS.endTemplate, 500)
+            },
+            triviaAnnouncements: {
+                enabled: triviaAnnouncements.enabled !== undefined ? triviaAnnouncements.enabled === true : DEFAULT_TRIVIA_ANNOUNCEMENTS.enabled,
+                announceStart: triviaAnnouncements.announceStart !== undefined ? triviaAnnouncements.announceStart === true : DEFAULT_TRIVIA_ANNOUNCEMENTS.announceStart,
+                announceEnd: triviaAnnouncements.announceEnd !== undefined ? triviaAnnouncements.announceEnd === true : DEFAULT_TRIVIA_ANNOUNCEMENTS.announceEnd,
+                startTemplate: clean(triviaAnnouncements.startTemplate ?? DEFAULT_TRIVIA_ANNOUNCEMENTS.startTemplate, 500),
+                endTemplate: clean(triviaAnnouncements.endTemplate ?? DEFAULT_TRIVIA_ANNOUNCEMENTS.endTemplate, 500)
             },
             donationAnnouncements: {
                 enabled: donations.enabled === true,
@@ -1078,6 +1093,26 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 const result = await announceTierVoteStart(sampleVote, { test: true });
                 return json(200, result || { sent: true }), true;
             }
+            if (pathname === '/api/chatbot/test-trivia-announce' && req.method === 'POST') {
+                const sampleQuestion = {
+                    category: clean(body.category || 'Retro Gaming', 60),
+                    question: clean(body.question || 'In what year was Super Mario World released in Japan?', 200),
+                    choices: [
+                        { letter: 'A', text: '1988', percent: 10, votes: 2 },
+                        { letter: 'B', text: '1990', percent: 70, votes: 14 },
+                        { letter: 'C', text: '1991', percent: 15, votes: 3 },
+                        { letter: 'D', text: '1992', percent: 5, votes: 1 }
+                    ],
+                    correctIndex: 1,
+                    totalVotes: 20,
+                    funfact: 'Super Mario World was a launch title for the Super Famicom.',
+                    duration: Number(body.duration) || 20
+                };
+                const result = body.type === 'end' || body.type === 'answer'
+                    ? await announceTriviaAnswer(sampleQuestion, { test: true })
+                    : await announceTriviaQuestion(sampleQuestion, { test: true });
+                return json(200, result || { sent: true }), true;
+            }
             if (pathname === '/api/chatbot/shoutout' && (req.method === 'POST' || req.method === 'GET')) {
                 const query = req.method === 'GET' ? Object.fromEntries(new URL(req.url, 'http://localhost').searchParams) : {};
                 const input = { ...query, ...body };
@@ -1322,6 +1357,106 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         }
     }
 
+    async function announceTriviaQuestion(triviaData = {}, { test = false } = {}) {
+        const readyStatus = isReady();
+        if (!readyStatus.ready) return { sent: false, reason: readyStatus.reason };
+        const cfg = data.settings.triviaAnnouncements || DEFAULT_TRIVIA_ANNOUNCEMENTS;
+        if (!test && (!cfg.enabled || !cfg.announceStart)) return { sent: false, reason: 'Trivia announcements disabled in settings' };
+
+        const prefix = data.settings.prefix || '!';
+        const tag = data.settings.tag || '';
+        const q = triviaData || {};
+        const category = q.category || 'General';
+        const questionText = q.question || 'Trivia Question';
+        const choices = Array.isArray(q.choices) ? q.choices : [];
+        
+        const choicesStr = choices.map((c, i) => {
+            const letter = c.letter || String.fromCharCode(65 + i);
+            const text = typeof c === 'string' ? c : (c.text || '');
+            return `${letter}: ${text}`;
+        }).join(' | ');
+
+        let commandsStr = '';
+        const isTrueFalse = q.isTrueFalse || (choices.length === 2 && choices.every(c => {
+            const txt = (typeof c === 'string' ? c : c.text || '').toLowerCase().trim();
+            return txt === 'true' || txt === 'false';
+        }));
+
+        if (isTrueFalse) {
+            commandsStr = `!true, !false or !a, !b`;
+        } else {
+            commandsStr = choices.map((c, i) => `!${(c.letter || String.fromCharCode(65 + i)).toLowerCase()}`).join(', ');
+        }
+
+        const durationSeconds = Number(q.duration || q.remainingSeconds || 20);
+        const durationStr = `${durationSeconds}s`;
+
+        const template = cfg.startTemplate || DEFAULT_TRIVIA_ANNOUNCEMENTS.startTemplate;
+        const text = template
+            .replace(/\{tag\}/gi, tag)
+            .replace(/\{prefix\}/gi, prefix)
+            .replace(/\{category\}/gi, category)
+            .replace(/\{question\}/gi, questionText)
+            .replace(/\{choices\}/gi, choicesStr)
+            .replace(/\{commands\}/gi, commandsStr)
+            .replace(/\{duration\}s?/gi, durationStr);
+
+        try {
+            await send(text);
+            return { sent: true, text };
+        } catch (err) {
+            console.warn(`[Chatbot] Trivia question start announcement failed: ${err.message}`);
+            return { sent: false, error: err.message, text };
+        }
+    }
+
+    async function announceTriviaAnswer(resultData = {}, { test = false } = {}) {
+        const readyStatus = isReady();
+        if (!readyStatus.ready) return { sent: false, reason: readyStatus.reason };
+        const cfg = data.settings.triviaAnnouncements || DEFAULT_TRIVIA_ANNOUNCEMENTS;
+        if (!test && (!cfg.enabled || !cfg.announceEnd)) return { sent: false, reason: 'Trivia announcements disabled in settings' };
+
+        const q = resultData || {};
+        const category = q.category || 'General';
+        const questionText = q.question || 'Trivia Question';
+        const choices = Array.isArray(q.choices) ? q.choices : [];
+        const correctIdx = q.correctIndex ?? 0;
+        const correctChoice = choices[correctIdx] || {};
+        const letter = correctChoice.letter || String.fromCharCode(65 + correctIdx);
+        const choiceText = typeof correctChoice === 'string' ? correctChoice : (correctChoice.text || '');
+        const answerStr = `${letter} (${choiceText})`;
+        const percent = correctChoice.percent ?? 0;
+        const votes = correctChoice.votes ?? 0;
+        const totalVotes = q.totalVotes ?? votes;
+        const funfact = q.funfact ? ` Did you know? ${q.funfact}` : '';
+
+        const prefix = data.settings.prefix || '!';
+        const tag = data.settings.tag || '';
+
+        const template = cfg.endTemplate || DEFAULT_TRIVIA_ANNOUNCEMENTS.endTemplate;
+        const text = template
+            .replace(/\{tag\}/gi, tag)
+            .replace(/\{prefix\}/gi, prefix)
+            .replace(/\{category\}/gi, category)
+            .replace(/\{question\}/gi, questionText)
+            .replace(/\{answer\}/gi, answerStr)
+            .replace(/\{letter\}/gi, letter)
+            .replace(/\{text\}/gi, choiceText)
+            .replace(/\{votes\}/gi, String(totalVotes))
+            .replace(/\{totalvotes\}/gi, String(totalVotes))
+            .replace(/\{correctvotes\}/gi, String(votes))
+            .replace(/\{percent\}/gi, String(percent))
+            .replace(/\{funfact\}/gi, funfact);
+
+        try {
+            await send(text);
+            return { sent: true, text };
+        } catch (err) {
+            console.warn(`[Chatbot] Trivia answer reveal announcement failed: ${err.message}`);
+            return { sent: false, error: err.message, text };
+        }
+    }
+
     const announcedDonations = new Map();
     // Every donation path calls this; ids and a short user+amount window stop repeats when two sources report one gift.
     async function announceDonation(donation = {}, { test = false } = {}) {
@@ -1406,6 +1541,8 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         announceTournamentChampion,
         announceTierVoteStart,
         announceTierVoteEnd,
+        announceTriviaQuestion,
+        announceTriviaAnswer,
         announceDonation,
         reload: load,
         start,

@@ -10,6 +10,7 @@
   * [Game Nights & Planning](game-plan-guide.md)
   * [Tier Lists & Chat Voting](tier-list-guide.md)
   * [Polls & Tournaments](polls-guide.md)
+  * [Live Chat Trivia](trivia-guide.md)
   * [Closing Credits](credits-guide.md)
 
 * **The Project**

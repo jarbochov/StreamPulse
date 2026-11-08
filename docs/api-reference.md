@@ -681,10 +681,28 @@ Starts the current or target question timer and opens audience chat voting. Supp
 Concludes question voting, displays the correct answer, broadcasts reveal fanfare, and reveals optional background fun facts.
 
 ### `POST /api/trivia/question/next` (or `GET`)
-Advances to the next question in the bank and starts its countdown timer.
+Advances to the next question in the bank (or random unplayed question if Random Order is enabled) and starts its countdown timer.
 
 ### `POST /api/trivia/question/prev` (or `GET`)
 Returns to the previous question in the bank.
+
+### `POST /api/trivia/question/toggle-done` (or `GET`)
+Companion-friendly toggle for question played/done state. Accepts query `?id=<id>` (defaults to active question):
+```http
+GET /api/trivia/question/toggle-done?id=q_1731089201
+```
+
+### `POST /api/trivia/question/done`
+Explicitly sets the played/done state of a question:
+```json
+{
+  "id": "q_1731089201",
+  "done": true
+}
+```
+
+### `POST /api/trivia/questions/reset-done` (or `GET`)
+Marks all questions in the bank as unplayed (`done = false`).
 
 ### `POST /api/trivia/reset` (or `GET`)
 Halts any active question timers, clears active votes, and resets trivia state to `idle`.
@@ -700,7 +718,7 @@ Casts a vote manually or via API:
 ```
 
 ### `POST /api/trivia/question`
-Adds a new question to the bank:
+Adds a new question to the bank (supports 2 to 6 choices, or True/False):
 ```json
 {
   "category": "Gaming",
@@ -716,6 +734,15 @@ Updates an existing question in the bank.
 
 ### `DELETE /api/trivia/question/:id`
 Deletes a question by ID.
+
+### `POST /api/trivia/questions/move` (or `GET`)
+Moves a question up or down in the bank order:
+```http
+POST /api/trivia/questions/move?id=q_1731089201&direction=up
+```
+
+### `POST /api/trivia/questions/shuffle` (or `GET`)
+Randomly shuffles the order of questions in the active bank.
 
 ### `POST /api/trivia/questions/reorder`
 Reorders questions by array of IDs: `{ "ids": ["q-2", "q-1", "q-3"] }`.
