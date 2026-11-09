@@ -54,6 +54,36 @@ This document provides project architecture context, mandatory UI/UX design rule
 - Keep controls visually calm and spacious. Avoid overwhelming walls of buttons or unorganized option lists.
 - When options expand (such as 7+ custom game collections or extensive choices), collapse them gracefully into overflow menus, chips, or searchable multi-select pickers rather than cluttering the primary toolbar.
 
+### Primary & Secondary Navigation Patterns
+- **Primary Segmented Navigation (`.tabs-nav`, `.tab-btn`)**:
+  - Segmented pill bar (`background: var(--bg-inset); border: 1px solid var(--border); border-radius: 9px; padding: 3px`) used for top-level view switching across major domain modes.
+  - Active tabs elevate with `background: var(--bg-card); color: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,0.12)`.
+- **Secondary Sub-Navigation Tabs (`.sub-nav-bar`, `.sub-nav-btn`)**:
+  - Full-width underline accent navigation bar used when a primary view contains nested functional views (such as Automation vs Appearance Studio, Configuration vs Live Preview, or Library vs Editor).
+  - Standardized in `public/css/admin.css` and `public/css/studio-common.css`. Uses clean underline accent styling (`border-bottom: 2px solid transparent; color: var(--text-muted); .active { color: var(--accent); border-bottom-color: var(--accent); }`) and crisp inline SVG icons.
+  - Component structure:
+    ```html
+    <div class="sub-nav-bar">
+        <div class="sub-nav-inner">
+            <div class="sub-nav-group" role="tablist" aria-label="Section Views">
+                <button type="button" class="sub-nav-btn active" role="tab" aria-selected="true">
+                    <svg viewBox="0 0 24 24" width="14" height="14" ...>...</svg>
+                    Automation &amp; Rates
+                </button>
+                <button type="button" class="sub-nav-btn" role="tab" aria-selected="false">
+                    <svg viewBox="0 0 24 24" width="14" height="14" ...>...</svg>
+                    Rules Overlay &amp; Appearance Studio
+                </button>
+            </div>
+            <div class="sub-nav-actions">
+                <span class="pill" id="section-status">Active</span>
+            </div>
+        </div>
+    </div>
+    ```
+  - Avoid redundant status badges: when secondary navigation provides contextual status or actions, do not duplicate the status badge in the parent header toolbar.
+
+
 ### Comprehensive Settings & Power-User Controls
 - Options are good: empower streamers with granular, comprehensive settings for visual presentation (colors with 8-digit `#RRGGBBAA` opacity, typography font family, font weight, font size scales with custom CSS size inputs, drop shadows, borders, radiuses, transitions, layout modes, and element visibility toggles).
 - Supply polished, production-ready defaults so overlays look stunning out-of-the-box without requiring initial setup, while allowing power users to customize every aspect.

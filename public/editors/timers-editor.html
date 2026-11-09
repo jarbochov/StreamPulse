@@ -99,9 +99,6 @@
         .time-dual input[type="number"] { width: 64px; text-align: right; padding: 0.45rem 0.5rem; }
         .time-dual span { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
         .beta-tag { font-size: .65rem; padding: .08rem .45rem; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); letter-spacing: .05em; font-weight: 600; vertical-align: middle; margin-left: 0.35rem; display: inline-block; line-height: 1.2; }
-        .sub-nav-btn { background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); padding: 0.65rem 0.95rem; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
-        .sub-nav-btn:hover { color: var(--text); }
-        .sub-nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
         .studio-grid { max-width: 1280px; margin: 0 auto; padding: 1.25rem 2rem 2rem; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(380px, 0.95fr); gap: 1.25rem; align-items: start; }
         @media (max-width: 1020px) {
             .studio-grid { grid-template-columns: 1fr; padding: 1rem; }
@@ -161,23 +158,17 @@
 
     <!-- Top Tabs Toolbar -->
     <div class="tabs-toolbar-wrap">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
-            <nav class="tabs-nav" role="tablist">
-                <button type="button" class="tab-btn active" data-tab="timers" role="tab" id="tab-btn-timers">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                    <span>Timers &amp; Controls</span>
-                </button>
-                <button type="button" class="tab-btn" data-tab="subathon" role="tab" id="tab-btn-subathon" hidden>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                    <span>Subathon Automation</span>
-                    <span class="beta-tag">BETA</span>
-                </button>
-            </nav>
-            <div id="subathon-top-status" style="display:flex; align-items:center; gap:0.5rem;" hidden>
-                <span class="pill" id="subathon-nav-pill">Disabled</span>
-                <a class="btn sm" href="/overlays/subathon-rules.html?preview=true" target="_blank" style="text-decoration:none;">Rules Overlay ↗</a>
-            </div>
-        </div>
+        <nav class="tabs-nav" role="tablist">
+            <button type="button" class="tab-btn active" data-tab="timers" role="tab" id="tab-btn-timers">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                <span>Timers &amp; Controls</span>
+            </button>
+            <button type="button" class="tab-btn" data-tab="subathon" role="tab" id="tab-btn-subathon" hidden>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                <span>Subathon Automation</span>
+                <span class="beta-tag">BETA</span>
+            </button>
+        </nav>
     </div>
 
     <!-- TAB 1: TIMERS & CONTROLS -->
@@ -427,19 +418,19 @@
     <!-- TAB 2: SUBATHON AUTOMATION -->
     <div class="tab-pane" id="pane-subathon" hidden>
         <!-- Subathon Sub-Navigation Bar -->
-        <div style="border-bottom: 1px solid var(--border); background: var(--bg-card); padding: 0 2rem;">
-            <div style="max-width: 1280px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-                <div style="display: flex; gap: 0.25rem;">
-                    <button type="button" class="sub-nav-btn active" id="sb-subnav-automation">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 0.35rem;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <div class="sub-nav-bar">
+            <div class="sub-nav-inner">
+                <div class="sub-nav-group" role="tablist" aria-label="Subathon Views">
+                    <button type="button" class="sub-nav-btn active" id="sb-subnav-automation" role="tab" aria-selected="true">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                         Automation &amp; Rates
                     </button>
-                    <button type="button" class="sub-nav-btn" id="sb-subnav-appearance">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 0.35rem;"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10c0 3.04-1.5 5.5-4 5.5s-2.5-1.5-4-1.5c-1 0-1.5.5-1.5 1.5 0 2-2 3.5-4 3.5a10 10 0 0 1-6.5-19"></path></svg>
+                    <button type="button" class="sub-nav-btn" id="sb-subnav-appearance" role="tab" aria-selected="false">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10c0 3.04-1.5 5.5-4 5.5s-2.5-1.5-4-1.5c-1 0-1.5.5-1.5 1.5 0 2-2 3.5-4 3.5a10 10 0 0 1-6.5-19"></path></svg>
                         Rules Overlay &amp; Appearance Studio
                     </button>
                 </div>
-                <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0;">
+                <div class="sub-nav-actions">
                     <span class="pill" id="subathon-subnav-status">Disabled</span>
                 </div>
             </div>
@@ -1620,10 +1611,11 @@
     function switchTimersTab(tabName) {
         const isSub = tabName === 'subathon';
         $('tab-btn-timers').classList.toggle('active', !isSub);
+        $('tab-btn-timers').setAttribute('aria-selected', !isSub ? 'true' : 'false');
         $('tab-btn-subathon').classList.toggle('active', isSub);
+        $('tab-btn-subathon').setAttribute('aria-selected', isSub ? 'true' : 'false');
         $('pane-timers').hidden = isSub;
         $('pane-subathon').hidden = !isSub;
-        $('subathon-top-status').hidden = !isSub;
         localStorage.setItem('streampulse:timers:tab', tabName);
         if (location.hash !== `#${tabName}`) {
             history.replaceState(null, '', `#${tabName}`);
@@ -1672,12 +1664,6 @@
         const pill = $('subathon-status-pill');
         pill.textContent = cfg.enabled ? 'Active' : 'Disabled';
         pill.className = `pill ${cfg.enabled ? 'running' : ''}`;
-
-        const navPill = $('subathon-nav-pill');
-        if (navPill) {
-            navPill.textContent = cfg.enabled ? 'Automation Active' : 'Disabled';
-            navPill.className = `pill ${cfg.enabled ? 'running' : ''}`;
-        }
 
         // Target timer options
         const targetSelect = $('subathon-target-timer');
@@ -1855,7 +1841,9 @@
     function switchSubathonView(view) {
         const isApp = view === 'appearance';
         $('sb-subnav-automation')?.classList.toggle('active', !isApp);
+        $('sb-subnav-automation')?.setAttribute('aria-selected', !isApp ? 'true' : 'false');
         $('sb-subnav-appearance')?.classList.toggle('active', isApp);
+        $('sb-subnav-appearance')?.setAttribute('aria-selected', isApp ? 'true' : 'false');
         if ($('sb-view-automation')) $('sb-view-automation').hidden = isApp;
         if ($('sb-view-appearance')) $('sb-view-appearance').hidden = !isApp;
 

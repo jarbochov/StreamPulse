@@ -87,6 +87,79 @@ body {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
+/* ── Secondary Sub-Navigation Bar (Underline Accent Style) ──────────────── */
+.sub-nav-bar {
+    border-bottom: 1px solid var(--border, #30363d);
+    background: var(--bg-card, #161b22);
+    padding: 0 2rem;
+}
+
+.sub-nav-inner {
+    max-width: 1600px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.sub-nav-group {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+}
+
+.sub-nav-btn {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted, #8b949e);
+    padding: 0.65rem 0.95rem;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.38rem;
+    text-decoration: none;
+    white-space: nowrap;
+    user-select: none;
+    line-height: 1.25;
+}
+
+.sub-nav-btn svg,
+.sub-nav-btn .ico {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+.sub-nav-btn:hover {
+    color: var(--text, #f0f6fc);
+}
+
+.sub-nav-btn.active,
+.sub-nav-btn[aria-selected="true"] {
+    color: var(--accent, #58a6ff);
+    border-bottom-color: var(--accent, #58a6ff);
+}
+
+.sub-nav-btn:focus-visible {
+    outline: 2px solid var(--accent, #58a6ff);
+    outline-offset: -2px;
+}
+
+.sub-nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0;
+}
+
+
 /* ── Live Theming Layout & Floating Sticky Preview Column ────────────────── */
 .theming-layout {
     display: grid;

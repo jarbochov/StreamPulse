@@ -11,6 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- **Subathon Automation Engine**: Modular timer extension engine with granular event rates (subs by tier, bits, follows with hourly caps, raids, channel points), specific exact donation amounts, safety hard caps, Boost Period multipliers, audit log with 1-click Undo, dynamic parameterized rules overlay (`/overlays/subathon-rules.html`), visual Appearance & Theming Studio with 60fps live preview, and secondary sub-navigation design library component (`.sub-nav-bar`, `.sub-nav-btn`).
 - **Placeholders & Dynamic Tokens**: Comprehensive placeholders for Tier List (`tier_list.*`), Trivia Studio (`trivia.*`), Versus / Matchup (`matchup.*`), and Tournaments (`tournament.*`), with live in-place ticking support (`tier_list.vote_timer`, `trivia.timer`, `matchup.clock`), `{{viewers}}` raid token in Chat Bot, and unified placeholder picker discovery.
 - **Interactive Trivia**: Standalone live trivia studio and animated OBS overlay with question banks, countdown progress timer, audience chat voting (!a, !b, !c, !d), answer reveal fanfare, preset packs, and Bitfocus Companion controls.
 - **State Machine Architecture**: Universal, zero-dependency state machine engine (`server/services/state-machine.js` and `public/js/state-machine.js`) with declarative transitions, state guards, and queryable introspection for alerts, overlay lifecycles, and companion controllers.

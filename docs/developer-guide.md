@@ -125,6 +125,36 @@ When contributing UI controls, views, or editors, all changes must strictly adhe
 - Group related controls inside structured sections (`F.section(...)` in editors) with clear, muted micro-headings (`font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted)`).
 - Keep controls visually calm and spacious. Avoid wall-of-buttons or overwhelming lists of options on a single screen.
 
+### Primary & Secondary Navigation Patterns
+- **Primary Segmented Navigation (`.tabs-nav`, `.tab-btn`)**:
+  - Segmented pill bar (`background: var(--bg-inset); border: 1px solid var(--border); border-radius: 9px; padding: 3px`) used for top-level view switching across major domain modes.
+  - Active tabs elevate with `background: var(--bg-card); color: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,0.12)`.
+- **Secondary Sub-Navigation Tabs (`.sub-nav-bar`, `.sub-nav-btn`)**:
+  - Full-width underline accent navigation bar used when a primary view contains nested functional views (such as Automation vs Appearance Studio, Configuration vs Live Preview, or Library vs Editor).
+  - Standardized in `public/css/admin.css` and `public/css/studio-common.css`. Uses clean underline accent styling (`border-bottom: 2px solid transparent; color: var(--text-muted); .active { color: var(--accent); border-bottom-color: var(--accent); }`) and crisp inline SVG icons.
+  - Standard HTML structure:
+    ```html
+    <div class="sub-nav-bar">
+        <div class="sub-nav-inner">
+            <div class="sub-nav-group" role="tablist" aria-label="Section Views">
+                <button type="button" class="sub-nav-btn active" role="tab" aria-selected="true">
+                    <svg viewBox="0 0 24 24" width="14" height="14" ...>...</svg>
+                    Automation &amp; Rates
+                </button>
+                <button type="button" class="sub-nav-btn" role="tab" aria-selected="false">
+                    <svg viewBox="0 0 24 24" width="14" height="14" ...>...</svg>
+                    Rules Overlay &amp; Appearance Studio
+                </button>
+            </div>
+            <div class="sub-nav-actions">
+                <span class="pill" id="section-status">Active</span>
+            </div>
+        </div>
+    </div>
+    ```
+  - When secondary navigation provides contextual status or actions, avoid duplicate status badges in the parent header toolbar.
+
+
 ### State Persistence & Navigation Memory
 - Always persist user view preferences (active tab, calendar vs list view, filter states like `hideUnmatched`, active period) in `localStorage` or URL search params so page reloads do not reset the streamer's context.
 
