@@ -65,6 +65,14 @@
                     
                     <div id="active-choices-list"></div>
 
+                    <div id="active-add-choice-container" style="display: flex; gap: 0.4rem; margin-top: 0.65rem;">
+                        <input type="text" id="active-add-choice-input" class="form-control" placeholder="Add option to this running poll…" style="font-size: 0.8rem; padding: 0.35rem 0.55rem;" onkeydown="if(event.key==='Enter'){event.preventDefault();addChoiceToActivePoll();}">
+                        <button type="button" class="btn-secondary btn-sm" id="btn-active-add-choice" onclick="addChoiceToActivePoll()" style="white-space: nowrap; font-size: 0.78rem;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Add Option
+                        </button>
+                    </div>
+
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.75rem; font-size: 0.75rem; color: var(--text-muted);">
                         <span id="active-total-votes">0 total votes</span>
                         <span id="active-features-tag"></span>

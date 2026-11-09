@@ -678,6 +678,28 @@ function createPollService({
         return getPublicPayload(activePoll);
     }
 
+    function addChoiceToActivePoll(title) {
+        if (!activePoll || activePoll.status !== 'ACTIVE') throw new Error('No active poll running');
+        const clean = String(title || '').trim();
+        if (!clean) throw new Error('Option title is required');
+        if (activePoll.choices.length >= 10) throw new Error('Maximum of 10 options allowed');
+        if (activePoll.choices.some(c => c.title.toLowerCase() === clean.toLowerCase())) {
+            throw new Error('Option already exists in active poll');
+        }
+        const newChoice = {
+            id: String(activePoll.choices.length + 1),
+            title: clean,
+            votes: 0,
+            percent: 0
+        };
+        activePoll.choices.push(newChoice);
+        recalculateVotes();
+        save();
+        broadcastUpdate();
+        log(`[Polls] Added option "${clean}" to active poll: "${activePoll.title}"`);
+        return getPublicPayload(activePoll);
+    }
+
     function cancelPoll() {
         const linked = getLinkedTournament(activePoll);
         const result = finishPoll('TERMINATED');
@@ -2815,6 +2837,7 @@ function createPollService({
         finishPoll,
         extendPoll,
         cancelPoll,
+        addChoiceToActivePoll,
         toggleBlind,
         toggleVoting,
         castVote,

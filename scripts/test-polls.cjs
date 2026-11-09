@@ -216,3 +216,45 @@ test('Poll Service: lifecycle, chat voting, blind mode, multipliers, and alerts'
     pollService.clearHistory();
     assert.equal(pollService.getHistory().length, 0);
 });
+
+test('Poll Service: adding an option to an active poll in real time', (t) => {
+    const dir = fs.mkdtempSync(path.join(__dirname, '..', '.test-poll-add-choice-'));
+    const pollService = createPollService({
+        dataDir: dir,
+        log: () => {},
+        error: () => {}
+    });
+    t.after(() => {
+        pollService.destroy();
+        fs.rmSync(dir, { recursive: true, force: true });
+    });
+
+    // 1. Cannot add choice when no poll is running
+    assert.throws(() => pollService.addChoiceToActivePoll('Hollow Knight'), /No active poll running/);
+
+    // 2. Start poll with 2 choices
+    pollService.createPoll({
+        title: 'Best Metroidvania',
+        choices: ['Super Metroid', 'Castlevania: SOTN'],
+        duration: 60
+    });
+    assert.equal(pollService.getActivePoll().choices.length, 2);
+
+    // 3. Add 3rd choice
+    const updated = pollService.addChoiceToActivePoll('Hollow Knight');
+    assert.equal(updated.choices.length, 3);
+    assert.equal(updated.choices[2].title, 'Hollow Knight');
+    assert.equal(updated.choices[2].votes, 0);
+
+    // 4. Vote for the newly added choice
+    const voted = pollService.castVote({ user: 'Chatter1', choiceIndex: 2 });
+    assert.equal(voted, true);
+    assert.equal(pollService.getActivePoll().choices[2].votes, 1);
+    assert.equal(pollService.getActivePoll().choices[2].percent, 100);
+
+    // 5. Cannot add duplicate choice
+    assert.throws(() => pollService.addChoiceToActivePoll('Hollow Knight'), /Option already exists/);
+
+    // 6. Cannot add empty choice
+    assert.throws(() => pollService.addChoiceToActivePoll('   '), /Option title is required/);
+});

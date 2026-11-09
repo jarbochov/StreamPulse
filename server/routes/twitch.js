@@ -272,6 +272,22 @@ function createTwitchRoutes({
             return true;
         }
 
+        if (pathname === '/api/polls/add-choice' && (req.method === 'POST' || req.method === 'GET')) {
+            if (!pollService) {
+                sendError(res, 501, 'Native polls not available');
+                return true;
+            }
+            try {
+                const body = await parseJsonOrQuery(req, url);
+                const title = body?.title || body?.choice || body?.name || '';
+                const poll = pollService.addChoiceToActivePoll(title);
+                sendJson(res, { status: 'ok', poll });
+            } catch (err) {
+                sendError(res, 400, err.message);
+            }
+            return true;
+        }
+
         if (pathname === '/api/polls/vote' && (req.method === 'POST' || req.method === 'GET')) {
             if (!pollService) {
                 sendError(res, 501, 'Native polls not available');

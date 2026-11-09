@@ -64,7 +64,41 @@ export function renderActivePollMonitor(poll) {
                 list._choicesHtml = choicesHtml;
                 list.innerHTML = choicesHtml;
             }
+
+            const addContainer = $('active-add-choice-container');
+            if (addContainer) {
+                addContainer.style.display = (poll.choices || []).length < 10 ? 'flex' : 'none';
+            }
         }
+
+export async function addChoiceToActivePoll(titleParam) {
+    const input = $('active-add-choice-input');
+    const title = (typeof titleParam === 'string' ? titleParam : input?.value || '').trim();
+    if (!title) {
+        toast('Please enter an option name');
+        input?.focus();
+        return;
+    }
+    try {
+        const res = await fetch('/api/polls/add-choice', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            setActivePollData(data.poll);
+            renderActivePollMonitor(activePollData);
+            updatePreview();
+            if (input) input.value = '';
+            toast(`Added option "${title}" to live poll!`);
+        } else {
+            toast(data.error || 'Failed to add option');
+        }
+    } catch (err) {
+        toast('Server error adding option to live poll');
+    }
+}
 
 
 

@@ -79,9 +79,12 @@ async function init() {
     Preview.populateThemeDropdowns();
     Preview.restorePollsOverlayPrefs();
     Preview.setPreviewMode(Preview.previewMode);
-    Editor.addChoiceField('Zelda: Tears of the Kingdom');
-    Editor.addChoiceField('Elden Ring');
-    Editor.addChoiceField('Metroid Prime Remastered');
+    const restored = Editor.restorePollDraft();
+    if (!restored) {
+        Editor.addChoiceField('Zelda: Tears of the Kingdom');
+        Editor.addChoiceField('Elden Ring');
+        Editor.addChoiceField('Metroid Prime Remastered');
+    }
 
     try {
         const res = await fetch('/api/polls/active');
