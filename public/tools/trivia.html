@@ -1832,7 +1832,11 @@
 
             if (tab === 'theming') {
                 applyViewportScale();
-                updateObsUrl();
+                requestAnimationFrame(() => {
+                    applyViewportScale();
+                    updateObsUrl();
+                });
+                setTimeout(() => applyViewportScale(), 60);
             }
         }
 
@@ -2172,6 +2176,19 @@
         const previewIframe = document.getElementById('trivia-preview-iframe');
         if (previewIframe) {
             previewIframe.addEventListener('load', () => updateObsUrl());
+        }
+
+        window.addEventListener('message', (e) => {
+            if (e.data?.type === 'trivia:overlay-ready') {
+                updateObsUrl();
+            }
+        });
+
+        const vpWrapper = document.getElementById('preview-viewport-wrapper');
+        if (vpWrapper && window.ResizeObserver) {
+            new ResizeObserver(() => {
+                if (activeTab === 'theming') applyViewportScale();
+            }).observe(vpWrapper);
         }
 
         ['cfg-theme-question-label', 'cfg-theme-answer-label'].forEach(id => {

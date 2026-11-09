@@ -1619,8 +1619,6 @@
                 isVotingOpen = chatVotingSetting && chatVotingActive && chatbotEnabled;
             }
 
-            const shouldCollapse = Boolean(document.body.dataset.collapse === 'true' || t.collapseIncorrect || activePreset === 'broadcast-text' || activePreset === 'nodecg' || activeStyle === 'text' || params.get('collapse') === '1');
-
             if (isReveal) {
                 stateBadgeEl.textContent = answerLabel;
                 stateBadgeEl.className = 'state-indicator reveal';
@@ -1780,6 +1778,10 @@
 
         fetchState();
         connectWs();
+
+        if (previewParam) {
+            try { window.parent?.postMessage({ type: 'trivia:overlay-ready' }, '*'); } catch {}
+        }
     </script>
 </body>
 </html>
