@@ -64,8 +64,8 @@
             --phase-answer-color: var(--correct-color, #22c55e);
             --header-font-size: 0.95rem;
             --phase-font-size: var(--header-font-size, 0.95rem);
-            --category-font-size: calc(var(--header-font-size, 0.95rem) * 0.9);
-            --counter-font-size: calc(var(--header-font-size, 0.95rem) * 0.9);
+            --category-font-size: 0.85rem;
+            --counter-font-size: 0.85rem;
             --card-radius: 16px;
         }
 
@@ -1463,6 +1463,9 @@
                     applyCssVar('--header-font-size', formattedHSize);
                     applyCssVar('--phase-font-size', formattedHSize);
                 }
+            } else {
+                applyCssVar('--header-font-size', '0.95rem');
+                applyCssVar('--phase-font-size', '0.95rem');
             }
 
             const pSizeParam = params.get('psize') || params.get('phasesize') || params.get('phaseFontSize');
@@ -1470,6 +1473,26 @@
             if (pSizeVal) {
                 const formattedPSize = formatFontSize(pSizeVal);
                 if (formattedPSize) applyCssVar('--phase-font-size', formattedPSize);
+            }
+
+            // Category badge font size (strictly independent from header phase title size)
+            const catSizeParam = params.get('catsize') || params.get('categorysize') || params.get('categoryFontSize');
+            const catSizeVal = catSizeParam || t.categoryFontSize;
+            if (catSizeVal) {
+                const formattedCatSize = formatFontSize(catSizeVal);
+                if (formattedCatSize) applyCssVar('--category-font-size', formattedCatSize);
+            } else {
+                applyCssVar('--category-font-size', '0.85rem');
+            }
+
+            // Question counter font size (independent from header phase title size)
+            const counterSizeParam = params.get('countersize') || params.get('counterFontSize');
+            const counterSizeVal = counterSizeParam || t.counterFontSize;
+            if (counterSizeVal) {
+                const formattedCounterSize = formatFontSize(counterSizeVal);
+                if (formattedCounterSize) applyCssVar('--counter-font-size', formattedCounterSize);
+            } else {
+                applyCssVar('--counter-font-size', '0.85rem');
             }
 
             const globalFont = globalFontParam || t.font;
