@@ -17,6 +17,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - **Chat Bot & Companion**: Collapsible chatbot settings with dedicated quote storage (`data/quotes.json`), plus expanded Bitfocus Companion controls and live feedback for Tier Maker, speakers, overlays, timers, and alerts.
 
 ### Changed
+- **Chat Bot**: Promoted Chat Bot from Beta to general availability with independent quote persistence (`data/quotes.json`), pre-compiled pattern matching, per-user cooldowns, and full Bitfocus Companion integration.
 - **Alerts Studio & Custom Overlay Editor**: Streamlined variant ladder and milestone tiers with drag-and-drop rule reordering, JSON import/export, and native-volume previews; reorganized the Custom Overlay element picker, Pages tabs, Alert Box inspector, and moved procedural pattern styling, blend type, and line width slider controls into the Style tab while excluding inconsistent raster filters.
 - **OBS Scene Sync & Server Architecture**: Independent OBS Scene Sync module toggle (decoupled from speaker audio meters) and extracted server domain services (`server/services/*`) and pattern inspector modules (`editor-patterns.js`).
 

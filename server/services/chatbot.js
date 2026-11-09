@@ -1,4 +1,4 @@
-// Chat bot (beta): !commands, quotes and mod-only commands. Replies go out through SocialStream's sendChat endpoint.
+// Chat bot: !commands, quotes, timed messages and mod commands. Replies go out through SocialStream's sendChat endpoint.
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
