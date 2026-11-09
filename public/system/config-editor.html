@@ -44,9 +44,20 @@
 
         .hint { font-size: 0.76rem; color: var(--text-muted); line-height: 1.45; }
 
-        /* Module Cards Grid */
-        .module-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1rem; }
-        .module-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.15rem; display: flex; flex-direction: column; gap: 0.75rem; }
+        /* Module Toolbar & Clean Categorized Grid */
+        .module-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.65rem 0.95rem; }
+        .module-stats-badge { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.45rem; }
+        .module-filter-group { display: flex; align-items: center; gap: 0.35rem; }
+        .module-filter-btn { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.28rem 0.65rem; font-size: 0.76rem; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+        .module-filter-btn:hover { color: var(--text); border-color: var(--accent); }
+        .module-filter-btn.active { background: color-mix(in srgb, var(--accent) 15%, var(--bg-card)); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+        .module-section { display: flex; flex-direction: column; gap: 0.65rem; }
+        .module-section-head { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem; margin-top: 0.35rem; }
+        .module-section-head svg { width: 13px; height: 13px; color: var(--accent); }
+        .module-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 0.85rem; }
+        .module-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.15rem; display: flex; flex-direction: column; gap: 0.65rem; transition: border-color 0.15s; }
+        .module-card:hover { border-color: var(--border-strong, var(--accent)); }
+        .module-card.is-off { opacity: 0.88; }
         .module-card-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
         .module-card-title { display: flex; align-items: center; gap: 0.5rem; font-weight: 600; font-size: 0.92rem; color: var(--text); }
         .module-card-title svg { width: 16px; height: 16px; color: var(--accent); }
@@ -279,240 +290,277 @@
 
         <!-- TAB 3: MODULES & SERVICES -->
         <div class="tab-pane" id="pane-modules" hidden>
-            <div class="module-grid">
-                <!-- Chat Bot Card -->
-                <div class="module-card">
-                    <div class="module-card-head">
-                        <div class="module-card-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                            <span>Chat Bot</span>
-                            <span class="beta-tag">BETA</span>
+            <div class="module-toolbar">
+                <div class="module-stats-badge">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                    <span id="module-stats-summary">10 Modules</span>
+                </div>
+                <div class="module-filter-group" role="tablist">
+                    <button type="button" class="module-filter-btn active" data-filter="all">All (10)</button>
+                    <button type="button" class="module-filter-btn" data-filter="active">Active</button>
+                    <button type="button" class="module-filter-btn" data-filter="disabled">Disabled</button>
+                </div>
+            </div>
+
+            <!-- Category 1: Audience & Interactive Overlays -->
+            <div class="module-section">
+                <div class="module-section-head">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="12 8 8 12 12 16 16 12 12 8"></polygon></svg>
+                    <span>Audience &amp; Interactive Overlays</span>
+                </div>
+                <div class="module-grid">
+                    <!-- Subathon Automation Card -->
+                    <div class="module-card" data-module="subathon">
+                        <div class="module-card-head">
+                            <div class="module-card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                <span>Subathon Automation</span>
+                                <span class="beta-tag">BETA</span>
+                            </div>
+                            <span class="module-badge" id="badge-subathon">Disabled</span>
                         </div>
-                        <span class="module-badge" id="badge-chatbot">Disabled</span>
+                        <p class="hint">Automate marathon countdown additions from Twitch subscriptions, bits, tips, follows, raids, and channel points with safety caps and live rules overlays.</p>
+                        <div class="cfg-toggle" style="margin-top:auto;">
+                            <input type="checkbox" id="cfg-subathon-enabled">
+                            <label for="cfg-subathon-enabled">Enable Subathon module</label>
+                        </div>
+                        <div style="margin-top:0.4rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
+                            <a class="btn sm" href="/editors/timers-editor.html" style="text-decoration:none;">Open Timer Manager →</a>
+                            <a class="btn sm" href="/overlays/subathon-rules.html?preview=true" target="_blank" style="text-decoration:none;">Rules Overlay ↗</a>
+                        </div>
                     </div>
-                    <p class="hint">Automated chat responses, custom commands, quotes, timed messages, and Bitfocus Companion integrations.</p>
-                    <div class="cfg-toggle" style="margin-top:auto;">
-                        <input type="checkbox" id="cfg-chatbot-enabled">
-                        <label for="cfg-chatbot-enabled">Enable Chat Bot service</label>
+
+                    <!-- Trivia Studio Card -->
+                    <div class="module-card" data-module="trivia">
+                        <div class="module-card-head">
+                            <div class="module-card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                                <span>Interactive Trivia</span>
+                                <span class="beta-tag">NEW</span>
+                            </div>
+                            <span class="module-badge" id="badge-trivia">Disabled</span>
+                        </div>
+                        <p class="hint">Interactive stream trivia questions, live audience chat voting (!a, !b, !c, !d), answer reveals, and quiz pack presets.</p>
+                        <div class="cfg-toggle" style="margin-top:auto;">
+                            <input type="checkbox" id="cfg-trivia-enabled">
+                            <label for="cfg-trivia-enabled">Enable Interactive Trivia module</label>
+                        </div>
+                        <div style="margin-top:0.4rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
+                            <a class="btn sm" href="/tools/trivia.html" style="text-decoration:none;">Open Trivia Studio →</a>
+                            <a class="btn sm" href="/overlays/trivia.html?preview=true" target="_blank" style="text-decoration:none;">Overlay Preview ↗</a>
+                        </div>
                     </div>
-                    <div style="margin-top:0.5rem;">
-                        <a class="btn" href="/chatbot.html" style="text-decoration:none;">Open Chat Bot Manager →</a>
+
+                    <!-- Poll Manager Card -->
+                    <div class="module-card" data-module="polls">
+                        <div class="module-card-head">
+                            <div class="module-card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                                <span>Poll Manager</span>
+                            </div>
+                            <span class="module-badge" id="badge-polls">Active</span>
+                        </div>
+                        <p class="hint">Interactive audience polls, multi-choice chat voting, and viewer-voted elimination tournament brackets.</p>
+                        <div class="cfg-toggle" style="margin-top:auto;">
+                            <input type="checkbox" id="cfg-polls-enabled" checked>
+                            <label for="cfg-polls-enabled">Enable Poll Manager module</label>
+                        </div>
+                        <div style="margin-top:0.4rem;">
+                            <a class="btn sm" href="/polls.html" style="text-decoration:none;">Open Poll Manager →</a>
+                        </div>
+                    </div>
+
+                    <!-- Versus & Tournaments Card -->
+                    <div class="module-card" data-module="versus">
+                        <div class="module-card-head">
+                            <div class="module-card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>
+                                <span>Versus &amp; Tournaments</span>
+                            </div>
+                            <span class="module-badge" id="badge-versus">Active</span>
+                        </div>
+                        <p class="hint">Competitive head-to-head scoreboards, fighting game HUDs, speedrun race timers, and tournament brackets.</p>
+                        <div class="cfg-toggle" style="margin-top:auto;">
+                            <input type="checkbox" id="cfg-versus-enabled" checked>
+                            <label for="cfg-versus-enabled">Enable Versus &amp; Tournaments module</label>
+                        </div>
+                        <div style="margin-top:0.4rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
+                            <a class="btn sm" href="/versus.html" style="text-decoration:none;">Open Versus Studio →</a>
+                            <a class="btn sm" href="/tournament-admin.html" style="text-decoration:none;">Multi-Match Admin →</a>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Music Player Card -->
-                <div class="module-card">
-                    <div class="module-card-head">
-                        <div class="module-card-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
-                            <span>Music Now-Playing</span>
-                            <span class="beta-tag">BETA</span>
+            <!-- Category 2: Stream Automation & Media -->
+            <div class="module-section">
+                <div class="module-section-head">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                    <span>Stream Automation &amp; Audio</span>
+                </div>
+                <div class="module-grid">
+                    <!-- Chat Bot Card -->
+                    <div class="module-card" data-module="chatbot">
+                        <div class="module-card-head">
+                            <div class="module-card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                <span>Chat Bot</span>
+                            </div>
+                            <span class="module-badge" id="badge-chatbot">Disabled</span>
                         </div>
-                        <span class="module-badge" id="badge-music">Disabled</span>
+                        <p class="hint">Automated chat responses, custom commands, quotes, timed messages, and Bitfocus Companion integrations.</p>
+                        <div class="cfg-toggle" style="margin-top:auto;">
+                            <input type="checkbox" id="cfg-chatbot-enabled">
+                            <label for="cfg-chatbot-enabled">Enable Chat Bot service</label>
+                        </div>
+                        <div style="margin-top:0.4rem;">
+                            <a class="btn sm" href="/chatbot.html" style="text-decoration:none;">Open Chat Bot Manager →</a>
+                        </div>
                     </div>
-                    <p class="hint">Live now-playing overlay track metadata, album artwork, and player polling for Apple Music or VLC.</p>
-                    <div class="cfg-toggle">
-                        <input type="checkbox" id="cfg-music-enabled">
-                        <label for="cfg-music-enabled">Enable Music Polling</label>
+
+                    <!-- Music Player Card -->
+                    <div class="module-card" data-module="music">
+                        <div class="module-card-head">
+                            <div class="module-card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+                                <span>Music Now-Playing</span>
+                                <span class="beta-tag">BETA</span>
+                            </div>
+                            <span class="module-badge" id="badge-music">Disabled</span>
+                        </div>
+                        <p class="hint">Live now-playing overlay track metadata, album artwork, and player polling for Apple Music or VLC.</p>
+                        <div class="cfg-toggle">
+                            <input type="checkbox" id="cfg-music-enabled">
+                            <label for="cfg-music-enabled">Enable Music Polling</label>
+                        </div>
+                        <div class="cfg-row" style="margin-top:0.25rem;">
+                            <label style="min-width:110px;">Source</label>
+                            <select id="cfg-music-source">
+                                <option value="apple_music">Apple Music (macOS)</option>
+                                <option value="vlc">VLC Media Player</option>
+                            </select>
+                        </div>
+                        <div class="cfg-row">
+                            <label style="min-width:110px;">Poll every (sec)</label>
+                            <input type="number" id="cfg-music-poll" min="1" max="15" value="5">
+                        </div>
+                        <div style="margin-top:auto;padding-top:0.4rem;">
+                            <a class="btn sm" href="/music-editor.html" style="text-decoration:none;">Open Music Settings →</a>
+                        </div>
                     </div>
-                    <div class="cfg-row" style="margin-top:0.25rem;">
-                        <label style="min-width:110px;">Source</label>
-                        <select id="cfg-music-source">
-                            <option value="apple_music">Apple Music (macOS)</option>
-                            <option value="vlc">VLC Media Player</option>
-                        </select>
+
+                    <!-- Weather Card -->
+                    <div class="module-card" data-module="weather">
+                        <div class="module-card-head">
+                            <div class="module-card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg>
+                                <span>Weather (Open-Meteo)</span>
+                            </div>
+                            <span class="module-badge" id="badge-weather">Disabled</span>
+                        </div>
+                        <p class="hint">Live local temperature, forecasts, and weather placeholders using free Open-Meteo data (no API key required).</p>
+                        <div class="cfg-toggle">
+                            <input type="checkbox" id="cfg-wx-enabled">
+                            <label for="cfg-wx-enabled">Enable Weather service</label>
+                        </div>
+                        <div class="cfg-row" style="margin-top:0.25rem;">
+                            <label style="min-width:110px;">Location</label>
+                            <input type="text" id="cfg-wx-location" placeholder="City, State/Country" maxlength="80">
+                        </div>
+                        <div class="cfg-row">
+                            <label style="min-width:110px;">Units</label>
+                            <select id="cfg-wx-units">
+                                <option value="imperial">°F, mph (Imperial)</option>
+                                <option value="metric">°C, km/h (Metric)</option>
+                            </select>
+                        </div>
+                        <div class="cfg-row">
+                            <label style="min-width:110px;">Poll (min)</label>
+                            <input type="number" id="cfg-wx-poll" min="5" max="180" value="15">
+                        </div>
+                        <div class="cfg-row">
+                            <label style="min-width:110px;">Extra Cities</label>
+                            <textarea id="cfg-wx-extra" rows="2" placeholder="Tokyo&#10;London, UK"></textarea>
+                        </div>
+                        <div class="hint" id="cfg-wx-status" style="margin-top:auto;font-weight:500;">Status checking…</div>
                     </div>
-                    <div class="cfg-row">
-                        <label style="min-width:110px;">Poll every (sec)</label>
-                        <input type="number" id="cfg-music-poll" min="1" max="15" value="5">
-                    </div>
-                    <div style="margin-top:auto;padding-top:0.5rem;">
-                        <a class="btn" href="/music-editor.html" style="text-decoration:none;">Open Music Settings →</a>
+
+                    <!-- Clip Detection Card -->
+                    <div class="module-card" data-module="clips">
+                        <div class="module-card-head">
+                            <div class="module-card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+                                <span>Clip Detection</span>
+                                <span class="beta-tag">BETA</span>
+                            </div>
+                            <span class="module-badge" id="badge-clips">Disabled</span>
+                        </div>
+                        <p class="hint">Automatic clip candidate bookmarking driven by chat activity spikes, raids, subscriptions, and bit cheers.</p>
+                        <div class="cfg-toggle" style="margin-top:auto;">
+                            <input type="checkbox" id="cfg-clips-enabled">
+                            <label for="cfg-clips-enabled">Enable Clip Candidate Detection</label>
+                        </div>
+                        <div style="margin-top:0.4rem;">
+                            <a class="btn sm" href="/clips.html" style="text-decoration:none;">Open Clip Settings →</a>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Weather Card -->
-                <div class="module-card">
-                    <div class="module-card-head">
-                        <div class="module-card-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg>
-                            <span>Weather (Open-Meteo)</span>
-                        </div>
-                        <span class="module-badge" id="badge-weather">Disabled</span>
-                    </div>
-                    <p class="hint">Live local temperature, forecasts, and weather placeholders using free Open-Meteo data (no API key required).</p>
-                    <div class="cfg-toggle">
-                        <input type="checkbox" id="cfg-wx-enabled">
-                        <label for="cfg-wx-enabled">Enable Weather service</label>
-                    </div>
-                    <div class="cfg-row" style="margin-top:0.25rem;">
-                        <label style="min-width:110px;">Location</label>
-                        <input type="text" id="cfg-wx-location" placeholder="City, State/Country" maxlength="80">
-                    </div>
-                    <div class="cfg-row">
-                        <label style="min-width:110px;">Units</label>
-                        <select id="cfg-wx-units">
-                            <option value="imperial">°F, mph (Imperial)</option>
-                            <option value="metric">°C, km/h (Metric)</option>
-                        </select>
-                    </div>
-                    <div class="cfg-row">
-                        <label style="min-width:110px;">Poll (min)</label>
-                        <input type="number" id="cfg-wx-poll" min="5" max="180" value="15">
-                    </div>
-                    <div class="cfg-row">
-                        <label style="min-width:110px;">Extra Cities</label>
-                        <textarea id="cfg-wx-extra" rows="2" placeholder="Tokyo&#10;London, UK"></textarea>
-                    </div>
-                    <div class="hint" id="cfg-wx-status" style="margin-top:auto;font-weight:500;">Status checking…</div>
+            <!-- Category 3: OBS Studio Integrations -->
+            <div class="module-section">
+                <div class="module-section-head">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    <span>OBS Studio Integrations</span>
                 </div>
-
-                <!-- Clip Detection Card -->
-                <div class="module-card">
-                    <div class="module-card-head">
-                        <div class="module-card-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
-                            <span>Clip Detection</span>
-                            <span class="beta-tag">BETA</span>
+                <div class="module-grid">
+                    <!-- OBS Scene Sync Card -->
+                    <div class="module-card" data-module="obs-scene-sync">
+                        <div class="module-card-head">
+                            <div class="module-card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                                <span>OBS Scene Sync</span>
+                                <span class="beta-tag">BETA</span>
+                            </div>
+                            <span class="module-badge" id="badge-obs-scene-sync">Active</span>
                         </div>
-                        <span class="module-badge" id="badge-clips">Disabled</span>
-                    </div>
-                    <p class="hint">Automatic clip candidate bookmarking driven by chat activity spikes, raids, subscriptions, and bit cheers.</p>
-                    <div class="cfg-toggle" style="margin-top:auto;">
-                        <input type="checkbox" id="cfg-clips-enabled">
-                        <label for="cfg-clips-enabled">Enable Clip Candidate Detection</label>
-                    </div>
-                    <div style="margin-top:0.5rem;">
-                        <a class="btn" href="/clips.html" style="text-decoration:none;">Open Clip Settings →</a>
-                    </div>
-                </div>
-
-                <!-- Poll Manager Card -->
-                <div class="module-card">
-                    <div class="module-card-head">
-                        <div class="module-card-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-                            <span>Poll Manager</span>
+                        <p class="hint">Camera/capture source motion uses the global <a href="#connection">OBS Connection in Connection &amp; Security</a>. These scene-sync settings are independent of speaker audio metering.</p>
+                        <div class="cfg-toggle">
+                            <input type="checkbox" id="cfg-obs-scene-sync-enabled" checked>
+                            <label for="cfg-obs-scene-sync-enabled">Enable OBS Scene Sync module</label>
                         </div>
-                        <span class="module-badge" id="badge-polls">Active</span>
-                    </div>
-                    <p class="hint">Interactive audience polls, multi-choice chat voting, and viewer-voted elimination tournament brackets.</p>
-                    <div class="cfg-toggle" style="margin-top:auto;">
-                        <input type="checkbox" id="cfg-polls-enabled" checked>
-                        <label for="cfg-polls-enabled">Enable Poll Manager module</label>
-                    </div>
-                    <div style="margin-top:0.5rem;">
-                        <a class="btn" href="/polls.html" style="text-decoration:none;">Open Poll Manager →</a>
-                    </div>
-                </div>
-
-                <!-- Versus & Tournaments Card -->
-                <div class="module-card">
-                    <div class="module-card-head">
-                        <div class="module-card-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>
-                            <span>Versus &amp; Tournaments</span>
+                        <div id="obs-scene-sync-options">
+                            <div class="cfg-row">
+                                <label style="min-width:95px;">Motion</label>
+                                <select id="cfg-obs-engine">
+                                    <option value="auto">Auto-Detect (Move Plugin or 60fps Stream)</option>
+                                    <option value="stream">60fps WebSocket Transform Stream</option>
+                                    <option value="move-plugin">Move Plugin (WebSocket fallback)</option>
+                                    <option value="cut">Instant Cut</option>
+                                </select>
+                            </div>
+                            <div class="cfg-toggle" style="margin-top:0.2rem;">
+                                <input type="checkbox" id="cfg-obs-sync-save" checked>
+                                <label for="cfg-obs-sync-save">Auto-sync OBS on overlay save &amp; state change</label>
+                            </div>
                         </div>
-                        <span class="module-badge" id="badge-versus">Active</span>
                     </div>
-                    <p class="hint">Competitive head-to-head scoreboards, fighting game HUDs, speedrun race timers, and tournament brackets.</p>
-                    <div class="cfg-toggle" style="margin-top:auto;">
-                        <input type="checkbox" id="cfg-versus-enabled" checked>
-                        <label for="cfg-versus-enabled">Enable Versus &amp; Tournaments module</label>
-                    </div>
-                    <div style="margin-top:0.5rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
-                        <a class="btn" href="/versus.html" style="text-decoration:none;">Open Versus Studio →</a>
-                        <a class="btn" href="/tournament-admin.html" style="text-decoration:none;">Multi-Match Admin →</a>
-                    </div>
-                </div>
 
-                <!-- Trivia Studio Card -->
-                <div class="module-card">
-                    <div class="module-card-head">
-                        <div class="module-card-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                            <span>Interactive Trivia</span>
-                            <span class="beta-tag">NEW</span>
+                    <!-- Voice-Reactive Speaker Badges Card -->
+                    <div class="module-card" data-module="speaker-badges">
+                        <div class="module-card-head">
+                            <div class="module-card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                                <span>Voice-Reactive Speaker Badges</span>
+                                <span class="beta-tag">BETA</span>
+                            </div>
+                            <span class="module-badge" id="badge-speaker-badges">Disabled</span>
                         </div>
-                        <span class="module-badge" id="badge-trivia">Disabled</span>
-                    </div>
-                    <p class="hint">Interactive stream trivia questions, live audience chat voting (!a, !b, !c, !d), answer reveals, and quiz pack presets.</p>
-                    <div class="cfg-toggle" style="margin-top:auto;">
-                        <input type="checkbox" id="cfg-trivia-enabled">
-                        <label for="cfg-trivia-enabled">Enable Interactive Trivia module</label>
-                    </div>
-                    <div style="margin-top:0.5rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
-                        <a class="btn" href="/tools/trivia.html" style="text-decoration:none;">Open Trivia Studio →</a>
-                        <a class="btn" href="/overlays/trivia.html?preview=true" target="_blank" style="text-decoration:none;">Overlay Preview ↗</a>
-                    </div>
-                </div>
-
-                <!-- Subathon Automation Card -->
-                <div class="module-card">
-                    <div class="module-card-head">
-                        <div class="module-card-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                            <span>Subathon Automation</span>
+                        <p class="hint">Voice-reactive badges and call-in banners use the global <a href="#connection">OBS Connection in Connection &amp; Security</a>. Enable that connection and Speaker Badges, then save. Scene syncing and Move Plugin are not required.</p>
+                        <div class="cfg-toggle" style="margin-top:auto;">
+                            <input type="checkbox" id="cfg-speaker-badges-enabled">
+                            <label for="cfg-speaker-badges-enabled">Enable Speaker Badges module</label>
                         </div>
-                        <span class="module-badge" id="badge-subathon">Disabled</span>
-                    </div>
-                    <p class="hint">Automate marathon countdown additions from Twitch subscriptions, cheer bits, tips, follows, raids, and channel point rewards with safety caps and live rules overlays.</p>
-                    <div class="cfg-toggle" style="margin-top:auto;">
-                        <input type="checkbox" id="cfg-subathon-enabled">
-                        <label for="cfg-subathon-enabled">Enable Subathon module</label>
-                    </div>
-                    <div style="margin-top:0.5rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
-                        <a class="btn" href="/editors/timers-editor.html" style="text-decoration:none;">Open Timer Manager →</a>
-                        <a class="btn" href="/overlays/subathon-rules.html?preview=true" target="_blank" style="text-decoration:none;">Rules Overlay ↗</a>
-                    </div>
-                </div>
-
-                <!-- OBS Scene Sync Card -->
-                <div class="module-card">
-                    <div class="module-card-head">
-                        <div class="module-card-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                            <span>OBS Scene Sync</span>
-                            <span class="beta-tag">BETA</span>
-                        </div>
-                        <span class="module-badge" id="badge-obs-scene-sync">Active</span>
-                    </div>
-                    <p class="hint">Camera/capture source motion uses the global <a href="#connection">OBS Connection in Connection &amp; Security</a>. These scene-sync settings are independent of speaker audio metering.</p>
-                    <div class="cfg-toggle">
-                        <input type="checkbox" id="cfg-obs-scene-sync-enabled" checked>
-                        <label for="cfg-obs-scene-sync-enabled">Enable OBS Scene Sync module</label>
-                    </div>
-                    <div id="obs-scene-sync-options">
-                    <div class="cfg-row">
-                        <label style="min-width:95px;">Motion</label>
-                        <select id="cfg-obs-engine">
-                            <option value="auto">Auto-Detect (Move Plugin or 60fps Stream)</option>
-                            <option value="stream">60fps WebSocket Transform Stream</option>
-                            <option value="move-plugin">Move Plugin (WebSocket fallback)</option>
-                            <option value="cut">Instant Cut</option>
-                        </select>
-                    </div>
-                    <div class="cfg-toggle" style="margin-top:0.2rem;">
-                        <input type="checkbox" id="cfg-obs-sync-save" checked>
-                        <label for="cfg-obs-sync-save">Auto-sync OBS on overlay save &amp; state change</label>
-                    </div>
-                    </div>
-                </div>
-
-                <!-- Voice-Reactive Speaker Badges Card -->
-                <div class="module-card">
-                    <div class="module-card-head">
-                        <div class="module-card-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-                            <span>Voice-Reactive Speaker Badges</span>
-                            <span class="beta-tag">BETA</span>
-                        </div>
-                        <span class="module-badge" id="badge-speaker-badges">Disabled</span>
-                    </div>
-                    <p class="hint">Voice-reactive badges and call-in banners use the global <a href="#connection">OBS Connection in Connection &amp; Security</a>. Enable that connection and Speaker Badges, then save. Scene syncing and Move Plugin are not required.</p>
-                    <div class="cfg-toggle" style="margin-top:auto;">
-                        <input type="checkbox" id="cfg-speaker-badges-enabled">
-                        <label for="cfg-speaker-badges-enabled">Enable Speaker Badges module</label>
                     </div>
                 </div>
             </div>
@@ -819,12 +867,40 @@
         } catch { line.textContent = 'Message deletion sync status unavailable.'; }
     }
 
+    let activeModuleFilter = 'all';
+
+    function applyModuleFilter(filter) {
+        if (filter) activeModuleFilter = filter;
+        document.querySelectorAll('.module-filter-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-filter') === activeModuleFilter);
+        });
+        document.querySelectorAll('#pane-modules .module-card').forEach(card => {
+            const status = card.getAttribute('data-status') || 'disabled';
+            if (activeModuleFilter === 'all') {
+                card.style.display = '';
+            } else if (activeModuleFilter === 'active') {
+                card.style.display = status === 'active' ? '' : 'none';
+            } else if (activeModuleFilter === 'disabled') {
+                card.style.display = status === 'disabled' ? '' : 'none';
+            }
+        });
+        document.querySelectorAll('#pane-modules .module-section').forEach(sec => {
+            const visible = sec.querySelectorAll('.module-card:not([style*="display: none"])');
+            sec.style.display = visible.length === 0 ? 'none' : '';
+        });
+    }
+
     function updateModuleBadges() {
         const updateBadge = (id, active) => {
             const el = document.getElementById(id);
             if (!el) return;
             el.textContent = active ? 'Active' : 'Disabled';
             el.className = `module-badge ${active ? 'active' : 'inactive'}`;
+            const card = el.closest('.module-card');
+            if (card) {
+                card.classList.toggle('is-off', !active);
+                card.setAttribute('data-status', active ? 'active' : 'disabled');
+            }
         };
         updateBadge('badge-chatbot', document.getElementById('cfg-chatbot-enabled')?.checked);
         updateBadge('badge-music', document.getElementById('cfg-music-enabled')?.checked);
@@ -836,8 +912,20 @@
         updateBadge('badge-subathon', document.getElementById('cfg-subathon-enabled')?.checked);
         updateBadge('badge-obs', document.getElementById('cfg-obs-enabled')?.checked);
         updateBadge('badge-obs-scene-sync', document.getElementById('cfg-obs-scene-sync-enabled')?.checked);
-        document.getElementById('obs-scene-sync-options').hidden = !document.getElementById('cfg-obs-scene-sync-enabled').checked;
+        if (document.getElementById('obs-scene-sync-options')) {
+            document.getElementById('obs-scene-sync-options').hidden = !document.getElementById('cfg-obs-scene-sync-enabled')?.checked;
+        }
         updateBadge('badge-speaker-badges', document.getElementById('cfg-speaker-badges-enabled')?.checked);
+
+        // Update count summary
+        const cards = document.querySelectorAll('#pane-modules .module-card');
+        const activeCount = Array.from(cards).filter(c => c.getAttribute('data-status') === 'active').length;
+        const totalCount = cards.length;
+        const summaryEl = document.getElementById('module-stats-summary');
+        if (summaryEl) {
+            summaryEl.textContent = `${activeCount} of ${totalCount} Modules Active`;
+        }
+        applyModuleFilter();
     }
 
     async function loadConfig() {
@@ -1089,6 +1177,12 @@
         if (['general', 'lifecycle', 'modules', 'connection', 'appearance'].includes(tab)) {
             switchTab(tab);
         }
+    });
+
+    document.querySelectorAll('.module-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            applyModuleFilter(btn.getAttribute('data-filter'));
+        });
     });
 
     loadConfig();

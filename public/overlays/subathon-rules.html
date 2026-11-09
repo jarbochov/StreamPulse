@@ -218,7 +218,7 @@
     <div id="rules-root" class="rules-container">
         <div id="happy-hour" class="happy-hour-banner">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            <span id="happy-hour-text">2X Happy Hour Active!</span>
+            <span id="happy-hour-text">2X Boost Period Active!</span>
         </div>
 
         <div id="rules-header" class="header-title">
@@ -272,11 +272,13 @@
             const state = data.state || {};
             const factor = data.rulesSummary?.happyHourActive ? (cfg.multiplier?.factor || 2) : 1;
 
-            // Happy Hour banner
+            // Boost banner
             const hhEl = document.getElementById('happy-hour');
-            if (data.rulesSummary?.happyHourActive) {
+            const isBoost = Boolean(data.rulesSummary?.boostActive || data.rulesSummary?.happyHourActive);
+            const allowBoostBanner = urlParams.get('boost') !== '0' && urlParams.get('happyHour') !== '0';
+            if (isBoost && allowBoostBanner) {
                 hhEl.style.display = 'flex';
-                document.getElementById('happy-hour-text').textContent = `⚡ ${factor}X HAPPY HOUR ACTIVE!`;
+                document.getElementById('happy-hour-text').textContent = `${factor}X BOOST PERIOD ACTIVE!`;
             } else {
                 hhEl.style.display = 'none';
             }

@@ -242,7 +242,7 @@ function createSubathonService({
     function getRuleSummary() {
         const factor = getActiveMultiplier();
         const r = subathonStore.config.rules;
-        const multStr = factor > 1 ? ` (${factor}x Happy Hour)` : '';
+        const multStr = factor > 1 ? ` (${factor}x Boost)` : '';
 
         const t1 = Math.round(r.subs.tier1Seconds * factor);
         const t2 = Math.round(r.subs.tier2Seconds * factor);
@@ -259,6 +259,7 @@ function createSubathonService({
 
         return {
             multiplier: factor > 1 ? `${factor}x` : '',
+            boostActive: factor > 1,
             happyHourActive: factor > 1,
             subTier1Formatted: formatDurationSeconds(t1) + multStr,
             subTier2Formatted: formatDurationSeconds(t2) + multStr,
@@ -266,7 +267,7 @@ function createSubathonService({
             tipRateFormatted: `${formatDurationSeconds(perDollar)} / $1.00` + multStr,
             bitsRateFormatted: `${formatDurationSeconds(per100Bits)} / 100 bits` + multStr,
             followFormatted: formatDurationSeconds(followSec) + multStr,
-            summary: (factor > 1 ? `⚡ ${factor}X HAPPY HOUR: ` : '') + (summaryParts.join(' · ') || 'No active rates'),
+            summary: (factor > 1 ? `[${factor}x Boost] ` : '') + (summaryParts.join(' · ') || 'No active rates'),
             summaryParts
         };
     }

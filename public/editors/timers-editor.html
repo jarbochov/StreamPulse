@@ -91,7 +91,14 @@
             .header { flex-direction: column; gap: 0.6rem; }
             .http-grid { grid-template-columns: 1fr; }
             .cfg-row small { margin-left: 0; }
+            .subathon-container { grid-template-columns: 1fr; padding: 1rem; }
         }
+        .tabs-toolbar-wrap { max-width: 1280px; margin: 0 auto; padding: 1.1rem 2rem 0; }
+        .subathon-container { max-width: 1280px; margin: 0 auto; padding: 1.25rem 2rem 2rem; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(360px, 0.95fr); gap: 1.25rem; align-items: start; }
+        .time-dual { display: inline-flex; align-items: center; gap: 0.35rem; }
+        .time-dual input[type="number"] { width: 64px; text-align: right; padding: 0.45rem 0.5rem; }
+        .time-dual span { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+        .beta-tag { font-size: .65rem; padding: .08rem .45rem; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); letter-spacing: .05em; font-weight: 600; vertical-align: middle; margin-left: 0.35rem; display: inline-block; line-height: 1.2; }
     </style>
 </head>
 <body>
@@ -101,6 +108,29 @@
         <script src="/nav.js"></script>
     </div>
 
+    <!-- Top Tabs Toolbar -->
+    <div class="tabs-toolbar-wrap">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+            <nav class="tabs-nav" role="tablist">
+                <button type="button" class="tab-btn active" data-tab="timers" role="tab" id="tab-btn-timers">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    <span>Timers &amp; Controls</span>
+                </button>
+                <button type="button" class="tab-btn" data-tab="subathon" role="tab" id="tab-btn-subathon" hidden>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    <span>Subathon Automation</span>
+                    <span class="beta-tag">BETA</span>
+                </button>
+            </nav>
+            <div id="subathon-top-status" style="display:flex; align-items:center; gap:0.5rem;" hidden>
+                <span class="pill" id="subathon-nav-pill">Disabled</span>
+                <a class="btn sm" href="/overlays/subathon-rules.html?preview=true" target="_blank" style="text-decoration:none;">Rules Overlay ↗</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 1: TIMERS & CONTROLS -->
+    <div class="tab-pane active" id="pane-timers">
     <div class="container">
         <div class="stack">
             <div class="card">
@@ -339,32 +369,41 @@
                     <a class="btn" href="/api/timers" target="_blank" rel="noopener">API JSON</a>
                 </div>
             </div>
+        </div>
+    </div>
+    </div>
 
-            <!-- Subathon Automation Card (Only mounted when subathon_enabled is true) -->
-            <div class="card" id="subathon-card" hidden>
-                <h2>
-                    <span>Subathon Automation</span>
-                    <span class="pill" id="subathon-status-pill">Disabled</span>
-                </h2>
-                <div class="cfg-row">
-                    <label for="subathon-active">Enable automation</label>
-                    <input type="checkbox" id="subathon-active">
-                    <small>Automatically extends a countdown timer when subscriptions, cheer bits, donations, follows, or raids occur.</small>
-                </div>
-                <div class="cfg-row">
-                    <label for="subathon-target-timer">Target countdown</label>
-                    <select id="subathon-target-timer"></select>
-                    <small>The countdown timer that receives automated time additions.</small>
-                </div>
-
-                <!-- Happy Hour Bar -->
-                <div style="background:var(--bg-inset); border:1px solid var(--border); border-radius:8px; padding:0.8rem; margin:0.8rem 0;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-                        <span style="font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--text);">Happy Hour Boost</span>
-                        <span class="pill" id="happy-hour-pill" hidden>Active</span>
+    <!-- TAB 2: SUBATHON AUTOMATION -->
+    <div class="tab-pane" id="pane-subathon" hidden>
+        <div class="subathon-container">
+            <!-- Left Column: Master Settings, Boost Period, Rates -->
+            <div class="stack">
+                <!-- Master Controls Card -->
+                <div class="card">
+                    <h2>
+                        <span>Master Controls</span>
+                        <span class="pill" id="subathon-status-pill">Disabled</span>
+                    </h2>
+                    <div class="cfg-row">
+                        <label for="subathon-active">Enable automation</label>
+                        <input type="checkbox" id="subathon-active">
+                        <small>Automatically extends countdown timers when subscriptions, bits, tips, follows, or raids occur.</small>
                     </div>
-                    <div class="cfg-row" style="margin-bottom:0.4rem;">
-                        <label>Multiplier</label>
+                    <div class="cfg-row">
+                        <label for="subathon-target-timer">Target countdown</label>
+                        <select id="subathon-target-timer"></select>
+                        <small>The active countdown timer receiving automated subathon time additions.</small>
+                    </div>
+                </div>
+
+                <!-- Boost Period Card (formerly Happy Hour Boost) -->
+                <div class="card" style="border-left: 3px solid var(--warn);">
+                    <h2>
+                        <span>Boost Period</span>
+                        <span class="pill" id="boost-period-pill" hidden>Active</span>
+                    </h2>
+                    <div class="cfg-row">
+                        <label>Boost Multiplier</label>
                         <div style="display:flex; gap:0.4rem; align-items:center; flex:1; flex-wrap:wrap;">
                             <input type="number" id="hh-factor" value="2.0" step="0.5" min="1.1" max="10" style="width:70px;">
                             <span style="font-size:0.8rem; color:var(--text-muted);">x for</span>
@@ -373,136 +412,251 @@
                             <button class="btn sm primary" type="button" id="hh-start">Start Boost</button>
                             <button class="btn sm warn" type="button" id="hh-end" hidden>End Boost</button>
                         </div>
+                        <small>Temporarily multiplies all incoming subathon time additions (e.g. 2x boost period).</small>
                     </div>
                 </div>
 
-                <!-- Subathon Rules Accordions -->
-                <details class="advanced" id="subathon-subs-details" open>
-                    <summary>Subscription Rates</summary>
-                    <div class="cfg-row" style="margin-top:0.5rem;">
-                        <label for="sb-subs-enabled">Subs enabled</label>
-                        <input type="checkbox" id="sb-subs-enabled" checked>
-                    </div>
+                <!-- Subscription Rates Card -->
+                <div class="card">
+                    <h2>
+                        <span>Subscription Rates</span>
+                        <div class="cfg-toggle" style="margin:0;">
+                            <input type="checkbox" id="sb-subs-enabled" checked>
+                            <label for="sb-subs-enabled" style="font-size:0.75rem; text-transform:none; letter-spacing:normal;">Enabled</label>
+                        </div>
+                    </h2>
                     <div class="cfg-row">
                         <label>Tier 1 / Prime</label>
-                        <input type="number" id="sb-sub-t1" min="0" placeholder="Seconds (e.g. 120)">
-                        <small>Duration in seconds (e.g. 120 = 2 minutes).</small>
+                        <div class="time-dual">
+                            <input type="number" id="sb-sub-t1-min" min="0" placeholder="2">
+                            <span>min</span>
+                            <input type="number" id="sb-sub-t1-sec" min="0" max="59" placeholder="0">
+                            <span>sec</span>
+                        </div>
+                        <small>Time added per Tier 1 or Prime subscription.</small>
                     </div>
                     <div class="cfg-row">
                         <label>Tier 2 Sub</label>
-                        <input type="number" id="sb-sub-t2" min="0" placeholder="Seconds (e.g. 240)">
+                        <div class="time-dual">
+                            <input type="number" id="sb-sub-t2-min" min="0" placeholder="4">
+                            <span>min</span>
+                            <input type="number" id="sb-sub-t2-sec" min="0" max="59" placeholder="0">
+                            <span>sec</span>
+                        </div>
+                        <small>Time added per Tier 2 subscription.</small>
                     </div>
                     <div class="cfg-row">
                         <label>Tier 3 Sub</label>
-                        <input type="number" id="sb-sub-t3" min="0" placeholder="Seconds (e.g. 600)">
+                        <div class="time-dual">
+                            <input type="number" id="sb-sub-t3-min" min="0" placeholder="10">
+                            <span>min</span>
+                            <input type="number" id="sb-sub-t3-sec" min="0" max="59" placeholder="0">
+                            <span>sec</span>
+                        </div>
+                        <small>Time added per Tier 3 subscription.</small>
                     </div>
                     <div class="cfg-row">
-                        <label>Gift sub rate</label>
-                        <input type="number" id="sb-sub-gift" min="0" placeholder="Seconds per gifted sub">
-                        <small>Multiplied by the number of gifted subs in a gift bomb.</small>
+                        <label>Gift Sub Rate</label>
+                        <div class="time-dual">
+                            <input type="number" id="sb-sub-gift-min" min="0" placeholder="2">
+                            <span>min</span>
+                            <input type="number" id="sb-sub-gift-sec" min="0" max="59" placeholder="0">
+                            <span>sec</span>
+                        </div>
+                        <small>Time added per gifted sub in a community gift bomb.</small>
                     </div>
-                </details>
+                </div>
 
-                <details class="advanced" id="subathon-donations-details">
-                    <summary>Donations &amp; Tips (Custom Exact Rules)</summary>
-                    <div class="cfg-row" style="margin-top:0.5rem;">
-                        <label for="sb-donations-enabled">Donations enabled</label>
-                        <input type="checkbox" id="sb-donations-enabled" checked>
-                    </div>
+                <!-- Donations & Tips Card -->
+                <div class="card">
+                    <h2>
+                        <span>Donations &amp; Tips</span>
+                        <div class="cfg-toggle" style="margin:0;">
+                            <input type="checkbox" id="sb-donations-enabled" checked>
+                            <label for="sb-donations-enabled" style="font-size:0.75rem; text-transform:none; letter-spacing:normal;">Enabled</label>
+                        </div>
+                    </h2>
                     <div class="cfg-row">
-                        <label>Base rate</label>
-                        <div style="display:flex; gap:0.4rem; align-items:center; flex:1;">
-                            <input type="number" id="sb-donations-rate" min="0" placeholder="Seconds" style="width:90px;">
-                            <span style="font-size:0.8rem; color:var(--text-muted);">seconds per $1.00</span>
+                        <label>Base Rate</label>
+                        <div class="time-dual">
+                            <input type="number" id="sb-donations-rate-min" min="0" placeholder="1">
+                            <span>min</span>
+                            <input type="number" id="sb-donations-rate-sec" min="0" max="59" placeholder="0">
+                            <span>sec</span>
+                            <span style="font-size:0.78rem; color:var(--text-muted); margin-left:0.25rem;">per $1.00</span>
                         </div>
                     </div>
                     <div class="cfg-row">
-                        <label>Minimum tip</label>
-                        <input type="number" id="sb-donations-min" min="0" step="0.5" placeholder="1.00">
+                        <label>Minimum Tip</label>
+                        <div style="display:flex; align-items:center; gap:0.35rem;">
+                            <span style="color:var(--text-muted);">$</span>
+                            <input type="number" id="sb-donations-min" min="0" step="0.5" placeholder="1.00" style="width:80px;">
+                        </div>
                     </div>
+
                     <!-- Exact Amounts Table -->
-                    <div style="margin-top:0.6rem; border-top:1px solid var(--border); padding-top:0.6rem;">
-                        <span style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">Specific Exact Amount Rules</span>
-                        <div id="sb-exact-list" style="margin:0.5rem 0; display:flex; flex-direction:column; gap:0.35rem;"></div>
-                        <div style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap;">
-                            <input type="number" id="sb-exact-amount" placeholder="Exact $" step="0.01" min="0.01" style="width:85px;">
-                            <input type="number" id="sb-exact-seconds" placeholder="Seconds" min="1" style="width:85px;">
-                            <input type="text" id="sb-exact-label" placeholder="Rule label (e.g. Blaze It)" style="flex:1; min-width:120px;">
-                            <button type="button" class="btn sm" id="sb-exact-add">+ Add Rule</button>
+                    <div style="margin-top:0.8rem; border-top:1px solid var(--border); padding-top:0.75rem;">
+                        <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-bottom:0.5rem;">Specific Exact Amount Rules</div>
+                        <div id="sb-exact-list" style="margin-bottom:0.6rem; display:flex; flex-direction:column; gap:0.35rem;"></div>
+                        <div style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap; background:var(--bg-inset); padding:0.6rem; border-radius:6px; border:1px solid var(--border);">
+                            <span style="font-size:0.8rem; color:var(--text-muted);">$</span>
+                            <input type="number" id="sb-exact-amount" placeholder="4.20" step="0.01" min="0.01" style="width:75px;" title="Exact Dollar Amount">
+                            <span style="font-size:0.8rem; color:var(--text-muted);">&rarr;</span>
+                            <div class="time-dual">
+                                <input type="number" id="sb-exact-min" min="0" placeholder="7" title="Minutes">
+                                <span>min</span>
+                                <input type="number" id="sb-exact-sec" min="0" max="59" placeholder="0" title="Seconds">
+                                <span>sec</span>
+                            </div>
+                            <input type="text" id="sb-exact-label" placeholder="Rule label (e.g. Blaze It)" style="flex:1; min-width:110px;">
+                            <button type="button" class="btn sm primary" id="sb-exact-add">+ Add Rule</button>
                         </div>
                     </div>
-                </details>
+                </div>
 
-                <details class="advanced" id="subathon-bits-details">
-                    <summary>Cheer Bits Rates</summary>
-                    <div class="cfg-row" style="margin-top:0.5rem;">
+                <!-- Cheer Bits, Follows, Raids & Caps Card -->
+                <div class="card">
+                    <h2><span>Bits, Follows, Raids &amp; Safety Caps</span></h2>
+                    
+                    <h3 style="margin-top:0.2rem;">Cheer Bits</h3>
+                    <div class="cfg-row">
                         <label for="sb-bits-enabled">Bits enabled</label>
                         <input type="checkbox" id="sb-bits-enabled" checked>
                     </div>
                     <div class="cfg-row">
-                        <label>Bits rate</label>
-                        <div style="display:flex; gap:0.4rem; align-items:center; flex:1;">
-                            <input type="number" id="sb-bits-rate" min="0" placeholder="Seconds" style="width:90px;">
-                            <span style="font-size:0.8rem; color:var(--text-muted);">seconds per 100 bits</span>
+                        <label>Rate per 100 Bits</label>
+                        <div class="time-dual">
+                            <input type="number" id="sb-bits-rate-min" min="0" placeholder="0">
+                            <span>min</span>
+                            <input type="number" id="sb-bits-rate-sec" min="0" max="59" placeholder="30">
+                            <span>sec</span>
+                            <span style="font-size:0.78rem; color:var(--text-muted); margin-left:0.25rem;">per 100 bits</span>
                         </div>
                     </div>
                     <div class="cfg-row">
-                        <label>Minimum bits</label>
-                        <input type="number" id="sb-bits-min" min="0" placeholder="100">
+                        <label>Minimum Bits</label>
+                        <input type="number" id="sb-bits-min" min="0" placeholder="100" style="max-width:110px;">
                     </div>
-                </details>
 
-                <details class="advanced" id="subathon-follows-raids-details">
-                    <summary>Follows &amp; Raids</summary>
-                    <div class="cfg-row" style="margin-top:0.5rem;">
+                    <h3>Follows &amp; Raids</h3>
+                    <div class="cfg-row">
                         <label for="sb-follows-enabled">Follows enabled</label>
                         <input type="checkbox" id="sb-follows-enabled">
                     </div>
                     <div class="cfg-row">
-                        <label>Seconds per follow</label>
-                        <input type="number" id="sb-follows-sec" min="0" placeholder="15">
+                        <label>Time per Follow</label>
+                        <div class="time-dual">
+                            <input type="number" id="sb-follows-min" min="0" placeholder="0">
+                            <span>min</span>
+                            <input type="number" id="sb-follows-sec" min="0" max="59" placeholder="15">
+                            <span>sec</span>
+                        </div>
+                        <small>Follows are safety-capped at max 10 per hour to protect against follow-botting.</small>
                     </div>
                     <div class="cfg-row">
                         <label for="sb-raids-enabled">Raids enabled</label>
                         <input type="checkbox" id="sb-raids-enabled" checked>
                     </div>
                     <div class="cfg-row">
-                        <label>Raid base time</label>
-                        <input type="number" id="sb-raids-base" min="0" placeholder="30">
+                        <label>Raid Base Time</label>
+                        <div class="time-dual">
+                            <input type="number" id="sb-raids-base-min" min="0" placeholder="0">
+                            <span>min</span>
+                            <input type="number" id="sb-raids-base-sec" min="0" max="59" placeholder="30">
+                            <span>sec</span>
+                        </div>
                     </div>
                     <div class="cfg-row">
-                        <label>Per raider time</label>
-                        <input type="number" id="sb-raids-per-viewer" min="0" placeholder="2">
-                    </div>
-                </details>
-
-                <details class="advanced" id="subathon-caps-details">
-                    <summary>Safety Caps</summary>
-                    <div class="cfg-row" style="margin-top:0.5rem;">
-                        <label>Max timer ceiling</label>
-                        <div style="display:flex; gap:0.4rem; align-items:center; flex:1;">
-                            <input type="number" id="sb-cap-hours" min="0" placeholder="12" style="width:70px;">
-                            <span style="font-size:0.8rem; color:var(--text-muted);">hours max remaining (0 = unlimited)</span>
+                        <label>Per Raider Time</label>
+                        <div style="display:flex; align-items:center; gap:0.35rem;">
+                            <input type="number" id="sb-raids-per-viewer" min="0" placeholder="2" style="width:70px;">
+                            <span style="font-size:0.78rem; color:var(--text-muted);">seconds per viewer</span>
                         </div>
-                        <small>Prevents runaway timers by capping remaining time to this hard ceiling.</small>
                     </div>
-                </details>
 
-                <!-- Live Audit Feed & Undo -->
-                <div style="margin-top:1rem; border-top:1px solid var(--border); padding-top:0.8rem;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-                        <span style="font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--text);">Recent Activity</span>
+                    <h3>Safety Hard Ceiling</h3>
+                    <div class="cfg-row">
+                        <label>Max Timer Ceiling</label>
+                        <div class="time-dual">
+                            <input type="number" id="sb-cap-hours" min="0" placeholder="24">
+                            <span>hr</span>
+                            <input type="number" id="sb-cap-mins" min="0" max="59" placeholder="0">
+                            <span>min</span>
+                        </div>
+                        <small>Hard limit on remaining countdown time (e.g. 24 hours max). 0 = unlimited.</small>
+                    </div>
+
+                    <div class="actions" style="margin-top:1.25rem;">
+                        <button class="btn primary" id="sb-save-btn">Save Subathon Settings</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Live Target Monitor, Audit Feed & Simulation -->
+            <div class="stack">
+                <!-- Target Countdown Monitor Card -->
+                <div class="card">
+                    <h2>
+                        <span>Target Timer Monitor</span>
+                        <span class="pill" id="sb-monitor-state">—</span>
+                    </h2>
+                    <div class="readout" style="margin-bottom:0.75rem;">
+                        <div class="time" id="sb-monitor-time">00:00:00</div>
+                        <div class="who" id="sb-monitor-label">No target selected</div>
+                    </div>
+                    <div style="display:flex; gap:0.4rem; flex-wrap:wrap; align-items:center; margin-bottom:0.6rem;">
+                        <span class="pill running" id="sb-total-added-pill">+0s Added</span>
+                        <span class="pill" id="sb-events-count-pill">0 Events</span>
+                    </div>
+                    <div style="font-size:0.75rem; color:var(--text-muted); background:var(--bg-inset); padding:0.5rem 0.65rem; border-radius:6px; border:1px solid var(--border);" id="sb-active-rules-summary">
+                        Loading active rates…
+                    </div>
+                </div>
+
+                <!-- Recent Activity & Audit Feed -->
+                <div class="card">
+                    <h2>
+                        <span>Recent Activity &amp; Audit Feed</span>
                         <div style="display:flex; gap:0.35rem;">
                             <button class="btn sm warn" type="button" id="sb-undo-btn">Undo Last</button>
                             <button class="btn sm" type="button" id="sb-reset-stats-btn">Reset Stats</button>
                         </div>
-                    </div>
-                    <div id="sb-history-list" style="max-height:160px; overflow-y:auto; display:flex; flex-direction:column; gap:0.3rem; font-size:0.75rem;"></div>
+                    </h2>
+                    <div id="sb-history-list" style="max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:0.35rem; font-size:0.75rem;"></div>
                 </div>
 
-                <div class="actions" style="margin-top:1rem;">
-                    <button class="btn primary" id="sb-save-btn">Save Subathon Settings</button>
-                    <a class="btn" href="/overlays/subathon-rules.html?preview=true" target="_blank">Rules Overlay ↗</a>
+                <!-- Quick Test Simulator Card -->
+                <div class="card">
+                    <h2><span>Test Event Simulator</span></h2>
+                    <p class="hint" style="margin-bottom:0.75rem;">Simulate incoming Twitch or tip events to verify your timer additions in real time.</p>
+                    <div class="cfg-row">
+                        <label for="sb-test-event">Event Type</label>
+                        <select id="sb-test-event">
+                            <option value="sub_t1">Tier 1 Sub (1 Sub)</option>
+                            <option value="sub_t2">Tier 2 Sub (1 Sub)</option>
+                            <option value="sub_t3">Tier 3 Sub (1 Sub)</option>
+                            <option value="gift_5">Gift Sub Bomb (5 Subs)</option>
+                            <option value="bits_500">Cheer 500 Bits</option>
+                            <option value="don_5">$5.00 Standard Tip</option>
+                            <option value="don_exact">Exact Amount Tip ($4.20)</option>
+                            <option value="follow">New Follower</option>
+                            <option value="raid_25">Raid with 25 Viewers</option>
+                        </select>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="btn primary" id="sb-test-btn">Simulate Test Event</button>
+                    </div>
+                </div>
+
+                <!-- Overlay URL Card -->
+                <div class="card">
+                    <h2><span>Dynamic Rules Overlay</span></h2>
+                    <p class="hint" style="margin-bottom:0.6rem;">Add this browser source to OBS Studio to display live rates that update instantaneously whenever you change settings.</p>
+                    <div class="url-box" id="sb-overlay-url">http://localhost:3000/overlays/subathon-rules.html?layout=grid&amp;theme=dark</div>
+                    <div class="actions">
+                        <button class="btn primary sm" type="button" id="sb-copy-overlay">Copy URL</button>
+                        <a class="btn sm" href="/overlays/subathon-rules.html?preview=true" target="_blank" style="text-decoration:none;">Preview ↗</a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1066,28 +1220,90 @@
 
     loadTimers().catch(error => toast(error.message, 'error'));
     connectTimerSocket();
-    setInterval(() => { renderTimerList(); renderLive(); }, 250);
+    setInterval(() => {
+        renderTimerList();
+        renderLive();
+        if (document.getElementById('pane-subathon') && !document.getElementById('pane-subathon').hidden) {
+            renderTargetMonitor();
+        }
+    }, 250);
 
-    // ---- Subathon -------------------------------------------------------
+    // ---- Subathon Automation --------------------------------------------
     let subathonData = null;
+
+    function secToMinSec(sec) {
+        const s = Math.max(0, Math.round(Number(sec) || 0));
+        return { min: Math.floor(s / 60), sec: s % 60 };
+    }
+
+    function fromMinSec(minEl, secEl, defaultSec = 0) {
+        const m = parseInt(minEl?.value, 10);
+        const s = parseInt(secEl?.value, 10);
+        if (isNaN(m) && isNaN(s)) return defaultSec;
+        return (Math.max(0, m || 0) * 60) + Math.max(0, s || 0);
+    }
+
+    function secToHrMin(sec) {
+        const s = Math.max(0, Math.round(Number(sec) || 0));
+        return { hr: Math.floor(s / 3600), min: Math.floor((s % 3600) / 60) };
+    }
+
+    function fromHrMin(hrEl, minEl) {
+        const h = Math.max(0, parseInt(hrEl?.value, 10) || 0);
+        const m = Math.max(0, parseInt(minEl?.value, 10) || 0);
+        return (h * 3600) + (m * 60);
+    }
+
+    function formatDuration(sec) {
+        sec = Math.max(0, Math.round(Number(sec) || 0));
+        const h = Math.floor(sec / 3600);
+        const m = Math.floor((sec % 3600) / 60);
+        const s = sec % 60;
+        if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+        return `${m}m ${String(s).padStart(2, '0')}s`;
+    }
+
+    function switchTimersTab(tabName) {
+        const isSub = tabName === 'subathon';
+        $('tab-btn-timers').classList.toggle('active', !isSub);
+        $('tab-btn-subathon').classList.toggle('active', isSub);
+        $('pane-timers').hidden = isSub;
+        $('pane-subathon').hidden = !isSub;
+        $('subathon-top-status').hidden = !isSub;
+        localStorage.setItem('streampulse:timers:tab', tabName);
+        if (location.hash !== `#${tabName}`) {
+            history.replaceState(null, '', `#${tabName}`);
+        }
+        if (isSub) renderSubathon();
+    }
+
+    $('tab-btn-timers').addEventListener('click', () => switchTimersTab('timers'));
+    $('tab-btn-subathon').addEventListener('click', () => switchTimersTab('subathon'));
 
     async function loadSubathon() {
         try {
             const res = await fetch('/api/subathon');
             if (res.status === 404) {
-                $('subathon-card').hidden = true;
+                $('tab-btn-subathon').hidden = true;
+                if (location.hash.includes('subathon')) switchTimersTab('timers');
                 return;
             }
             const data = await res.json();
             if (!data.ok) {
-                $('subathon-card').hidden = true;
+                $('tab-btn-subathon').hidden = true;
                 return;
             }
             subathonData = data;
-            $('subathon-card').hidden = false;
+            $('tab-btn-subathon').hidden = false;
             renderSubathon();
-        } catch (err) {
-            $('subathon-card').hidden = true;
+
+            // Check initial tab
+            const hash = location.hash.replace('#', '') || localStorage.getItem('streampulse:timers:tab');
+            if (hash === 'subathon') {
+                switchTimersTab('subathon');
+            }
+        } catch {
+            $('tab-btn-subathon').hidden = true;
         }
     }
 
@@ -1103,6 +1319,12 @@
         pill.textContent = cfg.enabled ? 'Active' : 'Disabled';
         pill.className = `pill ${cfg.enabled ? 'running' : ''}`;
 
+        const navPill = $('subathon-nav-pill');
+        if (navPill) {
+            navPill.textContent = cfg.enabled ? 'Automation Active' : 'Disabled';
+            navPill.className = `pill ${cfg.enabled ? 'running' : ''}`;
+        }
+
         // Target timer options
         const targetSelect = $('subathon-target-timer');
         const countdowns = Object.values(timersData).filter(t => t.kind === 'countdown');
@@ -1111,57 +1333,110 @@
             : '<option value="">(No countdown timers found)</option>';
         if (cfg.targetTimerId) targetSelect.value = cfg.targetTimerId;
 
-        // Multiplier
+        // Boost Period (formerly Happy Hour)
         $('hh-factor').value = mult.factor || 2.0;
-        $('happy-hour-pill').hidden = !mult.active;
-        $('happy-hour-pill').textContent = `${mult.factor || 2}x Active`;
-        $('happy-hour-pill').className = 'pill dirty';
+        $('hh-minutes').value = mult.minutes || 60;
+        const boostPill = $('boost-period-pill');
+        boostPill.hidden = !mult.active;
+        boostPill.textContent = `Boost Active (${mult.factor || 2}x)`;
+        boostPill.className = 'pill dirty';
         $('hh-end').hidden = !mult.active;
         $('hh-start').textContent = mult.active ? 'Update Boost' : 'Start Boost';
 
-        // Subs
+        // Subs (Minutes and Seconds)
         $('sb-subs-enabled').checked = r.subs?.enabled !== false;
-        $('sb-sub-t1').value = r.subs?.tier1Seconds ?? 120;
-        $('sb-sub-t2').value = r.subs?.tier2Seconds ?? 240;
-        $('sb-sub-t3').value = r.subs?.tier3Seconds ?? 600;
-        $('sb-sub-gift').value = r.subs?.giftSecondsPerSub ?? 120;
+        const t1 = secToMinSec(r.subs?.tier1Seconds ?? 120);
+        $('sb-sub-t1-min').value = t1.min;
+        $('sb-sub-t1-sec').value = t1.sec;
 
-        // Donations
+        const t2 = secToMinSec(r.subs?.tier2Seconds ?? 240);
+        $('sb-sub-t2-min').value = t2.min;
+        $('sb-sub-t2-sec').value = t2.sec;
+
+        const t3 = secToMinSec(r.subs?.tier3Seconds ?? 600);
+        $('sb-sub-t3-min').value = t3.min;
+        $('sb-sub-t3-sec').value = t3.sec;
+
+        const gift = secToMinSec(r.subs?.giftSecondsPerSub ?? 120);
+        $('sb-sub-gift-min').value = gift.min;
+        $('sb-sub-gift-sec').value = gift.sec;
+
+        // Donations (Minutes and Seconds)
         $('sb-donations-enabled').checked = r.donations?.enabled !== false;
-        $('sb-donations-rate').value = r.donations?.secondsPerDollar ?? 60;
+        const don = secToMinSec(r.donations?.secondsPerDollar ?? 60);
+        $('sb-donations-rate-min').value = don.min;
+        $('sb-donations-rate-sec').value = don.sec;
         $('sb-donations-min').value = r.donations?.minAmount ?? 1.00;
         renderExactList(r.donations?.exactAmounts || []);
 
-        // Bits
+        // Bits (Minutes and Seconds)
         $('sb-bits-enabled').checked = r.bits?.enabled !== false;
-        $('sb-bits-rate').value = r.bits?.secondsPer100Bits ?? 30;
+        const bits = secToMinSec(r.bits?.secondsPer100Bits ?? 30);
+        $('sb-bits-rate-min').value = bits.min;
+        $('sb-bits-rate-sec').value = bits.sec;
         $('sb-bits-min').value = r.bits?.minBits ?? 100;
 
-        // Follows & Raids
+        // Follows & Raids (Minutes and Seconds)
         $('sb-follows-enabled').checked = r.follows?.enabled === true;
-        $('sb-follows-sec').value = r.follows?.seconds ?? 15;
+        const fol = secToMinSec(r.follows?.seconds ?? 15);
+        $('sb-follows-min').value = fol.min;
+        $('sb-follows-sec').value = fol.sec;
+
         $('sb-raids-enabled').checked = r.raids?.enabled !== false;
-        $('sb-raids-base').value = r.raids?.baseSeconds ?? 30;
+        const raidBase = secToMinSec(r.raids?.baseSeconds ?? 30);
+        $('sb-raids-base-min').value = raidBase.min;
+        $('sb-raids-base-sec').value = raidBase.sec;
         $('sb-raids-per-viewer').value = r.raids?.secondsPerViewer ?? 2;
 
-        // Caps
+        // Caps (Hours and Minutes)
         const maxSec = cfg.caps?.maxRemainingSeconds || 0;
-        $('sb-cap-hours').value = maxSec > 0 ? (maxSec / 3600) : 0;
+        const cap = secToHrMin(maxSec);
+        $('sb-cap-hours').value = cap.hr;
+        $('sb-cap-mins').value = cap.min;
+
+        // Target Monitor Card
+        renderTargetMonitor();
 
         // History
         renderSubathonHistory(state.history || []);
     }
 
+    function renderTargetMonitor() {
+        if (!subathonData) return;
+        const cfg = subathonData.config || {};
+        const state = subathonData.state || {};
+        const targetId = cfg.targetTimerId || $('subathon-target-timer')?.value;
+        const target = timersData[targetId];
+
+        if (target) {
+            $('sb-monitor-label').textContent = `${target.label || target.id} (${target.id})`;
+            const remSec = Math.max(0, Math.floor(deriveTimerRemaining(target)));
+            $('sb-monitor-time').textContent = formatTimerTime(remSec);
+            $('sb-monitor-state').textContent = target.state ? target.state.toUpperCase() : 'READY';
+            $('sb-monitor-state').className = `pill ${target.state === 'running' ? 'running' : target.state === 'paused' ? 'paused' : ''}`;
+        } else {
+            $('sb-monitor-label').textContent = 'No target countdown selected';
+            $('sb-monitor-time').textContent = '00:00:00';
+            $('sb-monitor-state').textContent = 'OFFLINE';
+            $('sb-monitor-state').className = 'pill';
+        }
+
+        $('sb-total-added-pill').textContent = `+${formatDuration(state.totalTimeAddedSeconds || 0)} Added`;
+        $('sb-events-count-pill').textContent = `${state.totalEventsCount || 0} Events`;
+        $('sb-active-rules-summary').textContent = subathonData.rulesSummary?.summary || 'No active rates configured';
+        $('sb-overlay-url').textContent = `${location.origin}/overlays/subathon-rules.html?layout=grid&theme=dark`;
+    }
+
     function renderExactList(list) {
         const el = $('sb-exact-list');
         if (!list || !list.length) {
-            el.innerHTML = '<div style="color:var(--text-muted); font-size:0.75rem;">No exact amount rules set (e.g. $4.20, $13.37).</div>';
+            el.innerHTML = '<div style="color:var(--text-muted); font-size:0.75rem;">No exact amount rules configured (e.g. $4.20, $6.66).</div>';
             return;
         }
         el.innerHTML = list.map((item, idx) => `
             <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-inset); padding:0.35rem 0.55rem; border-radius:6px; border:1px solid var(--border);">
                 <div>
-                    <b>$${Number(item.amount).toFixed(2)}</b> &rarr; +${item.seconds}s ${item.label ? `(${esc(item.label)})` : ''}
+                    <b>$${Number(item.amount).toFixed(2)}</b> &rarr; +${formatDuration(item.seconds)} ${item.label ? `(${esc(item.label)})` : ''}
                 </div>
                 <button type="button" class="btn sm danger" data-del-exact="${idx}">Delete</button>
             </div>
@@ -1176,7 +1451,7 @@
         }
         el.innerHTML = history.slice(0, 20).map(item => {
             const timeStr = item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : '';
-            const deltaStr = (item.deltaSeconds >= 0 ? `+${item.deltaSeconds}s` : `${item.deltaSeconds}s`);
+            const deltaStr = (item.deltaSeconds >= 0 ? `+${formatDuration(item.deltaSeconds)}` : `-${formatDuration(Math.abs(item.deltaSeconds))}`);
             const statusStyle = item.undone ? 'text-decoration:line-through; opacity:0.5;' : '';
             return `
                 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--bg-raised); padding:0.25rem 0; ${statusStyle}">
@@ -1191,7 +1466,6 @@
         if (!subathonData) return;
         const cfg = subathonData.config || {};
         const r = cfg.rules || {};
-        const capHours = parseFloat($('sb-cap-hours').value) || 0;
 
         const payload = {
             enabled: $('subathon-active').checked,
@@ -1200,37 +1474,37 @@
                 subs: {
                     ...r.subs,
                     enabled: $('sb-subs-enabled').checked,
-                    tier1Seconds: parseInt($('sb-sub-t1').value, 10) || 0,
-                    tier2Seconds: parseInt($('sb-sub-t2').value, 10) || 0,
-                    tier3Seconds: parseInt($('sb-sub-t3').value, 10) || 0,
-                    giftSecondsPerSub: parseInt($('sb-sub-gift').value, 10) || 0
+                    tier1Seconds: fromMinSec($('sb-sub-t1-min'), $('sb-sub-t1-sec'), 120),
+                    tier2Seconds: fromMinSec($('sb-sub-t2-min'), $('sb-sub-t2-sec'), 240),
+                    tier3Seconds: fromMinSec($('sb-sub-t3-min'), $('sb-sub-t3-sec'), 600),
+                    giftSecondsPerSub: fromMinSec($('sb-sub-gift-min'), $('sb-sub-gift-sec'), 120)
                 },
                 donations: {
                     ...r.donations,
                     enabled: $('sb-donations-enabled').checked,
-                    secondsPerDollar: parseInt($('sb-donations-rate').value, 10) || 0,
+                    secondsPerDollar: fromMinSec($('sb-donations-rate-min'), $('sb-donations-rate-sec'), 60),
                     minAmount: parseFloat($('sb-donations-min').value) || 0
                 },
                 bits: {
                     ...r.bits,
                     enabled: $('sb-bits-enabled').checked,
-                    secondsPer100Bits: parseInt($('sb-bits-rate').value, 10) || 0,
+                    secondsPer100Bits: fromMinSec($('sb-bits-rate-min'), $('sb-bits-rate-sec'), 30),
                     minBits: parseInt($('sb-bits-min').value, 10) || 0
                 },
                 follows: {
                     ...r.follows,
                     enabled: $('sb-follows-enabled').checked,
-                    seconds: parseInt($('sb-follows-sec').value, 10) || 0
+                    seconds: fromMinSec($('sb-follows-min'), $('sb-follows-sec'), 15)
                 },
                 raids: {
                     ...r.raids,
                     enabled: $('sb-raids-enabled').checked,
-                    baseSeconds: parseInt($('sb-raids-base').value, 10) || 0,
+                    baseSeconds: fromMinSec($('sb-raids-base-min'), $('sb-raids-base-sec'), 30),
                     secondsPerViewer: parseInt($('sb-raids-per-viewer').value, 10) || 0
                 }
             },
             caps: {
-                maxRemainingSeconds: Math.round(capHours * 3600)
+                maxRemainingSeconds: fromHrMin($('sb-cap-hours'), $('sb-cap-mins'))
             }
         };
 
@@ -1250,14 +1524,14 @@
         const minutes = parseInt($('hh-minutes').value, 10) || 60;
         try {
             await api('/api/subathon/multiplier', jsonBody('POST', { factor, minutes }));
-            toast(`Started ${factor}x Happy Hour for ${minutes} min`);
+            toast(`Started ${factor}x Boost Period for ${minutes} min`);
             loadSubathon();
         } catch (err) { toast(err.message, 'error'); }
     });
     $('hh-end').addEventListener('click', async () => {
         try {
             await api('/api/subathon/clear_multiplier', { method: 'POST' });
-            toast('Happy Hour ended');
+            toast('Boost Period ended');
             loadSubathon();
         } catch (err) { toast(err.message, 'error'); }
     });
@@ -1278,20 +1552,47 @@
     });
     $('sb-exact-add').addEventListener('click', async () => {
         const amount = parseFloat($('sb-exact-amount').value);
-        const seconds = parseInt($('sb-exact-seconds').value, 10);
+        const seconds = fromMinSec($('sb-exact-min'), $('sb-exact-sec'), 0);
         const label = $('sb-exact-label').value.trim();
-        if (!amount || amount <= 0 || !seconds || seconds <= 0) return toast('Enter valid amount and seconds', 'error');
+        if (!amount || amount <= 0 || seconds <= 0) return toast('Enter valid amount and minutes/seconds', 'error');
 
         const exacts = subathonData?.config?.rules?.donations?.exactAmounts || [];
         exacts.push({ amount, seconds, label });
         try {
             await api('/api/subathon', jsonBody('PUT', { rules: { donations: { exactAmounts: exacts } } }));
             $('sb-exact-amount').value = '';
-            $('sb-exact-seconds').value = '';
+            $('sb-exact-min').value = '';
+            $('sb-exact-sec').value = '';
             $('sb-exact-label').value = '';
             loadSubathon();
             toast('Exact amount rule added');
         } catch (err) { toast(err.message, 'error'); }
+    });
+    $('sb-test-btn').addEventListener('click', async () => {
+        const sel = $('sb-test-event').value;
+        let eventPayload = { event: 'sub', tier: '1000', user: 'TestSupporter' };
+        if (sel === 'sub_t2') eventPayload = { event: 'sub', tier: '2000', user: 'Tier2Supporter' };
+        else if (sel === 'sub_t3') eventPayload = { event: 'sub', tier: '3000', user: 'VIPSupporter' };
+        else if (sel === 'gift_5') eventPayload = { event: 'gift_bomb', count: 5, user: 'GenerousDonor' };
+        else if (sel === 'bits_500') eventPayload = { event: 'bits', bits: 500, user: 'CheerMaster' };
+        else if (sel === 'don_5') eventPayload = { event: 'donation', amount: 5.00, user: 'TipLover' };
+        else if (sel === 'don_exact') eventPayload = { event: 'donation', amount: 4.20, user: 'ExactTipper' };
+        else if (sel === 'follow') eventPayload = { event: 'follow', user: 'NewFriend' };
+        else if (sel === 'raid_25') eventPayload = { event: 'raid', viewers: 25, user: 'RaidLeader' };
+
+        try {
+            const res = await api('/api/subathon/test', jsonBody('POST', eventPayload));
+            if (res.result?.applied) {
+                toast(`Simulation applied: +${formatDuration(res.result.deltaSeconds)} to ${res.result.timerId}`);
+            } else {
+                toast(`Simulation result: ${res.result?.reason || 'no time added'}`);
+            }
+            loadSubathon();
+        } catch (err) { toast(err.message, 'error'); }
+    });
+    $('sb-copy-overlay').addEventListener('click', () => {
+        const url = $('sb-overlay-url').textContent;
+        navigator.clipboard.writeText(url).then(() => toast('Rules overlay URL copied!'));
     });
     document.addEventListener('click', async e => {
         const delBtn = e.target.closest('[data-del-exact]');

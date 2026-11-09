@@ -122,20 +122,22 @@ test('Subathon Automation Engine: Rules, Exact Amounts, Multipliers, Safety Caps
         subathonService.updateConfig({ rules: { subs: { enabled: true } } });
     });
 
-    await t.test('6. Happy Hour 2x Multiplier boost', () => {
+    await t.test('6. Boost Period 2x Multiplier', () => {
         // Activate 2x multiplier
         subathonService.setMultiplier(2.0, 30);
+        assert.equal(subathonService.getRuleSummary().boostActive, true);
         assert.equal(subathonService.getRuleSummary().happyHourActive, true);
         assert.equal(subathonService.getRuleSummary().multiplier, '2x');
 
         // Tier 1 sub normally 120s -> now 240s!
-        const boostedSub = subathonService.processEvent({ type: 'sub', user: 'HappyHourUser', tier: '1000' });
+        const boostedSub = subathonService.processEvent({ type: 'sub', user: 'BoostUser', tier: '1000' });
         assert.equal(boostedSub.applied, true);
         assert.equal(boostedSub.record.deltaSeconds, 240);
         assert.equal(boostedSub.record.multiplier, 2.0);
 
         // Clear multiplier
         subathonService.clearMultiplier();
+        assert.equal(subathonService.getRuleSummary().boostActive, false);
         assert.equal(subathonService.getRuleSummary().happyHourActive, false);
     });
 

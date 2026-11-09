@@ -104,7 +104,9 @@ const TIER_LIST_ITEMS = [
 
 const SUBATHON_ITEMS = [
     ['subathon.total_added', 'Total time added to subathon (e.g. 4h 25m)'],
-    ['subathon.multiplier', 'Active Happy Hour multiplier (e.g. 2x) or empty'],
+    ['subathon.multiplier', 'Active Boost Period multiplier (e.g. 2x) or empty'],
+    ['subathon.boost', 'Boost Period status (true / false)'],
+    ['subathon.boost_active', 'Boost Period status (true / false)'],
     ['subathon.happy_hour', 'Happy Hour status (true / false)'],
     ['subathon.subs', 'Total subscriptions credited to subathon'],
     ['subathon.bits', 'Total cheer bits credited to subathon'],
@@ -545,7 +547,9 @@ function subathonValues(status) {
     return {
         'subathon.total_added': totalFormatted,
         'subathon.multiplier': sb.multiplier || '',
-        'subathon.happy_hour': sb.happyHour ? 'true' : 'false',
+        'subathon.boost': (sb.boostActive || sb.happyHour) ? 'true' : 'false',
+        'subathon.boost_active': (sb.boostActive || sb.happyHour) ? 'true' : 'false',
+        'subathon.happy_hour': (sb.boostActive || sb.happyHour) ? 'true' : 'false',
         'subathon.subs': sb.totalSubs !== undefined ? String(sb.totalSubs) : '',
         'subathon.bits': sb.totalBits !== undefined ? String(sb.totalBits) : '',
         'subathon.donations': sb.totalDonations !== undefined ? String(sb.totalDonations) : '',

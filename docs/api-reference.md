@@ -806,7 +806,7 @@ StreamPulse features a fully automated, modular Subathon Engine that dynamically
 | `/api/subathon` | `GET` | Return full subathon state (`config`, `stats`, `multiplier`, `auditLog`, `ruleSummary`, `targetTimer`) |
 | `/api/subathon` | `PUT` | Update subathon configuration and rules (deep-merged with existing settings) |
 | `/api/subathon/toggle` | `POST` / `GET` | Toggle active subathon state on/off (`?enabled=1` or `0`, or without params to invert) |
-| `/api/subathon/multiplier` | `POST` / `GET` | Set or clear Happy Hour multiplier (`?factor=2&durationMinutes=30` or `?clear=1`) |
+| `/api/subathon/multiplier` | `POST` / `GET` | Set or clear Boost Period multiplier (`?factor=2&durationMinutes=30` or `?clear=1`; `/api/subathon/boost` supported as alias) |
 | `/api/subathon/undo` | `POST` / `GET` | Undo the last applied event and subtract its added time from the countdown timer |
 | `/api/subathon/test` | `POST` | Simulate a subathon event (`event`, `tier`, `count`, `bits`, `amount`, `viewers`, `points`) |
 | `/api/subathon/rules` | `GET` | Return human-readable rule summary string and structured rule parts |
@@ -817,7 +817,9 @@ StreamPulse features a fully automated, modular Subathon Engine that dynamically
 - `targetTimerId`: Target timer ID
 - `targetTimerTitle`: Target timer display title
 - `multiplier`: Current active multiplier (e.g. `1` or `2`)
-- `isHappyHour`: `true` when multiplier > 1
+- `boost`: `true` when multiplier > 1 (Boost Period active)
+- `boost_active`: `true` when multiplier > 1
+- `happy_hour`: `true` when multiplier > 1 (alias)
 - `totalSecondsAdded`: Total seconds added during this session
 - `totalAddedFormatted`: Human-readable total added (e.g. `2h 15m 00s`)
 - `totalEvents`: Total number of processed subathon events
@@ -832,4 +834,4 @@ A standalone 60fps overlay that reflects configured rates in real time:
 - `?scale=1.0`: Resolution-independent scaling factor
 - `?title=Custom Header`: Custom banner title text
 - `?header=0|1`: Toggle header bar visibility
-- `?happyHour=0|1`: Toggle Happy Hour pulse indicator bar
+- `?boost=0|1`: Toggle Boost Period pulse indicator bar (`?happyHour=0|1` supported as alias)

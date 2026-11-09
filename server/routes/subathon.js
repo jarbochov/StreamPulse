@@ -55,7 +55,7 @@ function createSubathonRoutes({ subathonService }) {
             return true;
         }
 
-        if (pathname === '/api/subathon/multiplier' && (req.method === 'POST' || req.method === 'GET')) {
+        if ((pathname === '/api/subathon/multiplier' || pathname === '/api/subathon/boost') && (req.method === 'POST' || req.method === 'GET')) {
             try {
                 const urlObj = new URL(req.url, `http://${req.headers.host}`);
                 let factor = parseFloat(urlObj.searchParams.get('factor') || urlObj.searchParams.get('multiplier') || '2');
@@ -80,7 +80,7 @@ function createSubathonRoutes({ subathonService }) {
             return true;
         }
 
-        if (pathname === '/api/subathon/clear_multiplier' && (req.method === 'POST' || req.method === 'GET')) {
+        if ((pathname === '/api/subathon/clear_multiplier' || pathname === '/api/subathon/clear_boost') && (req.method === 'POST' || req.method === 'GET')) {
             const mult = subathonService.clearMultiplier();
             sendJson(res, { ok: true, multiplier: mult, rulesSummary: subathonService.getRuleSummary() });
             return true;
@@ -125,6 +125,9 @@ function createSubathonRoutes({ subathonService }) {
                 enabled: String(cfg.enabled),
                 target_timer: cfg.targetTimerId,
                 multiplier: summary.multiplier || '1x',
+                boost: String(summary.boostActive || summary.happyHourActive),
+                boost_active: String(summary.boostActive || summary.happyHourActive),
+                is_boost: String(summary.boostActive || summary.happyHourActive),
                 happy_hour: String(summary.happyHourActive),
                 total_added_seconds: String(state.totalTimeAddedSeconds),
                 total_added: summary.formattedTotal || `${Math.round(state.totalTimeAddedSeconds / 60)}m`,
