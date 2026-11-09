@@ -827,11 +827,17 @@ StreamPulse features a fully automated, modular Subathon Engine that dynamically
 - `maxCapReached`: `true` if current timer remaining seconds have hit the hard safety ceiling
 
 ### Dynamic Rules Overlay (`/overlays/subathon-rules.html`)
-A standalone 60fps overlay that reflects configured rates in real time:
-- `?layout=grid|compact|ticker`: Display layout mode
-- `?theme=dark|light|arcade|glass`: Visual color theme
-- `?columns=1|2|3|4`: Number of columns for grid layout
-- `?scale=1.0`: Resolution-independent scaling factor
+A standalone 60fps overlay that reflects configured rates in real time and can be customized via the Timer Manager's Appearance Studio or URL query parameters:
+- `?layout=grid|compact|ticker`: Display layout mode (grid, horizontal chips strip, or marquee ticker)
+- `?theme=dark|glass|arcade|light|minimal`: Visual color theme preset
+- `?columns=0|2|3|4`: Number of columns for grid layout (0 = responsive auto-fit)
+- `?scale=1.0`: Resolution-independent scaling factor (0.5 to 3.0)
 - `?title=Custom Header`: Custom banner title text
 - `?header=0|1`: Toggle header bar visibility
+- `?total=0|1`: Toggle total added time badge in header
 - `?boost=0|1`: Toggle Boost Period pulse indicator bar (`?happyHour=0|1` supported as alias)
+- `?icons=0|1`: Toggle rule card SVG icons
+- `?notes=0|1`: Toggle rule detail note subtitles
+- `?subs=0|1`, `?tips=0|1` (or `?donations=0|1`), `?bits=0|1`, `?follows=0|1`, `?raids=0|1`: Granular channel visibility toggles
+- `?preview=1` / `?sample=1`: Render high-fidelity sample rates for previewing when subathon is inactive
+- Real-time `postMessage` protocol: Accepts `{ type: 'subathon:preview-config', theme: {...}, sample: boolean }` for 0ms flicker-free 60fps theme and styling updates without reloading.

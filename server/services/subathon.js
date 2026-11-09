@@ -3,9 +3,40 @@
 const fs = require('fs');
 const path = require('path');
 
+const DEFAULT_SUBATHON_THEME = {
+    preset: 'dark', // 'dark' | 'glass' | 'arcade' | 'light' | 'minimal'
+    layout: 'grid', // 'grid' | 'compact' | 'ticker'
+    columns: 0, // 0 = auto-fit, 2, 3, 4
+    scale: 1.0,
+    showHeader: true,
+    titleText: 'Subathon Rates',
+    headerSize: '1.15rem',
+    valueSize: '1.35rem',
+    valueWeight: '800',
+    fontFamily: '',
+    headerFontFamily: '',
+    showTotalBadge: true,
+    showBoostBanner: true,
+    showCardIcons: true,
+    showNotes: true,
+    showSubs: true,
+    showDonations: true,
+    showBits: true,
+    showFollows: true,
+    showRaids: true,
+    cardBackground: 'rgba(18, 24, 38, 0.88)',
+    cardBorder: 'rgba(255, 255, 255, 0.12)',
+    cardRadius: 10,
+    textColor: '#ffffff',
+    textMuted: 'rgba(255, 255, 255, 0.7)',
+    accentColor: '#3b82f6',
+    boostBannerColor: '#f59e0b'
+};
+
 const DEFAULT_SUBATHON_CONFIG = {
     enabled: true,
     targetTimerId: 'subathon',
+    theme: cloneJson(DEFAULT_SUBATHON_THEME),
     rules: {
         subs: {
             enabled: true,
@@ -153,6 +184,37 @@ function normalizeSubathonConfig(raw = {}, base = DEFAULT_SUBATHON_CONFIG) {
         if (raw.multiplier.expiresAt !== undefined) cfg.multiplier.expiresAt = raw.multiplier.expiresAt ? String(raw.multiplier.expiresAt) : null;
     }
 
+    if (raw.theme && typeof raw.theme === 'object') {
+        const t = raw.theme;
+        if (t.preset !== undefined) cfg.theme.preset = String(t.preset).toLowerCase();
+        if (t.layout !== undefined) cfg.theme.layout = String(t.layout).toLowerCase();
+        if (t.columns !== undefined) cfg.theme.columns = Math.max(0, parseInt(t.columns, 10) || 0);
+        if (t.scale !== undefined) cfg.theme.scale = Math.max(0.5, Math.min(3.0, parseFloat(t.scale) || 1.0));
+        if (t.showHeader !== undefined) cfg.theme.showHeader = t.showHeader !== false;
+        if (t.titleText !== undefined) cfg.theme.titleText = String(t.titleText || '').slice(0, 100);
+        if (t.headerSize !== undefined) cfg.theme.headerSize = String(t.headerSize || '').slice(0, 30);
+        if (t.valueSize !== undefined) cfg.theme.valueSize = String(t.valueSize || '').slice(0, 30);
+        if (t.valueWeight !== undefined) cfg.theme.valueWeight = String(t.valueWeight || '').slice(0, 20);
+        if (t.fontFamily !== undefined) cfg.theme.fontFamily = String(t.fontFamily || '').slice(0, 100);
+        if (t.headerFontFamily !== undefined) cfg.theme.headerFontFamily = String(t.headerFontFamily || '').slice(0, 100);
+        if (t.showTotalBadge !== undefined) cfg.theme.showTotalBadge = t.showTotalBadge !== false;
+        if (t.showBoostBanner !== undefined) cfg.theme.showBoostBanner = t.showBoostBanner !== false;
+        if (t.showCardIcons !== undefined) cfg.theme.showCardIcons = t.showCardIcons !== false;
+        if (t.showNotes !== undefined) cfg.theme.showNotes = t.showNotes !== false;
+        if (t.showSubs !== undefined) cfg.theme.showSubs = t.showSubs !== false;
+        if (t.showDonations !== undefined) cfg.theme.showDonations = t.showDonations !== false;
+        if (t.showBits !== undefined) cfg.theme.showBits = t.showBits !== false;
+        if (t.showFollows !== undefined) cfg.theme.showFollows = t.showFollows !== false;
+        if (t.showRaids !== undefined) cfg.theme.showRaids = t.showRaids !== false;
+        if (t.cardBackground !== undefined) cfg.theme.cardBackground = String(t.cardBackground || '').slice(0, 80);
+        if (t.cardBorder !== undefined) cfg.theme.cardBorder = String(t.cardBorder || '').slice(0, 80);
+        if (t.cardRadius !== undefined) cfg.theme.cardRadius = Math.max(0, Math.min(50, parseInt(t.cardRadius, 10) || 0));
+        if (t.textColor !== undefined) cfg.theme.textColor = String(t.textColor || '').slice(0, 80);
+        if (t.textMuted !== undefined) cfg.theme.textMuted = String(t.textMuted || '').slice(0, 80);
+        if (t.accentColor !== undefined) cfg.theme.accentColor = String(t.accentColor || '').slice(0, 80);
+        if (t.boostBannerColor !== undefined) cfg.theme.boostBannerColor = String(t.boostBannerColor || '').slice(0, 80);
+    }
+
     return cfg;
 }
 
@@ -280,6 +342,10 @@ function createSubathonService({
                 ...subathonStore.config.rules,
                 ...(newConfig.rules || {})
             },
+            theme: {
+                ...subathonStore.config.theme,
+                ...(newConfig.theme || {})
+            },
             caps: {
                 ...subathonStore.config.caps,
                 ...(newConfig.caps || {})
@@ -338,7 +404,20 @@ function createSubathonService({
             return { applied: false, reason: 'timer_not_found', targetTimerId: targetId };
         }
 
-        const type = String(event.type || '').toLowerCase();
+        let type = String(event.type || event.event || '').toLowerCase().trim();
+        // Normalize common aliases & simulator values
+        if (type === 'gift_bomb' || type === 'gift_sub' || type === 'subgift') type = 'gift';
+        if (type === 'cheer') type = 'bits';
+        if (type === 'tip') type = 'donation';
+        if (type === 'sub_t1') { type = 'sub'; event.tier = event.tier || '1000'; }
+        else if (type === 'sub_t2') { type = 'sub'; event.tier = event.tier || '2000'; }
+        else if (type === 'sub_t3') { type = 'sub'; event.tier = event.tier || '3000'; }
+        else if (type === 'gift_5') { type = 'gift'; event.count = event.count || 5; }
+        else if (type === 'bits_500') { type = 'bits'; event.amount = event.amount || 500; }
+        else if (type === 'don_5') { type = 'donation'; event.amount = event.amount || 5.0; }
+        else if (type === 'don_exact') { type = 'donation'; event.amount = event.amount || 4.20; }
+        else if (type === 'raid_25') { type = 'raid'; event.viewers = event.viewers || 25; }
+
         const user = String(event.user || event.username || 'Anonymous').trim();
         const rules = subathonStore.config.rules;
         let rawSeconds = 0;
@@ -554,6 +633,7 @@ function createSubathonService({
 }
 
 module.exports = {
+    DEFAULT_SUBATHON_THEME,
     DEFAULT_SUBATHON_CONFIG,
     DEFAULT_SUBATHON_STATE,
     formatDurationSeconds,

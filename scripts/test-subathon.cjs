@@ -193,5 +193,53 @@ test('Subathon Automation Engine: Rules, Exact Amounts, Multipliers, Safety Caps
         assert.ok(summary.subTier1Formatted.includes('2m'));
     });
 
+    await t.test('10. Simulator & event alias normalization', () => {
+        // sub_t2 alias via { event: 'sub_t2' }
+        const t2Res = subathonService.processEvent({ event: 'sub_t2', user: 'Tier2Fan' });
+        assert.equal(t2Res.applied, true);
+        assert.equal(t2Res.record.deltaSeconds, 240);
+
+        // gift_bomb alias via { event: 'gift_bomb', count: 5 }
+        const bombRes = subathonService.processEvent({ event: 'gift_bomb', count: 5, user: 'BombDonor' });
+        assert.equal(bombRes.applied, true);
+        assert.equal(bombRes.record.deltaSeconds, 600);
+
+        // don_exact alias via { event: 'don_exact' } ($4.20)
+        const donExactRes = subathonService.processEvent({ event: 'don_exact', user: 'ExactDonor' });
+        assert.equal(donExactRes.applied, true);
+        assert.equal(donExactRes.record.deltaSeconds, 420);
+        assert.ok(donExactRes.record.label.includes('Blaze It'));
+
+        // raid_25 alias via { event: 'raid_25' }
+        const raidRes = subathonService.processEvent({ event: 'raid_25', user: 'RaidBoss' });
+        assert.equal(raidRes.applied, true);
+        assert.equal(raidRes.record.deltaSeconds, 30 + 25 * 2); // 80s
+    });
+
+    await t.test('11. Subathon Theme schema, normalization and persistence', () => {
+        const snap = subathonService.getConfigSnapshot();
+        assert.ok(snap.theme, 'Config snapshot must include theme');
+        assert.equal(snap.theme.preset, 'dark');
+        assert.equal(snap.theme.layout, 'grid');
+
+        // Update theme
+        const updated = subathonService.updateConfig({
+            theme: {
+                preset: 'arcade',
+                layout: 'ticker',
+                columns: 3,
+                titleText: 'Marathon Goals',
+                accentColor: '#ff007f',
+                cardRadius: 16
+            }
+        });
+        assert.equal(updated.theme.preset, 'arcade');
+        assert.equal(updated.theme.layout, 'ticker');
+        assert.equal(updated.theme.columns, 3);
+        assert.equal(updated.theme.titleText, 'Marathon Goals');
+        assert.equal(updated.theme.accentColor, '#ff007f');
+        assert.equal(updated.theme.cardRadius, 16);
+    });
+
     fs.rmSync(tempDir, { recursive: true, force: true });
 });

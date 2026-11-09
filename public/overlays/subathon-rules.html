@@ -9,13 +9,18 @@
         :root {
             --bg-card: rgba(18, 24, 38, 0.88);
             --border-card: rgba(255, 255, 255, 0.12);
+            --radius-card: 10px;
             --text-main: #ffffff;
             --text-sub: rgba(255, 255, 255, 0.7);
             --accent: #3b82f6;
             --accent-glow: rgba(59, 130, 246, 0.35);
-            --happy-hour: #f59e0b;
-            --happy-hour-glow: rgba(245, 158, 11, 0.4);
+            --boost-banner: linear-gradient(135deg, rgba(245, 158, 11, 0.9), rgba(217, 119, 6, 0.95));
+            --boost-banner-glow: rgba(245, 158, 11, 0.4);
             --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+            --header-font: inherit;
+            --header-size: 1.15rem;
+            --value-size: 1.35rem;
+            --value-weight: 800;
             --scale: 1;
         }
 
@@ -41,6 +46,7 @@
             gap: 0.85rem;
             max-width: 900px;
             width: 100%;
+            transition: max-width 0.2s ease;
         }
 
         /* Banner */
@@ -49,7 +55,7 @@
             align-items: center;
             justify-content: center;
             gap: 0.6rem;
-            background: linear-gradient(135deg, rgba(245, 158, 11, 0.9), rgba(217, 119, 6, 0.95));
+            background: var(--boost-banner);
             border: 1px solid rgba(255, 255, 255, 0.4);
             border-radius: 8px;
             padding: 0.5rem 1rem;
@@ -57,8 +63,9 @@
             font-size: 0.95rem;
             letter-spacing: 0.05em;
             text-transform: uppercase;
-            box-shadow: 0 4px 18px var(--happy-hour-glow);
+            box-shadow: 0 4px 18px var(--boost-banner-glow);
             animation: pulseBanner 2s infinite ease-in-out;
+            color: #ffffff;
         }
 
         @keyframes pulseBanner {
@@ -67,7 +74,8 @@
         }
 
         .header-title {
-            font-size: 1.15rem;
+            font-family: var(--header-font);
+            font-size: var(--header-size);
             font-weight: 800;
             letter-spacing: 0.06em;
             text-transform: uppercase;
@@ -100,12 +108,13 @@
         .rule-card {
             background: var(--bg-card);
             border: 1px solid var(--border-card);
-            border-radius: 10px;
+            border-radius: var(--radius-card);
             padding: 0.85rem 1rem;
             display: flex;
             flex-direction: column;
             gap: 0.4rem;
             backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
             transition: transform 0.2s ease, border-color 0.2s ease;
         }
 
@@ -133,8 +142,8 @@
         }
 
         .rule-value {
-            font-size: 1.35rem;
-            font-weight: 800;
+            font-size: var(--value-size);
+            font-weight: var(--value-weight);
             color: var(--text-main);
             letter-spacing: -0.01em;
             font-variant-numeric: tabular-nums;
@@ -183,27 +192,39 @@
             100% { transform: translateX(-50%); }
         }
 
-        /* Themes */
+        /* Preset Overrides */
         body.theme-light {
-            --bg-card: rgba(255, 255, 255, 0.92);
-            --border-card: rgba(0, 0, 0, 0.1);
+            --bg-card: rgba(255, 255, 255, 0.94);
+            --border-card: rgba(0, 0, 0, 0.12);
             --text-main: #0f172a;
             --text-sub: #475569;
+            --accent: #2563eb;
         }
 
         body.theme-arcade {
             --bg-card: rgba(15, 12, 41, 0.94);
-            --border-card: rgba(236, 72, 153, 0.35);
+            --border-card: rgba(236, 72, 153, 0.45);
+            --radius-card: 4px;
             --accent: #ec4899;
             --text-main: #fdf2f8;
             --text-sub: #fbcfe8;
-            font-family: 'Courier New', Courier, monospace;
+            --font-family: 'Courier New', Courier, monospace;
         }
 
         body.theme-glass {
             --bg-card: rgba(255, 255, 255, 0.08);
-            --border-card: rgba(255, 255, 255, 0.2);
+            --border-card: rgba(255, 255, 255, 0.22);
+            --radius-card: 14px;
+            --accent: #38bdf8;
             backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+
+        body.theme-minimal {
+            --bg-card: rgba(0, 0, 0, 0.45);
+            --border-card: rgba(255, 255, 255, 0.08);
+            --radius-card: 8px;
+            --accent: #60a5fa;
         }
 
         .empty-placeholder {
@@ -218,7 +239,7 @@
     <div id="rules-root" class="rules-container">
         <div id="happy-hour" class="happy-hour-banner">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            <span id="happy-hour-text">2X Boost Period Active!</span>
+            <span id="happy-hour-text">2X BOOST PERIOD ACTIVE!</span>
         </div>
 
         <div id="rules-header" class="header-title">
@@ -235,25 +256,9 @@
     <script>
     (function() {
         const urlParams = new URLSearchParams(window.location.search);
-        const layout = urlParams.get('layout') || 'grid';
-        const theme = urlParams.get('theme') || 'dark';
-        const scale = parseFloat(urlParams.get('scale') || '1') || 1;
-        const showHeader = urlParams.get('header') !== '0' && urlParams.get('header') !== 'false';
-        const showTitle = urlParams.get('title');
-
-        if (theme) document.body.classList.add(`theme-${theme}`);
-        if (layout) document.getElementById('rules-root').classList.add(`layout-${layout}`);
-        document.documentElement.style.setProperty('--scale', scale);
-
-        const cols = parseInt(urlParams.get('columns'), 10);
-        if (cols > 0 && layout === 'grid') {
-            document.getElementById('rules-grid').style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-        }
-
-        if (!showHeader) document.getElementById('rules-header').style.display = 'none';
-        if (showTitle) document.getElementById('title-text').textContent = showTitle;
-
         let subathonData = null;
+        let previewThemeOverride = null;
+        let previewSampleOverride = null;
 
         function fmtSeconds(sec) {
             const s = Math.max(0, Math.round(Number(sec) || 0));
@@ -265,23 +270,141 @@
             return `${remS}s`;
         }
 
-        function render(data) {
-            if (!data || !data.config || data.config.enabled === false) {
+        function getEffectiveTheme() {
+            const serverTheme = subathonData?.config?.theme || {};
+            const override = previewThemeOverride || {};
+            return {
+                preset: urlParams.get('theme') || urlParams.get('preset') || override.preset || serverTheme.preset || 'dark',
+                layout: urlParams.get('layout') || override.layout || serverTheme.layout || 'grid',
+                columns: urlParams.get('columns') ? parseInt(urlParams.get('columns'), 10) : (override.columns !== undefined ? override.columns : (serverTheme.columns || 0)),
+                scale: urlParams.get('scale') ? parseFloat(urlParams.get('scale')) : (override.scale !== undefined ? override.scale : (serverTheme.scale || 1.0)),
+                showHeader: urlParams.get('header') !== null ? (urlParams.get('header') !== '0' && urlParams.get('header') !== 'false') : (override.showHeader !== undefined ? override.showHeader : (serverTheme.showHeader !== false)),
+                titleText: urlParams.get('title') || override.titleText || serverTheme.titleText || 'Subathon Rates',
+                showTotalBadge: urlParams.get('total') !== null ? (urlParams.get('total') !== '0') : (override.showTotalBadge !== undefined ? override.showTotalBadge : (serverTheme.showTotalBadge !== false)),
+                showBoostBanner: urlParams.get('boost') !== null ? (urlParams.get('boost') !== '0') : (override.showBoostBanner !== undefined ? override.showBoostBanner : (serverTheme.showBoostBanner !== false)),
+                showCardIcons: urlParams.get('icons') !== null ? (urlParams.get('icons') !== '0') : (override.showCardIcons !== undefined ? override.showCardIcons : (serverTheme.showCardIcons !== false)),
+                showNotes: urlParams.get('notes') !== null ? (urlParams.get('notes') !== '0') : (override.showNotes !== undefined ? override.showNotes : (serverTheme.showNotes !== false)),
+                showSubs: urlParams.get('subs') !== null ? (urlParams.get('subs') !== '0') : (override.showSubs !== undefined ? override.showSubs : (serverTheme.showSubs !== false)),
+                showDonations: (urlParams.get('tips') !== null ? urlParams.get('tips') !== '0' : (urlParams.get('donations') !== null ? urlParams.get('donations') !== '0' : (override.showDonations !== undefined ? override.showDonations : (serverTheme.showDonations !== false)))),
+                showBits: urlParams.get('bits') !== null ? (urlParams.get('bits') !== '0') : (override.showBits !== undefined ? override.showBits : (serverTheme.showBits !== false)),
+                showFollows: urlParams.get('follows') !== null ? (urlParams.get('follows') !== '0') : (override.showFollows !== undefined ? override.showFollows : (serverTheme.showFollows !== false)),
+                showRaids: urlParams.get('raids') !== null ? (urlParams.get('raids') !== '0') : (override.showRaids !== undefined ? override.showRaids : (serverTheme.showRaids !== false)),
+                cardBackground: override.cardBackground || serverTheme.cardBackground || '',
+                cardBorder: override.cardBorder || serverTheme.cardBorder || '',
+                cardRadius: override.cardRadius !== undefined ? override.cardRadius : serverTheme.cardRadius,
+                textColor: override.textColor || serverTheme.textColor || '',
+                textMuted: override.textMuted || serverTheme.textMuted || '',
+                accentColor: override.accentColor || serverTheme.accentColor || '',
+                boostBannerColor: override.boostBannerColor || serverTheme.boostBannerColor || '',
+                fontFamily: override.fontFamily || serverTheme.fontFamily || '',
+                headerFontFamily: override.headerFontFamily || serverTheme.headerFontFamily || '',
+                headerSize: override.headerSize || serverTheme.headerSize || '1.15rem',
+                valueSize: override.valueSize || serverTheme.valueSize || '1.35rem',
+                valueWeight: override.valueWeight || serverTheme.valueWeight || '800'
+            };
+        }
+
+        function applyTheme(theme) {
+            const root = document.documentElement;
+            const rootDiv = document.getElementById('rules-root');
+            const gridDiv = document.getElementById('rules-grid');
+
+            // Reset theme classes
+            document.body.className = '';
+            if (theme.preset && theme.preset !== 'custom') {
+                document.body.classList.add(`theme-${theme.preset}`);
+            }
+
+            // Layout class
+            rootDiv.className = 'rules-container';
+            if (theme.layout && theme.layout !== 'grid') {
+                rootDiv.classList.add(`layout-${theme.layout}`);
+            }
+
+            // Columns
+            if (theme.layout === 'grid' && theme.columns > 0) {
+                gridDiv.style.gridTemplateColumns = `repeat(${theme.columns}, 1fr)`;
+            } else if (theme.layout === 'grid') {
+                gridDiv.style.gridTemplateColumns = `repeat(auto-fit, minmax(180px, 1fr))`;
+            } else {
+                gridDiv.style.gridTemplateColumns = '';
+            }
+
+            // CSS Custom Properties
+            root.style.setProperty('--scale', theme.scale || 1);
+            if (theme.cardBackground) root.style.setProperty('--bg-card', theme.cardBackground);
+            if (theme.cardBorder) root.style.setProperty('--border-card', theme.cardBorder);
+            if (theme.cardRadius !== undefined) root.style.setProperty('--radius-card', `${theme.cardRadius}px`);
+            if (theme.textColor) root.style.setProperty('--text-main', theme.textColor);
+            if (theme.textMuted) root.style.setProperty('--text-sub', theme.textMuted);
+            if (theme.accentColor) {
+                root.style.setProperty('--accent', theme.accentColor);
+                root.style.setProperty('--accent-glow', `${theme.accentColor}55`);
+            }
+            if (theme.boostBannerColor) {
+                root.style.setProperty('--boost-banner', theme.boostBannerColor);
+            }
+            if (theme.fontFamily) root.style.setProperty('--font-family', theme.fontFamily);
+            if (theme.headerFontFamily) root.style.setProperty('--header-font', theme.headerFontFamily);
+            if (theme.headerSize) root.style.setProperty('--header-size', theme.headerSize);
+            if (theme.valueSize) root.style.setProperty('--value-size', theme.valueSize);
+            if (theme.valueWeight) root.style.setProperty('--value-weight', theme.valueWeight);
+
+            // Header & Title
+            const headerEl = document.getElementById('rules-header');
+            if (headerEl) {
+                headerEl.style.display = theme.showHeader ? 'flex' : 'none';
+            }
+            const titleEl = document.getElementById('title-text');
+            if (titleEl) {
+                titleEl.textContent = theme.titleText || 'Subathon Rates';
+            }
+            const totalBadgeEl = document.getElementById('total-badge');
+            if (totalBadgeEl) {
+                totalBadgeEl.style.display = theme.showTotalBadge ? 'inline-block' : 'none';
+            }
+        }
+
+        function render() {
+            const theme = getEffectiveTheme();
+            applyTheme(theme);
+
+            const isSample = previewSampleOverride !== null
+                ? previewSampleOverride
+                : (urlParams.get('sample') === '1' || urlParams.get('preview') === '1');
+
+            const isInactive = !subathonData || !subathonData.config || subathonData.config.enabled === false;
+
+            if (isInactive && !isSample) {
                 document.getElementById('rules-grid').innerHTML = '<div class="empty-placeholder">Subathon is currently inactive</div>';
                 document.getElementById('happy-hour').style.display = 'none';
                 return;
             }
 
-            const cfg = data.config;
-            const r = cfg.rules || {};
-            const state = data.state || {};
-            const factor = data.rulesSummary?.happyHourActive ? (cfg.multiplier?.factor || 2) : 1;
+            // Build rules data from live config or sample mock
+            let cfg = subathonData?.config || {};
+            let r = cfg.rules || {};
+            let state = subathonData?.state || {};
+            let factor = (subathonData?.rulesSummary?.boostActive || subathonData?.rulesSummary?.happyHourActive)
+                ? (cfg.multiplier?.factor || 2)
+                : 1;
+
+            if (isInactive && isSample) {
+                factor = 2;
+                r = {
+                    subs: { enabled: true, tier1Seconds: 120, tier2Seconds: 240, tier3Seconds: 600 },
+                    donations: { enabled: true, secondsPerDollar: 60, exactAmounts: [{ amount: 4.20, seconds: 420, label: 'Blaze It' }] },
+                    bits: { enabled: true, secondsPer100Bits: 30 },
+                    follows: { enabled: true, seconds: 15 },
+                    raids: { enabled: true, baseSeconds: 30, secondsPerViewer: 2 }
+                };
+                state = { totalTimeAddedSeconds: 2700 };
+            }
 
             // Boost banner
             const hhEl = document.getElementById('happy-hour');
-            const isBoost = Boolean(data.rulesSummary?.boostActive || data.rulesSummary?.happyHourActive);
-            const allowBoostBanner = urlParams.get('boost') !== '0' && urlParams.get('happyHour') !== '0';
-            if (isBoost && allowBoostBanner) {
+            const isBoost = Boolean(factor > 1);
+            if (isBoost && theme.showBoostBanner) {
                 hhEl.style.display = 'flex';
                 document.getElementById('happy-hour-text').textContent = `${factor}X BOOST PERIOD ACTIVE!`;
             } else {
@@ -295,7 +418,7 @@
             const cards = [];
 
             // 1. Subs
-            if (r.subs && r.subs.enabled !== false && urlParams.get('subs') !== '0') {
+            if (r.subs && r.subs.enabled !== false && theme.showSubs) {
                 const t1 = Math.round((r.subs.tier1Seconds || 120) * factor);
                 cards.push({
                     title: 'Tier 1 Sub',
@@ -322,7 +445,7 @@
             }
 
             // 2. Donations / Tips
-            if (r.donations && r.donations.enabled !== false && urlParams.get('tips') !== '0') {
+            if (r.donations && r.donations.enabled !== false && theme.showDonations) {
                 const perDollar = Math.round((r.donations.secondsPerDollar || 60) * factor);
                 cards.push({
                     title: 'Donation / Tip',
@@ -331,7 +454,6 @@
                     icon: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'
                 });
 
-                // Custom exact amounts
                 if (Array.isArray(r.donations.exactAmounts)) {
                     for (const ea of r.donations.exactAmounts) {
                         const eaSec = Math.round(ea.seconds * factor);
@@ -346,7 +468,7 @@
             }
 
             // 3. Bits
-            if (r.bits && r.bits.enabled !== false && urlParams.get('bits') !== '0') {
+            if (r.bits && r.bits.enabled !== false && theme.showBits) {
                 const per100 = Math.round((r.bits.secondsPer100Bits || 30) * factor);
                 cards.push({
                     title: 'Cheer Bits',
@@ -357,7 +479,7 @@
             }
 
             // 4. Follows
-            if (r.follows && r.follows.enabled && urlParams.get('follows') !== '0') {
+            if (r.follows && r.follows.enabled && theme.showFollows) {
                 const followSec = Math.round((r.follows.seconds || 15) * factor);
                 cards.push({
                     title: 'New Follow',
@@ -368,7 +490,7 @@
             }
 
             // 5. Raids
-            if (r.raids && r.raids.enabled && urlParams.get('raids') !== '0') {
+            if (r.raids && r.raids.enabled && theme.showRaids) {
                 const baseSec = Math.round((r.raids.baseSeconds || 30) * factor);
                 const perViewer = Math.round((r.raids.secondsPerViewer || 2) * factor);
                 cards.push({
@@ -382,11 +504,11 @@
             const html = cards.map(c => `
                 <div class="rule-card">
                     <div class="rule-head">
-                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${c.icon}</svg>
+                        ${theme.showCardIcons ? `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${c.icon}</svg>` : ''}
                         <span>${c.title}</span>
                     </div>
                     <div class="rule-value">${c.value}</div>
-                    <div class="rule-note">${c.note}</div>
+                    ${theme.showNotes ? `<div class="rule-note">${c.note}</div>` : ''}
                 </div>
             `).join('');
 
@@ -398,7 +520,7 @@
                 const res = await fetch('/api/subathon');
                 if (!res.ok) return;
                 subathonData = await res.json();
-                render(subathonData);
+                render();
             } catch (err) {
                 console.warn('[Subathon Rules] Fetch error:', err);
             }
@@ -406,17 +528,30 @@
 
         fetchSubathon();
 
+        // 60FPS zero-lag postMessage preview synchronization
+        window.addEventListener('message', (event) => {
+            if (!event.data) return;
+            if (event.data.type === 'subathon:preview-config' || event.data.type === 'subathon:preview-theme') {
+                if (event.data.theme) {
+                    previewThemeOverride = { ...(previewThemeOverride || {}), ...event.data.theme };
+                }
+                if (event.data.sample !== undefined) {
+                    previewSampleOverride = Boolean(event.data.sample);
+                }
+                render();
+            }
+        });
+
         // WebSocket live sync
         if (typeof window.StreamPulseOverlay === 'function') {
             window.StreamPulseOverlay({
-                onEvent(type, payload) {
+                onEvent(type) {
                     if (type === 'subathon-update' || type === 'subathon-event') {
                         fetchSubathon();
                     }
                 }
             });
         } else {
-            // Direct WS fallback
             const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
             const ws = new WebSocket(`${proto}//${location.host}/ws`);
             ws.onmessage = (msg) => {

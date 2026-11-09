@@ -99,6 +99,57 @@
         .time-dual input[type="number"] { width: 64px; text-align: right; padding: 0.45rem 0.5rem; }
         .time-dual span { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
         .beta-tag { font-size: .65rem; padding: .08rem .45rem; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); letter-spacing: .05em; font-weight: 600; vertical-align: middle; margin-left: 0.35rem; display: inline-block; line-height: 1.2; }
+        .sub-nav-btn { background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); padding: 0.65rem 0.95rem; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
+        .sub-nav-btn:hover { color: var(--text); }
+        .sub-nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .studio-grid { max-width: 1280px; margin: 0 auto; padding: 1.25rem 2rem 2rem; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(380px, 0.95fr); gap: 1.25rem; align-items: start; }
+        @media (max-width: 1020px) {
+            .studio-grid { grid-template-columns: 1fr; padding: 1rem; }
+        }
+        .theming-preview-column { position: sticky; top: 1rem; display: flex; flex-direction: column; gap: 1rem; }
+        .preview-container { width: 100%; height: 100%; position: relative; overflow: hidden; }
+        .preview-container.checkerboard {
+            background-color: #0a0e17;
+            background-image: linear-gradient(45deg, #141b2d 25%, transparent 25%),
+                              linear-gradient(-45deg, #141b2d 25%, transparent 25%),
+                              linear-gradient(45deg, transparent 75%, #141b2d 75%),
+                              linear-gradient(-45deg, transparent 75%, #141b2d 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+        .preview-container.solid-dark { background: #050811; }
+        .preset-chip-btn {
+            background: var(--bg-inset);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0.22rem 0.65rem;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .preset-chip-btn:hover { border-color: var(--accent); color: var(--text); }
+        .preset-chip-btn.active {
+            background: color-mix(in srgb, var(--accent) 18%, var(--bg-card));
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .studio-micro-head {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin: 0.85rem 0 0.5rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border);
+        }
+        .studio-micro-head:first-of-type {
+            margin-top: 0;
+            padding-top: 0;
+            border-top: none;
+        }
     </style>
 </head>
 <body>
@@ -375,6 +426,27 @@
 
     <!-- TAB 2: SUBATHON AUTOMATION -->
     <div class="tab-pane" id="pane-subathon" hidden>
+        <!-- Subathon Sub-Navigation Bar -->
+        <div style="border-bottom: 1px solid var(--border); background: var(--bg-card); padding: 0 2rem;">
+            <div style="max-width: 1280px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                <div style="display: flex; gap: 0.25rem;">
+                    <button type="button" class="sub-nav-btn active" id="sb-subnav-automation">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 0.35rem;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        Automation &amp; Rates
+                    </button>
+                    <button type="button" class="sub-nav-btn" id="sb-subnav-appearance">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 0.35rem;"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10c0 3.04-1.5 5.5-4 5.5s-2.5-1.5-4-1.5c-1 0-1.5.5-1.5 1.5 0 2-2 3.5-4 3.5a10 10 0 0 1-6.5-19"></path></svg>
+                        Rules Overlay &amp; Appearance Studio
+                    </button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0;">
+                    <span class="pill" id="subathon-subnav-status">Disabled</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 1: AUTOMATION & RATES -->
+        <div id="sb-view-automation">
         <div class="subathon-container">
             <!-- Left Column: Master Settings, Boost Period, Rates -->
             <div class="stack">
@@ -648,49 +720,296 @@
                     </div>
                 </div>
 
-                <!-- Overlay URL Card -->
-                <div class="card">
-                    <h2><span>Dynamic Rules Overlay</span></h2>
-                    <p class="hint" style="margin-bottom:0.6rem;">Customize your broadcast overlay layout and theme, then paste into an OBS Browser Source:</p>
-                    
-                    <div class="cfg-row">
-                        <label for="sb-ov-layout">Layout</label>
-                        <select id="sb-ov-layout">
-                            <option value="grid" selected>Card Grid (Full Intermission)</option>
-                            <option value="compact">Compact Pills (Corner HUD / Strip)</option>
-                            <option value="ticker">Scrolling Ticker (Header / Footer)</option>
-                        </select>
+                </div>
+            </div>
+        </div>
+        </div>
+
+        <!-- VIEW 2: RULES OVERLAY & APPEARANCE STUDIO -->
+        <div id="sb-view-appearance" hidden>
+            <div class="studio-grid">
+                <!-- Left Column: Live Floating Preview & OBS Link Panel -->
+                <div class="theming-preview-column">
+                    <!-- Live Overlay Preview Panel -->
+                    <div class="card">
+                        <h2>
+                            <span style="display:flex; align-items:center; gap:0.4rem;">
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                <span>Live Overlay Preview</span>
+                            </span>
+                            <span style="font-size:11px; color:var(--text-muted); font-weight:600;" id="sb-preview-res-label">1920×1080 (100%)</span>
+                        </h2>
+
+                        <!-- Canvas Backdrop & Sample Data Bar -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-inset); padding:0.45rem 0.65rem; border-radius:6px; border:1px solid var(--border); flex-wrap:wrap; gap:0.5rem; margin-bottom:0.65rem;">
+                            <div style="display:flex; gap:0.35rem; align-items:center;">
+                                <button type="button" class="btn sm" id="sb-prev-btn-bg" title="Toggle dark background vs checkerboard transparency">Canvas: Dark</button>
+                                <button type="button" class="btn sm active" id="sb-prev-btn-sample" title="Toggle realistic sample rules to preview styling">Sample Data: ON</button>
+                            </div>
+                        </div>
+
+                        <!-- Viewport Resolution Chips -->
+                        <div style="display:flex; align-items:center; gap:0.35rem; flex-wrap:wrap; margin-bottom:0.65rem;">
+                            <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-right:0.25rem;">Viewport:</span>
+                            <button type="button" class="preset-chip-btn active" id="chip-sb-full" data-w="1920" data-h="1080" data-layout="grid">1920×1080 (Fullscreen)</button>
+                            <button type="button" class="preset-chip-btn" id="chip-sb-strip" data-w="1920" data-h="360" data-layout="compact">1920×360 (Strip)</button>
+                            <button type="button" class="preset-chip-btn" id="chip-sb-hud" data-w="520" data-h="680" data-layout="compact">520×680 (Corner HUD)</button>
+                            <button type="button" class="preset-chip-btn" id="chip-sb-vertical" data-w="1080" data-h="1920" data-layout="grid">1080×1920 (Vertical 9:16)</button>
+                        </div>
+
+                        <!-- Scaler Wrapper -->
+                        <div id="sb-viewport-wrapper" style="width:100%; display:flex; justify-content:center; align-items:center; background:#050811; border-radius:8px; border:1px solid var(--border); padding:0.75rem; overflow:hidden; min-height:280px;">
+                            <div id="sb-viewport-scaler" style="position:relative; overflow:hidden; width:100%; height:380px; transition:width 0.2s ease, height 0.2s ease; display:flex; justify-content:center; align-items:center;">
+                                <div id="subathon-preview-box" class="preview-container solid-dark" style="position:absolute; top:0; left:0; width:1920px; height:1080px; transform-origin:top left; transition:transform 0.2s ease;">
+                                    <iframe id="subathon-preview-iframe" src="/overlays/subathon-rules.html?preview=1&sample=1" style="width:100%; height:100%; border:none; background:transparent;"></iframe>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="cfg-row">
-                        <label for="sb-ov-theme">Theme</label>
-                        <select id="sb-ov-theme">
-                            <option value="dark" selected>Dark Navy &amp; Blue Glow</option>
-                            <option value="glass">Frosted Translucent Glass</option>
-                            <option value="arcade">Cyber Neon Arcade</option>
-                            <option value="light">Crisp Light Mode</option>
-                        </select>
+                    <!-- OBS Browser Source Link Generator Card -->
+                    <div class="card">
+                        <h2>
+                            <span style="display:flex; align-items:center; gap:0.4rem;">
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                                <span>OBS Browser Source Link</span>
+                            </span>
+                        </h2>
+                        <div class="url-box" id="sb-studio-obs-url" style="word-break:break-all; margin-bottom:0.65rem;">http://localhost:3000/overlays/subathon-rules.html</div>
+                        <div class="actions">
+                            <button type="button" class="btn primary sm" id="sb-studio-copy-url">
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                Copy URL
+                            </button>
+                            <a class="btn sm" id="sb-studio-open-url" href="/overlays/subathon-rules.html?preview=1" target="_blank" rel="noopener">Open in Tab ↗</a>
+                        </div>
+                        <p class="hint" style="margin-top:0.6rem; font-size:0.72rem;">
+                            <strong>OBS Setup:</strong> Add as a Browser Source set to your target canvas (e.g. 1920×1080 at 60 FPS). Enable &quot;Shutdown source when not visible&quot; and &quot;Refresh browser when scene becomes active&quot;.
+                        </p>
                     </div>
+                </div>
 
-                    <div class="cfg-row" id="sb-ov-cols-row">
-                        <label for="sb-ov-columns">Columns</label>
-                        <select id="sb-ov-columns">
-                            <option value="" selected>Auto-fit</option>
-                            <option value="2">2 Columns</option>
-                            <option value="3">3 Columns</option>
-                            <option value="4">4 Columns</option>
-                        </select>
-                    </div>
+                <!-- Right Column: Appearance Inspector & Power-User Controls -->
+                <div class="stack">
+                    <div class="card">
+                        <h2>
+                            <span style="display:flex; align-items:center; gap:0.4rem;">
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10c0 3.04-1.5 5.5-4 5.5s-2.5-1.5-4-1.5c-1 0-1.5.5-1.5 1.5 0 2-2 3.5-4 3.5a10 10 0 0 1-6.5-19"></path></svg>
+                                <span>Overlay Appearance &amp; Theming</span>
+                            </span>
+                        </h2>
 
-                    <div class="cfg-row">
-                        <label for="sb-ov-title">Banner Title</label>
-                        <input type="text" id="sb-ov-title" placeholder="Subathon Rates">
-                    </div>
+                        <!-- Micro-heading 1: Theme Preset & Layout Mode -->
+                        <div class="studio-micro-head">Theme Preset &amp; Layout Mode</div>
+                        <div class="cfg-row">
+                            <label for="sb-cfg-preset">Theme Preset</label>
+                            <select id="sb-cfg-preset">
+                                <option value="dark">Modern Dark Glass (StreamPulse Navy)</option>
+                                <option value="glass">Frosted Ice Glass (Translucent)</option>
+                                <option value="arcade">Cyber 8-Bit Arcade (Neon &amp; Pixel)</option>
+                                <option value="light">Clean Light Mode</option>
+                                <option value="minimal">Floating Transparent Cards</option>
+                            </select>
+                        </div>
+                        <div class="cfg-row">
+                            <label for="sb-cfg-layout">Layout Mode</label>
+                            <select id="sb-cfg-layout">
+                                <option value="grid">Multi-Column Card Grid (Full Intermission)</option>
+                                <option value="compact">Horizontal Inline Chips (Corner HUD / Strip)</option>
+                                <option value="ticker">Scrolling Marquee Ticker (Broadcast Bar)</option>
+                            </select>
+                        </div>
+                        <div class="cfg-row" id="sb-cfg-columns-row">
+                            <label for="sb-cfg-columns">Grid Columns</label>
+                            <select id="sb-cfg-columns">
+                                <option value="0">Auto-Fit (Responsive Wrap)</option>
+                                <option value="2">2 Columns</option>
+                                <option value="3">3 Columns</option>
+                                <option value="4">4 Columns</option>
+                            </select>
+                        </div>
+                        <div class="cfg-row">
+                            <label for="sb-cfg-scale">Overlay Scale</label>
+                            <div style="display:flex; align-items:center; gap:0.5rem; flex:1;">
+                                <input type="range" id="sb-cfg-scale" min="0.6" max="2.0" step="0.05" value="1.0" style="flex:1;">
+                                <span id="sb-cfg-scale-val" style="font-weight:700; color:var(--accent); font-size:11px; min-width:38px;">1.00×</span>
+                            </div>
+                        </div>
 
-                    <div class="url-box" id="sb-overlay-url" style="margin-top:0.6rem;">http://localhost:3000/overlays/subathon-rules.html?layout=grid&amp;theme=dark</div>
-                    <div class="actions">
-                        <button class="btn primary sm" type="button" id="sb-copy-overlay">Copy URL</button>
-                        <a class="btn sm" id="sb-preview-overlay-btn" href="/overlays/subathon-rules.html?preview=true" target="_blank" style="text-decoration:none;">Preview ↗</a>
+                        <!-- Micro-heading 2: Header & Title Controls -->
+                        <div class="studio-micro-head">Header &amp; Title Controls</div>
+                        <div class="cfg-row">
+                            <label for="sb-cfg-show-header">Show Header Bar</label>
+                            <input type="checkbox" id="sb-cfg-show-header" checked>
+                        </div>
+                        <div class="cfg-row">
+                            <label for="sb-cfg-title-text">Title Text</label>
+                            <input type="text" id="sb-cfg-title-text" value="Subathon Rates" placeholder="Subathon Rates">
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+                            <div class="cfg-row">
+                                <label for="sb-cfg-header-size">Title Size</label>
+                                <div style="display:flex; gap:4px; align-items:center; width:100%;">
+                                    <select id="sb-cfg-header-size" style="flex:1; min-width:0;">
+                                        <option value="1.15rem">Standard (1.15rem)</option>
+                                        <option value="0.85rem">Small (0.85rem)</option>
+                                        <option value="1.0rem">Medium (1.00rem)</option>
+                                        <option value="1.35rem">Large (1.35rem)</option>
+                                        <option value="1.65rem">Hero (1.65rem)</option>
+                                        <option value="2.0rem">Jumbo (2.00rem)</option>
+                                        <option value="custom">Custom…</option>
+                                    </select>
+                                    <input type="text" id="sb-cfg-header-size-custom" placeholder="1.15rem" style="width:65px; height:30px; font-size:11px; text-align:center; display:none;">
+                                </div>
+                            </div>
+                            <div class="cfg-row">
+                                <label for="sb-cfg-header-font">Header Font</label>
+                                <select id="sb-cfg-header-font" style="width:100%;">
+                                    <option value="">(Inherit Body Font)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="cfg-row">
+                            <label for="sb-cfg-show-total">Show Total Added Badge</label>
+                            <input type="checkbox" id="sb-cfg-show-total" checked>
+                        </div>
+                        <div class="cfg-row">
+                            <label for="sb-cfg-show-boost-banner">Show Boost Period Banner</label>
+                            <input type="checkbox" id="sb-cfg-show-boost-banner" checked>
+                        </div>
+
+                        <!-- Micro-heading 3: Card Containers & Glass Styling -->
+                        <div class="studio-micro-head">Card Containers &amp; Glass Styling</div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+                            <div class="cfg-row">
+                                <label>Card Background</label>
+                                <div style="display:flex; gap:6px; align-items:center; width:100%;">
+                                    <input type="color" id="sb-cfg-card-bg-picker" value="#121826" style="width:34px; height:30px; padding:2px; border:1px solid var(--border); border-radius:6px; cursor:pointer; background:transparent;">
+                                    <input type="text" id="sb-cfg-card-bg" class="form-control" value="rgba(18, 24, 38, 0.88)" placeholder="rgba(...) or #hex" style="font-family:monospace; font-size:11px; flex:1;">
+                                </div>
+                            </div>
+                            <div class="cfg-row">
+                                <label>Card Border</label>
+                                <div style="display:flex; gap:6px; align-items:center; width:100%;">
+                                    <input type="color" id="sb-cfg-card-border-picker" value="#ffffff" style="width:34px; height:30px; padding:2px; border:1px solid var(--border); border-radius:6px; cursor:pointer; background:transparent;">
+                                    <input type="text" id="sb-cfg-card-border" class="form-control" value="rgba(255, 255, 255, 0.12)" placeholder="rgba(...) or #hex" style="font-family:monospace; font-size:11px; flex:1;">
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+                            <div class="cfg-row">
+                                <label for="sb-cfg-card-radius">Corner Radius</label>
+                                <div style="display:flex; align-items:center; gap:0.4rem; width:100%;">
+                                    <input type="range" id="sb-cfg-card-radius" min="0" max="28" step="1" value="10" style="flex:1;">
+                                    <span id="sb-cfg-card-radius-val" style="font-size:11px; color:var(--text-muted); min-width:32px;">10px</span>
+                                </div>
+                            </div>
+                            <div class="cfg-row">
+                                <label>Accent Glow Color</label>
+                                <div style="display:flex; gap:6px; align-items:center; width:100%;">
+                                    <input type="color" id="sb-cfg-accent-picker" value="#3b82f6" style="width:34px; height:30px; padding:2px; border:1px solid var(--border); border-radius:6px; cursor:pointer; background:transparent;">
+                                    <input type="text" id="sb-cfg-accent" class="form-control" value="#3b82f6" placeholder="#3b82f6" style="font-family:monospace; font-size:11px; flex:1;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Micro-heading 4: Typography & Font Weights -->
+                        <div class="studio-micro-head">Typography &amp; Font Weights</div>
+                        <div class="cfg-row">
+                            <label for="sb-cfg-font">Primary Font</label>
+                            <select id="sb-cfg-font">
+                                <option value="">(Default System / Theme)</option>
+                            </select>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+                            <div class="cfg-row">
+                                <label for="sb-cfg-value-size">Rule Value Size</label>
+                                <div style="display:flex; gap:4px; align-items:center; width:100%;">
+                                    <select id="sb-cfg-value-size" style="flex:1; min-width:0;">
+                                        <option value="1.35rem">Standard (1.35rem)</option>
+                                        <option value="1.0rem">Small (1.00rem)</option>
+                                        <option value="1.15rem">Medium (1.15rem)</option>
+                                        <option value="1.6rem">Large (1.60rem)</option>
+                                        <option value="2.0rem">Hero (2.00rem)</option>
+                                        <option value="2.5rem">Jumbo (2.50rem)</option>
+                                        <option value="custom">Custom…</option>
+                                    </select>
+                                    <input type="text" id="sb-cfg-value-size-custom" placeholder="1.35rem" style="width:65px; height:30px; font-size:11px; text-align:center; display:none;">
+                                </div>
+                            </div>
+                            <div class="cfg-row">
+                                <label for="sb-cfg-value-weight">Value Font Weight</label>
+                                <select id="sb-cfg-value-weight" style="width:100%;">
+                                    <option value="400">Regular (400)</option>
+                                    <option value="600">Semi-Bold (600)</option>
+                                    <option value="700">Bold (700)</option>
+                                    <option value="800" selected>Extra-Bold (800)</option>
+                                    <option value="900">Black (900)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+                            <div class="cfg-row">
+                                <label>Value Text Color</label>
+                                <div style="display:flex; gap:6px; align-items:center; width:100%;">
+                                    <input type="color" id="sb-cfg-text-color-picker" value="#ffffff" style="width:34px; height:30px; padding:2px; border:1px solid var(--border); border-radius:6px; cursor:pointer; background:transparent;">
+                                    <input type="text" id="sb-cfg-text-color" class="form-control" value="#ffffff" placeholder="#ffffff" style="font-family:monospace; font-size:11px; flex:1;">
+                                </div>
+                            </div>
+                            <div class="cfg-row">
+                                <label>Muted Note Color</label>
+                                <div style="display:flex; gap:6px; align-items:center; width:100%;">
+                                    <input type="color" id="sb-cfg-text-muted-picker" value="#94a3b8" style="width:34px; height:30px; padding:2px; border:1px solid var(--border); border-radius:6px; cursor:pointer; background:transparent;">
+                                    <input type="text" id="sb-cfg-text-muted" class="form-control" value="rgba(255, 255, 255, 0.7)" placeholder="rgba(...) or #hex" style="font-family:monospace; font-size:11px; flex:1;">
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+                            <div class="cfg-row">
+                                <label for="sb-cfg-show-icons">Show Card Icons</label>
+                                <input type="checkbox" id="sb-cfg-show-icons" checked>
+                            </div>
+                            <div class="cfg-row">
+                                <label for="sb-cfg-show-notes">Show Detail Notes</label>
+                                <input type="checkbox" id="sb-cfg-show-notes" checked>
+                            </div>
+                        </div>
+
+                        <!-- Micro-heading 5: Granular Rule Visibility -->
+                        <div class="studio-micro-head">Granular Channel Card Visibility</div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+                            <div class="cfg-row">
+                                <label for="sb-cfg-show-subs">Subscription Cards</label>
+                                <input type="checkbox" id="sb-cfg-show-subs" checked>
+                            </div>
+                            <div class="cfg-row">
+                                <label for="sb-cfg-show-donations">Tips &amp; Donations</label>
+                                <input type="checkbox" id="sb-cfg-show-donations" checked>
+                            </div>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+                            <div class="cfg-row">
+                                <label for="sb-cfg-show-bits">Cheer Bits</label>
+                                <input type="checkbox" id="sb-cfg-show-bits" checked>
+                            </div>
+                            <div class="cfg-row">
+                                <label for="sb-cfg-show-follows">New Follows</label>
+                                <input type="checkbox" id="sb-cfg-show-follows" checked>
+                            </div>
+                        </div>
+                        <div class="cfg-row">
+                            <label for="sb-cfg-show-raids">Incoming Raids</label>
+                            <input type="checkbox" id="sb-cfg-show-raids" checked>
+                        </div>
+
+                        <!-- Actions Bar -->
+                        <div class="actions" style="margin-top:1.25rem; padding-top:0.9rem; border-top:1px solid var(--border);">
+                            <button type="button" class="btn primary" id="sb-save-theme-btn">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                Save Appearance Settings
+                            </button>
+                            <button type="button" class="btn" id="sb-reset-theme-btn">Reset to Default Theme</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1434,6 +1753,9 @@
 
         // History
         renderSubathonHistory(state.history || []);
+
+        // Initial Theme Render
+        renderStudioTheme(cfg.theme || {});
     }
 
     function renderTargetMonitor() {
@@ -1459,31 +1781,468 @@
         $('sb-total-added-pill').textContent = `+${formatDuration(state.totalTimeAddedSeconds || 0)} Added`;
         $('sb-events-count-pill').textContent = `${state.totalEventsCount || 0} Events`;
         $('sb-active-rules-summary').textContent = subathonData.rulesSummary?.summary || 'No active rates configured';
-        updateSubathonOverlayUrl();
+        if ($('subathon-subnav-status')) {
+            $('subathon-subnav-status').textContent = cfg.enabled ? 'Automation Active' : 'Disabled';
+            $('subathon-subnav-status').className = `pill ${cfg.enabled ? 'running' : ''}`;
+        }
     }
 
-    function updateSubathonOverlayUrl() {
-        const layout = $('sb-ov-layout')?.value || 'grid';
-        const theme = $('sb-ov-theme')?.value || 'dark';
-        const cols = $('sb-ov-columns')?.value;
-        const title = $('sb-ov-title')?.value.trim();
+    // --- Subathon Look & Feel Theming Studio ---
+    let sbPreviewWidth = 1920;
+    let sbPreviewHeight = 1080;
+    let sbPreviewBackdrop = 'dark';
+    let sbPreviewSample = true;
+    let sbFontsPopulated = false;
 
-        if ($('sb-ov-cols-row')) {
-            $('sb-ov-cols-row').style.display = layout === 'grid' ? '' : 'none';
+    const SUBATHON_THEME_PRESETS = {
+        dark: {
+            preset: 'dark',
+            cardBackground: 'rgba(18, 24, 38, 0.88)',
+            cardBorder: 'rgba(255, 255, 255, 0.12)',
+            cardRadius: 10,
+            textColor: '#ffffff',
+            textMuted: 'rgba(255, 255, 255, 0.7)',
+            accentColor: '#3b82f6',
+            boostBannerColor: '#f59e0b',
+            fontFamily: ''
+        },
+        glass: {
+            preset: 'glass',
+            cardBackground: 'rgba(255, 255, 255, 0.08)',
+            cardBorder: 'rgba(255, 255, 255, 0.22)',
+            cardRadius: 14,
+            textColor: '#ffffff',
+            textMuted: 'rgba(255, 255, 255, 0.75)',
+            accentColor: '#38bdf8',
+            boostBannerColor: '#38bdf8',
+            fontFamily: ''
+        },
+        arcade: {
+            preset: 'arcade',
+            cardBackground: 'rgba(15, 12, 41, 0.94)',
+            cardBorder: 'rgba(236, 72, 153, 0.45)',
+            cardRadius: 4,
+            textColor: '#fdf2f8',
+            textMuted: '#fbcfe8',
+            accentColor: '#ec4899',
+            boostBannerColor: '#ec4899',
+            fontFamily: "'Courier New', Courier, monospace"
+        },
+        light: {
+            preset: 'light',
+            cardBackground: 'rgba(255, 255, 255, 0.94)',
+            cardBorder: 'rgba(0, 0, 0, 0.12)',
+            cardRadius: 10,
+            textColor: '#0f172a',
+            textMuted: '#475569',
+            accentColor: '#2563eb',
+            boostBannerColor: '#ea580c',
+            fontFamily: ''
+        },
+        minimal: {
+            preset: 'minimal',
+            cardBackground: 'rgba(0, 0, 0, 0.45)',
+            cardBorder: 'rgba(255, 255, 255, 0.08)',
+            cardRadius: 8,
+            textColor: '#ffffff',
+            textMuted: 'rgba(255, 255, 255, 0.65)',
+            accentColor: '#60a5fa',
+            boostBannerColor: '#f59e0b',
+            fontFamily: ''
+        }
+    };
+
+    function switchSubathonView(view) {
+        const isApp = view === 'appearance';
+        $('sb-subnav-automation')?.classList.toggle('active', !isApp);
+        $('sb-subnav-appearance')?.classList.toggle('active', isApp);
+        if ($('sb-view-automation')) $('sb-view-automation').hidden = isApp;
+        if ($('sb-view-appearance')) $('sb-view-appearance').hidden = !isApp;
+
+        if (isApp) {
+            populateSubathonFontDropdowns();
+            setTimeout(() => {
+                applySubathonViewportScale();
+                syncStudioToPreview();
+            }, 30);
+        }
+        try { localStorage.setItem('subathon-subview', view); } catch (_) {}
+    }
+
+    $('sb-subnav-automation')?.addEventListener('click', () => switchSubathonView('automation'));
+    $('sb-subnav-appearance')?.addEventListener('click', () => switchSubathonView('appearance'));
+
+    function applySubathonViewportScale() {
+        const wrapper = $('sb-viewport-wrapper');
+        const scaler = $('sb-viewport-scaler');
+        const box = $('subathon-preview-box');
+        if (!wrapper || !scaler || !box) return;
+
+        const availW = Math.max(260, wrapper.clientWidth - 24);
+        const maxAvailH = 480;
+
+        const scale = Math.min(availW / sbPreviewWidth, maxAvailH / sbPreviewHeight, 1.0);
+        const scaledW = Math.round(sbPreviewWidth * scale);
+        const scaledH = Math.round(sbPreviewHeight * scale);
+
+        scaler.style.width = `${scaledW}px`;
+        scaler.style.height = `${scaledH}px`;
+
+        box.style.width = `${sbPreviewWidth}px`;
+        box.style.height = `${sbPreviewHeight}px`;
+        box.style.transform = `scale(${scale})`;
+        box.style.transformOrigin = 'top left';
+
+        const label = $('sb-preview-res-label');
+        if (label) label.textContent = `${sbPreviewWidth}×${sbPreviewHeight} (${Math.round(scale * 100)}%)`;
+    }
+
+    window.addEventListener('resize', () => {
+        if ($('sb-view-appearance') && !$('sb-view-appearance').hidden) {
+            applySubathonViewportScale();
+        }
+    });
+
+    function toggleSubathonBackdrop() {
+        sbPreviewBackdrop = sbPreviewBackdrop === 'dark' ? 'checkerboard' : 'dark';
+        const box = $('subathon-preview-box');
+        const btn = $('sb-prev-btn-bg');
+        if (box) {
+            box.classList.toggle('solid-dark', sbPreviewBackdrop === 'dark');
+            box.classList.toggle('checkerboard', sbPreviewBackdrop === 'checkerboard');
+        }
+        if (btn) btn.textContent = sbPreviewBackdrop === 'dark' ? 'Canvas: Dark' : 'Canvas: Checkerboard';
+    }
+    $('sb-prev-btn-bg')?.addEventListener('click', toggleSubathonBackdrop);
+
+    function toggleSubathonSample() {
+        sbPreviewSample = !sbPreviewSample;
+        const btn = $('sb-prev-btn-sample');
+        if (btn) {
+            btn.textContent = sbPreviewSample ? 'Sample Data: ON' : 'Sample Data: OFF';
+            btn.classList.toggle('active', sbPreviewSample);
+        }
+        syncStudioToPreview();
+    }
+    $('sb-prev-btn-sample')?.addEventListener('click', toggleSubathonSample);
+
+    // Viewport resolution chips
+    document.querySelectorAll('#sb-view-appearance .preset-chip-btn[data-w]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#sb-view-appearance .preset-chip-btn[data-w]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            sbPreviewWidth = parseInt(btn.dataset.w, 10);
+            sbPreviewHeight = parseInt(btn.dataset.h, 10);
+            if (btn.dataset.layout && $('sb-cfg-layout')) {
+                $('sb-cfg-layout').value = btn.dataset.layout;
+            }
+            applySubathonViewportScale();
+            syncStudioToPreview();
+        });
+    });
+
+    async function populateSubathonFontDropdowns() {
+        if (sbFontsPopulated) return;
+        const fontSelect = $('sb-cfg-font');
+        const headerFontSelect = $('sb-cfg-header-font');
+        if (!fontSelect || !headerFontSelect) return;
+
+        let fontList = [];
+        try {
+            if (window.OverlayFonts && typeof window.OverlayFonts.getDeduplicatedFontFamilies === 'function') {
+                fontList = await window.OverlayFonts.getDeduplicatedFontFamilies();
+            } else if (window.OverlayFonts) {
+                const assets = await window.OverlayFonts.getAssetFonts?.() || [];
+                fontList = [
+                    ...assets.map(a => ({ name: a.family || a.name, source: 'asset' })),
+                    ...(window.OverlayFonts.google || []).map(g => ({ name: g, source: 'google' })),
+                    ...(window.OverlayFonts.system || []).map(s => ({ name: s, source: 'system' }))
+                ];
+            }
+        } catch { fontList = []; }
+
+        if (!fontList || fontList.length === 0) {
+            const fallback = [
+                'Inter', 'Montserrat', 'Oswald', 'Roboto', 'Bebas Neue', 'Jersey 15', 'Jersey 20',
+                'Press Start 2P', 'Rajdhani', 'Orbitron', 'Righteous', 'Russo One', 'Impact', 'Arial', 'Courier New'
+            ];
+            fontList = fallback.map(name => ({ name, source: 'google' }));
         }
 
+        [fontSelect, headerFontSelect].forEach(select => {
+            const cur = select.value;
+            select.innerHTML = select === fontSelect
+                ? '<option value="">(Default System / Theme)</option>'
+                : '<option value="">(Inherit Body Font)</option>';
+            fontList.forEach(f => {
+                const opt = document.createElement('option');
+                opt.value = f.name;
+                opt.textContent = f.name + (f.source === 'asset' ? ' (Custom Asset)' : '');
+                select.appendChild(opt);
+            });
+            if (cur) select.value = cur;
+        });
+
+        sbFontsPopulated = true;
+    }
+
+    function bindColorPair(pickerId, textId) {
+        const picker = $(pickerId);
+        const text = $(textId);
+        if (!picker || !text) return;
+
+        picker.addEventListener('input', () => {
+            text.value = picker.value;
+            syncStudioToPreview();
+        });
+        text.addEventListener('input', () => {
+            const val = text.value.trim();
+            if (/^#[0-9a-f]{6}$/i.test(val)) picker.value = val;
+            syncStudioToPreview();
+        });
+    }
+
+    bindColorPair('sb-cfg-card-bg-picker', 'sb-cfg-card-bg');
+    bindColorPair('sb-cfg-card-border-picker', 'sb-cfg-card-border');
+    bindColorPair('sb-cfg-accent-picker', 'sb-cfg-accent');
+    bindColorPair('sb-cfg-text-color-picker', 'sb-cfg-text-color');
+    bindColorPair('sb-cfg-text-muted-picker', 'sb-cfg-text-muted');
+
+    $('sb-cfg-card-radius')?.addEventListener('input', e => {
+        $('sb-cfg-card-radius-val').textContent = `${e.target.value}px`;
+        syncStudioToPreview();
+    });
+
+    $('sb-cfg-scale')?.addEventListener('input', e => {
+        $('sb-cfg-scale-val').textContent = `${parseFloat(e.target.value).toFixed(2)}×`;
+        syncStudioToPreview();
+    });
+
+    function setupSizeSelect(selectId, customInputId) {
+        const sel = $(selectId);
+        const custom = $(customInputId);
+        if (!sel || !custom) return;
+
+        sel.addEventListener('change', () => {
+            if (sel.value === 'custom') {
+                custom.style.display = 'inline-block';
+                custom.focus();
+            } else {
+                custom.style.display = 'none';
+            }
+            syncStudioToPreview();
+        });
+        custom.addEventListener('input', syncStudioToPreview);
+    }
+    setupSizeSelect('sb-cfg-header-size', 'sb-cfg-header-size-custom');
+    setupSizeSelect('sb-cfg-value-size', 'sb-cfg-value-size-custom');
+
+    // Preset change handler
+    $('sb-cfg-preset')?.addEventListener('change', e => {
+        const def = SUBATHON_THEME_PRESETS[e.target.value];
+        if (def) {
+            $('sb-cfg-card-bg').value = def.cardBackground;
+            if (/^#[0-9a-f]{6}$/i.test(def.cardBackground)) $('sb-cfg-card-bg-picker').value = def.cardBackground;
+            $('sb-cfg-card-border').value = def.cardBorder;
+            if (/^#[0-9a-f]{6}$/i.test(def.cardBorder)) $('sb-cfg-card-border-picker').value = def.cardBorder;
+            $('sb-cfg-card-radius').value = def.cardRadius;
+            $('sb-cfg-card-radius-val').textContent = `${def.cardRadius}px`;
+            $('sb-cfg-accent').value = def.accentColor;
+            $('sb-cfg-accent-picker').value = def.accentColor;
+            $('sb-cfg-text-color').value = def.textColor;
+            $('sb-cfg-text-color-picker').value = def.textColor;
+            $('sb-cfg-text-muted').value = def.textMuted;
+            if (def.fontFamily !== undefined && $('sb-cfg-font')) $('sb-cfg-font').value = def.fontFamily;
+        }
+        syncStudioToPreview();
+    });
+
+    function collectStudioTheme() {
+        const preset = $('sb-cfg-preset')?.value || 'dark';
+        const layout = $('sb-cfg-layout')?.value || 'grid';
+        const columns = parseInt($('sb-cfg-columns')?.value, 10) || 0;
+        const scale = parseFloat($('sb-cfg-scale')?.value) || 1.0;
+        const showHeader = $('sb-cfg-show-header')?.checked !== false;
+        const titleText = $('sb-cfg-title-text')?.value.trim() || 'Subathon Rates';
+
+        let headerSize = $('sb-cfg-header-size')?.value || '1.15rem';
+        if (headerSize === 'custom') headerSize = $('sb-cfg-header-size-custom')?.value.trim() || '1.15rem';
+
+        const headerFontFamily = $('sb-cfg-header-font')?.value || '';
+        const showTotalBadge = $('sb-cfg-show-total')?.checked !== false;
+        const showBoostBanner = $('sb-cfg-show-boost-banner')?.checked !== false;
+
+        const cardBackground = $('sb-cfg-card-bg')?.value.trim() || 'rgba(18, 24, 38, 0.88)';
+        const cardBorder = $('sb-cfg-card-border')?.value.trim() || 'rgba(255, 255, 255, 0.12)';
+        const cardRadius = parseInt($('sb-cfg-card-radius')?.value, 10) || 10;
+        const accentColor = $('sb-cfg-accent')?.value.trim() || '#3b82f6';
+
+        const fontFamily = $('sb-cfg-font')?.value || '';
+        let valueSize = $('sb-cfg-value-size')?.value || '1.35rem';
+        if (valueSize === 'custom') valueSize = $('sb-cfg-value-size-custom')?.value.trim() || '1.35rem';
+
+        const valueWeight = $('sb-cfg-value-weight')?.value || '800';
+        const textColor = $('sb-cfg-text-color')?.value.trim() || '#ffffff';
+        const textMuted = $('sb-cfg-text-muted')?.value.trim() || 'rgba(255, 255, 255, 0.7)';
+        const showCardIcons = $('sb-cfg-show-icons')?.checked !== false;
+        const showNotes = $('sb-cfg-show-notes')?.checked !== false;
+
+        const showSubs = $('sb-cfg-show-subs')?.checked !== false;
+        const showDonations = $('sb-cfg-show-donations')?.checked !== false;
+        const showBits = $('sb-cfg-show-bits')?.checked !== false;
+        const showFollows = $('sb-cfg-show-follows')?.checked !== false;
+        const showRaids = $('sb-cfg-show-raids')?.checked !== false;
+
+        return {
+            preset, layout, columns, scale, showHeader, titleText, headerSize, headerFontFamily,
+            showTotalBadge, showBoostBanner, cardBackground, cardBorder, cardRadius, accentColor,
+            fontFamily, valueSize, valueWeight, textColor, textMuted, showCardIcons, showNotes,
+            showSubs, showDonations, showBits, showFollows, showRaids
+        };
+    }
+
+    function renderStudioTheme(theme = {}) {
+        if ($('sb-cfg-preset')) $('sb-cfg-preset').value = theme.preset || 'dark';
+        if ($('sb-cfg-layout')) $('sb-cfg-layout').value = theme.layout || 'grid';
+        if ($('sb-cfg-columns')) $('sb-cfg-columns').value = String(theme.columns || 0);
+        if ($('sb-cfg-scale')) {
+            $('sb-cfg-scale').value = theme.scale || 1.0;
+            $('sb-cfg-scale-val').textContent = `${(theme.scale || 1.0).toFixed(2)}×`;
+        }
+        if ($('sb-cfg-show-header')) $('sb-cfg-show-header').checked = theme.showHeader !== false;
+        if ($('sb-cfg-title-text')) $('sb-cfg-title-text').value = theme.titleText || 'Subathon Rates';
+
+        // Header size
+        const hSize = theme.headerSize || '1.15rem';
+        const hSizeSel = $('sb-cfg-header-size');
+        const hSizeCustom = $('sb-cfg-header-size-custom');
+        if (hSizeSel && hSizeCustom) {
+            const match = Array.from(hSizeSel.options).some(o => o.value === hSize);
+            if (match) {
+                hSizeSel.value = hSize;
+                hSizeCustom.style.display = 'none';
+            } else {
+                hSizeSel.value = 'custom';
+                hSizeCustom.value = hSize;
+                hSizeCustom.style.display = 'inline-block';
+            }
+        }
+
+        if ($('sb-cfg-header-font')) $('sb-cfg-header-font').value = theme.headerFontFamily || '';
+        if ($('sb-cfg-show-total')) $('sb-cfg-show-total').checked = theme.showTotalBadge !== false;
+        if ($('sb-cfg-show-boost-banner')) $('sb-cfg-show-boost-banner').checked = theme.showBoostBanner !== false;
+
+        if ($('sb-cfg-card-bg')) $('sb-cfg-card-bg').value = theme.cardBackground || 'rgba(18, 24, 38, 0.88)';
+        if ($('sb-cfg-card-border')) $('sb-cfg-card-border').value = theme.cardBorder || 'rgba(255, 255, 255, 0.12)';
+        if ($('sb-cfg-card-radius')) {
+            const rad = theme.cardRadius !== undefined ? theme.cardRadius : 10;
+            $('sb-cfg-card-radius').value = rad;
+            $('sb-cfg-card-radius-val').textContent = `${rad}px`;
+        }
+        if ($('sb-cfg-accent')) $('sb-cfg-accent').value = theme.accentColor || '#3b82f6';
+        if ($('sb-cfg-font')) $('sb-cfg-font').value = theme.fontFamily || '';
+
+        // Value size
+        const vSize = theme.valueSize || '1.35rem';
+        const vSizeSel = $('sb-cfg-value-size');
+        const vSizeCustom = $('sb-cfg-value-size-custom');
+        if (vSizeSel && vSizeCustom) {
+            const match = Array.from(vSizeSel.options).some(o => o.value === vSize);
+            if (match) {
+                vSizeSel.value = vSize;
+                vSizeCustom.style.display = 'none';
+            } else {
+                vSizeSel.value = 'custom';
+                vSizeCustom.value = vSize;
+                vSizeCustom.style.display = 'inline-block';
+            }
+        }
+
+        if ($('sb-cfg-value-weight')) $('sb-cfg-value-weight').value = theme.valueWeight || '800';
+        if ($('sb-cfg-text-color')) $('sb-cfg-text-color').value = theme.textColor || '#ffffff';
+        if ($('sb-cfg-text-muted')) $('sb-cfg-text-muted').value = theme.textMuted || 'rgba(255, 255, 255, 0.7)';
+        if ($('sb-cfg-show-icons')) $('sb-cfg-show-icons').checked = theme.showCardIcons !== false;
+        if ($('sb-cfg-show-notes')) $('sb-cfg-show-notes').checked = theme.showNotes !== false;
+
+        if ($('sb-cfg-show-subs')) $('sb-cfg-show-subs').checked = theme.showSubs !== false;
+        if ($('sb-cfg-show-donations')) $('sb-cfg-show-donations').checked = theme.showDonations !== false;
+        if ($('sb-cfg-show-bits')) $('sb-cfg-show-bits').checked = theme.showBits !== false;
+        if ($('sb-cfg-show-follows')) $('sb-cfg-show-follows').checked = theme.showFollows !== false;
+        if ($('sb-cfg-show-raids')) $('sb-cfg-show-raids').checked = theme.showRaids !== false;
+
+        syncStudioToPreview();
+    }
+
+    function syncStudioToPreview() {
+        const theme = collectStudioTheme();
+        if ($('sb-cfg-columns-row')) {
+            $('sb-cfg-columns-row').style.display = theme.layout === 'grid' ? '' : 'none';
+        }
+
+        // Build OBS source link with only parameters that differ or define layout/theme
         const params = new URLSearchParams();
-        if (layout !== 'grid') params.set('layout', layout);
-        if (theme !== 'dark') params.set('theme', theme);
-        if (layout === 'grid' && cols) params.set('columns', cols);
-        if (title) params.set('title', title);
+        if (theme.layout !== 'grid') params.set('layout', theme.layout);
+        if (theme.preset !== 'dark') params.set('theme', theme.preset);
+        if (theme.layout === 'grid' && theme.columns > 0) params.set('columns', theme.columns);
+        if (theme.scale !== 1.0) params.set('scale', theme.scale);
+        if (!theme.showHeader) params.set('header', '0');
+        if (theme.titleText && theme.titleText !== 'Subathon Rates') params.set('title', theme.titleText);
 
         const qs = params.toString();
-        const url = `${location.origin}/overlays/subathon-rules.html${qs ? `?${qs}` : ''}`;
-        const previewUrl = `${location.origin}/overlays/subathon-rules.html?${qs ? `${qs}&` : ''}preview=true`;
-        if ($('sb-overlay-url')) $('sb-overlay-url').textContent = url;
-        if ($('sb-preview-overlay-btn')) $('sb-preview-overlay-btn').href = previewUrl;
+        const obsUrl = `${location.origin}/overlays/subathon-rules.html${qs ? `?${qs}` : ''}`;
+        const previewUrl = `${location.origin}/overlays/subathon-rules.html?preview=1${qs ? `&${qs}` : ''}${sbPreviewSample ? '&sample=1' : ''}`;
+
+        const urlBox = $('sb-studio-obs-url');
+        if (urlBox) urlBox.textContent = obsUrl;
+        const openBtn = $('sb-studio-open-url');
+        if (openBtn) openBtn.href = previewUrl;
+
+        // Post message to iframe for zero-lag instant 60fps live update
+        const iframe = $('subathon-preview-iframe');
+        if (iframe?.contentWindow) {
+            iframe.contentWindow.postMessage({
+                type: 'subathon:preview-config',
+                theme,
+                sample: sbPreviewSample
+            }, '*');
+        }
     }
+
+    // Attach listeners to all theme controls
+    [
+        'sb-cfg-preset', 'sb-cfg-layout', 'sb-cfg-columns', 'sb-cfg-show-header',
+        'sb-cfg-show-total', 'sb-cfg-show-boost-banner', 'sb-cfg-header-font',
+        'sb-cfg-font', 'sb-cfg-value-weight', 'sb-cfg-show-icons', 'sb-cfg-show-notes',
+        'sb-cfg-show-subs', 'sb-cfg-show-donations', 'sb-cfg-show-bits', 'sb-cfg-show-follows', 'sb-cfg-show-raids'
+    ].forEach(id => {
+        $(id)?.addEventListener('change', syncStudioToPreview);
+    });
+    $('sb-cfg-title-text')?.addEventListener('input', syncStudioToPreview);
+
+    $('sb-studio-copy-url')?.addEventListener('click', () => {
+        const url = $('sb-studio-obs-url')?.textContent;
+        if (url) navigator.clipboard.writeText(url).then(() => toast('OBS overlay URL copied!'));
+    });
+
+    $('sb-save-theme-btn')?.addEventListener('click', async () => {
+        const theme = collectStudioTheme();
+        try {
+            await api('/api/subathon', jsonBody('PUT', { theme }));
+            if (subathonData?.config) subathonData.config.theme = theme;
+            toast('Subathon appearance settings saved');
+            syncStudioToPreview();
+        } catch (err) { toast(err.message, 'error'); }
+    });
+
+    $('sb-reset-theme-btn')?.addEventListener('click', async () => {
+        if (!await StreamPulse.confirm('Reset Theme', 'Reset subathon rules appearance to default StreamPulse Navy theme?', { danger: false })) return;
+        renderStudioTheme(SUBATHON_THEME_PRESETS.dark);
+        try {
+            await api('/api/subathon', jsonBody('PUT', { theme: SUBATHON_THEME_PRESETS.dark }));
+            if (subathonData?.config) subathonData.config.theme = SUBATHON_THEME_PRESETS.dark;
+            toast('Subathon appearance reset to defaults');
+        } catch (err) { toast(err.message, 'error'); }
+    });
 
     function renderExactList(list) {
         const el = $('sb-exact-list');
@@ -1628,34 +2387,26 @@
     });
     $('sb-test-btn').addEventListener('click', async () => {
         const sel = $('sb-test-event').value;
-        let eventPayload = { event: 'sub', tier: '1000', user: 'TestSupporter' };
-        if (sel === 'sub_t2') eventPayload = { event: 'sub', tier: '2000', user: 'Tier2Supporter' };
-        else if (sel === 'sub_t3') eventPayload = { event: 'sub', tier: '3000', user: 'VIPSupporter' };
-        else if (sel === 'gift_5') eventPayload = { event: 'gift_bomb', count: 5, user: 'GenerousDonor' };
-        else if (sel === 'bits_500') eventPayload = { event: 'bits', bits: 500, user: 'CheerMaster' };
-        else if (sel === 'don_5') eventPayload = { event: 'donation', amount: 5.00, user: 'TipLover' };
-        else if (sel === 'don_exact') eventPayload = { event: 'donation', amount: 4.20, user: 'ExactTipper' };
-        else if (sel === 'follow') eventPayload = { event: 'follow', user: 'NewFriend' };
-        else if (sel === 'raid_25') eventPayload = { event: 'raid', viewers: 25, user: 'RaidLeader' };
+        let eventPayload = { type: 'sub', event: 'sub', tier: '1000', user: 'TestSupporter' };
+        if (sel === 'sub_t2') eventPayload = { type: 'sub', event: 'sub', tier: '2000', user: 'Tier2Supporter' };
+        else if (sel === 'sub_t3') eventPayload = { type: 'sub', event: 'sub', tier: '3000', user: 'VIPSupporter' };
+        else if (sel === 'gift_5') eventPayload = { type: 'gift', event: 'gift', count: 5, user: 'GenerousDonor' };
+        else if (sel === 'bits_500') eventPayload = { type: 'bits', event: 'bits', amount: 500, bits: 500, user: 'CheerMaster' };
+        else if (sel === 'don_5') eventPayload = { type: 'donation', event: 'donation', amount: 5.00, user: 'TipLover' };
+        else if (sel === 'don_exact') eventPayload = { type: 'donation', event: 'donation', amount: 4.20, user: 'ExactTipper' };
+        else if (sel === 'follow') eventPayload = { type: 'follow', event: 'follow', user: 'NewFriend' };
+        else if (sel === 'raid_25') eventPayload = { type: 'raid', event: 'raid', viewers: 25, user: 'RaidLeader' };
 
         try {
             const res = await api('/api/subathon/test', jsonBody('POST', eventPayload));
             if (res.result?.applied) {
-                toast(`Simulation applied: +${formatDuration(res.result.deltaSeconds)} to ${res.result.timerId}`);
+                toast(`Simulation applied: +${formatDuration(res.result.deltaSeconds)} to ${res.result.timer?.id || 'target'}`);
             } else {
                 toast(`Simulation result: ${res.result?.reason || 'no time added'}`);
             }
             loadSubathon();
         } catch (err) { toast(err.message, 'error'); }
     });
-    $('sb-copy-overlay').addEventListener('click', () => {
-        const url = $('sb-overlay-url').textContent;
-        navigator.clipboard.writeText(url).then(() => toast('Rules overlay URL copied!'));
-    });
-    ['sb-ov-layout', 'sb-ov-theme', 'sb-ov-columns'].forEach(id => {
-        $(id)?.addEventListener('change', updateSubathonOverlayUrl);
-    });
-    $('sb-ov-title')?.addEventListener('input', updateSubathonOverlayUrl);
     document.addEventListener('click', async e => {
         const delBtn = e.target.closest('[data-del-exact]');
         if (delBtn) {
@@ -1669,6 +2420,13 @@
             } catch (err) { toast(err.message, 'error'); }
         }
     });
+
+    try {
+        const savedSubview = localStorage.getItem('subathon-subview');
+        if (savedSubview === 'appearance') {
+            switchSubathonView('appearance');
+        }
+    } catch (_) {}
 
     loadSubathon();
     </script>

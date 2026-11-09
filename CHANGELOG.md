@@ -7,7 +7,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- **Subathon Automation Engine**: Modular timer extension engine with granular event rates (subs by tier, bits, follows with hourly caps, raids, channel points), specific exact donation amounts, safety hard caps, Happy Hour multipliers, audit log with 1-click Undo, and dynamic parameterized rules overlay (`/overlays/subathon-rules.html`).
+- **Subathon Automation Engine**: Modular timer extension engine with granular event rates (subs by tier, bits, follows with hourly caps, raids, channel points), specific exact donation amounts, safety hard caps, Boost Period multipliers, audit log with 1-click Undo, dynamic parameterized rules overlay (`/overlays/subathon-rules.html`), and visual Appearance & Theming Studio with 60fps live preview.
 - **Speaker Badges**: OBS voice-reactive overlay layers with 5 layout presets, dB speech gates, EQ visualizers, and a Speakers controller tab for live profile, avatar, audio-source, and field-visibility updates.
 - **Tier List Maker**: Standalone tier list studio and 60fps animated OBS overlay with live chat consensus voting (`!tier`), clipboard/drag-and-drop/Asset Library imports, preset management, and PNG export.
 - **Trivia Studio**: Audience quiz studio and broadcast overlay with 2–6 answer choices, True/False format, drag-and-drop question ordering, (Done) tracking, theme presets, glass panel & hint customization, hex color fields with alpha opacity support (`#00000000`), granular font weights, chatbot-aware voting status, and Bitfocus Companion integration.
