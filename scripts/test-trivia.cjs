@@ -442,9 +442,16 @@ test('Trivia Service: Themes and element visibility toggles', (t) => {
     // Default theme includes element toggles and cardStyle
     const theme = service.getState().theme;
     assert.equal(theme.cardStyle, 'cards');
+    assert.equal(theme.questionLabel, 'Question');
+    assert.equal(theme.answerLabel, 'Answer');
+    assert.equal(theme.counterFormat, 'full');
+    assert.equal(theme.phaseTransform, 'uppercase');
+    assert.equal(theme.headerFontSize, '');
+    assert.equal(theme.phaseFont, '');
     assert.equal(theme.showCategory, true);
     assert.equal(theme.showTimer, true);
     assert.equal(theme.showVoteCounts, true);
+    assert.equal(theme.showPhaseIndicator, true);
 
     // Update to broadcast text mode with 8-digit hex opacity (#00000000), comprehensive typography and glass panel options
     service.updateTheme({
@@ -463,7 +470,16 @@ test('Trivia Service: Themes and element visibility toggles', (t) => {
         questionWeight: '800',
         choiceWeight: '700',
         headerWeight: '800',
+        questionLabel: 'Round 1',
+        answerLabel: 'Correct Solution',
+        counterFormat: 'compact',
+        phaseTransform: 'capitalize',
+        headerFontSize: '1.25rem',
+        phaseFont: 'Rajdhani',
+        phaseQuestionColor: '#f43f5e',
+        phaseAnswerColor: '#10b981',
         collapseIncorrect: true,
+        showPhaseIndicator: false,
         showCategory: false,
         showTimer: false
     });
@@ -484,6 +500,15 @@ test('Trivia Service: Themes and element visibility toggles', (t) => {
     assert.equal(updated.questionWeight, '800');
     assert.equal(updated.choiceWeight, '700');
     assert.equal(updated.headerWeight, '800');
+    assert.equal(updated.questionLabel, 'Round 1');
+    assert.equal(updated.answerLabel, 'Correct Solution');
+    assert.equal(updated.counterFormat, 'compact');
+    assert.equal(updated.phaseTransform, 'capitalize');
+    assert.equal(updated.headerFontSize, '1.25rem');
+    assert.equal(updated.phaseFont, 'Rajdhani');
+    assert.equal(updated.phaseQuestionColor, '#f43f5e');
+    assert.equal(updated.phaseAnswerColor, '#10b981');
+    assert.equal(updated.showPhaseIndicator, false);
     assert.equal(updated.collapseIncorrect, true);
     assert.equal(updated.showCategory, false);
     assert.equal(updated.showTimer, false);

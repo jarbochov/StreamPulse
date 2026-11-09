@@ -68,9 +68,19 @@ const DEFAULT_THEME = {
     funfactBg: 'rgba(234, 179, 8, 0.12)',
     funfactShadow: 'none',
     cardStyle: 'cards', // 'cards' | 'text' (pure floating text broadcast mode)
+    // Customizable Header & Phase labels
+    questionLabel: 'Question',
+    answerLabel: 'Answer',
+    counterFormat: 'full', // 'full' | 'compact' | 'slash' | 'number'
+    phaseTransform: 'uppercase', // 'uppercase' | 'capitalize' | 'none'
+    headerFontSize: '',
+    phaseFont: '',
+    phaseQuestionColor: '',
+    phaseAnswerColor: '',
     // Toggleable visual elements
     showCategory: true,
     showQuestionNumber: true,
+    showPhaseIndicator: true,
     showTimer: true,
     showVoteCounts: true,
     showPercentages: true,

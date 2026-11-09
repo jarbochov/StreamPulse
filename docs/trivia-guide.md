@@ -43,7 +43,12 @@ Open the studio at `http://localhost:3000/tools/trivia.html` or navigate to **To
 
 ---
 
-## 3. Overlay Theming & Customization
+## 3. Overlay Theming & Interactive Live Preview
+
+The Trivia Studio includes a dedicated **Theming & Preview** tab with an interactive, floating sticky preview column and zero-delay synchronization:
+- **Floating Sticky Preview**: The live overlay canvas floats pinned to the top of the viewport on desktop screens so streamers can view real-time changes as they scroll down through color pickers, font options, and element visibility toggles.
+- **Interactive Live Preview**: Custom colors, fonts, header sizes, and element visibility toggles update smoothly in real time without sluggish iframe reloads. Streamers can switch sample modes (Question vs Answer Reveal) and toggle simulated checkerboard or camera backdrops.
+- **Broadcast Colors & Hex Opacity**: All color fields support native color pickers alongside paired hex inputs with 8-digit `#RRGGBBAA` transparency support (e.g. `#00000000` for pure invisible glass backplates).
 
 The broadcast overlay is located at:
 ```text
@@ -52,16 +57,28 @@ http://localhost:3000/overlays/trivia.html
 
 Add this URL as a Browser Source in OBS Studio at `1920x1080` (or `3840x2160`).
 
-### Visual Styles
+### Visual Styles & Typography Customization
 - **Card Boxes vs Floating Text**: In the **Appearance & Themes** panel, switch the **Card Container Style** between:
   - `Cards & Boxes`: Standard framed card containers with backgrounds and borders.
   - `Pure Floating Text`: Eliminates all bounding boxes and background panels, rendering floating text directly over your camera or game capture with deep drop shadows.
 - **Collapse Incorrect Choices**: When enabled in reveal mode, incorrect choices smoothly collapse and fade out, spotlighting the winning answer and fun fact.
+- **Header Labels & Phase Titles**:
+  - **Question & Answer Phase Titles**: Fully customizable phase titles (`?qlabel=Round 1`, `?alabel=Reveal`) displayed clean and unbordered at the top center of the card.
+  - **Question Counter Formats**: Select between Full (`Question 1 of 5`), Compact (`1 of 5`), Slash (`1 / 5`), or Number Only (`Q1`).
+  - **Phase Text Casing**: Configure UPPERCASE, Title Case (Capitalize), or As-Typed (None).
+  - **Header Font Size**: Select from compact sizes (0.75rem / 12px) all the way up through Stadium scale (4.5rem / 72px), or enter any custom CSS size.
+  - **Phase Title Typography & Colors**: Set independent font families and colors for Question (`?qcolor=...`) and Answer (`?acolor=...`) phases.
 - **Visibility & Parameter Controls**: Configure parameters in the studio or pass them directly in the overlay URL:
   - `?theme=arcade`: Selects visual preset (`modern`, `broadcast-text`, `arcade`, `esports`, `minimal`, `neon`, `retro`).
   - `?style=text`: Forces pure floating text broadcast mode.
   - `?scale=1.2`: Scales overlay typography and elements.
-  - `?cardbg=#1a202c`: Custom glass panel background color.
+  - `?qlabel=Question` & `?alabel=Answer`: Custom phase indicator labels.
+  - `?cformat=full`: Question counter format (`full`, `compact`, `slash`, `number`).
+  - `?ptransform=uppercase`: Phase text casing (`uppercase`, `capitalize`, `none`).
+  - `?hsize=1.45rem`: Header font size (supports presets and custom CSS sizes like `2.5rem`, `48px`).
+  - `?pfont=Rajdhani`: Custom font family for phase titles.
+  - `?qcolor=#38bdf8` & `?acolor=#22c55e`: Phase title colors for question and reveal states.
+  - `?cardbg=#1a202c`: Custom glass panel background color (supports `#RRGGBBAA`).
   - `?cardborder=#38bdf8`: Custom glass panel border color.
   - `?choicebg=#161b22`: Custom choice card background color.
   - `?blur=16`: Custom backdrop blur radius (in px).
@@ -72,14 +89,16 @@ Add this URL as a Browser Source in OBS Studio at `1920x1080` (or `3840x2160`).
   - `?hfont=Rajdhani` & `?hweight=700`: Header / category font family and weight.
   - `?ffont=Oswald` & `?fweight=700`: Did You Know? Fun fact font family and weight.
   - `?voting=0` / `?voting=1`: Controls chat voting mode. When the Chat Bot is turned off or chat voting is disabled, the overlay automatically conceals the voting badge, chat voting helper footer, and vote counter to keep the broadcast graphics clean.
-  - `?category=0`: Hides category badge.
-  - `?counter=0`: Hides question counter (e.g. "Question 1 of 5").
-  - `?timer=0`: Hides countdown bar.
-  - `?votes=0`: Hides numerical vote totals.
-  - `?percentages=0`: Hides percentage displays on choices.
-  - `?hint=0`: Hides the "!a / !b in chat" helper bar.
-  - `?funfact=0`: Hides fun fact callouts on answer reveal.
-  - `?letters=0`: Hides letter badges (A, B, C, D) on choices.
+  - `?phase=0` / `?phase=1`: Toggles the top phase indicator title.
+  - `?category=0` / `?category=1`: Toggles the category pill.
+  - `?counter=0` / `?counter=1`: Toggles the question counter.
+  - `?timer=0` / `?timer=1`: Toggles the countdown progress bar.
+  - `?letters=0` / `?letters=1`: Toggles the choice letter badges (A–F).
+  - `?votes=0` / `?votes=1`: Toggles numerical vote totals.
+  - `?percentages=0` / `?percentages=1`: Toggles percentage displays on choices.
+  - `?hint=0` / `?hint=1`: Toggles the "!a / !b in chat" helper bar.
+  - `?funfact=0` / `?funfact=1`: Toggles fun fact callouts on answer reveal.
+  - `?collapse=0` / `?collapse=1`: Toggles collapsing of incorrect choices on reveal.
 
 ---
 

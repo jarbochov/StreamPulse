@@ -57,6 +57,15 @@
             --funfact-color: #eab308;
             --funfact-bg: color-mix(in srgb, var(--funfact-color) 12%, rgba(0, 0, 0, 0.4));
             --funfact-shadow: none;
+            --phase-font: inherit;
+            --phase-weight: 800;
+            --phase-transform: uppercase;
+            --phase-question-color: var(--accent-color, #38bdf8);
+            --phase-answer-color: var(--correct-color, #22c55e);
+            --header-font-size: 0.95rem;
+            --phase-font-size: var(--header-font-size, 0.95rem);
+            --category-font-size: calc(var(--header-font-size, 0.95rem) * 0.9);
+            --counter-font-size: calc(var(--header-font-size, 0.95rem) * 0.9);
             --card-radius: 16px;
         }
 
@@ -214,7 +223,7 @@
         body[data-theme="arcade"] .state-indicator, body[data-theme="arcade"] .state-badge {
             background: transparent !important;
             border: none !important;
-            text-transform: uppercase !important;
+            text-transform: var(--phase-transform, uppercase) !important;
         }
 
         body[data-theme="arcade"] .question-title {
@@ -418,7 +427,9 @@
         }
 
         body.hide-state-badge #state-badge,
-        body[data-hide-badge="true"] #state-badge {
+        body[data-hide-badge="true"] #state-badge,
+        body.hide-phase #state-badge,
+        body[data-hide-phase="true"] #state-badge {
             display: none !important;
         }
 
@@ -539,7 +550,7 @@
             color: var(--category-color);
             padding: 0.3rem 0.8rem;
             border-radius: 999px;
-            font-size: 0.85rem;
+            font-size: var(--category-font-size, 0.85rem);
             font-family: var(--category-font);
             font-weight: var(--category-weight);
             letter-spacing: 0.05em;
@@ -551,8 +562,8 @@
         }
 
         .category-pill svg {
-            width: 14px;
-            height: 14px;
+            width: 1.15em;
+            height: 1.15em;
             stroke-width: 2.2;
             flex-shrink: 0;
         }
@@ -564,7 +575,7 @@
         }
 
         .question-counter {
-            font-size: 0.85rem;
+            font-size: var(--counter-font-size, 0.85rem);
             font-weight: 600;
             color: var(--text-muted);
             letter-spacing: 0.03em;
@@ -581,10 +592,11 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.95rem;
-            font-weight: 800;
+            font-size: var(--phase-font-size, 0.95rem);
+            font-family: var(--phase-font, inherit);
+            font-weight: var(--phase-weight, 800);
             letter-spacing: 0.14em;
-            text-transform: uppercase;
+            text-transform: var(--phase-transform, uppercase);
             line-height: 1;
             white-space: nowrap;
             transition: color 0.25s ease;
@@ -592,12 +604,12 @@
 
         .state-indicator.question,
         .state-badge.question {
-            color: var(--accent-color, #38bdf8);
+            color: var(--phase-question-color, var(--accent-color, #38bdf8));
         }
 
         .state-indicator.reveal,
         .state-badge.reveal {
-            color: var(--correct-color, #22c55e);
+            color: var(--phase-answer-color, var(--correct-color, #22c55e));
         }
 
         /* ── Question Text ────────────────────────────────────────── */
@@ -1062,40 +1074,96 @@
     </div>
 
     <script>
-        // URL Parameter handling
-        const params = new URLSearchParams(window.location.search);
-        const hasThemeParam = params.has('theme');
-        const themeParam = params.get('theme') || '';
-        const rawMode = (params.get('mode') || '').toLowerCase();
-        const rawLayout = (params.get('layout') || '').toLowerCase();
-        const rawView = (params.get('view') || params.get('display') || '').toLowerCase();
-
+        // URL Parameter handling & Real-time Live Preview state
+        let params = new URLSearchParams(window.location.search);
+        let hasThemeParam = false;
+        let themeParam = '';
+        let rawMode = '';
+        let rawLayout = '';
+        let rawView = '';
         let layout = 'full';
-        if (['compact', 'hud'].includes(rawLayout)) layout = rawLayout;
-        else if (['compact', 'hud'].includes(rawMode)) layout = rawMode;
-
         let displayMode = 'auto';
-        if (['question', 'answer'].includes(rawView)) displayMode = rawView;
-        else if (['question', 'answer'].includes(rawMode)) displayMode = rawMode;
+        let soundParam = true;
+        let showVotesParam = true;
+        let showTimerParam = true;
+        let showFunFactParam = true;
+        let previewParam = false;
+        let scaleParam = 0;
 
-        const soundParam = params.get('sound') !== '0';
-        const showVotesParam = params.get('showVotes') !== '0';
-        const showTimerParam = params.get('showTimer') !== '0';
-        const showFunFactParam = params.get('showFunFact') !== '0';
-        const previewParam = params.get('preview') === 'true';
-        const scaleParam = parseFloat(params.get('scale') || params.get('fontscale') || '0');
-        if (scaleParam > 0) {
-            document.documentElement.style.setProperty('--font-scale', scaleParam);
+        function refreshRuntimeParams() {
+            hasThemeParam = params.has('theme');
+            themeParam = params.get('theme') || '';
+            rawMode = (params.get('mode') || '').toLowerCase();
+            rawLayout = (params.get('layout') || '').toLowerCase();
+            rawView = (params.get('view') || params.get('display') || '').toLowerCase();
+
+            layout = 'full';
+            if (['compact', 'hud'].includes(rawLayout)) layout = rawLayout;
+            else if (['compact', 'hud'].includes(rawMode)) layout = rawMode;
+
+            displayMode = 'auto';
+            if (['question', 'answer'].includes(rawView)) displayMode = rawView;
+            else if (['question', 'answer'].includes(rawMode)) displayMode = rawMode;
+
+            soundParam = params.get('sound') !== '0';
+            showVotesParam = (params.get('showVotes') !== '0') && (params.get('votes') !== '0');
+            showTimerParam = (params.get('showTimer') !== '0') && (params.get('timer') !== '0');
+            showFunFactParam = (params.get('showFunFact') !== '0') && (params.get('funfact') !== '0');
+            previewParam = params.get('preview') === 'true' || params.get('preview') === '1';
+            scaleParam = parseFloat(params.get('scale') || params.get('fontscale') || '0');
+            if (scaleParam > 0) {
+                document.documentElement.style.setProperty('--font-scale', scaleParam);
+            }
+
+            document.body.dataset.theme = (hasThemeParam && themeParam) ? themeParam : (document.body.dataset.theme || 'modern');
+            document.body.dataset.mode = layout;
+            document.body.dataset.layout = layout;
+            document.body.dataset.displayMode = displayMode;
         }
 
-        document.body.dataset.theme = (hasThemeParam && themeParam) ? themeParam : 'modern';
-        document.body.dataset.mode = layout;
-        document.body.dataset.layout = layout;
-        document.body.dataset.displayMode = displayMode;
+        refreshRuntimeParams();
 
-        if (!showTimerParam) {
-            document.getElementById('timer-track').style.display = 'none';
-        }
+        const SAMPLE_QUESTION = {
+            id: 'sample-preview',
+            category: 'Retro Gaming',
+            question: 'Which legendary 1990 launch title introduced Yoshi to the gaming world?',
+            choices: [
+                { letter: 'A', text: 'Super Mario Bros. 3', votes: 14, percent: 18 },
+                { letter: 'B', text: 'Super Mario World', votes: 52, percent: 68 },
+                { letter: 'C', text: 'Yoshi’s Island', votes: 7, percent: 9 },
+                { letter: 'D', text: 'Super Mario Kart', votes: 4, percent: 5 }
+            ],
+            correctIndex: 1,
+            funfact: 'Super Mario World was created by a 16-person Nintendo team and took three years to develop.',
+            totalVotes: 77
+        };
+
+        // Real-Time Preview PostMessage listener (instant zero-flicker live updates)
+        window.addEventListener('message', (event) => {
+            if (!event.data) return;
+            if (event.data.type === 'trivia:preview-config' || event.data.type === 'trivia:preview-update') {
+                if (typeof event.data.query === 'string') {
+                    params = new URLSearchParams(event.data.query);
+                } else if (event.data.params && typeof event.data.params === 'object') {
+                    params = new URLSearchParams();
+                    Object.entries(event.data.params).forEach(([k, v]) => {
+                        if (v !== undefined && v !== null && v !== '') {
+                            params.set(k, String(v));
+                        }
+                    });
+                }
+                refreshRuntimeParams();
+                if (!currentState) {
+                    currentState = {
+                        status: displayMode === 'answer' ? 'reveal' : 'question',
+                        currentIndex: 0,
+                        totalQuestions: 5,
+                        activeQuestion: SAMPLE_QUESTION
+                    };
+                }
+                render(currentState);
+            }
+        });
 
         // Web Audio Chime Synthesizer
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -1125,6 +1193,14 @@
             if (!s) return '';
             if (s.toLowerCase() === 'transparent') return 'transparent';
             if (/^[0-9a-fA-F]{3,8}$/.test(s)) return '#' + s;
+            return s;
+        }
+
+        function formatFontSize(val) {
+            if (!val || val === 'inherit' || val === 'default') return '';
+            const s = String(val).trim();
+            if (!s) return '';
+            if (/^\d+(\.\d+)?$/.test(s)) return `${s}px`;
             return s;
         }
 
@@ -1357,6 +1433,45 @@
             if (ffWeight) applyCssVar('--funfact-weight', ffWeight);
             if (t.funfactShadow) applyCssVar('--funfact-shadow', t.funfactShadow);
 
+            // Phase indicator typography, transform & colors
+            const pTransformParam = params.get('ptransform') || params.get('phaseTransform');
+            const pTransformVal = pTransformParam || t.phaseTransform;
+            if (pTransformVal) applyCssVar('--phase-transform', pTransformVal);
+
+            const pFontParam = params.get('pfont') || params.get('phaseFont');
+            const pFontVal = pFontParam || t.phaseFont;
+            if (pFontVal) applyFontVar('--phase-font', pFontVal);
+
+            const pWeightParam = params.get('pweight') || params.get('phaseWeight');
+            const pWeightVal = pWeightParam || t.phaseWeight;
+            if (pWeightVal) applyCssVar('--phase-weight', pWeightVal);
+
+            const qColorParam = params.get('qcolor') || params.get('phaseqcolor') || params.get('phaseQuestionColor');
+            const qColorVal = qColorParam || t.phaseQuestionColor;
+            if (qColorVal) applyCssVar('--phase-question-color', formatCssColor(qColorVal));
+
+            const aColorParam = params.get('acolor') || params.get('phaseacolor') || params.get('phaseAnswerColor');
+            const aColorVal = aColorParam || t.phaseAnswerColor;
+            if (aColorVal) applyCssVar('--phase-answer-color', formatCssColor(aColorVal));
+
+            // Header & Phase font size
+            const hSizeParam = params.get('hsize') || params.get('headersize') || params.get('headerFontSize');
+            const hSizeVal = hSizeParam || t.headerFontSize || t.headerSize;
+            if (hSizeVal) {
+                const formattedHSize = formatFontSize(hSizeVal);
+                if (formattedHSize) {
+                    applyCssVar('--header-font-size', formattedHSize);
+                    applyCssVar('--phase-font-size', formattedHSize);
+                }
+            }
+
+            const pSizeParam = params.get('psize') || params.get('phasesize') || params.get('phaseFontSize');
+            const pSizeVal = pSizeParam || t.phaseFontSize;
+            if (pSizeVal) {
+                const formattedPSize = formatFontSize(pSizeVal);
+                if (formattedPSize) applyCssVar('--phase-font-size', formattedPSize);
+            }
+
             const globalFont = globalFontParam || t.font;
             if (globalFont) {
                 applyFontVar('--font-family', globalFont);
@@ -1382,51 +1497,72 @@
             }
 
             // 7. Element visibility toggles: URL parameters take precedence over saved theme options
-            const hideCategory = params.has('hideCategory') || params.get('category') === '0' || t.showCategory === false;
+            const hideCategory = params.has('category')
+                ? (params.get('category') === '0' || params.get('category') === 'false')
+                : (params.has('hideCategory') ? (params.get('hideCategory') === '1' || params.get('hideCategory') === 'true') : (t.showCategory === false));
             document.body.dataset.hideCategory = hideCategory ? 'true' : 'false';
+            document.body.classList.toggle('hide-category', hideCategory);
 
-            const hideCounter = params.has('hideCounter') || params.get('counter') === '0' || params.get('questionNumber') === '0' || t.showQuestionNumber === false;
+            const hideCounter = (params.has('counter') || params.has('questionNumber'))
+                ? (params.get('counter') === '0' || params.get('questionNumber') === '0' || params.get('counter') === 'false')
+                : (params.has('hideCounter') ? (params.get('hideCounter') === '1' || params.get('hideCounter') === 'true') : (t.showQuestionNumber === false));
             document.body.dataset.hideCounter = hideCounter ? 'true' : 'false';
+            document.body.classList.toggle('hide-counter', hideCounter);
 
-            const hideBadge = params.has('hideBadge') || params.get('badge') === '0';
-            document.body.dataset.hideBadge = hideBadge ? 'true' : 'false';
+            const hidePhase = (params.has('phase') || params.has('badge'))
+                ? (params.get('phase') === '0' || params.get('badge') === '0' || params.get('phase') === 'false')
+                : (params.has('hidePhase') || params.has('hideBadge') ? true : (t.showPhaseIndicator === false));
+            document.body.dataset.hidePhase = hidePhase ? 'true' : 'false';
+            document.body.dataset.hideBadge = hidePhase ? 'true' : 'false';
+            document.body.classList.toggle('hide-phase', hidePhase);
+            document.body.classList.toggle('hide-state-badge', hidePhase);
 
-            const hideTimer = params.has('hideTimer') || params.get('timer') === '0' || params.get('showTimer') === '0' || t.showTimer === false;
+            const hideTimer = (params.has('timer') || params.has('showTimer'))
+                ? (params.get('timer') === '0' || params.get('showTimer') === '0' || params.get('timer') === 'false')
+                : (params.has('hideTimer') ? true : (t.showTimer === false));
             document.body.dataset.hideTimer = hideTimer ? 'true' : 'false';
+            document.body.classList.toggle('hide-timer', hideTimer);
 
-            const hideVotes = params.has('hideVotes') || params.get('votes') === '0' || params.get('showVotes') === '0' || t.showVoteCounts === false;
+            const hideVotes = (params.has('votes') || params.has('showVotes'))
+                ? (params.get('votes') === '0' || params.get('showVotes') === '0' || params.get('votes') === 'false')
+                : (params.has('hideVotes') ? true : (t.showVoteCounts === false));
             document.body.dataset.hideVotes = hideVotes ? 'true' : 'false';
+            document.body.classList.toggle('hide-votes', hideVotes);
 
-            const hidePercentages = params.has('hidePercentages') || params.get('percentages') === '0' || params.get('stats') === '0' || t.showPercentages === false;
+            const hidePercentages = (params.has('percentages') || params.has('stats'))
+                ? (params.get('percentages') === '0' || params.get('stats') === '0' || params.get('percentages') === 'false')
+                : (params.has('hidePercentages') ? true : (t.showPercentages === false));
             document.body.dataset.hidePercentages = hidePercentages ? 'true' : 'false';
+            document.body.classList.toggle('hide-percentages', hidePercentages);
+            document.body.classList.toggle('hide-stats', hidePercentages);
 
-            const hideHint = params.has('hideHint') || params.get('hint') === '0' || params.get('chat') === '0' || t.showChatHint === false;
+            const hideHint = (params.has('hint') || params.has('chat'))
+                ? (params.get('hint') === '0' || params.get('chat') === '0' || params.get('hint') === 'false')
+                : (params.has('hideHint') ? true : (t.showChatHint === false));
             document.body.dataset.hideHint = hideHint ? 'true' : 'false';
+            document.body.classList.toggle('hide-hint', hideHint);
 
-            const hideFunFact = params.has('hideFunFact') || params.get('funfact') === '0' || params.get('showFunFact') === '0' || t.showFunFact === false;
+            const hideFunFact = (params.has('funfact') || params.has('showFunFact'))
+                ? (params.get('funfact') === '0' || params.get('showFunFact') === '0' || params.get('funfact') === 'false')
+                : (params.has('hideFunFact') ? true : (t.showFunFact === false));
             document.body.dataset.hideFunFact = hideFunFact ? 'true' : 'false';
+            document.body.classList.toggle('hide-funfact', hideFunFact);
 
-            const hideLetters = params.has('hideLetters') || params.get('letters') === '0' || t.showLetterBadges === false;
+            const hideLetters = params.has('letters')
+                ? (params.get('letters') === '0' || params.get('letters') === 'false')
+                : (params.has('hideLetters') ? true : (t.showLetterBadges === false));
             document.body.dataset.hideLetters = hideLetters ? 'true' : 'false';
+            document.body.classList.toggle('hide-letters', hideLetters);
 
-            const SAMPLE_QUESTION = {
-                id: 'sample-preview',
-                category: 'Retro Gaming',
-                question: 'Which legendary 1990 launch title introduced Yoshi to the gaming world?',
-                choices: [
-                    { letter: 'A', text: 'Super Mario Bros. 3', votes: 14, percent: 18 },
-                    { letter: 'B', text: 'Super Mario World', votes: 52, percent: 68 },
-                    { letter: 'C', text: 'Yoshi’s Island', votes: 7, percent: 9 },
-                    { letter: 'D', text: 'Super Mario Kart', votes: 4, percent: 5 }
-                ],
-                correctIndex: 1,
-                funfact: 'Super Mario World was created by a 16-person Nintendo team and took three years to develop.',
-                totalVotes: 77
-            };
+            const shouldCollapse = params.has('collapse')
+                ? (params.get('collapse') === '1' || params.get('collapse') === 'true')
+                : Boolean(document.body.dataset.collapse === 'true' || t.collapseIncorrect || activePreset === 'broadcast-text' || activePreset === 'nodecg' || activeStyle === 'text');
+            document.body.dataset.collapse = shouldCollapse ? 'true' : 'false';
+            document.body.classList.toggle('collapse-incorrect', shouldCollapse);
 
-            const sampleParam = params.get('sample') === '1';
-            const isSample = sampleParam || (previewParam && (!data.activeQuestion || data.status === 'idle'));
-            const q = isSample ? (data.activeQuestion || SAMPLE_QUESTION) : data.activeQuestion;
+            const sampleParam = params.get('sample') === '1' || params.get('sample') === 'true';
+            const isSample = sampleParam || (previewParam && (!data?.activeQuestion || data?.status === 'idle'));
+            const q = isSample ? (data?.activeQuestion || SAMPLE_QUESTION) : data?.activeQuestion;
 
             if (!q || (!isSample && data.status === 'idle')) {
                 if (!previewParam) {
@@ -1438,9 +1574,28 @@
 
             rootEl.classList.add('active');
 
-            // Category & Counter
+            // Category, Counter & Header Labels
+            const questionLabel = params.get('qlabel') || params.get('questionLabel') || t.questionLabel || 'Question';
+            const answerLabel = params.get('alabel') || params.get('answerLabel') || t.answerLabel || 'Answer';
+            const counterFormat = (params.get('cformat') || params.get('counterFormat') || t.counterFormat || 'full').toLowerCase();
+
             categoryTextEl.textContent = q?.category || 'General';
-            counterEl.textContent = isSample ? 'Question 1 of 5' : `Question ${(data.currentIndex ?? 0) + 1} of ${data.totalQuestions || 1}`;
+
+            const currentNum = isSample ? 1 : ((data.currentIndex ?? 0) + 1);
+            const totalNum = isSample ? 5 : (data.totalQuestions || 1);
+
+            let counterText = '';
+            if (counterFormat === 'compact') {
+                counterText = `${currentNum} of ${totalNum}`;
+            } else if (counterFormat === 'slash') {
+                counterText = `${currentNum} / ${totalNum}`;
+            } else if (counterFormat === 'number') {
+                counterText = `Q${currentNum}`;
+            } else {
+                // 'full'
+                counterText = `${questionLabel} ${currentNum} of ${totalNum}`;
+            }
+            counterEl.textContent = counterText;
 
             // Phase / Reveal state determined by displayMode parameter or live server state
             let isReveal = false;
@@ -1467,11 +1622,11 @@
             const shouldCollapse = Boolean(document.body.dataset.collapse === 'true' || t.collapseIncorrect || activePreset === 'broadcast-text' || activePreset === 'nodecg' || activeStyle === 'text' || params.get('collapse') === '1');
 
             if (isReveal) {
-                stateBadgeEl.textContent = 'Answer';
+                stateBadgeEl.textContent = answerLabel;
                 stateBadgeEl.className = 'state-indicator reveal';
                 stateBadgeEl.style.display = '';
             } else {
-                stateBadgeEl.textContent = 'Question';
+                stateBadgeEl.textContent = questionLabel;
                 stateBadgeEl.className = 'state-indicator question';
                 stateBadgeEl.style.display = '';
             }
@@ -1515,11 +1670,9 @@
                             <span class="choice-letter">${esc(letter)}</span>
                             <span class="choice-text">${esc(c.text)}</span>
                         </div>
-                        ${showVotesParam ? `
-                            <div class="choice-stats">
-                                <span class="vote-pill">${percent}%</span>
-                            </div>
-                        ` : ''}
+                        <div class="choice-stats">
+                            <span class="vote-pill">${percent}%</span>
+                        </div>
                     </div>
                 `;
             }).join('');
@@ -1617,25 +1770,11 @@
         // Preview Mode fallback if server is inactive
         if (previewParam) {
             render({
-                status: 'question',
+                status: displayMode === 'answer' ? 'reveal' : 'question',
                 currentIndex: 0,
                 totalQuestions: 5,
                 theme: { preset: themeParam },
-                activeQuestion: {
-                    category: 'Retro Gaming',
-                    question: 'In what year was the original Super Mario World released in Japan?',
-                    choices: [
-                        { index: 0, letter: 'A', text: '1988', votes: 2, percent: 10 },
-                        { index: 1, letter: 'B', text: '1990', votes: 14, percent: 70 },
-                        { index: 2, letter: 'C', text: '1991', votes: 3, percent: 15 },
-                        { index: 3, letter: 'D', text: '1992', votes: 1, percent: 5 }
-                    ],
-                    correctIndex: 1,
-                    funfact: 'Super Mario World was a launch title for the Super Famicom in Japan on November 21, 1990.',
-                    totalVotes: 20,
-                    startedAt: Date.now(),
-                    endsAt: Date.now() + 15000
-                }
+                activeQuestion: SAMPLE_QUESTION
             });
         }
 

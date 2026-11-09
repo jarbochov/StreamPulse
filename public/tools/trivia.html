@@ -109,11 +109,24 @@
             margin: 0 auto;
             width: 100%;
             flex: 1;
+            align-items: start;
+        }
+
+        .theming-preview-column {
+            position: sticky;
+            top: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            z-index: 10;
         }
 
         @media (max-width: 1100px) {
             .theming-layout {
                 grid-template-columns: 1fr;
+            }
+            .theming-preview-column {
+                position: static;
             }
         }
 
@@ -872,8 +885,8 @@
 
     <!-- Tab 2: Overlay Theming & Interactive Live Preview -->
     <div id="panel-theming" class="theming-layout" style="display: none;">
-        <!-- Left Column: Live Overlay Preview + OBS Browser Source Link -->
-        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <!-- Left Column: Live Overlay Preview + OBS Browser Source Link (Floating Sticky Preview) -->
+        <div class="theming-preview-column">
             <!-- Live Overlay Preview Panel -->
             <div class="panel">
                 <div class="panel-header">
@@ -1012,6 +1025,71 @@
                         <option value="cards">Cards &amp; Boxes (Glass Containers)</option>
                         <option value="text">Pure Floating Text (No Card Boxes)</option>
                     </select>
+                </div>
+
+                <!-- Section: Header Labels & Phase Titles -->
+                <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin: 0.85rem 0 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--border, rgba(255,255,255,0.08));">
+                    Header Labels &amp; Phase Titles
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <div class="form-row">
+                        <label>Question Phase Title</label>
+                        <input type="text" id="cfg-theme-question-label" class="form-control" value="Question" placeholder="e.g. Question, Round 1, Trivia">
+                    </div>
+                    <div class="form-row">
+                        <label>Answer Phase Title</label>
+                        <input type="text" id="cfg-theme-answer-label" class="form-control" value="Answer" placeholder="e.g. Answer, Solution, Reveal">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <div class="form-row">
+                        <label>Question Counter Format</label>
+                        <select id="cfg-theme-counter-format">
+                            <option value="full">Full (&quot;Question 1 of 5&quot;)</option>
+                            <option value="compact">Compact (&quot;1 of 5&quot;)</option>
+                            <option value="slash">Slash (&quot;1 / 5&quot;)</option>
+                            <option value="number">Number Only (&quot;Q1&quot;)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>Phase Text Casing</label>
+                        <select id="cfg-theme-phase-transform">
+                            <option value="uppercase">UPPERCASE (Standard)</option>
+                            <option value="capitalize">Capitalize (Title Case)</option>
+                            <option value="none">As Typed (None)</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <div class="form-row">
+                        <label>Header Font Size</label>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <select id="cfg-theme-header-size" style="flex: 1; min-width: 0;">
+                                <option value="">Default (0.95rem / ~15px)</option>
+                                <option value="0.75rem">XS Compact (0.75rem / 12px)</option>
+                                <option value="0.85rem">Small (0.85rem / 14px)</option>
+                                <option value="0.95rem">Standard (0.95rem / 15px)</option>
+                                <option value="1.1rem">Medium (1.10rem / 18px)</option>
+                                <option value="1.25rem">Large (1.25rem / 20px)</option>
+                                <option value="1.45rem">Extra Large (1.45rem / 23px)</option>
+                                <option value="1.75rem">Hero (1.75rem / 28px)</option>
+                                <option value="2.0rem">Jumbo (2.00rem / 32px)</option>
+                                <option value="2.35rem">Giant (2.35rem / 38px)</option>
+                                <option value="2.75rem">Massive (2.75rem / 44px)</option>
+                                <option value="3.25rem">Mega Esports (3.25rem / 52px)</option>
+                                <option value="3.75rem">Colossal (3.75rem / 60px)</option>
+                                <option value="4.5rem">Stadium (4.50rem / 72px)</option>
+                                <option value="custom">Custom…</option>
+                            </select>
+                            <input type="text" id="cfg-theme-header-size-custom" class="form-control" placeholder="Size" style="width: 72px; height: 32px; padding: 0.35rem 0.4rem; font-size: 11px; text-align: center; font-family: monospace;" title="Enter custom size (e.g. 2.5rem, 40px)">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label>Phase Title Font</label>
+                        <select id="cfg-theme-phase-font">
+                            <option value="">(Inherit Header Font)</option>
+                        </select>
+                    </div>
                 </div>
 
                 <!-- Section: Typography & Weights -->
@@ -1172,6 +1250,22 @@
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
                     <div class="form-row">
+                        <label>Question Title Color</label>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <input type="color" id="cfg-theme-phase-question-color" value="#38bdf8" style="width: 38px; height: 32px; padding: 2px; border: 1px solid var(--border, rgba(255,255,255,0.12)); border-radius: 6px; cursor: pointer; background: transparent; flex-shrink: 0;">
+                            <input type="text" id="cfg-theme-phase-question-color-hex" class="form-control" value="" style="font-family: monospace; font-size: 11px; text-transform: uppercase; height: 32px; padding: 0.35rem 0.5rem;" placeholder="(Accent)">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label>Answer Title Color</label>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <input type="color" id="cfg-theme-phase-answer-color" value="#22c55e" style="width: 38px; height: 32px; padding: 2px; border: 1px solid var(--border, rgba(255,255,255,0.12)); border-radius: 6px; cursor: pointer; background: transparent; flex-shrink: 0;">
+                            <input type="text" id="cfg-theme-phase-answer-color-hex" class="form-control" value="" style="font-family: monospace; font-size: 11px; text-transform: uppercase; height: 32px; padding: 0.35rem 0.5rem;" placeholder="(Correct)">
+                        </div>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <div class="form-row">
                         <label>Category Color</label>
                         <div style="display: flex; gap: 6px; align-items: center;">
                             <input type="color" id="cfg-theme-category-color" value="#a855f7" style="width: 38px; height: 32px; padding: 2px; border: 1px solid var(--border, rgba(255,255,255,0.12)); border-radius: 6px; cursor: pointer; background: transparent; flex-shrink: 0;">
@@ -1208,6 +1302,10 @@
                     <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">
                         Overlay Elements &amp; Visibility
                     </div>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cfg-elem-phase-indicator" checked>
+                        <span>Phase Header Title (Question / Answer)</span>
+                    </label>
                     <label class="checkbox-row">
                         <input type="checkbox" id="cfg-elem-category" checked>
                         <span>Category Badge</span>
@@ -1438,6 +1536,11 @@
         function setFieldColor(id, val, fallback) {
             const colorEl = document.getElementById(id);
             const hexEl = document.getElementById(id + '-hex');
+            if (!val && (id === 'cfg-theme-phase-question-color' || id === 'cfg-theme-phase-answer-color')) {
+                if (hexEl) hexEl.value = '';
+                if (colorEl) colorEl.value = toRgbHex(fallback || '#38bdf8');
+                return;
+            }
             const norm = normalizeColor(val) || normalizeColor(fallback) || '#000000';
             if (colorEl) {
                 colorEl.value = toRgbHex(norm);
@@ -1449,6 +1552,9 @@
 
         function getColorFieldValue(id, fallback = '') {
             const hexEl = document.getElementById(id + '-hex');
+            if (id === 'cfg-theme-phase-question-color' || id === 'cfg-theme-phase-answer-color') {
+                if (hexEl && !hexEl.value.trim()) return '';
+            }
             if (hexEl && hexEl.value.trim()) {
                 const norm = normalizeColor(hexEl.value.trim());
                 if (norm) return norm;
@@ -1457,6 +1563,36 @@
             const colorEl = document.getElementById(id);
             if (colorEl && colorEl.value) return colorEl.value;
             return fallback;
+        }
+
+        function getHeaderFontSizeValue() {
+            const sel = document.getElementById('cfg-theme-header-size');
+            const custom = document.getElementById('cfg-theme-header-size-custom');
+            if (!sel) return '';
+            if (sel.value === 'custom') {
+                return custom?.value.trim() || '';
+            }
+            return sel.value || custom?.value.trim() || '';
+        }
+
+        function setHeaderFontSizeValue(val) {
+            const sel = document.getElementById('cfg-theme-header-size');
+            const custom = document.getElementById('cfg-theme-header-size-custom');
+            if (!sel) return;
+            val = (val || '').trim();
+            if (!val) {
+                sel.value = '';
+                if (custom) custom.value = '';
+                return;
+            }
+            const exists = Array.from(sel.options).some(o => o.value === val && o.value !== 'custom');
+            if (exists) {
+                sel.value = val;
+                if (custom) custom.value = '';
+            } else {
+                sel.value = 'custom';
+                if (custom) custom.value = val;
+            }
         }
 
         function renderState() {
@@ -1598,6 +1734,13 @@
             document.getElementById('cfg-theme-scale').value = scale;
             document.getElementById('cfg-theme-scale-val').textContent = scale.toFixed(2) + '×';
 
+            if (document.getElementById('cfg-theme-question-label')) document.getElementById('cfg-theme-question-label').value = theme.questionLabel || 'Question';
+            if (document.getElementById('cfg-theme-answer-label')) document.getElementById('cfg-theme-answer-label').value = theme.answerLabel || 'Answer';
+            if (document.getElementById('cfg-theme-counter-format')) document.getElementById('cfg-theme-counter-format').value = theme.counterFormat || 'full';
+            if (document.getElementById('cfg-theme-phase-transform')) document.getElementById('cfg-theme-phase-transform').value = theme.phaseTransform || 'uppercase';
+            setHeaderFontSizeValue(theme.headerFontSize || '');
+            if (document.getElementById('cfg-theme-phase-font')) document.getElementById('cfg-theme-phase-font').value = theme.phaseFont || '';
+
             if (document.getElementById('cfg-theme-question-weight')) document.getElementById('cfg-theme-question-weight').value = theme.questionWeight || '';
             if (document.getElementById('cfg-theme-choice-weight')) document.getElementById('cfg-theme-choice-weight').value = theme.choiceWeight || '';
             if (document.getElementById('cfg-theme-header-weight')) document.getElementById('cfg-theme-header-weight').value = theme.headerWeight || '';
@@ -1617,6 +1760,8 @@
 
             setFieldColor('cfg-theme-accent-color', theme.accentColor, defTheme.accent || '#3b82f6');
             setFieldColor('cfg-theme-correct-color', theme.correctColor, defTheme.correct || '#22c55e');
+            setFieldColor('cfg-theme-phase-question-color', theme.phaseQuestionColor, defTheme.accent || '#3b82f6');
+            setFieldColor('cfg-theme-phase-answer-color', theme.phaseAnswerColor, defTheme.correct || '#22c55e');
             setFieldColor('cfg-theme-category-color', theme.categoryColor, defTheme.catColor || '#a855f7');
             setFieldColor('cfg-theme-hint-color', theme.hintColor, defTheme.hintColor || '#94a3b8');
             setFieldColor('cfg-theme-funfact-color', theme.funfactColor, defTheme.funfactColor || '#eab308');
@@ -1641,6 +1786,7 @@
             }
 
             // Element visibility toggles
+            if (document.getElementById('cfg-elem-phase-indicator')) document.getElementById('cfg-elem-phase-indicator').checked = theme.showPhaseIndicator !== false;
             document.getElementById('cfg-elem-category').checked = theme.showCategory !== false;
             document.getElementById('cfg-elem-question-number').checked = theme.showQuestionNumber !== false;
             document.getElementById('cfg-elem-timer').checked = theme.showTimer !== false;
@@ -1863,21 +2009,57 @@
             const ffWeight = document.getElementById('cfg-theme-funfact-weight')?.value;
             if (ffWeight) url += `&fweight=${ffWeight}`;
 
+            // Header Labels, Casing, Sizing & Phase Font
+            const qLabel = document.getElementById('cfg-theme-question-label')?.value.trim();
+            if (qLabel && qLabel !== 'Question') url += `&qlabel=${encodeURIComponent(qLabel)}`;
+            const aLabel = document.getElementById('cfg-theme-answer-label')?.value.trim();
+            if (aLabel && aLabel !== 'Answer') url += `&alabel=${encodeURIComponent(aLabel)}`;
+            const cFormat = document.getElementById('cfg-theme-counter-format')?.value;
+            if (cFormat && cFormat !== 'full') url += `&cformat=${cFormat}`;
+            const pTransform = document.getElementById('cfg-theme-phase-transform')?.value;
+            if (pTransform && pTransform !== 'uppercase') url += `&ptransform=${pTransform}`;
+            const hSize = getHeaderFontSizeValue();
+            if (hSize) url += `&hsize=${encodeURIComponent(hSize)}`;
+            const pFont = document.getElementById('cfg-theme-phase-font')?.value.trim();
+            if (pFont) url += `&pfont=${encodeURIComponent(pFont)}`;
+
+            // Phase Title Colors
+            const qPhaseColor = getColorFieldValue('cfg-theme-phase-question-color');
+            if (qPhaseColor) url += `&qcolor=${encodeURIComponent(qPhaseColor)}`;
+            const aPhaseColor = getColorFieldValue('cfg-theme-phase-answer-color');
+            if (aPhaseColor) url += `&acolor=${encodeURIComponent(aPhaseColor)}`;
+
             // Chat voting flag
             if (!document.getElementById('cfg-chat-voting')?.checked) {
                 url += '&voting=0';
             }
 
             // Element visibility toggles
-            if (!document.getElementById('cfg-elem-category')?.checked) url += '&category=0';
-            if (!document.getElementById('cfg-elem-question-number')?.checked) url += '&counter=0';
-            if (!document.getElementById('cfg-elem-timer')?.checked) url += '&timer=0';
-            if (!document.getElementById('cfg-elem-letter-badges')?.checked) url += '&letters=0';
-            if (!document.getElementById('cfg-elem-votes')?.checked) url += '&votes=0';
-            if (!document.getElementById('cfg-elem-percentages')?.checked) url += '&percentages=0';
-            if (!document.getElementById('cfg-elem-chat-hint')?.checked) url += '&hint=0';
-            if (!document.getElementById('cfg-elem-funfact')?.checked) url += '&funfact=0';
-            if (document.getElementById('cfg-theme-collapse-incorrect')?.checked) url += '&collapse=1';
+            const showPhase = document.getElementById('cfg-elem-phase-indicator')?.checked !== false;
+            const showCategory = document.getElementById('cfg-elem-category')?.checked !== false;
+            const showCounter = document.getElementById('cfg-elem-question-number')?.checked !== false;
+            const showTimer = document.getElementById('cfg-elem-timer')?.checked !== false;
+            const showLetters = document.getElementById('cfg-elem-letter-badges')?.checked !== false;
+            const showVotes = document.getElementById('cfg-elem-votes')?.checked !== false;
+            const showPercentages = document.getElementById('cfg-elem-percentages')?.checked !== false;
+            const showHint = document.getElementById('cfg-elem-chat-hint')?.checked !== false;
+            const showFunFact = document.getElementById('cfg-elem-funfact')?.checked !== false;
+            const collapseIncorrect = Boolean(document.getElementById('cfg-theme-collapse-incorrect')?.checked);
+
+            url += `&phase=${showPhase ? '1' : '0'}`;
+            url += `&category=${showCategory ? '1' : '0'}`;
+            url += `&counter=${showCounter ? '1' : '0'}`;
+            url += `&timer=${showTimer ? '1' : '0'}`;
+            url += `&letters=${showLetters ? '1' : '0'}`;
+            url += `&votes=${showVotes ? '1' : '0'}`;
+            url += `&percentages=${showPercentages ? '1' : '0'}`;
+            url += `&hint=${showHint ? '1' : '0'}`;
+            url += `&funfact=${showFunFact ? '1' : '0'}`;
+            if (collapseIncorrect) {
+                url += '&collapse=1';
+            } else {
+                url += '&collapse=0';
+            }
 
             const linkEl = document.getElementById('obs-url-link');
             const openEl = document.getElementById('btn-open-url');
@@ -1889,7 +2071,7 @@
                 openEl.href = url;
             }
 
-            // Build live preview URL
+            // Build live preview URL search query
             let previewUrl = url + '&preview=1';
             if (previewSample) {
                 previewUrl += '&sample=1';
@@ -1902,20 +2084,26 @@
                 }
             }
 
+            const previewQuery = previewUrl.includes('?') ? previewUrl.split('?')[1] : '';
             const iframe = document.getElementById('trivia-preview-iframe');
             if (iframe) {
-                clearTimeout(previewIframeDebounce);
-                previewIframeDebounce = setTimeout(() => {
-                    if (iframe.dataset.lastSrc !== previewUrl) {
-                        iframe.dataset.lastSrc = previewUrl;
-                        iframe.src = previewUrl;
-                    }
-                }, 80);
+                if (!iframe.src || iframe.src === 'about:blank') {
+                    iframe.src = previewUrl;
+                } else {
+                    try {
+                        iframe.contentWindow?.postMessage({
+                            type: 'trivia:preview-config',
+                            query: previewQuery
+                        }, '*');
+                    } catch {}
+                }
             }
         }
 
         const themeInputIds = [
             'obs-mode', 'obs-view', 'obs-theme', 'cfg-theme-preset', 'cfg-theme-card-style',
+            'cfg-theme-question-label', 'cfg-theme-answer-label', 'cfg-theme-counter-format', 'cfg-theme-phase-transform',
+            'cfg-theme-header-size', 'cfg-theme-header-size-custom', 'cfg-theme-phase-font',
             'cfg-theme-question-font', 'cfg-theme-question-weight',
             'cfg-theme-header-font', 'cfg-theme-header-weight',
             'cfg-theme-choice-font', 'cfg-theme-choice-weight',
@@ -1923,15 +2111,18 @@
             'cfg-theme-card-bg', 'cfg-theme-card-border',
             'cfg-theme-choice-bg', 'cfg-theme-choice-border',
             'cfg-theme-accent-color', 'cfg-theme-correct-color',
+            'cfg-theme-phase-question-color', 'cfg-theme-phase-answer-color',
             'cfg-theme-category-color', 'cfg-theme-hint-color', 'cfg-theme-funfact-color',
             'cfg-theme-collapse-incorrect',
             'cfg-chat-voting',
-            'cfg-elem-category', 'cfg-elem-question-number', 'cfg-elem-timer',
+            'cfg-elem-phase-indicator', 'cfg-elem-category', 'cfg-elem-question-number', 'cfg-elem-timer',
             'cfg-elem-letter-badges', 'cfg-elem-votes', 'cfg-elem-percentages',
             'cfg-elem-chat-hint', 'cfg-elem-funfact'
         ];
         themeInputIds.forEach(id => {
-            document.getElementById(id)?.addEventListener('change', (e) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const handler = (e) => {
                 if (id === 'cfg-theme-preset' || id === 'obs-theme') {
                     const val = e.target.value;
                     const cfgThemeEl = document.getElementById('cfg-theme-preset');
@@ -1965,16 +2156,29 @@
                         setFieldColor('cfg-theme-choice-border', def.choiceBorder || '#30363d', '#30363d');
                         setFieldColor('cfg-theme-accent-color', def.accent, '#3b82f6');
                         setFieldColor('cfg-theme-correct-color', def.correct, '#22c55e');
+                        setFieldColor('cfg-theme-phase-question-color', '', def.accent || '#3b82f6');
+                        setFieldColor('cfg-theme-phase-answer-color', '', def.correct || '#22c55e');
                         setFieldColor('cfg-theme-category-color', def.catColor, '#a855f7');
                         setFieldColor('cfg-theme-hint-color', def.hintColor, '#94a3b8');
                         setFieldColor('cfg-theme-funfact-color', def.funfactColor, '#eab308');
                     }
                 }
                 updateObsUrl();
-            });
+            };
+            el.addEventListener('input', handler);
+            el.addEventListener('change', handler);
         });
 
-        ['cfg-theme-question-font', 'cfg-theme-header-font', 'cfg-theme-choice-font', 'cfg-theme-funfact-font'].forEach(id => {
+        const previewIframe = document.getElementById('trivia-preview-iframe');
+        if (previewIframe) {
+            previewIframe.addEventListener('load', () => updateObsUrl());
+        }
+
+        ['cfg-theme-question-label', 'cfg-theme-answer-label'].forEach(id => {
+            document.getElementById(id)?.addEventListener('input', () => updateObsUrl());
+        });
+
+        ['cfg-theme-question-font', 'cfg-theme-header-font', 'cfg-theme-choice-font', 'cfg-theme-funfact-font', 'cfg-theme-phase-font'].forEach(id => {
             document.getElementById(id)?.addEventListener('change', (e) => {
                 const val = e.target.value;
                 if (val) window.loadUrlFont?.(val);
@@ -1993,6 +2197,36 @@
             });
         });
 
+        // Two-way synchronization between Header Font Size dropdown and custom CSS size text input
+        const hSizeSelect = document.getElementById('cfg-theme-header-size');
+        const hSizeCustom = document.getElementById('cfg-theme-header-size-custom');
+        if (hSizeSelect && hSizeCustom) {
+            hSizeSelect.addEventListener('change', () => {
+                if (hSizeSelect.value === 'custom') {
+                    hSizeCustom.focus();
+                } else {
+                    hSizeCustom.value = '';
+                }
+                updateObsUrl();
+            });
+            ['input', 'change'].forEach(evt => {
+                hSizeCustom.addEventListener(evt, () => {
+                    const customVal = hSizeCustom.value.trim();
+                    if (customVal) {
+                        const exists = Array.from(hSizeSelect.options).some(o => o.value === customVal && o.value !== 'custom');
+                        if (exists) {
+                            hSizeSelect.value = customVal;
+                        } else {
+                            hSizeSelect.value = 'custom';
+                        }
+                    } else if (hSizeSelect.value === 'custom') {
+                        hSizeSelect.value = '';
+                    }
+                    updateObsUrl();
+                });
+            });
+        }
+
         // Two-way synchronization between color pickers and hex text inputs (with #RRGGBBAA opacity support)
         const colorInputPairs = [
             'cfg-theme-card-bg',
@@ -2001,6 +2235,8 @@
             'cfg-theme-choice-border',
             'cfg-theme-accent-color',
             'cfg-theme-correct-color',
+            'cfg-theme-phase-question-color',
+            'cfg-theme-phase-answer-color',
             'cfg-theme-category-color',
             'cfg-theme-hint-color',
             'cfg-theme-funfact-color'
@@ -2117,6 +2353,7 @@
             const hSelect = document.getElementById('cfg-theme-header-font');
             const cSelect = document.getElementById('cfg-theme-choice-font');
             const fSelect = document.getElementById('cfg-theme-funfact-font');
+            const pSelect = document.getElementById('cfg-theme-phase-font');
             if (!qSelect || !hSelect || !cSelect) return;
 
             if (!cachedFontList) {
@@ -2150,8 +2387,8 @@
             const googleFonts = cachedFontList.filter(f => f.source === 'google' || !f.source);
             const systemFonts = cachedFontList.filter(f => f.source === 'system');
 
-            function buildOptions(currentVal) {
-                let html = '<option value="">(Theme Default)</option>';
+            function buildOptions(currentVal, defaultLabel = '(Theme Default)') {
+                let html = `<option value="">${defaultLabel}</option>`;
                 if (assetFonts.length) {
                     html += '<optgroup label="Custom Asset Fonts">';
                     assetFonts.forEach(f => {
@@ -2181,21 +2418,25 @@
             const hVal = theme.headerFont || hSelect.value || '';
             const cVal = theme.choiceFont || cSelect.value || '';
             const fVal = theme.funfactFont || fSelect?.value || '';
+            const pVal = theme.phaseFont || pSelect?.value || '';
 
             qSelect.innerHTML = buildOptions(qVal);
             hSelect.innerHTML = buildOptions(hVal);
             cSelect.innerHTML = buildOptions(cVal);
             if (fSelect) fSelect.innerHTML = buildOptions(fVal);
+            if (pSelect) pSelect.innerHTML = buildOptions(pVal, '(Inherit Header Font)');
 
             qSelect.value = qVal;
             hSelect.value = hVal;
             cSelect.value = cVal;
             if (fSelect) fSelect.value = fVal;
+            if (pSelect) pSelect.value = pVal;
 
             if (qVal) window.loadUrlFont?.(qVal);
             if (hVal) window.loadUrlFont?.(hVal);
             if (cVal) window.loadUrlFont?.(cVal);
             if (fVal) window.loadUrlFont?.(fVal);
+            if (pVal) window.loadUrlFont?.(pVal);
 
             updateObsUrl();
         }
@@ -2530,6 +2771,15 @@
                     hintColor: getColorFieldValue('cfg-theme-hint-color'),
                     funfactColor: getColorFieldValue('cfg-theme-funfact-color'),
                     collapseIncorrect: document.getElementById('cfg-theme-collapse-incorrect').checked,
+                    questionLabel: document.getElementById('cfg-theme-question-label').value.trim() || 'Question',
+                    answerLabel: document.getElementById('cfg-theme-answer-label').value.trim() || 'Answer',
+                    counterFormat: document.getElementById('cfg-theme-counter-format').value || 'full',
+                    phaseTransform: document.getElementById('cfg-theme-phase-transform').value || 'uppercase',
+                    headerFontSize: getHeaderFontSizeValue(),
+                    phaseFont: document.getElementById('cfg-theme-phase-font').value.trim(),
+                    phaseQuestionColor: getColorFieldValue('cfg-theme-phase-question-color'),
+                    phaseAnswerColor: getColorFieldValue('cfg-theme-phase-answer-color'),
+                    showPhaseIndicator: document.getElementById('cfg-elem-phase-indicator').checked,
                     showCategory: document.getElementById('cfg-elem-category').checked,
                     showQuestionNumber: document.getElementById('cfg-elem-question-number').checked,
                     showTimer: document.getElementById('cfg-elem-timer').checked,
