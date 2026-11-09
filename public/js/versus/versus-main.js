@@ -48,7 +48,7 @@ export function switchTab(tab) {
     if ($('panel-history')) $('panel-history').style.display = tab === 'history' ? 'block' : 'none';
 
     if (tab === 'overlays') {
-        const savedPreview = localStorage.getItem('versus-overlay-tab') || previewMode || 'matchup';
+        const savedPreview = localStorage.getItem('versus-overlay-tab') || State.previewMode || 'matchup';
         setPreviewMode(savedPreview);
         applyViewportScale();
     } else if (tab === 'presets') {
@@ -96,25 +96,26 @@ const versusApp = {
 window.versusApp = versusApp;
 Object.assign(window, versusApp);
 
-Object.defineProperty(window, 'matchupSourceMode', {
-    get() { return State.matchupSourceMode; },
-    set(val) { State.setMatchupSourceMode(val); },
-    configurable: true
-});
-Object.defineProperty(window, 'activeMatchupData', {
-    get() { return State.activeMatchupData; },
-    set(val) { State.setActiveMatchupData(val); },
-    configurable: true
-});
-Object.defineProperty(window, 'activeTourneyData', {
-    get() { return State.activeTourneyData; },
-    set(val) { State.setActiveTourneyData(val); },
-    configurable: true
-});
-Object.defineProperty(window, 'tourneyStudioViewMode', {
-    get() { return State.tourneyStudioViewMode; },
-    set(val) { State.setTourneyStudioViewModeState(val); },
-    configurable: true
+const dynamicVars = [
+    ['matchupSourceMode', State.setMatchupSourceMode],
+    ['activeMatchupData', State.setActiveMatchupData],
+    ['activeTourneyData', State.setActiveTourneyData],
+    ['tourneyStudioViewMode', State.setTourneyStudioViewModeState],
+    ['previewMode', State.setPreviewModeState],
+    ['previewBackdrop', State.setPreviewBackdropState],
+    ['previewUseSample', State.setPreviewUseSampleState],
+    ['tourneyFitWholeBracket', State.setTourneyFitWholeBracketState],
+    ['currentViewportW', State.setCurrentViewportW],
+    ['currentViewportH', State.setCurrentViewportH],
+    ['activeTab', State.setActiveTab]
+];
+
+dynamicVars.forEach(([prop, setter]) => {
+    Object.defineProperty(window, prop, {
+        get() { return State[prop]; },
+        set(val) { setter(val); },
+        configurable: true
+    });
 });
 
 // Initialize window resize listener for live viewport scaling
@@ -129,7 +130,7 @@ function init() {
     populateFontDatalist();
     populateThemeDropdowns();
     restoreVersusOverlayPrefs();
-    setPreviewMode(previewMode);
+    setPreviewMode(State.previewMode);
 
     try {
         const savedMatchupSubtab = localStorage.getItem('sp-versus-matchup-subtab') || 'layout';
