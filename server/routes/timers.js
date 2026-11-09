@@ -73,12 +73,17 @@ function createTimersRoutes({ timerService }) {
                     return true;
                 }
 
-                if (segments[1] === 'control' && (req.method === 'POST' || req.method === 'GET')) {
+                const TIMER_ACTIONS = ['control', 'start', 'pause', 'resume', 'toggle', 'play_pause', 'reset', 'add_time', 'subtract_time', 'visibility', 'set_time'];
+                if (TIMER_ACTIONS.includes(segments[1]) && (req.method === 'POST' || req.method === 'GET')) {
                     const body = req.method === 'POST' ? await readRequestBody(req) : '';
                     let payload = {};
-                    if (body) payload = JSON.parse(body);
+                    if (body) {
+                        try { payload = JSON.parse(body); } catch (_) {}
+                    }
                     const urlObj = new URL(req.url, `http://${req.headers.host}`);
-                    const action = String(payload.action || urlObj.searchParams.get('action') || '').trim().toLowerCase();
+                    const action = segments[1] === 'control'
+                        ? String(payload.action || urlObj.searchParams.get('action') || '').trim().toLowerCase()
+                        : segments[1];
                     const timer = timerService.getTimerOrThrow(timerId);
                     const snapshot = timerService.applyTimerControl(timer, action, {
                         ...payload,

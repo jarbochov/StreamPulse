@@ -20,6 +20,9 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - **Alerts Studio & Custom Overlay Editor**: Streamlined variant ladder and milestone tiers with drag-and-drop rule reordering, JSON import/export, and native-volume previews; reorganized the Custom Overlay element picker, Pages tabs, Alert Box inspector, and moved procedural pattern styling, blend type, and line width slider controls into the Style tab while excluding inconsistent raster filters.
 - **OBS Scene Sync & Server Architecture**: Independent OBS Scene Sync module toggle (decoupled from speaker audio meters) and extracted server domain services (`server/services/*`) and pattern inspector modules (`editor-patterns.js`).
 
+### Fixed
+- **Categories & Timers**: Prevented `nullm` duration formatting on invalid or corrupted session timestamps in the Categories library, added 1-click quick-adjust duration chips and direct Companion play/pause toggle routes for Timers, and replaced hourglass emoji fallbacks with standard text.
+
 ---
 
 ## [0.14.0] - 2026-11-01

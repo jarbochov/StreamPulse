@@ -385,14 +385,20 @@ function createGamePlanRoutes({
                     if (to && sessDate > to) continue;
 
                     const info = sess.streamInfo;
-                    const sessionEnd = sess.endedAt ? new Date(sess.endedAt) : new Date();
+                    const sessionEndMs = sess.endedAt ? Date.parse(sess.endedAt) : Date.now();
 
                     for (let i = 0; i < info.length; i++) {
                         const entry = info[i];
                         const cat = entry.category || '(No Category)';
-                        const start = new Date(entry.changedAt);
-                        const end = i + 1 < info.length ? new Date(info[i + 1].changedAt) : sessionEnd;
-                        const minutes = Math.max(0, (end - start) / 60000);
+                        const startMs = Date.parse(entry.changedAt || '');
+                        let endMs = i + 1 < info.length ? Date.parse(info[i + 1]?.changedAt || '') : sessionEndMs;
+                        const closedAt = Date.parse(entry.endedAt || '');
+                        if (Number.isFinite(closedAt) && closedAt < endMs) endMs = closedAt;
+
+                        const rawMinutes = (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs)
+                            ? (endMs - startMs) / 60000
+                            : 0;
+                        const minutes = Math.max(0, Math.round(rawMinutes));
 
                         if (!categories[cat]) categories[cat] = { totalMinutes: 0, sessions: [] };
                         categories[cat].totalMinutes += minutes;
@@ -401,7 +407,7 @@ function createGamePlanRoutes({
                             file: sess.file,
                             changedAt: entry.changedAt,
                             title: entry.title,
-                            minutes: Math.round(minutes)
+                            minutes
                         });
                     }
                 }

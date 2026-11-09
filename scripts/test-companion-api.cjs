@@ -13,6 +13,8 @@ const { createOverlayRoutes } = require('../server/routes/overlays');
 const { createSystemRoutes } = require('../server/routes/system');
 const { createGamePlanRoutes } = require('../server/routes/game-plan');
 const { createGamePlanService } = require('../server/services/game-plan');
+const { createTimerService } = require('../server/services/timers');
+const { createTimersRoutes } = require('../server/routes/timers');
 
 function createMockRequestResponse({ method = 'GET', url = '/', headers = {}, body = null }) {
     const req = new Readable({
@@ -245,6 +247,14 @@ test('Companion & API Integration: HTTP GET/POST triggers and status snapshot', 
         getExternalData: () => ({ 'x.big': Array.from({ length: 80 }, (_, i) => i), 'x.long': 'a'.repeat(900), 'x.total': { amount: 5 } })
     });
 
+    const timerService = createTimerService({
+        dataDir: testDir,
+        safeWriteFileSync: (p, d) => fs.writeFileSync(p, d),
+        broadcastToOverlays: () => {}
+    });
+
+    const timersRoutes = createTimersRoutes({ timerService });
+
     const request = async (urlStr, options = {}) => {
         const method = options.method || 'GET';
         const body = options.body || null;
@@ -256,6 +266,7 @@ test('Companion & API Integration: HTTP GET/POST triggers and status snapshot', 
         let handled = await twitchRoutes(req, res, urlObj, pathname);
         if (!handled) handled = await overlayRoutes(req, res, urlObj, pathname);
         if (!handled) handled = await gamePlanRoutes(req, res, pathname, urlObj);
+        if (!handled) handled = await timersRoutes(req, res, pathname);
         if (!handled) handled = await systemRoutes(req, res, urlObj, pathname);
 
         if (!handled) {
@@ -510,5 +521,56 @@ test('Companion & API Integration: HTTP GET/POST triggers and status snapshot', 
         const triviaVotes = await request('/api/status/field/trivia_votes');
         assert.equal(triviaVotes.status, 200);
         assert.equal(triviaVotes.text, '18');
+    });
+
+    await t.test('Timers companion REST actions, toggle, and plain-text fields', async () => {
+        // Create a countdown timer
+        const createRes = await request('/api/timers', {
+            method: 'POST',
+            body: {
+                id: 'stream-countdown',
+                label: 'Stream Starting',
+                kind: 'countdown',
+                mode: 'duration',
+                minutes: 10
+            }
+        });
+        assert.equal(createRes.status, 200);
+        assert.equal(createRes.json.ok, true);
+        assert.equal(createRes.json.timer.endMessage, "Time's Up!");
+
+        // Start timer via direct REST action
+        const startRes = await request('/api/timers/stream-countdown/start');
+        assert.equal(startRes.status, 200);
+        assert.equal(startRes.json.timer.state, 'running');
+
+        // Toggle (should pause since running)
+        const toggleRes = await request('/api/timers/stream-countdown/toggle');
+        assert.equal(toggleRes.status, 200);
+        assert.equal(toggleRes.json.timer.state, 'paused');
+
+        // Toggle again (should resume)
+        const toggle2Res = await request('/api/timers/stream-countdown/toggle');
+        assert.equal(toggle2Res.status, 200);
+        assert.equal(toggle2Res.json.timer.state, 'running');
+
+        // Add 5 minutes via query param
+        const addRes = await request('/api/timers/stream-countdown/add_time?minutes=5');
+        assert.equal(addRes.status, 200);
+        assert.ok(addRes.json.timer.remainingMs > 600000);
+
+        // Reset timer
+        const resetRes = await request('/api/timers/stream-countdown/reset');
+        assert.equal(resetRes.status, 200);
+        assert.equal(resetRes.json.timer.state, 'idle');
+
+        // Plain text field lookups for Companion buttons
+        const stateField = await request('/api/timers/stream-countdown/field/state');
+        assert.equal(stateField.status, 200);
+        assert.equal(stateField.text, 'idle');
+
+        const labelField = await request('/api/timers/stream-countdown/field/label');
+        assert.equal(labelField.status, 200);
+        assert.equal(labelField.text, 'Stream Starting');
     });
 });

@@ -130,7 +130,7 @@ function buildTimerSnapshot(timer, now = Date.now()) {
             timezone: timer.timezone || '',
             progress: timer.progress !== false,
             showOnEnd: timer.showOnEnd || 'message',
-            endMessage: timer.endMessage || '⌛️',
+            endMessage: timer.endMessage || "Time's Up!",
             soundUrl: normalizeSoundUrl(timer.soundUrl),
             durationMs: Math.max(0, timer.durationMs || 0),
             targetAt: timer.targetAt || null,
@@ -196,7 +196,7 @@ function buildTimerRecord(input) {
             startAt,
             timezone: String(input.timezone || '').trim(),
             progress: input.progress !== false,
-            endMessage: String(input.endMessage || '⌛️').slice(0, 120),
+            endMessage: String(input.endMessage || "Time's Up!").slice(0, 120),
             soundUrl: normalizeSoundUrl(input.soundUrl),
             showOnEnd: ['message', 'zero', 'none'].includes(input.showOnEnd) ? input.showOnEnd : 'message',
             remainingMs: initialRemainingMs,
@@ -398,7 +398,7 @@ function createTimerService({
                     timer.startAt = rawTimer.startAt || null;
                     timer.timezone = String(rawTimer.timezone || '');
                     timer.progress = rawTimer.progress !== false;
-                    timer.endMessage = String(rawTimer.endMessage || '⌛️');
+                    timer.endMessage = String(rawTimer.endMessage || "Time's Up!");
                     timer.soundUrl = normalizeSoundUrl(rawTimer.soundUrl);
                     timer.showOnEnd = ['message', 'zero', 'none'].includes(rawTimer.showOnEnd) ? rawTimer.showOnEnd : 'message';
                     timer.remainingMs = Math.max(0, Number(rawTimer.remainingMs) || 0);
@@ -490,6 +490,24 @@ function createTimerService({
                 const resumed = resumeCountdownTimer(timer, now);
                 if (resumed) eventType.value = 'countdown_started';
                 else eventType.value = 'countdown_complete';
+            } else if (action === 'toggle' || action === 'play_pause') {
+                if (timer.state === 'running') {
+                    pauseCountdownTimer(timer, now);
+                } else if (timer.state === 'paused') {
+                    const resumed = resumeCountdownTimer(timer, now);
+                    if (resumed) eventType.value = 'countdown_started';
+                    else eventType.value = 'countdown_complete';
+                } else {
+                    const remainingMs = timer.mode === 'date'
+                        ? Math.max(0, Date.parse(timer.targetAt || '') - now)
+                        : Math.max(0, timer.durationMs || 0);
+                    timer.state = remainingMs > 0 ? 'running' : 'completed';
+                    timer.startedAt = remainingMs > 0 ? now : null;
+                    timer.remainingMs = remainingMs;
+                    timer.startingRemainingMs = remainingMs;
+                    timer.completedAt = remainingMs > 0 ? null : new Date().toISOString();
+                    eventType.value = remainingMs > 0 ? 'countdown_started' : 'countdown_complete';
+                }
             } else if (action === 'reset') {
                 timer.state = 'idle';
                 timer.startedAt = null;
@@ -531,6 +549,19 @@ function createTimerService({
                 timer.startedAt = now;
                 timer.state = 'running';
                 eventType.value = 'stopwatch_started';
+            } else if (action === 'toggle' || action === 'play_pause') {
+                if (timer.state === 'running') {
+                    timer.accumulatedMs = computeStopwatchElapsed(timer, now);
+                    timer.startedAt = null;
+                    timer.state = 'paused';
+                    eventType.value = 'stopwatch_paused';
+                } else {
+                    timer.startedAt = now;
+                    timer.state = 'running';
+                    timer.accumulatedMs = Math.max(0, timer.accumulatedMs ?? timer.initialMs ?? 0);
+                    timer.completedAt = null;
+                    eventType.value = 'stopwatch_started';
+                }
             } else if (action === 'reset') {
                 timer.accumulatedMs = Math.max(0, timer.initialMs || 0);
                 timer.startedAt = null;

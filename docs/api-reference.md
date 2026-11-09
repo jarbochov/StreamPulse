@@ -478,7 +478,7 @@ Synchronized multi-runner clocks for speedrun races with individual splits and d
 - **Endpoint**: `POST /api/timers/:id/control`
 - **Body**: `{ "action": "add_time", "seconds": 60 }` or `{ "action": "subtract_time", "seconds": 60 }`.
 
-Control also accepts `GET /api/timers/:id/control?action=toggle`. Read an individual timer with `GET /api/timers/:id`.
+Control also accepts direct REST triggers like `POST`/`GET /api/timers/:id/toggle`, `POST`/`GET /api/timers/:id/start`, `POST`/`GET /api/timers/:id/pause`, `POST`/`GET /api/timers/:id/reset`, `GET /api/timers/:id/add_time?minutes=5`, and `GET /api/timers/:id/control?action=toggle`. Read an individual timer with `GET /api/timers/:id`. Plain-text fields for Companion button displays are available at `GET /api/timers/:id/field/:field` (e.g. `remaining`, `elapsed`, `state`, `label`, `progress`).
 
 ---
 

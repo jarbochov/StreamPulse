@@ -168,6 +168,17 @@
                         <button class="btn" data-adjust="add_time">+ Add</button>
                         <button class="btn warn" data-adjust="subtract_time">− Subtract</button>
                     </div>
+                    <div class="cfg-row" style="margin-top:-0.2rem;margin-bottom:0.8rem;">
+                        <label style="font-size:0.75rem;opacity:0.8;">Quick adjust</label>
+                        <div class="actions" style="gap:0.35rem;">
+                            <button type="button" class="btn sm" data-quick-adjust="30" data-adjust-unit="seconds" title="Add 30 seconds">+30s</button>
+                            <button type="button" class="btn sm" data-quick-adjust="1" data-adjust-unit="minutes" title="Add 1 minute">+1m</button>
+                            <button type="button" class="btn sm" data-quick-adjust="5" data-adjust-unit="minutes" title="Add 5 minutes">+5m</button>
+                            <button type="button" class="btn sm" data-quick-adjust="10" data-adjust-unit="minutes" title="Add 10 minutes">+10m</button>
+                            <button type="button" class="btn sm warn" data-quick-adjust="-1" data-adjust-unit="minutes" title="Subtract 1 minute">−1m</button>
+                            <button type="button" class="btn sm warn" data-quick-adjust="-5" data-adjust-unit="minutes" title="Subtract 5 minutes">−5m</button>
+                        </div>
+                    </div>
                     <div class="cfg-row" id="set-stopwatch-row">
                         <label>Stopwatch base</label>
                         <div class="inline-grid">
@@ -689,6 +700,16 @@
         }
     }
 
+    async function quickAdjust(amount, unit) {
+        if (!selectedId) return toast('Select a saved timer first', 'error');
+        const isNegative = amount < 0;
+        const action = isNegative ? 'subtract_time' : 'add_time';
+        const payload = { [unit]: Math.abs(amount) };
+        if (await control(selectedId, action, '', payload)) {
+            toast(`${isNegative ? 'Subtracted' : 'Added'} ${Math.abs(amount)} ${unit === 'seconds' ? 'sec' : 'min'}`);
+        }
+    }
+
     function loadSettingsForm() {
         $('sound-enabled').checked = !!timerSettings.sound_enabled;
         $('sound-volume').value = timerSettings.sound_volume ?? 0.35;
@@ -802,7 +823,8 @@
         if (target.dataset.select) { await selectTimer(target.dataset.select); return; }
         if (target.dataset.new) { if (await confirmDiscard()) { seedNewTimer(target.dataset.new); } return; }
         if (target.dataset.control) { control(selectedId, target.dataset.control, target.dataset.value || ''); return; }
-        if (target.dataset.adjust) { adjustTime(target.dataset.adjust); }
+        if (target.dataset.adjust) { adjustTime(target.dataset.adjust); return; }
+        if (target.dataset.quickAdjust) { quickAdjust(parseInt(target.dataset.quickAdjust, 10), target.dataset.adjustUnit || 'minutes'); return; }
     });
     $('save-timer').addEventListener('click', saveTimer);
     $('delete-timer').addEventListener('click', deleteTimer);

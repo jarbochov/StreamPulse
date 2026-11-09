@@ -130,9 +130,10 @@
     }
 
     function formatDuration(minutes) {
-        if (minutes < 60) return `${minutes}m`;
-        const h = Math.floor(minutes / 60);
-        const m = minutes % 60;
+        const total = Math.max(0, Math.round(Number(minutes) || 0));
+        if (total < 60) return `${total}m`;
+        const h = Math.floor(total / 60);
+        const m = total % 60;
         return m > 0 ? `${h}h ${m}m` : `${h}h`;
     }
 
@@ -188,7 +189,7 @@
 
     function render(data) {
         // Summary
-        const totalMinutes = data.reduce((s, c) => s + c.totalMinutes, 0);
+        const totalMinutes = data.reduce((s, c) => s + (Number(c.totalMinutes) || 0), 0);
         const totalCategories = data.length;
         const totalSessions = new Set(data.flatMap(c => c.sessions.map(s => s.date))).size;
 
@@ -208,22 +209,24 @@
         }
 
         chartEl.style.display = 'block';
-        const byTime = [...data].sort((x, y) => y.totalMinutes - x.totalMinutes);
-        const maxMin = byTime[0].totalMinutes || 1;
+        const byTime = [...data].sort((x, y) => (Number(y.totalMinutes) || 0) - (Number(x.totalMinutes) || 0));
+        const maxMin = Math.max(1, Number(byTime[0]?.totalMinutes) || 1);
         document.getElementById('chart').innerHTML = byTime.slice(0, 10).map((c, i) => {
-            const pct = (c.totalMinutes / maxMin * 100).toFixed(1);
+            const mins = Math.max(0, Number(c.totalMinutes) || 0);
+            const pct = (mins / maxMin * 100).toFixed(1);
             const color = COLORS[i % COLORS.length];
             return `<div class="chart-row">
                 <span class="chart-label" title="${escapeHtml(c.name)}">${coverHtml(c, 'mini')}<span style="overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.name)}</span></span>
-                <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${pct}%;background:${color}">${pct > 15 ? formatDuration(c.totalMinutes) : ''}</div></div>
-                <span class="chart-value">${formatDuration(c.totalMinutes)}</span>
+                <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${pct}%;background:${color}">${pct > 15 ? formatDuration(mins) : ''}</div></div>
+                <span class="chart-value">${formatDuration(mins)}</span>
             </div>`;
         }).join('');
 
         // Category cards
         document.getElementById('category-list').innerHTML = data.map((c, i) => {
-            const pct = totalMinutes > 0 ? (c.totalMinutes / totalMinutes * 100).toFixed(1) : 0;
-            const barPct = (c.totalMinutes / maxMin * 100).toFixed(1);
+            const mins = Math.max(0, Number(c.totalMinutes) || 0);
+            const pct = totalMinutes > 0 ? (mins / totalMinutes * 100).toFixed(1) : 0;
+            const barPct = (mins / maxMin * 100).toFixed(1);
             const color = COLORS[i % COLORS.length];
             const sessionRows = c.sessions
                 .sort((a, b) => b.date.localeCompare(a.date))
