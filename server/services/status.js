@@ -31,6 +31,7 @@ function createStatusService({
     getObsService = () => null,
     getTierListService = () => null,
     getTriviaService = () => null,
+    getSubathonService = () => null,
     getWsService = () => null,
     getSessionService = () => null,
     getProcessStartedAt = () => new Date().toISOString(),
@@ -204,6 +205,7 @@ function createStatusService({
                 polls: config.polls_enabled !== false,
                 versus: config.versus_enabled !== false,
                 trivia: config.trivia_enabled === true,
+                subathon: config.subathon_enabled === true,
                 obs: Boolean(config.obs?.enabled)
             },
             obs: obsService ? obsService.getStatus() : { connected: false },
@@ -214,6 +216,14 @@ function createStatusService({
                 activeVote: tierListService.getState().activeVote
             } : {},
             trivia: triviaService ? triviaService.getStatusSummary() : { status: 'idle', totalQuestions: 0 },
+            subathon: getSubathonService && getSubathonService() && getSubathonService().isModuleEnabled() ? {
+                enabled: getSubathonService().isSubathonActive(),
+                targetTimerId: getSubathonService().getConfigSnapshot().targetTimerId,
+                multiplier: getSubathonService().getRuleSummary().multiplier,
+                happyHour: getSubathonService().getRuleSummary().happyHourActive,
+                totalAddedSeconds: getSubathonService().getStateSnapshot().totalTimeAddedSeconds,
+                rulesSummary: getSubathonService().getRuleSummary().summary
+            } : null,
             overlayClients: wsService ? wsService.getSourceCount() : 0,
             websocketClients: wsService ? wsService.getClientCount() : 0,
             sessionActive: isSessionActive(),

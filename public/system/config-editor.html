@@ -447,6 +447,26 @@
                     </div>
                 </div>
 
+                <!-- Subathon Automation Card -->
+                <div class="module-card">
+                    <div class="module-card-head">
+                        <div class="module-card-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                            <span>Subathon Automation</span>
+                        </div>
+                        <span class="module-badge" id="badge-subathon">Disabled</span>
+                    </div>
+                    <p class="hint">Automate marathon countdown additions from Twitch subscriptions, cheer bits, tips, follows, raids, and channel point rewards with safety caps and live rules overlays.</p>
+                    <div class="cfg-toggle" style="margin-top:auto;">
+                        <input type="checkbox" id="cfg-subathon-enabled">
+                        <label for="cfg-subathon-enabled">Enable Subathon module</label>
+                    </div>
+                    <div style="margin-top:0.5rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
+                        <a class="btn" href="/editors/timers-editor.html" style="text-decoration:none;">Open Timer Manager →</a>
+                        <a class="btn" href="/overlays/subathon-rules.html?preview=true" target="_blank" style="text-decoration:none;">Rules Overlay ↗</a>
+                    </div>
+                </div>
+
                 <!-- OBS Scene Sync Card -->
                 <div class="module-card">
                     <div class="module-card-head">
@@ -813,6 +833,7 @@
         updateBadge('badge-polls', document.getElementById('cfg-polls-enabled')?.checked);
         updateBadge('badge-versus', document.getElementById('cfg-versus-enabled')?.checked);
         updateBadge('badge-trivia', document.getElementById('cfg-trivia-enabled')?.checked);
+        updateBadge('badge-subathon', document.getElementById('cfg-subathon-enabled')?.checked);
         updateBadge('badge-obs', document.getElementById('cfg-obs-enabled')?.checked);
         updateBadge('badge-obs-scene-sync', document.getElementById('cfg-obs-scene-sync-enabled')?.checked);
         document.getElementById('obs-scene-sync-options').hidden = !document.getElementById('cfg-obs-scene-sync-enabled').checked;
@@ -873,6 +894,7 @@
             document.getElementById('cfg-polls-enabled').checked = cfg.polls_enabled !== false;
             document.getElementById('cfg-versus-enabled').checked = cfg.versus_enabled !== false;
             document.getElementById('cfg-trivia-enabled').checked = Boolean(cfg.trivia_enabled);
+            document.getElementById('cfg-subathon-enabled').checked = Boolean(cfg.subathon_enabled);
 
             const obs = cfg.obs || {};
             document.getElementById('cfg-obs-enabled').checked = Boolean(obs.enabled);
@@ -946,6 +968,7 @@
             polls_enabled: document.getElementById('cfg-polls-enabled').checked,
             versus_enabled: document.getElementById('cfg-versus-enabled').checked,
             trivia_enabled: document.getElementById('cfg-trivia-enabled').checked,
+            subathon_enabled: document.getElementById('cfg-subathon-enabled').checked,
             music: {
                 ...(loadedConfig?.music || {}),
                 enabled: document.getElementById('cfg-music-enabled').checked,
@@ -1039,7 +1062,7 @@
     document.getElementById('ssn-session-toggle').addEventListener('click', toggleSsnSession);
 
     // Module toggles update badges live
-    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-trivia-enabled', 'cfg-obs-enabled', 'cfg-obs-scene-sync-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
+    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-trivia-enabled', 'cfg-subathon-enabled', 'cfg-obs-enabled', 'cfg-obs-scene-sync-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', updateModuleBadges);
     });
 

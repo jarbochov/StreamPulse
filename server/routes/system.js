@@ -113,12 +113,12 @@ function createSystemRoutes({
                     setInterval_('twitch_refresh_minutes', 1, 1440, 10);
                     setInterval_('twitch_stream_info_seconds', 10, 3600, 30);
 
-                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'twitch_ban_sync', 'message_deletion_sync', 'hashtags_enabled', 'hashtag_max_length', 'chat_log_enabled', 'chatbot_enabled', 'speaker_badges_enabled', 'obs_scene_sync_enabled', 'polls_enabled', 'versus_enabled', 'trivia_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals', 'clip_candidates', 'session_lifecycle', 'obs'];
+                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'twitch_ban_sync', 'message_deletion_sync', 'hashtags_enabled', 'hashtag_max_length', 'chat_log_enabled', 'chatbot_enabled', 'subathon_enabled', 'speaker_badges_enabled', 'obs_scene_sync_enabled', 'polls_enabled', 'versus_enabled', 'trivia_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals', 'clip_candidates', 'session_lifecycle', 'obs'];
                     for (const key of safeFields) {
                         if (updates[key] !== undefined) {
                             if (key === 'twitch_ban_sync' || key === 'message_deletion_sync') {
                                 current[key] = { enabled: key === 'twitch_ban_sync' ? updates[key]?.enabled === true : updates[key]?.enabled !== false };
-                            } else if (key === 'speaker_badges_enabled' || key === 'obs_scene_sync_enabled' || key === 'trivia_enabled') {
+                            } else if (key === 'speaker_badges_enabled' || key === 'obs_scene_sync_enabled' || key === 'trivia_enabled' || key === 'subathon_enabled') {
                                 current[key] = updates[key] === true;
                             } else if (key === 'hashtag_max_length') {
                                 current[key] = Math.max(10, Math.min(100, Math.round(Number(updates[key])) || 50));
@@ -170,6 +170,7 @@ function createSystemRoutes({
                     hashtags_enabled: config.hashtags_enabled !== false,
                     hashtag_max_length: Number(config.hashtag_max_length) || 50,
                     chatbot_enabled: config.chatbot_enabled !== false,
+                    subathon_enabled: config.subathon_enabled === true,
                     polls_enabled: config.polls_enabled !== false,
                     versus_enabled: config.versus_enabled !== false,
                     trivia_enabled: config.trivia_enabled === true,

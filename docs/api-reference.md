@@ -793,3 +793,43 @@ With `STREAMPULSE_EMBEDDED=true`, `require('streampulse/server.js')` exports `st
 ### Embedded Host Integration
 
 Embedded host bundles share external variables as `{{rep.<bundle>.<name>.<path>}}` placeholders, forward external donations through `ingestEvent` with `source: 'tiltify'` and register external host sources. Chat bot `{total}`/`{goal}` can then use `rep.tiltify.total` and `rep.tiltify.campaignGoal`, and commands can show `{{rep.tiltify.total|money}}`.
+
+---
+
+## 12. Subathon Automation Engine
+
+StreamPulse features a fully automated, modular Subathon Engine that dynamically adds time to designated countdown timers whenever Twitch or external events occur. When disabled in System Config (`subathon_enabled: false`), the engine is inactive and imposes zero performance footprint.
+
+### Configuration & State
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/api/subathon` | `GET` | Return full subathon state (`config`, `stats`, `multiplier`, `auditLog`, `ruleSummary`, `targetTimer`) |
+| `/api/subathon` | `PUT` | Update subathon configuration and rules (deep-merged with existing settings) |
+| `/api/subathon/toggle` | `POST` / `GET` | Toggle active subathon state on/off (`?enabled=1` or `0`, or without params to invert) |
+| `/api/subathon/multiplier` | `POST` / `GET` | Set or clear Happy Hour multiplier (`?factor=2&durationMinutes=30` or `?clear=1`) |
+| `/api/subathon/undo` | `POST` / `GET` | Undo the last applied event and subtract its added time from the countdown timer |
+| `/api/subathon/test` | `POST` | Simulate a subathon event (`event`, `tier`, `count`, `bits`, `amount`, `viewers`, `points`) |
+| `/api/subathon/rules` | `GET` | Return human-readable rule summary string and structured rule parts |
+| `/api/subathon/field/:field` | `GET` | Plain-text endpoint for Bitfocus Companion polling |
+
+### Plain-Text Companion Fields (`/api/subathon/field/:field`)
+- `enabled`: `true` or `false`
+- `targetTimerId`: Target timer ID
+- `targetTimerTitle`: Target timer display title
+- `multiplier`: Current active multiplier (e.g. `1` or `2`)
+- `isHappyHour`: `true` when multiplier > 1
+- `totalSecondsAdded`: Total seconds added during this session
+- `totalAddedFormatted`: Human-readable total added (e.g. `2h 15m 00s`)
+- `totalEvents`: Total number of processed subathon events
+- `ruleSummary`: Formatted string of active rules (e.g. `Tier 1: +2m | 100 Bits: +30s | $1: +1m`)
+- `maxCapReached`: `true` if current timer remaining seconds have hit the hard safety ceiling
+
+### Dynamic Rules Overlay (`/overlays/subathon-rules.html`)
+A standalone 60fps overlay that reflects configured rates in real time:
+- `?layout=grid|compact|ticker`: Display layout mode
+- `?theme=dark|light|arcade|glass`: Visual color theme
+- `?columns=1|2|3|4`: Number of columns for grid layout
+- `?scale=1.0`: Resolution-independent scaling factor
+- `?title=Custom Header`: Custom banner title text
+- `?header=0|1`: Toggle header bar visibility
+- `?happyHour=0|1`: Toggle Happy Hour pulse indicator bar

@@ -102,6 +102,24 @@ const TIER_LIST_ITEMS = [
     ['tier_list.total_votes', 'Total votes cast on active item']
 ];
 
+const SUBATHON_ITEMS = [
+    ['subathon.total_added', 'Total time added to subathon (e.g. 4h 25m)'],
+    ['subathon.multiplier', 'Active Happy Hour multiplier (e.g. 2x) or empty'],
+    ['subathon.happy_hour', 'Happy Hour status (true / false)'],
+    ['subathon.subs', 'Total subscriptions credited to subathon'],
+    ['subathon.bits', 'Total cheer bits credited to subathon'],
+    ['subathon.donations', 'Total tips/donations credited to subathon'],
+    ['subathon.follows', 'Total follows credited to subathon'],
+    ['subathon.raids', 'Total raids credited to subathon'],
+    ['subathon.rule.tier1', 'Configured Tier 1 Sub rate (e.g. 2m 00s)'],
+    ['subathon.rule.tier2', 'Configured Tier 2 Sub rate (e.g. 4m 00s)'],
+    ['subathon.rule.tier3', 'Configured Tier 3 Sub rate (e.g. 10m 00s)'],
+    ['subathon.rule.tip_rate', 'Configured tip rate (e.g. 1m 00s / $1.00)'],
+    ['subathon.rule.bits_rate', 'Configured bits rate (e.g. 30s / 100 bits)'],
+    ['subathon.rule.follow', 'Configured follow rate (e.g. 15s)'],
+    ['subathon.rule.summary', 'One-line summary of all active subathon rates']
+];
+
 // Values that change every second are refreshed in place instead of re-rendering the overlay.
 // Live counters change constantly, so they refresh their text in place instead of re-rendering (and flashing) the whole overlay.
 const TICKING = /^(now$|time|date|weekday|month|year|uptime|session\.duration|timer\.|music\.(position|remaining|percent)$|category\.|viewers?\.|chatters$|messages$|poll\.|tier_list\.vote_timer|trivia\.timer|matchup\.clock)/;
@@ -320,6 +338,7 @@ function variableGroups(status = {}) {
     groups.push({ label: 'Tournament / Brackets', items: TOURNAMENT_ITEMS });
     groups.push({ label: 'Trivia Studio', items: TRIVIA_ITEMS });
     groups.push({ label: 'Tier List', items: TIER_LIST_ITEMS });
+    groups.push({ label: 'Subathon Rates & Stats', items: SUBATHON_ITEMS });
     return groups;
 }
 
@@ -515,6 +534,33 @@ function tierListValues(status, now = Date.now()) {
     };
 }
 
+function subathonValues(status) {
+    const sb = status?.subathon;
+    if (!sb || !sb.enabled) return {};
+    const totalSec = Number(sb.totalAddedSeconds) || 0;
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const totalFormatted = h > 0 ? `${h}h ${m}m` : `${m}m`;
+
+    return {
+        'subathon.total_added': totalFormatted,
+        'subathon.multiplier': sb.multiplier || '',
+        'subathon.happy_hour': sb.happyHour ? 'true' : 'false',
+        'subathon.subs': sb.totalSubs !== undefined ? String(sb.totalSubs) : '',
+        'subathon.bits': sb.totalBits !== undefined ? String(sb.totalBits) : '',
+        'subathon.donations': sb.totalDonations !== undefined ? String(sb.totalDonations) : '',
+        'subathon.follows': sb.totalFollows !== undefined ? String(sb.totalFollows) : '',
+        'subathon.raids': sb.totalRaids !== undefined ? String(sb.totalRaids) : '',
+        'subathon.rule.tier1': sb.subTier1Formatted || '',
+        'subathon.rule.tier2': sb.subTier2Formatted || '',
+        'subathon.rule.tier3': sb.subTier3Formatted || '',
+        'subathon.rule.tip_rate': sb.tipRateFormatted || '',
+        'subathon.rule.bits_rate': sb.bitsRateFormatted || '',
+        'subathon.rule.follow': sb.followFormatted || '',
+        'subathon.rule.summary': sb.rulesSummary || ''
+    };
+}
+
 function variableTable(status = {}, context = {}, now = Date.now()) {
     const table = {
         ...clockValues(status, now),
@@ -531,6 +577,7 @@ function variableTable(status = {}, context = {}, now = Date.now()) {
         ...tournamentValues(status),
         ...triviaValues(status, now),
         ...tierListValues(status, now),
+        ...subathonValues(status),
         ...Object.fromEntries((status.customVars || []).map(v => [`var.${v.name}`, v.value])),
         ...Object.fromEntries((status.customVars || []).filter(v => v.type === 'list' && v.items?.length).map(v => [`var.${v.name}.random`, v.items[Math.floor(Math.random() * v.items.length)]])),
         'stream.category': status.stream?.category?.name,

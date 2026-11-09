@@ -69,7 +69,7 @@
     document.head.appendChild(style);
 
     const MODULE_STORAGE_KEY = 'streampulse:modules';
-    let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true, polls: true, versus: true, trivia: true };
+    let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true, polls: true, versus: true, trivia: true, subathon: false };
     try {
         const cached = localStorage.getItem(MODULE_STORAGE_KEY);
         if (cached) {
@@ -760,6 +760,10 @@
             }
             if (event.detail.trivia_enabled !== undefined && moduleState.trivia !== (event.detail.trivia_enabled !== false)) {
                 moduleState.trivia = event.detail.trivia_enabled !== false;
+                changed = true;
+            }
+            if (event.detail.subathon_enabled !== undefined && moduleState.subathon !== (event.detail.subathon_enabled === true)) {
+                moduleState.subathon = event.detail.subathon_enabled === true;
                 changed = true;
             }
             if (changed) {

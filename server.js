@@ -62,6 +62,8 @@ const { createTierListService } = require('./server/services/tier-list');
 const { createTierListRoutes } = require('./server/routes/tier-list');
 const { createTriviaService } = require('./server/services/trivia');
 const { createTriviaRoutes } = require('./server/routes/trivia');
+const { createSubathonService } = require('./server/services/subathon');
+const { createSubathonRoutes } = require('./server/routes/subathon');
 const { safeWriteFileSync, escapeHtml } = require('./server/routes/helpers');
 const { createCrmService } = require('./server/services/crm');
 const { createUserModerationService } = require('./server/services/user-moderation');
@@ -475,6 +477,20 @@ const timerSoundUsers = name => timerService.timerSoundUsers(name, assetReferenc
 const rewriteTimerSoundReferences = (oldName, newName) => timerService.rewriteTimerSoundReferences(oldName, newName, rewriteAssetReferences);
 const handleTimersRoutes = createTimersRoutes({ timerService });
 
+const subathonService = createSubathonService({
+    dataDir: DATA_DIR,
+    getConfig: () => config,
+    timerService,
+    broadcastToOverlays: (type, data) => broadcastToOverlays(type, data),
+    onSubathonEvent: (evt) => {
+        if (typeof chatbot !== 'undefined' && chatbot?.announceSubathonAddition) {
+            chatbot.announceSubathonAddition(evt);
+        }
+    },
+    safeWriteFileSync
+});
+const handleSubathonRoutes = createSubathonRoutes({ subathonService });
+
 // The credits header and custom credit sections can use library images.
 function creditsAssetUsers(name) {
     const users = [];
@@ -587,22 +603,27 @@ const twitchService = createTwitchService({
     onFollow: (data) => {
         if (userModeration.isBanned(data.user, data.userId)) return;
         if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.handleEvent({ type: 'follow', user: data.user });
+        if (typeof subathonService !== 'undefined' && subathonService?.isSubathonActive?.()) subathonService.processEvent({ type: 'follow', user: data.user });
     },
     onSubscribe: (data) => {
         if (userModeration.isBanned(data.user, data.userId)) return;
         if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.handleEvent({ type: (data.months && data.months > 1) ? 'resub' : 'sub', user: data.user, tier: data.tier, months: data.months, message: data.message });
+        if (typeof subathonService !== 'undefined' && subathonService?.isSubathonActive?.()) subathonService.processEvent({ type: (data.months && data.months > 1) ? 'resub' : 'sub', user: data.user, tier: data.tier, months: data.months });
     },
     onGiftSub: (data) => {
         if (userModeration.isBanned(data.user, data.userId)) return;
         if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.noteGift({ user: data.user, count: data.total, tier: data.tier });
+        if (typeof subathonService !== 'undefined' && subathonService?.isSubathonActive?.()) subathonService.processEvent({ type: 'gift', user: data.user, count: data.total, tier: data.tier });
     },
     onCheer: (data) => {
         if (userModeration.isBanned(data.user, data.userId)) return;
         if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.handleEvent({ type: 'bits', user: data.user, amount: data.bits, message: data.message });
+        if (typeof subathonService !== 'undefined' && subathonService?.isSubathonActive?.()) subathonService.processEvent({ type: 'bits', user: data.user, amount: data.bits });
     },
     onRedemption: (data) => {
         if (userModeration.isBanned(data.user, data.userId)) return;
         if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.handleEvent({ type: 'redeem', user: data.user, reward: data.rewardTitle, rewardId: data.rewardId, cost: data.cost, message: data.userInput });
+        if (typeof subathonService !== 'undefined' && subathonService?.isSubathonActive?.()) subathonService.processEvent({ type: 'channel_points', user: data.user, rewardTitle: data.rewardTitle });
     },
     onHypeTrain: (data) => {
         if (typeof alertEngine === 'undefined' || !alertEngine) return;
@@ -632,6 +653,9 @@ const twitchService = createTwitchService({
         }
         if (typeof chatbot !== 'undefined' && chatbot?.handleRaid) {
             chatbot.handleRaid({ user: username, viewers }).catch(() => {});
+        }
+        if (typeof subathonService !== 'undefined' && subathonService?.isSubathonActive?.()) {
+            subathonService.processEvent({ type: 'raid', user: username, viewers });
         }
         if (chatData) {
             if (!chatData.raids) chatData.raids = [];
@@ -1337,6 +1361,7 @@ const statusService = createStatusService({
     getObsService: () => obsService,
     getTierListService: () => tierListService,
     getTriviaService: () => triviaService,
+    getSubathonService: () => subathonService,
     getWsService: () => wsService,
     getSessionService: () => sessionService,
     getProcessStartedAt: () => PROCESS_STARTED_AT,
@@ -1574,6 +1599,11 @@ function ingestEvent(input = {}) {
     broadcastToOverlays('update', chatData);
     broadcastToOverlays('goals-update', buildGoalsSnapshot());
     try { chatbot.announceDonation({ id, user, amount, currency, message, source })?.catch?.(() => {}); } catch { /* chat is optional */ }
+    try {
+        if (typeof subathonService !== 'undefined' && subathonService?.isSubathonActive?.()) {
+            subathonService.processEvent({ type: 'donation', user, amount, currency });
+        }
+    } catch { /* subathon is optional */ }
     // Ids already dedupe, so identical back-to-back donations still alert.
     return alertEngine.handleEvent({ type: 'donation', user, avatar, amount, currency, message, source, ...(id ? { dedupeMs: 0 } : {}) });
 }
@@ -1643,6 +1673,7 @@ const server = createHttpServer(async (req, res) => {
     if (await handleMusicRoutes(req, res, pathname)) return;
 
     if (await handleTimersRoutes(req, res, pathname)) return;
+    if (await handleSubathonRoutes(req, res, pathname)) return;
 
     if (await handleWeatherRoutes(req, res, url, pathname)) return;
 

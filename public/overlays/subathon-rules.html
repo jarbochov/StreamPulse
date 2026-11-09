@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse Subathon Rules</title>
+    <style>
+        :root {
+            --bg-card: rgba(18, 24, 38, 0.88);
+            --border-card: rgba(255, 255, 255, 0.12);
+            --text-main: #ffffff;
+            --text-sub: rgba(255, 255, 255, 0.7);
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.35);
+            --happy-hour: #f59e0b;
+            --happy-hour-glow: rgba(245, 158, 11, 0.4);
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+            --scale: 1;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: transparent;
+            color: var(--text-main);
+            font-family: var(--font-family);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            overflow: hidden;
+            transform-origin: center center;
+        }
+
+        .rules-container {
+            transform: scale(var(--scale));
+            transform-origin: center center;
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+            max-width: 900px;
+            width: 100%;
+        }
+
+        /* Banner */
+        .happy-hour-banner {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.9), rgba(217, 119, 6, 0.95));
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-weight: 800;
+            font-size: 0.95rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            box-shadow: 0 4px 18px var(--happy-hour-glow);
+            animation: pulseBanner 2s infinite ease-in-out;
+        }
+
+        @keyframes pulseBanner {
+            0%, 100% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(1.02); filter: brightness(1.15); }
+        }
+
+        .header-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            padding-bottom: 0.35rem;
+            border-bottom: 1px solid var(--border-card);
+        }
+
+        .header-title span.badge {
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: #93c5fd;
+        }
+
+        /* Grid Layout */
+        .rules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .rule-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-radius: 10px;
+            padding: 0.85rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            backdrop-filter: blur(8px);
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .rule-card:hover {
+            border-color: rgba(255, 255, 255, 0.25);
+            transform: translateY(-2px);
+        }
+
+        .rule-head {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--text-sub);
+        }
+
+        .rule-head svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+            flex-shrink: 0;
+        }
+
+        .rule-value {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: var(--text-main);
+            letter-spacing: -0.01em;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .rule-note {
+            font-size: 0.74rem;
+            color: var(--text-sub);
+        }
+
+        /* Compact Layout */
+        .rules-container.layout-compact .rules-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .rules-container.layout-compact .rule-card {
+            flex-direction: row;
+            align-items: center;
+            padding: 0.45rem 0.85rem;
+            gap: 0.75rem;
+        }
+
+        .rules-container.layout-compact .rule-value {
+            font-size: 0.95rem;
+        }
+
+        /* Ticker Layout */
+        .rules-container.layout-ticker {
+            max-width: 100vw;
+            width: 100vw;
+            padding: 0;
+        }
+
+        .rules-container.layout-ticker .rules-grid {
+            display: flex;
+            gap: 1.5rem;
+            animation: tickerScroll 25s linear infinite;
+            white-space: nowrap;
+            width: max-content;
+        }
+
+        @keyframes tickerScroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        /* Themes */
+        body.theme-light {
+            --bg-card: rgba(255, 255, 255, 0.92);
+            --border-card: rgba(0, 0, 0, 0.1);
+            --text-main: #0f172a;
+            --text-sub: #475569;
+        }
+
+        body.theme-arcade {
+            --bg-card: rgba(15, 12, 41, 0.94);
+            --border-card: rgba(236, 72, 153, 0.35);
+            --accent: #ec4899;
+            --text-main: #fdf2f8;
+            --text-sub: #fbcfe8;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        body.theme-glass {
+            --bg-card: rgba(255, 255, 255, 0.08);
+            --border-card: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(16px);
+        }
+
+        .empty-placeholder {
+            color: var(--text-sub);
+            font-size: 0.85rem;
+            text-align: center;
+            padding: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="rules-root" class="rules-container">
+        <div id="happy-hour" class="happy-hour-banner">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span id="happy-hour-text">2X Happy Hour Active!</span>
+        </div>
+
+        <div id="rules-header" class="header-title">
+            <span id="title-text">Subathon Rates</span>
+            <span id="total-badge" class="badge">0m Added</span>
+        </div>
+
+        <div id="rules-grid" class="rules-grid"></div>
+    </div>
+
+    <script src="/overlay-shared.js"></script>
+    <script src="/overlay-visibility.js" data-key="subathon-rules"></script>
+    <script src="/url-params.js"></script>
+    <script>
+    (function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const layout = urlParams.get('layout') || 'grid';
+        const theme = urlParams.get('theme') || 'dark';
+        const scale = parseFloat(urlParams.get('scale') || '1') || 1;
+        const showHeader = urlParams.get('header') !== '0' && urlParams.get('header') !== 'false';
+        const showTitle = urlParams.get('title');
+
+        if (theme) document.body.classList.add(`theme-${theme}`);
+        if (layout) document.getElementById('rules-root').classList.add(`layout-${layout}`);
+        document.documentElement.style.setProperty('--scale', scale);
+
+        if (!showHeader) document.getElementById('rules-header').style.display = 'none';
+        if (showTitle) document.getElementById('title-text').textContent = showTitle;
+
+        let subathonData = null;
+
+        function fmtSeconds(sec) {
+            const s = Math.max(0, Math.round(Number(sec) || 0));
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            const remS = s % 60;
+            if (h > 0) return remS > 0 ? `${h}h ${m}m ${remS}s` : `${h}h ${m}m`;
+            if (m > 0) return remS > 0 ? `${m}m ${remS}s` : `${m}m`;
+            return `${remS}s`;
+        }
+
+        function render(data) {
+            if (!data || !data.config || data.config.enabled === false) {
+                document.getElementById('rules-grid').innerHTML = '<div class="empty-placeholder">Subathon is currently inactive</div>';
+                document.getElementById('happy-hour').style.display = 'none';
+                return;
+            }
+
+            const cfg = data.config;
+            const r = cfg.rules || {};
+            const state = data.state || {};
+            const factor = data.rulesSummary?.happyHourActive ? (cfg.multiplier?.factor || 2) : 1;
+
+            // Happy Hour banner
+            const hhEl = document.getElementById('happy-hour');
+            if (data.rulesSummary?.happyHourActive) {
+                hhEl.style.display = 'flex';
+                document.getElementById('happy-hour-text').textContent = `⚡ ${factor}X HAPPY HOUR ACTIVE!`;
+            } else {
+                hhEl.style.display = 'none';
+            }
+
+            // Total badge
+            const totalSec = state.totalTimeAddedSeconds || 0;
+            document.getElementById('total-badge').textContent = `${fmtSeconds(totalSec)} Added`;
+
+            const cards = [];
+
+            // 1. Subs
+            if (r.subs && r.subs.enabled !== false && urlParams.get('subs') !== '0') {
+                const t1 = Math.round((r.subs.tier1Seconds || 120) * factor);
+                cards.push({
+                    title: 'Tier 1 Sub',
+                    value: `+${fmtSeconds(t1)}`,
+                    note: 'Or Twitch Prime',
+                    icon: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>'
+                });
+                if (r.subs.tier2Seconds > 0) {
+                    cards.push({
+                        title: 'Tier 2 Sub',
+                        value: `+${fmtSeconds(Math.round(r.subs.tier2Seconds * factor))}`,
+                        note: '2x multiplier tier',
+                        icon: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>'
+                    });
+                }
+                if (r.subs.tier3Seconds > 0) {
+                    cards.push({
+                        title: 'Tier 3 Sub',
+                        value: `+${fmtSeconds(Math.round(r.subs.tier3Seconds * factor))}`,
+                        note: 'Maximum tier boost',
+                        icon: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>'
+                    });
+                }
+            }
+
+            // 2. Donations / Tips
+            if (r.donations && r.donations.enabled !== false && urlParams.get('tips') !== '0') {
+                const perDollar = Math.round((r.donations.secondsPerDollar || 60) * factor);
+                cards.push({
+                    title: 'Donation / Tip',
+                    value: `+${fmtSeconds(perDollar)}`,
+                    note: 'Per $1.00 contributed',
+                    icon: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'
+                });
+
+                // Custom exact amounts
+                if (Array.isArray(r.donations.exactAmounts)) {
+                    for (const ea of r.donations.exactAmounts) {
+                        const eaSec = Math.round(ea.seconds * factor);
+                        cards.push({
+                            title: `$${ea.amount.toFixed(2)} Exact`,
+                            value: `+${fmtSeconds(eaSec)}`,
+                            note: ea.label || 'Custom exact bonus',
+                            icon: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>'
+                        });
+                    }
+                }
+            }
+
+            // 3. Bits
+            if (r.bits && r.bits.enabled !== false && urlParams.get('bits') !== '0') {
+                const per100 = Math.round((r.bits.secondsPer100Bits || 30) * factor);
+                cards.push({
+                    title: 'Cheer Bits',
+                    value: `+${fmtSeconds(per100)}`,
+                    note: 'Per 100 bits',
+                    icon: '<polygon points="6 2 18 2 22 8 12 22 2 8 6 2"/>'
+                });
+            }
+
+            // 4. Follows
+            if (r.follows && r.follows.enabled && urlParams.get('follows') !== '0') {
+                const followSec = Math.round((r.follows.seconds || 15) * factor);
+                cards.push({
+                    title: 'New Follow',
+                    value: `+${fmtSeconds(followSec)}`,
+                    note: 'Per follow',
+                    icon: '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>'
+                });
+            }
+
+            // 5. Raids
+            if (r.raids && r.raids.enabled && urlParams.get('raids') !== '0') {
+                const baseSec = Math.round((r.raids.baseSeconds || 30) * factor);
+                const perViewer = Math.round((r.raids.secondsPerViewer || 2) * factor);
+                cards.push({
+                    title: 'Incoming Raid',
+                    value: `+${fmtSeconds(baseSec)}`,
+                    note: `+${fmtSeconds(perViewer)} per raider`,
+                    icon: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
+                });
+            }
+
+            const html = cards.map(c => `
+                <div class="rule-card">
+                    <div class="rule-head">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${c.icon}</svg>
+                        <span>${c.title}</span>
+                    </div>
+                    <div class="rule-value">${c.value}</div>
+                    <div class="rule-note">${c.note}</div>
+                </div>
+            `).join('');
+
+            document.getElementById('rules-grid').innerHTML = html || '<div class="empty-placeholder">No active rates configured</div>';
+        }
+
+        async function fetchSubathon() {
+            try {
+                const res = await fetch('/api/subathon');
+                if (!res.ok) return;
+                subathonData = await res.json();
+                render(subathonData);
+            } catch (err) {
+                console.warn('[Subathon Rules] Fetch error:', err);
+            }
+        }
+
+        fetchSubathon();
+
+        // WebSocket live sync
+        if (typeof window.StreamPulseOverlay === 'function') {
+            window.StreamPulseOverlay({
+                onEvent(type, payload) {
+                    if (type === 'subathon-update' || type === 'subathon-event') {
+                        fetchSubathon();
+                    }
+                }
+            });
+        } else {
+            // Direct WS fallback
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${proto}//${location.host}/ws`);
+            ws.onmessage = (msg) => {
+                try {
+                    const data = JSON.parse(msg.data);
+                    if (data.type === 'subathon-update' || data.type === 'subathon-event') {
+                        fetchSubathon();
+                    }
+                } catch (_) {}
+            };
+        }
+    })();
+    </script>
+</body>
+</html>

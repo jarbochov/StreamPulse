@@ -18,6 +18,7 @@
   "active_subs_only": false,
   "speaker_badges_enabled": false,
   "obs_scene_sync_enabled": true,
+  "subathon_enabled": false,
   "hashtags_enabled": true,
   "chat_log_enabled": true,
   "exclude_users": [],
