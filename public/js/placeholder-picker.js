@@ -76,6 +76,7 @@
             table['args'] = 'tea coffee';
             table['arg.1'] = 'tea';
             table['arg.2'] = 'coffee';
+            table['viewers'] = '42';
             table['random 1 6'] = '4';
             table['choice Option A|Option B'] = 'Option A';
             groups = [
@@ -87,6 +88,7 @@
                         ['args', 'All arguments after command'],
                         ['arg.1', 'First argument word (e.g. tea)'],
                         ['arg.2', 'Second argument word (e.g. coffee)'],
+                        ['viewers', 'Viewer count of incoming raid in shoutouts'],
                         ['random 1 6', 'Random integer / dice roll (min max)'],
                         ['choice Option A|Option B', 'Pick one random choice (pipe-separated)']
                     ]

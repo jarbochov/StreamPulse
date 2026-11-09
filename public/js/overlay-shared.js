@@ -4269,6 +4269,10 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     for (const goal of status.goalItems || []) {
       groups.push({ label: `Goal: ${goal.title}`, items: [["title", "title"], ["current", "current progress"], ["target", "target"], ["percent", "percent"], ["remaining", "remaining"], ["current_text", "current (with $ for donations)"], ["target_text", "target (with $ for donations)"], ["remaining_text", "remaining (with $ for donations)"]].map(([key, label]) => [`goal.${goal.id}.${key}`, `${goal.title} \u2014 ${label}`]) });
     }
+    groups.push({ label: "Versus / Matchup", items: MATCHUP_ITEMS });
+    groups.push({ label: "Tournament / Brackets", items: TOURNAMENT_ITEMS });
+    groups.push({ label: "Trivia Studio", items: TRIVIA_ITEMS });
+    groups.push({ label: "Tier List", items: TIER_LIST_ITEMS });
     return groups;
   }
   function milestoneValues(status) {
@@ -4329,6 +4333,123 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     });
     return p;
   }
+  function matchupValues(status) {
+    const m = status?.matchup;
+    if (!m) return {};
+    const c1 = m.competitors?.[0];
+    const c2 = m.competitors?.[1];
+    return {
+      "matchup.title": m.title || "",
+      "matchup.phase": m.phase || "",
+      "matchup.round": m.phase || "",
+      "matchup.format": m.format || "",
+      "matchup.status": m.status || "",
+      "matchup.winner": m.winner || "",
+      "matchup.clock": m.clock?.formatted || "",
+      "matchup.player1.name": c1?.name || "",
+      "matchup.player1.score": c1?.score !== void 0 ? c1.score : "",
+      "matchup.player1.tag": c1?.tag || "",
+      "matchup.player1.color": c1?.color || "",
+      "matchup.c1_name": c1?.name || "",
+      "matchup.c1_score": c1?.score !== void 0 ? c1.score : "",
+      "matchup.player2.name": c2?.name || "",
+      "matchup.player2.score": c2?.score !== void 0 ? c2.score : "",
+      "matchup.player2.tag": c2?.tag || "",
+      "matchup.player2.color": c2?.color || "",
+      "matchup.c2_name": c2?.name || "",
+      "matchup.c2_score": c2?.score !== void 0 ? c2.score : ""
+    };
+  }
+  function tournamentValues(status) {
+    const t = status?.tournament || status?.pollTournament;
+    if (!t) return {};
+    const match = t.activeMatch;
+    const e1 = match?.entrant1;
+    const e2 = match?.entrant2;
+    const matchTitle = e1?.name && e2?.name ? `${e1.name} vs ${e2.name}` : match?.title || "";
+    const roundText = match?.roundName || (match?.round !== void 0 ? `Round ${match.round}` : "");
+    return {
+      "tournament.title": t.title || "",
+      "tournament.format": t.format || "",
+      "tournament.status": t.status || "",
+      "tournament.champion": t.champion?.name || t.winner?.name || (typeof t.champion === "string" ? t.champion : "") || (typeof t.winner === "string" ? t.winner : ""),
+      "tournament.match.current": matchTitle,
+      "tournament.match.round": roundText,
+      "tournament.round": roundText,
+      "tournament.match.entrant1": e1?.name || "",
+      "tournament.match.entrant1.score": match?.e1Score !== void 0 ? match.e1Score : e1?.score !== void 0 ? e1.score : "",
+      "tournament.match.entrant2": e2?.name || "",
+      "tournament.match.entrant2.score": match?.e2Score !== void 0 ? match.e2Score : e2?.score !== void 0 ? e2.score : ""
+    };
+  }
+  function triviaValues(status, now = Date.now()) {
+    const t = status?.trivia;
+    if (!t) return {};
+    const active = t.activeQuestion;
+    const isReveal = t.status === "reveal";
+    let timerText = "";
+    if (t.status === "question" && active?.endsAt) {
+      const remaining = Math.max(0, Math.ceil((active.endsAt - now) / 1e3));
+      timerText = `${remaining}s`;
+    } else if (t.remainingSeconds !== void 0 && t.status === "question") {
+      timerText = `${t.remainingSeconds}s`;
+    }
+    let answerText = "";
+    let funfactText = "";
+    if (isReveal && active) {
+      funfactText = active.funfact || "";
+      if (active.correctIndex !== null && active.correctIndex !== void 0 && Array.isArray(active.choices)) {
+        const correctChoice = active.choices[active.correctIndex];
+        answerText = typeof correctChoice === "string" ? correctChoice : correctChoice?.text || "";
+      }
+    }
+    const out = {
+      "trivia.question": active?.question || t.activeQuestionText || "",
+      "trivia.category": active?.category || t.activeCategory || "",
+      "trivia.phase": t.status || "idle",
+      "trivia.number": t.currentIndex !== void 0 && t.currentIndex >= 0 ? t.currentIndex + 1 : "",
+      "trivia.total": t.totalQuestions !== void 0 ? t.totalQuestions : "",
+      "trivia.answer": answerText,
+      "trivia.funfact": funfactText,
+      "trivia.timer": timerText,
+      "trivia.votes": active?.totalVotes !== void 0 ? active.totalVotes : t.totalVotes || ""
+    };
+    const choices = active?.choices || [];
+    for (let i = 0; i < 6; i++) {
+      const idx = i + 1;
+      const c = choices[i];
+      out[`trivia.choice.${idx}`] = c ? typeof c === "string" ? c : c.text || "" : "";
+      out[`trivia.choice.${idx}.votes`] = c && c.votes !== void 0 ? c.votes : "";
+      out[`trivia.choice.${idx}.percent`] = c && c.percent !== void 0 ? `${c.percent}%` : "";
+    }
+    return out;
+  }
+  function tierListValues(status, now = Date.now()) {
+    const tl = status?.tierList;
+    if (!tl) return {};
+    const vote = tl.activeVote;
+    const consensus = vote?.consensus;
+    const tier = consensus?.consensusTier;
+    let timerText = "";
+    if (vote && vote.status === "ACTIVE" && vote.endsAt) {
+      const remaining = Math.max(0, Math.ceil((vote.endsAt - now) / 1e3));
+      const m = Math.floor(remaining / 60);
+      const s = remaining % 60;
+      timerText = m > 0 ? `${m}:${pad(s)}` : `${s}s`;
+    } else if (vote?.status === "LOCKED") {
+      timerText = "Locked";
+    }
+    return {
+      "tier_list.title": tl.title || "",
+      "tier_list.item": vote?.itemName || "",
+      "tier_list.item_image": vote?.itemImage || "",
+      "tier_list.vote_status": vote?.status ? vote.status.toLowerCase() : "idle",
+      "tier_list.vote_timer": timerText,
+      "tier_list.consensus_tier": tier?.label || "",
+      "tier_list.consensus_percent": consensus?.agreementPercent !== void 0 ? `${consensus.agreementPercent}%` : "",
+      "tier_list.total_votes": consensus?.totalVotes !== void 0 ? consensus.totalVotes : vote?.totalVotes || ""
+    };
+  }
   function variableTable(status = {}, context = {}, now = Date.now()) {
     const table = {
       ...clockValues(status, now),
@@ -4341,6 +4462,10 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       ...externalValues(status),
       ...pollValues(status, now),
       ...milestoneValues(status),
+      ...matchupValues(status),
+      ...tournamentValues(status),
+      ...triviaValues(status, now),
+      ...tierListValues(status, now),
       ...Object.fromEntries((status.customVars || []).map((v) => [`var.${v.name}`, v.value])),
       ...Object.fromEntries((status.customVars || []).filter((v) => v.type === "list" && v.items?.length).map((v) => [`var.${v.name}.random`, v.items[Math.floor(Math.random() * v.items.length)]])),
       "stream.category": status.stream?.category?.name,
@@ -4529,7 +4654,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
     return status;
   }
-  var VARIABLE_GROUPS, CLOCK_ITEMS, GAME_ITEMS, WEATHER_ITEMS, PLAN_ITEMS, EVENT_ITEMS, MILESTONE_ITEMS, TICKING, isTicking, hasTicking, inPlanList, LIST_FORMAT_PRESETS, FORMAT_PRESETS, isDateKey, ordinal, isListFormat, isListKey;
+  var VARIABLE_GROUPS, CLOCK_ITEMS, GAME_ITEMS, WEATHER_ITEMS, PLAN_ITEMS, EVENT_ITEMS, MILESTONE_ITEMS, MATCHUP_ITEMS, TOURNAMENT_ITEMS, TRIVIA_ITEMS, TIER_LIST_ITEMS, TICKING, isTicking, hasTicking, inPlanList, LIST_FORMAT_PRESETS, FORMAT_PRESETS, isDateKey, ordinal, isListFormat, isListKey;
   var init_variables = __esm({
     "public/js/overlay/variables.js"() {
       VARIABLE_GROUPS = [
@@ -4597,9 +4722,76 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         ["milestone.hours_remaining", "Broadcast hours remaining until goal (e.g. 34)"],
         ["milestone.hours_goal_percent", "Percent progress to next hours goal (e.g. 93)"]
       ];
-      TICKING = /^(now$|time|date|weekday|month|year|uptime|session\.duration|timer\.|music\.(position|remaining|percent)$|category\.|viewers?\.|chatters$|messages$|poll\.)/;
+      MATCHUP_ITEMS = [
+        ["matchup.title", "Event / matchup title (e.g. Grand Finals)"],
+        ["matchup.phase", "Phase / round (e.g. Winners Finals)"],
+        ["matchup.format", "Match format (e.g. Best of 5)"],
+        ["matchup.status", "Matchup status (ACTIVE, PAUSED, COMPLETED)"],
+        ["matchup.winner", "Winner name (when completed)"],
+        ["matchup.clock", "Matchup clock (e.g. 14:20)"],
+        ["matchup.player1.name", "Player 1 / Competitor 1 name"],
+        ["matchup.player1.score", "Player 1 score"],
+        ["matchup.player1.tag", "Player 1 team / tag / country"],
+        ["matchup.player1.color", "Player 1 accent color"],
+        ["matchup.player2.name", "Player 2 / Competitor 2 name"],
+        ["matchup.player2.score", "Player 2 score"],
+        ["matchup.player2.tag", "Player 2 team / tag / country"],
+        ["matchup.player2.color", "Player 2 accent color"]
+      ];
+      TOURNAMENT_ITEMS = [
+        ["tournament.title", "Tournament title"],
+        ["tournament.format", "Format (singleElimination, doubleElimination, roundRobin)"],
+        ["tournament.status", "Tournament status (ACTIVE, PENDING, COMPLETED)"],
+        ["tournament.champion", "Champion / tournament winner name"],
+        ["tournament.match.current", "Current match description (e.g. Alice vs Bob)"],
+        ["tournament.match.round", "Current match round name (e.g. Semifinals)"],
+        ["tournament.match.entrant1", "Current match entrant 1 name"],
+        ["tournament.match.entrant1.score", "Current match entrant 1 score"],
+        ["tournament.match.entrant2", "Current match entrant 2 name"],
+        ["tournament.match.entrant2.score", "Current match entrant 2 score"]
+      ];
+      TRIVIA_ITEMS = [
+        ["trivia.question", "Active question text"],
+        ["trivia.category", "Active question category"],
+        ["trivia.phase", "Trivia phase (question / reveal / finished / idle)"],
+        ["trivia.number", "Current question number (e.g. 1)"],
+        ["trivia.total", "Total number of questions"],
+        ["trivia.answer", "Correct answer text (when revealed)"],
+        ["trivia.funfact", "Fun fact / explanation (when revealed)"],
+        ["trivia.timer", "Remaining question time (e.g. 15s)"],
+        ["trivia.votes", "Total votes cast on active question"],
+        ["trivia.choice.1", "Choice 1 (A) text"],
+        ["trivia.choice.1.votes", "Choice 1 vote count"],
+        ["trivia.choice.1.percent", "Choice 1 percent (e.g. 45%)"],
+        ["trivia.choice.2", "Choice 2 (B) text"],
+        ["trivia.choice.2.votes", "Choice 2 vote count"],
+        ["trivia.choice.2.percent", "Choice 2 percent"],
+        ["trivia.choice.3", "Choice 3 (C) text"],
+        ["trivia.choice.3.votes", "Choice 3 vote count"],
+        ["trivia.choice.3.percent", "Choice 3 percent"],
+        ["trivia.choice.4", "Choice 4 (D) text"],
+        ["trivia.choice.4.votes", "Choice 4 vote count"],
+        ["trivia.choice.4.percent", "Choice 4 percent"],
+        ["trivia.choice.5", "Choice 5 (E) text"],
+        ["trivia.choice.5.votes", "Choice 5 vote count"],
+        ["trivia.choice.5.percent", "Choice 5 percent"],
+        ["trivia.choice.6", "Choice 6 (F) text"],
+        ["trivia.choice.6.votes", "Choice 6 vote count"],
+        ["trivia.choice.6.percent", "Choice 6 percent"]
+      ];
+      TIER_LIST_ITEMS = [
+        ["tier_list.title", "Tier list title"],
+        ["tier_list.item", "Current voting item name"],
+        ["tier_list.item_image", "Current voting item image URL (use as an image source)"],
+        ["tier_list.vote_status", "Vote status (active / locked / completed / idle)"],
+        ["tier_list.vote_timer", "Remaining voting time (e.g. 45s)"],
+        ["tier_list.consensus_tier", "Current winning / consensus tier label (e.g. S)"],
+        ["tier_list.consensus_percent", "Percentage agreement for consensus tier (e.g. 78%)"],
+        ["tier_list.total_votes", "Total votes cast on active item"]
+      ];
+      TICKING = /^(now$|time|date|weekday|month|year|uptime|session\.duration|timer\.|music\.(position|remaining|percent)$|category\.|viewers?\.|chatters$|messages$|poll\.|tier_list\.vote_timer|trivia\.timer|matchup\.clock)/;
       isTicking = (name) => TICKING.test(name);
-      hasTicking = (value) => /\{\{\s*(now|time|date|weekday|month|year|uptime|session\.duration|timer\.|music\.(position|remaining|percent)|category\.|viewers?\.|chatters|messages|poll\.)/.test(String(value ?? ""));
+      hasTicking = (value) => /\{\{\s*(now|time|date|weekday|month|year|uptime|session\.duration|timer\.|music\.(position|remaining|percent)|category\.|viewers?\.|chatters|messages|poll\.|tier_list\.vote_timer|trivia\.timer|matchup\.clock)/.test(String(value ?? ""));
       inPlanList = (item, id) => item.status === id || (item.extraLists || []).includes(id);
       LIST_FORMAT_PRESETS = [["lines", "One per line"], ["bullets", "\u2022 One per line"], ["numbered", "1. One per line"], ["3", "First 3 only"], ["sep:\\s/\\s", "Separated by /"], ["sep:\\s\u2022\\s", "Separated by \u2022"]];
       FORMAT_PRESETS = [["short", "4d 3h 22m 2s (timers)"], ["long", "4 days, 3 hours\u2026 (timers)"], ["clock", "4d 3:22:02 (timers)"], ["d[d] h[h] m[m]", "4d 3h 22m (timers)"], ["MMMM D, YYYY", "October 2, 2026"], ["MMM D", "Oct 2"], ["ddd, MMM D", "Fri, Oct 2"], ["dddd, MMMM Do", "Friday, October 2nd"], ["YYYY-MM-DD", "2026-10-02"], ["MM/DD/YYYY", "10/02/2026"], ["h:mm A", "1:34 PM"], ["HH:mm", "13:34"], ["MMM D, h:mm A", "Oct 2, 1:34 PM"], ["dddd [at] h A", "Friday at 1 PM"]];

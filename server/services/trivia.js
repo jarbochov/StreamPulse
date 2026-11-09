@@ -1043,7 +1043,8 @@ function createTriviaService({
             totalVotes: active ? active.totalVotes : 0,
             remainingSeconds: active ? active.remainingSeconds : 0,
             chatbotEnabled: isChatbotEnabled(),
-            chatVotingActive: isChatVotingActive()
+            chatVotingActive: isChatVotingActive(),
+            activeQuestion: active
         };
     }
 

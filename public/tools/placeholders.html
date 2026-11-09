@@ -147,7 +147,7 @@
     <!-- Tab 1: Placeholders Reference -->
     <div class="tab-content" id="tab-placeholders" data-tab="placeholders">
         <div class="card bar">
-            <input type="search" id="q" placeholder="Search placeholders (e.g. followers, timer, weather, var)" aria-label="Search placeholders">
+            <input type="search" id="q" placeholder="Search placeholders (e.g. followers, timer, weather, trivia, tier, matchup)" aria-label="Search placeholders">
             <label class="muted" style="display:flex; align-items:center; gap:.4rem; cursor:pointer;"><input type="checkbox" id="vals" checked> Show current values</label>
             <button class="b" id="copy">Copy Markdown</button>
             <button class="b" id="md">Download .md</button>
@@ -163,7 +163,7 @@
                     <svg class="collapsible-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
                     <span class="summary-title">Chat Bot Dynamic Tokens &amp; Actions</span>
-                    <span class="badge" style="text-transform:none;font-weight:600;font-size:.7rem;">6 tokens</span>
+                    <span class="badge" style="text-transform:none;font-weight:600;font-size:.7rem;">7 tokens</span>
                 </div>
                 <div class="summary-right">
                     <span class="toggle-hint">Click to expand</span>
@@ -208,6 +208,12 @@
                                 <td style="padding:.4rem .6rem;">1st, 2nd, etc. space-separated word typed after the command. Supports default fallbacks like <code>{{arg.2:dogs}}</code> if omitted, and Nightbot syntax <code>$(1)</code>, <code>$(2)</code></td>
                                 <td style="padding:.4rem .6rem;"><code>{{user}} asks: {{arg.1:cats}} or {{arg.2:dogs}}?</code></td>
                                 <td style="padding:.4rem .6rem;"><em>Alice asks: tea or coffee?</em></td>
+                            </tr>
+                            <tr style="border-bottom:1px solid var(--bg-raised);">
+                                <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{viewers}}">{{viewers}}</code></td>
+                                <td style="padding:.4rem .6rem;">Viewer count of incoming raid in auto-shoutout or shoutout test (or <code>$(viewers)</code>)</td>
+                                <td style="padding:.4rem .6rem;"><code>Welcome raiders from @{{user}} with {{viewers}} viewers!</code></td>
+                                <td style="padding:.4rem .6rem;"><em>Welcome raiders from @Alice with 42 viewers!</em></td>
                             </tr>
                             <tr style="border-bottom:1px solid var(--bg-raised);">
                                 <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{random 1 6}}">{{random min max}}</code></td>

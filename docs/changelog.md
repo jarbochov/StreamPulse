@@ -11,6 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- **Placeholders & Dynamic Tokens**: Comprehensive placeholders for Tier List (`tier_list.*`), Trivia Studio (`trivia.*`), Versus / Matchup (`matchup.*`), and Tournaments (`tournament.*`), with live in-place ticking support (`tier_list.vote_timer`, `trivia.timer`, `matchup.clock`), `{{viewers}}` raid token in Chat Bot, and unified placeholder picker discovery.
 - **Interactive Trivia**: Standalone live trivia studio and animated OBS overlay with question banks, countdown progress timer, audience chat voting (!a, !b, !c, !d), answer reveal fanfare, preset packs, and Bitfocus Companion controls.
 - **State Machine Architecture**: Universal, zero-dependency state machine engine (`server/services/state-machine.js` and `public/js/state-machine.js`) with declarative transitions, state guards, and queryable introspection for alerts, overlay lifecycles, and companion controllers.
 - **Speaker Badges**: OBS voice-reactive overlay layers with 5 layout presets, dB speech gates, EQ visualizers, and a Speakers controller tab for live profile, avatar, audio-source, and field-visibility updates.
