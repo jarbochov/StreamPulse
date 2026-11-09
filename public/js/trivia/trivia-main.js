@@ -81,6 +81,7 @@ function initToolbarTriggers() {
     document.getElementById('tab-btn-studio')?.addEventListener('click', () => switchTab('studio'));
     document.getElementById('tab-btn-theming')?.addEventListener('click', () => switchTab('theming'));
 
+    document.getElementById('prev-btn-bg')?.addEventListener('click', () => togglePreviewBackdrop());
     document.getElementById('prev-btn-backdrop')?.addEventListener('click', () => togglePreviewBackdrop());
     document.getElementById('prev-btn-sample')?.addEventListener('click', () => togglePreviewSampleData());
 
@@ -98,6 +99,9 @@ function initToolbarTriggers() {
     });
     document.getElementById('chip-vp-hud')?.addEventListener('click', function() {
         setPreviewViewport(520, 680, this, 'hud');
+    });
+    document.getElementById('chip-vp-vertical')?.addEventListener('click', function() {
+        setPreviewViewport(1080, 1920, this, 'full');
     });
     document.getElementById('chip-vp-mobile')?.addEventListener('click', function() {
         setPreviewViewport(1080, 1920, this, 'full');

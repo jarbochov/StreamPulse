@@ -239,13 +239,13 @@ export function togglePreviewBackdrop() {
 }
 
 export function applyPreviewBackdrop() {
-    const container = document.getElementById('preview-container');
-    const btn = document.getElementById('prev-btn-backdrop');
-    if (!container) return;
-    container.classList.toggle('checkerboard', previewBackdrop === 'checker');
-    container.classList.toggle('solid-dark', previewBackdrop === 'solid');
+    const box = document.getElementById('trivia-preview-box') || document.getElementById('preview-container');
+    const btn = document.getElementById('prev-btn-bg') || document.getElementById('prev-btn-backdrop');
+    if (!box) return;
+    box.classList.toggle('checkerboard', previewBackdrop === 'checker');
+    box.classList.toggle('solid-dark', previewBackdrop === 'solid');
     if (btn) {
-        btn.textContent = previewBackdrop === 'checker' ? 'Backdrop: Checker' : 'Backdrop: Solid Dark';
+        btn.textContent = previewBackdrop === 'checker' ? 'Canvas: Checkerboard' : 'Canvas: Dark';
         btn.classList.toggle('active', previewBackdrop === 'checker');
     }
     try { localStorage.setItem('trivia-preview-backdrop', previewBackdrop); } catch {}
@@ -265,7 +265,7 @@ export function togglePreviewSampleData() {
 export function setPreviewViewport(w, h, btn, mode) {
     previewWidth = w;
     previewHeight = h;
-    document.querySelectorAll('.vp-chip').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.viewport-chip-btn').forEach(c => c.classList.remove('active'));
     if (btn) btn.classList.add('active');
 
     const modeSelect = document.getElementById('obs-mode');
@@ -284,26 +284,77 @@ export function setPreviewViewport(w, h, btn, mode) {
 }
 
 export function applyViewportScale() {
-    const frame = document.getElementById('trivia-preview-frame');
     const wrapper = document.getElementById('preview-viewport-wrapper');
+    const scaler = document.getElementById('preview-viewport-scaler');
+    const box = document.getElementById('trivia-preview-box');
+    if (!wrapper || !scaler || !box) return;
+
+    const availW = Math.max(280, wrapper.clientWidth - 24);
+    const maxAvailH = 540;
+
+    const scale = Math.min(availW / previewWidth, maxAvailH / previewHeight, 1.0);
+    const scaledW = Math.round(previewWidth * scale);
+    const scaledH = Math.round(previewHeight * scale);
+
+    scaler.style.width = `${scaledW}px`;
+    scaler.style.height = `${scaledH}px`;
+
+    box.style.position = 'absolute';
+    box.style.top = '0';
+    box.style.left = '0';
+    box.style.width = `${previewWidth}px`;
+    box.style.height = `${previewHeight}px`;
+    box.style.transform = `scale(${scale})`;
+    box.style.transformOrigin = 'top left';
+
     const resLabel = document.getElementById('preview-res-label');
-    if (!frame || !wrapper) return;
-
-    frame.style.width = `${previewWidth}px`;
-    frame.style.height = `${previewHeight}px`;
-
-    const availW = wrapper.clientWidth || 400;
-    const availH = 460;
-    const scale = Math.min(availW / previewWidth, availH / previewHeight, 1);
-
-    frame.style.transform = `scale(${scale})`;
-    frame.style.transformOrigin = 'top left';
-
-    wrapper.style.height = `${Math.ceil(previewHeight * scale)}px`;
-
     if (resLabel) {
         resLabel.textContent = `${previewWidth}×${previewHeight} (${Math.round(scale * 100)}%)`;
     }
+}
+
+export function restorePreviewViewport() {
+    try {
+        const savedVp = localStorage.getItem('trivia-preview-viewport');
+        if (savedVp) {
+            const parsed = JSON.parse(savedVp);
+            if (parsed.w && parsed.h) {
+                previewWidth = parsed.w;
+                previewHeight = parsed.h;
+                if (parsed.chipId) {
+                    const chip = document.getElementById(parsed.chipId);
+                    if (chip) {
+                        document.querySelectorAll('.viewport-chip-btn').forEach(c => c.classList.remove('active'));
+                        chip.classList.add('active');
+                    }
+                }
+                if (parsed.mode) {
+                    const modeSelect = document.getElementById('obs-mode');
+                    if (modeSelect) modeSelect.value = parsed.mode;
+                }
+            }
+        }
+    } catch {}
+
+    try {
+        const savedBackdrop = localStorage.getItem('trivia-preview-backdrop');
+        if (savedBackdrop) {
+            previewBackdrop = savedBackdrop;
+            applyPreviewBackdrop();
+        }
+    } catch {}
+
+    try {
+        const savedSample = localStorage.getItem('trivia-preview-sample');
+        if (savedSample !== null) {
+            previewSample = savedSample === '1';
+            const btn = document.getElementById('prev-btn-sample');
+            if (btn) {
+                btn.textContent = previewSample ? 'Sample: ON' : 'Sample: OFF';
+                btn.classList.toggle('active', previewSample);
+            }
+        }
+    } catch {}
 }
 
 export function updateObsUrl() {
@@ -656,4 +707,20 @@ export function initPreviewListeners() {
             }
         });
     });
+
+    // Window resize & responsive scaler observer
+    window.addEventListener('resize', () => {
+        window.requestAnimationFrame(applyViewportScale);
+    });
+
+    const wrapper = document.getElementById('preview-viewport-wrapper');
+    if (wrapper && typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => {
+            window.requestAnimationFrame(applyViewportScale);
+        });
+        ro.observe(wrapper);
+    }
+
+    restorePreviewViewport();
+    applyViewportScale();
 }
