@@ -1445,9 +1445,9 @@
 
         if (target) {
             $('sb-monitor-label').textContent = `${target.label || target.id} (${target.id})`;
-            const remSec = Math.max(0, Math.floor(deriveTimerRemaining(target)));
-            $('sb-monitor-time').textContent = formatTimerTime(remSec);
-            $('sb-monitor-state').textContent = target.state ? target.state.toUpperCase() : 'READY';
+            const live = getLiveTimer(target);
+            $('sb-monitor-time').textContent = formatMs(displayMs(live));
+            $('sb-monitor-state').textContent = (target.state || 'READY').toUpperCase();
             $('sb-monitor-state').className = `pill ${target.state === 'running' ? 'running' : target.state === 'paused' ? 'paused' : ''}`;
         } else {
             $('sb-monitor-label').textContent = 'No target countdown selected';
