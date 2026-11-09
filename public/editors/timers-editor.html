@@ -651,11 +651,46 @@
                 <!-- Overlay URL Card -->
                 <div class="card">
                     <h2><span>Dynamic Rules Overlay</span></h2>
-                    <p class="hint" style="margin-bottom:0.6rem;">Add this browser source to OBS Studio to display live rates that update instantaneously whenever you change settings.</p>
-                    <div class="url-box" id="sb-overlay-url">http://localhost:3000/overlays/subathon-rules.html?layout=grid&amp;theme=dark</div>
+                    <p class="hint" style="margin-bottom:0.6rem;">Customize your broadcast overlay layout and theme, then paste into an OBS Browser Source:</p>
+                    
+                    <div class="cfg-row">
+                        <label for="sb-ov-layout">Layout</label>
+                        <select id="sb-ov-layout">
+                            <option value="grid" selected>Card Grid (Full Intermission)</option>
+                            <option value="compact">Compact Pills (Corner HUD / Strip)</option>
+                            <option value="ticker">Scrolling Ticker (Header / Footer)</option>
+                        </select>
+                    </div>
+
+                    <div class="cfg-row">
+                        <label for="sb-ov-theme">Theme</label>
+                        <select id="sb-ov-theme">
+                            <option value="dark" selected>Dark Navy &amp; Blue Glow</option>
+                            <option value="glass">Frosted Translucent Glass</option>
+                            <option value="arcade">Cyber Neon Arcade</option>
+                            <option value="light">Crisp Light Mode</option>
+                        </select>
+                    </div>
+
+                    <div class="cfg-row" id="sb-ov-cols-row">
+                        <label for="sb-ov-columns">Columns</label>
+                        <select id="sb-ov-columns">
+                            <option value="" selected>Auto-fit</option>
+                            <option value="2">2 Columns</option>
+                            <option value="3">3 Columns</option>
+                            <option value="4">4 Columns</option>
+                        </select>
+                    </div>
+
+                    <div class="cfg-row">
+                        <label for="sb-ov-title">Banner Title</label>
+                        <input type="text" id="sb-ov-title" placeholder="Subathon Rates">
+                    </div>
+
+                    <div class="url-box" id="sb-overlay-url" style="margin-top:0.6rem;">http://localhost:3000/overlays/subathon-rules.html?layout=grid&amp;theme=dark</div>
                     <div class="actions">
                         <button class="btn primary sm" type="button" id="sb-copy-overlay">Copy URL</button>
-                        <a class="btn sm" href="/overlays/subathon-rules.html?preview=true" target="_blank" style="text-decoration:none;">Preview ↗</a>
+                        <a class="btn sm" id="sb-preview-overlay-btn" href="/overlays/subathon-rules.html?preview=true" target="_blank" style="text-decoration:none;">Preview ↗</a>
                     </div>
                 </div>
             </div>
@@ -1424,7 +1459,30 @@
         $('sb-total-added-pill').textContent = `+${formatDuration(state.totalTimeAddedSeconds || 0)} Added`;
         $('sb-events-count-pill').textContent = `${state.totalEventsCount || 0} Events`;
         $('sb-active-rules-summary').textContent = subathonData.rulesSummary?.summary || 'No active rates configured';
-        $('sb-overlay-url').textContent = `${location.origin}/overlays/subathon-rules.html?layout=grid&theme=dark`;
+        updateSubathonOverlayUrl();
+    }
+
+    function updateSubathonOverlayUrl() {
+        const layout = $('sb-ov-layout')?.value || 'grid';
+        const theme = $('sb-ov-theme')?.value || 'dark';
+        const cols = $('sb-ov-columns')?.value;
+        const title = $('sb-ov-title')?.value.trim();
+
+        if ($('sb-ov-cols-row')) {
+            $('sb-ov-cols-row').style.display = layout === 'grid' ? '' : 'none';
+        }
+
+        const params = new URLSearchParams();
+        if (layout !== 'grid') params.set('layout', layout);
+        if (theme !== 'dark') params.set('theme', theme);
+        if (layout === 'grid' && cols) params.set('columns', cols);
+        if (title) params.set('title', title);
+
+        const qs = params.toString();
+        const url = `${location.origin}/overlays/subathon-rules.html${qs ? `?${qs}` : ''}`;
+        const previewUrl = `${location.origin}/overlays/subathon-rules.html?${qs ? `${qs}&` : ''}preview=true`;
+        if ($('sb-overlay-url')) $('sb-overlay-url').textContent = url;
+        if ($('sb-preview-overlay-btn')) $('sb-preview-overlay-btn').href = previewUrl;
     }
 
     function renderExactList(list) {
@@ -1594,6 +1652,10 @@
         const url = $('sb-overlay-url').textContent;
         navigator.clipboard.writeText(url).then(() => toast('Rules overlay URL copied!'));
     });
+    ['sb-ov-layout', 'sb-ov-theme', 'sb-ov-columns'].forEach(id => {
+        $(id)?.addEventListener('change', updateSubathonOverlayUrl);
+    });
+    $('sb-ov-title')?.addEventListener('input', updateSubathonOverlayUrl);
     document.addEventListener('click', async e => {
         const delBtn = e.target.closest('[data-del-exact]');
         if (delBtn) {

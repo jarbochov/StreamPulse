@@ -245,6 +245,11 @@
         if (layout) document.getElementById('rules-root').classList.add(`layout-${layout}`);
         document.documentElement.style.setProperty('--scale', scale);
 
+        const cols = parseInt(urlParams.get('columns'), 10);
+        if (cols > 0 && layout === 'grid') {
+            document.getElementById('rules-grid').style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+        }
+
         if (!showHeader) document.getElementById('rules-header').style.display = 'none';
         if (showTitle) document.getElementById('title-text').textContent = showTitle;
 
