@@ -13,6 +13,18 @@ let hudTimerInterval = null;
 let lastVoteId = null;
 let lastTickedSecond = null;
 
+export function getContrastColor(hexColor) {
+    if (!hexColor || typeof hexColor !== 'string') return '#ffffff';
+    let hex = hexColor.replace('#', '');
+    if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+    if (hex.length !== 6) return '#ffffff';
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    return (yiq >= 140) ? '#111111' : '#ffffff';
+}
+
 export function renderBoard(state, onDrop) {
     // Destroy previous sortable instances to prevent memory leaks
     sortableInstances.forEach(s => s.destroy());
@@ -43,18 +55,20 @@ export function renderBoard(state, onDrop) {
             .filter(i => i.tierId === tier.id)
             .sort((a, b) => (a.order || 0) - (b.order || 0));
 
+        const textColor = getContrastColor(tier.color);
+
         row.innerHTML = `
-            <div class="tier-header" style="background-color: ${esc(tier.color)};" data-tier-id="${esc(tier.id)}" title="Click to edit tier">
+            <div class="tier-header" style="background-color: ${esc(tier.color)}; color: ${textColor};" data-tier-id="${esc(tier.id)}" title="Click to edit tier">
                 <div>${esc(tier.label)}</div>
-                ${tier.description ? `<div class="tier-header-sub">${esc(tier.description)}</div>` : ''}
+                ${tier.description ? `<div class="tier-header-sub" style="color: ${textColor};">${esc(tier.description)}</div>` : ''}
             </div>
             <div class="tier-content" data-tier-id="${esc(tier.id)}">
                 ${tierItems.map(item => renderItemCard(item, state)).join('')}
             </div>
             <div class="tier-row-actions">
-                <button class="tier-action-btn" data-action="tier-up" data-tier-id="${esc(tier.id)}" title="Move tier up"><svg class="ico" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg></button>
-                <button class="tier-action-btn" data-action="tier-down" data-tier-id="${esc(tier.id)}" title="Move tier down"><svg class="ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></button>
-                <button class="tier-action-btn" data-action="tier-edit" data-tier-id="${esc(tier.id)}" title="Edit tier settings"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+                <button class="tier-action-btn icon-btn" data-action="tier-up" data-tier-id="${esc(tier.id)}" title="Move tier up"><svg class="ico" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg></button>
+                <button class="tier-action-btn icon-btn" data-action="tier-down" data-tier-id="${esc(tier.id)}" title="Move tier down"><svg class="ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></button>
+                <button class="tier-action-btn icon-btn" data-action="tier-edit" data-tier-id="${esc(tier.id)}" title="Edit tier settings"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
             </div>
         `;
 
