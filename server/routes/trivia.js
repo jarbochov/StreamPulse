@@ -213,15 +213,15 @@ function createTriviaRoutes({ triviaService, isTriviaEnabled = () => true }) {
                 return true;
             }
 
-            // POST /api/trivia/questions/shuffle - Randomize question bank order
-            if (pathname === '/api/trivia/questions/shuffle' && req.method === 'POST') {
+            // POST or GET /api/trivia/questions/shuffle (Companion friendly)
+            if ((pathname === '/api/trivia/questions/shuffle' || pathname === '/api/trivia/shuffle') && (req.method === 'POST' || req.method === 'GET')) {
                 const shuffled = triviaService.shuffleQuestions();
                 sendJson(res, { success: true, count: shuffled.length });
                 return true;
             }
 
-            // POST /api/trivia/questions/reset-done - Reset played/done flags on all questions
-            if (pathname === '/api/trivia/questions/reset-done' && req.method === 'POST') {
+            // POST or GET /api/trivia/questions/reset-done (Companion friendly)
+            if ((pathname === '/api/trivia/questions/reset-done' || pathname === '/api/trivia/reset-done') && (req.method === 'POST' || req.method === 'GET')) {
                 triviaService.resetDoneQuestions();
                 sendJson(res, { success: true });
                 return true;
@@ -271,9 +271,27 @@ function createTriviaRoutes({ triviaService, isTriviaEnabled = () => true }) {
                 return true;
             }
 
-            // POST or GET /api/trivia/presets/:id/load (Companion friendly)
-            if (pathname.startsWith('/api/trivia/presets/') && pathname.endsWith('/load') && (req.method === 'POST' || req.method === 'GET')) {
+            // POST or GET /api/trivia/presets/:id/load or /api/trivia/preset/load?id=... (Companion friendly)
+            if ((pathname.startsWith('/api/trivia/presets/') && pathname.endsWith('/load')) && (req.method === 'POST' || req.method === 'GET')) {
                 const presetId = pathname.slice('/api/trivia/presets/'.length, -'/load'.length);
+                if (presetId) {
+                    const state = triviaService.loadPreset(presetId);
+                    sendJson(res, state);
+                    return true;
+                }
+            }
+
+            if ((pathname === '/api/trivia/preset/load' || pathname === '/api/trivia/presets/load') && (req.method === 'POST' || req.method === 'GET')) {
+                let presetId = url.searchParams.get('id') || url.searchParams.get('presetId');
+                if (!presetId && req.method === 'POST') {
+                    const raw = await readRequestBody(req);
+                    const body = raw ? JSON.parse(raw) : {};
+                    presetId = body.id || body.presetId;
+                }
+                if (!presetId) {
+                    sendError(res, 'Missing preset id', 400);
+                    return true;
+                }
                 const state = triviaService.loadPreset(presetId);
                 sendJson(res, state);
                 return true;

@@ -495,6 +495,7 @@ function createTriviaService({
             questionTimer = setTimeout(() => {
                 revealAnswer();
             }, durationSec * 1000);
+            questionTimer.unref?.();
         }
 
         save();
@@ -549,6 +550,7 @@ function createTriviaService({
                     resetTrivia();
                 }
             }, delaySec * 1000);
+            revealTimer.unref?.();
         }
 
         return getPublicState();

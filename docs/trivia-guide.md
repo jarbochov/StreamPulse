@@ -166,10 +166,11 @@ All trivia endpoints support both standard REST methods and Companion-friendly `
 | `/api/trivia/reset` | `POST`, `GET` | Clear active question and return overlay to idle. |
 | `/api/trivia/question/toggle-done` | `POST`, `GET` | Toggle done/unplayed state on a question (`?id=...` or active). |
 | `/api/trivia/question/done` | `POST` | Explicitly set done state (`{ id, done: true|false }`). |
-| `/api/trivia/questions/reset-done` | `POST`, `GET` | Mark all questions as unplayed/done=false. |
+| `/api/trivia/questions/reset-done` | `POST`, `GET` | Mark all questions as unplayed/done=false (alias: `/api/trivia/reset-done`). |
 | `/api/trivia/questions` | `POST` | Add a new question to the bank. |
 | `/api/trivia/questions/reorder` | `POST`, `PUT` | Save a new ordered array of question IDs. |
 | `/api/trivia/questions/move` | `POST`, `GET` | Move a question up or down (`?id=...&direction=up\|down`). |
-| `/api/trivia/questions/shuffle` | `POST`, `GET` | Randomly shuffle questions in the active bank. |
+| `/api/trivia/questions/shuffle` | `POST`, `GET` | Randomly shuffle questions in the active bank (alias: `/api/trivia/shuffle`). |
 | `/api/trivia/presets` | `GET`, `POST` | List presets or save active bank as a new preset. |
 | `/api/trivia/presets/:id` | `GET`, `DELETE` | Load or delete a saved preset pack. |
+| `/api/trivia/preset/load` | `POST`, `GET` | Load preset via query param (`?id=pop-culture` or `?id=gaming-classics`). |

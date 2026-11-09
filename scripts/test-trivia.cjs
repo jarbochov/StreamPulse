@@ -122,13 +122,16 @@ test('Trivia Service: Question Management CRUD', (t) => {
 test('Trivia Service: Gameplay lifecycle, chat voting, and reveal', (t) => {
     const testDir = path.join(__dirname, '..', 'data', `.test-trivia-life-${Date.now()}`);
     fs.mkdirSync(testDir, { recursive: true });
-    t.after(() => { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} });
 
     let lastBroadcast = null;
     const service = createTriviaService({
         dataDir: testDir,
         triviaPath: path.join(testDir, 'trivia.json'),
         broadcastToOverlays: (type, data) => { lastBroadcast = { type, data }; }
+    });
+    t.after(() => {
+        service.destroy();
+        try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
     });
 
     // 1. Start Question
@@ -212,10 +215,14 @@ test('Trivia Service: Presets save, load, and delete', (t) => {
 test('Trivia Routes & Companion HTTP Endpoints', async (t) => {
     const testDir = path.join(__dirname, '..', 'data', `.test-trivia-routes-${Date.now()}`);
     fs.mkdirSync(testDir, { recursive: true });
-    t.after(() => { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} });
 
     let isEnabled = true;
     const service = createTriviaService({ dataDir: testDir, triviaPath: path.join(testDir, 'trivia.json') });
+    t.after(() => {
+        service.destroy();
+        try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
+    });
+
     const routes = createTriviaRoutes({ triviaService: service, isTriviaEnabled: () => isEnabled });
 
     const request = async (urlStr, options = {}) => {
@@ -256,12 +263,36 @@ test('Trivia Routes & Companion HTTP Endpoints', async (t) => {
     assert.equal(rReset.status, 200);
     assert.equal(rReset.json.status, 'idle');
 
-    // 6. GET /api/trivia/status summary
+    // 6. Companion Friendly: GET /api/trivia/questions/shuffle and alias /api/trivia/shuffle
+    const rShuffle1 = await request('/api/trivia/questions/shuffle');
+    assert.equal(rShuffle1.status, 200);
+    assert.equal(rShuffle1.json.success, true);
+    const rShuffle2 = await request('/api/trivia/shuffle');
+    assert.equal(rShuffle2.status, 200);
+    assert.equal(rShuffle2.json.success, true);
+
+    // 7. Companion Friendly: GET /api/trivia/questions/reset-done and alias /api/trivia/reset-done
+    const rResetDone1 = await request('/api/trivia/questions/reset-done');
+    assert.equal(rResetDone1.status, 200);
+    assert.equal(rResetDone1.json.success, true);
+    const rResetDone2 = await request('/api/trivia/reset-done');
+    assert.equal(rResetDone2.status, 200);
+    assert.equal(rResetDone2.json.success, true);
+
+    // 8. Companion Friendly: GET /api/trivia/preset/load?id=pop-culture and alias /api/trivia/presets/load?id=pop-culture
+    const rPresetLoad1 = await request('/api/trivia/preset/load?id=pop-culture');
+    assert.equal(rPresetLoad1.status, 200);
+    assert.equal(rPresetLoad1.json.questions[0].category, 'Sci-Fi Cinema');
+    const rPresetLoad2 = await request('/api/trivia/presets/load?id=gaming-classics');
+    assert.equal(rPresetLoad2.status, 200);
+    assert.equal(rPresetLoad2.json.questions[0].category, 'Retro Gaming');
+
+    // 9. GET /api/trivia/status summary
     const rStatus = await request('/api/trivia/status');
     assert.equal(rStatus.status, 200);
     assert.equal(rStatus.json.status, 'idle');
 
-    // 7. Disabled module guard
+    // 10. Disabled module guard
     isEnabled = false;
     const rDisabled = await request('/api/trivia');
     assert.equal(rDisabled.status, 403, 'Disabled trivia module should return 403');
@@ -370,9 +401,13 @@ test('Trivia Service: Move, Shuffle, and Reorder Questions', (t) => {
 test('Trivia Service: (Done) played question tracking, toggleQuestionDone, and resetDoneQuestions', (t) => {
     const testDir = path.join(__dirname, '..', 'data', `.test-trivia-done-${Date.now()}`);
     fs.mkdirSync(testDir, { recursive: true });
-    t.after(() => { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} });
+    let service;
+    t.after(() => {
+        if (service) service.destroy();
+        try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
+    });
 
-    const service = createTriviaService({ dataDir: testDir, triviaPath: path.join(testDir, 'trivia.json') });
+    service = createTriviaService({ dataDir: testDir, triviaPath: path.join(testDir, 'trivia.json') });
     const batch = [
         { category: 'General', question: 'Q1?', choices: ['A', 'B'], correctIndex: 0 },
         { category: 'General', question: 'Q2?', choices: ['A', 'B'], correctIndex: 0 },
@@ -517,7 +552,11 @@ test('Trivia Service: Themes and element visibility toggles', (t) => {
 test('Trivia Service: Chatbot enabled/disabled voting state awareness', (t) => {
     const testDir = path.join(__dirname, '..', 'data', `.test-trivia-cb-${Date.now()}`);
     fs.mkdirSync(testDir, { recursive: true });
-    t.after(() => { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} });
+    let service;
+    t.after(() => {
+        if (service) service.destroy();
+        try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
+    });
 
     let botEnabled = false;
     const mockBot = {
@@ -526,7 +565,7 @@ test('Trivia Service: Chatbot enabled/disabled voting state awareness', (t) => {
         announceTriviaAnswer: () => {}
     };
 
-    const service = createTriviaService({
+    service = createTriviaService({
         dataDir: testDir,
         triviaPath: path.join(testDir, 'trivia.json'),
         chatbotAnnouncer: mockBot
