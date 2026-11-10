@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import promoModel from '../public/js/promo-model.js';
 import staticRouter from '../server/static-router.js';
 import alertModel from '../server/services/alerts.js';
+import triviaModel from '../server/services/trivia.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -698,6 +699,15 @@ async function run() {
                 : pathname === '/api/obs/status' ? { enabled: false, connected: false }
                 : pathname === '/api/config' || pathname === '/api/status' ? {} : [];
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
+        } else if (new URL(url).pathname === '/api/trivia') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({
+                status: 'idle', currentIndex: 0, totalQuestions: 1, activeQuestion: null,
+                chatbotEnabled: true, chatVotingActive: false, playedQuestionIds: [],
+                settings: { ...triviaModel.DEFAULT_SETTINGS, chatVoting: false },
+                theme: triviaModel.DEFAULT_THEME, presets: [],
+                questions: [{ id: 'fictional-quiz', category: 'Fictional Expedition', question: 'Which moon is the next expedition visiting?',
+                    choices: ['Moon Harbor', 'Silver Meadow', 'Star Valley', 'Cloud Ridge'], correctIndex: 0, duration: 20 }]
+            }) });
         } else if (url.includes('/api/promo-themes')) {
             req.respond({ status: 200, contentType: 'application/json', body: '[]' });
         } else if (url.includes('/api/promos')) {
@@ -765,6 +775,14 @@ async function run() {
     });
 
     const targets = [
+        {
+            url: `${baseUrl}/tools/trivia.html`,
+            file: 'trivia-gameplay-settings.png',
+            action: async p => {
+                await p.waitForFunction(() => document.getElementById('chatbot-status-pill')?.textContent === 'Chat voting off');
+                await p.evaluate(() => document.getElementById('cfg-chat-voting').closest('.panel').scrollIntoView({ block: 'center' }));
+            }
+        },
         {
             url: `${baseUrl}/custom-overlay-editor.html?id=border-showcase`,
             file: 'speaker-badge-style.png',

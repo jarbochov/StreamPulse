@@ -812,6 +812,8 @@ StreamPulse features a fully automated, modular Subathon Engine that dynamically
 | `/api/subathon/rules` | `GET` | Return human-readable rule summary string and structured rule parts |
 | `/api/subathon/field/:field` | `GET` | Plain-text endpoint for Bitfocus Companion polling |
 
+Partial rule updates retain omitted values, including donation defaults when editing exact-amount rules. A timed Boost Period expires and broadcasts its updated state without waiting for another event or poll; an unexpired saved boost resumes its expiry timer after restart.
+
 ### Plain-Text Companion Fields (`/api/subathon/field/:field`)
 - `enabled`: `true` or `false`
 - `targetTimerId`: Target timer ID

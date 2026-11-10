@@ -5,6 +5,8 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const http = require('http');
+const puppeteer = require('puppeteer');
 const { createTierListService, calculateConsensus, DEFAULT_TIERS } = require('../server/services/tier-list');
 const { createTierListRoutes } = require('../server/routes/tier-list');
 const { createOverlayRoutes } = require('../server/routes/overlays');
@@ -472,6 +474,102 @@ test('Tier List Overlay: Responsive styles, cover fit, contrast helper and hint 
     assert.ok(overlayHtml.includes('getContrastColor'));
     assert.ok(overlayHtml.includes('container-type: inline-size'));
     assert.ok(overlayHtml.includes('isVoteActive'));
+});
+
+test('Tier List preview applies appearance and viewport changes without reloading the overlay', async (t) => {
+    const publicRoot = path.resolve(__dirname, '../public');
+    const profileDir = path.resolve(__dirname, '..', `.test-tier-list-preview-${process.pid}`);
+    fs.rmSync(profileDir, { recursive: true, force: true });
+
+    const state = {
+        title: 'Fixture Tier List',
+        tiers: DEFAULT_TIERS,
+        items: [],
+        activeVote: null,
+        presets: [],
+        settings: { showVoteHint: true, soundEnabled: true }
+    };
+    const contentTypes = {
+        '.css': 'text/css',
+        '.html': 'text/html',
+        '.js': 'text/javascript',
+        '.svg': 'image/svg+xml'
+    };
+    const server = http.createServer((req, res) => {
+        const url = new URL(req.url, 'http://127.0.0.1');
+        if (url.pathname.startsWith('/api/')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(state));
+            return;
+        }
+
+        const filePath = path.resolve(publicRoot, `.${decodeURIComponent(url.pathname)}`);
+        if (!filePath.startsWith(`${publicRoot}${path.sep}`)) {
+            res.writeHead(403);
+            res.end();
+            return;
+        }
+        fs.readFile(filePath, (error, content) => {
+            if (error) {
+                res.writeHead(404);
+                res.end();
+                return;
+            }
+            res.writeHead(200, {
+                'Content-Type': contentTypes[path.extname(filePath)] || 'application/octet-stream',
+                'Cache-Control': 'no-store'
+            });
+            res.end(content);
+        });
+    });
+
+    let browser;
+    t.after(async () => {
+        if (browser) await browser.close();
+        if (server.listening) await new Promise(resolve => server.close(resolve));
+        fs.rmSync(profileDir, { recursive: true, force: true });
+    });
+
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    browser = await puppeteer.launch({
+        headless: true,
+        userDataDir: profileDir,
+        args: ['--no-sandbox']
+    });
+    const page = await browser.newPage();
+    let overlayNavigations = 0;
+    page.on('framenavigated', frame => {
+        if (frame.url().includes('/overlays/tier-list.html')) overlayNavigations += 1;
+    });
+    await page.evaluateOnNewDocument(() => {
+        window.WebSocket = class {
+            close() {}
+            send() {}
+        };
+    });
+
+    await page.goto(`${origin}/tools/tier-list.html`, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => window.localStorage.getItem('streampulse:tier-list:overlay-options') !== null);
+    await page.click('#tab-btn-theming');
+    await page.waitForFunction(() => {
+        const frame = document.getElementById('tier-preview-iframe');
+        return frame?.dataset.initialLoaded === 'true'
+            && frame.contentDocument?.readyState === 'complete'
+            && frame.contentDocument?.getElementById('overlay-container');
+    });
+    const initialOverlayNavigations = overlayNavigations;
+    assert.ok(initialOverlayNavigations >= 1, 'preview iframe should load once before changing options');
+    await page.select('#overlay-opt-theme', 'light');
+
+    const overlayFrame = page.frames().find(frame => frame.url().includes('/overlays/tier-list.html'));
+    await overlayFrame.waitForFunction(() => document.body.classList.contains('theme-light'));
+    await page.click('#chip-vp-sidebar');
+    await overlayFrame.waitForFunction(() => document.body.classList.contains('layout-sidebar'));
+    await page.waitForFunction(() => document.getElementById('preview-res-label')?.textContent.includes('440×1080'));
+
+    assert.equal(overlayNavigations, initialOverlayNavigations, 'preview options must synchronize via postMessage, not iframe reload');
+    assert.equal(await overlayFrame.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--tl-bg').trim()), '#ffffff');
 });
 
 test('Chatbot Tier Vote End: Accurately announces total votes and consensus agreement', async (t) => {

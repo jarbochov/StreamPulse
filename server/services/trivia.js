@@ -324,8 +324,11 @@ function createTriviaService({
                     if (parsed.settings && typeof parsed.settings === 'object') {
                         state.settings = { ...DEFAULT_SETTINGS, ...parsed.settings };
                     }
-                    if (Array.isArray(parsed.questions) && parsed.questions.length > 0) {
+                    if (Array.isArray(parsed.questions)) {
                         state.questions = parsed.questions;
+                        for (const q of state.questions) {
+                            if (q.done) playedQuestionIds.add(q.id);
+                        }
                     }
                     if (typeof parsed.currentIndex === 'number' && parsed.currentIndex >= 0) {
                         state.currentIndex = parsed.currentIndex;
@@ -456,7 +459,7 @@ function createTriviaService({
         } else if (state.settings.randomOrder) {
             let unplayed = state.questions.filter(q => !playedQuestionIds.has(q.id));
             if (unplayed.length === 0) {
-                playedQuestionIds.clear();
+                resetDoneQuestions();
                 unplayed = state.questions;
             }
             const picked = unplayed[Math.floor(Math.random() * unplayed.length)];
@@ -472,6 +475,7 @@ function createTriviaService({
         state.currentIndex = targetIndex;
         const rawQuestion = state.questions[targetIndex];
         playedQuestionIds.add(rawQuestion.id);
+        rawQuestion.done = true;
 
         const durationSec = Number(opts.duration) || rawQuestion.duration || state.settings.defaultDuration || 20;
         const now = Date.now();
@@ -501,9 +505,10 @@ function createTriviaService({
         save();
         broadcastState('trivia:start', { question: sanitizeActiveQuestion(state.activeQuestion, false) });
 
-        if (chatbotAnnouncer && typeof chatbotAnnouncer.announceTriviaQuestion === 'function') {
+        if (isChatVotingActive() && chatbotAnnouncer && typeof chatbotAnnouncer.announceTriviaQuestion === 'function') {
             try {
-                chatbotAnnouncer.announceTriviaQuestion(state.activeQuestion);
+                Promise.resolve(chatbotAnnouncer.announceTriviaQuestion(state.activeQuestion))
+                    .catch(err => log('[Trivia] Chatbot question announce failed:', err.message));
             } catch (err) {
                 log('[Trivia] Chatbot question announce failed:', err.message);
             }
@@ -532,9 +537,10 @@ function createTriviaService({
             funfact: state.activeQuestion.funfact || ''
         });
 
-        if (chatbotAnnouncer && typeof chatbotAnnouncer.announceTriviaAnswer === 'function') {
+        if (isChatVotingActive() && chatbotAnnouncer && typeof chatbotAnnouncer.announceTriviaAnswer === 'function') {
             try {
-                chatbotAnnouncer.announceTriviaAnswer(sanitizeActiveQuestion(state.activeQuestion, true));
+                Promise.resolve(chatbotAnnouncer.announceTriviaAnswer(sanitizeActiveQuestion(state.activeQuestion, true)))
+                    .catch(err => log('[Trivia] Chatbot answer announce failed:', err.message));
             } catch (err) {
                 log('[Trivia] Chatbot answer announce failed:', err.message);
             }
@@ -544,7 +550,8 @@ function createTriviaService({
         if (state.settings.autoAdvance) {
             const delaySec = state.settings.revealDelay || 6;
             revealTimer = setTimeout(() => {
-                if (state.currentIndex + 1 < state.questions.length) {
+                if (!state.settings.autoAdvance) return;
+                if (state.questions.some(q => !playedQuestionIds.has(q.id))) {
                     nextQuestion();
                 } else {
                     resetTrivia();
@@ -563,7 +570,7 @@ function createTriviaService({
         if (state.settings.randomOrder) {
             let unplayed = state.questions.filter(q => !playedQuestionIds.has(q.id));
             if (unplayed.length === 0) {
-                playedQuestionIds.clear();
+                resetDoneQuestions();
                 unplayed = state.questions;
             }
             const picked = unplayed[Math.floor(Math.random() * unplayed.length)];
@@ -623,6 +630,7 @@ function createTriviaService({
         clearTimers();
         userVotes.clear();
         playedQuestionIds.clear();
+        for (const q of state.questions) q.done = false;
         state.status = 'idle';
         state.activeQuestion = null;
 
@@ -635,7 +643,7 @@ function createTriviaService({
         if (state.status !== 'question') return false;
         if (!isChatVotingActive()) return false;
         const choiceCount = state.activeQuestion?.choices?.length || 4;
-        if (typeof choiceIndex !== 'number' || choiceIndex < 0 || choiceIndex >= choiceCount) return false;
+        if (!Number.isInteger(choiceIndex) || choiceIndex < 0 || choiceIndex >= choiceCount) return false;
 
         const voterKey = (userId || user || '').trim().toLowerCase();
         if (!voterKey) return false;
@@ -839,6 +847,7 @@ function createTriviaService({
             reordered.push(remaining);
         }
         state.questions = reordered;
+        if (state.activeQuestion) state.currentIndex = state.questions.findIndex(q => q.id === state.activeQuestion.id);
         save();
         broadcastState('trivia:state');
         return state.questions;
@@ -847,12 +856,13 @@ function createTriviaService({
     function moveQuestion(id, direction) {
         const idx = state.questions.findIndex(q => q.id === id);
         if (idx === -1) return state.questions;
-        const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+        const targetIdx = direction === 'up' || Number(direction) < 0 ? idx - 1 : idx + 1;
         if (targetIdx < 0 || targetIdx >= state.questions.length) return state.questions;
 
         const temp = state.questions[idx];
         state.questions[idx] = state.questions[targetIdx];
         state.questions[targetIdx] = temp;
+        if (state.activeQuestion) state.currentIndex = state.questions.findIndex(q => q.id === state.activeQuestion.id);
         save();
         broadcastState('trivia:state');
         return state.questions;
@@ -863,8 +873,9 @@ function createTriviaService({
             const j = Math.floor(Math.random() * (i + 1));
             [state.questions[i], state.questions[j]] = [state.questions[j], state.questions[i]];
         }
-        state.currentIndex = 0;
+        state.currentIndex = state.activeQuestion ? state.questions.findIndex(q => q.id === state.activeQuestion.id) : 0;
         playedQuestionIds.clear();
+        for (const q of state.questions) q.done = false;
         save();
         broadcastState('trivia:state');
         return state.questions;

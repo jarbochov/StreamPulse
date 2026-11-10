@@ -4,12 +4,14 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const { createSubathonService } = require('../server/services/subathon');
 const { createTimerService } = require('../server/services/timers');
 
 test('Subathon Automation Engine: Rules, Exact Amounts, Multipliers, Safety Caps & Undo', async (t) => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-subathon-test-'));
+    const tempDir = path.join(__dirname, '..', `.test-subathon-${process.pid}`);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    fs.mkdirSync(tempDir, { recursive: true });
+    t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
 
     let mockConfig = { subathon_enabled: true };
     const broadcasts = [];
@@ -241,5 +243,45 @@ test('Subathon Automation Engine: Rules, Exact Amounts, Multipliers, Safety Caps
         assert.equal(updated.theme.cardRadius, 16);
     });
 
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    await t.test('12. Partial rule updates preserve other saved values in that rule group', () => {
+        subathonService.updateConfig({
+            rules: {
+                donations: {
+                    enabled: false,
+                    minAmount: 12,
+                    secondsPerDollar: 77,
+                    exactAmounts: []
+                }
+            }
+        });
+
+        const updated = subathonService.updateConfig({
+            rules: {
+                donations: {
+                    exactAmounts: [{ amount: 7.5, seconds: 45, label: 'Fixture' }]
+                }
+            }
+        });
+
+        assert.equal(updated.rules.donations.enabled, false);
+        assert.equal(updated.rules.donations.minAmount, 12);
+        assert.equal(updated.rules.donations.secondsPerDollar, 77);
+        assert.deepEqual(updated.rules.donations.exactAmounts, [
+            { amount: 7.5, seconds: 45, label: 'Fixture' }
+        ]);
+    });
+
+    await t.test('13. Expiring a boost broadcasts updated rules to live overlays', async () => {
+        const start = broadcasts.length;
+        subathonService.setMultiplier(2, 0.001);
+        assert.equal(subathonService.getRuleSummary().boostActive, true);
+
+        await new Promise(resolve => setTimeout(resolve, 120));
+
+        const expiryUpdate = broadcasts.slice(start).reverse().find(
+            item => item.type === 'subathon-update' && item.payload.rulesSummary.boostActive === false
+        );
+        assert.ok(expiryUpdate, 'boost expiry must broadcast the unboosted rules');
+        assert.equal(expiryUpdate.payload.config.multiplier.active, false);
+    });
 });

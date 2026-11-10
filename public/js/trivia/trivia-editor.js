@@ -378,7 +378,7 @@ export function initEditorListeners() {
             cardBorderColor: getColorFieldValue('cfg-theme-card-border'),
             choiceBg: getColorFieldValue('cfg-theme-choice-bg'),
             choiceBorderColor: getColorFieldValue('cfg-theme-choice-border'),
-            cardBlur: parseInt(document.getElementById('cfg-theme-blur')?.value, 10) || 12,
+            cardBlur: Number(document.getElementById('cfg-theme-blur')?.value ?? 12),
             accentColor: getColorFieldValue('cfg-theme-accent-color'),
             correctColor: getColorFieldValue('cfg-theme-correct-color'),
             categoryColor: getColorFieldValue('cfg-theme-category-color'),

@@ -1219,8 +1219,10 @@
             }
         }
 
-        function playSound(type) {
-            if (!soundParam) return;
+        function playSound(type, settings = currentState?.settings || {}) {
+            const enabled = params.has('sound') ? soundParam : settings.soundEnabled !== false;
+            const volume = Math.max(0, Math.min(100, Number(settings.soundVolume ?? 75))) / 100;
+            if (!enabled || !Number.isFinite(volume) || volume === 0) return;
             try {
                 if (!audioCtx) audioCtx = new AudioCtx();
                 if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -1231,7 +1233,7 @@
                     const gain = audioCtx.createGain();
                     osc.type = 'sine';
                     osc.frequency.setValueAtTime(800, now);
-                    gain.gain.setValueAtTime(0.04, now);
+                    gain.gain.setValueAtTime(0.04 * volume, now);
                     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
                     osc.connect(gain);
                     gain.connect(audioCtx.destination);
@@ -1244,7 +1246,7 @@
                         const gain = audioCtx.createGain();
                         osc.type = 'triangle';
                         osc.frequency.setValueAtTime(freq, now + (i * 0.08));
-                        gain.gain.setValueAtTime(0.08, now + (i * 0.08));
+                        gain.gain.setValueAtTime(0.08 * volume, now + (i * 0.08));
                         gain.gain.exponentialRampToValueAtTime(0.001, now + (i * 0.08) + 0.6);
                         osc.connect(gain);
                         gain.connect(audioCtx.destination);
@@ -1579,7 +1581,7 @@
 
             const shouldCollapse = params.has('collapse')
                 ? (params.get('collapse') === '1' || params.get('collapse') === 'true')
-                : Boolean(document.body.dataset.collapse === 'true' || t.collapseIncorrect || activePreset === 'broadcast-text' || activePreset === 'nodecg' || activeStyle === 'text');
+                : (t.collapseIncorrect !== undefined ? t.collapseIncorrect === true : (activePreset === 'broadcast-text' || activePreset === 'nodecg' || activeStyle === 'text'));
             document.body.dataset.collapse = shouldCollapse ? 'true' : 'false';
             document.body.classList.toggle('collapse-incorrect', shouldCollapse);
 
@@ -1772,10 +1774,10 @@
                     if (msg.type === 'trivia:state') {
                         render(msg.data);
                     } else if (msg.type === 'trivia:start') {
-                        playSound('tick');
+                        playSound('tick', msg.data?.settings || currentState?.settings);
                         fetchState();
                     } else if (msg.type === 'trivia:reveal') {
-                        playSound('reveal');
+                        playSound('reveal', msg.data?.settings || currentState?.settings);
                         fetchState();
                     } else if (msg.type === 'trivia:vote-update') {
                         updateVotes(msg.data);

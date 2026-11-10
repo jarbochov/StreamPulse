@@ -529,8 +529,8 @@
     <script>
         (function() {
             const urlParams = new URLSearchParams(window.location.search);
-            const layout = urlParams.get('layout') || 'board';
-            const hideUnranked = urlParams.get('hideUnranked') === '1' || urlParams.get('hideUnranked') === 'true';
+            let layout = urlParams.get('layout') || 'board';
+            let hideUnranked = urlParams.get('hideUnranked') === '1' || urlParams.get('hideUnranked') === 'true';
             const cardAspectParam = urlParams.get('aspect') || urlParams.get('coverRatio');
             const themeParam = urlParams.get('theme');
 
@@ -603,18 +603,31 @@
                 document.documentElement.style.setProperty('--tl-muted', '#64748b');
             }
 
-            const sfxParam = urlParams.get('sfx');
-            const sfxEnabled = sfxParam !== '0' && sfxParam !== 'false';
+            let sfxParam = urlParams.get('sfx');
+            let sfxEnabled = sfxParam !== '0' && sfxParam !== 'false';
 
             window.addEventListener('message', (e) => {
                 if (!e.data || e.data.type !== 'tierlist:preview-config') return;
                 const opts = e.data.options || {};
-                if (opts.scale) {
-                    const parsed = parseFloat(String(opts.scale).replace('%', ''));
-                    if (!isNaN(parsed) && parsed > 0) {
-                        const s = parsed > 10 ? parsed / 100 : parsed;
-                        document.documentElement.style.setProperty('--tl-scale', s);
-                    }
+                if (opts.layout) {
+                    layout = opts.layout;
+                    document.body.classList.toggle('layout-sidebar', layout === 'sidebar');
+                }
+                if (opts.hideUnranked !== undefined) {
+                    hideUnranked = Boolean(opts.hideUnranked);
+                    if (hideUnranked) $('overlay-unranked').style.display = 'none';
+                }
+                if (opts.size) {
+                    const sizeScales = { compact: 0.8, medium: 1, large: 1.35, xlarge: 1.7 };
+                    const parsed = parseFloat(String(opts.size).replace('%', ''));
+                    cardScale = sizeScales[opts.size] || (Number.isFinite(parsed) && parsed > 0 ? (parsed > 10 ? parsed / 100 : parsed) : cardScale);
+                    document.documentElement.style.setProperty('--tl-card-scale', cardScale);
+                }
+                if (opts.aspect) {
+                    document.documentElement.style.setProperty('--tl-card-aspect', opts.aspect);
+                }
+                if (opts.coverFit && ['cover', 'contain', 'fill', 'natural'].includes(opts.coverFit)) {
+                    document.documentElement.style.setProperty('--tl-cover-fit', opts.coverFit);
                 }
                 if (opts.theme) {
                     const t = String(opts.theme).toLowerCase();
@@ -622,6 +635,10 @@
                         document.body.classList.remove('theme-light');
                         document.documentElement.style.setProperty('--tl-bg', 'transparent');
                         document.documentElement.style.setProperty('--tl-border', 'transparent');
+                        document.documentElement.style.setProperty('--tl-text', '#f0f6fc');
+                        document.documentElement.style.setProperty('--tl-muted', '#8b949e');
+                        const header = document.getElementById('overlay-header');
+                        if (header) header.style.background = 'rgba(13, 17, 23, 0.88)';
                     } else if (t === 'light') {
                         document.body.classList.add('theme-light');
                         document.documentElement.style.setProperty('--tl-bg', '#ffffff');
@@ -634,23 +651,39 @@
                         document.documentElement.style.setProperty('--tl-border', 'rgba(255, 255, 255, 0.1)');
                         document.documentElement.style.setProperty('--tl-text', '#f0f6fc');
                         document.documentElement.style.setProperty('--tl-muted', '#8b949e');
+                        const header = document.getElementById('overlay-header');
+                        if (header) header.style.removeProperty('background');
                     }
                 }
                 if (opts.howToVote !== undefined) {
-                    const isOff = opts.howToVote === '0' || opts.howToVote === 'false' || opts.howToVote === 'none' || opts.howToVote === 'hide';
-                    const el = document.getElementById('how-to-vote-hint');
-                    if (el) el.style.display = isOff ? 'none' : 'flex';
+                    howToVoteParam = String(opts.howToVote);
+                    isHintExplicitOff = ['0', 'false', 'none', 'hide'].includes(howToVoteParam);
+                    isHintExplicitAlways = ['always', 'test'].includes(howToVoteParam);
+                    updateVotingHint(currentState);
+                }
+                if (opts.hintScale) {
+                    const parsed = parseFloat(String(opts.hintScale).replace('%', ''));
+                    if (Number.isFinite(parsed) && parsed > 0) {
+                        hintScale = parsed > 10 ? parsed / 100 : parsed;
+                        document.documentElement.style.setProperty('--tl-hint-scale', hintScale);
+                    }
                 }
                 if (opts.hintText !== undefined) {
-                    const el = document.getElementById('how-to-vote-text');
-                    if (el) el.textContent = opts.hintText || 'Type !tier S/A/B/C/D/F to cast your vote';
+                    customHintText = opts.hintText;
+                    updateVotingHint(currentState);
                 }
+                if (opts.sfx !== undefined) {
+                    sfxParam = String(opts.sfx);
+                    sfxEnabled = sfxParam !== '0' && sfxParam !== 'false';
+                    TierAudio.enabled = sfxEnabled;
+                }
+                if (currentState) renderOverlay(currentState);
             });
 
-            const howToVoteParam = urlParams.get('howtovote') ?? urlParams.get('hint') ?? urlParams.get('instructions');
-            const customHintText = urlParams.get('hintText');
-            const isHintExplicitOff = howToVoteParam === '0' || howToVoteParam === 'false' || howToVoteParam === 'none' || howToVoteParam === 'hide';
-            const isHintExplicitAlways = howToVoteParam === 'always' || howToVoteParam === 'test';
+            let howToVoteParam = urlParams.get('howtovote') ?? urlParams.get('hint') ?? urlParams.get('instructions');
+            let customHintText = urlParams.get('hintText');
+            let isHintExplicitOff = howToVoteParam === '0' || howToVoteParam === 'false' || howToVoteParam === 'none' || howToVoteParam === 'hide';
+            let isHintExplicitAlways = howToVoteParam === 'always' || howToVoteParam === 'test';
 
             let currentState = null;
             let hudInterval = null;

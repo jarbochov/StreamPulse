@@ -8,7 +8,7 @@ StreamPulse includes an interactive Live Trivia Studio and broadcast OBS overlay
 
 - **2 to 6 Choices & True/False Support**: Run standard 4-choice questions, rapid True/False binary votes, or nuanced 5–6 choice challenges.
 - **Drag-and-Drop Question Reordering**: Rearrange questions seamlessly in the studio using native drag-and-drop handles or instant Up/Down shift buttons.
-- **Played & Done Question Tracking**: Questions are marked as Done once revealed so they never repeat during randomized play. Streamers can manually toggle question status or click **Reset Unplayed** before each segment.
+- **Played & Done Question Tracking**: Starting a question marks it Done. Played and manually completed marks survive restart and are skipped during randomized play. **Reset Unplayed** or **Reset Session** clears all marks.
 - **Transition Control**: Choose between automatic answer reveal when the countdown timer hits zero or **Manual Transition** allowing the host to discuss responses before triggering the reveal.
 - **Distinct Visual Themes**:
   - **Modern**: Glassmorphism with rounded cards, neon cyan/purple accents, and subtle glowing borders.
@@ -17,7 +17,7 @@ StreamPulse includes an interactive Live Trivia Studio and broadcast OBS overlay
   - **Esports**: Angular polygon clip paths, carbon brushed backgrounds, and electric telemetry meters.
   - **Minimal**: Clean, low-distraction lower-third slate cards for casual talk shows and desktop streams.
 - **Toggleable Overlay Elements**: Hide or show individual visual components (Category badge, Question Number, Countdown Timer bar, Choice Letter badges, Vote counts, Choice percentages, Chat hint bar, and Fun fact callout).
-- **Audience Chat Voting**: Stream viewers vote in real time with `!a`, `!b`, `!c`, `!d`, `!e`, `!f`, `!true`, or `!false`. Votes tally with percentage bars and optional subscriber vote multipliers.
+- **Audience Chat Voting**: Stream viewers vote in real time with `!a`, `!b`, `!c`, `!d`, `!e`, `!f`, `!true`, or `!false`. Each viewer has one changeable vote, tallied with percentage bars.
 - **Chatbot Announcements**: Automatically post question openings and answer reveals with statistics to Twitch chat using customizable template tokens.
 - **Preset Packs**: Save, load, and delete custom trivia question banks, or choose from built-in packs (*Video Game Classics*, *Pop Culture & Sci-Fi*, *Streaming Lore*).
 - **Bitfocus Companion Integration**: Control question flow, reveals, done toggles, and preset selection directly from a Stream Deck.
@@ -27,6 +27,10 @@ StreamPulse includes an interactive Live Trivia Studio and broadcast OBS overlay
 ## 2. Using the Trivia Studio
 
 Open the studio at `http://localhost:3000/tools/trivia.html` or navigate to **Tools &rarr; Trivia Studio** in the StreamPulse navigation.
+
+Gameplay controls apply with **Save Settings**. Disable **Enable Chat Voting** for presentation-only quizzes: incoming votes and automatic question/answer announcements stop, while the host can still start and reveal questions. Live vote updates do not overwrite unsaved settings or theme edits. **Synthesized Audio Chimes** controls overlay audio unless a `sound=0|1` URL override is supplied; a saved `soundVolume` of zero also mutes it.
+
+![Trivia Studio with compact gameplay status and chat voting disabled](images/trivia-gameplay-settings.png)
 
 ### Managing Questions
 1. **Add Question**: Click **Add Question** in the toolbar. Enter a category, question prompt, between 2 and 6 choices, designate the correct choice, and provide an optional fun fact or trivia explanation.
@@ -105,6 +109,8 @@ Add this URL as a Browser Source in OBS Studio at `1920x1080` (or `3840x2160`).
 ## 4. Chatbot Announcements
 
 StreamPulse can automatically announce trivia questions and answers in chat. Configure announcements under **Tools &rarr; Chat Bot &rarr; Settings &rarr; Trivia Announcements**:
+
+Automatic announcements require active Trivia chat voting as well as the Chat Bot announcement controls. Turning off Chat Voting and saving settings also silences reveal announcements for a question already on screen. The Chat Bot's explicit test-announcement button remains a manual test.
 
 ### Available Tokens
 - **Question Start Announcement**:

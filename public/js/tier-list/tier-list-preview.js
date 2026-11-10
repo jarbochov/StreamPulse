@@ -153,10 +153,15 @@ export function updateOverlayUrl() {
                 previewIframe.contentWindow?.postMessage({
                     type: 'tierlist:preview-config',
                     options: {
-                        scale: opts.scale,
-                        theme: opts.theme,
-                        howToVote: opts.howToVote,
-                        hintText: opts.hintText
+                        layout: overlayOptions.layout,
+                        hideUnranked: overlayOptions.hideUnranked === '1',
+                        size: overlayOptions.size,
+                        aspect: overlayOptions.aspect,
+                        coverFit: overlayOptions.coverFit,
+                        theme: overlayOptions.theme,
+                        howToVote: overlayOptions.howtovote,
+                        hintScale: overlayOptions.hintScale,
+                        sfx: overlayOptions.sfx
                     }
                 }, '*');
             } catch (_) {}

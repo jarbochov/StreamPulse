@@ -232,6 +232,7 @@ function createSubathonService({
         config: cloneJson(DEFAULT_SUBATHON_CONFIG),
         state: cloneJson(DEFAULT_SUBATHON_STATE)
     };
+    let multiplierExpiryTimer = null;
 
     function loadSubathon() {
         try {
@@ -262,6 +263,47 @@ function createSubathonService({
     }
 
     loadSubathon();
+    scheduleMultiplierExpiry();
+
+    function expireMultiplierIfNeeded() {
+        const mult = subathonStore.config.multiplier;
+        if (!mult.active || !mult.expiresAt) return false;
+        const expiresAt = Date.parse(mult.expiresAt);
+        if (!Number.isFinite(expiresAt) || expiresAt > Date.now()) return false;
+
+        mult.active = false;
+        mult.expiresAt = null;
+        if (multiplierExpiryTimer) clearTimeout(multiplierExpiryTimer);
+        multiplierExpiryTimer = null;
+        saveSubathon();
+        broadcastToOverlays('subathon-update', {
+            config: getConfigSnapshot(),
+            state: getStateSnapshot(),
+            rulesSummary: getRuleSummary()
+        });
+        return true;
+    }
+
+    function scheduleMultiplierExpiry() {
+        if (multiplierExpiryTimer) clearTimeout(multiplierExpiryTimer);
+        multiplierExpiryTimer = null;
+
+        const mult = subathonStore.config.multiplier;
+        if (!mult.active || !mult.expiresAt) return;
+        const expiresAt = Date.parse(mult.expiresAt);
+        if (!Number.isFinite(expiresAt)) return;
+
+        const delay = expiresAt - Date.now();
+        if (delay <= 0) {
+            expireMultiplierIfNeeded();
+            return;
+        }
+
+        multiplierExpiryTimer = setTimeout(() => {
+            if (!expireMultiplierIfNeeded()) scheduleMultiplierExpiry();
+        }, Math.min(delay, 2147483647));
+        multiplierExpiryTimer.unref?.();
+    }
 
     function isModuleEnabled() {
         const cfg = getConfig();
@@ -278,9 +320,7 @@ function createSubathonService({
         if (mult.expiresAt) {
             const exp = Date.parse(mult.expiresAt);
             if (Number.isFinite(exp) && exp <= Date.now()) {
-                mult.active = false;
-                mult.expiresAt = null;
-                saveSubathon();
+                expireMultiplierIfNeeded();
                 return 1.0;
             }
         }
@@ -335,13 +375,17 @@ function createSubathonService({
     }
 
     function updateConfig(newConfig = {}) {
+        const rules = { ...subathonStore.config.rules };
+        for (const [key, value] of Object.entries(newConfig.rules || {})) {
+            rules[key] = value && typeof value === 'object' && !Array.isArray(value)
+                ? { ...(rules[key] || {}), ...value }
+                : value;
+        }
+
         subathonStore.config = normalizeSubathonConfig({
             ...subathonStore.config,
             ...newConfig,
-            rules: {
-                ...subathonStore.config.rules,
-                ...(newConfig.rules || {})
-            },
+            rules,
             theme: {
                 ...subathonStore.config.theme,
                 ...(newConfig.theme || {})
@@ -356,6 +400,7 @@ function createSubathonService({
             }
         });
         saveSubathon();
+        scheduleMultiplierExpiry();
         broadcastToOverlays('subathon-update', {
             config: getConfigSnapshot(),
             state: getStateSnapshot(),
@@ -373,6 +418,7 @@ function createSubathonService({
 
         subathonStore.config.multiplier = { active, factor: f, expiresAt };
         saveSubathon();
+        scheduleMultiplierExpiry();
         broadcastToOverlays('subathon-update', {
             config: getConfigSnapshot(),
             state: getStateSnapshot(),
@@ -383,6 +429,8 @@ function createSubathonService({
 
     function clearMultiplier() {
         subathonStore.config.multiplier = { active: false, factor: 1.0, expiresAt: null };
+        if (multiplierExpiryTimer) clearTimeout(multiplierExpiryTimer);
+        multiplierExpiryTimer = null;
         saveSubathon();
         broadcastToOverlays('subathon-update', {
             config: getConfigSnapshot(),

@@ -8,6 +8,8 @@ import { esc } from './trivia-state.js';
 import { PRESET_DEFAULTS, setFieldColor, setHeaderFontSizeValue, updateObsUrl } from './trivia-preview.js';
 import { attachDragAndDrop, populateFontDropdowns } from './trivia-editor.js';
 
+let formSignature = '';
+
 export function renderState(currentState) {
     if (!currentState) return;
 
@@ -128,6 +130,21 @@ export function renderState(currentState) {
         attachDragAndDrop();
     }
 
+    const chatbotPill = document.getElementById('chatbot-status-pill');
+    if (chatbotPill) {
+        const active = currentState.chatVotingActive !== false;
+        chatbotPill.textContent = active ? 'Chat voting active' : (currentState.settings?.chatVoting === false ? 'Chat voting off' : 'Chat Bot off');
+        chatbotPill.title = active ? 'Audience answers are accepted.' : 'Automatic trivia chat announcements are also off.';
+        chatbotPill.style.background = active ? 'rgba(34, 197, 94, 0.15)' : 'rgba(139, 148, 158, 0.15)';
+        chatbotPill.style.borderColor = active ? 'rgba(34, 197, 94, 0.35)' : 'rgba(139, 148, 158, 0.35)';
+        chatbotPill.style.color = active ? '#22c55e' : '#8b949e';
+    }
+
+    // Vote and lifecycle updates must not reset unsaved configuration.
+    const signature = JSON.stringify([currentState.settings, currentState.theme, currentState.presets]);
+    if (signature === formSignature) return;
+    formSignature = signature;
+
     // ── Presets Dropdown ─────────────────────────────────────────────────────
     const presets = currentState.presets || [];
     const presetSelect = document.getElementById('preset-select');
@@ -213,25 +230,6 @@ export function renderState(currentState) {
     setFieldColor('cfg-theme-category-color', theme.categoryColor, defTheme.catColor || '#a855f7');
     setFieldColor('cfg-theme-hint-color', theme.hintColor, defTheme.hintColor || '#94a3b8');
     setFieldColor('cfg-theme-funfact-color', theme.funfactColor, defTheme.funfactColor || '#eab308');
-
-    // Real-time Chatbot status pill
-    const chatbotPill = document.getElementById('chatbot-status-pill');
-    const chatbotDesc = document.getElementById('chatbot-status-desc');
-    if (chatbotPill && chatbotDesc) {
-        if (currentState.chatbotEnabled === false) {
-            chatbotPill.textContent = 'Chat Bot: Turned Off';
-            chatbotPill.style.background = 'rgba(139, 148, 158, 0.15)';
-            chatbotPill.style.borderColor = 'rgba(139, 148, 158, 0.35)';
-            chatbotPill.style.color = '#8b949e';
-            chatbotDesc.textContent = 'Chat Bot is turned off in Settings. Questions will display in broadcast presentation mode without chat voting badges.';
-        } else {
-            chatbotPill.textContent = 'Chat Bot: Active';
-            chatbotPill.style.background = 'rgba(34, 197, 94, 0.15)';
-            chatbotPill.style.borderColor = 'rgba(34, 197, 94, 0.35)';
-            chatbotPill.style.color = '#22c55e';
-            chatbotDesc.textContent = 'Viewers vote via Twitch chat (!a-!f, !true/!false).';
-        }
-    }
 
     // Element visibility toggles
     const phaseEl = document.getElementById('cfg-elem-phase-indicator');

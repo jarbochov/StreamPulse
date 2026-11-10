@@ -666,3 +666,235 @@ test('Chatbot Service: Trivia question and answer announcements', async (t) => {
     assert.equal(resA.sent, true);
     assert.ok(sentMessages.some(m => m.includes('[Trivia Answer]') && m.includes('Luigi')));
 });
+
+test('Trivia settings mute automatic chat announcements and persist without disabling gameplay', async t => {
+    const dir = fs.mkdtempSync(path.join(__dirname, '..', 'data', '.test-trivia-silent-'));
+    const announcements = [];
+    const errors = [];
+    const options = {
+        dataDir: dir,
+        chatbotAnnouncer: {
+            getStats: () => ({ enabled: true }),
+            announceTriviaQuestion: async () => { announcements.push('question'); },
+            announceTriviaAnswer: async () => { announcements.push('answer'); }
+        },
+        log: (...args) => errors.push(args.join(' '))
+    };
+    let service = createTriviaService(options);
+    t.after(() => { service.destroy(); fs.rmSync(dir, { recursive: true, force: true }); });
+    const routes = createTriviaRoutes({ triviaService: service });
+    const { req, res, done } = createMockReqRes({
+        method: 'PUT', url: '/api/trivia', body: { settings: { chatVoting: false } }
+    });
+    await routes(req, res, '/api/trivia', new URL(req.url, 'http://fixture.local'));
+    assert.equal((await done).json.chatVotingActive, false);
+    service.destroy();
+    service = createTriviaService(options);
+    service.startQuestion(0);
+    assert.equal(service.handleChatMessage({ user: 'FictionalViewer', message: '!a' }), false);
+    service.revealAnswer();
+    assert.equal(service.getPublicState().status, 'reveal');
+    assert.deepEqual(announcements, [], 'presentation mode sends neither opening nor reveal announcements');
+
+    service.updateSettings({ chatVoting: true });
+    service.startQuestion(0);
+    assert.equal(service.handleChatMessage({ user: 'FictionalViewer', message: '!a' }), true);
+    service.updateSettings({ chatVoting: false });
+    service.revealAnswer();
+    assert.deepEqual(announcements, ['question'], 'disabling voting during a question also silences its reveal');
+    service.updateSettings({ chatVoting: true });
+    options.chatbotAnnouncer.announceTriviaQuestion = async () => { throw new Error('fictional send failure'); };
+    service.startQuestion(0);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.ok(errors.some(message => message.includes('fictional send failure')), 'async announcement failure is handled');
+});
+
+test('Trivia done flags and empty banks survive restart; numeric move controls honor direction', async t => {
+    const dir = fs.mkdtempSync(path.join(__dirname, '..', 'data', '.test-trivia-tracking-'));
+    let service = createTriviaService({ dataDir: dir });
+    t.after(() => { service.destroy(); fs.rmSync(dir, { recursive: true, force: true }); });
+    const ids = service.getState().questions.map(q => q.id);
+    const routes = createTriviaRoutes({ triviaService: service });
+    const { req, res, done } = createMockReqRes({
+        method: 'POST', url: `/api/trivia/question/${ids[1]}/move`, body: { direction: -1 }
+    });
+    await routes(req, res, req.url, new URL(req.url, 'http://fixture.local'));
+    assert.equal((await done).status, 200);
+    assert.equal(service.getState().questions[0].id, ids[1], 'Up must not move down');
+    service.moveQuestion(ids[1], 1);
+    assert.equal(service.getState().questions[1].id, ids[1]);
+    service.startQuestion(0);
+    service.moveQuestion(ids[0], 1);
+    assert.equal(service.getPublicState().currentIndex, 1, 'reordering retains the active question index');
+    service.moveQuestion(ids[0], -1);
+    service.setQuestionDone(ids[1], true);
+    service.destroy();
+    service = createTriviaService({ dataDir: dir });
+    assert.equal(service.getPublicState().unplayedCount, ids.length - 2);
+    assert.equal(service.startQuestion().activeQuestion.id, ids[2], 'skip both played and manually completed questions after restart');
+    service.resetTrivia();
+    assert.equal(service.getPublicState().unplayedCount, ids.length, 'session reset consistently clears all done flags');
+    service.clearQuestions();
+    service.destroy();
+    service = createTriviaService({ dataDir: dir });
+    assert.equal(service.getPublicState().totalQuestions, 0, 'an intentionally empty bank must not resurrect starter questions');
+});
+
+test('Trivia API True/False votes follow actual choice order and reject invalid indexes', async t => {
+    const dir = fs.mkdtempSync(path.join(__dirname, '..', 'data', '.test-trivia-api-votes-'));
+    const service = createTriviaService({ dataDir: dir });
+    t.after(() => { service.destroy(); fs.rmSync(dir, { recursive: true, force: true }); });
+    const question = service.addQuestion({ question: 'Fictional statement?', choices: ['False', 'True'], correctIndex: 1 });
+    service.startQuestion(question.id);
+    const routes = createTriviaRoutes({ triviaService: service });
+    for (const [choice, index] of [['true', 1], ['false', 0]]) {
+        const { req, res, done } = createMockReqRes({
+            method: 'POST', url: '/api/trivia/vote', body: { choice, user: 'FictionalDeck' }
+        });
+        await routes(req, res, req.url, new URL(req.url, 'http://fixture.local'));
+        assert.equal((await done).json.success, true);
+        assert.equal(service.getPublicState().activeQuestion.choices[index].votes, 1);
+    }
+    for (const choiceIndex of [NaN, 0.5, -1, 6]) {
+        assert.equal(service.castVote({ user: 'Invalid', choiceIndex }), false);
+    }
+    assert.equal(service.getPublicState().activeQuestion.totalVotes, 1);
+});
+
+test('Trivia auto-advance respects its toggle and remaining questions rather than the last index', t => {
+    t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.now() });
+    const dir = fs.mkdtempSync(path.join(__dirname, '..', 'data', '.test-trivia-advance-'));
+    const service = createTriviaService({ dataDir: dir });
+    t.after(() => { service.destroy(); fs.rmSync(dir, { recursive: true, force: true }); });
+    service.updateSettings({ autoAdvance: true, revealDelay: 1, randomOrder: true });
+    service.startQuestion(service.getState().questions.length - 1);
+    service.revealAnswer();
+    t.mock.timers.tick(1000);
+    assert.equal(service.getPublicState().status, 'question', 'a random final-index question is not the end of the bank');
+    service.revealAnswer();
+    service.updateSettings({ autoAdvance: false });
+    t.mock.timers.tick(1000);
+    assert.equal(service.getPublicState().status, 'reveal', 'a scheduled advance must respect being switched off');
+});
+
+test('Trivia Studio preserves unsaved toggles during live updates; overlay sound respects saved controls and URL overrides', async t => {
+    const { createServer } = require('node:http');
+    const { createStaticRouter } = require('../server/static-router');
+    const puppeteer = require('puppeteer');
+    const dir = fs.mkdtempSync(path.join(__dirname, '..', 'data', '.test-trivia-browser-'));
+    const service = createTriviaService({ dataDir: dir });
+    const routes = createTriviaRoutes({ triviaService: service });
+    const rootDir = path.resolve(__dirname, '..');
+    const router = createStaticRouter({ rootDir, publicDir: path.join(rootDir, 'public') });
+    const server = createServer(async (req, res) => {
+        const url = new URL(req.url, 'http://fixture.local');
+        if (await routes(req, res, url.pathname, url)) return;
+        if (url.pathname.startsWith('/api/')) {
+            res.setHeader('content-type', 'application/json');
+            res.end(JSON.stringify(url.pathname.endsWith('/fonts') ? [] : { trivia_enabled: true }));
+        } else if (!router.handleRequest(req, res)) {
+            res.writeHead(404); res.end();
+        }
+    });
+    let browser;
+    t.after(async () => {
+        if (browser) await browser.close();
+        await new Promise(resolve => server.close(resolve));
+        service.destroy();
+        fs.rmSync(dir, { recursive: true, force: true });
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+    const errors = [];
+    async function open(pathname) {
+        const page = await browser.newPage();
+        page.on('pageerror', err => errors.push(err.message));
+        await page.setRequestInterception(true);
+        page.on('request', request => {
+            if (request.url().startsWith(origin) || request.url().startsWith('data:')) request.continue();
+            else request.abort();
+        });
+        await page.evaluateOnNewDocument(() => {
+            window.triviaFixture = { sockets: [], gains: [] };
+            window.WebSocket = class {
+                static OPEN = 1;
+                constructor() { this.readyState = 1; window.triviaFixture.sockets.push(this); }
+                send() {}
+                close() {}
+            };
+            window.AudioContext = class {
+                state = 'running';
+                currentTime = 0;
+                destination = {};
+                createOscillator() {
+                    return { frequency: { setValueAtTime() {} }, connect() {}, start() {}, stop() {} };
+                }
+                createGain() {
+                    return {
+                        gain: {
+                            setValueAtTime(value) { window.triviaFixture.gains.push(value); },
+                            exponentialRampToValueAtTime() {}
+                        },
+                        connect() {}
+                    };
+                }
+            };
+        });
+        await page.goto(`${origin}${pathname}`, { waitUntil: 'networkidle0' });
+        return page;
+    }
+
+    const studio = await open('/tools/trivia.html');
+    await studio.waitForFunction(() => document.getElementById('questions-container').children.length > 0);
+    await studio.evaluate(async () => {
+        const state = await import('/js/trivia/trivia-state.js');
+        document.getElementById('cfg-chat-voting').checked = false;
+        document.getElementById('cfg-theme-blur').value = '0';
+        state.setCurrentState({ ...state.getState(), chatbotEnabled: false, chatVotingActive: false,
+            activeQuestion: { question: 'Fictional live question', choices: [], totalVotes: 1 } });
+    });
+    assert.equal(await studio.$eval('#cfg-chat-voting', el => el.checked), false);
+    assert.equal(await studio.$eval('#cfg-theme-blur', el => el.value), '0');
+    await studio.click('#btn-save-settings');
+    await studio.waitForFunction(async () => (await (await fetch('/api/trivia')).json()).settings.chatVoting === false);
+    await studio.evaluate(() => {
+        window.triviaApp.switchTab('theming');
+        document.getElementById('cfg-theme-blur').value = '0';
+    });
+    await studio.click('#btn-save-theme');
+    await studio.waitForFunction(async () => (await (await fetch('/api/trivia')).json()).theme.cardBlur === 0);
+    assert.equal(service.getState().theme.cardBlur, 0, 'zero blur survives the real Save Theme path');
+    await studio.close();
+
+    for (const [query, settings, expected] of [
+        ['', { soundEnabled: false }, []],
+        ['', { soundEnabled: true, soundVolume: 25 }, [0.01]],
+        ['', { soundEnabled: true, soundVolume: 0 }, []],
+        ['?sound=0', { soundEnabled: true, soundVolume: 100 }, []],
+        ['?sound=1', { soundEnabled: false, soundVolume: 100 }, [0.04]]
+    ]) {
+        const page = await open(`/overlays/trivia.html${query}`);
+        const gains = await page.evaluate(settings => {
+            const socket = window.triviaFixture.sockets[0];
+            socket.onmessage({ data: JSON.stringify({ type: 'trivia:start', data: { settings } }) });
+            return window.triviaFixture.gains;
+        }, settings);
+        assert.deepEqual(gains, expected, `sound controls: ${JSON.stringify({ query, settings })}`);
+        await page.close();
+    }
+    const overlay = await open('/overlays/trivia.html?style=text');
+    const collapse = await overlay.evaluate(() => {
+        const socket = window.triviaFixture.sockets[0];
+        const update = value => socket.onmessage({ data: JSON.stringify({
+            type: 'trivia:state', data: { status: 'idle', theme: { collapseIncorrect: value } }
+        }) });
+        update(true);
+        const enabled = document.body.classList.contains('collapse-incorrect');
+        update(false);
+        return [enabled, document.body.classList.contains('collapse-incorrect')];
+    });
+    assert.deepEqual(collapse, [true, false], 'collapse can be switched off again, including floating-text mode');
+    await overlay.close();
+    assert.deepEqual(errors, [], 'real Studio and overlay initialize without browser errors');
+});

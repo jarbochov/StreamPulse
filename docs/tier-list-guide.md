@@ -43,6 +43,8 @@ Click **Overlay URL & Options** in the maker toolbar to customize your display b
 
 Your preferences are saved automatically in `localStorage`, and clicking **Launch Overlay** or **Copy URL** always uses your configured parameters.
 
+The embedded live preview applies appearance and viewport changes without reloading its iframe.
+
 ---
 
 ## 3. Audience Chat Voting

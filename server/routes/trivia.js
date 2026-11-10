@@ -120,8 +120,11 @@ function createTriviaRoutes({ triviaService, isTriviaEnabled = () => true }) {
                     const c = String(body.choice).toLowerCase().trim();
                     if (/^[a-f]$/.test(c)) choiceIdx = c.charCodeAt(0) - 97;
                     else if (/^[1-6]$/.test(c)) choiceIdx = parseInt(c, 10) - 1;
-                    else if (c === 'true' || c === 't') choiceIdx = 0;
-                    else if (c === 'false' || c === 'f') choiceIdx = 1;
+                    else if (c === 'true' || c === 't' || c === 'false') {
+                        const answer = c === 't' ? 'true' : c;
+                        const choices = triviaService.getPublicState().activeQuestion?.choices || [];
+                        choiceIdx = choices.findIndex(choice => choice.text.trim().toLowerCase() === answer);
+                    }
                 }
                 const accepted = triviaService.castVote({
                     user: body.user || 'api_user',
