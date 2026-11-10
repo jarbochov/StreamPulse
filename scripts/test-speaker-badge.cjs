@@ -679,6 +679,7 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         const top = (await nameBounds()).y;
         await page.click('[data-seg-path="style.verticalAlign"] [data-seg-value="bottom"]');
         assert.ok((await nameBounds()).y > top + 10, 'vertical justification visibly repositions content');
+        await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }]);
         await page.evaluate(async () => {
             const element = window.editorState.overlay.elements.find(item => item.id === 'host');
             element._simulateSpeaking = true;

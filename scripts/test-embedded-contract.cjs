@@ -92,6 +92,11 @@ test('embedded StreamPulse exposes a stable host contract', async () => {
         assert.throws(() => sp.ingestEvent({ type: 'follow' }));
     } finally {
         await sp.stopServer();
+        delete require.cache[require.resolve('../server.js')];
+        delete process.env.STREAMPULSE_EMBEDDED;
+        delete process.env.STREAMPULSE_CONFIG_PATH;
+        delete process.env.STREAMPULSE_DATA_DIR;
+        delete process.env.PORT;
         fs.rmSync(dir, { recursive: true, force: true });
     }
 });
