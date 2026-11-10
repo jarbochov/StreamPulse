@@ -21,6 +21,6 @@ const result = await build({
 if (check) {
     for (const file of result.outputFiles) {
         const current = await readFile(file.path, 'utf8').catch(() => '');
-        if (current !== file.text) throw new Error(`Stale overlay bundle: ${resolve(root, file.path)}. Run node scripts/build-overlay-shared.mjs.`);
+        if (current.replace(/\r\n/g, '\n') !== file.text.replace(/\r\n/g, '\n')) throw new Error(`Stale overlay bundle: ${resolve(root, file.path)}. Run node scripts/build-overlay-shared.mjs.`);
     }
 }

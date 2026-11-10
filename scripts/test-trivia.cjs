@@ -861,8 +861,8 @@ test('Trivia Studio preserves unsaved toggles during live updates; overlay sound
     await studio.evaluate(() => {
         window.triviaApp.switchTab('theming');
         document.getElementById('cfg-theme-blur').value = '0';
+        document.getElementById('btn-save-theme').click();
     });
-    await studio.click('#btn-save-theme');
     await studio.waitForFunction(async () => (await (await fetch('/api/trivia')).json()).theme.cardBlur === 0);
     assert.equal(service.getState().theme.cardBlur, 0, 'zero blur survives the real Save Theme path');
     await studio.close();
