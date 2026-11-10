@@ -60,6 +60,8 @@ This runs:
 
 The browser regressions use Puppeteer's Chrome. If it is missing, run `npm run install:chrome` once. The regression suite starts isolated local fixtures; it does not require your production server or use your saved configuration/data. Browser exceptions and failed assertions return a nonzero exit status.
 
+Embedded hosts (`STREAMPULSE_EMBEDDED=true`) own authorization UI as well as startup and shutdown. A missing Twitch token does not launch a system browser from embedded startup. The embedded contract test intercepts shell launches so a regression fails explicitly rather than leaving a Windows child process holding the test runner open.
+
 `node scripts/test-retro-controls.mjs` drives the real inspector controls on a fictional image. It checks visible pixel changes for CRT scanline/mask strength and scale, LCD grid spacing and edge ghosting, and pixel parity with direct shader rendering, including legacy saved settings. These are Chromium rendering checks, not an OBS or Safari compatibility guarantee.
 
 `node --test scripts/test-twitch-deadlines.cjs` redirects Twitch transports to an isolated local fixture with accelerated deadlines. It covers missing headers, stalled/truncated response bodies, successful responses, and refresh recovery without discarding reusable credentials. No real Twitch requests or saved tokens are used.

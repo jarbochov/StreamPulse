@@ -1776,7 +1776,7 @@ function initializeServer() {
         fetchStreamInfo(true);
         fetchViewerCount();
         fetchTwitchPoll(true);
-    } else if (TWITCH_CLIENT_ID && process.env.STREAMPULSE_DESKTOP !== 'true') {
+    } else if (TWITCH_CLIENT_ID && !EMBEDDED && process.env.STREAMPULSE_DESKTOP !== 'true') {
         const authUrl = `http://localhost:${PORT}/auth/twitch`;
         console.log(`[Twitch] No token found — opening browser to authorize...`);
         openBrowser(authUrl);

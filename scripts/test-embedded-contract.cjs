@@ -13,7 +13,9 @@ const freePort = () => new Promise((resolve, reject) => {
     srv.on('error', reject);
 });
 
-test('embedded StreamPulse exposes a stable host contract', async () => {
+test('embedded StreamPulse exposes a stable host contract', async t => {
+    const launches = [];
+    t.mock.method(require('node:child_process'), 'exec', (...args) => { launches.push(args); });
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-embedded-'));
     const configPath = path.join(dir, 'config.json');
     fs.writeFileSync(configPath, JSON.stringify({ broadcaster_name: 'FictionalHost', music: { enabled: false } }));
@@ -33,6 +35,7 @@ test('embedded StreamPulse exposes a stable host contract', async () => {
 
         await sp.startServer();
         assert.equal(sp.server.listening, true);
+        assert.deepEqual(launches, [], 'embedded startup must leave browser authorization to the host');
 
         const snapshot = sp.getSnapshots();
         for (const key of ['timers', 'goals', 'viewers', 'music', 'poll', 'matchup', 'tournament', 'pollTournament']) {
