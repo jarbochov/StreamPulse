@@ -506,10 +506,9 @@
             el.innerHTML = giftSubEntries.length
                 ? giftSubEntries.map(g => {
                     const gifter = g.gifter || g.chatname;
-                    const label = g.recipient ? `${gifter} → ${g.recipient}` : gifter;
                     return `<div class="entry">
                         ${g.chatimg ? `<img src="${g.chatimg}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}
-                        <span class="name dossier-clickable" data-chatter="${escapeHtml(gifter)}" title="View Chatter Dossier">${escapeHtml(label)}</span>
+                        <span class="name dossier-clickable" data-chatter="${escapeHtml(gifter)}" title="View Chatter Dossier">${escapeHtml(gifter)}${g.recipient ? ` <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin:0 2px;"><polyline points="9 18 15 12 9 6"/></svg> ${escapeHtml(g.recipient)}` : ''}</span>
                     </div>`;
                 }).join('')
                 : '<div class="empty">No gift subs</div>';
@@ -657,7 +656,7 @@
         if (streamInfo.length > 0) {
             const entries = streamInfo.map((si, i) => {
                 const time = new Date(si.changedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-                const prefix = i === 0 ? time : `${time} →`;
+                const prefix = i === 0 ? time : `<span style="opacity:0.5;margin:0 4px;">·</span> ${time}`;
                 const cat = si.category ? `<span class="stream-category">${escapeHtml(si.category)}</span>` : '';
                 return `<div class="stream-info-entry">${prefix} <span class="stream-title">${escapeHtml(si.title)}</span> ${cat}</div>`;
             });
@@ -815,7 +814,7 @@
             const shown = events.filter(e => !timelineHidden.has(e.type));
             if (!timelineNewestFirst) shown.sort((a, b) => a.ts - b.ts); else shown.sort((a, b) => b.ts - a.ts);
             document.getElementById('timeline-count').textContent = `(${shown.length})`;
-            document.getElementById('timeline-order').textContent = timelineNewestFirst ? '↓ Newest first' : '↑ Oldest first';
+            document.getElementById('timeline-order').innerHTML = timelineNewestFirst ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:3px;"><polyline points="6 9 12 15 18 9"/></svg> Newest first' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:3px;"><polyline points="18 15 12 9 6 15"/></svg> Oldest first';
             list.innerHTML = shown.length ? shown.map(e => {
                 const meta = timelineMeta(e.type);
                 const text = [e.user, e.message, e.detail].filter(Boolean).map(String).join(' — ');
@@ -1176,8 +1175,9 @@
         // Detect reply from raw HTML before sanitization strips <i><small>
         const reply = formatReply(m.messageHtml, m.message);
         let displayHtml;
+        const REPLY_ICON = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:2px;"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>';
         if (reply) {
-            const replyLabel = reply.user ? `↩ replying to ${reply.user}: ` : '↩ replying to: ';
+            const replyLabel = reply.user ? `${REPLY_ICON} replying to ${reply.user}: ` : `${REPLY_ICON} replying to: `;
             displayHtml = `<div class="chat-reply-quote">${replyLabel}${escapeHtml(reply.quote)}</div>${linkifyText(reply.body)}`;
         } else {
             displayHtml = m.messageHtml ? sanitizeHtml(m.messageHtml) : escapeHtml(m.message);
@@ -1760,8 +1760,9 @@
             html += items.map(h => {
                 const hReply = formatReply(h.messageHtml, h.message);
                 let displayHtml;
+                const H_REPLY_ICON = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:2px;"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>';
                 if (hReply) {
-                    const hReplyLabel = hReply.user ? `↩ replying to ${hReply.user}: ` : '↩ replying to: ';
+                    const hReplyLabel = hReply.user ? `${H_REPLY_ICON} replying to ${hReply.user}: ` : `${H_REPLY_ICON} replying to: `;
                     displayHtml = `<div class="chat-reply-quote">${hReplyLabel}${escapeHtml(hReply.quote)}</div>${linkifyText(hReply.body)}`;
                 } else {
                     displayHtml = h.messageHtml ? sanitizeHtml(h.messageHtml) : escapeHtml(h.message);
@@ -1775,7 +1776,7 @@
                         <div class="chat-text">${displayHtml}</div>
                         <div class="chat-session-tag" style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
                             <span>Pinned ${formatDateTimestamp(h.pinnedAt)} · Key: <code>${h.ts}:${escapeHtml(h.user)}</code></span>
-                            <button class="chat-action-btn" style="padding:0.1rem 0.35rem;font-size:0.7rem;cursor:pointer;" onclick="openChatAtTimestamp(${h.ts})">Jump to chat ↗</button>
+                            <button class="chat-action-btn" style="padding:0.1rem 0.35rem;font-size:0.7rem;cursor:pointer;display:inline-flex;align-items:center;gap:0.25rem;" onclick="openChatAtTimestamp(${h.ts})">Jump to chat <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
                         </div>
                     </div>
                     <span class="chat-time">${formatTimestamp(h.ts)}</span>

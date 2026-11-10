@@ -973,8 +973,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     if (!effect || effect === "showcase" || !["rain", "party", "fountain", "bounce"].includes(effect)) return;
     const emoteUrl = payload.emojiUrl || (/^(https?:\/\/|\/|data:image\/)/i.test(payload.emoji) ? payload.emoji : "");
     const isFa = !emoteUrl && payload.emoji && (payload.emoji.startsWith("fa-") || payload.emoji.includes("fa-"));
-    const rawEmoji = payload.emoji || "\u{1F389}";
-    if (!emoteUrl && !isFa && !rawEmoji) return;
+    const rawEmoji = payload.emoji || "";
     const container = document.createElement("div");
     container.className = `alert-emote-particles effect-${effect}`;
     const density = Math.max(10, Math.min(80, Number(payload.emoteDensity) || 30));
@@ -998,12 +997,14 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         icon.className = rawEmoji;
         icon.style.fontSize = `${size}px`;
         item.appendChild(icon);
-      } else {
+      } else if (rawEmoji) {
         const span = document.createElement("span");
         span.textContent = rawEmoji;
         span.style.fontSize = `${size}px`;
         span.style.lineHeight = "1";
         item.appendChild(span);
+      } else {
+        item.innerHTML = `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="var(--accent,#58a6ff)"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`;
       }
       const rot1 = `${Math.round(-35 + Math.random() * 70)}deg`;
       const rot2 = `${Math.round(-55 + Math.random() * 110)}deg`;
@@ -5148,8 +5149,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       if (config.meta === "note") return item.note || "";
       if (config.meta === "rating") {
         if (!(item.rating > 0)) return "";
-        const full = Math.floor(item.rating), half = item.rating - full >= 0.5 ? 1 : 0;
-        return "\u2605".repeat(full) + (half ? "\xBD" : "") + "\u2606".repeat(5 - full - half);
+        return `${item.rating} / 5`;
       }
       if (config.meta === "tags") return (item.tags || []).slice(0, 3).join(" \xB7 ");
       if (config.meta === "group") {

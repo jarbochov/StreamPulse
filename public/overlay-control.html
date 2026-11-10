@@ -63,12 +63,16 @@
     </style>
 </head>
 <body>
-    <h1 id="title">Overlay control</h1>
+    <header class="header" style="margin-bottom: 0.75rem;">
+        <h1>StreamPulse <span id="title">Overlay Control</span></h1>
+        <div id="main-nav" class="nav"></div>
+    </header>
+    <script src="/nav.js"></script>
     <p class="sub" id="sub"></p>
-    <div class="tabs" role="tablist" aria-label="Overlay controls">
-        <button class="btn" id="tab-playback" role="tab" data-tab="playback" aria-controls="body">Playback</button>
-        <button class="btn" id="tab-speakers" role="tab" data-tab="speakers" aria-controls="speakers-panel">Speakers</button>
-    </div>
+    <nav class="tabs-nav tabs" role="tablist" aria-label="Overlay controls" style="margin-bottom:1rem;">
+        <button class="tab-btn btn active" id="tab-playback" role="tab" data-tab="playback" aria-controls="body" aria-selected="true">Playback</button>
+        <button class="tab-btn btn" id="tab-speakers" role="tab" data-tab="speakers" aria-controls="speakers-panel" aria-selected="false">Speakers</button>
+    </nav>
     <div id="body" role="tabpanel" aria-labelledby="tab-playback"><div class="msg">Loading…</div></div>
     <div id="speakers-panel" role="tabpanel" aria-labelledby="tab-speakers" hidden>
         <p class="hint" id="audio-status"></p>

@@ -58,8 +58,19 @@
         th { position: sticky; top: 0; background: var(--bg-card); z-index: 2; color: var(--text-muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; cursor: pointer; user-select: none; box-shadow: 0 1px 0 var(--border); }
         th:hover { color: var(--text); }
         th.sort-active { color: var(--accent); }
-        th.sort-active::after { content: ' ▼'; font-size: 0.6rem; }
-        th.sort-active.asc::after { content: ' ▲'; }
+        th.sort-active::after {
+            content: '';
+            display: inline-block;
+            width: 9px;
+            height: 9px;
+            margin-left: 4px;
+            vertical-align: -1px;
+            background-color: currentColor;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat center / contain;
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat center / contain;
+            transition: transform 0.12s ease;
+        }
+        th.sort-active.asc::after { transform: rotate(180deg); }
         tbody tr:hover { background: var(--bg-raised); }
         td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
         td.wrap { white-space: normal; min-width: 9rem; max-width: 13rem; }

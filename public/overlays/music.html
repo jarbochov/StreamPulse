@@ -550,10 +550,21 @@
         const player = document.getElementById('player');
 
         if (!data || data.state === 'stopped' || !data.track) {
-            player.classList.remove('visible', 'paused');
-            currentTrack = '';
-            prevState = 'stopped';
-            return;
+            if (params.get('preview') === '1' || params.get('preview') === 'true' || params.get('sample') === '1') {
+                data = {
+                    state: 'playing',
+                    track: 'Synthwave Odyssey',
+                    artist: 'Fictional Artist',
+                    album: 'Broadcast Nights',
+                    duration: 210,
+                    position: 84
+                };
+            } else {
+                player.classList.remove('visible', 'paused');
+                currentTrack = '';
+                prevState = 'stopped';
+                return;
+            }
         }
 
         const trackKey = `${data.track}|${data.artist}|${data.album}`;
@@ -632,7 +643,9 @@
         if (params.get('scrimColor')) musicTheme.art_scrim_color = params.get('scrimColor');
         if (params.get('artBrightness')) musicTheme.art_brightness = parseFloat(params.get('artBrightness'));
         if (params.get('artBlur')) musicTheme.art_blur = parseInt(params.get('artBlur'));
-        if (params.get('fontScale')) musicTheme.font_scale = parseFloat(params.get('fontScale'));
+        if (params.get('scale') || params.get('fontScale') || params.get('fontscale')) {
+            musicTheme.font_scale = parseFloat(params.get('scale') || params.get('fontScale') || params.get('fontscale'));
+        }
         if (params.get('w') || params.get('h')) {
             if (!musicTheme.sizes) musicTheme.sizes = {};
             if (!musicTheme.sizes[MODE]) musicTheme.sizes[MODE] = {};

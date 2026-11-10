@@ -71,7 +71,7 @@
     <script src="/nav.js"></script>
     <main class="container">
         <div class="card toolbar">
-            <a class="btn primary" href="/custom-overlay-editor.html?new=1">+ Create overlay</a>
+            <a class="btn primary" href="/custom-overlay-editor.html?new=1" style="display:inline-flex;align-items:center;gap:0.35rem;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Create overlay</a>
             <input id="search" class="grow" type="search" placeholder="Search overlays…" aria-label="Search overlays">
             <select id="sort" aria-label="Sort">
                 <option value="updated">Recently edited</option><option value="created">Recently created</option><option value="name">Name A–Z</option><option value="elements">Most elements</option>
@@ -79,7 +79,7 @@
             <button class="btn" id="toggle-preview" title="Show or hide live previews">Previews</button>
             <label class="size">Size <input id="card-size" type="range" min="200" max="560" step="10" value="300"></label>
             <button class="btn" id="toggle-view" title="Switch between grid and list">List view</button>
-            <a class="btn" href="/assets.html">Asset Library →</a>
+            <a class="btn" href="/assets.html" style="display:inline-flex;align-items:center;gap:0.35rem;">Asset Library <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
         </div>
         <div class="summary" id="summary"></div>
         <div id="overlay-list" class="grid"><div class="empty">Loading overlays…</div></div>

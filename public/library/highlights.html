@@ -128,7 +128,7 @@
     function formatReply(html) {
         const replyMatch = html.match(/^(.+?):\s\s@(\S+)\s(.+)$/s);
         if (replyMatch) {
-            return `<div class="chat-reply-quote">↩ ${replyMatch[1]}</div>${replyMatch[3]}`;
+            return `<div class="chat-reply-quote"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:2px;"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>${replyMatch[1]}</div>${replyMatch[3]}`;
         }
         return html;
     }
@@ -346,7 +346,7 @@
                         <div class="chat-pinned-at">
                             <span>Pinned ${formatDate(h.pinnedAt)} · Key: <code>${h.ts}:${escapeHtml(h.user)}</code></span>
                             <button class="chat-action-btn" onclick="copyHighlightKey(${h.ts}, '${escapeHtml(h.user)}')">Copy key</button>
-                            <a class="chat-jump-link" href="${jumpUrl}" title="Jump to this message in chat log">Jump to chat ↗</a>
+                            <a class="chat-jump-link" href="${jumpUrl}" title="Jump to this message in chat log" style="display:inline-flex;align-items:center;gap:0.25rem;">Jump to chat <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
                         </div>
                     </div>
                     <span class="chat-time">${formatTimestamp(h.ts)}</span>

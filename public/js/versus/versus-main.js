@@ -35,11 +35,15 @@ const {
 export function switchTab(tab) {
     setActiveTab(tab);
     try { localStorage.setItem('versus-active-tab', tab); } catch {}
-    $('tab-btn-tourney')?.classList.toggle('active', tab === 'tourney');
-    $('tab-btn-matchup')?.classList.toggle('active', tab === 'matchup');
-    $('tab-btn-overlays')?.classList.toggle('active', tab === 'overlays');
-    $('tab-btn-presets')?.classList.toggle('active', tab === 'presets');
-    $('tab-btn-history')?.classList.toggle('active', tab === 'history');
+    const tabs = ['tourney', 'matchup', 'overlays', 'presets', 'history'];
+    tabs.forEach(t => {
+        const btn = $(`tab-btn-${t}`);
+        if (btn) {
+            const isActive = tab === t;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        }
+    });
 
     if ($('panel-tourney')) $('panel-tourney').style.display = tab === 'tourney' ? 'block' : 'none';
     if ($('panel-matchup')) $('panel-matchup').style.display = tab === 'matchup' ? 'block' : 'none';

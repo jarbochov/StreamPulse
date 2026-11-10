@@ -57,7 +57,7 @@ function createUserModerationService({
         for (const [key, value] of Object.entries(data)) {
             if (USER_MAPS.has(key) && value && !Array.isArray(value) && typeof value === 'object') {
                 result[key] = Object.fromEntries(Object.entries(value).filter(([name, entry]) => !isBanned(name) && !blocked(entry)));
-            } else if (['emotes', 'hashtags'].includes(key) && value && typeof value === 'object') {
+            } else if (['emotes', 'hashtags'].includes(key) && value && !Array.isArray(value) && typeof value === 'object') {
                 result[key] = Object.fromEntries(Object.entries(value).map(([name, entry]) => [name,
                     entry && Array.isArray(entry.users) ? { ...entry, users: entry.users.filter(user => !isBanned(user)) } : entry]));
             } else if (Array.isArray(value)) {

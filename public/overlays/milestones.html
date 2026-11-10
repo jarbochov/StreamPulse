@@ -349,7 +349,7 @@
     <script src="/overlay-theme.js"></script>
     <script>
     const params = overlayParams();
-    const mode = (params.get('mode') || 'card').toLowerCase();
+    const mode = (params.get('layout') || params.get('mode') || 'card').toLowerCase();
     const theme = (params.get('theme') || 'glass').toLowerCase();
     const customAccent = params.get('color') || params.get('accent');
     const fontScaleParam = parseFloat(params.get('fontscale') || params.get('fontScale') || params.get('scale') || '1');

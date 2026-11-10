@@ -50,16 +50,18 @@ body {
 }
 
 /* ── Tabs Navigation ─────────────────────────────────────────────────────── */
+.tabs-nav,
 .studio-tabs {
-    display: flex;
+    display: inline-flex;
     gap: 0.35rem;
     background: var(--bg-inset, #0d1117);
     border: 1px solid var(--border, #30363d);
-    padding: 0.35rem;
-    border-radius: 8px;
+    padding: 3px;
+    border-radius: 9px;
     align-items: center;
 }
 
+.tab-btn,
 .studio-tab-btn {
     background: transparent;
     border: none;
@@ -77,10 +79,12 @@ body {
     user-select: none;
 }
 
+.tab-btn:hover,
 .studio-tab-btn:hover {
     color: var(--text, #f0f6fc);
 }
 
+.tab-btn.active,
 .studio-tab-btn.active {
     background: var(--bg-card, #161b22);
     color: var(--accent, #58a6ff);

@@ -4,7 +4,8 @@
     const params = overlayParams();
     const namedTimerId = (params.get('timer') || '').trim().toLowerCase();
     const LAYOUTS = ['standard', 'compact', 'stacked', 'ring', 'flip', 'banner'];
-    const mode = LAYOUTS.includes(params.get('display')) ? params.get('display') : 'standard';
+    const layoutParam = params.get('layout') || params.get('display');
+    const mode = LAYOUTS.includes(layoutParam) ? layoutParam : 'standard';
     const altMode = !['standard', 'compact'].includes(mode);
     const overlay = document.getElementById('overlay-root');
     const timerBox = document.getElementById('timer-box');
@@ -226,8 +227,9 @@
         if (params.has('labelcolor')) document.documentElement.style.setProperty('--label-color', `#${params.get('labelcolor')}`);
         if (params.has('progresscolor')) document.documentElement.style.setProperty('--progress-color', `#${params.get('progresscolor')}`);
         if (params.has('titlecolor')) document.documentElement.style.setProperty('--title-color', `#${params.get('titlecolor')}`);
-        if (params.has('fontscale')) {
-            const scale = Math.min(3, Math.max(0.5, Number(params.get('fontscale')) || 1));
+        if (params.has('scale') || params.has('fontscale')) {
+            const raw = Number(params.get('scale') || params.get('fontscale')) || 1;
+            const scale = Math.min(3, Math.max(0.5, raw));
             document.documentElement.style.setProperty('--font-scale', scale);
         }
         if (params.has('titlescale')) {

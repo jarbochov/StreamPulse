@@ -389,7 +389,7 @@
         const params = overlayParams();
         const container = document.getElementById('container');
 
-        const view = (params.get('view') || params.get('mode') || 'schedule').toLowerCase();
+        const view = (params.get('layout') || params.get('view') || params.get('mode') || 'schedule').toLowerCase();
         const listFilter = params.get('list') || 'scheduled';
         const periodFilter = params.get('period') || '';
         const dateDependentPeriod = periodFilter.split(',').some(token => [

@@ -76,7 +76,8 @@ export const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&'
 export const uid = () => `game-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 export const setStatus = text => { const s = $('status'); if (s) s.textContent = text; };
 export const listName = id => allLists().find(list => list.id === id)?.name || id;
-export const starsHtml = (value, attr) => [1, 2, 3, 4, 5].map(n => `<button type="button" ${attr}="${n}" class="${n <= value ? 'on' : value === n - 0.5 ? 'half' : ''}" aria-label="${n} stars (click the left half for ${n - 0.5})">★</button>`).join('');
+const STAR_SVG = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none" style="pointer-events:none;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`;
+export const starsHtml = (value, attr) => [1, 2, 3, 4, 5].map(n => `<button type="button" ${attr}="${n}" class="${n <= value ? 'on' : value === n - 0.5 ? 'half' : ''}" aria-label="${n} stars (click the left half for ${n - 0.5})">${STAR_SVG}</button>`).join('');
 export const starValue = (event, star, attr) => { const n = Number(star.dataset[attr]); const box = star.getBoundingClientRect(); return event.clientX - box.left < box.width / 2 ? n - 0.5 : n; };
 export const prettyDate = value => new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 

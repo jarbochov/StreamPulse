@@ -19,8 +19,14 @@ export function switchTab(tab) {
     const panelStudio = document.getElementById('panel-studio');
     const panelTheming = document.getElementById('panel-theming');
 
-    if (btnStudio) btnStudio.classList.toggle('active', tab === 'studio');
-    if (btnTheming) btnTheming.classList.toggle('active', tab === 'theming');
+    if (btnStudio) {
+        btnStudio.classList.toggle('active', tab === 'studio');
+        btnStudio.setAttribute('aria-selected', tab === 'studio' ? 'true' : 'false');
+    }
+    if (btnTheming) {
+        btnTheming.classList.toggle('active', tab === 'theming');
+        btnTheming.setAttribute('aria-selected', tab === 'theming' ? 'true' : 'false');
+    }
 
     if (panelStudio) panelStudio.style.display = (tab === 'studio') ? 'grid' : 'none';
     if (panelTheming) panelTheming.style.display = (tab === 'theming') ? 'grid' : 'none';

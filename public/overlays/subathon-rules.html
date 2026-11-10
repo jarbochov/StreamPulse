@@ -255,7 +255,7 @@
     <script src="/url-params.js"></script>
     <script>
     (function() {
-        const urlParams = new URLSearchParams(window.location.search);
+        const urlParams = window.overlayParams ? window.overlayParams() : new URLSearchParams(window.location.search);
         let subathonData = null;
         let previewThemeOverride = null;
         let previewSampleOverride = null;

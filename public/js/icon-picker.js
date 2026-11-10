@@ -48,7 +48,7 @@
         backdrop.innerHTML = `<div class="ip-dialog" role="dialog" aria-label="Pick an icon">
             <div class="ip-head"><input type="search" placeholder="Search icons, or type any Font Awesome name and press Enter" aria-label="Search icons"><button type="button" data-act="clear">No icon</button><button type="button" data-act="close">Close</button></div>
             <div class="ip-grid" role="listbox"></div>
-            <div class="ip-foot"><span class="ip-note">Free Font Awesome 6 icons. Typing a name not in the list uses it directly.</span><a href="https://fontawesome.com/search?o=r&m=free" target="_blank" rel="noopener" style="color:var(--accent,#58a6ff)">Browse all ↗</a></div>
+            <div class="ip-foot"><span class="ip-note">Free Font Awesome 6 icons. Typing a name not in the list uses it directly.</span><a href="https://fontawesome.com/search?o=r&m=free" target="_blank" rel="noopener" style="color:var(--accent,#58a6ff);display:inline-flex;align-items:center;gap:0.25rem;">Browse all <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a></div>
         </div>`;
         const input = backdrop.querySelector('input');
         const grid = backdrop.querySelector('.ip-grid');

@@ -95,7 +95,10 @@
             { label: 'Credits Editor', href: '/credits-editor.html' },
             { label: 'Theme Editor', href: '/theme-editor.html' },
             { label: 'Choice Randomizer Studio', href: '/randomizer-editor.html' },
-            { label: 'Timers Studio', href: '/timers-editor.html' },
+            { label: 'Timers Studio', href: '/timers-editor.html', children: [
+                { label: 'Timers Studio', href: '/timers-editor.html' },
+                { label: 'Subathon Automation', href: '/timers-editor.html#subathon', module: 'subathon' }
+            ]},
             { label: 'Goals Manager', href: '/goals-editor.html' },
             { label: 'Game Plan Manager', href: '/game-plan-editor.html' },
             { label: 'Music Settings', href: '/music-editor.html', module: 'music' },
@@ -272,8 +275,8 @@
                 </div>
                 <div class="nav-palette-results" id="nav-palette-results"></div>
                 <div class="nav-palette-footer">
-                    <span><b>↑↓</b> to navigate · <b>↵</b> to select</span>
-                    <span><b>Esc</b> to close</span>
+                    <span><kbd>↑</kbd><kbd>↓</kbd> to navigate · <kbd>↵</kbd> to select</span>
+                    <span><kbd>Esc</kbd> to close</span>
                 </div>
             </div>
         `;
@@ -416,8 +419,8 @@
                 lastGroup = item.group;
             }
             const isSelected = itemIndex === activePaletteIndex;
-            const ext = item.target === '_blank' ? ' ↗' : '';
-            html += `<a class="nav-palette-item${isSelected ? ' selected' : ''}" href="${item.href}"${item.target ? ` target="${item.target}"` : ''} data-idx="${itemIndex}">
+            const ext = item.target === '_blank' ? `<span class="ext-icon" aria-hidden="true" style="margin-left:0.35rem;opacity:0.6;display:inline-flex;align-items:center;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>` : '';
+            html += `<a class="nav-palette-item${isSelected ? ' selected' : ''}" href="${item.href}"${item.target ? ` target="${item.target}" rel="noopener"` : ''} data-idx="${itemIndex}">
                 <span>${item.label}${ext}</span>
                 <span class="palette-hint">${item.href}</span>
             </a>`;
@@ -550,7 +553,7 @@
                     if (child.heading) { html += `<div class="menu-heading">${child.heading}</div>`; continue; }
                     if (child.children && child.children.length > 0) {
                         const subVisible = child.children.filter(sc => isModuleActive(sc.module));
-                        if (subVisible.length > 0) {
+                        if (subVisible.length > 1) {
                             const subAnyActive = isActive(child.href) || subVisible.some(sc => isActive(sc.href));
                             html += `<div class="dropdown-submenu">`;
                             html += `<a href="${child.href}" class="dropdown-submenu-toggle${subAnyActive ? ' active' : ''}"><span>${child.label}</span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="submenu-arrow" style="margin-left: 0.5rem; opacity: 0.6;"><polyline points="9 18 15 12 9 6"></polyline></svg></a>`;

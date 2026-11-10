@@ -19,20 +19,20 @@
 
     <!-- Navigation Tabs (Full Width) -->
     <div style="max-width: 1600px; margin: 1.25rem auto 0; padding: 0 2rem; width: 100%;">
-        <div class="studio-tabs">
-            <button type="button" class="studio-tab-btn active" id="tab-btn-studio" onclick="switchTab('studio')">
+        <nav class="tabs-nav studio-tabs" role="tablist" aria-label="Trivia Studio Views">
+            <button type="button" class="tab-btn studio-tab-btn active" role="tab" aria-selected="true" id="tab-btn-studio" onclick="switchTab('studio')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
                 <span>Questions &amp; Gameplay</span>
             </button>
-            <button type="button" class="studio-tab-btn" id="tab-btn-theming" onclick="switchTab('theming')">
+            <button type="button" class="tab-btn studio-tab-btn" role="tab" aria-selected="false" id="tab-btn-theming" onclick="switchTab('theming')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10c0 3.04-1.5 5.5-4 5.5s-2.5-1.5-4-1.5c-1 0-1.5.5-1.5 1.5 0 2-2 3.5-4 3.5a10 10 0 0 1-6.5-19"></path></svg>
                 <span>Overlay &amp; Theming</span>
             </button>
-            <a href="/overlays/trivia.html" target="_blank" rel="noopener noreferrer" class="studio-tab-btn" style="margin-left: auto; text-decoration: none;" title="Open live overlay in new window">
+            <a href="/overlays/trivia.html" target="_blank" rel="noopener noreferrer" class="tab-btn studio-tab-btn" style="margin-left: auto; text-decoration: none;" title="Open live overlay in new window">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                <span>Open Overlay &nearr;</span>
+                <span>Open Overlay</span>
             </a>
-        </div>
+        </nav>
     </div>
 
     <!-- Tab 1: Questions & Gameplay Controller -->

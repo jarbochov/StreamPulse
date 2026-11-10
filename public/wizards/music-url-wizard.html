@@ -73,7 +73,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>StreamPulse <span>Music URL Wizard</span> <span style="font-size:0.6rem;background:var(--warn-bg);color:var(--warn);border:1px solid color-mix(in srgb, var(--warn) 19%, transparent);padding:0.15rem 0.4rem;border-radius:4px;vertical-align:middle;">Beta</span></h1>
+        <h1>StreamPulse <span>Music URL Wizard</span> <span class="badge badge-warn">Beta</span></h1>
         <div id="main-nav" class="nav"></div>
         <script src="/nav.js"></script>
     </div>
@@ -81,10 +81,10 @@
     <div style="max-width:960px; margin:1rem auto 0; padding:0 2rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
         <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Wizards:</span>
         <a href="/music-url-wizard.html" class="preset-chip active" style="text-decoration:none; background:var(--accent-bg); border-color:var(--accent); color:var(--accent); font-weight:600; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Music</a>
-        <a href="/milestone-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Milestones &amp; Streaks ↗</a>
-        <a href="/game-plan-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Game Plan ↗</a>
-        <a href="/overlay-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Overlays (Goals, Viewers, Stats, Credits) ↗</a>
-        <a href="/timer-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Timers ↗</a>
+        <a href="/milestone-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Milestones &amp; Streaks</a>
+        <a href="/game-plan-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Game Plan</a>
+        <a href="/overlay-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Overlays (Goals, Viewers, Stats, Credits)</a>
+        <a href="/timer-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Timers</a>
     </div>
 
     <div class="container">
@@ -250,14 +250,14 @@
         <!-- Generated URL -->
         <div class="card full-width">
             <h2>Generated URL</h2>
-            <p class="info-text" style="margin-bottom:0.5rem;">Click the URL to copy. Use this in OBS → Browser Source.</p>
+            <p class="info-text" style="margin-bottom:0.5rem;">Click the URL to copy. Use this in OBS Browser Source.</p>
             <div class="url-output" id="wiz-url" onclick="copyWizUrl()">
                 <span class="copy-toast" id="copy-toast"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle; margin-right:4px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!</span>
             </div>
             <div id="wiz-obs-hint" class="obs-hint"></div>
             <div style="margin-top:1rem; display:flex; gap:0.75rem;">
                 <button class="btn" onclick="resetWizard()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg> Reset All</button>
-                <a class="btn" id="open-btn" href="/music.html" target="_blank" rel="noopener" style="text-decoration:none;">Open ↗</a>
+                <a class="btn" id="open-btn" href="/music.html" target="_blank" rel="noopener" style="text-decoration:none; display:inline-flex; align-items:center; gap:0.3rem;">Open <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
             </div>
         </div>
 
@@ -491,7 +491,7 @@
         // OBS hint
         const ow = w || { art: 200, full: 420, mini: 400 }[mode];
         const oh = h || { art: 200, full: 120, mini: 40 }[mode];
-        document.getElementById('wiz-obs-hint').textContent = `OBS Browser Source → Width: ${ow}, Height: ${oh}`;
+        document.getElementById('wiz-obs-hint').textContent = `OBS Browser Source — Width: ${ow}, Height: ${oh}`;
 
         return url;
     }

@@ -799,7 +799,7 @@
         }
 
         if (vars.scale) {
-            const urlScale = Number(params.get('fontscale'));
+            const urlScale = Number(params.get('scale') || params.get('fontscale'));
             const scale = urlScale > 0 ? Math.max(0.5, Math.min(5, urlScale)) : t.font_scale;
             if (scale) { root.setProperty(vars.scale, scale); resolved.scale = scale; }
         }

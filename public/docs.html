@@ -47,7 +47,20 @@
         .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; }
         .card-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; cursor: pointer; user-select: none; }
         .card-header:hover { background: var(--bg-raised); }
-        .card-header .chevron { color: var(--border-strong); font-size: 0.7rem; transition: transform 0.2s; margin-left: auto; flex-shrink: 0; }
+        .card-header .chevron {
+            display: inline-block;
+            width: 11px;
+            height: 11px;
+            background-color: var(--border-strong);
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'%3E%3Cpolyline points='9 18 15 12 9 6'/%3E%3C/svg%3E") no-repeat center / contain;
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'%3E%3Cpolyline points='9 18 15 12 9 6'/%3E%3C/svg%3E") no-repeat center / contain;
+            transition: transform 0.2s;
+            margin-left: auto;
+            flex-shrink: 0;
+            font-size: 0;
+            line-height: 0;
+            color: transparent;
+        }
         .card.open .chevron { transform: rotate(90deg); }
         .card-body { display: none; padding: 0 1rem 1rem; border-top: 1px solid var(--bg-raised); }
         .card.open .card-body { display: block; padding-top: 0.75rem; }
@@ -1214,7 +1227,7 @@
         </div>
         <div class="card-body">
             <div class="detail-text">
-                The <a href="/assets.html" style="color:var(--accent);">Asset Library</a> (Overlays ▾ → Asset Library) is one shared store for overlay images, videos, fonts and timer sounds. Browse as a grid or list with an adjustable thumbnail size, search, filter by type or used/unused, and sort. Upload by button, drag-and-drop or paste; audio and video preview in place. Crop, rotate, flip and resize images directly in the browser. Renaming an asset rewrites every overlay and timer that uses it; deleting an in-use asset requires confirmation. Files are stored in <code>data/custom-overlay-assets/</code> (100&nbsp;MB max each) and included in backups.
+                The <a href="/assets.html" style="color:var(--accent);">Asset Library</a> (Overlays &gt; Asset Library) is one shared store for overlay images, videos, fonts and timer sounds. Browse as a grid or list with an adjustable thumbnail size, search, filter by type or used/unused, and sort. Upload by button, drag-and-drop or paste; audio and video preview in place. Crop, rotate, flip and resize images directly in the browser. Renaming an asset rewrites every overlay and timer that uses it; deleting an in-use asset requires confirmation. Files are stored in <code>data/custom-overlay-assets/</code> (100&nbsp;MB max each) and included in backups.
             </div></div>
     </div>    <div class="card open">
         <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
@@ -1395,7 +1408,7 @@
                 </div>
                 <div class="card-body">
                     <div class="detail-text">
-                        The <a href="/versus.html" style="color:var(--accent);">Versus</a> (Tools ▾ → Versus) is StreamPulse's dedicated controller for community game nights, esports competitions, fighting game sets, and speedrun showdowns. It separates competitive tournament scoring from audience chat polls while keeping them connected when desired.
+                        The <a href="/versus.html" style="color:var(--accent);">Versus</a> (Tools &gt; Versus) is StreamPulse's dedicated controller for community game nights, esports competitions, fighting game sets, and speedrun showdowns. It separates competitive tournament scoring from audience chat polls while keeping them connected when desired.
                     </div>
                     <div class="detail-label">Versus Controller URL</div>
                     <div class="url-box"><code>${BASE}/versus.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/versus.html')">Copy</button></div>
@@ -1494,7 +1507,7 @@
                 </div>
                 <div class="card-body">
                     <div class="detail-text">
-                        The <a href="/randomizer-editor.html" style="color:var(--accent);">Choice Randomizer Studio</a> (Overlays ▾ → Choice Randomizer) turns choices into exciting on-screen audience reveals:
+                        The <a href="/randomizer-editor.html" style="color:var(--accent);">Choice Randomizer Studio</a> (Overlays &gt; Choice Randomizer) turns choices into exciting on-screen audience reveals:
                         <br><br>
                         • <strong>3 Interactive Modes:</strong> Spinning Wheel of Fortune (<code>mode=wheel</code>), Slot Machine Roller (<code>mode=roller</code>), and Physical Card Deck (<code>mode=deck</code>).<br>
                         • <strong>Active Chatter Pool:</strong> 1-click button populates choices from users who have chatted during the active session.<br>
@@ -1531,7 +1544,7 @@
                 </div>
                 <div class="card-body">
                     <div class="detail-text">
-                        The <a href="/promo-creator.html" style="color:var(--accent);">Promo Creator</a> (Tools ▾ → Promo Creator) generates branded broadcast graphics and promotional social announcements:
+                        The <a href="/promo-creator.html" style="color:var(--accent);">Promo Creator</a> (Tools &gt; Promo Creator) generates branded broadcast graphics and promotional social announcements:
                         <br><br>
                         • <strong>Multi-Format Canvases:</strong> Design once for <strong>Square (1:1, 1080×1080)</strong> for Instagram/Bluesky, <strong>Landscape (16:9, 1920×1080)</strong> for Twitter/X and OBS slides, and <strong>Portrait (9:16, 1080×1920)</strong> for TikTok and Instagram Stories.<br>
                         • <strong>Shared Content Architecture:</strong> Text, Image, and QR elements share headlines and messaging across formats while allowing independent per-format positioning, scaling, and typography.<br>

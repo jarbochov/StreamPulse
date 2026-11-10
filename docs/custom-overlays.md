@@ -113,7 +113,7 @@ Explore the [StreamPulse features](features.md) or [get started](quickstart.md).
 
 ## Asset Library & In-Editor Image Cropper
 
-StreamPulse provides built-in media and artwork management through the Asset Library (`Overlays ▾ → Asset Library` at `/assets.html`) and inside Custom Overlay Studio:
+StreamPulse provides built-in media and artwork management through the Asset Library (`Overlays > Asset Library` at `/assets.html`) and inside Custom Overlay Studio:
 - **Studio Filter Bar & Backdrop Switcher**: Browse by category pills with live counts (*All*, *Images*, *Videos*, *Audio*, *Fonts*, *Text*), toggle thumbnail backdrops (*Checkerboard*, *Dark*, *Light*) to inspect transparent white or dark assets, and view automatic pixel dimension badges (`width × height`) on image cards.
 - **Drag-and-Drop, Clipboard Paste & Inspection Modal**: Drop files anywhere on the page or press `⌘V` / `Ctrl+V` to upload copied clipboard images directly. Click any thumbnail to open the asset inspection modal with full-size preview, dimensions, consumer ("Used By") badges, tag management, and quick actions.
 - **Direct Asset Downloads & Floating Bulk Bar**: 1-click **Copy**, **Crop**, and **Download** actions on asset cards, plus a floating bulk selection bar for batch tagging, untagging, and deletion.

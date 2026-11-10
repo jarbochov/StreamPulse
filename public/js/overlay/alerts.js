@@ -77,8 +77,7 @@ function spawnEmoteParticles(card, payload, node, boxScale = 1) {
     if (!effect || effect === 'showcase' || !['rain', 'party', 'fountain', 'bounce'].includes(effect)) return;
     const emoteUrl = payload.emojiUrl || (/^(https?:\/\/|\/|data:image\/)/i.test(payload.emoji) ? payload.emoji : '');
     const isFa = !emoteUrl && payload.emoji && (payload.emoji.startsWith('fa-') || payload.emoji.includes('fa-'));
-    const rawEmoji = payload.emoji || '🎉';
-    if (!emoteUrl && !isFa && !rawEmoji) return;
+    const rawEmoji = payload.emoji || '';
 
     const container = document.createElement('div');
     container.className = `alert-emote-particles effect-${effect}`;
@@ -107,12 +106,14 @@ function spawnEmoteParticles(card, payload, node, boxScale = 1) {
             icon.className = rawEmoji;
             icon.style.fontSize = `${size}px`;
             item.appendChild(icon);
-        } else {
+        } else if (rawEmoji) {
             const span = document.createElement('span');
             span.textContent = rawEmoji;
             span.style.fontSize = `${size}px`;
             span.style.lineHeight = '1';
             item.appendChild(span);
+        } else {
+            item.innerHTML = `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="var(--accent,#58a6ff)"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`;
         }
 
         const rot1 = `${Math.round(-35 + Math.random() * 70)}deg`;

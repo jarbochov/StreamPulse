@@ -321,8 +321,7 @@ function renderGameList(node, element, plan) {
         if (config.meta === 'note') return item.note || '';
         if (config.meta === 'rating') {
             if (!(item.rating > 0)) return '';
-            const full = Math.floor(item.rating), half = item.rating - full >= 0.5 ? 1 : 0;
-            return '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(5 - full - half);
+            return `${item.rating} / 5`;
         }
         if (config.meta === 'tags') return (item.tags || []).slice(0, 3).join(' · ');
         if (config.meta === 'group') {

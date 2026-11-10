@@ -430,7 +430,7 @@ function renderCredits() {
                 giftSubList.forEach(g => {
                     const gifter = g.gifter || g.chatname;
                     let label = gifter;
-                    if (g.recipient) label = `${gifter} → ${g.recipient}`;
+                    if (g.recipient) label = `${gifter} to ${g.recipient}`;
                     else if (useStats && g.count > 1) label = `${gifter} (${g.count})`;
                     html += `<div class="person">${escapeHtml(label)}</div>`;
                 });

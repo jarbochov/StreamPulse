@@ -971,7 +971,7 @@ export async function swapMatchupSides() {
         const data = await res.json();
         if (data.status === 'ok') {
             renderMatchupStudio(data.matchup);
-            toast('Swapped P1 ⇄ P2');
+            toast('Swapped Player 1 and Player 2');
         }
     } catch {
         toast('Error swapping sides');

@@ -351,7 +351,7 @@ export function renderPagesPanel() {
             ${triggersSummaryHtml()}
         </details>
         <div class="pg-foot">
-            <a href="/overlay-control.html?id=${encodeURIComponent(state.overlay.id)}" target="_blank" class="link sm">Control panel ↗</a>
+            <a href="/overlay-control.html?id=${encodeURIComponent(state.overlay.id)}" target="_blank" rel="noopener" class="link sm">Control panel <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>
             <button id="pages-disable" class="ghost" title="Back to a single view. Elements are kept.">Turn off ${noun}s</button></div>`;
 
     if (pgSortable) pgSortable.destroy();

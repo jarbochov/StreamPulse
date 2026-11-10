@@ -239,14 +239,14 @@
             const released = c.releaseDate ? new Date(c.releaseDate + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '';
             const meta = (c.developers?.length ? `<span class="dev"><b>Developer</b>${escapeHtml(c.developers.join(', '))}</span>` : '')
                 + (released ? `<span class="dev"><b>Released</b>${released}</span>` : '')
-                + (c.igdbUrl ? `<a class="dev igdb-link" href="${escapeHtml(c.igdbUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><b>Details</b>View on IGDB ↗</a>` : '')
+                + (c.igdbUrl ? `<a class="dev igdb-link" href="${escapeHtml(c.igdbUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><b>Details</b>View on IGDB <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-left:2px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>` : '')
                 + (c.genres || []).map(x => `<span class="chip">${escapeHtml(String(x))}</span>`).join('');
             return `<div class="category-card">
                 <div class="category-header" onclick="toggleSessions(this)">
                     ${coverHtml(c)}
                     <div class="cat-main">
                         <span class="category-name" style="color:${color}" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
-                        <div class="cat-meta"><span class="dev"><b>Sessions</b><span><span class="chev">▸</span>${c.sessions.length}</span></span>${meta}</div>
+                        <div class="cat-meta"><span class="dev"><b>Sessions</b><span><span class="chev"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:2px;"><polyline points="9 18 15 12 9 6"/></svg></span>${c.sessions.length}</span></span>${meta}</div>
                     </div>
                     <div class="cat-side"><span class="category-time">${formatDuration(c.totalMinutes)}</span><span class="category-pct">${pct}% of total</span></div>
                 </div>

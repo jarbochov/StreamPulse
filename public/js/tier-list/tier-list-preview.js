@@ -32,11 +32,13 @@ export function switchTab(tabName) {
         localStorage.setItem(ACTIVE_TAB_KEY, tabName);
     } catch {}
 
-    document.querySelectorAll('.studio-tab-btn').forEach(btn => {
+    document.querySelectorAll('.tab-btn, .studio-tab-btn').forEach(btn => {
         if (btn.id === `tab-btn-${tabName}`) {
             btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
         } else if (btn.id.startsWith('tab-btn-')) {
             btn.classList.remove('active');
+            btn.setAttribute('aria-selected', 'false');
         }
     });
 
@@ -142,9 +144,22 @@ export function updateOverlayUrl() {
     const previewIframe = $('tier-preview-iframe');
     if (previewIframe) {
         const previewUrl = `${relativeUrl}${queryString ? '&' : '?'}preview=1`;
-        if (previewIframe.dataset.currentSrc !== previewUrl) {
+        if (!previewIframe.src || previewIframe.dataset.initialLoaded !== 'true') {
+            previewIframe.dataset.initialLoaded = 'true';
             previewIframe.dataset.currentSrc = previewUrl;
             previewIframe.src = previewUrl;
+        } else {
+            try {
+                previewIframe.contentWindow?.postMessage({
+                    type: 'tierlist:preview-config',
+                    options: {
+                        scale: opts.scale,
+                        theme: opts.theme,
+                        howToVote: opts.howToVote,
+                        hintText: opts.hintText
+                    }
+                }, '*');
+            } catch (_) {}
         }
     }
 

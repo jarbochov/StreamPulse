@@ -46,9 +46,18 @@
         .left-col { align-self: start; }
         .sticky { position: sticky; top: 1rem; }
         .preview-frame { background: #000 repeating-conic-gradient(var(--bg-raised) 0% 25%, var(--bg-inset) 0% 50%) 50% / 20px 20px; }
-        details.card > summary { cursor: pointer; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; list-style: none; }
-        details.card > summary::before { content: '▸ '; }
-        details.card[open] > summary::before { content: '▾ '; }
+        details.card > summary { cursor: pointer; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; list-style: none; display: flex; align-items: center; gap: 0.4rem; }
+        details.card > summary::-webkit-details-marker { display: none; }
+        details.card > summary::before {
+            content: '';
+            width: 12px;
+            height: 12px;
+            background-color: var(--text-muted);
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpolyline points='9 18 15 12 9 6'/%3E%3C/svg%3E") no-repeat center / contain;
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpolyline points='9 18 15 12 9 6'/%3E%3C/svg%3E") no-repeat center / contain;
+            transition: transform 0.15s ease;
+        }
+        details.card[open] > summary::before { transform: rotate(90deg); }
         details.card[open] > summary { margin-bottom: 0.6rem; }
         td code { font-family: 'SF Mono', monospace; font-size: 0.74rem; word-break: break-all; }
         .btn.copied { border-color: var(--success); color: var(--success); }
@@ -69,10 +78,10 @@
     <div style="max-width:1280px; margin:1rem auto 0; padding:0 2rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
         <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Wizards:</span>
         <a href="/timer-url-wizard.html" class="preset-chip active" style="text-decoration:none; background:var(--accent-bg); border-color:var(--accent); color:var(--accent); font-weight:600; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Timers</a>
-        <a href="/milestone-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Milestones &amp; Streaks ↗</a>
-        <a href="/game-plan-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Game Plan ↗</a>
-        <a href="/overlay-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Overlays (Goals, Viewers, Stats, Credits) ↗</a>
-        <a href="/music-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Music ↗</a>
+        <a href="/milestone-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Milestones &amp; Streaks</a>
+        <a href="/game-plan-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Game Plan</a>
+        <a href="/overlay-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Overlays (Goals, Viewers, Stats, Credits)</a>
+        <a href="/music-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Music</a>
     </div>
 
     <div class="container">
@@ -155,7 +164,7 @@
                     <iframe id="preview" src="/countdown.html"></iframe>
                 </div>
                 <div class="group-title">OBS browser source URL</div>
-                <div class="url-box"><a id="browser-source-url" href="#" target="_blank" rel="noopener noreferrer"></a><button class="btn" onclick="copyText('browser-source-url', this)">Copy</button><a class="btn" id="open-btn" href="#" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">Open ↗</a></div>
+                <div class="url-box"><a id="browser-source-url" href="#" target="_blank" rel="noopener noreferrer"></a><button class="btn" onclick="copyText('browser-source-url', this)">Copy</button><a class="btn" id="open-btn" href="#" target="_blank" rel="noopener noreferrer" style="text-decoration:none; display:inline-flex; align-items:center; gap:0.25rem;">Open <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a></div>
                 <a id="overlay-url" hidden></a>
             </div>
 

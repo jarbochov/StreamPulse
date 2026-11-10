@@ -13,10 +13,15 @@ const { $ } = State;
 export function switchTab(tab) {
     State.setActiveTabState(tab);
     try { localStorage.setItem('polls-active-tab', tab); } catch {}
-    $('tab-btn-poll')?.classList.toggle('active', tab === 'poll');
-    $('tab-btn-tourney')?.classList.toggle('active', tab === 'tourney');
-    $('tab-btn-overlays')?.classList.toggle('active', tab === 'overlays');
-    $('tab-btn-templates')?.classList.toggle('active', tab === 'templates');
+    const tabs = ['poll', 'tourney', 'overlays', 'templates'];
+    tabs.forEach(t => {
+        const btn = $(`tab-btn-${t}`);
+        if (btn) {
+            const isActive = tab === t;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        }
+    });
 
     if ($('panel-poll')) $('panel-poll').style.display = tab === 'poll' ? 'block' : 'none';
     if ($('panel-tourney')) $('panel-tourney').style.display = tab === 'tourney' ? 'block' : 'none';

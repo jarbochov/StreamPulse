@@ -46,7 +46,7 @@
         <p class="intro">Every browser source in one place. Copy the URL into OBS (Browser Source), or use <strong>Customize</strong> to build a parameterized URL. Parameter names are case-insensitive (<code>fontScale</code> = <code>fontscale</code>).</p>
         <div class="toolbar">
             <input type="search" id="filter" placeholder="Filter overlays…" aria-label="Filter overlays">
-            <a class="btn primary" href="/custom-overlay-editor.html?new=1" id="new-custom">+ New custom overlay</a>
+            <a class="btn primary" href="/custom-overlay-editor.html?new=1" id="new-custom" style="display:inline-flex;align-items:center;gap:0.35rem;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New custom overlay</a>
         </div>
         <div id="groups"></div>
     </main>
@@ -139,7 +139,7 @@
                         </div>
                     </article>`;
                 }).join('') : `<div class="empty">${group.id === 'timers' ? 'No timers yet.' : 'No custom overlays yet.'} <a href="${esc(group.manage[1])}" style="color:var(--accent)">Open ${esc(group.manage[0])}</a></div>`;
-                return `<section><h2>${esc(group.title)} <a href="${esc(group.manage[1])}">${esc(group.manage[0])} →</a></h2><div class="grid">${body}</div></section>`;
+                return `<section><h2>${esc(group.title)} <a href="${esc(group.manage[1])}" style="display:inline-flex;align-items:center;gap:0.25rem;">${esc(group.manage[0])} <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a></h2><div class="grid">${body}</div></section>`;
             }).join('');
             document.getElementById('groups').innerHTML = html || '<div class="empty">No overlays match your filter.</div>';
         }
