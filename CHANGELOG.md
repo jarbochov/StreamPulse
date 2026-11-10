@@ -6,24 +6,28 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ## [Unreleased]
 
+---
+
+## [0.15.0] - 2026-11-09
+
 ### Added
-- **Subathon Automation Engine**: Modular timer extension engine with granular event rates (subs by tier, bits, follows with hourly caps, raids, channel points), specific exact donation amounts, safety hard caps, Boost Period multipliers, audit log with 1-click Undo, dynamic parameterized rules overlay (`/overlays/subathon-rules.html`), visual Appearance & Theming Studio with 60fps live preview, and secondary sub-navigation design library component (`.sub-nav-bar`, `.sub-nav-btn`).
-- **Speaker Badges**: OBS voice-reactive overlay layers with 5 layout presets, dB speech gates, EQ visualizers, and a Speakers controller tab for live profile, avatar, audio-source, and field-visibility updates.
-- **Tier List Maker**: Standalone tier list studio and 60fps animated OBS overlay with live chat consensus voting (`!tier`), clipboard/drag-and-drop/Asset Library imports, preset management, and PNG export.
-- **Trivia Studio**: Audience quiz studio and broadcast overlay with 2–6 answer choices, True/False format, drag-and-drop question ordering, (Done) tracking, theme presets, glass panel & hint customization, hex color fields with alpha opacity support (`#00000000`), granular font weights, chatbot-aware voting status, and Bitfocus Companion integration.
-- **Embedded & Host Integration**: In-process embedded mode (`STREAMPULSE_EMBEDDED=true`, e.g. embedded host) with `{{rep.*}}` host data placeholders, external donation ingestion (`ingestEvent`, source filtering, `{{...|money}}` formatting), alert mute API (`POST /api/alerts/mute`), and chatbot donation announcements.
-- **Alerts & Announcements**: Manual Announcements studio and OBS dock, rule priority/interrupt/expiry, Hype Train and Channel Points triggers, bundled CC0 and synthesized sound library, animated Twitch Cheermotes and emote celebrations, webhook/Companion actions, and Alert Box looks, media-only effects targeting, and focal point cropping.
-- **Custom Overlay Studio & Assets**: 1–4 image/icon tiles, seasonal procedural backgrounds, palettes and independent motion, bounded rendering, modular shared engine, image cropper, asset safeguards, and per-page availability.
-- **Twitch EventSub & Moderation**: Native EventSub WebSocket client for real-time Twitch events with automatic REST polling throttling, plus Twitch/SocialStream message-deletion, chat-clear, and permanent ban sync with non-destructive history and community filtering.
-- **Chat Bot & Companion**: Collapsible chatbot settings with dedicated quote storage (`data/quotes.json`), plus expanded Bitfocus Companion controls and live feedback for Tier Maker, speakers, overlays, timers, and alerts.
+- **Subathon Automation Engine**: Modular timer extension engine with granular event rates (subs by tier, bits, follows, raids, channel points), exact donation amount rules, Boost Period multipliers, undo audit log, dynamic rules overlay (`/overlays/subathon-rules.html`), visual theming studio with 60fps live preview, and secondary sub-navigation (`.sub-nav-bar`).
+- **Speaker Badges**: Voice-reactive OBS overlay layers with 5 layout presets, dB speech gates, EQ visualizers, and a dedicated controller tab.
+- **Tier List Maker**: Standalone tier list studio and 60fps animated OBS overlay with live chat consensus voting (`!tier`), multi-source imports, preset management, and PNG export.
+- **Trivia Studio**: Audience quiz studio and broadcast overlay with 2–6 answer choices, True/False format, drag-and-drop question ordering, (Done) tracking, theme presets, glass styling, and Bitfocus Companion integration.
+- **Embedded & Host Integration**: In-process embedded mode (`STREAMPULSE_EMBEDDED=true`) with `{{rep.*}}` host data placeholders, external donation ingestion, alert mute API (`POST /api/alerts/mute`), and chatbot donation announcements.
+- **Alerts & Announcements**: Manual Announcements studio and OBS dock, rule priority and expiry, Hype Train and Channel Points triggers, bundled sound library, and emote celebrations.
+- **Twitch EventSub & Moderation**: Native WebSocket EventSub client, plus real-time message deletion, chat clearing, and permanent ban synchronization.
+- **Dynamic Placeholders**: Comprehensive placeholders and live ticking tokens for Tier List (`tier_list.*`), Trivia Studio (`trivia.*`), Versus / Matchup (`matchup.*`), and Tournaments (`tournament.*`).
 
 ### Changed
 - **Chat Bot**: Promoted Chat Bot from Beta to general availability with independent quote persistence (`data/quotes.json`), pre-compiled pattern matching, per-user cooldowns, and full Bitfocus Companion integration.
-- **Alerts Studio & Custom Overlay Editor**: Streamlined variant ladder and milestone tiers with drag-and-drop rule reordering, JSON import/export, and native-volume previews; reorganized the Custom Overlay element picker, Pages tabs, Alert Box inspector, and moved procedural pattern styling, blend type, and line width slider controls into the Style tab while excluding inconsistent raster filters.
-- **OBS Scene Sync & Server Architecture**: Independent OBS Scene Sync module toggle (decoupled from speaker audio meters) and extracted server domain services (`server/services/*`) and pattern inspector modules (`editor-patterns.js`).
+- **Alerts & Custom Overlays**: Streamlined variant ladder and milestone tiers with drag-and-drop rule reordering, JSON import/export, and improved inspector organization.
+- **OBS Scene Sync & Architecture**: Independent OBS Scene Sync module toggle decoupled from audio meters, plus extracted server domain services under `server/services/`.
 
 ### Fixed
-- **Categories & Timers**: Prevented `nullm` duration formatting on invalid or corrupted session timestamps in the Categories library, added 1-click quick-adjust duration chips and direct Companion play/pause toggle routes for Timers, and replaced hourglass emoji fallbacks with standard text.
+- **Hashtag Stats & Timers**: Fixed array normalization in moderation service for hashtag stats, resolved subathon tab hash routing and safe status lookup, and added 1-click timer duration chips and Companion play/pause routes.
+- **UI Design System Consistency**: Replaced unicode emojis and raw symbols across all studios, wizards, library, and overlays with crisp inline SVGs.
 
 ---
 
