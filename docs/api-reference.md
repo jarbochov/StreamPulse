@@ -122,7 +122,9 @@ IGDB operations use the configured Twitch client credentials. Missing credential
 
 `GET /api/chat` includes new and returning subscribers captured from Twitch EventSub or SocialStream Ninja. Nearby notifications for one Twitch subscription share the session/statistics count; their individual chat-log entries remain available when logging is enabled. New entries include `source`; native subscription entries additionally identify `sourceEvent` as `channel.subscribe` or `channel.subscription.message`.
 
-Session views, timelines and category analytics accept legacy channel updates using `time` as well as canonical `changedAt`. Untimed entries remain visible in session details but are omitted from timed analytics.
+`channelInfo` holds the current channel title/category even while offline. `streamInfo` is live-broadcast history: one starting state at Twitch's actual stream start, followed by live changes only. Offline edits do not append timestamps. Viewer transitions capture the baseline and close the live segment without extra polling.
+
+Session views, timelines and exports accept legacy channel updates using `time` as well as canonical `changedAt`. Old pre-stream edits become one live-start baseline; off-air and untimed entries are excluded from timed history without rewriting saved data. Previously recorded live segments remain available in resumed sessions.
 
 ### Start Live Stream Session
 - **Endpoint**: `POST /api/start-session`

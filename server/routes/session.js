@@ -8,6 +8,7 @@ const {
     parseNumericAmount
 } = require('../services/ssn');
 const { getSessionStreamTimes, getSessionCategorySegments, getStreamInfoChangedAt } = require('../services/session');
+const { getSessionStreamInfo, getCurrentChannelInfo } = require('../services/stream-info');
 const { sendJson: sendResponseJson, sendText, sendError } = require('./helpers');
 
 function createSessionRoutes({
@@ -176,7 +177,7 @@ function createSessionRoutes({
                     streamStartAt: streamTimes.streamStartAt,
                     streamStopAt: streamTimes.streamStopAt,
                     durationMinutes,
-                    title: data.streamInfo?.[0]?.title || '',
+                    title: getSessionStreamInfo(data, { current: isCurrent })[0]?.title || '',
                     categories,
                     categorySummary: categories.map(entry => `${entry.category} (${entry.durationMinutes ?? 'in progress'} min)`).join(' | '),
                     messages: data.messageCount || 0,
@@ -387,9 +388,10 @@ function createSessionRoutes({
                                 const logName = f.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
                                 streamTimes = getSessionStreamTimes(d, ssnService.readChatLogFile(path.join(sessionsDir, logName)));
                             }
-                            if (d.streamInfo && d.streamInfo.length > 0) {
-                                entry.title = d.streamInfo[0].title;
-                                entry.category = d.streamInfo[0].category;
+                            const info = getSessionStreamInfo(d);
+                            if (info.length > 0) {
+                                entry.title = info[0].title;
+                                entry.category = info[0].category;
                             }
                             entry.streamStartAt = streamTimes.streamStartAt;
                             entry.streamStopAt = streamTimes.streamStopAt;
@@ -443,7 +445,7 @@ function createSessionRoutes({
                         message: entry.message,
                         detail: entry.donation || null
                     }));
-                for (const info of data.streamInfo || []) {
+                for (const info of getSessionStreamInfo(data, { current: isCurrent })) {
                     const changedAt = getStreamInfoChangedAt(info);
                     if (changedAt) events.push({ ts: Date.parse(changedAt), type: 'stream-info', message: info.title, detail: info.category || null });
                 }
@@ -482,7 +484,7 @@ function createSessionRoutes({
                     streamEndedAt: streamTimes.streamStopAt
                 };
             }
-            sendJson(res, data);
+            sendJson(res, { ...data, streamInfo: getSessionStreamInfo(data) });
             return true;
         }
 
@@ -567,7 +569,8 @@ function createSessionRoutes({
 
         // --- 7. Chat and Chat Log ---
         if (pathname === '/api/chat') {
-            sendJson(res, getChatData());
+            const data = getChatData();
+            sendJson(res, { ...data, channelInfo: getCurrentChannelInfo(data), streamInfo: getSessionStreamInfo(data, { current: true }) });
             return true;
         }
 
@@ -646,7 +649,7 @@ function createSessionRoutes({
             if (session === 'all') {
                 addSessionMessages(ssnService.getCurrentChatLogEntries(), 'current');
                 sessionLabel = 'all-sessions';
-                streamInfo = chatData.streamInfo || [];
+                streamInfo = getSessionStreamInfo(chatData, { current: true });
                 if (fs.existsSync(sessionsDir)) {
                     const logFiles = fs.readdirSync(sessionsDir)
                         .filter(f => f.startsWith('chatlog-') && f.endsWith('.jsonl'))
@@ -659,7 +662,7 @@ function createSessionRoutes({
             } else if (session === 'current') {
                 addSessionMessages(ssnService.getCurrentChatLogEntries(), 'current');
                 sessionLabel = 'current-session';
-                streamInfo = chatData.streamInfo || [];
+                streamInfo = getSessionStreamInfo(chatData, { current: true });
             } else {
                 const logName = session.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
                 const logFile = path.join(sessionsDir, logName);
@@ -670,7 +673,7 @@ function createSessionRoutes({
                 if (sessionFile.startsWith(sessionsDir) && fs.existsSync(sessionFile)) {
                     try {
                         const sData = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
-                        streamInfo = sData.streamInfo || [];
+                        streamInfo = getSessionStreamInfo(sData);
                     } catch {}
                 }
             }

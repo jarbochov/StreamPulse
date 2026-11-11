@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { createSessionArchiveCache } = require('./session-archives');
+const { getStreamInfoChangedAt, getCurrentChannelInfo, getSessionStreamInfo, syncLiveStreamInfo } = require('./stream-info');
 
 function clampNumber(value, min, max, fallback) {
     const num = Number(value);
@@ -30,10 +31,6 @@ function localDateTimeStr(isoStr) {
 
 function localDateString(date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
-function getStreamInfoChangedAt(entry) {
-    return [entry?.changedAt, entry?.time].find(value => value && Number.isFinite(Date.parse(value))) || null;
 }
 
 // Minutes spent in each category by one session's stream-info history, plus the local dates it was streamed on.
@@ -109,12 +106,13 @@ function getSessionStreamTimes(data, chatEntries = []) {
 
 function getSessionCategorySegments(data, streamStartAt, streamStopAt, isCurrent = false) {
     const entries = Array.isArray(data?.streamInfo)
-        ? data.streamInfo
+        ? getSessionStreamInfo({ ...data, viewerStats: { ...data.viewerStats, streamStartedAt: streamStartAt || data.viewerStats?.streamStartedAt } }, { current: isCurrent })
             .filter(entry => getStreamInfoChangedAt(entry))
             .map(entry => ({
                 title: entry.title || '',
                 category: entry.category || '(No Category)',
-                changedAt: getStreamInfoChangedAt(entry)
+                changedAt: getStreamInfoChangedAt(entry),
+                endedAt: entry.endedAt
             }))
             .sort((a, b) => Date.parse(a.changedAt) - Date.parse(b.changedAt))
         : [];
@@ -128,7 +126,9 @@ function getSessionCategorySegments(data, streamStartAt, streamStopAt, isCurrent
         const rawStartMs = Date.parse(entry.changedAt);
         const segmentStartMs = Number.isFinite(startMs) ? Math.max(rawStartMs, startMs) : rawStartMs;
         const nextMs = index + 1 < entries.length ? Date.parse(entries[index + 1].changedAt) : endMs;
-        const segmentEndMs = Number.isFinite(nextMs) ? Math.max(segmentStartMs, nextMs) : null;
+        const closedAt = Date.parse(entry.endedAt || '');
+        const end = Number.isFinite(closedAt) ? Math.min(nextMs, closedAt) : nextMs;
+        const segmentEndMs = Number.isFinite(end) ? Math.max(segmentStartMs, end) : null;
         return {
             title: entry.title,
             category: entry.category,
@@ -369,10 +369,11 @@ function createSessionService(options = {}) {
         }
     }
 
-    function resumeArchivedSession(name) {
+    function resumeArchivedSession(name, streamStartedAt = null) {
         if (pendingEnd) throw new Error('Session end and backup are still in progress');
         const src = path.join(sessionsDir, name);
         if (!fs.existsSync(src)) return false;
+        const channelInfo = getCurrentChannelInfo(getChatData());
         fs.copyFileSync(src, liveChatPath);
         const logSrc = path.join(sessionsDir, name.replace('chat-', 'chatlog-').replace('.json', '.jsonl'));
         if (fs.existsSync(logSrc)) fs.copyFileSync(logSrc, chatLogPath);
@@ -380,12 +381,12 @@ function createSessionService(options = {}) {
         loadCurrentSessionStateFromDisk();
         const chatData = getChatData();
         if (chatData) {
-            chatData.viewerStats = normalizeViewerStats({ ...chatData.viewerStats, live: true, streamEndedAt: null });
-            const lastInfo = chatData.streamInfo?.[chatData.streamInfo.length - 1];
-            if (lastInfo?.endedAt) {
-                chatData.streamInfo.push({ title: lastInfo.title, category: lastInfo.category, changedAt: new Date().toISOString() });
-                if (chatData.streamInfo.length > 50) chatData.streamInfo.splice(0, chatData.streamInfo.length - 50);
-            }
+            if (channelInfo.title || channelInfo.category) chatData.channelInfo = channelInfo;
+            chatData.viewerStats = normalizeViewerStats({
+                ...chatData.viewerStats, live: true, streamEndedAt: null,
+                streamStartedAt: streamStartedAt || chatData.viewerStats?.streamStartedAt
+            });
+            syncLiveStreamInfo(chatData);
         }
         setSessionActive(true);
         broadcastSessionState();
@@ -404,7 +405,7 @@ function createSessionService(options = {}) {
         const recentArchive = last && Date.now() - last.endedAt <= windowMs ? last.name : null;
 
         if (!sessionHasData()) {
-            if (recentArchive && resumeArchivedSession(recentArchive)) {
+            if (recentArchive && resumeArchivedSession(recentArchive, stream.started_at)) {
                 log(`[Lifecycle] Live again — resumed ${recentArchive}`);
             } else {
                 startSessionNow();
@@ -532,7 +533,7 @@ function createSessionService(options = {}) {
     function currentCategoryStats(archivedTotals = {}) {
         const chatData = getChatData();
         const info = chatData?.streamInfo || [];
-        const name = info.length ? (info[info.length - 1].category || '(No Category)') : '';
+        const name = getCurrentChannelInfo(chatData).category || (info.length ? '(No Category)' : '');
         if (!name) return { name: '', sessionMinutes: 0, totalMinutes: 0 };
         const vStats = normalizeViewerStats(chatData?.viewerStats);
         const floor = Date.parse(vStats.streamStartedAt || '');

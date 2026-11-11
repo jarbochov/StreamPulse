@@ -705,7 +705,10 @@ const viewerService = createViewerService({
     getConfig: () => config,
     getChatData: () => chatData,
     setChatDataViewerStats: (stats) => { if (chatData) chatData.viewerStats = stats; },
-    onViewerUpdate: (summary) => broadcastToOverlays('viewer-update', summary),
+    onViewerUpdate: (summary) => {
+        twitchService.syncStreamInfoLiveState();
+        broadcastToOverlays('viewer-update', summary);
+    },
     onGoalsUpdate: () => broadcastToOverlays('goals-update', buildGoalsSnapshot()),
     fetchLiveStreamViewer: async () => {
         if (!TWITCH_CLIENT_ID || !BROADCASTER_ID) {
@@ -864,6 +867,7 @@ const gamePlanService = createGamePlanService({
     broadcastToOverlays: (type, data) => broadcastToOverlays(type, data),
     getConfig: () => config,
     getStreamInfo: () => chatData.streamInfo,
+    getCurrentCategory: () => twitchService.getStreamInfoState().category,
     getViewerStats: () => chatData.viewerStats,
     normalizeViewerStats,
     archivedCategoryMinutes,
@@ -1103,6 +1107,7 @@ async function performAutoBackup(force = false) {
 }
 
 function resetChatData() {
+    chatData.channelInfo = twitchService.getStreamInfoState();
     chatData.chatters = {};
     chatData.followers = [];
     chatData.subscribers = [];

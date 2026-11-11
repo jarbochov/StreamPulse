@@ -1,5 +1,6 @@
 const fs = require('fs');
 const WebSocket = require('ws');
+const { getCurrentChannelInfo, getSessionStreamInfo } = require('./stream-info');
 
 function formatDurationClock(s) {
     const h = Math.floor(s / 3600);
@@ -156,9 +157,9 @@ function createStatusService({
                 positionAgeMs: musicService?.getPolledAt?.() ? Date.now() - musicService.getPolledAt() : 0
             },
             stream: {
-                title: chatData.streamInfo?.[chatData.streamInfo.length - 1]?.title || '',
+                title: getCurrentChannelInfo(chatData).title,
                 category: currentCategoryStats(categoryTotals),
-                game: publicGameInfo(chatData.streamInfo?.[chatData.streamInfo.length - 1]?.category),
+                game: publicGameInfo(getCurrentChannelInfo(chatData).category),
                 uptimeSeconds: streamUptimeSec,
                 streamUptime: formatDurationClock(streamUptimeSec),
                 latestFollower: chatData.followers?.[chatData.followers.length - 1]?.chatname || '',
@@ -233,7 +234,8 @@ function createStatusService({
             lastSessionEndedAt: sessionService?.getLifecycleMemo?.()?.lastArchive?.endedAt ? new Date(sessionService.getLifecycleMemo().lastArchive.endedAt).toISOString() : null,
             startedAt: chatData.startedAt,
             hourlyMessages: chatData.hourlyMessages,
-            streamInfo: chatData.streamInfo,
+            streamInfo: getSessionStreamInfo(chatData, { current: true }),
+            channelInfo: getCurrentChannelInfo(chatData),
             topChatters: Object.values(chatData.chatters || {})
                 .sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0))
                 .slice(0, 100)

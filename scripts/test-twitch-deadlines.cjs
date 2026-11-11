@@ -20,6 +20,7 @@ test('Twitch deadlines bound stalled requests and response bodies without discar
             ? { access_token: 'fictional-access', refresh_token: 'fictional-refresh', expires_in: 3600 }
             : { data: [{ id: 'fictional-broadcaster', login: 'fictional-channel' }] }));
     });
+
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     const origin = `http://127.0.0.1:${server.address().port}`;
     const originalRequest = https.request;
@@ -82,4 +83,37 @@ test('Twitch deadlines bound stalled requests and response bodies without discar
         server.closeAllConnections();
         await new Promise(resolve => server.close(resolve));
     }
+});
+
+test('REST channel polling preserves current offline metadata but records only live history', async t => {
+    let title = 'Fixture pre-stream title';
+    const server = http.createServer((req, res) => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ data: [{ title, game_name: 'Fixture Game' }] }));
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => new Promise(resolve => server.close(resolve)));
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    t.mock.method(https, 'request', (url, options, callback) => http.request(origin + new URL(url).pathname, options, callback));
+    const chat = { streamInfo: [], viewerStats: { live: false } };
+    const twitch = createTwitchService({
+        getChatData: () => chat, getClientId: () => 'fixture-client', getBroadcasterId: () => 'fixture-channel',
+        safeWriteFileSync() {}, log() {}, warn() {}
+    });
+    twitch.saveToken({ access_token: 'fictional-access', refresh_token: 'fictional-refresh', expires_in: 3600 });
+    await twitch.fetchStreamInfo(true);
+    assert.equal(chat.streamInfo.length, 0);
+    assert.equal(twitch.getStreamInfoState().title, title);
+    chat.viewerStats = { live: true, streamStartedAt: new Date(Date.now() - 60000).toISOString() };
+    await twitch.fetchStreamInfo(true);
+    assert.equal(chat.streamInfo[0].changedAt, chat.viewerStats.streamStartedAt);
+    title = 'Fixture live title';
+    await twitch.fetchStreamInfo(true);
+    assert.equal(chat.streamInfo.length, 2);
+    assert.equal(chat.streamInfo.at(-1).title, title);
+    chat.viewerStats.live = false;
+    title = 'Fixture next show';
+    await twitch.fetchStreamInfo(true);
+    assert.equal(chat.streamInfo.length, 2);
+    assert.equal(twitch.getStreamInfoState().title, title);
 });

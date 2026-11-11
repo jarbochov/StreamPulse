@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { getCurrentChannelInfo } = require('../services/stream-info');
 const path = require('path');
 const { readRequestBody, sendJson, sendError, parseJsonOrQuery } = require('./helpers');
 
@@ -330,7 +331,7 @@ function createGamePlanRoutes({
         if (pathname === '/api/game') {
             const chatData = getChatData();
             const name = new URL(req.url, 'http://localhost').searchParams.get('name')
-                || chatData.streamInfo?.[chatData.streamInfo.length - 1]?.category || '';
+                || getCurrentChannelInfo(chatData).category;
             await refreshGameInfo(name);
             sendJson(res, publicGameInfo(name));
             return true;

@@ -6,6 +6,47 @@ const { test } = require('node:test');
 const { performance } = require('node:perf_hooks');
 const { createSessionService, categoryMinutesFor, getSessionCategorySegments } = require('../server/services/session');
 const { createCrmService } = require('../server/services/crm');
+const { getSessionStreamInfo, createStreamInfoService } = require('../server/services/stream-info');
+const { createStatusService } = require('../server/services/status');
+
+test('legacy pre-stream edits become one live-start baseline without rewriting history or bridging offline gaps', t => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-live-stream-info-'));
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    const data = {
+        viewerStats: { streamStartedAt: '2026-01-05T12:00:00Z', streamEndedAt: '2026-01-05T13:00:00Z' },
+        streamInfo: [
+            { title: 'Earlier preparation', category: 'Old Game', time: '2026-01-05T11:00:00Z' },
+            { title: 'Starting title', category: 'First Game', time: '2026-01-05T11:27:00Z' },
+            { title: 'Live change', category: 'Second Game', changedAt: '2026-01-05T12:30:00Z' },
+            { title: 'Next show', category: 'Offline Game', changedAt: '2026-01-05T13:27:00Z' }
+        ]
+    };
+    const before = JSON.stringify(data);
+    const history = getSessionStreamInfo(data, { current: true });
+    assert.deepEqual(history.map(info => info.title), ['Starting title', 'Live change']);
+    assert.equal(history[0].changedAt, '2026-01-05T12:00:00.000Z');
+    assert.deepEqual(categoryMinutesFor(history, Date.parse('2026-01-05T14:00:00Z')), { 'First Game': 30, 'Second Game': 30 });
+    assert.equal(JSON.stringify(data), before, 'read-side cleanup never mutates saved legacy records');
+    assert.deepEqual(getSessionStreamInfo({ streamInfo: data.streamInfo }, { current: true }), []);
+    const offline = { channelInfo: { title: 'Next show', category: 'Offline Game' }, streamInfo: [], viewerStats: { live: false } };
+    const status = createStatusService({
+        getChatData: () => offline, sessionsDir: path.join(dir, 'sessions'), backupsDir: path.join(dir, 'backups')
+    }).buildStatusSnapshot();
+    assert.equal(status.stream.title, 'Next show', 'live-only history does not make current channel metadata stale');
+    const category = createSessionService({ dataDir: dir, getChatData: () => offline }).currentCategoryStats();
+    assert.equal(category.name, 'Offline Game');
+    assert.equal(category.sessionMinutes, 0);
+    const chat = { streamInfo: [
+        { title: 'First broadcast', category: 'First Game', changedAt: '2026-01-05T12:00:00Z', endedAt: '2026-01-05T13:00:00Z', live: true }
+    ], viewerStats: { live: false }, channelInfo: { title: 'Resumed broadcast', category: 'Second Game' } };
+    const service = createStreamInfoService({ getChatData: () => chat });
+    chat.viewerStats = { live: true, streamStartedAt: '2026-01-05T14:00:00Z' };
+    service.syncLiveState();
+    const resumed = getSessionStreamInfo(chat, { current: true });
+    assert.equal(resumed.length, 2, 'resumed sessions keep earlier genuinely live history');
+    assert.equal(resumed[1].changedAt, '2026-01-05T14:00:00Z');
+    assert.deepEqual(categoryMinutesFor(resumed, Date.parse('2026-01-05T15:00:00Z')), { 'First Game': 60, 'Second Game': 60 });
+});
 
 test('legacy channel-update timestamps remain usable and invalid stream-info dates do not corrupt category times', t => {
     const streamInfo = [

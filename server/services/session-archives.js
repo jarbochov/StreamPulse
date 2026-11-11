@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { getSessionStreamInfo } = require('./stream-info');
 const path = require('path');
 
 // Keep only aggregation inputs, not message HTML, avatars, emotes, or other archive payloads.
@@ -8,7 +9,7 @@ function summarizeSession(data) {
         startedAt: data.startedAt,
         lastUpdated: data.lastUpdated,
         category: data.category,
-        streamInfo: (data.streamInfo || []).map(({ category, changedAt, time, endedAt }) => ({ category, changedAt, time, endedAt })),
+        streamInfo: getSessionStreamInfo(data).map(({ category, changedAt, time, endedAt, live }) => ({ category, changedAt, time, endedAt, live })),
         viewerStats: {
             streamStartedAt: data.viewerStats?.streamStartedAt,
             streamEndedAt: data.viewerStats?.streamEndedAt,

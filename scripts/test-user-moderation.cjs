@@ -276,8 +276,10 @@ test('deletion signals traverse the SSN socket and refresh open archive/highligh
     f.setRecords(log);
     const data = {
         startedAt: '2026-01-01T12:00:00Z', messageCount: 2, chatters: {}, emotes: {}, hashtags: {},
+        viewerStats: { live: true, streamStartedAt: '2026-01-01T12:00:00Z' },
         streamInfo: [
-            { title: 'Fixture opening', changedAt: '2026-01-01T12:00:00Z' },
+            { title: 'Fixture earlier edit', changedAt: '2026-01-01T11:00:00Z' },
+            { title: 'Fixture opening', time: '2026-01-01T11:27:00Z' },
             { title: 'Fixture channel update', time: '2026-01-01T12:15:00Z' },
             { title: 'Fixture untimed update', changedAt: 'invalid' }
         ]
@@ -374,9 +376,13 @@ test('deletion signals traverse the SSN socket and refresh open archive/highligh
     assert.equal(timeline.messageCount, 1);
     assert.equal(timeline.events.filter(event => event.type === 'stream-info').length, 2);
     assert.ok(timeline.events.every(event => Number.isFinite(event.ts)), 'timeline omits unparseable stream-info timestamps');
+    const opening = timeline.events.find(event => event.type === 'stream-info');
+    assert.equal(opening.ts, Date.parse('2026-01-01T12:00:00Z'), 'old offline metadata is represented once at live start');
+    assert.equal(opening.message, 'Fixture opening');
     await sessionsPage.goto(`${base}/sessions.html?session=__current__`, { waitUntil: 'networkidle0' });
     await sessionsPage.waitForFunction(() => document.getElementById('detail-panel')?.textContent.includes('Fixture channel update'));
     assert.doesNotMatch(await sessionsPage.$eval('#detail-panel', panel => panel.textContent), /Invalid Date/);
+    assert.doesNotMatch(await sessionsPage.$eval('#detail-panel', panel => panel.textContent), /Fixture earlier edit/);
     const currentTimeline = await (await fetch(`${base}/api/sessions/__current__.json/timeline`)).json();
     assert.equal(currentTimeline.events.filter(event => event.type === 'stream-info').length, 2);
     const rejected = await fetch(`${base}/api/highlights`, { method: 'POST', body: JSON.stringify({ ...removed, session }) });

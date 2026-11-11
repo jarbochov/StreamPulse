@@ -7,6 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { createTwitchService } = require('../server/services/twitch');
 const { createSsnService, createEmptyChatData, createEmptyStatsData } = require('../server/services/ssn');
+const { createViewerService } = require('../server/services/viewers');
 
 class MockWebSocket extends EventEmitter {
     constructor(url) {
@@ -243,8 +244,9 @@ test('native subscriptions populate session accounting and retain shared message
     assert.match(fs.readFileSync(path.join(dataDir, 'chat-log.jsonl'), 'utf8'), /channel\.subscription\.message/);
 });
 
-test('Twitch channel updates use valid, deduplicated and bounded stream-info timestamps', () => {
-    const chat = { streamInfo: [] };
+test('Twitch channel updates record live history only, with the actual live-start baseline', t => {
+    t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-01-05T11:27:00Z') });
+    const chat = { streamInfo: [], viewerStats: { live: false } };
     const service = createTwitchService({ getChatData: () => chat, log() {}, warn() {} });
     const eventsub = service.getEventSub();
     const update = title => eventsub.handleNotification({ subscription_type: 'channel.update' }, {
@@ -252,10 +254,29 @@ test('Twitch channel updates use valid, deduplicated and bounded stream-info tim
     });
     update('Fixture stream');
     update('Fixture stream');
+    assert.equal(chat.streamInfo.length, 0, 'offline title/category edits are not history events');
+    assert.equal(service.getStreamInfoState().title, 'Fixture stream', 'offline current metadata remains available');
+    const viewers = createViewerService({
+        getChatData: () => chat, onViewerUpdate: () => service.syncStreamInfoLiveState(), log() {}, warn() {}
+    });
+    t.mock.timers.tick(34 * 60000);
+    viewers.recordViewerSample({ count: 1, live: true, source: 'twitch', streamStartedAt: '2026-01-05T12:00:00Z' });
     assert.equal(chat.streamInfo.length, 1, 'identical notifications do not append duplicate history');
-    assert.ok(Number.isFinite(Date.parse(chat.streamInfo[0].changedAt)));
+    assert.equal(chat.streamInfo[0].changedAt, '2026-01-05T12:00:00Z', 'late observation still uses Twitch actual start');
+    update('Fixture stream');
+    assert.equal(chat.streamInfo.length, 1);
+    t.mock.timers.tick(60000);
+    update('Fixture live update');
+    assert.equal(chat.streamInfo.at(-1).changedAt, '2026-01-05T12:02:00.000Z');
     for (let i = 0; i < 60; i++) update(`Fixture stream ${i}`);
     assert.equal(chat.streamInfo.length, 50, 'native updates use the same history cap as polling');
+    viewers.recordViewerSample({ count: 0, live: false, source: 'twitch' });
+    const stopped = chat.streamInfo.at(-1).endedAt;
+    t.mock.timers.tick(60000);
+    update('Fixture next show');
+    assert.equal(chat.streamInfo.length, 50, 'post-stream edits are not appended');
+    assert.equal(chat.streamInfo.at(-1).endedAt, stopped, 'offline edits do not overwrite the last live entry');
+    assert.equal(service.getStreamInfoState().title, 'Fixture next show');
     service.stopEventSub();
 });
 

@@ -306,7 +306,7 @@
                 {
                     method: 'GET', path: '/api/chat',
                     desc: 'Live chat data (current session)',
-                    details: 'Returns the current session chat data object with chatters, messages, events, emotes, hashtags, subscribers, followers, donations, bits, raids, giftSubs, viewerStats, and session metadata. Subscribers include native Twitch and SSN subscription notifications, including returning subscribers; nearby duplicate notifications share one count. Used by the live Current Session view.'
+                    details: 'Returns current session data with chatters, messages, events, emotes, hashtags, subscribers, followers, donations, bits, raids, giftSubs and viewerStats. Subscribers include native Twitch and SSN notifications, including returning subscribers; nearby duplicates share one count. channelInfo is current title/category, also available offline. streamInfo is live-only history with one starting state at actual stream start; legacy pre-stream edits are normalized without rewriting stored data.'
                 },
                 {
                     method: 'GET', path: '/api/chat-log',

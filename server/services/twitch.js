@@ -1,5 +1,6 @@
 const https = require('https');
 const fs = require('fs');
+const { createStreamInfoService } = require('./stream-info');
 const path = require('path');
 const { createTwitchEventSubService } = require('./twitch-eventsub');
 
@@ -117,18 +118,7 @@ function createTwitchService(options = {}) {
         },
         onChannelUpdate: (data) => {
             log(`[Twitch EventSub] Channel update: "${data.title}" (${data.categoryName || 'No category'})`);
-            const chatData = getChatData();
-            if (Array.isArray(chatData?.streamInfo)) {
-                const last = chatData.streamInfo.at(-1);
-                if (!last || last.title !== data.title || last.category !== data.categoryName) {
-                    chatData.streamInfo.push({
-                        title: data.title,
-                        category: data.categoryName,
-                        changedAt: new Date().toISOString()
-                    });
-                    if (chatData.streamInfo.length > 50) chatData.streamInfo.splice(0, chatData.streamInfo.length - 50);
-                }
-            }
+            streamInfoService.update({ title: data.title, category: data.categoryName });
             onStreamInfoChange(data.categoryName);
         },
         onFollow,
@@ -147,6 +137,8 @@ function createTwitchService(options = {}) {
         warn,
         error
     });
+
+    const streamInfoService = createStreamInfoService({ getChatData });
 
     function loadStoredToken() {
         try {
@@ -794,16 +786,8 @@ function createTwitchService(options = {}) {
             const ch = result.body.data[0];
             const title = ch.title || '';
             const category = ch.game_name || '';
-            const nowIso = new Date().toISOString();
-
-            const chatData = getChatData();
-            if (chatData && Array.isArray(chatData.streamInfo)) {
-                const last = chatData.streamInfo[chatData.streamInfo.length - 1];
-                if (!last || last.title !== title || last.category !== category) {
-                    chatData.streamInfo.push({ title, category, changedAt: nowIso });
-                    if (chatData.streamInfo.length > 50) chatData.streamInfo.splice(0, chatData.streamInfo.length - 50);
-                    log(`[Twitch] Stream info: "${title}" — ${category || '(no category)'}`);
-                }
+            if (streamInfoService.update({ title, category })) {
+                log(`[Twitch] Stream info: "${title}" — ${category || '(no category)'}`);
             }
             onStreamInfoChange(category);
         } catch (err) {
@@ -1001,6 +985,8 @@ function createTwitchService(options = {}) {
         fetchAllPages,
         fetchTwitchData,
         fetchStreamInfo,
+        getStreamInfoState: streamInfoService.getState,
+        syncStreamInfoLiveState: streamInfoService.syncLiveState,
         fetchTwitchPoll,
         getChannelEmotes,
         getCheermotes,

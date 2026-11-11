@@ -89,6 +89,7 @@ function createGamePlanService({
     broadcastToOverlays = () => {},
     getConfig = () => ({}),
     getStreamInfo = () => [],
+    getCurrentCategory = () => getStreamInfo()?.at(-1)?.category || '',
     getViewerStats = () => ({}),
     normalizeViewerStats = (v) => v || {},
     archivedCategoryMinutes = () => ({}),
@@ -150,8 +151,7 @@ function createGamePlanService({
         const streamed = streamedMinutesByKey();
         const vStats = normalizeViewerStats(getViewerStats());
         const isLive = Boolean(vStats.live);
-        const streamInfo = getStreamInfo() || [];
-        const category = streamInfo[streamInfo.length - 1]?.category || '';
+        const category = getCurrentCategory();
         const current = gameKey(category);
         warmGameInfo(plan.items);
         return {
@@ -264,8 +264,7 @@ function createGamePlanService({
     function advance({ markPlayed = true } = {}) {
         const plan = loadGamePlan();
         const today = new Date().toISOString().slice(0, 10);
-        const streamInfo = getStreamInfo() || [];
-        const currentCategory = streamInfo[streamInfo.length - 1]?.category || '';
+        const currentCategory = getCurrentCategory();
         const currentItem = plan.items.find(i => i.id === plan.playingNowId) ||
             plan.items.find(i => !i.custom && gameKey(i.name) === gameKey(currentCategory));
 
