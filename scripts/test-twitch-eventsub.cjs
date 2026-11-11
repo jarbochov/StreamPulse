@@ -134,6 +134,31 @@ test('Twitch EventSub: permanent ban and unban notifications ignore timeouts', (
     assert.equal(events[0].broadcasterId, '99');
 });
 
+test('Twitch subscriptions without cumulative months retain observed tenure through the service wrapper', () => {
+    const { createTwitchService } = require('../server/services/twitch');
+    const received = [];
+    const tenure = { returningviewer: 15, firstmonthviewer: 1 };
+    const service = createTwitchService({
+        getSubscriptionMonths: name => tenure[String(name || '').toLowerCase()] || 0,
+        onSubscribe: event => received.push(event), log() {}, warn() {}
+    });
+    const eventsub = service.getEventSub();
+    for (const user of ['ReturningViewer', 'FirstMonthViewer', 'UnobservedViewer']) {
+        eventsub.handleNotification({ subscription_type: 'channel.subscribe' }, { event: {
+            user_id: 'fictional-id', user_name: user, user_login: user.toLowerCase(), tier: '1000'
+        } });
+    }
+    assert.equal(received[0].months, 15, 'an unannotated subscription must not erase known multi-month tenure');
+    assert.equal(received[1].months, undefined, 'first-month tenure is not mislabeled as a resub');
+    assert.equal(received[2].months, undefined, 'unknown tenure is not guessed');
+    eventsub.handleNotification({ subscription_type: 'channel.subscription.message' }, { event: {
+        user_id: 'fictional-id', user_name: 'ReturningViewer', tier: '1000', cumulative_months: 16
+    } });
+    assert.equal(received[3].months, 16, 'the authoritative cumulative count takes precedence over observed history');
+    assert.deepEqual(received.map(event => event.months > 1 ? 'resub' : 'sub'), ['resub', 'sub', 'sub', 'resub']);
+    service.stopEventSub();
+});
+
 test('Twitch EventSub: processes poll notifications', async () => {
     let pollBegan = null;
     let pollProgressed = null;

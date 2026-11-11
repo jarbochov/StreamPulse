@@ -12,6 +12,7 @@ function createTwitchEventSubService(options = {}) {
         getClientId = () => '',
         getBroadcasterId = () => '',
         getTokenScopes = () => [],
+        getSubscriptionMonths = () => 0,
         onPollBegin = () => {},
         onPollProgress = () => {},
         onPollEnd = () => {},
@@ -328,11 +329,16 @@ function createTwitchEventSubService(options = {}) {
                 break;
             }
             case 'channel.subscribe': {
+                const knownMonths = Math.max(
+                    Number(getSubscriptionMonths(ev.user_name)) || 0,
+                    Number(getSubscriptionMonths(ev.user_login)) || 0
+                );
                 onSubscribe({
                     userId: ev.user_id,
                     user: ev.user_name || ev.user_login,
                     tier: ev.tier || '1000',
-                    isGift: Boolean(ev.is_gift)
+                    isGift: Boolean(ev.is_gift),
+                    ...(Number.isFinite(knownMonths) && knownMonths > 1 ? { months: knownMonths } : {})
                 });
                 break;
             }

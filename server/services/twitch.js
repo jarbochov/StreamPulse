@@ -32,6 +32,7 @@ function createTwitchService(options = {}) {
         getBroadcasterName = () => '',
         getRedirectUri = () => '',
         getChatData = () => ({ streamInfo: [] }),
+        getSubscriptionMonths = () => 0,
         readJsonFileSafe = (p, fallback) => fallback,
         safeWriteFileSync = (p, content) => fs.writeFileSync(p, content),
         onBroadcasterSynced = async () => {},
@@ -86,6 +87,7 @@ function createTwitchService(options = {}) {
         getClientId,
         getBroadcasterId,
         getTokenScopes: () => twitchTokenScopes,
+        getSubscriptionMonths,
         onPollBegin: (pollData) => {
             latestPoll = pollData;
             previousPollState = { id: pollData.id, status: pollData.status };

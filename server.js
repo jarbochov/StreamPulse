@@ -585,6 +585,7 @@ const twitchService = createTwitchService({
     getChatData: () => chatData,
     readJsonFileSafe,
     safeWriteFileSync,
+    getSubscriptionMonths: name => Number(statsData.subTenure?.[String(name || '').toLowerCase()]?.months) || 0,
     onBroadcasterSynced: async (user) => {
         const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
         current.broadcaster_id = user.id;

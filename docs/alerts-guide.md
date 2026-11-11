@@ -8,6 +8,10 @@ Give different kinds of support their own look and sound, and preview the result
 
 Amount-based rules can fire at **At least**, **Between** or **Equal to** an amount. An equal-to rule (matched to the cent) wins over overlapping ranges, so a $69.69 donation can get its own alert. Milestone variants offer the same choice. Donation rules can also be limited to one source: SocialStream, or any source an embedded host registers (see [API reference](api-reference.md#11-embedded-mode)), and `{{alert.source}}` and `{{alert.currency}}` are available in alert text. System placeholders such as `{{stream.title}}`, `{{game.name}}` and `{{weather.temp_full}}` also work in alert and announcement text.
 
+### Returning Subscribers
+
+Twitch subscription notifications can omit cumulative months. When StreamPulse has already observed more than one month for that viewer, it uses that known tenure to match Resub rules instead of New Subscriber rules. `{{alert.months}}` is the observed count, not an inferred extra month. A subscription message containing Twitch's cumulative count takes precedence; unknown tenure is not guessed.
+
 ### Testing Channel Point Rewards
 
 `{{alert.reward}}` is the title of the reward actually redeemed, not a list of every checked reward. The rule's reward checkboxes control which redemptions match.
