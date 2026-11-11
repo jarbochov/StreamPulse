@@ -766,7 +766,7 @@ test('Trivia auto-advance respects its toggle and remaining questions rather tha
     const dir = fs.mkdtempSync(path.join(__dirname, '..', 'data', '.test-trivia-advance-'));
     const service = createTriviaService({ dataDir: dir });
     t.after(() => { service.destroy(); fs.rmSync(dir, { recursive: true, force: true }); });
-    service.updateSettings({ autoAdvance: true, revealDelay: 1, randomOrder: true });
+    service.updateSettings({ autoAdvance: true, advanceDelay: 1, randomOrder: true });
     service.startQuestion(service.getState().questions.length - 1);
     service.revealAnswer();
     t.mock.timers.tick(1000);
@@ -775,6 +775,113 @@ test('Trivia auto-advance respects its toggle and remaining questions rather tha
     service.updateSettings({ autoAdvance: false });
     t.mock.timers.tick(1000);
     assert.equal(service.getPublicState().status, 'reveal', 'a scheduled advance must respect being switched off');
+});
+
+test('Trivia waits after countdown, holds the answer independently, and closes voting at zero', t => {
+    t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.now() });
+    const dir = fs.mkdtempSync(path.join(__dirname, '..', 'data', '.test-trivia-delays-'));
+    const service = createTriviaService({ dataDir: dir });
+    t.after(() => { service.destroy(); fs.rmSync(dir, { recursive: true, force: true }); });
+    service.updateSettings({ revealDelay: 2, advanceDelay: 3, autoAdvance: true });
+    service.startQuestion(0, { duration: 1 });
+    assert.equal(service.castVote({ user: 'FictionalViewer', choiceIndex: 0 }), true);
+    t.mock.timers.tick(1000);
+    assert.equal(service.getPublicState().activeQuestion.remainingSeconds, 0);
+    assert.equal(service.getPublicState().status, 'question', 'zero begins the reveal delay, not the answer phase');
+    assert.equal(service.getPublicState().activeQuestion.correctIndex, null);
+    assert.equal(service.castVote({ user: 'LateViewer', choiceIndex: 1 }), false, 'voting closes at the countdown deadline');
+    t.mock.timers.tick(1999);
+    assert.equal(service.getPublicState().status, 'question');
+    t.mock.timers.tick(1);
+    assert.equal(service.getPublicState().status, 'reveal');
+    t.mock.timers.tick(2999);
+    assert.equal(service.getPublicState().status, 'reveal', 'the answer remains for the separate advance delay');
+    t.mock.timers.tick(1);
+    assert.equal(service.getPublicState().status, 'question');
+
+    service.updateSettings({ autoAdvance: false });
+    service.startQuestion(0, { duration: 1 });
+    t.mock.timers.tick(1000);
+    service.revealAnswer();
+    assert.equal(service.getPublicState().status, 'reveal', 'manual reveal bypasses the pending delay');
+    t.mock.timers.tick(3000);
+    assert.equal(service.getPublicState().status, 'reveal', 'manual reveal cancels the pending timer');
+
+    service.updateSettings({ revealDelay: 0 });
+    service.startQuestion(0, { duration: 1 });
+    t.mock.timers.tick(1000);
+    assert.equal(service.getPublicState().status, 'reveal', 'zero is an immediate auto-reveal, not a fallback to six seconds');
+    service.startQuestion(0, { duration: 1, manualTransition: true });
+    t.mock.timers.tick(10000);
+    assert.equal(service.getPublicState().status, 'question', 'manual transition never schedules an automatic reveal');
+});
+
+test('Trivia uses the studio duration and randomizes choices without changing the bank or correct answer', t => {
+    const dir = fs.mkdtempSync(path.join(__dirname, '..', 'data', '.test-trivia-choices-'));
+    const service = createTriviaService({ dataDir: dir });
+    t.after(() => { service.destroy(); fs.rmSync(dir, { recursive: true, force: true }); });
+    const q = service.addQuestion({
+        question: 'Fictional duplicate-answer fixture', choices: ['Duplicate', 'Wrong', 'Duplicate', 'Other'],
+        correctIndex: 2, duration: 15
+    });
+    const bankChoices = [...q.choices];
+    service.updateSettings({ defaultDuration: 77, randomizeChoices: true, autoReveal: false });
+    t.mock.method(Math, 'random', () => 0);
+    let active = service.startQuestion(q.id).activeQuestion;
+    assert.equal(active.duration, 77, 'saved per-question duration cannot override the studio default');
+    assert.equal(active.endsAt - active.startedAt, 77000);
+    assert.deepEqual(active.choices.map(c => c.text), ['Wrong', 'Duplicate', 'Other', 'Duplicate']);
+    active = service.revealAnswer().activeQuestion;
+    assert.equal(active.correctIndex, 1, 'remapping follows the original index, even with duplicate answer text');
+    assert.deepEqual(q.choices, bankChoices, 'randomization is limited to the live question');
+    assert.equal(q.correctIndex, 2);
+    const saved = JSON.parse(fs.readFileSync(path.join(dir, 'trivia.json'), 'utf8'));
+    assert.deepEqual(saved.questions.find(item => item.id === q.id).choices, bankChoices);
+
+    service.startQuestion(q.id);
+    service.updateQuestion(q.id, { choices: ['Duplicate', 'Wrong revised', 'Correct revised', 'Other'], correctIndex: 2 });
+    assert.equal(service.revealAnswer().activeQuestion.choices[1].text, 'Correct revised', 'live edits retain the active choice order');
+    assert.equal(service.getPublicState().activeQuestion.duration, 77);
+    service.updateSettings({ randomizeChoices: false });
+    active = service.startQuestion(q.id, { duration: 12 }).activeQuestion;
+    assert.equal(active.duration, 12, 'an explicit start-command duration remains an intentional override');
+    assert.deepEqual(active.choices.map(c => c.text), service.getState().questions.find(item => item.id === q.id).choices);
+    assert.equal(service.revealAnswer().activeQuestion.correctIndex, 2, 'turning randomization off restores stored order');
+    const tf = service.addQuestion({ question: 'Fictional true statement?', choices: ['True', 'False'], correctIndex: 0 });
+    service.updateSettings({ randomizeChoices: true });
+    service.startQuestion(tf.id);
+    assert.equal(service.handleChatMessage({ user: 'FictionalViewer', message: '!true' }), true);
+    active = service.revealAnswer().activeQuestion;
+    assert.deepEqual(active.choices.map(c => c.text), ['False', 'True']);
+    assert.equal(active.correctIndex, 1);
+    assert.equal(active.choices[1].votes, 1, 'True/False votes follow shuffled answer text, not original letters');
+});
+
+test('Trivia clear endpoints stop pending transitions without resetting played questions', async t => {
+    t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.now() });
+    const dir = fs.mkdtempSync(path.join(__dirname, '..', 'data', '.test-trivia-clear-'));
+    const events = [];
+    const service = createTriviaService({ dataDir: dir, broadcastToOverlays: (type, data) => events.push({ type, data }) });
+    t.after(() => { service.destroy(); fs.rmSync(dir, { recursive: true, force: true }); });
+    const routes = createTriviaRoutes({ triviaService: service });
+    service.updateSettings({ autoAdvance: true, revealDelay: 2, advanceDelay: 3 });
+    for (const method of ['GET', 'POST']) {
+        service.startQuestion(0, { duration: 1 });
+        if (method === 'GET') t.mock.timers.tick(1000);
+        else service.revealAnswer();
+        const played = service.getPublicState().playedQuestionIds;
+        const { req, res, done } = createMockReqRes({ method, url: '/api/trivia/question/clear' });
+        await routes(req, res, req.url, new URL(req.url, 'http://fixture.local'));
+        const response = await done;
+        assert.equal(response.status, 200);
+        assert.equal(response.json.status, 'idle');
+        assert.equal(response.json.activeQuestion, null);
+        assert.deepEqual(response.json.playedQuestionIds, played);
+        assert.equal(events.at(-1).type, 'trivia:state');
+        assert.equal(events.at(-1).data.activeQuestion, null);
+        t.mock.timers.tick(10000);
+        assert.equal(service.getPublicState().status, 'idle', 'clear cancels delayed reveal and auto-advance');
+    }
 });
 
 test('Trivia Studio preserves unsaved toggles during live updates; overlay sound respects saved controls and URL overrides', async t => {
@@ -856,15 +963,104 @@ test('Trivia Studio preserves unsaved toggles during live updates; overlay sound
     });
     assert.equal(await studio.$eval('#cfg-chat-voting', el => el.checked), false);
     assert.equal(await studio.$eval('#cfg-theme-blur', el => el.value), '0');
+    assert.equal(await studio.$eval('#advance-delay-row', el => getComputedStyle(el).display), 'none');
+    await studio.evaluate(() => {
+        document.getElementById('cfg-duration').value = '77';
+        document.getElementById('cfg-randomize-choices').checked = true;
+        document.getElementById('cfg-reveal-delay').value = '0';
+        document.getElementById('cfg-auto-advance').checked = true;
+        document.getElementById('cfg-auto-advance').dispatchEvent(new Event('change', { bubbles: true }));
+        document.getElementById('cfg-advance-delay').value = '4';
+    });
+    assert.notEqual(await studio.$eval('#advance-delay-row', el => getComputedStyle(el).display), 'none');
     await studio.click('#btn-save-settings');
     await studio.waitForFunction(async () => (await (await fetch('/api/trivia')).json()).settings.chatVoting === false);
+    assert.equal(service.getState().settings.revealDelay, 0);
+    assert.equal(service.getState().settings.advanceDelay, 4);
+    assert.equal(service.getState().settings.defaultDuration, 77);
+    assert.equal(service.getState().settings.randomizeChoices, true);
+    assert.equal(await studio.$eval('#live-choices', el => el.querySelectorAll('.monitor-choice-votes').length), 0);
     await studio.evaluate(() => {
         window.triviaApp.switchTab('theming');
         document.getElementById('cfg-theme-blur').value = '0';
+        document.getElementById('cfg-theme-card-width').value = '1600px';
+        document.getElementById('cfg-theme-card-width').dispatchEvent(new Event('input', { bubbles: true }));
+        for (const [id, value] of [
+            ['cfg-theme-timer-color-hex', '#12345680'],
+            ['cfg-theme-timer-warning-color-hex', '#654321'],
+            ['cfg-theme-timer-critical-color-hex', '#AABBCC']
+        ]) {
+            document.getElementById(id).value = value;
+            document.getElementById(id).dispatchEvent(new Event('input', { bubbles: true }));
+        }
         document.getElementById('btn-save-theme').click();
     });
     await studio.waitForFunction(async () => (await (await fetch('/api/trivia')).json()).theme.cardBlur === 0);
     assert.equal(service.getState().theme.cardBlur, 0, 'zero blur survives the real Save Theme path');
+    assert.equal(service.getState().theme.cardMaxWidth, '1600px');
+    assert.equal(service.getState().theme.timerColor, '#12345680');
+    assert.equal(service.getState().theme.timerWarningColor, '#654321');
+    assert.equal(service.getState().theme.timerCriticalColor, '#AABBCC');
+    const previewFrame = await (await studio.$('#trivia-preview-iframe')).contentFrame();
+    await previewFrame.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--card-max-width').trim() === '1600px');
+    assert.equal(await previewFrame.$eval('#timer-bar', el => getComputedStyle(el).backgroundColor), 'rgba(18, 52, 86, 0.5)');
+    const previewLoads = await studio.evaluate(() => {
+        const iframe = document.getElementById('trivia-preview-iframe');
+        window.previewLoadCount = 0;
+        iframe.addEventListener('load', () => { window.previewLoadCount++; });
+        const input = document.getElementById('cfg-theme-card-width');
+        input.value = '100%';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        return window.previewLoadCount;
+    });
+    await previewFrame.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--card-max-width').trim() === '100%');
+    assert.equal(previewLoads, 0);
+    assert.equal(await studio.evaluate(() => window.previewLoadCount), 0, 'width edits synchronize without reloading the preview');
+    await studio.reload({ waitUntil: 'networkidle0' });
+    await studio.waitForFunction(() => document.getElementById('cfg-theme-timer-color-hex').value === '#12345680');
+    assert.equal(await studio.$eval('#cfg-theme-card-width', el => el.value), '1600px');
+    assert.equal(await studio.$eval('#cfg-reveal-delay', el => el.value), '0');
+    assert.equal(await studio.$eval('#cfg-randomize-choices', el => el.checked), true);
+    await studio.evaluate(() => {
+        const style = document.getElementById('cfg-theme-card-style');
+        style.value = 'text';
+        style.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    assert.equal(await studio.$eval('#card-width-row', el => getComputedStyle(el).display), 'none');
+    const correctSelections = await studio.evaluate(async () => {
+        const editor = await import('/js/trivia/trivia-editor.js');
+        const state = await import('/js/trivia/trivia-state.js');
+        const questions = state.getState().questions;
+        editor.openEditModal(questions[0].id);
+        const correct = document.getElementById('edit-q-correct');
+        const first = correct.value;
+        correct.value = '3';
+        window.triviaApp.updateModalChoiceText(0, 'Fictional edited choice');
+        const afterTextEdit = correct.value;
+        editor.openEditModal(questions[1].id);
+        const second = correct.value;
+        editor.openEditModal(questions[0].id);
+        correct.value = '2';
+        editor.removeModalChoice(0);
+        const afterRemoval = correct.value;
+        editor.closeQuestionModal();
+        return [first, afterTextEdit, second, afterRemoval];
+    });
+    assert.deepEqual(correctSelections, ['1', '3', '0', '1'], 'correct selection survives text edits, modal reuse, and earlier-choice removal');
+    assert.equal(await studio.$eval('#btn-clear-question', el => getComputedStyle(el).display), 'none');
+    await studio.evaluate(() => {
+        window.triviaApp.switchTab('studio');
+        document.getElementById('cfg-transition-mode').value = 'manual';
+        document.getElementById('btn-save-settings').click();
+    });
+    await studio.waitForFunction(async () => (await (await fetch('/api/trivia')).json()).settings.manualTransition === true);
+    await studio.click('#btn-start');
+    await studio.waitForFunction(() => !document.getElementById('btn-clear-question').disabled);
+    assert.equal(service.getPublicState().activeQuestion.duration, 77, 'real Start Question uses the saved studio duration');
+    const playedBeforeClear = service.getPublicState().playedQuestionIds;
+    await studio.click('#btn-clear-question');
+    await studio.waitForFunction(async () => (await (await fetch('/api/trivia')).json()).activeQuestion === null);
+    assert.deepEqual(service.getPublicState().playedQuestionIds, playedBeforeClear);
     await studio.close();
 
     for (const [query, settings, expected] of [
@@ -896,5 +1092,50 @@ test('Trivia Studio preserves unsaved toggles during live updates; overlay sound
     });
     assert.deepEqual(collapse, [true, false], 'collapse can be switched off again, including floating-text mode');
     await overlay.close();
+    service.updateSettings({ autoAdvance: false, chatVoting: false });
+    service.startQuestion(0, { duration: 60, autoReveal: false });
+    const presentation = await open('/overlays/trivia.html?votes=1&percentages=1');
+    for (const status of ['question', 'reveal']) {
+        if (status === 'reveal') service.revealAnswer();
+        const state = service.getPublicState();
+        const displays = await presentation.evaluate(state => {
+            window.triviaFixture.sockets[0].onmessage({ data: JSON.stringify({ type: 'trivia:state', data: state }) });
+            return ['.total-votes-count', '.choice-stats', '.choice-meter', '#chat-hint'].map(selector =>
+                getComputedStyle(document.querySelector(selector)).display);
+        }, state);
+        assert.deepEqual(displays, ['none', 'none', 'none', 'none'], `presentation mode hides all voting UI during ${status}`);
+    }
+    service.updateSettings({ chatVoting: true });
+    for (const [ratio, color] of [
+        [0.8, 'rgba(18, 52, 86, 0.5)'], [0.4, 'rgb(101, 67, 33)'], [0.1, 'rgb(170, 187, 204)']
+    ]) {
+        await presentation.evaluate(({ state, ratio }) => {
+            const now = Date.now();
+            window.triviaFixture.sockets[0].onmessage({ data: JSON.stringify({
+                type: 'trivia:state', data: { ...state, status: 'question', activeQuestion: {
+                    ...state.activeQuestion, startedAt: now - (1 - ratio) * 100000, endsAt: now + ratio * 100000
+                } }
+            }) });
+        }, { state: service.getPublicState(), ratio });
+        await presentation.waitForFunction(color => getComputedStyle(document.getElementById('timer-bar')).backgroundColor === color, {}, color);
+    }
+    await presentation.setViewport({ width: 1920, height: 1080 });
+    await presentation.waitForFunction(() => document.getElementById('trivia-root').getBoundingClientRect().width > 1500);
+    const wide = await presentation.$eval('#trivia-root', el => el.getBoundingClientRect().width);
+    assert.equal(Math.round(wide), 1600, 'saved width grows beyond the former 1100px cap');
+    await presentation.close();
+    const responsive = await open('/overlays/trivia.html?cardwidth=100%&timercolor=%23FEDCBA&view=question');
+    for (const [width, height] of [[3840, 2160], [1280, 720], [720, 1280], [390, 844]]) {
+        await responsive.setViewport({ width, height });
+        const bounds = await responsive.$eval('#trivia-root', el => {
+            const rect = el.getBoundingClientRect();
+            return { left: rect.left, right: rect.right, width: rect.width, overflow: el.scrollWidth > el.clientWidth + 1 };
+        });
+        assert.ok(bounds.left >= 0 && bounds.right <= width + 1, `card fits ${width}x${height}`);
+        assert.ok(!bounds.overflow, `card contents do not overflow at ${width}x${height}`);
+        if (width === 3840) assert.ok(bounds.width > 3000, 'full-width mode scales to 4K');
+    }
+    assert.equal(await responsive.$eval('#timer-bar', el => getComputedStyle(el).backgroundColor), 'rgb(254, 220, 186)', 'URL timer color overrides the saved color');
+    await responsive.close();
     assert.deepEqual(errors, [], 'real Studio and overlay initialize without browser errors');
 });

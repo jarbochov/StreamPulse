@@ -33,11 +33,11 @@ export function renderModalChoices(selectedIndex = 0) {
     if (addBtn) addBtn.style.display = modalChoices.length >= 6 ? 'none' : 'inline-flex';
 }
 
-export function updateCorrectOptions(selectedIndex = 0) {
+export function updateCorrectOptions(selectedIndex = null) {
     const correctSelect = document.getElementById('edit-q-correct');
     if (!correctSelect) return;
     const currentVal = parseInt(correctSelect.value, 10);
-    const keepIndex = !isNaN(currentVal) && currentVal < modalChoices.length ? currentVal : selectedIndex;
+    const keepIndex = selectedIndex ?? (!isNaN(currentVal) && currentVal < modalChoices.length ? currentVal : 0);
     const isTF = (modalChoices.length === 2 && modalChoices[0].toLowerCase() === 'true' && modalChoices[1].toLowerCase() === 'false');
 
     correctSelect.innerHTML = modalChoices.map((c, i) => {
@@ -49,8 +49,9 @@ export function updateCorrectOptions(selectedIndex = 0) {
 
 export function removeModalChoice(index) {
     if (modalChoices.length <= 2) return;
+    const selected = parseInt(document.getElementById('edit-q-correct')?.value, 10) || 0;
     modalChoices.splice(index, 1);
-    const currentCorrect = Math.min(modalChoices.length - 1, parseInt(document.getElementById('edit-q-correct')?.value, 10) || 0);
+    const currentCorrect = selected === index ? 0 : (selected > index ? selected - 1 : selected);
     renderModalChoices(currentCorrect);
 }
 
@@ -349,12 +350,14 @@ export function initEditorListeners() {
         const transitionMode = document.getElementById('cfg-transition-mode')?.value;
         const payload = {
             defaultDuration: parseInt(document.getElementById('cfg-duration')?.value, 10) || 20,
-            revealDelay: parseInt(document.getElementById('cfg-reveal-delay')?.value, 10) || 6,
+            revealDelay: Number(document.getElementById('cfg-reveal-delay')?.value ?? 6),
+            advanceDelay: Number(document.getElementById('cfg-advance-delay')?.value ?? 6),
             autoReveal: transitionMode === 'auto',
             manualTransition: transitionMode === 'manual',
             chatVoting: document.getElementById('cfg-chat-voting')?.checked,
             autoAdvance: document.getElementById('cfg-auto-advance')?.checked,
             randomOrder: document.getElementById('cfg-random-order')?.checked,
+            randomizeChoices: document.getElementById('cfg-randomize-choices')?.checked,
             soundEnabled: document.getElementById('cfg-sound-enabled')?.checked
         };
         await saveSettings(payload);
@@ -362,9 +365,15 @@ export function initEditorListeners() {
 
     // Save Theme
     document.getElementById('btn-save-theme')?.addEventListener('click', async () => {
+        const cardMaxWidth = document.getElementById('cfg-theme-card-width')?.value.trim() || '1100px';
+        if (!CSS.supports('max-width', cardMaxWidth)) {
+            alert('Enter a valid card width, such as 1400px, 85vw, or 100%.');
+            return;
+        }
         const payload = {
             preset: document.getElementById('cfg-theme-preset')?.value,
             cardStyle: document.getElementById('cfg-theme-card-style')?.value,
+            cardMaxWidth,
             questionFont: document.getElementById('cfg-theme-question-font')?.value.trim(),
             questionWeight: document.getElementById('cfg-theme-question-weight')?.value,
             headerFont: document.getElementById('cfg-theme-header-font')?.value.trim(),
@@ -384,6 +393,9 @@ export function initEditorListeners() {
             categoryColor: getColorFieldValue('cfg-theme-category-color'),
             hintColor: getColorFieldValue('cfg-theme-hint-color'),
             funfactColor: getColorFieldValue('cfg-theme-funfact-color'),
+            timerColor: getColorFieldValue('cfg-theme-timer-color'),
+            timerWarningColor: getColorFieldValue('cfg-theme-timer-warning-color'),
+            timerCriticalColor: getColorFieldValue('cfg-theme-timer-critical-color'),
             collapseIncorrect: document.getElementById('cfg-theme-collapse-incorrect')?.checked,
             questionLabel: document.getElementById('cfg-theme-question-label')?.value.trim() || 'Question',
             answerLabel: document.getElementById('cfg-theme-answer-label')?.value.trim() || 'Answer',

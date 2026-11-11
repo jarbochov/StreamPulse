@@ -3,7 +3,7 @@
  * Orchestrates modules, tab management, toolbar triggers, and view preferences.
  */
 
-import { fetchState, connectWs, onStateChange, startQuestion, revealAnswer, nextQuestion, prevQuestion, resetTrivia, shuffleQuestions, resetDoneQuestions, toggleQuestionDone, moveQuestion, deleteQuestion } from './trivia-state.js';
+import { fetchState, connectWs, onStateChange, startQuestion, revealAnswer, nextQuestion, prevQuestion, clearQuestion, resetTrivia, shuffleQuestions, resetDoneQuestions, toggleQuestionDone, moveQuestion, deleteQuestion } from './trivia-state.js';
 import { renderState } from './trivia-monitor.js';
 import { initPreviewListeners, setPreviewViewport, applyViewportScale, togglePreviewBackdrop, applyPreviewBackdrop, setPreviewPhase, togglePreviewSampleData, setActiveTab, updateObsUrl } from './trivia-preview.js';
 import { initEditorListeners, openEditModal, removeModalChoice, updateCorrectOptions, modalChoices } from './trivia-editor.js';
@@ -52,9 +52,9 @@ window.triviaApp = {
     openEditModal: (id) => openEditModal(id),
     deleteQuestion: (id) => deleteQuestion(id),
     removeModalChoice: (idx) => removeModalChoice(idx),
-    updateModalChoiceText: (idx, val, selectedIndex) => {
+    updateModalChoiceText: (idx, val) => {
         modalChoices[idx] = val;
-        updateCorrectOptions(selectedIndex);
+        updateCorrectOptions();
     },
     setPreviewPhase: (phase) => setPreviewPhase(phase),
     togglePreviewBackdrop,
@@ -80,6 +80,7 @@ function initToolbarTriggers() {
     document.getElementById('btn-reveal')?.addEventListener('click', () => revealAnswer());
     document.getElementById('btn-next')?.addEventListener('click', () => nextQuestion());
     document.getElementById('btn-prev')?.addEventListener('click', () => prevQuestion());
+    document.getElementById('btn-clear-question')?.addEventListener('click', () => clearQuestion());
     document.getElementById('btn-reset')?.addEventListener('click', () => resetTrivia());
     document.getElementById('btn-shuffle-q')?.addEventListener('click', () => shuffleQuestions());
     document.getElementById('btn-reset-done')?.addEventListener('click', () => resetDoneQuestions());

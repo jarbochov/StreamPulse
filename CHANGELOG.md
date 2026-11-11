@@ -17,6 +17,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [0.15.0] - 2026-11-09
 
 ### Added
+- **Trivia**: Choice randomization, manual Clear Question, separate advance delay, countdown colors, and responsive card widths.
 - **Subathon Automation Engine**: Modular timer extension engine with granular event rates (subs by tier, bits, follows, raids, channel points), exact donation amount rules, Boost Period multipliers, undo audit log, dynamic rules overlay (`/overlays/subathon-rules.html`), visual theming studio with 60fps live preview, and secondary sub-navigation (`.sub-nav-bar`).
 - **Speaker Badges**: Voice-reactive OBS overlay layers with 5 layout presets, dB speech gates, EQ visualizers, and a dedicated controller tab.
 - **Tier List Maker**: Standalone tier list studio and 60fps animated OBS overlay with live chat consensus voting (`!tier`), multi-source imports, preset management, and PNG export.
@@ -32,6 +33,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - **OBS Scene Sync & Architecture**: Independent OBS Scene Sync module toggle decoupled from audio meters, plus extracted server domain services under `server/services/`.
 
 ### Fixed
+- **Trivia**: Honor default duration and post-countdown Reveal Delay; hide disabled voting and preserve correct-choice selection.
 - **Hashtag Stats & Timers**: Fixed array normalization in moderation service for hashtag stats, resolved subathon tab hash routing and safe status lookup, and added 1-click timer duration chips and Companion play/pause routes.
 - **UI Design System Consistency**: Replaced unicode emojis and raw symbols across all studios, wizards, library, and overlays with crisp inline SVGs.
 

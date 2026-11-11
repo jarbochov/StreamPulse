@@ -674,11 +674,21 @@ Returns the public trivia game state. Add query `?includeAnswers=true` for admin
 ### `GET /api/trivia/status`
 Lightweight summary for Companion buttons and dashboard widgets (`status`, `currentIndex`, `totalQuestions`, `activeCategory`, `activeQuestionText`, `totalVotes`, `remainingSeconds`).
 
+### `PUT /api/trivia`
+Update `settings` and/or `theme`. `settings.revealDelay` (0–60 seconds) waits after the countdown before automatic reveal; `settings.advanceDelay` (0–300 seconds) holds the revealed answer before optional auto-advance. Zero is supported for both. During the pre-reveal delay, `status` remains `question`, `remainingSeconds` is zero, answers stay hidden, and votes are rejected.
+
+`settings.defaultDuration` (5–300 seconds) applies to every bank question unless the start request explicitly supplies a positive duration. `settings.randomizeChoices` shuffles choices per start and remaps the correct answer without modifying saved questions. Runtime choice indexes and letter votes refer to the displayed order.
+
+Theme fields `timerColor`, `timerWarningColor`, and `timerCriticalColor` accept CSS colors, including `#RRGGBBAA`. `cardMaxWidth` accepts CSS maximum widths such as `1600px`, `85vw`, or `100%` for Cards & Boxes.
+
 ### `POST /api/trivia/question/start` (or `GET`)
 Starts the current or target question timer and opens audience chat voting. Supports query params `?id=<id>` or `?index=<index>` and `?duration=<seconds>`.
 
 ### `POST /api/trivia/question/reveal` (or `GET`)
-Concludes question voting, displays the correct answer, broadcasts reveal fanfare, and reveals optional background fun facts.
+Immediately concludes question voting, cancels a pending reveal delay, displays the correct answer, broadcasts reveal fanfare, and reveals optional background fun facts.
+
+### `POST /api/trivia/question/clear` (or `GET`)
+Stops pending timers, clears votes and the active question, and broadcasts `trivia:state` with `status: "idle"`. The question bank, current index, and played/done marks are preserved.
 
 ### `POST /api/trivia/question/next` (or `GET`)
 Advances to the next question in the bank (or random unplayed question if Random Order is enabled) and starts its countdown timer.

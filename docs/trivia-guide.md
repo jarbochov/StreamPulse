@@ -9,7 +9,7 @@ StreamPulse includes an interactive Live Trivia Studio and broadcast OBS overlay
 - **2 to 6 Choices & True/False Support**: Run standard 4-choice questions, rapid True/False binary votes, or nuanced 5–6 choice challenges.
 - **Drag-and-Drop Question Reordering**: Rearrange questions seamlessly in the studio using native drag-and-drop handles or instant Up/Down shift buttons.
 - **Played & Done Question Tracking**: Starting a question marks it Done. Played and manually completed marks survive restart and are skipped during randomized play. **Reset Unplayed** or **Reset Session** clears all marks.
-- **Transition Control**: Choose between automatic answer reveal when the countdown timer hits zero or **Manual Transition** allowing the host to discuss responses before triggering the reveal.
+- **Transition Control**: Automatically reveal after the countdown and a configurable delay, or use **Manual Transition** to reveal on cue. Auto-advance has its own answer display delay.
 - **Distinct Visual Themes**:
   - **Modern**: Glassmorphism with rounded cards, neon cyan/purple accents, and subtle glowing borders.
   - **Pure Floating Text (Broadcast Style)**: Transparent floating typography with massive drop shadows, zero card boxes, staggered text entrances, and automatic collapse of incorrect answers on reveal.
@@ -28,7 +28,7 @@ StreamPulse includes an interactive Live Trivia Studio and broadcast OBS overlay
 
 Open the studio at `http://localhost:3000/tools/trivia.html` or navigate to **Tools &rarr; Trivia Studio** in the StreamPulse navigation.
 
-Gameplay controls apply with **Save Settings**. Disable **Enable Chat Voting** for presentation-only quizzes: incoming votes and automatic question/answer announcements stop, while the host can still start and reveal questions. Live vote updates do not overwrite unsaved settings or theme edits. **Synthesized Audio Chimes** controls overlay audio unless a `sound=0|1` URL override is supplied; a saved `soundVolume` of zero also mutes it.
+Gameplay controls apply with **Save Settings**. Disable **Enable Chat Voting** for presentation-only quizzes: incoming votes, automatic question/answer announcements, vote totals, and choice percentages disappear. The host can still start and reveal questions. Live vote updates do not overwrite unsaved settings or theme edits. **Synthesized Audio Chimes** controls overlay audio unless a `sound=0|1` URL override is supplied; a saved `soundVolume` of zero also mutes it.
 
 ![Trivia Studio with compact gameplay status and chat voting disabled](images/trivia-gameplay-settings.png)
 
@@ -41,9 +41,14 @@ Gameplay controls apply with **Save Settings**. Disable **Enable Chat Voting** f
 
 ### Controlling Gameplay
 - **Start Question**: Click the play icon on any question row, or click **Start Question** on the active question card.
-- **Reveal Answer**: Click **Reveal Answer** (or let the countdown timer elapse if **Auto-Reveal** is enabled).
+- **Reveal Delay**: Seconds to wait after the countdown reaches zero before **Auto-Reveal** shows the answer. Zero reveals immediately. Voting closes at zero, including during the delay.
+- **Default Question Duration**: Applies to every question in the bank, regardless of durations embedded in imported or preset questions. An explicit API/Companion start duration can still override it.
+- **Randomize Choices**: Shuffle answers each time a question starts, keeping the correct answer attached to its original choice. The saved bank remains unchanged. Turn this off to use the stored choice order.
+- **Reveal Answer**: Click **Reveal Answer** to reveal immediately, bypassing any pending delay. **Manual Transition** never reveals automatically.
+- **Auto-Advance Delay**: When Auto-advance is enabled, keep the revealed answer on screen for this separate duration before advancing. Existing saved answer-hold durations are retained in this setting.
 - **Next / Previous**: Navigate questions sequentially or allow the studio to randomly select from unplayed questions.
 - **Reset**: Click **Reset Session** to return the overlay to an idle state.
+- **Clear Question**: In Manual Transition mode, hide the current question and stop pending transitions without resetting the bank or played marks. This is separate from Reset.
 
 ---
 
@@ -53,6 +58,8 @@ The Trivia Studio includes a dedicated **Theming & Preview** tab with an interac
 - **Floating Sticky Preview**: The live overlay canvas floats pinned to the top of the viewport on desktop screens so streamers can view real-time changes as they scroll down through color pickers, font options, and element visibility toggles.
 - **Interactive Live Preview**: Custom colors, fonts, header sizes, and element visibility toggles update smoothly in real time without sluggish iframe reloads. Streamers can switch sample modes (Question vs Answer Reveal) and toggle simulated checkerboard or camera backdrops.
 - **Broadcast Colors & Hex Opacity**: All color fields support native color pickers alongside paired hex inputs with 8-digit `#RRGGBBAA` transparency support (e.g. `#00000000` for pure invisible glass backplates).
+- **Countdown Colors**: Customize the normal timer bar, warning color below 50%, and critical color below 25%. Save Theme applies them to live overlays.
+- **Responsive Card Width**: Cards & Boxes supports **Card Max Width**, including `1400px`, `1600px`, `85vw`, or `100%`. Cards remain bounded by their viewport; narrow cards stack answer choices. Width and color preview edits do not reload the iframe.
 
 The broadcast overlay is located at:
 ```text
@@ -85,6 +92,8 @@ Add this URL as a Browser Source in OBS Studio at `1920x1080` (or `3840x2160`).
   - `?cardbg=#1a202c`: Custom glass panel background color (supports `#RRGGBBAA`).
   - `?cardborder=#38bdf8`: Custom glass panel border color.
   - `?choicebg=#161b22`: Custom choice card background color.
+  - `?cardwidth=1600px` or `?cardwidth=100%`: Cards & Boxes maximum width, bounded by the viewport.
+  - `?timercolor=%2338bdf8`, `?timerwarningcolor=%23f59e0b`, `?timercriticalcolor=%23ef4444`: Countdown colors; override saved theme colors.
   - `?blur=16`: Custom backdrop blur radius (in px).
   - `?hintcolor=#f6e05e`: Custom color for chat voting instructions and keycap badges.
   - `?catcolor=#a855f7`: Custom category pill color.
@@ -137,6 +146,7 @@ The official [companion-module-streampulse](https://github.com/jarbochov/compani
 ### Actions
 - `trivia_start`: Start question by index (0-based) or active question with optional custom duration.
 - `trivia_reveal`: Reveal the correct answer.
+- `trivia_clear`: Clear the current question without resetting played marks.
 - `trivia_next`: Advance to the next question (or pick a random unplayed question).
 - `trivia_prev`: Go back to the previous question.
 - `trivia_reset`: Reset active trivia session to idle.
@@ -167,6 +177,7 @@ All trivia endpoints support both standard REST methods and Companion-friendly `
 | `/api/trivia` | `PUT` | Update runtime settings and/or theme properties. |
 | `/api/trivia/question/start` | `POST`, `GET` | Start question. Parameters: `index`, `id`, `duration`, `manualTransition`, `autoReveal`. |
 | `/api/trivia/question/reveal` | `POST`, `GET` | Reveal the correct answer and trigger fanfare. |
+| `/api/trivia/question/clear` | `POST`, `GET` | Clear the overlay and pending timers without resetting played marks. |
 | `/api/trivia/question/next` | `POST`, `GET` | Advance to next or random unplayed question. |
 | `/api/trivia/question/previous` | `POST`, `GET` | Step back to previous question. |
 | `/api/trivia/reset` | `POST`, `GET` | Clear active question and return overlay to idle. |

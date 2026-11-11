@@ -22,6 +22,12 @@ export function renderState(currentState) {
 
     const status = currentState.status || 'idle';
     const active = currentState.activeQuestion;
+    const votingEnabled = currentState.settings?.chatVoting !== false && currentState.chatVotingActive !== false;
+    const clearButton = document.getElementById('btn-clear-question');
+    if (clearButton) {
+        clearButton.hidden = !(currentState.settings?.manualTransition || currentState.settings?.autoReveal === false);
+        clearButton.disabled = !active || status === 'idle';
+    }
 
     if (liveBadge) {
         if (status === 'question') {
@@ -39,7 +45,7 @@ export function renderState(currentState) {
     if (active) {
         if (liveCategory) liveCategory.textContent = active.category || 'General';
         if (liveQuestion) liveQuestion.textContent = active.question || '';
-        if (liveTimerText) liveTimerText.textContent = `${active.remainingSeconds || 0}s remaining · ${active.totalVotes || 0} votes`;
+        if (liveTimerText) liveTimerText.textContent = `${active.remainingSeconds || 0}s remaining${votingEnabled ? ` · ${active.totalVotes || 0} votes` : ''}`;
 
         const choices = active.choices || [];
         const correctIdx = active.correctIndex;
@@ -50,12 +56,12 @@ export function renderState(currentState) {
                 const letter = c.letter || String.fromCharCode(65 + i);
                 return `
                     <div class="monitor-choice-item ${isCorrect ? 'correct' : ''}">
-                        <div class="monitor-choice-meter" style="width: ${c.percent || 0}%"></div>
+                        ${votingEnabled ? `<div class="monitor-choice-meter" style="width: ${c.percent || 0}%"></div>` : ''}
                         <span class="monitor-choice-label">
                             <span class="monitor-choice-letter">${esc(letter)}</span>
                             <span>${esc(c.text)}</span>
                         </span>
-                        <span class="monitor-choice-votes">${c.percent || 0}% (${c.votes || 0})</span>
+                        ${votingEnabled ? `<span class="monitor-choice-votes">${c.percent || 0}% (${c.votes || 0})</span>` : ''}
                     </div>
                 `;
             }).join('');
@@ -65,12 +71,9 @@ export function renderState(currentState) {
         if (liveQuestion) liveQuestion.textContent = 'Start a question from your bank below or advance to begin.';
         if (liveTimerText) liveTimerText.textContent = '0s';
         if (liveChoices) {
-            liveChoices.innerHTML = `
-                <div class="monitor-choice-item"><span class="monitor-choice-label"><span class="monitor-choice-letter">A</span> Choice 1</span><span class="monitor-choice-votes">0% (0)</span></div>
-                <div class="monitor-choice-item"><span class="monitor-choice-label"><span class="monitor-choice-letter">B</span> Choice 2</span><span class="monitor-choice-votes">0% (0)</span></div>
-                <div class="monitor-choice-item"><span class="monitor-choice-label"><span class="monitor-choice-letter">C</span> Choice 3</span><span class="monitor-choice-votes">0% (0)</span></div>
-                <div class="monitor-choice-item"><span class="monitor-choice-label"><span class="monitor-choice-letter">D</span> Choice 4</span><span class="monitor-choice-votes">0% (0)</span></div>
-            `;
+            liveChoices.innerHTML = ['A', 'B', 'C', 'D'].map((letter, i) => `
+                <div class="monitor-choice-item"><span class="monitor-choice-label"><span class="monitor-choice-letter">${letter}</span> Choice ${i + 1}</span>${votingEnabled ? '<span class="monitor-choice-votes">0% (0)</span>' : ''}</div>
+            `).join('');
         }
     }
 
@@ -159,7 +162,11 @@ export function renderState(currentState) {
     const durEl = document.getElementById('cfg-duration');
     if (durEl) durEl.value = settings.defaultDuration || 20;
     const revEl = document.getElementById('cfg-reveal-delay');
-    if (revEl) revEl.value = settings.revealDelay || 6;
+    if (revEl) revEl.value = settings.revealDelay ?? 6;
+    const advanceDelayEl = document.getElementById('cfg-advance-delay');
+    if (advanceDelayEl) advanceDelayEl.value = settings.advanceDelay ?? 6;
+    const advanceDelayRow = document.getElementById('advance-delay-row');
+    if (advanceDelayRow) advanceDelayRow.hidden = !settings.autoAdvance;
     const isManual = Boolean(settings.manualTransition || settings.autoReveal === false);
     const modeEl = document.getElementById('cfg-transition-mode');
     if (modeEl) modeEl.value = isManual ? 'manual' : 'auto';
@@ -169,6 +176,8 @@ export function renderState(currentState) {
     if (advEl) advEl.checked = Boolean(settings.autoAdvance);
     const randEl = document.getElementById('cfg-random-order');
     if (randEl) randEl.checked = Boolean(settings.randomOrder);
+    const randomizeChoicesEl = document.getElementById('cfg-randomize-choices');
+    if (randomizeChoicesEl) randomizeChoicesEl.checked = Boolean(settings.randomizeChoices);
     const sndEl = document.getElementById('cfg-sound-enabled');
     if (sndEl) sndEl.checked = settings.soundEnabled !== false;
 
@@ -180,6 +189,8 @@ export function renderState(currentState) {
     if (obsThemeEl) obsThemeEl.value = theme.preset || 'modern';
     const styleEl = document.getElementById('cfg-theme-card-style');
     if (styleEl) styleEl.value = theme.cardStyle || ((theme.preset === 'broadcast-text' || theme.preset === 'nodecg') ? 'text' : 'cards');
+    const widthEl = document.getElementById('cfg-theme-card-width');
+    if (widthEl) widthEl.value = theme.cardMaxWidth || '1100px';
     const collapseEl = document.getElementById('cfg-theme-collapse-incorrect');
     if (collapseEl) collapseEl.checked = Boolean(theme.collapseIncorrect);
 
@@ -230,6 +241,9 @@ export function renderState(currentState) {
     setFieldColor('cfg-theme-category-color', theme.categoryColor, defTheme.catColor || '#a855f7');
     setFieldColor('cfg-theme-hint-color', theme.hintColor, defTheme.hintColor || '#94a3b8');
     setFieldColor('cfg-theme-funfact-color', theme.funfactColor, defTheme.funfactColor || '#eab308');
+    setFieldColor('cfg-theme-timer-color', theme.timerColor, '#38bdf8');
+    setFieldColor('cfg-theme-timer-warning-color', theme.timerWarningColor, '#f59e0b');
+    setFieldColor('cfg-theme-timer-critical-color', theme.timerCriticalColor, '#ef4444');
 
     // Element visibility toggles
     const phaseEl = document.getElementById('cfg-elem-phase-indicator');

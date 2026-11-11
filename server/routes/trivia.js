@@ -104,6 +104,11 @@ function createTriviaRoutes({ triviaService, isTriviaEnabled = () => true }) {
                 return true;
             }
 
+            if (pathname === '/api/trivia/question/clear' && (req.method === 'POST' || req.method === 'GET')) {
+                sendJson(res, triviaService.clearQuestion());
+                return true;
+            }
+
             // POST or GET /api/trivia/reset (Companion friendly)
             if (pathname === '/api/trivia/reset' && (req.method === 'POST' || req.method === 'GET')) {
                 const result = triviaService.resetTrivia();

@@ -88,6 +88,8 @@ export const themeInputIds = [
     'cfg-theme-card-bg', 'cfg-theme-card-border',
     'cfg-theme-choice-bg', 'cfg-theme-choice-border',
     'cfg-theme-accent-color', 'cfg-theme-correct-color',
+    'cfg-theme-timer-color', 'cfg-theme-timer-warning-color', 'cfg-theme-timer-critical-color',
+    'cfg-theme-card-width',
     'cfg-theme-phase-question-color', 'cfg-theme-phase-answer-color',
     'cfg-theme-category-color', 'cfg-theme-hint-color', 'cfg-theme-funfact-color',
     'cfg-theme-collapse-incorrect',
@@ -104,6 +106,9 @@ export const colorInputPairs = [
     'cfg-theme-choice-border',
     'cfg-theme-accent-color',
     'cfg-theme-correct-color',
+    'cfg-theme-timer-color',
+    'cfg-theme-timer-warning-color',
+    'cfg-theme-timer-critical-color',
     'cfg-theme-phase-question-color',
     'cfg-theme-phase-answer-color',
     'cfg-theme-category-color',
@@ -366,6 +371,8 @@ export function updateObsUrl() {
     const accent = getColorFieldValue('cfg-theme-accent-color');
     const correct = getColorFieldValue('cfg-theme-correct-color');
     const defs = PRESET_DEFAULTS[theme] || {};
+    const widthRow = document.getElementById('card-width-row');
+    if (widthRow) widthRow.hidden = cardStyle !== 'cards';
 
     let url = `${window.location.origin}/overlays/trivia.html?layout=${mode}&theme=${theme}&style=${cardStyle}`;
     if (view && view !== 'auto') {
@@ -373,6 +380,18 @@ export function updateObsUrl() {
     }
     if (scale && scale !== '1') {
         url += `&scale=${scale}`;
+    }
+    const cardWidth = document.getElementById('cfg-theme-card-width')?.value.trim();
+    if (cardStyle === 'cards' && cardWidth && CSS.supports('max-width', cardWidth)) {
+        url += `&cardwidth=${encodeURIComponent(cardWidth)}`;
+    }
+    for (const [id, param] of [
+        ['cfg-theme-timer-color', 'timercolor'],
+        ['cfg-theme-timer-warning-color', 'timerwarningcolor'],
+        ['cfg-theme-timer-critical-color', 'timercriticalcolor']
+    ]) {
+        const value = getColorFieldValue(id);
+        if (value) url += `&${param}=${encodeURIComponent(value)}`;
     }
 
     // Custom accent & correct colors
@@ -528,6 +547,10 @@ export function updateObsUrl() {
 }
 
 export function initPreviewListeners() {
+    document.getElementById('cfg-auto-advance')?.addEventListener('change', e => {
+        const row = document.getElementById('advance-delay-row');
+        if (row) row.hidden = !e.target.checked;
+    });
     themeInputIds.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;

@@ -61,6 +61,7 @@ const DEFAULT_THEME = {
     timerColor: '#38bdf8',
     timerWarningColor: '#f59e0b',
     timerCriticalColor: '#ef4444',
+    cardMaxWidth: '1100px',
     hintColor: '#94a3b8',
     funfactFont: '',
     funfactWeight: '500',
@@ -92,8 +93,10 @@ const DEFAULT_THEME = {
 const DEFAULT_SETTINGS = {
     defaultDuration: 20,
     revealDelay: 6,
+    advanceDelay: 6,
     autoAdvance: false,
     randomOrder: false,
+    randomizeChoices: false,
     chatVoting: true,
     forceChatVoting: false, // allow chat voting even if chatbot announcer is off
     autoReveal: true, // auto-transition to answer on timer expiration
@@ -288,6 +291,7 @@ function createTriviaService({
     // Runtime state tracking
     let questionTimer = null;
     let revealTimer = null;
+    let activeChoiceOrder = [];
     const userVotes = new Map(); // userId/username -> choiceIndex
     const playedQuestionIds = new Set();
 
@@ -322,7 +326,10 @@ function createTriviaService({
                         state.theme = { ...DEFAULT_THEME, ...parsed.theme };
                     }
                     if (parsed.settings && typeof parsed.settings === 'object') {
-                        state.settings = { ...DEFAULT_SETTINGS, ...parsed.settings };
+                        state.settings = {
+                            ...DEFAULT_SETTINGS, ...parsed.settings,
+                            advanceDelay: parsed.settings.advanceDelay ?? parsed.settings.revealDelay ?? DEFAULT_SETTINGS.advanceDelay
+                        };
                     }
                     if (Array.isArray(parsed.questions)) {
                         state.questions = parsed.questions;
@@ -477,12 +484,22 @@ function createTriviaService({
         playedQuestionIds.add(rawQuestion.id);
         rawQuestion.done = true;
 
-        const durationSec = Number(opts.duration) || rawQuestion.duration || state.settings.defaultDuration || 20;
+        const overrideDuration = Number(opts.duration);
+        const durationSec = overrideDuration > 0 ? overrideDuration : (state.settings.defaultDuration || 20);
+        activeChoiceOrder = rawQuestion.choices.map((_, index) => index);
+        if (state.settings.randomizeChoices) {
+            for (let i = activeChoiceOrder.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [activeChoiceOrder[i], activeChoiceOrder[j]] = [activeChoiceOrder[j], activeChoiceOrder[i]];
+            }
+        }
         const now = Date.now();
 
         state.status = 'question';
         state.activeQuestion = {
             ...rawQuestion,
+            choices: activeChoiceOrder.map(index => rawQuestion.choices[index]),
+            correctIndex: activeChoiceOrder.indexOf(rawQuestion.correctIndex),
             startedAt: now,
             endsAt: now + (durationSec * 1000),
             duration: durationSec
@@ -497,7 +514,14 @@ function createTriviaService({
 
         if (durationSec > 0 && shouldAutoReveal) {
             questionTimer = setTimeout(() => {
-                revealAnswer();
+                const delaySec = Math.max(0, Number(state.settings.revealDelay) || 0);
+                if (delaySec === 0) {
+                    revealAnswer();
+                } else {
+                    questionTimer = setTimeout(revealAnswer, delaySec * 1000);
+                    questionTimer.unref?.();
+                    broadcastState();
+                }
             }, durationSec * 1000);
             questionTimer.unref?.();
         }
@@ -546,9 +570,9 @@ function createTriviaService({
             }
         }
 
-        // Optional auto-advance after reveal delay
+        // Hold the revealed answer independently of the pre-reveal delay.
         if (state.settings.autoAdvance) {
-            const delaySec = state.settings.revealDelay || 6;
+            const delaySec = Math.max(0, Number(state.settings.advanceDelay) || 0);
             revealTimer = setTimeout(() => {
                 if (!state.settings.autoAdvance) return;
                 if (state.questions.some(q => !playedQuestionIds.has(q.id))) {
@@ -626,6 +650,17 @@ function createTriviaService({
         return startQuestion(prevIdx);
     }
 
+    function clearQuestion() {
+        clearTimers();
+        userVotes.clear();
+        activeChoiceOrder = [];
+        state.status = 'idle';
+        state.activeQuestion = null;
+        save();
+        broadcastState();
+        return getPublicState();
+    }
+
     function resetTrivia() {
         clearTimers();
         userVotes.clear();
@@ -641,6 +676,7 @@ function createTriviaService({
 
     function castVote({ user = '', userId = '', choiceIndex = -1, isSub = false } = {}) {
         if (state.status !== 'question') return false;
+        if (state.activeQuestion?.endsAt && Date.now() >= state.activeQuestion.endsAt) return false;
         if (!isChatVotingActive()) return false;
         const choiceCount = state.activeQuestion?.choices?.length || 4;
         if (!Number.isInteger(choiceIndex) || choiceIndex < 0 || choiceIndex >= choiceCount) return false;
@@ -807,7 +843,17 @@ function createTriviaService({
 
         state.questions[idx] = updated;
         if (state.activeQuestion && state.activeQuestion.id === id) {
-            state.activeQuestion = { ...state.activeQuestion, ...updated };
+            activeChoiceOrder = activeChoiceOrder.filter(index => index < choices.length);
+            for (let index = 0; index < choices.length; index++) {
+                if (!activeChoiceOrder.includes(index)) activeChoiceOrder.push(index);
+            }
+            if (updates.choices) userVotes.clear();
+            state.activeQuestion = {
+                ...state.activeQuestion, ...updated,
+                choices: activeChoiceOrder.map(index => choices[index]),
+                correctIndex: activeChoiceOrder.indexOf(updated.correctIndex),
+                duration: state.activeQuestion.duration
+            };
         }
 
         save();
@@ -987,6 +1033,16 @@ function createTriviaService({
             ...state.settings,
             ...newSettings
         };
+        for (const [key, max] of [['revealDelay', 60], ['advanceDelay', 300]]) {
+            if (Object.hasOwn(newSettings, key)) {
+                const value = Number(newSettings[key]);
+                state.settings[key] = Number.isFinite(value) ? Math.min(max, Math.max(0, value)) : DEFAULT_SETTINGS[key];
+            }
+        }
+        if (Object.hasOwn(newSettings, 'defaultDuration')) {
+            const value = Number(newSettings.defaultDuration);
+            state.settings.defaultDuration = Number.isFinite(value) ? Math.min(300, Math.max(5, value)) : DEFAULT_SETTINGS.defaultDuration;
+        }
         save();
         broadcastState('trivia:state');
         return state.settings;
@@ -1068,6 +1124,7 @@ function createTriviaService({
         revealAnswer,
         nextQuestion,
         previousQuestion,
+        clearQuestion,
         resetTrivia,
         castVote,
         handleChatMessage,

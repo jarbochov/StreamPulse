@@ -100,6 +100,15 @@ export async function prevQuestion() {
     return res.ok;
 }
 
+export async function clearQuestion() {
+    const res = await fetch('/api/trivia/question/clear', { method: 'POST' });
+    if (res.ok) {
+        toast('Question cleared.');
+        await fetchState();
+    }
+    return res.ok;
+}
+
 export async function resetTrivia() {
     const res = await fetch('/api/trivia/reset', { method: 'POST' });
     if (res.ok) {
