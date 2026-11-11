@@ -655,8 +655,8 @@
         }
         if (streamInfo.length > 0) {
             const entries = streamInfo.map((si, i) => {
-                const time = new Date(si.changedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-                const prefix = i === 0 ? time : `<span style="opacity:0.5;margin:0 4px;">·</span> ${time}`;
+                const time = formatStreamTime(si.changedAt) || formatStreamTime(si.time);
+                const prefix = !time ? '' : (i === 0 ? time : `<span style="opacity:0.5;margin:0 4px;">·</span> ${time}`);
                 const cat = si.category ? `<span class="stream-category">${escapeHtml(si.category)}</span>` : '';
                 return `<div class="stream-info-entry">${prefix} <span class="stream-title">${escapeHtml(si.title)}</span> ${cat}</div>`;
             });

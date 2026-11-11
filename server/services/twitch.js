@@ -119,11 +119,15 @@ function createTwitchService(options = {}) {
             log(`[Twitch EventSub] Channel update: "${data.title}" (${data.categoryName || 'No category'})`);
             const chatData = getChatData();
             if (Array.isArray(chatData?.streamInfo)) {
-                chatData.streamInfo.push({
-                    title: data.title,
-                    category: data.categoryName,
-                    time: new Date().toISOString()
-                });
+                const last = chatData.streamInfo.at(-1);
+                if (!last || last.title !== data.title || last.category !== data.categoryName) {
+                    chatData.streamInfo.push({
+                        title: data.title,
+                        category: data.categoryName,
+                        changedAt: new Date().toISOString()
+                    });
+                    if (chatData.streamInfo.length > 50) chatData.streamInfo.splice(0, chatData.streamInfo.length - 50);
+                }
             }
             onStreamInfoChange(data.categoryName);
         },

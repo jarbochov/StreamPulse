@@ -4,8 +4,32 @@ const os = require('node:os');
 const path = require('node:path');
 const { test } = require('node:test');
 const { performance } = require('node:perf_hooks');
-const { createSessionService } = require('../server/services/session');
+const { createSessionService, categoryMinutesFor, getSessionCategorySegments } = require('../server/services/session');
 const { createCrmService } = require('../server/services/crm');
+
+test('legacy channel-update timestamps remain usable and invalid stream-info dates do not corrupt category times', t => {
+    const streamInfo = [
+        { category: 'First Game', changedAt: '2026-01-05T12:00:00Z' },
+        { category: 'Second Game', time: '2026-01-05T12:30:00Z' },
+        { category: 'Untimed Game', changedAt: 'invalid' }
+    ];
+    assert.deepEqual(categoryMinutesFor(streamInfo, Date.parse('2026-01-05T13:00:00Z')), {
+        'First Game': 30, 'Second Game': 30
+    });
+    const segments = getSessionCategorySegments({ streamInfo }, '2026-01-05T12:00:00Z', '2026-01-05T13:00:00Z');
+    assert.deepEqual(segments.map(segment => [segment.category, segment.durationMinutes]), [
+        ['First Game', 30], ['Second Game', 30]
+    ]);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-legacy-stream-info-'));
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    fs.mkdirSync(path.join(dir, 'sessions'));
+    fs.writeFileSync(path.join(dir, 'sessions', 'chat-2026-01-05T12-00.json'), JSON.stringify({
+        streamInfo, viewerStats: { streamStartedAt: '2026-01-05T12:00:00Z', streamEndedAt: '2026-01-05T13:00:00Z' }
+    }));
+    const service = createSessionService({ dataDir: dir });
+    assert.deepEqual(service.archivedCategoryMinutes(), { 'First Game': 30, 'Second Game': 30 },
+        'compact archive caching must retain legacy timestamps for aggregation');
+});
 
 test('archive summaries are shared, compact, and invalidated for writes, removal, and restore', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-archives-'));

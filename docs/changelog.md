@@ -11,6 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Fixed
+- **Sessions**: Record native Twitch subscriptions and handle legacy channel-update timestamps.
 - **Trivia overlays**: Respect boxed styles and keep enabled hints at zero, never with voting off.
 - **Subscription alerts**: Use observed tenure when Twitch omits cumulative months.
 - **Windows builds**: Prevent embedded startup from opening an authorization browser and hanging desktop validation.

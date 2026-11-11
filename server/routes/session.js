@@ -7,7 +7,7 @@ const {
     buildChatPdfHtml,
     parseNumericAmount
 } = require('../services/ssn');
-const { getSessionStreamTimes, getSessionCategorySegments } = require('../services/session');
+const { getSessionStreamTimes, getSessionCategorySegments, getStreamInfoChangedAt } = require('../services/session');
 const { sendJson: sendResponseJson, sendText, sendError } = require('./helpers');
 
 function createSessionRoutes({
@@ -444,7 +444,8 @@ function createSessionRoutes({
                         detail: entry.donation || null
                     }));
                 for (const info of data.streamInfo || []) {
-                    events.push({ ts: new Date(info.changedAt).getTime(), type: 'stream-info', message: info.title, detail: info.category || null });
+                    const changedAt = getStreamInfoChangedAt(info);
+                    if (changedAt) events.push({ ts: Date.parse(changedAt), type: 'stream-info', message: info.title, detail: info.category || null });
                 }
                 events.sort((a, b) => a.ts - b.ts);
                 const stamps = logEntries.map(e => e.ts).filter(Number.isFinite);

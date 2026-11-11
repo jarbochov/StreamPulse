@@ -8,7 +8,7 @@ function summarizeSession(data) {
         startedAt: data.startedAt,
         lastUpdated: data.lastUpdated,
         category: data.category,
-        streamInfo: (data.streamInfo || []).map(({ category, changedAt, endedAt }) => ({ category, changedAt, endedAt })),
+        streamInfo: (data.streamInfo || []).map(({ category, changedAt, time, endedAt }) => ({ category, changedAt, time, endedAt })),
         viewerStats: {
             streamStartedAt: data.viewerStats?.streamStartedAt,
             streamEndedAt: data.viewerStats?.streamEndedAt,

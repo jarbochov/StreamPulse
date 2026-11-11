@@ -2,6 +2,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('events');
 const { createTwitchEventSubService } = require('../server/services/twitch-eventsub');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { createTwitchService } = require('../server/services/twitch');
+const { createSsnService, createEmptyChatData, createEmptyStatsData } = require('../server/services/ssn');
 
 class MockWebSocket extends EventEmitter {
     constructor(url) {
@@ -156,6 +161,101 @@ test('Twitch subscriptions without cumulative months retain observed tenure thro
     } });
     assert.equal(received[3].months, 16, 'the authoritative cumulative count takes precedence over observed history');
     assert.deepEqual(received.map(event => event.months > 1 ? 'resub' : 'sub'), ['resub', 'sub', 'sub', 'resub']);
+    service.stopEventSub();
+});
+
+test('native subscriptions populate session accounting and retain shared messages without duplicate counts', t => {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-native-subs-'));
+    const chat = createEmptyChatData();
+    const stats = createEmptyStatsData();
+    let records = [];
+    let pending = [];
+    const alerts = [];
+    let counted = 0;
+    const ssn = createSsnService({
+        dataDir, getChatData: () => chat, getStatsData: () => stats,
+        getChatLog: () => records, setChatLog: value => { records = value; },
+        getPendingChatLog: () => pending, setPendingChatLog: value => { pending = value; },
+        getBannedUsers: () => ['bannedviewer'],
+        alertEngine: { handleEvent: event => alerts.push(event) }, log() {}, warn() {}
+    });
+    ssn.loadStats();
+    const twitch = createTwitchService({
+        getSubscriptionMonths: () => 15,
+        onSubscribe: data => { if (ssn.processTwitchSubscription(data)) counted++; },
+        log() {}, warn() {}
+    });
+    t.after(() => { twitch.stopEventSub(); ssn.disconnectSSN(); fs.rmSync(dataDir, { recursive: true, force: true }); });
+    const eventsub = twitch.getEventSub();
+    const subscribe = name => eventsub.handleNotification({ subscription_type: 'channel.subscribe' }, {
+        event: { user_id: 'fixture-id', user_name: name, user_login: name.toLowerCase(), tier: '1000' }
+    });
+    subscribe('ReturningViewer');
+    assert.equal(chat.subscribers.length, 1);
+    assert.equal(chat.subscribers[0].event, 'resub');
+    assert.match(chat.subscribers[0].subtitle, /15 months/);
+    assert.equal(records[0].sourceEvent, 'channel.subscribe');
+    assert.equal(records[0].message, '', 'a basic subscription must not fabricate a shared viewer message');
+    assert.equal(alerts[0].tier, '1000');
+    eventsub.handleNotification({ subscription_type: 'channel.subscription.message' }, { event: {
+        user_id: 'fixture-id', user_name: 'ReturningViewer', tier: '1000',
+        cumulative_months: 16, message: { text: 'Another month together' }
+    } });
+    assert.equal(chat.subscribers[0].months, 16, 'authoritative months enrich the existing session record');
+    assert.equal(stats.subTenure.returningviewer.months, 16);
+    assert.match(records[1].message, /Another month together/);
+    assert.equal(records[1].sourceEvent, 'channel.subscription.message');
+    const result = ssn.processChatMessage({
+        chatname: 'returningviewer', type: 'twitch', event: 'resub',
+        membership: 'Subscriber', subtitle: '15 months', chatmessage: 'Shared through chat'
+    });
+    assert.notEqual(result, false, 'shared SSN messages remain eligible for chatbot handling');
+    assert.match(chat.subscribers[0].subtitle, /16 months/, 'older badges must not replace newer tenure');
+    assert.equal(records[2].source, 'socialstream');
+    assert.equal(counted, 1, 'native callbacks do not double-count Subathon events');
+    assert.equal(alerts.length, 1);
+    assert.equal(Object.values(stats.subscribers.ReturningViewer.days).reduce((a, b) => a + b, 0), 1);
+    subscribe('BannedViewer');
+    assert.equal(ssn.processTwitchSubscription({ user: 'GiftRecipient', isGift: true }), false);
+    assert.equal(chat.subscribers.length, 1);
+    ssn.processChatMessage({
+        chatname: 'SsnFirstViewer', type: 'twitch', event: 'resub',
+        membership: 'Subscriber', subtitle: '15 months', chatmessage: 'SSN arrived first'
+    });
+    subscribe('SsnFirstViewer');
+    subscribe('SsnFirstViewer');
+    assert.equal(chat.subscribers.length, 2);
+    assert.equal(counted, 2, 'SSN-first delivery preserves native-only effects exactly once');
+    assert.equal(alerts.length, 2);
+    assert.equal(Object.values(stats.subscribers.SsnFirstViewer.days).reduce((a, b) => a + b, 0), 1);
+    const sharedText = 'A < B & C - another month';
+    eventsub.handleNotification({ subscription_type: 'channel.subscription.message' }, { event: {
+        user_id: 'shared-fixture-id', user_name: 'SharedViewer', tier: '1000',
+        cumulative_months: 8, message: { text: sharedText }
+    } });
+    assert.equal(records.at(-1).message, sharedText, 'native shared text remains intact');
+    assert.equal(records.at(-1).messageHtml, 'A &lt; B &amp; C - another month');
+    assert.equal(alerts.at(-1).message, sharedText, 'native alert messages keep their original text');
+    ssn.saveChatData();
+    ssn.saveStats();
+    ssn.saveChatLog();
+    assert.equal(JSON.parse(fs.readFileSync(path.join(dataDir, 'chat.json'))).subscribers.length, 3);
+    assert.match(fs.readFileSync(path.join(dataDir, 'chat-log.jsonl'), 'utf8'), /channel\.subscription\.message/);
+});
+
+test('Twitch channel updates use valid, deduplicated and bounded stream-info timestamps', () => {
+    const chat = { streamInfo: [] };
+    const service = createTwitchService({ getChatData: () => chat, log() {}, warn() {} });
+    const eventsub = service.getEventSub();
+    const update = title => eventsub.handleNotification({ subscription_type: 'channel.update' }, {
+        event: { title, category_name: 'Fictional Adventure' }
+    });
+    update('Fixture stream');
+    update('Fixture stream');
+    assert.equal(chat.streamInfo.length, 1, 'identical notifications do not append duplicate history');
+    assert.ok(Number.isFinite(Date.parse(chat.streamInfo[0].changedAt)));
+    for (let i = 0; i < 60; i++) update(`Fixture stream ${i}`);
+    assert.equal(chat.streamInfo.length, 50, 'native updates use the same history cap as polling');
     service.stopEventSub();
 });
 

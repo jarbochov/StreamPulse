@@ -32,12 +32,18 @@ function localDateString(date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
+function getStreamInfoChangedAt(entry) {
+    return [entry?.changedAt, entry?.time].find(value => value && Number.isFinite(Date.parse(value))) || null;
+}
+
 // Minutes spent in each category by one session's stream-info history, plus the local dates it was streamed on.
 function categoryTimeFor(streamInfo, endMs, startFloorMs = null) {
     const result = {};
-    (streamInfo || []).forEach((entry, i) => {
+    const entries = (streamInfo || []).map(entry => ({ ...entry, changedAt: getStreamInfoChangedAt(entry) }))
+        .filter(entry => entry.changedAt);
+    entries.forEach((entry, i) => {
         let start = Date.parse(entry.changedAt);
-        let end = i + 1 < streamInfo.length ? Date.parse(streamInfo[i + 1].changedAt) : endMs;
+        let end = i + 1 < entries.length ? Date.parse(entries[i + 1].changedAt) : endMs;
         const closedAt = Date.parse(entry.endedAt || '');
         if (Number.isFinite(closedAt) && closedAt < end) end = closedAt;
         if (Number.isFinite(startFloorMs) && start < startFloorMs) start = startFloorMs;
@@ -104,11 +110,11 @@ function getSessionStreamTimes(data, chatEntries = []) {
 function getSessionCategorySegments(data, streamStartAt, streamStopAt, isCurrent = false) {
     const entries = Array.isArray(data?.streamInfo)
         ? data.streamInfo
-            .filter(entry => entry && entry.changedAt)
+            .filter(entry => getStreamInfoChangedAt(entry))
             .map(entry => ({
                 title: entry.title || '',
                 category: entry.category || '(No Category)',
-                changedAt: entry.changedAt
+                changedAt: getStreamInfoChangedAt(entry)
             }))
             .sort((a, b) => Date.parse(a.changedAt) - Date.parse(b.changedAt))
         : [];
@@ -712,5 +718,6 @@ module.exports = {
     categoryTimeFor,
     categoryMinutesFor,
     getSessionStreamTimes,
+    getStreamInfoChangedAt,
     getSessionCategorySegments
 };

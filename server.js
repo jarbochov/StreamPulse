@@ -608,7 +608,7 @@ const twitchService = createTwitchService({
     },
     onSubscribe: (data) => {
         if (userModeration.isBanned(data.user, data.userId)) return;
-        if (typeof alertEngine !== 'undefined' && alertEngine) alertEngine.handleEvent({ type: (data.months && data.months > 1) ? 'resub' : 'sub', user: data.user, tier: data.tier, months: data.months, message: data.message });
+        if (!ssnService.processTwitchSubscription(data)) return;
         if (typeof subathonService !== 'undefined' && subathonService?.isSubathonActive?.()) subathonService.processEvent({ type: (data.months && data.months > 1) ? 'resub' : 'sub', user: data.user, tier: data.tier, months: data.months });
     },
     onGiftSub: (data) => {

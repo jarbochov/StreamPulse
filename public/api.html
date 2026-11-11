@@ -306,12 +306,12 @@
                 {
                     method: 'GET', path: '/api/chat',
                     desc: 'Live chat data (current session)',
-                    details: 'Returns the current session chat data object with chatters, messages, events, emotes, hashtags, subscribers, followers, donations, bits, raids, giftSubs, viewerStats, and session metadata. Used by the live Current Session view.'
+                    details: 'Returns the current session chat data object with chatters, messages, events, emotes, hashtags, subscribers, followers, donations, bits, raids, giftSubs, viewerStats, and session metadata. Subscribers include native Twitch and SSN subscription notifications, including returning subscribers; nearby duplicate notifications share one count. Used by the live Current Session view.'
                 },
                 {
                     method: 'GET', path: '/api/chat-log',
                     desc: 'Current session chat log',
-                    details: 'Returns all individual chat messages from the current session. Each message includes: ts (timestamp), user, avatar, message (plain text), messageHtml (raw HTML with emotes), type, event, donation, membership.'
+                    details: 'Returns individual chat messages and captured events from the current session. Each entry includes: ts (timestamp), user, avatar, message (plain text), messageHtml (raw HTML with emotes), type, event, donation, membership. New entries include source (socialstream or twitch-eventsub); native subscription entries also include sourceEvent (channel.subscribe or channel.subscription.message). Logging must be enabled.'
                 },
                 {
                     method: 'GET', path: '/api/sessions/:file/chat-log',

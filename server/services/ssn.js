@@ -8,6 +8,12 @@ const { normalizeSsnSessionId } = require('../ssn-config');
 
 const MAX_IN_MEMORY_CHAT_MESSAGES = 2000;
 const CHAT_WINDOWS = [5, 10, 15, 30, 60];
+const SUB_EVENTS = ['new_subscriber', 'resub', 'subscription_gift', 'sponsorship', 'giftpurchase', 'giftredemption'];
+
+function isGiftSubscription(msg) {
+    return Boolean(msg.event === 'subscription_gift' || msg.event === 'giftpurchase'
+        || /gift/i.test(msg.membership || '') || msg.contentimg);
+}
 
 function parseNumericAmount(value) {
     const match = String(value || '').replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
@@ -646,13 +652,11 @@ function createSsnService({
         }
 
         // Track subscriber events using SSN's documented event names
-        const STATS_SUB_EVENTS = ['new_subscriber', 'resub', 'subscription_gift', 'sponsorship', 'giftpurchase', 'giftredemption'];
-        const isStatsSubEvent = STATS_SUB_EVENTS.includes(msg.event);
+        const isStatsSubEvent = SUB_EVENTS.includes(msg.event);
         if (isStatsSubEvent) {
             if (!statsData.giftSubs) statsData.giftSubs = {};
             if (!statsData.subscribers) statsData.subscribers = {};
-            const isGift = msg.event === 'subscription_gift' || msg.event === 'giftpurchase' ||
-                (msg.membership && msg.membership.toLowerCase().includes('gift')) || msg.contentimg;
+            const isGift = isGiftSubscription(msg);
             if (isGift) {
                 let statsGifter;
                 if (msg.event === 'giftredemption' || (msg.membership && msg.membership.toLowerCase() === 'gift_recipient')) {
@@ -803,6 +807,20 @@ function createSsnService({
         };
     }
 
+    function processTwitchSubscription(data) {
+        if (!data.user || data.isGift || getBannedUsers().includes(data.user.toLowerCase())) return false;
+        const months = Number(data.months) || 0;
+        const message = String(data.message || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return processChatMessage({
+            chatname: data.user, userId: data.userId, type: 'twitch', source: 'twitch-eventsub',
+            sourceEvent: Object.hasOwn(data, 'message') ? 'channel.subscription.message' : 'channel.subscribe',
+            event: months > 1 ? 'resub' : 'new_subscriber', membership: 'Subscriber',
+            subtitle: months ? `${months} months` : null,
+            chatmessage: message, messageText: String(data.message || ''),
+            meta: { cumulative_months: months, sub_tier: data.tier }
+        }) !== false;
+    }
+
     function processChatMessage(msg) {
         if (messageDeletions?.handleSsn(msg)) return;
         if (msg.bot === true) return;
@@ -831,7 +849,8 @@ function createSsnService({
         if (config.chat_log_enabled !== false) {
             const contentImage = contentImageHtml(msg.contentimg);
             const messageHtml = [msg.chatmessage, contentImage].filter(Boolean).join(' ');
-            const plainText = messageHtml ? messageHtml.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '') : '';
+            const plainText = msg.source === 'twitch-eventsub' ? msg.messageText || ''
+                : (messageHtml ? messageHtml.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '') : '');
             const urls = (plainText.match(/(?:(?:[a-z][a-z0-9+.-]*:\/\/|www\.)[^\s<>"')\]]+|(?<![@\w])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}(?:\/[^\s<>"')\]]*)?)/gi) || []);
             const chatEntry = {
                 moderation: messageDeletions?.identity(msg),
@@ -843,6 +862,8 @@ function createSsnService({
                 contentImage: Boolean(contentImage),
                 type: msg.type || null,
                 event: msg.event || null,
+                source: msg.source || 'socialstream',
+                sourceEvent: msg.sourceEvent || undefined,
                 donation: msg.hasDonation || null,
                 membership: msg.membership || null,
                 urls: urls.length > 0 ? urls : undefined
@@ -870,6 +891,29 @@ function createSsnService({
                         cacheEmote(alt, src);
                     }
                 }
+            }
+        }
+
+        // A basic notification and a shared resub message can describe the same subscription.
+        if (SUB_EVENTS.includes(msg.event) && !isGiftSubscription(msg) && String(msg.type).toLowerCase() === 'twitch') {
+            const existing = chatData.subscribers?.find(sub => String(sub.type).toLowerCase() === 'twitch'
+                && String(sub.chatname).toLowerCase() === chatname.toLowerCase()
+                && Date.now() - (sub.lastEventAt || sub.timestamp) >= 0
+                && Date.now() - (sub.lastEventAt || sub.timestamp) < 8000);
+            if (existing) {
+                recordSubTenure(chatname, msg, new Date().toISOString());
+                const months = parseSubMonths(msg);
+                if (months >= (existing.months || 0)) existing.subtitle = msg.subtitle || existing.subtitle;
+                existing.months = Math.max(existing.months || 0, months);
+                if (existing.months > 1) existing.event = 'resub';
+                existing.chatimg = msg.chatimg || existing.chatimg;
+                const native = msg.source === 'twitch-eventsub';
+                const repeatedNative = native && existing.twitchEventAt
+                    && Date.now() - existing.twitchEventAt < 8000;
+                if (native && !repeatedNative) existing.twitchEventAt = Date.now();
+                scheduleChatUpdateBroadcast();
+                // Keep SSN chatbot handling and the first native-only effects, regardless of delivery order.
+                return repeatedNative ? false : undefined;
             }
         }
 
@@ -1001,13 +1045,11 @@ function createSsnService({
             } catch (_) {}
         }
 
-        const SUB_EVENTS = ['new_subscriber', 'resub', 'subscription_gift', 'sponsorship', 'giftpurchase', 'giftredemption'];
         const isSubEvent = SUB_EVENTS.includes(msg.event);
         if (isSubEvent) {
             if (!chatData.giftSubs) chatData.giftSubs = [];
             if (!chatData.subscribers) chatData.subscribers = [];
-            const isGift = msg.event === 'subscription_gift' || msg.event === 'giftpurchase' ||
-                (msg.membership && msg.membership.toLowerCase().includes('gift')) || msg.contentimg;
+            const isGift = isGiftSubscription(msg);
             if (isGift) {
                 log(`[SSN] Gift event raw: chatname=${chatname}, event=${msg.event}, membership=${msg.membership || ''}, subtitle=${msg.subtitle || ''}, chatmessage=${(msg.chatmessage || '').substring(0, 120)}, meta=${JSON.stringify(msg.meta || {})}`);
 
@@ -1054,15 +1096,26 @@ function createSsnService({
                     user: chatname, avatar: msg.chatimg, months: subMonths || '',
                     streak: streakMatch ? parseInt(streakMatch[1], 10) : '',
                     tier: subTier.tier, tierLabel: subTier.label,
-                    message: String(msg.chatmessage || '').replace(/<[^>]+>/g, '').split(' - ')[0].trim()
+                    message: msg.source === 'twitch-eventsub' ? String(msg.messageText || '')
+                        : String(msg.chatmessage || '').replace(/<[^>]+>/g, '').split(' - ')[0].trim()
                 });
-                const alreadySubbed = chatData.subscribers.some(s => s.chatname === chatname);
-                if (!alreadySubbed) {
-                    chatData.subscribers.push({ chatname, membership: msg.membership || null, subtitle: msg.subtitle || null, chatimg: msg.chatimg, event: msg.event || null, timestamp: Date.now() });
+                const existingSub = chatData.subscribers.find(s => String(s.chatname).toLowerCase() === chatname.toLowerCase());
+                if (!existingSub) {
+                    chatData.subscribers.push({
+                        chatname, membership: msg.membership || null, subtitle: msg.subtitle || null,
+                        chatimg: msg.chatimg, event: msg.event || null, timestamp: Date.now(),
+                        type: msg.type || null, months: subMonths || 0,
+                        twitchEventAt: msg.source === 'twitch-eventsub' ? Date.now() : undefined
+                    });
                     log(`[SSN] Sub: ${chatname} - ${msg.membership || msg.event}${msg.subtitle ? ' (' + msg.subtitle + ')' : ''}`);
                     if (clipCandidateConfig.enabled && clipCandidateConfig.include_subscriptions) {
                         addClipCandidate('subscription', { user: chatname, tier: msg.membership || msg.event }, Date.now(), 0.6);
                     }
+                } else {
+                    existingSub.lastEventAt = Date.now();
+                    existingSub.type = msg.type || existingSub.type;
+                    existingSub.months = Math.max(existingSub.months || 0, subMonths);
+                    if (msg.source === 'twitch-eventsub') existingSub.twitchEventAt = Date.now();
                 }
             }
         }
@@ -1399,6 +1452,7 @@ function createSsnService({
             session: normalizeSsnSessionId(getSsnSessionId()) ? 'configured' : null
         }),
         processChatMessage,
+        processTwitchSubscription,
         updateStats,
         recordSubTenure,
         recentChatSummary,

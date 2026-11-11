@@ -274,7 +274,14 @@ test('deletion signals traverse the SSN socket and refresh open archive/highligh
     const survivor = { ...f.message(2, 'fixture survivor phrase'), ts: removed.ts + 1 };
     const log = [removed, survivor];
     f.setRecords(log);
-    const data = { startedAt: '2026-01-01T12:00:00Z', messageCount: 2, chatters: {}, emotes: {}, hashtags: {} };
+    const data = {
+        startedAt: '2026-01-01T12:00:00Z', messageCount: 2, chatters: {}, emotes: {}, hashtags: {},
+        streamInfo: [
+            { title: 'Fixture opening', changedAt: '2026-01-01T12:00:00Z' },
+            { title: 'Fixture channel update', time: '2026-01-01T12:15:00Z' },
+            { title: 'Fixture untimed update', changedAt: 'invalid' }
+        ]
+    };
     const archiveFile = path.join(sessionsDir, session);
     const logFile = path.join(sessionsDir, session.replace('chat-', 'chatlog-').replace('.json', '.jsonl'));
     fs.writeFileSync(archiveFile, JSON.stringify(data));
@@ -365,6 +372,13 @@ test('deletion signals traverse the SSN socket and refresh open archive/highligh
     }
     const timeline = await (await fetch(`${base}/api/sessions/${session}/timeline`)).json();
     assert.equal(timeline.messageCount, 1);
+    assert.equal(timeline.events.filter(event => event.type === 'stream-info').length, 2);
+    assert.ok(timeline.events.every(event => Number.isFinite(event.ts)), 'timeline omits unparseable stream-info timestamps');
+    await sessionsPage.goto(`${base}/sessions.html?session=__current__`, { waitUntil: 'networkidle0' });
+    await sessionsPage.waitForFunction(() => document.getElementById('detail-panel')?.textContent.includes('Fixture channel update'));
+    assert.doesNotMatch(await sessionsPage.$eval('#detail-panel', panel => panel.textContent), /Invalid Date/);
+    const currentTimeline = await (await fetch(`${base}/api/sessions/__current__.json/timeline`)).json();
+    assert.equal(currentTimeline.events.filter(event => event.type === 'stream-info').length, 2);
     const rejected = await fetch(`${base}/api/highlights`, { method: 'POST', body: JSON.stringify({ ...removed, session }) });
     assert.equal(rejected.status, 400);
     assert.equal(highlights.length, 2, 'stored hidden highlights survive');

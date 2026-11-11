@@ -120,6 +120,10 @@ IGDB operations use the configured Twitch client credentials. Missing credential
 
 ## 1. Session Lifecycle Endpoints
 
+`GET /api/chat` includes new and returning subscribers captured from Twitch EventSub or SocialStream Ninja. Nearby notifications for one Twitch subscription share the session/statistics count; their individual chat-log entries remain available when logging is enabled. New entries include `source`; native subscription entries additionally identify `sourceEvent` as `channel.subscribe` or `channel.subscription.message`.
+
+Session views, timelines and category analytics accept legacy channel updates using `time` as well as canonical `changedAt`. Untimed entries remain visible in session details but are omitted from timed analytics.
+
 ### Start Live Stream Session
 - **Endpoint**: `POST /api/start-session`
 - **Description**: Clears current session data and starts a new collection session. End the previous session first if you want to archive it. This does not start a Twitch broadcast or mark an offline channel as live.
