@@ -297,7 +297,7 @@
         }
 
         /* ── Broadcast Floating Text (Pure Floating Text / No Card Boxes) ── */
-        body[data-theme="broadcast-text"], body[data-theme="nodecg"], body[data-style="text"] {
+        body[data-style="text"] {
             --font-family: 'Montserrat', 'Bebas Neue', 'Impact', sans-serif;
             --question-font: 'Montserrat', 'Bebas Neue', 'Impact', sans-serif;
             --choice-font: 'Montserrat', sans-serif;
@@ -318,8 +318,7 @@
             --correct-glow: none !important;
         }
 
-        body[data-theme="broadcast-text"] #card, body[data-theme="nodecg"] #card, body[data-style="text"] #card,
-        body[data-theme="broadcast-text"] .trivia-card, body[data-theme="nodecg"] .trivia-card, body[data-style="text"] .trivia-card {
+        body[data-style="text"] .trivia-card {
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
@@ -327,7 +326,7 @@
             padding: 1rem 0 !important;
         }
 
-        body[data-theme="broadcast-text"] .choice-card, body[data-theme="nodecg"] .choice-card, body[data-style="text"] .choice-card {
+        body[data-style="text"] .choice-card {
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
@@ -337,7 +336,7 @@
             min-height: auto !important;
         }
 
-        body[data-theme="broadcast-text"] .choice-letter, body[data-theme="nodecg"] .choice-letter, body[data-style="text"] .choice-letter {
+        body[data-style="text"] .choice-letter {
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
@@ -349,7 +348,7 @@
             align-self: center !important;
         }
 
-        body[data-theme="broadcast-text"] .question-title, body[data-theme="nodecg"] .question-title, body[data-style="text"] .question-title {
+        body[data-style="text"] .question-title {
             font-size: clamp(2rem, 4.5vw, 3.8rem) !important;
             line-height: 1.18 !important;
             text-align: center !important;
@@ -358,7 +357,7 @@
             font-family: var(--question-font) !important;
         }
 
-        body[data-theme="broadcast-text"] .choice-text, body[data-theme="nodecg"] .choice-text, body[data-style="text"] .choice-text {
+        body[data-style="text"] .choice-text {
             font-size: clamp(1.2rem, 2.5vw, 2rem) !important;
             line-height: 1.25 !important;
             text-shadow: var(--choice-shadow) !important;
@@ -369,28 +368,28 @@
             word-break: normal !important;
         }
 
-        body[data-theme="broadcast-text"] .choice-card.correct .choice-text, body[data-theme="nodecg"] .choice-card.correct .choice-text, body[data-style="text"] .choice-card.correct .choice-text {
+        body[data-style="text"] .choice-card.correct .choice-text {
             color: var(--correct-color) !important;
             text-shadow: 0 0 15px rgba(74, 222, 128, 0.7), 3px 3px 6px #000 !important;
         }
 
-        body[data-theme="broadcast-text"] .choice-meter, body[data-theme="nodecg"] .choice-meter, body[data-style="text"] .choice-meter {
+        body[data-style="text"] .choice-meter {
             display: none !important;
         }
 
-        body[data-theme="broadcast-text"] .timer-track, body[data-theme="nodecg"] .timer-track, body[data-style="text"] .timer-track {
+        body[data-style="text"] .timer-track {
             background: rgba(255, 255, 255, 0.2) !important;
             height: 8px !important;
             border-radius: 4px !important;
             box-shadow: 0 2px 6px #000 !important;
         }
 
-        body[data-theme="broadcast-text"] .trivia-footer, body[data-theme="nodecg"] .trivia-footer, body[data-style="text"] .trivia-footer {
+        body[data-style="text"] .trivia-footer {
             border-top: none !important;
             text-shadow: 2px 2px 4px #000 !important;
         }
 
-        body[data-theme="broadcast-text"] .category-pill, body[data-theme="nodecg"] .category-pill, body[data-style="text"] .category-pill {
+        body[data-style="text"] .category-pill {
             background: transparent !important;
             border: none !important;
             padding: 0 !important;
@@ -398,7 +397,7 @@
             font-size: 1.1rem !important;
         }
 
-        body[data-theme="broadcast-text"] .question-counter, body[data-theme="nodecg"] .question-counter, body[data-style="text"] .question-counter {
+        body[data-style="text"] .question-counter {
             text-shadow: 2px 2px 4px #000 !important;
         }
 
@@ -1327,7 +1326,13 @@
             if (remaining > 0 && currentState?.status === 'question') {
                 timerRaf = requestAnimationFrame(() => updateTimerBar(startedAt, endsAt));
             } else if (remaining === 0) {
-                document.getElementById('chat-hint').style.display = 'none';
+                const chatHintEl = document.getElementById('chat-hint');
+                if (chatHintEl?.firstElementChild?.textContent === 'Vote in chat:') {
+                    chatHintEl.firstElementChild.textContent = 'Answer choices:';
+                    chatHintEl.querySelectorAll('kbd').forEach(kbd => {
+                        kbd.textContent = kbd.textContent.replace(/^!/, '');
+                    });
+                }
             }
         }
 
@@ -1342,7 +1347,8 @@
             document.body.dataset.theme = activePreset;
 
             const styleParam = (params.get('style') || '').toLowerCase();
-            const activeStyle = styleParam || t.cardStyle || ((activePreset === 'broadcast-text' || activePreset === 'nodecg') ? 'text' : 'cards');
+            const presetStyle = (activePreset === 'broadcast-text' || activePreset === 'nodecg') ? 'text' : 'cards';
+            const activeStyle = styleParam || (hasThemeParam ? presetStyle : (t.cardStyle || presetStyle));
             document.body.dataset.style = activeStyle;
             const cardWidth = activeStyle === 'cards' ? (params.get('cardwidth') || t.cardMaxWidth || '1100px') : '1100px';
             applyCssVar('--card-max-width', CSS.supports('max-width', cardWidth) ? cardWidth : '1100px');
@@ -1747,16 +1753,18 @@
             // Chat hint footer for True/False and 2-6 choices
             const chatHintEl = document.getElementById('chat-hint');
             if (chatHintEl) {
-                if (!isVotingOpen || hideHint || isReveal || choices.length === 0) {
+                if (!votingEnabled || hideHint || isReveal || choices.length === 0) {
                     chatHintEl.style.display = 'none';
                 } else {
                     chatHintEl.style.display = 'inline-flex';
                     const isTrueFalse = q?.isTrueFalse || (choices.length === 2 && choices.every(c => /^(true|false)$/i.test(String(c.text || '').trim())));
+                    const label = isVotingOpen ? 'Vote in chat:' : 'Answer choices:';
+                    const prefix = isVotingOpen ? '!' : '';
                     if (isTrueFalse) {
-                        chatHintEl.innerHTML = `<span>Vote in chat:</span> <kbd>!true</kbd> <kbd>!false</kbd> <span>or</span> <kbd>!a</kbd> <kbd>!b</kbd>`;
+                        chatHintEl.innerHTML = `<span>${label}</span> <kbd>${prefix}true</kbd> <kbd>${prefix}false</kbd> <span>or</span> <kbd>${prefix}a</kbd> <kbd>${prefix}b</kbd>`;
                     } else {
-                        const kbds = choices.map((c, i) => `<kbd>!${(c.letter || String.fromCharCode(65 + i)).toLowerCase()}</kbd>`).join(' ');
-                        chatHintEl.innerHTML = `<span>Vote in chat:</span> ${kbds}`;
+                        const kbds = choices.map((c, i) => `<kbd>${prefix}${esc((c.letter || String.fromCharCode(65 + i)).toLowerCase())}</kbd>`).join(' ');
+                        chatHintEl.innerHTML = `<span>${label}</span> ${kbds}`;
                     }
                 }
             }

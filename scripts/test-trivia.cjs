@@ -1027,6 +1027,14 @@ test('Trivia Studio preserves unsaved toggles during live updates; overlay sound
         style.dispatchEvent(new Event('change', { bubbles: true }));
     });
     assert.equal(await studio.$eval('#card-width-row', el => getComputedStyle(el).display), 'none');
+    await studio.evaluate(() => {
+        const style = document.getElementById('cfg-theme-card-style');
+        style.value = 'cards';
+        style.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    assert.equal(await studio.$eval('#obs-url-link', el => new URL(el.href).searchParams.get('style')), 'cards', 'selecting boxes regenerates a cards URL');
+    const currentPreviewFrame = await (await studio.$('#trivia-preview-iframe')).contentFrame();
+    await currentPreviewFrame.waitForFunction(() => document.body.dataset.style === 'cards');
     const correctSelections = await studio.evaluate(async () => {
         const editor = await import('/js/trivia/trivia-editor.js');
         const state = await import('/js/trivia/trivia-state.js');
@@ -1137,5 +1145,56 @@ test('Trivia Studio preserves unsaved toggles during live updates; overlay sound
     }
     assert.equal(await responsive.$eval('#timer-bar', el => getComputedStyle(el).backgroundColor), 'rgb(254, 220, 186)', 'URL timer color overrides the saved color');
     await responsive.close();
+    for (const [query, boxed] of [
+        ['?theme=modern&style=cards', true],
+        ['?theme=broadcast-text&style=cards', true],
+        ['?theme=nodecg&style=cards', true],
+        ['?theme=broadcast-text', false],
+        ['?theme=modern&style=text', false]
+    ]) {
+        const page = await open(`/overlays/trivia.html${query}&view=question&hint=1`);
+        const cardStyles = await page.$eval('#card', el => {
+            const css = getComputedStyle(el);
+            return { background: css.backgroundColor, border: css.borderTopStyle };
+        });
+        if (boxed) {
+            assert.notEqual(cardStyles.background, 'rgba(0, 0, 0, 0)', `boxed background is respected for ${query}`);
+            assert.notEqual(cardStyles.border, 'none', `boxed border is respected for ${query}`);
+            const hintStates = await page.evaluate(state => {
+                const update = data => window.triviaFixture.sockets[0].onmessage({ data: JSON.stringify({ type: 'trivia:state', data }) });
+                const expired = { ...state, status: 'question', settings: { ...state.settings, chatVoting: true },
+                    chatVotingActive: true, chatbotEnabled: true, activeQuestion: {
+                        ...state.activeQuestion, startedAt: Date.now() - 10000, endsAt: Date.now() - 1
+                    } };
+                update(expired);
+                const atZero = getComputedStyle(document.getElementById('chat-hint')).display;
+                update({ ...expired, settings: { ...expired.settings, chatVoting: false }, chatVotingActive: false });
+                return [atZero, getComputedStyle(document.getElementById('chat-hint')).display];
+            }, service.getPublicState());
+            assert.notEqual(hintStates[0], 'none', 'enabled hints remain visible at zero');
+            assert.equal(hintStates[1], 'none', 'hints never show with voting off');
+            if (query === '?theme=modern&style=cards') {
+                await page.evaluate(state => {
+                    window.triviaFixture.sockets[0].onmessage({ data: JSON.stringify({
+                        type: 'trivia:state', data: { ...state, status: 'question',
+                            settings: { ...state.settings, chatVoting: true, manualTransition: true },
+                            chatVotingActive: true, chatbotEnabled: true, activeQuestion: {
+                                ...state.activeQuestion, startedAt: Date.now() - 10000, endsAt: Date.now() + 150
+                            } }
+                    }) });
+                }, service.getPublicState());
+                await page.waitForFunction(() => {
+                    const hint = document.getElementById('chat-hint');
+                    return getComputedStyle(hint).display !== 'none'
+                        && hint.textContent.includes('Answer choices:')
+                        && !hint.textContent.includes('!');
+                });
+            }
+        } else {
+            assert.equal(cardStyles.background, 'rgba(0, 0, 0, 0)', `floating text remains transparent for ${query}`);
+            assert.equal(cardStyles.border, 'none');
+        }
+        await page.close();
+    }
     assert.deepEqual(errors, [], 'real Studio and overlay initialize without browser errors');
 });

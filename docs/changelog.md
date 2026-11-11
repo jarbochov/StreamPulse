@@ -11,6 +11,8 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Fixed
+- **Trivia overlays**: Respect boxed styles and keep enabled hints at zero, never with voting off.
+- **Subscription alerts**: Use observed tenure when Twitch omits cumulative months.
 - **Windows builds**: Prevent embedded startup from opening an authorization browser and hanging desktop validation.
 - **Trivia**: Chat-voting silence, saved sound/blur/collapse controls, live-edit preservation, question ordering/tracking, auto-advance, and Companion state mapping.
 - **Subathon**: Preserve omitted donation settings during rule edits and update idle overlays when timed boosts expire.

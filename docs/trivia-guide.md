@@ -72,6 +72,7 @@ Add this URL as a Browser Source in OBS Studio at `1920x1080` (or `3840x2160`).
 - **Card Boxes vs Floating Text**: In the **Appearance & Themes** panel, switch the **Card Container Style** between:
   - `Cards & Boxes`: Standard framed card containers with backgrounds and borders.
   - `Pure Floating Text`: Eliminates all bounding boxes and background panels, rendering floating text directly over your camera or game capture with deep drop shadows.
+  - Explicit `style=cards` always keeps boxes, including with the Floating Text theme. Existing OBS URLs containing `style=text` keep requesting text: replace it with `style=cards`, or copy the regenerated studio link.
 - **Collapse Incorrect Choices**: When enabled in reveal mode, incorrect choices smoothly collapse and fade out, spotlighting the winning answer and fun fact.
 - **Header Labels & Phase Titles**:
   - **Question & Answer Phase Titles**: Fully customizable phase titles (`?qlabel=Round 1`, `?alabel=Reveal`) displayed clean and unbordered at the top center of the card.
@@ -110,6 +111,7 @@ Add this URL as a Browser Source in OBS Studio at `1920x1080` (or `3840x2160`).
   - `?votes=0` / `?votes=1`: Toggles numerical vote totals.
   - `?percentages=0` / `?percentages=1`: Toggles percentage displays on choices.
   - `?hint=0` / `?hint=1`: Toggles the "!a / !b in chat" helper bar.
+    Hints never appear when voting is disabled. An enabled hint remains visible during the question at zero, using **Answer choices** once voting has closed; it disappears on reveal.
   - `?funfact=0` / `?funfact=1`: Toggles fun fact callouts on answer reveal.
   - `?collapse=0` / `?collapse=1`: Toggles collapsing of incorrect choices on reveal.
 
