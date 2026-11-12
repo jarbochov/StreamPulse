@@ -8,4 +8,8 @@ Browse your community by activity, search for a familiar name, or open a profile
 
 This is a personal organizer, not a public directory. Community details and notes are stored with your local StreamPulse data and are not encrypted, so protect your device and backups. Be thoughtful about what you record, and keep private information away from captured scenes.
 
+## Reading your stream numbers
+
+The **Streams & Activity** tab in Analytics summarizes your sessions for a range you choose (7, 30, 60 or 90 days, all time, or custom dates). Turn on **Compare** to see how each number changed against the previous period of the same length, such as the 30 days before your current 30. Comparison isn't available for all time. Click any summary card to chart it, and use **Export CSV** to take the session table with you. Your range, comparison choice and active tab are remembered when you return.
+
 Explore [StreamPulse features](features.md) or [get started](quickstart.md). Already installed? Find **Docs** and **API Reference** in the app navigation.

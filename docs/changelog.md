@@ -10,6 +10,9 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ## [Unreleased]
 
+### Added
+- **Analytics**: Compare-to-previous-period changes on summary cards, a 7-day range, and a remembered tab and custom date range.
+
 ### Fixed
 - **Sessions**: Record native Twitch subscriptions and keep title/category history live-only.
 - **Trivia overlays**: Respect boxed styles and keep enabled hints at zero, never with voting off.

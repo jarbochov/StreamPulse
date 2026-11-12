@@ -38,6 +38,11 @@
         .stat.active { border-color: var(--accent); background: var(--accent-bg); }
         .stat strong { display: block; color: var(--accent); font-size: 1.4rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
         .stat span { color: var(--text-muted); font-size: 0.72rem; }
+        .stat .delta { display: flex; align-items: center; justify-content: center; gap: 3px; margin-top: 3px; font-style: normal; font-size: 0.68rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+        .stat .delta svg { width: 10px; height: 10px; }
+        .stat .delta.up { color: var(--success); }
+        .stat .delta.down { color: var(--danger, #f85149); }
+        .stat > span { display: block; }
         .chart-wrap { position: relative; }
         .chart { width: 100%; height: 280px; background: var(--bg-inset); border-radius: 8px; border: 1px solid var(--bg-raised); }
         .chart svg { width: 100%; height: 100%; display: block; }
@@ -168,7 +173,10 @@
             <section class="card">
                 <div class="toolbar">
                     <div class="seg" id="presets" role="group" aria-label="Quick ranges">
-                        <button data-days="30">30 days</button><button data-days="60">60 days</button><button data-days="90">90 days</button><button data-days="all">All time</button>
+                        <button data-days="7">7 days</button><button data-days="30">30 days</button><button data-days="60">60 days</button><button data-days="90">90 days</button><button data-days="all">All time</button>
+                    </div>
+                    <div class="seg" id="compare-toggle" role="group" aria-label="Compare with previous period">
+                        <button type="button" data-compare="1" title="Show change versus the previous period of the same length">Compare</button>
                     </div>
                     <div class="field"><label for="from">From</label><input id="from" type="date"></div>
                     <div class="field"><label for="to">To</label><input id="to" type="date"></div>
@@ -180,7 +188,7 @@
             </section>
 
             <section class="card">
-                <div class="card-head"><h2>Summary</h2><span class="muted">Click a card to chart it</span></div>
+                <div class="card-head"><h2>Summary</h2><span class="muted" id="summary-note">Click a card to chart it</span></div>
                 <div class="stats" id="summary"></div>
             </section>
 
@@ -345,9 +353,9 @@ const SESSION_COLS = [
     ['messages', 'Msgs', 1], ['chatters', 'Chatters', 1], ['subscribers', 'Subs', 1], ['followers', 'Follows', 1], ['bits', 'Bits', 1], ['donations', 'Donations', 1], ['raids', 'Raids', 1], ['peakViewers', 'Peak', 1], ['averageViewers', 'Avg', 1]
 ];
 const SUB_COLS = [['name', 'Subscriber'], ['tier', 'Tier'], ['tenureMonths', 'Tenure', 1], ['gifter', 'Gifted by'], ['plan', 'Plan'], ['firstSeen', 'First observed'], ['lastSeen', 'Last observed'], ['observedDays', 'Observed', 1]];
-const prefs = Object.assign({ metric: 'messages', chart: 'bar', days: '30' }, JSON.parse(localStorage.getItem('analyticsPrefs') || '{}'));
+const prefs = Object.assign({ metric: 'messages', chart: 'bar', days: '30', compare: true, tab: 'sessions', from: '', to: '' }, JSON.parse(localStorage.getItem('analyticsPrefs') || '{}'));
 const savePrefs = () => localStorage.setItem('analyticsPrefs', JSON.stringify(prefs));
-let report = null, subscriberRows = [], subInfo = { summary: {}, history: [] }, folRows = [], folInfo = { history: [] };
+let report = null, previousTotals = null, subscriberRows = [], subInfo = { summary: {}, history: [] }, folRows = [], folInfo = { history: [] };
 const sort = { sessions: { key: 'date', dir: 'desc' }, subs: { key: 'name', dir: 'asc' }, crm: { key: 'totalMessages', dir: 'desc' } };
 
 // Tab Navigation
@@ -363,6 +371,7 @@ function switchTab(tabId, pushHash = true) {
     if (pushHash) {
         history.replaceState(null, '', `#${tabId}`);
     }
+    prefs.tab = tabId; savePrefs();
     if (tabId === 'milestones') {
         loadMilestones();
     } else if (tabId === 'crm') {
@@ -411,23 +420,53 @@ function toggleSort(state, key, textKeys) {
 
 const localDate = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 function setRange(days) {
-    prefs.days = String(days); savePrefs();
+    prefs.days = String(days);
     const today = new Date();
     $('to').value = localDate(today);
     if (days === 'all') $('from').value = '';
     else { const start = new Date(today); start.setDate(start.getDate() - Number(days) + 1); $('from').value = localDate(start); }
+    prefs.from = $('from').value; prefs.to = $('to').value; savePrefs();
     markPreset(String(days));
     load();
 }
 function markPreset(days) { document.querySelectorAll('#presets button').forEach(b => b.classList.toggle('active', b.dataset.days === days)); }
 
+// Previous period = the window of equal length that ends the day before the selected range starts.
+function previousRange() {
+    const from = $('from').value, to = $('to').value;
+    if (!from || !to) return null;
+    const start = new Date(`${from}T12:00:00`), end = new Date(`${to}T12:00:00`);
+    const span = Math.round((end - start) / 864e5) + 1;
+    if (!(span > 0)) return null;
+    const prevEnd = new Date(start); prevEnd.setDate(prevEnd.getDate() - 1);
+    const prevStart = new Date(prevEnd); prevStart.setDate(prevStart.getDate() - span + 1);
+    return { from: localDate(prevStart), to: localDate(prevEnd), span };
+}
+function syncCompareToggle() {
+    const range = previousRange();
+    const btn = document.querySelector('#compare-toggle button');
+    btn.disabled = !range;
+    btn.classList.toggle('active', Boolean(range) && prefs.compare);
+    btn.setAttribute('aria-pressed', String(Boolean(range) && prefs.compare));
+}
+async function loadPreviousTotals() {
+    previousTotals = null;
+    const range = previousRange();
+    if (!range || !prefs.compare) return;
+    try {
+        const data = await (await fetch('/api/analytics?' + new URLSearchParams({ from: range.from, to: range.to }))).json();
+        previousTotals = data.totals || {};
+    } catch { previousTotals = null; }
+}
+
 async function load() {
     $('status').textContent = 'Loading…';
+    syncCompareToggle();
     const params = new URLSearchParams();
     if ($('from').value) params.set('from', $('from').value);
     if ($('to').value) params.set('to', $('to').value);
     try {
-        report = await (await fetch('/api/analytics?' + params)).json();
+        [report] = await Promise.all([fetch('/api/analytics?' + params).then(r => r.json()), loadPreviousTotals()]);
         const subData = await (await fetch('/api/subscribers/current')).json();
         subInfo = subData;
         subscriberRows = subData.subscribers || [];
@@ -441,10 +480,34 @@ async function load() {
     renderSummary(); renderSessions(); drawChart(); renderSubscriberSummary(); drawGrowth(); renderSubscribers(); renderFollowers();
 }
 
+const DELTA_ARROWS = {
+    up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>',
+    down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>',
+    flat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+};
+function deltaHtml(key, totals) {
+    if (!previousTotals) return '';
+    const now = Number(totals[key]) || 0, before = Number(previousTotals[key]) || 0;
+    if (!now && !before) return '';
+    if (!before) return `<em class="delta up" title="No activity in the previous period">${DELTA_ARROWS.up}New</em>`;
+    const pct = Math.round(((now - before) / before) * 100);
+    const dir = pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat';
+    return `<em class="delta ${dir}" title="Previous period: ${esc(fmt(before))}">${DELTA_ARROWS[dir]}${Math.abs(pct)}%</em>`;
+}
 function renderSummary() {
     const totals = report.totals || {};
-    $('summary').innerHTML = METRICS.map(([key, label]) => `<div class="stat${prefs.metric === key ? ' active' : ''}" data-metric="${key}" tabindex="0" role="button"><strong>${fmt(totals[key])}</strong><span>${label}</span></div>`).join('');
+    $('summary').innerHTML = METRICS.map(([key, label]) => `<div class="stat${prefs.metric === key ? ' active' : ''}" data-metric="${key}" tabindex="0" role="button"><strong>${fmt(totals[key])}</strong><span>${label}</span>${deltaHtml(key, totals)}</div>`).join('');
+    const range = previousRange();
+    $('summary-note').textContent = previousTotals && range ? `Change vs previous ${range.span} days` : 'Click a card to chart it';
 }
+$('compare-toggle').addEventListener('click', async event => {
+    const btn = event.target.closest('button');
+    if (!btn || btn.disabled) return;
+    prefs.compare = !prefs.compare; savePrefs();
+    syncCompareToggle();
+    await loadPreviousTotals();
+    if (report) renderSummary();
+});
 $('summary').addEventListener('click', event => {
     const card = event.target.closest('[data-metric]');
     if (!card) return;
@@ -680,7 +743,10 @@ $('export').addEventListener('click', () => {
     URL.revokeObjectURL(a.href);
 });
 $('presets').addEventListener('click', event => { const b = event.target.closest('button'); if (b) setRange(b.dataset.days); });
-$('apply').addEventListener('click', () => { markPreset(''); load(); });
+$('apply').addEventListener('click', () => {
+    prefs.days = 'custom'; prefs.from = $('from').value; prefs.to = $('to').value; savePrefs();
+    markPreset(''); load();
+});
 
 // ==========================================
 // TAB 2: MILESTONES & STREAKS LOGIC
@@ -1075,13 +1141,18 @@ window.addEventListener('chatter-dossier-closed', () => {
 });
 
 // Initial Setup
+const TAB_HASHES = ['sessions', 'milestones', 'crm', 'growth', 'community', 'chatters'];
 const initialHash = location.hash.replace('#', '');
-setRange(prefs.days);
-if (['sessions', 'milestones', 'crm', 'growth', 'community', 'chatters'].includes(initialHash)) {
-    switchTab(initialHash === 'community' || initialHash === 'chatters' ? 'crm' : initialHash, false);
+if (prefs.days === 'custom' && prefs.from && prefs.to) {
+    $('from').value = prefs.from; $('to').value = prefs.to;
+    markPreset('');
+    load();
 } else {
-    switchTab('sessions', false);
+    setRange(prefs.days === 'custom' ? '30' : prefs.days);
 }
+const startTab = TAB_HASHES.includes(initialHash) ? initialHash : prefs.tab;
+const startKey = startTab === 'community' || startTab === 'chatters' ? 'crm' : startTab;
+switchTab(['sessions', 'milestones', 'crm', 'growth'].includes(startKey) ? startKey : 'sessions', false);
 </script>
 </body>
 </html>
