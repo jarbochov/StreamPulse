@@ -83,7 +83,7 @@ Decoupled studio controller and transparent OBS overlay featuring spinning wheel
 ---
 
 ### Community Directory & Viewer Dossiers
-Streamer-focused community management with high-level analytics cards, private streamer notes, and smart roster segments (Moderators, VIPs, Regulars active in 3+ streams over 90 days, Lapsed viewers, and Newcomers) with 1-click CSV roster export. Click any member to open their complete dossier with category attendance, tenure, and cheered bits.
+Streamer-focused community management with analytics, private notes, roster segments, and CSV export. Optional Community insights add observed hashtag and emote history, approximate stream attendance, Twitch follow dates, and opt-in Chat Bot welcome-back and milestone messages.
 
 ![Community Directory](docs/images/community-directory.png)
 

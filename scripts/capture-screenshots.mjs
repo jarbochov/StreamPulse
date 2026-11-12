@@ -175,14 +175,13 @@ const dummyCommunityList = {
         }
     ],
     tags: ['mod', 'vip', 'regular', 'artist', 'speedrunner', 'newcomer', 'lapsed'],
-    summary: {
-        total: 154,
-        regulars: 32,
-        vips: 8,
-        mods: 5,
-        totalMessages: 54200
-    }
+    summary: { totalMembers: 6, activeTonight: 2, regularsCount: 5, vipsCount: 2,
+        modsCount: 1, subscribersCount: 4, lapsedCount: 0, withNotesCount: 6 }
 };
+dummyCommunityList.chatters = dummyCommunityList.chatters.map(member => ({
+    ...member, chatname: member.displayName, sessionsAttended: member.streamCount,
+    totalMessages: member.messageCount, isSubscriber: member.isSub
+}));
 
 const dummyDossierPixelKnight = {
     username: 'PixelKnight',
@@ -199,6 +198,13 @@ const dummyDossierPixelKnight = {
     bitsTotal: 12500,
     giftSubsTotal: 15,
     raidsCount: 3,
+    community: {
+        status: { enabled: true, phase: 'ready' },
+        follow: { followedAt: '2022-05-12T18:00:00.000Z', syncedAt: '2026-10-18T20:30:00.000Z' },
+        insights: { streams: 35, streak: 6, hashtagsStarted: 3,
+            hashtags: [{ name: '#fictionalrun', count: 42 }, { name: '#retroadventure', count: 17 }],
+            emotes: [{ name: 'FictionalWave', count: 28, imageUrl: 'https://emotes.example/wave.svg' }], lastReturn: { at: Date.parse('2026-09-10T18:00:00Z'), absenceDays: 33 } }
+    },
     favoriteGames: [
         { category: "Castlevania: Belmont's Curse", sessions: 24, messages: 1850 },
         { category: 'The Legend of Zelda: Ocarina of Time', sessions: 14, messages: 1120 },
@@ -719,6 +725,8 @@ async function run() {
             req.respond({ status: 200, contentType: 'application/json', body: '[]' });
         } else if (url.includes('/custom-overlay-assets/promo-fictional-scene.svg')) {
             req.respond({ status: 200, contentType: 'image/svg+xml', body: dummyPromoImage });
+        } else if (url === 'https://emotes.example/wave.svg') {
+            req.respond({ status: 200, contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="#58a6ff"/><path d="M7 17q4-6 8 0t9 0" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>' });
         } else if (url.includes('/api/chatters/PixelKnight')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyDossierPixelKnight) });
         } else if (url.includes('/api/chatters')) {
@@ -942,6 +950,20 @@ async function run() {
                     }
                 });
                 await new Promise(r => setTimeout(r, 1000));
+            }
+        },
+        {
+            url: `${baseUrl}/analytics.html`,
+            file: 'chatter-dossier-activity.png',
+            wait: 1500,
+            action: async (p) => {
+                await p.evaluate(() => document.querySelector('.tab-btn[data-tab="crm"]')?.click());
+                await new Promise(r => setTimeout(r, 800));
+                await p.evaluate(() => window.openChatterDossier('PixelKnight'));
+                await p.waitForSelector('#dos-tab-activity');
+                await new Promise(r => setTimeout(r, 500));
+                await p.click('#dos-tab-activity');
+                await new Promise(r => setTimeout(r, 500));
             }
         },
         {

@@ -4,6 +4,7 @@ const path = require('path');
 const vm = require('vm');
 const crypto = require('crypto');
 const { normalizeSsnSessionId } = require('../ssn-config');
+const { normalizeCommunityChat } = require('./community-chat');
 
 const DEFAULT_AUTO_SHOUTOUT = {
     enabled: false,
@@ -114,7 +115,7 @@ function formatTokens(text, { user = '', arg = '', msg = {}, viewers = '' } = {}
     return out;
 }
 
-module.exports = function createChatbot({ sessionKey = () => '', onUse = () => {}, dataDir, getConfig, port = Number(process.env.PORT) || 3000, variables }) {
+module.exports = function createChatbot({ sessionKey = () => '', onUse = () => {}, onSettingsChange = () => {}, dataDir, getConfig, port = Number(process.env.PORT) || 3000, variables }) {
     const file = path.join(dataDir, 'chatbot.json');
     const quotesFile = path.join(dataDir, 'quotes.json');
     let data = { settings: { ...DEFAULT_SETTINGS }, commands: [], quotes: [], nextQuoteId: 1, messages: [], triggers: [] };
@@ -186,6 +187,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 totalVar: varName(donations.totalVar, DEFAULT_DONATION_ANNOUNCEMENTS.totalVar),
                 goalVar: varName(donations.goalVar, DEFAULT_DONATION_ANNOUNCEMENTS.goalVar)
             },
+            community: normalizeCommunityChat(input.community),
             builtins: Object.fromEntries(Object.entries(BUILTIN_DEFAULTS).map(([name, access]) => {
                 const b = (input.builtins || {})[name] || {};
                 return [name, {
@@ -903,7 +905,13 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             const body = req.method === 'GET' || req.method === 'DELETE' ? {} : JSON.parse(await readBody(req) || '{}');
             if (pathname === '/api/chatbot' && req.method === 'GET') return json(200, snapshot()), true;
             if (pathname === '/api/chatbot' && req.method === 'PUT') {
-                if (body.settings) data.settings = normalizeSettings({ ...data.settings, ...body.settings });
+                if (body.settings) {
+                    const settings = { ...data.settings, ...body.settings };
+                    if (body.settings.community && typeof body.settings.community === 'object') {
+                        settings.community = { ...data.settings.community, ...body.settings.community };
+                    }
+                    data.settings = normalizeSettings(settings);
+                }
                 if (Array.isArray(body.commands)) {
                     const seen = new Set();
                     data.commands = body.commands.map(normalizeCommand).filter(c => c && !seen.has(c.name) && seen.add(c.name)).slice(0, MAX_COMMANDS);
@@ -911,6 +919,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 if (Array.isArray(body.messages)) data.messages = body.messages.map(normalizeMessage).filter(Boolean).slice(0, MAX_MESSAGES);
                 if (Array.isArray(body.triggers)) data.triggers = body.triggers.map(normalizeTrigger).filter(Boolean).slice(0, MAX_TRIGGERS);
                 saveChatbot();
+                onSettingsChange();
                 return json(200, snapshot()), true;
             }
             if (pathname === '/api/chatbot/placeholders' && req.method === 'GET') {
@@ -937,6 +946,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 const action = input.action || (input.enabled !== undefined ? (input.enabled === 'true' || input.enabled === true ? 'enable' : 'disable') : 'toggle');
                 data.settings.enabled = action === 'toggle' ? !data.settings.enabled : (action === 'enable' || input.enabled === true || input.enabled === 'true');
                 saveChatbot();
+                onSettingsChange();
                 return json(200, snapshot()), true;
             }
             if (pathname === '/api/chatbot/export' && req.method === 'GET') {
@@ -954,6 +964,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 let vars = 0;
                 if (variables) for (const v of (body.variables || []).slice(0, 300)) { try { variables.set(v.name, v); vars++; } catch { /* skip bad variable */ } }
                 save();
+                onSettingsChange();
                 return json(200, { variables: vars, ...snapshot() }), true;
             }
             if (pathname === '/api/chatbot/commands/export' && req.method === 'GET') {

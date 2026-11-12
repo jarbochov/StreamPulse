@@ -6,6 +6,10 @@ Community Directory brings a little more context to the names you see in chat. R
 
 Browse your community by activity, search for a familiar name, or open a profile to see recorded participation over time. Tags and pronouns can make a roster easier to scan, while optional notes help you remember details you choose to record.
 
+Each dossier has Overview, Activity and private Notes tabs. Optional Community insights bring observed hashtags, rendered emotes where available, approximate stream attendance and a Twitch follow date into each dossier. You can also opt into individually configurable welcome-back and personal milestone messages in Chat Bot. Both the tracking and the new messages are off by default.
+
+![Fictional member activity with emotes](images/chatter-dossier-activity.png)
+
 This is a personal organizer, not a public directory. Community details and notes are stored with your local StreamPulse data and are not encrypted, so protect your device and backups. Be thoughtful about what you record, and keep private information away from captured scenes.
 
 ## Reading your stream numbers

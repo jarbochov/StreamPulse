@@ -3,6 +3,7 @@
     let dialog = null;
     let currentChatter = null;
     let saveNoteTimer = null;
+    let loadSequence = 0;
 
     function injectStyles() {
         if (document.getElementById('chatter-dossier-styles')) return;
@@ -35,6 +36,10 @@
                 background: rgba(0, 0, 0, 0.7);
                 backdrop-filter: blur(3px);
                 -webkit-backdrop-filter: blur(3px);
+            }
+            #chatter-dossier-dialog[open] {
+                display: flex;
+                flex-direction: column;
             }
             .dossier-header {
                 display: flex;
@@ -90,11 +95,43 @@
             .dossier-body {
                 padding: 1.25rem 1.5rem;
                 overflow-y: auto;
-                max-height: calc(90vh - 150px);
+                min-height: 0;
+                flex: 1 1 auto;
+            }
+            .dossier-tabs {
+                display: flex;
+                gap: 3px;
+                margin: 12px 1.5rem 0;
+                padding: 3px;
+                background: var(--bg-inset, #0d1117);
+                border: 1px solid var(--border, #30363d);
+                border-radius: 9px;
+            }
+            .dossier-tab {
+                flex: 1;
+                min-width: 0;
+                padding: 7px 10px;
+                border: 0;
+                border-radius: 6px;
+                background: transparent;
+                color: var(--text-muted, #8b949e);
+                font: inherit;
+                font-size: 0.8rem;
+                font-weight: 600;
+                cursor: pointer;
+            }
+            .dossier-tab[aria-selected="true"] {
+                background: var(--bg-card, #161b22);
+                color: var(--accent, #58a6ff);
+                box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            }
+            .dossier-tab:focus-visible { outline: 2px solid var(--accent, #58a6ff); outline-offset: -2px; }
+            .dossier-panel:not([hidden]) {
                 display: flex;
                 flex-direction: column;
                 gap: 1.25rem;
             }
+            .dossier-panel[hidden], .dossier-body[hidden] { display: none; }
             .dossier-stats-grid {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
@@ -136,6 +173,49 @@
                 flex-wrap: wrap;
                 align-items: center;
             }
+            .dossier-insights-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 8px;
+            }
+            .dossier-insight {
+                min-width: 0;
+                padding: 8px 10px;
+                background: var(--bg-inset, #0d1117);
+                border: 1px solid var(--border, #30363d);
+                border-radius: 8px;
+                font-size: 0.8rem;
+                overflow-wrap: anywhere;
+            }
+            .dossier-insight-label {
+                color: var(--text-muted, #8b949e);
+                font-size: 0.7rem;
+                margin-bottom: 4px;
+            }
+            .dossier-insight-note {
+                color: var(--text-muted, #8b949e);
+                font-size: 0.75rem;
+                margin-top: 8px;
+            }
+            .dossier-emotes {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .dossier-emote {
+                display: inline-flex;
+                align-items: center;
+                gap: 7px;
+                min-width: 0;
+                padding: 6px 9px;
+                border: 1px solid var(--border, #30363d);
+                border-radius: 8px;
+                background: var(--bg-inset, #0d1117);
+                font-size: 0.8rem;
+                overflow-wrap: anywhere;
+            }
+            .dossier-emote img { width: 28px; height: 28px; object-fit: contain; flex-shrink: 0; }
+            .dossier-emote-count { color: var(--text-muted, #8b949e); white-space: nowrap; }
             .dossier-tag {
                 background: var(--bg-raised, #21262d);
                 border: 1px solid var(--border, #30363d);
@@ -223,10 +303,13 @@
                 padding: 1rem 1.5rem;
                 background: var(--bg-raised, #21262d);
                 border-top: 1px solid var(--border, #30363d);
+                gap: 8px;
+                flex-wrap: wrap;
             }
             .dossier-actions {
                 display: flex;
                 gap: 8px;
+                flex-wrap: wrap;
             }
             .dossier-btn {
                 padding: 0.45rem 0.9rem;
@@ -274,6 +357,15 @@
                 border: 1px solid rgba(56, 139, 253, 0.45);
                 color: #58a6ff;
             }
+            @media (max-width: 540px) {
+                .dossier-header { padding: 1rem; }
+                .dossier-avatar { width: 44px; height: 44px; }
+                .dossier-tabs { margin: 10px 1rem 0; }
+                .dossier-body { padding: 1rem; }
+                .dossier-footer { padding: 0.75rem 1rem; }
+                .dossier-btn { padding: 0.4rem 0.65rem; }
+                .dossier-insights-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+            }
         `;
         document.head.appendChild(style);
     }
@@ -297,9 +389,15 @@
                 </div>
                 <button type="button" class="dossier-close-btn" id="dos-close" title="Close" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
             </div>
-            <div class="dossier-body">
+            <div class="dossier-tabs" role="tablist" aria-label="Dossier sections">
+                <button type="button" class="dossier-tab" role="tab" id="dos-tab-overview" aria-controls="dos-panel-overview" data-dossier-tab="overview">Overview</button>
+                <button type="button" class="dossier-tab" role="tab" id="dos-tab-activity" aria-controls="dos-panel-activity" data-dossier-tab="activity">Activity</button>
+                <button type="button" class="dossier-tab" role="tab" id="dos-tab-notes" aria-controls="dos-panel-notes" data-dossier-tab="notes">Notes</button>
+            </div>
+            <div class="dossier-body" hidden>
+              <div class="dossier-panel" role="tabpanel" id="dos-panel-overview" aria-labelledby="dos-tab-overview">
                 <div>
-                    <div class="dossier-section-title">Lifetime Community Engagement</div>
+                    <div class="dossier-section-title">Observed Community Engagement</div>
                     <div class="dossier-stats-grid">
                         <div class="dossier-stat-card">
                             <div class="dossier-stat-val" id="dos-msgs">0</div>
@@ -307,11 +405,11 @@
                         </div>
                         <div class="dossier-stat-card">
                             <div class="dossier-stat-val" id="dos-streams">0</div>
-                            <div class="dossier-stat-lbl">Streams</div>
+                            <div class="dossier-stat-lbl">Chat Days</div>
                         </div>
                         <div class="dossier-stat-card">
                             <div class="dossier-stat-val" id="dos-tenure">—</div>
-                            <div class="dossier-stat-lbl">Sub Tenure</div>
+                            <div class="dossier-stat-lbl">Observed Sub Months</div>
                         </div>
                         <div class="dossier-stat-card">
                             <div class="dossier-stat-val" id="dos-bits">0</div>
@@ -327,7 +425,32 @@
                         </div>
                     </div>
                 </div>
+                <div id="dos-follow-section" hidden>
+                    <div class="dossier-section-title">Twitch Following</div>
+                    <div class="dossier-insight" id="dos-follow-value"></div>
+                    <div class="dossier-insight-note">Based on the latest follower sync; refollows can change this date.</div>
+                </div>
+              </div>
 
+              <div class="dossier-panel" role="tabpanel" id="dos-panel-activity" aria-labelledby="dos-tab-activity" hidden>
+                <div id="dos-community-section">
+                    <div class="dossier-section-title">Community Insights</div>
+                    <div class="dossier-insights-grid" id="dos-community-grid"></div>
+                    <div class="dossier-insight-note" id="dos-community-note"></div>
+                </div>
+                <div id="dos-emotes-section" hidden>
+                    <div class="dossier-section-title">Most-used Emotes</div>
+                    <div class="dossier-emotes" id="dos-emotes"></div>
+                </div>
+                <div>
+                    <div class="dossier-section-title">Favorite Games &amp; Categories Watched</div>
+                    <div class="dossier-games-list" id="dos-games">
+                        <div style="font-size:0.8rem;color:var(--text-muted);">None recorded yet.</div>
+                    </div>
+                </div>
+              </div>
+
+              <div class="dossier-panel" role="tabpanel" id="dos-panel-notes" aria-labelledby="dos-tab-notes" hidden>
                 <div>
                     <div class="dossier-section-title">
                         <span>Streamer Notes &amp; Info (Private)</span>
@@ -342,13 +465,7 @@
                         <div class="dossier-tags-wrap" id="dos-tags-wrap"></div>
                     </div>
                 </div>
-
-                <div>
-                    <div class="dossier-section-title">Favorite Games &amp; Categories Watched</div>
-                    <div class="dossier-games-list" id="dos-games">
-                        <div style="font-size:0.8rem;color:var(--text-muted);">None recorded yet.</div>
-                    </div>
-                </div>
+              </div>
             </div>
             <div class="dossier-footer">
                 <div class="dossier-actions">
@@ -361,7 +478,42 @@
         `;
         document.body.appendChild(dialog);
 
+        const tabs = [...dialog.querySelectorAll('[data-dossier-tab]')];
+        const selectTab = (name, focus = false) => {
+            if (!tabs.some(tab => tab.dataset.dossierTab === name)) name = 'overview';
+            for (const tab of tabs) {
+                const selected = tab.dataset.dossierTab === name;
+                tab.setAttribute('aria-selected', String(selected));
+                tab.tabIndex = selected ? 0 : -1;
+                document.getElementById(tab.getAttribute('aria-controls')).hidden = !selected;
+                if (selected && focus) tab.focus();
+            }
+            dialog.querySelector('.dossier-body').scrollTop = 0;
+            try { localStorage.setItem('chatterDossierTab', name); } catch {}
+        };
+        let savedTab = 'overview';
+        try { savedTab = localStorage.getItem('chatterDossierTab') || savedTab; } catch {}
+        selectTab(savedTab);
+        for (const tab of tabs) {
+            tab.addEventListener('click', () => selectTab(tab.dataset.dossierTab));
+            tab.addEventListener('keydown', event => {
+                const index = tabs.indexOf(tab);
+                let next;
+                if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+                else if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length;
+                else if (event.key === 'Home') next = 0;
+                else if (event.key === 'End') next = tabs.length - 1;
+                else return;
+                event.preventDefault();
+                selectTab(tabs[next].dataset.dossierTab, true);
+            });
+        }
         dialog.addEventListener('close', () => {
+            if (saveNoteTimer) {
+                clearTimeout(saveNoteTimer);
+                saveNoteTimer = null;
+                void saveCurrentNotes();
+            }
             window.dispatchEvent(new CustomEvent('chatter-dossier-closed', { detail: { chatter: currentChatter } }));
         });
         document.getElementById('dos-close').addEventListener('click', () => dialog.close());
@@ -395,18 +547,25 @@
 
     async function saveCurrentNotes() {
         if (!currentChatter) return;
+        clearTimeout(saveNoteTimer);
+        saveNoteTimer = null;
+        const chatter = currentChatter;
         const notes = document.getElementById('dos-notes').value;
         const pronouns = document.getElementById('dos-pronouns').value.trim();
+        const tags = [...chatter.tags];
         try {
-            await fetch(`/api/chatters/${encodeURIComponent(currentChatter.username)}/notes`, {
+            const response = await fetch(`/api/chatters/${encodeURIComponent(chatter.username)}/notes`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ notes, pronouns, tags: currentChatter.tags })
+                body: JSON.stringify({ notes, pronouns, tags })
             });
-            const hint = document.getElementById('dos-saved-hint');
-            hint.classList.add('show');
-            setTimeout(() => hint.classList.remove('show'), 1500);
-            window.dispatchEvent(new CustomEvent('chatter-updated', { detail: { username: currentChatter.username, notes, pronouns, tags: currentChatter.tags } }));
+            if (!response.ok) throw new Error('Unable to save notes');
+            if (currentChatter === chatter) {
+                const hint = document.getElementById('dos-saved-hint');
+                hint.classList.add('show');
+                setTimeout(() => hint.classList.remove('show'), 1500);
+            }
+            window.dispatchEvent(new CustomEvent('chatter-updated', { detail: { username: chatter.username, notes, pronouns, tags } }));
         } catch (e) {
             console.warn('[Chatter Dossier] Failed to save notes:', e);
         }
@@ -415,28 +574,36 @@
     function renderTags() {
         const wrap = document.getElementById('dos-tags-wrap');
         const tags = currentChatter?.tags || [];
-        wrap.innerHTML = tags.map((t, idx) => `
-            <span class="dossier-tag">
-                ${t}
-                <span class="dossier-tag-del" data-idx="${idx}" title="Remove tag">×</span>
-            </span>
-        `).join('') + '<button type="button" class="dossier-add-tag-btn" id="dos-add-tag">+ Add Tag</button>';
-
-        wrap.querySelectorAll('.dossier-tag-del').forEach(btn => {
+        wrap.replaceChildren();
+        tags.forEach((tag, idx) => {
+            const chip = document.createElement('span');
+            chip.className = 'dossier-tag';
+            chip.append(document.createTextNode(tag));
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'dossier-tag-del';
+            btn.style.cssText = 'background:none;border:0;padding:0;font:inherit;';
+            btn.setAttribute('aria-label', `Remove ${tag} tag`);
+            btn.textContent = '×';
             btn.addEventListener('click', () => {
-                const idx = parseInt(btn.dataset.idx, 10);
                 currentChatter.tags.splice(idx, 1);
                 renderTags();
-                saveCurrentNotes();
+                void saveCurrentNotes();
             });
+            chip.appendChild(btn);
+            wrap.appendChild(chip);
         });
-
-        document.getElementById('dos-add-tag').addEventListener('click', async () => {
+        const add = document.createElement('button');
+        add.type = 'button';
+        add.className = 'dossier-add-tag-btn';
+        add.textContent = '+ Add Tag';
+        wrap.appendChild(add);
+        add.addEventListener('click', () => {
             const tag = prompt('Enter a custom tag for this member (e.g. Artist, Collab, Friend, Speedrunner):');
             if (tag && tag.trim()) {
                 currentChatter.tags.push(tag.trim().slice(0, 30));
                 renderTags();
-                saveCurrentNotes();
+                void saveCurrentNotes();
             }
         });
     }
@@ -444,17 +611,28 @@
     async function openChatterDossier(username) {
         if (!username) return;
         createModal();
-        dialog.showModal();
+        if (saveNoteTimer) {
+            clearTimeout(saveNoteTimer);
+            saveNoteTimer = null;
+            void saveCurrentNotes();
+        }
+        const sequence = ++loadSequence;
+        currentChatter = null;
+        if (!dialog.open) dialog.showModal();
+        dialog.querySelector('.dossier-body').hidden = true;
 
         document.getElementById('dos-username').textContent = username;
         document.getElementById('dos-sub-info').textContent = 'Loading community history…';
         document.getElementById('dos-badges').innerHTML = '';
+        document.getElementById('dos-header-pronouns').textContent = '';
         document.getElementById('dos-avatar').src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" fill="%238b949e" viewBox="0 0 16 16"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/></svg>';
 
         try {
             const res = await fetch(`/api/chatters/${encodeURIComponent(username)}`);
             if (!res.ok) throw new Error('Chatter history not found');
             const data = await res.json();
+            if (sequence !== loadSequence || !dialog.open) return;
+            data.tags = Array.isArray(data.tags) ? data.tags : [];
             currentChatter = data;
 
             if (data.chatimg) {
@@ -471,33 +649,114 @@
                 badgesHtml += `<span class="dossier-badge vip">VIP</span>`;
             }
             if (data.isSubscriber) {
-                badgesHtml += `<span class="dossier-badge sub">${data.subMonths ? `${data.subMonths}m Sub` : 'Sub'}</span>`;
+                badgesHtml += `<span class="dossier-badge sub">${data.subMonths ? `${data.subMonths}m observed` : 'Sub observed'}</span>`;
             }
             document.getElementById('dos-badges').innerHTML = badgesHtml;
 
-            const firstSeenStr = data.firstSeen ? new Date(data.firstSeen).toLocaleDateString() : 'Unknown';
-            const lastSeenStr = data.lastSeen ? new Date(data.lastSeen).toLocaleDateString() : 'Unknown';
-            document.getElementById('dos-sub-info').textContent = `First seen ${firstSeenStr} · Last active ${lastSeenStr}`;
+            const date = value => value && Number.isFinite(new Date(value).getTime()) ? new Date(value).toLocaleDateString() : 'Unknown';
+            const firstSeenStr = date(data.firstSeen);
+            const lastSeenStr = date(data.lastSeen);
+            document.getElementById('dos-sub-info').textContent = `First observed ${firstSeenStr} · Last observed ${lastSeenStr}`;
 
             document.getElementById('dos-msgs').textContent = Number(data.totalMessages || 0).toLocaleString();
             document.getElementById('dos-streams').textContent = Number(data.sessionsAttended || 0).toLocaleString();
-            document.getElementById('dos-tenure').textContent = data.subMonths ? `${data.subMonths} mo` : (data.isSubscriber ? 'Active' : '—');
+            document.getElementById('dos-tenure').textContent = data.subMonths ? `${data.subMonths} mo` : '—';
             document.getElementById('dos-bits').textContent = Number(data.bitsTotal || 0).toLocaleString();
             document.getElementById('dos-gifts').textContent = Number(data.giftSubsTotal || 0).toLocaleString();
             document.getElementById('dos-raids').textContent = Number(data.raidsCount || 0).toLocaleString();
+
+            const grid = document.getElementById('dos-community-grid');
+            const note = document.getElementById('dos-community-note');
+            const followSection = document.getElementById('dos-follow-section');
+            const emoteSection = document.getElementById('dos-emotes-section');
+            grid.replaceChildren();
+            followSection.hidden = true;
+            emoteSection.hidden = true;
+            if (data.community) {
+                const addInsight = (label, value) => {
+                    const card = document.createElement('div');
+                    card.className = 'dossier-insight';
+                    const heading = document.createElement('div');
+                    heading.className = 'dossier-insight-label';
+                    heading.textContent = label;
+                    const content = document.createElement('div');
+                    content.textContent = value;
+                    card.append(heading, content);
+                    grid.appendChild(card);
+                };
+                const follow = data.community.follow;
+                followSection.hidden = String(data.type || 'twitch').toLowerCase() !== 'twitch';
+                document.getElementById('dos-follow-value').textContent = follow
+                    ? `Following since ${date(follow.followedAt)} · ${follow.syncedAt ? `synced ${date(follow.syncedAt)}` : 'sync date unknown'}`
+                    : 'Following date unavailable from the last Twitch follower sync.';
+                const insights = data.community.insights;
+                if (insights) {
+                    const favorites = list => list.length ? list.map(item => `${item.name} (${item.count})`).join(', ') : 'None observed';
+                    addInsight('Recorded streams chatted in', `≈ ${insights.streams}`);
+                    addInsight('Consecutive recorded streams', `≈ ${insights.streak}`);
+                    addInsight('First observed hashtag uses', String(insights.hashtagsStarted));
+                    addInsight('Favorite hashtags', favorites(insights.hashtags));
+                    emoteSection.hidden = false;
+                    const emotes = document.getElementById('dos-emotes');
+                    emotes.replaceChildren();
+                    for (const item of insights.emotes || []) {
+                        const chip = document.createElement('div');
+                        chip.className = 'dossier-emote';
+                        try {
+                            const url = new URL(item.imageUrl);
+                            if (url.protocol === 'https:' && !url.username && !url.password) {
+                                const image = document.createElement('img');
+                                image.alt = '';
+                                image.loading = 'lazy';
+                                image.decoding = 'async';
+                                image.referrerPolicy = 'no-referrer';
+                                image.addEventListener('error', () => image.remove(), { once: true });
+                                image.src = url.href;
+                                chip.appendChild(image);
+                            }
+                        } catch {}
+                        const name = document.createElement('span');
+                        name.textContent = item.name;
+                        const count = document.createElement('span');
+                        count.className = 'dossier-emote-count';
+                        count.textContent = `× ${Number(item.count || 0).toLocaleString()}`;
+                        chip.append(name, count);
+                        emotes.appendChild(chip);
+                    }
+                    if (!emotes.childElementCount) emotes.textContent = 'None observed.';
+                    if (insights.lastReturn) {
+                        addInsight('Last return', `${date(insights.lastReturn.at)} after ${insights.lastReturn.absenceDays} days`);
+                    }
+                    note.textContent = 'Based on retained and newly observed activity; logs and emote markup may be incomplete. Attendance and streaks are approximate. Names may be shared across platforms.';
+                } else {
+                    const status = data.community.status;
+                    note.textContent = status.phase === 'error'
+                        ? `Historical indexing failed: ${status.error}. It will retry automatically.`
+                        : `Indexing retained chat history (${status.progress?.completed || 0}/${status.progress?.total || 0} files). Reopen this dossier to refresh.`;
+                }
+            } else {
+                note.textContent = 'Enable Community insights in Config Editor to see hashtags, emotes and recorded stream activity.';
+            }
 
             document.getElementById('dos-notes').value = data.notes || '';
             document.getElementById('dos-pronouns').value = data.pronouns || '';
             renderTags();
 
             const gamesContainer = document.getElementById('dos-games');
+            gamesContainer.replaceChildren();
             if (data.favoriteGames && data.favoriteGames.length) {
-                gamesContainer.innerHTML = data.favoriteGames.map(g => `
-                    <div class="dossier-game-row">
-                        <span class="dossier-game-name">${g.category}</span>
-                        <span class="dossier-game-meta">${g.sessions} stream${g.sessions === 1 ? '' : 's'} · ${g.messages} msgs</span>
-                    </div>
-                `).join('');
+                for (const game of data.favoriteGames) {
+                    const row = document.createElement('div');
+                    row.className = 'dossier-game-row';
+                    const name = document.createElement('span');
+                    name.className = 'dossier-game-name';
+                    name.textContent = game.category;
+                    const meta = document.createElement('span');
+                    meta.className = 'dossier-game-meta';
+                    meta.textContent = `${game.sessions} stream${game.sessions === 1 ? '' : 's'} · ${game.messages} msgs`;
+                    row.append(name, meta);
+                    gamesContainer.appendChild(row);
+                }
             } else {
                 gamesContainer.innerHTML = '<div style="font-size:0.8rem;color:var(--text-muted);padding:4px 0;">No category history recorded yet.</div>';
             }
@@ -517,8 +776,9 @@
                     }
                 };
             }
+            dialog.querySelector('.dossier-body').hidden = false;
         } catch (e) {
-            document.getElementById('dos-sub-info').textContent = 'New chatter or no historical data found.';
+            if (sequence === loadSequence && dialog.open) document.getElementById('dos-sub-info').textContent = 'New chatter or no historical data found.';
         }
     }
 

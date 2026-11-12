@@ -168,6 +168,13 @@
                     </div>
 
                     <div class="cfg-toggle">
+                        <input type="checkbox" id="cfg-community-insights">
+                        <label for="cfg-community-insights">Enable Community insights</label>
+                    </div>
+                    <div class="hint">Indexes retained chat logs once when enabled and tracks new activity locally. History may be incomplete. Community chat messages are configured separately in Chat Bot.</div>
+                    <div class="hint"><span id="cfg-community-status"></span> <button type="button" class="btn btn-ghost btn-sm" onclick="showCommunityStatus()">Refresh status</button></div>
+
+                    <div class="cfg-toggle">
                         <input type="checkbox" id="cfg-auto-backup">
                         <label for="cfg-auto-backup">Automatically create a backup archive when each stream session ends</label>
                     </div>
@@ -923,6 +930,16 @@
         applyModuleFilter();
     }
 
+    async function showCommunityStatus() {
+        const output = document.getElementById('cfg-community-status');
+        try {
+            const status = await (await fetch('/api/community/insights/status')).json();
+            output.textContent = status.phase === 'scanning' ? `Indexing: ${status.progress.completed}/${status.progress.total} files`
+                : status.phase === 'error' ? `Indexing failed: ${status.error}; retrying automatically.`
+                    : status.phase === 'ready' ? 'Community insights ready.' : 'Community insights off.';
+        } catch { output.textContent = 'Community insight status unavailable.'; }
+    }
+
     async function loadConfig() {
         try {
             const res = await fetch('/api/config');
@@ -935,6 +952,7 @@
             document.getElementById('cfg-active-subs').checked = Boolean(cfg.active_subs_only);
             document.getElementById('cfg-hashtags-enabled').checked = cfg.hashtags_enabled !== false;
             document.getElementById('cfg-chatlog-enabled').checked = cfg.chat_log_enabled !== false;
+            document.getElementById('cfg-community-insights').checked = cfg.community_insights_enabled === true;
             document.getElementById('cfg-auto-backup').checked = Boolean(cfg.auto_backup_on_session_end);
             document.getElementById('cfg-exclude').value = (cfg.exclude_users || []).join(', ');
             document.getElementById('cfg-banned').value = (cfg.banned_users || []).join(', ');
@@ -942,6 +960,7 @@
             document.getElementById('cfg-message-deletion-sync').checked = cfg.message_deletion_sync?.enabled !== false;
             showBanStatus();
             showDeletionStatus();
+            showCommunityStatus();
 
             // Stream & Lifecycle
             const sl = cfg.session_lifecycle || {};
@@ -1024,6 +1043,7 @@
             active_subs_only: document.getElementById('cfg-active-subs').checked,
             hashtags_enabled: document.getElementById('cfg-hashtags-enabled').checked,
             chat_log_enabled: document.getElementById('cfg-chatlog-enabled').checked,
+            community_insights_enabled: document.getElementById('cfg-community-insights').checked,
             auto_backup_on_session_end: document.getElementById('cfg-auto-backup').checked,
             exclude_users: document.getElementById('cfg-exclude').value.split(',').map(s => s.trim()).filter(Boolean),
             banned_users: document.getElementById('cfg-banned').value.split(',').map(s => s.trim()).filter(Boolean),
@@ -1114,6 +1134,7 @@
                 setTimeout(showWeatherStatus, 2500);
                 setTimeout(showObsStatus, 1500);
                 setTimeout(showBanStatus, 1500);
+                setTimeout(showCommunityStatus, 250);
             } else {
                 showToast(data.error || 'Save failed');
             }

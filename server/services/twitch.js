@@ -731,7 +731,7 @@ function createTwitchService(options = {}) {
             log('[Twitch] Fetching followers...');
             try {
                 const followers = await fetchAllPages('/channels/followers', { broadcaster_id: broadcasterId }, 'data', true);
-                fs.writeFileSync(path.join(dataDir, 'followers.json'), JSON.stringify({ data: followers }, null, 2));
+                fs.writeFileSync(path.join(dataDir, 'followers.json'), JSON.stringify({ data: followers, syncedAt: new Date().toISOString() }, null, 2));
                 log(`[Twitch] Saved ${followers.length} followers`);
                 recordFollowerSnapshot(followers);
                 result.followers = followers.length;

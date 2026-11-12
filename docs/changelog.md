@@ -12,6 +12,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ### Added
 - **Analytics**: Period comparisons, activity heatmaps, milestone estimates, and remembered views and date ranges.
+- **Community insights**: Optional viewer history, Twitch follow dates, and configurable welcome-back and personal milestone chat messages.
 
 ### Fixed
 - **Sessions**: Record native Twitch subscriptions and keep title/category history live-only.

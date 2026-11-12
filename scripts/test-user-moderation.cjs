@@ -155,6 +155,14 @@ test('delete-before-message delivery is bounded and persistence failures never c
     assert.match(broken.status().error, /disk full/);
 });
 
+test('banned Twitch IDs filter historical records after a username change without affecting other platforms', async t => {
+    const f = fixture(t, async () => ok([permanent]));
+    await f.service.sync();
+    const renamed = { user: 'OldName', moderation: { platform: 'twitch', userId: '42' } };
+    const otherPlatform = { user: 'OldName', moderation: { platform: 'youtube', userId: '42' } };
+    assert.deepEqual(f.service.filterRecords([renamed, otherPlatform]), [otherPlatform]);
+});
+
 test('ban sync paginates, excludes timeouts, retains last good list on failure, and isolates channels', async t => {
     let failing = false;
     const requests = [];

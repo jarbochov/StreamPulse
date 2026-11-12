@@ -251,7 +251,8 @@ function createMessageDeletionService({
 
     return {
         identity, isDeleted, filterRecords, handleSsn, handleTwitch, observeTwitch, observeRecord, reload,
-        status: () => ({ enabled: enabled(), events: rules.length, lastEventAt, error })
+        status: () => ({ enabled: enabled(), events: rules.length, lastEventAt, error }),
+        fingerprint: () => createHash('sha256').update(JSON.stringify(rules)).digest('hex')
     };
 }
 

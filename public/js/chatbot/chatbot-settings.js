@@ -111,6 +111,25 @@ export function renderSettings() {
     if ($('s-don-total')) $('s-don-total').value = da.totalVar ?? '';
     if ($('s-don-goal')) $('s-don-goal').value = da.goalVar ?? '';
 
+    const community = s.community || {};
+    for (const [id, key] of Object.entries({
+        's-community-welcome': 'welcomeEnabled', 's-community-messages': 'messagesEnabled',
+        's-community-streams': 'streamsEnabled', 's-community-chat-anniversary': 'chatAnniversaryEnabled',
+        's-community-follow-anniversary': 'followAnniversaryEnabled', 's-community-subscription': 'subscriptionEnabled'
+    })) if ($(id)) $(id).checked = community[key] === true;
+    for (const [id, key] of Object.entries({
+        's-community-spacing': 'spacingSeconds', 's-community-expiry': 'expiryMinutes', 's-community-grace': 'anniversaryGraceDays',
+        's-community-welcome-days': 'welcomeDays', 's-community-welcome-template': 'welcomeTemplate',
+        's-community-messages-every': 'messagesEvery', 's-community-messages-template': 'messagesTemplate',
+        's-community-streams-every': 'streamsEvery', 's-community-streams-template': 'streamsTemplate',
+        's-community-chat-years': 'chatAnniversaryYears', 's-community-chat-template': 'chatAnniversaryTemplate',
+        's-community-follow-years': 'followAnniversaryYears', 's-community-follow-template': 'followAnniversaryTemplate',
+        's-community-sub-repeat': 'subscriptionRepeatMonths', 's-community-sub-template': 'subscriptionTemplate'
+    })) if ($(id)) $(id).value = community[key] ?? '';
+    if ($('s-community-sub-months')) $('s-community-sub-months').value = (community.subscriptionMonths || []).join(', ');
+    syncCommunityFields();
+    showCommunityStatus();
+
     syncDonationFields();
     renderTwitchMods();
 
@@ -121,6 +140,30 @@ export function renderSettings() {
             return `<div class="row" data-b="${n}"><code style="min-width:7rem">${s.prefix || '!'}${n}</code><label class="check">Who can use <select data-bk="access"><option value="everyone" ${b.access === 'everyone' ? 'selected' : ''}>Everyone</option><option value="subs" ${b.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${b.access === 'mods' ? 'selected' : ''}>Mods only</option><option value="disabled" ${b.access === 'disabled' ? 'selected' : ''}>Disabled</option></select></label><label class="check">Cooldown (s)<input data-bk="cooldown" type="number" min="0" value="${b.cooldown ?? ''}" placeholder="default" style="width:6rem"></label></div>`;
         }).join('');
     }
+}
+
+function syncCommunityFields() {
+    document.querySelectorAll('[data-community-toggle]').forEach(toggle => {
+        const fields = document.querySelector(`[data-community-fields="${toggle.dataset.communityToggle}"]`);
+        if (fields) fields.hidden = !toggle.checked;
+    });
+}
+
+async function showCommunityStatus() {
+    const output = $('s-community-status');
+    if (!output) return;
+    try {
+        const status = await api('/api/community/insights/status');
+        const label = status.phase === 'ready' ? 'Community insights ready.'
+            : status.phase === 'scanning' ? 'Community insights are indexing history; messages are paused.'
+                : status.phase === 'error' ? 'Community indexing failed; messages are paused until it recovers.'
+                    : 'Community insights are off; messages will not send.';
+        output.replaceChildren(document.createTextNode(`${label} Enable in `));
+        const link = document.createElement('a');
+        link.href = '/config-editor.html';
+        link.textContent = 'Config Editor';
+        output.append(link, document.createTextNode('. The bot must also be on and the stream live.'));
+    } catch { output.textContent = 'Community insight status unavailable; messages require Community insights and a live stream.'; }
 }
 
 export function renderDonationSources(current) {
@@ -207,6 +250,7 @@ export function initSettingsSections() {
 
 export function setupSettingsEvents(applyState) {
     $('s-don-enabled')?.addEventListener('change', syncDonationFields);
+    document.querySelectorAll('[data-community-toggle]').forEach(toggle => toggle.addEventListener('change', syncCommunityFields));
 
     $('save-settings')?.addEventListener('click', async () => {
         try {
@@ -252,6 +296,30 @@ export function setupSettingsEvents(applyState) {
                         template: $('s-don-template').value,
                         totalVar: $('s-don-total').value,
                         goalVar: $('s-don-goal').value
+                    },
+                    community: {
+                        welcomeEnabled: $('s-community-welcome').checked,
+                        welcomeDays: $('s-community-welcome-days').value,
+                        welcomeTemplate: $('s-community-welcome-template').value,
+                        messagesEnabled: $('s-community-messages').checked,
+                        messagesEvery: $('s-community-messages-every').value,
+                        messagesTemplate: $('s-community-messages-template').value,
+                        streamsEnabled: $('s-community-streams').checked,
+                        streamsEvery: $('s-community-streams-every').value,
+                        streamsTemplate: $('s-community-streams-template').value,
+                        chatAnniversaryEnabled: $('s-community-chat-anniversary').checked,
+                        chatAnniversaryYears: $('s-community-chat-years').value,
+                        chatAnniversaryTemplate: $('s-community-chat-template').value,
+                        followAnniversaryEnabled: $('s-community-follow-anniversary').checked,
+                        followAnniversaryYears: $('s-community-follow-years').value,
+                        followAnniversaryTemplate: $('s-community-follow-template').value,
+                        subscriptionEnabled: $('s-community-subscription').checked,
+                        subscriptionMonths: $('s-community-sub-months').value,
+                        subscriptionRepeatMonths: $('s-community-sub-repeat').value,
+                        subscriptionTemplate: $('s-community-sub-template').value,
+                        anniversaryGraceDays: $('s-community-grace').value,
+                        spacingSeconds: $('s-community-spacing').value,
+                        expiryMinutes: $('s-community-expiry').value
                     },
                     builtins: Object.fromEntries([...document.querySelectorAll('#builtins [data-b]')].map(r => [r.dataset.b, { access: r.querySelector('[data-bk=access]').value, cooldown: r.querySelector('[data-bk=cooldown]').value }]))
                 }

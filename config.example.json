@@ -21,6 +21,7 @@
   "subathon_enabled": false,
   "hashtags_enabled": true,
   "chat_log_enabled": true,
+  "community_insights_enabled": false,
   "exclude_users": [],
   "banned_users": [],
   "twitch_ban_sync": { "enabled": false },

@@ -352,6 +352,9 @@ function createSsnService({
     getPendingChatLog = () => [],
     setPendingChatLog = () => {},
     getBannedHashtags = () => new Set(),
+    isBannedUser = () => false,
+    onCommunityChat = () => {},
+    onCommunitySubscription = () => {},
     normalizeViewerStats = (v) => v,
     broadcastToOverlays = () => {},
     buildGoalsSnapshot = () => ({}),
@@ -589,7 +592,15 @@ function createSsnService({
         if (!statsData.subTenure) statsData.subTenure = {};
         const key = chatname.toLowerCase();
         const existing = statsData.subTenure[key];
-        if (!existing || months >= existing.months) statsData.subTenure[key] = { months, seenAt: nowISO };
+        if (!existing || months >= existing.months) {
+            statsData.subTenure[key] = { months, seenAt: nowISO };
+            const text = String(msg.chatmessage || '').replace(/<[^>]+>/g, '').trim();
+            if (months > (existing?.months || 0) && !getBannedUsers().includes(key) && !getExcludeUsers().includes(key)
+                && !isBannedUser(key, String(msg.type || '').toLowerCase() === 'twitch' ? msg.userid || msg.userId : '')
+                && !resolveChatbot()?.isBotMessage?.(text)) {
+                onCommunitySubscription({ user: chatname, type: msg.type, previousMonths: existing?.months || 0, months, at: Date.parse(nowISO) });
+            }
+        }
     }
 
     function recentChatSummary() {
@@ -845,6 +856,7 @@ function createSsnService({
         // Banned users are completely excluded from everything
         if (bannedUsers.includes(chatname.toLowerCase())) return;
 
+        let communityRecord = null;
         // Append to chat log BEFORE stats exclusion (captures all non-banned users)
         if (config.chat_log_enabled !== false) {
             const contentImage = contentImageHtml(msg.contentimg);
@@ -868,6 +880,7 @@ function createSsnService({
                 membership: msg.membership || null,
                 urls: urls.length > 0 ? urls : undefined
             };
+            communityRecord = chatEntry;
             messageDeletions?.observeRecord(chatEntry);
             const chatLog = getChatLog();
             chatLog.push(chatEntry);
@@ -1002,7 +1015,23 @@ function createSsnService({
             setRecentChatTimestamps([]);
         }
 
+        const previousChatter = getStatsData().chatters?.[chatname];
+        const previousLastSeen = previousChatter?.lastSeen || null;
         updateStats(chatname, msg);
+        if (!msg.event && !msg.hasDonation && config.community_insights_enabled === true) {
+            const chatter = getStatsData().chatters?.[chatname];
+            const messageHtml = String(msg.chatmessage || '');
+            const record = communityRecord || {
+                ts: Date.now(), user: chatname, type: msg.type || null, messageHtml,
+                message: messageHtml.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '').trim(),
+                moderation: messageDeletions?.identity(msg)
+            };
+            onCommunityChat(record, {
+                previousLastSeen, firstSeen: chatter?.firstSeen || null, type: msg.type,
+                logged: config.chat_log_enabled !== false,
+                totalMessages: Object.values(chatter?.days || {}).reduce((sum, n) => sum + (Number(n) || 0), 0)
+            });
+        }
 
         // Track chatters (only regular messages, not events)
         if (!msg.event) {

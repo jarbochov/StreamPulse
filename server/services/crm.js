@@ -8,6 +8,9 @@ function createCrmService({
     getStatsData = () => ({}),
     getChatData = () => ({}),
     getBroadcasterName = () => 'jarbochov',
+    getCommunityStatus = () => ({ enabled: false, phase: 'off' }),
+    getCommunityPerson = () => null,
+    getCommunityFollow = () => null,
     readJsonFileSafe = (filePath, fallback) => fallback,
     getArchivedSessions = null,
     isBanned = () => false
@@ -118,6 +121,15 @@ function createCrmService({
         const isVip = Boolean(noteEntry.isVip || isTwitchVip);
         const isMod = Boolean(isTwitchMod || (noteEntry.tags || []).some(t => t.toLowerCase() === 'mod'));
         const broadcaster = (typeof getBroadcasterName === 'function' ? getBroadcasterName() : getBroadcasterName) || 'jarbochov';
+        const communityStatus = getCommunityStatus();
+        const person = communityStatus.enabled ? getCommunityPerson(displayName) : null;
+        const insights = person ? {
+            ...person,
+            emotes: (person.emotes || []).map(emote => ({
+                ...emote,
+                imageUrl: emote.imageUrl || statsData.emotes?.[emote.name]?.imageUrl || chatData.emotes?.[emote.name]?.imageUrl || ''
+            }))
+        } : null;
 
         return {
             username: displayName,
@@ -128,6 +140,11 @@ function createCrmService({
             lastSeen: chatter?.lastSeen || null,
             totalMessages,
             sessionsAttended,
+            community: communityStatus.enabled ? {
+                status: communityStatus,
+                insights,
+                follow: String(chatter?.type || 'twitch').toLowerCase() === 'twitch' ? getCommunityFollow(displayName) : null
+            } : null,
             isSubscriber,
             subMonths,
             bitsTotal,
@@ -302,6 +319,7 @@ function createCrmService({
         getChattersList,
         getChatterDossier,
         updateChatterNotes,
+        getCommunityStatus,
         saveChatterNotes,
         getChatterNotes: () => chatterNotes,
         reload: loadChatterNotes

@@ -572,7 +572,11 @@ Control also accepts direct REST triggers like `POST`/`GET /api/timers/:id/toggl
 
 ### Query Viewer Dossier
 - **Endpoint**: `GET /api/chatters/:username`
-- **Description**: Retrieves lifetime metrics for a viewer: stream attendance, message counts, bits cheered, gift subs given, raids led, and private notes.
+- **Description**: Retrieves observed metrics, chat days (`sessionsAttended`, retained for compatibility), bits, gift subs, raids, and private notes. If Community insights are enabled, `community` contains the index status, optional `follow` snapshot, and `insights` (approximate streams and streak, observed hashtags and emotes, and last return). Emotes include `name`, `count`, and an optional `imageUrl`. `insights` is null until indexing completes; a missing follow date is unknown, not proof the viewer does not follow.
+
+### Community Index Status
+- **Endpoint**: `GET /api/community/insights/status`
+- **Description**: Returns `enabled`, `phase` (`off`, `scanning`, `ready`, or `error`), `error`, and `progress` (`completed` and `total` files). Enable tracking through `PUT /api/config` with `{"community_insights_enabled": true}`; the default is false.
 
 ### Update Viewer Notes
 - **Endpoint**: `POST /api/chatters/:username/notes`

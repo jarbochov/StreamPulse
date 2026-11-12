@@ -1275,7 +1275,7 @@
                 {
                     method: 'GET', path: '/api/chatters',
                     desc: 'Search community chatters directory',
-                    details: 'Returns top chatters ranked by lifetime message volume with attendance counts, sub status, notes, and community tags. Filter with ?q=name and ?tag=tag_name.',
+                    details: 'Returns top chatters ranked by recorded message volume with chat-day counts, observed subscription history, notes, and community tags. Filter with ?q=name and ?tag=tag_name.',
                     params: [
                         { name: 'q', desc: 'Search query for username, notes, or tag', values: 'string', default: 'none' },
                         { name: 'tag', desc: 'Filter by specific tag (e.g. VIP, Sub, Regular, Artist)', values: 'string', default: 'none' }
@@ -1284,7 +1284,12 @@
                 {
                     method: 'GET', path: '/api/chatters/:username',
                     desc: 'Get full chatter dossier',
-                    details: 'Aggregates a community member\'s lifetime statistics, sub tenure, bits, gift subs, raids, favorite games/categories watched across sessions, and private community notes.'
+                    details: 'Returns recorded activity and private notes. When Community insights are enabled, community.status reports indexing, community.insights contains approximate attendance and observed hashtags/emotes (name, count, optional imageUrl), and community.follow contains a cached Twitch follow date if available. A missing follow date is unknown.'
+                },
+                {
+                    method: 'GET', path: '/api/community/insights/status',
+                    desc: 'Community insights indexing status',
+                    details: 'Returns enabled, phase (off, scanning, ready, error), error, and progress (completed and total files). Enable with community_insights_enabled in /api/config; disabled by default.'
                 },
                 {
                     method: 'POST', path: '/api/chatters/:username/notes',

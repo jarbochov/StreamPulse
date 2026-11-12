@@ -22,7 +22,7 @@
     "install:chrome": "puppeteer browsers install chrome",
     "smoke:editors": "node scripts/editor-smoke-test.mjs",
     "test:stability": "node --test --test-concurrency=1 scripts/test-release-workflows.cjs scripts/test-editor-save.cjs scripts/test-competitive-studio.cjs scripts/test-dashboard-resilience.cjs && node scripts/test-shape-border-placement.mjs",
-    "test:moderation": "node --test scripts/test-user-moderation.cjs scripts/test-analytics-insights.cjs"
+    "test:moderation": "node --test scripts/test-user-moderation.cjs scripts/test-analytics-insights.cjs scripts/test-community.cjs"
   },
   "repository": {
     "type": "git",

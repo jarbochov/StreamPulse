@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const https = require('https');
+const { createHash } = require('crypto');
 const { exec, execFile } = require('child_process');
 const { promisify } = require('util');
 const WebSocket = require('ws');
@@ -66,6 +67,8 @@ const { createSubathonService } = require('./server/services/subathon');
 const { createSubathonRoutes } = require('./server/routes/subathon');
 const { safeWriteFileSync, escapeHtml } = require('./server/routes/helpers');
 const { createCrmService } = require('./server/services/crm');
+const { createCommunityInsights } = require('./server/services/community-insights');
+const { createCommunityChat } = require('./server/services/community-chat');
 const { createUserModerationService } = require('./server/services/user-moderation');
 const { createMessageDeletionService } = require('./server/services/message-deletions');
 const { createCrmRoutes } = require('./server/routes/crm');
@@ -120,6 +123,22 @@ const VIEWER_TRACKING_CONFIG = config.viewer_tracking || { enabled: true, source
 
 const ACTIVE_SUBS_ONLY = config.active_subs_only || false; // only show subs who chatted
 const DATA_DIR = process.env.STREAMPULSE_DATA_DIR || path.join(__dirname, 'data');
+let communityService = null;
+let communityBot = null;
+let communityRestorePaused = false;
+let communityModerationFingerprint = '';
+function communityModerationChanged(deletionChanged = false) {
+    if (!communityService) return;
+    const fingerprint = JSON.stringify([userModeration.bannedNames().sort(),
+        userModeration.status().users.map(user => user.id).sort(), [...EXCLUDE_USERS].sort()]);
+    if (deletionChanged || fingerprint !== communityModerationFingerprint) {
+        communityModerationFingerprint = fingerprint;
+        if (communityService.status().phase !== 'off') {
+            communityService.invalidate();
+            communityBot?.configChanged();
+        }
+    }
+}
 const messageDeletions = createMessageDeletionService({
     dataDir: DATA_DIR,
     getConfig: () => config,
@@ -130,6 +149,7 @@ const messageDeletions = createMessageDeletionService({
     getCurrentMessages: () => ssnService.getCurrentChatLogEntries(),
     safeWriteFileSync,
     onChange: () => {
+        communityModerationChanged(true);
         statusService.invalidateHeavyCache();
         sessionService.invalidatePresentation();
         broadcastToOverlays('moderation-update', {});
@@ -146,6 +166,7 @@ const userModeration = createUserModerationService({
     safeWriteFileSync,
     isDeleted: record => messageDeletions.isDeleted(record),
     onChange: () => {
+        communityModerationChanged();
         statusService.invalidateHeavyCache();
         sessionService.invalidatePresentation();
         broadcastToOverlays('update', chatData);
@@ -215,7 +236,7 @@ const staticRouter = createStaticRouter({
 });
 
 const variablesStore = require('./server/services/variables')({ dataDir: DATA_DIR });
-const chatbot = require('./server/services/chatbot')({ dataDir: DATA_DIR, getConfig: () => config, port: Number(process.env.PORT) || Number(config.port) || 3000, variables: variablesStore, onUse: (kind, name) => takeoverPages('command', name), sessionKey: () => String(chatData.startedAt || '') });
+const chatbot = require('./server/services/chatbot')({ dataDir: DATA_DIR, getConfig: () => config, port: Number(process.env.PORT) || Number(config.port) || 3000, variables: variablesStore, onUse: (kind, name) => takeoverPages('command', name), onSettingsChange: () => communityBot?.configChanged(), sessionKey: () => String(chatData.startedAt || '') });
 const LIVE_CHAT_PATH = path.join(DATA_DIR, 'chat.json');
 const BANNED_HASHTAGS_PATH = path.join(DATA_DIR, '.banned-hashtags.json');
 const CHAT_LOG_PATH = path.join(DATA_DIR, 'chat-log.jsonl');
@@ -327,6 +348,9 @@ const ssnService = createSsnService({
     getPendingChatLog: () => pendingChatLogEntries,
     setPendingChatLog: (val) => { pendingChatLogEntries = val; },
     getBannedHashtags: () => bannedHashtags,
+    isBannedUser: (name, id) => userModeration.isBanned(name, id),
+    onCommunityChat: (record, activity) => communityService?.record(record, activity),
+    onCommunitySubscription: activity => communityService?.recordSubscription(activity),
     normalizeViewerStats: (v) => normalizeViewerStats(v),
     broadcastToOverlays: (type, data) => broadcastToOverlays(type, data),
     buildGoalsSnapshot: () => buildGoalsSnapshot(),
@@ -707,6 +731,8 @@ const viewerService = createViewerService({
     setChatDataViewerStats: (stats) => { if (chatData) chatData.viewerStats = stats; },
     onViewerUpdate: (summary) => {
         twitchService.syncStreamInfoLiveState();
+        if (summary.live) communityService?.recordStream();
+        if (!summary.live) communityBot?.configChanged();
         broadcastToOverlays('viewer-update', summary);
     },
     onGoalsUpdate: () => broadcastToOverlays('goals-update', buildGoalsSnapshot()),
@@ -991,6 +1017,7 @@ function getRestartRequiredConfigChanges(previousConfig, nextConfig) {
 }
 
 function applyRuntimeConfig(nextConfig) {
+    const previousCommunityEnabled = config.community_insights_enabled === true;
     const prevMusicEnabled = MUSIC_CONFIG.enabled;
     const prevSource = MUSIC_CONFIG.source;
     const prevViewerTracking = normalizeViewerTrackingConfig(config.viewer_tracking);
@@ -1014,6 +1041,8 @@ function applyRuntimeConfig(nextConfig) {
     }
     EXCLUDE_USERS = (config.exclude_users || []).map(u => u.toLowerCase());
     userModeration.configChanged();
+    communityService?.configChanged(previousCommunityEnabled);
+    communityBot?.configChanged();
 
     const nextMusicConfig = config.music || { enabled: false, source: 'apple_music', poll_seconds: 5 };
     for (const key of Object.keys(MUSIC_CONFIG)) delete MUSIC_CONFIG[key];
@@ -1044,7 +1073,11 @@ function applyRuntimeConfig(nextConfig) {
 }
 
 
-const getBackupFileSpecs = () => buildBackupFileSpecs({ dataDir: DATA_DIR, configPath: CONFIG_PATH });
+const getBackupFileSpecs = () => {
+    saveChatLog();
+    communityService?.flush();
+    return buildBackupFileSpecs({ dataDir: DATA_DIR, configPath: CONFIG_PATH });
+};
 
 let restartPromise = null;
 function restartServer() {
@@ -1187,12 +1220,54 @@ const handleTriviaRoutes = createTriviaRoutes({
 // ============================================================================
 
 
+communityService = createCommunityInsights({
+    dataDir: DATA_DIR,
+    sessionsDir: SESSIONS_DIR,
+    chatLogPath: CHAT_LOG_PATH,
+    getConfig: () => config,
+    getChatData: () => chatData,
+    getArchivedSessions: () => sessionService.getArchivedSessions(),
+    sessionFilename: startedAt => `chat-${localDateTimeStr(startedAt)}.json`,
+    flushChatLog: () => saveChatLog(),
+    filterRecords: records => userModeration.filterRecords(records),
+    isExcluded: name => EXCLUDE_USERS.includes(name),
+    isBotMessage: text => chatbot.isBotMessage(text),
+    getBannedHashtags: () => bannedHashtags,
+    isLive: () => sessionActive && chatData.viewerStats?.live === true,
+    allowSummaryFallback: () => messageDeletions.status().events === 0 && userModeration.status().users.length === 0,
+    getModerationFingerprint: () => createHash('sha256').update(JSON.stringify([
+        userModeration.bannedNames().sort(), userModeration.status().users.map(user => user.id).sort(),
+        [...EXCLUDE_USERS].sort(), messageDeletions.fingerprint()
+    ])).digest('hex'),
+    safeWriteFileSync,
+    onActivity: activity => {
+        try { communityBot?.handle(activity); } catch (err) { console.warn('[Community] Announcement failed:', err.message); }
+    }
+});
+communityBot = createCommunityChat({
+    getSettings: () => chatbot.getData().settings.community,
+    isReady: () => chatbot.isReady().ready,
+    isLive: () => sessionActive && chatData.viewerStats?.live === true,
+    isTrackingReady: () => communityService.status().phase === 'ready' && communityService.status().enabled,
+    getFollow: username => communityService.getFollow(username),
+    hasAnnounced: key => communityService.hasAnnounced(key),
+    markAnnounced: key => communityService.markAnnounced(key),
+    send: async text => {
+        const result = await chatbot.postMessage(text);
+        if (!result.ok) throw new Error(result.error || result.reason || 'Unable to send');
+    }
+});
+communityModerationChanged();
+
 const crmService = createCrmService({
     dataDir: DATA_DIR,
     sessionsDir: SESSIONS_DIR,
     getStatsData: () => userModeration.filterData(statsData),
     getChatData: () => userModeration.filterData(chatData),
     getBroadcasterName: () => BROADCASTER_NAME,
+    getCommunityStatus: () => communityService.status(),
+    getCommunityPerson: username => communityService.getPerson(username),
+    getCommunityFollow: username => communityService.getFollow(username),
     getArchivedSessions: () => {
         const snapshot = sessionService.getArchivedSessions();
         return { ...snapshot, sessions: snapshot.sessions.map(data => userModeration.filterData(data)) };
@@ -1505,6 +1580,8 @@ function handleRestoreReload({ previousConfig }) {
     try { crmService.reload(); } catch (err) { console.warn('[Restore] CRM reload failed:', err.message); }
     userModeration.reload();
     messageDeletions.reload();
+    communityService.start({ forceRebuild: true });
+    communityRestorePaused = false;
     broadcastToOverlays('moderation-update', {});
 
     broadcastToOverlays('update', chatData);
@@ -1534,6 +1611,17 @@ const handleBackupRoutes = createBackupRoutes({
     buildShareZip,
     openShareZip,
     importShareZip,
+    beforeRestore: () => {
+        communityRestorePaused = true;
+        communityBot.stop();
+        communityService.pause();
+    },
+    restoreFailed: () => {
+        if (communityRestorePaused) {
+            communityRestorePaused = false;
+            communityService.start({ forceRebuild: true });
+        }
+    },
     onRestore: handleRestoreReload,
     getConfig: () => config,
     getCustomOverlays: () => customOverlays,
@@ -1767,6 +1855,7 @@ function initializeServer() {
 
     startTimerTicker();
     chatbot.start();
+    communityService.start();
     overlayService.start();
     repeatBackground(() => goalsService.checkGoalAlerts(), 5000);
     repeatBackground(pruneRateLimits, 300000);
@@ -1907,6 +1996,8 @@ function stopServer({ preserveSession = false } = {}) {
         attempt(() => saveChatData());
         attempt(() => saveStats());
         attempt(() => saveChatLog());
+        attempt(() => communityBot?.stop());
+        attempt(() => communityService.stop());
         if (!preserveSession && !errors.length) {
             attempt(() => {
                 const archiveName = archiveSession();

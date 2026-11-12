@@ -1727,7 +1727,7 @@
                     <div class="card-body">
                         <div class="detail-text">
                             A dedicated Bitfocus Companion module with StreamPulse actions, feedbacks and variables, so you don't have to build every button by hand. Get it from <a href="https://github.com/jarbochov/companion-module-streampulse" style="color:var(--accent);" target="_blank" rel="noopener">jarbochov/companion-module-streampulse</a>. Speaker badge actions update profile text, avatar URL/library path, OBS input name, and individual detail visibility without changing the rest of the badge. Speaker variables and feedbacks report the current profile and visibility; OBS health variables and feedbacks report connection state and Scene Sync separately. Configure the global OBS connection in System Config; Companion does not need access to the local-only OBS administration endpoints.<br><br>
-                            Live updates use WebSocket events, with HTTP fallback and background reconciliation. Overlay, preset, and command discovery runs every 30 seconds; actions refresh discovery immediately. Single-page overlays are supported. Existing action IDs and saved buttons remain compatible. The Generic HTTP guide below still works if you prefer it.
+                            Live updates use WebSocket events, with HTTP fallback and background reconciliation. Overlay, preset, and command discovery runs every 30 seconds; actions refresh discovery immediately. Community indexing status is available as the <code>community_insights_status</code> variable and feedback, refreshed every 30 seconds without exposing individual dossiers. Single-page overlays are supported. Existing action IDs and saved buttons remain compatible. The Generic HTTP guide below still works if you prefer it.
                         </div>
                     </div>
                 </div>
@@ -1846,6 +1846,19 @@
             </div>
             <div class="card open">
                 <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Community Messages</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        Enable <strong>Community insights</strong> in Config Editor first, then open <strong>Chat Bot → Settings → Community Messages</strong>. Welcome-back greetings and each milestone type have separate switches, all off by default. Existing bot settings are unchanged. The bot, SocialStream connection, Community indexing, and live detection must be ready before anything is sent.<br><br>
+                        Welcome back defaults to a 30-day absence and requires a previous observed chat; adjust the number of days as needed. Message and recorded-stream intervals default to 100 and 10; chat and Twitch follow anniversaries default to yearly, with a 7-day window after the anniversary. Subscription milestones default to 3, 6, 12, 24 months and every 12 after that. All thresholds, the anniversary window and each template are editable. Set subscription repeat to 0 for only the listed months. Subscription announcements require an exact newly observed threshold; missed or older milestones are not replayed.<br><br>
+                        Messages queue separately with adjustable spacing (10 seconds by default) and expiry (5 minutes). The queue holds at most 100 messages and is cleared when the stream goes offline, the bot is paused or tracking is unavailable; stale messages are dropped rather than replayed. A send failure is not retried. Templates are public chat messages: use <code>{{user}}</code> and the tokens shown next to each template.
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
                     <strong style="font-size:0.9rem;">Commands &amp; Permissions</strong>
                     <span class="chevron">▶</span>
                 </div>
@@ -1885,10 +1898,25 @@
                     <div class="detail-text">
                         StreamPulse aggregates your community history across all streamed sessions. Click any username in <a href="/sessions.html" style="color:var(--accent);">Sessions</a>, <a href="/highlights.html" style="color:var(--accent);">Highlights</a>, or the <a href="/analytics.html#crm" style="color:var(--accent);">Community CRM</a> to open their full dossier:
                         <br><br>
-                        • <strong>Lifetime Activity:</strong> Total messages, stream attendance count, first seen and last seen dates.<br>
-                        • <strong>Twitch Support:</strong> Subscriber tenure, gifted subs given, bits cheered, and incoming raids led.<br>
+                        • <strong>Observed Activity:</strong> Total recorded messages, distinct chat days, and first and last observed dates.<br>
+                        • <strong>Twitch Support:</strong> Observed subscription months, gifted subs given, bits cheered, and incoming raids led. Observed months do not establish an original subscription date or prove a subscription is currently active.<br>
                         • <strong>Favorite Content:</strong> Top stream categories and games watched across your broadcasts.<br>
                         • <strong>Streamer Notes &amp; Tags:</strong> Save private notes (e.g. real name, birthdays, stream preferences) and custom tags (e.g. VIP, Artist, Regular) saved locally in <code>data/chatter-notes.json</code>.
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Optional Community Insights</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        In <a href="/config-editor.html" style="color:var(--accent);">Config Editor</a>, enable <strong>Community insights</strong> under Data Retention &amp; Session Logging and save. It is off by default. StreamPulse scans retained chat logs in the background once, then tracks new activity; the status line shows progress and retries errors. Restore, interrupted scans and moderation changes can trigger a rebuild. Turning it off stops this tracking and hides insights, but retains the existing local data; other existing stats continue as configured.<br><br>
+                        Dossiers show favorite hashtags, counts of hashtags for which a person was the first <em>observed</em> user, emotes recoverable from chat image markup, approximate recorded streams and consecutive-stream streaks, and the most recent return after an observed gap of at least one day. Retained logs, emote markup, stream windows, and older session chatter lists can be incomplete. Attendance may use older session summaries when logs are unavailable, so counts and streaks are approximate. Accounts with the same displayed name across platforms may be combined. Deleted messages and banned or excluded users are filtered from these insights; older summaries are not used as a fallback when a deletion ledger or synced Twitch bans exist.<br><br>
+                        Following Since uses the most recently cached Twitch follower snapshot. A missing date means unavailable, not necessarily not following; a refollow can change the date. Older snapshots may not have a known sync date. Twitch does not expose an original subscription date, and observed subscription months are not an active-subscription guarantee.<br><br>
+                        Dossiers have Overview, Activity and private Notes tabs; the selected tab is remembered in this browser. The Activity tab renders available HTTPS emote images alongside names and counts; unavailable images fall back to their names. Your browser contacts the image host without sending the page referrer. Emotes sharing a name may use the same image, and older records without an image URL may show text only.<br><br>
+                        Derived data and announcement receipts are stored locally in <code>data/community-insights.json</code>. A journal stores stream markers and, when raw chat logging is off, timestamps, usernames, moderation identities, hashtags, emote names and available HTTPS image URLs without full message text in <code>data/community-insights-events.jsonl</code>. These files are unencrypted and included in full backups. Protect your data and backups, and do not put private notes in scenes or chat templates.
                     </div>
                 </div>
             </div>

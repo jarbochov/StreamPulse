@@ -42,7 +42,8 @@ function createUserModerationService({
     const bannedNames = () => { refreshIndex(); return [...names]; };
     const isBanned = (value, id) => { refreshIndex(); return names.has(login(value)) || !!id && ids.has(String(id)); };
     const blocked = record => record && typeof record === 'object' && (
-        isBanned(record.user || record.chatname || record.user_login || record.user_name, record.userId || record.user_id)
+        isBanned(record.user || record.chatname || record.user_login || record.user_name,
+            record.userId || record.user_id || (record.moderation?.platform === 'twitch' ? record.moderation.userId : ''))
         || isBanned(record.gifter_name || record.gifter, record.gifter_id)
     );
 

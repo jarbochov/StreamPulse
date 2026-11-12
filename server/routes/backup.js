@@ -19,6 +19,8 @@ function createBackupRoutes({
     buildShareZip = () => ({ buffer: Buffer.from(''), count: 0 }),
     openShareZip = () => ({}),
     importShareZip = () => [],
+    beforeRestore = () => {},
+    restoreFailed = () => {},
     onRestore = () => ({ restored: [], restartFields: [] }),
     getConfig = () => ({}),
     getCustomOverlays = () => ({}),
@@ -186,7 +188,11 @@ function createBackupRoutes({
                     return await onRestore({ previousConfig, ...result }) || {};
                 }, {
                     signal: controller.signal,
-                    beforeApply: () => JSON.parse(JSON.stringify(getConfig()))
+                    beforeApply: () => {
+                        const previousConfig = JSON.parse(JSON.stringify(getConfig()));
+                        beforeRestore();
+                        return previousConfig;
+                    }
                 });
                 const restartFields = restoreResult.restartFields || [];
 
@@ -202,6 +208,7 @@ function createBackupRoutes({
                         : 'Restore completed and in-memory data reloaded.'
                 });
             } catch (err) {
+                restoreFailed();
                 console.error('[Restore] Error:', err.message);
                 if (!res.destroyed && !res.headersSent) {
                     if (err.code === 'INVALID_BACKUP') sendError(res, err, 400);

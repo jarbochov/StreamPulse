@@ -192,6 +192,68 @@
                 </div>
             </details>
 
+            <details class="settings-section" data-section="community">
+                <summary class="settings-summary">
+                    <div class="settings-summary-left">
+                        <h2 class="settings-summary-title">Community Messages</h2>
+                        <p class="settings-summary-desc">Optional welcome-back and personal milestone messages.</p>
+                    </div>
+                    <div class="settings-summary-right"><span class="settings-chevron"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></div>
+                </summary>
+                <div class="settings-content">
+                    <p class="muted" id="s-community-status" style="margin:0;font-size:.8rem;">Requires Community insights in <a href="/config-editor.html">Config Editor</a> and an active chat bot. Messages are sent only while live.</p>
+                    <div class="grid">
+                        <label class="f"><span>Minimum spacing (seconds)</span><input id="s-community-spacing" type="number" min="1" max="3600"></label>
+                        <label class="f"><span>Queue expiry (minutes)</span><input id="s-community-expiry" type="number" min="1" max="1440"></label>
+                        <label class="f"><span>Anniversary window (days after date)</span><input id="s-community-grace" type="number" min="0" max="365"></label>
+                    </div>
+                    <div class="community-message-group">
+                        <label class="check"><input type="checkbox" id="s-community-welcome" data-community-toggle="welcome"> Welcome returning chatters</label>
+                        <div class="grid community-message-fields" data-community-fields="welcome">
+                            <label class="f"><span>Minimum absence (days)</span><input id="s-community-welcome-days" type="number" min="1" max="36500"></label>
+                            <label class="f"><span>Message ({{user}}, {{days}})</span><input id="s-community-welcome-template" maxlength="400"></label>
+                        </div>
+                    </div>
+                    <div class="community-message-group">
+                        <label class="check"><input type="checkbox" id="s-community-messages" data-community-toggle="messages"> Recorded message milestones</label>
+                        <div class="grid community-message-fields" data-community-fields="messages">
+                            <label class="f"><span>Every recorded messages</span><input id="s-community-messages-every" type="number" min="1" max="10000000"></label>
+                            <label class="f"><span>Message ({{user}}, {{count}})</span><input id="s-community-messages-template" maxlength="400"></label>
+                        </div>
+                    </div>
+                    <div class="community-message-group">
+                        <label class="check"><input type="checkbox" id="s-community-streams" data-community-toggle="streams"> Recorded stream attendance milestones</label>
+                        <div class="grid community-message-fields" data-community-fields="streams">
+                            <label class="f"><span>Every recorded streams</span><input id="s-community-streams-every" type="number" min="1" max="100000"></label>
+                            <label class="f"><span>Message ({{user}}, {{count}})</span><input id="s-community-streams-template" maxlength="400"></label>
+                        </div>
+                    </div>
+                    <div class="community-message-group">
+                        <label class="check"><input type="checkbox" id="s-community-chat-anniversary" data-community-toggle="chat-anniversary"> First observed chat anniversary</label>
+                        <div class="grid community-message-fields" data-community-fields="chat-anniversary">
+                            <label class="f"><span>Every years</span><input id="s-community-chat-years" type="number" min="1" max="100"></label>
+                            <label class="f"><span>Message ({{user}}, {{years}})</span><input id="s-community-chat-template" maxlength="400"></label>
+                        </div>
+                    </div>
+                    <div class="community-message-group">
+                        <label class="check"><input type="checkbox" id="s-community-follow-anniversary" data-community-toggle="follow-anniversary"> Twitch follow anniversary</label>
+                        <div class="grid community-message-fields" data-community-fields="follow-anniversary">
+                            <label class="f"><span>Every years</span><input id="s-community-follow-years" type="number" min="1" max="100"></label>
+                            <label class="f"><span>Message ({{user}}, {{years}})</span><input id="s-community-follow-template" maxlength="400"></label>
+                        </div>
+                    </div>
+                    <div class="community-message-group">
+                        <label class="check"><input type="checkbox" id="s-community-subscription" data-community-toggle="subscription"> Observed subscription-month milestones</label>
+                        <div class="grid community-message-fields" data-community-fields="subscription">
+                            <label class="f"><span>Milestone months (comma-separated)</span><input id="s-community-sub-months" placeholder="3, 6, 12, 24"></label>
+                            <label class="f"><span>Repeat every months after last milestone (0 = off)</span><input id="s-community-sub-repeat" type="number" min="0" max="600"></label>
+                            <label class="f community-template"><span>Message ({{user}}, {{months}})</span><input id="s-community-sub-template" maxlength="400"></label>
+                        </div>
+                    </div>
+                    <p class="muted" style="margin:0;font-size:.8rem;">Milestones are based on observed activity, not complete Twitch history. Anniversaries post on the first chat in the configured window. Messages queue separately, expire, and are discarded when offline.</p>
+                </div>
+            </details>
+
             <!-- 4. Poll & Bracket Chat Announcements -->
             <details class="settings-section" data-section="polls" open>
                 <summary class="settings-summary">

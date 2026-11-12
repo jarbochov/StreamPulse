@@ -2,6 +2,10 @@ const { readRequestBody, sendJson, sendError } = require('./helpers');
 
 function createCrmRoutes({ crmService }) {
     return async function handleCrmRoutes(req, res, url, pathname) {
+        if (pathname === '/api/community/insights/status' && req.method === 'GET') {
+            sendJson(res, crmService.getCommunityStatus());
+            return true;
+        }
         if (pathname === '/api/chatters' && req.method === 'GET') {
             const query = (url.searchParams.get('q') || '').toLowerCase().trim();
             const tagFilter = (url.searchParams.get('tag') || '').toLowerCase().trim();
@@ -20,7 +24,7 @@ function createCrmRoutes({ crmService }) {
             const result = crmService.getChattersList({ query, tagFilter, segmentFilter, limit: 10000 });
 
             const escCsv = val => `"${String(val ?? '').replace(/"/g, '""')}"`;
-            const headers = ['Username', 'Display Name', 'Attendance (Sessions)', 'Total Messages', 'First Seen', 'Last Seen', 'VIP', 'Mod', 'Subscriber', 'Sub Months', 'Pronouns', 'Tags'];
+            const headers = ['Username', 'Display Name', 'Chat Days', 'Total Messages', 'First Seen', 'Last Seen', 'VIP', 'Mod', 'Subscriber', 'Sub Months', 'Pronouns', 'Tags'];
             if (includeNotes) headers.push('Private Notes');
 
             let csv = headers.join(',') + '\n';
