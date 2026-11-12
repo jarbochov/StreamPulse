@@ -73,6 +73,22 @@ const broadcast = (startMs, endMs, extra = {}) => ({
     // One chat counts once.
     r = milestones({ current: { ...live, messageCount: 1 }, stats: { totalMessages: { today: 1 } } });
     assert.strictEqual(r.lifetime_messages, 1);
+
+    // Recent pace excludes future observations and uses partial hours for the remaining goal.
+    r = milestones({
+        archived: [
+            broadcast(now - 10 * 24 * H, now - 10 * 24 * H + 20 * H),
+            broadcast(now + 24 * H, now + 26 * H)
+        ],
+        stats: { chatters: { recent: { firstSeen: iso(now - 24 * H) }, future: { firstSeen: iso(now + H) } } }
+    });
+    const pace = Object.fromEntries(r.milestones.map(item => [item.type, item.pace]));
+    assert.strictEqual(pace.streams.days, 322);
+    assert.strictEqual(pace.hours.days, 55);
+    assert.strictEqual(pace.chatters.days, 672);
+    assert.strictEqual(pace.streams.perWeek, 0.5);
+    r = milestones({ archived: [broadcast(now - 100 * 24 * H, now - 100 * 24 * H + H)] });
+    assert.ok(r.milestones.every(item => item.pace === null), 'no recent activity gives no estimate');
 })();
 
 function ssn(dataDir, failures) {

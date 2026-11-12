@@ -601,6 +601,16 @@
                     ]
                 },
                 {
+                    method: 'GET', path: '/api/analytics/activity-heatmap',
+                    desc: 'Chat and viewer activity by local weekday and hour',
+                    details: 'Returns counts and sample-weighted viewer averages as seven Sunday-first arrays of 24 hourly cells, plus total, viewerSamples and the server timeZone. Viewer cells are null without retained live samples. Banned and deleted chat records are filtered.',
+                    params: [
+                        { name: 'from', desc: 'Start date (inclusive, server local)', values: 'YYYY-MM-DD', default: 'all time' },
+                        { name: 'to', desc: 'End date (inclusive, server local)', values: 'YYYY-MM-DD', default: 'all time' },
+                        { name: 'scope', desc: 'Use only the current session', values: 'session' }
+                    ]
+                },
+                {
                     method: 'GET', path: '/api/subscribers/current',
                     desc: 'Current subscribers, tenure, gifters and growth history',
                     details: 'Returns summary (totals, tier split, gifted count, longest/average tenure, top gifters), history (one snapshot per day with total, tiers, gifted, joined and left) and subscribers (name, tier, plan, isGift, gifter, tenureMonths, firstSeen, lastSeen, observedDays). Twitch does not expose subscription length, so tenureMonths is the highest month count seen on chat badges or resub alerts. A user can appear more than once if Twitch returns multiple entries for them.'
@@ -1260,7 +1270,7 @@
                 {
                     method: 'GET', path: '/api/milestones',
                     desc: 'Stream milestones and streak stats',
-                    details: 'Returns total broadcast hours, stream count, daily and weekly streaks, unique chatters all-time, lifetime messages, and next milestone targets.'
+                    details: 'Returns broadcast totals, streaks and milestone targets. Each milestone includes pace: { days, estimatedAt, perWeek } or null when no estimate is available within two years. Estimates use recent activity over up to 56 days, with a 14-day minimum window.'
                 },
                 {
                     method: 'GET', path: '/api/chatters',

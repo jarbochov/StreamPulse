@@ -9,6 +9,7 @@ const {
 } = require('../services/ssn');
 const { getSessionStreamTimes, getSessionCategorySegments, getStreamInfoChangedAt } = require('../services/session');
 const { getSessionStreamInfo, getCurrentChannelInfo } = require('../services/stream-info');
+const { createAnalyticsInsights } = require('../services/analytics-insights');
 const { sendJson: sendResponseJson, sendText, sendError } = require('./helpers');
 
 function createSessionRoutes({
@@ -38,6 +39,11 @@ function createSessionRoutes({
         readChatLogFile: file => filterRecords(rawSsnService.readChatLogFile(file)),
         getCurrentChatLogEntries: () => filterRecords(rawSsnService.getCurrentChatLogEntries())
     };
+    const insights = createAnalyticsInsights({
+        sessionsDir, getChatData, filterRecords, getArchivedSessions: () => sessionService.getArchivedSessions(),
+        readChatLogFile: file => rawSsnService.readChatLogFile(file),
+        getCurrentChatLogEntries: () => rawSsnService.getCurrentChatLogEntries()
+    });
     return async function handleSessionRoutes(req, res, url, pathname) {
         // --- 1. Viewers ---
         if (pathname === '/api/viewers' && req.method === 'GET') {
@@ -134,6 +140,11 @@ function createSessionRoutes({
                 ...stats,
                 range
             });
+            return true;
+        }
+
+        if (pathname === '/api/analytics/activity-heatmap' && req.method === 'GET') {
+            sendJson(res, insights.heatmap(buildDateRange(url.searchParams)));
             return true;
         }
 

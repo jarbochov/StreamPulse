@@ -114,6 +114,18 @@
         .milestone-progress-bar { height: 10px; border-radius: 999px; background: var(--bg-raised); border: 1px solid var(--border); overflow: hidden; margin: 0.2rem 0; }
         .milestone-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-strong, #6366f1)); border-radius: 999px; transition: width 0.4s ease; }
         .milestone-progress-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); }
+        .milestone-pace { font-size: 0.75rem; color: var(--text-muted); }
+        .activity-nav { padding: 0; }
+        .activity-nav .sub-nav-btn { background: transparent; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--text-muted); }
+        .activity-nav .sub-nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+        #activity-overview:not([hidden]) { display: flex; flex-direction: column; gap: 1rem; }
+        .heatmap-wrap { overflow-x: auto; }
+        .heatmap { width: 100%; min-width: 720px; table-layout: fixed; border-collapse: separate; border-spacing: 3px; }
+        .heatmap th, .heatmap td { position: static; padding: 0; border: 0; box-shadow: none; text-align: center; white-space: normal; font-size: 0.68rem; }
+        .heatmap th { cursor: default; }
+        .heatmap th:first-child { width: 38px; }
+        .heatmap td { height: 24px; border-radius: 3px; background: var(--bg-inset); }
+        .heatmap td.active { background: color-mix(in srgb, var(--accent) var(--heat), var(--bg-inset)); color: var(--text); }
         .cheat-table { width: 100%; border-collapse: collapse; }
         .cheat-table th, .cheat-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); font-size: 0.8rem; }
         .cheat-code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.78rem; background: var(--bg-inset); padding: 0.2rem 0.45rem; border-radius: 4px; border: 1px solid var(--border); color: var(--accent); }
@@ -187,6 +199,13 @@
                 </div>
             </section>
 
+            <nav class="sub-nav-bar activity-nav" aria-label="Stream analytics views">
+                <div class="sub-nav-inner"><div class="sub-nav-group" role="tablist" aria-label="Stream analytics views">
+                    <button type="button" class="sub-nav-btn" data-activity-view="overview" role="tab" aria-controls="activity-overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20V12M12 20V4M20 20v-6"/></svg>Overview</button>
+                    <button type="button" class="sub-nav-btn" data-activity-view="patterns" role="tab" aria-controls="activity-patterns"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Activity Patterns</button>
+                </div></div>
+            </nav>
+            <div id="activity-overview" role="tabpanel">
             <section class="card">
                 <div class="card-head"><h2>Summary</h2><span class="muted" id="summary-note">Click a card to chart it</span></div>
                 <div class="stats" id="summary"></div>
@@ -205,6 +224,12 @@
             <section class="card">
                 <div class="card-head"><h2>Sessions</h2><span class="muted" id="sessions-count"></span></div>
                 <div class="table-wrap"><table id="sessions-table"><thead><tr id="session-head"></tr></thead><tbody id="sessions"></tbody></table></div>
+            </section>
+            </div>
+            <section id="activity-patterns" class="card" role="tabpanel" hidden>
+                <div class="card-head"><h2>Activity by Day and Hour</h2><div><label for="heatmap-metric">Show</label> <select id="heatmap-metric"><option value="chat">Chat messages</option><option value="viewers">Average viewers</option></select></div><span id="heatmap-summary" class="muted" aria-live="polite"></span></div>
+                <p class="muted note" id="heatmap-note"></p>
+                <div id="heatmap" class="heatmap-wrap"></div>
             </section>
         </div>
 
@@ -227,6 +252,7 @@
                     <span class="muted">Calculated automatically from your archived broadcast sessions</span>
                 </div>
                 <div class="milestone-grid" id="milestone-progress-cards"></div>
+                <p class="muted note">Estimates use the last 8 weeks of activity, or available history with a 2-week minimum. They are approximate, not guarantees.</p>
             </section>
 
             <section class="card">
@@ -353,7 +379,7 @@ const SESSION_COLS = [
     ['messages', 'Msgs', 1], ['chatters', 'Chatters', 1], ['subscribers', 'Subs', 1], ['followers', 'Follows', 1], ['bits', 'Bits', 1], ['donations', 'Donations', 1], ['raids', 'Raids', 1], ['peakViewers', 'Peak', 1], ['averageViewers', 'Avg', 1]
 ];
 const SUB_COLS = [['name', 'Subscriber'], ['tier', 'Tier'], ['tenureMonths', 'Tenure', 1], ['gifter', 'Gifted by'], ['plan', 'Plan'], ['firstSeen', 'First observed'], ['lastSeen', 'Last observed'], ['observedDays', 'Observed', 1]];
-const prefs = Object.assign({ metric: 'messages', chart: 'bar', days: '30', compare: true, tab: 'sessions', from: '', to: '' }, JSON.parse(localStorage.getItem('analyticsPrefs') || '{}'));
+const prefs = Object.assign({ metric: 'messages', chart: 'bar', days: '30', compare: true, tab: 'sessions', activityView: 'overview', heatmapMetric: 'chat', from: '', to: '' }, JSON.parse(localStorage.getItem('analyticsPrefs') || '{}'));
 const savePrefs = () => localStorage.setItem('analyticsPrefs', JSON.stringify(prefs));
 let report = null, previousTotals = null, subscriberRows = [], subInfo = { summary: {}, history: [] }, folRows = [], folInfo = { history: [] };
 const sort = { sessions: { key: 'date', dir: 'desc' }, subs: { key: 'name', dir: 'asc' }, crm: { key: 'totalMessages', dir: 'desc' } };
@@ -419,6 +445,67 @@ function toggleSort(state, key, textKeys) {
 }
 
 const localDate = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+let heatmapRequest = 0;
+let heatmapData = null;
+function renderHeatmap() {
+    if (!heatmapData) return;
+    const data = heatmapData;
+    const viewing = prefs.heatmapMetric === 'viewers';
+    const cells = viewing ? data.viewers : data.counts;
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const max = Math.max(0, ...cells.flat().filter(value => value !== null));
+    const sampleTotal = data.viewerSamples.flat().reduce((sum, count) => sum + count, 0);
+    $('heatmap-summary').textContent = `${fmt(viewing ? sampleTotal : data.total)} ${viewing ? 'live samples' : 'messages'} · ${data.timeZone || 'server local time'}`;
+    $('heatmap-note').textContent = viewing
+        ? 'Average of retained live viewer samples in the selected date range, in the server’s local time. Blank cells have no samples; retention limits may omit older observations.'
+        : 'Recorded chat messages in the selected date range, in the server’s local time. Events and deleted or banned-user messages are excluded.';
+    if (!(viewing ? sampleTotal : data.total)) {
+        $('heatmap').innerHTML = `<div class="empty">No recorded ${viewing ? 'live viewer samples' : 'chat messages'} in this range.</div>`;
+        return;
+    }
+    const header = Array.from({ length: 24 }, (_, hour) => `<th scope="col">${String(hour).padStart(2, '0')}</th>`).join('');
+    const rows = cells.map((hours, day) => `<tr><th scope="row">${days[day].slice(0, 3)}</th>${hours.map((value, hour) => {
+        const present = viewing ? value !== null : value > 0;
+        const label = `${days[day]}, ${String(hour).padStart(2, '0')}:00: ${viewing ? (present ? `${fmt(value)} average viewers (${fmt(data.viewerSamples[day][hour])} samples)` : 'no samples') : `${fmt(value)} messages`}`;
+        return `<td${present ? ` class="active" style="--heat:${Math.round(15 + (max ? 65 * value / max : 0))}%"` : ''} title="${esc(label)}" aria-label="${esc(label)}">${present ? fmt(value) : ''}</td>`;
+    }).join('')}</tr>`).join('');
+    $('heatmap').innerHTML = `<table class="heatmap"><caption class="muted">Hour of day (00–23)</caption><thead><tr><th scope="col">Day</th>${header}</tr></thead><tbody>${rows}</tbody></table>`;
+}
+$('heatmap-metric').value = prefs.heatmapMetric === 'viewers' ? 'viewers' : 'chat';
+$('heatmap-metric').addEventListener('change', event => { prefs.heatmapMetric = event.target.value; savePrefs(); renderHeatmap(); });
+function switchActivityView(view) {
+    prefs.activityView = view === 'patterns' ? 'patterns' : 'overview';
+    savePrefs();
+    document.querySelectorAll('[data-activity-view]').forEach(btn => {
+        const active = btn.dataset.activityView === prefs.activityView;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', String(active));
+    });
+    $('activity-overview').hidden = prefs.activityView !== 'overview';
+    $('activity-patterns').hidden = prefs.activityView !== 'patterns';
+    if (prefs.activityView === 'patterns') loadHeatmap();
+}
+document.querySelectorAll('[data-activity-view]').forEach(btn => btn.addEventListener('click', () => switchActivityView(btn.dataset.activityView)));
+
+async function loadHeatmap() {
+    const request = ++heatmapRequest;
+    const params = new URLSearchParams();
+    if ($('from').value) params.set('from', $('from').value);
+    if ($('to').value) params.set('to', $('to').value);
+    $('heatmap-summary').textContent = 'Loading…';
+    try {
+        const res = await fetch('/api/analytics/activity-heatmap?' + params);
+        if (!res.ok) throw new Error('Heatmap request failed');
+        const data = await res.json();
+        if (request !== heatmapRequest) return;
+        heatmapData = data;
+        renderHeatmap();
+    } catch {
+        if (request !== heatmapRequest) return;
+        $('heatmap-summary').textContent = 'Could not load activity patterns.';
+        $('heatmap').innerHTML = '';
+    }
+}
 function setRange(days) {
     prefs.days = String(days);
     const today = new Date();
@@ -461,6 +548,7 @@ async function loadPreviousTotals() {
 
 async function load() {
     $('status').textContent = 'Loading…';
+    if (prefs.activityView === 'patterns' && !$('activity-patterns').hidden) loadHeatmap();
     syncCompareToggle();
     const params = new URLSearchParams();
     if ($('from').value) params.set('from', $('from').value);
@@ -799,6 +887,9 @@ function renderMilestonesView() {
                     <span>${fmt(current)} / ${fmt(target)} ${esc(item.unit)}</span>
                     <span>${remaining > 0 ? `${fmt(remaining)} ${esc(item.unit)} to go` : 'Goal reached!'}</span>
                 </div>
+                <div class="milestone-pace">${item.pace && Number.isFinite(Date.parse(item.pace.estimatedAt))
+                    ? `Estimated in ~${fmt(item.pace.days)} days (${esc(new Date(item.pace.estimatedAt).toLocaleDateString())}) at ${fmt(item.pace.perWeek)} ${esc(item.unit)}/week`
+                    : 'Not enough recent progress for an estimate within two years.'}</div>
             </div>
         `;
     }).join('') || '<div class="empty">No goals active.</div>';
@@ -1153,6 +1244,7 @@ if (prefs.days === 'custom' && prefs.from && prefs.to) {
 const startTab = TAB_HASHES.includes(initialHash) ? initialHash : prefs.tab;
 const startKey = startTab === 'community' || startTab === 'chatters' ? 'crm' : startTab;
 switchTab(['sessions', 'milestones', 'crm', 'growth'].includes(startKey) ? startKey : 'sessions', false);
+switchActivityView(prefs.activityView);
 </script>
 </body>
 </html>

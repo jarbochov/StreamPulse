@@ -13,7 +13,7 @@ function summarizeSession(data) {
         viewerStats: {
             streamStartedAt: data.viewerStats?.streamStartedAt,
             streamEndedAt: data.viewerStats?.streamEndedAt,
-            samples: (data.viewerStats?.samples || []).map(({ live, ts }) => ({ live, ts }))
+            samples: (data.viewerStats?.samples || []).map(({ live, ts, count }) => ({ live, ts, count }))
         },
         chatters: Object.fromEntries(Object.entries(data.chatters || {}).map(([name, chatter]) => [name, { messageCount: chatter?.messageCount }]))
     };

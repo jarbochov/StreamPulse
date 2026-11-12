@@ -7,7 +7,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- **Analytics**: Compare-to-previous-period changes on summary cards, a 7-day range, and a remembered tab and custom date range.
+- **Analytics**: Period comparisons, activity heatmaps, milestone estimates, and remembered views and date ranges.
 
 ### Fixed
 - **Sessions**: Record native Twitch subscriptions and keep title/category history live-only.

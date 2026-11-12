@@ -656,11 +656,45 @@ function createSessionService(options = {}) {
         const nextHoursGoal = totalHours < 100 ? 100 : (Math.floor(totalHours / 100) + 1) * 100;
         const nextChattersGoal = lifetimeChatters < 50 ? 50 : (lifetimeChatters < 100 ? 100 : (Math.floor(lifetimeChatters / 50) + 1) * 50);
 
+        // Pace: recent activity rate over the last 8 weeks (or all history when shorter, at least 2 weeks).
+        const DAY_MS = 86400000;
+        let earliestMs = Infinity;
+        for (const startMs of broadcasts.keys()) if (startMs <= nowMs) earliestMs = Math.min(earliestMs, startMs);
+        const historyDays = Number.isFinite(earliestMs) ? (nowMs - earliestMs) / DAY_MS : 0;
+        const paceDays = Math.max(14, Math.min(56, historyDays));
+        const paceStart = nowMs - paceDays * DAY_MS;
+        let paceStreams = 0;
+        let paceDurationMs = 0;
+        for (const { startMs, endMs } of broadcasts.values()) {
+            if (startMs > nowMs) continue;
+            if (startMs >= paceStart) paceStreams++;
+            if (endMs) paceDurationMs += Math.max(0, Math.min(endMs, nowMs) - Math.max(startMs, paceStart));
+        }
+        const paceChatters = Object.values(statsData?.chatters || {})
+            .filter(entry => {
+                const firstSeen = Date.parse(entry?.firstSeen || '');
+                return firstSeen >= paceStart && firstSeen <= nowMs;
+            }).length;
+        const perDay = {
+            streams: paceStreams / paceDays,
+            hours: paceDurationMs / 3600000 / paceDays,
+            chatters: paceChatters / paceDays
+        };
+        const project = (remaining, rate) => {
+            if (!(remaining > 0) || !(rate > 0)) return null;
+            const days = Math.ceil(remaining / rate);
+            if (days > 730) return null;
+            return { days, estimatedAt: new Date(nowMs + days * DAY_MS).toISOString(), perWeek: Number((rate * 7).toFixed(2)) };
+        };
+
         const milestonesList = [
             { type: 'streams', title: `Stream #${nextStreamGoal}`, current: streamNumber, target: nextStreamGoal, remaining: Math.max(0, nextStreamGoal - streamNumber), unit: 'streams' },
             { type: 'hours', title: `${nextHoursGoal} Broadcast Hours`, current: totalHours, target: nextHoursGoal, remaining: Math.max(0, nextHoursGoal - totalHours), unit: 'hours' },
             { type: 'chatters', title: `${nextChattersGoal} Unique Chatters`, current: lifetimeChatters, target: nextChattersGoal, remaining: Math.max(0, nextChattersGoal - lifetimeChatters), unit: 'chatters' }
-        ];
+        ].map(item => ({
+            ...item,
+            pace: project(item.type === 'hours' ? Math.max(0, item.target - totalDurationMs / 3600000) : item.remaining, perDay[item.type])
+        }));
 
         const result = {
             stream_number: streamNumber,
