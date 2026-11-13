@@ -472,6 +472,9 @@ test('Overlay control page separates trigger pages from rotation pages', { timeo
     const service = createOverlayService({ dataDir, log: () => {} });
     const overlay = normalizeCustomOverlay({
         id: 'ctl-pages',
+        elements: [
+            { id: 'vid-1', type: 'video', name: 'Intro Clip', page: 'intro', src: '/media/intro.mp4' }
+        ],
         pages: {
             enabled: true, mode: 'manual', cycleSeconds: 20, loop: true,
             items: [
@@ -517,12 +520,25 @@ test('Overlay control page separates trigger pages from rotation pages', { timeo
 
     const layout = await page.evaluate(() => ({
         sub: document.getElementById('sub')?.textContent || '',
+        pagesCount: document.getElementById('tab-pages-count')?.textContent || '',
+        mediaCount: document.getElementById('tab-media-count')?.textContent || '',
+        mediaHidden: document.getElementById('media-panel')?.hidden,
+        bodyHasVideo: !!document.querySelector('#body [data-video]'),
         rotation: [...document.querySelectorAll('[data-pages-rotation] .page')].map(b => b.textContent.trim()),
         triggers: [...document.querySelectorAll('[data-pages-triggers] .page')].map(b => b.textContent.trim())
     }));
     assert.equal(layout.sub, 'Showing “Intro” (1 of 2)');
+    assert.equal(layout.pagesCount, '3');
+    assert.equal(layout.mediaCount, '1');
+    assert.equal(layout.mediaHidden, true);
+    assert.equal(layout.bodyHasVideo, false);
     assert.deepEqual(layout.rotation, ['1. Intro', '2. Outro']);
     assert.deepEqual(layout.triggers, ['Alert TakeoverOn alert']);
+
+    await page.click('#tab-media');
+    assert.equal(await page.$eval('#body', el => el.hidden), true);
+    assert.equal(await page.$eval('#media-panel', el => !el.hidden && !!el.querySelector('[data-video]')), true);
+    await page.click('#tab-pages');
 
     await page.click('[data-pages-rotation] [data-page="outro"]');
     await page.waitForFunction(() => document.getElementById('sub')?.textContent?.includes('Outro'));

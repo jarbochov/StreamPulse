@@ -18,7 +18,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - **Alerts replay**: Support replaying the last `1`–`50` shown alerts in order via `POST` or `GET /api/alerts/replay?count=N` (defaults to `1`).
 
 ### Fixed
-- **Overlay control**: List trigger/event pages in a separate section below rotation pages instead of inline, and remove the full app nav bar so Previous/Next grid layout and popup sizing stay clean.
+- **Overlay control**: Separate Pages, Media (videos/slideshows/cutouts), and Speakers into standard `.tabs-nav` tabs with count pills, list trigger/event pages below rotation pages, and remove the full app nav bar.
 - **Sessions**: Record native Twitch subscriptions and keep title/category history live-only.
 - **Trivia overlays**: Respect boxed styles and keep enabled hints at zero, never with voting off.
 - **Subscription alerts**: Use observed tenure when Twitch omits cumulative months.
