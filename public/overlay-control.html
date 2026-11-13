@@ -371,6 +371,21 @@
         } catch (error) { draw(); $('status').textContent = error.message; }
     }
 
+    const TRIGGER_LABELS = { alert: 'On alert', featured: 'Featured chat', command: 'Chat command', 'poll-end': 'Poll end', 'poll-active': 'Poll active' };
+
+    function renderPageEntry(p, indexLabel, allPages) {
+        const enabled = p.enabled !== false;
+        const lastEnabled = enabled && allPages.filter(page => page.enabled !== false).length === 1;
+        const title = lastEnabled ? 'At least one page must stay enabled' : `${enabled ? 'Disable' : 'Enable'} ${p.name}`;
+        const isCurrent = p.id === state.page;
+        const meta = enabled
+            ? (p.trigger ? (TRIGGER_LABELS[p.trigger] || p.trigger) : (p.duration ? `${p.duration}s` : ''))
+            : 'Off';
+        const label = indexLabel ? `${indexLabel}. ${esc(p.name)}` : esc(p.name);
+        return `<div class="page-entry"><button class="btn page${isCurrent ? ' current' : ''}" data-page="${esc(p.id)}"${enabled ? '' : ' disabled'}><span>${label}</span><small>${esc(meta)}</small></button>
+            <label class="page-toggle" title="${esc(title)}"><input type="checkbox" role="switch" data-page-toggle="${esc(p.id)}" aria-label="Enable ${esc(p.name)}" ${enabled ? 'checked' : ''} ${lastEnabled ? 'disabled' : ''}></label></div>`;
+    }
+
     function draw() {
         if (!state) return;
         $('title').textContent = `Overlay control · ${id}`;
@@ -380,7 +395,24 @@
             $('sub').textContent = '';
             return;
         }
-        $('sub').textContent = `Showing “${state.name}” (${state.index + 1} of ${state.count})`;
+        const allPages = state.pages || [];
+        const rotationPages = allPages.filter(p => !p.trigger);
+        const triggerPages = allPages.filter(p => p.trigger);
+        const currentPage = allPages.find(p => p.id === state.page) || allPages[state.index];
+        if (currentPage?.trigger) {
+            $('sub').textContent = `Showing “${state.name}” (Event page · not in rotation)`;
+        } else if (rotationPages.length) {
+            const rotIndex = rotationPages.findIndex(p => p.id === state.page);
+            $('sub').textContent = `Showing “${state.name}” (${rotIndex >= 0 ? rotIndex + 1 : state.index + 1} of ${rotationPages.length})`;
+        } else {
+            $('sub').textContent = `Showing “${state.name}” (${state.index + 1} of ${state.count})`;
+        }
+        const rotationHtml = rotationPages.length
+            ? `${triggerPages.length ? '<h2><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Rotation</h2>' : ''}<div class="pages" data-pages-rotation>${rotationPages.map((p, i) => renderPageEntry(p, i + 1, allPages)).join('')}</div>`
+            : '';
+        const triggerHtml = triggerPages.length
+            ? `<h2><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>Event pages <small style="color:var(--text-muted);font-weight:400;">(not in rotation)</small></h2><div class="pages" data-pages-triggers>${triggerPages.map(p => renderPageEntry(p, null, allPages)).join('')}</div>`
+            : '';
         $('body').innerHTML = `
             <div class="nav">
                 <button class="btn" data-act="prev"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>Previous</button>
@@ -392,13 +424,8 @@
                 <button class="btn${state.auto ? ' active' : ''}" data-act="auto">${state.auto ? 'Pause Auto' : 'Start Auto'}</button>
             </div>
             <p class="hint">Switch pages on or off. Changes save immediately; disabled pages are skipped during playback.</p>
-            <div class="pages">${state.pages.map((p, i) => {
-                const enabled = p.enabled !== false;
-                const lastEnabled = enabled && state.pages.filter(page => page.enabled !== false).length === 1;
-                const title = lastEnabled ? 'At least one page must stay enabled' : `${enabled ? 'Disable' : 'Enable'} ${p.name}`;
-                return `<div class="page-entry"><button class="btn page${i === state.index ? ' current' : ''}" data-page="${esc(p.id)}"${enabled ? '' : ' disabled'}><span>${i + 1}. ${esc(p.name)}</span><small>${enabled ? (p.duration ? `${p.duration}s` : '') : 'Off'}</small></button>
-                    <label class="page-toggle" title="${esc(title)}"><input type="checkbox" role="switch" data-page-toggle="${esc(p.id)}" aria-label="Enable ${esc(p.name)}" ${enabled ? 'checked' : ''} ${lastEnabled ? 'disabled' : ''}></label></div>`;
-            }).join('')}</div>` + extra;
+            ${rotationHtml}
+            ${triggerHtml}` + extra;
     }
 
     document.addEventListener('click', event => {

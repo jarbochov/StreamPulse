@@ -466,3 +466,69 @@ test('alert takeover respects triggerAlertMode and does not rotate when no alert
     // Overlay 3 now rotates!
     assert.equal(service.pageSnapshot(overlaySelectedRules).page, 'raid-page', 'Overlay with raid-rule rotates when raid-rule fires');
 });
+
+test('Overlay control page separates trigger pages from rotation pages', { timeout: 15000 }, async t => {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-control-pages-'));
+    const service = createOverlayService({ dataDir, log: () => {} });
+    const overlay = normalizeCustomOverlay({
+        id: 'ctl-pages',
+        pages: {
+            enabled: true, mode: 'manual', cycleSeconds: 20, loop: true,
+            items: [
+                { id: 'intro', name: 'Intro' },
+                { id: 'alert-page', name: 'Alert Takeover', trigger: 'alert', triggerSeconds: 5 },
+                { id: 'outro', name: 'Outro' }
+            ]
+        }
+    });
+    service.setCustomOverlays({ 'ctl-pages': overlay });
+    service.start();
+
+    const handleRoutes = createOverlayRoutes({
+        overlayService: service,
+        getCustomOverlays: () => service.getCustomOverlays()
+    });
+    const publicDir = path.join(__dirname, '..', 'public');
+    const server = http.createServer(async (req, res) => {
+        const url = new URL(req.url, 'http://127.0.0.1');
+        if (await handleRoutes(req, res, url, url.pathname)) return;
+        const filePath = path.join(publicDir, url.pathname === '/' ? 'overlay-control.html' : url.pathname.replace(/^\/+/, ''));
+        if (filePath.startsWith(publicDir) && fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+            const ext = path.extname(filePath);
+            const mime = ext === '.html' ? 'text/html' : ext === '.css' ? 'text/css' : ext === '.js' ? 'application/javascript' : 'application/octet-stream';
+            res.writeHead(200, { 'Content-Type': mime });
+            fs.createReadStream(filePath).pipe(res);
+            return;
+        }
+        res.writeHead(404).end();
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
+    t.after(async () => {
+        await browser.close();
+        service.stop();
+        await new Promise(resolve => server.close(resolve));
+        fs.rmSync(dataDir, { recursive: true, force: true });
+    });
+
+    const page = await browser.newPage();
+    await page.goto(`http://127.0.0.1:${server.address().port}/overlay-control.html?id=ctl-pages`, { waitUntil: 'networkidle0' });
+    await page.waitForSelector('[data-pages-rotation]');
+
+    const layout = await page.evaluate(() => ({
+        sub: document.getElementById('sub')?.textContent || '',
+        rotation: [...document.querySelectorAll('[data-pages-rotation] .page')].map(b => b.textContent.trim()),
+        triggers: [...document.querySelectorAll('[data-pages-triggers] .page')].map(b => b.textContent.trim())
+    }));
+    assert.equal(layout.sub, 'Showing “Intro” (1 of 2)');
+    assert.deepEqual(layout.rotation, ['1. Intro', '2. Outro']);
+    assert.deepEqual(layout.triggers, ['Alert TakeoverOn alert']);
+
+    await page.click('[data-pages-rotation] [data-page="outro"]');
+    await page.waitForFunction(() => document.getElementById('sub')?.textContent?.includes('Outro'));
+    assert.equal(await page.$eval('#sub', el => el.textContent), 'Showing “Outro” (2 of 2)');
+
+    await page.click('[data-pages-triggers] [data-page="alert-page"]');
+    await page.waitForFunction(() => document.getElementById('sub')?.textContent?.includes('Alert Takeover'));
+    assert.equal(await page.$eval('#sub', el => el.textContent), 'Showing “Alert Takeover” (Event page · not in rotation)');
+});
