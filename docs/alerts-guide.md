@@ -65,6 +65,7 @@ Alert rules can trigger external automation via HTTP POST or GET webhooks:
 
 - **Priority**: each rule has Low/Normal/High/Critical priority (higher plays first, FIFO within a level). Critical can interrupt the alert on screen. Expire after N seconds drops stale queued alerts; the queue cap setting (default 200) drops lowest priority/oldest first. Drops show as `dropped` in history.
 - **Manual trigger**: `POST /api/alerts/trigger` with `{ "rule": "<id or name>", "message": "...", "user": "...", "amount": 0 }`; `GET /api/alerts/rules` lists rules.
+- **Replay recent alerts**: `POST` or `GET /api/alerts/replay?count=3` (default `count=1` when no ID is given) replays the last 1–50 shown alerts in chronological order; `alertId` or `eventId` replays a specific entry.
 - **Announcements**: rules with the Announcement trigger fire only manually, from the Announcements tab, the OBS Dock tab or `/tools/announcements-dock.html`. Tokens: message, user, title.
 - **Chat message action**: sends a templated message through SocialStream (400 char cap, per-rule cooldown).
 - **Companion button action**: presses `page/row/column` on the Companion address in settings (default `http://127.0.0.1:8000`); only that host is contacted. Companion's HTTP API has no verified page/button listing, so numeric fields are used.

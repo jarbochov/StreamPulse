@@ -333,8 +333,16 @@ function createOverlayRoutes({
         if (pathname === '/api/alerts/replay' && (req.method === 'POST' || req.method === 'GET')) {
             try {
                 const body = await parseJsonOrQuery(req, url);
-                const payload = body.alertId ? alertEngine.replayAlert(String(body.alertId)) : alertEngine.replayEvent(String(body.eventId || ''));
-                sendJson(res, { ok: true, alert: payload });
+                if (body.alertId) {
+                    const payload = alertEngine.replayAlert(String(body.alertId));
+                    sendJson(res, { ok: true, alert: payload, alerts: [payload], count: 1 });
+                } else if (body.eventId) {
+                    const payload = alertEngine.replayEvent(String(body.eventId));
+                    sendJson(res, { ok: true, alert: payload, alerts: [payload], count: 1 });
+                } else {
+                    const alerts = alertEngine.replayLast(body.count ?? 1);
+                    sendJson(res, { ok: true, alert: alerts[0] || null, alerts, count: alerts.length });
+                }
             } catch (err) {
                 sendError(res, err, 400);
             }

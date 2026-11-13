@@ -1239,3 +1239,44 @@ test('Alerts Simulator sends selected reward identity and title and rule preview
     assert.match((await preview.json()).alert.title, /Fictional Stretch/);
     assert.deepEqual(errors, []);
 });
+
+test('replayLast replays the last 1..N shown alerts in chronological order', () => {
+    const { engine, dispatched, cleanup } = createTempEngine({
+        settings: { enabled: true, gapSeconds: 0 },
+        rules: [
+            {
+                id: 'r1',
+                trigger: 'follow',
+                priority: 'critical',
+                interrupt: true,
+                conditions: { cooldownSeconds: 0 },
+                variants: [{ id: 'v1', title: 'Hi {{user}}', duration: 5 }]
+            }
+        ]
+    });
+    try {
+        assert.throws(() => engine.replayLast(1), /No alert history/i);
+
+        engine.handleEvent({ type: 'follow', user: 'First', dedupeMs: 0 });
+        engine.control('skip');
+        engine.handleEvent({ type: 'follow', user: 'Second', dedupeMs: 0 });
+        engine.control('skip');
+        engine.handleEvent({ type: 'follow', user: 'Third', dedupeMs: 0 });
+        engine.control('skip');
+
+        const beforeAlerts = dispatched.filter(d => d.type === 'alert').length;
+        const replayed = engine.replayLast(2);
+        assert.equal(replayed.length, 2);
+        assert.deepEqual(replayed.map(a => a.user), ['Second', 'Third']);
+        assert.equal(replayed[0].test, true);
+        assert.equal(replayed[1].interrupt, false, 'replayed critical alerts do not interrupt each other');
+        assert.equal(dispatched.filter(d => d.type === 'alert').length, beforeAlerts + 1, 'oldest of N plays immediately');
+        assert.equal(engine.getQueueState().pending, 1, 'newest of N waits next in queue');
+
+        engine.control('skip');
+        const alertsAfterSkip = dispatched.filter(d => d.type === 'alert').map(d => d.payload.user);
+        assert.deepEqual(alertsAfterSkip.slice(-2), ['Second', 'Third']);
+    } finally {
+        cleanup();
+    }
+});

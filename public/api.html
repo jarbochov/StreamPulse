@@ -1028,16 +1028,16 @@
                 },
                 {
                     method: 'POST', path: '/api/alerts/replay',
-                    desc: 'Replay a past event or alert',
+                    desc: 'Replay the last N alerts or a specific past event/alert',
                     companion: true,
-                    details: 'eventId re-runs a stored event through your current rules. alertId re-shows the exact alert from history.',
-                    body: '{ "eventId": "..." }'
+                    details: 'Pass { "count": 3 } (default 1 when omitted) to replay the last N shown alerts in order, or pass eventId / alertId to replay a specific entry.',
+                    body: '{ "count": 1 }'
                 },
                 {
                     method: 'GET', path: '/api/alerts/replay',
-                    desc: 'Companion trigger to replay a past event or alert',
+                    desc: 'Companion trigger to replay recent alerts or a past event/alert',
                     companion: true,
-                    details: 'Replays past event or alert via GET request (?eventId=... or ?alertId=...).'
+                    details: 'Replays the last N shown alerts (?count=1, 2, 3...) or a specific past entry (?eventId=... or ?alertId=...) via GET request.'
                 },
                 {
                     method: 'POST', path: '/api/alerts/queue',

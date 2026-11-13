@@ -449,6 +449,44 @@ test('Companion & API Integration: HTTP GET/POST triggers and status snapshot', 
         const clearQueue = await request('/api/alerts/queue/clear');
         assert.equal(clearQueue.status, 200);
         assert.equal(clearQueue.json.queue.pending, 0);
+
+        // Configure a follow rule so test events enter alert history for replay
+        alertEngine.setConfig({
+            settings: { enabled: true, gapSeconds: 0 },
+            rules: [{ id: 'follow-rule', trigger: 'follow', conditions: { cooldownSeconds: 0 }, variants: [{ id: 'v1', title: 'Followed: {{user}}', duration: 5 }] }]
+        });
+        await request('/api/alerts/test-event?type=follow&user=AlphaFan');
+        await request('/api/alerts/queue/skip');
+        await request('/api/alerts/test-event?type=follow&user=BetaFan');
+        await request('/api/alerts/queue/skip');
+        await request('/api/alerts/test-event?type=follow&user=GammaFan');
+        await request('/api/alerts/queue/skip');
+
+        // Replay last 2 alerts via GET query parameter
+        const replayGet = await request('/api/alerts/replay?count=2');
+        assert.equal(replayGet.status, 200);
+        assert.equal(replayGet.json.ok, true);
+        assert.equal(replayGet.json.count, 2);
+        assert.deepEqual(replayGet.json.alerts.map(a => a.user), ['BetaFan', 'GammaFan']);
+
+        // Advance queued GammaFan so it also finishes playing into history, leaving idle queue
+        await request('/api/alerts/queue/skip');
+        await request('/api/alerts/queue/skip');
+
+        // Replay last 1 alert via POST default
+        const replayPostDefault = await request('/api/alerts/replay', { method: 'POST', body: {} });
+        assert.equal(replayPostDefault.status, 200);
+        assert.equal(replayPostDefault.json.count, 1);
+        assert.equal(replayPostDefault.json.alert.user, 'GammaFan');
+
+        await request('/api/alerts/queue/clear');
+
+        // Replay last 3 alerts via POST body
+        const replayPostMulti = await request('/api/alerts/replay', { method: 'POST', body: { count: 3 } });
+        assert.equal(replayPostMulti.status, 200);
+        assert.equal(replayPostMulti.json.count, 3);
+        await request('/api/alerts/queue/clear');
+        alertEngine.stop();
     });
 
     await t.test('Video controls via /api/videos/control and custom overlay routes', async () => {

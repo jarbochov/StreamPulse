@@ -14,6 +14,9 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - **Analytics**: Period comparisons, activity heatmaps, milestone estimates, and remembered views and date ranges.
 - **Community insights**: Optional viewer history, Twitch follow dates, and configurable welcome-back and personal milestone chat messages.
 
+### Changed
+- **Alerts replay**: Support replaying the last `1`–`50` shown alerts in order via `POST` or `GET /api/alerts/replay?count=N` (defaults to `1`).
+
 ### Fixed
 - **Sessions**: Record native Twitch subscriptions and keep title/category history live-only.
 - **Trivia overlays**: Respect boxed styles and keep enabled hints at zero, never with voting off.

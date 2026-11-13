@@ -1018,13 +1018,30 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
         if (!payload) throw new Error('No enabled rule matches that event right now');
         return payload;
     }
+    function buildReplayPayload(old) {
+        const { shownAt, ...rest } = old;
+        return { ...rest, id: `a${Date.now().toString(36)}${(counter++).toString(36)}`, test: true, interrupt: false, at: new Date().toISOString() };
+    }
     function replayAlert(alertId) {
         const old = history.find(item => item.id === alertId);
         if (!old) throw new Error('Alert not found');
-        const { shownAt, ...rest } = old;
-        const payload = { ...rest, id: `a${Date.now().toString(36)}${(counter++).toString(36)}`, test: true, at: new Date().toISOString() };
+        const payload = buildReplayPayload(old);
         enqueue(payload);
         return payload;
+    }
+
+    // Replay the last N shown alerts in chronological order (oldest of N first)
+    function replayLast(count = 1) {
+        const n = Math.round(clamp(count, 1, HISTORY_LIMIT, 1));
+        const targets = history.slice(0, n).reverse();
+        if (!targets.length) throw new Error('No alert history to replay');
+        const replayed = [];
+        for (const old of targets) {
+            const payload = buildReplayPayload(old);
+            enqueue(payload);
+            replayed.push(payload);
+        }
+        return replayed;
     }
 
     function setMuted(value) {
@@ -1169,7 +1186,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             machine: alertMachine.toSnapshot()
         }),
         getStateMachine: () => alertMachine,
-        replayEvent, replayAlert,
+        replayEvent, replayAlert, replayLast,
         handleEvent, fireRule, trigger, noteGift, pressCompanion, control, setMuted, stop,
         alertAssetUsers, rewriteAlertReferences
     };

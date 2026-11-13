@@ -784,6 +784,12 @@ Deletes a custom user preset pack.
 
 ---
 
+## Alerts Replay & Queue Control
+
+- **Replay Recent Alerts**: `POST /api/alerts/replay` or `GET /api/alerts/replay?count=3` replays the last `N` shown alerts from history in chronological order (defaults to `count=1` when omitted; capped at `50`). You can also pass `{ "alertId": "..." }` to re-queue an exact alert from history or `{ "eventId": "..." }` to re-evaluate a stored event through current rules.
+
+---
+
 ## 10. WebSocket Live Push Protocol
 
 Connect to `ws://localhost:3000` (or your configured host/port). Messages use a `{ "type": "...", "data": {...} }` envelope.

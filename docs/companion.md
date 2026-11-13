@@ -10,7 +10,7 @@ StreamPulse has a dedicated Companion module maintained at [companion-module-str
 
 All commands feature clear category prefixes and contiguous grouping for fast, intuitive searching in Companion:
 
-- **Alerts:** Queue control (skip, pause, resume, clear), mute/unmute display, replay last alert, fire rule tests, simulate stream events (follows, subs, bits, raids), and test webhooks / Companion button presses directly.
+- **Alerts:** Queue control (skip, pause, resume, clear), mute/unmute display, replay the last 1..N alerts (configurable count), fire rule tests, simulate stream events (follows, subs, bits, raids), and test webhooks / Companion button presses directly.
 - **Overlay & Pages:** Page navigation (next, prev, first, last, auto-advance), show page by name, toggle page enabled, video playback controls, cutout punchthrough holes, slideshows, and music overlay toggles.
 - **Speaker Badges:** Update profiles and OBS audio sources, toggle individual badge details, and see speaker identity and visibility on your buttons.
 - **OBS Health:** Connection-state feedback and variables show whether OBS is disabled, connecting, connected, or disconnected, independently of Scene Sync.
