@@ -538,7 +538,9 @@ test('Overlay control page separates trigger pages from rotation pages', { timeo
     await page.click('#tab-media');
     assert.equal(await page.$eval('#body', el => el.hidden), true);
     assert.equal(await page.$eval('#media-panel', el => !el.hidden && !!el.querySelector('[data-video]')), true);
+    assert.equal(new URL(page.url()).hash, '#media');
     await page.click('#tab-pages');
+    assert.equal(new URL(page.url()).hash, '#pages');
 
     await page.click('[data-pages-rotation] [data-page="outro"]');
     await page.waitForFunction(() => document.getElementById('sub')?.textContent?.includes('Outro'));
@@ -547,4 +549,8 @@ test('Overlay control page separates trigger pages from rotation pages', { timeo
     await page.click('[data-pages-triggers] [data-page="alert-page"]');
     await page.waitForFunction(() => document.getElementById('sub')?.textContent?.includes('Alert Takeover'));
     assert.equal(await page.$eval('#sub', el => el.textContent), 'Showing “Alert Takeover” (Event page · not in rotation)');
+
+    await page.goto(`http://127.0.0.1:${server.address().port}/overlay-control.html?id=ctl-pages#media`, { waitUntil: 'networkidle0' });
+    await page.waitForSelector('#media-panel:not([hidden])');
+    assert.equal(await page.$eval('#tab-media', el => el.getAttribute('aria-selected')), 'true');
 });

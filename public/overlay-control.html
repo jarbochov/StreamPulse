@@ -61,8 +61,18 @@
         .avatar-source .hint { margin:0; font-size:.72rem; }
         [data-avatar-field]:focus-visible { outline:2px solid var(--accent); outline-offset:4px; border-radius:6px; }
         .hint { font-size:.8rem; color:var(--text-muted); margin:.5rem 0; }
-        .speaker-card { margin-bottom:.8rem; }
-        .speaker-card summary { cursor:pointer; font-weight:600; }
+        .speakers-toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.6rem; margin-bottom:.5rem; }
+        .speakers-toolbar .btn { padding:.45rem .75rem; font-size:.82rem; }
+        .audio-status-text { font-size:.8rem; color:var(--text-muted); }
+        .audio-status-text a { color:var(--accent); }
+        .speaker-card { margin-bottom:.75rem; }
+        .speaker-card summary { cursor:pointer; font-weight:600; list-style:none; display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+        .speaker-card summary::-webkit-details-marker { display:none; }
+        .speaker-card summary .speaker-summary-meta { display:inline-flex; align-items:center; gap:.4rem; }
+        .speaker-card[open] summary { padding-bottom:.65rem; border-bottom:1px solid var(--border); }
+        .speaker-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.6rem; margin-top:.25rem; }
+        .speaker-actions-left { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
+        .speaker-meter { font-variant-numeric:tabular-nums; }
         @media (max-width:520px) { .speaker-fields { grid-template-columns:1fr; } }
     </style>
 </head>
@@ -93,11 +103,15 @@
     <div id="body" role="tabpanel" aria-labelledby="tab-pages"><div class="msg">Loading…</div></div>
     <div id="media-panel" role="tabpanel" aria-labelledby="tab-media" hidden><div class="msg">Loading…</div></div>
     <div id="speakers-panel" role="tabpanel" aria-labelledby="tab-speakers" hidden>
-        <p class="hint" id="audio-status"></p>
-        <button class="btn" type="button" id="refresh-speakers">Refresh badges &amp; audio sources</button>
-        <p class="hint">Audio must exceed the badge's sensitivity gate. Adjust the gate in the overlay editor if normal speech stays below it.</p>
+        <div class="msg" style="margin-bottom:.85rem;">
+            <div class="speakers-toolbar">
+                <span class="audio-status-text" id="audio-status">Checking OBS audio sources…</span>
+                <button class="btn" type="button" id="refresh-speakers"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Refresh</button>
+            </div>
+            <p class="hint" style="margin:0;">Audio must exceed the badge's sensitivity gate (adjust in the overlay editor if normal speech stays below it).</p>
+        </div>
         <datalist id="speaker-audio-inputs"></datalist>
-        <div id="speaker-badges" style="margin-top:1rem;"></div>
+        <div id="speaker-badges"></div>
     </div>
     <p class="status" id="status"></p>
     <script>
@@ -112,13 +126,17 @@
     let state = null, slides = [], videos = [], cutouts = [];
     const TAB_ORDER = ['pages', 'media', 'speakers'];
     const normalizeTab = t => (t === 'media' || t === 'speakers') ? t : 'pages';
+    const hashTab = () => {
+        const h = location.hash.replace(/^#/, '').toLowerCase();
+        return h === 'playback' ? 'pages' : (TAB_ORDER.includes(h) ? h : '');
+    };
     let savedTab = localStorage.getItem(`overlay-control:${id}:tab`);
-    let speakers = [], activeTab = normalizeTab(savedTab);
+    let speakers = [], activeTab = hashTab() || normalizeTab(savedTab);
     const drafts = new Map();
     const dirtySpeakers = new Set();
     const avatarUploads = new Set();
 
-    function setTab(tab, persist = true) {
+    function setTab(tab, { persist = true, updateHash = true } = {}) {
         activeTab = normalizeTab(tab);
         for (const button of document.querySelectorAll('[data-tab]')) {
             const active = button.dataset.tab === activeTab;
@@ -130,6 +148,9 @@
         $('media-panel').hidden = activeTab !== 'media';
         $('speakers-panel').hidden = activeTab !== 'speakers';
         if (persist) localStorage.setItem(`overlay-control:${id}:tab`, activeTab);
+        if (updateHash && location.hash !== `#${activeTab}`) {
+            history.replaceState(null, '', `#${activeTab}`);
+        }
     }
 
     function speakerValues(badge) {
@@ -242,12 +263,16 @@
             const fields = [['name', 'Display name', 80], ['handle', 'Handle / subtitle', 60, 'showHandle'], ['pronouns', 'Pronouns', 30, 'showPronouns'],
                 ['avatarSrc', 'Avatar URL / library asset', 500, 'showAvatar'], ['statusText', 'Call-in status', 40, 'callInEnabled'], ['location', 'Caller location', 80, 'showLocation'], ['inputName', 'OBS audio source', 100]];
             return `<details class="msg speaker-card" data-speaker="${esc(badge.id)}" ${open.has(badge.id) || index === 0 ? 'open' : ''}>
-                <summary>${esc(badge.name)}${badge.page ? ` <small>(${esc(badge.page)})</small>` : ''}</summary>
+                <summary><span>${esc(badge.name)}</span><span class="speaker-summary-meta">${badge.page ? `<span class="pill">${esc(badge.page)}</span>` : ''}${dirtySpeakers.has(badge.id) ? '<span class="pill is-accent">Unsaved</span>' : ''}</span></summary>
                 <form data-speaker-form="${esc(badge.id)}"><div class="speaker-fields">${fields.map(([key, label, max, toggle]) =>
                     key === 'avatarSrc' ? avatarField(badge, values) : `<div class="speaker-field ${key === 'inputName' ? 'wide' : ''}"><label for="${esc(badge.id)}-${key}">${label}</label><div class="speaker-input-row${toggle ? ' has-toggle' : ''}"><input id="${esc(badge.id)}-${key}" name="${key}" value="${esc(values[key])}" maxlength="${max}" ${key === 'inputName' ? 'list="speaker-audio-inputs"' : ''}>${toggle ? `<label class="speaker-toggle" title="Show ${label.toLowerCase()}"><input type="checkbox" role="switch" name="${toggle}" aria-label="Show ${label.toLowerCase()}" ${values[toggle] ? 'checked' : ''}></label>` : ''}</div></div>`).join('')}</div>
-                <button class="btn primary" type="submit">Save badge</button>
-                <span class="hint" data-speaker-status>${dirtySpeakers.has(badge.id) ? 'Unsaved changes' : ''}</span>
-                <p class="hint" data-speaker-meter style="font-variant-numeric:tabular-nums;min-height:2.5em;">Waiting for this source's live audio meter.</p></form></details>`;
+                <div class="speaker-actions">
+                    <div class="speaker-actions-left">
+                        <button class="btn primary" type="submit">Save badge</button>
+                        <span class="hint" style="margin:0;" data-speaker-status>${dirtySpeakers.has(badge.id) ? 'Unsaved changes' : ''}</span>
+                    </div>
+                    <span class="pill speaker-meter" data-speaker-meter>Waiting for live meter</span>
+                </div></form></details>`;
         }).join('') : '<div class="msg">No speaker badges in this overlay. Add a Speaker Badge in the custom overlay editor.</div>';
         for (const form of document.querySelectorAll('[data-speaker-form]')) {
             updateAvatarPreview(form);
@@ -530,9 +555,9 @@
         } catch { slides = []; videos = []; cutouts = []; }
         draw();
         await loadSpeakers();
-        if (!savedTab && !state.enabled) {
-            if (videos.length || slides.length || cutouts.length) setTab('media', false);
-            else if (speakers.length) setTab('speakers', false);
+        if (!hashTab() && !savedTab && !state.enabled) {
+            if (videos.length || slides.length || cutouts.length) setTab('media', { persist: false, updateHash: false });
+            else if (speakers.length) setTab('speakers', { persist: false, updateHash: false });
         }
     }
 
@@ -561,7 +586,11 @@
         });
         socket.addEventListener('close', () => setTimeout(connect, 2000));
     }
-    setTab(activeTab);
+    window.addEventListener('hashchange', () => {
+        const h = hashTab();
+        if (h && h !== activeTab) setTab(h, { persist: true, updateHash: false });
+    });
+    setTab(activeTab, { persist: false, updateHash: Boolean(hashTab()) });
     load().catch(error => { $('status').textContent = error.message; });
     loadAudioInputs();
     connect();
