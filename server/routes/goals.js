@@ -10,13 +10,20 @@ function createGoalsRoutes({
     safeWriteFileSync = () => {},
     applyRuntimeConfig = () => {}
 }) {
-    return async function handleGoalsRoutes(req, res, pathname) {
+    return async function handleGoalsRoutes(req, res, pathname, url) {
         if (!pathname.startsWith('/api/goals')) {
             return false;
         }
 
+        const parsedUrl = url || new URL(req.url || '/', 'http://localhost');
+
         if (pathname === '/api/goals' && req.method === 'GET') {
             sendJson(res, goalsService.buildGoalsSnapshot());
+            return true;
+        }
+
+        if (pathname === '/api/goals/status' && req.method === 'GET') {
+            sendJson(res, goalsService.getStatusSummary());
             return true;
         }
 
@@ -51,7 +58,7 @@ function createGoalsRoutes({
             }
         }
 
-        if (pathname.startsWith('/api/goals/') && req.method === 'POST') {
+        if (pathname.startsWith('/api/goals/') && (req.method === 'POST' || req.method === 'GET')) {
             const goalPath = pathname.slice('/api/goals/'.length);
             const [goalIdRaw, actionRaw] = goalPath.split('/').filter(Boolean).map(decodeURIComponent);
             const goalId = sanitizeGoalId(goalIdRaw);
@@ -71,6 +78,25 @@ function createGoalsRoutes({
                 if (action === 'toggle' || action === 'enable' || action === 'disable') {
                     const snapshot = goalsService.toggleGoalEnabled(goalId, action === 'enable' ? 'on' : action === 'disable' ? 'off' : 'toggle');
                     sendJson(res, { ok: true, goals: snapshot });
+                    return true;
+                }
+
+                if (action === 'add' || action === 'increment' || action === 'adjust') {
+                    let body = {};
+                    if (req.method === 'POST') {
+                        const raw = await readRequestBody(req);
+                        body = raw ? JSON.parse(raw) : {};
+                    }
+                    const qp = parsedUrl.searchParams;
+                    const rawAmount = qp.has('amount')
+                        ? qp.get('amount')
+                        : (qp.has('delta')
+                            ? qp.get('delta')
+                            : (qp.has('value') ? qp.get('value') : (body.amount ?? body.delta ?? body.value ?? 1)));
+                    const amount = Number(rawAmount);
+                    const snapshot = goalsService.adjustGoalProgress(goalId, amount);
+                    const goal = snapshot.items.find(item => item.id === goalId) || null;
+                    sendJson(res, { ok: true, amount, goal, goals: snapshot });
                     return true;
                 }
 

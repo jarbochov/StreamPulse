@@ -22,6 +22,34 @@ function createTierListRoutes({ tierListService }) {
                 return true;
             }
 
+            // GET /api/tier-list/status (Companion friendly)
+            if (pathname === '/api/tier-list/status' && req.method === 'GET') {
+                const state = tierListService.getState();
+                const vote = state.activeVote;
+                const consensus = vote?.consensus || null;
+                const placedCount = (state.items || []).filter(it => Boolean(it.tierId)).length;
+                const unrankedCount = (state.items || []).filter(it => !it.tierId).length;
+                sendJson(res, {
+                    title: state.title || 'Tier List',
+                    tierCount: (state.tiers || []).length,
+                    itemCount: (state.items || []).length,
+                    placedCount,
+                    unrankedCount,
+                    voteStatus: vote ? String(vote.status || 'IDLE').toLowerCase() : 'idle',
+                    activeVote: vote ? {
+                        itemId: vote.itemId,
+                        itemName: vote.itemName,
+                        status: vote.status,
+                        endsAt: vote.endsAt || null,
+                        remainingSeconds: vote.endsAt ? Math.max(0, Math.ceil((vote.endsAt - Date.now()) / 1000)) : 0,
+                        consensusTier: consensus?.consensusTier?.label || null,
+                        agreementPercent: consensus?.agreementPercent || 0,
+                        totalVotes: consensus?.totalVotes || Object.keys(vote.votes || {}).length
+                    } : null
+                });
+                return true;
+            }
+
             // POST /api/tier-list/item
             if (pathname === '/api/tier-list/item' && req.method === 'POST') {
                 const raw = await readRequestBody(req);

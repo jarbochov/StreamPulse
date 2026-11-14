@@ -179,17 +179,17 @@ function createOverlayRoutes({
     deleteOverlayThumbnail = overlayService ? overlayService.deleteOverlayThumbnail : () => {},
     renameOverlayThumbnail = overlayService ? overlayService.renameOverlayThumbnail : () => {},
     broadcastToOverlays = () => {},
-    loadRandomizerPresets = overlayService ? overlayService.loadRandomizerPresets : () => [],
-    saveRandomizerPresets = overlayService ? overlayService.saveRandomizerPresets : () => true,
-    normalizeRandomizerPreset = overlayService ? overlayService.normalizeRandomizerPreset : (p) => p,
-    getEffectiveWeights = overlayService ? overlayService.getEffectiveWeights : () => ({ weights: {}, totalWeight: 0, mode: 'equal' }),
-    pickWeightedWinner = overlayService ? overlayService.pickWeightedWinner : (c) => ({ winner: c[0] || 'Winner', winnerIndex: 0 }),
-    updatePresetWeightsAfterSpin = overlayService ? overlayService.updatePresetWeightsAfterSpin : (p) => p,
-    resetPresetWeights = overlayService ? overlayService.resetPresetWeights : (p) => p,
-    loadRandomizerButtonPresets = overlayService ? overlayService.loadRandomizerButtonPresets : () => [],
-    saveRandomizerButtonPresets = overlayService ? overlayService.saveRandomizerButtonPresets : () => true,
-    loadRandomizerQuotePresets = overlayService ? overlayService.loadRandomizerQuotePresets : () => [],
-    saveRandomizerQuotePresets = overlayService ? overlayService.saveRandomizerQuotePresets : () => true,
+    loadRandomizerPresets = overlayService?.loadRandomizerPresets || (() => []),
+    saveRandomizerPresets = overlayService?.saveRandomizerPresets || (() => true),
+    normalizeRandomizerPreset = overlayService?.normalizeRandomizerPreset || ((p) => p),
+    getEffectiveWeights = overlayService?.getEffectiveWeights || (() => ({ weights: {}, totalWeight: 0, mode: 'equal' })),
+    pickWeightedWinner = overlayService?.pickWeightedWinner || ((c) => ({ winner: c[0] || 'Winner', winnerIndex: 0 })),
+    updatePresetWeightsAfterSpin = overlayService?.updatePresetWeightsAfterSpin || ((p) => p),
+    resetPresetWeights = overlayService?.resetPresetWeights || ((p) => p),
+    loadRandomizerButtonPresets = overlayService?.loadRandomizerButtonPresets || (() => []),
+    saveRandomizerButtonPresets = overlayService?.saveRandomizerButtonPresets || (() => true),
+    loadRandomizerQuotePresets = overlayService?.loadRandomizerQuotePresets || (() => []),
+    saveRandomizerQuotePresets = overlayService?.saveRandomizerQuotePresets || (() => true),
     getChatData = () => ({}),
     getStatsData = () => ({}),
     twitchService = null,
@@ -1551,24 +1551,31 @@ function createOverlayRoutes({
             return true;
         }
 
-        if (pathname.startsWith('/api/randomizer/presets/') && pathname.endsWith('/eliminated') && req.method === 'POST') {
+        if (pathname.startsWith('/api/randomizer/presets/') && pathname.endsWith('/eliminated') && (req.method === 'POST' || req.method === 'GET')) {
             try {
                 const idToEdit = decodeURIComponent(pathname.replace('/api/randomizer/presets/', '').replace('/eliminated', ''));
-                const body = JSON.parse((await readRequestBody(req)) || '{}');
+                let body = {};
+                if (req.method === 'POST') {
+                    body = JSON.parse((await readRequestBody(req)) || '{}');
+                }
+                const queryChoice = url.searchParams.get('choice');
+                const queryOut = url.searchParams.get('out');
+                const targetChoiceRaw = String(body.choice !== undefined ? body.choice : (queryChoice || '')).trim();
+                const markOut = body.out !== undefined ? Boolean(body.out) : (queryOut !== null ? !['0', 'false', 'no'].includes(queryOut) : true);
                 const presets = loadRandomizerPresets();
                 const preset = presets.find(p => p.id === idToEdit);
                 if (!preset) {
                     sendError(res, 'Preset not found', 404);
                     return true;
                 }
-                const choice = (preset.choices || []).find(c => c.toLowerCase() === String(body.choice || '').trim().toLowerCase());
+                const choice = (preset.choices || []).find(c => c.toLowerCase() === targetChoiceRaw.toLowerCase());
                 if (!choice) {
                     sendError(res, 'Choice not found in preset', 404);
                     return true;
                 }
                 const current = (preset.eliminated || []).filter(c => c.toLowerCase() !== choice.toLowerCase());
-                preset.eliminated = body.out ? [...current, choice] : current;
-                randomizerRecordHistory(preset, { type: 'manual', winner: choice, eliminated: !!body.out });
+                preset.eliminated = markOut ? [...current, choice] : current;
+                randomizerRecordHistory(preset, { type: 'manual', winner: choice, eliminated: markOut });
                 saveRandomizerPresets(presets);
                 broadcastToOverlays('randomizer-state', randomizerStatePayload(preset, getEffectiveWeights(preset)));
                 sendJson(res, { ok: true, preset, presets });
@@ -1843,7 +1850,28 @@ function createOverlayRoutes({
             return true;
         }
 
-        if (pathname === '/api/randomizer/spin' && (req.method === 'POST' || req.method === 'GET')) {
+        if (pathname === '/api/randomizer/status' && req.method === 'GET') {
+            const status = overlayService?.getRandomizerStatus ? overlayService.getRandomizerStatus() : null;
+            const presets = loadRandomizerPresets();
+            sendJson(res, {
+                ...(status || {
+                    lastMode: 'roller',
+                    lastDuration: 6,
+                    lastWinner: '',
+                    lastPreset: null,
+                    remaining: 0,
+                    removed: 0,
+                    elimination: false,
+                    at: null
+                }),
+                presetCount: presets.length,
+                hasStudioState: Boolean(lastStudioRandomizerSettings),
+                studioPreset: lastStudioRandomizerSettings?.preset || null
+            });
+            return true;
+        }
+
+        if ((pathname === '/api/randomizer/spin' || pathname === '/api/randomizer/trigger') && (req.method === 'POST' || req.method === 'GET')) {
             try {
                 let body = {};
                 if (req.method === 'POST') {
@@ -1851,13 +1879,17 @@ function createOverlayRoutes({
                     body = JSON.parse(raw || '{}');
                 }
                 const query = Object.fromEntries(url.searchParams.entries());
-                const inheritedCompanionOverrides = body.inheritStudioSettings && !body.preset ? { ...body } : null;
-                if (body.inheritStudioSettings && !body.preset && lastStudioRandomizerSettings) {
+                const inheritStudio = body.inheritStudioSettings !== undefined
+                    ? Boolean(body.inheritStudioSettings)
+                    : (query.inheritStudioSettings === '1' || query.inheritStudioSettings === 'true');
+                if (inheritStudio) body.inheritStudioSettings = true;
+                const inheritedCompanionOverrides = inheritStudio && !body.preset && !query.preset ? { ...body } : null;
+                if (inheritStudio && !body.preset && !query.preset && lastStudioRandomizerSettings) {
                     body = { ...lastStudioRandomizerSettings, ...body };
                     if (inheritedCompanionOverrides.buttonPreset && !inheritedCompanionOverrides.buttonPhrases) {
                         body.buttonPhrases = undefined;
                     }
-                } else if (!body.inheritStudioSettings && Array.isArray(body.choices) && body.choices.length) {
+                } else if (!inheritStudio && Array.isArray(body.choices) && body.choices.length) {
                     lastStudioRandomizerSettings = { ...body };
                 }
                 const presetId = body.preset || query.preset || null;
@@ -1986,7 +2018,9 @@ function createOverlayRoutes({
                     ...(body.showButton !== undefined
                         ? { showButton: !!body.showButton }
                         : (query.button !== undefined ? { showButton: query.button === '1' || query.button === 'true' } : {})),
-                    ...(body.buttonText !== undefined ? { buttonText: String(body.buttonText) } : {}),
+                    ...(body.buttonText !== undefined
+                        ? { buttonText: String(body.buttonText) }
+                        : (query.buttonText !== undefined ? { buttonText: String(query.buttonText) } : {})),
                     deckLogo: body.deckLogo !== undefined ? String(body.deckLogo).trim() : (query.deckLogo !== undefined ? String(query.deckLogo).trim() : (matched?.deckLogo || '')),
                     deckWatermark: body.deckWatermark !== undefined ? String(body.deckWatermark).trim() : (query.deckWatermark !== undefined ? String(query.deckWatermark).trim() : (matched?.deckWatermark !== undefined ? String(matched.deckWatermark).trim() : 'STREAMPULSE')),
                     at: Date.now()

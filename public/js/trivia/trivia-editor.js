@@ -316,9 +316,30 @@ export function initEditorListeners() {
         }
     });
 
-    // Export Question Bank
+    // Export Question Bank (JSON & CSV)
     document.getElementById('btn-export-q')?.addEventListener('click', () => {
-        exportQuestions();
+        exportQuestions('json');
+    });
+    document.getElementById('btn-export-q-csv')?.addEventListener('click', () => {
+        exportQuestions('csv');
+    });
+
+    // Download CSV Template
+    document.getElementById('btn-download-csv-template')?.addEventListener('click', () => {
+        const csvTemplate = [
+            'Category,Question,ChoiceA,ChoiceB,ChoiceC,ChoiceD,ChoiceE,ChoiceF,CorrectAnswer,FunFact,Duration,Points',
+            'Gaming,"In what year was Super Mario World released in Japan?",1988,1990,1991,1992,,,B,"It launched alongside the Super Famicom in 1990.",20,100',
+            'Science,"True or False: Light travels faster than sound.",True,False,,,,,True,"Light travels roughly 874,000 times faster than sound in air.",15,50'
+        ].join('\r\n');
+        const blob = new Blob([csvTemplate], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'trivia-questions-template.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
     });
 
     // Import modal
@@ -345,17 +366,27 @@ export function initEditorListeners() {
         document.getElementById('import-modal')?.classList.remove('open');
     });
     document.getElementById('btn-confirm-import')?.addEventListener('click', async () => {
-        const raw = document.getElementById('import-json')?.value.trim();
-        const replace = document.getElementById('import-replace')?.checked;
-        try {
-            const parsed = JSON.parse(raw);
-            const items = Array.isArray(parsed) ? parsed : (parsed.questions || []);
-            const success = await importQuestions(items, replace);
-            if (success) {
-                document.getElementById('import-modal')?.classList.remove('open');
+        const raw = document.getElementById('import-json')?.value.trim() || '';
+        const replace = Boolean(document.getElementById('import-replace')?.checked);
+        if (!raw) {
+            alert('Please upload a CSV or JSON file, or paste question data first.');
+            return;
+        }
+        let payload;
+        if (raw.startsWith('[') || raw.startsWith('{')) {
+            try {
+                const parsed = JSON.parse(raw);
+                payload = Array.isArray(parsed) ? parsed : (parsed.questions || []);
+            } catch (err) {
+                alert('Invalid JSON format: ' + err.message);
+                return;
             }
-        } catch (err) {
-            alert('Invalid JSON format: ' + err.message);
+        } else {
+            payload = raw;
+        }
+        const success = await importQuestions(payload, replace);
+        if (success) {
+            document.getElementById('import-modal')?.classList.remove('open');
         }
     });
 

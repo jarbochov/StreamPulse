@@ -18,10 +18,10 @@ All commands feature clear category prefixes and contiguous grouping for fast, i
 - **Interactive Trivia:** Start question (by index or active), reveal answer, next question, previous question, toggle question done/played state, reset done questions, reset session, reset leaderboard (`session` or `season`), and load quiz pack presets. Live feedbacks and variables report active state, question text, category, total votes, countdown seconds remaining, unplayed question counts, and leaderboard standings.
 - **Polls & Tournaments:** Start polls from presets or custom questions (blind voting, 2x sub multiplier), end/crown winner, extend (+seconds), or cancel active polls; bracket camera focus and section view controls; match scoring and winner advancement.
 - **Versus & Speedrun:** Game and round scores, race clock controls (start, pause, reset, sync start), per-runner finish/toggle/reset (runners 1–4), timer display mode (`finish` vs `always`), and side swapping.
-- **Randomizer Studio:** Spin wheel, roller, or card deck with configurable duration, auto-hide, and phrase presets; elimination toggles; restore removed choices.
+- **Randomizer Studio:** Spin wheel, roller, or card deck (`/api/randomizer/spin` or `/api/randomizer/trigger`) with configurable duration, auto-hide, button label overrides (`?buttonText=...`), and Studio settings inheritance (`?inheritStudioSettings=true`), poll live status (`/api/randomizer/status`), toggle elimination via GET or POST, and restore removed choices.
 - **Chat Bot:** Turn bot on/off/toggle, send chat messages, trigger bot commands or silent background actions, send quotes.
 - **Variables & Counters:** Increment, decrement, reset counters, set variable values, roll lists/topics.
-- **Timers & Goals:** Start, pause, resume, reset, add/subtract time, toggle timer visibility, reset or toggle broadcast goals.
+- **Timers & Goals:** Start, pause, resume, reset, add/subtract time, toggle timer visibility, query goal summaries (`/api/goals/status`), manually add/adjust goal progress (`/api/goals/:id/add?amount=...`), or reset/toggle broadcast goals via GET or POST.
 - **Production & Server:** Mark clip candidate moments, pin chat messages as highlights, start/end/archive sessions, reset chat data, restart/stop StreamPulse.
 
 Explore [StreamPulse features](features.md) or [get started](quickstart.md). If StreamPulse is already installed, **Docs** and **API Reference** are available in the app navigation.

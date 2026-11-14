@@ -37,7 +37,7 @@ Gameplay controls apply with **Save Settings**. Disable **Enable Chat Voting** f
 2. **True / False Questions**: For True/False questions, click the True/False toggle to populate two choices ("True" and "False"). The overlay and chatbot will accept both `!true`/`!false` and `!t`/`!f` votes.
 3. **Reordering Questions**: Drag any question card by its drag handle to reorder the lineup, or click the **&uarr;** and **&darr;** buttons on each row.
 4. **Done Status**: Click the **Done** badge or checkmark icon on any question to toggle its played state. Questions marked as Done are skipped when using **Random Order** or auto-advance. Click **Reset Unplayed** to clear all played marks.
-5. **Bulk Import & Export**: Click **Import / Export** to paste a JSON array of questions or export your active question set as a `.json` backup file.
+5. **Bulk Import & Export (CSV & JSON)**: Click **Export CSV** or **Export JSON** to download your question bank for spreadsheet editing (Excel / Google Sheets) or full JSON backup. Click **Import** to upload or paste either CSV rows (with an optional downloadable **CSV Template**) or JSON arrays. CSV columns are `Category, Question, ChoiceA..ChoiceF, CorrectAnswer` (letter `A`–`F` or matching answer text), `FunFact, Duration, Points` — leave `ChoiceC`–`ChoiceF` blank for True/False rows.
 
 ### Controlling Gameplay
 - **Start Question**: Click the play icon on any question row, or click **Start Question** on the active question card.
@@ -190,8 +190,8 @@ All trivia endpoints support both standard REST methods and Companion-friendly `
 | `/api/trivia/questions/reorder` | `POST`, `PUT` | Save a new ordered array of question IDs. |
 | `/api/trivia/questions/move` | `POST`, `GET` | Move a question up or down (`?id=...&direction=up\|down`). |
 | `/api/trivia/questions/shuffle` | `POST`, `GET` | Randomly shuffle questions in the active bank (alias: `/api/trivia/shuffle`). |
-| `/api/trivia/export` | `GET` | Export the question bank as a downloadable JSON file (alias: `/api/trivia/questions/export`). |
-| `/api/trivia/import` | `POST` | Import questions from a JSON array or export bundle (alias: `/api/trivia/questions/import`). |
+| `/api/trivia/export` | `GET` | Export the question bank as JSON (`?format=json`) or CSV (`?format=csv`; alias: `/api/trivia/questions/export`). |
+| `/api/trivia/import` | `POST` | Import questions from CSV spreadsheet text (`{ csv, replace }` or `text/csv`) or JSON (`{ questions, replace }`; alias: `/api/trivia/questions/import`). |
 | `/api/trivia/leaderboard` | `GET` | Return ranked trivia standings (`?scope=season|session&sort=points|correct|accuracy&limit=10`). |
 | `/api/trivia/leaderboard/player` | `GET` | Look up season & session stats for a player (`?user=name`). |
 | `/api/trivia/leaderboard/reset` | `POST`, `GET` | Clear `session`, `season`, or `both` leaderboard stats (`?scope=session|season|both`). |

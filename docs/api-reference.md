@@ -167,8 +167,16 @@ Session views, timelines and exports accept legacy channel updates using `time` 
 ## 2. Choice Randomizer Endpoints
 
 ### Trigger Spin
-- **Endpoint**: `POST /api/randomizer/spin` (or `GET /api/randomizer/spin`)
+- **Endpoint**: `POST /api/randomizer/spin` or `POST /api/randomizer/trigger` (both also support `GET`)
 - **Description**: Triggers a spin animation across all connected randomizer OBS overlays and studio editors.
+
+### Get Randomizer Status Summary
+- **Endpoint**: `GET /api/randomizer/status`
+- **Description**: Returns `{ lastMode, lastDuration, lastWinner, lastPreset, remaining, removed, elimination, at, presetCount, hasStudioState, studioPreset }` for Bitfocus Companion polling and feedback.
+
+### Toggle Preset Choice Elimination
+- **Endpoint**: `POST /api/randomizer/presets/:id/eliminated` (or `GET`)
+- **Description**: Marks or restores a choice as eliminated in a saved preset (`{ "choice": "Pizza", "out": true }` or `?choice=Pizza&out=1`).
 - **Parameters** (optional JSON body or query params):
   - `preset`: Saved preset ID, or `chatters` to use collected chatter names.
   - `choices`: JSON array of choice strings, as an alternative to a preset.
@@ -488,6 +496,25 @@ Control also accepts direct REST triggers like `POST`/`GET /api/timers/:id/toggl
 
 ---
 
+## 3.5. Broadcast Goals Endpoints
+
+### Get Goals Snapshot & Metrics
+- **Endpoint**: `GET /api/goals`
+- **Description**: Returns the full normalized goals snapshot (`{ enabled, rotate_seconds, activeGoal, items, metrics, recentEvents }`).
+
+### Get Companion Goals Status Summary
+- **Endpoint**: `GET /api/goals/status`
+- **Description**: Returns a compact status payload for Bitfocus Companion (`{ enabled, total, enabledCount, completedCount, activeGoal, items }`).
+
+### Companion & Remote Goal Actions
+- **Endpoint**: `POST /api/goals/:id/:action` or `GET /api/goals/:id/:action`
+- **Supported `:action` values**:
+  - `add` (or `increment` / `adjust`): Adjusts manual progress offset on the goal via `?amount=5` (or `delta` / `value`) or JSON `{ "amount": 5 }` (defaults to `1`; negative values subtract).
+  - `reset`: Resets a persistent goal's baseline (and clears its manual offset) to `0`.
+  - `toggle`, `enable`, `disable`: Toggles or explicitly sets the goal's active visibility state.
+
+---
+
 ## 4. Overlay Visibility & Remote Control
 
 ### Fade In / Fade Out Any Overlay
@@ -607,6 +634,9 @@ Control also accepts direct REST triggers like `POST`/`GET /api/timers/:id/toggl
 
 ### `GET /api/tier-list`
 Fetches the current active tier list state including tiers, items, active vote, and presets.
+
+### `GET /api/tier-list/status`
+Returns a lightweight Bitfocus Companion summary (`{ title, tierCount, itemCount, placedCount, unrankedCount, voteStatus, activeVote }`).
 
 ### `PUT /api/tier-list`
 Updates tier list configuration (title, theme, settings, or tier order).
@@ -780,10 +810,10 @@ Randomly shuffles the order of questions in the active bank.
 Reorders questions by array of IDs: `{ "ids": ["q-2", "q-1", "q-3"] }`.
 
 ### `POST /api/trivia/questions/import` (or `/api/trivia/import`)
-Batch imports questions: `{ "questions": [...], "replace": false }`. Also accepts an exported question bundle JSON object or raw array.
+Batch imports questions from JSON (`{ "questions": [...], "replace": false }`, export bundle, or raw array) or CSV spreadsheet text (`{ "csv": "...", "replace": false }` or `Content-Type: text/csv`). CSV accepts header columns (`Category, Question, ChoiceA..ChoiceF, CorrectAnswer, FunFact, Duration, Points`) where `CorrectAnswer` can be `A`–`F` or the exact choice text.
 
 ### `GET /api/trivia/export` (or `/api/trivia/questions/export`)
-Downloads the current trivia question bank as a portable JSON file.
+Downloads the current trivia question bank as JSON (`?format=json`, default) or a spreadsheet-compatible CSV file (`?format=csv`).
 
 ### `GET /api/trivia/leaderboard`
 Returns ranked trivia standings. Supports `?scope=season|session`, `?sort=points|correct|accuracy`, and `?limit=1..500` (`0` returns all players).

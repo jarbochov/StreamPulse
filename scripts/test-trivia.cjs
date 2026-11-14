@@ -1351,4 +1351,44 @@ test('Trivia Leaderboard: Scoring, double-reveal guard, speed bonus, persistence
     const impRes = await req5.done;
     assert.equal(impRes.status, 201);
     assert.equal(service.getLeaderboard({ scope: 'season' }).entries[0].name, 'RestoredChamp');
+
+    // CSV Question Export & Import round-trip (spreadsheet compatibility)
+    const reqExportCsv = createMockReqRes({ method: 'GET', url: '/api/trivia/export?format=csv' });
+    await routes(reqExportCsv.req, reqExportCsv.res, '/api/trivia/export', new URL('http://localhost/api/trivia/export?format=csv'));
+    const expCsvRes = await reqExportCsv.done;
+    assert.equal(expCsvRes.status, 200);
+    assert.ok((expCsvRes.headers['content-type'] || expCsvRes.headers['Content-Type']).includes('text/csv'));
+    assert.ok(expCsvRes.text.startsWith('Category,Question,ChoiceA,ChoiceB,ChoiceC,ChoiceD,ChoiceE,ChoiceF,CorrectAnswer,FunFact,Duration,Points'));
+
+    const spreadsheetCsv = [
+        '\uFEFFCategory,Question,ChoiceA,ChoiceB,ChoiceC,ChoiceD,ChoiceE,ChoiceF,CorrectAnswer,FunFact,Duration,Points',
+        '"Science, Nature","Which planet is known as the ""Red Planet""?",Venus,Mars,Jupiter,Saturn,,,B,"Iron oxide on its surface gives it a reddish look.",25,150',
+        'Music,"True or False: A standard guitar has 6 strings.",True,False,,,,,True,"12-string guitars also exist.",15,50'
+    ].join('\r\n');
+
+    const reqImpCsv = createMockReqRes({
+        method: 'POST',
+        url: '/api/trivia/questions/import',
+        body: { csv: spreadsheetCsv, replace: true }
+    });
+    await routes(reqImpCsv.req, reqImpCsv.res, '/api/trivia/questions/import', new URL('http://localhost/api/trivia/questions/import'));
+    const impCsvRes = await reqImpCsv.done;
+    assert.equal(impCsvRes.status, 201);
+    assert.equal(impCsvRes.json.count, 2);
+
+    const importedState = service.getPublicState({ includeAnswers: true });
+    assert.equal(importedState.questions[0].category, 'Science, Nature');
+    assert.equal(importedState.questions[0].question, 'Which planet is known as the "Red Planet"?');
+    assert.equal(importedState.questions[0].choices.length, 4);
+    assert.equal(importedState.questions[0].correctIndex, 1); // B -> Mars
+    assert.equal(importedState.questions[0].duration, 25);
+    assert.equal(importedState.questions[0].points, 150);
+    assert.equal(importedState.questions[1].choices.length, 2);
+    assert.equal(importedState.questions[1].isTrueFalse, true);
+    assert.equal(importedState.questions[1].correctIndex, 0); // "True" matched choice text
+
+    // Re-export imported questions as CSV and verify escaping preserves commas and quotes
+    const roundTripCsv = service.exportQuestions({ format: 'csv' });
+    assert.ok(roundTripCsv.includes('"Science, Nature"'));
+    assert.ok(roundTripCsv.includes('""Red Planet""'));
 });

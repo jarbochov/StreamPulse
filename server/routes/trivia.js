@@ -318,9 +318,19 @@ function createTriviaRoutes({ triviaService, isTriviaEnabled = () => true }) {
                 return true;
             }
 
-            // GET /api/trivia/export or /api/trivia/questions/export - Export question bank JSON
+            // GET /api/trivia/export or /api/trivia/questions/export - Export question bank (JSON or CSV)
             if ((pathname === '/api/trivia/export' || pathname === '/api/trivia/questions/export') && req.method === 'GET') {
-                const payload = triviaService.exportQuestions();
+                const format = String(url.searchParams.get('format') || 'json').toLowerCase() === 'csv' ? 'csv' : 'json';
+                if (format === 'csv') {
+                    const csv = triviaService.exportQuestions({ format: 'csv' });
+                    res.writeHead(200, {
+                        'Content-Type': 'text/csv; charset=utf-8',
+                        'Content-Disposition': 'attachment; filename="trivia-questions.csv"'
+                    });
+                    res.end(csv);
+                    return true;
+                }
+                const payload = triviaService.exportQuestions({ format: 'json' });
                 res.writeHead(200, {
                     'Content-Type': 'application/json; charset=utf-8',
                     'Content-Disposition': 'attachment; filename="trivia-questions.json"'
@@ -329,13 +339,31 @@ function createTriviaRoutes({ triviaService, isTriviaEnabled = () => true }) {
                 return true;
             }
 
-            // POST /api/trivia/import or /api/trivia/questions/import - Import question bank
+            // POST /api/trivia/import or /api/trivia/questions/import - Import question bank (JSON or CSV)
             if ((pathname === '/api/trivia/import' || pathname === '/api/trivia/questions/import') && req.method === 'POST') {
                 const raw = await readRequestBody(req);
-                const body = raw ? JSON.parse(raw) : {};
-                const items = Array.isArray(body) ? body : (body.questions || []);
-                const replace = Boolean(body.replace);
-                const imported = triviaService.importQuestions(items, { replace });
+                const contentType = String(req.headers['content-type'] || '').toLowerCase();
+                let replace = url.searchParams.get('replace') === 'true' || url.searchParams.get('replace') === '1';
+                let importInput;
+
+                if (contentType.includes('text/csv')) {
+                    importInput = raw;
+                } else {
+                    const trimmed = String(raw || '').trim();
+                    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                        const body = JSON.parse(trimmed || '{}');
+                        if (body && typeof body === 'object' && !Array.isArray(body) && body.replace !== undefined) {
+                            replace = Boolean(body.replace);
+                        }
+                        importInput = typeof body?.csv === 'string'
+                            ? body.csv
+                            : (Array.isArray(body) ? body : (body.questions || []));
+                    } else {
+                        importInput = raw;
+                    }
+                }
+
+                const imported = triviaService.importQuestions(importInput, { replace });
                 sendJson(res, { success: true, count: imported.length }, 201);
                 return true;
             }

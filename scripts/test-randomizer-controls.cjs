@@ -5,9 +5,26 @@ const { createOverlayRoutes } = require('../server/routes/overlays');
 
 test('randomizer scale stays URL-only and Companion inherits Studio settings', async t => {
     const broadcasts = [];
+    let presets = [{ id: 'p1', name: 'Dinner', choices: ['Pizza', 'Sushi'], eliminated: [] }];
+    let randomizerStatus = {
+        lastMode: 'wheel',
+        lastDuration: 6,
+        lastWinner: '',
+        lastPreset: null,
+        remaining: 2,
+        removed: 0,
+        elimination: false,
+        at: null
+    };
     const handler = createOverlayRoutes({
         broadcastToOverlays: (type, payload) => broadcasts.push({ type, payload }),
-        loadRandomizerButtonPresets: () => [{ id: 'games', phrases: ['Pick a game', 'Choose one'] }]
+        loadRandomizerButtonPresets: () => [{ id: 'games', phrases: ['Pick a game', 'Choose one'] }],
+        loadRandomizerPresets: () => presets,
+        saveRandomizerPresets: (next) => { presets = next; return true; },
+        overlayService: {
+            getRandomizerStatus: () => randomizerStatus,
+            setRandomizerStatus: (next) => { randomizerStatus = { ...randomizerStatus, ...next }; }
+        }
     });
     const server = http.createServer(async (req, res) => {
         const url = new URL(req.url, 'http://localhost');
@@ -123,4 +140,28 @@ test('randomizer scale stays URL-only and Companion inherits Studio settings', a
     assert.equal(staticButton.status, 200);
     assert.equal(broadcasts[4].payload.buttonPreset, 'static');
     assert.equal(broadcasts[4].payload.buttonText, 'Spin now');
+
+    const statusRes = await fetch(`${origin}/api/randomizer/status`);
+    assert.equal(statusRes.status, 200);
+    const statusJson = await statusRes.json();
+    assert.equal(statusJson.presetCount, 1);
+    assert.equal(statusJson.hasStudioState, true);
+    assert.equal(statusJson.studioPreset, 'studio-choice');
+    assert.equal(statusJson.lastMode, 'deck');
+
+    const triggerRes = await fetch(`${origin}/api/randomizer/trigger?inheritStudioSettings=true&buttonText=Go`);
+    assert.equal(triggerRes.status, 200);
+    assert.equal(broadcasts[5].type, 'randomizer-spin');
+    assert.equal(broadcasts[5].payload.preset, 'studio-choice');
+    assert.equal(broadcasts[5].payload.buttonText, 'Go');
+
+    const elimOut = await fetch(`${origin}/api/randomizer/presets/p1/eliminated?choice=Pizza&out=1`);
+    assert.equal(elimOut.status, 200);
+    const elimOutJson = await elimOut.json();
+    assert.deepEqual(elimOutJson.preset.eliminated, ['Pizza']);
+
+    const elimIn = await fetch(`${origin}/api/randomizer/presets/p1/eliminated?choice=Pizza&out=0`);
+    assert.equal(elimIn.status, 200);
+    const elimInJson = await elimIn.json();
+    assert.deepEqual(elimInJson.preset.eliminated, []);
 });

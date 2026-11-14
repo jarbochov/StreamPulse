@@ -257,18 +257,21 @@ export async function resetDoneQuestions() {
     return false;
 }
 
-export async function importQuestions(questions, replace = false) {
+export async function importQuestions(questionsOrCsv, replace = false) {
+    const payload = typeof questionsOrCsv === 'string'
+        ? { csv: questionsOrCsv, replace }
+        : { questions: questionsOrCsv, replace };
     const res = await fetch('/api/trivia/questions/import', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ questions, replace })
+        body: JSON.stringify(payload)
     });
     if (res.ok) {
         toast('Questions imported successfully!');
         await fetchState();
         return true;
     }
-    const err = await res.json();
+    const err = await res.json().catch(() => ({}));
     alert(err.error || 'Import failed');
     return false;
 }
@@ -402,8 +405,9 @@ export async function resetLeaderboardTheme() {
     return false;
 }
 
-export async function exportQuestions() {
-    const res = await fetch('/api/trivia/export');
+export async function exportQuestions(format = 'json') {
+    const ext = String(format).toLowerCase() === 'csv' ? 'csv' : 'json';
+    const res = await fetch(`/api/trivia/export?format=${encodeURIComponent(ext)}`);
     if (!res.ok) {
         toast('Export failed');
         return false;
@@ -412,12 +416,12 @@ export async function exportQuestions() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `trivia-questions-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `trivia-questions-${new Date().toISOString().slice(0, 10)}.${ext}`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    toast('Question bank exported!');
+    toast(`Question bank exported (${ext.toUpperCase()})!`);
     return true;
 }
 

@@ -1310,8 +1310,195 @@ function createTriviaService({
         return [];
     }
 
-    function importQuestions(items, { replace = false } = {}) {
-        if (!Array.isArray(items)) throw new Error('Import items must be an array');
+    function parseCsvRows(csvText) {
+        const text = String(csvText || '').replace(/^\uFEFF/, '');
+        const rows = [];
+        let row = [];
+        let field = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < text.length; i++) {
+            const ch = text[i];
+            if (inQuotes) {
+                if (ch === '"') {
+                    if (text[i + 1] === '"') {
+                        field += '"';
+                        i += 1;
+                    } else {
+                        inQuotes = false;
+                    }
+                } else {
+                    field += ch;
+                }
+            } else if (ch === '"') {
+                inQuotes = true;
+            } else if (ch === ',') {
+                row.push(field);
+                field = '';
+            } else if (ch === '\r' || ch === '\n') {
+                if (ch === '\r' && text[i + 1] === '\n') i += 1;
+                row.push(field);
+                if (row.some(cell => String(cell).trim() !== '')) {
+                    rows.push(row);
+                }
+                row = [];
+                field = '';
+            } else {
+                field += ch;
+            }
+        }
+        if (field.length > 0 || row.length > 0) {
+            row.push(field);
+            if (row.some(cell => String(cell).trim() !== '')) {
+                rows.push(row);
+            }
+        }
+        return rows;
+    }
+
+    function resolveCsvCorrectIndex(rawVal, choices, isIndexCol = false) {
+        const trimmed = String(rawVal ?? '').trim();
+        if (!trimmed || !choices.length) return 0;
+
+        if (isIndexCol && /^\d+$/.test(trimmed)) {
+            return Math.max(0, Math.min(choices.length - 1, parseInt(trimmed, 10)));
+        }
+
+        if (/^[a-f]$/i.test(trimmed)) {
+            const idx = trimmed.toUpperCase().charCodeAt(0) - 65;
+            if (idx >= 0 && idx < choices.length) return idx;
+        }
+
+        const lower = trimmed.toLowerCase();
+        const exactIdx = choices.findIndex(c => c.toLowerCase() === lower);
+        if (exactIdx !== -1) return exactIdx;
+
+        const prefixed = trimmed.match(/^(?:choice|option|answer)\s*([a-f])$/i);
+        if (prefixed) {
+            const idx = prefixed[1].toUpperCase().charCodeAt(0) - 65;
+            if (idx >= 0 && idx < choices.length) return idx;
+        }
+
+        if (/^[1-6]$/.test(trimmed)) {
+            const oneBased = parseInt(trimmed, 10) - 1;
+            if (oneBased >= 0 && oneBased < choices.length) return oneBased;
+        }
+
+        return 0;
+    }
+
+    function parseQuestionsCsv(csvText) {
+        const rows = parseCsvRows(csvText);
+        if (!rows.length) {
+            throw new Error('CSV is empty.');
+        }
+
+        const normalizeHeader = cell => String(cell || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        const firstNorm = rows[0].map(normalizeHeader);
+        const headerTokens = new Set(['category', 'topic', 'question', 'prompt', 'questiontext', 'choicea', 'optiona', 'choice1', 'choices', 'correctanswer', 'correct', 'correctindex']);
+        const hasHeader = firstNorm.some(h => headerTokens.has(h));
+
+        const colMap = {
+            category: -1,
+            question: -1,
+            choicesList: -1,
+            choiceCols: [-1, -1, -1, -1, -1, -1],
+            correct: -1,
+            correctIsIndex: false,
+            funfact: -1,
+            duration: -1,
+            points: -1
+        };
+
+        let startRow = 0;
+        if (hasHeader) {
+            startRow = 1;
+            firstNorm.forEach((h, idx) => {
+                if (h === 'category' || h === 'topic' || h === 'subject') colMap.category = idx;
+                else if (h === 'question' || h === 'prompt' || h === 'questiontext' || h === 'q') colMap.question = idx;
+                else if (h === 'choices' || h === 'options' || h === 'answers') colMap.choicesList = idx;
+                else if (['choicea', 'optiona', 'choice1', 'option1', 'answera', 'answer1', 'a'].includes(h)) colMap.choiceCols[0] = idx;
+                else if (['choiceb', 'optionb', 'choice2', 'option2', 'answerb', 'answer2', 'b'].includes(h)) colMap.choiceCols[1] = idx;
+                else if (['choicec', 'optionc', 'choice3', 'option3', 'answerc', 'answer3', 'c'].includes(h)) colMap.choiceCols[2] = idx;
+                else if (['choiced', 'optiond', 'choice4', 'option4', 'answerd', 'answer4', 'd'].includes(h)) colMap.choiceCols[3] = idx;
+                else if (['choicee', 'optione', 'choice5', 'option5', 'answere', 'answer5', 'e'].includes(h)) colMap.choiceCols[4] = idx;
+                else if (['choicef', 'optionf', 'choice6', 'option6', 'answerf', 'answer6', 'f'].includes(h)) colMap.choiceCols[5] = idx;
+                else if (['correctindex', 'answerindex'].includes(h)) {
+                    colMap.correct = idx;
+                    colMap.correctIsIndex = true;
+                } else if (['correctanswer', 'correct', 'answer', 'correctchoice', 'correctletter', 'solution'].includes(h)) {
+                    colMap.correct = idx;
+                } else if (['funfact', 'fact', 'explanation', 'hint', 'note', 'notes'].includes(h)) colMap.funfact = idx;
+                else if (['duration', 'time', 'seconds', 'timer', 'timelimit'].includes(h)) colMap.duration = idx;
+                else if (['points', 'score', 'value', 'pts'].includes(h)) colMap.points = idx;
+            });
+        }
+
+        const questions = [];
+        for (let r = startRow; r < rows.length; r++) {
+            const cells = rows[r];
+            let category = 'General';
+            let questionText = '';
+            let choices = [];
+            let rawCorrect = '';
+            let funfact = '';
+            let durationRaw = '';
+            let pointsRaw = '';
+
+            if (hasHeader) {
+                if (colMap.category !== -1) category = cells[colMap.category] || 'General';
+                if (colMap.question !== -1) questionText = cells[colMap.question] || '';
+                const hasIndividualChoices = colMap.choiceCols.some(c => c !== -1);
+                if (hasIndividualChoices) {
+                    choices = colMap.choiceCols
+                        .map(idx => (idx !== -1 ? String(cells[idx] ?? '').trim() : ''))
+                        .filter(Boolean);
+                } else if (colMap.choicesList !== -1) {
+                    const delim = String(cells[colMap.choicesList] || '').includes('|') ? '|' : ';';
+                    choices = String(cells[colMap.choicesList] || '').split(delim).map(s => s.trim()).filter(Boolean);
+                }
+                if (colMap.correct !== -1) rawCorrect = cells[colMap.correct] ?? '';
+                if (colMap.funfact !== -1) funfact = cells[colMap.funfact] ?? '';
+                if (colMap.duration !== -1) durationRaw = cells[colMap.duration] ?? '';
+                if (colMap.points !== -1) pointsRaw = cells[colMap.points] ?? '';
+            } else {
+                // Headerless fallback: support 10-col (ChoiceA..D) or 12-col (ChoiceA..F)
+                const sixChoices = cells.length >= 11;
+                category = cells[0] || 'General';
+                questionText = cells[1] || '';
+                const choiceEnd = sixChoices ? 8 : 6;
+                choices = cells.slice(2, choiceEnd).map(c => String(c ?? '').trim()).filter(Boolean);
+                rawCorrect = cells[choiceEnd] ?? '';
+                funfact = cells[choiceEnd + 1] ?? '';
+                durationRaw = cells[choiceEnd + 2] ?? '';
+                pointsRaw = cells[choiceEnd + 3] ?? '';
+            }
+
+            const trimmedQuestion = String(questionText || '').trim();
+            if (!trimmedQuestion) continue;
+            const cleanChoices = choices.slice(0, 6);
+            if (cleanChoices.length < 2) continue;
+
+            questions.push({
+                category: String(category || 'General').trim() || 'General',
+                question: trimmedQuestion,
+                choices: cleanChoices,
+                correctIndex: resolveCsvCorrectIndex(rawCorrect, cleanChoices, colMap.correctIsIndex),
+                funfact: String(funfact || '').trim(),
+                duration: parseInt(durationRaw, 10) || undefined,
+                points: parseInt(pointsRaw, 10) || undefined
+            });
+        }
+
+        if (!questions.length) {
+            throw new Error('No valid questions found in CSV. Ensure Question and at least 2 choices are filled in.');
+        }
+        return questions;
+    }
+
+    function importQuestions(itemsOrCsv, { replace = false } = {}) {
+        const items = typeof itemsOrCsv === 'string' ? parseQuestionsCsv(itemsOrCsv) : itemsOrCsv;
+        if (!Array.isArray(items)) throw new Error('Import items must be an array or CSV text');
         const validated = items.map((it, idx) => {
             const choices = Array.isArray(it.choices)
                 ? it.choices.map(c => String(c || '').trim()).filter(Boolean).slice(0, 6)
@@ -1547,7 +1734,30 @@ function createTriviaService({
         };
     }
 
-    function exportQuestions() {
+    function exportQuestions({ format = 'json' } = {}) {
+        if (String(format).toLowerCase() === 'csv') {
+            const header = ['Category', 'Question', 'ChoiceA', 'ChoiceB', 'ChoiceC', 'ChoiceD', 'ChoiceE', 'ChoiceF', 'CorrectAnswer', 'FunFact', 'Duration', 'Points'].join(',');
+            const rows = state.questions.map(q => {
+                const choices = Array.isArray(q.choices) ? q.choices : [];
+                const correctIdx = Math.max(0, Math.min(Math.max(0, choices.length - 1), Number(q.correctIndex) || 0));
+                const correctLetter = choices.length ? String.fromCharCode(65 + correctIdx) : 'A';
+                return [
+                    csvEscape(q.category || 'General'),
+                    csvEscape(q.question || ''),
+                    csvEscape(choices[0] || ''),
+                    csvEscape(choices[1] || ''),
+                    csvEscape(choices[2] || ''),
+                    csvEscape(choices[3] || ''),
+                    csvEscape(choices[4] || ''),
+                    csvEscape(choices[5] || ''),
+                    correctLetter,
+                    csvEscape(q.funfact || ''),
+                    q.duration || state.settings.defaultDuration || 20,
+                    q.points || 100
+                ].join(',');
+            });
+            return [header, ...rows].join('\r\n');
+        }
         return {
             version: 1,
             exportedAt: new Date().toISOString(),

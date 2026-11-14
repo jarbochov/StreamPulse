@@ -15,6 +15,10 @@ const { createGamePlanRoutes } = require('../server/routes/game-plan');
 const { createGamePlanService } = require('../server/services/game-plan');
 const { createTimerService } = require('../server/services/timers');
 const { createTimersRoutes } = require('../server/routes/timers');
+const { createGoalsService } = require('../server/services/goals');
+const { createGoalsRoutes } = require('../server/routes/goals');
+const { createTierListService } = require('../server/services/tier-list');
+const { createTierListRoutes } = require('../server/routes/tier-list');
 
 function createMockRequestResponse({ method = 'GET', url = '/', headers = {}, body = null }) {
     const req = new Readable({
@@ -255,6 +259,42 @@ test('Companion & API Integration: HTTP GET/POST triggers and status snapshot', 
 
     const timersRoutes = createTimersRoutes({ timerService });
 
+    let goalsConfig = {
+        goals: {
+            enabled: true,
+            items: [
+                {
+                    id: 'sub-goal',
+                    title: 'Sub Goal',
+                    type: 'subscribers',
+                    tracking: 'persistent',
+                    target: 20,
+                    enabled: true,
+                    manual_offset: 0
+                }
+            ]
+        }
+    };
+    const goalsService = createGoalsService({
+        dataDir: testDir,
+        getConfig: () => goalsConfig,
+        saveRuntimeConfigSection: (mutator) => {
+            mutator(goalsConfig);
+        },
+        readJsonFileSafe: (_filePath, fallback) => fallback,
+        onGoalAlert: () => {}
+    });
+    const goalsRoutes = createGoalsRoutes({
+        goalsService,
+        getConfig: () => goalsConfig,
+        configPath: path.join(testDir, 'config.json'),
+        safeWriteFileSync: (p, d) => fs.writeFileSync(p, d),
+        applyRuntimeConfig: (next) => { goalsConfig = next; }
+    });
+
+    const tierListService = createTierListService({ dataDir: testDir, log: () => {} });
+    const tierListRoutes = createTierListRoutes({ tierListService });
+
     const request = async (urlStr, options = {}) => {
         const method = options.method || 'GET';
         const body = options.body || null;
@@ -267,6 +307,8 @@ test('Companion & API Integration: HTTP GET/POST triggers and status snapshot', 
         if (!handled) handled = await overlayRoutes(req, res, urlObj, pathname);
         if (!handled) handled = await gamePlanRoutes(req, res, pathname, urlObj);
         if (!handled) handled = await timersRoutes(req, res, pathname);
+        if (!handled) handled = await goalsRoutes(req, res, pathname, urlObj);
+        if (!handled) handled = await tierListRoutes(req, res, pathname);
         if (!handled) handled = await systemRoutes(req, res, urlObj, pathname);
 
         if (!handled) {
@@ -610,5 +652,53 @@ test('Companion & API Integration: HTTP GET/POST triggers and status snapshot', 
         const labelField = await request('/api/timers/stream-countdown/field/label');
         assert.equal(labelField.status, 200);
         assert.equal(labelField.text, 'Stream Starting');
+    });
+
+    await t.test('Goals & Tier List companion status, GET/POST parity, and manual progress add', async () => {
+        // Goals status summary
+        const statusInitial = await request('/api/goals/status');
+        assert.equal(statusInitial.status, 200);
+        assert.equal(statusInitial.json.enabled, true);
+        assert.equal(statusInitial.json.total, 1);
+        assert.equal(statusInitial.json.enabledCount, 1);
+        assert.equal(statusInitial.json.completedCount, 0);
+        assert.equal(statusInitial.json.activeGoal.id, 'sub-goal');
+        assert.equal(statusInitial.json.activeGoal.progress, 0);
+
+        // Add progress via GET query param
+        const addGet = await request('/api/goals/sub-goal/add?amount=5');
+        assert.equal(addGet.status, 200);
+        assert.equal(addGet.json.ok, true);
+        assert.equal(addGet.json.goals.items[0].progress, 5);
+
+        // Add progress via POST JSON body
+        const addPost = await request('/api/goals/sub-goal/add', {
+            method: 'POST',
+            body: { amount: 3 }
+        });
+        assert.equal(addPost.status, 200);
+        assert.equal(addPost.json.goals.items[0].progress, 8);
+
+        // Toggle goal enabled via GET
+        const toggleOff = await request('/api/goals/sub-goal/toggle');
+        assert.equal(toggleOff.status, 200);
+        assert.equal(toggleOff.json.goals.items[0].enabled, false);
+
+        const toggleOn = await request('/api/goals/sub-goal/toggle');
+        assert.equal(toggleOn.status, 200);
+        assert.equal(toggleOn.json.goals.items[0].enabled, true);
+
+        // Reset goal clears manual_offset via GET
+        const resetRes = await request('/api/goals/sub-goal/reset');
+        assert.equal(resetRes.status, 200);
+        assert.equal(resetRes.json.goals.items[0].progress, 0);
+
+        // Tier list status endpoint via Companion
+        const tlStatus = await request('/api/tier-list/status');
+        assert.equal(tlStatus.status, 200);
+        assert.equal(tlStatus.json.title, 'Community Tier List');
+        assert.equal(tlStatus.json.tierCount, 6);
+        assert.equal(tlStatus.json.voteStatus, 'idle');
+        assert.equal(tlStatus.json.activeVote, null);
     });
 });

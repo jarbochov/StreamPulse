@@ -430,6 +430,18 @@ test('Tier List Service: Stream Deck & Bitfocus Companion GET Triggers', async (
             };
         }
 
+        // 0. GET /api/tier-list/status while idle
+        const statusIdleReq = mockReq('GET', '/api/tier-list/status');
+        const statusIdleRes = mockRes();
+        await handleRoutes(statusIdleReq, statusIdleRes, '/api/tier-list/status');
+        assert.equal(statusIdleRes.getStatusCode(), 200);
+        const idleStatus = statusIdleRes.getBody();
+        assert.equal(idleStatus.itemCount, 2);
+        assert.equal(idleStatus.placedCount, 0);
+        assert.equal(idleStatus.unrankedCount, 2);
+        assert.equal(idleStatus.voteStatus, 'idle');
+        assert.equal(idleStatus.activeVote, null);
+
         // 1. GET /api/tier-list/vote/start without itemId -> should pick item1 automatically!
         const req1 = mockReq('GET', '/api/tier-list/vote/start?duration=45');
         const res1 = mockRes();
@@ -443,6 +455,24 @@ test('Tier List Service: Stream Deck & Bitfocus Companion GET Triggers', async (
 
         // Cast vote
         service.castVote({ user: 'Fan', userId: 'f1', tierId: 'tier-s' });
+
+        // 1b. GET /api/tier-list/status during open vote
+        const statusOpenReq = mockReq('GET', '/api/tier-list/status');
+        const statusOpenRes = mockRes();
+        await handleRoutes(statusOpenReq, statusOpenRes, '/api/tier-list/status');
+        assert.equal(statusOpenRes.getStatusCode(), 200);
+        const openStatus = statusOpenRes.getBody();
+        assert.equal(openStatus.voteStatus, 'active');
+        assert.equal(openStatus.activeVote.itemName, 'Chrono Trigger');
+        assert.equal(openStatus.activeVote.totalVotes, 1);
+        assert.equal(openStatus.activeVote.consensusTier, 'S');
+
+        // 1c. Lock vote and verify status reports locked
+        await handleRoutes(mockReq('GET', '/api/tier-list/vote/lock'), mockRes(), '/api/tier-list/vote/lock');
+        const statusLockedReq = mockReq('GET', '/api/tier-list/status');
+        const statusLockedRes = mockRes();
+        await handleRoutes(statusLockedReq, statusLockedRes, '/api/tier-list/status');
+        assert.equal(statusLockedRes.getBody().voteStatus, 'locked');
 
         // 2. GET /api/tier-list/vote/end?apply=1 -> should end vote and place item in Tier S
         const req2 = mockReq('GET', '/api/tier-list/vote/end?apply=1');

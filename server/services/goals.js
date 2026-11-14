@@ -100,6 +100,7 @@ function normalizeGoalItem(item = {}, index = 0, seenIds = new Set()) {
         tracking,
         viewer_mode: viewerMode,
         baseline: Math.max(0, Number(item?.baseline) || 0),
+        manual_offset: Number.isFinite(Number(item?.manual_offset)) ? Number(Number(item.manual_offset).toFixed(2)) : 0,
         baseline_metrics: normalizeCommunityBaseline(item?.baseline_metrics),
         weights: normalizeGoalWeights(item?.weights)
     };
@@ -283,6 +284,11 @@ function createGoalsService({
             progress = tracking === 'session' ? rawValue : Math.max(0, rawValue - normalized.baseline);
         }
 
+        const offset = Number(normalized.manual_offset) || 0;
+        if (offset !== 0) {
+            progress = Math.max(0, Number((progress + offset).toFixed(2)));
+        }
+
         const complete = normalized.target > 0 && progress >= normalized.target;
         const remaining = Math.max(0, Number((normalized.target - progress).toFixed(2)));
         const percent = normalized.target > 0 ? Math.min(100, Number(((progress / normalized.target) * 100).toFixed(1))) : 0;
@@ -355,6 +361,7 @@ function createGoalsService({
                 current.goals = settings;
                 const target = current.goals.items.find(item => sanitizeGoalId(item.id) === goalId);
                 if (!target) throw new Error('Goal not found');
+                target.manual_offset = 0;
                 if (goal.type === 'community') {
                     target.baseline_metrics = buildCommunityMetricSnapshot(snapshot.metrics, 'persistent');
                 } else {
@@ -364,6 +371,61 @@ function createGoalsService({
         }
 
         return buildGoalsSnapshot();
+    }
+
+    function adjustGoalProgress(goalId, delta = 1) {
+        const amount = Number(delta);
+        if (!Number.isFinite(amount)) throw new Error('Goal adjustment amount must be a finite number');
+
+        if (typeof saveRuntimeConfigSection === 'function') {
+            saveRuntimeConfigSection(current => {
+                const settings = normalizeGoalsConfig(current.goals || DEFAULT_GOALS_CONFIG);
+                current.goals = settings;
+                const target = current.goals.items.find(item => sanitizeGoalId(item.id) === goalId);
+                if (!target) throw new Error('Goal not found');
+                const currentOffset = Number(target.manual_offset) || 0;
+                target.manual_offset = Number((currentOffset + amount).toFixed(2));
+            });
+        }
+
+        const updated = buildGoalsSnapshot();
+        checkGoalAlerts();
+        return updated;
+    }
+
+    function getStatusSummary() {
+        const snapshot = buildGoalsSnapshot();
+        const enabledItems = snapshot.items.filter(item => item.enabled);
+        const activeGoal = enabledItems.find(item => !item.complete) || enabledItems[0] || snapshot.items[0] || null;
+        return {
+            enabled: snapshot.settings.enabled,
+            total: snapshot.summary.total,
+            enabledCount: snapshot.summary.enabled,
+            completedCount: snapshot.summary.completed,
+            activeGoal: activeGoal ? {
+                id: activeGoal.id,
+                title: activeGoal.title,
+                type: activeGoal.type,
+                tracking: activeGoal.tracking,
+                progress: activeGoal.progress,
+                target: activeGoal.target,
+                remaining: activeGoal.remaining,
+                percent: activeGoal.percent,
+                complete: activeGoal.complete
+            } : null,
+            items: snapshot.items.map(item => ({
+                id: item.id,
+                title: item.title,
+                type: item.type,
+                tracking: item.tracking,
+                enabled: item.enabled,
+                progress: item.progress,
+                target: item.target,
+                remaining: item.remaining,
+                percent: item.percent,
+                complete: item.complete
+            }))
+        };
     }
 
     function toggleGoalEnabled(goalId, mode = 'toggle') {
@@ -389,6 +451,8 @@ function createGoalsService({
         buildGoalsSnapshot,
         checkGoalAlerts,
         resetGoalBaseline,
+        adjustGoalProgress,
+        getStatusSummary,
         toggleGoalEnabled
     };
 }
