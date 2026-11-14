@@ -48,6 +48,14 @@ function renderSlotCard(setObj, slotNum, entry) {
         : '';
     const subFields = entry ? getEntrySummary(setObj, entry) : '';
 
+    const byId = new Map((setObj.roster || []).map(r => [r.id, r]));
+    const queueIds = setObj.slotQueues?.[slotNum - 1] || [];
+    const queueChips = queueIds.map((qid, qIdx) => {
+        const qEntry = byId.get(qid);
+        if (!qEntry) return '';
+        return `<span class="queue-chip" title="${esc(qEntry.label)}"><span>${esc(qEntry.label)}</span><button type="button" data-set-act="q-remove" data-slot="${slotNum}" data-q-idx="${qIdx}" aria-label="Remove from queue">&times;</button></span>`;
+    }).filter(Boolean).join('');
+
     return `
         <div class="slot-card ${entry ? 'filled' : 'empty'}"
              data-set="${esc(setObj.id)}"
@@ -63,7 +71,7 @@ function renderSlotCard(setObj, slotNum, entry) {
                        aria-label="${esc(displayName)} name">
                 <div class="slot-actions">
                     <button type="button" class="b sm" data-set-act="prev" data-slot="${slotNum}" title="Previous entry">${SVG_PREV}</button>
-                    <button type="button" class="b sm" data-set-act="next" data-slot="${slotNum}" title="Next entry">${SVG_NEXT}</button>
+                    <button type="button" class="b sm" data-set-act="next" data-slot="${slotNum}" title="${queueIds.length ? 'Pop next from queue' : 'Next entry'}">${SVG_NEXT}</button>
                     <button type="button" class="b sm" data-set-act="clear" data-slot="${slotNum}" title="Clear slot" ${entry ? '' : 'disabled'}>${SVG_CLEAR}</button>
                 </div>
             </div>
@@ -78,6 +86,13 @@ function renderSlotCard(setObj, slotNum, entry) {
             ` : `
                 <div class="slot-empty-hint">Drop an entry here or click Next</div>
             `}
+            <div class="slot-queue" data-set="${esc(setObj.id)}" data-slot-queue="${slotNum}">
+                <div class="slot-queue-head">
+                    <span>Queue (${queueIds.length})</span>
+                    ${queueIds.length ? `<button type="button" class="b sm" style="padding:.08rem .35rem; font-size:.7rem;" data-set-act="q-clear" data-slot="${slotNum}">Clear</button>` : ''}
+                </div>
+                ${queueIds.length ? `<div class="slot-queue-chips">${queueChips}</div>` : `<div class="muted" style="font-size:.72rem;">Drop entry here to queue for ${esc(displayName)}</div>`}
+            </div>
             ${aliasNote}
             <details class="slot-tokens">
                 <summary>Tokens (${tokenList.length})</summary>
@@ -133,11 +148,18 @@ function renderRosterItem(setObj, entry) {
     if (slotsCount === 0) {
         assignControl = `<button type="button" class="b sm ${isLive ? 'primary' : ''}" data-set-act="assign" data-slot="1" data-entry="${esc(entry.id)}">${isLive ? 'Live' : 'Activate'}</button>`;
     } else if (slotsCount <= 4) {
-        assignControl = Array.from({ length: slotsCount }, (_, idx) => {
+        const sBtns = Array.from({ length: slotsCount }, (_, idx) => {
             const s = idx + 1;
             const isOn = setObj.slots?.[idx] === entry.id;
             return `<button type="button" class="b sm ${isOn ? 'primary' : ''}" data-set-act="assign" data-slot="${s}" data-entry="${esc(entry.id)}" title="Assign to Slot ${s}">S${s}</button>`;
         }).join('');
+        const qBtns = slotsCount <= 2
+            ? Array.from({ length: slotsCount }, (_, idx) => {
+                const s = idx + 1;
+                return `<button type="button" class="b sm" data-set-act="q-add" data-slot="${s}" data-entry="${esc(entry.id)}" title="Add to Slot ${s} Queue">+Q${slotsCount === 1 ? '' : s}</button>`;
+            }).join('')
+            : `<select class="b sm" data-set-queue-select="${esc(entry.id)}" aria-label="Add to slot queue"><option value="">+Queue...</option>${Array.from({ length: slotsCount }, (_, idx) => `<option value="${idx + 1}">Slot ${idx + 1}</option>`).join('')}</select>`;
+        assignControl = sBtns + qBtns;
     } else {
         const options = Array.from({ length: slotsCount }, (_, idx) => {
             const s = idx + 1;
@@ -148,6 +170,10 @@ function renderRosterItem(setObj, entry) {
             <select class="b sm" data-set-assign-select="${esc(entry.id)}" aria-label="Assign to slot">
                 <option value="">Assign slot...</option>
                 ${options}
+            </select>
+            <select class="b sm" data-set-queue-select="${esc(entry.id)}" aria-label="Add to slot queue">
+                <option value="">+Queue...</option>
+                ${Array.from({ length: slotsCount }, (_, idx) => `<option value="${idx + 1}">Slot ${idx + 1}</option>`).join('')}
             </select>
         `;
     }
@@ -566,6 +592,17 @@ export function bindSetEvents(onReload) {
             }
             return;
         }
+        const qSel = e.target.closest('[data-set-queue-select]');
+        if (qSel && card && qSel.value) {
+            const base = `/api/variables/sets/${encodeURIComponent(card.dataset.setCard)}`;
+            try {
+                await api(`${base}/queue/add?slot=${encodeURIComponent(qSel.value)}&entry=${encodeURIComponent(qSel.dataset.setQueueSelect)}`, 'POST', {});
+                await reloadHandler();
+            } catch (err) {
+                toast(err.message, 'error');
+            }
+            return;
+        }
         const sel = e.target.closest('[data-set-assign-select]');
         if (!sel || !card || !sel.value) return;
         const base = `/api/variables/sets/${encodeURIComponent(card.dataset.setCard)}`;
@@ -625,6 +662,18 @@ export function bindSetEvents(onReload) {
                 toast(`Set "${setObj.name}" deleted`, 'info');
                 return await reloadHandler();
             }
+            if (act === 'q-add') {
+                await api(`${base}/queue/add?slot=${encodeURIComponent(btn.dataset.slot)}&entry=${encodeURIComponent(btn.dataset.entry)}`, 'POST', {});
+                return await reloadHandler();
+            }
+            if (act === 'q-remove') {
+                await api(`${base}/queue/remove?slot=${encodeURIComponent(btn.dataset.slot)}&index=${encodeURIComponent(btn.dataset.qIdx)}`, 'POST', {});
+                return await reloadHandler();
+            }
+            if (act === 'q-clear') {
+                await api(`${base}/queue/clear?slot=${encodeURIComponent(btn.dataset.slot)}`, 'POST', {});
+                return await reloadHandler();
+            }
             if (act === 'assign') {
                 await api(`${base}/assign?slot=${encodeURIComponent(btn.dataset.slot)}&entry=${encodeURIComponent(btn.dataset.entry)}`, 'POST', {});
                 return await reloadHandler();
@@ -660,6 +709,13 @@ export function bindSetEvents(onReload) {
     });
 
     host.addEventListener('dragover', e => {
+        const queueEl = e.target.closest('.slot-queue[data-slot-queue]');
+        if (queueEl && dragPayload?.kind === 'roster' && dragPayload.setId === queueEl.dataset.set) {
+            e.preventDefault();
+            e.stopPropagation();
+            queueEl.classList.add('drag-over');
+            return;
+        }
         const slotEl = e.target.closest('.slot-card[data-slot]');
         if (!slotEl || !dragPayload || dragPayload.setId !== slotEl.dataset.set) return;
         e.preventDefault();
@@ -667,11 +723,28 @@ export function bindSetEvents(onReload) {
     });
 
     host.addEventListener('dragleave', e => {
+        const queueEl = e.target.closest('.slot-queue[data-slot-queue]');
+        if (queueEl && !queueEl.contains(e.relatedTarget)) queueEl.classList.remove('drag-over');
         const slotEl = e.target.closest('.slot-card[data-slot]');
         if (slotEl && !slotEl.contains(e.relatedTarget)) slotEl.classList.remove('drag-over');
     });
 
     host.addEventListener('drop', async e => {
+        const queueEl = e.target.closest('.slot-queue[data-slot-queue]');
+        if (queueEl && dragPayload?.kind === 'roster' && dragPayload.setId === queueEl.dataset.set) {
+            e.preventDefault();
+            e.stopPropagation();
+            queueEl.classList.remove('drag-over');
+            const payload = dragPayload;
+            dragPayload = null;
+            try {
+                await api(`/api/variables/sets/${encodeURIComponent(queueEl.dataset.set)}/queue/add?slot=${encodeURIComponent(queueEl.dataset.slotQueue)}&entry=${encodeURIComponent(payload.entryId)}`, 'POST', {});
+                await reloadHandler();
+            } catch (err) {
+                toast(err.message, 'error');
+            }
+            return;
+        }
         const slotEl = e.target.closest('.slot-card[data-slot]');
         if (!slotEl || !dragPayload || dragPayload.setId !== slotEl.dataset.set) return;
         e.preventDefault();

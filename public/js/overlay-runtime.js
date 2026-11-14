@@ -127,6 +127,76 @@
         }
     }
 
+    function resolveCycleLines(element) {
+        const raw = String(shared.elementContent(element) || '');
+        const skipEmpty = element.cycle?.skipEmpty !== false;
+        return raw.split(/\r?\n/).map(line => {
+            if (!skipEmpty) return expandVariables(line);
+            const tokens = [...line.matchAll(/\{\{([^{}]+)\}\}/g)];
+            if (tokens.length) {
+                const anyPopulated = tokens.some(m => expandVariables(m[0]).trim() !== '');
+                if (!anyPopulated) return '';
+            }
+            return expandVariables(line);
+        }).filter(text => text.trim() !== '');
+    }
+
+    function setCycleNode(node, element) {
+        const lines = resolveCycleLines(element);
+        if (!lines.length) {
+            setNodeText(node, '');
+            return;
+        }
+        if (lines.length === 1) {
+            setNodeText(node, lines[0]);
+            return;
+        }
+        const cfg = element.cycle || {};
+        const method = cfg.transition || 'fade';
+        const dur = Math.max(50, Math.min(2000, Number(cfg.durationMs) || 350));
+        const holdMs = Math.max(1, Number(cfg.intervalSeconds) || 5) * 1000;
+        let idx = (randomIndexes.get(element.id) || 0) % lines.length;
+        setNodeText(node, lines[idx]);
+
+        const applyOut = () => {
+            node.style.transition = `opacity ${dur}ms ease, transform ${dur}ms ease`;
+            node.style.opacity = '0';
+            if (method === 'slide-up') node.style.transform = 'translateY(-8px)';
+            else if (method === 'flip') node.style.transform = 'perspective(400px) rotateX(60deg)';
+        };
+        const applyIn = () => {
+            if (method === 'slide-up') {
+                node.style.transition = 'none';
+                node.style.transform = 'translateY(8px)';
+                void node.offsetWidth;
+            } else if (method === 'flip') {
+                node.style.transition = 'none';
+                node.style.transform = 'perspective(400px) rotateX(-60deg)';
+                void node.offsetWidth;
+            }
+            node.style.transition = `opacity ${dur}ms ease, transform ${dur}ms ease`;
+            node.style.opacity = '1';
+            node.style.transform = '';
+        };
+
+        const timer = setInterval(() => {
+            const currentLines = resolveCycleLines(element);
+            if (!currentLines.length) { setNodeText(node, ''); return; }
+            idx = (idx + 1) % currentLines.length;
+            randomIndexes.set(element.id, idx);
+            if (method === 'none') {
+                setNodeText(node, currentLines[idx]);
+                return;
+            }
+            applyOut();
+            setTimeout(() => {
+                setNodeText(node, currentLines[idx]);
+                applyIn();
+            }, Math.min(dur, Math.floor(holdMs * 0.45)));
+        }, holdMs);
+        randomTimers.set(element.id, timer);
+    }
+
     function variableContext() {
         return { overlayName: liveStatus.overlayName };
     }
@@ -704,6 +774,8 @@
                 existingNode.style.background = 'transparent';
                 shared.applyBorderEffects(existingNode, element.style || {}, element);
                 existingNode._isTopLayer = true;
+            } else if (element.type === 'text' && element.cycle?.enabled) {
+                setCycleNode(existingNode, element);
             } else {
                 setNodeText(existingNode, expandVariables(shared.elementContent(element) || ''));
             }
@@ -884,6 +956,8 @@
                 node.style.background = 'transparent';
                 shared.applyBorderEffects(node, element.style || {}, element);
                 node._isTopLayer = true;
+            } else if (element.type === 'text' && element.cycle?.enabled) {
+                setCycleNode(node, element);
             } else {
                 setNodeText(node, expandVariables(shared.elementContent(element) || ''));
             }

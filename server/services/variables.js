@@ -205,10 +205,15 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         });
         const prevSlotNames = Array.isArray(patch?.slotNames) ? patch.slotNames : (cur?.slotNames || []);
         const slotNames = Array.from({ length: slotsCount }, (_, i) => String(prevSlotNames[i] ?? '').trim().slice(0, 40));
+        const prevQueues = Array.isArray(patch?.slotQueues) ? patch.slotQueues : (cur?.slotQueues || []);
+        const slotQueues = Array.from({ length: slotsCount }, (_, i) => {
+            const q = Array.isArray(prevQueues[i]) ? prevQueues[i] : [];
+            return q.map(e => normSetId(e)).filter(e => validRosterIds.has(e)).slice(0, 50);
+        });
         const candidateActive = normSetId(patch?.activeEntry ?? cur?.activeEntry ?? '');
         const activeEntry = validRosterIds.has(candidateActive) ? candidateActive : '';
 
-        return { id, name, slotsCount, fields, roster, slots, slotNames, activeEntry, updatedAt: Date.now() };
+        return { id, name, slotsCount, fields, roster, slots, slotNames, slotQueues, activeEntry, updatedAt: Date.now() };
     }
 
     function materializeSetVars(setObj) {
@@ -322,6 +327,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         return setObj;
     }
 
+
+
     function clearSetSlot(setId, slotParam = 1) {
         const cleanId = normSetId(setId);
         const setObj = sets[cleanId];
@@ -340,6 +347,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         return setObj;
     }
 
+
+
     function cycleSetSlot(setId, slotParam = 1, direction = 1) {
         const cleanId = normSetId(setId);
         const setObj = sets[cleanId];
@@ -354,22 +363,28 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             setObj.activeEntry = setObj.roster[nextPos].id;
         } else {
             const idx = parseSlotIndex(setObj, slotParam);
-            const occupied = new Set(setObj.slots.filter((id, i) => id && i !== idx));
-            const curPos = setObj.roster.findIndex(r => r.id === setObj.slots[idx]);
-            const len = setObj.roster.length;
-            let chosen = '';
-            for (let step = 1; step <= len; step++) {
-                const pos = curPos === -1
-                    ? (direction > 0 ? (step - 1) % len : (len - step) % len)
-                    : (curPos + direction * step + len * step) % len;
-                const candidate = setObj.roster[pos].id;
-                if (!occupied.has(candidate)) { chosen = candidate; break; }
+            if (!Array.isArray(setObj.slotQueues)) setObj.slotQueues = Array.from({ length: setObj.slotsCount }, () => []);
+            const queue = setObj.slotQueues[idx];
+            if (direction > 0 && Array.isArray(queue) && queue.length > 0) {
+                setObj.slots[idx] = queue.shift();
+            } else {
+                const occupied = new Set(setObj.slots.filter((id, i) => id && i !== idx));
+                const curPos = setObj.roster.findIndex(r => r.id === setObj.slots[idx]);
+                const len = setObj.roster.length;
+                let chosen = '';
+                for (let step = 1; step <= len; step++) {
+                    const pos = curPos === -1
+                        ? (direction > 0 ? (step - 1) % len : (len - step) % len)
+                        : (curPos + direction * step + len * step) % len;
+                    const candidate = setObj.roster[pos].id;
+                    if (!occupied.has(candidate)) { chosen = candidate; break; }
+                }
+                if (!chosen) {
+                    const fallbackPos = curPos === -1 ? (direction > 0 ? 0 : len - 1) : (curPos + direction + len) % len;
+                    chosen = setObj.roster[fallbackPos].id;
+                }
+                setObj.slots[idx] = chosen;
             }
-            if (!chosen) {
-                const fallbackPos = curPos === -1 ? (direction > 0 ? 0 : len - 1) : (curPos + direction + len) % len;
-                chosen = setObj.roster[fallbackPos].id;
-            }
-            setObj.slots[idx] = chosen;
         }
 
         setObj.updatedAt = Date.now();
@@ -377,6 +392,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         saveSets({ saveVarsAlso: true });
         return setObj;
     }
+
+
 
     function advanceSetQueue(setId, direction = 1, mode = 'shift') {
         const cleanId = normSetId(setId);
@@ -423,6 +440,64 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         return setObj;
     }
 
+
+
+    function enqueueSetSlot(setId, slotParam = 1, entryParam = '') {
+        const cleanId = normSetId(setId);
+        const setObj = sets[cleanId];
+        if (!setObj) throw new Error('Set not found');
+        if (setObj.slotsCount <= 0) throw new Error('Slotless preset sets do not use slot queues');
+        const idx = parseSlotIndex(setObj, slotParam);
+        const rawEntry = String(entryParam || '').trim();
+        const normEntry = normSetId(rawEntry);
+        const found = setObj.roster.find(r => r.id === normEntry || r.label.toLowerCase() === rawEntry.toLowerCase());
+        if (!found) throw new Error(`Roster entry "${rawEntry}" not found`);
+        if (!Array.isArray(setObj.slotQueues)) setObj.slotQueues = Array.from({ length: setObj.slotsCount }, () => []);
+        if (setObj.slotQueues[idx].length >= 50) throw new Error('Slot queue is full');
+        setObj.slotQueues[idx].push(found.id);
+        setObj.updatedAt = Date.now();
+        saveSets({ saveVarsAlso: false });
+        return setObj;
+    }
+
+    function removeSetSlotQueue(setId, slotParam = 1, indexOrEntry = 0) {
+        const cleanId = normSetId(setId);
+        const setObj = sets[cleanId];
+        if (!setObj) throw new Error('Set not found');
+        if (setObj.slotsCount <= 0) return setObj;
+        const idx = parseSlotIndex(setObj, slotParam);
+        if (!Array.isArray(setObj.slotQueues)) setObj.slotQueues = Array.from({ length: setObj.slotsCount }, () => []);
+        const q = setObj.slotQueues[idx];
+        const num = Number(indexOrEntry);
+        if (Number.isInteger(num) && num >= 0 && num < q.length) {
+            q.splice(num, 1);
+        } else {
+            const normEntry = normSetId(indexOrEntry);
+            const pos = q.indexOf(normEntry);
+            if (pos >= 0) q.splice(pos, 1);
+        }
+        setObj.updatedAt = Date.now();
+        saveSets({ saveVarsAlso: false });
+        return setObj;
+    }
+
+    function clearSetSlotQueue(setId, slotParam = 1) {
+        const cleanId = normSetId(setId);
+        const setObj = sets[cleanId];
+        if (!setObj) throw new Error('Set not found');
+        if (setObj.slotsCount <= 0) return setObj;
+        if (!Array.isArray(setObj.slotQueues)) setObj.slotQueues = Array.from({ length: setObj.slotsCount }, () => []);
+        if (String(slotParam).toLowerCase() === 'all') {
+            setObj.slotQueues = setObj.slotQueues.map(() => []);
+        } else {
+            const idx = parseSlotIndex(setObj, slotParam);
+            setObj.slotQueues[idx] = [];
+        }
+        setObj.updatedAt = Date.now();
+        saveSets({ saveVarsAlso: false });
+        return setObj;
+    }
+
     function swapSetSlots(setId, fromParam = 1, toParam = 2) {
         const cleanId = normSetId(setId);
         const setObj = sets[cleanId];
@@ -437,6 +512,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         saveSets({ saveVarsAlso: true });
         return setObj;
     }
+
+
 
     function importBundle(payload = {}) {
         const importedVars = Array.isArray(payload.variables) ? payload.variables : [];
@@ -587,8 +664,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                 return json(200, { sets: listSets() }), true;
             }
 
-            // Variable Sets & Slots: /api/variables/sets/:setId[/assign|clear|next|prev|swap|advance|rewind|export|import]
-            const setMatch = pathname.match(/^\/api\/variables\/sets\/([^/]+)(?:\/(assign|clear|next|prev|swap|advance|rewind|export|import))?$/);
+            // Variable Sets & Slots: /api/variables/sets/:setId[/assign|clear|next|prev|swap|advance|rewind|export|import|queue/*]
+            const setMatch = pathname.match(/^\/api\/variables\/sets\/([^/]+)(?:\/(assign|clear|next|prev|swap|advance|rewind|export|import|queue\/add|queue\/remove|queue\/clear))?$/);
             if (setMatch) {
                 const setId = decodeURIComponent(setMatch[1]);
                 const action = setMatch[2];
@@ -625,6 +702,9 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                     if (action === 'swap') return json(200, swapSetSlots(setId, query.from ?? body.from ?? 1, query.to ?? body.to ?? 2)), true;
                     if (action === 'advance') return json(200, advanceSetQueue(setId, 1, query.mode ?? body.mode ?? 'shift')), true;
                     if (action === 'rewind') return json(200, advanceSetQueue(setId, -1, query.mode ?? body.mode ?? 'shift')), true;
+                    if (action === 'queue/add') return json(200, enqueueSetSlot(setId, slot, query.entry ?? body.entry ?? '')), true;
+                    if (action === 'queue/remove') return json(200, removeSetSlotQueue(setId, slot, query.index ?? body.index ?? query.entry ?? body.entry ?? 0)), true;
+                    if (action === 'queue/clear') return json(200, clearSetSlotQueue(setId, slot)), true;
                 }
                 return json(405, { error: 'Method not allowed' }), true;
             }
@@ -668,6 +748,9 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         cycleSetSlot,
         swapSetSlots,
         advanceSetQueue,
+        enqueueSetSlot,
+        removeSetSlotQueue,
+        clearSetSlotQueue,
         importBundle,
         exportSetCsv,
         importSetCsv,

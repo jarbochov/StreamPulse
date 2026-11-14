@@ -491,6 +491,15 @@ export function textSourceBlock(el) {
         body += `<div class="hint" id="source-status">${esc(sourceStatusText(el))}</div>`;
         body += `<details class="sub-details"><summary>Fallback text</summary>${typed}</details>`;
     }
+    if (el.type === 'text') {
+        const cyc = el.cycle || {};
+        body += F.check('cycle.enabled', 'Cycle lines (skip empty variables)', Boolean(cyc.enabled));
+        if (cyc.enabled) {
+            body += `<div class="grid2">${F.number('cycle.intervalSeconds', 'Hold (seconds)', cyc.intervalSeconds ?? 5, { min: 1, max: 300, step: 1 })}${F.select('cycle.transition', 'Transition', cyc.transition || 'fade', [['fade', 'Fade'], ['slide-up', 'Slide up'], ['flip', 'Flip'], ['none', 'Instant']])}</div>`;
+            body += `<div class="grid2">${F.number('cycle.durationMs', 'Transition (ms)', cyc.durationMs ?? 350, { min: 50, max: 2000, step: 50 })}${F.check('cycle.skipEmpty', 'Skip empty lines', cyc.skipEmpty !== false)}</div>`;
+            body += `<span class="hint">Each line in the Text box above rotates on a timer. Lines whose placeholders resolve to empty are skipped automatically.</span>`;
+        }
+    }
     return body;
 }
 

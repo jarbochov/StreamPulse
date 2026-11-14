@@ -147,6 +147,14 @@
         .slot-sub { font-size: .76rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .slot-empty-hint { font-size: .78rem; color: var(--text-muted); padding: .55rem 0; text-align: center; }
         .slot-tokens summary { font-size: .74rem; color: var(--text-muted); cursor: pointer; }
+        .slot-queue { background: var(--bg-page); border: 1px dashed var(--border); border-radius: 6px; padding: .4rem .5rem; display: grid; gap: .35rem; transition: border-color .15s, background .15s; }
+        .slot-queue.drag-over { border-color: var(--accent); background: var(--accent-bg); }
+        .slot-queue-head { display: flex; justify-content: space-between; align-items: center; font-size: .72rem; color: var(--text-muted); }
+        .slot-queue-chips { display: flex; flex-wrap: wrap; gap: .25rem; }
+        .queue-chip { display: inline-flex; align-items: center; gap: .25rem; padding: .14rem .4rem; border-radius: 999px; background: var(--bg-card); border: 1px solid var(--border); font-size: .74rem; max-width: 100%; }
+        .queue-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 9rem; }
+        .queue-chip button { background: none; border: 0; color: var(--text-muted); cursor: pointer; font-size: .82rem; line-height: 1; padding: 0 .1rem; }
+        .queue-chip button:hover { color: var(--danger, #ef4444); }
         .token-pills { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .35rem; }
         .token-pills code { font-size: .72rem; }
         .set-thumb, .set-thumb-placeholder { width: 40px; height: 40px; border-radius: 6px; border: 1px solid var(--border); flex-shrink: 0; }

@@ -149,6 +149,26 @@ test('Variable Sets: multi-slot roster, assign, swap, cycle, clear, and delete',
         assert.equal(getVar(store, 'speaker_1_name').value, 'Maya Patel');
         assert.equal(getVar(store, 'speaker_2_name').value, 'Sam Rivera');
 
+        // Per-slot queues: enqueue Alex & Sam onto Slot 1, Maya onto Slot 2, then pop on Next
+        await callApi(store, 'POST', '/api/variables/sets/speaker/queue/add?slot=1&entry=alex', {});
+        await callApi(store, 'POST', '/api/variables/sets/speaker/queue/add?slot=1&entry=sam', {});
+        await callApi(store, 'POST', '/api/variables/sets/speaker/queue/add?slot=2&entry=maya', {});
+        assert.deepEqual(getSet(store, 'speaker').slotQueues, [['alex', 'sam'], ['maya']]);
+
+        // Next on Slot 1 pops Alex (leaving Sam queued)
+        await callApi(store, 'GET', '/api/variables/sets/speaker/next?slot=1');
+        assert.equal(getVar(store, 'speaker_1_name').value, 'Alex Chen');
+        assert.deepEqual(getSet(store, 'speaker').slotQueues[0], ['sam']);
+
+        // Next on Slot 2 pops Maya (leaving Slot 2 queue empty)
+        await callApi(store, 'GET', '/api/variables/sets/speaker/next?slot=2');
+        assert.equal(getVar(store, 'speaker_2_name').value, 'Maya Patel');
+        assert.deepEqual(getSet(store, 'speaker').slotQueues[1], []);
+
+        // Remove/Clear remaining queue
+        await callApi(store, 'POST', '/api/variables/sets/speaker/queue/clear?slot=1', {});
+        assert.deepEqual(getSet(store, 'speaker').slotQueues[0], []);
+
         // Clear slot 1
         await callApi(store, 'GET', '/api/variables/sets/speaker/clear?slot=1');
         assert.equal(getVar(store, 'speaker_1_name').value, '');
