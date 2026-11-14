@@ -105,8 +105,8 @@
         .empty { color: var(--border-strong); text-align: center; padding: 2rem; font-size: 0.9rem; }
 
         /* Chat log styles */
-        .chat-search { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
-        .chat-search input { flex: 1; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; color: var(--text); font-size: 0.85rem; outline: none; }
+        .chat-search { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+        .chat-search input { flex: 1; min-width: 180px; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; color: var(--text); font-size: 0.85rem; outline: none; }
         .chat-search input:focus { border-color: var(--accent); }
         .chat-search button { background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
         .chat-search button:hover { color: var(--text); border-color: var(--accent); }
@@ -366,6 +366,11 @@
                 }).join('');
             }
             list.innerHTML = html;
+            try {
+                const savedFile = localStorage.getItem('streampulse:sessions:file');
+                const savedEl = savedFile && list.querySelector(`.session-item[data-file="${CSS.escape(savedFile)}"]`);
+                if (savedEl) loadSession(savedFile, savedEl);
+            } catch {}
         } catch {
             document.getElementById('session-list').innerHTML = '<div class="empty">Failed to load sessions</div>';
         }
@@ -375,6 +380,7 @@
         document.querySelectorAll('.session-item').forEach(i => i.classList.remove('active'));
         el.classList.add('active');
         activeSessionFile = filename;
+        try { localStorage.setItem('streampulse:sessions:file', filename); } catch {}
 
         try {
             let data;
@@ -663,6 +669,12 @@
             streamInfoHtml += `<div class="stream-info-banner">${entries.join('')}</div>`;
         }
 
+        let initialTabId = tabs[0].id;
+        try {
+            const savedTab = localStorage.getItem('streampulse:sessions:tab');
+            if (savedTab && tabs.some(t => t.id === savedTab)) initialTabId = savedTab;
+        } catch {}
+
         panel.innerHTML = `
             <div class="detail-header">
                 <h2>${titleHtml}</h2>
@@ -676,10 +688,10 @@
                 ${stats.map(s => `<div class="detail-stat"><div class="value">${s.v}</div><div class="label">${s.l}</div></div>`).join('')}
             </div>
             <div class="detail-tabs">
-                ${tabs.map((t, i) => `<div class="tab${i === 0 ? ' active' : ''}" onclick="switchTab('${t.id}', this)">${t.label}</div>`).join('')}
+                ${tabs.map(t => `<div class="tab${t.id === initialTabId ? ' active' : ''}" onclick="switchTab('${t.id}', this)">${t.label}</div>`).join('')}
             </div>
             <div class="tab-content">
-                ${tabs.map((t, i) => `<div class="tab-pane${i === 0 ? ' active' : ''}" id="pane-${t.id}"></div>`).join('')}
+                ${tabs.map(t => `<div class="tab-pane${t.id === initialTabId ? ' active' : ''}" id="pane-${t.id}"></div>`).join('')}
                 ${toolPanes.map(t => `<div class="tab-pane" id="pane-${t.id}"></div>`).join('')}
             </div>
         `;
@@ -885,6 +897,7 @@
         document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
         el.classList.add('active');
         document.getElementById(`pane-${id}`).classList.add('active');
+        try { localStorage.setItem('streampulse:sessions:tab', id); } catch {}
         if (activeSessionFile === '__current__' && activeSession) {
             renderActiveSessionPane(activeSession, '__current__', id);
         }
