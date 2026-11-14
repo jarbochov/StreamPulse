@@ -21,12 +21,13 @@
         .card h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); margin-bottom: .6rem; }
         .muted { color: var(--text-muted); font-size: .82rem; line-height: 1.5; }
         table { border-collapse: collapse; width: 100%; font-size: .85rem; }
-        td { padding: .35rem .5rem; border-bottom: 1px solid var(--bg-raised); vertical-align: top; }
+        td { padding: .42rem .55rem; border-bottom: 1px solid var(--bg-raised); vertical-align: middle; }
+        tr:hover td { background: var(--bg-inset); }
         td:first-child { white-space: nowrap; }
-        td.val { color: var(--accent); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        code { background: var(--bg-inset); padding: .1rem .35rem; border-radius: 4px; }
-        code.copyable { cursor: pointer; transition: background 0.15s; }
-        code.copyable:hover { background: var(--accent-bg); color: var(--accent); }
+        td.val { color: var(--accent); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        code { background: var(--bg-inset); padding: .12rem .38rem; border-radius: 4px; font-size: .82rem; }
+        code.copyable { cursor: pointer; transition: background 0.15s, color 0.15s; }
+        code.copyable:hover, code.copyable.copied { background: var(--accent-bg); color: var(--accent); }
         input[type="search"], input[type="text"], input[type="number"], select, textarea {
             padding: .45rem .7rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit;
         }
@@ -133,12 +134,13 @@
         .set-workspace { display: grid; gap: 1rem; }
         .set-card-head { display: flex; justify-content: space-between; align-items: center; gap: .75rem; flex-wrap: wrap; padding: .75rem .9rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; }
         .set-section-title { font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); margin-bottom: .45rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-        .slots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .75rem; }
-        .slot-card { background: var(--bg-inset); border: 1.5px dashed var(--border); border-radius: 8px; padding: .75rem; display: grid; gap: .55rem; transition: border-color .15s, background .15s, box-shadow .15s; min-width: 0; }
+        .slots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .75rem; }
+        .slot-card { background: var(--bg-inset); border: 1.5px dashed var(--border); border-radius: 8px; padding: .75rem; display: grid; gap: .55rem; transition: border-color .15s, background .15s, box-shadow .15s; min-width: 0; overflow: hidden; }
         .slot-card.filled { border-style: solid; background: var(--bg-card); cursor: grab; }
         .slot-card.drag-over { border-color: var(--accent); background: var(--accent-bg); box-shadow: 0 0 0 2px var(--accent-bg); }
-        .slot-head { display: flex; justify-content: space-between; align-items: center; gap: .4rem; }
-        .slot-actions { display: flex; gap: .25rem; }
+        .slot-head { display: flex; justify-content: space-between; align-items: center; gap: .4rem; min-width: 0; }
+        .slot-name-input { flex: 1 1 0; min-width: 0; width: 0; font-size: .78rem; font-weight: 600; padding: .2rem .45rem; }
+        .slot-actions { display: flex; gap: .25rem; flex-shrink: 0; }
         .slot-body { display: flex; align-items: center; gap: .6rem; min-width: 0; }
         .slot-info { min-width: 0; flex: 1; }
         .slot-title { font-weight: 600; font-size: .88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -212,10 +214,13 @@
     <!-- Tab 1: Placeholders Reference -->
     <div class="tab-content" id="tab-placeholders" data-tab="placeholders">
         <div class="card bar">
-            <input type="search" id="q" placeholder="Search placeholders (e.g. followers, timer, weather, trivia, tier, matchup)" aria-label="Search placeholders">
-            <label class="muted" style="display:flex; align-items:center; gap:.4rem; cursor:pointer;"><input type="checkbox" id="vals" checked> Show current values</label>
-            <button class="b" id="copy">Copy Markdown</button>
-            <button class="b" id="md">Download .md</button>
+            <input type="search" id="q" placeholder="Search placeholders (e.g. followers, timer, weather, trivia, tier, matchup)" aria-label="Search placeholders" style="flex:1; min-width:14rem;">
+            <select id="ph-cat" aria-label="Filter by category">
+                <option value="all">All categories</option>
+            </select>
+            <label class="muted" style="display:flex; align-items:center; gap:.4rem; cursor:pointer;"><input type="checkbox" id="vals" checked> Show values</label>
+            <button type="button" class="b sm" id="copy">Copy Markdown</button>
+            <button type="button" class="b sm" id="md">Download .md</button>
         </div>
         <div class="card muted">
             Use any placeholder as <code>{{name}}</code> in overlay text, embeds, QR codes, alert messages and chat bot replies. Dates, timers and lists accept a format: <code>{{name|format}}</code>. Lists also take <code>.random</code> in chat bot replies, for example <code>{{var.NAME.random}}</code>. Generated live from your setup (timers, goals, variables, lists). Click any code tag to copy.

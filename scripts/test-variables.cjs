@@ -36,13 +36,14 @@ function mockRes() {
     return res;
 }
 
-async function callApi(store, method, rawUrl, bodyObj = null) {
+async function callApi(store, method, rawUrl, bodyObj = null, headers = {}) {
     const req = new EventEmitter();
     req.method = method;
     req.url = rawUrl;
+    req.headers = headers;
     const urlObj = new URL(rawUrl, 'http://localhost');
     const res = mockRes();
-    const readBody = () => Promise.resolve(bodyObj !== null ? JSON.stringify(bodyObj) : '');
+    const readBody = () => Promise.resolve(typeof bodyObj === 'string' ? bodyObj : (bodyObj !== null ? JSON.stringify(bodyObj) : ''));
     const handled = await store.handleApi(req, res, urlObj.pathname, readBody);
     const isJson = String(res.headers['Content-Type'] || '').includes('application/json');
     return { handled, status: res.statusCode, text: res.body, json: (res.body && isJson) ? JSON.parse(res.body) : null };
@@ -99,6 +100,7 @@ test('Variable Sets: multi-slot roster, assign, swap, cycle, clear, and delete',
         const setObj = store.upsertSet('speaker', {
             name: 'Speakers',
             slotsCount: 2,
+            slotNames: ['Host', 'Guest'],
             fields: [
                 { key: 'name', label: 'Name', type: 'text' },
                 { key: 'title', label: 'Title', type: 'text' },
@@ -114,6 +116,10 @@ test('Variable Sets: multi-slot roster, assign, swap, cycle, clear, and delete',
         });
 
         assert.equal(setObj.slotsCount, 2);
+        assert.equal(getVar(store, 'speaker_1_slot_name').value, 'Host');
+        assert.equal(getVar(store, 'speaker_2_slot_name').value, 'Guest');
+        assert.equal(getVar(store, 'speaker_host_name').value, 'Alex Chen');
+        assert.equal(getVar(store, 'speaker_guest_name').value, 'Maya Patel');
         assert.equal(getVar(store, 'speaker_1_name').value, 'Alex Chen');
         assert.equal(getVar(store, 'speaker_1_active').value, 'true');
         assert.equal(getVar(store, 'speaker_2_name').value, 'Maya Patel');
@@ -197,6 +203,18 @@ test('Variable Sets: multi-slot roster, assign, swap, cycle, clear, and delete',
         assert.equal(bigSet.slotsCount, 8);
         await callApi(store, 'POST', '/api/variables/sets/panel/assign?slot=8&entry=p1', {});
         assert.equal(getVar(store, 'panel_8_name').value, 'P1');
+
+        // CSV Export & Import on Variable Sets (including quoted commas)
+        const csvIn = 'Name,Logo\r\n"Pixel, Inc.",https://example.com/pixel.png\r\nVertex Studio,/assets/vertex.png\r\n';
+        const impRes = await callApi(store, 'POST', '/api/variables/sets/sponsor/import', csvIn, { 'content-type': 'text/csv' });
+        assert.equal(impRes.status, 200);
+        assert.equal(impRes.json.imported, 2);
+        assert.equal(impRes.json.total, 4);
+
+        const expRes = await callApi(store, 'GET', '/api/variables/sets/sponsor/export?format=csv');
+        assert.equal(expRes.status, 200);
+        assert.ok(expRes.text.includes('"Pixel, Inc."'));
+        assert.ok(expRes.text.includes('Vertex Studio'));
     } finally {
         fs.rmSync(dir, { recursive: true, force: true });
     }

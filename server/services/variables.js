@@ -203,10 +203,12 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             const candidate = normSetId(prevSlots[i] || '');
             return validRosterIds.has(candidate) ? candidate : '';
         });
+        const prevSlotNames = Array.isArray(patch?.slotNames) ? patch.slotNames : (cur?.slotNames || []);
+        const slotNames = Array.from({ length: slotsCount }, (_, i) => String(prevSlotNames[i] ?? '').trim().slice(0, 40));
         const candidateActive = normSetId(patch?.activeEntry ?? cur?.activeEntry ?? '');
         const activeEntry = validRosterIds.has(candidateActive) ? candidateActive : '';
 
-        return { id, name, slotsCount, fields, roster, slots, activeEntry, updatedAt: Date.now() };
+        return { id, name, slotsCount, fields, roster, slots, slotNames, activeEntry, updatedAt: Date.now() };
     }
 
     function materializeSetVars(setObj) {
@@ -232,16 +234,30 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
 
         for (let i = 0; i < setObj.slotsCount; i++) {
             const slotNum = i + 1;
+            const customLabel = String(setObj.slotNames?.[i] || '').trim();
+            const slotDisplayName = customLabel || `Slot ${slotNum}`;
+            const slotSlug = normSetId(customLabel);
+            const hasNamedAlias = slotSlug && !/^\d+$/.test(slotSlug) && slotSlug !== 'active';
+
             const entry = byId.get(setObj.slots[i]) || null;
             const activeVal = entry ? 'true' : 'false';
+            writeField(`${setObj.id}_${slotNum}_slot_name`, 'text', slotDisplayName);
             writeField(`${setObj.id}_${slotNum}_active`, 'toggle', activeVal);
-            if (i === 0) writeField(`${setObj.id}_active`, 'toggle', activeVal);
+            if (i === 0) {
+                writeField(`${setObj.id}_slot_name`, 'text', slotDisplayName);
+                writeField(`${setObj.id}_active`, 'toggle', activeVal);
+            }
+            if (hasNamedAlias) {
+                writeField(`${setObj.id}_${slotSlug}_slot_name`, 'text', slotDisplayName);
+                writeField(`${setObj.id}_${slotSlug}_active`, 'toggle', activeVal);
+            }
 
             for (const f of setObj.fields) {
                 const rawVal = entry ? (entry.values?.[f.key] ?? '') : '';
                 const val = rawVal || (f.type === 'toggle' ? 'false' : f.type === 'color' ? '#3b82f6' : '');
                 writeField(`${setObj.id}_${slotNum}_${f.key}`, f.type, val);
                 if (i === 0) writeField(`${setObj.id}_${f.key}`, f.type, val);
+                if (hasNamedAlias) writeField(`${setObj.id}_${slotSlug}_${f.key}`, f.type, val);
             }
         }
     }
@@ -269,7 +285,15 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
     }
 
     function parseSlotIndex(setObj, rawSlot) {
-        const idx = (parseInt(rawSlot, 10) || 1) - 1;
+        const str = String(rawSlot ?? '').trim();
+        if (str && !/^\d+$/.test(str)) {
+            const slug = normSetId(str);
+            const namedIdx = (setObj.slotNames || []).findIndex(n =>
+                n.toLowerCase() === str.toLowerCase() || (slug && normSetId(n) === slug)
+            );
+            if (namedIdx >= 0) return namedIdx;
+        }
+        const idx = (parseInt(str, 10) || 1) - 1;
         if (idx < 0 || idx >= setObj.slotsCount) throw new Error(`Slot must be 1..${setObj.slotsCount}`);
         return idx;
     }
@@ -376,12 +400,123 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         return { ok: true, importedVars: varCount, importedSets: setCount, variables: list(), sets: listSets() };
     }
 
+    function toCsvCell(val) {
+        const s = String(val ?? '');
+        return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }
+
+    function parseCsvRows(text) {
+        const rows = [];
+        let row = [];
+        let cell = '';
+        let inQuotes = false;
+        const clean = String(text || '').replace(/^\uFEFF/, '');
+        for (let i = 0; i < clean.length; i++) {
+            const ch = clean[i];
+            if (inQuotes) {
+                if (ch === '"') {
+                    if (clean[i + 1] === '"') { cell += '"'; i++; }
+                    else inQuotes = false;
+                } else {
+                    cell += ch;
+                }
+            } else if (ch === '"') {
+                inQuotes = true;
+            } else if (ch === ',') {
+                row.push(cell);
+                cell = '';
+            } else if (ch === '\r' || ch === '\n') {
+                if (ch === '\r' && clean[i + 1] === '\n') i++;
+                row.push(cell);
+                if (row.some(c => c.trim() !== '')) rows.push(row);
+                row = [];
+                cell = '';
+            } else {
+                cell += ch;
+            }
+        }
+        row.push(cell);
+        if (row.some(c => c.trim() !== '')) rows.push(row);
+        return rows;
+    }
+
+    function exportSetCsv(setId) {
+        const setObj = sets[normSetId(setId)];
+        if (!setObj) throw new Error('Set not found');
+        const headers = ['id', 'label', ...(setObj.fields || []).map(f => f.key)];
+        const lines = [headers.map(toCsvCell).join(',')];
+        for (const entry of setObj.roster || []) {
+            const cells = [
+                entry.id,
+                entry.label,
+                ...(setObj.fields || []).map(f => entry.values?.[f.key] ?? '')
+            ];
+            lines.push(cells.map(toCsvCell).join(','));
+        }
+        return `${lines.join('\r\n')}\r\n`;
+    }
+
+    function importSetCsv(setId, csvText, { replace = false } = {}) {
+        const cleanId = normSetId(setId);
+        const setObj = sets[cleanId];
+        if (!setObj) throw new Error('Set not found');
+        const rows = parseCsvRows(csvText);
+        if (rows.length < 2) throw new Error('CSV must include a header row and at least one data row');
+
+        const rawHeaders = rows[0].map(h => String(h || '').trim());
+        const fieldByCol = rawHeaders.map(h => {
+            const lower = h.toLowerCase();
+            if (lower === 'id') return '__id';
+            if (lower === 'label') return '__label';
+            const match = (setObj.fields || []).find(f =>
+                f.key.toLowerCase() === lower || f.label.toLowerCase() === lower || normSetId(h) === f.key
+            );
+            return match ? match.key : null;
+        });
+
+        const existing = replace ? [] : [...(setObj.roster || [])];
+        const byId = new Map(existing.map((r, idx) => [r.id, idx]));
+        let imported = 0;
+
+        for (const dataRow of rows.slice(1)) {
+            let idVal = '';
+            let labelVal = '';
+            const values = {};
+            for (let c = 0; c < fieldByCol.length; c++) {
+                const target = fieldByCol[c];
+                if (!target) continue;
+                const cellVal = dataRow[c] ?? '';
+                if (target === '__id') idVal = cellVal.trim();
+                else if (target === '__label') labelVal = cellVal.trim();
+                else values[target] = cellVal;
+            }
+            const firstKey = setObj.fields?.[0]?.key || 'name';
+            const derivedLabel = labelVal || values[firstKey] || idVal;
+            if (!derivedLabel && !Object.values(values).some(Boolean)) continue;
+            const entryId = normSetId(idVal || derivedLabel || `entry_${existing.length + 1}`);
+            const entry = { id: entryId, label: derivedLabel || entryId, values };
+            if (byId.has(entryId)) {
+                const idx = byId.get(entryId);
+                existing[idx] = { ...existing[idx], ...entry, values: { ...existing[idx].values, ...values } };
+            } else {
+                byId.set(entryId, existing.length);
+                existing.push(entry);
+            }
+            imported++;
+        }
+
+        const updated = upsertSet(cleanId, { roster: existing });
+        return { ok: true, imported, total: updated.roster.length, set: updated };
+    }
+
     async function handleApi(req, res, pathname, readBody) {
         const json = (status, body) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
         try {
             const urlObj = new URL(req.url, 'http://localhost');
             const query = Object.fromEntries(urlObj.searchParams);
-            const body = req.method === 'GET' || req.method === 'DELETE' ? {} : JSON.parse(await readBody(req) || '{}');
+            const contentType = String(req.headers?.['content-type'] || '').toLowerCase();
+            const rawBody = (req.method === 'GET' || req.method === 'DELETE') ? '' : await readBody(req);
+            const body = contentType.includes('text/csv') ? {} : JSON.parse(rawBody || '{}');
 
             if (pathname === '/api/variables' && req.method === 'GET') {
                 return json(200, { variables: list(), sets: listSets() }), true;
@@ -393,8 +528,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                 return json(200, { sets: listSets() }), true;
             }
 
-            // Variable Sets & Slots: /api/variables/sets/:setId[/assign|clear|next|prev|swap]
-            const setMatch = pathname.match(/^\/api\/variables\/sets\/([^/]+)(?:\/(assign|clear|next|prev|swap))?$/);
+            // Variable Sets & Slots: /api/variables/sets/:setId[/assign|clear|next|prev|swap|export|import]
+            const setMatch = pathname.match(/^\/api\/variables\/sets\/([^/]+)(?:\/(assign|clear|next|prev|swap|export|import))?$/);
             if (setMatch) {
                 const setId = decodeURIComponent(setMatch[1]);
                 const action = setMatch[2];
@@ -409,6 +544,19 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                     if (req.method === 'DELETE') {
                         return json(200, { sets: deleteSet(setId), variables: list() }), true;
                     }
+                } else if (action === 'export' && req.method === 'GET') {
+                    const csv = exportSetCsv(setId);
+                    const safeName = normSetId(setId) || 'set';
+                    res.writeHead(200, {
+                        'Content-Type': 'text/csv; charset=utf-8',
+                        'Content-Disposition': `attachment; filename="${safeName}-roster.csv"`
+                    });
+                    res.end(`\uFEFF${csv}`);
+                    return true;
+                } else if (action === 'import' && req.method === 'POST') {
+                    const csvText = contentType.includes('text/csv') ? rawBody : String(body.csv || '');
+                    const replace = query.replace === '1' || query.replace === 'true' || body.replace === true;
+                    return json(200, importSetCsv(setId, csvText, { replace })), true;
                 } else if (req.method === 'POST' || req.method === 'GET') {
                     const slot = query.slot ?? body.slot ?? 1;
                     if (action === 'assign') return json(200, assignSetSlot(setId, slot, query.entry ?? body.entry ?? '')), true;
@@ -459,6 +607,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         cycleSetSlot,
         swapSetSlots,
         importBundle,
+        exportSetCsv,
+        importSetCsv,
         reload: load
     };
 };

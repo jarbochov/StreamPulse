@@ -13,6 +13,7 @@ const SVG_GRIP = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" st
 
 let dragPayload = null;
 let reloadHandler = async () => {};
+let rosterFilter = '';
 
 function getEntryThumb(setObj, entry) {
     const imgField = (setObj.fields || []).find(f => f.type === 'image');
@@ -31,10 +32,17 @@ function getEntrySummary(setObj, entry) {
 }
 
 function renderSlotCard(setObj, slotNum, entry) {
-    const tokens = (setObj.fields || []).map(f => {
-        const key = `var.${setObj.id}_${slotNum}_${f.key}`;
-        return `<code class="copyable" title="Click to copy" data-copy="{{${esc(key)}}}">{{${esc(key)}}}</code>`;
-    }).join('');
+    const customName = String(setObj.slotNames?.[slotNum - 1] || '').trim();
+    const displayName = customName || `Slot ${slotNum}`;
+    const slotSlug = slugId(customName);
+    const hasAlias = slotSlug && !/^\d+$/.test(slotSlug) && slotSlug !== 'active';
+
+    const tokenList = [
+        `var.${setObj.id}_${slotNum}_slot_name`,
+        ...(setObj.fields || []).map(f => `var.${setObj.id}_${slotNum}_${f.key}`),
+        ...(hasAlias ? (setObj.fields || []).map(f => `var.${setObj.id}_${slotSlug}_${f.key}`) : [])
+    ];
+    const tokens = tokenList.map(key => `<code class="copyable" title="Click to copy" data-copy="{{${esc(key)}}}">{{${esc(key)}}}</code>`).join('');
     const aliasNote = slotNum === 1
         ? `<div class="muted" style="font-size:.72rem;">Slot 1 alias: <code class="copyable" data-copy="{{var.${esc(setObj.id)}_${esc(setObj.fields?.[0]?.key || 'name')}}}">{{var.${esc(setObj.id)}_${esc(setObj.fields?.[0]?.key || 'name')}}}</code></div>`
         : '';
@@ -46,7 +54,13 @@ function renderSlotCard(setObj, slotNum, entry) {
              data-slot="${slotNum}"
              ${entry ? 'draggable="true"' : ''}>
             <div class="slot-head">
-                <span class="badge">Slot ${slotNum}</span>
+                <input type="text"
+                       class="slot-name-input"
+                       data-slot-name="${slotNum}"
+                       value="${esc(customName)}"
+                       placeholder="Slot ${slotNum}"
+                       title="Customize slot name (also exposed as {{var.${esc(setObj.id)}_${slotNum}_slot_name}})"
+                       aria-label="${esc(displayName)} name">
                 <div class="slot-actions">
                     <button type="button" class="b sm" data-set-act="prev" data-slot="${slotNum}" title="Previous entry">${SVG_PREV}</button>
                     <button type="button" class="b sm" data-set-act="next" data-slot="${slotNum}" title="Next entry">${SVG_NEXT}</button>
@@ -66,7 +80,7 @@ function renderSlotCard(setObj, slotNum, entry) {
             `}
             ${aliasNote}
             <details class="slot-tokens">
-                <summary>Tokens (${(setObj.fields || []).length})</summary>
+                <summary>Tokens (${tokenList.length})</summary>
                 <div class="token-pills">${tokens}</div>
             </details>
         </div>
@@ -201,9 +215,15 @@ export function renderSets() {
             return renderSlotCard(activeSet, slotNum, byId.get(activeSet.slots?.[i] || '') || null);
         }).join('')}</div>`;
 
-    const rosterHtml = (activeSet.roster || []).length
-        ? activeSet.roster.map(entry => renderRosterItem(activeSet, entry)).join('')
-        : '<div class="muted" style="font-size:.82rem; padding:.5rem 0;">No entries yet. Click "+ Add Entry" above to populate this set.</div>';
+    const filteredRoster = (activeSet.roster || []).filter(entry => {
+        const q = rosterFilter.trim().toLowerCase();
+        if (!q) return true;
+        return `${entry.label} ${entry.id} ${Object.values(entry.values || {}).join(' ')}`.toLowerCase().includes(q);
+    });
+
+    const rosterHtml = filteredRoster.length
+        ? filteredRoster.map(entry => renderRosterItem(activeSet, entry)).join('')
+        : `<div class="muted" style="font-size:.82rem; padding:.5rem 0;">${(activeSet.roster || []).length ? 'No entries match your filter.' : 'No entries yet. Click "+ Add Entry" or "Import CSV" above to populate this set.'}</div>`;
 
     const slotBadge = slotsCount === 0 ? 'Preset mode (0 slots)' : `${slotsCount} output slot${slotsCount === 1 ? '' : 's'}`;
 
@@ -232,8 +252,13 @@ export function renderSets() {
                 ${outputHtml}
             </div>
             <div class="roster-section">
-                <div class="set-section-title">
+                <div class="set-section-title" style="flex-wrap:wrap;">
                     <span>${slotsCount > 0 ? 'Roster Pool' : 'Saved Presets'}</span>
+                    <div style="display:flex; gap:.35rem; align-items:center; text-transform:none; letter-spacing:0; font-weight:500;">
+                        ${(activeSet.roster || []).length > 4 ? `<input type="search" id="set-roster-filter" value="${esc(rosterFilter)}" placeholder="Filter entries..." style="padding:.22rem .55rem; font-size:.78rem; width:11rem;">` : ''}
+                        <a class="b sm" href="/api/variables/sets/${encodeURIComponent(activeSet.id)}/export?format=csv" download="${esc(activeSet.id)}-roster.csv" style="text-decoration:none;">Export CSV</a>
+                        <label class="b sm" style="display:inline-flex; align-items:center; cursor:pointer;">Import CSV<input type="file" data-set-csv-import accept=".csv,text/csv" hidden></label>
+                    </div>
                 </div>
                 <div class="roster-list">${rosterHtml}</div>
             </div>
@@ -485,9 +510,56 @@ export function bindSetEvents(onReload) {
 
     document.getElementById('set-add-btn')?.addEventListener('click', () => openSetModal());
 
+    host.addEventListener('input', e => {
+        if (e.target.id === 'set-roster-filter') {
+            rosterFilter = e.target.value;
+            const pos = e.target.selectionStart;
+            renderSets();
+            const nextInput = document.getElementById('set-roster-filter');
+            if (nextInput) { nextInput.focus(); nextInput.setSelectionRange(pos, pos); }
+        }
+    });
+
     host.addEventListener('change', async e => {
-        const sel = e.target.closest('[data-set-assign-select]');
+        const slotNameInput = e.target.closest('[data-slot-name]');
         const card = e.target.closest('[data-set-card]');
+        if (slotNameInput && card) {
+            const setObj = (state.variableSets || []).find(s => s.id === card.dataset.setCard);
+            if (!setObj) return;
+            const slotIdx = Number(slotNameInput.dataset.slotName) - 1;
+            const slotNames = Array.from({ length: setObj.slotsCount || 0 }, (_, i) => String(setObj.slotNames?.[i] ?? ''));
+            slotNames[slotIdx] = slotNameInput.value.trim();
+            try {
+                await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}`, 'PUT', { slotNames });
+                toast('Slot name saved', 'success');
+                await reloadHandler();
+            } catch (err) {
+                toast(err.message, 'error');
+            }
+            return;
+        }
+        const csvInput = e.target.closest('[data-set-csv-import]');
+        if (csvInput && card) {
+            const file = csvInput.files?.[0];
+            csvInput.value = '';
+            if (!file) return;
+            try {
+                const csvText = await file.text();
+                const res = await fetch(`/api/variables/sets/${encodeURIComponent(card.dataset.setCard)}/import`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/csv; charset=utf-8' },
+                    body: csvText
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || res.statusText);
+                toast(`Imported ${data.imported} roster ${data.imported === 1 ? 'entry' : 'entries'}`, 'success');
+                await reloadHandler();
+            } catch (err) {
+                toast('CSV import failed: ' + err.message, 'error');
+            }
+            return;
+        }
+        const sel = e.target.closest('[data-set-assign-select]');
         if (!sel || !card || !sel.value) return;
         const base = `/api/variables/sets/${encodeURIComponent(card.dataset.setCard)}`;
         try {
