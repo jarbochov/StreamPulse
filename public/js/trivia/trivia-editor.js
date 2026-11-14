@@ -4,7 +4,7 @@
  * Sortable / native drag-and-drop, and font family discovery.
  */
 
-import { getState, esc, toast, fetchState, saveQuestion, reorderQuestions, savePreset, loadPreset, deletePreset, importQuestions, saveSettings, saveTheme } from './trivia-state.js';
+import { getState, esc, toast, fetchState, saveQuestion, reorderQuestions, savePreset, loadPreset, deletePreset, importQuestions, exportQuestions, saveSettings, saveTheme } from './trivia-state.js';
 import { getColorFieldValue, getHeaderFontSizeValue, updateObsUrl } from './trivia-preview.js';
 
 export let modalChoices = [];
@@ -316,13 +316,27 @@ export function initEditorListeners() {
         }
     });
 
+    // Export Question Bank
+    document.getElementById('btn-export-q')?.addEventListener('click', () => {
+        exportQuestions();
+    });
+
     // Import modal
     document.getElementById('btn-import-modal')?.addEventListener('click', () => {
         const txt = document.getElementById('import-json');
         const rep = document.getElementById('import-replace');
+        const fileEl = document.getElementById('import-file');
         if (txt) txt.value = '';
         if (rep) rep.checked = false;
+        if (fileEl) fileEl.value = '';
         document.getElementById('import-modal')?.classList.add('open');
+    });
+    document.getElementById('import-file')?.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const text = await file.text();
+        const txt = document.getElementById('import-json');
+        if (txt) txt.value = text;
     });
     document.getElementById('btn-close-import-modal')?.addEventListener('click', () => {
         document.getElementById('import-modal')?.classList.remove('open');

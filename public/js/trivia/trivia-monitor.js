@@ -7,6 +7,7 @@
 import { esc } from './trivia-state.js';
 import { PRESET_DEFAULTS, setFieldColor, setHeaderFontSizeValue, updateObsUrl } from './trivia-preview.js';
 import { attachDragAndDrop, populateFontDropdowns } from './trivia-editor.js';
+import { renderLeaderboard } from './trivia-leaderboard.js';
 
 let formSignature = '';
 
@@ -143,8 +144,10 @@ export function renderState(currentState) {
         chatbotPill.style.color = active ? '#22c55e' : '#8b949e';
     }
 
+    renderLeaderboard(currentState);
+
     // Vote and lifecycle updates must not reset unsaved configuration.
-    const signature = JSON.stringify([currentState.settings, currentState.theme, currentState.presets]);
+    const signature = JSON.stringify([currentState.settings, currentState.theme, currentState.leaderboardTheme, currentState.presets]);
     if (signature === formSignature) return;
     formSignature = signature;
 

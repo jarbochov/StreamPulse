@@ -38,7 +38,80 @@ function createTriviaRoutes({ triviaService, isTriviaEnabled = () => true }) {
                 const body = raw ? JSON.parse(raw) : {};
                 if (body.settings) triviaService.updateSettings(body.settings);
                 if (body.theme) triviaService.updateTheme(body.theme);
+                if (body.leaderboardTheme) triviaService.updateLeaderboardTheme(body.leaderboardTheme);
                 sendJson(res, triviaService.getPublicState({ includeAnswers: true }));
+                return true;
+            }
+
+            // GET /api/trivia/leaderboard - Fetch ranked player stats
+            if (pathname === '/api/trivia/leaderboard' && req.method === 'GET') {
+                const scope = url.searchParams.get('scope') === 'session' ? 'session' : 'season';
+                const sortBy = url.searchParams.get('sort') || url.searchParams.get('sortBy') || null;
+                const limitParam = url.searchParams.get('limit');
+                const limit = limitParam !== null ? parseInt(limitParam, 10) : null;
+                sendJson(res, triviaService.getLeaderboard({ scope, sortBy, limit }));
+                return true;
+            }
+
+            // GET /api/trivia/leaderboard/player - Lookup individual player stats
+            if (pathname === '/api/trivia/leaderboard/player' && req.method === 'GET') {
+                const user = url.searchParams.get('user') || url.searchParams.get('name') || '';
+                const stats = triviaService.getPlayerStats(user);
+                sendJson(res, stats ? { found: true, ...stats } : { found: false, key: user.toLowerCase() });
+                return true;
+            }
+
+            // POST or GET /api/trivia/leaderboard/reset - Reset session, season, or both (Companion friendly)
+            if (pathname === '/api/trivia/leaderboard/reset' && (req.method === 'POST' || req.method === 'GET')) {
+                let scope = url.searchParams.get('scope') || '';
+                if (!scope && req.method === 'POST') {
+                    const raw = await readRequestBody(req);
+                    const body = raw ? JSON.parse(raw) : {};
+                    scope = body.scope || 'session';
+                }
+                const result = triviaService.resetLeaderboard(scope || 'session');
+                sendJson(res, result);
+                return true;
+            }
+
+            // GET /api/trivia/leaderboard/export - Export leaderboard stats as JSON or CSV
+            if (pathname === '/api/trivia/leaderboard/export' && req.method === 'GET') {
+                const scope = url.searchParams.get('scope') === 'session' ? 'session' : 'season';
+                const format = (url.searchParams.get('format') || 'json').toLowerCase() === 'csv' ? 'csv' : 'json';
+                const data = triviaService.exportLeaderboard({ scope, format });
+                if (format === 'csv') {
+                    res.writeHead(200, {
+                        'Content-Type': 'text/csv; charset=utf-8',
+                        'Content-Disposition': `attachment; filename="trivia-leaderboard-${scope}.csv"`
+                    });
+                    res.end(data);
+                    return true;
+                }
+                res.writeHead(200, {
+                    'Content-Type': 'application/json; charset=utf-8',
+                    'Content-Disposition': `attachment; filename="trivia-leaderboard-${scope}.json"`
+                });
+                res.end(JSON.stringify(data, null, 2));
+                return true;
+            }
+
+            // POST /api/trivia/leaderboard/import - Import leaderboard stats JSON
+            if (pathname === '/api/trivia/leaderboard/import' && req.method === 'POST') {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const scope = (url.searchParams.get('scope') || body.scope) === 'session' ? 'session' : 'season';
+                const replace = url.searchParams.get('replace') === 'true' || Boolean(body.replace);
+                const result = triviaService.importLeaderboard(body, { replace, scope });
+                sendJson(res, { success: true, ...result }, 201);
+                return true;
+            }
+
+            // PUT or POST /api/trivia/leaderboard/theme - Update or reset leaderboard overlay theme
+            if (pathname === '/api/trivia/leaderboard/theme' && (req.method === 'PUT' || req.method === 'POST')) {
+                const raw = await readRequestBody(req);
+                const body = raw ? JSON.parse(raw) : {};
+                const leaderboardTheme = triviaService.updateLeaderboardTheme(body);
+                sendJson(res, { success: true, leaderboardTheme });
                 return true;
             }
 
@@ -245,8 +318,19 @@ function createTriviaRoutes({ triviaService, isTriviaEnabled = () => true }) {
                 return true;
             }
 
-            // POST /api/trivia/questions/import - Import question bank
-            if (pathname === '/api/trivia/questions/import' && req.method === 'POST') {
+            // GET /api/trivia/export or /api/trivia/questions/export - Export question bank JSON
+            if ((pathname === '/api/trivia/export' || pathname === '/api/trivia/questions/export') && req.method === 'GET') {
+                const payload = triviaService.exportQuestions();
+                res.writeHead(200, {
+                    'Content-Type': 'application/json; charset=utf-8',
+                    'Content-Disposition': 'attachment; filename="trivia-questions.json"'
+                });
+                res.end(JSON.stringify(payload, null, 2));
+                return true;
+            }
+
+            // POST /api/trivia/import or /api/trivia/questions/import - Import question bank
+            if ((pathname === '/api/trivia/import' || pathname === '/api/trivia/questions/import') && req.method === 'POST') {
                 const raw = await readRequestBody(req);
                 const body = raw ? JSON.parse(raw) : {};
                 const items = Array.isArray(body) ? body : (body.questions || []);

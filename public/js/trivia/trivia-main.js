@@ -7,6 +7,7 @@ import { fetchState, connectWs, onStateChange, startQuestion, revealAnswer, next
 import { renderState } from './trivia-monitor.js';
 import { initPreviewListeners, setPreviewViewport, applyViewportScale, togglePreviewBackdrop, applyPreviewBackdrop, setPreviewPhase, togglePreviewSampleData, setActiveTab, updateObsUrl } from './trivia-preview.js';
 import { initEditorListeners, openEditModal, removeModalChoice, updateCorrectOptions, modalChoices } from './trivia-editor.js';
+import { initLeaderboardListeners, updateLeaderboardPreview } from './trivia-leaderboard.js';
 
 let currentTab = 'studio';
 
@@ -16,8 +17,10 @@ export function switchTab(tab) {
 
     const btnStudio = document.getElementById('tab-btn-studio');
     const btnTheming = document.getElementById('tab-btn-theming');
+    const btnLeaderboard = document.getElementById('tab-btn-leaderboard');
     const panelStudio = document.getElementById('panel-studio');
     const panelTheming = document.getElementById('panel-theming');
+    const panelLeaderboard = document.getElementById('panel-leaderboard');
 
     if (btnStudio) {
         btnStudio.classList.toggle('active', tab === 'studio');
@@ -27,9 +30,14 @@ export function switchTab(tab) {
         btnTheming.classList.toggle('active', tab === 'theming');
         btnTheming.setAttribute('aria-selected', tab === 'theming' ? 'true' : 'false');
     }
+    if (btnLeaderboard) {
+        btnLeaderboard.classList.toggle('active', tab === 'leaderboard');
+        btnLeaderboard.setAttribute('aria-selected', tab === 'leaderboard' ? 'true' : 'false');
+    }
 
     if (panelStudio) panelStudio.style.display = (tab === 'studio') ? 'grid' : 'none';
     if (panelTheming) panelTheming.style.display = (tab === 'theming') ? 'grid' : 'none';
+    if (panelLeaderboard) panelLeaderboard.style.display = (tab === 'leaderboard') ? 'grid' : 'none';
 
     try {
         localStorage.setItem('trivia-active-tab', tab);
@@ -39,6 +47,10 @@ export function switchTab(tab) {
         setTimeout(() => {
             applyViewportScale();
             updateObsUrl();
+        }, 50);
+    } else if (tab === 'leaderboard') {
+        setTimeout(() => {
+            updateLeaderboardPreview();
         }, 50);
     }
 }
@@ -87,6 +99,7 @@ function initToolbarTriggers() {
 
     document.getElementById('tab-btn-studio')?.addEventListener('click', () => switchTab('studio'));
     document.getElementById('tab-btn-theming')?.addEventListener('click', () => switchTab('theming'));
+    document.getElementById('tab-btn-leaderboard')?.addEventListener('click', () => switchTab('leaderboard'));
 
     document.getElementById('prev-btn-bg')?.addEventListener('click', () => togglePreviewBackdrop());
     document.getElementById('prev-btn-backdrop')?.addEventListener('click', () => togglePreviewBackdrop());
@@ -118,7 +131,7 @@ function initToolbarTriggers() {
 function restoreUserPreferences() {
     try {
         const savedTab = localStorage.getItem('trivia-active-tab');
-        if (savedTab && (savedTab === 'theming' || savedTab === 'studio')) {
+        if (savedTab && (savedTab === 'theming' || savedTab === 'studio' || savedTab === 'leaderboard')) {
             switchTab(savedTab);
         }
         const savedBackdrop = localStorage.getItem('trivia-preview-backdrop');
@@ -145,6 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initToolbarTriggers();
     initPreviewListeners();
     initEditorListeners();
+    initLeaderboardListeners();
     restoreUserPreferences();
     fetchState();
     connectWs();

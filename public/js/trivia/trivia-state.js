@@ -341,6 +341,105 @@ export async function saveTheme(theme) {
     return false;
 }
 
+// ── Leaderboard & Question Export/Import ─────────────────────────────────────
+
+export async function resetLeaderboard(scope = 'session') {
+    const res = await fetch('/api/trivia/leaderboard/reset', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ scope })
+    });
+    if (res.ok) {
+        toast(scope === 'season' ? 'Season leaderboard reset!' : 'Session stats cleared!');
+        await fetchState();
+        return true;
+    }
+    return false;
+}
+
+export async function importLeaderboard(data, { replace = false, scope = 'season' } = {}) {
+    const body = Array.isArray(data) ? { players: data, replace, scope } : { ...data, replace, scope };
+    const res = await fetch('/api/trivia/leaderboard/import', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    if (res.ok) {
+        toast('Leaderboard stats imported!');
+        await fetchState();
+        return true;
+    }
+    const err = await res.json().catch(() => ({}));
+    alert(err.error || 'Failed to import leaderboard');
+    return false;
+}
+
+export async function saveLeaderboardTheme(leaderboardTheme) {
+    const res = await fetch('/api/trivia/leaderboard/theme', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(leaderboardTheme)
+    });
+    if (res.ok) {
+        toast('Leaderboard overlay theme saved!');
+        await fetchState();
+        return true;
+    }
+    return false;
+}
+
+export async function resetLeaderboardTheme() {
+    const res = await fetch('/api/trivia/leaderboard/theme', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ reset: true })
+    });
+    if (res.ok) {
+        toast('Leaderboard overlay reset to defaults!');
+        await fetchState();
+        return true;
+    }
+    return false;
+}
+
+export async function exportQuestions() {
+    const res = await fetch('/api/trivia/export');
+    if (!res.ok) {
+        toast('Export failed');
+        return false;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `trivia-questions-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast('Question bank exported!');
+    return true;
+}
+
+export async function exportLeaderboard(scope = 'season', format = 'json') {
+    const res = await fetch(`/api/trivia/leaderboard/export?scope=${encodeURIComponent(scope)}&format=${encodeURIComponent(format)}`);
+    if (!res.ok) {
+        toast('Export failed');
+        return false;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `trivia-leaderboard-${scope}-${new Date().toISOString().slice(0, 10)}.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast(`Leaderboard exported (${format.toUpperCase()})!`);
+    return true;
+}
+
 // ── Live WebSocket Feeds ─────────────────────────────────────────────────────
 
 export function connectWs() {

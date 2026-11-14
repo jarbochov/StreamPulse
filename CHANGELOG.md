@@ -8,6 +8,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ### Added
 - **Analytics**: Period comparisons, activity heatmaps, milestone estimates, and remembered views and date ranges.
+- **Trivia Leaderboard**: Dual session and persistent season player standings (points, correct count, accuracy, streaks, optional speed bonus), standalone `/overlays/trivia-leaderboard.html` overlay with Reset to Defaults, `!triviastats`/`!triviatop` chat commands, leaderboard & question bank JSON/CSV export and import, and `trivia.leader.*` placeholders.
 
 ### Changed
 - **Dashboard**: Modularize into `public/js/dashboard/`, pack compact 12-column rows (`grid-auto-flow: dense`), auto-hide disabled modules, add a toolbar **Start Session** button when offline, add a **Live Ops** view preset toggle, add quick Alerts Pause/Mute/Skip buttons, per-timer Start/Pause/Reset controls, and Chat Bot Pause/Enable + quick send controls, make Active Chatters clickable for dossiers, and remember Diagnostics/Danger zone open state.

@@ -108,6 +108,14 @@ test('Placeholders: Trivia variable resolution, choices and ticking', () => {
                 correctIndex: 1,
                 funfact: 'Star Fox was the first game powered by Super FX in 1993.',
                 totalVotes: 48
+            },
+            leaderboard: {
+                seasonLeader: { rank: 1, name: 'PixelValkyrie', points: 450, correct: 4, accuracy: 80 },
+                seasonTop3: [
+                    { rank: 1, name: 'PixelValkyrie', points: 450, correct: 4, accuracy: 80 },
+                    { rank: 2, name: 'ArcadeKnight', points: 300, correct: 3, accuracy: 75 },
+                    { rank: 3, name: 'RetroSynth', points: 200, correct: 2, accuracy: 67 }
+                ]
             }
         }
     };
@@ -123,6 +131,11 @@ test('Placeholders: Trivia variable resolution, choices and ticking', () => {
     assert.equal(table['trivia.choice.1'], 'Mega Drive');
     assert.equal(table['trivia.choice.2'], 'SNES');
     assert.equal(table['trivia.choice.2.percent'], '79%');
+    assert.equal(table['trivia.leader.name'], 'PixelValkyrie');
+    assert.equal(table['trivia.leader.points'], 450);
+    assert.equal(table['trivia.leader.correct'], 4);
+    assert.equal(table['trivia.leader.accuracy'], '80%');
+    assert.equal(table['trivia.leader.top3'], '#1 PixelValkyrie (450), #2 ArcadeKnight (300), #3 RetroSynth (200)');
 
     const expanded = OverlayShared.expandVariables('Q{{trivia.number}}/{{trivia.total}}: {{trivia.question}} Answer: {{trivia.answer}}', mockStatus);
     assert.equal(expanded, 'Q3/10: Which console introduced the Super FX chip? Answer: SNES');

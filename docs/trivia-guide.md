@@ -190,6 +190,25 @@ All trivia endpoints support both standard REST methods and Companion-friendly `
 | `/api/trivia/questions/reorder` | `POST`, `PUT` | Save a new ordered array of question IDs. |
 | `/api/trivia/questions/move` | `POST`, `GET` | Move a question up or down (`?id=...&direction=up\|down`). |
 | `/api/trivia/questions/shuffle` | `POST`, `GET` | Randomly shuffle questions in the active bank (alias: `/api/trivia/shuffle`). |
+| `/api/trivia/export` | `GET` | Export the question bank as a downloadable JSON file (alias: `/api/trivia/questions/export`). |
+| `/api/trivia/import` | `POST` | Import questions from a JSON array or export bundle (alias: `/api/trivia/questions/import`). |
+| `/api/trivia/leaderboard` | `GET` | Return ranked trivia standings (`?scope=season|session&sort=points|correct|accuracy&limit=10`). |
+| `/api/trivia/leaderboard/player` | `GET` | Look up season & session stats for a player (`?user=name`). |
+| `/api/trivia/leaderboard/reset` | `POST`, `GET` | Clear `session`, `season`, or `both` leaderboard stats (`?scope=session|season|both`). |
+| `/api/trivia/leaderboard/export` | `GET` | Download leaderboard stats as JSON or CSV (`?scope=season|session&format=json|csv`). |
+| `/api/trivia/leaderboard/import` | `POST` | Import leaderboard player records (`{ players, scope, replace }`). |
+| `/api/trivia/leaderboard/theme` | `PUT`, `POST` | Save leaderboard overlay customization or pass `{ reset: true }` to restore defaults. |
 | `/api/trivia/presets` | `GET`, `POST` | List presets or save active bank as a new preset. |
 | `/api/trivia/presets/:id` | `GET`, `DELETE` | Load or delete a saved preset pack. |
 | `/api/trivia/preset/load` | `POST`, `GET` | Load preset via query param (`?id=pop-culture` or `?id=gaming-classics`). |
+
+---
+
+## 7. Trivia Leaderboard & Player Stats
+
+The **Leaderboard & Stats** tab in Trivia Studio tracks points, correct answers, accuracy percentages, and answer streaks across both **Season / All-Time** (persisted to `data/trivia-leaderboard.json`) and **Current Session** (in-memory) scopes.
+
+- **Overlay URL**: `http://localhost:3000/overlays/trivia-leaderboard.html` (supports `?scope=season|session`, `?sort=points|correct|accuracy`, `?layout=full|sidebar|compact`, `?theme=modern|arcade|esports|minimal|broadcast-text`, `?limit=10`, `?title=...`, and column toggles `points`, `correct`, `accuracy`, `streak`, `header`).
+- **Scoring & Speed Bonus**: Players are scored automatically once when an answer is revealed; optional **Speed Bonus** grants up to `+50%` extra points for faster correct answers.
+- **Built-in Chat Commands**: Chatters can query stats anytime (including between questions) using `!triviastats` / `!tstats [@player]` and `!triviatop` / `!trivialeaderboard` `[session]`.
+- **Placeholders**: `{{trivia.leader.name}}`, `{{trivia.leader.points}}`, `{{trivia.leader.correct}}`, `{{trivia.leader.accuracy}}`, and `{{trivia.leader.top3}}`.

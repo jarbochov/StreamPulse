@@ -88,7 +88,12 @@ const TRIVIA_ITEMS = [
     ['trivia.choice.5.percent', 'Choice 5 percent'],
     ['trivia.choice.6', 'Choice 6 (F) text'],
     ['trivia.choice.6.votes', 'Choice 6 vote count'],
-    ['trivia.choice.6.percent', 'Choice 6 percent']
+    ['trivia.choice.6.percent', 'Choice 6 percent'],
+    ['trivia.leader.name', 'Top trivia leaderboard player name'],
+    ['trivia.leader.points', 'Top trivia leaderboard player points'],
+    ['trivia.leader.correct', 'Top trivia leaderboard player correct answers'],
+    ['trivia.leader.accuracy', 'Top trivia leaderboard player accuracy percentage'],
+    ['trivia.leader.top3', 'Top 3 trivia leaderboard players formatted summary']
 ];
 
 const TIER_LIST_ITEMS = [
@@ -503,6 +508,19 @@ function triviaValues(status, now = Date.now()) {
         out[`trivia.choice.${idx}.votes`] = c && c.votes !== undefined ? c.votes : '';
         out[`trivia.choice.${idx}.percent`] = c && c.percent !== undefined ? `${c.percent}%` : '';
     }
+
+    const lb = t.leaderboard || {};
+    const leader = lb.seasonLeader || lb.sessionLeader || null;
+    const top3 = Array.isArray(lb.seasonTop3) && lb.seasonTop3.length
+        ? lb.seasonTop3
+        : (Array.isArray(lb.sessionTop3) ? lb.sessionTop3 : []);
+    out['trivia.leader.name'] = leader?.name || '';
+    out['trivia.leader.points'] = leader && leader.points !== undefined ? leader.points : '';
+    out['trivia.leader.correct'] = leader && leader.correct !== undefined ? leader.correct : '';
+    out['trivia.leader.accuracy'] = leader && leader.accuracy !== undefined ? `${leader.accuracy}%` : '';
+    out['trivia.leader.top3'] = top3.length
+        ? top3.map((e, i) => `#${e.rank || (i + 1)} ${e.name} (${e.points})`).join(', ')
+        : '';
 
     return out;
 }

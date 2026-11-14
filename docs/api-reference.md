@@ -779,8 +779,29 @@ Randomly shuffles the order of questions in the active bank.
 ### `POST /api/trivia/questions/reorder`
 Reorders questions by array of IDs: `{ "ids": ["q-2", "q-1", "q-3"] }`.
 
-### `POST /api/trivia/questions/import`
-Batch imports questions: `{ "questions": [...], "replace": false }`.
+### `POST /api/trivia/questions/import` (or `/api/trivia/import`)
+Batch imports questions: `{ "questions": [...], "replace": false }`. Also accepts an exported question bundle JSON object or raw array.
+
+### `GET /api/trivia/export` (or `/api/trivia/questions/export`)
+Downloads the current trivia question bank as a portable JSON file.
+
+### `GET /api/trivia/leaderboard`
+Returns ranked trivia standings. Supports `?scope=season|session`, `?sort=points|correct|accuracy`, and `?limit=1..500` (`0` returns all players).
+
+### `GET /api/trivia/leaderboard/player`
+Returns individual player stats across season and session scopes (`?user=PlayerName`).
+
+### `POST /api/trivia/leaderboard/reset` (or `GET`)
+Resets trivia standings (`?scope=session|season|both`, defaults to `session`).
+
+### `GET /api/trivia/leaderboard/export`
+Exports trivia leaderboard stats as JSON or CSV (`?scope=season|session&format=json|csv`).
+
+### `POST /api/trivia/leaderboard/import`
+Imports player leaderboard records (`{ "players": [...], "scope": "season", "replace": false }`).
+
+### `PUT /api/trivia/leaderboard/theme` (or `POST`)
+Updates customization for `/overlays/trivia-leaderboard.html`, or pass `{ "reset": true }` to restore default styling.
 
 ### `GET /api/trivia/presets`
 Lists saved and built-in trivia question packs.

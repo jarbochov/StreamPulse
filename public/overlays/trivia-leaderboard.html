@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse Trivia Leaderboard</title>
+    <script src="/js/overlay-theme.js"></script>
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --font-scale: 1;
+            --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --board-bg: rgba(14, 17, 24, 0.94);
+            --card-bg: rgba(22, 27, 38, 0.8);
+            --border-color: rgba(255, 255, 255, 0.12);
+            --accent-color: #6366f1;
+            --text-color: #f8fafc;
+            --text-muted: rgba(248, 250, 252, 0.68);
+            --gold: #f59e0b;
+            --silver: #cbd5e1;
+            --bronze: #d97706;
+            --radius: 16px;
+        }
+
+        html {
+            font-size: calc(clamp(12px, calc(100vw / 100), 26px) * var(--font-scale, 1));
+            background: transparent;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: var(--font-family);
+            color: var(--text-color);
+            background: transparent;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── Theme Presets ───────────────────────────────────────── */
+        body[data-theme="modern"] {
+            --font-family: 'Inter', system-ui, sans-serif;
+            --board-bg: rgba(14, 17, 24, 0.94);
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --border-color: rgba(99, 102, 241, 0.35);
+            --radius: 16px;
+        }
+
+        body[data-theme="arcade"] {
+            --font-family: 'Press Start 2P', 'Courier New', monospace;
+            --board-bg: rgba(18, 12, 34, 0.95);
+            --card-bg: rgba(34, 22, 68, 0.86);
+            --border-color: rgba(236, 72, 153, 0.5);
+            --accent-color: #ec4899;
+            --radius: 8px;
+        }
+
+        body[data-theme="esports"] {
+            --font-family: 'Rajdhani', 'Inter', system-ui, sans-serif;
+            --board-bg: rgba(10, 12, 16, 0.96);
+            --card-bg: rgba(24, 28, 36, 0.92);
+            --border-color: rgba(56, 189, 248, 0.45);
+            --accent-color: #38bdf8;
+            --radius: 6px;
+        }
+
+        body[data-theme="minimal"] {
+            --font-family: 'Inter', system-ui, sans-serif;
+            --board-bg: rgba(15, 23, 42, 0.78);
+            --card-bg: rgba(255, 255, 255, 0.04);
+            --border-color: rgba(255, 255, 255, 0.14);
+            --accent-color: #22c55e;
+            --radius: 12px;
+        }
+
+        body[data-theme="broadcast-text"] {
+            --font-family: 'Montserrat', 'Inter', system-ui, sans-serif;
+            --board-bg: transparent;
+            --card-bg: rgba(15, 23, 42, 0.62);
+            --border-color: transparent;
+            --accent-color: #38bdf8;
+            --radius: 10px;
+        }
+
+        /* ── Container & Layouts ─────────────────────────────────── */
+        .board-shell {
+            width: 100%;
+            max-width: 780px;
+            background: var(--board-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 1.25rem 1.4rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.9rem;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+
+        body[data-theme="broadcast-text"] .board-shell {
+            box-shadow: none;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.75);
+        }
+
+        body[data-layout="sidebar"] {
+            align-items: stretch;
+            justify-content: flex-start;
+            padding: 1rem;
+        }
+
+        body[data-layout="sidebar"] .board-shell {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 1rem;
+            gap: 0.65rem;
+        }
+
+        body[data-layout="compact"] {
+            align-items: flex-end;
+            padding: 1.25rem 2rem;
+        }
+
+        body[data-layout="compact"] .board-shell {
+            max-width: 1400px;
+            padding: 0.8rem 1.15rem;
+            gap: 0.65rem;
+        }
+
+        /* ── Header ──────────────────────────────────────────────── */
+        .board-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding-bottom: 0.65rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .board-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            min-width: 0;
+        }
+
+        .board-icon {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: color-mix(in srgb, var(--accent-color) 20%, transparent);
+            border: 1px solid color-mix(in srgb, var(--accent-color) 45%, transparent);
+            color: var(--accent-color);
+            flex-shrink: 0;
+        }
+
+        .board-title {
+            font-size: 1.2rem;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            color: var(--text-color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        body[data-theme="arcade"] .board-title {
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .board-badges {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            flex-shrink: 0;
+        }
+
+        .scope-pill {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 0.25rem 0.6rem;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--accent-color) 18%, transparent);
+            border: 1px solid color-mix(in srgb, var(--accent-color) 40%, transparent);
+            color: var(--text-color);
+        }
+
+        .sort-pill {
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 0.25rem 0.55rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* ── Rows ────────────────────────────────────────────────── */
+        .board-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.48rem;
+        }
+
+        body[data-layout="compact"] .board-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 0.55rem;
+        }
+
+        .leader-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.62rem 0.85rem;
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: calc(var(--radius) - 4px);
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .leader-row.rank-1 {
+            border-color: rgba(245, 158, 11, 0.5);
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.14), var(--card-bg) 55%);
+        }
+
+        .leader-row.rank-2 {
+            border-color: rgba(203, 213, 225, 0.35);
+        }
+
+        .leader-row.rank-3 {
+            border-color: rgba(217, 119, 6, 0.35);
+        }
+
+        .leader-left {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .rank-badge {
+            min-width: 2rem;
+            height: 2rem;
+            padding: 0 0.45rem;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.82rem;
+            font-weight: 800;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .rank-1 .rank-badge {
+            background: rgba(245, 158, 11, 0.24);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.45);
+        }
+
+        .rank-2 .rank-badge {
+            background: rgba(203, 213, 225, 0.2);
+            color: #e2e8f0;
+            border: 1px solid rgba(203, 213, 225, 0.35);
+        }
+
+        .rank-3 .rank-badge {
+            background: rgba(217, 119, 6, 0.22);
+            color: #fb923c;
+            border: 1px solid rgba(217, 119, 6, 0.4);
+        }
+
+        .player-name {
+            font-size: 0.96rem;
+            font-weight: 700;
+            color: var(--text-color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        body[data-theme="arcade"] .player-name {
+            font-size: 0.72rem;
+        }
+
+        .leader-stats {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            flex-shrink: 0;
+        }
+
+        .stat-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.22rem 0.55rem;
+            border-radius: 7px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .stat-chip.points {
+            background: color-mix(in srgb, var(--accent-color) 20%, transparent);
+            color: var(--text-color);
+            border: 1px solid color-mix(in srgb, var(--accent-color) 35%, transparent);
+        }
+
+        .stat-chip.streak {
+            color: #fbbf24;
+            background: rgba(245, 158, 11, 0.14);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 1.75rem 1rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            border: 1px dashed rgba(255, 255, 255, 0.14);
+            border-radius: calc(var(--radius) - 4px);
+        }
+
+        body[data-layout="sidebar"] .leader-row {
+            padding: 0.52rem 0.68rem;
+        }
+
+        body[data-layout="sidebar"] .stat-chip.accuracy,
+        body[data-layout="sidebar"] .sort-pill {
+            display: none;
+        }
+
+        body[data-layout="compact"] .stat-chip.correct {
+            display: none;
+        }
+    </style>
+</head>
+<body data-theme="modern" data-layout="full">
+    <div class="board-shell" id="board-shell" style="display: none;">
+        <header class="board-header" id="board-header">
+            <div class="board-title-wrap">
+                <span class="board-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+                        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+                        <path d="M4 22h16"></path>
+                        <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
+                        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
+                        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
+                    </svg>
+                </span>
+                <span class="board-title" id="board-title">Trivia Leaderboard</span>
+            </div>
+            <div class="board-badges">
+                <span class="scope-pill" id="scope-pill">Season</span>
+                <span class="sort-pill" id="sort-pill">By Points</span>
+            </div>
+        </header>
+        <div class="board-list" id="board-list"></div>
+    </div>
+
+    <script>
+        (function () {
+            const SAMPLE_ENTRIES = [
+                { rank: 1, key: 'pixelvalkyrie', name: 'PixelValkyrie', points: 640, correct: 6, answered: 7, accuracy: 86, streak: 4, bestStreak: 4 },
+                { rank: 2, key: 'arcadeknight', name: 'ArcadeKnight', points: 520, correct: 5, answered: 6, accuracy: 83, streak: 2, bestStreak: 3 },
+                { rank: 3, key: 'retrosynth', name: 'RetroSynth', points: 430, correct: 4, answered: 6, accuracy: 67, streak: 1, bestStreak: 2 },
+                { rank: 4, key: 'turbotactician', name: 'TurboTactician', points: 310, correct: 3, answered: 5, accuracy: 60, streak: 0, bestStreak: 2 },
+                { rank: 5, key: 'glitchmage', name: 'GlitchMage', points: 200, correct: 2, answered: 4, accuracy: 50, streak: 1, bestStreak: 1 }
+            ];
+
+            let params = new URLSearchParams(location.search);
+            let moduleEnabled = true;
+            let liveData = { season: null, session: null, leaderboardTheme: null, settings: null };
+            let previewOverride = null;
+
+            const shellEl = document.getElementById('board-shell');
+            const headerEl = document.getElementById('board-header');
+            const titleEl = document.getElementById('board-title');
+            const scopePillEl = document.getElementById('scope-pill');
+            const sortPillEl = document.getElementById('sort-pill');
+            const listEl = document.getElementById('board-list');
+
+            function esc(str) {
+                return String(str ?? '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+            }
+
+            function boolParam(name, fallback) {
+                if (!params.has(name)) return fallback;
+                const val = params.get(name);
+                return val !== '0' && val !== 'false' && val !== 'off';
+            }
+
+            function formatColor(raw) {
+                if (!raw || typeof raw !== 'string') return '';
+                const s = raw.trim();
+                if (!s) return '';
+                if (/^[0-9a-fA-F]{3,8}$/.test(s)) return '#' + s;
+                return s;
+            }
+
+            function getEffectiveConfig() {
+                const base = liveData.leaderboardTheme || {};
+                const previewTheme = previewOverride?.theme || {};
+                const merged = { ...base, ...previewTheme };
+
+                const scope = params.get('scope') || merged.scope || 'season';
+                const sortBy = params.get('sort') || params.get('sortBy') || merged.sortBy || liveData.settings?.leaderboard?.sortBy || 'points';
+                const layout = params.get('layout') || params.get('mode') || merged.layout || 'full';
+                const theme = params.get('theme') || merged.theme || 'modern';
+                const limitRaw = parseInt(params.get('limit') ?? merged.limit ?? 10, 10);
+                const limit = Math.max(1, Math.min(25, Number.isFinite(limitRaw) ? limitRaw : 10));
+                const scaleRaw = parseFloat(params.get('scale') ?? merged.scale ?? 1);
+                const scale = Math.max(0.5, Math.min(2.5, Number.isFinite(scaleRaw) ? scaleRaw : 1));
+                const title = params.has('title') ? params.get('title') : (merged.title || 'Trivia Leaderboard');
+
+                return {
+                    scope: scope === 'session' ? 'session' : 'season',
+                    sortBy: ['points', 'correct', 'accuracy'].includes(sortBy) ? sortBy : 'points',
+                    layout: ['full', 'compact', 'sidebar'].includes(layout) ? layout : 'full',
+                    theme: ['modern', 'arcade', 'esports', 'minimal', 'broadcast-text'].includes(theme) ? theme : 'modern',
+                    limit,
+                    scale,
+                    title,
+                    bgColor: formatColor(params.get('bg') || merged.bgColor),
+                    cardBgColor: formatColor(params.get('cardbg') || merged.cardBgColor),
+                    accentColor: formatColor(params.get('accent') || merged.accentColor),
+                    textColor: formatColor(params.get('text') || merged.textColor),
+                    showPoints: boolParam('points', merged.showPoints !== false),
+                    showCorrect: boolParam('correct', merged.showCorrect !== false),
+                    showAccuracy: boolParam('accuracy', merged.showAccuracy !== false),
+                    showStreak: boolParam('streak', merged.showStreak !== false),
+                    showHeader: boolParam('header', merged.showHeader !== false),
+                    isPreview: boolParam('preview', false),
+                    forceSample: boolParam('sample', false)
+                };
+            }
+
+            function sortEntries(entries, sortBy) {
+                const copy = (entries || []).map(e => ({ ...e }));
+                copy.sort((a, b) => {
+                    if (sortBy === 'correct') {
+                        return (b.correct - a.correct) || (b.points - a.points) || (b.accuracy - a.accuracy) || a.name.localeCompare(b.name);
+                    }
+                    if (sortBy === 'accuracy') {
+                        return (b.accuracy - a.accuracy) || (b.correct - a.correct) || (b.points - a.points) || a.name.localeCompare(b.name);
+                    }
+                    return (b.points - a.points) || (b.correct - a.correct) || (b.accuracy - a.accuracy) || a.name.localeCompare(b.name);
+                });
+                return copy.map((e, i) => ({ ...e, rank: i + 1 }));
+            }
+
+            function render() {
+                const cfg = getEffectiveConfig();
+                if (!moduleEnabled && !cfg.isPreview) {
+                    shellEl.style.display = 'none';
+                    return;
+                }
+
+                shellEl.style.display = 'flex';
+                document.body.dataset.theme = cfg.theme;
+                document.body.dataset.layout = cfg.layout;
+                document.documentElement.style.setProperty('--font-scale', String(cfg.scale));
+
+                if (cfg.bgColor) document.documentElement.style.setProperty('--board-bg', cfg.bgColor);
+                else document.documentElement.style.removeProperty('--board-bg');
+
+                if (cfg.cardBgColor) document.documentElement.style.setProperty('--card-bg', cfg.cardBgColor);
+                else document.documentElement.style.removeProperty('--card-bg');
+
+                if (cfg.accentColor) document.documentElement.style.setProperty('--accent-color', cfg.accentColor);
+                else document.documentElement.style.removeProperty('--accent-color');
+
+                if (cfg.textColor) document.documentElement.style.setProperty('--text-color', cfg.textColor);
+                else document.documentElement.style.removeProperty('--text-color');
+
+                headerEl.style.display = cfg.showHeader ? 'flex' : 'none';
+                titleEl.textContent = cfg.title || 'Trivia Leaderboard';
+                scopePillEl.textContent = cfg.scope === 'session' ? 'Session' : 'Season';
+                const sortLabels = { points: 'Points', correct: 'Correct', accuracy: 'Accuracy' };
+                sortPillEl.textContent = `By ${sortLabels[cfg.sortBy] || 'Points'}`;
+
+                const sourceBucket = cfg.scope === 'session' ? liveData.session : liveData.season;
+                let entries = Array.isArray(previewOverride?.entries) && previewOverride.entries.length
+                    ? previewOverride.entries
+                    : (Array.isArray(sourceBucket?.entries) ? sourceBucket.entries : []);
+
+                if ((cfg.isPreview && cfg.forceSample) || (cfg.isPreview && entries.length === 0)) {
+                    entries = SAMPLE_ENTRIES;
+                }
+
+                const ranked = sortEntries(entries, cfg.sortBy).slice(0, cfg.limit);
+
+                if (ranked.length === 0) {
+                    listEl.innerHTML = '<div class="empty-state">No trivia scores yet — answer questions in chat to climb the leaderboard.</div>';
+                    return;
+                }
+
+                listEl.innerHTML = ranked.map(entry => {
+                    const rankClass = entry.rank <= 3 ? ` rank-${entry.rank}` : '';
+                    const chips = [];
+                    if (cfg.showPoints) {
+                        chips.push(`<span class="stat-chip points">${esc(entry.points)} pts</span>`);
+                    }
+                    if (cfg.showCorrect) {
+                        chips.push(`<span class="stat-chip correct">${esc(entry.correct)}/${esc(entry.answered)}</span>`);
+                    }
+                    if (cfg.showAccuracy) {
+                        chips.push(`<span class="stat-chip accuracy">${esc(entry.accuracy)}%</span>`);
+                    }
+                    if (cfg.showStreak && entry.streak > 1) {
+                        chips.push(`<span class="stat-chip streak" title="Current Streak">
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                            ${esc(entry.streak)}x
+                        </span>`);
+                    }
+                    return `
+                        <div class="leader-row${rankClass}">
+                            <div class="leader-left">
+                                <span class="rank-badge">#${esc(entry.rank)}</span>
+                                <span class="player-name">${esc(entry.name)}</span>
+                            </div>
+                            <div class="leader-stats">${chips.join('')}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            async function fetchAll() {
+                const cfg = getEffectiveConfig();
+                try {
+                    const [stateRes, lbRes] = await Promise.all([
+                        fetch('/api/trivia'),
+                        fetch(`/api/trivia/leaderboard?scope=${encodeURIComponent(cfg.scope)}&sort=${encodeURIComponent(cfg.sortBy)}&limit=50`)
+                    ]);
+                    if (stateRes.status === 403 || lbRes.status === 403) {
+                        moduleEnabled = false;
+                        render();
+                        return;
+                    }
+                    moduleEnabled = true;
+                    if (stateRes.ok) {
+                        const data = await stateRes.json();
+                        liveData.leaderboardTheme = data.leaderboardTheme || liveData.leaderboardTheme;
+                        liveData.settings = data.settings || liveData.settings;
+                        if (data.leaderboard?.season) liveData.season = data.leaderboard.season;
+                        if (data.leaderboard?.session) liveData.session = data.leaderboard.session;
+                    }
+                    if (lbRes.ok) {
+                        const lb = await lbRes.json();
+                        if (lb.scope === 'session') liveData.session = lb;
+                        else liveData.season = lb;
+                    }
+                } catch (err) {
+                    console.warn('[Trivia Leaderboard] Fetch error:', err);
+                }
+                render();
+            }
+
+            function connectWs() {
+                const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const ws = new WebSocket(`${protocol}//${location.host}/ws`);
+                ws.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (msg.type === 'trivia:leaderboard' && msg.data) {
+                            if (msg.data.season) liveData.season = msg.data.season;
+                            if (msg.data.session) liveData.session = msg.data.session;
+                            if (msg.data.leaderboardTheme) liveData.leaderboardTheme = msg.data.leaderboardTheme;
+                            render();
+                        } else if (msg.type === 'trivia:state' && msg.data) {
+                            if (msg.data.leaderboardTheme) liveData.leaderboardTheme = msg.data.leaderboardTheme;
+                            if (msg.data.settings) liveData.settings = msg.data.settings;
+                            if (msg.data.leaderboard?.season) liveData.season = msg.data.leaderboard.season;
+                            if (msg.data.leaderboard?.session) liveData.session = msg.data.leaderboard.session;
+                            render();
+                        } else if (msg.type === 'trivia:reveal' || msg.type === 'trivia:reset') {
+                            fetchAll();
+                        }
+                    } catch {}
+                };
+                ws.onclose = () => setTimeout(connectWs, 2500);
+            }
+
+            window.addEventListener('message', (event) => {
+                if (!event.data || event.data.type !== 'trivia-leaderboard:preview-update') return;
+                const d = event.data;
+                if (typeof d.query === 'string') {
+                    params = new URLSearchParams(d.query);
+                } else if (d.params && typeof d.params === 'object') {
+                    params = new URLSearchParams();
+                    Object.entries(d.params).forEach(([k, v]) => {
+                        if (v !== undefined && v !== null && v !== '') {
+                            params.set(k, String(v));
+                        }
+                    });
+                }
+                previewOverride = {
+                    theme: d.theme && typeof d.theme === 'object' ? d.theme : {},
+                    entries: Array.isArray(d.entries) ? d.entries : null
+                };
+                if (d.settings) liveData.settings = d.settings;
+                render();
+            });
+
+            render();
+            fetchAll();
+            connectWs();
+
+            if (boolParam('preview', false)) {
+                try { window.parent?.postMessage({ type: 'trivia-leaderboard:overlay-ready' }, '*'); } catch {}
+            }
+        })();
+    </script>
+</body>
+</html>

@@ -1198,3 +1198,157 @@ test('Trivia Studio preserves unsaved toggles during live updates; overlay sound
     }
     assert.deepEqual(errors, [], 'real Studio and overlay initialize without browser errors');
 });
+
+test('Trivia Leaderboard: Scoring, double-reveal guard, speed bonus, persistence, commands, export/import, and routes', async (t) => {
+    const { createServer } = require('node:http');
+    const dir = fs.mkdtempSync(path.join(__dirname, '..', 'data', '.test-trivia-lb-'));
+    const postedChat = [];
+    const mockBot = {
+        getStats: () => ({ enabled: true }),
+        announceTriviaQuestion: () => {},
+        announceTriviaAnswer: () => {},
+        postMessage: (text) => { postedChat.push(text); return Promise.resolve({ ok: true }); }
+    };
+
+    const triviaPath = path.join(dir, 'trivia.json');
+    const leaderboardPath = path.join(dir, 'trivia-leaderboard.json');
+    let service = createTriviaService({ dataDir: dir, triviaPath, leaderboardPath, chatbotAnnouncer: mockBot });
+    t.after(() => {
+        service.destroy();
+        fs.rmSync(dir, { recursive: true, force: true });
+    });
+
+    service.updateSettings({ randomizeChoices: false, autoReveal: false, leaderboard: { commandCooldownMs: 0 } });
+    const q1 = service.addQuestion({
+        category: 'Gaming',
+        question: 'First scoring test question?',
+        choices: ['Wrong', 'Correct', 'Nope', 'False'],
+        correctIndex: 1,
+        points: 100,
+        duration: 20
+    });
+    const q2 = service.addQuestion({
+        category: 'Gaming',
+        question: 'Second scoring test question?',
+        choices: ['Yes', 'No', 'Maybe', 'Pass'],
+        correctIndex: 0,
+        points: 200,
+        duration: 20
+    });
+
+    // Q1: Alice & Bob correct, Charlie wrong
+    service.startQuestion(q1.id);
+    service.handleChatMessage({ user: 'Alice', userId: 'u-alice', comment: '!b' });
+    service.handleChatMessage({ user: 'Bob', userId: 'u-bob', comment: '!b' });
+    service.handleChatMessage({ user: 'Charlie', userId: 'u-charlie', comment: '!a' });
+    service.revealAnswer();
+
+    // Double reveal call must not double-score
+    service.revealAnswer();
+
+    let lb = service.getLeaderboard({ scope: 'season', sortBy: 'points' });
+    assert.equal(lb.totalPlayers, 3);
+    const alice1 = lb.entries.find(e => e.name === 'Alice');
+    assert.equal(alice1.points, 100);
+    assert.equal(alice1.correct, 1);
+    assert.equal(alice1.accuracy, 100);
+    assert.equal(alice1.streak, 1);
+    const charlie1 = lb.entries.find(e => e.name === 'Charlie');
+    assert.equal(charlie1.points, 0);
+    assert.equal(charlie1.wrong, 1);
+    assert.equal(charlie1.accuracy, 0);
+
+    // Q2 with speedBonus enabled: simulate Bob answering almost immediately, Alice near the end
+    service.updateSettings({ leaderboard: { speedBonus: true } });
+    service.startQuestion(q2.id);
+    const active = service.getState().activeQuestion;
+    const now = Date.now();
+    active.startedAt = now - 2000;
+    active.endsAt = now + 18000; // 20s window with 90% remaining
+    service.handleChatMessage({ user: 'Bob', userId: 'u-bob', comment: '!a' });
+    service.handleChatMessage({ user: 'Alice', userId: 'u-alice', comment: '!d' });
+    service.revealAnswer();
+
+    const bobStats = service.getPlayerStats('Bob');
+    assert.equal(bobStats.season.correct, 2);
+    assert.equal(bobStats.season.streak, 2);
+    assert.ok(bobStats.season.points >= 300, 'Bob gets base + speed bonus points');
+
+    const aliceStats = service.getPlayerStats('Alice');
+    assert.equal(aliceStats.season.correct, 1);
+    assert.equal(aliceStats.season.wrong, 1);
+    assert.equal(aliceStats.season.accuracy, 50);
+    assert.equal(aliceStats.season.streak, 0);
+    assert.equal(aliceStats.season.bestStreak, 1);
+
+    // Verify sorting by accuracy puts Bob (#1, 100%) ahead of Alice (50%)
+    const byAcc = service.getLeaderboard({ scope: 'season', sortBy: 'accuracy' });
+    assert.equal(byAcc.entries[0].name, 'Bob');
+    assert.equal(byAcc.entries[0].accuracy, 100);
+
+    // Built-in chat commands work even when status is not 'question' (currently 'reveal')
+    service.clearQuestion(); // now 'idle'
+    assert.equal(service.handleChatMessage({ user: 'Alice', comment: '!triviastats' }), true);
+    assert.ok(postedChat.at(-1).includes('@Alice Trivia Stats'));
+    assert.equal(service.handleChatMessage({ user: 'Someone', comment: '!tstats @Bob' }), true);
+    assert.ok(postedChat.at(-1).includes('@Bob Trivia Stats'));
+    assert.equal(service.handleChatMessage({ user: 'Someone', comment: '!triviatop' }), true);
+    assert.ok(postedChat.at(-1).includes('Trivia Top (Season): #1 Bob'));
+    assert.equal(service.handleChatMessage({ user: 'Someone', comment: '!triviatop session' }), true);
+    assert.ok(postedChat.at(-1).includes('Trivia Top (Session): #1 Bob'));
+
+    // Session reset leaves season persisted
+    service.resetLeaderboard('session');
+    assert.equal(service.getLeaderboard({ scope: 'session' }).totalPlayers, 0);
+    assert.equal(service.getLeaderboard({ scope: 'season' }).totalPlayers, 3);
+
+    // Persistence across service restart
+    service.destroy();
+    service = createTriviaService({ dataDir: dir, triviaPath, leaderboardPath, chatbotAnnouncer: mockBot });
+    assert.equal(service.getLeaderboard({ scope: 'season' }).totalPlayers, 3);
+    assert.equal(service.getPlayerStats('Bob').season.correct, 2);
+
+    // Export CSV and JSON + Import round-trip
+    const csv = service.exportLeaderboard({ scope: 'season', format: 'csv' });
+    assert.ok(csv.startsWith('Rank,Player,Points,Correct,Wrong,Answered,Accuracy%,Streak,BestStreak,LastPlayedAt'));
+    assert.ok(csv.includes('Bob,'));
+
+    const qExport = service.exportQuestions();
+    assert.ok(Array.isArray(qExport.questions) && qExport.questions.length >= 2);
+
+    // HTTP Route parity check
+    const routes = createTriviaRoutes({ triviaService: service });
+    const req1 = createMockReqRes({ method: 'GET', url: '/api/trivia/leaderboard?scope=season&sort=points&limit=5' });
+    await routes(req1.req, req1.res, '/api/trivia/leaderboard', new URL('http://localhost/api/trivia/leaderboard?scope=season&sort=points&limit=5'));
+    const lbRes = await req1.done;
+    assert.equal(lbRes.status, 200);
+    assert.equal(lbRes.json.entries[0].name, 'Bob');
+
+    const req2 = createMockReqRes({ method: 'GET', url: '/api/trivia/export' });
+    await routes(req2.req, req2.res, '/api/trivia/export', new URL('http://localhost/api/trivia/export'));
+    const expRes = await req2.done;
+    assert.equal(expRes.status, 200);
+    assert.ok(Array.isArray(expRes.json.questions));
+
+    const req3 = createMockReqRes({ method: 'GET', url: '/api/trivia/leaderboard/export?format=csv' });
+    await routes(req3.req, req3.res, '/api/trivia/leaderboard/export', new URL('http://localhost/api/trivia/leaderboard/export?format=csv'));
+    const csvRes = await req3.done;
+    assert.equal(csvRes.status, 200);
+    assert.ok((csvRes.headers['content-type'] || csvRes.headers['Content-Type']).includes('text/csv'));
+
+    const req4 = createMockReqRes({ method: 'POST', url: '/api/trivia/leaderboard/reset', body: { scope: 'season' } });
+    await routes(req4.req, req4.res, '/api/trivia/leaderboard/reset', new URL('http://localhost/api/trivia/leaderboard/reset'));
+    const rstRes = await req4.done;
+    assert.equal(rstRes.status, 200);
+    assert.equal(service.getLeaderboard({ scope: 'season' }).totalPlayers, 0);
+
+    const req5 = createMockReqRes({
+        method: 'POST',
+        url: '/api/trivia/leaderboard/import',
+        body: { scope: 'season', replace: true, players: [{ name: 'RestoredChamp', points: 900, correct: 9, answered: 10 }] }
+    });
+    await routes(req5.req, req5.res, '/api/trivia/leaderboard/import', new URL('http://localhost/api/trivia/leaderboard/import'));
+    const impRes = await req5.done;
+    assert.equal(impRes.status, 201);
+    assert.equal(service.getLeaderboard({ scope: 'season' }).entries[0].name, 'RestoredChamp');
+});

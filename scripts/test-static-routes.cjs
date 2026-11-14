@@ -68,7 +68,9 @@ const server = http.createServer((req, res) => {
         '/api/tournament/presets': { status: 'ok', presets: [] },
         '/api/matchup': { status: 'ok', matchup: null, queue: [] },
         '/api/matchup/presets': { status: 'ok', presets: [] },
-        '/api/matchup/history': { status: 'ok', history: [] }
+        '/api/matchup/history': { status: 'ok', history: [] },
+        '/api/trivia': { status: 'idle', currentIndex: 0, totalQuestions: 0, leaderboard: { season: { entries: [] }, session: { entries: [] } }, leaderboardTheme: {} },
+        '/api/trivia/leaderboard': { scope: 'season', sortBy: 'points', totalPlayers: 0, entries: [] }
     };
     if (Object.hasOwn(fixtures, url.pathname)) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -102,6 +104,8 @@ const legacyUrlsToTest = [
     '/tournament.html',
     '/matchup.html',
     '/poll.html',
+    '/trivia.html',
+    '/trivia-leaderboard.html',
 
     // Editors & Studios
     '/credits-editor.html',
@@ -174,6 +178,8 @@ const structuredUrlsToTest = [
     '/overlays/credits.html',
     '/overlays/tournament.html',
     '/overlays/poll.html',
+    '/overlays/trivia.html',
+    '/overlays/trivia-leaderboard.html',
     '/editors/randomizer-editor.html',
     '/editors/timers-editor.html',
     '/tools/chatbot.html',

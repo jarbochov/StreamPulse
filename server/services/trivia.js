@@ -106,7 +106,34 @@ const DEFAULT_SETTINGS = {
     showFunFact: true,
     soundEnabled: true,
     soundVolume: 75,
-    subMultiplier: 1
+    subMultiplier: 1,
+    leaderboard: {
+        enabled: true,
+        sortBy: 'points', // 'points' | 'correct' | 'accuracy'
+        speedBonus: false, // up to +50% bonus points for faster answers
+        commandsEnabled: true,
+        commandCooldownMs: 3000,
+        topLimit: 10
+    }
+};
+
+const DEFAULT_LEADERBOARD_THEME = {
+    layout: 'full', // 'full' | 'compact' | 'sidebar'
+    theme: 'modern', // 'modern' | 'arcade' | 'esports' | 'minimal' | 'broadcast-text'
+    scope: 'season', // 'season' | 'session'
+    sortBy: 'points', // 'points' | 'correct' | 'accuracy'
+    limit: 10,
+    title: 'Trivia Leaderboard',
+    bgColor: '#0e1118f0',
+    cardBgColor: '#161b26cc',
+    accentColor: '#6366f1',
+    textColor: '#f8fafc',
+    showPoints: true,
+    showCorrect: true,
+    showAccuracy: true,
+    showStreak: true,
+    showHeader: true,
+    scale: 1
 };
 
 const BUILTIN_PRESETS = [
@@ -272,6 +299,7 @@ const BUILTIN_PRESETS = [
 function createTriviaService({
     dataDir,
     triviaPath = path.join(dataDir, 'trivia.json'),
+    leaderboardPath = path.join(dataDir, 'trivia-leaderboard.json'),
     broadcastToOverlays = () => {},
     chatbotAnnouncer = null,
     log = console.log
@@ -281,7 +309,11 @@ function createTriviaService({
         title: 'Stream Trivia',
         status: 'idle', // 'idle' | 'question' | 'reveal'
         theme: { ...DEFAULT_THEME },
-        settings: { ...DEFAULT_SETTINGS },
+        leaderboardTheme: { ...DEFAULT_LEADERBOARD_THEME },
+        settings: {
+            ...DEFAULT_SETTINGS,
+            leaderboard: { ...DEFAULT_SETTINGS.leaderboard }
+        },
         questions: JSON.parse(JSON.stringify(BUILTIN_PRESETS[0].questions)),
         currentIndex: 0,
         activeQuestion: null,
@@ -292,8 +324,29 @@ function createTriviaService({
     let questionTimer = null;
     let revealTimer = null;
     let activeChoiceOrder = [];
+    let seasonStartedAt = Date.now();
     const userVotes = new Map(); // userId/username -> choiceIndex
+    const voterMeta = new Map(); // voterKey -> { displayName, userId, votedAt, isSub }
+    const sessionPlayers = new Map(); // voterKey -> stats record (in-memory)
+    const seasonPlayers = new Map(); // voterKey -> stats record (persisted)
+    const commandCooldowns = new Map(); // commandKey -> last reply timestamp
     const playedQuestionIds = new Set();
+
+    function normalizeLeaderboardSettings(raw = {}) {
+        const base = DEFAULT_SETTINGS.leaderboard;
+        const src = raw && typeof raw === 'object' ? raw : {};
+        const sortBy = ['points', 'correct', 'accuracy'].includes(src.sortBy) ? src.sortBy : base.sortBy;
+        const topLimit = Math.max(1, Math.min(100, parseInt(src.topLimit, 10) || base.topLimit));
+        const cooldown = Number(src.commandCooldownMs);
+        return {
+            enabled: src.enabled !== undefined ? Boolean(src.enabled) : base.enabled,
+            sortBy,
+            speedBonus: src.speedBonus !== undefined ? Boolean(src.speedBonus) : base.speedBonus,
+            commandsEnabled: src.commandsEnabled !== undefined ? Boolean(src.commandsEnabled) : base.commandsEnabled,
+            commandCooldownMs: Number.isFinite(cooldown) ? Math.max(0, Math.min(60000, cooldown)) : base.commandCooldownMs,
+            topLimit
+        };
+    }
 
     function save() {
         try {
@@ -302,6 +355,7 @@ function createTriviaService({
                 title: state.title,
                 status: state.status,
                 theme: state.theme,
+                leaderboardTheme: state.leaderboardTheme,
                 settings: state.settings,
                 questions: state.questions,
                 currentIndex: state.currentIndex,
@@ -312,6 +366,156 @@ function createTriviaService({
         } catch (err) {
             log('[Trivia] Error saving state:', err.message);
         }
+    }
+
+    function normalizePlayerRecord(entry = {}, fallbackKey = '') {
+        const rawKey = String(entry.key || entry.name || entry.userId || fallbackKey).trim().toLowerCase();
+        if (!rawKey) return null;
+        const correct = Math.max(0, parseInt(entry.correct, 10) || 0);
+        const wrong = Math.max(0, parseInt(entry.wrong, 10) || 0);
+        const answeredRaw = parseInt(entry.answered, 10);
+        const answered = Number.isFinite(answeredRaw) ? Math.max(correct + wrong, answeredRaw) : (correct + wrong);
+        const streak = Math.max(0, parseInt(entry.streak, 10) || 0);
+        const bestStreak = Math.max(streak, parseInt(entry.bestStreak, 10) || 0);
+        return {
+            key: rawKey,
+            name: String(entry.name || entry.displayName || fallbackKey || rawKey).trim() || rawKey,
+            userId: String(entry.userId || '').trim(),
+            points: Math.max(0, Math.round(Number(entry.points) || 0)),
+            correct,
+            wrong,
+            answered,
+            streak,
+            bestStreak,
+            lastPlayedAt: entry.lastPlayedAt || null
+        };
+    }
+
+    function getLeaderboardMap(scope = 'season') {
+        return scope === 'session' ? sessionPlayers : seasonPlayers;
+    }
+
+    function formatPlayerRow(entry, rank = null) {
+        const accuracy = entry.answered > 0 ? Math.round((entry.correct / entry.answered) * 100) : 0;
+        const row = {
+            key: entry.key,
+            name: entry.name,
+            userId: entry.userId || '',
+            points: entry.points,
+            correct: entry.correct,
+            wrong: entry.wrong,
+            answered: entry.answered,
+            accuracy,
+            streak: entry.streak,
+            bestStreak: entry.bestStreak,
+            lastPlayedAt: entry.lastPlayedAt
+        };
+        if (rank !== null) row.rank = rank;
+        return row;
+    }
+
+    function sortPlayers(map, sortBy = 'points') {
+        const mode = ['points', 'correct', 'accuracy'].includes(sortBy) ? sortBy : 'points';
+        return Array.from(map.values())
+            .map(entry => formatPlayerRow(entry))
+            .sort((a, b) => {
+                if (mode === 'correct') {
+                    return (b.correct - a.correct) || (b.points - a.points) || (b.accuracy - a.accuracy) || (b.bestStreak - a.bestStreak) || a.name.localeCompare(b.name);
+                }
+                if (mode === 'accuracy') {
+                    return (b.accuracy - a.accuracy) || (b.correct - a.correct) || (b.points - a.points) || (b.bestStreak - a.bestStreak) || a.name.localeCompare(b.name);
+                }
+                return (b.points - a.points) || (b.correct - a.correct) || (b.accuracy - a.accuracy) || (b.bestStreak - a.bestStreak) || a.name.localeCompare(b.name);
+            });
+    }
+
+    function saveLeaderboard() {
+        try {
+            const payload = {
+                version: 1,
+                seasonStartedAt,
+                updatedAt: Date.now(),
+                players: sortPlayers(seasonPlayers, 'points')
+            };
+            safeWriteFileSync(leaderboardPath, JSON.stringify(payload, null, 2));
+        } catch (err) {
+            log('[Trivia] Error saving leaderboard:', err.message);
+        }
+    }
+
+    function loadLeaderboard() {
+        try {
+            if (!fs.existsSync(leaderboardPath)) return;
+            const raw = fs.readFileSync(leaderboardPath, 'utf8');
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== 'object') return;
+            if (Number(parsed.seasonStartedAt) > 0) {
+                seasonStartedAt = Number(parsed.seasonStartedAt);
+            }
+            seasonPlayers.clear();
+            const list = Array.isArray(parsed.players) ? parsed.players : (Array.isArray(parsed) ? parsed : []);
+            for (const item of list) {
+                const normalized = normalizePlayerRecord(item);
+                if (normalized) seasonPlayers.set(normalized.key, normalized);
+            }
+        } catch (err) {
+            log('[Trivia] Error loading leaderboard:', err.message);
+        }
+    }
+
+    function getLeaderboard({ scope = 'season', sortBy = null, limit = null } = {}) {
+        const resolvedScope = scope === 'session' ? 'session' : 'season';
+        const resolvedSort = ['points', 'correct', 'accuracy'].includes(sortBy)
+            ? sortBy
+            : (state.settings?.leaderboard?.sortBy || 'points');
+        const map = getLeaderboardMap(resolvedScope);
+        const sorted = sortPlayers(map, resolvedSort);
+        const defaultLimit = state.settings?.leaderboard?.topLimit || 10;
+        const parsedLimit = limit === 0 ? 0 : (limit !== null && limit !== undefined ? parseInt(limit, 10) : defaultLimit);
+        const sliced = parsedLimit === 0
+            ? sorted
+            : sorted.slice(0, Math.max(1, Math.min(500, Number.isFinite(parsedLimit) ? parsedLimit : defaultLimit)));
+        return {
+            scope: resolvedScope,
+            sortBy: resolvedSort,
+            seasonStartedAt,
+            totalPlayers: map.size,
+            entries: sliced.map((entry, idx) => ({ ...entry, rank: idx + 1 }))
+        };
+    }
+
+    function getPlayerStats(identifier) {
+        const needle = String(identifier || '').replace(/^@/, '').trim().toLowerCase();
+        if (!needle) return null;
+        const findInScope = (scope) => {
+            const map = getLeaderboardMap(scope);
+            const sorted = sortPlayers(map, state.settings?.leaderboard?.sortBy || 'points');
+            const idx = sorted.findIndex(p =>
+                p.key === needle ||
+                p.name.toLowerCase() === needle ||
+                (p.userId && p.userId.toLowerCase() === needle)
+            );
+            return idx !== -1 ? { ...sorted[idx], rank: idx + 1 } : null;
+        };
+        const season = findInScope('season');
+        const session = findInScope('session');
+        if (!season && !session) return null;
+        return {
+            key: (season || session).key,
+            name: (session || season).name,
+            season,
+            session
+        };
+    }
+
+    function broadcastLeaderboard() {
+        const payload = {
+            season: getLeaderboard({ scope: 'season' }),
+            session: getLeaderboard({ scope: 'session' }),
+            leaderboardTheme: state.leaderboardTheme
+        };
+        broadcastToOverlays('trivia:leaderboard', payload);
+        return payload;
     }
 
     function load() {
@@ -325,10 +529,15 @@ function createTriviaService({
                     if (parsed.theme && typeof parsed.theme === 'object') {
                         state.theme = { ...DEFAULT_THEME, ...parsed.theme };
                     }
+                    if (parsed.leaderboardTheme && typeof parsed.leaderboardTheme === 'object') {
+                        state.leaderboardTheme = { ...DEFAULT_LEADERBOARD_THEME, ...parsed.leaderboardTheme };
+                    }
                     if (parsed.settings && typeof parsed.settings === 'object') {
                         state.settings = {
-                            ...DEFAULT_SETTINGS, ...parsed.settings,
-                            advanceDelay: parsed.settings.advanceDelay ?? parsed.settings.revealDelay ?? DEFAULT_SETTINGS.advanceDelay
+                            ...DEFAULT_SETTINGS,
+                            ...parsed.settings,
+                            advanceDelay: parsed.settings.advanceDelay ?? parsed.settings.revealDelay ?? DEFAULT_SETTINGS.advanceDelay,
+                            leaderboard: normalizeLeaderboardSettings(parsed.settings.leaderboard)
                         };
                     }
                     if (Array.isArray(parsed.questions)) {
@@ -348,6 +557,7 @@ function createTriviaService({
         } catch (err) {
             log('[Trivia] Error loading state:', err.message);
         }
+        loadLeaderboard();
     }
 
     function isChatbotEnabled() {
@@ -422,7 +632,12 @@ function createTriviaService({
             totalQuestions: state.questions.length,
             activeQuestion: sanitizeActiveQuestion(state.activeQuestion, state.status === 'reveal'),
             theme: state.theme,
+            leaderboardTheme: state.leaderboardTheme,
             settings: state.settings,
+            leaderboard: {
+                season: getLeaderboard({ scope: 'season', limit: 25 }),
+                session: getLeaderboard({ scope: 'session', limit: 25 })
+            },
             chatbotEnabled: isChatbotEnabled(),
             chatVotingActive: isChatVotingActive(),
             ...extra
@@ -445,6 +660,7 @@ function createTriviaService({
     function startQuestion(indexOrId = null, options = {}) {
         clearTimers();
         userVotes.clear();
+        voterMeta.clear();
 
         let opts = options;
         let queryTarget = indexOrId;
@@ -502,7 +718,8 @@ function createTriviaService({
             correctIndex: activeChoiceOrder.indexOf(rawQuestion.correctIndex),
             startedAt: now,
             endsAt: now + (durationSec * 1000),
-            duration: durationSec
+            duration: durationSec,
+            _scored: false
         };
 
         // Schedule auto-reveal when question timer expires (unless manual transition is enabled)
@@ -541,24 +758,104 @@ function createTriviaService({
         return getPublicState();
     }
 
+    function recordPlayerAnswer(map, { voterKey, displayName, userId, isCorrect, earnedPoints, now }) {
+        let entry = map.get(voterKey);
+        if (!entry) {
+            entry = normalizePlayerRecord({
+                key: voterKey,
+                name: displayName || voterKey,
+                userId: userId || '',
+                points: 0,
+                correct: 0,
+                wrong: 0,
+                answered: 0,
+                streak: 0,
+                bestStreak: 0,
+                lastPlayedAt: null
+            });
+            map.set(voterKey, entry);
+        }
+        if (displayName) entry.name = displayName;
+        if (userId && !entry.userId) entry.userId = userId;
+        entry.answered += 1;
+        entry.lastPlayedAt = now;
+        if (isCorrect) {
+            entry.correct += 1;
+            entry.streak += 1;
+            if (entry.streak > entry.bestStreak) entry.bestStreak = entry.streak;
+            entry.points += earnedPoints;
+        } else {
+            entry.wrong += 1;
+            entry.streak = 0;
+        }
+    }
+
+    function scoreActiveQuestion() {
+        const q = state.activeQuestion;
+        if (!q || q._scored) return false;
+        q._scored = true;
+        if (state.settings?.leaderboard?.enabled === false) return false;
+        if (userVotes.size === 0) return false;
+
+        const now = Date.now();
+        const basePoints = Math.max(1, Number(q.points) || 100);
+        const speedBonusEnabled = Boolean(state.settings?.leaderboard?.speedBonus);
+        const startedAt = Number(q.startedAt) || 0;
+        const endsAt = Number(q.endsAt) || 0;
+        const totalMs = startedAt > 0 && endsAt > startedAt ? (endsAt - startedAt) : 0;
+
+        for (const [voterKey, choiceIndex] of userVotes.entries()) {
+            const meta = voterMeta.get(voterKey) || {};
+            const isCorrect = choiceIndex === q.correctIndex;
+            let earnedPoints = 0;
+            if (isCorrect) {
+                let speedMultiplier = 0;
+                if (speedBonusEnabled && totalMs > 0 && meta.votedAt) {
+                    const elapsedMs = Math.max(0, Math.min(totalMs, meta.votedAt - startedAt));
+                    const remainingRatio = Math.max(0, Math.min(1, 1 - (elapsedMs / totalMs)));
+                    speedMultiplier = 0.5 * remainingRatio;
+                }
+                earnedPoints = Math.round(basePoints * (1 + speedMultiplier));
+            }
+            const update = {
+                voterKey,
+                displayName: meta.displayName || voterKey,
+                userId: meta.userId || '',
+                isCorrect,
+                earnedPoints,
+                now
+            };
+            recordPlayerAnswer(sessionPlayers, update);
+            recordPlayerAnswer(seasonPlayers, update);
+        }
+
+        saveLeaderboard();
+        return true;
+    }
+
     function revealAnswer() {
         if (state.status !== 'question' && state.status !== 'idle') {
             return getPublicState();
         }
         if (!state.activeQuestion && state.questions.length > 0) {
-            state.activeQuestion = { ...state.questions[state.currentIndex] };
+            state.activeQuestion = { ...state.questions[state.currentIndex], _scored: false };
         }
         if (!state.activeQuestion) return getPublicState();
 
         clearTimers();
         state.status = 'reveal';
+        const leaderboardUpdated = scoreActiveQuestion();
 
         save();
+        if (leaderboardUpdated) {
+            broadcastLeaderboard();
+        }
         broadcastState('trivia:reveal', {
             question: sanitizeActiveQuestion(state.activeQuestion, true),
             correctIndex: state.activeQuestion.correctIndex,
             correctLetter: String.fromCharCode(65 + (state.activeQuestion.correctIndex || 0)),
-            funfact: state.activeQuestion.funfact || ''
+            funfact: state.activeQuestion.funfact || '',
+            leaderboardUpdated
         });
 
         if (isChatVotingActive() && chatbotAnnouncer && typeof chatbotAnnouncer.announceTriviaAnswer === 'function') {
@@ -653,6 +950,7 @@ function createTriviaService({
     function clearQuestion() {
         clearTimers();
         userVotes.clear();
+        voterMeta.clear();
         activeChoiceOrder = [];
         state.status = 'idle';
         state.activeQuestion = null;
@@ -664,6 +962,7 @@ function createTriviaService({
     function resetTrivia() {
         clearTimers();
         userVotes.clear();
+        voterMeta.clear();
         playedQuestionIds.clear();
         for (const q of state.questions) q.done = false;
         state.status = 'idle';
@@ -685,6 +984,13 @@ function createTriviaService({
         if (!voterKey) return false;
 
         userVotes.set(voterKey, choiceIndex);
+        const displayName = String(user || voterKey).trim() || voterKey;
+        voterMeta.set(voterKey, {
+            displayName,
+            userId: String(userId || '').trim(),
+            votedAt: Date.now(),
+            isSub: Boolean(isSub)
+        });
 
         // Broadcast updated vote counts to overlays
         const sanitized = sanitizeActiveQuestion(state.activeQuestion, false);
@@ -696,10 +1002,72 @@ function createTriviaService({
         return true;
     }
 
-    function handleChatMessage(msg = {}) {
-        if (state.status !== 'question' || !isChatVotingActive()) return false;
-        if (!state.activeQuestion) return false;
+    function sendCommandReply(cdKey, text) {
+        if (!text) return false;
+        const cooldownMs = Math.max(0, Number(state.settings?.leaderboard?.commandCooldownMs ?? 3000));
+        const now = Date.now();
+        const prev = commandCooldowns.get(cdKey) || 0;
+        if (cooldownMs > 0 && now - prev < cooldownMs) {
+            return true;
+        }
+        commandCooldowns.set(cdKey, now);
+        if (chatbotAnnouncer && typeof chatbotAnnouncer.postMessage === 'function' && (isChatbotEnabled() || state.settings.forceChatVoting)) {
+            try {
+                Promise.resolve(chatbotAnnouncer.postMessage(text))
+                    .catch(err => log('[Trivia] Leaderboard command reply failed:', err.message));
+            } catch (err) {
+                log('[Trivia] Leaderboard command reply failed:', err.message);
+            }
+        }
+        return true;
+    }
 
+    function handleLeaderboardChatCommand(lower, { user = '', userId = '' } = {}) {
+        if (state.settings?.leaderboard?.enabled === false) return false;
+        if (state.settings?.leaderboard?.commandsEnabled === false) return false;
+
+        const statsMatch = lower.match(/^!(?:triviastats|tstats)(?:\s+(.+))?$/);
+        if (statsMatch) {
+            const rawArg = (statsMatch[1] || '').trim().split(/\s+/)[0] || '';
+            const target = (rawArg || user || userId || '').replace(/^@/, '').trim();
+            if (!target) return false;
+            const stats = getPlayerStats(target);
+            const cdKey = `stats:${target.toLowerCase()}`;
+            if (!stats) {
+                return sendCommandReply(cdKey, `@${target} has no trivia stats recorded yet.`);
+            }
+            const parts = [];
+            if (stats.season) {
+                const s = stats.season;
+                parts.push(`Season: #${s.rank} • ${s.points} pts • ${s.correct}/${s.answered} (${s.accuracy}% acc)${s.streak > 1 ? ` • streak ${s.streak}` : ''}`);
+            }
+            if (stats.session) {
+                const sess = stats.session;
+                parts.push(`Session: #${sess.rank} • ${sess.points} pts • ${sess.correct}/${sess.answered} (${sess.accuracy}%)`);
+            }
+            return sendCommandReply(cdKey, `@${stats.name} Trivia Stats — ${parts.join(' | ')}`);
+        }
+
+        const topMatch = lower.match(/^!(?:triviatop|trivialeaderboard|tleaderboard)(?:\s+(.+))?$/);
+        if (topMatch) {
+            const arg = (topMatch[1] || '').trim().toLowerCase();
+            const scope = arg === 'session' ? 'session' : 'season';
+            const scopeLabel = scope === 'session' ? 'Session' : 'Season';
+            const lb = getLeaderboard({ scope, limit: 5 });
+            const cdKey = `top:${scope}`;
+            if (!lb.entries.length) {
+                return sendCommandReply(cdKey, `Trivia Leaderboard (${scopeLabel}) has no scores yet!`);
+            }
+            const formatted = lb.entries
+                .map(e => `#${e.rank} ${e.name} (${e.points} pts, ${e.correct}/${e.answered}, ${e.accuracy}%)`)
+                .join(' • ');
+            return sendCommandReply(cdKey, `Trivia Top (${scopeLabel}): ${formatted}`);
+        }
+
+        return false;
+    }
+
+    function handleChatMessage(msg = {}) {
         const comment = String(msg.comment || msg.message || '').trim();
         if (!comment) return false;
 
@@ -707,6 +1075,14 @@ function createTriviaService({
         const userId = String(msg.userId || msg.authorId || user).trim();
         const isSub = Boolean(msg.subscriber || msg.isSub || msg.hasMembership);
         const lower = comment.toLowerCase();
+
+        if (handleLeaderboardChatCommand(lower, { user, userId })) {
+            return true;
+        }
+
+        if (state.status !== 'question' || !isChatVotingActive()) return false;
+        if (!state.activeQuestion) return false;
+
         const choices = state.activeQuestion.choices || [];
         const choiceCount = choices.length;
 
@@ -1029,9 +1405,13 @@ function createTriviaService({
 
     function updateSettings(newSettings) {
         if (!newSettings || typeof newSettings !== 'object') return state.settings;
+        const prevLeaderboard = state.settings.leaderboard || DEFAULT_SETTINGS.leaderboard;
         state.settings = {
             ...state.settings,
-            ...newSettings
+            ...newSettings,
+            leaderboard: newSettings.leaderboard !== undefined
+                ? normalizeLeaderboardSettings({ ...prevLeaderboard, ...newSettings.leaderboard })
+                : normalizeLeaderboardSettings(prevLeaderboard)
         };
         for (const [key, max] of [['revealDelay', 60], ['advanceDelay', 300]]) {
             if (Object.hasOwn(newSettings, key)) {
@@ -1044,6 +1424,7 @@ function createTriviaService({
             state.settings.defaultDuration = Number.isFinite(value) ? Math.min(300, Math.max(5, value)) : DEFAULT_SETTINGS.defaultDuration;
         }
         save();
+        broadcastLeaderboard();
         broadcastState('trivia:state');
         return state.settings;
     }
@@ -1059,7 +1440,135 @@ function createTriviaService({
         return state.theme;
     }
 
+    function updateLeaderboardTheme(newTheme) {
+        if (!newTheme || typeof newTheme !== 'object') return state.leaderboardTheme;
+        if (newTheme.reset === true) {
+            state.leaderboardTheme = { ...DEFAULT_LEADERBOARD_THEME };
+        } else {
+            state.leaderboardTheme = {
+                ...DEFAULT_LEADERBOARD_THEME,
+                ...state.leaderboardTheme,
+                ...newTheme
+            };
+        }
+        save();
+        broadcastState('trivia:state');
+        broadcastLeaderboard();
+        return state.leaderboardTheme;
+    }
+
+    function resetLeaderboard(scopeOrOpts = 'session') {
+        const rawScope = typeof scopeOrOpts === 'string'
+            ? scopeOrOpts
+            : (scopeOrOpts && typeof scopeOrOpts === 'object' ? scopeOrOpts.scope : 'session');
+        const scope = ['session', 'season', 'both', 'all'].includes(rawScope) ? rawScope : 'session';
+        if (scope === 'session' || scope === 'both' || scope === 'all') {
+            sessionPlayers.clear();
+        }
+        if (scope === 'season' || scope === 'both' || scope === 'all') {
+            seasonPlayers.clear();
+            seasonStartedAt = Date.now();
+            saveLeaderboard();
+        }
+        broadcastState('trivia:state');
+        const payload = broadcastLeaderboard();
+        return {
+            success: true,
+            scope,
+            seasonStartedAt,
+            ...payload
+        };
+    }
+
+    function csvEscape(val) {
+        const str = String(val ?? '');
+        return /[",\r\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+    }
+
+    function exportLeaderboard({ scope = 'season', format = 'json' } = {}) {
+        const lb = getLeaderboard({ scope, limit: 0 });
+        if (String(format).toLowerCase() === 'csv') {
+            const header = ['Rank', 'Player', 'Points', 'Correct', 'Wrong', 'Answered', 'Accuracy%', 'Streak', 'BestStreak', 'LastPlayedAt'].join(',');
+            const rows = lb.entries.map(e => [
+                e.rank,
+                csvEscape(e.name),
+                e.points,
+                e.correct,
+                e.wrong,
+                e.answered,
+                e.accuracy,
+                e.streak,
+                e.bestStreak,
+                e.lastPlayedAt ? new Date(e.lastPlayedAt).toISOString() : ''
+            ].join(','));
+            return [header, ...rows].join('\r\n');
+        }
+        return {
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            scope: lb.scope,
+            sortBy: lb.sortBy,
+            seasonStartedAt: lb.seasonStartedAt,
+            totalPlayers: lb.totalPlayers,
+            players: lb.entries
+        };
+    }
+
+    function importLeaderboard(data, { replace = false, scope = 'season' } = {}) {
+        const resolvedScope = scope === 'session' ? 'session' : 'season';
+        const list = Array.isArray(data)
+            ? data
+            : (data && Array.isArray(data.players) ? data.players : (data && Array.isArray(data.entries) ? data.entries : null));
+        if (!list) {
+            throw new Error('Leaderboard import must be an array or an object with a players array');
+        }
+        const map = getLeaderboardMap(resolvedScope);
+        if (replace) {
+            map.clear();
+        }
+        let importedCount = 0;
+        for (const item of list) {
+            const normalized = normalizePlayerRecord(item);
+            if (!normalized) continue;
+            map.set(normalized.key, normalized);
+            importedCount += 1;
+        }
+        if (resolvedScope === 'season') {
+            if (data && !Array.isArray(data) && Number(data.seasonStartedAt) > 0) {
+                seasonStartedAt = Number(data.seasonStartedAt);
+            }
+            saveLeaderboard();
+        }
+        broadcastState('trivia:state');
+        broadcastLeaderboard();
+        return {
+            importedCount,
+            ...getLeaderboard({ scope: resolvedScope, limit: 0 })
+        };
+    }
+
+    function exportQuestions() {
+        return {
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            title: state.title,
+            questionCount: state.questions.length,
+            questions: state.questions.map(q => ({
+                id: q.id,
+                category: q.category || 'General',
+                question: q.question || '',
+                choices: Array.isArray(q.choices) ? [...q.choices] : [],
+                correctIndex: Number(q.correctIndex) || 0,
+                funfact: q.funfact || '',
+                duration: q.duration || state.settings.defaultDuration || 20,
+                points: q.points || 100
+            }))
+        };
+    }
+
     function getPublicState({ includeAnswers = false } = {}) {
+        const seasonLb = getLeaderboard({ scope: 'season', limit: 25 });
+        const sessionLb = getLeaderboard({ scope: 'session', limit: 25 });
         return {
             id: state.id,
             title: state.title,
@@ -1088,7 +1597,12 @@ function createTriviaService({
                 played: playedQuestionIds.has(q.id) || Boolean(q.done)
             })),
             theme: state.theme,
+            leaderboardTheme: state.leaderboardTheme,
             settings: state.settings,
+            leaderboard: {
+                season: seasonLb,
+                session: sessionLb
+            },
             presets: state.presets.map(p => ({
                 id: p.id,
                 name: p.name,
@@ -1101,6 +1615,8 @@ function createTriviaService({
 
     function getStatusSummary() {
         const active = sanitizeActiveQuestion(state.activeQuestion, state.status === 'reveal');
+        const seasonLb = getLeaderboard({ scope: 'season', limit: 5 });
+        const sessionLb = getLeaderboard({ scope: 'session', limit: 5 });
         return {
             status: state.status,
             currentIndex: state.currentIndex,
@@ -1111,7 +1627,18 @@ function createTriviaService({
             remainingSeconds: active ? active.remainingSeconds : 0,
             chatbotEnabled: isChatbotEnabled(),
             chatVotingActive: isChatVotingActive(),
-            activeQuestion: active
+            activeQuestion: active,
+            leaderboard: {
+                enabled: state.settings.leaderboard?.enabled !== false,
+                sortBy: state.settings.leaderboard?.sortBy || 'points',
+                seasonStartedAt,
+                seasonTotalPlayers: seasonPlayers.size,
+                sessionTotalPlayers: sessionPlayers.size,
+                seasonLeader: seasonLb.entries[0] || null,
+                sessionLeader: sessionLb.entries[0] || null,
+                seasonTop3: seasonLb.entries.slice(0, 3),
+                sessionTop3: sessionLb.entries.slice(0, 3)
+            }
         };
     }
 
@@ -1120,6 +1647,12 @@ function createTriviaService({
     return {
         getPublicState,
         getStatusSummary,
+        getLeaderboard,
+        getPlayerStats,
+        resetLeaderboard,
+        exportLeaderboard,
+        importLeaderboard,
+        updateLeaderboardTheme,
         startQuestion,
         revealAnswer,
         nextQuestion,
@@ -1139,6 +1672,7 @@ function createTriviaService({
         setQuestionDone,
         clearQuestions,
         importQuestions,
+        exportQuestions,
         savePreset,
         loadPreset,
         deletePreset,
@@ -1154,6 +1688,7 @@ function createTriviaService({
 module.exports = {
     createTriviaService,
     DEFAULT_THEME,
+    DEFAULT_LEADERBOARD_THEME,
     DEFAULT_SETTINGS,
     BUILTIN_PRESETS
 };

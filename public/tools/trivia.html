@@ -28,6 +28,10 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10c0 3.04-1.5 5.5-4 5.5s-2.5-1.5-4-1.5c-1 0-1.5.5-1.5 1.5 0 2-2 3.5-4 3.5a10 10 0 0 1-6.5-19"></path></svg>
                 <span>Overlay &amp; Theming</span>
             </button>
+            <button type="button" class="tab-btn studio-tab-btn" role="tab" aria-selected="false" id="tab-btn-leaderboard" onclick="switchTab('leaderboard')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>
+                <span>Leaderboard &amp; Stats</span>
+            </button>
             <a href="/overlays/trivia.html" target="_blank" rel="noopener noreferrer" class="tab-btn studio-tab-btn" style="margin-left: auto; text-decoration: none;" title="Open live overlay in new window">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                 <span>Open Overlay</span>
@@ -124,6 +128,10 @@
                         <button type="button" class="btn" id="btn-reset-done" title="Clear Done status on all questions so they can be replayed">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l6 5.81"/></svg>
                             <span>Reset Done</span>
+                        </button>
+                        <button type="button" class="btn" id="btn-export-q" title="Download question bank as JSON">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                            <span>Export JSON</span>
                         </button>
                         <button type="button" class="btn" id="btn-import-modal">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -722,6 +730,262 @@
         </div>
     </div>
 
+    <!-- Tab 3: Leaderboard & Stats -->
+    <div id="panel-leaderboard" class="studio-layout" style="display: none;">
+        <!-- Left Column: Standings + Scoring Settings + Overlay Customization -->
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <!-- Standings Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>
+                        <span>Player Leaderboard &amp; Stats</span>
+                    </span>
+                    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                        <span id="lb-season-date" style="font-size: 11px; color: var(--text-muted);"></span>
+                        <span class="badge-status badge-idle" id="lb-total-players">0 players</span>
+                    </div>
+                </div>
+
+                <div class="lb-standings-toolbar">
+                    <div class="lb-scope-switch" role="group" aria-label="Leaderboard Scope">
+                        <button type="button" class="lb-scope-btn active" id="btn-lb-scope-season">Season / All-Time</button>
+                        <button type="button" class="lb-scope-btn" id="btn-lb-scope-session">Current Session</button>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                        <select id="lb-view-sort" style="width: auto; min-width: 140px;" aria-label="Sort leaderboard by">
+                            <option value="points">Sort: Points</option>
+                            <option value="correct">Sort: Correct Answers</option>
+                            <option value="accuracy">Sort: Accuracy %</option>
+                        </select>
+                        <input type="text" id="lb-search" placeholder="Search player…" style="width: 170px;">
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button type="button" class="btn" id="btn-lb-export-json">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        <span>Export JSON</span>
+                    </button>
+                    <button type="button" class="btn" id="btn-lb-export-csv">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>
+                        <span>Export CSV</span>
+                    </button>
+                    <button type="button" class="btn" id="btn-lb-import-json">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        <span>Import JSON</span>
+                    </button>
+                    <button type="button" class="btn" id="btn-lb-reset-session" style="margin-left: auto;">Reset Session</button>
+                    <button type="button" class="btn danger" id="btn-lb-reset-season">New Season / Reset Season</button>
+                </div>
+
+                <div class="lb-table-wrap">
+                    <table class="lb-table">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Player</th>
+                                <th>Points</th>
+                                <th>Correct / Answered</th>
+                                <th>Accuracy</th>
+                                <th>Streak</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lb-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Scoring & Chat Commands Settings -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                        <span>Scoring &amp; Chat Commands</span>
+                    </span>
+                </div>
+
+                <label class="checkbox-row">
+                    <input type="checkbox" id="cfg-lb-enabled" checked>
+                    <span>Enable Trivia Leaderboard Scoring (scores players automatically when revealing answers)</span>
+                </label>
+
+                <label class="checkbox-row">
+                    <input type="checkbox" id="cfg-lb-speed-bonus">
+                    <span>Enable Speed Bonus (up to +50% points for faster correct answers)</span>
+                </label>
+
+                <label class="checkbox-row">
+                    <input type="checkbox" id="cfg-lb-commands-enabled" checked>
+                    <span>Enable Chat Lookup Commands (<code>!triviastats</code>, <code>!tstats</code>, <code>!triviatop</code>, <code>!trivialeaderboard</code>)</span>
+                </label>
+
+                <div class="lb-grid-2">
+                    <div class="form-row">
+                        <label>Default Ranking Metric</label>
+                        <select id="cfg-lb-sort">
+                            <option value="points">Total Points</option>
+                            <option value="correct">Correct Count</option>
+                            <option value="accuracy">Accuracy %</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>Top Players Stored / Shown</label>
+                        <input type="number" id="cfg-lb-top-limit" min="3" max="100" value="10">
+                    </div>
+                    <div class="form-row">
+                        <label>Command Cooldown (ms)</label>
+                        <input type="number" id="cfg-lb-cooldown" min="0" max="60000" step="500" value="3000">
+                    </div>
+                </div>
+
+                <button type="button" class="btn primary" id="btn-lb-save-settings">Save Scoring Settings</button>
+            </div>
+
+            <!-- Leaderboard Overlay Customization -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                        <span>Leaderboard Overlay Appearance</span>
+                    </span>
+                    <button type="button" class="btn" id="btn-lb-reset-theme">Reset to Defaults</button>
+                </div>
+
+                <div class="lb-grid-2">
+                    <div class="form-row">
+                        <label>Layout Mode</label>
+                        <select id="cfg-lb-layout">
+                            <option value="full">Fullscreen Standings Card</option>
+                            <option value="sidebar">Vertical Sidebar Panel</option>
+                            <option value="compact">Lower-Third Compact Strip</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>Visual Theme</label>
+                        <select id="cfg-lb-theme">
+                            <option value="modern">Modern Dark</option>
+                            <option value="arcade">Retro Arcade</option>
+                            <option value="esports">Esports Pro</option>
+                            <option value="minimal">Clean Minimal</option>
+                            <option value="broadcast-text">Broadcast Text Only</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>Default Scope</label>
+                        <select id="cfg-lb-scope">
+                            <option value="season">Season / All-Time</option>
+                            <option value="session">Current Session</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>Rows Shown (1–25)</label>
+                        <input type="number" id="cfg-lb-limit" min="1" max="25" value="10">
+                    </div>
+                </div>
+
+                <div class="lb-grid-2">
+                    <div class="form-row">
+                        <label>Overlay Header Title</label>
+                        <input type="text" id="cfg-lb-title" value="Trivia Leaderboard">
+                    </div>
+                    <div class="form-row">
+                        <label>Overlay Scale (<span id="cfg-lb-scale-val">1.00×</span>)</label>
+                        <input type="range" id="cfg-lb-scale" min="0.5" max="2.0" step="0.05" value="1">
+                    </div>
+                </div>
+
+                <div class="trivia-section-heading">Colors &amp; Opacity</div>
+                <div class="trivia-color-fields">
+                    <div class="form-row">
+                        <label>Board Background</label>
+                        <div class="trivia-color-control">
+                            <input type="color" id="cfg-lb-bg-color-picker" value="#0e1118">
+                            <input type="text" id="cfg-lb-bg-color" value="#0e1118f0" placeholder="#0e1118f0">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label>Row Card Background</label>
+                        <div class="trivia-color-control">
+                            <input type="color" id="cfg-lb-card-bg-picker" value="#161b26">
+                            <input type="text" id="cfg-lb-card-bg" value="#161b26cc" placeholder="#161b26cc">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label>Accent Highlight</label>
+                        <div class="trivia-color-control">
+                            <input type="color" id="cfg-lb-accent-color-picker" value="#6366f1">
+                            <input type="text" id="cfg-lb-accent-color" value="#6366f1" placeholder="#6366f1">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label>Text Color</label>
+                        <div class="trivia-color-control">
+                            <input type="color" id="cfg-lb-text-color-picker" value="#f8fafc">
+                            <input type="text" id="cfg-lb-text-color" value="#f8fafc" placeholder="#f8fafc">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="trivia-section-heading">Visible Stat Columns</div>
+                <div class="lb-grid-2">
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cfg-lb-show-header" checked>
+                        <span>Show Header &amp; Scope Badges</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cfg-lb-show-points" checked>
+                        <span>Show Points</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cfg-lb-show-correct" checked>
+                        <span>Show Correct / Answered</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cfg-lb-show-accuracy" checked>
+                        <span>Show Accuracy %</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="cfg-lb-show-streak" checked>
+                        <span>Show Active Streaks</span>
+                    </label>
+                </div>
+
+                <div class="form-row" style="margin-top: 0.5rem;">
+                    <label>OBS Browser Source URL</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="lb-obs-url" readonly style="flex: 1; font-family: monospace; font-size: 12px;">
+                        <button type="button" class="btn" id="btn-lb-copy-url">Copy URL</button>
+                        <a href="/overlays/trivia-leaderboard.html" target="_blank" rel="noopener noreferrer" class="btn">Open</a>
+                    </div>
+                </div>
+
+                <button type="button" class="btn primary" id="btn-lb-save-theme">Save Overlay Theme</button>
+            </div>
+        </div>
+
+        <!-- Right Column: Sticky Live Preview -->
+        <div class="lb-preview-sticky">
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        <span>Live Leaderboard Preview</span>
+                    </span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                    <button type="button" class="btn" id="btn-lb-prev-bg" style="font-size: 11px; padding: 0.28rem 0.65rem;">Canvas: Dark</button>
+                    <button type="button" class="btn active" id="btn-lb-prev-sample" style="font-size: 11px; padding: 0.28rem 0.65rem;">Sample: ON</button>
+                </div>
+
+                <div class="lb-preview-frame-wrap" id="lb-preview-wrap">
+                    <iframe id="lb-preview-iframe" src="/overlays/trivia-leaderboard.html?preview=true&sample=1" style="width: 100%; height: 100%; border: none; background: transparent;"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Add/Edit Question Modal -->
     <div class="modal-backdrop" id="q-modal">
         <div class="modal">
@@ -815,7 +1079,11 @@
                 </button>
             </div>
             <div class="form-row">
-                <label>JSON Question Array</label>
+                <label>Upload JSON File (Optional)</label>
+                <input type="file" id="import-file" accept=".json,application/json">
+            </div>
+            <div class="form-row">
+                <label>JSON Question Array or Export Bundle</label>
                 <textarea id="import-json" rows="10" placeholder='[
   {
     "category": "Gaming",
@@ -833,6 +1101,41 @@
             <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
                 <button type="button" class="btn" id="btn-cancel-import">Cancel</button>
                 <button type="button" class="btn primary" id="btn-confirm-import">Import Questions</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Leaderboard Modal -->
+    <div class="modal-backdrop" id="lb-import-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">Import Leaderboard Stats (JSON)</span>
+                <button type="button" class="icon-btn" id="btn-close-lb-import">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="form-row">
+                <label>Upload Exported JSON File (Optional)</label>
+                <input type="file" id="lb-import-file" accept=".json,application/json">
+            </div>
+            <div class="form-row">
+                <label>Target Scope</label>
+                <select id="lb-import-scope">
+                    <option value="season">Season / All-Time</option>
+                    <option value="session">Current Session</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label>JSON Player Array or Export Bundle</label>
+                <textarea id="lb-import-json" rows="8" placeholder='{"players": [{"name": "PixelValkyrie", "points": 500, "correct": 5, "answered": 6}]}'></textarea>
+            </div>
+            <label class="checkbox-row">
+                <input type="checkbox" id="lb-import-replace">
+                <span>Replace existing standings for this scope</span>
+            </label>
+            <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                <button type="button" class="btn" id="btn-cancel-lb-import">Cancel</button>
+                <button type="button" class="btn primary" id="btn-confirm-lb-import">Import Stats</button>
             </div>
         </div>
     </div>
