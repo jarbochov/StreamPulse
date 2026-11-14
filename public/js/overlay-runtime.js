@@ -162,8 +162,9 @@
         onResetCycle: el => randomIndexes.delete(el.id),
         onRender: overlay => render(overlay)
     });
-    const clearVarRotTimers = () => varRotEngine.clear();
+    const clearVarRotTimers = () => varRotEngine.dispose();
     const setupVarRotations = overlay => varRotEngine.setup(overlay);
+    const usesVarSets = overlay => Boolean(overlay?.variableSetRotations?.length || Object.values(overlay?.variableSetFollow || {}).some(Boolean));
     const triggerPageVarRotations = pageId => varRotEngine.triggerPage(pageId);
     const effectiveStatus = () => varRotEngine.effectiveStatus(liveStatus);
 
@@ -1306,7 +1307,7 @@
                 const statusResponse = await fetch('/api/status', { cache: 'no-store' });
                 if (statusResponse.ok) liveStatus = { ...liveStatus, ...(await statusResponse.json()) };
             } catch {}
-            if (overlay.variableSetRotations?.length) {
+            if (usesVarSets(overlay)) {
                 try {
                     const varsRes = await fetch('/api/variables', { cache: 'no-store' });
                     if (varsRes.ok) {
@@ -1569,14 +1570,15 @@
                         customVars: message.data.variables || [],
                         variableSets: Array.isArray(message.data.sets) ? message.data.sets : liveStatus.variableSets
                     };
-                    if (currentOverlay?.variableSetRotations?.length) setupVarRotations(currentOverlay);
+                    varRotEngine.recompute();
+                    if (message.data.rotated && varRotEngine.serverRotated(message.data.rotated)) return;
                     if (currentOverlay && shared.variableSnapshot(effectiveStatus(), variableContext()) !== before) render(currentOverlay);
                 }
                 else if (message.type === 'custom-overlay-update' && message.data?.id === overlayId) {
                     if (message.data.overlay) {
                         if (pagesOn(message.data.overlay) && pageParam) currentPage = resolvePage(message.data.overlay, pageParam) || currentPage;
                         liveStatus.overlayName = message.data.overlay.name;
-                        if (message.data.overlay.variableSetRotations?.length && !liveStatus.variableSets) {
+                        if (usesVarSets(message.data.overlay) && !liveStatus.variableSets) {
                             fetch('/api/variables', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => {
                                 if (d) liveStatus = { ...liveStatus, variableSets: d.sets || [] };
                                 setupVarRotations(message.data.overlay);

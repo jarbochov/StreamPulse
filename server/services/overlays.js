@@ -1215,6 +1215,11 @@ function normalizeCustomOverlay(input = {}, idOverride = '', alertTriggers = {})
             return { setId, trigger, mode, intervalSeconds, pageId, transition, durationMs, enabled };
         }).filter(Boolean)
         : [];
+    // Per-overlay opt-in to each set's server-owned rotation; legacy timer rules stay until server.js migrates them.
+    const variableSetFollow = Object.fromEntries(Object.entries(input.variableSetFollow && typeof input.variableSetFollow === 'object' ? input.variableSetFollow : {})
+        .slice(0, 30)
+        .map(([key, value]) => [String(key).toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/^_+|_+$/g, '').slice(0, 24), value === true || value === 'true'])
+        .filter(([key]) => key));
     return {
         id,
         name: String(input.name || id).trim().slice(0, 120) || id,
@@ -1227,6 +1232,7 @@ function normalizeCustomOverlay(input = {}, idOverride = '', alertTriggers = {})
         },
         pages,
         variableSetRotations,
+        variableSetFollow,
         elements
     };
 }
@@ -1950,6 +1956,8 @@ function createOverlayService({
                 name: previous.name,
                 canvas: previous.canvas,
                 pages: previous.pages,
+                variableSetRotations: previous.variableSetRotations,
+                variableSetFollow: previous.variableSetFollow,
                 elements: previous.elements
             });
             fs.writeFileSync(historyFile(previous.id), JSON.stringify(list.slice(-customOverlayHistoryLimit)));

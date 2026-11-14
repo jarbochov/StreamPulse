@@ -1108,3 +1108,7 @@ body.is-scrubbing, body.is-scrubbing * {
 .vrot-el-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); padding-top: 2px; border-top: 1px solid var(--border); }
 .vrot-el-chip { font: inherit; font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vrot-el-chip:hover { border-color: var(--accent); color: var(--accent); }
+.vrot-name { flex: 1; min-width: 0; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vrot-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.vrot-follow { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); }
+.vrot-advanced { margin-top: 10px; }

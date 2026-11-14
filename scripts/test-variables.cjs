@@ -299,3 +299,92 @@ test('OverlayShared: template variables and {{var.NAME|fallback}} expansion', ()
         'Default Value'
     );
 });
+
+test('Variable Sets: long duplicate entry ids dedupe without hanging', () => {
+    const dir = makeTmpDir();
+    try {
+        const store = createVariablesStore({ dataDir: dir });
+        const long = 'abcdefghijklmnopqrstuvwxyz';
+        const set = store.upsertSet('team', { roster: [{ id: long }, { id: long }, { id: long }] });
+        assert.deepEqual(set.roster.map(r => r.id), ['abcdefghijklmnopqrstuvwx', 'abcdefghijklmnopqrstuv_2', 'abcdefghijklmnopqrstuv_3']);
+        store.dispose();
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('Variable Sets: failed mutation rolls back sets and vars', () => {
+    const dir = makeTmpDir();
+    try {
+        const store = createVariablesStore({ dataDir: dir });
+        store.upsertSet('team', { roster: [{ id: 'a', values: { name: 'A' } }] });
+        const before = JSON.stringify({ v: store.list(), s: store.listSets() });
+        assert.throws(() => store.importBundle({ sets: [{ id: 'good', roster: [{ id: 'x' }] }, { id: '!!!' }] }));
+        assert.equal(getSet(store, 'good'), null);
+        assert.equal(JSON.stringify({ v: store.list(), s: store.listSets() }).replace(/"updatedAt":\d+/g, ''), before.replace(/"updatedAt":\d+/g, ''));
+        // Set-materialized vars no longer count toward the 500 user-variable cap.
+        const fields = Array.from({ length: 12 }, (_, i) => ({ key: `f${i}`, type: 'text' }));
+        const big = store.upsertSet('big', { slotsCount: 24, fields, slotNames: Array.from({ length: 24 }, (_, i) => `seat ${String.fromCharCode(97 + i)}`) });
+        assert.equal(big.slotsCount, 24);
+        store.dispose();
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('Variable Sets: server rotation endpoints step enabled entries and broadcast', async () => {
+    const dir = makeTmpDir();
+    try {
+        const events = [];
+        const store = createVariablesStore({ dataDir: dir, onChange: e => events.push(e) });
+        store.upsertSet('p', { roster: [{ id: 'a' }, { id: 'b', enabled: false }, { id: 'c' }] });
+        let r = await callApi(store, 'GET', '/api/variables/sets/p/rotation?intervalSeconds=30&mode=sequential');
+        assert.equal(r.json.rotation.intervalSeconds, 30);
+        assert.equal(r.json.rotation.enabled, false);
+        r = await callApi(store, 'POST', '/api/variables/sets/p/rotation/start');
+        assert.equal(r.json.rotation.enabled, true);
+        assert.equal(r.json.rotation.entryId, 'a');
+        assert.equal(events.at(-1).rotated, 'p');
+        r = await callApi(store, 'GET', '/api/variables/sets/p/rotation/next');
+        assert.equal(r.json.rotation.entryId, 'c');
+        r = await callApi(store, 'GET', '/api/variables/sets/p/rotation/next');
+        assert.equal(r.json.rotation.entryId, 'a');
+        r = await callApi(store, 'GET', '/api/variables/sets/p/rotation/prev');
+        assert.equal(r.json.rotation.entryId, 'c');
+        // Materialized vars keep live values; rotation is applied by following overlays.
+        assert.equal(getVar(store, 'p_active').value, 'false');
+        r = await callApi(store, 'POST', '/api/variables/sets/p/rotation/toggle');
+        assert.equal(r.json.rotation.enabled, false);
+        const reloaded = createVariablesStore({ dataDir: dir });
+        assert.equal(getSet(reloaded, 'p').rotation.entryId, 'c');
+        reloaded.dispose();
+        store.dispose();
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('Variables: templates resolve regardless of order (server and overlay)', () => {
+    const dir = makeTmpDir();
+    try {
+        const store = createVariablesStore({ dataDir: dir });
+        store.set('outer', { type: 'template', value: '[{{var.inner}}]' });
+        store.set('inner', { type: 'template', value: 'Hi {{var.who}}' });
+        store.set('who', { type: 'text', value: 'Sam' });
+        store.set('loop', { type: 'template', value: 'x{{var.loop|y}}' });
+        assert.equal(store.values().outer, '[Hi Sam]');
+        assert.equal(store.values().loop, 'xy');
+        const out = OverlayShared.expandVariables('{{var.outer}}', { customVars: store.list() }, {});
+        assert.equal(out, '[Hi Sam]');
+        store.dispose();
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('Variable Sets: overlays following a set apply server rotation to every slot-1 alias', () => {
+    const sets = [{ id: 'p', slotsCount: 2, slotNames: ['Host'], fields: [{ key: 'name', type: 'text' }], roster: [{ id: 'a', values: { name: 'Ann' } }], rotation: { enabled: true, entryId: 'a' } }];
+    const overlay = { variableSetFollow: { p: true }, elements: [] };
+    const engine = OverlayShared.createVarRotationEngine({ getOverlay: () => overlay, getSets: () => sets, getNodes: () => new Map() });
+    engine.setup(overlay);
+    const vals = Object.fromEntries(engine.effectiveStatus({ customVars: [] }).customVars.map(v => [v.name, v.value]));
+    assert.equal(vals.p_name, 'Ann');
+    assert.equal(vals.p_1_name, 'Ann');
+    assert.equal(vals.p_host_name, 'Ann');
+    assert.equal(vals.p_active, 'true');
+    overlay.variableSetFollow.p = false;
+    engine.setup(overlay);
+    assert.equal(engine.effectiveStatus({ customVars: [] }).customVars.length, 0);
+});

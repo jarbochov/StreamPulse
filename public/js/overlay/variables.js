@@ -756,14 +756,25 @@ function customVarValues(status) {
             entries[`var.${v.name}.random`] = v.items[Math.floor(Math.random() * v.items.length)];
         }
     }
-    for (const v of vars) {
-        if (v.type !== 'template') continue;
-        entries[`var.${v.name}`] = String(v.value ?? '').replace(/\{\{\s*var\.([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (_, ref, fb) => {
-            const val = entries[`var.${ref}`];
+    // Templates may reference other templates in any order; depth 3, cycles resolve empty.
+    const templates = new Map(vars.filter(v => v.type === 'template').map(v => [`var.${v.name}`, String(v.value ?? '')]));
+    const done = new Map();
+    const resolving = new Set();
+    const resolve = (key, depth) => {
+        if (!templates.has(key)) return entries[key];
+        if (done.has(key)) return done.get(key);
+        if (depth > 3 || resolving.has(key)) return '';
+        resolving.add(key);
+        const text = templates.get(key).replace(/\{\{\s*var\.([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (_, ref, fb) => {
+            const val = resolve(`var.${ref}`, depth + 1);
             const str = val === undefined || val === null ? '' : String(val);
             return str !== '' ? str : (fb !== undefined ? fb.trim() : '');
         });
-    }
+        resolving.delete(key);
+        done.set(key, text);
+        return text;
+    };
+    for (const key of templates.keys()) entries[key] = resolve(key, 0);
     return entries;
 }
 

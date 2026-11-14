@@ -672,6 +672,18 @@
                     details: 'Picks the next sequential item or a new random item for a list variable.'
                 },
                 {
+                    method: 'POST', path: '/api/variables/sets/:id/rotation',
+                    desc: 'Configure a Variable Set rotation',
+                    companion: true,
+                    details: 'Body or query: enabled, intervalSeconds (1-3600), mode (sequential|random), transition (fade|slide-up|flip|none), durationMs. GET without query returns the current rotation. Rotation is shared: overlays opt in with Follow in the editor Pages panel.'
+                },
+                {
+                    method: 'POST', path: '/api/variables/sets/:id/rotation/start',
+                    desc: 'Start, stop, toggle or step a set rotation',
+                    companion: true,
+                    details: 'Also /rotation/stop, /rotation/toggle, /rotation/next and /rotation/prev. GET works for Companion. Disabled roster entries are skipped. Broadcasts variables-update with rotated: setId.'
+                },
+                {
                     method: 'DELETE', path: '/api/variables/:name',
                     desc: 'Delete a custom variable or counter',
                     details: 'Removes the variable. Returns updated variables list.'

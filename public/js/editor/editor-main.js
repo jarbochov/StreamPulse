@@ -11,7 +11,8 @@ import {
     changed, registerRenderAll, registerFitView, registerSelectionChange,
     registerStatusBar, params, initialId, LIMITS, MIN_SIZE, ICON, TEXT_TYPES,
     liveSignature, displayName, setStyleClipboard, getStyleClipboard,
-    serializeOverlayForSave, extractElementState, resetElementPageState, previewAlertElement, alertLookSelection
+    serializeOverlayForSave, extractElementState, resetElementPageState, previewAlertElement, alertLookSelection,
+    applyEditorVariablesUpdate
 } from './editor-state.js';
 
 import {
@@ -23,7 +24,7 @@ import {
 import {
     renderLayers, renderPageBar, updateLayerSelection, setRailTab,
     initLayersAndPages, registerLayerCallbacks, duplicatePage, deletePage,
-    switchEditPage, livePage, refreshLivePage, setLiveState
+    switchEditPage, livePage, refreshLivePage, setLiveState, refreshVariableSetsPanel
 } from './editor-layers.js';
 
 import {
@@ -965,7 +966,7 @@ export async function refreshLiveStatus() {
 export function connectAlertPreview() {
     const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`);
     socket.addEventListener('message', event => {
-        if (typeof event.data === 'string' && !event.data.includes('"alert') && !event.data.includes('"poll-update"') && !event.data.includes('"custom-overlay-page"') && !event.data.includes('"obs-status"') && !event.data.includes('"obs-audio-meter"')) return;
+        if (typeof event.data === 'string' && !event.data.includes('"alert') && !event.data.includes('"poll-update"') && !event.data.includes('"custom-overlay-page"') && !event.data.includes('"obs-status"') && !event.data.includes('"obs-audio-meter"') && !event.data.includes('"variables-update"')) return;
         let message; try { message = JSON.parse(event.data); } catch { return; }
         if (message.type === 'obs-audio-meter') {
             handleSpeakerMeter(message.data);
@@ -988,6 +989,13 @@ export function connectAlertPreview() {
         }
         if (message.type === 'custom-overlay-page' && message.data?.id === state.overlay?.id) {
             setLiveState(message.data);
+            return;
+        }
+        if (message.type === 'variables-update' && message.data) {
+            const before = liveSignature();
+            if (applyEditorVariablesUpdate(message.data)) return;
+            if (prefs.live && liveSignature() !== before) renderCanvas();
+            refreshVariableSetsPanel();
             return;
         }
         if (message.type === 'poll-update') {

@@ -239,6 +239,27 @@ const variablesStore = require('./server/services/variables')({
     dataDir: DATA_DIR,
     onChange: data => broadcastToOverlays('variables-update', data)
 });
+// One-time migration: overlay-local timer rotations become shared set rotations the overlay follows.
+(function migrateOverlayVarRotations() {
+    let changed = false;
+    for (const overlay of Object.values(customOverlays)) {
+        const rules = Array.isArray(overlay.variableSetRotations) ? overlay.variableSetRotations : [];
+        const timers = rules.filter(r => r.trigger !== 'page');
+        if (!timers.length) continue;
+        overlay.variableSetFollow = { ...(overlay.variableSetFollow || {}) };
+        for (const rule of timers) {
+            const setObj = variablesStore.listSets().find(s => s.id === rule.setId);
+            if (!setObj) continue;
+            if (!setObj.rotation?.enabled && rule.enabled !== false) {
+                try { variablesStore.configureRotation(rule.setId, { enabled: true, intervalSeconds: rule.intervalSeconds, mode: rule.mode, transition: rule.transition, durationMs: rule.durationMs }); } catch {}
+            }
+            overlay.variableSetFollow[rule.setId] = rule.enabled !== false;
+        }
+        overlay.variableSetRotations = rules.filter(r => r.trigger === 'page');
+        changed = true;
+    }
+    if (changed) { overlayService.saveCustomOverlays(); console.log('[Variables] Migrated overlay timer rotations to shared Variable Set rotation'); }
+})();
 const chatbot = require('./server/services/chatbot')({ dataDir: DATA_DIR, getConfig: () => config, port: Number(process.env.PORT) || Number(config.port) || 3000, variables: variablesStore, onUse: (kind, name) => takeoverPages('command', name), onSettingsChange: () => communityBot?.configChanged(), sessionKey: () => String(chatData.startedAt || '') });
 const LIVE_CHAT_PATH = path.join(DATA_DIR, 'chat.json');
 const BANNED_HASHTAGS_PATH = path.join(DATA_DIR, '.banned-hashtags.json');
@@ -1977,6 +1998,7 @@ function stopServer({ preserveSession = false } = {}) {
         for (const timer of backgroundIntervals) clearInterval(timer);
         backgroundIntervals.clear();
         attempt(() => userModeration.stop());
+        attempt(() => variablesStore.dispose());
         attempt(() => ssnService.disconnectSSN());
         attempt(() => stopLifecycleWatcher());
         attempt(() => stopViewerTracking());

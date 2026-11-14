@@ -290,6 +290,7 @@ export const state = {
         canvas: { width: 1920, height: 1080, background: 'transparent' },
         pages: null,
         variableSetRotations: [],
+        variableSetFollow: {},
         elements: []
     },
     selectedIds: new Set(),
@@ -630,6 +631,7 @@ export function serializeOverlayForSave() {
         canvas: state.overlay.canvas,
         pages: state.overlay.pages,
         variableSetRotations: state.overlay.variableSetRotations || [],
+        variableSetFollow: state.overlay.variableSetFollow || {},
         elements: state.overlay.elements
     }));
     const srcEls = state.overlay.elements || [];
@@ -847,8 +849,10 @@ export function getEditorVarRotationEngine(onRender) {
 export function syncEditorVarRotations(onRender) {
     const engine = getEditorVarRotationEngine(onRender);
     if (!engine) return;
-    const rots = prefs.live ? (state.overlay?.variableSetRotations || []) : [];
-    const hasActive = rots.some(r => r && r.enabled !== false && r.setId);
+    const overlay = state.overlay;
+    const rots = prefs.live ? (overlay?.variableSetRotations || []) : [];
+    const follow = prefs.live ? (overlay?.variableSetFollow || {}) : {};
+    const hasActive = rots.some(r => r && r.enabled !== false && r.setId) || Object.values(follow).some(Boolean);
     if (hasActive && !Array.isArray(state.liveStatus?.variableSets)) {
         ensureEditorVariableSets(() => {
             lastVarRotationKey = '';
@@ -856,15 +860,25 @@ export function syncEditorVarRotations(onRender) {
             onRender?.();
         });
     }
-    const setsSig = (state.liveStatus?.variableSets || []).map(s => `${s.id}:${(s.roster || []).length}`).join('|');
-    const key = `${state.overlay?.id || ''}|${JSON.stringify(rots)}|${setsSig}`;
+    const key = `${overlay?.id || ''}|${JSON.stringify(rots)}|${JSON.stringify(follow)}`;
     if (key === lastVarRotationKey) return;
     lastVarRotationKey = key;
     if (!prefs.live || !hasActive) {
-        engine.clear();
+        engine.dispose();
         return;
     }
-    engine.setup(state.overlay);
+    engine.setup(overlay);
+}
+
+// Applies a variables-update broadcast to the editor's live preview. Returns true if the engine re-rendered.
+export function applyEditorVariablesUpdate(data) {
+    if (!state.liveStatus || typeof state.liveStatus !== 'object') state.liveStatus = {};
+    if (Array.isArray(data.variables)) state.liveStatus.customVars = data.variables;
+    if (Array.isArray(data.sets)) state.liveStatus.variableSets = data.sets;
+    const engine = editorVarRotationEngine;
+    if (!engine || !prefs.live) return false;
+    engine.recompute();
+    return Boolean(data.rotated) && engine.serverRotated(data.rotated);
 }
 
 export const effectiveLiveStatus = () => {
@@ -895,6 +909,7 @@ export const snapshot = () => {
         canvas: serialized.canvas,
         pages: serialized.pages,
         variableSetRotations: serialized.variableSetRotations || [],
+        variableSetFollow: serialized.variableSetFollow || {},
         elements: serialized.elements
     });
 };

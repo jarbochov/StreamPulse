@@ -302,6 +302,25 @@ function renderRosterItem(setObj, entry) {
     `;
 }
 
+function renderRotationBar(setObj) {
+    const rot = setObj.rotation || {};
+    const entry = (setObj.roster || []).find(e => e.id === rot.entryId);
+    const tr = ['fade', 'slide-up', 'flip', 'none'];
+    const trLabel = { fade: 'Crossfade', 'slide-up': 'Slide up', flip: 'Flip', none: 'Instant' };
+    return `
+            <div class="set-rotation-bar">
+                <span class="set-section-title" style="margin:0;"><span>Rotation</span></span>
+                <span class="badge${rot.enabled ? ' badge-now' : ''}">${rot.enabled ? `On${entry ? ` · ${esc(entry.label)}` : ''}` : 'Off'}</span>
+                <label>Every <input type="number" min="1" max="3600" data-rot-field="intervalSeconds" value="${Number(rot.intervalSeconds) || 10}" style="width:4.2rem;"> s</label>
+                <label><select data-rot-field="mode"><option value="sequential"${rot.mode !== 'random' ? ' selected' : ''}>In order</option><option value="random"${rot.mode === 'random' ? ' selected' : ''}>Random</option></select></label>
+                <label><select data-rot-field="transition">${tr.map(t => `<option value="${t}"${(rot.transition || 'fade') === t ? ' selected' : ''}>${trLabel[t]}</option>`).join('')}</select></label>
+                <span style="flex:1"></span>
+                ${rot.enabled ? `<button type="button" class="b sm" data-set-act="rotation/prev" title="Previous rotation entry">${SVG_PREV}</button><button type="button" class="b sm" data-set-act="rotation/next" title="Next rotation entry">${SVG_NEXT}</button>` : ''}
+                <button type="button" class="b sm${rot.enabled ? '' : ' primary'}" data-set-act="rotation/${rot.enabled ? 'stop' : 'start'}">${rot.enabled ? 'Stop' : 'Start'} rotation</button>
+            </div>
+            <div class="muted" style="font-size:.76rem; margin:-.25rem 0 .75rem;">Shared clock for every overlay that follows this set (toggle Follow per overlay in the editor's Pages panel). Skips disabled entries.</div>`;
+}
+
 export function renderSets() {
     const host = document.getElementById('sets-list');
     if (!host) return;
@@ -373,6 +392,7 @@ export function renderSets() {
                     <button type="button" class="b sm danger" data-set-act="delete-set" title="Delete set">${SVG_TRASH}</button>
                 </div>
             </div>
+            ${renderRotationBar(activeSet)}
             <div class="${slotsCount > 0 ? 'sets-split' : ''}" style="${slotsCount > 0 ? '' : 'display:grid; gap:1rem;'}">
                 <div>
                     <div class="set-section-title">
@@ -704,6 +724,14 @@ export function bindSetEvents(onReload) {
             }
             return;
         }
+        const rotField = e.target.closest('[data-rot-field]');
+        if (rotField && card) {
+            try {
+                await api(`/api/variables/sets/${encodeURIComponent(card.dataset.setCard)}/rotation`, 'POST', { [rotField.dataset.rotField]: rotField.value });
+                await reloadHandler();
+            } catch (err) { toast(err.message, 'error'); }
+            return;
+        }
         const csvInput = e.target.closest('[data-set-csv-import]');
         if (csvInput && card) {
             const file = csvInput.files?.[0];
@@ -819,6 +847,10 @@ export function bindSetEvents(onReload) {
             }
             if (act === 'clear' || act === 'next' || act === 'prev') {
                 await api(`${base}/${act}?slot=${encodeURIComponent(btn.dataset.slot)}`, 'POST', {});
+                return await reloadHandler();
+            }
+            if (act.startsWith('rotation/')) {
+                await api(`${base}/${act}`, 'POST', {});
                 return await reloadHandler();
             }
             if (act === 'advance' || act === 'rewind') {

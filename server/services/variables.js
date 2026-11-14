@@ -6,6 +6,10 @@ const path = require('path');
 const NAME_RE = /^[a-z0-9_]{1,40}$/;
 const VALID_TYPES = ['counter', 'text', 'list', 'image', 'toggle', 'color', 'template'];
 const VALID_SET_FIELD_TYPES = ['text', 'image', 'color', 'toggle'];
+const ROTATION_TRANSITIONS = ['none', 'fade', 'slide-up', 'flip'];
+const MAX_USER_VARS = 500;
+const MAX_SET_VARS = 25000;
+const TEMPLATE_RE = /\{\{\s*var\.([a-z0-9_]+)\s*(?:\|([^{}]*?))?\s*\}\}/gi;
 
 module.exports = function createVariables({ dataDir, onChange = null }) {
     const file = path.join(dataDir, 'variables.json');
@@ -19,9 +23,9 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
     }
     load();
 
-    function notifyChange() {
+    function notifyChange(extra = {}) {
         if (typeof onChange === 'function') {
-            try { onChange({ variables: list(), sets: listSets() }); } catch { /* ignore listener errors */ }
+            try { onChange({ variables: list(), sets: listSets(), ...extra }); } catch { /* ignore listener errors */ }
         }
     }
 
@@ -48,17 +52,26 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
     const list = () => Object.entries(vars).map(([name, v]) => ({ name, ...v }));
     const listSets = () => Object.entries(sets).map(([id, s]) => ({ id, ...s }));
 
-    // Flat map for placeholders: {{var.name}} (with 1-pass template resolution)
+    // Flat map for placeholders: {{var.name}}. Templates may reference other templates in any order (depth 3, cycles resolve empty).
     function values() {
         const out = Object.fromEntries(Object.entries(vars).map(([name, v]) => [name, v.value]));
-        for (const [name, v] of Object.entries(vars)) {
-            if (v?.type === 'template') {
-                out[name] = String(v.value ?? '').replace(/\{\{\s*var\.([a-z0-9_]+)\s*(?:\|([^{}]*?))?\s*\}\}/gi, (_m, ref, fallback) => {
-                    const resolved = out[normName(ref)];
-                    return (resolved !== undefined && resolved !== null && String(resolved) !== '') ? String(resolved) : (fallback !== undefined ? fallback.trim() : '');
-                });
-            }
-        }
+        const resolving = new Set();
+        const resolved = new Map();
+        const resolve = (name, depth) => {
+            const v = vars[name];
+            if (v?.type !== 'template') return out[name];
+            if (resolved.has(name)) return resolved.get(name);
+            if (depth > 3 || resolving.has(name)) return '';
+            resolving.add(name);
+            const text = String(v.value ?? '').replace(TEMPLATE_RE, (_m, ref, fallback) => {
+                const val = resolve(normName(ref), depth + 1);
+                return (val !== undefined && val !== null && String(val) !== '') ? String(val) : (fallback !== undefined ? fallback.trim() : '');
+            });
+            resolving.delete(name);
+            resolved.set(name, text);
+            return text;
+        };
+        for (const name of Object.keys(vars)) if (vars[name]?.type === 'template') out[name] = resolve(name, 0);
         return out;
     }
 
@@ -91,7 +104,10 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             if (persist) save();
             return { name, ...vars[name] };
         }
-        if (!cur && Object.keys(vars).length >= 500) throw new Error('Too many variables');
+        if (!cur) {
+            const count = Object.values(vars).filter(v => Boolean(v?.setId) === Boolean(setId)).length;
+            if (count >= (setId ? MAX_SET_VARS : MAX_USER_VARS)) throw new Error(setId ? 'Too many Variable Set variables' : 'Too many variables');
+        }
         let value = patch.value ?? cur?.value ?? (type === 'counter' ? 0 : type === 'toggle' ? 'false' : type === 'color' ? '#3b82f6' : '');
         if (type === 'counter') {
             value = Number.isFinite(Number(value)) ? Number(value) : 0;
@@ -183,7 +199,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             if (!r || typeof r !== 'object') continue;
             let entryId = normSetId(r.id || r.label || r.values?.name || `entry_${idx + 1}`);
             if (!entryId) entryId = `entry_${idx + 1}`;
-            while (seenEntries.has(entryId)) entryId = `${entryId}_${idx + 1}`.slice(0, 24);
+            const baseId = entryId;
+            for (let n = 2; seenEntries.has(entryId); n++) entryId = `${baseId.slice(0, 24 - String(n).length - 1)}_${n}`;
             seenEntries.add(entryId);
             const valuesMap = {};
             for (const f of fields) {
@@ -214,7 +231,35 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         const candidateActive = normSetId(patch?.activeEntry ?? cur?.activeEntry ?? '');
         const activeEntry = validRosterIds.has(candidateActive) ? candidateActive : '';
 
-        return { id, name, slotsCount, fields, roster, slots, slotNames, slotQueues, activeEntry, updatedAt: Date.now() };
+        const rotation = normalizeRotation({ ...(cur?.rotation || {}), ...(patch?.rotation || {}) }, validRosterIds);
+
+        return { id, name, slotsCount, fields, roster, slots, slotNames, slotQueues, activeEntry, rotation, updatedAt: Date.now() };
+    }
+
+    function normalizeRotation(raw = {}, validIds = null) {
+        const entryId = normSetId(raw.entryId || '');
+        return {
+            enabled: raw.enabled === true || raw.enabled === 'true' || raw.enabled === 1 || raw.enabled === '1',
+            intervalSeconds: Math.max(1, Math.min(3600, Math.round(Number(raw.intervalSeconds) || 10))),
+            mode: raw.mode === 'random' ? 'random' : 'sequential',
+            transition: ROTATION_TRANSITIONS.includes(raw.transition) ? raw.transition : 'fade',
+            durationMs: Math.max(50, Math.min(2000, Math.round(Number(raw.durationMs) || 350))),
+            entryId: validIds && !validIds.has(entryId) ? '' : entryId,
+            changedAt: Number(raw.changedAt) || 0
+        };
+    }
+
+    // Restores vars and sets if a mutation throws part-way (e.g. hitting a variable cap mid-materialize).
+    function atomic(fn) {
+        const prevVars = JSON.parse(JSON.stringify(vars));
+        const prevSets = JSON.parse(JSON.stringify(sets));
+        try {
+            return fn();
+        } catch (err) {
+            vars = prevVars;
+            sets = prevSets;
+            throw err;
+        }
     }
 
     function materializeSetVars(setObj) {
@@ -268,7 +313,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         }
     }
 
-    function upsertSet(setId, patch) {
+    function upsertSetRaw(setId, patch) {
         const cleanId = normSetId(setId);
         const cur = sets[cleanId];
         if (!cur && Object.keys(sets).length >= 30) throw new Error('Too many variable sets');
@@ -276,6 +321,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         sets[nextSet.id] = nextSet;
         materializeSetVars(nextSet);
         saveSets({ saveVarsAlso: true });
+        scheduleRotation(nextSet.id);
         return nextSet;
     }
 
@@ -283,6 +329,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         const cleanId = normSetId(setId);
         if (!sets[cleanId]) throw new Error('Set not found');
         delete sets[cleanId];
+        scheduleRotation(cleanId);
         for (const [k, v] of Object.entries(vars)) {
             if (v?.setId === cleanId) delete vars[k];
         }
@@ -304,7 +351,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         return idx;
     }
 
-    function assignSetSlot(setId, slotParam = 1, entryParam = '') {
+    function assignSetSlotRaw(setId, slotParam = 1, entryParam = '') {
         const cleanId = normSetId(setId);
         const setObj = sets[cleanId];
         if (!setObj) throw new Error('Set not found');
@@ -330,7 +377,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
 
 
 
-    function clearSetSlot(setId, slotParam = 1) {
+    function clearSetSlotRaw(setId, slotParam = 1) {
         const cleanId = normSetId(setId);
         const setObj = sets[cleanId];
         if (!setObj) throw new Error('Set not found');
@@ -350,7 +397,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
 
 
 
-    function cycleSetSlot(setId, slotParam = 1, direction = 1) {
+    function cycleSetSlotRaw(setId, slotParam = 1, direction = 1) {
         const cleanId = normSetId(setId);
         const setObj = sets[cleanId];
         if (!setObj) throw new Error('Set not found');
@@ -412,10 +459,11 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             : (entry.enabled === false);
         setObj.updatedAt = Date.now();
         saveSets({ saveVarsAlso: false });
+        scheduleRotation(cleanId);
         return setObj;
     }
 
-    function advanceSetQueue(setId, direction = 1, mode = 'shift') {
+    function advanceSetQueueRaw(setId, direction = 1, mode = 'shift') {
         const cleanId = normSetId(setId);
         const setObj = sets[cleanId];
         if (!setObj) throw new Error('Set not found');
@@ -519,7 +567,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         return setObj;
     }
 
-    function swapSetSlots(setId, fromParam = 1, toParam = 2) {
+    function swapSetSlotsRaw(setId, fromParam = 1, toParam = 2) {
         const cleanId = normSetId(setId);
         const setObj = sets[cleanId];
         if (!setObj) throw new Error('Set not found');
@@ -536,7 +584,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
 
 
 
-    function importBundle(payload = {}) {
+    function importBundleRaw(payload = {}) {
         const importedVars = Array.isArray(payload.variables) ? payload.variables : [];
         const importedSets = Array.isArray(payload.sets) ? payload.sets : [];
         let varCount = 0;
@@ -554,6 +602,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             setCount++;
         }
         saveSets({ saveVarsAlso: true });
+        for (const id of Object.keys(sets)) scheduleRotation(id);
         return { ok: true, importedVars: varCount, importedSets: setCount, variables: list(), sets: listSets() };
     }
 
@@ -666,6 +715,99 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         return { ok: true, imported, total: updated.roster.length, set: updated };
     }
 
+    const upsertSet = (...a) => atomic(() => upsertSetRaw(...a));
+    const assignSetSlot = (...a) => atomic(() => assignSetSlotRaw(...a));
+    const clearSetSlot = (...a) => atomic(() => clearSetSlotRaw(...a));
+    const cycleSetSlot = (...a) => atomic(() => cycleSetSlotRaw(...a));
+    const advanceSetQueue = (...a) => atomic(() => advanceSetQueueRaw(...a));
+    const swapSetSlots = (...a) => atomic(() => swapSetSlotsRaw(...a));
+    const importBundle = (...a) => atomic(() => importBundleRaw(...a));
+
+    // Server-owned rotation: one shared clock per set. Materialized vars keep live values; overlays that
+    // follow the set apply rotation.entryId themselves, so a single set can rotate on one overlay and not another.
+    const rotationTimers = new Map();
+
+    function scheduleRotation(setId) {
+        clearInterval(rotationTimers.get(setId));
+        rotationTimers.delete(setId);
+        const setObj = sets[setId];
+        if (!setObj?.rotation?.enabled) return;
+        const timer = setInterval(() => {
+            try { stepRotation(setId, 1, { persist: false }); } catch { /* set removed */ }
+        }, setObj.rotation.intervalSeconds * 1000);
+        timer.unref?.();
+        rotationTimers.set(setId, timer);
+    }
+
+    function stepRotation(setId, direction = 1, { persist = true } = {}) {
+        const setObj = sets[normSetId(setId)];
+        if (!setObj) throw new Error('Set not found');
+        const rot = setObj.rotation || (setObj.rotation = normalizeRotation());
+        const pool = (setObj.roster || []).filter(r => r.enabled !== false);
+        let next = '';
+        if (pool.length) {
+            const pos = pool.findIndex(r => r.id === rot.entryId);
+            if (rot.mode === 'random' && direction > 0 && pool.length > 1) {
+                const others = pool.filter((_, i) => i !== pos);
+                next = others[Math.floor(Math.random() * others.length)].id;
+            } else {
+                next = pool[pos === -1 ? (direction > 0 ? 0 : pool.length - 1) : (pos + direction + pool.length) % pool.length].id;
+            }
+        }
+        rot.entryId = next;
+        rot.changedAt = Date.now();
+        if (persist) {
+            fs.mkdirSync(dataDir, { recursive: true });
+            fs.writeFileSync(`${setsFile}.tmp`, JSON.stringify(sets, null, 2));
+            fs.renameSync(`${setsFile}.tmp`, setsFile);
+        }
+        notifyChange({ rotated: setObj.id });
+        return setObj;
+    }
+
+    function configureRotation(setId, patch = {}) {
+        const cleanId = normSetId(setId);
+        const setObj = sets[cleanId];
+        if (!setObj) throw new Error('Set not found');
+        const validIds = new Set(setObj.roster.map(r => r.id));
+        setObj.rotation = normalizeRotation({ ...(setObj.rotation || {}), ...patch }, validIds);
+        if (setObj.rotation.enabled && !setObj.rotation.entryId) return startRotation(cleanId);
+        saveSets({ saveVarsAlso: false });
+        scheduleRotation(cleanId);
+        return setObj;
+    }
+
+    function startRotation(setId) {
+        const cleanId = normSetId(setId);
+        const setObj = sets[cleanId];
+        if (!setObj) throw new Error('Set not found');
+        setObj.rotation = { ...normalizeRotation(setObj.rotation), enabled: true };
+        scheduleRotation(cleanId);
+        if (!setObj.rotation.entryId) return stepRotation(cleanId, 1);
+        saveSets({ saveVarsAlso: false });
+        return setObj;
+    }
+
+    function stopRotation(setId) {
+        return configureRotation(setId, { enabled: false });
+    }
+
+    function toggleRotation(setId) {
+        const setObj = sets[normSetId(setId)];
+        if (!setObj) throw new Error('Set not found');
+        return setObj.rotation?.enabled ? stopRotation(setId) : startRotation(setId);
+    }
+
+    function dispose() {
+        for (const timer of rotationTimers.values()) clearInterval(timer);
+        rotationTimers.clear();
+    }
+
+    for (const id of Object.keys(sets)) {
+        if (sets[id]) sets[id].rotation = normalizeRotation(sets[id].rotation, new Set((sets[id].roster || []).map(r => r.id)));
+        scheduleRotation(id);
+    }
+
     async function handleApi(req, res, pathname, readBody) {
         const json = (status, body) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
         try {
@@ -686,7 +828,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             }
 
             // Variable Sets & Slots: /api/variables/sets/:setId[/assign|clear|next|prev|swap|advance|rewind|export|import|entry/toggle|queue/*]
-            const setMatch = pathname.match(/^\/api\/variables\/sets\/([^/]+)(?:\/(assign|clear|next|prev|swap|advance|rewind|export|import|entry\/toggle|queue\/add|queue\/remove|queue\/clear))?$/);
+            const setMatch = pathname.match(/^\/api\/variables\/sets\/([^/]+)(?:\/(assign|clear|next|prev|swap|advance|rewind|export|import|entry\/toggle|queue\/add|queue\/remove|queue\/clear|rotation|rotation\/start|rotation\/stop|rotation\/toggle|rotation\/next|rotation\/prev))?$/);
             if (setMatch) {
                 const setId = decodeURIComponent(setMatch[1]);
                 const action = setMatch[2];
@@ -714,6 +856,18 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                     const csvText = contentType.includes('text/csv') ? rawBody : String(body.csv || '');
                     const replace = query.replace === '1' || query.replace === 'true' || body.replace === true;
                     return json(200, importSetCsv(setId, csvText, { replace })), true;
+                } else if (action === 'rotation') {
+                    if (req.method === 'GET' && !Object.keys(query).length) {
+                        const s = sets[normSetId(setId)];
+                        return json(s ? 200 : 404, s ? { id: s.id, rotation: s.rotation } : { error: 'Set not found' }), true;
+                    }
+                    if (['GET', 'POST', 'PUT'].includes(req.method)) return json(200, configureRotation(setId, { ...query, ...body })), true;
+                } else if (action.startsWith('rotation/') && (req.method === 'POST' || req.method === 'GET')) {
+                    if (action === 'rotation/start') return json(200, startRotation(setId)), true;
+                    if (action === 'rotation/stop') return json(200, stopRotation(setId)), true;
+                    if (action === 'rotation/toggle') return json(200, toggleRotation(setId)), true;
+                    if (action === 'rotation/next') return json(200, stepRotation(setId, 1)), true;
+                    if (action === 'rotation/prev') return json(200, stepRotation(setId, -1)), true;
                 } else if (req.method === 'POST' || req.method === 'GET') {
                     const slot = query.slot ?? body.slot ?? 1;
                     if (action === 'assign') return json(200, assignSetSlot(setId, slot, query.entry ?? body.entry ?? '')), true;
@@ -777,6 +931,12 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         importBundle,
         exportSetCsv,
         importSetCsv,
-        reload: load
+        configureRotation,
+        startRotation,
+        stopRotation,
+        toggleRotation,
+        stepRotation,
+        dispose,
+        reload: () => { load(); for (const id of new Set([...rotationTimers.keys(), ...Object.keys(sets)])) scheduleRotation(id); }
     };
 };
