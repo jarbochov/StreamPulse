@@ -16,7 +16,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ### Changed
 - **Dashboard**: Modularize into `public/js/dashboard/`, pack compact 12-column rows (`grid-auto-flow: dense`), auto-hide disabled modules, add a toolbar **Start Session** button when offline, add a **Live Ops** view preset toggle, add quick Alerts Pause/Mute/Skip buttons, per-timer Start/Pause/Reset controls, and Chat Bot Pause/Enable + quick send controls, make Active Chatters clickable for dossiers, and remember Diagnostics/Danger zone open state.
-- **Chat Bot**: Expand placeholders in `/api/chatbot/send`, fire multiple due timed messages in the same minute without starvation, add `/api/chatbot/messages/:id/run` and `/api/chatbot/test-trigger`, fix `#timed` deep linking, persist the active Studio tab, auto-refresh Activity while open, and add Duplicate + custom test context + trigger dry-run controls.
+- **Chat Bot**: Expand placeholders in `/api/chatbot/send`, fire multiple due timed messages in the same minute without starvation, add `/api/chatbot/messages/:id/run` and `/api/chatbot/test-trigger`, fix `#timed` deep linking, persist the active Studio tab, auto-refresh Activity while open, add a dedicated **Testing** tab (Send as Bot, Trigger Dry-Run, Command Test Context), and add Duplicate controls.
 - **Sessions & Overlays pages**: Persist the selected session, detail tab, and overlay filter in `localStorage`, and improve narrow-screen responsiveness on `.chat-search` and overlay cards.
 - **Alerts replay**: Support replaying the last `1`–`50` shown alerts in order via `POST` or `GET /api/alerts/replay?count=N` (defaults to `1`).
 

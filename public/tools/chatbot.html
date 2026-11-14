@@ -62,6 +62,10 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
                     <span>Reference</span>
                 </button>
+                <button type="button" class="tab-btn" data-t="testing" role="tab" aria-selected="false">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"></path><path d="M10 3v6l-5 8a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-8V3"></path><line x1="8" y1="14" x2="16" y2="14"></line></svg>
+                    <span>Testing</span>
+                </button>
                 <button type="button" class="tab-btn" data-t="settings" role="tab" aria-selected="false">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                     <span>Settings</span>
@@ -80,11 +84,46 @@
                     <button class="btn small" id="refresh-activity" type="button">Refresh activity</button>
                 </div>
             </div>
-            <form id="activity-send-form" class="row" style="margin-bottom:.85rem;">
-                <input id="activity-send-input" class="search-input" style="flex:1;min-width:200px;" maxlength="1000" placeholder="Send a message as bot (supports {{placeholders}}, e.g. Playing {{game}})...">
-                <button class="btn primary small" type="submit">Send as Bot</button>
-            </form>
             <div id="activity-list"></div>
+        </div>
+
+        <!-- Testing Tab -->
+        <div class="card" data-tab="testing" hidden>
+            <div class="tab-header">
+                <div>
+                    <h2>Chat Bot Testing &amp; Sandbox</h2>
+                    <p class="muted">Dry-run trigger matching, customize test user/arguments, and send ad-hoc bot messages without cluttering your configuration tabs.</p>
+                </div>
+            </div>
+
+            <div class="settings-section" style="padding:1rem;margin-bottom:1rem;">
+                <h3 style="margin:0 0 .35rem;font-size:.92rem;">Send Message as Bot</h3>
+                <p class="muted" style="margin:0 0 .6rem;font-size:.8rem;">Expands <code>{{placeholders}}</code> and sends straight to connected chat.</p>
+                <form id="activity-send-form" class="row">
+                    <input id="activity-send-input" class="search-input" style="flex:1;min-width:200px;" maxlength="1000" placeholder="Send a message as bot (e.g. Playing {{game}})...">
+                    <button class="btn primary small" type="submit">Send as Bot</button>
+                </form>
+            </div>
+
+            <div class="settings-section" style="padding:1rem;margin-bottom:1rem;">
+                <h3 style="margin:0 0 .35rem;font-size:.92rem;">Word Trigger Dry-Run</h3>
+                <p class="muted" style="margin:0 0 .6rem;font-size:.8rem;">Test a sample chat message against your saved enabled triggers without sending to live chat.</p>
+                <form id="trigger-test-form" class="row" style="align-items:center;gap:.5rem;flex-wrap:wrap;">
+                    <input id="trigger-test-input" class="search-input" style="flex:1;min-width:200px;" placeholder="Type a sample chat message...">
+                    <input id="trigger-test-user" class="search-input" style="width:140px;" placeholder="User (viewer)">
+                    <button class="btn small" type="submit">Test match</button>
+                </form>
+                <div id="trigger-test-result" class="muted" style="font-size:.82rem;margin-top:.6rem;" hidden></div>
+            </div>
+
+            <div class="settings-section" style="padding:1rem;">
+                <h3 style="margin:0 0 .35rem;font-size:.92rem;">Command Preview &amp; Test Context</h3>
+                <p class="muted" style="margin:0 0 .6rem;font-size:.8rem;">Used when previewing commands or clicking <b>Send test</b> inside the Commands tab.</p>
+                <div class="row" style="align-items:center;gap:.5rem;flex-wrap:wrap;">
+                    <input id="cmd-test-user" class="search-input" style="width:160px;" placeholder="User (viewer)" aria-label="Test command user">
+                    <input id="cmd-test-arg" class="search-input" style="flex:1;min-width:180px;" placeholder="Args (@someone 100)" aria-label="Test command arguments">
+                </div>
+            </div>
         </div>
 
         <!-- Viewer Reference Tab -->
@@ -515,11 +554,6 @@
                 </div>
             </details>
 
-            <div class="row" style="margin-bottom:.65rem;align-items:center;gap:.5rem;flex-wrap:wrap;font-size:.8rem;">
-                <span class="muted">Test context:</span>
-                <input id="cmd-test-user" class="search-input" style="width:140px;" placeholder="User (viewer)" aria-label="Test command user">
-                <input id="cmd-test-arg" class="search-input" style="flex:1;min-width:160px;" placeholder="Args (@someone 100)" aria-label="Test command arguments">
-            </div>
             <div id="commands"></div>
             <div class="row" style="margin-top:.75rem;">
                 <button class="btn" id="add-command-bottom">+ Add command</button>
@@ -633,12 +667,6 @@
                     <input type="file" id="import-triggers-file" accept=".json,application/json" style="display:none;">
                 </div>
             </div>
-            <form id="trigger-test-form" class="row" style="margin-bottom:.75rem;align-items:center;gap:.5rem;flex-wrap:wrap;">
-                <input id="trigger-test-input" class="search-input" style="flex:1;min-width:200px;" placeholder="Dry-run test: type a sample chat message to see which trigger matches...">
-                <input id="trigger-test-user" class="search-input" style="width:140px;" placeholder="User (viewer)">
-                <button class="btn small" type="submit">Test match</button>
-            </form>
-            <div id="trigger-test-result" class="muted" style="font-size:.82rem;margin-bottom:.65rem;" hidden></div>
             <div id="triggers"></div>
             <div class="row" style="margin-top:.75rem;">
                 <button class="btn" id="add-trigger-bottom">+ Add trigger</button>
