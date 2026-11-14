@@ -15,6 +15,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - **Community insights**: Optional viewer history, Twitch follow dates, and configurable welcome-back and personal milestone chat messages.
 
 ### Changed
+- **Dashboard**: Modularize into `public/js/dashboard/`, pack compact 12-column rows (`grid-auto-flow: dense`), auto-hide disabled modules, add a toolbar **Start Session** button when offline, add quick Alerts Pause/Mute/Skip buttons, make Active Chatters clickable for dossiers, and tuck diagnostics/system controls into collapsible sections.
 - **Alerts replay**: Support replaying the last `1`–`50` shown alerts in order via `POST` or `GET /api/alerts/replay?count=N` (defaults to `1`).
 
 ### Fixed

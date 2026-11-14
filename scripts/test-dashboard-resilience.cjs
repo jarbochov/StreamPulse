@@ -313,11 +313,10 @@ test('dashboard recovery and navigation polling resilience', async t => {
             await window.loadCustomOverlayCount();
             return {
                 missing, populated, empty: document.getElementById('overlay-custom-count').textContent,
-                clients: document.getElementById('overlay-clients').textContent,
-                sources: document.getElementById('ws-clients').textContent
+                clients: document.getElementById('overlay-clients').textContent
             };
         });
-        assert.deepEqual(result, { missing: '0', populated: '2', empty: '0', clients: '0', sources: '0' });
+        assert.deepEqual(result, { missing: '0', populated: '2', empty: '0', clients: '0' });
         assert.deepEqual(errors, []);
         await page.close();
     });

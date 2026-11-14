@@ -3,6 +3,7 @@
 <head>
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
+    <script src="/chatter-dossier.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1">
     <link rel="shortcut icon" href="/favicon.svg?v=1">
     <meta charset="UTF-8">
@@ -28,14 +29,18 @@
         .layout-btn { border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); color: var(--text-muted); padding: .35rem .7rem; font-size: .78rem; cursor: pointer; font-family: inherit; }
         .layout-btn:hover { border-color: var(--accent); color: var(--text); background: var(--accent-bg); }
         .layout-btn.on { border-color: var(--accent-strong); color: var(--accent); background: var(--accent-bg); }
+        .layout-btn.start-session { border-color: color-mix(in srgb, var(--success) 55%, var(--border)); background: color-mix(in srgb, var(--success) 14%, var(--bg-card)); color: var(--success); font-weight: 600; }
+        .layout-btn.start-session:hover { border-color: var(--success); background: color-mix(in srgb, var(--success) 24%, var(--bg-card)); color: var(--text); }
         #hidden-panels { display: none; max-width: 1680px; margin: 0 auto; padding: .5rem 1.5rem 0; gap: .4rem; flex-wrap: wrap; align-items: center; color: var(--text-muted); font-size: .78rem; }
         body.editing #hidden-panels.has-items { display: flex; }
 
-        .grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); padding: var(--gap) 1.5rem 2rem; max-width: 1680px; margin: 0 auto; align-items: stretch; }
+        .grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-flow: dense; gap: var(--gap); padding: var(--gap) 1.5rem 2rem; max-width: 1680px; margin: 0 auto; align-items: stretch; }
 
-        .card { --default-span: 6; position: relative; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: var(--pad); display: flex; flex-direction: column; min-width: 0; grid-column: span var(--span, var(--default-span)); }
+        .card { --default-span: 4; position: relative; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: var(--pad); display: flex; flex-direction: column; min-width: 0; grid-column: span var(--span, var(--default-span)); }
         .card[data-span="8"] { --default-span: 8; }
+        .card[data-span="6"] { --default-span: 6; }
         .card[data-span="4"] { --default-span: 4; }
+        .card[data-span="3"] { --default-span: 3; }
         @media (max-width: 1000px) { .card[data-span] { --default-span: 6; } }
         @media (max-width: 640px) { .card[data-span] { --default-span: 12; } }
         .card[hidden] { display: none; }
@@ -83,14 +88,17 @@
         .btn.danger { border-color: color-mix(in srgb, var(--danger) 31%, transparent); }
         .btn.danger:hover { border-color: var(--danger); background: var(--danger-soft-bg); }
         .btn.sm { padding: .3rem .55rem; font-size: .75rem; }
+        .btn.on { border-color: var(--accent-strong); color: var(--accent); background: var(--accent-bg); }
         .ico { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; flex-shrink: 0; }
-        details.danger-zone { margin-top: .6rem; border-top: 1px solid var(--bg-raised); padding-top: .5rem; }
-        details.danger-zone summary { cursor: pointer; color: var(--text-muted); font-size: .75rem; margin-bottom: .5rem; }
+        details.danger-zone { margin-top: .5rem; border-top: 1px solid var(--bg-raised); padding-top: .45rem; }
+        details.danger-zone summary { cursor: pointer; color: var(--text-muted); font-size: .75rem; margin-bottom: .45rem; }
 
         .scroll { overflow-y: auto; flex: 1; min-height: 0; }
-        .card:not([data-h]) .scroll { max-height: 280px; }
-        .card[data-h] .scroll { max-height: max(280px, calc(var(--card-h) - 5rem)); }
-        .chatter { display: flex; align-items: center; gap: .5rem; padding: .25rem 0; border-bottom: 1px solid var(--bg-raised); }
+        .card:not([data-h]) .scroll { max-height: 240px; }
+        .card[data-h] .scroll { max-height: max(240px, calc(var(--card-h) - 5rem)); }
+        .chatter { display: flex; align-items: center; gap: .5rem; padding: .25rem .25rem; border-bottom: 1px solid var(--bg-raised); border-radius: 4px; }
+        .chatter.clickable { cursor: pointer; }
+        .chatter.clickable:hover { background: var(--accent-bg); }
         .chatter:last-child { border-bottom: none; }
         .chatter img, .chatter .avatar { width: 20px; height: 20px; border-radius: 50%; background: var(--bg-raised); flex-shrink: 0; }
         .chatter .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -114,8 +122,9 @@
         .detail-line strong { color: var(--accent); font-weight: 600; white-space: nowrap; }
         .detail-line span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .link-grid { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: auto; padding-top: .6rem; }
-        .stream-info { display: none; padding: .2rem 0 .5rem; border-bottom: 1px solid var(--border); margin-bottom: .5rem; }
-        .chip { display: inline-block; background: color-mix(in srgb, var(--accent-strong) 13%, transparent); color: var(--accent); font-size: .7rem; padding: .08rem .4rem; border-radius: 4px; margin-left: .3rem; }
+        .stream-info { display: none; align-items: center; flex-wrap: wrap; gap: .4rem; padding: .2rem 0 .5rem; border-bottom: 1px solid var(--border); margin-bottom: .5rem; }
+        .pill { display: inline-flex; align-items: center; padding: .1rem .48rem; border-radius: 999px; font-size: .7rem; font-weight: 600; border: 1px solid var(--border); background: var(--bg-inset); color: var(--text-muted); }
+        .pill.is-accent { border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: var(--accent-bg); color: var(--accent); }
 
         .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--accent-strong); color: #fff; padding: .7rem 1.1rem; border-radius: 8px; font-size: .88rem; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 100; }
         .toast.show { opacity: 1; }
@@ -133,6 +142,7 @@
     <div class="toolbar">
         <div class="conn"><span class="dot" id="dot-conn"></span><span id="conn-text">Connecting…</span></div>
         <div class="tool-group">
+            <button type="button" class="layout-btn start-session" id="toolbar-session-btn" data-action="toggle-session" hidden>Start Session</button>
             <a class="layout-btn accent" href="/sessions.html?session=__current__" target="_blank" rel="noopener" title="Open the live session in a new tab">Current session</a>
             <a class="layout-btn accent" href="/sessions.html?session=__current__&view=chat" target="_blank" rel="noopener" title="Open the live chat log in a new tab">Current chat log</a>
             <button class="layout-btn" id="density-btn" title="Smaller text and tighter spacing to fit more data">Compact</button>
@@ -143,37 +153,6 @@
     <div id="hidden-panels"></div>
 
     <div class="grid" id="dashboard-grid">
-        <div class="card" data-panel-id="server-status" data-title="Health" data-span="6">
-            <h2>Health</h2>
-            <div class="indicator"><div class="dot" id="dot-server"></div><span>Server: <span id="uptime">—</span></span></div>
-            <div class="indicator"><div class="dot" id="dot-ssn"></div><span>SocialStream: <span id="ssn-status">—</span></span></div>
-            <div class="indicator"><div class="dot" id="dot-twitch"></div><span>Twitch token: <span id="twitch-status">—</span></span></div>
-            <div class="indicator" id="obs-health" hidden><div class="dot" id="dot-obs"></div><span>OBS: <span id="obs-status">—</span></span></div>
-            <div class="indicator"><div class="dot" id="dot-ws"></div><span>Overlay sources: <span id="ws-clients">0</span></span></div>
-            <div class="detail-line" title="Resident Node process memory, including heap, native allocations and buffers. This is not Safari memory."><strong>Node RSS:</strong> <span id="memory">—</span></div>
-            <div class="detail-line" title="Live JavaScript allocations / currently allocated V8 heap. RSS need not shrink immediately after garbage collection."><strong>JS heap:</strong> <span id="memory-heap">—</span></div>
-        </div>
-
-        <div class="card" data-panel-id="quick-actions" data-title="Actions" data-span="6">
-            <h2>Actions</h2>
-            <div class="btn-grid">
-                <button class="btn" data-action="fetch-twitch">Fetch Twitch</button>
-                <button class="btn" data-action="reauth-twitch">Re-auth Twitch</button>
-                <a class="btn" href="/api/export?type=all" download>Export CSV (all stats)</a>
-                <button class="btn" id="session-toggle-btn" data-action="toggle-session" style="border-color:color-mix(in srgb, var(--warn) 31%, transparent)">End Session</button>
-                <button class="btn" data-action="restart">Restart StreamPulse</button>
-                <button class="btn danger" data-action="shutdown">Shutdown</button>
-            </div>
-            <div id="lifecycle-hint" style="display:none;margin-top:10px;font-size:13px;color:var(--muted,var(--text-muted))"></div>
-            <details class="danger-zone">
-                <summary>Danger zone</summary>
-                <div class="btn-grid">
-                    <button class="btn danger" data-action="reset-chat">Reset session chat</button>
-                    <button class="btn danger" data-action="reset-stats">Reset all persistent stats</button>
-                </div>
-            </details>
-        </div>
-
         <div class="card" data-panel-id="current-session" data-title="Current Session" data-span="8">
             <h2>Current Session</h2>
             <div class="stream-info" id="stream-info-dash"></div>
@@ -203,6 +182,55 @@
             <div class="link-grid"><a class="btn sm" href="/viewers.html" target="_blank">Overlay</a><a class="btn sm" href="/analytics.html">Analytics</a></div>
         </div>
 
+        <div class="card" data-panel-id="server-status" data-title="Health" data-span="4">
+            <h2>Health</h2>
+            <div class="indicator"><div class="dot" id="dot-server"></div><span>Server: <span id="uptime">—</span></span></div>
+            <div class="indicator"><div class="dot" id="dot-ssn"></div><span>SocialStream: <span id="ssn-status">—</span></span></div>
+            <div class="indicator"><div class="dot" id="dot-twitch"></div><span>Twitch token: <span id="twitch-status">—</span></span></div>
+            <div class="indicator" id="obs-health" hidden><div class="dot" id="dot-obs"></div><span>OBS: <span id="obs-status">—</span></span></div>
+            <details class="danger-zone">
+                <summary>Diagnostics</summary>
+                <div class="detail-line" title="Resident Node process memory, including heap, native allocations and buffers."><strong>Node RSS:</strong> <span id="memory">—</span></div>
+                <div class="detail-line" title="Live JavaScript allocations / currently allocated V8 heap."><strong>JS heap:</strong> <span id="memory-heap">—</span></div>
+            </details>
+        </div>
+
+        <div class="card" data-panel-id="quick-actions" data-title="Session & Actions" data-span="4">
+            <h2>Session &amp; Actions</h2>
+            <div class="btn-grid">
+                <button class="btn" id="session-toggle-btn" data-action="toggle-session">End Session</button>
+                <button class="btn" data-action="fetch-twitch">Fetch Twitch</button>
+                <button class="btn" data-action="reauth-twitch">Re-auth Twitch</button>
+                <a class="btn" href="/api/export?type=all" download>Export CSV</a>
+            </div>
+            <div id="lifecycle-hint" style="display:none;margin-top:8px;font-size:12px;color:var(--muted,var(--text-muted))"></div>
+            <details class="danger-zone">
+                <summary>System &amp; Danger zone</summary>
+                <div class="btn-grid">
+                    <button class="btn" data-action="restart">Restart StreamPulse</button>
+                    <button class="btn danger" data-action="shutdown">Shutdown</button>
+                    <button class="btn danger" data-action="reset-chat">Reset session chat</button>
+                    <button class="btn danger" data-action="reset-stats">Reset all stats</button>
+                </div>
+            </details>
+        </div>
+
+        <div class="card" data-panel-id="alerts" data-title="Alerts & SFX" data-span="4">
+            <h2>Alerts &amp; SFX</h2>
+            <div class="indicator"><div class="dot" id="dot-alerts"></div><span>Alert engine: <span id="alerts-status">—</span></span></div>
+            <div class="status-grid">
+                <div class="stat"><div class="value" id="alerts-rules">0</div><div class="label">Rules</div></div>
+                <div class="stat"><div class="value" id="alerts-pending">0</div><div class="label">Queued</div></div>
+            </div>
+            <div class="link-grid">
+                <button type="button" class="btn sm" id="alert-pause-btn" data-action="alert-pause">Pause</button>
+                <button type="button" class="btn sm" id="alert-mute-btn" data-action="alert-mute">Mute</button>
+                <button type="button" class="btn sm" id="alert-skip-btn" data-action="alert-skip">Skip</button>
+                <a class="btn sm" href="/alerts.html">Studio</a>
+                <a class="btn sm" href="/alert-queue.html" target="_blank">Dock</a>
+            </div>
+        </div>
+
         <div class="card" data-panel-id="recent-events" data-title="Recent Events" data-span="6">
             <h2>Recent Events</h2>
             <div class="scroll" id="events-list"><div class="empty">No events yet</div></div>
@@ -213,21 +241,12 @@
             <div class="scroll" id="chatters-list"><div class="empty">No chatters yet</div></div>
         </div>
 
-        <div class="card" data-panel-id="alerts" data-title="Alerts & SFX" data-span="6">
-            <h2>Alerts &amp; SFX</h2>
-            <div class="indicator"><div class="dot" id="dot-alerts"></div><span>Alert engine: <span id="alerts-status">—</span></span></div>
-            <div class="status-grid">
-                <div class="stat"><div class="value" id="alerts-rules">0</div><div class="label">Rules</div></div>
-                <div class="stat"><div class="value" id="alerts-pending">0</div><div class="label">Queued</div></div>
-            </div>
-            <div class="link-grid">
-                <a class="btn sm" href="/alerts.html">Alert Studio</a>
-                <a class="btn sm" href="/alert-queue.html" target="_blank">OBS Dock</a>
-                <a class="btn sm" href="/custom-overlays.html">Overlays</a>
-            </div>
+        <div class="card" data-panel-id="message-volume" data-title="Message Volume" data-span="8">
+            <h2>Message Volume (Hourly)</h2>
+            <div class="chart" id="volume-chart"><div class="empty" style="width:100%">No message data yet</div></div>
         </div>
 
-        <div class="card" data-panel-id="overlays" data-title="Overlays" data-span="6">
+        <div class="card" data-panel-id="overlays" data-title="Overlays" data-span="4">
             <h2>Overlays</h2>
             <div class="status-grid">
                 <div class="stat"><div class="value" id="overlay-custom-count">—</div><div class="label">Custom</div></div>
@@ -236,11 +255,11 @@
             <div class="link-grid">
                 <a class="btn sm" href="/overlays.html">All overlays</a>
                 <a class="btn sm" href="/custom-overlay-editor.html?new=1">New custom</a>
-                <a class="btn sm" href="/credits.html?preview=true" target="_blank">Credits preview</a>
+                <a class="btn sm" href="/credits.html?preview=true" target="_blank">Credits</a>
             </div>
         </div>
 
-        <div class="card" data-panel-id="goals" data-title="Goals" data-span="6">
+        <div class="card" data-panel-id="goals" data-title="Goals" data-span="4">
             <h2>Goals</h2>
             <div class="status-grid">
                 <div class="stat"><div class="value" id="goals-enabled-count">0</div><div class="label">Enabled</div></div>
@@ -254,7 +273,7 @@
             </div>
         </div>
 
-        <div class="card" data-panel-id="timers" data-title="Timers" data-span="6">
+        <div class="card" data-panel-id="timers" data-title="Timers" data-span="4">
             <h2>Timers</h2>
             <div class="status-grid">
                 <div class="stat"><div class="value" id="timers-total">0</div><div class="label">Total</div></div>
@@ -268,7 +287,7 @@
             </div>
         </div>
 
-        <div class="card" data-panel-id="chatbot" data-title="Chat Bot" data-span="6">
+        <div class="card" data-panel-id="chatbot" data-title="Chat Bot" data-span="4" data-module="chatbot">
             <h2>Chat Bot</h2>
             <div class="indicator"><div class="dot" id="dot-chatbot"></div><span>Bot: <span id="chatbot-status">—</span></span></div>
             <div class="status-grid">
@@ -284,7 +303,7 @@
             </div>
         </div>
 
-        <div class="card" data-panel-id="music" data-title="Music" data-span="6">
+        <div class="card" data-panel-id="music" data-title="Music" data-span="4" data-module="music">
             <h2>Music</h2>
             <div class="indicator"><div class="dot" id="dot-music"></div><span>Overlay: <span id="music-status">—</span></span></div>
             <div class="detail-line"><strong>Source:</strong> <span id="music-source">—</span></div>
@@ -296,7 +315,7 @@
             </div>
         </div>
 
-        <div class="card" data-panel-id="milestones" data-title="Milestones & Streaks" data-span="6">
+        <div class="card" data-panel-id="milestones" data-title="Milestones & Streaks" data-span="4">
             <h2>Milestones &amp; Streaks</h2>
             <div class="status-grid">
                 <div class="stat"><div class="value" id="milestone-stream-num">—</div><div class="label">Stream #</div></div>
@@ -313,7 +332,7 @@
             </div>
         </div>
 
-        <div class="card" data-panel-id="library" data-title="Library & Backups" data-span="6">
+        <div class="card" data-panel-id="library" data-title="Library & Backups" data-span="4">
             <h2>Library &amp; Backups</h2>
             <div class="status-grid">
                 <div class="stat"><div class="value" id="library-highlights">0</div><div class="label">Highlights</div></div>
@@ -328,12 +347,7 @@
             </div>
         </div>
 
-        <div class="card" data-panel-id="message-volume" data-title="Message Volume" data-span="8">
-            <h2>Message Volume (Hourly)</h2>
-            <div class="chart" id="volume-chart"><div class="empty" style="width:100%">No message data yet</div></div>
-        </div>
-
-        <div class="card" data-panel-id="hashtag-stats" data-title="Hashtags" data-span="4">
+        <div class="card" data-panel-id="hashtag-stats" data-title="Hashtags" data-span="4" data-module="hashtags">
             <h2>Hashtags</h2>
             <div class="detail-line"><strong>Tracked:</strong> <span id="hashtags-tracked">0</span></div>
             <div class="detail-line"><strong>This session:</strong> <span id="hashtags-active-session">0</span></div>
@@ -348,557 +362,6 @@
 
     <div class="toast" id="toast"></div>
 
-    <script>
-    const $ = id => document.getElementById(id);
-    const LAYOUT_KEY = 'streampulse.dashboard.layout.v3';
-    const LEGACY_KEY = 'streampulse.dashboard.layout.v2';
-    const LEGACY_SPANS = { normal: 3, wide: 6, full: 12 };
-    const MIN_SPAN = 2;
-    const MIN_HEIGHT = 90;
-    const grid = $('dashboard-grid');
-    let refreshInterval;
-    let inFlight = false;
-    let draggedPanelId = null;
-    let sessionActive = true;
-    let lastOk = 0;
-    const lastText = new Map();
-    const lastHtml = new Map();
-
-    const cards = () => [...grid.querySelectorAll(':scope > .card[data-panel-id]')];
-    const escapeHtml = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-    function showToast(message) {
-        const toast = $('toast');
-        toast.textContent = message;
-        toast.classList.add('show');
-        clearTimeout(showToast.timer);
-        showToast.timer = setTimeout(() => toast.classList.remove('show'), 2500);
-    }
-
-    // Only touch the DOM when a value actually changed.
-    function setText(id, value) {
-        const text = String(value);
-        if (lastText.get(id) === text) return;
-        lastText.set(id, text);
-        lastHtml.delete(id);
-        $(id).textContent = text;
-    }
-    function setHtml(id, html) {
-        if (lastHtml.get(id) === html) return;
-        lastHtml.set(id, html);
-        lastText.delete(id);
-        $(id).innerHTML = html;
-    }
-    const setDot = (id, color) => { const el = $(id); if (el.dataset.color !== color) { el.dataset.color = color; el.className = `dot ${color}`; } };
-    const fmt = (value, digits = 0) => Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: digits });
-
-    // ---- Layout ----------------------------------------------------------
-    const defaultOrder = cards().map(c => c.dataset.panelId);
-    function defaultLayout() {
-        return { order: [...defaultOrder], spans: {}, heights: {}, hidden: [], compact: false };
-    }
-
-    function loadLayout() {
-        const base = defaultLayout();
-        try {
-            const stored = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null');
-            if (stored && typeof stored === 'object') return { ...base, ...stored, spans: stored.spans || {}, heights: stored.heights || {}, hidden: stored.hidden || [] };
-            const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || 'null');
-            // Old layouts only had order and normal/wide/full; keep the order but adopt the new default sizes.
-            if (legacy && Array.isArray(legacy.order)) return { ...base, order: legacy.order };
-        } catch { /* fall through to defaults */ }
-        return base;
-    }
-    let layout = loadLayout();
-
-    function saveLayout() {
-        layout.order = cards().map(c => c.dataset.panelId);
-        try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); } catch { /* storage may be unavailable */ }
-    }
-
-    function spanOf(card) {
-        return layout.spans[card.dataset.panelId] || Number(card.dataset.span) || 3;
-    }
-
-    // Narrow viewports collapse spans so panels stay readable.
-    function effectiveSpan(span) {
-        const width = grid.clientWidth;
-        if (width < 640) return 12;
-        if (width < 1000) return span < 12 ? 6 : 12;
-        return span;
-    }
-
-    function applySize(card) {
-        card.style.setProperty('--span', effectiveSpan(spanOf(card)));
-        const height = layout.heights[card.dataset.panelId];
-        // A saved height is a minimum so the row still stretches to its tallest panel.
-        if (height) { card.dataset.h = '1'; card.style.minHeight = `${height}px`; card.style.setProperty('--card-h', `${height}px`); }
-        else { delete card.dataset.h; card.style.minHeight = ''; card.style.removeProperty('--card-h'); }
-    }
-
-    function applyLayout() {
-        const byId = new Map(cards().map(c => [c.dataset.panelId, c]));
-        const order = [...layout.order.filter(id => byId.has(id)), ...[...byId.keys()].filter(id => !layout.order.includes(id))];
-        order.forEach(id => grid.appendChild(byId.get(id)));
-        cards().forEach(card => {
-            card.hidden = layout.hidden.includes(card.dataset.panelId);
-            applySize(card);
-        });
-        document.body.classList.toggle('compact', !!layout.compact);
-        $('density-btn').classList.toggle('on', !!layout.compact);
-        renderHiddenBar();
-    }
-
-    function renderHiddenBar() {
-        const bar = $('hidden-panels');
-        bar.classList.toggle('has-items', layout.hidden.length > 0);
-        bar.innerHTML = layout.hidden.length
-            ? 'Hidden panels: ' + layout.hidden.map(id => {
-                const card = cards().find(c => c.dataset.panelId === id);
-                return `<button class="layout-btn" data-restore="${escapeHtml(id)}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-1px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>${escapeHtml(card?.dataset.title || id)}</button>`;
-            }).join('')
-            : '';
-    }
-
-    function enhanceCards() {
-        cards().forEach(card => {
-            const title = card.querySelector(':scope > h2');
-            if (!title || card.querySelector('.panel-header')) return;
-            const header = document.createElement('div');
-            header.className = 'panel-header';
-            const body = document.createElement('div');
-            body.className = 'panel-body';
-            while (title.nextSibling) body.appendChild(title.nextSibling);
-            const tools = document.createElement('div');
-            tools.className = 'panel-tools';
-            tools.innerHTML = '<button type="button" class="tool-btn" data-hide title="Hide panel"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button><button type="button" class="tool-btn drag" draggable="true" title="Drag to reorder"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg></button>';
-            header.append(title, tools);
-            card.append(header, body);
-            card.insertAdjacentHTML('beforeend', '<span class="rz rz-bl" data-corner="bl" title="Drag to resize · double-click to reset"></span><span class="rz rz-br" data-corner="br" title="Drag to resize · double-click to reset"></span><span class="size-badge"></span>');
-
-            tools.querySelector('[data-hide]').addEventListener('click', () => {
-                layout.hidden.push(card.dataset.panelId);
-                card.hidden = true;
-                saveLayout(); renderHiddenBar();
-            });
-            const handle = tools.querySelector('.drag');
-            handle.addEventListener('dragstart', event => {
-                draggedPanelId = card.dataset.panelId;
-                card.style.opacity = '.55';
-                event.dataTransfer.effectAllowed = 'move';
-                event.dataTransfer.setData('text/plain', draggedPanelId);
-            });
-            handle.addEventListener('dragend', () => {
-                card.style.opacity = '';
-                draggedPanelId = null;
-                cards().forEach(item => item.classList.remove('drag-over'));
-            });
-            card.addEventListener('dragover', event => {
-                if (!draggedPanelId || draggedPanelId === card.dataset.panelId) return;
-                event.preventDefault();
-                card.classList.add('drag-over');
-            });
-            card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
-            card.addEventListener('drop', event => {
-                event.preventDefault();
-                card.classList.remove('drag-over');
-                const source = cards().find(item => item.dataset.panelId === draggedPanelId);
-                if (!source || source === card) return;
-                // Dropping onto a later panel places the dragged one after it; onto an earlier one, before it.
-                const all = cards();
-                grid.insertBefore(source, all.indexOf(source) < all.indexOf(card) ? card.nextSibling : card);
-                saveLayout();
-            });
-        });
-    }
-
-    // ---- Corner resizing -------------------------------------------------
-    grid.addEventListener('pointerdown', event => {
-        const corner = event.target.closest('.rz');
-        if (!corner || event.button !== 0) return;
-        event.preventDefault();
-        const card = corner.closest('.card');
-        const id = card.dataset.panelId;
-        const rect = card.getBoundingClientRect();
-        const gridWidth = grid.clientWidth;
-        const gap = parseFloat(getComputedStyle(grid).columnGap) || 12;
-        const columnWidth = (gridWidth - gap * 11) / 12;
-        const start = { x: event.clientX, y: event.clientY, width: rect.width, height: rect.height };
-        const left = corner.dataset.corner === 'bl';
-        const badge = card.querySelector('.size-badge');
-        card.classList.add('resizing');
-        document.body.classList.add('resizing');
-        corner.setPointerCapture(event.pointerId);
-        let changed = false;
-
-        const move = e => {
-            const dx = (left ? -1 : 1) * (e.clientX - start.x);
-            const span = Math.max(MIN_SPAN, Math.min(12, Math.round((start.width + dx + gap) / (columnWidth + gap))));
-            const height = Math.max(MIN_HEIGHT, Math.round(start.height + (e.clientY - start.y)));
-            layout.spans[id] = span;
-            layout.heights[id] = height;
-            applySize(card);
-            badge.textContent = `${span}/12 cols · ${height}px`;
-            changed = true;
-        };
-        const end = () => {
-            corner.removeEventListener('pointermove', move);
-            corner.removeEventListener('pointerup', end);
-            corner.removeEventListener('pointercancel', end);
-            card.classList.remove('resizing');
-            document.body.classList.remove('resizing');
-            if (changed) saveLayout();
-        };
-        corner.addEventListener('pointermove', move);
-        corner.addEventListener('pointerup', end);
-        corner.addEventListener('pointercancel', end);
-    });
-    grid.addEventListener('dblclick', event => {
-        const corner = event.target.closest('.rz');
-        if (!corner) return;
-        const card = corner.closest('.card');
-        delete layout.spans[card.dataset.panelId];
-        delete layout.heights[card.dataset.panelId];
-        applySize(card);
-        saveLayout();
-        showToast(`${card.dataset.title} size reset`);
-    });
-    new ResizeObserver(() => cards().forEach(card => card.style.setProperty('--span', effectiveSpan(spanOf(card))))).observe(grid);
-
-    $('density-btn').addEventListener('click', () => { layout.compact = !layout.compact; saveLayout(); applyLayout(); });
-    $('edit-btn').addEventListener('click', () => {
-        const editing = document.body.classList.toggle('editing');
-        $('edit-btn').classList.toggle('on', editing);
-        $('edit-btn').textContent = editing ? 'Done' : 'Edit layout';
-    });
-    $('reset-btn').addEventListener('click', async () => {
-        if (!await StreamPulse.confirm('Reset Layout', 'Reset the dashboard layout to the default?')) return;
-        localStorage.removeItem(LAYOUT_KEY);
-        localStorage.removeItem(LEGACY_KEY);
-        layout = defaultLayout();
-        defaultOrder.forEach(id => grid.appendChild(cards().find(c => c.dataset.panelId === id)));
-        applyLayout();
-        showToast('Dashboard layout reset');
-    });
-    $('hidden-panels').addEventListener('click', event => {
-        const id = event.target.closest('[data-restore]')?.dataset.restore;
-        if (!id) return;
-        layout.hidden = layout.hidden.filter(item => item !== id);
-        saveLayout(); applyLayout();
-    });
-
-    // ---- Data ------------------------------------------------------------
-    const EVENT_ICONS = {
-        follow: '<svg class="ico" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>',
-        sub: '<svg class="ico" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>',
-        gift: '<svg class="ico" viewBox="0 0 24 24"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path></svg>',
-        bits: '<svg class="ico" viewBox="0 0 24 24"><path d="M6 3h12l4 6-10 13L2 9z"></path></svg>',
-        donation: '<svg class="ico" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>',
-        raid: '<svg class="ico" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>'
-    };
-    const formatUptime = seconds => {
-        const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = Math.floor(seconds % 60);
-        return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
-    };
-    function formatBackupName(filename) {
-        const match = (filename || '').match(/backup-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})/);
-        return match ? `${match[1]}-${match[2]}-${match[3]} ${match[4]}:${match[5]}` : (filename || '—');
-    }
-
-    async function refresh() {
-        if (inFlight || document.hidden) return;
-        inFlight = true;
-        try {
-            const response = await fetch('/api/status', { cache: 'no-store', signal: AbortSignal.timeout(8000) });
-            if (!response.ok) throw new Error('Status fetch failed');
-            render(await response.json());
-            lastOk = Date.now();
-        } catch {
-            setDot('dot-server', 'red');
-            setText('uptime', 'Offline');
-            setDot('dot-conn', 'red');
-            setText('conn-text', 'Server unreachable — retrying…');
-        } finally {
-            inFlight = false;
-        }
-    }
-
-    function render(data) {
-        const ssn = data.ssn || {};
-        const session = data.goalMetrics?.session || {};
-        const persistent = data.goalMetrics?.persistent || {};
-
-        setDot('dot-server', 'green');
-        setText('uptime', formatUptime(data.uptime));
-        setText('memory', `${Math.round((data.memory?.rss || 0) / 1048576)} MB`);
-        setText('memory-heap', `${Math.round((data.memory?.heapUsed || 0) / 1048576)} / ${Math.round((data.memory?.heapTotal || 0) / 1048576)} MB`);
-        if (ssn.connected) { setDot('dot-ssn', 'green'); setText('ssn-status', 'Connected'); }
-        else if (ssn.session) { setDot('dot-ssn', 'red'); setText('ssn-status', 'Disconnected'); }
-        else { setDot('dot-ssn', 'yellow'); setText('ssn-status', 'Not configured'); }
-        setDot('dot-twitch', data.twitch?.hasToken ? 'green' : 'red');
-        setText('twitch-status', data.twitch?.hasToken ? 'Active' : 'Not authenticated');
-        const obs = data.obs || {};
-        $('obs-health').hidden = !(obs.enabled ?? data.modules?.obs);
-        setDot('dot-obs', obs.connected ? 'green' : obs.connecting ? 'yellow' : 'red');
-        setText('obs-status', obs.connected ? 'Connected' : obs.connecting ? 'Connecting…' : 'Disconnected');
-        $('obs-status').title = !obs.connected && obs.lastError ? obs.lastError : '';
-        setDot('dot-ws', data.overlayClients > 0 ? 'green' : 'yellow');
-        setText('ws-clients', data.overlayClients ?? 0);
-        setText('overlay-clients', data.overlayClients ?? 0);
-
-        setDot('dot-conn', 'green');
-        const clock = iso => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-        const dayClock = iso => (new Date(iso).toDateString() === new Date().toDateString() ? '' : new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ') + clock(iso);
-        let sessionText;
-        if (data.sessionPhase === 'waiting') {
-            sessionText = `<strong>Waiting for stream</strong>${data.lastSessionEndedAt ? ' · last session ended ' + dayClock(data.lastSessionEndedAt) : ''}`;
-        } else if (data.sessionPhase === 'ended') {
-            sessionText = `<strong>Session ended</strong>${data.lastSessionEndedAt ? ' · ' + dayClock(data.lastSessionEndedAt) : ''}`;
-        } else {
-            const since = data.streamStartedAt || data.startedAt;
-            sessionText = `<strong>Session live</strong>${since ? (data.streamStartedAt ? ' · live since ' : ' · started ') + dayClock(since) : ''}`;
-        }
-        setHtml('conn-text', sessionText);
-
-        setText('stat-messages', fmt(ssn.messages));
-        setText('stat-chatters', fmt(ssn.chatters));
-        setText('stat-emotes', fmt(ssn.emotes));
-        setText('stat-hashtags', fmt(ssn.hashtags));
-        setText('stat-raids', fmt(ssn.raids));
-        // Subscribers/followers show running totals; the sub-line shows what changed this session.
-        setText('stat-subs', fmt(persistent.subscribers ?? ssn.subscribers));
-        setText('stat-subs-sub', session.subscribers ? `+${fmt(session.subscribers)} session` : '');
-        setText('stat-followers', fmt(persistent.followers ?? ssn.followers));
-        setText('stat-followers-sub', session.followers ? `+${fmt(session.followers)} session` : '');
-        setText('stat-gifts', fmt(session.gift_subs));
-        setText('stat-bits', fmt(session.bits));
-        setText('stat-donations', fmt(session.donations, 2));
-
-        setText('viewer-current', fmt(data.viewers?.current));
-        setText('viewer-peak', fmt(data.viewers?.peak));
-        setText('viewer-average', fmt(data.viewers?.average, 1));
-        setText('viewer-source', (data.viewers?.source || '—').replace(/_/g, ' '));
-        setText('viewer-live', data.viewers?.live ? 'Yes' : 'No');
-        setText('goals-enabled-count', data.goals?.enabled || 0);
-        setText('goals-complete-count', data.goals?.completed || 0);
-        setText('goals-overlay-status', (data.goals?.enabled || 0) > 0 ? 'Ready' : 'No enabled goals');
-        setText('timers-total', data.timers?.total || 0);
-        setText('timers-running', data.timers?.running || 0);
-        setText('timers-countdowns', data.timers?.countdowns || 0);
-        setText('timers-stopwatches', data.timers?.stopwatches || 0);
-
-        const musicEnabled = !!data.music?.enabled;
-        const musicState = data.music?.state || 'stopped';
-        setDot('dot-music', musicEnabled ? (musicState !== 'stopped' ? 'green' : 'yellow') : 'red');
-        setText('music-status', musicEnabled ? musicState : 'Disabled');
-        setText('music-source', (data.music?.source || '—').replace(/_/g, ' '));
-        setText('music-track', data.music?.track || 'Nothing playing');
-        setText('music-artist', data.music?.artist || '—');
-
-        setText('library-highlights', data.library?.highlights || 0);
-        setText('library-sessions', data.library?.sessions || 0);
-        setText('backup-auto', data.backups?.autoEnabled ? 'Enabled' : 'Disabled');
-        setText('backup-count', data.backups?.count || 0);
-        setText('backup-latest', formatBackupName(data.backups?.latest));
-
-        const bot = data.chatbot || {};
-        const botEnabled = bot.enabled !== false && data.modules?.chatbot !== false;
-        setDot('dot-chatbot', botEnabled ? 'green' : 'yellow');
-        setText('chatbot-status', botEnabled ? 'Active' : 'Disabled');
-        setText('chatbot-commands', bot.commandsCount ?? 0);
-        setText('chatbot-timed', bot.timedCount ?? 0);
-        setText('chatbot-triggers', bot.triggersCount ?? 0);
-        setText('chatbot-quotes', bot.quotesCount ?? 0);
-
-        const al = data.alerts || {};
-        const alEnabled = al.enabled !== false;
-        setDot('dot-alerts', alEnabled ? (al.paused ? 'yellow' : 'green') : 'red');
-        setText('alerts-status', alEnabled ? (al.paused ? 'Paused' : 'Active') : 'Disabled');
-        setText('alerts-rules', al.rulesCount ?? 0);
-        setText('alerts-pending', al.queuePending ?? 0);
-
-        setText('hashtags-tracked', data.hashtags?.tracked || 0);
-        setText('hashtags-active-session', data.hashtags?.activeSession || 0);
-        setText('hashtags-banned', data.hashtags?.banned || 0);
-        setText('hashtags-top-tag', data.hashtags?.topTag || '—');
-
-        const ms = data.milestones || {};
-        setText('milestone-stream-num', ms.stream_number != null ? `#${ms.stream_number}` : '—');
-        setText('milestone-hours', ms.total_hours != null ? `${ms.total_hours}h` : '—');
-        setText('milestone-streak-days', ms.streak_days != null ? `${ms.streak_days}d` : '—');
-        setText('milestone-streak-weeks', ms.streak_weeks != null ? `${ms.streak_weeks}w` : '—');
-        const commChatters = ms.lifetime_chatters != null ? fmt(ms.lifetime_chatters) : '0';
-        const commMsgs = ms.lifetime_messages != null ? fmt(ms.lifetime_messages) : '0';
-        setText('milestone-community', `${commChatters} chatters · ${commMsgs} msgs`);
-        const nextTarget = ms.next_stream_goal ? `Stream #${ms.next_stream_goal} (${Math.max(0, ms.next_stream_goal - (ms.stream_number || 0))} left)` : (ms.next_hours_goal ? `${ms.next_hours_goal}h` : '—');
-        setText('milestone-next-target', nextTarget);
-
-        renderVolumeChart(data.hourlyMessages || {});
-        renderChatters(data.topChatters || [], ssn.chatters || 0);
-        renderEvents(data.recentEvents || []);
-
-        const info = $('stream-info-dash');
-        const latest = data.streamInfo?.[data.streamInfo.length - 1];
-        const infoHtml = latest ? `<strong>${escapeHtml(latest.title)}</strong>${latest.category ? `<span class="chip">${escapeHtml(latest.category)}</span>` : ''}` : '';
-        setHtml('stream-info-dash', infoHtml);
-        info.style.display = latest ? 'block' : 'none';
-
-        sessionActive = !!data.sessionActive;
-        setText('session-toggle-btn', sessionActive ? 'End Session' : 'Start Session');
-        $('session-toggle-btn').style.borderColor = sessionActive ? 'color-mix(in srgb, var(--warn) 31%, transparent)' : '#23883050';
-        renderLifecycle(data.lifecycle);
-    }
-
-    function renderLifecycle(lc) {
-        let text = '';
-        if (lc?.auto) {
-            if (lc.state === 'ending' && lc.endsAt) {
-                const mins = Math.max(0, Math.ceil((Date.parse(lc.endsAt) - Date.now()) / 60000));
-                text = `Stream offline — session auto-ends in ~${mins} min if you don't return`;
-            } else if (lc.state === 'live') text = 'Auto session: stream is live';
-            else if (lc.state === 'manual') text = 'Auto session paused until the stream ends (you ended it manually)';
-            else text = 'Auto session: waiting for you to go live';
-        }
-        setText('lifecycle-hint', text);
-        $('lifecycle-hint').style.display = text ? 'block' : 'none';
-    }
-
-    let _lastChatterOrderSig = '';
-    function renderChatters(chatters, total) {
-        setText('chatter-count', total ? `(${total})` : '');
-        const listEl = $('chatters-list');
-        if (!chatters.length) {
-            _lastChatterOrderSig = '';
-            setHtml('chatters-list', '<div class="empty">No chatters yet</div>');
-            return;
-        }
-        const orderSig = chatters.map(c => `${c.chatname}\0${c.chatimg || ''}`).join('\n');
-        if (orderSig === _lastChatterOrderSig && listEl.children.length === chatters.length) {
-            chatters.forEach((c, idx) => {
-                const countEl = listEl.children[idx]?.querySelector('.count');
-                const nextText = `${fmt(c.messageCount)} msgs`;
-                if (countEl && countEl.textContent !== nextText) countEl.textContent = nextText;
-            });
-            return;
-        }
-        _lastChatterOrderSig = orderSig;
-        setHtml('chatters-list', chatters.map(c => `
-            <div class="chatter">
-                ${c.chatimg ? `<img src="${escapeHtml(c.chatimg)}" alt="" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">` : '<div class="avatar"></div>'}
-                <span class="name">${escapeHtml(c.chatname)}</span>
-                <span class="count">${fmt(c.messageCount)} msgs</span>
-            </div>`).join(''));
-    }
-
-    function renderEvents(events) {
-        setHtml('events-list', events.length ? events.map(e => `
-            <div class="event">
-                <span>${EVENT_ICONS[e.type] || '•'}</span>
-                <span class="who">${escapeHtml(e.user || 'Unknown')}</span>
-                <span class="what">${escapeHtml(e.detail || e.type)}</span>
-            </div>`).join('') : '<div class="empty">No events yet</div>');
-    }
-
-    function renderVolumeChart(hourly) {
-        const entries = Object.entries(hourly).sort((a, b) => a[0].localeCompare(b[0]));
-        if (!entries.length) { setHtml('volume-chart', '<div class="empty" style="width:100%">No message data yet</div>'); return; }
-        const max = Math.max(...entries.map(entry => entry[1]), 1);
-        setHtml('volume-chart', entries.map(([hour, count]) => `
-            <div class="bar-col" title="${escapeHtml(hour)} — ${count} messages">
-                <div class="bar-count">${count}</div>
-                <div class="bar" style="height:${Math.max(2, (count / max) * 80)}%"></div>
-                <div class="bar-label">${escapeHtml(hour.slice(11, 13))}h</div>
-            </div>`).join(''));
-    }
-
-    async function loadCustomOverlayCount() {
-        try {
-            const overlays = await (await fetch('/api/custom-overlays', { cache: 'no-store' })).json();
-            setText('overlay-custom-count', Array.isArray(overlays) ? overlays.length : 0);
-        } catch { /* keep placeholder */ }
-    }
-
-    // ---- Actions ---------------------------------------------------------
-    async function call(url, message) {
-        const response = await fetch(url, { cache: 'no-store' });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        if (message) showToast(message);
-        return response.json().catch(() => ({}));
-    }
-
-    const actions = {
-        async 'fetch-twitch'() {
-            showToast('Fetching Twitch data…');
-            try { const data = await call('/api/fetch'); showToast(data.error ? `Twitch fetch problem: ${data.error}` : `Twitch: ${data.subs ?? '?'} subs, ${data.followers ?? '?'} followers`); refresh(); }
-            catch { showToast('Fetch failed'); }
-        },
-        'reauth-twitch'() { window.open('/auth/twitch?return=/dashboard.html', '_blank'); showToast('Opening Twitch auth…'); },
-        async 'reset-chat'() {
-            if (!await StreamPulse.confirm('Reset Chat', 'Reset all chat data for this session?', { danger: true, confirmText: 'Reset Chat' })) return;
-            try { await call('/api/reset', 'Chat data reset'); refresh(); } catch { showToast('Reset failed'); }
-        },
-        async 'reset-stats'() {
-            if (!await StreamPulse.confirm('Reset Stats', 'Reset ALL persistent stats? This cannot be undone.', { danger: true, confirmText: 'Reset All Stats' })) return;
-            try { await call('/api/stats/reset', 'Stats reset'); refresh(); } catch { showToast('Reset failed'); }
-        },
-        async 'toggle-session'() {
-            if (sessionActive) {
-                if (!await StreamPulse.confirm('End Session', 'End session? This archives chat data and resets for the next stream. The server keeps running.', { confirmText: 'End Session' })) return;
-                try { const data = await call('/api/end-session'); showToast(data.archived ? `Archived: ${data.archived}` : 'Session ended'); refresh(); }
-                catch { showToast('End session failed'); }
-            } else {
-                try { await call('/api/start-session', 'New session started'); refresh(); } catch { showToast('Start session failed'); }
-            }
-        },
-        async shutdown() {
-            if (!await StreamPulse.confirm('Shut Down Server', 'Shut down the server? This archives data and stops the process.', { danger: true, confirmText: 'Shut Down' })) return;
-            try {
-                await call('/api/shutdown', 'Server shutting down…');
-                clearInterval(refreshInterval);
-                setTimeout(() => {
-                    document.body.innerHTML = `<main style="max-width:640px;margin:18vh auto;padding:2rem;text-align:center;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"><h1>StreamPulse is stopped</h1><p style="color:var(--text-muted);margin:1rem 0;">The server shut down successfully. Start StreamPulse again to reopen the dashboard.</p></main>`;
-                }, 600);
-            } catch { showToast('Shutdown failed'); }
-        },
-        async restart() {
-            if (!await StreamPulse.confirm('Restart Server', 'Restart StreamPulse and continue the current session?', { confirmText: 'Restart' })) return;
-            clearInterval(refreshInterval);
-            showToast('Restart requested — waiting for the new process…');
-            try {
-                const previous = await (await fetch('/api/status', { cache: 'no-store' })).json();
-                try { await fetch('/api/restart', { cache: 'no-store' }); } catch { /* the process may drop the connection */ }
-                for (let attempt = 0; attempt < 30; attempt++) {
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    try {
-                        const data = await (await fetch('/api/status', { cache: 'no-store' })).json();
-                        if (data.processStartedAt && data.processStartedAt !== previous.processStartedAt) {
-                            showToast('StreamPulse restarted — the current session continues');
-                            break;
-                        }
-                    } catch { /* still restarting */ }
-                }
-            } catch { showToast('Restart failed'); }
-            refresh();
-            refreshInterval = setInterval(refresh, 3000);
-        }
-    };
-    document.addEventListener('click', event => {
-        const action = event.target.closest('[data-action]')?.dataset.action;
-        if (action && actions[action]) actions[action]();
-    });
-
-    // Keep the "connected" text honest if updates stall while the tab is visible.
-    setInterval(() => {
-        if (lastOk && Date.now() - lastOk > 10000 && !document.hidden) { setDot('dot-conn', 'yellow'); }
-    }, 5000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
-
-    enhanceCards();
-    applyLayout();
-    refresh();
-    loadCustomOverlayCount();
-    refreshInterval = setInterval(refresh, 3000);
-    setInterval(() => { if (!document.hidden) loadCustomOverlayCount(); }, 60000);
-    </script>
+    <script type="module" src="/js/dashboard/dashboard-main.js"></script>
 </body>
 </html>
