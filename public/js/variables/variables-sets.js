@@ -10,11 +10,83 @@ const SVG_NEXT = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" st
 const SVG_CLEAR = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
 const SVG_IMAGE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
 const SVG_GRIP = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/></svg>';
+const SVG_PLAY = '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
+const SVG_PAUSE = '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
 
 let dragPayload = null;
 let reloadHandler = async () => {};
 let rosterFilter = '';
+let directoryFilter = '';
+let directoryMode = localStorage.getItem('variables_dir_mode') || 'all';
+const openTokenKeys = new Set();
 let activePickerCleanup = null;
+
+function supportsRotation(setObj) {
+    return (setObj?.slotsCount || 0) < 2;
+}
+
+function getNextRotationEntry(setObj) {
+    const rot = setObj?.rotation || {};
+    const pool = (setObj?.roster || []).filter(r => r.enabled !== false);
+    if (pool.length < 2) return null;
+    if (rot.mode === 'random') return { id: '__random__', label: 'Random' };
+    const pos = pool.findIndex(r => r.id === rot.entryId);
+    return pool[pos === -1 ? 0 : (pos + 1) % pool.length];
+}
+
+function rotationTiming(setObj) {
+    const rot = setObj?.rotation || {};
+    const intervalMs = Math.max(1000, (Number(rot.intervalSeconds) || 10) * 1000);
+    const changedAt = Number(rot.changedAt) || 0;
+    if (!changedAt) return { remainingSec: Math.round(intervalMs / 1000), pct: 0 };
+    const elapsed = Math.max(0, Date.now() - changedAt);
+    const remainingMs = Math.max(0, intervalMs - elapsed);
+    return {
+        remainingSec: Math.ceil(remainingMs / 1000),
+        pct: Math.min(100, Math.round((elapsed / intervalMs) * 100))
+    };
+}
+
+function rotationCountdownText(setObj) {
+    const next = getNextRotationEntry(setObj);
+    if (!next) return 'Waiting for 2+ enabled';
+    const { remainingSec } = rotationTiming(setObj);
+    return next.id === '__random__'
+        ? `Next random in ${remainingSec}s`
+        : `Next: ${next.label} in ${remainingSec}s`;
+}
+
+function getSetOverlays(setObj) {
+    const overlays = Array.isArray(state.overlays) ? state.overlays : [];
+    const prefix = String(setObj?.id || '').toLowerCase();
+    if (!prefix) return [];
+    const result = [];
+    for (const o of overlays) {
+        const follows = o.variableSetFollow?.[setObj.id] === true;
+        const usesToken = Array.isArray(o.varRefs) && o.varRefs.some(tok => tok === prefix || tok.startsWith(`${prefix}_`));
+        if (follows || usesToken) {
+            result.push({ id: o.id, name: o.name || o.id, following: follows && supportsRotation(setObj) });
+        }
+    }
+    return result;
+}
+
+export function tickSetCountdowns() {
+    const sets = state.variableSets || [];
+    for (const setObj of sets) {
+        if (!supportsRotation(setObj) || !setObj.rotation?.enabled) continue;
+        const { remainingSec, pct } = rotationTiming(setObj);
+        const wsBadge = document.querySelector(`[data-rot-countdown="${CSS.escape(setObj.id)}"]`);
+        if (wsBadge) wsBadge.textContent = rotationCountdownText(setObj);
+        const wsBar = document.querySelector(`[data-rot-progress="${CSS.escape(setObj.id)}"]`);
+        if (wsBar) wsBar.style.width = `${pct}%`;
+        const dirSub = document.querySelector(`[data-dir-rot-sub="${CSS.escape(setObj.id)}"]`);
+        if (dirSub) {
+            const entry = (setObj.roster || []).find(e => e.id === setObj.rotation.entryId);
+            dirSub.textContent = `Rotating · ${entry ? entry.label : 'Starting'} (${remainingSec}s)`;
+        }
+    }
+}
 
 function closeSlotEntryPicker() {
     if (typeof activePickerCleanup === 'function') {
@@ -217,7 +289,7 @@ function renderSlotCard(setObj, slotNum, entry) {
                 </div>
                 ${queueIds.length ? `<div class="slot-queue-chips">${queueChips}</div>` : `<div class="muted" style="font-size:.7rem;">Drop here to add to queue</div>`}
             </div>
-            <details class="slot-tokens">
+            <details class="slot-tokens" data-token-key="${esc(setObj.id)}:${slotNum}"${openTokenKeys.has(`${setObj.id}:${slotNum}`) ? ' open' : ''}>
                 <summary>Tokens (${tokenList.length})</summary>
                 <div class="token-pills">${tokens}</div>
             </details>
@@ -231,17 +303,22 @@ function renderActivePresetBar(setObj, entry) {
         return `<code class="copyable" title="Click to copy" data-copy="{{${esc(key)}}}">{{${esc(key)}}}</code>`;
     }).join('');
     const subFields = entry ? getEntrySummary(setObj, entry) : '';
+    const rotLive = supportsRotation(setObj) && Boolean(setObj.rotation?.enabled);
+    const titleLabel = rotLive
+        ? (entry ? 'Default Output (unfollowed overlays)' : 'Default Output (None)')
+        : (entry ? 'Active Output' : 'No Active Entry');
 
     return `
         <div class="slot-card ${entry ? 'filled' : 'empty'}">
             <div class="slot-head">
-                <span class="badge">${entry ? 'Active Output' : 'No Active Entry'}</span>
+                <span class="badge">${titleLabel}</span>
                 <div class="slot-actions">
                     <button type="button" class="b sm" data-set-act="prev" data-slot="1" title="Previous entry">${SVG_PREV}</button>
                     <button type="button" class="b sm" data-set-act="next" data-slot="1" title="Next entry">${SVG_NEXT}</button>
                     <button type="button" class="b sm" data-set-act="clear" data-slot="1" title="Clear active output" ${entry ? '' : 'disabled'}>${SVG_CLEAR}</button>
                 </div>
             </div>
+            ${rotLive ? `<div class="muted" style="font-size:.73rem;">Following overlays show the <strong>Live Rotation</strong> entry above; overlays without Follow use this fallback.</div>` : ''}
             ${entry ? `
                 <div class="slot-body">
                     ${getEntryThumb(setObj, entry)}
@@ -251,9 +328,9 @@ function renderActivePresetBar(setObj, entry) {
                     </div>
                 </div>
             ` : `
-                <div class="slot-empty-hint">Click Activate on any entry below to push its values live</div>
+                <div class="slot-empty-hint">Click Activate on any entry below to push its default values live</div>
             `}
-            <details class="slot-tokens">
+            <details class="slot-tokens" data-token-key="${esc(setObj.id)}:preset"${openTokenKeys.has(`${setObj.id}:preset`) ? ' open' : ''}>
                 <summary>Output Tokens (${(setObj.fields || []).length})</summary>
                 <div class="token-pills">${tokens}</div>
             </details>
@@ -268,21 +345,25 @@ function renderRosterItem(setObj, entry) {
     const liveSlotLabels = slotsCount > 0
         ? (setObj.slots || []).map((id, idx) => (id === entry.id ? slotLabel(idx) : '')).filter(Boolean)
         : [];
+    const rot = setObj.rotation || {};
+    const isRotatingNow = supportsRotation(setObj) && Boolean(rot.enabled) && rot.entryId === entry.id;
     const isLive = slotsCount === 0
         ? setObj.activeEntry === entry.id
         : liveSlotLabels.length > 0;
+    const rotLiveActive = supportsRotation(setObj) && Boolean(rot.enabled);
 
     const assignControl = slotsCount === 0
-        ? `<button type="button" class="b sm ${isLive ? 'primary' : ''}" data-set-act="assign" data-slot="1" data-entry="${esc(entry.id)}">${isLive ? 'Live' : 'Activate'}</button>`
+        ? `<button type="button" class="b sm ${isLive ? 'primary' : ''}" data-set-act="assign" data-slot="1" data-entry="${esc(entry.id)}">${isLive ? (rotLiveActive ? 'Default' : 'Live') : (rotLiveActive ? 'Set Default' : 'Activate')}</button>`
         : '';
 
     const summary = getEntrySummary(setObj, entry);
-    const liveBadge = liveSlotLabels.length
-        ? `<span class="live-slot-pill">${esc(liveSlotLabels.join(', '))}</span>`
-        : '';
+    const liveBadge = [
+        isRotatingNow ? '<span class="rot-live-pill">Rotating Now</span>' : '',
+        liveSlotLabels.length ? `<span class="live-slot-pill">${esc(liveSlotLabels.join(', '))}</span>` : ''
+    ].filter(Boolean).join('');
 
     return `
-        <div class="roster-item ${isLive ? 'is-live' : ''} ${!isEnabled ? 'is-disabled' : ''}"
+        <div class="roster-item ${isLive ? 'is-live' : ''} ${isRotatingNow ? 'is-rotating' : ''} ${!isEnabled ? 'is-disabled' : ''}"
              ${slotsCount > 0 ? 'draggable="true"' : ''}
              data-set="${esc(setObj.id)}"
              data-entry="${esc(entry.id)}">
@@ -303,22 +384,124 @@ function renderRosterItem(setObj, entry) {
 }
 
 function renderRotationBar(setObj) {
+    // Timed spotlight rotation applies only to Preset (0-slot) and single-slot (1-slot) sets.
+    if (!supportsRotation(setObj)) return '';
     const rot = setObj.rotation || {};
+    const isLive = Boolean(rot.enabled);
     const entry = (setObj.roster || []).find(e => e.id === rot.entryId);
+    const enabledCount = (setObj.roster || []).filter(e => e.enabled !== false).length;
+    const { pct } = isLive ? rotationTiming(setObj) : { pct: 0 };
     const tr = ['fade', 'slide-up', 'flip', 'none'];
     const trLabel = { fade: 'Crossfade', 'slide-up': 'Slide up', flip: 'Flip', none: 'Instant' };
+
     return `
-            <div class="set-rotation-bar">
-                <span class="set-section-title" style="margin:0;"><span>Rotation</span></span>
-                <span class="badge${rot.enabled ? ' badge-now' : ''}">${rot.enabled ? `On${entry ? ` · ${esc(entry.label)}` : ''}` : 'Off'}</span>
-                <label>Every <input type="number" min="1" max="3600" data-rot-field="intervalSeconds" value="${Number(rot.intervalSeconds) || 10}" style="width:4.2rem;"> s</label>
-                <label><select data-rot-field="mode"><option value="sequential"${rot.mode !== 'random' ? ' selected' : ''}>In order</option><option value="random"${rot.mode === 'random' ? ' selected' : ''}>Random</option></select></label>
-                <label><select data-rot-field="transition">${tr.map(t => `<option value="${t}"${(rot.transition || 'fade') === t ? ' selected' : ''}>${trLabel[t]}</option>`).join('')}</select></label>
-                <span style="flex:1"></span>
-                ${rot.enabled ? `<button type="button" class="b sm" data-set-act="rotation/prev" title="Previous rotation entry">${SVG_PREV}</button><button type="button" class="b sm" data-set-act="rotation/next" title="Next rotation entry">${SVG_NEXT}</button>` : ''}
-                <button type="button" class="b sm${rot.enabled ? '' : ' primary'}" data-set-act="rotation/${rot.enabled ? 'stop' : 'start'}">${rot.enabled ? 'Stop' : 'Start'} rotation</button>
+        <div class="set-rot-panel${isLive ? ' is-live' : ''}">
+            <div class="set-rot-top">
+                <div class="set-rot-status">
+                    <span class="set-rot-pulse" aria-hidden="true"></span>
+                    <span class="set-section-title" style="margin:0;"><span>Live Rotation</span></span>
+                    <span class="badge${isLive ? ' badge-now' : ''}">${isLive ? 'Running' : 'Paused'}</span>
+                    ${isLive ? `<span class="set-rot-now">${entry ? esc(entry.label) : 'No active entry'}</span>` : ''}
+                    ${isLive ? `<span class="set-rot-next" data-rot-countdown="${esc(setObj.id)}">${esc(rotationCountdownText(setObj))}</span>` : ''}
+                </div>
+                <div class="set-rot-actions">
+                    ${isLive ? `<button type="button" class="b sm" data-set-act="rotation/prev" title="Previous rotation entry">${SVG_PREV}</button><button type="button" class="b sm" data-set-act="rotation/next" title="Next rotation entry">${SVG_NEXT}</button>` : ''}
+                    <button type="button" class="b sm${isLive ? '' : ' primary'}" data-set-act="rotation/${isLive ? 'stop' : 'start'}">${isLive ? 'Pause rotation' : 'Start rotation'}</button>
+                </div>
             </div>
-            <div class="muted" style="font-size:.76rem; margin:-.25rem 0 .75rem;">Shared clock for every overlay that follows this set (toggle Follow per overlay in the editor's Pages panel). Skips disabled entries.</div>`;
+            <div class="set-rot-controls">
+                <label>Every <input type="number" min="1" max="3600" data-rot-field="intervalSeconds" value="${Number(rot.intervalSeconds) || 10}" style="width:4.2rem;"> s</label>
+                <label>Order <select data-rot-field="mode"><option value="sequential"${rot.mode !== 'random' ? ' selected' : ''}>In order</option><option value="random"${rot.mode === 'random' ? ' selected' : ''}>Random</option></select></label>
+                <label>Transition <select data-rot-field="transition">${tr.map(t => `<option value="${t}"${(rot.transition || 'fade') === t ? ' selected' : ''}>${trLabel[t]}</option>`).join('')}</select></label>
+                <label>Duration <input type="number" min="50" max="2000" step="50" data-rot-field="durationMs" value="${Number(rot.durationMs) || 350}" style="width:4.4rem;"> ms</label>
+                <span style="flex:1"></span>
+                <span>Shared clock for overlays with <strong>Follow</strong> enabled in the editor's Sets tab.</span>
+            </div>
+            ${isLive && enabledCount < 2 ? `<div class="rot-warn-note">Enable at least 2 roster entries for automatic rotation to cycle.</div>` : ''}
+            ${isLive ? `<div class="set-rot-track" aria-hidden="true"><div class="set-rot-fill" data-rot-progress="${esc(setObj.id)}" style="width:${pct}%"></div></div>` : ''}
+        </div>`;
+}
+
+function renderSetConsumers(setObj) {
+    const consumers = getSetOverlays(setObj);
+    if (!consumers.length) return '';
+    return `
+        <div class="set-consumers-bar">
+            <span>Used in overlays:</span>
+            ${consumers.map(c => `
+                <a class="set-consumer-chip${c.following ? ' is-following' : ''}" href="/custom-overlay-editor.html?id=${encodeURIComponent(c.id)}" target="_blank" rel="noopener" title="${c.following ? 'Follows live rotation' : 'Uses static set placeholders'}">
+                    <span class="dot" aria-hidden="true"></span>
+                    <span>${esc(c.name)}</span>
+                    <span class="muted" style="font-size:.67rem;">${c.following ? 'Following' : 'Static'}</span>
+                </a>
+            `).join('')}
+        </div>`;
+}
+
+function renderDirectory(sets, activeSet) {
+    const q = directoryFilter.trim().toLowerCase();
+    const counts = {
+        all: sets.length,
+        rotating: sets.filter(s => supportsRotation(s) && s.rotation?.enabled).length,
+        slots: sets.filter(s => (s.slotsCount || 0) > 0).length,
+        preset: sets.filter(s => (s.slotsCount || 0) === 0).length
+    };
+    const visible = sets.filter(s => {
+        if (directoryMode === 'rotating' && !(supportsRotation(s) && s.rotation?.enabled)) return false;
+        if (directoryMode === 'slots' && (s.slotsCount || 0) === 0) return false;
+        if (directoryMode === 'preset' && (s.slotsCount || 0) > 0) return false;
+        if (q && !`${s.name} ${s.id}`.toLowerCase().includes(q)) return false;
+        return true;
+    });
+
+    const rowsHtml = visible.length
+        ? visible.map(s => {
+            const isRot = supportsRotation(s) && Boolean(s.rotation?.enabled);
+            const slotsCount = s.slotsCount || 0;
+            const modeLabel = slotsCount === 0 ? 'Preset' : `${slotsCount}s`;
+            const byId = new Map((s.roster || []).map(r => [r.id, r]));
+            let subText = '';
+            if (isRot) {
+                const entry = byId.get(s.rotation.entryId);
+                const { remainingSec } = rotationTiming(s);
+                subText = `Rotating · ${entry ? entry.label : 'Starting'} (${remainingSec}s)`;
+            } else if (slotsCount > 0) {
+                const filled = (s.slots || []).filter(Boolean).length;
+                subText = filled ? `${filled}/${slotsCount} slots live` : 'All slots empty';
+            } else {
+                const act = byId.get(s.activeEntry || '');
+                subText = act ? `Active: ${act.label}` : 'Idle';
+            }
+            const quickRotBtn = supportsRotation(s)
+                ? `<button type="button" class="set-dir-play${isRot ? ' is-on' : ''}" data-dir-rot-toggle="${esc(s.id)}" title="${isRot ? 'Pause live rotation' : 'Start live rotation'}" aria-label="${isRot ? 'Pause' : 'Start'} ${esc(s.name)} rotation">${isRot ? SVG_PAUSE : SVG_PLAY}</button>`
+                : '';
+
+            return `
+                <div class="set-dir-item ${s.id === activeSet.id ? 'active' : ''} ${isRot ? 'is-rotating' : ''}">
+                    <button type="button" class="set-dir-main" data-select-set="${esc(s.id)}">
+                        <div class="set-dir-top">
+                            <span class="set-dir-dot" aria-hidden="true"></span>
+                            <span class="set-dir-name">${esc(s.name)}</span>
+                            <span class="set-dir-mode">${modeLabel}</span>
+                        </div>
+                        <div class="set-dir-sub"${isRot ? ` data-dir-rot-sub="${esc(s.id)}"` : ''}>${esc(subText)}</div>
+                    </button>
+                    ${quickRotBtn}
+                </div>`;
+        }).join('')
+        : `<div class="muted" style="font-size:.78rem; padding:.5rem .25rem; text-align:center;">No sets match filter.</div>`;
+
+    return `
+        <aside class="sets-dir" aria-label="Variable Sets Directory">
+            <input type="search" id="set-dir-search" class="sets-dir-search" value="${esc(directoryFilter)}" placeholder="Search sets (${sets.length})..." aria-label="Search variable sets">
+            <div class="sets-dir-filters" role="group" aria-label="Filter sets">
+                <button type="button" class="sets-filter-btn${directoryMode === 'all' ? ' active' : ''}" data-dir-mode="all">All (${counts.all})</button>
+                ${counts.rotating ? `<button type="button" class="sets-filter-btn${directoryMode === 'rotating' ? ' active' : ''}" data-dir-mode="rotating">Rotating (${counts.rotating})</button>` : ''}
+                ${counts.slots ? `<button type="button" class="sets-filter-btn${directoryMode === 'slots' ? ' active' : ''}" data-dir-mode="slots">Slots (${counts.slots})</button>` : ''}
+                ${counts.preset ? `<button type="button" class="sets-filter-btn${directoryMode === 'preset' ? ' active' : ''}" data-dir-mode="preset">Preset (${counts.preset})</button>` : ''}
+            </div>
+            <div class="sets-dir-list">${rowsHtml}</div>
+        </aside>`;
 }
 
 export function renderSets() {
@@ -342,16 +525,12 @@ export function renderSets() {
     const activeSet = sets.find(s => s.id === savedId) || sets[0];
     localStorage.setItem('variables_active_set', activeSet.id);
 
-    const switcherHtml = `
-        <div class="set-switcher" role="tablist" aria-label="Variable Sets">
-            ${sets.map(s => `
-                <button type="button" class="set-pill ${s.id === activeSet.id ? 'active' : ''}" data-select-set="${esc(s.id)}">
-                    <span>${esc(s.name)}</span>
-                    <span class="badge">${s.slotsCount ? `${s.slotsCount}s` : 'Preset'}</span>
-                </button>
-            `).join('')}
-        </div>
-    `;
+    const activeEl = document.activeElement;
+    const focusInfo = activeEl && host.contains(activeEl) && activeEl.id
+        ? { id: activeEl.id, start: activeEl.selectionStart, end: activeEl.selectionEnd }
+        : null;
+
+    const dirHtml = renderDirectory(sets, activeSet);
 
     const byId = new Map((activeSet.roster || []).map(r => [r.id, r]));
     const slotsCount = activeSet.slotsCount || 0;
@@ -375,52 +554,67 @@ export function renderSets() {
     const slotBadge = slotsCount === 0 ? 'Preset mode (0 slots)' : `${slotsCount} output slot${slotsCount === 1 ? '' : 's'}`;
 
     host.innerHTML = `
-        ${switcherHtml}
-        <div class="set-workspace" data-set-card="${esc(activeSet.id)}">
-            <div class="set-card-head">
-                <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
-                    <strong style="font-size:1.02rem;">${esc(activeSet.name)}</strong>
-                    <code class="badge">${esc(activeSet.id)}</code>
-                    <span class="badge">${slotBadge}</span>
-                    <span class="badge">${(activeSet.roster || []).length} entries</span>
-                </div>
-                <div style="display:flex; gap:.35rem; flex-wrap:wrap;">
-                    <button type="button" class="b sm primary" data-set-act="add-entry">${SVG_PLUS} Add Entry</button>
-                    <button type="button" class="b sm" data-set-act="inc-slot" title="Add an output slot">+ Slot</button>
-                    ${slotsCount > 0 ? '<button type="button" class="b sm" data-set-act="dec-slot" title="Remove last output slot">- Slot</button>' : ''}
-                    <button type="button" class="b sm" data-set-act="edit-set">${SVG_EDIT} Edit Set</button>
-                    <button type="button" class="b sm danger" data-set-act="delete-set" title="Delete set">${SVG_TRASH}</button>
-                </div>
-            </div>
-            ${renderRotationBar(activeSet)}
-            <div class="${slotsCount > 0 ? 'sets-split' : ''}" style="${slotsCount > 0 ? '' : 'display:grid; gap:1rem;'}">
-                <div>
-                    <div class="set-section-title">
-                        <span>${slotsCount > 0 ? 'Output Channels' : 'Active Output'}</span>
-                        ${slotsCount > 1 ? `
-                            <div style="display:flex; gap:.3rem; align-items:center; text-transform:none; letter-spacing:0; font-weight:500;">
-                                <span class="muted" style="font-size:.74rem;">Shift Queue:</span>
-                                <button type="button" class="b sm" data-set-act="rewind" title="Shift all slots back">${SVG_PREV} Prev</button>
-                                <button type="button" class="b sm" data-set-act="advance" title="Shift all slots forward">Next ${SVG_NEXT}</button>
-                            </div>
-                        ` : ''}
-                    </div>
-                    ${outputHtml}
-                </div>
-                <div class="roster-section ${slotsCount > 0 ? 'sets-roster-pane' : ''}">
-                    <div class="set-section-title" style="flex-wrap:wrap;">
-                        <span>${slotsCount > 0 ? 'Roster Library (drag onto any slot)' : 'Saved Presets'}</span>
-                        <div style="display:flex; gap:.35rem; align-items:center; text-transform:none; letter-spacing:0; font-weight:500; flex-wrap:wrap;">
-                            ${(activeSet.roster || []).length > 4 ? `<input type="search" id="set-roster-filter" value="${esc(rosterFilter)}" placeholder="Filter entries..." style="padding:.22rem .55rem; font-size:.78rem; width:10rem;">` : ''}
-                            <a class="b sm" href="/api/variables/sets/${encodeURIComponent(activeSet.id)}/export?format=csv" download="${esc(activeSet.id)}-roster.csv" style="text-decoration:none;">Export CSV</a>
-                            <label class="b sm" style="display:inline-flex; align-items:center; cursor:pointer;">Import CSV<input type="file" data-set-csv-import accept=".csv,text/csv" hidden></label>
+        <div class="sets-directory-layout">
+            ${dirHtml}
+            <div class="set-workspace" data-set-card="${esc(activeSet.id)}">
+                <div class="set-card-head">
+                    <div style="display:grid; gap:.35rem; min-width:0;">
+                        <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
+                            <strong style="font-size:1.02rem;">${esc(activeSet.name)}</strong>
+                            <code class="badge">${esc(activeSet.id)}</code>
+                            <span class="badge">${slotBadge}</span>
+                            <span class="badge">${(activeSet.roster || []).length} entries</span>
                         </div>
+                        ${renderSetConsumers(activeSet)}
                     </div>
-                    <div class="roster-list">${rosterHtml}</div>
+                    <div style="display:flex; gap:.35rem; flex-wrap:wrap;">
+                        <button type="button" class="b sm primary" data-set-act="add-entry">${SVG_PLUS} Add Entry</button>
+                        <button type="button" class="b sm" data-set-act="inc-slot" title="Add an output slot">+ Slot</button>
+                        ${slotsCount > 0 ? '<button type="button" class="b sm" data-set-act="dec-slot" title="Remove last output slot">- Slot</button>' : ''}
+                        <button type="button" class="b sm" data-set-act="edit-set">${SVG_EDIT} Edit Set</button>
+                        <button type="button" class="b sm danger" data-set-act="delete-set" title="Delete set">${SVG_TRASH}</button>
+                    </div>
+                </div>
+                ${renderRotationBar(activeSet)}
+                <div class="${slotsCount > 0 ? 'sets-split' : ''}" style="${slotsCount > 0 ? '' : 'display:grid; gap:1rem;'}">
+                    <div>
+                        <div class="set-section-title">
+                            <span>${slotsCount > 0 ? 'Output Channels' : 'Output'}</span>
+                            ${slotsCount > 1 ? `
+                                <div style="display:flex; gap:.3rem; align-items:center; text-transform:none; letter-spacing:0; font-weight:500;">
+                                    <span class="muted" style="font-size:.74rem;">Shift Queue:</span>
+                                    <button type="button" class="b sm" data-set-act="rewind" title="Shift all slots back">${SVG_PREV} Prev</button>
+                                    <button type="button" class="b sm" data-set-act="advance" title="Shift all slots forward">Next ${SVG_NEXT}</button>
+                                </div>
+                            ` : ''}
+                        </div>
+                        ${outputHtml}
+                    </div>
+                    <div class="roster-section ${slotsCount > 0 ? 'sets-roster-pane' : ''}">
+                        <div class="set-section-title" style="flex-wrap:wrap;">
+                            <span>${slotsCount > 0 ? 'Roster Library (drag onto any slot)' : 'Saved Presets'}</span>
+                            <div style="display:flex; gap:.35rem; align-items:center; text-transform:none; letter-spacing:0; font-weight:500; flex-wrap:wrap;">
+                                ${(activeSet.roster || []).length > 4 ? `<input type="search" id="set-roster-filter" value="${esc(rosterFilter)}" placeholder="Filter entries..." style="padding:.22rem .55rem; font-size:.78rem; width:10rem;">` : ''}
+                                <a class="b sm" href="/api/variables/sets/${encodeURIComponent(activeSet.id)}/export?format=csv" download="${esc(activeSet.id)}-roster.csv" style="text-decoration:none;">Export CSV</a>
+                                <label class="b sm" style="display:inline-flex; align-items:center; cursor:pointer;">Import CSV<input type="file" data-set-csv-import accept=".csv,text/csv" hidden></label>
+                            </div>
+                        </div>
+                        <div class="roster-list">${rosterHtml}</div>
+                    </div>
                 </div>
             </div>
         </div>
     `;
+
+    if (focusInfo) {
+        const nextEl = document.getElementById(focusInfo.id);
+        if (nextEl && typeof nextEl.focus === 'function') {
+            nextEl.focus();
+            if (typeof focusInfo.start === 'number' && nextEl.setSelectionRange) {
+                nextEl.setSelectionRange(focusInfo.start, focusInfo.end);
+            }
+        }
+    }
 }
 
 function showModal(title, bodyHtml, footHtml, onMount) {
@@ -697,14 +891,23 @@ export function bindSetEvents(onReload) {
     document.getElementById('set-add-btn')?.addEventListener('click', () => openSetModal());
 
     host.addEventListener('input', e => {
+        if (e.target.id === 'set-dir-search') {
+            directoryFilter = e.target.value;
+            renderSets();
+            return;
+        }
         if (e.target.id === 'set-roster-filter') {
             rosterFilter = e.target.value;
-            const pos = e.target.selectionStart;
             renderSets();
-            const nextInput = document.getElementById('set-roster-filter');
-            if (nextInput) { nextInput.focus(); nextInput.setSelectionRange(pos, pos); }
         }
     });
+
+    host.addEventListener('toggle', e => {
+        const det = e.target.closest('.slot-tokens[data-token-key]');
+        if (!det) return;
+        if (det.open) openTokenKeys.add(det.dataset.tokenKey);
+        else openTokenKeys.delete(det.dataset.tokenKey);
+    }, true);
 
     host.addEventListener('change', async e => {
         const slotNameInput = e.target.closest('[data-slot-name]');
@@ -776,6 +979,28 @@ export function bindSetEvents(onReload) {
     });
 
     host.addEventListener('click', async e => {
+        const modeBtn = e.target.closest('[data-dir-mode]');
+        if (modeBtn) {
+            directoryMode = modeBtn.dataset.dirMode;
+            localStorage.setItem('variables_dir_mode', directoryMode);
+            renderSets();
+            return;
+        }
+        const dirRotBtn = e.target.closest('[data-dir-rot-toggle]');
+        if (dirRotBtn) {
+            const setId = dirRotBtn.dataset.dirRotToggle;
+            const setObj = (state.variableSets || []).find(s => s.id === setId);
+            if (!setObj || !supportsRotation(setObj)) return;
+            dirRotBtn.disabled = true;
+            try {
+                await api(`/api/variables/sets/${encodeURIComponent(setId)}/rotation/${setObj.rotation?.enabled ? 'stop' : 'start'}`, 'POST', {});
+                await reloadHandler();
+            } catch (err) {
+                toast(err.message, 'error');
+                dirRotBtn.disabled = false;
+            }
+            return;
+        }
         const pill = e.target.closest('[data-select-set]');
         if (pill) {
             localStorage.setItem('variables_active_set', pill.dataset.selectSet);

@@ -6,6 +6,7 @@ const path = require('node:path');
 const { EventEmitter } = require('node:events');
 
 const createVariablesStore = require('../server/services/variables');
+const { normalizeCustomOverlay } = require('../server/services/overlays');
 
 const bundlePath = path.join(__dirname, '../public/js/overlay-shared.js');
 const sharedCode = fs.readFileSync(bundlePath, 'utf8');
@@ -353,6 +354,11 @@ test('Variable Sets: server rotation endpoints step enabled entries and broadcas
         assert.equal(r.json.rotation.enabled, false);
         const reloaded = createVariablesStore({ dataDir: dir });
         assert.equal(getSet(reloaded, 'p').rotation.entryId, 'c');
+        // Multi-slot sets (2+ slots) disable timed rotation cleanly
+        store.upsertSet('casters', { slotsCount: 2, roster: [{ id: 'x' }, { id: 'y' }], rotation: { enabled: true } });
+        assert.equal(getSet(store, 'casters').rotation.enabled, false);
+        const startBlocked = await callApi(store, 'POST', '/api/variables/sets/casters/rotation/start');
+        assert.equal(startBlocked.status, 400);
         reloaded.dispose();
         store.dispose();
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
@@ -387,4 +393,16 @@ test('Variable Sets: overlays following a set apply server rotation to every slo
     overlay.variableSetFollow.p = false;
     engine.setup(overlay);
     assert.equal(engine.effectiveStatus({ customVars: [] }).customVars.length, 0);
+
+    const normalized = normalizeCustomOverlay({
+        id: 'sets-test',
+        variableSetFollow: { p: true },
+        variableSetTransitions: {
+            p: { transition: 'slide-up', durationMs: 600 },
+            invalid_tr: { transition: 'bogus', durationMs: 500 },
+            '': { transition: 'fade' }
+        }
+    });
+    assert.deepEqual(normalized.variableSetFollow, { p: true });
+    assert.deepEqual(normalized.variableSetTransitions, { p: { transition: 'slide-up', durationMs: 600 } });
 });

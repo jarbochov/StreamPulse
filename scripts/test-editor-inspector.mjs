@@ -5,7 +5,7 @@ import puppeteer from 'puppeteer';
 import overlays from '../server/services/overlays.js';
 
 const names = ['overlay-shared.js', 'poll-widget.js', 'patterns-shared.js', 'editor-geometry.js', 'motion-easing.js',
-    ...['state', 'canvas', 'form', 'layers', 'inspector', 'speakers', 'patterns'].map(name => `editor/editor-${name}.js`)];
+    ...['state', 'canvas', 'form', 'layers', 'sets', 'inspector', 'speakers', 'patterns'].map(name => `editor/editor-${name}.js`)];
 const sources = new Map(await Promise.all(names.map(async name =>
     [`/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8')])));
 const css = await readFile(new URL('../public/css/custom-overlay-editor.css', import.meta.url), 'utf8');
@@ -435,6 +435,84 @@ try {
         renderProperties();
     });
     assert.equal(await page.$('[data-sect="obsLink"]'), null, 'Pages expose no OBS-link inspector controls');
+
+    // Dedicated Variable Sets tab keeps Pages/Layers uncluttered while managing Follow, transitions, and page triggers
+    assert.equal(await page.$('#pages-panel [data-sect="pg-var-rotations"]'), null, 'Pages panel stays free of Variable Set rotation clutter');
+    assert.equal(await page.$('#pages-panel #btn-add-var-rot'), null, 'Pages panel no longer embeds Variable Set trigger controls');
+    await page.evaluate(async () => {
+        const setsMod = await import('/js/editor/editor-sets.js');
+        const { state, createElementData } = window.fixture;
+        const tabBar = document.createElement('div');
+        tabBar.className = 'rail-tabs';
+        for (const id of ['layers', 'pages', 'sets', 'canvas']) {
+            const btn = document.createElement('button');
+            btn.dataset.railTab = id;
+            if (id === 'sets') btn.innerHTML = 'Sets <small id="sets-count"></small>';
+            tabBar.append(btn);
+        }
+        const setsPanel = document.createElement('section');
+        setsPanel.id = 'sets-panel';
+        setsPanel.hidden = true;
+        document.body.append(tabBar, setsPanel);
+        state.liveStatus.variableSets = [{
+            id: 'people',
+            name: 'Featured Guests',
+            roster: [{ id: 'p1', label: 'Alex', enabled: true, values: { name: 'Alex' } }],
+            rotation: { enabled: true, intervalSeconds: 12, mode: 'sequential', transition: 'fade', durationMs: 350, entryId: 'p1' }
+        }];
+        state.overlay.elements.push(createElementData('text', { id: 'guest-text', page: '*', content: '{{var.people_1_name}}' }));
+        setsMod.registerSetsCallbacks({ onRenderCanvas: () => {}, onSwitchEditPage: pageId => window.fixture.layers.switchEditPage(pageId, { animate: false }) });
+        setsMod.initSetsPanel();
+        window.fixture.layers.setRailTab('sets');
+    });
+    assert.equal(await page.$eval('#sets-panel', el => el.hidden), false, 'Sets tab unhides the dedicated Sets panel');
+    assert.equal(await page.$eval('#pages-panel', el => el.hidden), true, 'Pages panel hides when Sets tab is active');
+    assert.ok(await page.$('#sets-panel [data-vrot-set="people"]'), 'Sets tab renders linked variable sets automatically');
+    await page.click('#sets-panel [data-vrot-follow="people"]');
+    assert.equal(await page.evaluate(() => window.fixture.state.overlay.variableSetFollow.people), true, 'Follow toggle updates overlay.variableSetFollow');
+    await page.select('#sets-panel [data-vrot-trans="people"]', 'slide-up');
+    await page.evaluate(() => {
+        const inp = document.querySelector('#sets-panel [data-vrot-trans-ms="people"]');
+        inp.value = '600';
+        inp.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    assert.deepEqual(
+        await page.evaluate(() => window.fixture.state.overlay.variableSetTransitions.people),
+        { transition: 'slide-up', durationMs: 600 },
+        'Per-overlay animation override persists on overlay.variableSetTransitions'
+    );
+    await page.click('#sets-panel #btn-add-var-rot');
+    assert.equal(await page.evaluate(() => window.fixture.state.overlay.variableSetRotations.length), 1, 'Page-show trigger can be added from Sets tab');
+    assert.equal(await page.$eval('#sets-count', el => el.textContent), '(2)', 'Sets tab count reflects active follow + enabled page triggers');
+
+    // Multi-slot sets hide timed rotation controls while all other sets appear in the library drawer
+    await page.evaluate(async () => {
+        const setsMod = await import('/js/editor/editor-sets.js');
+        const { state, createElementData } = window.fixture;
+        state.liveStatus.variableSets.push(
+            {
+                id: 'casters',
+                name: 'Casters Booth',
+                slotsCount: 2,
+                fields: [{ key: 'name', type: 'text' }],
+                roster: [{ id: 'c1', label: 'Caster 1', enabled: true, values: { name: 'Caster 1' } }]
+            },
+            {
+                id: 'sponsors',
+                name: 'Sponsors',
+                slotsCount: 0,
+                fields: [{ key: 'brand', type: 'text' }],
+                roster: [{ id: 's1', label: 'Acme', enabled: true, values: { brand: 'Acme' } }],
+                rotation: { enabled: false }
+            }
+        );
+        state.overlay.elements.push(createElementData('text', { id: 'caster-text', page: '*', content: '{{var.casters_1_name}}' }));
+        setsMod.renderSetsPanel();
+    });
+    assert.equal(await page.$('#sets-panel [data-vrot-follow="casters"]'), null, 'Multi-slot set hides timed Follow rotation toggle');
+    assert.ok(await page.$('#sets-panel [data-vrot-set="casters"] .vset-channel-meta'), 'Multi-slot set renders manual slots/queues summary card');
+    assert.ok(await page.$('#sets-panel [data-vset-lib="sponsors"]'), 'Unlinked sets appear in the All Variable Sets library drawer');
+
     assert.deepEqual(errors, []);
     assert.deepEqual(unexpected, []);
     console.log('Inspector browser tests passed: all 17 types, conditional panels, narrow rails, persistence, focus, keyboard navigation and multi-selection.');

@@ -12,10 +12,10 @@ import {
 } from './editor-state.js';
 import { F, bindFields } from './editor-form.js';
 import { captureEditorStateSnapshot, previewEditorStateMorph } from './editor-canvas.js';
+import { renderSetsPanel, renderSetsCount } from './editor-sets.js';
 
 let pgSortable = null;
 let alertRules = null;
-let variableSets = null;
 let liveState = null;
 const TRIGGER_NAMES = { alert: 'On alert', featured: 'Featured chat', command: 'Chat command', 'poll-end': 'Poll end', 'poll-active': 'Poll active' };
 const pageSectionOpen = (id, dflt) => (prefs.sections[`pg-${id}`] ?? dflt) ? ' open' : '';
@@ -61,6 +61,10 @@ export function renderLayers() {
 
     if (pagesOn() && $('pages-panel') && !$('pages-panel').hidden && !pagesPanelBusy()) {
         renderPagesPanel();
+    }
+    renderSetsCount();
+    if ($('sets-panel') && !$('sets-panel').hidden && !($('sets-panel').contains(document.activeElement) && document.activeElement?.matches('input, select'))) {
+        renderSetsPanel();
     }
     if (!shown.length) {
         list.innerHTML = '<div class="layers-empty">No elements yet. Use <b>+ Add</b> to start.</div>';
@@ -222,126 +226,9 @@ function triggersSummaryHtml() {
     }).join('')}</div>`;
 }
 
-function loadVariableSets() {
-    if (variableSets) return;
-    variableSets = [];
-    fetch('/api/variables').then(r => r.json()).then(d => {
-        variableSets = Array.isArray(d.sets) ? d.sets : [];
-        if (state.liveStatus && typeof state.liveStatus === 'object') {
-            state.liveStatus.variableSets = variableSets;
-        }
-        renderCanvasHandler();
-        renderPagesPanel();
-    }).catch(() => { variableSets = []; });
-}
-
-function findElementsUsingSet(setId) {
-    if (!setId) return [];
-    const needle = `{{var.${String(setId).toLowerCase()}_`;
-    return (state.overlay.elements || []).filter(el => {
-        const hay = [el.content, ...(el.items || []), el.src, el.embedUrl, el.qrText, el.progress?.label]
-            .filter(Boolean).join(' ').toLowerCase();
-        return hay.includes(needle);
-    });
-}
-
-function rotationSummary(setObj) {
-    const rot = setObj?.rotation;
-    if (!rot?.enabled) return 'Not rotating';
-    const entry = (setObj.roster || []).find(e => e.id === rot.entryId);
-    return `Rotating every ${rot.intervalSeconds}s${rot.mode === 'random' ? ', random' : ''}${entry ? ` · ${entry.label}` : ''}`;
-}
-
-function renderVarSetRotationSection() {
-    const rots = (Array.isArray(state.overlay.variableSetRotations) ? state.overlay.variableSetRotations : []).map((r, ri) => ({ r, ri })).filter(x => x.r.trigger === 'page');
-    const follow = state.overlay.variableSetFollow || {};
-    const sets = variableSets || [];
-    const pageItems = state.overlay.pages?.items || [];
-    const used = sets.filter(s => follow[s.id] !== undefined || findElementsUsingSet(s.id).length);
-    const followCount = used.filter(s => follow[s.id] === true && s.rotation?.enabled).length + rots.filter(x => x.r.enabled !== false).length;
-
-    const chipsHtml = used.map(s => {
-        const els = findElementsUsingSet(s.id);
-        const on = follow[s.id] === true;
-        return `
-            <div class="vrot-row" data-vrot-set="${esc(s.id)}">
-                <div class="vrot-head">
-                    <span class="vrot-name">${esc(s.name || s.id)}</span>
-                    <span class="badge-pill${s.rotation?.enabled ? '' : ' is-muted'}">${esc(rotationSummary(s))}</span>
-                </div>
-                <div class="vrot-actions">
-                    <label class="vrot-follow"><input type="checkbox" data-vrot-follow="${esc(s.id)}"${on ? ' checked' : ''}> Follow rotation on this overlay</label>
-                    <button type="button" class="btn sm" data-vrot-server="${esc(s.id)}">${s.rotation?.enabled ? 'Stop' : 'Start'}</button>
-                </div>
-                <div class="vrot-el-chips"><span>Used by:</span>${els.length
-                    ? els.map(el => `<button type="button" class="vrot-el-chip" data-vrot-select="${esc(el.id)}" title="Select ${esc(displayName(el))} on canvas">${esc(displayName(el))}</button>`).join('')
-                    : '<span>no elements</span>'}</div>
-            </div>`;
-    }).join('');
-
-    const pageRowsHtml = rots.map(({ r, ri }) => {
-        const setOptions = [
-            '<option value="">Select set...</option>',
-            ...sets.map(s => `<option value="${esc(s.id)}"${s.id === r.setId ? ' selected' : ''}>${esc(s.name || s.id)}</option>`),
-            ...(r.setId && !sets.some(s => s.id === r.setId) ? [`<option value="${esc(r.setId)}" selected>${esc(r.setId)}</option>`] : [])
-        ].join('');
-        const transition = ['none', 'fade', 'slide-up', 'flip'].includes(r.transition) ? r.transition : 'fade';
-        const pageOpts = ['<option value="">Any page</option>', ...pageItems.map(p => `<option value="${esc(p.id)}"${p.id === r.pageId ? ' selected' : ''}>${esc(p.name || p.id)}</option>`)].join('');
-        return `
-            <div class="vrot-row" data-vrot-idx="${ri}">
-                <div class="vrot-head">
-                    <input type="checkbox" data-vrot-field="enabled" data-vrot-idx="${ri}" ${r.enabled !== false ? 'checked' : ''} title="Enable">
-                    <select data-vrot-field="setId" data-vrot-idx="${ri}" aria-label="Variable set">${setOptions}</select>
-                    <button type="button" class="btn sm ghost danger" data-vrot-del="${ri}" title="Remove"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-                </div>
-                <div class="vrot-grid">
-                    ${pagesOn() ? `<label>On page<select data-vrot-field="pageId" data-vrot-idx="${ri}">${pageOpts}</select></label>` : ''}
-                    <label>Order
-                        <select data-vrot-field="mode" data-vrot-idx="${ri}">
-                            <option value="sequential"${r.mode !== 'random' ? ' selected' : ''}>In order</option>
-                            <option value="random"${r.mode === 'random' ? ' selected' : ''}>Random</option>
-                        </select>
-                    </label>
-                    <label>Transition
-                        <select data-vrot-field="transition" data-vrot-idx="${ri}">
-                            <option value="fade"${transition === 'fade' ? ' selected' : ''}>Crossfade</option>
-                            <option value="slide-up"${transition === 'slide-up' ? ' selected' : ''}>Slide up</option>
-                            <option value="flip"${transition === 'flip' ? ' selected' : ''}>Flip</option>
-                            <option value="none"${transition === 'none' ? ' selected' : ''}>Instant</option>
-                        </select>
-                    </label>
-                    ${transition !== 'none' ? `<label>Duration (ms)<input type="number" min="50" max="2000" step="50" data-vrot-field="durationMs" data-vrot-idx="${ri}" value="${Math.max(50, Math.min(2000, Number(r.durationMs) || 350))}"></label>` : ''}
-                </div>
-            </div>`;
-    }).join('');
-
-    return `
-        <details class="sub-details" data-sect="pg-var-rotations"${pageSectionOpen('var-rotations', used.length > 0 || rots.length > 0)}>
-            <summary>Variable Set Rotation <span class="spacer"></span><span class="badge-pill${followCount ? '' : ' is-muted'}">${followCount ? `${followCount} active` : 'Off'}</span></summary>
-            <span class="hint">Rotation runs on the server, so every following overlay and Companion stay in sync. Configure timing in <a href="/variables.html#sets" target="_blank" rel="noopener">Variables</a>.</span>
-            ${variableSets === null ? '' : (chipsHtml ? `<div class="vrot-list">${chipsHtml}</div>` : '<span class="hint">No elements use <code>{{var.set_*}}</code> placeholders yet.</span>')}
-            <details class="sub-details vrot-advanced"${rots.length ? ' open' : ''}>
-                <summary>Advanced: rotate when a page shows</summary>
-                <span class="hint">Steps a set locally on this overlay each time a page appears. Independent of the shared rotation.</span>
-                ${pageRowsHtml ? `<div class="vrot-list">${pageRowsHtml}</div>` : ''}
-                <button type="button" class="btn sm" id="btn-add-var-rot">+ Add page trigger</button>
-            </details>
-        </details>`;
-}
-
-export function refreshVariableSetsPanel() {
-    if (Array.isArray(state.liveStatus?.variableSets)) {
-        const prev = variableSets;
-        variableSets = state.liveStatus.variableSets;
-        const sig = list => (list || []).map(x => `${x.id}:${x.name}:${x.rotation?.enabled}:${x.rotation?.intervalSeconds}:${x.rotation?.mode}:${x.rotation?.entryId}`).join('|');
-        if (sig(prev) !== sig(variableSets) && document.querySelector('details[data-sect="pg-var-rotations"]')) renderPagesPanel();
-    }
-}
-
 export function renderPagesPanel() {
     const panel = $('pages-panel');
     if (!panel) return;
-    if (!variableSets && ((state.overlay.variableSetRotations || []).length || Object.keys(state.overlay.variableSetFollow || {}).length)) loadVariableSets();
     const sceneStatesEnabled = state.obs?.sceneSyncEnabled !== false;
     if (!pagesOn()) {
         panel.innerHTML = `
@@ -360,8 +247,7 @@ export function renderPagesPanel() {
                         <span class="badge-beta">BETA</span>
                     </button>` : ''}
                 </div>
-            </div>
-            ${renderVarSetRotationSection()}`;
+            </div>`;
         return;
     }
     const items = state.overlay.pages.items;
@@ -471,8 +357,7 @@ export function renderPagesPanel() {
         </details>
         <div class="pg-foot">
             <a href="/overlay-control.html?id=${encodeURIComponent(state.overlay.id)}" target="_blank" rel="noopener" class="link sm">Control panel <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>
-            <button id="pages-disable" class="ghost" title="Back to a single view. Elements are kept.">Turn off ${noun}s</button></div>
-        <div class="vrot-standalone">${renderVarSetRotationSection()}</div>`;
+            <button id="pages-disable" class="ghost" title="Back to a single view. Elements are kept.">Turn off ${noun}s</button></div>`;
 
     if (pgSortable) pgSortable.destroy();
     const sortList = $('pg-list');
@@ -715,10 +600,13 @@ export function setRailTab(tab) {
     }
     const layersPanel = $('layers-panel');
     const pagesPanel = $('pages-panel');
+    const setsPanel = $('sets-panel');
     const settingsSect = $('settings-sect');
     if (layersPanel) layersPanel.hidden = tab !== 'layers';
     if (pagesPanel) pagesPanel.hidden = tab !== 'pages';
+    if (setsPanel) setsPanel.hidden = tab !== 'sets';
     if (settingsSect) settingsSect.hidden = tab !== 'canvas';
+    if (tab === 'sets') renderSetsPanel();
 }
 
 // ---- Initialization & Event Bindings ----------------------------------------------
@@ -867,49 +755,6 @@ export function initLayersAndPages() {
                 }
                 return;
             }
-            if (t?.id === 'btn-add-var-rot') {
-                if (!variableSets && ((state.overlay.variableSetRotations || []).length || Object.keys(state.overlay.variableSetFollow || {}).length)) loadVariableSets();
-                if (!Array.isArray(state.overlay.variableSetRotations)) state.overlay.variableSetRotations = [];
-                const defaultSetId = variableSets?.[0]?.id || '';
-                state.overlay.variableSetRotations.push({ setId: defaultSetId, trigger: 'page', mode: 'sequential', intervalSeconds: 10, pageId: '', transition: 'fade', durationMs: 350, enabled: true });
-                changed(true);
-                return renderPagesPanel();
-            }
-            if (t?.dataset.vrotServer) {
-                const setObj = (variableSets || []).find(x => x.id === t.dataset.vrotServer);
-                t.disabled = true;
-                fetch(`/api/variables/sets/${encodeURIComponent(t.dataset.vrotServer)}/rotation/${setObj?.rotation?.enabled ? 'stop' : 'start'}`, { method: 'POST' })
-                    .then(r => r.ok ? r.json() : Promise.reject())
-                    .then(updated => {
-                        variableSets = (variableSets || []).map(x => x.id === updated.id ? updated : x);
-                        if (state.liveStatus) state.liveStatus.variableSets = variableSets;
-                        if (!setObj?.rotation?.enabled) {
-                            state.overlay.variableSetFollow = { ...(state.overlay.variableSetFollow || {}), [updated.id]: true };
-                            changed(true);
-                        }
-                        renderPagesPanel();
-                    })
-                    .catch(() => { t.disabled = false; toast("Could not change rotation", "warn", 3000); });
-                return;
-            }
-            if (t?.dataset.vrotSelect) {
-                const el = byId(t.dataset.vrotSelect);
-                if (el) {
-                    if (pagesOn() && el.page && el.page !== '*' && el.page !== state.curPage) {
-                        switchEditPage(el.page, { animate: false });
-                    }
-                    setSelection([el.id]);
-                }
-                return;
-            }
-            if (t?.dataset.vrotDel !== undefined) {
-                const ri = Number(t.dataset.vrotDel);
-                if (Array.isArray(state.overlay.variableSetRotations) && Number.isInteger(ri)) {
-                    state.overlay.variableSetRotations.splice(ri, 1);
-                    changed(true);
-                    return renderPagesPanel();
-                }
-            }
             if (t?.id === 'page-add') {
                 const isStates = statesModeOn();
                 const id = pageSeq();
@@ -1002,34 +847,7 @@ export function initLayersAndPages() {
             if (/^pages\.(mode|transition)$/.test(path) || /^pages\.items\.\d+\.(trigger|triggerAlertMode)$/.test(path)) renderPagesPanel();
         });
 
-        pagesPanel.addEventListener('toggle', event => {
-            const det = event.target.closest('details[data-sect="pg-var-rotations"]');
-            if (det && det.open && !variableSets) loadVariableSets();
-        }, true);
-
         pagesPanel.addEventListener('change', event => {
-            const followBox = event.target.closest('[data-vrot-follow]');
-            if (followBox) {
-                state.overlay.variableSetFollow = { ...(state.overlay.variableSetFollow || {}), [followBox.dataset.vrotFollow]: followBox.checked };
-                changed(true);
-                renderPagesPanel();
-                return;
-            }
-            const vrotField = event.target.closest('[data-vrot-field]');
-            if (vrotField) {
-                const ri = Number(vrotField.dataset.vrotIdx);
-                const field = vrotField.dataset.vrotField;
-                const rule = state.overlay.variableSetRotations?.[ri];
-                if (rule) {
-                    if (field === 'enabled') rule.enabled = vrotField.checked;
-                    else if (field === 'intervalSeconds') rule.intervalSeconds = Math.max(1, Math.min(3600, Number(vrotField.value) || 10));
-                    else if (field === 'durationMs') rule.durationMs = Math.max(50, Math.min(2000, Number(vrotField.value) || 350));
-                    else rule[field] = vrotField.value;
-                    changed(false);
-                    if (field === 'enabled' || field === 'transition') renderPagesPanel();
-                }
-                return;
-            }
             const box = event.target.closest('[data-trule]');
             if (box) {
                 const page = state.overlay.pages.items.find(p => p.id === state.curPage);

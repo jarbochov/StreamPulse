@@ -24,8 +24,11 @@ import {
 import {
     renderLayers, renderPageBar, updateLayerSelection, setRailTab,
     initLayersAndPages, registerLayerCallbacks, duplicatePage, deletePage,
-    switchEditPage, livePage, refreshLivePage, setLiveState, refreshVariableSetsPanel
+    switchEditPage, livePage, refreshLivePage, setLiveState
 } from './editor-layers.js';
+import {
+    renderSetsPanel, refreshVariableSetsPanel, initSetsPanel, registerSetsCallbacks
+} from './editor-sets.js';
 
 import {
     renderSettings, renderProperties, syncGeometryInputs,
@@ -941,6 +944,7 @@ export function renderAll() {
     if ($('overlay-name')) $('overlay-name').value = state.overlay.name;
     renderSettings();
     renderPageBar();
+    renderSetsPanel();
     syncCanvasUI();
     renderCanvas();
     renderLayers();
@@ -1946,7 +1950,14 @@ export async function load() {
         onHideContextMenu: hideContextMenu
     });
 
+    registerSetsCallbacks({
+        onRenderCanvas: renderCanvas,
+        onSwitchEditPage: switchEditPage,
+        onAddElement: addElement
+    });
+
     initLayersAndPages();
+    initSetsPanel();
     initInspectorEvents();
     initEventListeners();
     syncToggles();
@@ -1977,7 +1988,7 @@ export async function load() {
     state.savedSnapshot = snapshot();
     state.dirty = false;
     updateHistoryUI();
-    setRailTab(['layers', 'pages', 'canvas'].includes(prefs.railTab) ? prefs.railTab : 'layers');
+    setRailTab(['layers', 'pages', 'sets', 'canvas'].includes(prefs.railTab) ? prefs.railTab : 'layers');
 
     const selectId = params.get('select');
     if (selectId && byId(selectId)) setSelection([selectId]);

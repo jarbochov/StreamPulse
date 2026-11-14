@@ -1220,6 +1220,17 @@ function normalizeCustomOverlay(input = {}, idOverride = '', alertTriggers = {})
         .slice(0, 30)
         .map(([key, value]) => [String(key).toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/^_+|_+$/g, '').slice(0, 24), value === true || value === 'true'])
         .filter(([key]) => key));
+    const variableSetTransitions = Object.fromEntries(Object.entries(input.variableSetTransitions && typeof input.variableSetTransitions === 'object' ? input.variableSetTransitions : {})
+        .slice(0, 30)
+        .map(([key, cfg]) => {
+            const setId = String(key).toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/^_+|_+$/g, '').slice(0, 24);
+            if (!setId || !cfg || typeof cfg !== 'object') return null;
+            const transition = ['none', 'fade', 'slide-up', 'flip'].includes(cfg.transition) ? cfg.transition : '';
+            if (!transition) return null;
+            const durationMs = Math.max(50, Math.min(2000, Math.round(Number(cfg.durationMs) || 350)));
+            return [setId, { transition, durationMs }];
+        })
+        .filter(Boolean));
     return {
         id,
         name: String(input.name || id).trim().slice(0, 120) || id,
@@ -1233,6 +1244,7 @@ function normalizeCustomOverlay(input = {}, idOverride = '', alertTriggers = {})
         pages,
         variableSetRotations,
         variableSetFollow,
+        variableSetTransitions,
         elements
     };
 }
@@ -1958,6 +1970,7 @@ function createOverlayService({
                 pages: previous.pages,
                 variableSetRotations: previous.variableSetRotations,
                 variableSetFollow: previous.variableSetFollow,
+                variableSetTransitions: previous.variableSetTransitions,
                 elements: previous.elements
             });
             fs.writeFileSync(historyFile(previous.id), JSON.stringify(list.slice(-customOverlayHistoryLimit)));

@@ -291,6 +291,7 @@ export const state = {
         pages: null,
         variableSetRotations: [],
         variableSetFollow: {},
+        variableSetTransitions: {},
         elements: []
     },
     selectedIds: new Set(),
@@ -632,6 +633,7 @@ export function serializeOverlayForSave() {
         pages: state.overlay.pages,
         variableSetRotations: state.overlay.variableSetRotations || [],
         variableSetFollow: state.overlay.variableSetFollow || {},
+        variableSetTransitions: state.overlay.variableSetTransitions || {},
         elements: state.overlay.elements
     }));
     const srcEls = state.overlay.elements || [];
@@ -852,6 +854,7 @@ export function syncEditorVarRotations(onRender) {
     const overlay = state.overlay;
     const rots = prefs.live ? (overlay?.variableSetRotations || []) : [];
     const follow = prefs.live ? (overlay?.variableSetFollow || {}) : {};
+    const trans = prefs.live ? (overlay?.variableSetTransitions || {}) : {};
     const hasActive = rots.some(r => r && r.enabled !== false && r.setId) || Object.values(follow).some(Boolean);
     if (hasActive && !Array.isArray(state.liveStatus?.variableSets)) {
         ensureEditorVariableSets(() => {
@@ -860,7 +863,7 @@ export function syncEditorVarRotations(onRender) {
             onRender?.();
         });
     }
-    const key = `${overlay?.id || ''}|${JSON.stringify(rots)}|${JSON.stringify(follow)}`;
+    const key = `${overlay?.id || ''}|${JSON.stringify(rots)}|${JSON.stringify(follow)}|${JSON.stringify(trans)}`;
     if (key === lastVarRotationKey) return;
     lastVarRotationKey = key;
     if (!prefs.live || !hasActive) {
@@ -910,6 +913,7 @@ export const snapshot = () => {
         pages: serialized.pages,
         variableSetRotations: serialized.variableSetRotations || [],
         variableSetFollow: serialized.variableSetFollow || {},
+        variableSetTransitions: serialized.variableSetTransitions || {},
         elements: serialized.elements
     });
 };

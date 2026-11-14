@@ -4378,7 +4378,9 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         return false;
       }
       const setObj = sets().find((s) => s.id === setId);
-      return transition(setId, setObj?.rotation, () => {
+      const override = overlay.variableSetTransitions?.[setId];
+      const opts = override?.transition ? override : setObj?.rotation;
+      return transition(setId, opts, () => {
       });
     }
     function triggerPage(pageId) {

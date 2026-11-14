@@ -179,7 +179,9 @@ function createVarRotationEngine({ getOverlay, getSets, getNodes, onResetCycle, 
         const overlay = overlayRef;
         if (!setId || !overlay || !follows(overlay, setId)) { recompute(); return false; }
         const setObj = sets().find(s => s.id === setId);
-        return transition(setId, setObj?.rotation, () => {});
+        const override = overlay.variableSetTransitions?.[setId];
+        const opts = override?.transition ? override : setObj?.rotation;
+        return transition(setId, opts, () => {});
     }
 
     function triggerPage(pageId) {

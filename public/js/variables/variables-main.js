@@ -1,7 +1,7 @@
 // Main controller for Placeholders Reference & Custom Variables Studio
 
 import { api, copyToClipboard, esc, pickImage, state, toast } from './variables-state.js';
-import { bindSetEvents, renderSets } from './variables-sets.js';
+import { bindSetEvents, renderSets, tickSetCountdowns } from './variables-sets.js';
 
 const $ = id => document.getElementById(id);
 const S = window.OverlayShared;
@@ -310,9 +310,16 @@ function markdown() {
     return md;
 }
 
+async function refreshOverlaysSummary() {
+    try {
+        const list = await api('/api/custom-overlays');
+        if (Array.isArray(list)) state.overlays = list;
+    } catch { /* overlay summary is optional */ }
+}
+
 export async function loadAllVars() {
     try {
-        const res = await api('/api/variables');
+        const [res] = await Promise.all([api('/api/variables'), refreshOverlaysSummary()]);
         state.customVars = res.variables || [];
         state.variableSets = res.sets || [];
         state.status.customVars = state.customVars;
@@ -322,6 +329,36 @@ export async function loadAllVars() {
     } catch (e) {
         toast('Failed to load variables: ' + e.message, 'error');
     }
+}
+
+function connectVariablesWs() {
+    if (typeof WebSocket !== 'function') return;
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    let ws;
+    try {
+        ws = new WebSocket(`${proto}//${location.host}`);
+    } catch {
+        return;
+    }
+    ws.addEventListener('message', event => {
+        if (typeof event.data !== 'string' || !event.data.includes('"variables-update"')) return;
+        let msg;
+        try { msg = JSON.parse(event.data); } catch { return; }
+        if (msg?.type !== 'variables-update' || !msg.data) return;
+        if (Array.isArray(msg.data.variables)) {
+            state.customVars = msg.data.variables;
+            state.status.customVars = state.customVars;
+        }
+        if (Array.isArray(msg.data.sets)) {
+            state.variableSets = msg.data.sets;
+        }
+        renderSets();
+        renderVars();
+        renderPlaceholders();
+    });
+    ws.addEventListener('close', () => {
+        setTimeout(connectVariablesWs, 3000);
+    });
 }
 
 function bindEvents() {
@@ -540,6 +577,11 @@ showTab(location.hash.slice(1));
 window.addEventListener('hashchange', () => showTab(location.hash.slice(1)));
 
 loadAllVars();
+connectVariablesWs();
+setInterval(() => {
+    if (document.hidden || document.getElementById('tab-sets')?.hidden) return;
+    tickSetCountdowns();
+}, 1000);
 fetch('/api/status', { cache: 'no-store' }).then(r => r.json()).then(async s => {
     state.status = s;
     if (s.customVars) {

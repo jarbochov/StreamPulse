@@ -231,7 +231,9 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         const candidateActive = normSetId(patch?.activeEntry ?? cur?.activeEntry ?? '');
         const activeEntry = validRosterIds.has(candidateActive) ? candidateActive : '';
 
-        const rotation = normalizeRotation({ ...(cur?.rotation || {}), ...(patch?.rotation || {}) }, validRosterIds);
+        const rawRotation = normalizeRotation({ ...(cur?.rotation || {}), ...(patch?.rotation || {}) }, validRosterIds);
+        // Multi-slot sets (2+ slots) are queue/slot managed rather than single-spotlight timer rotated.
+        const rotation = slotsCount >= 2 ? { ...rawRotation, enabled: false } : rawRotation;
 
         return { id, name, slotsCount, fields, roster, slots, slotNames, slotQueues, activeEntry, rotation, updatedAt: Date.now() };
     }
@@ -769,8 +771,12 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         const cleanId = normSetId(setId);
         const setObj = sets[cleanId];
         if (!setObj) throw new Error('Set not found');
+        if ((setObj.slotsCount || 0) >= 2 && (patch.enabled === true || patch.enabled === 'true' || patch.enabled === 1 || patch.enabled === '1')) {
+            throw new Error('Timed rotation is only available for 0-slot presets and 1-slot sets');
+        }
         const validIds = new Set(setObj.roster.map(r => r.id));
-        setObj.rotation = normalizeRotation({ ...(setObj.rotation || {}), ...patch }, validIds);
+        const nextRot = normalizeRotation({ ...(setObj.rotation || {}), ...patch }, validIds);
+        setObj.rotation = (setObj.slotsCount || 0) >= 2 ? { ...nextRot, enabled: false } : nextRot;
         if (setObj.rotation.enabled && !setObj.rotation.entryId) return startRotation(cleanId);
         saveSets({ saveVarsAlso: false });
         scheduleRotation(cleanId);
@@ -781,7 +787,10 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         const cleanId = normSetId(setId);
         const setObj = sets[cleanId];
         if (!setObj) throw new Error('Set not found');
-        setObj.rotation = { ...normalizeRotation(setObj.rotation), enabled: true };
+        if ((setObj.slotsCount || 0) >= 2) {
+            throw new Error('Timed rotation is only available for 0-slot presets and 1-slot sets');
+        }
+        setObj.rotation = { ...normalizeRotation(setObj.rotation), enabled: true, changedAt: Date.now() };
         scheduleRotation(cleanId);
         if (!setObj.rotation.entryId) return stepRotation(cleanId, 1);
         saveSets({ saveVarsAlso: false });

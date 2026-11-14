@@ -805,6 +805,13 @@ function createOverlayRoutes({
                     currentPage = snap.page || '';
                     currentPageName = snap.name || snap.page || '';
                 }
+                const varRefs = new Set();
+                for (const el of (elements || [])) {
+                    const hay = `${el.content || ''} ${(el.items || []).join(' ')} ${el.src || ''} ${el.embedUrl || ''} ${el.qrText || ''} ${el.progress?.label || ''}`;
+                    for (const m of hay.matchAll(/\{\{var\.([a-z0-9_]+)/gi)) {
+                        varRefs.add(m[1].toLowerCase());
+                    }
+                }
                 return {
                     id, name, revision, updatedAt, createdAt, canvas,
                     elementCount: (elements || []).length,
@@ -812,7 +819,9 @@ function createOverlayRoutes({
                     pageCount: pages?.enabled ? pages.items.length : 0,
                     currentPage,
                     currentPageName,
-                    hasControls: !!(pages?.enabled || (elements || []).some(e => ['slideshow', 'video', 'cutout', 'speaker-badge'].includes(e.type) || (e.type === 'embed' && /youtube\.com|youtu\.be/i.test(e.src || ''))))
+                    hasControls: !!(pages?.enabled || (elements || []).some(e => ['slideshow', 'video', 'cutout', 'speaker-badge'].includes(e.type) || (e.type === 'embed' && /youtube\.com|youtu\.be/i.test(e.src || '')))),
+                    variableSetFollow: o.variableSetFollow || {},
+                    varRefs: [...varRefs]
                 };
             }));
             return true;

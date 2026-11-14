@@ -12,7 +12,7 @@
 <body>
     <div class="app">
         <header class="topbar">
-            <a class="back" href="/custom-overlays.html" title="Back to custom overlays"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:0.25rem;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>Overlays</a>
+            <a class="back" href="/custom-overlays.html" title="Back to custom overlays"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg><span>Overlays</span></a>
             <input id="overlay-name" class="name-input" aria-label="Overlay name" placeholder="Overlay name" maxlength="120" autocomplete="off">
             <span id="dirty" class="dirty-badge" hidden>Unsaved changes</span>
             <span class="spacer"></span>
@@ -35,12 +35,14 @@
             <div class="rail-tabs" role="tablist">
                 <button role="tab" id="tab-layers" data-rail-tab="layers" aria-selected="true">Layers <small id="layer-count"></small></button>
                 <button role="tab" id="tab-pages" data-rail-tab="pages" aria-selected="false">Pages <small id="page-count"></small></button>
+                <button role="tab" id="tab-sets" data-rail-tab="sets" aria-selected="false">Sets <small id="sets-count"></small></button>
                 <button role="tab" id="tab-canvas" data-rail-tab="canvas" aria-selected="false">Canvas</button>
             </div>
             <section class="layers-section" id="layers-panel" aria-label="Layers">
                 <div id="layers"></div>
             </section>
             <section class="pages-section" id="pages-panel" aria-label="Pages" hidden></section>
+            <section class="sets-section" id="sets-panel" aria-label="Variable Sets" hidden></section>
             <section class="canvas-settings-section" id="settings-sect" aria-label="Canvas settings" hidden>
                 <div class="sect-body" id="settings"></div>
             </section>
