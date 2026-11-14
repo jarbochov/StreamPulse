@@ -159,27 +159,24 @@ export function renderDashboard(data, layoutManager) {
     setText('timers-countdowns', data.timers?.countdowns || 0);
     setText('timers-stopwatches', data.timers?.stopwatches || 0);
 
-    const primaryTimer = data.timers?.primary || null;
-    const primaryLine = $('timer-primary-line');
-    const timerToggleBtn = $('timer-toggle-btn');
-    const timerResetBtn = $('timer-reset-btn');
-    if (primaryLine) primaryLine.hidden = !primaryTimer;
-    if (timerToggleBtn) {
-        timerToggleBtn.hidden = !primaryTimer;
-        const isRunning = primaryTimer?.state === 'running';
-        timerToggleBtn.textContent = isRunning ? 'Pause' : 'Start';
-        timerToggleBtn.classList.toggle('on', isRunning);
-    }
-    if (timerResetBtn) timerResetBtn.hidden = !primaryTimer;
-    if (primaryTimer) {
-        setText('timer-primary-label', primaryTimer.label || 'Timer');
-        setText('timer-primary-clock', primaryTimer.clock || '00:00');
-        const stateEl = $('timer-primary-state');
-        if (stateEl) {
-            stateEl.textContent = primaryTimer.state || 'idle';
-            stateEl.className = primaryTimer.state === 'running' ? 'pill is-accent' : 'pill';
-        }
-    }
+    const timerItems = Array.isArray(data.timers?.items)
+        ? data.timers.items
+        : (data.timers?.primary ? [data.timers.primary] : []);
+    setHtml('timers-list', timerItems.map(timer => {
+        const isRunning = timer.state === 'running';
+        const safeId = escapeHtml(timer.id);
+        const safeLabel = escapeHtml(timer.label || timer.id);
+        const stateCls = isRunning ? 'pill is-accent' : 'pill';
+        return `<div class="timer-row">`
+            + `<span class="timer-name" title="${safeLabel}">${safeLabel}</span>`
+            + `<span class="timer-clock">${escapeHtml(timer.clock || '00:00')}</span>`
+            + `<span class="${stateCls}">${escapeHtml(timer.state || 'idle')}</span>`
+            + `<span class="timer-actions">`
+            + `<button type="button" class="btn xs${isRunning ? ' on' : ''}" data-timer-action="toggle" data-timer-id="${safeId}" title="${isRunning ? 'Pause timer' : 'Start timer'}" aria-label="${isRunning ? 'Pause' : 'Start'} ${safeLabel}">${isRunning ? 'Pause' : 'Start'}</button>`
+            + `<button type="button" class="btn xs" data-timer-action="reset" data-timer-id="${safeId}" title="Reset timer" aria-label="Reset ${safeLabel}"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></button>`
+            + `</span>`
+            + `</div>`;
+    }).join(''));
 
     const musicEnabled = !!data.music?.enabled;
     const musicState = data.music?.state || 'stopped';
@@ -258,8 +255,6 @@ export function renderDashboard(data, layoutManager) {
     return {
         sessionActive,
         alertsPaused,
-        alertsMuted,
-        primaryTimerId: primaryTimer?.id || null,
-        primaryTimerRunning: primaryTimer?.state === 'running'
+        alertsMuted
     };
 }

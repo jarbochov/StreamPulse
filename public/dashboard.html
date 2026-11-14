@@ -88,7 +88,14 @@
         .btn.danger { border-color: color-mix(in srgb, var(--danger) 31%, transparent); }
         .btn.danger:hover { border-color: var(--danger); background: var(--danger-soft-bg); }
         .btn.sm { padding: .3rem .55rem; font-size: .75rem; }
+        .btn.xs { padding: .18rem .42rem; font-size: .7rem; line-height: 1.2; border-radius: 5px; }
+        .btn.xs .ico { width: 11px; height: 11px; vertical-align: -1px; }
         .btn.on { border-color: var(--accent-strong); color: var(--accent); background: var(--accent-bg); }
+        .timers-list { display: flex; flex-direction: column; gap: .3rem; margin-top: .45rem; max-height: 180px; overflow-y: auto; }
+        .timer-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: .4rem; padding: .3rem .45rem; background: var(--bg-inset); border: 1px solid var(--bg-raised); border-radius: 6px; font-size: .78rem; }
+        .timer-row .timer-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+        .timer-row .timer-clock { font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: .75rem; }
+        .timer-row .timer-actions { display: inline-flex; align-items: center; gap: .25rem; }
         .ico { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; flex-shrink: 0; }
         details.danger-zone { margin-top: .5rem; border-top: 1px solid var(--bg-raised); padding-top: .45rem; }
         details.danger-zone summary { cursor: pointer; color: var(--text-muted); font-size: .75rem; margin-bottom: .45rem; }
@@ -282,14 +289,8 @@
                 <div class="stat"><div class="value" id="timers-countdowns">0</div><div class="label">Countdowns</div></div>
                 <div class="stat"><div class="value" id="timers-stopwatches">0</div><div class="label">Stopwatches</div></div>
             </div>
-            <div class="detail-line" id="timer-primary-line" style="margin-top:.45rem;align-items:center;" hidden>
-                <strong id="timer-primary-label">—</strong>
-                <span id="timer-primary-clock" style="font-variant-numeric:tabular-nums;">—</span>
-                <span class="pill" id="timer-primary-state">idle</span>
-            </div>
+            <div class="timers-list" id="timers-list"></div>
             <div class="link-grid">
-                <button type="button" class="btn sm" id="timer-toggle-btn" data-action="timer-toggle" hidden>Start</button>
-                <button type="button" class="btn sm" id="timer-reset-btn" data-action="timer-reset" hidden>Reset</button>
                 <a class="btn sm" href="/timers-editor.html">Manager</a>
                 <a class="btn sm" href="/timer-url-wizard.html">Builder</a>
             </div>

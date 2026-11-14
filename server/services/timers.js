@@ -654,25 +654,30 @@ function createTimerService({
         return true;
     }
 
+    function formatTimerSummary(snap) {
+        return {
+            id: snap.id,
+            label: snap.label || snap.id,
+            kind: snap.kind,
+            state: snap.state,
+            clock: snap.formattedRemaining || snap.formattedElapsed || '00:00'
+        };
+    }
+
     function getStats() {
         const timersList = Object.values(timerStore.timers);
-        const primaryRaw = timersList.find(t => t.state === 'running')
-            || timersList.find(t => t.state === 'paused')
-            || timersList[0]
+        const items = timersList.map(t => formatTimerSummary(buildTimerSnapshot(t)));
+        const primary = items.find(t => t.state === 'running')
+            || items.find(t => t.state === 'paused')
+            || items[0]
             || null;
-        const primarySnap = primaryRaw ? buildTimerSnapshot(primaryRaw) : null;
         return {
             total: timersList.length,
             countdowns: timersList.filter(t => t.kind === 'countdown').length,
             stopwatches: timersList.filter(t => t.kind === 'stopwatch').length,
             running: timersList.filter(t => t.state === 'running').length,
-            primary: primarySnap ? {
-                id: primarySnap.id,
-                label: primarySnap.label || primarySnap.id,
-                kind: primarySnap.kind,
-                state: primarySnap.state,
-                clock: primarySnap.formattedRemaining || primarySnap.formattedElapsed || '00:00'
-            } : null
+            primary,
+            items
         };
     }
 

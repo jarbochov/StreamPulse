@@ -10,7 +10,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - **Analytics**: Period comparisons, activity heatmaps, milestone estimates, and remembered views and date ranges.
 
 ### Changed
-- **Dashboard**: Modularize into `public/js/dashboard/`, pack compact 12-column rows (`grid-auto-flow: dense`), auto-hide disabled modules, add a toolbar **Start Session** button when offline, add a **Live Ops** view preset toggle, add quick Alerts Pause/Mute/Skip buttons and primary Timer Start/Pause/Reset controls, make Active Chatters clickable for dossiers, and remember Diagnostics/Danger zone open state.
+- **Dashboard**: Modularize into `public/js/dashboard/`, pack compact 12-column rows (`grid-auto-flow: dense`), auto-hide disabled modules, add a toolbar **Start Session** button when offline, add a **Live Ops** view preset toggle, add quick Alerts Pause/Mute/Skip buttons and per-timer Start/Pause/Reset controls, make Active Chatters clickable for dossiers, and remember Diagnostics/Danger zone open state.
 - **Sessions & Overlays pages**: Persist the selected session, detail tab, and overlay filter in `localStorage`, and improve narrow-screen responsiveness on `.chat-search` and overlay cards.
 - **Alerts replay**: Support replaying the last `1`–`50` shown alerts in order via `POST` or `GET /api/alerts/replay?count=N` (defaults to `1`).
 

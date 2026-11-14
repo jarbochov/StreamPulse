@@ -15,9 +15,7 @@ let lastOk = 0;
 let liveState = {
     sessionActive: true,
     alertsPaused: false,
-    alertsMuted: false,
-    primaryTimerId: null,
-    primaryTimerRunning: false
+    alertsMuted: false
 };
 
 async function call(url, message) {
@@ -89,17 +87,6 @@ const actions = {
         try { await call('/api/alerts/queue/skip', 'Skipped active alert'); refresh(); }
         catch { showToast('Skip failed'); }
     },
-    async 'timer-toggle'() {
-        if (!liveState.primaryTimerId) return;
-        const msg = liveState.primaryTimerRunning ? 'Timer paused' : 'Timer started';
-        try { await call(`/api/timers/${encodeURIComponent(liveState.primaryTimerId)}/toggle`, msg); refresh(); }
-        catch { showToast('Timer action failed'); }
-    },
-    async 'timer-reset'() {
-        if (!liveState.primaryTimerId) return;
-        try { await call(`/api/timers/${encodeURIComponent(liveState.primaryTimerId)}/reset`, 'Timer reset'); refresh(); }
-        catch { showToast('Timer reset failed'); }
-    },
     async shutdown() {
         if (!await window.StreamPulse.confirm('Shut Down Server', 'Shut down the server? This archives data and stops the process.', { danger: true, confirmText: 'Shut Down' })) return;
         try {
@@ -133,7 +120,17 @@ const actions = {
     }
 };
 
-document.addEventListener('click', event => {
+document.addEventListener('click', async event => {
+    const timerBtn = event.target.closest('[data-timer-action]');
+    if (timerBtn) {
+        const id = timerBtn.dataset.timerId;
+        const act = timerBtn.dataset.timerAction;
+        if (!id || (act !== 'toggle' && act !== 'reset')) return;
+        const msg = act === 'reset' ? 'Timer reset' : (timerBtn.classList.contains('on') ? 'Timer paused' : 'Timer started');
+        try { await call(`/api/timers/${encodeURIComponent(id)}/${act}`, msg); refresh(); }
+        catch { showToast(act === 'reset' ? 'Timer reset failed' : 'Timer action failed'); }
+        return;
+    }
     const action = event.target.closest('[data-action]')?.dataset.action;
     if (action && actions[action]) actions[action]();
 });
