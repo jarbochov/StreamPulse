@@ -32,7 +32,7 @@ import {
 
 import {
     renderSettings, renderProperties, syncGeometryInputs,
-    initInspectorEvents, registerInspectorCallbacks, loadAssetTags
+    initInspectorEvents, registerInspectorCallbacks, loadAssetTags, renderGroupBadgePreview
 } from './editor-inspector.js';
 import { loadStylePresets } from './editor-style-presets.js';
 import { alignmentOffset } from '../editor-geometry.js';
@@ -956,6 +956,11 @@ export function renderAll() {
 }
 
 // ---- Live Status & Alert Preview --------------------------------------------------
+function refreshOpenGroupBuilder() {
+    const element = primary();
+    if ($('ig-fields-dialog')?.open && element) renderGroupBadgePreview(element);
+}
+
 export async function refreshLiveStatus() {
     try {
         const response = await fetch('/api/status', { cache: 'no-store' });
@@ -975,7 +980,10 @@ export async function refreshLiveStatus() {
         if (groupStripBtn) groupStripBtn.hidden = !vsEnabled;
         if (!vsEnabled && prefs.railTab === 'sets') setRailTab('layers');
         if (shared.loadLiveExtras) await shared.loadLiveExtras(state.liveStatus, state.overlay.elements);
-        if (prefs.live && liveSignature() !== before) renderCanvas();
+        if (liveSignature() !== before) {
+            if (prefs.live) renderCanvas();
+            refreshOpenGroupBuilder();
+        }
     } catch {}
 }
 
@@ -1014,8 +1022,14 @@ export function connectAlertPreview() {
             const groupStripBtn = $('menu-add-image-group');
             if (groupStripBtn) groupStripBtn.hidden = !vsEnabled;
             if (!vsEnabled && prefs.railTab === 'sets') setRailTab('layers');
-            if (rotated) return;
-            if (prefs.live && liveSignature() !== before) renderCanvas();
+            if (rotated) {
+                refreshOpenGroupBuilder();
+                return;
+            }
+            if (liveSignature() !== before) {
+                if (prefs.live) renderCanvas();
+                refreshOpenGroupBuilder();
+            }
             refreshVariableSetsPanel();
             return;
         }

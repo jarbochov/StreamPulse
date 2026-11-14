@@ -251,6 +251,7 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         const element = { id: 'speaker', type: 'speaker-badge', speakerBadge: { speaker: { name: 'Original' }, audio: { inputName: 'Mic/Aux', thresholdDb: -36, holdMs: 280 } } };
         const context = vm.createContext({
             speakerStates: new Map(), currentOverlay: { elements: [element] }, elementNodes: new Map([['speaker', {}]]),
+            effectiveStatus: () => ({ customVars: [] }),
             params: new URLSearchParams(), shared: { renderSpeakerBadge: (node, element, options) => renders.push({ name: element.speakerBadge.speaker.name, ...options }) },
             setTimeout: callback => { callbacks.set(++seq, callback); return seq; },
             clearTimeout: id => callbacks.delete(id)

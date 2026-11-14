@@ -633,7 +633,7 @@
                     method: 'GET', path: '/api/variables',
                     desc: 'List all custom variables and counters',
                     companion: true,
-                    details: 'Returns { variables: [...] } with every variable (type: text, counter, list), current value, and update timestamp. Used by overlays, alerts, chat bot, and Companion.'
+                    details: 'Returns variables, groups (including empty groups), sets and variableSetsEnabled. Variables support number, text, list, image, toggle, color, template and font. Legacy counter records remain supported. Ordinary variables may have an organization-only group. Number values stay numeric; overlay formatting never changes them.'
                 },
                 {
                     method: 'GET', path: '/api/variables/:name',
@@ -644,26 +644,37 @@
                     method: 'PUT', path: '/api/variables/:name',
                     desc: 'Create or update a variable or counter',
                     companion: true,
-                    details: 'Sets the value and optional properties. Body: { type: "counter"|"text"|"list", value: any, initial?: number, items?: string[], mode?: "random"|"sequential" }',
+                    details: 'PUT or POST sets value and optional properties: type (number|text|list|image|toggle|color|template|font; legacy counter accepted), value, items, mode, group. Numbers have resetValue (default 0), optional min/max/precision (0–12; null clears), and step (positive; default 1; at least 10^-precision when precision is set). Values and reset values clamp to bounds and round to precision. Bounds must contain a representable value. Invalid options reject the change. Partial updates retain numeric options, group membership and bindings. Font values are CSS font families.',
                     body: '{ "value": "New value" }'
+                },
+                {
+                    method: 'POST', path: '/api/variables/groups/manage',
+                    desc: 'Create, rename or update a Variable Group',
+                    details: 'Body: name, variables (ordinary variable names), optional createOnly (reject existing groups), or originalName (rename/update an existing group). Empty membership creates or preserves an empty group. Selected variables move to the group; omitted current members become ungrouped. Variable names, values and bindings stay unchanged. Missing groups, duplicate names and invalid members reject the entire edit. Renaming requires bookmarked group links to use the new name.'
                 },
                 {
                     method: 'POST', path: '/api/variables/:name/increment',
                     desc: 'Increment a counter variable',
                     companion: true,
-                    details: 'Increases the counter by amount (default: 1). Optional JSON body: { "amount": 1 }'
+                    details: 'POST or GET increments a Number by amount, or its saved step when omitted (default 1). Values clamp and round. JSON body or query: amount. Legacy counters remain supported.'
                 },
                 {
                     method: 'POST', path: '/api/variables/:name/decrement',
                     desc: 'Decrement a counter variable',
                     companion: true,
-                    details: 'Decreases the counter by amount (default: 1). Optional JSON body: { "amount": 1 }'
+                    details: 'POST or GET decrements a Number by amount, or its saved step when omitted. Values clamp and round. JSON body or query: amount. Legacy counters remain supported.'
                 },
                 {
                     method: 'POST', path: '/api/variables/:name/reset',
                     desc: 'Reset a counter variable to its initial value',
                     companion: true,
-                    details: 'Resets the counter back to its configured initial value (default: 0).'
+                    details: 'POST or GET resets a Number to its explicit resetValue. Legacy counters retain their initial value behavior.'
+                },
+                {
+                    method: 'POST', path: '/api/variables/:name/set',
+                    desc: 'Set a Number value with counter controls',
+                    companion: true,
+                    details: 'POST JSON { "value": 12.5 } or GET ?value=12.5 sets the numeric value while retaining bounds, precision, step, reset value and group. Values clamp to bounds. General variable updates still use PUT/POST /api/variables/:name.'
                 },
                 {
                     method: 'POST', path: '/api/variables/:name/roll',

@@ -281,7 +281,7 @@ function readMemberFieldValue(member, key, fallbackLabel = '') {
 }
 
 function createStyledFieldNode(spec, text, ctx) {
-    const { st, baseSize, isSpotlightLead, cfg, labelIdx, subIdx } = ctx;
+    const { st, baseSize, isSpotlightLead, cfg, labelIdx, subIdx, status } = ctx;
     const span = document.createElement('span');
     let roleCls = 'sp-image-group-accent';
     if (spec.role === 'title' || (labelIdx === 0 && spec.role !== 'subtitle' && spec.role !== 'badge' && spec.role !== 'caption')) {
@@ -300,7 +300,8 @@ function createStyledFieldNode(spec, text, ctx) {
     const roleFont = (spec.role === 'subtitle' || spec.role === 'caption')
         ? String(cfg.subFontFamily || '').trim()
         : ((spec.role === 'badge' || spec.role === 'accent') ? String(cfg.badgeFontFamily || '').trim() : '');
-    const resolvedFont = spec.fontFamily || roleFont || st.fontFamily || 'sans-serif';
+    const resolvedFont = resolveColorToken(spec.fontFamily, status, {})
+        || resolveColorToken(roleFont, status, {}) || st.fontFamily || 'sans-serif';
     if (typeof loadGoogleFont === 'function') loadGoogleFont(resolvedFont);
 
     const roleFactor = FIELD_ROLE_SCALE[spec.role] ?? 0.9;
@@ -748,6 +749,7 @@ function renderImageGroupStrip(container, element, status, options = {}) {
         );
 
         const card = document.createElement('div');
+        card.dataset.groupEntryId = item.id;
         card.className = `sp-image-group-item${isFramed && !isChip ? ' sp-image-group-card' : ''}${isChip ? ' sp-image-group-chip' : ''}${isBanner ? ' sp-image-group-banner' : ''}${isSpotlightLead ? ' sp-image-group-lead' : ''}${cfg.textWrap === 'wrap' ? ' is-wrap' : ''}`;
         card.style.position = 'relative';
         card.style.boxSizing = 'border-box';
@@ -835,7 +837,7 @@ function renderImageGroupStrip(container, element, status, options = {}) {
             const node = isImgField
                 ? createStyledImageFieldNode(resolvedSpec, resolvedVal, { isSpotlightLead })
                 : createStyledFieldNode(resolvedSpec, resolvedVal, {
-                    st, baseSize: baseSizePx, isSpotlightLead, cfg: memberCfg,
+                    st, baseSize: baseSizePx, isSpotlightLead, cfg: memberCfg, status,
                     labelIdx: resolvedSpec.role === 'title' ? labelCount++ : -1,
                     subIdx: resolvedSpec.role === 'subtitle' ? subCount++ : -1
                 });

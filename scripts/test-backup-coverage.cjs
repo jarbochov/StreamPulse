@@ -28,6 +28,7 @@ test('Backup coverage includes all feature data files and reloads in-memory serv
         'chatbot-usage.json',
         'quotes.json',
         'variables.json',
+        'variable-groups.json',
         'randomizer-presets.json',
         'randomizer-button-presets.json',
         'randomizer-quote-presets.json',

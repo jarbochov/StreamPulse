@@ -6,13 +6,14 @@ import {
     $, esc, clamp, getPath, setPath, hasText, isLine, state, prefs, savePrefs,
     CANVAS_PRESETS, SYSTEM_FONTS, GOOGLE_FONT_OPTIONS, LIMITS, ICON, TYPE_META,
     ALERT_TRIGGER_LABELS, ALERT_TRIGGER_META, triggerIcon, TEXT_TYPES, FILL_TEXT_TYPES, LOCAL_MEDIA, selectedElements,
-    primary, byId, boundsOf, displayName, changed, toast, alertSample, variableContext,
+    primary, byId, boundsOf, displayName, changed, toast, alertSample, variableContext, effectiveLiveStatus,
     pagesOn, statesModeOn, isBasePage, hasPageOverride, resetElementPageState, extractElementState,
     alertLookSelection, previewAlertElement, uid, defaultImageGroupConfig,
     isImageGroup, hasRichTextEffects, resolveImageGroupFields, syncLegacyGroupFields,
     IMAGE_GROUP_FIELD_ROLES, IMAGE_GROUP_SLOTS, IMAGE_GROUP_FIELD_ALIGNS, normalizeGroupFieldItem
 } from './editor-state.js';
 import { F, bindFields } from './editor-form.js';
+import { renderBadgePreview } from './editor-badge-preview.js';
 import {
     renderCanvas, renderSelectionUI, syncCanvasUI, fitView,
     scheduleEditorCutoutMask, updateEditorCutoutMask
@@ -79,7 +80,7 @@ export const RERENDER_PATHS = new Set([
     'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.showStatusBadge',
     'speakerBadge.reaction.visualizer', 'speakerBadge.reaction.highlightBorder', 'speakerBadge.reaction.dimWhenIdle',
     'speakerBadge.autoSize',
-    'imageGroup.setId', 'imageGroup.onlySelected', 'imageGroup.showLabels', 'imageGroup.layout',
+    'imageGroup.setId', 'imageGroup.onlySelected', 'imageGroup.showLabels', 'imageGroup.showAvatar', 'imageGroup.layout',
     'imageGroup.shape', 'imageGroup.wrap', 'imageGroup.fallbackMode', 'imageGroup.maxItems',
     'imageGroup.avatarBorderWidth', 'imageGroup.cardFrame', 'imageGroup.cardBorderWidth',
     'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta',
@@ -141,10 +142,13 @@ export function renderSettings() {
 // ---- Inspector Sections -----------------------------------------------------------
 export function fontOptions(current) {
     const uploaded = (shared.assetFonts || []).map(font => [`'${font.family}', sans-serif`, font.family]);
-    const known = [...SYSTEM_FONTS, ...GOOGLE_FONT_OPTIONS, ...uploaded];
+    const variables = (state.liveStatus?.customVars || []).filter(v => v.type === 'font' && !v.hidden && !v.setId)
+        .map(v => [`{{var.${v.name}|sans-serif}}`, `${v.group ? `${v.group} / ` : ''}${v.name}`]);
+    const known = [...SYSTEM_FONTS, ...GOOGLE_FONT_OPTIONS, ...uploaded, ...variables];
     const custom = known.some(([v]) => v === current) ? '' : `<option value="${esc(current)}" selected>${esc(String(current).split(',')[0].replace(/['"]/g, ''))} (custom)</option>`;
     const opt = ([v, l]) => `<option value="${esc(v)}" style="font-family:${esc(v)}"${v === current ? ' selected' : ''}>${esc(l)}</option>`;
-    return `${custom}${SYSTEM_FONTS.map(opt).join('')}${uploaded.length ? `<optgroup label="Uploaded fonts">${uploaded.map(opt).join('')}</optgroup>` : ''}<optgroup label="Google Fonts">${GOOGLE_FONT_OPTIONS.map(opt).join('')}</optgroup>`;
+    const varOpt = ([v, l]) => `<option value="${esc(v)}"${v === current ? ' selected' : ''}>${esc(l)}</option>`;
+    return `${custom}${variables.length ? `<optgroup label="Font variables">${variables.map(varOpt).join('')}</optgroup>` : ''}${SYSTEM_FONTS.map(opt).join('')}${uploaded.length ? `<optgroup label="Uploaded fonts">${uploaded.map(opt).join('')}</optgroup>` : ''}<optgroup label="Google Fonts">${GOOGLE_FONT_OPTIONS.map(opt).join('')}</optgroup>`;
 }
 
 export function inheritFontOptions(current, inheritLabel = 'Use base font') {
@@ -635,17 +639,22 @@ export function mediaSourceBlock(el) {
         body += sets.length
             ? F.select('imageGroup.setId', 'Variable Set', setId, [['', 'Choose a set…'], ...setOptions])
             : '<p class="hint">Create a Variable Set in Variables &amp; Placeholders and toggle entries <strong>In Group</strong> to populate this strip.</p>';
-        if (sets.length) {
-            body += F.select('imageGroup.imageField', 'Avatar / image field', ig.imageField || 'image', imageFieldOpts);
-        } else {
+        body += F.check('imageGroup.showAvatar', 'Show primary image (optional)', ig.showAvatar !== false);
+        if (!sets.length) {
             body += F.text('imageGroup.setId', 'Variable Set ID', setId, 'placeholder="e.g. guests"');
-            body += F.text('imageGroup.imageField', 'Image field key', ig.imageField || 'image', 'placeholder="image"');
+        }
+        if (ig.showAvatar !== false) {
+            body += sets.length
+                ? F.select('imageGroup.imageField', 'Primary image field', ig.imageField || 'image', imageFieldOpts)
+                : F.text('imageGroup.imageField', 'Image field key', ig.imageField || 'image', 'placeholder="image"');
+            body += F.select('imageGroup.fallbackMode', 'Missing images', ig.fallbackMode || 'skip', [
+                ['skip', 'Skip entries without images'],
+                ['initials', 'Show initials badge']
+            ]);
+        } else {
+            body += '<p class="hint">Text-only stacks need no primary image field. Additional image/icon fields remain available in the Badge Builder.</p>';
         }
         body += F.check('imageGroup.onlySelected', 'Filter to selected roster entry only', ig.onlySelected === true);
-        body += F.select('imageGroup.fallbackMode', 'Missing images', ig.fallbackMode || 'skip', [
-            ['skip', 'Skip entries without images'],
-            ['initials', 'Show initials badge']
-        ]);
         body += `<div class="grid2">${F.select('imageGroup.sortOrder', 'Order', ig.sortOrder || 'roster', [
             ['roster', 'Roster order'],
             ['reverse', 'Reversed'],
@@ -709,8 +718,9 @@ export function mediaSourceBlock(el) {
     return body;
 }
 
-export function imageGroupLayoutSection(el) {
+export function imageGroupLayoutSection(el, inBuilder = false) {
     if (!isImageGroup(el)) return '';
+    if (!inBuilder) return F.section('igLayout', 'Group strip layout', '<p class="hint">Badge sizing, placement and strip spacing are managed together in the Builder.</p><button type="button" class="open-ig-fields-trigger" data-open-ig-tab="strip">Open Builder · Strip</button>');
     const ig = el.imageGroup || {};
     const st = el.style || {};
     const layout = ig.layout || 'row';
@@ -743,42 +753,12 @@ export function imageGroupLayoutSection(el) {
         body += F.number('imageGroup.overlap', 'Overlap amount (px)', ig.overlap ?? 16, { min: 4, max: 60, step: 2 });
     }
 
-    body += '<div class="sub-head">Avatar Size &amp; Ratio</div>';
-    body += F.check('imageGroup.showAvatar', 'Show avatar / image', ig.showAvatar !== false);
-    if (ig.showAvatar !== false) {
-        body += `<div class="grid2">${F.number('imageGroup.size', 'Image size (px)', ig.size ?? 56, { min: 16, max: 400, step: 2 })}${F.select('imageGroup.aspectRatio', 'Frame ratio', ig.aspectRatio || '1:1', [
-            ['1:1', 'Square (1:1)'],
-            ['4:3', 'Wide (4:3)'],
-            ['16:9', 'Cinema (16:9)'],
-            ['3:4', 'Portrait (3:4)'],
-            ['21:9', 'Banner (21:9)']
-        ])}</div>`;
-    }
-
-    const widthMode = ig.cardWidthMode || (layout === 'banners' ? 'full' : 'auto');
-    body += '<div class="sub-head">Member Badge Size &amp; Wrapping</div>';
-    body += F.select('imageGroup.cardWidthMode', 'Badge width mode', widthMode, IG_WIDTH_MODES);
-    if (widthMode === 'fixed') {
-        body += `<div class="grid2">${F.number('imageGroup.cardWidth', 'Badge width (px)', ig.cardWidth ?? 240, { min: 60, max: 1600, step: 4 })}${F.number('imageGroup.cardMinHeight', 'Min height (px)', ig.cardMinHeight ?? 0, { min: 0, max: 800, step: 2 })}</div>`;
-    } else {
-        body += F.number('imageGroup.cardMinHeight', 'Min badge height (px)', ig.cardMinHeight ?? 0, { min: 0, max: 800, step: 2 });
-    }
-    if (ig.showLabels) {
-        body += `<div class="grid2">${ig.showAvatar !== false ? F.select('imageGroup.cardAlign', 'Badge Y align', ig.cardAlign || 'center', IG_CARD_ALIGNS) : '<span></span>'}${F.select('imageGroup.textWrap', 'Text wrap', ig.textWrap === 'wrap' ? 'wrap' : 'truncate', [['truncate', 'Truncate (...)'], ['wrap', 'Wrap multi-line']])}</div>`;
-    }
-
     body += '<div class="sub-head">Spacing &amp; Gaps</div>';
     body += `<div class="grid2">${layout === 'overlap' ? '<span></span>' : F.number('imageGroup.gap', 'Item gap (px)', gapVal, { min: 0, max: 80, step: 2 })}${F.number('imageGroup.rowGap', 'Row gap (px)', ig.rowGap ?? gapVal, { min: 0, max: 120, step: 2 })}</div>`;
-    if (ig.showLabels) {
-        body += `<div class="grid2">${F.number('imageGroup.innerGap', 'Avatar to text gap', ig.innerGap ?? 8, { min: 0, max: 60, step: 1 })}${F.number('imageGroup.fieldGap', 'Field line gap', ig.fieldGap ?? 2, { min: 0, max: 40, step: 1 })}</div>`;
-        body += '<div class="sub-head">Text Placement</div>';
-        body += `<div class="grid2">${F.select('imageGroup.labelPosition', 'Placement', ig.labelPosition || 'below', IG_PLACEMENTS)}${F.select('imageGroup.textAlign', 'Text align', ig.textAlign || 'auto', IG_TEXT_ALIGNS)}</div>`;
-        body += '<div class="field"><button type="button" class="open-ig-fields-trigger">Arrange Badge Zones &amp; Preview…</button></div>';
-    }
 
     body += '<div class="sub-head">Strip Alignment in Box</div>';
     body += `<div class="grid2">${F.seg('style.textAlign', 'Align X', st.textAlign || 'left', [['left', 'Align left', ICON.textLeft], ['center', 'Center', ICON.textCenter], ['right', 'Align right', ICON.textRight]])}${F.seg('style.verticalAlign', 'Align Y', st.verticalAlign || 'top', [['top', 'Align top', ICON.vTop], ['middle', 'Middle', ICON.vMiddle], ['bottom', 'Align bottom', ICON.vBottom]])}</div>`;
-    return F.section('igLayout', 'Group strip layout & spacing', body);
+    return F.section('igStripArrangement', 'Strip arrangement & spacing', body);
 }
 
 export function imageGroupStyleSections(el) {
@@ -845,7 +825,7 @@ export function imageGroupStyleSections(el) {
         lblBody += F.color('imageGroup.delimiterColor', 'Delimiter color', ig.delimiterColor || '', { clear: true, clearValue: '', clearLabel: 'Auto' });
     }
 
-    return F.section('igAvatar', 'Avatar frames', avBody)
+    return (ig.showAvatar !== false ? F.section('igAvatar', 'Primary image frames', avBody) : '')
         + F.section('igCards', 'Member cards & plates', cardBody)
         + F.section('igTextStyle', 'Labels, badges & delimiters', lblBody);
 }
@@ -855,6 +835,26 @@ const IG_MODAL_SAMPLE_CREST = 'data:image/svg+xml,' + encodeURIComponent('<svg x
 const IG_MODAL_SAMPLE_RANK = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#0f172a" stroke="#f59e0b" stroke-width="4"/><polygon points="32,12 38,26 53,27 41,37 45,51 32,43 19,51 23,37 11,27 26,26" fill="#fbbf24"/></svg>');
 
 let igPreviewMemberId = '';
+
+function selectGroupBuilderTab(tab) {
+    const dialog = $('ig-fields-dialog');
+    if (!dialog) return;
+    const selected = tab === 'strip' ? 'strip' : 'badge';
+    dialog.dataset.builderTab = selected;
+    localStorage.setItem('streampulse_badge_builder_tab', selected);
+    dialog.querySelectorAll('[data-ig-builder-tab]').forEach(button => {
+        const active = button.dataset.igBuilderTab === selected;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-selected', String(active));
+        button.tabIndex = active ? 0 : -1;
+    });
+    dialog.querySelectorAll('[data-ig-builder-panel]').forEach(panel => { panel.hidden = panel.dataset.igBuilderPanel !== selected; });
+    const preview = dialog.querySelector('.ig-preview-section');
+    const target = selected === 'strip' ? $('ig-strip-preview') : dialog.querySelector('.ig-builder-left');
+    if (preview && target && preview.parentElement !== target) target.prepend(preview);
+    const label = preview?.querySelector('.ig-presets-label');
+    if (label) label.textContent = selected === 'strip' ? 'Live Strip Preview' : 'Live Badge Preview';
+}
 
 export function resolveImageGroupFieldKind(f, setFields = []) {
     if (!f) return 'text';
@@ -912,11 +912,14 @@ export function renderGroupBadgePreview(el) {
     const previewHost = $('ig-badge-preview');
     if (!previewHost || !isImageGroup(el) || !shared.renderImageGroupStrip) return;
     const ig = el.imageGroup || {};
+    const liveStatus = effectiveLiveStatus() || {};
     const fields = resolveImageGroupFields(ig);
     const { setObj, fields: setFields } = imageGroupFieldMeta(ig);
     const roster = (setObj?.roster || setObj?.entries || []).filter(r => r && r.inGroup !== false);
+    const stripMode = $('ig-fields-dialog')?.dataset.builderTab === 'strip';
     const memberSelect = $('ig-preview-member');
     if (memberSelect) {
+        memberSelect.hidden = stripMode;
         if (igPreviewMemberId !== '__sample__' && !roster.some(r => r.id === igPreviewMemberId)) {
             igPreviewMemberId = roster[0]?.id || '__sample__';
         }
@@ -931,37 +934,13 @@ export function renderGroupBadgePreview(el) {
         : null;
     const previewEl = {
         ...el,
-        width: ig.cardWidthMode === 'fixed' ? Math.min(640, Math.max(120, Number(ig.cardWidth) || 240)) : Math.min(540, Math.max(220, el.width || 320)),
-        height: Math.max(140, Math.min(260, el.height || 180)),
-        imageGroup: {
-            ...ig,
-            onlySelected: false,
-            layout: ig.layout === 'overlap' ? 'row' : (ig.layout || 'row'),
-            maxItems: 1,
-            showOverflowBadge: false,
-            delimiter: ''
-        }
+        width: Math.max(1, Number(el.width) || 320),
+        height: Math.max(1, Number(el.height) || 180),
+        imageGroup: { ...ig }
     };
-    let status = state.liveStatus;
-    if (chosenMember && setObj) {
-        const previewValues = { ...(chosenMember.values || {}) };
-        const fallbackVals = ['Alex Rivera', 'Host', 'LIVE', 'Squad A', '98 pts'];
-        let txtIdx = 0;
-        let imgCount = 0;
-        fields.forEach(f => {
-            const isSetField = setFields.some(sf => sf.key === f.key);
-            const cur = previewValues[f.key];
-            if (!isSetField && (cur === undefined || cur === '')) {
-                const isImg = resolveImageGroupFieldKind(f, setFields) === 'image';
-                previewValues[f.key] = isImg
-                    ? (f.customSrc || (imgCount++ % 2 === 0 ? IG_MODAL_SAMPLE_CREST : IG_MODAL_SAMPLE_RANK))
-                    : fallbackVals[txtIdx++ % fallbackVals.length];
-            }
-        });
-        status = {
-            ...(state.liveStatus || {}),
-            variableSets: (state.liveStatus?.variableSets || []).map(s => (s.id === setObj.id ? { ...s, roster: [{ ...chosenMember, values: previewValues }] } : s))
-        };
+    let status = liveStatus;
+    if ((stripMode || chosenMember) && setObj) {
+        status = liveStatus;
     } else {
         const setId = ig.setId || 'sample';
         const imgKey = ig.imageField || 'image';
@@ -985,8 +964,12 @@ export function renderGroupBadgePreview(el) {
             ...(state.liveStatus || {}),
             variableSets: [{ id: setId, label: 'Sample', fields: setFields, roster: [{ id: 'preview-1', label: 'Alex Rivera', inGroup: true, values }] }]
         };
+        previewEl.imageGroup.onlySelected = false;
+        previewEl.imageGroup.maxItems = 1;
+        previewEl.imageGroup.showOverflowBadge = false;
+        previewEl.imageGroup.delimiter = '';
     }
-    shared.renderImageGroupStrip(previewHost, previewEl, status);
+    renderBadgePreview(previewHost, previewEl, status, stripMode, stripMode ? '' : (chosenMember?.id || 'preview-1'));
 }
 
 export function renderImageGroupFieldsModal() {
@@ -1002,6 +985,9 @@ export function renderImageGroupFieldsModal() {
     const padYVal = ig.cardPaddingY ?? ig.cardPadding ?? 8;
     const baseTextFallback = Number(ig.labelSize) > 0 ? ig.labelSize : '';
     const layerFontPx = Number(el.style?.fontSize) || 15;
+    const stripHost = $('ig-strip-controls');
+    if (stripHost) stripHost.innerHTML = imageGroupLayoutSection(el, true);
+    selectGroupBuilderTab(dlg.dataset.builderTab || localStorage.getItem('streampulse_badge_builder_tab'));
 
     const placeHost = $('ig-modal-placement');
     if (placeHost) {
@@ -1010,15 +996,17 @@ export function renderImageGroupFieldsModal() {
             <label>Badge Y align<select id="ig-modal-card-align">${IG_CARD_ALIGNS.map(([v, l]) => `<option value="${esc(v)}"${(ig.cardAlign || 'center') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
             <label>Base font size (px)<input type="number" id="ig-modal-label-size" value="${esc(baseTextFallback)}" placeholder="Auto (${layerFontPx}px)" min="0" max="72" step="1"></label>
             <label>Width mode<select id="ig-modal-width-mode">${IG_WIDTH_MODES.map(([v, l]) => `<option value="${esc(v)}"${widthMode === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
-            <label>Width (px)<input type="number" id="ig-modal-card-width" value="${esc(ig.cardWidth ?? 240)}" min="60" max="1600" step="4"${widthMode === 'fixed' ? '' : ' disabled'}></label>
+            ${widthMode === 'fixed' ? `<label>Width (px)<input type="number" id="ig-modal-card-width" value="${esc(ig.cardWidth ?? 240)}" min="60" max="1600" step="4"></label>` : ''}
             <label>Min height (px)<input type="number" id="ig-modal-card-height" value="${esc(ig.cardMinHeight ?? 0)}" min="0" max="800" step="2"></label>
             <label>Corner inset (px)<input type="number" id="ig-modal-corner-inset" value="${esc(ig.cornerInset ?? 6)}" min="0" max="32" step="1"></label>
             <label>Card pad X (px)<input type="number" id="ig-modal-pad-x" value="${esc(padXVal)}" min="0" max="64" step="1"></label>
             <label>Card pad Y (px)<input type="number" id="ig-modal-pad-y" value="${esc(padYVal)}" min="0" max="64" step="1"></label>
             <label>Field gap (px)<input type="number" id="ig-modal-field-gap" value="${esc(ig.fieldGap ?? 2)}" min="0" max="40" step="1"></label>
+            ${ig.showAvatar !== false ? F.number('imageGroup.innerGap', 'Image to text gap (px)', ig.innerGap ?? 8, { min: 0, max: 60 }) : ''}
+            ${F.select('imageGroup.textWrap', 'Text wrapping', ig.textWrap || 'truncate', [['truncate', 'Truncate (...)'], ['wrap', 'Wrap multi-line']])}
+            ${ig.showAvatar !== false ? F.number('imageGroup.size', 'Primary image size (px)', ig.size ?? 56, { min: 16, max: 400, step: 2 }) + F.select('imageGroup.aspectRatio', 'Primary image ratio', ig.aspectRatio || '1:1', [['1:1', 'Square'], ['4:3', 'Wide'], ['16:9', 'Cinema'], ['3:4', 'Portrait'], ['21:9', 'Banner']]) : ''}
             <div class="ig-inline-checks">
                 <label><input type="checkbox" id="ig-modal-show-avatar"${ig.showAvatar !== false ? ' checked' : ''}> Show primary avatar</label>
-                <label><input type="checkbox" id="ig-modal-wrap-text"${ig.textWrap === 'wrap' ? ' checked' : ''}> Wrap multi-line text</label>
             </div>`;
     }
 
@@ -1189,9 +1177,10 @@ export function addNextImageGroupField(el, { preferImage = false } = {}) {
     });
 }
 
-export function openImageGroupFieldsModal() {
+export function openImageGroupFieldsModal(tab = null) {
     const dlg = $('ig-fields-dialog');
     if (!dlg || !isImageGroup(primary())) return;
+    if (tab) selectGroupBuilderTab(tab);
     renderImageGroupFieldsModal();
     if (typeof dlg.showModal === 'function' && !dlg.open) dlg.showModal();
     else dlg.setAttribute('open', '');
@@ -2368,6 +2357,9 @@ export function renderProperties() {
         const tab = SPECIFIC_SECTION_TABS[section.dataset.sect];
         if (tab) root.querySelector(`[data-inspector-panel="${tab}"]`).insertBefore(section, tab === 'style' ? firstStyleSection : null);
     }
+    const stylePanel = root.querySelector('[data-inspector-panel="style"]');
+    const presets = stylePanel.querySelector(':scope > [data-sect="stylePresets"]');
+    if (presets) stylePanel.appendChild(presets);
     const lookIdx = items.length === 1 && items[0].type === 'alert'
         ? (items[0].alert?.looks || []).findIndex(l => l.id === alertLookSelection.get(items[0].id)) : -1;
     if (lookIdx >= 0) {
@@ -3289,7 +3281,7 @@ export function initInspectorEvents() {
                 return;
             }
             if (target.closest('#open-ig-fields-modal') || target.closest('.open-ig-fields-trigger')) {
-                openImageGroupFieldsModal();
+                openImageGroupFieldsModal(target.closest('[data-open-ig-tab]')?.dataset.openIgTab || null);
                 return;
             }
             const quickRm = target.closest('[data-ig-quick-remove]');
@@ -3556,6 +3548,22 @@ export function initInspectorEvents() {
 
     const igDlg = $('ig-fields-dialog');
     if (igDlg) {
+        igDlg.addEventListener('keydown', event => {
+            if (!event.target.matches('[data-ig-builder-tab]') || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const buttons = [...igDlg.querySelectorAll('[data-ig-builder-tab]')];
+            const index = buttons.indexOf(event.target);
+            const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
+            buttons[next].focus();
+            buttons[next].click();
+        });
+        bindFields(igDlg, () => selectedElements().filter(isImageGroup), (path, event) => {
+            renderCanvas();
+            renderProperties();
+            if (['imageGroup.layout', 'imageGroup.wrap'].includes(path)) renderImageGroupFieldsModal();
+            else if (isImageGroup(primary())) renderGroupBadgePreview(primary());
+            changed(event?.type === 'change');
+        });
         const refreshIgAll = (commit, reModal = false) => {
             renderCanvas();
             renderProperties();
@@ -3574,6 +3582,11 @@ export function initInspectorEvents() {
         igDlg.addEventListener('click', event => {
             const target = event.target.closest('button');
             if (!target) return;
+            if (target.dataset.igBuilderTab) {
+                selectGroupBuilderTab(target.dataset.igBuilderTab);
+                renderImageGroupFieldsModal();
+                return;
+            }
             const bgBtn = target.closest('[data-ig-preview-bg]');
             if (bgBtn) {
                 const bg = bgBtn.dataset.igPreviewBg || 'dark';
@@ -3689,9 +3702,7 @@ export function initInspectorEvents() {
             }
             if (t.id === 'ig-modal-width-mode') {
                 el.imageGroup.cardWidthMode = t.value;
-                const wInput = $('ig-modal-card-width');
-                if (wInput) wInput.disabled = t.value !== 'fixed';
-                refreshIgAll(true, false);
+                refreshIgAll(true, true);
                 return;
             }
             if (t.id === 'ig-modal-card-width') {
@@ -3726,12 +3737,7 @@ export function initInspectorEvents() {
             }
             if (t.id === 'ig-modal-show-avatar') {
                 el.imageGroup.showAvatar = t.checked;
-                refreshIgAll(true, false);
-                return;
-            }
-            if (t.id === 'ig-modal-wrap-text') {
-                el.imageGroup.textWrap = t.checked ? 'wrap' : 'truncate';
-                refreshIgAll(true, false);
+                refreshIgAll(true, true);
                 return;
             }
             const row = t.closest('[data-ig-field-idx]');

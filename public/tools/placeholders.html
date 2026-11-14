@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <link rel="stylesheet" href="/admin.css">
+    <link rel="stylesheet" href="/css/variable-groups.css">
     <script src="/appearance.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
@@ -421,11 +422,12 @@
             <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin-bottom:.75rem; background:var(--bg-inset); padding:.6rem .75rem; border-radius:6px; border:1px solid var(--border);">
                 <input type="text" id="var-name" placeholder="Variable name (e.g. deaths, sponsor_logo)" style="flex:1; min-width:13rem;">
                 <select id="var-type">
-                    <option value="counter">Counter (number)</option>
+                    <option value="number">Number</option>
                     <option value="text">Text (string)</option>
                     <option value="image">Image (URL / Asset)</option>
                     <option value="toggle">Toggle (true / false)</option>
                     <option value="color">Color (#hex)</option>
+                    <option value="font">Font (family)</option>
                     <option value="template">Template (expression)</option>
                     <option value="list">List (rotating items)</option>
                 </select>
@@ -437,14 +439,15 @@
 
             <!-- Filter Bar -->
             <div class="bar" style="margin-bottom:.85rem;">
-                <input type="search" id="var-search" placeholder="Filter variables..." style="flex:1; min-width:12rem;">
+                <input type="search" id="var-search" aria-describedby="var-search-help" placeholder="Search variables..." style="flex:1; min-width:12rem;">
                 <select id="var-type-filter" aria-label="Filter by variable type">
                     <option value="all">All types</option>
-                    <option value="counter">Counter</option>
+                    <option value="number">Number</option>
                     <option value="text">Text</option>
                     <option value="image">Image</option>
                     <option value="toggle">Toggle</option>
                     <option value="color">Color</option>
+                    <option value="font">Font</option>
                     <option value="template">Template</option>
                     <option value="list">List</option>
                 </select>
@@ -452,8 +455,12 @@
                     <input type="checkbox" id="var-show-set"> Show set-managed variables
                 </label>
             </div>
+            <div class="variable-filter-chip" id="var-group-filter" hidden><span></span><button type="button" class="b sm" id="var-clear-group">Clear group</button></div>
+            <p class="muted" id="var-search-help">Click a value to edit inline. Enter or blur saves; Escape cancels. Group headings are links you can bookmark, such as #variables#theme.</p>
 
             <!-- Variables List Container -->
+            <div class="variable-groups-heading"><h2>Variable Groups</h2><button type="button" class="b sm primary" id="var-group-add">+ New Group</button></div>
+            <p class="muted">Drag a variable's name onto a group header to move it, or onto Ungrouped to remove it. Use Manage members for bulk edits. Groups are not Sets or theme presets.</p>
             <div id="vars-list" style="display:grid; gap:.6rem;">
                 <div class="muted">Loading variables…</div>
             </div>

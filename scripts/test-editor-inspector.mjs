@@ -7,7 +7,7 @@ import puppeteer from 'puppeteer';
 import overlays from '../server/services/overlays.js';
 
 const names = ['overlay-shared.js', 'poll-widget.js', 'patterns-shared.js', 'editor-geometry.js', 'motion-easing.js',
-    ...['state', 'canvas', 'form', 'layers', 'sets', 'inspector', 'speakers', 'patterns', 'style-presets'].map(name => `editor/editor-${name}.js`)];
+    ...['state', 'canvas', 'form', 'layers', 'sets', 'inspector', 'speakers', 'patterns', 'style-presets', 'badge-preview'].map(name => `editor/editor-${name}.js`)];
 const sources = new Map(await Promise.all(names.map(async name =>
     [`/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8')])));
 const css = await readFile(new URL('../public/css/custom-overlay-editor.css', import.meta.url), 'utf8');
@@ -228,7 +228,7 @@ try {
             assert.equal(await page.$eval(`[data-sect="${section}"]`, node => node.closest('[data-inspector-panel]').dataset.inspectorPanel), tab, `${type}/${section} must remain available in ${tab}`);
         }
         const before = await page.evaluate(() => JSON.stringify(window.fixture.state.overlay));
-        const tabs = await page.$$eval('[role="tab"]', nodes => nodes.map(node => node.dataset.inspectorTab));
+        const tabs = await page.$$eval('[role="tab"][data-inspector-tab]', nodes => nodes.map(node => node.dataset.inspectorTab));
         for (const tab of tabs) {
             await page.click(`[data-inspector-tab="${tab}"]`);
             assert.equal(await page.$$eval('[data-inspector-panel]:not([hidden])', nodes => nodes.length), 1);
@@ -247,6 +247,8 @@ try {
                 }, width);
                 assert.deepEqual(overflow, [], `${type}/${tab} controls must fit the ${width}px inspector`);
             }
+            const styleSections = await page.$$eval('[data-inspector-panel="style"] > [data-sect]', nodes => nodes.map(node => node.dataset.sect));
+            if (styleSections.includes('stylePresets')) assert.equal(styleSections.at(-1), 'stylePresets', `${type} keeps Style Presets last`);
             await page.evaluate(() => { document.querySelector('.rail.right').style.width = '344px'; });
         }
         assert.equal(await page.evaluate(() => JSON.stringify(window.fixture.state.overlay)), before, 'inspector navigation must not mutate the design');
@@ -286,7 +288,7 @@ try {
     assert.equal(await page.evaluate(() => document.activeElement.dataset.inspectorTab), 'style');
     await page.keyboard.press('Home');
     assert.equal(await page.evaluate(() => document.activeElement.dataset.inspectorTab), 'content');
-    assert.equal(await page.$$eval('[role="tab"][tabindex="0"]', nodes => nodes.length), 1);
+    assert.equal(await page.$$eval('[role="tab"][data-inspector-tab][tabindex="0"]', nodes => nodes.length), 1);
 
     // Per-type choices survive reload and selections with different available tabs.
     await page.click('[data-inspector-tab="style"]');
@@ -301,7 +303,7 @@ try {
         state.selectedIds = new Set(state.overlay.elements.map(el => el.id));
         renderProperties();
     });
-    assert.deepEqual(await page.$$eval('[role="tab"]', nodes => nodes.map(node => node.dataset.inspectorTab)), ['layout', 'style'], 'multi-selection retains shared scaling/alignment and appearance without a misleading content tab');
+    assert.deepEqual(await page.$$eval('[role="tab"][data-inspector-tab]', nodes => nodes.map(node => node.dataset.inspectorTab)), ['layout', 'style'], 'multi-selection retains shared scaling/alignment and appearance without a misleading content tab');
 
     for (const [type, overrides, path] of [
         ['video', { video: { sound: true } }, 'video.volume'],
@@ -631,13 +633,29 @@ try {
         el.style.textAnimation = { type: 'matrix', speed: 2, intensity: 60 };
         canvas.renderCanvas();
         const matrixChars = node?.querySelectorAll('.sp-ta-char').length || 0;
+        const twins = [document.createElement('div'), document.createElement('div')];
+        const originalRandom = Math.random;
+        let seed = 0;
+        let matrixSequences;
+        try {
+            Math.random = () => (++seed === 1 ? 0.1 : 0.8);
+            twins.forEach(twin => {
+                twin.textContent = 'Independent fields';
+                document.body.appendChild(twin);
+                window.OverlayShared.applyTextAnimation(twin, { textAnimation: { type: 'matrix', speed: 2, intensity: 60 } }, 'text');
+            });
+            matrixSequences = twins.map(twin => [...twin.querySelectorAll('.sp-ta-char')].map(span => span.textContent).join(''));
+        } finally {
+            Math.random = originalRandom;
+            twins.forEach(twin => { twin._textAnimHandle?.stop(); twin.remove(); });
+        }
 
         el.style.textAnimation = { type: 'wobble', speed: 2, intensity: 60 };
         canvas.renderCanvas();
         const wrapAfterBlock = node?.querySelector('[data-sp-ta-wrap]');
         const rawRestored = [...(node?.childNodes || [])].filter(c => c.nodeType === 3).map(c => c.nodeValue).join('');
 
-        return { words, wordWrapMode, colorDuringWord, charsCount, hasCaret, typedInit, matrixChars, hasWrapAfterBlock: Boolean(wrapAfterBlock), rawRestored };
+        return { words, wordWrapMode, colorDuringWord, charsCount, hasCaret, typedInit, matrixChars, matrixSequences, hasWrapAfterBlock: Boolean(wrapAfterBlock), rawRestored };
     });
     assert.deepEqual(animChecks.words, ['Stream', 'Alpha'], 'Per-word animation wraps individual words cleanly');
     assert.equal(animChecks.wordWrapMode, 'word-bounce');
@@ -646,6 +664,7 @@ try {
     assert.equal(animChecks.hasCaret, true, 'Typing animation renders blinking caret');
     assert.ok(animChecks.typedInit.length >= 1, 'Typing animation renders initial characters without flicker');
     assert.equal(animChecks.matrixChars, 11, 'Matrix animation builds character slots for cipher decode');
+    assert.notEqual(animChecks.matrixSequences[0], animChecks.matrixSequences[1], 'Each Matrix field has an independently seeded scramble sequence');
     assert.equal(animChecks.hasWrapAfterBlock, false, 'Switching back to whole-block animation cleans up split spans');
     assert.equal(animChecks.rawRestored, 'Stream Alpha', 'Raw text is restored cleanly after exiting split animation');
 
@@ -753,6 +772,40 @@ try {
         const bannerFieldsCount = bannerNode?.querySelectorAll('.sp-image-group-card')[0]?.querySelectorAll('.sp-image-group-field').length || 0;
         const bannerCardHasRing = Boolean(bannerNode?.querySelector('.sp-image-group-card')?.['_borderRing']);
         const labelAnimActive = Boolean(bannerNode?.querySelector('.sp-image-group-label')?.style.animation || bannerNode?.querySelector('.sp-image-group-label')?.['_textAnimWrap']);
+        const previousVars = state.liveStatus.customVars;
+        state.liveStatus.customVars = [
+            ...(previousVars || []),
+            { name: 'theme_font', type: 'font', value: 'serif', group: 'Theme' },
+            { name: 'badge_font', type: 'font', value: 'monospace' }
+        ];
+        stripImg.style.fontFamily = '{{var.theme_font}}';
+        stripImg.imageGroup.badgeFontFamily = '{{var.badge_font}}';
+        stripImg.imageGroup.fields[0].fontFamily = 'system-ui';
+        renderProperties();
+        canvas.renderCanvas();
+        const fontVariableOption = Boolean(document.querySelector('option[value="{{var.theme_font|sans-serif}}"]'));
+        const fonts = [...state.nodes.get('strip-img').querySelectorAll('.sp-image-group-card')[0].querySelectorAll('.sp-image-group-field')].map(n => n.style.fontFamily);
+        stripImg.imageGroup.fields[0].fontFamily = '';
+        canvas.renderCanvas();
+        const inheritedFont = state.nodes.get('strip-img').querySelector('.sp-image-group-label').style.fontFamily;
+        state.liveStatus.customVars.find(v => v.name === 'theme_font').value = 'monospace';
+        canvas.renderCanvas();
+        const updatedFont = state.nodes.get('strip-img').querySelector('.sp-image-group-label').style.fontFamily;
+        const savedFontToken = stripImg.style.fontFamily;
+        stripImg.imageGroup.showAvatar = false;
+        renderProperties();
+        canvas.renderCanvas();
+        const textOnlyControls = {
+            primaryField: Boolean(document.querySelector('[data-path="imageGroup.imageField"]')),
+            missingImage: Boolean(document.querySelector('[data-path="imageGroup.fallbackMode"]')),
+            primaryStyle: Boolean(document.querySelector('[data-sect="igAvatar"]')),
+            labels: state.nodes.get('strip-img').querySelectorAll('.sp-image-group-label').length
+        };
+        stripImg.imageGroup.showAvatar = true;
+        stripImg.style.fontFamily = 'sans-serif';
+        stripImg.imageGroup.badgeFontFamily = '';
+        state.liveStatus.customVars = previousVars;
+        renderProperties();
 
         stripImg.imageGroup = { ...stripImg.imageGroup, layout: 'stagger', staggerOffset: 22 };
         canvas.renderCanvas();
@@ -775,7 +828,7 @@ try {
             hasDeprecatedModeToggle, layoutControlsInLayoutTab, typographyInStyleTab, textEffectsInStyleTab, noSingleObjectFit,
             cardsCount, cardInitials, cardSubs, overflowBadge,
             bannersCount, badgesText, inlineRows, bannerFieldsCount, bannerCardHasRing, labelAnimActive, staggerTop,
-            overlapMargin, chipsCount, hasLead
+            overlapMargin, chipsCount, hasLead, fontVariableOption, fonts, inheritedFont, updatedFont, savedFontToken, textOnlyControls
         };
     });
     assert.equal(imageChecks.firstSrc, '/media-a.png', 'Dynamic variable image resolves initial source in editor canvas');
@@ -784,7 +837,7 @@ try {
     assert.deepEqual(imageChecks.stripLabels, ['Alex', 'Casey']);
     assert.equal(imageChecks.hasGroupSelect, true, 'Group strip inspector exposes Variable Set picker');
     assert.equal(imageChecks.hasDeprecatedModeToggle, false, 'Group Image Strip omits confusing Single image mode toggle');
-    assert.equal(imageChecks.layoutControlsInLayoutTab, true, 'Group strip layout controls live under Layout tab');
+    assert.equal(imageChecks.layoutControlsInLayoutTab, false, 'Group strip layout controls are not duplicated outside the Builder');
     assert.equal(imageChecks.typographyInStyleTab, true, 'Group strip exposes full Typography controls under Style tab');
     assert.equal(imageChecks.textEffectsInStyleTab, true, 'Group strip exposes Text Effects & Animations under Style tab');
     assert.equal(imageChecks.noSingleObjectFit, true, 'Group strip hides single-image objectFit control');
@@ -802,6 +855,12 @@ try {
     assert.equal(imageChecks.overlapMargin, '-14px', 'Overlap layout applies negative overlap margin');
     assert.equal(imageChecks.chipsCount, 2, 'Chips layout renders capsule chips');
     assert.equal(imageChecks.hasLead, true, 'Spotlight layout marks first member as lead');
+    assert.equal(imageChecks.fontVariableOption, true, 'Existing font dropdown offers font variables');
+    assert.deepEqual(imageChecks.fonts.slice(0, 2), ['system-ui', 'monospace'], 'Field overrides take precedence over role and base font bindings');
+    assert.equal(imageChecks.inheritedFont, 'serif', 'Unset field font inherits the bound base font');
+    assert.equal(imageChecks.updatedFont, 'monospace', 'Variable changes update inherited fonts live');
+    assert.equal(imageChecks.savedFontToken, '{{var.theme_font}}', 'Preview resolution never overwrites saved bindings');
+    assert.deepEqual(imageChecks.textOnlyControls, { primaryField: false, missingImage: false, primaryStyle: false, labels: 3 }, 'Text-only stacks include members without images and hide primary image controls');
     const stripModalChecks = await page.evaluate(() => {
         const openBtn = document.querySelector('#open-ig-fields-modal');
         openBtn?.click();
@@ -819,6 +878,65 @@ try {
     assert.equal(stripModalChecks.beforeRows, 3);
     assert.equal(stripModalChecks.afterRows, 4, 'Fields modal + Add Field appends a fourth configurable field');
     assert.equal(stripModalChecks.layoutAfterPreset, 'banners', 'Fields modal arrangement preset updates strip layout');
+    await page.evaluate(async () => {
+        const { state } = window.fixture;
+        const canvas = await import('/js/editor/editor-canvas.js');
+        const el = state.overlay.elements.find(e => e.id === 'strip-img');
+        el.width = 1200;
+        el.height = 360;
+        el.imageGroup = { ...el.imageGroup, layout: 'row', cardWidthMode: 'fixed', cardWidth: 880, maxItems: 0, wrap: false, textWrap: 'wrap' };
+        canvas.renderCanvas();
+        window.fixture.openImageGroupFieldsModal('badge');
+    });
+    await page.waitForFunction(() => document.querySelector('#ig-badge-preview').style.transform.startsWith('scale('));
+    const builderGeometry = await page.evaluate(() => {
+        const { state } = window.fixture;
+        const host = document.querySelector('#ig-badge-preview');
+        const memberId = document.querySelector('#ig-preview-member').value;
+        const preview = [...host.querySelectorAll('.sp-image-group-item')].find(node => node.dataset.groupEntryId === memberId);
+        const actual = [...state.nodes.get('strip-img').querySelectorAll('.sp-image-group-item')].find(node => node.dataset.groupEntryId === memberId);
+        const matrix = new window.DOMMatrix(getComputedStyle(host).transform);
+        const result = {
+            previewWidth: preview.offsetWidth, actualWidth: actual.offsetWidth,
+            previewHeight: preview.offsetHeight, actualHeight: actual.offsetHeight,
+            scaleX: matrix.a, scaleY: matrix.d,
+            layerWidth: parseFloat(host.style.width),
+            saved: JSON.stringify(state.overlay)
+        };
+        document.querySelector('[data-ig-builder-tab="strip"]').click();
+        result.stripVisible = !document.querySelector('#ig-strip-panel').hidden;
+        result.badgeHidden = document.querySelector('#ig-badge-panel').hidden;
+        result.stripControls = Boolean(document.querySelector('#ig-strip-panel [data-path="imageGroup.layout"]'));
+        result.stripCount = document.querySelectorAll('#ig-badge-preview .sp-image-group-item').length;
+        result.actualCount = state.nodes.get('strip-img').querySelectorAll('.sp-image-group-item').length;
+        result.tabsDoNotMutate = result.saved === JSON.stringify(state.overlay);
+        return result;
+    });
+    assert.equal(builderGeometry.previewWidth, builderGeometry.actualWidth, 'Badge preview keeps the exact production member width, including flex layout');
+    assert.equal(builderGeometry.previewHeight, builderGeometry.actualHeight, 'Badge preview keeps production wrapping and height');
+    assert.equal(builderGeometry.layerWidth, 1200, 'Preview lays out at the source layer width, not the sidebar width');
+    assert.equal(builderGeometry.scaleX, builderGeometry.scaleY, 'Preview scales uniformly, never squishing horizontally');
+    assert.equal(builderGeometry.stripVisible && builderGeometry.badgeHidden && builderGeometry.stripControls, true);
+    assert.equal(builderGeometry.stripCount, builderGeometry.actualCount, 'Strip tab previews the complete production roster');
+    assert.equal(builderGeometry.tabsDoNotMutate, true, 'Changing Builder tabs does not alter saved overlay settings');
+    const stripEditing = await page.evaluate(() => {
+        const layout = document.querySelector('#ig-strip-panel [data-path="imageGroup.layout"]');
+        layout.value = 'grid';
+        layout.dispatchEvent(new Event('change', { bubbles: true }));
+        const gap = document.querySelector('#ig-strip-panel input[type="number"][data-path="imageGroup.gap"]');
+        gap.value = '24';
+        gap.dispatchEvent(new Event('change', { bubbles: true }));
+        const el = window.fixture.state.overlay.elements.find(e => e.id === 'strip-img');
+        return { layout: el.imageGroup.layout, gap: el.imageGroup.gap, tab: document.querySelector('#ig-fields-dialog').dataset.builderTab };
+    });
+    assert.deepEqual(stripEditing, { layout: 'grid', gap: 24, tab: 'strip' }, 'Builder controls update saved strip settings without switching tabs');
+    await page.evaluate(() => {
+        document.querySelector('[data-ig-builder-tab="badge"]').click();
+        document.querySelector('#ig-fields-close').click();
+    });
+    await page.waitForFunction(() => document.querySelector('#ig-badge-preview')._badgePreviewObserver === null);
+    assert.equal(await page.$eval('#ig-badge-preview', node => node._badgePreviewObserver), null, 'Closing Builder disconnects preview observers');
+    assert.equal(await page.$eval('#ig-badge-preview', node => node._badgePreviewFrame), 0, 'Closing Builder cancels pending visual updates');
     const stripNarrowOverflow = await page.evaluate(() => {
         const rail = document.querySelector('.rail.right');
         rail.style.width = '260px';
@@ -1038,9 +1156,13 @@ try {
         window.fixture.renderProperties();
         document.querySelector('.open-ig-fields-trigger')?.click();
         const dlg = document.getElementById('ig-fields-dialog');
-        const previewItems = dlg?.querySelectorAll('#ig-badge-preview .sp-image-group-item').length || 0;
-        const cornerCount = dlg?.querySelectorAll('#ig-badge-preview .sp-image-group-corner-tr .sp-image-group-field').length || 0;
-        const footerCount = dlg?.querySelectorAll('#ig-badge-preview .sp-image-group-footer .sp-image-group-field').length || 0;
+        const memberPicker = dlg.querySelector('#ig-preview-member');
+        memberPicker.value = '__sample__';
+        memberPicker.dispatchEvent(new Event('change', { bubbles: true }));
+        const visibleBadge = [...dlg.querySelectorAll('#ig-badge-preview .sp-image-group-item')].filter(node => getComputedStyle(node).visibility !== 'hidden');
+        const previewItems = visibleBadge.length;
+        const cornerCount = visibleBadge[0]?.querySelectorAll('.sp-image-group-corner-tr .sp-image-group-field').length || 0;
+        const footerCount = visibleBadge[0]?.querySelectorAll('.sp-image-group-footer .sp-image-group-field').length || 0;
         dlg?.querySelector('[data-ig-preview-bg="light"]')?.click();
         const lightStage = document.getElementById('ig-preview-stage')?.classList.contains('is-light') || false;
 
@@ -1069,7 +1191,7 @@ try {
         const hasCardGradUI = Boolean(document.querySelector('[data-seg-path="imageGroup.cardBorderGradient.enabled"]'));
         const hasAvGradUI = Boolean(document.querySelector('[data-seg-path="imageGroup.avatarBorderGradient.enabled"]'));
         host.remove();
-        dlg?.removeAttribute('open');
+        dlg?.close();
         return { previewItems, cornerCount, footerCount, lightStage, hasCardFx, hasAvFx, hasWrapClass, widthCss, minHCss, hasSubFont, hasCardGradUI, hasAvGradUI };
     });
     assert.equal(igModalCheck.previewItems, 1, 'Member Badge Builder modal renders a live single-member preview');
@@ -1084,6 +1206,36 @@ try {
     assert.equal(igModalCheck.hasSubFont, true, 'Typography section exposes quick Subtitle / accent font override');
     assert.equal(igModalCheck.hasCardGradUI, true, 'Member card border section exposes Solid/Gradient border fill toggle');
     assert.equal(igModalCheck.hasAvGradUI, true, 'Avatar border section exposes Solid/Gradient border fill toggle');
+
+    await page.evaluate(() => {
+        const { state, prefs } = window.fixture;
+        prefs.live = true;
+        state.liveStatus.customVars = [
+            { name: 'display_score', type: 'number', value: 1234.5 },
+            { name: 'number_font', type: 'font', value: 'serif' }
+        ];
+        window.PlaceholderPicker.open({
+            getStatus: () => state.liveStatus,
+            onPick: token => { window.numberPicked = token; }
+        });
+        const details = document.querySelector('[data-number-key="var.display_score"]').closest('details');
+        details.open = true;
+        details.querySelector('[name="digits"]').value = '2';
+        details.querySelector('[name="prefix"]').value = '$';
+        details.querySelector('[name="suffix"]').value = ' points';
+    });
+    await page.click('[data-number-key="var.display_score"]');
+    const numberText = await page.evaluate(async () => {
+        const { state } = window.fixture;
+        const el = window.fixture.select('text', { content: `{{${window.numberPicked}}}`, style: { fontFamily: '{{var.number_font}}' } });
+        const canvas = await import('/js/editor/editor-canvas.js');
+        canvas.renderCanvas();
+        const node = state.nodes.get(el.id);
+        return { token: window.numberPicked, value: node.textContent, font: getComputedStyle(node).fontFamily };
+    });
+    assert.equal(numberText.token, 'var.display_score|number:2:comma:%24:%20points');
+    assert.equal(numberText.value, '$1,234.50 points', 'Formatted Number uses the existing Text renderer');
+    assert.equal(numberText.font, 'serif', 'Formatted Number retains existing font-variable bindings');
 
     // Service-level schema normalization & saved Style Presets persistence
     const tmpOverlaysDir = await mkdtemp(path.join(os.tmpdir(), 'sp-style-presets-'));

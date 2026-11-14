@@ -3,18 +3,20 @@
 export const state = {
     status: {},
     customVars: [],
+    variableGroups: [],
     variableSets: [],
     variableSetsEnabled: true,
     overlays: [],
     showSetVars: false,
     varQuery: '',
+    varGroupQuery: '',
     varTypeFilter: 'all'
 };
 
 export function esc(v) {
     const d = document.createElement('div');
     d.textContent = v ?? '';
-    return d.innerHTML;
+    return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 export function toast(msg, type = 'info') {

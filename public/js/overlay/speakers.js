@@ -1,6 +1,7 @@
 import { root } from './environment.js';
 import { loadGoogleFont } from './fonts.js';
 import { gradientStyle } from './styles.js';
+import { resolveColorToken, resolveStyleVariables } from './variables.js';
 
 
 function ensureSpeakerBadgeStyle() {
@@ -166,7 +167,7 @@ function renderSpeakerBadge(node, element, options = {}) {
     const sp = b.speaker || {};
     const callIn = sp.callIn || {};
     const re = b.reaction || {};
-    const s = element.style || {};
+    const s = resolveStyleVariables(element.style || {}, options.status || {}, {});
     const layout = b.layout || 'horizontal';
     const speaking = Boolean(options.speaking);
 
@@ -207,9 +208,11 @@ function renderSpeakerBadge(node, element, options = {}) {
     const padding = layout === 'horizontal' ? [16, 10] : layout === 'compact-pill' ? [14, 6] : layout === 'vertical-card' ? [12, 14] : [12, 6];
     card.style.setProperty('--sb-padding-x', `${b.paddingX ?? padding[0]}px`);
     card.style.setProperty('--sb-padding-y', `${b.paddingY ?? padding[1]}px`);
-    card.style.setProperty('--sb-subtitle-font', b.typography?.subtitleFontFamily || 'inherit');
-    card.style.setProperty('--sb-pill-font', b.typography?.pillFontFamily || 'inherit');
-    for (const font of [b.typography?.subtitleFontFamily, b.typography?.pillFontFamily]) if (font) loadGoogleFont(font);
+    const subtitleFont = resolveColorToken(b.typography?.subtitleFontFamily, options.status || {}, {}) || 'inherit';
+    const pillFont = resolveColorToken(b.typography?.pillFontFamily, options.status || {}, {}) || 'inherit';
+    card.style.setProperty('--sb-subtitle-font', subtitleFont);
+    card.style.setProperty('--sb-pill-font', pillFont);
+    for (const font of [subtitleFont, pillFont]) if (font !== 'inherit') loadGoogleFont(font);
 
     // Typography & proportional font scaling
     const defaultFs = layout === 'cspan-banner' ? 18 : layout === 'compact-pill' ? 14 : layout === 'vertical-card' ? 16 : 17;

@@ -451,7 +451,11 @@
                 <button type="button" id="ig-fields-close" class="primary">Done</button>
             </div>
         </div>
-        <div class="ig-builder-cols">
+        <div class="tabs-nav ig-builder-tabs" role="tablist" aria-label="Builder views">
+            <button type="button" class="tab-btn active" data-ig-builder-tab="badge" role="tab" aria-selected="true" aria-controls="ig-badge-panel">Badge</button>
+            <button type="button" class="tab-btn" data-ig-builder-tab="strip" role="tab" aria-selected="false" aria-controls="ig-strip-panel">Strip</button>
+        </div>
+        <div class="ig-builder-cols" id="ig-badge-panel" data-ig-builder-panel="badge" role="tabpanel">
             <aside class="ig-builder-left">
                 <div class="ig-preview-section">
                     <div class="ig-preview-bar">
@@ -503,6 +507,10 @@
                 </div>
                 <div class="ig-fields-list" id="ig-fields-list"></div>
             </section>
+        </div>
+        <div class="ig-builder-strip" id="ig-strip-panel" data-ig-builder-panel="strip" role="tabpanel" hidden>
+            <section id="ig-strip-controls" aria-label="Strip arrangement"></section>
+            <aside id="ig-strip-preview" aria-label="Strip preview"></aside>
         </div>
     </dialog>
 

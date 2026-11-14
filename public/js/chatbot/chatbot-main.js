@@ -20,6 +20,7 @@ import {
     renderBanner, renderSettings, initSettingsSections,
     loadHostInfo, setupSettingsEvents
 } from './chatbot-settings.js';
+import { openNumberEditor } from '../variables/variables-numbers.js';
 
 export function updateCounts() {
     const set = (k, n) => {
@@ -112,9 +113,9 @@ export async function loadVars() {
         updateCounts();
         const inp = 'padding:.25rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text)';
         varsEl.innerHTML = variables.length ? variables.map(v => {
-            const head = `<b>${esc(v.name)}</b> <span class="meta">${v.type} · {{var.${esc(v.name)}}}</span>`;
+            const head = `<b>${esc(v.name)}</b> <span class="meta">${v.type === 'counter' ? 'number' : v.type} · {{var.${esc(v.name)}}}</span>`;
             let body = '';
-            if (v.type === 'counter') body = `<button class="btn small" data-v="decrement">-</button><input data-v="value" type="number" value="${v.value}" style="width:6rem;${inp}"><button class="btn small" data-v="increment">+</button><button class="btn small" data-v="reset">Reset</button>`;
+            if (v.type === 'number' || v.type === 'counter') body = `<span>${esc(v.value)}</span><button type="button" class="btn small" data-v="edit-number">Edit</button>`;
             else if (v.type === 'text') body = `<input data-v="value" value="${esc(v.value)}" style="width:14rem;${inp}">`;
             else body = `<span class="muted" style="max-width:14rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Now: ${esc(v.value) || '(empty)'}</span><button class="btn small" data-v="roll">Pick next</button>`;
             const list = v.type === 'list' ? `<details style="grid-column:1/-1"><summary class="muted" style="cursor:pointer">${v.items.length} items · ${v.mode === 'sequential' ? 'in order' : 'random'} (edit)</summary><textarea data-v="items" rows="5" style="width:100%;margin-top:.4rem;${inp}" placeholder="One item per line">${esc(v.items.join('\n'))}</textarea><div class="row" style="margin-top:.4rem"><label class="check">Pick <select data-v="mode"><option value="random" ${v.mode !== 'sequential' ? 'selected' : ''}>Randomly</option><option value="sequential" ${v.mode === 'sequential' ? 'selected' : ''}>In order</option></select></label><button class="btn small" data-v="save-items">Save list</button></div></details>` : '';
@@ -310,7 +311,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!act || ['value', 'items', 'mode'].includes(act) || !row) return;
         const url = `/api/variables/${encodeURIComponent(row.dataset.n)}`;
         try {
-            if (act === 'delete') {
+            if (act === 'edit-number') {
+                openNumberEditor(await api(url), loadVars);
+                return;
+            } else if (act === 'delete') {
                 await api(url, 'DELETE');
             } else if (act === 'save-items') {
                 await api(url, 'PUT', { items: row.querySelector('[data-v=items]').value, mode: row.querySelector('[data-v=mode]').value });

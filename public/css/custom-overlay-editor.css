@@ -1195,7 +1195,7 @@ body.is-scrubbing, body.is-scrubbing * {
 .ig-preview-member-select { width: auto; max-width: 155px; height: 24px; padding: 1px 6px; font-size: 11px; border-radius: 6px; }
 .ig-preview-bg-seg { display: inline-flex; }
 .ig-preview-bg-seg button { font-size: 10.5px; padding: 2px 8px; height: 24px; }
-.ig-preview-stage { position: relative; min-height: 124px; max-height: 240px; overflow: auto; padding: 16px; border: 1px solid var(--border); border-radius: 9px; display: flex; align-items: center; justify-content: center; }
+.ig-preview-stage { position: relative; height: 240px; min-height: 124px; max-height: 240px; overflow: hidden; padding: 16px; border: 1px solid var(--border); border-radius: 9px; display: grid; place-items: center; }
 .ig-preview-stage.is-dark { background: radial-gradient(circle at 30% 20%, rgba(56,189,248,0.08), transparent 60%), #0b1120; }
 .ig-preview-stage.is-light { background: #e2e8f0; }
 .ig-preview-stage.is-checker {
@@ -1204,8 +1204,13 @@ body.is-scrubbing, body.is-scrubbing * {
     background-size: 16px 16px;
     background-position: 0 0, 0 8px, 8px -8px, -8px 0;
 }
-.ig-badge-preview-host { position: relative; display: flex; align-items: center; justify-content: center; min-width: 120px; max-width: 100%; }
-.ig-badge-preview-host .sp-image-group { width: auto; max-width: 100%; height: auto; }
+.ig-badge-preview-viewport { position: relative; flex: none; overflow: hidden; }
+.ig-badge-preview-host { position: absolute; transform-origin: top left; max-width: none; }
+.ig-builder-tabs { flex: none; display: flex; gap: 4px; margin: 0 18px 10px; }
+.ig-builder-tabs button { flex: 1; }
+.ig-builder-strip { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 0 18px 18px; overflow: auto; min-height: 0; }
+[data-ig-builder-panel][hidden] { display: none; }
+@media (max-width: 760px) { .ig-builder-strip { grid-template-columns: minmax(0, 1fr); } }
 
 .ig-presets-section, .ig-placement-card { display: grid; gap: 7px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
 .ig-presets-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }

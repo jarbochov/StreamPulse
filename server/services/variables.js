@@ -4,7 +4,8 @@ const fs = require('fs');
 const path = require('path');
 
 const NAME_RE = /^[a-z0-9_]{1,40}$/;
-const VALID_TYPES = ['counter', 'text', 'list', 'image', 'toggle', 'color', 'template'];
+const VALID_TYPES = ['counter', 'number', 'text', 'list', 'image', 'toggle', 'color', 'template', 'font'];
+const normalizeNumber = require('./variable-numbers');
 const VALID_SET_FIELD_TYPES = ['text', 'image', 'color', 'toggle'];
 const ROTATION_TRANSITIONS = ['none', 'fade', 'slide-up', 'flip'];
 const MAX_USER_VARS = 500;
@@ -14,11 +15,13 @@ const TEMPLATE_RE = /\{\{\s*var\.([a-z0-9_]+)\s*(?:\|([^{}]*?))?\s*\}\}/gi;
 module.exports = function createVariables({ dataDir, onChange = null }) {
     const file = path.join(dataDir, 'variables.json');
     const setsFile = path.join(dataDir, 'variable-sets.json');
+    const variableGroups = require('./variable-groups')(dataDir);
     let vars = {};
     let sets = {};
     let moduleEnabled = true;
 
     function load() {
+        variableGroups.reload();
         try { vars = JSON.parse(fs.readFileSync(file, 'utf8')) || {}; } catch { vars = {}; }
         try { sets = JSON.parse(fs.readFileSync(setsFile, 'utf8')) || {}; } catch { sets = {}; }
     }
@@ -26,11 +29,12 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
 
     function notifyChange(extra = {}) {
         if (typeof onChange === 'function') {
-            try { onChange({ variables: list(), sets: listSets(), variableSetsEnabled: moduleEnabled, ...extra }); } catch { /* ignore listener errors */ }
+            try { onChange({ variables: list(), groups: listGroups(), sets: listSets(), variableSetsEnabled: moduleEnabled, ...extra }); } catch { /* ignore listener errors */ }
         }
     }
 
     function save() {
+        variableGroups.save();
         fs.mkdirSync(dataDir, { recursive: true });
         fs.writeFileSync(`${file}.tmp`, JSON.stringify(vars, null, 2));
         fs.renameSync(`${file}.tmp`, file);
@@ -38,6 +42,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
     }
 
     function saveSets({ saveVarsAlso = false } = {}) {
+        variableGroups.save();
         fs.mkdirSync(dataDir, { recursive: true });
         fs.writeFileSync(`${setsFile}.tmp`, JSON.stringify(sets, null, 2));
         fs.renameSync(`${setsFile}.tmp`, setsFile);
@@ -52,6 +57,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
     const normSetId = id => String(id || '').toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/^_+|_+$/g, '').slice(0, 24);
     const list = () => Object.entries(vars).map(([name, v]) => ({ name, ...v }));
     const listSets = () => Object.entries(sets).map(([id, s]) => ({ id, ...s }));
+    const listGroups = () => [...new Set([...variableGroups.list(), ...list().filter(v => !v.setId && !v.hidden && v.group).map(v => v.group)])];
 
     // Flat map for placeholders: {{var.name}}. Templates may reference other templates in any order (depth 3, cycles resolve empty).
     function values() {
@@ -96,19 +102,22 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         const type = VALID_TYPES.includes(patch.type) ? patch.type : cur?.type || 'text';
         const setId = patch.setId !== undefined ? (normSetId(patch.setId) || undefined) : cur?.setId;
         const isHidden = patch.hidden !== undefined ? Boolean(patch.hidden) : Boolean(cur?.hidden);
+        const group = setId || isHidden ? '' : variableGroups.normalize(patch.group ?? cur?.group ?? '');
+        const number = type === 'number' ? normalizeNumber(patch, cur?.type === 'number' || cur?.type === 'counter' ? cur : {}) : null;
+        if (!cur) {
+            const count = Object.values(vars).filter(v => Boolean(v?.setId) === Boolean(setId)).length;
+            if (count >= (setId ? MAX_SET_VARS : MAX_USER_VARS)) throw new Error(setId ? 'Too many Variable Set variables' : 'Too many variables');
+        }
+        if (group) variableGroups.add(group);
         if (type === 'list') {
             const raw = patch.items ?? cur?.items ?? [];
             const items = (Array.isArray(raw) ? raw : String(raw).split(/\r?\n/)).map(i => String(i).trim().slice(0, 300)).filter(Boolean).slice(0, 200);
             const mode = patch.mode === 'sequential' ? 'sequential' : patch.mode === 'random' ? 'random' : cur?.mode || 'random';
             let value = patch.value ?? cur?.value ?? '';
             if (!items.includes(value)) value = items[0] || '';
-            vars[name] = { type, items, mode, value, ...(setId ? { setId } : {}), updatedAt: Date.now() };
+            vars[name] = { type, items, mode, value, ...(setId ? { setId } : {}), ...(group ? { group } : {}), ...(isHidden ? { hidden: true } : {}), updatedAt: Date.now() };
             if (persist) save();
             return { name, ...vars[name] };
-        }
-        if (!cur) {
-            const count = Object.values(vars).filter(v => Boolean(v?.setId) === Boolean(setId)).length;
-            if (count >= (setId ? MAX_SET_VARS : MAX_USER_VARS)) throw new Error(setId ? 'Too many Variable Set variables' : 'Too many variables');
         }
         let value = patch.value ?? cur?.value ?? (type === 'counter' ? 0 : type === 'toggle' ? 'false' : type === 'color' ? '#3b82f6' : '');
         if (type === 'counter') {
@@ -119,14 +128,17 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             value = normalizeColor(value);
         } else if (type === 'image') {
             value = String(value).trim().slice(0, 1000);
+        } else if (type === 'font') {
+            value = String(value).replace(/[\u0000-\u001f\u007f;{}<>]/g, '').trim().slice(0, 120) || 'sans-serif';
         } else {
             value = String(value).slice(0, isHidden ? 16000 : 500);
         }
         vars[name] = {
             type,
-            value,
+            ...(number || { value }),
             ...(type === 'counter' ? { initial: Number(patch.initial ?? cur?.initial ?? 0) || 0 } : {}),
             ...(setId ? { setId } : {}),
+            ...(group ? { group } : {}),
             ...(isHidden ? { hidden: true } : {}),
             updatedAt: Date.now()
         };
@@ -141,10 +153,14 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
     function change(name, action, amount) {
         name = normName(name);
         const cur = vars[name] || { type: 'counter', value: 0, initial: 0 };
-        if (cur.type !== 'counter') throw new Error('Not a counter');
-        const by = Number.isFinite(Number(amount)) && amount !== '' && amount !== undefined ? Number(amount) : 1;
-        const value = action === 'reset' ? cur.initial || 0 : cur.value + (action === 'decrement' ? -by : by);
-        return set(name, { type: 'counter', value });
+        if (!['number', 'counter'].includes(cur.type)) throw new Error('Not a Number variable');
+        const supplied = amount !== '' && amount !== undefined && amount !== null;
+        if (action === 'set' && !supplied) throw new Error('Value is required');
+        if (cur.type === 'number' && supplied && action !== 'reset') normalizeNumber.parse(amount, 'Amount');
+        const by = Number.isFinite(Number(amount)) && supplied ? Number(amount) : cur.step ?? 1;
+        const delta = action === 'decrement' ? -by : by;
+        const value = action === 'reset' ? cur.resetValue ?? cur.initial ?? 0 : action === 'set' ? amount : cur.type === 'number' ? normalizeNumber.add(cur.value, delta) : cur.value + delta;
+        return set(name, { type: cur.type, value });
     }
 
     function toggleVar(name, explicitValue = undefined) {
@@ -297,11 +313,13 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
     function atomic(fn) {
         const prevVars = JSON.parse(JSON.stringify(vars));
         const prevSets = JSON.parse(JSON.stringify(sets));
+        const prevGroups = variableGroups.list();
         try {
             return fn();
         } catch (err) {
             vars = prevVars;
             sets = prevSets;
+            variableGroups.restore(prevGroups);
             throw err;
         }
     }
@@ -692,6 +710,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
 
 
     function importBundleRaw(payload = {}) {
+        for (const group of Array.isArray(payload.groups) ? payload.groups : []) variableGroups.add(group);
         const importedVars = Array.isArray(payload.variables) ? payload.variables : [];
         const importedSets = Array.isArray(payload.sets) ? payload.sets : [];
         let varCount = 0;
@@ -710,7 +729,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         }
         saveSets({ saveVarsAlso: true });
         for (const id of Object.keys(sets)) scheduleRotation(id);
-        return { ok: true, importedVars: varCount, importedSets: setCount, variables: list(), sets: listSets() };
+        return { ok: true, importedVars: varCount, importedSets: setCount, variables: list(), groups: listGroups(), sets: listSets() };
     }
 
     function toCsvCell(val) {
@@ -831,6 +850,29 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
     const toggleEntryGroup = (...a) => atomic(() => toggleEntryGroupRaw(...a));
     const updateSetGroup = (...a) => atomic(() => updateSetGroupRaw(...a));
     const importBundle = (...a) => atomic(() => importBundleRaw(...a));
+    const manageGroup = (name, members = [], { createOnly = false, originalName = null } = {}) => atomic(() => {
+        if (!Array.isArray(members)) throw new Error('Group members must be an array of variable names');
+        const group = variableGroups.normalize(name);
+        const previous = originalName === null ? group : variableGroups.normalize(originalName);
+        if (originalName !== null && !listGroups().includes(previous)) throw new Error('Variable Group not found');
+        if (originalName !== null && createOnly) throw new Error('Cannot create and rename a group together');
+        if (createOnly && listGroups().includes(group)) throw new Error('A group with this name already exists');
+        const selected = new Set(members.map(normName));
+        for (const member of selected) {
+            if (!vars[member] || vars[member].setId || vars[member].hidden) throw new Error(`Ordinary variable "${member}" not found`);
+        }
+        if (originalName !== null) {
+            if (previous !== group && listGroups().includes(group)) throw new Error('A group with this name already exists');
+            if (!variableGroups.list().includes(previous)) variableGroups.add(previous);
+            variableGroups.rename(previous, group);
+        } else variableGroups.add(group);
+        for (const [key, record] of Object.entries(vars)) {
+            if (selected.has(key)) normalizeVarRecord(key, { group }, { persist: false });
+            else if (record.group === previous) normalizeVarRecord(key, { group: '' }, { persist: false });
+        }
+        save();
+        return { group, variables: list(), groups: listGroups() };
+    });
 
     // Server-owned rotation: one shared clock per set. Materialized vars keep live values; overlays that
     // follow the set apply rotation.entryId themselves, so a single set can rotate on one overlay and not another.
@@ -946,7 +988,10 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             const body = contentType.includes('text/csv') ? {} : JSON.parse(rawBody || '{}');
 
             if (pathname === '/api/variables' && req.method === 'GET') {
-                return json(200, { variables: list(), sets: listSets(), variableSetsEnabled: moduleEnabled }), true;
+                return json(200, { variables: list(), groups: listGroups(), sets: listSets(), variableSetsEnabled: moduleEnabled }), true;
+            }
+            if (pathname === '/api/variables/groups/manage' && req.method === 'POST') {
+                return json(200, manageGroup(body.name, body.variables, { createOnly: body.createOnly === true, originalName: body.originalName ?? null })), true;
             }
             if (pathname === '/api/variables/import' && req.method === 'POST') {
                 return json(200, importBundle(body)), true;
@@ -1022,12 +1067,12 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                 return json(405, { error: 'Method not allowed' }), true;
             }
 
-            const m = pathname.match(/^\/api\/variables\/([^/]+)(?:\/(increment|decrement|reset|roll|toggle))?$/);
+            const m = pathname.match(/^\/api\/variables\/([^/]+)(?:\/(increment|decrement|reset|set|roll|toggle))?$/);
             if (!m) return json(404, { error: 'Unknown variables endpoint' }), true;
             const name = decodeURIComponent(m[1]);
             if (m[2] === 'roll' && (req.method === 'POST' || req.method === 'GET')) return json(200, roll(name)), true;
             if (m[2] === 'toggle' && (req.method === 'POST' || req.method === 'GET')) return json(200, toggleVar(name, query.value ?? body.value)), true;
-            if (m[2] && (req.method === 'POST' || req.method === 'GET')) return json(200, change(name, m[2], query.amount ?? body.amount)), true;
+            if (m[2] && (req.method === 'POST' || req.method === 'GET')) return json(200, change(name, m[2], m[2] === 'set' ? query.value ?? body.value : query.amount ?? body.amount)), true;
             if (req.method === 'PUT' || req.method === 'POST') return json(200, set(name, body)), true;
             if (req.method === 'DELETE') { delete vars[normName(name)]; save(); return json(200, { variables: list(), sets: listSets() }), true; }
             if (req.method === 'GET') {
@@ -1050,6 +1095,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         values,
         list,
         listSets,
+        listGroups,
+        manageGroup,
         set,
         change,
         toggleVar,

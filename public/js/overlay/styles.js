@@ -1218,17 +1218,19 @@ function mountSplitTextAnimation(node, animType, speed, intensity, playMode = 'l
         const delayMs = Math.round(delay * 1000);
         let progress = 0;
         let hold = 0;
-        let frame = 0;
+        let randomState = (Math.random() * 0x100000000) >>> 0 || 1;
         let timer = 0;
         let delayTimer = 0;
 
         const paintMatrix = lockedCount => {
-            frame++;
             for (let i = 0; i < slots.length; i++) {
                 if (i < lockedCount || isMotionPaused(node)) {
                     if (slots[i].span.textContent !== slots[i].target) slots[i].span.textContent = slots[i].target;
                 } else {
-                    const g = MATRIX_GLYPHS[(frame * 7 + i * 13) % MATRIX_GLYPHS.length];
+                    randomState ^= randomState << 13;
+                    randomState ^= randomState >>> 17;
+                    randomState ^= randomState << 5;
+                    const g = MATRIX_GLYPHS[(randomState >>> 0) % MATRIX_GLYPHS.length];
                     slots[i].span.textContent = g;
                 }
             }

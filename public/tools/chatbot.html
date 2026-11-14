@@ -3,6 +3,7 @@
 <head>
     <link rel="stylesheet" href="/admin.css">
     <link rel="stylesheet" href="/css/chatbot.css">
+    <link rel="stylesheet" href="/css/variable-groups.css">
     <script src="/appearance.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
@@ -625,7 +626,7 @@
             </div>
             <div class="row" style="margin-bottom:.75rem;">
                 <input id="var-name" placeholder="Variable name (e.g. deaths)" style="padding:.5rem .75rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);flex:1;min-width:160px;">
-                <select id="var-type" style="padding:.5rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);"><option value="counter">Counter (number)</option><option value="text">Text (string)</option><option value="list">List (random/sequential)</option></select>
+                <select id="var-type" style="padding:.5rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);"><option value="number">Number</option><option value="text">Text (string)</option><option value="list">List (random/sequential)</option></select>
                 <button class="btn primary" id="var-add">+ Add variable</button>
             </div>
             <div id="vars"></div>

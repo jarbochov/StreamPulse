@@ -319,7 +319,14 @@ function variableGroups(status = {}) {
     groups.push({ label: 'Clock', items: CLOCK_ITEMS });
     const setsEnabled = status.modules?.variableSets !== false;
     const customVars = (status.customVars || []).filter(v => !v.hidden && (setsEnabled || !v.setId));
-    if (customVars.length) groups.push({ label: 'Variables and counters', items: customVars.flatMap(v => [[`var.${v.name}`, `${v.name} (${v.type})`], ...(v.type === 'list' ? [[`var.${v.name}.random`, `${v.name}, random item each time`]] : [])]) });
+    const customGroups = new Map();
+    for (const v of customVars) {
+        const label = v.group && !v.setId ? `Variables: ${v.group}` : 'Variables and counters';
+        if (!customGroups.has(label)) customGroups.set(label, []);
+        customGroups.get(label).push([`var.${v.name}`, `${v.name} (${v.type})`]);
+        if (v.type === 'list') customGroups.get(label).push([`var.${v.name}.random`, `${v.name}, random item each time`]);
+    }
+    for (const [label, items] of customGroups) groups.push({ label, items });
     if (status.weather?.enabled) {
         groups.push({ label: 'Weather', items: WEATHER_ITEMS });
         for (const [slug, extra] of Object.entries(status.weather.extras || {})) {
@@ -781,10 +788,29 @@ function customVarValues(status) {
 }
 
 // keepEmpty leaves {{token}} in place when no live value exists, which keeps editor previews selectable.
+const numberFormatters = new Map();
+function formatNumberVariable(value, format) {
+    const match = /^number:(\d{1,2}):(comma|period|space|none):([^:]*):([^:]*)$/.exec(format || '');
+    if (!match || Number(match[1]) > 12 || !Number.isFinite(Number(value))) return undefined;
+    const digits = Number(match[1]), separator = match[2], key = `${digits}:${separator}`;
+    let prefix, suffix;
+    try { prefix = decodeURIComponent(match[3]); suffix = decodeURIComponent(match[4]); } catch { return undefined; }
+    if (!numberFormatters.has(key)) numberFormatters.set(key, new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: separator !== 'none'
+    }));
+    const formatted = numberFormatters.get(key).formatToParts(Number(value)).map(part => {
+        if (part.type === 'group') return separator === 'space' ? ' ' : separator === 'period' ? '.' : ',';
+        if (part.type === 'decimal') return separator === 'period' ? ',' : '.';
+        return part.value;
+    }).join('');
+    return `${prefix}${formatted}${suffix}`;
+}
+
 function expandVariables(value, status, context = {}, keepEmpty = false, _depth = 0) {
     const now = Date.now();
     const table = variableTable(status, context, now);
     const tplMap = new Map((status.customVars || []).filter(v => v.type === 'template').map(v => [`var.${v.name}`, v.value]));
+    const numberNames = new Set((status.customVars || []).filter(v => v.type === 'number' || v.type === 'counter').map(v => `var.${v.name}`));
     return String(value ?? '').replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (match, name, format) => {
         if (name.startsWith('var.') && tplMap.has(name) && _depth < 3) {
             const expanded = expandVariables(tplMap.get(name) ?? '', status, context, keepEmpty, _depth + 1);
@@ -803,7 +829,8 @@ function expandVariables(value, status, context = {}, keepEmpty = false, _depth 
                 return fb === '' && keepEmpty ? match : fb;
             }
         }
-        const resolved = format === undefined ? table[name] : applyFormat(name, table[name], isListKey(name) ? format.replace(/^\s+/, '') : format.trim(), now, table);
+        const numeric = numberNames.has(name) ? formatNumberVariable(table[name], format?.trim()) : undefined;
+        const resolved = numeric !== undefined ? numeric : format === undefined || numberNames.has(name) ? table[name] : applyFormat(name, table[name], isListKey(name) ? format.replace(/^\s+/, '') : format.trim(), now, table);
         const text = resolved === undefined || resolved === null ? '' : String(resolved);
         return text === '' && keepEmpty ? match : text;
     });
@@ -861,7 +888,7 @@ function resolveStyleVariables(style, status, context, member = null) {
     const expandFn = v => resolveColorToken(v, status, context, member);
     const hasToken = v => typeof v === 'string' && (v.includes('{{') || (Boolean(member) && v.trim().startsWith('@')));
     const gradKeys = ['gradient', 'textGradient', 'borderGradient'];
-    const needsClone = ['color', 'background', 'fill', 'borderColor'].some(k => hasToken(style[k]))
+    const needsClone = ['color', 'background', 'fill', 'borderColor', 'fontFamily'].some(k => hasToken(style[k]))
         || gradKeys.some(k => style[k] && (hasToken(style[k].from) || hasToken(style[k].mid) || hasToken(style[k].to)))
         || (style.borderGlow && hasToken(style.borderGlow.color))
         || (style.borderAnimation && (hasToken(style.borderAnimation.color2) || hasToken(style.borderAnimation.color3)))
@@ -871,6 +898,7 @@ function resolveStyleVariables(style, status, context, member = null) {
         || (style.textShadow && hasToken(style.textShadow.color));
     if (!needsClone) return style;
     const out = { ...style };
+    if (hasToken(out.fontFamily)) out.fontFamily = expandFn(out.fontFamily) || 'sans-serif';
     for (const k of ['color', 'background', 'fill', 'borderColor']) {
         if (hasToken(out[k])) out[k] = expandFn(out[k]) || (k === 'background' ? 'transparent' : out[k]);
     }

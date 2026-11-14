@@ -1701,16 +1701,18 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       const delayMs = Math.round(delay * 1e3);
       let progress = 0;
       let hold = 0;
-      let frame = 0;
+      let randomState = Math.random() * 4294967296 >>> 0 || 1;
       let timer = 0;
       let delayTimer = 0;
       const paintMatrix = (lockedCount) => {
-        frame++;
         for (let i = 0; i < slots.length; i++) {
           if (i < lockedCount || isMotionPaused(node)) {
             if (slots[i].span.textContent !== slots[i].target) slots[i].span.textContent = slots[i].target;
           } else {
-            const g = MATRIX_GLYPHS[(frame * 7 + i * 13) % MATRIX_GLYPHS.length];
+            randomState ^= randomState << 13;
+            randomState ^= randomState >>> 17;
+            randomState ^= randomState << 5;
+            const g = MATRIX_GLYPHS[(randomState >>> 0) % MATRIX_GLYPHS.length];
             slots[i].span.textContent = g;
           }
         }
@@ -2703,7 +2705,14 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     groups.push({ label: "Clock", items: CLOCK_ITEMS });
     const setsEnabled = status.modules?.variableSets !== false;
     const customVars = (status.customVars || []).filter((v) => !v.hidden && (setsEnabled || !v.setId));
-    if (customVars.length) groups.push({ label: "Variables and counters", items: customVars.flatMap((v) => [[`var.${v.name}`, `${v.name} (${v.type})`], ...v.type === "list" ? [[`var.${v.name}.random`, `${v.name}, random item each time`]] : []]) });
+    const customGroups = /* @__PURE__ */ new Map();
+    for (const v of customVars) {
+      const label = v.group && !v.setId ? `Variables: ${v.group}` : "Variables and counters";
+      if (!customGroups.has(label)) customGroups.set(label, []);
+      customGroups.get(label).push([`var.${v.name}`, `${v.name} (${v.type})`]);
+      if (v.type === "list") customGroups.get(label).push([`var.${v.name}.random`, `${v.name}, random item each time`]);
+    }
+    for (const [label, items] of customGroups) groups.push({ label, items });
     if (status.weather?.enabled) {
       groups.push({ label: "Weather", items: WEATHER_ITEMS });
       for (const [slug, extra] of Object.entries(status.weather.extras || {})) {
@@ -3133,10 +3142,34 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     for (const key of templates.keys()) entries[key] = resolve(key, 0);
     return entries;
   }
+  function formatNumberVariable(value, format) {
+    const match = /^number:(\d{1,2}):(comma|period|space|none):([^:]*):([^:]*)$/.exec(format || "");
+    if (!match || Number(match[1]) > 12 || !Number.isFinite(Number(value))) return void 0;
+    const digits = Number(match[1]), separator = match[2], key = `${digits}:${separator}`;
+    let prefix, suffix;
+    try {
+      prefix = decodeURIComponent(match[3]);
+      suffix = decodeURIComponent(match[4]);
+    } catch {
+      return void 0;
+    }
+    if (!numberFormatters.has(key)) numberFormatters.set(key, new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+      useGrouping: separator !== "none"
+    }));
+    const formatted = numberFormatters.get(key).formatToParts(Number(value)).map((part) => {
+      if (part.type === "group") return separator === "space" ? " " : separator === "period" ? "." : ",";
+      if (part.type === "decimal") return separator === "period" ? "," : ".";
+      return part.value;
+    }).join("");
+    return `${prefix}${formatted}${suffix}`;
+  }
   function expandVariables(value, status, context = {}, keepEmpty = false, _depth = 0) {
     const now = Date.now();
     const table = variableTable(status, context, now);
     const tplMap = new Map((status.customVars || []).filter((v) => v.type === "template").map((v) => [`var.${v.name}`, v.value]));
+    const numberNames = new Set((status.customVars || []).filter((v) => v.type === "number" || v.type === "counter").map((v) => `var.${v.name}`));
     return String(value ?? "").replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (match, name, format) => {
       if (name.startsWith("var.") && tplMap.has(name) && _depth < 3) {
         const expanded = expandVariables(tplMap.get(name) ?? "", status, context, keepEmpty, _depth + 1);
@@ -3155,7 +3188,8 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           return fb === "" && keepEmpty ? match : fb;
         }
       }
-      const resolved = format === void 0 ? table[name] : applyFormat(name, table[name], isListKey(name) ? format.replace(/^\s+/, "") : format.trim(), now, table);
+      const numeric = numberNames.has(name) ? formatNumberVariable(table[name], format?.trim()) : void 0;
+      const resolved = numeric !== void 0 ? numeric : format === void 0 || numberNames.has(name) ? table[name] : applyFormat(name, table[name], isListKey(name) ? format.replace(/^\s+/, "") : format.trim(), now, table);
       const text = resolved === void 0 || resolved === null ? "" : String(resolved);
       return text === "" && keepEmpty ? match : text;
     });
@@ -3209,9 +3243,10 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const expandFn = (v) => resolveColorToken(v, status, context, member);
     const hasToken = (v) => typeof v === "string" && (v.includes("{{") || Boolean(member) && v.trim().startsWith("@"));
     const gradKeys = ["gradient", "textGradient", "borderGradient"];
-    const needsClone = ["color", "background", "fill", "borderColor"].some((k) => hasToken(style[k])) || gradKeys.some((k) => style[k] && (hasToken(style[k].from) || hasToken(style[k].mid) || hasToken(style[k].to))) || style.borderGlow && hasToken(style.borderGlow.color) || style.borderAnimation && (hasToken(style.borderAnimation.color2) || hasToken(style.borderAnimation.color3)) || style.shadow && hasToken(style.shadow.color) || style.innerShadow && hasToken(style.innerShadow.color) || style.textStroke && hasToken(style.textStroke.color) || style.textShadow && hasToken(style.textShadow.color);
+    const needsClone = ["color", "background", "fill", "borderColor", "fontFamily"].some((k) => hasToken(style[k])) || gradKeys.some((k) => style[k] && (hasToken(style[k].from) || hasToken(style[k].mid) || hasToken(style[k].to))) || style.borderGlow && hasToken(style.borderGlow.color) || style.borderAnimation && (hasToken(style.borderAnimation.color2) || hasToken(style.borderAnimation.color3)) || style.shadow && hasToken(style.shadow.color) || style.innerShadow && hasToken(style.innerShadow.color) || style.textStroke && hasToken(style.textStroke.color) || style.textShadow && hasToken(style.textShadow.color);
     if (!needsClone) return style;
     const out = { ...style };
+    if (hasToken(out.fontFamily)) out.fontFamily = expandFn(out.fontFamily) || "sans-serif";
     for (const k of ["color", "background", "fill", "borderColor"]) {
       if (hasToken(out[k])) out[k] = expandFn(out[k]) || (k === "background" ? "transparent" : out[k]);
     }
@@ -3249,7 +3284,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
     return out;
   }
-  var VARIABLE_GROUPS, CLOCK_ITEMS, GAME_ITEMS, WEATHER_ITEMS, PLAN_ITEMS, EVENT_ITEMS, MILESTONE_ITEMS, MATCHUP_ITEMS, TOURNAMENT_ITEMS, TRIVIA_ITEMS, TIER_LIST_ITEMS, SUBATHON_ITEMS, TICKING, isTicking, hasTicking, inPlanList, LIST_FORMAT_PRESETS, FORMAT_PRESETS, isDateKey, ordinal, isListFormat, isListKey;
+  var VARIABLE_GROUPS, CLOCK_ITEMS, GAME_ITEMS, WEATHER_ITEMS, PLAN_ITEMS, EVENT_ITEMS, MILESTONE_ITEMS, MATCHUP_ITEMS, TOURNAMENT_ITEMS, TRIVIA_ITEMS, TIER_LIST_ITEMS, SUBATHON_ITEMS, TICKING, isTicking, hasTicking, inPlanList, LIST_FORMAT_PRESETS, FORMAT_PRESETS, isDateKey, ordinal, isListFormat, isListKey, numberFormatters;
   var init_variables = __esm({
     "public/js/overlay/variables.js"() {
       VARIABLE_GROUPS = [
@@ -3421,6 +3456,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       };
       isListFormat = (format) => /^(lines|newline|br|bullets|numbered|sep:|\d+(:|$))/i.test(String(format || "").trim());
       isListKey = (name) => /^(plan\.scheduled|plan\.backlog|plan\.list\..+|game\.genres|game\.platforms)$/.test(name);
+      numberFormatters = /* @__PURE__ */ new Map();
     }
   });
 
@@ -3676,7 +3712,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     return fallbackLabel;
   }
   function createStyledFieldNode(spec, text, ctx) {
-    const { st, baseSize, isSpotlightLead, cfg, labelIdx, subIdx } = ctx;
+    const { st, baseSize, isSpotlightLead, cfg, labelIdx, subIdx, status } = ctx;
     const span = document.createElement("span");
     let roleCls = "sp-image-group-accent";
     if (spec.role === "title" || labelIdx === 0 && spec.role !== "subtitle" && spec.role !== "badge" && spec.role !== "caption") {
@@ -3692,7 +3728,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     if (spec.slot && spec.slot !== "main") span.dataset.igSlot = spec.slot;
     span.textContent = `${spec.prefix}${text}${spec.suffix}`;
     const roleFont = spec.role === "subtitle" || spec.role === "caption" ? String(cfg.subFontFamily || "").trim() : spec.role === "badge" || spec.role === "accent" ? String(cfg.badgeFontFamily || "").trim() : "";
-    const resolvedFont = spec.fontFamily || roleFont || st.fontFamily || "sans-serif";
+    const resolvedFont = resolveColorToken(spec.fontFamily, status, {}) || resolveColorToken(roleFont, status, {}) || st.fontFamily || "sans-serif";
     if (typeof loadGoogleFont === "function") loadGoogleFont(resolvedFont);
     const roleFactor = FIELD_ROLE_SCALE[spec.role] ?? 0.9;
     const rawPx = spec.fontSize ? spec.fontSize * (isSpotlightLead ? 1.12 : 1) : baseSize * roleFactor * (spec.sizeScale / 100) * (isSpotlightLead ? 1.12 : 1);
@@ -4089,6 +4125,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       const labelBg = resolveMemberColor(cfg.labelBg || "", item.raw, "");
       const horizontalItem = showLabels && !inside && !splitMode && (!showAvatar || labelPosition === "right" || labelPosition === "left" || (isChip || isBanner) && labelPosition === "below");
       const card = document.createElement("div");
+      card.dataset.groupEntryId = item.id;
       card.className = `sp-image-group-item${isFramed && !isChip ? " sp-image-group-card" : ""}${isChip ? " sp-image-group-chip" : ""}${isBanner ? " sp-image-group-banner" : ""}${isSpotlightLead ? " sp-image-group-lead" : ""}${cfg.textWrap === "wrap" ? " is-wrap" : ""}`;
       card.style.position = "relative";
       card.style.boxSizing = "border-box";
@@ -4194,6 +4231,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           baseSize: baseSizePx,
           isSpotlightLead,
           cfg: memberCfg,
+          status,
           labelIdx: resolvedSpec.role === "title" ? labelCount++ : -1,
           subIdx: resolvedSpec.role === "subtitle" ? subCount++ : -1
         });
@@ -6512,7 +6550,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const sp = b.speaker || {};
     const callIn = sp.callIn || {};
     const re = b.reaction || {};
-    const s = element.style || {};
+    const s = resolveStyleVariables(element.style || {}, options.status || {}, {});
     const layout = b.layout || "horizontal";
     const speaking = Boolean(options.speaking);
     const activeColor = re.activeColor || "#6366f1";
@@ -6545,9 +6583,11 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const padding = layout === "horizontal" ? [16, 10] : layout === "compact-pill" ? [14, 6] : layout === "vertical-card" ? [12, 14] : [12, 6];
     card.style.setProperty("--sb-padding-x", `${b.paddingX ?? padding[0]}px`);
     card.style.setProperty("--sb-padding-y", `${b.paddingY ?? padding[1]}px`);
-    card.style.setProperty("--sb-subtitle-font", b.typography?.subtitleFontFamily || "inherit");
-    card.style.setProperty("--sb-pill-font", b.typography?.pillFontFamily || "inherit");
-    for (const font of [b.typography?.subtitleFontFamily, b.typography?.pillFontFamily]) if (font) loadGoogleFont(font);
+    const subtitleFont = resolveColorToken(b.typography?.subtitleFontFamily, options.status || {}, {}) || "inherit";
+    const pillFont = resolveColorToken(b.typography?.pillFontFamily, options.status || {}, {}) || "inherit";
+    card.style.setProperty("--sb-subtitle-font", subtitleFont);
+    card.style.setProperty("--sb-pill-font", pillFont);
+    for (const font of [subtitleFont, pillFont]) if (font !== "inherit") loadGoogleFont(font);
     const defaultFs = layout === "cspan-banner" ? 18 : layout === "compact-pill" ? 14 : layout === "vertical-card" ? 16 : 17;
     const fs = Number(s.fontSize) > 0 ? Number(s.fontSize) : defaultFs;
     card._speakerAutoSize = b.autoSize !== false;
@@ -6884,6 +6924,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       init_environment();
       init_fonts();
       init_styles();
+      init_variables();
     }
   });
 

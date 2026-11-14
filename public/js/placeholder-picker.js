@@ -26,6 +26,11 @@
         #sp-list .sep-input { width: 11rem; padding: .15rem .4rem; font-size: .7rem; }
         #sp-list .chips { display: flex; flex-wrap: wrap; gap: .3rem; align-items: center; margin: -.1rem 0 .4rem .5rem; font-size: .7rem; color: var(--muted, var(--text-muted)); }
         #sp-list .chip { width: auto; margin: 0; padding: .15rem .5rem; font-size: .7rem; display: inline-block; }
+        #sp-list .sp-number-format { margin: 0 0 .6rem .5rem; font-size: .75rem; }
+        #sp-list .sp-number-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; margin-top: .4rem; }
+        #sp-list .sp-number-fields label { display: grid; gap: .2rem; min-width: 0; }
+        #sp-list .sp-number-fields select { background: var(--bg-inset); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: .45rem; }
+        #sp-list .sp-number-fields input { box-sizing: border-box; min-width: 0; }
         #sp-list .preview { grid-row: 1 / span 2; grid-column: 2; align-self: center; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; }
         #sp-picker.is-color-mode .sp-fmt { display: none; }
         .sp-color-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.35); flex: none; }`;
@@ -51,6 +56,15 @@
         $('sp-format').addEventListener('input', render);
         $('sp-close').addEventListener('click', () => dialog.close());
         $('sp-list').addEventListener('click', event => {
+            const numberButton = event.target.closest('[data-number-key]');
+            if (numberButton) {
+                const details = numberButton.closest('details');
+                const read = name => details.querySelector(`[name="${name}"]`).value;
+                const token = `${numberButton.dataset.numberKey}|number:${read('digits')}:${read('separator')}:${encodeURIComponent(read('prefix'))}:${encodeURIComponent(read('suffix'))}`;
+                dialog.close();
+                options.onPick(token, { raw: false });
+                return;
+            }
             const sepKey = event.target.closest('[data-sep-key]');
             const tokenBtn = event.target.closest('[data-token]');
             let token = tokenBtn?.dataset.token;
@@ -199,8 +213,14 @@
                 const value = dated ? shared.applyFormat(key, table[key], format, Date.now()) : table[key];
                 const preview = value === undefined || value === null || value === '' ? '—' : String(value);
                 const token = dated ? `${key}|${format}` : key;
+                const numeric = (status.customVars || []).find(v => `var.${v.name}` === key && ['number', 'counter'].includes(v.type));
+                const numberOptions = numeric ? `<details class="sp-number-format"><summary>Number formatting</summary><div class="sp-number-fields">
+                    <label>Decimal places<select name="digits">${Array.from({ length: 13 }, (_, i) => `<option value="${i}"${i === (numeric.precision ?? 0) ? ' selected' : ''}>${i}</option>`).join('')}</select></label>
+                    <label>Separators<select name="separator"><option value="comma">1,234.56</option><option value="period">1.234,56</option><option value="space">1 234.56</option><option value="none">1234.56</option></select></label>
+                    <label>Prefix<input name="prefix" maxlength="60" placeholder="e.g. $"></label><label>Suffix<input name="suffix" maxlength="60" placeholder="e.g.  points"></label>
+                    <button type="button" data-number-key="${esc(key)}">Insert formatted number</button></div></details>` : '';
                 const chips = listed ? `<div class="chips">${[['', 'Comma'], ['lines', 'Lines'], ['bullets', 'Bullets'], ['numbered', 'Numbered'], ['3', 'First 3']].map(([f, name]) => `<button type="button" class="chip" data-token="${esc(f ? `${key}|${f}` : key)}">${name}</button>`).join('')}<span class="sep"><input type="text" class="sep-input" placeholder="custom separator, e.g. / " spellcheck="false" aria-label="Custom separator"><button type="button" class="chip" data-sep-key="${esc(key)}">Insert</button></span></div>` : '';
-                return `<button type="button" data-token="${esc(token)}"><span>${esc(label)}</span><code>{{${esc(token)}}}</code><span class="preview">${esc(preview)}</span></button>${chips}`;
+                return `<button type="button" data-token="${esc(token)}"><span>${esc(label)}</span><code>{{${esc(token)}}}</code><span class="preview">${esc(preview)}</span></button>${chips}${numberOptions}`;
             }).join('');
         }).join('');
         dialog.querySelector('#sp-list').innerHTML = html || '<p class="hint">No placeholders match.</p>';

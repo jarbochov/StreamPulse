@@ -778,7 +778,7 @@
                 shared.renderGameList(existingNode, element, liveStatus.gamePlan);
             } else if (element.type === 'speaker-badge') {
                 const st = speakerState(element);
-                shared.renderSpeakerBadge(existingNode, element, { preview: params.get('preview') === 'true', speaking: Boolean(st?.speaking) });
+                shared.renderSpeakerBadge(existingNode, element, { preview: params.get('preview') === 'true', speaking: Boolean(st?.speaking), status: effectiveStatus() });
             } else if (element.type === 'poll') {
                 window.PollWidget.render(existingNode, element, liveStatus.poll, { preview: params.get('preview') === 'true' });
             } else if (element.type === 'progress') {
@@ -956,7 +956,7 @@
                 shared.renderGameList(node, element, liveStatus.gamePlan);
             } else if (element.type === 'speaker-badge') {
                 const st = speakerState(element);
-                shared.renderSpeakerBadge(node, element, { preview: params.get('preview') === 'true', speaking: Boolean(st?.speaking) });
+                shared.renderSpeakerBadge(node, element, { preview: params.get('preview') === 'true', speaking: Boolean(st?.speaking), status: effectiveStatus() });
             } else if (element.type === 'poll') {
                 window.PollWidget.render(node, element, liveStatus.poll, { preview: params.get('preview') === 'true' });
             } else if (element.type === 'progress') {
@@ -1540,7 +1540,7 @@
                 if (!st.speaking) {
                     st.speaking = true;
                     if (shared.renderSpeakerBadge) {
-                        shared.renderSpeakerBadge(node, element, { preview: false, speaking: true, rms: data.rms });
+                        shared.renderSpeakerBadge(node, element, { preview: false, speaking: true, rms: data.rms, status: effectiveStatus() });
                     }
                 }
             }
@@ -1551,7 +1551,7 @@
                     const current = currentOverlay?.elements.find(item => item.id === element.id && item.type === 'speaker-badge');
                     const currentNode = elementNodes.get(element.id);
                     if (current && currentNode && speakerStates.get(element.id) === st && shared.renderSpeakerBadge) {
-                        shared.renderSpeakerBadge(currentNode, current, { preview: false, speaking: false, rms: 0 });
+                        shared.renderSpeakerBadge(currentNode, current, { preview: false, speaking: false, rms: 0, status: effectiveStatus() });
                     }
                 }, holdMs);
             }

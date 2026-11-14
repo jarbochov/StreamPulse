@@ -21,6 +21,464 @@ function makeTmpDir() {
 const getVar = (store, name) => store.list().find(v => v.name === name) || null;
 const getSet = (store, id) => store.listSets().find(s => s.id === id) || null;
 
+test('Numbers: counter actions clamp, round, reset explicitly and preserve metadata across import/restart', async () => {
+    const dir = makeTmpDir();
+    const store = createVariablesStore({ dataDir: dir });
+    try {
+        store.set('score', { type: 'number', value: 1.005, resetValue: 2, min: 0.07, max: 10, step: 0.25, precision: 2, group: 'Scores' });
+        assert.equal(store.values().score, 1.01);
+        assert.equal(store.change('score', 'increment').value, 1.26);
+        assert.equal(store.change('score', 'decrement', 100).value, 0.07);
+        assert.equal((await callApi(store, 'GET', '/api/variables/score/set?value=100')).json.value, 10);
+        assert.equal(store.change('score', 'reset').value, 2);
+        const before = getVar(store, 'score');
+        for (const patch of [{ min: 20 }, { step: 0 }, { step: 0.005 }, { precision: 13 }, { value: 'oops' }, { value: null }]) {
+            assert.throws(() => store.set('score', patch));
+            assert.deepEqual(getVar(store, 'score'), before);
+        }
+        assert.throws(() => store.change('score', 'increment', Infinity));
+        assert.throws(() => store.change('score', 'increment', []));
+        assert.throws(() => store.change('score', 'set'));
+        store.importBundle({ variables: store.list() });
+        store.reload();
+        assert.equal(getVar(store, 'score').group, 'Scores');
+        assert.equal(getVar(store, 'score').resetValue, 2);
+        assert.equal(getVar(store, 'score').precision, 2);
+        store.set('fraction', { type: 'number', value: 0.1, step: 0.2 });
+        assert.equal(store.change('fraction', 'increment').value, 0.3);
+        store.set('precise', { type: 'number', value: 1.2345678901234567 });
+        assert.equal(store.values().precise, 1.2345678901234567, 'Omitted precision never rounds manually stored values');
+        store.set('large', { type: 'number', min: 1e20, value: 0, precision: 2 });
+        assert.equal(store.values().large, 1e20, 'Large bounds never drift below the configured minimum');
+        store.set('edge', { type: 'number', min: 0.0700000000000001, value: 0, precision: 2 });
+        assert.equal(store.values().edge, 0.08, 'Precision selects a representable value inside the actual bounds');
+        store.set('legacy', { type: 'counter', value: 4, initial: 3 });
+        assert.equal(store.change('legacy', 'reset').value, 3);
+        assert.equal(getVar(store, 'legacy').type, 'counter');
+    } finally {
+        store.dispose();
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('Numbers: each placeholder formats independently without changing numeric values or legacy fallbacks', () => {
+    const status = { customVars: [{ name: 'score', type: 'number', value: 1234.5 }, { name: 'legacy', type: 'counter', value: 0 }] };
+    assert.equal(OverlayShared.expandVariables('{{var.score|number:2:comma:%24:%20points}}', status), '$1,234.50 points');
+    assert.equal(OverlayShared.expandVariables('{{var.score|number:1:period::}}', status), '1.234,5');
+    assert.equal(OverlayShared.expandVariables('{{var.score|number:0:space::}}', status), '1 235');
+    assert.equal(OverlayShared.expandVariables('{{var.score|number:2:none::}}', status), '1234.50');
+    assert.equal(OverlayShared.expandVariables('{{var.legacy|number:2:none::}}', status), '0.00');
+    assert.equal(OverlayShared.expandVariables('{{var.score|Fallback}}', status), '1234.5');
+    assert.equal(OverlayShared.expandVariables('{{var.missing|Fallback}}', status), 'Fallback');
+    assert.equal(OverlayShared.expandVariables('{{var.score|number:99:comma::}}', status), '1234.5');
+    assert.equal(status.customVars[0].value, 1234.5);
+});
+
+test('Variable Groups: membership survives edits, export/import and restart without changing placeholders', async () => {
+    const dir = makeTmpDir();
+    const otherDir = makeTmpDir();
+    const store = createVariablesStore({ dataDir: dir });
+    const imported = createVariablesStore({ dataDir: otherDir });
+    try {
+        store.set('brand', { type: 'color', value: '#abcdef', group: 'Broadcast Theme' });
+        store.set('titles', { type: 'font', value: "'Montserrat', sans-serif", group: 'Broadcast Theme' });
+        store.set('names', { type: 'list', items: ['A', 'B'], group: 'Broadcast Theme' });
+        store.set('brand', { value: '#123456' });
+        store.roll('names');
+        assert.equal(getVar(store, 'brand').group, 'Broadcast Theme');
+        assert.equal(getVar(store, 'names').group, 'Broadcast Theme');
+        const res = await callApi(imported, 'POST', '/api/variables/import', { version: 2, variables: store.list() });
+        assert.equal(res.status, 200);
+        assert.equal(imported.values().titles, "'Montserrat', sans-serif");
+        assert.equal(OverlayShared.expandVariables('{{var.brand}}', { customVars: imported.list() }), '#123456');
+        imported.reload();
+        assert.equal(getVar(imported, 'titles').group, 'Broadcast Theme');
+        imported.set('titles', { group: '' });
+        assert.equal(getVar(imported, 'titles').group, undefined);
+        assert.equal(getVar(imported, 'titles').value, "'Montserrat', sans-serif");
+        const groups = OverlayShared.variableGroups({ customVars: store.list() });
+        assert.ok(groups.find(g => g.label === 'Variables: Broadcast Theme').items.some(([key]) => key === 'var.titles'));
+    } finally {
+        store.dispose();
+        imported.dispose();
+        fs.rmSync(dir, { recursive: true, force: true });
+        fs.rmSync(otherDir, { recursive: true, force: true });
+    }
+});
+
+test('Font bindings: styles resolve without mutating saved values and use a safe missing-variable fallback', () => {
+    const style = { fontFamily: '{{var.heading}}', color: '#ffffff' };
+    const resolved = OverlayShared.resolveStyleVariables(style, { customVars: [{ name: 'heading', type: 'font', value: 'monospace' }] });
+    assert.equal(resolved.fontFamily, 'monospace');
+    assert.equal(style.fontFamily, '{{var.heading}}');
+    assert.equal(OverlayShared.resolveStyleVariables(style, { customVars: [] }).fontFamily, 'sans-serif');
+    assert.equal(OverlayShared.resolveStyleVariables({ fontFamily: 'serif' }, { customVars: [] }).fontFamily, 'serif');
+});
+
+test('Variable Groups: empty groups persist, membership moves preserve values, and invalid edits are atomic', async () => {
+    const dir = makeTmpDir();
+    const store = createVariablesStore({ dataDir: dir });
+    try {
+        store.set('brand', { type: 'color', value: '#123456', group: 'Old Theme' });
+        const created = await callApi(store, 'POST', '/api/variables/groups/manage', { name: 'New Theme', variables: [], createOnly: true });
+        assert.equal(created.status, 200);
+        store.reload();
+        assert.ok(store.listGroups().includes('New Theme'));
+        const collision = await callApi(store, 'POST', '/api/variables/groups/manage', { name: 'Old Theme', variables: [], createOnly: true });
+        assert.equal(collision.status, 400);
+        assert.equal(getVar(store, 'brand').group, 'Old Theme');
+        store.manageGroup('New Theme', ['brand']);
+        assert.equal(getVar(store, 'brand').value, '#123456');
+        assert.equal(getVar(store, 'brand').group, 'New Theme');
+        assert.throws(() => store.manageGroup('Broken', ['brand', 'missing']));
+        assert.equal(getVar(store, 'brand').group, 'New Theme');
+        assert.ok(!store.listGroups().includes('Broken'));
+        const renamed = await callApi(store, 'POST', '/api/variables/groups/manage', { name: 'Renamed Theme', originalName: 'New Theme', variables: ['brand'] });
+        assert.equal(renamed.status, 200);
+        assert.equal(getVar(store, 'brand').group, 'Renamed Theme');
+        assert.equal(getVar(store, 'brand').value, '#123456');
+        assert.ok(!store.listGroups().includes('New Theme'));
+        const duplicate = await callApi(store, 'POST', '/api/variables/groups/manage', { name: 'Old Theme', originalName: 'Renamed Theme', variables: ['brand'] });
+        assert.equal(duplicate.status, 400);
+        assert.equal(getVar(store, 'brand').group, 'Renamed Theme');
+        assert.throws(() => store.manageGroup('Missing', [], { originalName: 'Unknown' }));
+        store.reload();
+        assert.equal(getVar(store, 'brand').group, 'Renamed Theme');
+        store.manageGroup('Renamed Theme', []);
+        assert.equal(getVar(store, 'brand').group, undefined);
+        assert.ok(store.listGroups().includes('Renamed Theme'));
+        store.importBundle({ groups: ['Imported Empty'] });
+        store.manageGroup('Empty Renamed', [], { originalName: 'Imported Empty' });
+        store.reload();
+        assert.ok(store.listGroups().includes('Empty Renamed'));
+        assert.ok(!store.listGroups().includes('Imported Empty'));
+    } finally {
+        store.dispose();
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('Variable Groups UI: top-level creation and one membership dialog per group', async () => {
+    const { createServer } = require('node:http');
+    const puppeteer = (await import('puppeteer')).default;
+    const dir = makeTmpDir();
+    const store = createVariablesStore({ dataDir: dir });
+    store.set('brand', { type: 'color', value: '#123456' });
+    store.set('heading', { type: 'font', value: 'serif' });
+    const files = new Map(['variables-state.js', 'variables-groups.js', 'variables-numbers.js', 'variables-filter.js'].map(name => [
+        `/js/variables/${name}`, fs.readFileSync(path.join(__dirname, '../public/js/variables', name), 'utf8')
+    ]));
+    const server = createServer(async (req, res) => {
+        const pathname = new URL(req.url, 'http://fixture').pathname;
+        if (pathname.startsWith('/api/variables')) {
+            await store.handleApi(req, res, pathname, async request => {
+                const chunks = [];
+                for await (const chunk of request) chunks.push(chunk);
+                return Buffer.concat(chunks).toString();
+            });
+        } else if (files.has(pathname)) {
+            res.writeHead(200, { 'Content-Type': 'text/javascript' });
+            res.end(files.get(pathname));
+        } else if (pathname === '/groups.css') {
+            res.writeHead(200, { 'Content-Type': 'text/css' });
+            res.end(fs.readFileSync(path.join(__dirname, '../public/css/variable-groups.css')));
+        } else if (pathname === '/favicon.ico') { res.writeHead(204); res.end(); }
+        else {
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end(`<link rel="stylesheet" href="/groups.css"><button id="new-group">+ New Group</button><div id="rows"></div>
+                <script type="module">
+                import { state } from '/js/variables/variables-state.js';
+                import { bindGroupDragDrop, openGroupEditor, groupedRows } from '/js/variables/variables-groups.js';
+                import { openNumberEditor } from '/js/variables/variables-numbers.js';
+                const refresh = async () => {
+                    const data = await (await fetch('/api/variables')).json();
+                    state.customVars = data.variables; state.variableGroups = data.groups;
+                    document.querySelector('#rows').innerHTML = groupedRows(data.variables, data.variables.map(v => '<strong draggable="true" data-drag-variable="'+v.name+'">'+v.name+'</strong>'));
+                };
+                document.querySelector('#new-group').onclick = () => openGroupEditor(refresh);
+                bindGroupDragDrop(document.querySelector('#rows'), refresh);
+                document.querySelector('#rows').onclick = e => {
+                    const button = e.target.closest('[data-manage-group]');
+                    if (button) openGroupEditor(refresh, button.dataset.manageGroup);
+                };
+                await refresh();
+                window.openNumber = async () => {
+                    await fetch('/api/variables/score', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'number', value: 1, resetValue: 0, step: 0.25, min: 0, max: 2 }) });
+                    await refresh();
+                    openNumberEditor(state.customVars.find(v => v.name === 'score'), refresh);
+                };
+                window.ready = true;
+                </script>`);
+        }
+    });
+    let browser;
+    try {
+        await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+        browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+        const page = await browser.newPage();
+        const errors = [];
+        page.on('pageerror', error => errors.push(error.message));
+        await page.goto(`http://127.0.0.1:${server.address().port}`);
+        await page.waitForFunction(() => window.ready);
+        await page.click('#new-group');
+        await page.type('[name="name"]', 'Broadcast Theme');
+        await page.click('[name="member"][value="brand"]');
+        await page.click('[type="submit"]');
+        await page.waitForSelector('[data-manage-group="Broadcast Theme"]');
+        assert.equal(getVar(store, 'brand').group, 'Broadcast Theme');
+        assert.equal(await page.$('[data-act="group"]'), null);
+        await page.click('[data-manage-group="Broadcast Theme"]');
+        await page.click('[name="member"][value="brand"]');
+        await page.click('[name="member"][value="heading"]');
+        await page.click('[type="submit"]');
+        await page.waitForFunction(() => !document.querySelector('dialog'));
+        assert.equal(getVar(store, 'brand').group, undefined);
+        assert.equal(getVar(store, 'heading').group, 'Broadcast Theme');
+        assert.equal(getVar(store, 'heading').value, 'serif');
+        const dropHighlighted = await page.evaluate(() => {
+            const source = document.querySelector('[data-drag-variable="heading"]');
+            const target = document.querySelector('[data-drop-group=""]');
+            const dataTransfer = new window.DataTransfer();
+            source.dispatchEvent(new window.DragEvent('dragstart', { bubbles: true, dataTransfer }));
+            target.dispatchEvent(new window.DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer }));
+            const highlighted = target.classList.contains('is-drop-target');
+            target.dispatchEvent(new window.DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }));
+            return highlighted;
+        });
+        assert.equal(dropHighlighted, true);
+        await page.waitForFunction(() => {
+            const header = document.querySelector('[data-drop-group=""]');
+            return header.closest('details').querySelectorAll('[data-drag-variable]').length === 2;
+        });
+        assert.equal(getVar(store, 'heading').group, undefined);
+        assert.equal(getVar(store, 'heading').value, 'serif');
+        await page.evaluate(() => {
+            const source = document.querySelector('[data-drag-variable="brand"]');
+            const target = document.querySelector('[data-drop-group="Broadcast Theme"]');
+            target.closest('details').open = false;
+            const dataTransfer = new window.DataTransfer();
+            source.dispatchEvent(new window.DragEvent('dragstart', { bubbles: true, dataTransfer }));
+            target.dispatchEvent(new window.DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }));
+        });
+        await page.waitForFunction(() => document.querySelector('[data-drop-group="Broadcast Theme"]').closest('details').querySelector('[data-drag-variable="brand"]'));
+        assert.equal(getVar(store, 'brand').group, 'Broadcast Theme');
+        assert.equal(getVar(store, 'brand').value, '#123456');
+        await page.setViewport({ width: 375, height: 700 });
+        await page.click('#new-group');
+        assert.ok(await page.evaluate(() => document.querySelector('dialog').getBoundingClientRect().width <= window.innerWidth));
+        await page.keyboard.press('Escape');
+        await page.evaluate(() => window.openNumber());
+        await page.click('[data-number-action="increment"]');
+        await page.waitForFunction(() => document.querySelector('[name="value"]').value === '1.25');
+        assert.equal(getVar(store, 'score').value, 1.25);
+        await page.click('[data-number-action="reset"]');
+        await page.waitForFunction(() => document.querySelector('[name="value"]').value === '0');
+        await page.$eval('[name="value"]', node => { node.value = '100'; });
+        await page.click('[type="submit"]');
+        await page.waitForFunction(() => !document.querySelector('dialog'));
+        assert.equal(getVar(store, 'score').value, 2);
+        await page.waitForFunction(() => !document.querySelector('dialog'));
+        assert.deepEqual(errors, []);
+    } finally {
+        await browser?.close();
+        await new Promise(resolve => server.close(resolve));
+        store.dispose();
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('Variables page: inline saves, cancellation, live snapshots and persistent group filters', async () => {
+    const { createServer } = require('node:http');
+    const puppeteer = (await import('puppeteer')).default;
+    const dir = makeTmpDir();
+    const store = createVariablesStore({ dataDir: dir });
+    store.set('score', { type: 'number', value: 1, resetValue: 0, step: 0.25, min: 0, max: 2, group: 'Broadcast Theme' });
+    store.set('message', { type: 'text', value: 'Hello', group: 'Broadcast Theme' });
+    store.set('plain', { type: 'text', value: 'Ungrouped' });
+    const publicRoot = path.resolve(__dirname, '../public');
+    let mutations = 0;
+    const server = createServer(async (req, res) => {
+        const pathname = new URL(req.url, 'http://fixture').pathname;
+        if (pathname.startsWith('/api/variables')) {
+            if (req.method === 'PUT') mutations++;
+            await store.handleApi(req, res, pathname, async request => {
+                const chunks = [];
+                for await (const chunk of request) chunks.push(chunk);
+                return Buffer.concat(chunks).toString();
+            });
+        } else if (pathname.startsWith('/api/')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(pathname === '/api/custom-overlays' ? [] : {}));
+        } else {
+            const mapped = pathname === '/placeholders.html' ? '/tools/placeholders.html' : pathname === '/overlay-shared.js' ? '/js/overlay-shared.js' : pathname;
+            const file = path.resolve(publicRoot, `.${mapped}`);
+            const javascript = pathname.endsWith('.js');
+            res.writeHead(200, { 'Content-Type': javascript ? 'text/javascript' : pathname.endsWith('.css') ? 'text/css' : 'text/html' });
+            res.end(file.startsWith(`${publicRoot}${path.sep}`) && fs.existsSync(file) && fs.statSync(file).isFile() ? fs.readFileSync(file) : '');
+        }
+    });
+    let browser;
+    try {
+        await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+        browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+        const page = await browser.newPage();
+        const errors = [];
+        page.on('pageerror', error => errors.push(error.message));
+        await page.evaluateOnNewDocument(() => {
+            window.WebSocket = class extends window.EventTarget {
+                constructor() { super(); window.testSocket = this; }
+            };
+        });
+        const origin = `http://127.0.0.1:${server.address().port}`;
+        await page.setRequestInterception(true);
+        page.on('request', request => request.url().startsWith(origin) || request.url().startsWith('data:') ? request.continue() : request.abort());
+        await page.goto(`${origin}/placeholders.html#variables`);
+        await page.waitForSelector('[data-n="score"] [data-inline-edit]');
+        const queryResults = await page.evaluate(async () => {
+            const { parseVariableQuery, matchesVariableQuery, groupFilterTag } = await import('/js/variables/variables-filter.js');
+            const groups = ['Broadcast Theme', 'Ungrouped', 'A"B'];
+            const vars = [{ name: 'score', type: 'counter', value: 1, group: 'Broadcast Theme' }, { name: 'plain', type: 'text' }, { name: 'set', type: 'text', setId: 'demo' }, { name: 'named', type: 'text', group: 'Ungrouped' }];
+            return ['#BroadcastTheme number', '#"Broadcast Theme"', '#ungrouped', '#"Ungrouped"', '#missing', '#"bad\\q"', '#""'].map(raw => vars.filter(v => matchesVariableQuery(v, parseVariableQuery(raw, groups))).map(v => v.name)).concat([[parseVariableQuery(groupFilterTag('A"B'), groups).group]]);
+        });
+        assert.deepEqual(queryResults, [['score'], ['score'], ['plain'], ['named'], [], [], [], ['A"B']]);
+
+        const edit = async (name, value) => {
+            await page.click(`[data-n="${name}"] [data-inline-edit]`);
+            await page.waitForSelector(`[aria-label="${name} value"]`);
+            await page.$eval(`[aria-label="${name} value"]`, (node, next) => { node.value = next; }, value);
+        };
+        await edit('score', '1.5');
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => document.querySelector('[data-n="score"] [data-inline-edit]')?.textContent.includes('1.5'));
+        assert.equal(mutations, 1);
+        assert.equal(getVar(store, 'score').resetValue, 0);
+        assert.equal(getVar(store, 'score').step, 0.25);
+        assert.equal(getVar(store, 'score').group, 'Broadcast Theme');
+
+        await edit('message', 'Cancelled');
+        await page.keyboard.press('Escape');
+        assert.equal(getVar(store, 'message').value, 'Hello');
+        assert.equal(mutations, 1);
+        await edit('score', '1.5');
+        await page.click('[data-n="message"] [data-inline-edit]');
+        await page.waitForSelector('[aria-label="message value"]');
+        assert.equal(mutations, 1);
+        await page.keyboard.press('Escape');
+
+        await edit('score', '1.75');
+        const target = await page.$eval('[data-n="message"] [data-inline-edit]', node => {
+            const rect = node.getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+        });
+        await page.mouse.move(target.x, target.y);
+        await page.mouse.down();
+        await page.waitForFunction(() => document.querySelector('[aria-label="score value"]')?.disabled);
+        await page.waitForFunction(async () => (await (await fetch('/api/variables')).json()).variables.find(v => v.name === 'score').value === 1.75);
+        assert.equal(getVar(store, 'score').value, 1.75);
+        await page.mouse.up();
+        await page.waitForSelector('[aria-label="message value"]');
+        assert.equal(mutations, 2);
+        await page.$eval('[aria-label="message value"]', node => { node.value = 'Draft'; });
+        store.set('plain', { value: 'Live update' });
+        await page.evaluate(variables => {
+            window.testSocket.dispatchEvent(new window.MessageEvent('message', { data: JSON.stringify({ type: 'variables-update', data: { variables } }) }));
+        }, store.list());
+        assert.equal(await page.$eval('[aria-label="message value"]', node => node.value), 'Draft');
+        await page.keyboard.press('Escape');
+        assert.equal(await page.$eval('[data-n="plain"] [data-inline-edit]', node => node.textContent.trim()), 'Live update');
+        await edit('message', 'Saved on blur');
+        await page.click('#var-search');
+        await page.waitForFunction(() => document.querySelector('[data-n="message"] [data-inline-edit]')?.textContent.includes('Saved on blur'));
+        assert.equal(mutations, 3);
+
+        await edit('score', '1.4');
+        await page.click('[data-n="score"] [data-act="edit-number"]');
+        await page.waitForSelector('dialog [name="value"]');
+        assert.equal(await page.$eval('dialog [name="value"]', node => node.value), '1.4');
+        await page.keyboard.press('Escape');
+        await page.waitForFunction(() => !document.querySelector('dialog'));
+        await edit('score', '');
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => document.querySelector('[data-n="score"] [data-inline-edit]')?.textContent.includes('1.4'));
+        assert.equal(getVar(store, 'score').value, 1.4);
+        const search = async value => {
+            await page.$eval('#var-search', (node, next) => { node.value = next; node.dispatchEvent(new Event('input', { bubbles: true })); }, value);
+        };
+        await page.click('[data-filter-group="Broadcast Theme"]');
+        assert.equal(await page.evaluate(() => window.location.hash), '#variables#Broadcast%20Theme');
+        assert.equal(await page.$eval('[data-filter-group="Broadcast Theme"]', node => node.textContent), 'Broadcast Theme');
+        assert.equal(await page.$eval('#var-group-filter span', node => node.textContent), 'Broadcast Theme');
+        assert.equal(await page.$eval('#var-search', node => node.value), '');
+        assert.equal(await page.$$eval('#vars-list [data-n]', rows => rows.length), 2);
+        await page.goBack();
+        await page.waitForFunction(() => window.location.hash === '#variables' && document.querySelectorAll('#vars-list [data-n]').length === 3);
+        await page.goForward();
+        await page.waitForFunction(() => window.location.hash === '#variables#Broadcast%20Theme' && document.querySelectorAll('#vars-list [data-n]').length === 2);
+        await search('HeLLo');
+        await page.click('#var-clear-group');
+        assert.equal(await page.$eval('#var-search', node => node.value), 'HeLLo');
+        assert.equal(await page.evaluate(() => window.location.hash), '#variables');
+        await search('');
+        await page.evaluate(() => { window.location.hash = '#variables#ungrouped'; });
+        await page.waitForSelector('[data-n="plain"]');
+        assert.deepEqual(await page.$$eval('#vars-list [data-n]', rows => rows.map(row => row.dataset.n)), ['plain']);
+        await page.evaluate(() => { window.location.hash = '#variables#%ZZ'; });
+        await page.waitForFunction(() => document.querySelector('#vars-list').textContent.includes('No variables match'));
+        assert.equal(await page.$$eval('#vars-list [data-n]', rows => rows.length), 0);
+        await page.evaluate(() => { window.location.hash = '#variables'; });
+        await page.waitForSelector('[data-n="score"]');
+        await search('');
+        await page.click('#var-group-add');
+        await page.type('dialog [name="name"]', 'Empty');
+        await page.click('dialog [type="submit"]');
+        await page.waitForSelector('[data-filter-group="Empty"]');
+        await page.evaluate(() => { window.location.hash = '#variables#empty'; });
+        await page.waitForSelector('[data-manage-group="Empty"]');
+        assert.equal(await page.$$eval('#vars-list [data-filter-group]', rows => rows.length), 1);
+        await page.evaluate(() => { window.location.hash = '#variables#BroadcastTheme'; });
+        await page.waitForSelector('[data-n="score"]');
+        await search('score');
+        await page.select('#var-type-filter', 'number');
+        await page.reload();
+        await page.waitForSelector('[data-n="score"] [data-inline-edit]');
+        assert.equal(await page.evaluate(() => window.location.hash), '#variables#BroadcastTheme');
+        assert.equal(await page.$eval('#var-search', node => node.value), 'score');
+        assert.equal(await page.$eval('#var-type-filter', node => node.value), 'number');
+        assert.equal(await page.$$eval('#vars-list [data-n]', rows => rows.length), 1);
+        await page.evaluate(() => {
+            const nativeFetch = window.fetch.bind(window);
+            window.fetch = async (...args) => {
+                const response = await nativeFetch(...args);
+                if (args[0] === '/api/variables/groups/manage' && response.ok) {
+                    const data = await response.clone().json();
+                    window.testSocket.dispatchEvent(new window.MessageEvent('message', { data: JSON.stringify({ type: 'variables-update', data }) }));
+                }
+                return response;
+            };
+        });
+        await page.click('[data-manage-group="Broadcast Theme"]');
+        await page.$eval('dialog [name="name"]', node => { node.value = 'Theme'; });
+        await page.click('dialog [type="submit"]');
+        await page.waitForSelector('[data-filter-group="Theme"]');
+        assert.equal(await page.evaluate(() => window.location.hash), '#variables#Theme');
+        assert.equal(getVar(store, 'score').group, 'Theme');
+        assert.equal(getVar(store, 'score').value, 1.4);
+        assert.equal(getVar(store, 'score').step, 0.25);
+        assert.equal(getVar(store, 'message').group, 'Theme');
+        await page.evaluate(() => { window.location.hash = '#variables#theme'; });
+        await page.waitForFunction(() => window.location.hash === '#variables#theme' && document.querySelector('[data-n="score"]'));
+        await page.evaluate(() => { window.location.hash = '#variables#BroadcastTheme'; });
+        await page.waitForFunction(() => document.querySelector('#vars-list').textContent.includes('No variables match'));
+        await page.setViewport({ width: 375, height: 700 });
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+        assert.deepEqual(errors, []);
+    } finally {
+        await browser?.close();
+        await new Promise(resolve => server.close(resolve));
+        store.dispose();
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
 function mockRes() {
     const res = {
         statusCode: 200,

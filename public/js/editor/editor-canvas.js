@@ -838,7 +838,7 @@ export function buildContent(node, el, playback) {
         if (shared.renderGameList) shared.renderGameList(node, el, state.liveStatus.gamePlan);
     } else if (el.type === 'speaker-badge') {
         node._speakerSpeaking = speakerIsSpeaking(el);
-        if (shared.renderSpeakerBadge) shared.renderSpeakerBadge(node, el, { preview: true, speaking: node._speakerSpeaking });
+        if (shared.renderSpeakerBadge) shared.renderSpeakerBadge(node, el, { preview: true, speaking: node._speakerSpeaking, status: prefs.live ? effectiveLiveStatus() : {} });
     } else if (el.type === 'poll') {
         window.PollWidget.render(node, el, prefs.live ? state.liveStatus.poll : null, { preview: true });
     } else if (el.type === 'progress') {
