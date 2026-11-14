@@ -370,3 +370,71 @@ export async function clearPollHistory() {
             }
         }
 
+export function exportPollPresetsJson() {
+    if (!Array.isArray(savedPresetsList) || !savedPresetsList.length) {
+        toast('No saved poll templates to export.');
+        return;
+    }
+    const payload = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        presets: savedPresetsList
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'streampulse-poll-templates.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast(`Exported ${savedPresetsList.length} poll template(s).`);
+}
+
+export async function importPollPresetsJson(event) {
+    const input = event?.target;
+    const file = input?.files?.[0];
+    if (!file) return;
+    try {
+        const parsed = JSON.parse(await file.text());
+        const list = Array.isArray(parsed)
+            ? parsed
+            : (Array.isArray(parsed?.presets) ? parsed.presets : null);
+        if (!Array.isArray(list)) {
+            toast('Invalid JSON: expected an array or { presets: [...] }.');
+            return;
+        }
+        const valid = list.filter(p => p && typeof p.title === 'string' && p.title.trim() && Array.isArray(p.choices) && p.choices.filter(c => String(c || '').trim()).length >= 2);
+        if (!valid.length) {
+            toast('No valid poll templates found (title and at least 2 choices required).');
+            return;
+        }
+        let importedCount = 0;
+        for (const p of valid) {
+            const payload = {
+                ...(p.id ? { id: String(p.id) } : {}),
+                title: String(p.title).trim(),
+                choices: p.choices.map(c => String(c || '').trim()).filter(Boolean),
+                duration: Number.isFinite(Number(p.duration)) ? Number(p.duration) : 60,
+                blind: Boolean(p.blind),
+                keywordVoting: p.keywordVoting !== false,
+                subMultiplier: Number(p.subMultiplier) > 1 ? Number(p.subMultiplier) : 1
+            };
+            const res = await fetch('/api/polls/presets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (res.ok && data.status === 'ok') importedCount++;
+        }
+        await loadPresets();
+        toast(importedCount > 0 ? `Imported ${importedCount} poll template(s).` : 'Failed to import templates.');
+    } catch (err) {
+        toast(`Import failed: ${err?.message || 'Invalid JSON'}`);
+    } finally {
+        if (input) input.value = '';
+    }
+}
+

@@ -524,7 +524,20 @@
                 <!-- Tab 4: Templates & History Panel -->
                 <div id="panel-templates" style="display: none;">
                     <div class="card">
-                        <h2>Poll Templates</h2>
+                        <h2 style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;">
+                            <span>Poll Templates</span>
+                            <span style="display: inline-flex; gap: 0.35rem; align-items: center;">
+                                <button type="button" class="btn-secondary btn-sm" onclick="exportPollPresetsJson()" title="Export poll templates to JSON" style="display: inline-flex; align-items: center; gap: 0.3rem;">
+                                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    Export JSON
+                                </button>
+                                <button type="button" class="btn-secondary btn-sm" onclick="document.getElementById('import-poll-presets-file').click()" title="Import poll templates from JSON" style="display: inline-flex; align-items: center; gap: 0.3rem;">
+                                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                    Import JSON
+                                </button>
+                                <input type="file" id="import-poll-presets-file" accept=".json,application/json" hidden onchange="importPollPresetsJson(event)">
+                            </span>
+                        </h2>
                         <div id="templates-list" style="margin-top: 0.5rem;"></div>
                     </div>
 
@@ -605,9 +618,15 @@
                         </div>
                         
                         <div id="ov-sec-poll" style="margin-bottom: 1.5rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; gap: 0.5rem; flex-wrap: wrap;">
                                 <div style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Live Poll Overlay</div>
-                                <a id="btn-open-poll-overlay" href="/overlays/poll.html" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;">Open <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+                                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                    <button type="button" class="btn-secondary btn-sm" id="btn-reset-poll-defaults" onclick="resetPollOverlayDefaults()" style="display: inline-flex; align-items: center; gap: 0.3rem;" title="Reset all Poll overlay customizer options to defaults">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                                        Reset to Defaults
+                                    </button>
+                                    <a id="btn-open-poll-overlay" href="/overlays/poll.html" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;">Open <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+                                </div>
                             </div>
                             <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
                                 <input type="text" class="form-control" id="url-poll-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
@@ -839,9 +858,15 @@
                         </div>
 
                         <div id="ov-sec-tourney" style="display:none;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; gap: 0.5rem; flex-wrap: wrap;">
                                 <div style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Audience Tournament Bracket Overlay</div>
-                                <a id="btn-open-tourney-overlay" href="/overlays/poll-tournament.html" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;">Open <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+                                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                    <button type="button" class="btn-secondary btn-sm" id="btn-reset-poll-tourney-defaults" onclick="resetPollTourneyOverlayDefaults()" style="display: inline-flex; align-items: center; gap: 0.3rem;" title="Reset all Audience Bracket overlay customizer options to defaults">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                                        Reset to Defaults
+                                    </button>
+                                    <a id="btn-open-tourney-overlay" href="/overlays/poll-tournament.html" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;">Open <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+                                </div>
                             </div>
                             <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
                                 <input type="text" class="form-control" id="url-tourney-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">

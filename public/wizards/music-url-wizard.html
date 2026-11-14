@@ -96,7 +96,13 @@
                 Only changed parameters are added. Anything left out falls back to your
                 <a href="/music-editor.html" style="color:var(--accent);">default theme</a>.
             </p>
-            <button class="btn" type="button" onclick="loadSavedTheme()">Start from default theme</button>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.65rem; align-items:center;">
+                <button class="btn" type="button" onclick="loadSavedTheme()">Start from default theme</button>
+                <button class="btn" type="button" id="reset-wizard-btn" onclick="resetWizard()" style="display:inline-flex; align-items:center; gap:0.35rem;" title="Reset all wizard options to default values">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+                    Reset to Defaults
+                </button>
+            </div>
         </div>
 
         <!-- Mode & Sizing -->
@@ -517,6 +523,7 @@
         } else {
             pushWizPreview();
         }
+        saveMusicWizardState();
     }
 
     function updateWizPreviewSize() {
@@ -554,35 +561,98 @@
         onWizChange();
     }
 
-    function resetWizard() {
-        document.getElementById('wiz-mode').value = 'full';
-        document.getElementById('wiz-font').value = '';
-        document.getElementById('wiz-weight').value = '';
-        document.getElementById('wiz-textColor').value = '';
-        document.getElementById('wiz-accentColor').value = '';
-        document.getElementById('wiz-bgColor').value = '';
-        document.getElementById('wiz-fontScale').value = 1;
-        document.getElementById('wiz-fontScale-val').textContent = '1×';
-        document.getElementById('wiz-w').value = '';
-        document.getElementById('wiz-h').value = '';
-        document.getElementById('wiz-artSize').value = '';
-        document.getElementById('wiz-label').value = '';
-        document.getElementById('wiz-labelMode').value = '';
-        document.getElementById('wiz-persist').checked = false;
-        document.getElementById('wiz-artBrightness').value = 1;
-        document.getElementById('wiz-artBrightness-val').textContent = '100%';
-        document.getElementById('wiz-scrimColor').value = '';
-        document.getElementById('wiz-artBlur').value = 0;
-        document.getElementById('wiz-artBlur-val').textContent = '0px';
-        document.getElementById('wiz-layout').value = '';
-        document.getElementById('wiz-fields-override').checked = false;
-        ['track','artist','album','year','progress'].forEach(f => {
-            document.getElementById(`wiz-field-${f}`).checked = false;
+    const WIZ_MUSIC_STORAGE_KEY = 'streampulse_wizard_music_v1';
+    let musicWizardReady = false;
+    let isResettingMusicWizard = false;
+
+    function syncWizColorPickersFromInputs() {
+        ['wiz-textColor', 'wiz-accentColor', 'wiz-bgColor', 'wiz-scrimColor'].forEach(id => {
+            const input = document.getElementById(id);
+            const picker = document.getElementById(`${id}-pick`);
+            if (!input || !picker) return;
+            const v = (input.value || '').trim();
+            picker.value = /^#[0-9a-f]{6}$/i.test(v) ? v : (picker.defaultValue || '#000000');
         });
-        updateModeUI();
-        currentPreviewMode = 'full';
-        document.getElementById('wiz-preview').src = '/music.html?mode=full';
-        buildUrl();
+    }
+
+    function saveMusicWizardState() {
+        if (!musicWizardReady || isResettingMusicWizard) return;
+        try {
+            const state = {};
+            for (const id of wizIds) {
+                const el = document.getElementById(id);
+                if (!el) continue;
+                state[id] = el.type === 'checkbox' ? el.checked : el.value;
+            }
+            localStorage.setItem(WIZ_MUSIC_STORAGE_KEY, JSON.stringify(state));
+        } catch {}
+    }
+
+    function restoreMusicWizardState() {
+        try {
+            const raw = localStorage.getItem(WIZ_MUSIC_STORAGE_KEY);
+            if (!raw) return;
+            const state = JSON.parse(raw);
+            if (!state || typeof state !== 'object') return;
+            for (const id of wizIds) {
+                if (!Object.prototype.hasOwnProperty.call(state, id)) continue;
+                const el = document.getElementById(id);
+                if (!el) continue;
+                if (el.type === 'checkbox') {
+                    el.checked = Boolean(state[id]);
+                } else if (el.tagName === 'SELECT') {
+                    const strVal = String(state[id] ?? '');
+                    if ([...el.options].some(opt => opt.value === strVal)) el.value = strVal;
+                } else {
+                    el.value = String(state[id] ?? '');
+                }
+            }
+            document.getElementById('wiz-fontScale-val').textContent = `${document.getElementById('wiz-fontScale').value}×`;
+            document.getElementById('wiz-artBrightness-val').textContent = `${Math.round((parseFloat(document.getElementById('wiz-artBrightness').value) || 1) * 100)}%`;
+            document.getElementById('wiz-artBlur-val').textContent = `${document.getElementById('wiz-artBlur').value}px`;
+            syncWizColorPickersFromInputs();
+        } catch {}
+    }
+
+    function resetWizard() {
+        isResettingMusicWizard = true;
+        try {
+            try { localStorage.removeItem(WIZ_MUSIC_STORAGE_KEY); } catch {}
+            document.getElementById('wiz-mode').value = 'full';
+            document.getElementById('wiz-font').value = '';
+            document.getElementById('wiz-weight').value = '';
+            document.getElementById('wiz-textColor').value = '';
+            document.getElementById('wiz-accentColor').value = '';
+            document.getElementById('wiz-bgColor').value = '';
+            document.getElementById('wiz-fontScale').value = 1;
+            document.getElementById('wiz-fontScale-val').textContent = '1×';
+            document.getElementById('wiz-w').value = '';
+            document.getElementById('wiz-h').value = '';
+            document.getElementById('wiz-artSize').value = '';
+            document.getElementById('wiz-label').value = '';
+            document.getElementById('wiz-labelMode').value = '';
+            document.getElementById('wiz-persist').checked = false;
+            document.getElementById('wiz-artBrightness').value = 1;
+            document.getElementById('wiz-artBrightness-val').textContent = '100%';
+            document.getElementById('wiz-scrimColor').value = '';
+            document.getElementById('wiz-artBlur').value = 0;
+            document.getElementById('wiz-artBlur-val').textContent = '0px';
+            document.getElementById('wiz-layout').value = '';
+            document.getElementById('wiz-fields-override').checked = false;
+            ['track','artist','album','year','progress'].forEach(f => {
+                document.getElementById(`wiz-field-${f}`).checked = false;
+            });
+            syncWizColorPickersFromInputs();
+            updateModeUI();
+            currentPreviewMode = 'full';
+            const iframe = document.getElementById('wiz-preview');
+            iframe.src = '/music.html?mode=full';
+            iframe.onload = () => pushWizPreview();
+            buildUrl();
+            updateWizPreviewSize();
+        } finally {
+            isResettingMusicWizard = false;
+        }
     }
 
     // Attach listeners to all controls
@@ -639,9 +709,21 @@
     })();
 
     // Init
+    restoreMusicWizardState();
+    musicWizardReady = true;
     updateModeUI();
     buildUrl();
     updateWizPreviewSize();
+    const initialMode = document.getElementById('wiz-mode').value;
+    const previewFrame = document.getElementById('wiz-preview');
+    if (previewFrame) {
+        if (initialMode !== currentPreviewMode) {
+            currentPreviewMode = initialMode;
+            previewFrame.src = `/music.html?mode=${initialMode}`;
+        }
+        previewFrame.addEventListener('load', pushWizPreview);
+        pushWizPreview();
+    }
 </script>
 </body>
 </html>

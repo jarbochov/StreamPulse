@@ -90,7 +90,7 @@
     };
 
     function initTournamentOverlay(config = {}) {
-        const params = (typeof overlayParams === 'function') ? overlayParams() : new URLSearchParams(window.location.search);
+        let params = (typeof overlayParams === 'function') ? overlayParams() : new URLSearchParams(window.location.search);
         const stage = document.getElementById('stage');
         const container = document.getElementById('tournament-container');
         const confettiCanvas = document.getElementById('confetti-canvas');
@@ -113,118 +113,179 @@
         const tourneyWsEvent = isPollMode ? 'poll-tournament-update' : (config.defaultWsEvent || 'tournament-update');
         const tourneySourceKey = isPollMode ? 'tournament-poll' : (config.overlaySourceKey || 'tournament');
 
-        const forceSample = params.get('sample') === '1';
-        const isPreview = params.get('preview') === '1' || params.get('sample') === '1';
+        let forceSample = params.get('sample') === '1';
+        let isPreview = params.get('preview') === '1' || params.get('sample') === '1';
         let layoutMode = (params.get('layout') || params.get('mode') || 'tree').toLowerCase(); // 'tree' | 'active' | 'hud' | 'compact' | 'focus' | 'dynamic'
-        const cameraExplicitlyOff = params.get('focus') === '0' || params.get('camera') === '0' || params.get('dynamic') === '0';
-        const cameraExplicitlyOn = params.get('focus') === '1' || params.get('camera') === '1' || params.get('dynamic') === '1';
-        let isFocusMode = !cameraExplicitlyOff && (layoutMode === 'focus' || layoutMode === 'dynamic' || layoutMode === 'zoom' || cameraExplicitlyOn);
-        let isGlideEnabled = params.get('glide') !== '0' && params.get('smooth') !== '0' && params.get('transition') !== '0';
-        const requestedBracket = (params.get('bracket') || 'all').toLowerCase();
-        let bracketView = ['winners', 'losers', 'finals'].includes(requestedBracket) ? requestedBracket : 'all';
+        let isFocusMode = false;
+        let isGlideEnabled = true;
+        let bracketView = 'all';
         let manualTargetRound = null;
         let manualTargetMatchId = null;
-        const showScoresParam = params.get('showscores') !== '0' && params.get('scores') !== '0';
-        const showTitle = params.get('showtitle') !== '0' && params.get('title') !== '0' && params.get('header') !== '0';
-        const showLogo = params.get('showlogo') !== '0' && params.get('logo') !== '0';
-        const paramLogo = (params.get('logo') && params.get('logo') !== '0' && params.get('logo') !== '1') ? params.get('logo').trim() : '';
-        const paramLogoSize = (params.get('logosize') || '').trim();
-        const showMeta = params.get('showmeta') !== '0' && params.get('meta') !== '0';
-        const showFormat = params.get('showformat') !== '0' && params.get('format') !== '0';
-        const showMode = params.get('showmode') !== '0' && params.get('mode') !== '0';
-        const showEntrants = params.get('showentrants') !== '0' && params.get('entrants') !== '0' && params.get('participants') !== '0';
-        const showStatus = params.get('showstatus') !== '0' && params.get('status') !== '0';
-        const showRounds = params.get('showrounds') !== '0' && params.get('roundheaders') !== '0' && params.get('roundheaders') !== 'none';
-        const showSeeds = params.get('showseeds') !== '0' && params.get('seeds') !== '0';
-        const showTags = params.get('showtags') !== '0' && params.get('tags') !== '0';
-        const focusBadgeParam = (params.get('focusbadge') || '').trim().toLowerCase();
-        const badgeParam = (params.get('badge') || '').trim().toLowerCase();
-        const highlightParam = (params.get('highlight') || '').trim().toLowerCase();
-        const focusBorderParam = (params.get('focusborder') || params.get('focuscolor') || '').trim().toLowerCase();
+        let showScoresParam = true;
+        let showTitle = true;
+        let showLogo = true;
+        let paramLogo = '';
+        let paramLogoSize = '';
+        let showMeta = true;
+        let showFormat = true;
+        let showMode = true;
+        let showEntrants = true;
+        let showStatus = true;
+        let showRounds = true;
+        let showSeeds = true;
+        let showTags = true;
+        let hideFocusIndicator = false;
+        let hideFocusBorder = false;
+        let showBadges = true;
+        let showHighlight = true;
+        let showCenter = true;
+        let customGap = '';
+        let showRoundPips = !isPollMode;
+        let pipStyle = 'circle';
+        let roundPipStyle = 'diamond';
+        let showChampion = true;
+        let showStandings = true;
+        let showMatches = true;
+        let showLines = true;
+        let enableConfetti = false;
+        let scaleVal = 1;
+        let customAccent = '';
+        let customWinner = '';
+        let customBadgeColor = '';
+        let customP1Color = '';
+        let customP2Color = '';
+        let customRadius = '';
+        let cardWidthParam = '';
+        let isWide = false;
 
-        const hideFocusIndicator = focusBadgeParam === '0' || focusBadgeParam === 'false' || badgeParam === '0' || badgeParam === 'false';
-        const hideFocusBorder = hideFocusIndicator || highlightParam === '0' || highlightParam === 'false' || focusBorderParam === '0' || focusBorderParam === 'false';
+        function applyTourneyPreviewParams(nextParams) {
+            if (nextParams && typeof nextParams.get === 'function') {
+                params = nextParams;
+            } else {
+                const raw = String(nextParams || '');
+                params = (typeof overlayParams === 'function') ? overlayParams(raw) : new URLSearchParams(raw);
+            }
+            forceSample = params.get('sample') === '1';
+            isPreview = params.get('preview') === '1' || params.get('sample') === '1';
+            layoutMode = (params.get('layout') || params.get('mode') || 'tree').toLowerCase();
+            const cameraExplicitlyOff = params.get('focus') === '0' || params.get('camera') === '0' || params.get('dynamic') === '0';
+            const cameraExplicitlyOn = params.get('focus') === '1' || params.get('camera') === '1' || params.get('dynamic') === '1';
+            isFocusMode = !cameraExplicitlyOff && (layoutMode === 'focus' || layoutMode === 'dynamic' || layoutMode === 'zoom' || cameraExplicitlyOn);
+            isGlideEnabled = params.get('glide') !== '0' && params.get('smooth') !== '0' && params.get('transition') !== '0';
+            const requestedBracket = (params.get('bracket') || 'all').toLowerCase();
+            bracketView = ['winners', 'losers', 'finals'].includes(requestedBracket) ? requestedBracket : 'all';
 
-        const showBadges = !hideFocusIndicator && params.get('showbadges') !== '0' && params.get('badges') !== '0';
-        const showHighlight = !hideFocusBorder && params.get('showlive') !== '0' && params.get('highlightlive') !== '0';
+            showScoresParam = params.get('showscores') !== '0' && params.get('scores') !== '0';
+            showTitle = params.get('showtitle') !== '0' && params.get('title') !== '0' && params.get('header') !== '0';
+            showLogo = params.get('showlogo') !== '0' && params.get('logo') !== '0';
+            paramLogo = (params.get('logo') && params.get('logo') !== '0' && params.get('logo') !== '1') ? params.get('logo').trim() : '';
+            paramLogoSize = (params.get('logosize') || '').trim();
+            showMeta = params.get('showmeta') !== '0' && params.get('meta') !== '0';
+            showFormat = params.get('showformat') !== '0' && params.get('format') !== '0';
+            showMode = params.get('showmode') !== '0' && params.get('mode') !== '0';
+            showEntrants = params.get('showentrants') !== '0' && params.get('entrants') !== '0' && params.get('participants') !== '0';
+            showStatus = params.get('showstatus') !== '0' && params.get('status') !== '0';
+            showRounds = params.get('showrounds') !== '0' && params.get('roundheaders') !== '0' && params.get('roundheaders') !== 'none';
+            showSeeds = params.get('showseeds') !== '0' && params.get('seeds') !== '0';
+            showTags = params.get('showtags') !== '0' && params.get('tags') !== '0';
+            const focusBadgeParam = (params.get('focusbadge') || '').trim().toLowerCase();
+            const badgeParam = (params.get('badge') || '').trim().toLowerCase();
+            const highlightParam = (params.get('highlight') || '').trim().toLowerCase();
+            const focusBorderParam = (params.get('focusborder') || params.get('focuscolor') || '').trim().toLowerCase();
 
-        if (hideFocusIndicator) {
-            document.body.classList.add('hide-focus-badge');
-        }
-        if (hideFocusBorder) {
-            document.body.classList.add('hide-focus-border');
-        }
-        const showCenter = params.get('center') !== '0' && params.get('showcenter') !== '0' && params.get('vs') !== '0';
-        const customGap = (params.get('gap') || params.get('centerspace') || '').trim().toLowerCase();
-        const showRoundPips = !isPollMode && params.get('roundpips') !== '0' && params.get('rounds') !== '0' && params.get('showroundpips') !== '0';
-        const pipStyle = (params.get('pipstyle') || params.get('pips_style') || 'circle').toLowerCase();
-        const roundPipStyle = (params.get('roundpipstyle') || params.get('round_pipstyle') || 'diamond').toLowerCase();
-        const showChampion = params.get('champion') !== '0' && params.get('showchampion') !== '0';
-        const showStandings = params.get('showstandings') !== '0' && params.get('standings') !== '0';
-        const showMatches = params.get('showmatches') !== '0' && params.get('matches') !== '0';
-        const showLines = params.get('lines') !== 'none' && params.get('showlines') !== '0';
-        const enableConfetti = params.get('confetti') === '1' || params.get('confetti') === 'true';
-        window.enableConfetti = enableConfetti;
-        const scaleVal = parseFloat(params.get('scale') || params.get('fontscale') || '1');
-        const customAccent = params.get('accent');
-        const customWinner = params.get('winner');
-        const customBadgeColor = params.get('badgecolor') || params.get('centerbadge') || params.get('badge_color');
-        const customP1Color = params.get('p1color') || params.get('e1color') || params.get('entrant1color') || params.get('player1color') || '';
-        const customP2Color = params.get('p2color') || params.get('e2color') || params.get('entrant2color') || params.get('player2color') || '';
-        const customRadius = (params.get('radius') || params.get('borderradius') || params.get('border-radius') || params.get('roundness') || '').trim();
-        const cardWidthParam = (params.get('cardwidth') || params.get('roundwidth') || params.get('matchwidth') || '').trim();
-        const isWide = params.get('wide') === '1' || params.get('wide') === 'true';
+            hideFocusIndicator = focusBadgeParam === '0' || focusBadgeParam === 'false' || badgeParam === '0' || badgeParam === 'false';
+            hideFocusBorder = hideFocusIndicator || highlightParam === '0' || highlightParam === 'false' || focusBorderParam === '0' || focusBorderParam === 'false';
 
-        if (!showCenter) {
-            document.body.classList.add('no-center-badge');
-        }
-        if (customGap && customGap !== '0' && customGap !== 'none' && customGap !== 'auto') {
-            const gapCss = (customGap === 'intact' || customGap === 'keep') ? '160px' : (/^\d+$/.test(customGap) ? `${customGap}px` : customGap);
-            document.documentElement.style.setProperty('--tourney-center-gap', gapCss);
-            document.body.classList.add('has-center-gap');
-        }
+            showBadges = !hideFocusIndicator && params.get('showbadges') !== '0' && params.get('badges') !== '0';
+            showHighlight = !hideFocusBorder && params.get('showlive') !== '0' && params.get('highlightlive') !== '0';
 
-        if (cardWidthParam) {
-            const cardWidthCss = /^\d+$/.test(cardWidthParam) ? `${cardWidthParam}px` : cardWidthParam;
-            document.documentElement.style.setProperty('--round-min-width', cardWidthCss);
-            document.documentElement.style.setProperty('--round-max-width', cardWidthCss);
-        } else if (isWide) {
-            document.documentElement.style.setProperty('--round-min-width', '280px');
-            document.documentElement.style.setProperty('--round-max-width', 'clamp(440px, 36vw, 680px)');
-        }
+            document.body.classList.remove('hide-focus-badge', 'hide-focus-border', 'no-center-badge', 'has-center-gap');
+            document.documentElement.style.removeProperty('--tourney-center-gap');
+            if (hideFocusIndicator) {
+                document.body.classList.add('hide-focus-badge');
+            }
+            if (hideFocusBorder) {
+                document.body.classList.add('hide-focus-border');
+            }
+            showCenter = params.get('center') !== '0' && params.get('showcenter') !== '0' && params.get('vs') !== '0';
+            customGap = (params.get('gap') || params.get('centerspace') || '').trim().toLowerCase();
+            showRoundPips = !isPollMode && params.get('roundpips') !== '0' && params.get('rounds') !== '0' && params.get('showroundpips') !== '0';
+            pipStyle = (params.get('pipstyle') || params.get('pips_style') || 'circle').toLowerCase();
+            roundPipStyle = (params.get('roundpipstyle') || params.get('round_pipstyle') || 'diamond').toLowerCase();
+            showChampion = params.get('champion') !== '0' && params.get('showchampion') !== '0';
+            showStandings = params.get('showstandings') !== '0' && params.get('standings') !== '0';
+            showMatches = params.get('showmatches') !== '0' && params.get('matches') !== '0';
+            showLines = params.get('lines') !== 'none' && params.get('showlines') !== '0';
+            enableConfetti = params.get('confetti') === '1' || params.get('confetti') === 'true';
+            window.enableConfetti = enableConfetti;
+            scaleVal = parseFloat(params.get('scale') || params.get('fontscale') || '1');
+            customAccent = params.get('accent');
+            customWinner = params.get('winner');
+            customBadgeColor = params.get('badgecolor') || params.get('centerbadge') || params.get('badge_color');
+            customP1Color = params.get('p1color') || params.get('e1color') || params.get('entrant1color') || params.get('player1color') || '';
+            customP2Color = params.get('p2color') || params.get('e2color') || params.get('entrant2color') || params.get('player2color') || '';
+            customRadius = (params.get('radius') || params.get('borderradius') || params.get('border-radius') || params.get('roundness') || '').trim();
+            cardWidthParam = (params.get('cardwidth') || params.get('roundwidth') || params.get('matchwidth') || '').trim();
+            isWide = params.get('wide') === '1' || params.get('wide') === 'true';
 
-        if (scaleVal && Number.isFinite(scaleVal) && scaleVal > 0) {
-            document.documentElement.style.setProperty('--tourney-scale', scaleVal);
-        }
-        if (!showRounds) document.body.classList.add('roundheaders-hidden');
-        if (customAccent) document.documentElement.style.setProperty('--tourney-accent', customAccent);
-        if (customWinner) document.documentElement.style.setProperty('--tourney-winner', customWinner);
-        if (customBadgeColor) {
-            document.documentElement.style.setProperty('--tourney-badge-bg', customBadgeColor);
-            document.documentElement.style.setProperty('--tourney-badge-color', '#0d1117');
-        }
-        if (customP1Color) document.documentElement.style.setProperty('--tourney-p1-color', customP1Color);
-        if (customP2Color) document.documentElement.style.setProperty('--tourney-p2-color', customP2Color);
-        if (customRadius) {
-            const rCss = /^\d+$/.test(customRadius) ? `${customRadius}px` : customRadius;
-            document.documentElement.style.setProperty('--tourney-radius', rCss);
-            if (document.body && document.body.style) document.body.style.setProperty('--tourney-radius', rCss);
-        }
+            if (!showCenter) {
+                document.body.classList.add('no-center-badge');
+            }
+            if (customGap && customGap !== '0' && customGap !== 'none' && customGap !== 'auto') {
+                const gapCss = (customGap === 'intact' || customGap === 'keep') ? '160px' : (/^\d+$/.test(customGap) ? `${customGap}px` : customGap);
+                document.documentElement.style.setProperty('--tourney-center-gap', gapCss);
+                document.body.classList.add('has-center-gap');
+            }
 
-        // Shared theme & typography handling via /js/overlay-theme.js
-        if (typeof window.applyTourneyTheme === 'function') {
-            window.applyTourneyTheme();
-        } else {
-            let overlayVal = (params.get('overlay') || params.get('theme') || '').trim();
-            const bgVal = (params.get('bg') || '').trim();
-            const hashVal = (window.location.hash || '').replace(/^#/, '').trim();
-            if (!overlayVal && hashVal && !hashVal.includes('=')) overlayVal = hashVal;
-            if (overlayVal) document.body.classList.add('theme-' + overlayVal);
-            const col = bgVal || overlayVal;
-            if (col && (/^[0-9a-fA-F]{3,8}$/.test(col) || /^#[0-9a-fA-F]{3,8}$/.test(col))) {
-                document.documentElement.style.setProperty('--tourney-bg', col.startsWith('#') ? col : '#' + col);
+            if (cardWidthParam) {
+                const cardWidthCss = /^\d+$/.test(cardWidthParam) ? `${cardWidthParam}px` : cardWidthParam;
+                document.documentElement.style.setProperty('--round-min-width', cardWidthCss);
+                document.documentElement.style.setProperty('--round-max-width', cardWidthCss);
+            } else if (isWide) {
+                document.documentElement.style.setProperty('--round-min-width', '280px');
+                document.documentElement.style.setProperty('--round-max-width', 'clamp(440px, 36vw, 680px)');
+            }
+
+            if (scaleVal && Number.isFinite(scaleVal) && scaleVal > 0) {
+                document.documentElement.style.setProperty('--tourney-scale', scaleVal);
+            }
+            if (!showRounds) document.body.classList.add('roundheaders-hidden');
+            if (customAccent) document.documentElement.style.setProperty('--tourney-accent', customAccent);
+            if (customWinner) document.documentElement.style.setProperty('--tourney-winner', customWinner);
+            if (customBadgeColor) {
+                document.documentElement.style.setProperty('--tourney-badge-bg', customBadgeColor);
+                document.documentElement.style.setProperty('--tourney-badge-color', '#0d1117');
+            }
+            if (customP1Color) document.documentElement.style.setProperty('--tourney-p1-color', customP1Color);
+            if (customP2Color) document.documentElement.style.setProperty('--tourney-p2-color', customP2Color);
+            if (customRadius) {
+                const rCss = /^\d+$/.test(customRadius) ? `${customRadius}px` : customRadius;
+                document.documentElement.style.setProperty('--tourney-radius', rCss);
+                if (document.body && document.body.style) document.body.style.setProperty('--tourney-radius', rCss);
+            }
+
+            // Shared theme & typography handling via /js/overlay-theme.js
+            if (typeof window.applyTourneyTheme === 'function') {
+                window.applyTourneyTheme({ params });
+            } else {
+                Array.from(document.body.classList).forEach(cls => {
+                    if (cls.startsWith('theme-') || cls.startsWith('roundheaders-')) document.body.classList.remove(cls);
+                });
+                document.documentElement.style.removeProperty('--tourney-bg');
+                if (!showRounds) document.body.classList.add('roundheaders-hidden');
+                let overlayVal = (params.get('overlay') || params.get('theme') || '').trim();
+                const bgVal = (params.get('bg') || '').trim();
+                const hashVal = (window.location.hash || '').replace(/^#/, '').trim();
+                if (!overlayVal && hashVal && !hashVal.includes('=')) overlayVal = hashVal;
+                if (overlayVal) document.body.classList.add('theme-' + overlayVal);
+                const col = bgVal || overlayVal;
+                if (col && (/^[0-9a-fA-F]{3,8}$/.test(col) || /^#[0-9a-fA-F]{3,8}$/.test(col))) {
+                    document.documentElement.style.setProperty('--tourney-bg', col.startsWith('#') ? col : '#' + col);
+                }
             }
         }
+
+        applyTourneyPreviewParams(params);
 
         function getFallbackSample() {
             if (!isPollMode && (layoutMode === 'roundrobin' || layoutMode === 'rr' || params.get('format') === 'roundRobin')) {
@@ -1330,7 +1391,22 @@
         window.addEventListener('message', (event) => {
             try {
                 const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-                if (msg && (msg.type === 'tournament-view' || msg.type === 'poll-tournament-view')) {
+                if (msg && msg.type === 'tournament:preview-update') {
+                    if (event.origin && event.origin !== 'null' && window.location.origin !== 'null' && event.origin !== window.location.origin) return;
+                    const prevForceSample = forceSample;
+                    applyTourneyPreviewParams(msg.params || '');
+                    lastRenderSignature = null;
+                    if (prevForceSample !== forceSample) {
+                        loadInitial();
+                    } else {
+                        const isSampleActive = currentTournament && ['sample-versus-tourney', 'sample-poll-tourney', 'sample-rr-tourney'].includes(currentTournament.id);
+                        const target = (forceSample || (isPreview && (!currentTournament || isSampleActive)))
+                            ? getFallbackSample()
+                            : currentTournament;
+                        renderTournament(target);
+                        adjustScaleAndFit();
+                    }
+                } else if (msg && (msg.type === 'tournament-view' || msg.type === 'poll-tournament-view')) {
                     applyLiveViewCommand(msg.data || msg);
                 }
             } catch {}

@@ -70,6 +70,15 @@
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
                             Shuffle
                         </button>
+                        <button class="btn small" id="btn-export-presets" type="button" title="Export choice, button, and quote presets to JSON">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Export JSON
+                        </button>
+                        <button class="btn small" id="btn-import-presets" type="button" title="Import presets from a JSON file">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Import JSON
+                        </button>
+                        <input type="file" id="import-presets-file" accept=".json,application/json" hidden>
                     </div>
 
                     <div id="var-picker-row" style="display:none;">
@@ -2580,6 +2589,107 @@
             loadSelectedChoicesPreset();
             toast('Reloaded preset choices');
         };
+
+        function exportRandomizerPresetsJson() {
+            const payload = {
+                version: 1,
+                exportedAt: new Date().toISOString(),
+                choicePresets: Array.isArray(presetsList) ? presetsList : [],
+                buttonPresets: Array.isArray(buttonPresetsList) ? buttonPresetsList : [],
+                quotePresets: Array.isArray(quotePresetsList) ? quotePresetsList : []
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'streampulse-randomizer-presets.json';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            const total = payload.choicePresets.length + payload.buttonPresets.length + payload.quotePresets.length;
+            toast(`Exported ${total} randomizer preset(s)`);
+        }
+
+        async function importRandomizerPresetsJson(event) {
+            const input = event?.target;
+            const file = input?.files?.[0];
+            if (!file) return;
+            try {
+                const parsed = JSON.parse(await file.text());
+                const choiceList = Array.isArray(parsed)
+                    ? parsed
+                    : (Array.isArray(parsed?.choicePresets)
+                        ? parsed.choicePresets
+                        : (Array.isArray(parsed?.presets) ? parsed.presets : []));
+                const btnList = Array.isArray(parsed?.buttonPresets) ? parsed.buttonPresets : [];
+                const quoteList = Array.isArray(parsed?.quotePresets) ? parsed.quotePresets : [];
+
+                if (!choiceList.length && !btnList.length && !quoteList.length) {
+                    toast('No presets found in JSON file');
+                    return;
+                }
+
+                let imported = 0;
+                for (const p of choiceList) {
+                    if (!p || typeof p.name !== 'string' || !p.name.trim() || !Array.isArray(p.choices) || !p.choices.length) continue;
+                    const res = await fetch('/api/randomizer/presets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            ...(p.id ? { id: String(p.id) } : {}),
+                            name: p.name.trim(),
+                            choices: p.choices,
+                            winnerHeader: p.winnerHeader,
+                            buttonPreset: p.buttonPreset,
+                            quotePreset: p.quotePreset,
+                            weightMode: p.weightMode,
+                            weightSettings: p.weightSettings,
+                            weights: p.weights,
+                            choiceStats: p.choiceStats,
+                            deckLogo: p.deckLogo,
+                            deckWatermark: p.deckWatermark,
+                            eliminationMode: p.eliminationMode,
+                            eliminated: p.eliminated,
+                            historyLimit: p.historyLimit
+                        })
+                    }).then(r => r.json());
+                    if (res.ok) imported++;
+                }
+                for (const p of btnList) {
+                    if (!p || typeof p.name !== 'string' || !p.name.trim() || !Array.isArray(p.phrases) || !p.phrases.length) continue;
+                    const res = await fetch('/api/randomizer/button-presets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...(p.id ? { id: String(p.id) } : {}), name: p.name.trim(), phrases: p.phrases })
+                    }).then(r => r.json());
+                    if (res.ok) imported++;
+                }
+                for (const p of quoteList) {
+                    if (!p || typeof p.name !== 'string' || !p.name.trim() || !Array.isArray(p.quotes) || !p.quotes.length) continue;
+                    const res = await fetch('/api/randomizer/quote-presets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...(p.id ? { id: String(p.id) } : {}), name: p.name.trim(), quotes: p.quotes })
+                    }).then(r => r.json());
+                    if (res.ok) imported++;
+                }
+
+                await Promise.all([fetchChoicesPresets(), fetchButtonPresets(), fetchQuotePresets()]);
+                populateChoicesPresetsDropdown();
+                populateButtonPresetsDropdown();
+                populateQuotePresetsDropdown();
+                toast(imported > 0 ? `Imported ${imported} randomizer preset(s)` : 'No valid presets were imported');
+            } catch (err) {
+                toast(`Import failed: ${err?.message || 'Invalid JSON'}`);
+            } finally {
+                if (input) input.value = '';
+            }
+        }
+
+        if ($('btn-export-presets')) $('btn-export-presets').onclick = exportRandomizerPresetsJson;
+        if ($('btn-import-presets')) $('btn-import-presets').onclick = () => $('import-presets-file')?.click();
+        if ($('import-presets-file')) $('import-presets-file').onchange = importRandomizerPresetsJson;
 
         // 2. Button Phrase Preset Actions
         $('btn-preset-select').onchange = loadSelectedButtonPreset;

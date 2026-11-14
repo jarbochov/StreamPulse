@@ -17,6 +17,10 @@
         .container { max-width: 1280px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: 440px minmax(0, 1fr); gap: 1.25rem; }
         .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.1rem 1.2rem; }
         .card h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 0.9rem; }
+        .card-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.9rem; }
+        .card-head h2 { margin-bottom: 0; }
+        .btn-reset { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.65rem; font-size: 0.74rem; color: var(--text-muted); }
+        .btn-reset:hover { color: var(--text); border-color: var(--accent); }
         .cfg-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.7rem; flex-wrap: wrap; }
         .cfg-row label { min-width: 120px; font-size: 0.82rem; color: var(--text-muted); }
         .cfg-row input, .cfg-row select { flex: 1; min-width: 0; font-family: inherit; padding: 0.48rem 0.65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.82rem; }
@@ -91,7 +95,13 @@
     <div class="container">
         <!-- Configuration Column -->
         <div class="card left-col">
-            <h2>Overlay Builder</h2>
+            <div class="card-head">
+                <h2>Overlay Builder</h2>
+                <button type="button" class="btn btn-reset" id="reset-wizard-btn" onclick="resetWizardDefaults()" title="Reset all wizard options to default values">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+                    Reset to Defaults
+                </button>
+            </div>
             
             <div class="group-title">Layout &amp; Mode</div>
             <div class="cfg-row">
@@ -478,9 +488,96 @@
         }
     })();
 
+    const WIZARD_STORAGE_KEY = 'streampulse_wizard_milestone_v1';
+    const WIZARD_CONTROL_IDS = [
+        'mode', 'goal-type', 'custom-title', 'theme', 'wiz-font', 'wiz-weight',
+        'accent-color', 'scale', 'align', 'show-streak', 'show-hours', 'show-stats',
+        'show-goal', 'prev-w', 'prev-h'
+    ];
+    let wizardDefaults = null;
+    let wizardReady = false;
+    let isResettingWizard = false;
+
+    function captureWizardState() {
+        const snap = {};
+        for (const id of WIZARD_CONTROL_IDS) {
+            const el = document.getElementById(id);
+            if (!el) continue;
+            snap[id] = el.type === 'checkbox' ? el.checked : el.value;
+        }
+        return snap;
+    }
+
+    function saveWizardState() {
+        if (!wizardReady || isResettingWizard) return;
+        try {
+            localStorage.setItem(WIZARD_STORAGE_KEY, JSON.stringify(captureWizardState()));
+        } catch {}
+    }
+
+    function applyWizardSnapshot(snap) {
+        if (!snap || typeof snap !== 'object') return;
+        for (const id of WIZARD_CONTROL_IDS) {
+            if (!Object.prototype.hasOwnProperty.call(snap, id)) continue;
+            const el = document.getElementById(id);
+            if (!el) continue;
+            const val = snap[id];
+            if (el.type === 'checkbox') {
+                el.checked = Boolean(val);
+            } else if (el.tagName === 'SELECT') {
+                const strVal = String(val ?? '');
+                if ([...el.options].some(opt => opt.value === strVal)) el.value = strVal;
+            } else {
+                el.value = String(val ?? '');
+            }
+        }
+        const pw = parseInt(document.getElementById('prev-w')?.value, 10) || 600;
+        const ph = parseInt(document.getElementById('prev-h')?.value, 10) || 170;
+        currentWidth = pw;
+        currentHeight = ph;
+        document.querySelectorAll('.preset-chips .preset-chip').forEach(btn => {
+            const oc = btn.getAttribute('onclick') || '';
+            btn.classList.toggle('active', oc.includes(`applyPresetSize(${pw}, ${ph}`));
+        });
+    }
+
+    function restoreWizardState() {
+        try {
+            const raw = localStorage.getItem(WIZARD_STORAGE_KEY);
+            if (!raw) return;
+            applyWizardSnapshot(JSON.parse(raw));
+        } catch {}
+    }
+
+    window.resetWizardDefaults = function resetWizardDefaults() {
+        if (!wizardDefaults) return;
+        isResettingWizard = true;
+        try {
+            try { localStorage.removeItem(WIZARD_STORAGE_KEY); } catch {}
+            applyWizardSnapshot(wizardDefaults);
+            refreshWizard();
+        } finally {
+            isResettingWizard = false;
+        }
+    };
+
+    const _origRefreshWizard = refreshWizard;
+    refreshWizard = function wrappedRefreshWizard() {
+        _origRefreshWizard.apply(this, arguments);
+        saveWizardState();
+    };
+    const _origUpdatePreviewSize = updatePreviewSize;
+    updatePreviewSize = function wrappedUpdatePreviewSize() {
+        _origUpdatePreviewSize.apply(this, arguments);
+        saveWizardState();
+    };
+
     // Initialize on load
+    wizardDefaults = captureWizardState();
+    restoreWizardState();
+    wizardReady = true;
     window.addEventListener('resize', updatePreviewSize);
-    refreshWizard();
+    _origRefreshWizard();
     </script>
 </body>
 </html>

@@ -478,7 +478,7 @@
     <script src="../js/overlay-theme.js"></script>
 
     <script>
-        const params = (typeof overlayParams === 'function') ? overlayParams() : new URLSearchParams(window.location.search);
+        let params = (typeof overlayParams === 'function') ? overlayParams() : new URLSearchParams(window.location.search);
         const stage = document.getElementById('poll-stage');
         const card = document.getElementById('poll-card');
         const titleEl = document.getElementById('poll-title');
@@ -493,49 +493,34 @@
         const confettiCanvas = document.getElementById('confetti-canvas');
 
         // URL Parameters
-        const isPreview = params.get('preview') === '1' || params.get('preview') === 'true' || params.get('sample') === '1';
-        const resultsSeconds = Math.max(0, parseInt(params.get('results') || '15', 10));
-        const customAccent = params.get('accent');
-        const customWinner = params.get('winner');
-        const customTrack = params.get('track');
-        const align = (params.get('align') || '').toLowerCase();
-        const valign = (params.get('valign') || '').toLowerCase();
-        const fontScale = parseFloat(params.get('fontscale') || params.get('scale') || '1');
-        const enableConfetti = params.get('confetti') !== '0' && params.get('confetti') !== 'false';
+        let isPreview = params.get('preview') === '1' || params.get('preview') === 'true' || params.get('sample') === '1';
+        let resultsSeconds = Math.max(0, parseInt(params.get('results') || '15', 10));
+        let customAccent = params.get('accent');
+        let customWinner = params.get('winner');
+        let customTrack = params.get('track');
+        let align = (params.get('align') || '').toLowerCase();
+        let valign = (params.get('valign') || '').toLowerCase();
+        let fontScale = parseFloat(params.get('fontscale') || params.get('scale') || '1');
+        let enableConfetti = params.get('confetti') !== '0' && params.get('confetti') !== 'false';
 
         // How-To-Vote parameter logic
-        const howToVoteParam = params.get('howtovote') ?? params.get('instructions') ?? params.get('votehelp');
-        const isHowToVoteExplicitFalse = howToVoteParam === '0' || howToVoteParam === 'false' || howToVoteParam === 'none' || howToVoteParam === 'hide';
-        const showHowToVote = !isHowToVoteExplicitFalse && (howToVoteParam === '1' || howToVoteParam === 'true' || howToVoteParam === '' || (howToVoteParam !== null && typeof howToVoteParam === 'string'));
-        const customInstructionText = (showHowToVote && howToVoteParam && howToVoteParam !== '1' && howToVoteParam !== 'true') ? howToVoteParam : null;
-
-        // Alignment & Scaling
-        if (align === 'left' || align === 'start') {
-            document.body.style.justifyContent = 'flex-start';
-        } else if (align === 'right' || align === 'end') {
-            document.body.style.justifyContent = 'flex-end';
-        }
-
-        if (valign === 'top' || valign === 'start') {
-            document.body.style.alignItems = 'flex-start';
-        } else if (valign === 'bottom' || valign === 'end') {
-            document.body.style.alignItems = 'flex-end';
-        }
-
-        if (fontScale && Number.isFinite(fontScale) && fontScale > 0) {
-            document.documentElement.style.setProperty('--poll-font-scale', fontScale);
-        }
-
-        if (customAccent) document.documentElement.style.setProperty('--poll-accent', customAccent);
-        if (customWinner) document.documentElement.style.setProperty('--poll-winner', customWinner);
-        if (customTrack) document.documentElement.style.setProperty('--poll-track', customTrack);
+        let howToVoteParam = params.get('howtovote') ?? params.get('instructions') ?? params.get('votehelp');
+        let isHowToVoteExplicitFalse = howToVoteParam === '0' || howToVoteParam === 'false' || howToVoteParam === 'none' || howToVoteParam === 'hide';
+        let showHowToVote = !isHowToVoteExplicitFalse && (howToVoteParam === '1' || howToVoteParam === 'true' || howToVoteParam === '' || (howToVoteParam !== null && typeof howToVoteParam === 'string'));
+        let customInstructionText = (showHowToVote && howToVoteParam && howToVoteParam !== '1' && howToVoteParam !== 'true') ? howToVoteParam : null;
 
         // Styling via ?overlay=hash... or ?bg=...
         function applyOverlayStyling() {
             if (typeof window.applyPollTheme === 'function') {
-                window.applyPollTheme();
+                window.applyPollTheme({ params });
                 return;
             }
+            if (card) {
+                Array.from(card.classList).forEach(cls => {
+                    if (cls.startsWith('theme-')) card.classList.remove(cls);
+                });
+            }
+            document.documentElement.style.removeProperty('--poll-bg');
             let overlayVal = (params.get('overlay') || params.get('theme') || '').trim();
             const bgVal = (params.get('bg') || '').trim();
             const hashVal = (window.location.hash || '').replace(/^#/, '').trim();
@@ -573,7 +558,54 @@
                 }
             }
         }
-        applyOverlayStyling();
+
+        function applyPollPreviewParams(nextParams) {
+            if (nextParams && typeof nextParams.get === 'function') {
+                params = nextParams;
+            } else {
+                const raw = String(nextParams || '');
+                params = (typeof overlayParams === 'function') ? overlayParams(raw) : new URLSearchParams(raw);
+            }
+            isPreview = params.get('preview') === '1' || params.get('preview') === 'true' || params.get('sample') === '1';
+            resultsSeconds = Math.max(0, parseInt(params.get('results') || '15', 10));
+            customAccent = params.get('accent');
+            customWinner = params.get('winner');
+            customTrack = params.get('track');
+            align = (params.get('align') || '').toLowerCase();
+            valign = (params.get('valign') || '').toLowerCase();
+            fontScale = parseFloat(params.get('fontscale') || params.get('scale') || '1');
+            enableConfetti = params.get('confetti') !== '0' && params.get('confetti') !== 'false';
+
+            howToVoteParam = params.get('howtovote') ?? params.get('instructions') ?? params.get('votehelp');
+            isHowToVoteExplicitFalse = howToVoteParam === '0' || howToVoteParam === 'false' || howToVoteParam === 'none' || howToVoteParam === 'hide';
+            showHowToVote = !isHowToVoteExplicitFalse && (howToVoteParam === '1' || howToVoteParam === 'true' || howToVoteParam === '' || (howToVoteParam !== null && typeof howToVoteParam === 'string'));
+            customInstructionText = (showHowToVote && howToVoteParam && howToVoteParam !== '1' && howToVoteParam !== 'true') ? howToVoteParam : null;
+
+            document.body.style.justifyContent = '';
+            document.body.style.alignItems = '';
+            if (align === 'left' || align === 'start') {
+                document.body.style.justifyContent = 'flex-start';
+            } else if (align === 'right' || align === 'end') {
+                document.body.style.justifyContent = 'flex-end';
+            }
+
+            if (valign === 'top' || valign === 'start') {
+                document.body.style.alignItems = 'flex-start';
+            } else if (valign === 'bottom' || valign === 'end') {
+                document.body.style.alignItems = 'flex-end';
+            }
+
+            if (fontScale && Number.isFinite(fontScale) && fontScale > 0) {
+                document.documentElement.style.setProperty('--poll-font-scale', fontScale);
+            }
+            if (customAccent) document.documentElement.style.setProperty('--poll-accent', customAccent);
+            if (customWinner) document.documentElement.style.setProperty('--poll-winner', customWinner);
+            if (customTrack) document.documentElement.style.setProperty('--poll-track', customTrack);
+
+            applyOverlayStyling();
+        }
+
+        applyPollPreviewParams(params);
 
         // Sample Poll Data for OBS layout preview
         const SAMPLE_POLL = {
@@ -956,6 +988,16 @@
             countdownTimer = setInterval(tickCountdown, 1000);
             connectWebSocket();
             fetchInitialPoll();
+        });
+        window.addEventListener('message', (event) => {
+            if (event.origin && event.origin !== 'null' && window.location.origin !== 'null' && event.origin !== window.location.origin) return;
+            try {
+                const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+                if (msg && msg.type === 'poll:preview-update') {
+                    applyPollPreviewParams(msg.params || '');
+                    renderPoll(currentPoll?.id === SAMPLE_POLL.id ? SAMPLE_POLL : (currentPoll || (isPreview ? SAMPLE_POLL : null)));
+                }
+            } catch {}
         });
     </script>
 </body>

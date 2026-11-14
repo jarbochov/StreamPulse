@@ -18,6 +18,10 @@
         .container { max-width: 1280px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: 430px minmax(0, 1fr); gap: 1.25rem; }
         .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.1rem 1.2rem; }
         .card h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 0.9rem; }
+        .card-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.9rem; }
+        .card-head h2 { margin-bottom: 0; }
+        .btn-reset { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.65rem; font-size: 0.74rem; color: var(--text-muted); }
+        .btn-reset:hover { color: var(--text); border-color: var(--accent); }
         .cfg-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.7rem; flex-wrap: wrap; }
         .cfg-row label { min-width: 110px; font-size: 0.82rem; color: var(--text-muted); }
         .cfg-row input, .cfg-row select { flex: 1; min-width: 0; font-family: inherit; padding: 0.48rem 0.65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.82rem; }
@@ -91,7 +95,13 @@
 
     <div class="container">
         <div class="card left-col">
-            <h2>Overlay Builder</h2>
+            <div class="card-head">
+                <h2>Overlay Builder</h2>
+                <button type="button" class="btn btn-reset" id="reset-wizard-btn" onclick="resetWizardDefaults()" title="Reset all wizard options to default values">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+                    Reset to Defaults
+                </button>
+            </div>
             <div class="group-title">Layout &amp; Source</div>
             <div class="cfg-row">
                 <label>View Mode</label>
@@ -421,6 +431,7 @@
                 ? `${w}px × ${h}px · ${Math.round(scale * 100)}% preview (Fit)`
                 : `${w}px × ${h}px`;
         }
+        if (typeof saveWizardPrefs === 'function') saveWizardPrefs();
     }
 
     function onViewChange() {
@@ -560,6 +571,9 @@
                 opt.textContent = `Collection: ${l.name}`;
                 listSelect.appendChild(opt);
             });
+            if (pendingListId && [...listSelect.options].some(o => o.value === pendingListId)) {
+                listSelect.value = pendingListId;
+            }
             renderPlanPeriodChips();
             updateMatchBadge();
         } catch {}
@@ -1030,87 +1044,141 @@
     }
 
     const WIZ_STORAGE_KEY = 'streampulse.gamePlanWizard.v1';
+    let gpWizardReady = false;
+    let gpResetting = false;
+    let gpWizardDefaults = null;
+    let pendingListId = '';
+
+    function captureWizardDefaults() {
+        return {
+            view: document.getElementById('view-mode').value,
+            list: document.getElementById('list-id').value,
+            period: document.getElementById('period-filter').value,
+            max: document.getElementById('max-items').value,
+            sort: document.getElementById('sort-order')?.value || '',
+            theme: document.getElementById('theme').value,
+            accent: document.getElementById('accent').value,
+            bg: document.getElementById('wiz-bg')?.value || '',
+            border: document.getElementById('wiz-border')?.value || '',
+            text: document.getElementById('wiz-text')?.value || '',
+            blur: document.getElementById('wiz-blur')?.value ?? '12',
+            font: document.getElementById('wiz-font').value,
+            weight: document.getElementById('wiz-weight').value,
+            scale: document.getElementById('scale').value,
+            coverScale: document.getElementById('cover-scale').value,
+            coverFit: document.getElementById('cover-fit').value,
+            align: document.getElementById('align').value,
+            showCovers: document.getElementById('show-covers').checked,
+            showNotes: document.getElementById('show-notes').checked,
+            showStatus: document.getElementById('show-status').checked,
+            showGroups: document.getElementById('show-groups').checked,
+            showDates: document.getElementById('show-dates').checked,
+            width: parseInt(document.getElementById('prev-w')?.value, 10) || 920,
+            height: parseInt(document.getElementById('prev-h')?.value, 10) || 140
+        };
+    }
+
     function saveWizardPrefs() {
+        if (!gpWizardReady || gpResetting) return;
         try {
-            const data = {
-                view: document.getElementById('view-mode').value,
-                list: document.getElementById('list-id').value,
-                period: document.getElementById('period-filter').value,
-                max: document.getElementById('max-items').value,
-                sort: document.getElementById('sort-order')?.value,
-                theme: document.getElementById('theme').value,
-                accent: document.getElementById('accent').value,
-                bg: document.getElementById('wiz-bg')?.value,
-                border: document.getElementById('wiz-border')?.value,
-                text: document.getElementById('wiz-text')?.value,
-                blur: document.getElementById('wiz-blur')?.value,
-                font: document.getElementById('wiz-font').value,
-                weight: document.getElementById('wiz-weight').value,
-                scale: document.getElementById('scale').value,
-                coverScale: document.getElementById('cover-scale').value,
-                coverFit: document.getElementById('cover-fit').value,
-                align: document.getElementById('align').value,
-                showCovers: document.getElementById('show-covers').checked,
-                showNotes: document.getElementById('show-notes').checked,
-                showStatus: document.getElementById('show-status').checked,
-                showGroups: document.getElementById('show-groups').checked,
-                showDates: document.getElementById('show-dates').checked,
-                width: currentWidth,
-                height: currentHeight
-            };
+            const data = captureWizardDefaults();
+            data.width = currentWidth;
+            data.height = currentHeight;
             localStorage.setItem(WIZ_STORAGE_KEY, JSON.stringify(data));
         } catch {}
+    }
+
+    function applyWizardPrefs(data) {
+        if (!data || typeof data !== 'object') return;
+        if (data.view !== undefined) document.getElementById('view-mode').value = data.view;
+        if (data.list !== undefined) {
+            pendingListId = data.list || '';
+            const listEl = document.getElementById('list-id');
+            if ([...listEl.options].some(o => o.value === pendingListId)) {
+                listEl.value = pendingListId;
+            }
+        }
+        if (data.period !== undefined) document.getElementById('period-filter').value = data.period;
+        if (data.max !== undefined) document.getElementById('max-items').value = data.max;
+        if (data.sort !== undefined && document.getElementById('sort-order')) document.getElementById('sort-order').value = data.sort;
+        if (data.theme !== undefined) document.getElementById('theme').value = data.theme;
+        if (data.accent !== undefined) {
+            document.getElementById('accent').value = data.accent;
+            if (/^#[0-9a-fA-F]{6}$/.test(data.accent)) {
+                document.getElementById('accent-picker').value = data.accent;
+            }
+            highlightAccentChip(data.accent);
+        }
+        if (data.bg !== undefined && document.getElementById('wiz-bg')) document.getElementById('wiz-bg').value = data.bg;
+        if (data.border !== undefined && document.getElementById('wiz-border')) document.getElementById('wiz-border').value = data.border;
+        if (data.text !== undefined && document.getElementById('wiz-text')) document.getElementById('wiz-text').value = data.text;
+        if (data.blur !== undefined && document.getElementById('wiz-blur')) {
+            document.getElementById('wiz-blur').value = data.blur;
+            document.getElementById('blur-val').textContent = `${data.blur}px`;
+        }
+        if (data.font !== undefined) document.getElementById('wiz-font').value = data.font;
+        if (data.weight !== undefined) document.getElementById('wiz-weight').value = data.weight;
+        if (data.scale !== undefined) {
+            document.getElementById('scale').value = data.scale;
+            const sv = document.getElementById('scale-val');
+            if (sv) sv.textContent = `${parseFloat(data.scale || '1').toFixed(2)}x`;
+        }
+        if (data.coverScale !== undefined) {
+            document.getElementById('cover-scale').value = data.coverScale;
+            const csv = document.getElementById('cover-scale-val');
+            if (csv) csv.textContent = `${parseFloat(data.coverScale || '1').toFixed(2)}x`;
+        }
+        if (data.coverFit !== undefined) document.getElementById('cover-fit').value = data.coverFit;
+        if (data.align !== undefined) document.getElementById('align').value = data.align;
+        if (data.showCovers !== undefined) document.getElementById('show-covers').checked = !!data.showCovers;
+        if (data.showNotes !== undefined) document.getElementById('show-notes').checked = !!data.showNotes;
+        if (data.showStatus !== undefined) document.getElementById('show-status').checked = !!data.showStatus;
+        if (data.showGroups !== undefined) document.getElementById('show-groups').checked = !!data.showGroups;
+        if (data.showDates !== undefined) document.getElementById('show-dates').checked = !!data.showDates;
+        if (data.width && data.height) {
+            currentWidth = data.width;
+            currentHeight = data.height;
+            document.getElementById('prev-w').value = data.width;
+            document.getElementById('prev-h').value = data.height;
+            document.querySelectorAll('.preset-chips .preset-chip').forEach(btn => {
+                const oc = btn.getAttribute('onclick') || '';
+                btn.classList.toggle('active', oc.includes(`applyPresetSize(${data.width}, ${data.height}`));
+            });
+        }
+        syncPickersFromInputs();
     }
 
     function loadWizardPrefs() {
         try {
             const raw = localStorage.getItem(WIZ_STORAGE_KEY);
             if (!raw) return;
-            const data = JSON.parse(raw);
-            if (data.view) document.getElementById('view-mode').value = data.view;
-            if (data.list) document.getElementById('list-id').value = data.list;
-            if (data.period !== undefined) document.getElementById('period-filter').value = data.period;
-            if (data.max) document.getElementById('max-items').value = data.max;
-            if (data.sort && document.getElementById('sort-order')) document.getElementById('sort-order').value = data.sort;
-            if (data.theme) document.getElementById('theme').value = data.theme;
-            if (data.accent) {
-                document.getElementById('accent').value = data.accent;
-                document.getElementById('accent-picker').value = data.accent;
-                highlightAccentChip(data.accent);
-            }
-            if (data.bg) document.getElementById('wiz-bg').value = data.bg;
-            if (data.border) document.getElementById('wiz-border').value = data.border;
-            if (data.text) document.getElementById('wiz-text').value = data.text;
-            if (data.blur !== undefined) {
-                document.getElementById('wiz-blur').value = data.blur;
-                document.getElementById('blur-val').textContent = `${data.blur}px`;
-            }
-            if (data.font) document.getElementById('wiz-font').value = data.font;
-            if (data.weight) document.getElementById('wiz-weight').value = data.weight;
-            if (data.scale) document.getElementById('scale').value = data.scale;
-            if (data.coverScale) document.getElementById('cover-scale').value = data.coverScale;
-            if (data.coverFit) document.getElementById('cover-fit').value = data.coverFit;
-            if (data.align) document.getElementById('align').value = data.align;
-            if (data.showCovers !== undefined) document.getElementById('show-covers').checked = !!data.showCovers;
-            if (data.showNotes !== undefined) document.getElementById('show-notes').checked = !!data.showNotes;
-            if (data.showStatus !== undefined) document.getElementById('show-status').checked = !!data.showStatus;
-            if (data.showGroups !== undefined) document.getElementById('show-groups').checked = !!data.showGroups;
-            if (data.showDates !== undefined) document.getElementById('show-dates').checked = !!data.showDates;
-            if (data.width && data.height) {
-                currentWidth = data.width;
-                currentHeight = data.height;
-                document.getElementById('prev-w').value = data.width;
-                document.getElementById('prev-h').value = data.height;
-            }
-            syncPickersFromInputs();
+            applyWizardPrefs(JSON.parse(raw));
         } catch {}
     }
+
+    window.resetWizardDefaults = function resetWizardDefaults() {
+        if (!gpWizardDefaults) return;
+        gpResetting = true;
+        try {
+            try { localStorage.removeItem(WIZ_STORAGE_KEY); } catch {}
+            pendingListId = '';
+            applyWizardPrefs(gpWizardDefaults);
+            document.getElementById('list-id').value = '';
+            syncChipsFromInput();
+            onViewChange();
+        } finally {
+            gpResetting = false;
+        }
+    };
 
     function initFromUrl() {
         loadWizardPrefs();
         const p = new URLSearchParams(location.search);
         if (p.has('view')) document.getElementById('view-mode').value = p.get('view');
-        if (p.has('list')) document.getElementById('list-id').value = p.get('list');
+        if (p.has('list')) {
+            pendingListId = p.get('list');
+            document.getElementById('list-id').value = pendingListId;
+        }
         if (p.has('period')) {
             document.getElementById('period-filter').value = p.get('period');
             syncChipsFromInput();
@@ -1166,8 +1234,10 @@
         syncPickersFromInputs();
     }
 
+    gpWizardDefaults = captureWizardDefaults();
     window.addEventListener('resize', updatePreviewSize);
     initFromUrl();
+    gpWizardReady = true;
     loadCustomLists().then(() => {
         syncChipsFromInput();
         refreshWizard();

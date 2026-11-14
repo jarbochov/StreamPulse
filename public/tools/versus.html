@@ -1029,9 +1029,15 @@
 
                         <!-- Matchup Scoreboard Overlay URL -->
                         <div id="ov-sec-matchup" style="margin-bottom: 1.5rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; gap: 0.5rem; flex-wrap: wrap;">
                                 <div style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Matchup Scoreboard Overlay</div>
-                                <a id="btn-open-matchup-overlay" href="/overlays/matchup.html" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none;">Open &nearr;</a>
+                                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                    <button type="button" class="btn-secondary btn-sm" id="btn-reset-matchup-defaults" onclick="resetMatchupOverlayDefaults()" style="display: inline-flex; align-items: center; gap: 0.3rem;" title="Reset all Matchup overlay customizer options to defaults">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                                        Reset to Defaults
+                                    </button>
+                                    <a id="btn-open-matchup-overlay" href="/overlays/matchup.html" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none;">Open &nearr;</a>
+                                </div>
                             </div>
                             <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
                                 <input type="text" class="form-control" id="url-matchup-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">
@@ -1449,9 +1455,15 @@
 
                         <!-- Tournament Bracket Overlay URL -->
                         <div id="ov-sec-tree" style="display:none;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; gap: 0.5rem; flex-wrap: wrap;">
                                 <div style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Tournament Bracket Overlay</div>
-                                <a id="btn-open-tourney-overlay" href="/overlays/tournament.html" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none;">Open &nearr;</a>
+                                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                    <button type="button" class="btn-secondary btn-sm" id="btn-reset-tourney-defaults" onclick="resetTourneyOverlayDefaults()" style="display: inline-flex; align-items: center; gap: 0.3rem;" title="Reset all Tournament Bracket overlay customizer options to defaults">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                                        Reset to Defaults
+                                    </button>
+                                    <a id="btn-open-tourney-overlay" href="/overlays/tournament.html" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none;">Open &nearr;</a>
+                                </div>
                             </div>
                             <div class="url-box" style="display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem;">
                                 <input type="text" class="form-control" id="url-tourney-overlay" readonly style="font-family: monospace; font-size: 0.75rem;">

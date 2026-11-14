@@ -152,6 +152,15 @@
                 <div class="actions" style="margin-bottom:0.8rem;">
                     <button class="btn primary" data-new="countdown"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Countdown</button>
                     <button class="btn" data-new="stopwatch"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Stopwatch</button>
+                    <button class="btn" type="button" id="export-timers" title="Export timers and settings to JSON">
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Export JSON
+                    </button>
+                    <button class="btn" type="button" id="import-timers" title="Import timers from JSON file">
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Import JSON
+                    </button>
+                    <input type="file" id="import-timers-file" accept=".json,application/json" hidden>
                 </div>
                 <div id="timer-list" class="timer-list"></div>
             </div>
@@ -1462,6 +1471,87 @@
         if (target.dataset.adjust) { adjustTime(target.dataset.adjust); return; }
         if (target.dataset.quickAdjust) { quickAdjust(parseInt(target.dataset.quickAdjust, 10), target.dataset.adjustUnit || 'minutes'); return; }
     });
+    function exportTimersJson() {
+        const list = Object.values(timersData || {});
+        if (!list.length) {
+            toast('No saved timers to export', 'error');
+            return;
+        }
+        const payload = {
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            settings: timerSettings || {},
+            timers: timersData || {}
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'streampulse-timers-backup.json';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        toast(`Exported ${list.length} timer(s)`);
+    }
+
+    async function importTimersJson(event) {
+        const input = event?.target;
+        const file = input?.files?.[0];
+        if (!file) return;
+        try {
+            const parsed = JSON.parse(await file.text());
+            let entries = [];
+            if (Array.isArray(parsed)) {
+                entries = parsed;
+            } else if (Array.isArray(parsed?.timers)) {
+                entries = parsed.timers;
+            } else if (parsed?.timers && typeof parsed.timers === 'object') {
+                entries = Object.entries(parsed.timers).map(([id, timer]) => ({ id, ...(timer || {}) }));
+            }
+            if (!entries.length) {
+                toast('Invalid timers JSON: no timers found', 'error');
+                return;
+            }
+            let imported = 0;
+            for (const item of entries) {
+                if (!item || typeof item !== 'object') continue;
+                const id = slugify(item.id || item.label || '');
+                if (!id) continue;
+                const payload = {
+                    ...item,
+                    id,
+                    durationMs: item.kind === 'stopwatch'
+                        ? (item.initialMs ?? item.durationMs ?? 0)
+                        : item.durationMs
+                };
+                try {
+                    const data = await api('/api/timers', jsonBody('POST', payload));
+                    if (data?.timer?.id) imported++;
+                } catch {}
+            }
+            if (parsed?.settings && typeof parsed.settings === 'object') {
+                try {
+                    await api('/api/timers/settings', jsonBody('PUT', {
+                        sound_enabled: !!parsed.settings.sound_enabled,
+                        sound_volume: Number.isFinite(Number(parsed.settings.sound_volume)) ? Number(parsed.settings.sound_volume) : 0.35,
+                        sound_url: String(parsed.settings.sound_url || '')
+                    }));
+                } catch {}
+            }
+            setDirty(false);
+            await loadTimers();
+            toast(imported > 0 ? `Imported ${imported} timer(s)` : 'No valid timers could be imported', imported > 0 ? 'ok' : 'error');
+        } catch (error) {
+            toast(`Import failed: ${error?.message || 'Invalid JSON'}`, 'error');
+        } finally {
+            if (input) input.value = '';
+        }
+    }
+
+    $('export-timers').addEventListener('click', exportTimersJson);
+    $('import-timers').addEventListener('click', () => $('import-timers-file').click());
+    $('import-timers-file').addEventListener('change', importTimersJson);
     $('save-timer').addEventListener('click', saveTimer);
     $('delete-timer').addEventListener('click', deleteTimer);
     $('duplicate-timer').addEventListener('click', duplicateTimer);

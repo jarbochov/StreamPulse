@@ -370,6 +370,7 @@
         setTimeout(() => el.style.borderColor = '', 1500);
     }
 
+    const SP_UI_MUSIC_KEY = 'sp_ui_music_editor_v1';
     let currentEditorMode = 'full';
 
     function updatePreviewSize() {
@@ -386,9 +387,12 @@
     }
 
     function setPreviewMode(mode, tab) {
+        if (!['full', 'art', 'mini'].includes(mode)) mode = 'full';
+        const targetTab = tab || document.querySelector(`.mode-tab[onclick*="setPreviewMode('${mode}'"]`);
         document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
+        if (targetTab) targetTab.classList.add('active');
         currentEditorMode = mode;
+        try { localStorage.setItem(SP_UI_MUSIC_KEY, JSON.stringify({ previewMode: mode })); } catch {}
         const iframe = document.getElementById('preview-iframe');
         iframe.src = `/music.html?mode=${mode}`;
         updatePreviewSize();
@@ -775,9 +779,21 @@
     async function removeFallbackArt() {
         await fetch('/api/music/fallback-art', { method: 'DELETE' });
         checkFallbackArt();
+    try {
+        const savedUi = JSON.parse(localStorage.getItem(SP_UI_MUSIC_KEY) || '{}');
+        if (savedUi.previewMode && savedUi.previewMode !== 'full') {
+            setPreviewMode(savedUi.previewMode);
+        }
+    } catch {}
     }
 
     checkFallbackArt();
+    try {
+        const savedUi = JSON.parse(localStorage.getItem(SP_UI_MUSIC_KEY) || '{}');
+        if (savedUi.previewMode && savedUi.previewMode !== 'full') {
+            setPreviewMode(savedUi.previewMode);
+        }
+    } catch {}
 
     // Now Playing status polling — updates top status bar
     async function pollNowPlaying() {

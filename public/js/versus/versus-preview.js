@@ -32,6 +32,52 @@ import {
     setActiveTourneyData
 } from './versus-state.js';
 
+function postPreviewParams(iframeEl, msgType, previewParams, defaultBaseSrc) {
+    if (!iframeEl) return;
+    const qs = previewParams instanceof URLSearchParams ? previewParams.toString() : String(previewParams || '');
+    iframeEl.dataset.pendingPreviewType = msgType;
+    iframeEl.dataset.pendingPreviewParams = qs;
+    if (!iframeEl.dataset.previewMessageBound) {
+        iframeEl.dataset.previewMessageBound = '1';
+        iframeEl.addEventListener('load', () => {
+            try {
+                const pendingType = iframeEl.dataset.pendingPreviewType;
+                const pendingQs = iframeEl.dataset.pendingPreviewParams || '';
+                if (pendingType && iframeEl.contentWindow) {
+                    iframeEl.contentWindow.postMessage({ type: pendingType, params: pendingQs }, window.location.origin);
+                }
+            } catch {}
+        });
+    }
+    const currentAttr = iframeEl.getAttribute('src') || '';
+    if (!currentAttr && defaultBaseSrc) {
+        iframeEl.src = `${defaultBaseSrc}${qs ? `?${qs}` : ''}`;
+        return;
+    }
+    try {
+        if (iframeEl.contentWindow) {
+            iframeEl.contentWindow.postMessage({ type: msgType, params: qs }, window.location.origin);
+        }
+    } catch {}
+}
+
+function resetContainerControlsToDefaults(containerId) {
+    const container = $(containerId);
+    if (!container) return;
+    container.querySelectorAll('input, select, textarea').forEach(el => {
+        if (el.readOnly) return;
+        if (el.type === 'checkbox' || el.type === 'radio') {
+            el.checked = el.defaultChecked;
+        } else if (el.tagName === 'SELECT') {
+            const opts = Array.from(el.options || []);
+            const defIdx = opts.findIndex(o => o.defaultSelected);
+            el.selectedIndex = defIdx >= 0 ? defIdx : 0;
+        } else {
+            el.value = el.defaultValue;
+        }
+    });
+}
+
 export function syncTourneyOptFromMain(key, val) {
     if (key === 'theme' && $('prev-ctrl-tourney-theme')) $('prev-ctrl-tourney-theme').value = val;
     if (key === 'spacing' && $('prev-ctrl-tourney-spacing')) $('prev-ctrl-tourney-spacing').value = val;
@@ -405,8 +451,9 @@ export function updateTourneyOverlayUrl() {
     previewParams.set('fit', '1');
     previewParams.set('sample', previewUseSample ? '1' : '0');
 
-    if ($('tourney-preview-iframe')) {
-        $('tourney-preview-iframe').src = `/overlays/tournament.html?${previewParams.toString()}`;
+    const previewIframe = $('tourney-preview-iframe');
+    if (previewIframe) {
+        postPreviewParams(previewIframe, 'tournament:preview-update', previewParams, '/overlays/tournament.html');
     }
     saveVersusOverlayPrefs();
 }
@@ -611,9 +658,29 @@ export function updateMatchupOverlayUrl() {
         }
         previewParams.set('preview', '1');
         previewParams.set('sample', previewUseSample ? '1' : '0');
-        previewIframe.src = `/overlays/matchup.html?${previewParams.toString()}`;
+        postPreviewParams(previewIframe, 'matchup:preview-update', previewParams, '/overlays/matchup.html');
     }
     saveVersusOverlayPrefs();
+}
+
+export function resetMatchupOverlayDefaults() {
+    resetContainerControlsToDefaults('ov-sec-matchup');
+    resetContainerControlsToDefaults('preview-toolbar-matchup');
+    updateMatchupOverlayUrl();
+    updateAssetFontBadges();
+    saveVersusOverlayPrefs();
+    toast('Matchup overlay settings reset to defaults');
+}
+
+export function resetTourneyOverlayDefaults() {
+    resetContainerControlsToDefaults('ov-sec-tree');
+    resetContainerControlsToDefaults('preview-toolbar-tourney');
+    syncTourneyOverlayLogoUi('');
+    setTourneyFitWholeBracket(false);
+    updateTourneyOverlayUrl();
+    updateAssetFontBadges();
+    saveVersusOverlayPrefs();
+    toast('Tournament bracket overlay settings reset to defaults');
 }
 
 const VERSUS_OVERLAY_PREFS_KEY = 'streampulse_versus_overlay_prefs';

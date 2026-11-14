@@ -2274,183 +2274,249 @@
     <script src="../js/overlay-theme.js"></script>
 
     <script>
-        const params = (typeof overlayParams === 'function') ? overlayParams() : new URLSearchParams(window.location.search);
+        let params = (typeof overlayParams === 'function') ? overlayParams() : new URLSearchParams(window.location.search);
         const stage = document.getElementById('stage');
         const container = document.getElementById('matchup-container');
         const confettiCanvas = document.getElementById('confetti-canvas');
 
         // Parameter configuration
-        const forceSample = params.get('sample') === '1';
-        const isPreview = params.get('preview') === '1' || params.get('sample') === '1';
-        const sourceMode = (params.get('source') || 'auto').toLowerCase(); // 'auto' | 'tournament' | 'matchup'
-        const layout = (params.get('layout') || params.get('mode') || 'top').toLowerCase(); // 'top' | 'fgc' | 'split' | 'minimal' | 'bottom' | 'compact' | 'versus' | 'pillar' | 'vertical'
-        const showCenter = params.get('center') !== '0' && params.get('showcenter') !== '0';
-        const customGap = (params.get('gap') || params.get('centerspace') || params.get('spacing') || '').trim().toLowerCase();
-        const showPips = params.get('pips') !== '0';
-        const showRoundPips = params.get('roundpips') === '1' || (showPips && params.get('roundpips') !== '0' && params.get('rounds') !== '0' && params.get('showrounds') !== '0');
-        const pipStyle = (params.get('pipstyle') || params.get('pips_style') || 'circle').toLowerCase(); // 'circle' | 'diamond' | 'bar' | 'digit'
-        const roundPipStyle = (params.get('roundpipstyle') || params.get('round_pipstyle') || 'diamond').toLowerCase(); // 'diamond' | 'circle' | 'bar' | 'digit'
-        const showTags = params.get('tags') !== '0';
-        const showDetails = params.get('details') !== '0';
-        const showClock = params.get('clock') !== '0';
-        const clockStyle = (params.get('clockstyle') || 'badge').toLowerCase(); // 'badge' | 'bottom' | 'pill' | 'fgc'
-        const runnerTimersParam = (params.get('runnertimers') || params.get('runner_timers') || '').toLowerCase(); // 'finish' | 'always' | 'off'
-        const playerClocksParam = (params.get('playerclocks') || params.get('player_clocks') || params.get('runnerclocks') || '').toLowerCase(); // '1' | 'always' | 'auto' | '0' | 'off'
-        const splitsParam = (params.get('splits') ?? params.get('showsplits') ?? params.get('deltas') ?? '').toLowerCase();
+        let forceSample = params.get('sample') === '1';
+        let isPreview = params.get('preview') === '1' || params.get('sample') === '1';
+        let sourceMode = (params.get('source') || 'auto').toLowerCase(); // 'auto' | 'tournament' | 'matchup'
+        let layout = (params.get('layout') || params.get('mode') || 'top').toLowerCase(); // 'top' | 'fgc' | 'split' | 'minimal' | 'bottom' | 'compact' | 'versus' | 'pillar' | 'vertical'
+        let showCenter = params.get('center') !== '0' && params.get('showcenter') !== '0';
+        let customGap = (params.get('gap') || params.get('centerspace') || params.get('spacing') || '').trim().toLowerCase();
+        let showPips = params.get('pips') !== '0';
+        let showRoundPips = params.get('roundpips') === '1' || (showPips && params.get('roundpips') !== '0' && params.get('rounds') !== '0' && params.get('showrounds') !== '0');
+        let pipStyle = (params.get('pipstyle') || params.get('pips_style') || 'circle').toLowerCase(); // 'circle' | 'diamond' | 'bar' | 'digit'
+        let roundPipStyle = (params.get('roundpipstyle') || params.get('round_pipstyle') || 'diamond').toLowerCase(); // 'diamond' | 'circle' | 'bar' | 'digit'
+        let showTags = params.get('tags') !== '0';
+        let showDetails = params.get('details') !== '0';
+        let showClock = params.get('clock') !== '0';
+        let clockStyle = (params.get('clockstyle') || 'badge').toLowerCase(); // 'badge' | 'bottom' | 'pill' | 'fgc'
+        let runnerTimersParam = (params.get('runnertimers') || params.get('runner_timers') || '').toLowerCase(); // 'finish' | 'always' | 'off'
+        let playerClocksParam = (params.get('playerclocks') || params.get('player_clocks') || params.get('runnerclocks') || '').toLowerCase(); // '1' | 'always' | 'auto' | '0' | 'off'
+        let splitsParam = (params.get('splits') ?? params.get('showsplits') ?? params.get('deltas') ?? '').toLowerCase();
         function isSplitsEnabled(m) {
             if (splitsParam === '0' || splitsParam === 'false' || splitsParam === 'off') return false;
             if (splitsParam === '1' || splitsParam === 'true' || splitsParam === 'on') return true;
             return m?.clock?.showSplits !== false;
         }
-        const showEst = params.get('showest') !== '0';
-        const showTitle = params.get('title') !== '0';
-        const showPhase = params.get('phase') !== '0';
-        const hideCss = [
-            !showPhase && '.match-phase-badge',
-            !showTitle && '.match-title-badge, .match-title-inline',
-            !showClock && '.clock-pill, .fgc-clock-box, .bottom-clock-dock, .race-timer-hero, .clock-dock-pill, .race-est-badge, .race-master-bar, .runner-finish-pill',
-            params.get('banner') === '0' && '.winner-banner'
-        ].filter(Boolean);
-        if (hideCss.length) { const st = document.createElement('style'); st.textContent = hideCss.map(x => x + '{display:none !important}').join(''); document.head.appendChild(st); }
-        const enableConfetti = params.get('confetti') !== '0' && params.get('confetti') !== 'false';
-        const scaleVal = parseFloat(params.get('scale') || params.get('fontscale') || '1');
-        const customWidth = params.get('width');
-        const customMaxWidth = params.get('maxwidth') || params.get('max_width');
-        const customPadding = params.get('padding');
-        const customAccent = params.get('accent');
-        const customWinner = params.get('winner');
-        const customP1Color = params.get('p1color');
-        const customP2Color = params.get('p2color');
-        const customBadgeColor = params.get('badgecolor') || params.get('centerbadge') || params.get('badge_color');
-        const playerFilterParam = (params.get('player') || params.get('competitor') || params.get('slot') || '').trim().toLowerCase();
-        const alignParam = (params.get('align') || params.get('justify') || '').trim().toLowerCase();
-        const valignParam = (params.get('valign') || params.get('v_align') || '').trim().toLowerCase();
-        const sideParam = (params.get('side') || '').trim().toLowerCase(); // 'left' | 'right'
-        const mirrorRaw = (params.get('mirror') || params.get('flip') || params.get('reflect') || params.get('reverse') || '').trim().toLowerCase();
-        const isMirrored = (mirrorRaw === '1' || mirrorRaw === 'true' || mirrorRaw === 'yes' || mirrorRaw === 'on' || sideParam === 'right');
-        const fitParam = params.get('fit');
-        const isWide = params.get('wide') === '1' || params.get('wide') === 'true';
+        let showEst = params.get('showest') !== '0';
+        let showTitle = params.get('title') !== '0';
+        let showPhase = params.get('phase') !== '0';
+        let enableConfetti = params.get('confetti') !== '0' && params.get('confetti') !== 'false';
+        let scaleVal = parseFloat(params.get('scale') || params.get('fontscale') || '1');
+        let customWidth = params.get('width');
+        let customMaxWidth = params.get('maxwidth') || params.get('max_width');
+        let customPadding = params.get('padding');
+        let customAccent = params.get('accent');
+        let customWinner = params.get('winner');
+        let customP1Color = params.get('p1color');
+        let customP2Color = params.get('p2color');
+        let customBadgeColor = params.get('badgecolor') || params.get('centerbadge') || params.get('badge_color');
+        let playerFilterParam = (params.get('player') || params.get('competitor') || params.get('slot') || '').trim().toLowerCase();
+        let alignParam = (params.get('align') || params.get('justify') || '').trim().toLowerCase();
+        let valignParam = (params.get('valign') || params.get('v_align') || '').trim().toLowerCase();
+        let sideParam = (params.get('side') || '').trim().toLowerCase(); // 'left' | 'right'
+        let mirrorRaw = (params.get('mirror') || params.get('flip') || params.get('reflect') || params.get('reverse') || '').trim().toLowerCase();
+        let isMirrored = (mirrorRaw === '1' || mirrorRaw === 'true' || mirrorRaw === 'yes' || mirrorRaw === 'on' || sideParam === 'right');
+        let fitParam = params.get('fit');
+        let isWide = params.get('wide') === '1' || params.get('wide') === 'true';
+        let SAMPLE_MATCHUP = null;
 
-        document.body.className = `layout-${layout}`;
-        if (isWide) {
-            document.body.classList.add('layout-wide');
-        }
-        if (!showCenter) {
-            document.body.classList.add('no-center-badge');
-        }
-        if (customGap && customGap !== '0' && customGap !== 'none' && customGap !== 'auto') {
-            const gapCss = (customGap === 'intact' || customGap === 'keep') ? '160px' : (/^\d+$/.test(customGap) ? `${customGap}px` : customGap);
-            document.documentElement.style.setProperty('--center-gap', gapCss);
-            document.body.classList.add('has-center-gap');
-        }
-        if (fitParam === 'content' || fitParam === '1' || fitParam === 'tight') {
-            document.body.classList.add('fit-content');
-        }
-        if (playerFilterParam === 'none' || playerFilterParam === 'clock' || playerFilterParam === 'timer' || layout === 'clock') {
-            document.body.classList.add('mode-clock-only');
-        } else if (['1', '2', '3', '4'].includes(playerFilterParam) || layout === 'pod' || layout === 'single') {
-            document.body.classList.add('mode-single-pod');
-        }
-
-        if (sideParam === 'right' && !alignParam) {
-            document.documentElement.style.setProperty('--matchup-align', 'flex-end');
-        } else if (sideParam === 'left' && !alignParam) {
-            document.documentElement.style.setProperty('--matchup-align', 'flex-start');
-        }
-
-        if (alignParam === 'left' || alignParam === 'start') document.documentElement.style.setProperty('--matchup-align', 'flex-start');
-        else if (alignParam === 'right' || alignParam === 'end') document.documentElement.style.setProperty('--matchup-align', 'flex-end');
-        else if (alignParam === 'center' || alignParam === 'middle') document.documentElement.style.setProperty('--matchup-align', 'center');
-
-        if (valignParam === 'top' || valignParam === 'start') document.documentElement.style.setProperty('--matchup-valign', 'flex-start');
-        else if (valignParam === 'bottom' || valignParam === 'end') document.documentElement.style.setProperty('--matchup-valign', 'flex-end');
-        else if (valignParam === 'center' || valignParam === 'middle') document.documentElement.style.setProperty('--matchup-valign', 'center');
-
-        if (isMirrored) {
-            document.body.classList.add('is-mirrored');
-        }
-
-        if (scaleVal && Number.isFinite(scaleVal) && scaleVal > 0) {
-            document.documentElement.style.setProperty('--matchup-scale', scaleVal);
-        }
-        if (customWidth) {
-            const w = /^\d+$/.test(customWidth.trim()) ? `${customWidth.trim()}px` : customWidth.trim();
-            document.documentElement.style.setProperty('--matchup-width', w);
-        }
-        if (customMaxWidth) {
-            const mw = /^\d+$/.test(customMaxWidth.trim()) ? `${customMaxWidth.trim()}px` : customMaxWidth.trim();
-            document.documentElement.style.setProperty('--matchup-max-width', mw);
-        }
-        if (customPadding) {
-            const p = /^\d+$/.test(customPadding.trim()) ? `${customPadding.trim()}px` : customPadding.trim();
-            document.documentElement.style.setProperty('--matchup-padding', p);
-        }
-        if (customAccent) document.documentElement.style.setProperty('--matchup-accent', customAccent);
-        if (customWinner) document.documentElement.style.setProperty('--matchup-winner', customWinner);
-        if (customP1Color) document.documentElement.style.setProperty('--p1-color', customP1Color);
-        if (customP2Color) document.documentElement.style.setProperty('--p2-color', customP2Color);
-        if (customBadgeColor) {
-            document.documentElement.style.setProperty('--matchup-badge-color', customBadgeColor);
-            document.documentElement.style.setProperty('--matchup-badge-bg', `color-mix(in srgb, ${customBadgeColor} 18%, rgba(0, 0, 0, 0.4))`);
-            document.documentElement.style.setProperty('--matchup-badge-border', `color-mix(in srgb, ${customBadgeColor} 50%, rgba(255, 255, 255, 0.12))`);
-        }
-
-        // Shared theme handling via /js/overlay-theme.js
-        if (typeof window.applyVersusTheme === 'function') {
-            window.applyVersusTheme();
-        } else {
-            let overlayVal = (params.get('overlay') || params.get('theme') || '').trim();
-            const bgVal = (params.get('bg') || '').trim();
-            const hashVal = (window.location.hash || '').replace(/^#/, '').trim();
-            if (!overlayVal && hashVal && !hashVal.includes('=')) overlayVal = hashVal;
-            if (overlayVal) document.body.classList.add('theme-' + overlayVal);
-            const col = bgVal || overlayVal;
-            if (col && (/^[0-9a-fA-F]{3,8}$/.test(col) || /^#[0-9a-fA-F]{3,8}$/.test(col))) {
-                document.documentElement.style.setProperty('--matchup-bg', col.startsWith('#') ? col : '#' + col);
-                document.body.classList.add('theme-custom');
+        function buildSampleMatchup() {
+            const sampleClockMode = (layout === 'race' || params.get('clockmode') === 'race') ? 'race' : 'stopwatch';
+            const SAMPLE_ALL_COMPETITORS = [
+                { id: 'c1', name: 'Daigo', tag: layout === 'race' ? 'PB 41:12' : 'Ken', color: '#ef4444', score: layout === 'race' ? 1 : 4, rounds: layout === 'race' ? 0 : 1 },
+                { id: 'c2', name: 'Justin Wong', tag: layout === 'race' ? 'PB 41:45' : 'Chun-Li', color: '#3b82f6', score: layout === 'race' ? 0 : 3, rounds: 0 },
+                { id: 'c3', name: 'Tokido', tag: layout === 'race' ? 'PB 42:30' : 'Akuma', color: '#10b981', score: layout === 'race' ? 0 : 2, rounds: 0 },
+                { id: 'c4', name: 'Punk', tag: layout === 'race' ? 'PB 42:45' : 'Cammy', color: '#f59e0b', score: layout === 'race' ? 0 : 1, rounds: 0 }
+            ];
+            if (layout === 'race' || sampleClockMode === 'race' || runnerTimersParam) {
+                SAMPLE_ALL_COMPETITORS[0].timer = { elapsed: 2512.80, finishSeconds: 2512.80, isRunning: false, finished: true, finishTime: '41:52.80', place: 1, delta: 'WINNER' };
+                SAMPLE_ALL_COMPETITORS[1].timer = { elapsed: 2525.45, finishSeconds: 2525.45, isRunning: false, finished: true, finishTime: '42:05.45', place: 2, deltaSeconds: 12.65, delta: '+00:12.65' };
+                SAMPLE_ALL_COMPETITORS[2].timer = { elapsed: 2548.10, finishSeconds: 2548.10, isRunning: false, finished: true, finishTime: '42:28.10', place: 3, deltaSeconds: 35.30, delta: '+00:35.30' };
+                SAMPLE_ALL_COMPETITORS[3].timer = { elapsed: 2538.45, isRunning: true, finished: false };
             }
+            const needs4Comps = Boolean(playerFilterParam && (playerFilterParam.includes('3') || playerFilterParam.includes('4') || playerFilterParam === '3' || playerFilterParam === '4'));
+            return {
+                id: 'sample-matchup',
+                title: layout === 'race' ? 'Super Metroid Any%' : 'Street Fighter 6',
+                phase: layout === 'race' ? 'Speedrun Race Finals' : 'Grand Finals',
+                details: layout === 'race' ? (needs4Comps ? '4-Way Live Race · Target EST 45:00' : '1v1 Live Race · Target EST 45:00') : (needs4Comps ? '4-Player Championship · Decider' : 'First to 5 (FT5) · Metro City Decider'),
+                competitorCount: needs4Comps ? 4 : 2,
+                roundsBestOf: layout === 'race' ? 0 : 3,
+                competitors: needs4Comps ? SAMPLE_ALL_COMPETITORS.slice(0, 4) : SAMPLE_ALL_COMPETITORS.slice(0, 2),
+                format: 'bestOf',
+                bestOf: layout === 'race' ? 1 : 9,
+                targetScore: layout === 'race' ? 1 : 5,
+                status: 'ACTIVE',
+                winner: null,
+                clock: {
+                    enabled: showClock,
+                    mode: sampleClockMode,
+                    runnerTimersMode: runnerTimersParam || 'finish',
+                    showSplits: splitsParam === '0' || splitsParam === 'false' || splitsParam === 'off' ? false : true,
+                    duration: 99,
+                    remaining: 99,
+                    elapsed: 2538.45,
+                    isRunning: true,
+                    estimate: layout === 'race' ? '45:00' : '18:30'
+                }
+            };
         }
 
-        // Sample Data for OBS Studio positioning and URL wizard
-        const sampleClockMode = (layout === 'race' || params.get('clockmode') === 'race') ? 'race' : 'stopwatch';
-        const SAMPLE_ALL_COMPETITORS = [
-            { id: 'c1', name: 'Daigo', tag: layout === 'race' ? 'PB 41:12' : 'Ken', color: '#ef4444', score: layout === 'race' ? 1 : 4, rounds: layout === 'race' ? 0 : 1 },
-            { id: 'c2', name: 'Justin Wong', tag: layout === 'race' ? 'PB 41:45' : 'Chun-Li', color: '#3b82f6', score: layout === 'race' ? 0 : 3, rounds: 0 },
-            { id: 'c3', name: 'Tokido', tag: layout === 'race' ? 'PB 42:30' : 'Akuma', color: '#10b981', score: layout === 'race' ? 0 : 2, rounds: 0 },
-            { id: 'c4', name: 'Punk', tag: layout === 'race' ? 'PB 42:45' : 'Cammy', color: '#f59e0b', score: layout === 'race' ? 0 : 1, rounds: 0 }
-        ];
-        if (layout === 'race' || sampleClockMode === 'race' || runnerTimersParam) {
-            SAMPLE_ALL_COMPETITORS[0].timer = { elapsed: 2512.80, finishSeconds: 2512.80, isRunning: false, finished: true, finishTime: '41:52.80', place: 1, delta: 'WINNER' };
-            SAMPLE_ALL_COMPETITORS[1].timer = { elapsed: 2525.45, finishSeconds: 2525.45, isRunning: false, finished: true, finishTime: '42:05.45', place: 2, deltaSeconds: 12.65, delta: '+00:12.65' };
-            SAMPLE_ALL_COMPETITORS[2].timer = { elapsed: 2548.10, finishSeconds: 2548.10, isRunning: false, finished: true, finishTime: '42:28.10', place: 3, deltaSeconds: 35.30, delta: '+00:35.30' };
-            SAMPLE_ALL_COMPETITORS[3].timer = { elapsed: 2538.45, isRunning: true, finished: false };
-        }
-        const needs4Comps = Boolean(playerFilterParam && (playerFilterParam.includes('3') || playerFilterParam.includes('4') || playerFilterParam === '3' || playerFilterParam === '4'));
-        const SAMPLE_MATCHUP = {
-            id: 'sample-matchup',
-            title: layout === 'race' ? 'Super Metroid Any%' : 'Street Fighter 6',
-            phase: layout === 'race' ? 'Speedrun Race Finals' : 'Grand Finals',
-            details: layout === 'race' ? (needs4Comps ? '4-Way Live Race · Target EST 45:00' : '1v1 Live Race · Target EST 45:00') : (needs4Comps ? '4-Player Championship · Decider' : 'First to 5 (FT5) · Metro City Decider'),
-            competitorCount: needs4Comps ? 4 : 2,
-            roundsBestOf: layout === 'race' ? 0 : 3,
-            competitors: needs4Comps ? SAMPLE_ALL_COMPETITORS.slice(0, 4) : SAMPLE_ALL_COMPETITORS.slice(0, 2),
-            format: 'bestOf',
-            bestOf: layout === 'race' ? 1 : 9,
-            targetScore: layout === 'race' ? 1 : 5,
-            status: 'ACTIVE',
-            winner: null,
-            clock: {
-                enabled: showClock,
-                mode: sampleClockMode,
-                runnerTimersMode: runnerTimersParam || 'finish',
-                showSplits: splitsParam === '0' || splitsParam === 'false' || splitsParam === 'off' ? false : true,
-                duration: 99,
-                remaining: 99,
-                elapsed: 2538.45,
-                isRunning: true,
-                estimate: layout === 'race' ? '45:00' : '18:30'
+        function applyMatchupPreviewParams(nextParams) {
+            if (nextParams && typeof nextParams.get === 'function') {
+                params = nextParams;
+            } else {
+                const raw = String(nextParams || '');
+                params = (typeof overlayParams === 'function') ? overlayParams(raw) : new URLSearchParams(raw);
             }
-        };
+            forceSample = params.get('sample') === '1';
+            isPreview = params.get('preview') === '1' || params.get('sample') === '1';
+            sourceMode = (params.get('source') || 'auto').toLowerCase();
+            layout = (params.get('layout') || params.get('mode') || 'top').toLowerCase();
+            showCenter = params.get('center') !== '0' && params.get('showcenter') !== '0';
+            customGap = (params.get('gap') || params.get('centerspace') || params.get('spacing') || '').trim().toLowerCase();
+            showPips = params.get('pips') !== '0';
+            showRoundPips = params.get('roundpips') === '1' || (showPips && params.get('roundpips') !== '0' && params.get('rounds') !== '0' && params.get('showrounds') !== '0');
+            pipStyle = (params.get('pipstyle') || params.get('pips_style') || 'circle').toLowerCase();
+            roundPipStyle = (params.get('roundpipstyle') || params.get('round_pipstyle') || 'diamond').toLowerCase();
+            showTags = params.get('tags') !== '0';
+            showDetails = params.get('details') !== '0';
+            showClock = params.get('clock') !== '0';
+            clockStyle = (params.get('clockstyle') || 'badge').toLowerCase();
+            runnerTimersParam = (params.get('runnertimers') || params.get('runner_timers') || '').toLowerCase();
+            playerClocksParam = (params.get('playerclocks') || params.get('player_clocks') || params.get('runnerclocks') || '').toLowerCase();
+            splitsParam = (params.get('splits') ?? params.get('showsplits') ?? params.get('deltas') ?? '').toLowerCase();
+            showEst = params.get('showest') !== '0';
+            showTitle = params.get('title') !== '0';
+            showPhase = params.get('phase') !== '0';
+            const hideCss = [
+                !showPhase && '.match-phase-badge',
+                !showTitle && '.match-title-badge, .match-title-inline',
+                !showClock && '.clock-pill, .fgc-clock-box, .bottom-clock-dock, .race-timer-hero, .clock-dock-pill, .race-est-badge, .race-master-bar, .runner-finish-pill',
+                params.get('banner') === '0' && '.winner-banner'
+            ].filter(Boolean);
+            let hideStyle = document.getElementById('matchup-hide-css');
+            if (!hideStyle) {
+                hideStyle = document.createElement('style');
+                hideStyle.id = 'matchup-hide-css';
+                document.head.appendChild(hideStyle);
+            }
+            hideStyle.textContent = hideCss.length ? hideCss.map(x => x + '{display:none !important}').join('') : '';
+
+            enableConfetti = params.get('confetti') !== '0' && params.get('confetti') !== 'false';
+            scaleVal = parseFloat(params.get('scale') || params.get('fontscale') || '1');
+            customWidth = params.get('width');
+            customMaxWidth = params.get('maxwidth') || params.get('max_width');
+            customPadding = params.get('padding');
+            customAccent = params.get('accent');
+            customWinner = params.get('winner');
+            customP1Color = params.get('p1color');
+            customP2Color = params.get('p2color');
+            customBadgeColor = params.get('badgecolor') || params.get('centerbadge') || params.get('badge_color');
+            playerFilterParam = (params.get('player') || params.get('competitor') || params.get('slot') || '').trim().toLowerCase();
+            alignParam = (params.get('align') || params.get('justify') || '').trim().toLowerCase();
+            valignParam = (params.get('valign') || params.get('v_align') || '').trim().toLowerCase();
+            sideParam = (params.get('side') || '').trim().toLowerCase();
+            mirrorRaw = (params.get('mirror') || params.get('flip') || params.get('reflect') || params.get('reverse') || '').trim().toLowerCase();
+            isMirrored = (mirrorRaw === '1' || mirrorRaw === 'true' || mirrorRaw === 'yes' || mirrorRaw === 'on' || sideParam === 'right');
+            fitParam = params.get('fit');
+            isWide = params.get('wide') === '1' || params.get('wide') === 'true';
+
+            [
+                '--center-gap', '--matchup-align', '--matchup-valign',
+                '--matchup-width', '--matchup-max-width', '--matchup-padding'
+            ].forEach(prop => document.documentElement.style.removeProperty(prop));
+
+            document.body.className = `layout-${layout}`;
+            if (isWide) {
+                document.body.classList.add('layout-wide');
+            }
+            if (!showCenter) {
+                document.body.classList.add('no-center-badge');
+            }
+            if (customGap && customGap !== '0' && customGap !== 'none' && customGap !== 'auto') {
+                const gapCss = (customGap === 'intact' || customGap === 'keep') ? '160px' : (/^\d+$/.test(customGap) ? `${customGap}px` : customGap);
+                document.documentElement.style.setProperty('--center-gap', gapCss);
+                document.body.classList.add('has-center-gap');
+            }
+            if (fitParam === 'content' || fitParam === '1' || fitParam === 'tight') {
+                document.body.classList.add('fit-content');
+            }
+            if (playerFilterParam === 'none' || playerFilterParam === 'clock' || playerFilterParam === 'timer' || layout === 'clock') {
+                document.body.classList.add('mode-clock-only');
+            } else if (['1', '2', '3', '4'].includes(playerFilterParam) || layout === 'pod' || layout === 'single') {
+                document.body.classList.add('mode-single-pod');
+            }
+
+            if (sideParam === 'right' && !alignParam) {
+                document.documentElement.style.setProperty('--matchup-align', 'flex-end');
+            } else if (sideParam === 'left' && !alignParam) {
+                document.documentElement.style.setProperty('--matchup-align', 'flex-start');
+            }
+
+            if (alignParam === 'left' || alignParam === 'start') document.documentElement.style.setProperty('--matchup-align', 'flex-start');
+            else if (alignParam === 'right' || alignParam === 'end') document.documentElement.style.setProperty('--matchup-align', 'flex-end');
+            else if (alignParam === 'center' || alignParam === 'middle') document.documentElement.style.setProperty('--matchup-align', 'center');
+
+            if (valignParam === 'top' || valignParam === 'start') document.documentElement.style.setProperty('--matchup-valign', 'flex-start');
+            else if (valignParam === 'bottom' || valignParam === 'end') document.documentElement.style.setProperty('--matchup-valign', 'flex-end');
+            else if (valignParam === 'center' || valignParam === 'middle') document.documentElement.style.setProperty('--matchup-valign', 'center');
+
+            if (isMirrored) {
+                document.body.classList.add('is-mirrored');
+            }
+
+            if (scaleVal && Number.isFinite(scaleVal) && scaleVal > 0) {
+                document.documentElement.style.setProperty('--matchup-scale', scaleVal);
+            }
+            if (customWidth) {
+                const w = /^\d+$/.test(customWidth.trim()) ? `${customWidth.trim()}px` : customWidth.trim();
+                document.documentElement.style.setProperty('--matchup-width', w);
+            }
+            if (customMaxWidth) {
+                const mw = /^\d+$/.test(customMaxWidth.trim()) ? `${customMaxWidth.trim()}px` : customMaxWidth.trim();
+                document.documentElement.style.setProperty('--matchup-max-width', mw);
+            }
+            if (customPadding) {
+                const p = /^\d+$/.test(customPadding.trim()) ? `${customPadding.trim()}px` : customPadding.trim();
+                document.documentElement.style.setProperty('--matchup-padding', p);
+            }
+
+            if (customAccent) document.documentElement.style.setProperty('--matchup-accent', customAccent);
+            if (customWinner) document.documentElement.style.setProperty('--matchup-winner', customWinner);
+            if (customP1Color) document.documentElement.style.setProperty('--p1-color', customP1Color);
+            if (customP2Color) document.documentElement.style.setProperty('--p2-color', customP2Color);
+            if (customBadgeColor) {
+                document.documentElement.style.setProperty('--matchup-badge-color', customBadgeColor);
+                document.documentElement.style.setProperty('--matchup-badge-bg', `color-mix(in srgb, ${customBadgeColor} 18%, rgba(0, 0, 0, 0.4))`);
+                document.documentElement.style.setProperty('--matchup-badge-border', `color-mix(in srgb, ${customBadgeColor} 50%, rgba(255, 255, 255, 0.12))`);
+            }
+
+            // Shared theme handling via /js/overlay-theme.js
+            if (typeof window.applyVersusTheme === 'function') {
+                window.applyVersusTheme({ params });
+            } else {
+                let overlayVal = (params.get('overlay') || params.get('theme') || '').trim();
+                const bgVal = (params.get('bg') || '').trim();
+                const hashVal = (window.location.hash || '').replace(/^#/, '').trim();
+                if (!overlayVal && hashVal && !hashVal.includes('=')) overlayVal = hashVal;
+                if (overlayVal) document.body.classList.add('theme-' + overlayVal);
+                const col = bgVal || overlayVal;
+                if (col && (/^[0-9a-fA-F]{3,8}$/.test(col) || /^#[0-9a-fA-F]{3,8}$/.test(col))) {
+                    document.documentElement.style.setProperty('--matchup-bg', col.startsWith('#') ? col : '#' + col);
+                    document.body.classList.add('theme-custom');
+                }
+            }
+
+            SAMPLE_MATCHUP = buildSampleMatchup();
+        }
+
+        applyMatchupPreviewParams(params);
 
         let currentMatchup = null;
         let lastCelebratedWinner = null;
@@ -3601,6 +3667,16 @@
             clockTicker = setInterval(tickLiveClocks, 50);
             connectWs();
             loadInitial();
+        });
+        window.addEventListener('message', (event) => {
+            if (event.origin && event.origin !== 'null' && window.location.origin !== 'null' && event.origin !== window.location.origin) return;
+            try {
+                const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+                if (msg && msg.type === 'matchup:preview-update') {
+                    applyMatchupPreviewParams(msg.params || '');
+                    resolveActiveState();
+                }
+            } catch {}
         });
     </script>
 </body>

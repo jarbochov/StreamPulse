@@ -20,6 +20,8 @@
         .overlay-picker { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1.25rem; align-items:center; }
         .overlay-picker button { padding:.55rem .9rem; border:1px solid var(--border); border-radius:6px; background:var(--bg-raised); color:var(--text); cursor:pointer; font:inherit; font-size:.82rem; }
         .overlay-picker button:hover, .overlay-picker button[aria-pressed="true"] { border-color:var(--accent); background:var(--accent-bg); color:#fff; }
+        .overlay-picker button.picker-reset-btn { margin-left: auto; display: inline-flex; align-items: center; gap: .35rem; background: transparent; color: var(--text-muted); font-size: .76rem; padding: .45rem .75rem; }
+        .overlay-picker button.picker-reset-btn:hover { color: var(--text); border-color: var(--accent); background: var(--bg-raised); }
         .picker-link { display: inline-flex; align-items: center; padding: .52rem .85rem; border: 1px dashed var(--border); border-radius: 6px; background: transparent; color: var(--text-muted); text-decoration: none; font-size: .82rem; transition: all 0.15s ease; }
         .picker-link:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
         [hidden] { display:none !important; }
@@ -203,6 +205,10 @@
             <a href="/music-url-wizard.html" class="picker-link">Music</a>
             <a href="/timer-url-wizard.html" class="picker-link">Timers</a>
             <a href="/randomizer.html" class="picker-link">Randomizer &amp; Wheel</a>
+            <button type="button" id="reset-wizard-btn" class="picker-reset-btn" onclick="resetWizardDefaults()" title="Reset all wizard options to default values">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+                Reset to Defaults
+            </button>
         </div>
 
         <div class="layout">
@@ -1228,6 +1234,7 @@
         $('prev-w').value = w;
         $('prev-h').value = h;
         updatePreviewSize();
+        saveOverlayWizardState();
     }
 
     function applyCustomSize() {
@@ -1235,6 +1242,7 @@
             if (c.id !== 'btn-prev-single' && c.id !== 'btn-prev-cycle') c.classList.remove('active');
         });
         updatePreviewSize();
+        saveOverlayWizardState();
     }
 
     function setGoalPreviewMode(mode) {
@@ -1244,6 +1252,7 @@
         if (btnSingle) btnSingle.classList.toggle('active', mode === 'single');
         if (btnCycle) btnCycle.classList.toggle('active', mode === 'cycle');
         updateLivePreview();
+        saveOverlayWizardState();
     }
 
     function updateLivePreview() {
@@ -1483,6 +1492,7 @@
         }));
 
         updateLivePreview();
+        saveOverlayWizardState();
     }
 
     function addGoalOption(select, goal) {
@@ -1521,7 +1531,19 @@
             });
             select.disabled = false;
             const wanted = new URLSearchParams(location.search).get('goal');
-            if (wanted && goals.some(goal => goal.id === wanted)) select.value = wanted;
+            if (wanted && goals.some(goal => goal.id === wanted)) {
+                select.value = wanted;
+            } else if (pendingGoalSingle && goals.some(goal => goal.id === pendingGoalSingle)) {
+                select.value = pendingGoalSingle;
+            }
+            if (Array.isArray(pendingCycleIds) && pendingCycleIds.length) {
+                const cycleSet = new Set(pendingCycleIds);
+                subset.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                    cb.checked = cycleSet.has(cb.value);
+                });
+            }
+            pendingGoalSingle = '';
+            pendingCycleIds = [];
             if (!goals.length) {
                 select[0].textContent = 'No enabled goals — overlay will show setup message';
                 subset.append(Object.assign(document.createElement('span'), { className: 'empty', textContent: 'No enabled goals found.' }));
@@ -1555,6 +1577,7 @@
             element.hidden = element.dataset.overlay !== overlay;
         });
         updateLivePreview();
+        saveOverlayWizardState();
     }
 
     $('origin').textContent = location.origin;
@@ -1676,13 +1699,15 @@
             if (!res.ok) return;
             const cfg = await res.json();
             const t = cfg.theme || {};
-            if (t.accent_color) {
+            if (t.accent_color && !$('ap-accent').value.trim()) {
                 $('ap-accent').placeholder = t.accent_color;
                 const p = document.querySelector('[data-color-for="ap-accent"]');
                 if (p) p.value = t.accent_color;
                 document.querySelectorAll('.p-chip').forEach(c => {
-                    if (c.getAttribute('data-color') === t.accent_color) c.classList.add('active');
+                    c.classList.toggle('active', c.getAttribute('data-color') === t.accent_color);
                 });
+            } else if (t.accent_color) {
+                $('ap-accent').placeholder = t.accent_color;
             }
             if (t.text_color) $('ap-text').placeholder = t.text_color;
             if (t.background_color) $('ap-bg').placeholder = t.background_color;
@@ -1690,15 +1715,149 @@
         } catch { /* optional */ }
     }
 
+    const SP_WIZARD_OVERLAY_KEY = 'streampulse_wizard_overlay_v1';
+    let overlayWizardReady = false;
+    let isResettingOverlayWizard = false;
+    let pendingGoalSingle = '';
+    let pendingCycleIds = [];
+    let overlayDefaults = null;
+
+    function captureOverlayDefaults() {
+        const inputs = {};
+        for (const id of inputIds) {
+            const el = $(id);
+            if (!el) continue;
+            inputs[id] = el.type === 'checkbox' ? el.checked : el.value;
+        }
+        return {
+            inputs,
+            prevW: $('prev-w')?.value || '600',
+            prevH: $('prev-h')?.value || '160',
+            goalPreviewMode: 'single'
+        };
+    }
+
+    function syncOverlayPickers() {
+        document.querySelectorAll('[data-color-for]').forEach(picker => {
+            const target = $(picker.dataset.colorFor);
+            if (!target) return;
+            const v = (target.value || '').trim();
+            picker.value = /^#[0-9a-f]{6}$/i.test(v) ? v : (picker.defaultValue || '#000000');
+        });
+        const accentVal = ($('ap-accent')?.value || '').trim();
+        document.querySelectorAll('.p-chip').forEach(c => {
+            c.classList.toggle('active', !!accentVal && c.getAttribute('data-color') === accentVal);
+        });
+    }
+
+    function saveOverlayWizardState() {
+        if (!overlayWizardReady || isResettingOverlayWizard) return;
+        try {
+            const inputs = {};
+            for (const id of inputIds) {
+                const el = $(id);
+                if (!el) continue;
+                inputs[id] = el.type === 'checkbox' ? el.checked : el.value;
+            }
+            const state = {
+                overlay: currentOverlay,
+                goalPreviewMode,
+                prevW: $('prev-w')?.value || '600',
+                prevH: $('prev-h')?.value || '160',
+                cycleIds: selectedCycleIds(),
+                inputs
+            };
+            localStorage.setItem(SP_WIZARD_OVERLAY_KEY, JSON.stringify(state));
+        } catch {}
+    }
+
+    function applyOverlayWizardSnapshot(snap) {
+        if (!snap || typeof snap !== 'object') return;
+        const inputs = snap.inputs || {};
+        for (const id of inputIds) {
+            if (!Object.prototype.hasOwnProperty.call(inputs, id)) continue;
+            const el = $(id);
+            if (!el) continue;
+            const val = inputs[id];
+            if (el.type === 'checkbox') {
+                el.checked = Boolean(val);
+            } else if (el.tagName === 'SELECT') {
+                const strVal = String(val ?? '');
+                if ([...el.options].some(o => o.value === strVal)) el.value = strVal;
+            } else {
+                el.value = String(val ?? '');
+            }
+        }
+        if (inputs['goal-single'] !== undefined) pendingGoalSingle = String(inputs['goal-single'] ?? '');
+        if (Array.isArray(snap.cycleIds)) pendingCycleIds = snap.cycleIds;
+        if (snap.prevW) $('prev-w').value = snap.prevW;
+        if (snap.prevH) $('prev-h').value = snap.prevH;
+        const w = parseInt($('prev-w').value, 10) || 600;
+        const h = parseInt($('prev-h').value, 10) || 160;
+        document.querySelectorAll('.preset-chips .preset-chip').forEach(c => {
+            if (c.id === 'btn-prev-single' || c.id === 'btn-prev-cycle') return;
+            const oc = c.getAttribute('onclick') || '';
+            c.classList.toggle('active', oc.includes(`applyPresetSize(${w}, ${h}`));
+        });
+        if (snap.goalPreviewMode === 'cycle' || snap.goalPreviewMode === 'single') {
+            goalPreviewMode = snap.goalPreviewMode;
+            const btnSingle = $('btn-prev-single');
+            const btnCycle = $('btn-prev-cycle');
+            if (btnSingle) btnSingle.classList.toggle('active', goalPreviewMode === 'single');
+            if (btnCycle) btnCycle.classList.toggle('active', goalPreviewMode === 'cycle');
+        }
+        updateFontScaleDisplay();
+        syncOverlayPickers();
+    }
+
+    function restoreOverlayWizardState() {
+        try {
+            const raw = localStorage.getItem(SP_WIZARD_OVERLAY_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            applyOverlayWizardSnapshot(parsed);
+            return parsed;
+        } catch {
+            return null;
+        }
+    }
+
+    window.resetWizardDefaults = function resetWizardDefaults() {
+        if (!overlayDefaults) return;
+        isResettingOverlayWizard = true;
+        try {
+            try { localStorage.removeItem(SP_WIZARD_OVERLAY_KEY); } catch {}
+            pendingGoalSingle = '';
+            pendingCycleIds = [];
+            applyOverlayWizardSnapshot(overlayDefaults);
+            if ($('goal-single')) $('goal-single').value = '';
+            document.querySelectorAll('#goal-subset input[type="checkbox"]').forEach(cb => { cb.checked = false; });
+            updatePreviewSize();
+            refreshUrls();
+        } finally {
+            isResettingOverlayWizard = false;
+        }
+    };
+
+    overlayDefaults = captureOverlayDefaults();
+    const restoredOverlayState = restoreOverlayWizardState();
     loadConfigTheme();
-    refreshUrls();
     loadGoals();
     try {
         const savedApTab = localStorage.getItem('sp-wizard-appearance-subtab') || 'typography';
         switchAppearanceTab(savedApTab);
     } catch {}
+    const validOverlays = ['credits', 'stats', 'hashtags', 'goals', 'viewers', 'polls', 'poll', 'tournament', 'matchup', 'poll-tournament'];
     const requested = new URLSearchParams(location.search).get('overlay');
-    selectOverlay(['credits', 'stats', 'hashtags', 'goals', 'viewers', 'polls', 'poll', 'tournament', 'matchup'].includes(requested) ? (requested === 'poll' ? 'polls' : requested) : 'credits');
+    let initialOverlay = 'credits';
+    if (requested && validOverlays.includes(requested)) {
+        initialOverlay = requested === 'poll' ? 'polls' : requested;
+    } else if (restoredOverlayState?.overlay && validOverlays.includes(restoredOverlayState.overlay)) {
+        initialOverlay = restoredOverlayState.overlay;
+    }
+    overlayWizardReady = true;
+    selectOverlay(initialOverlay);
+    refreshUrls();
     window.addEventListener('resize', updatePreviewSize);
     updatePreviewSize();
     </script>

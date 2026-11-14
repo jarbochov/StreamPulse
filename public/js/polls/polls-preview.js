@@ -19,6 +19,52 @@ export let activeThemeModalTarget = 'tourney';
 export let activeFontPickerTarget = 'tourney';
 export let cachedAssetFontsList = [];
 
+function postPreviewParams(iframeEl, msgType, previewParams, defaultBaseSrc) {
+            if (!iframeEl) return;
+            const qs = previewParams instanceof URLSearchParams ? previewParams.toString() : String(previewParams || '');
+            iframeEl.dataset.pendingPreviewType = msgType;
+            iframeEl.dataset.pendingPreviewParams = qs;
+            if (!iframeEl.dataset.previewMessageBound) {
+                iframeEl.dataset.previewMessageBound = '1';
+                iframeEl.addEventListener('load', () => {
+                    try {
+                        const pendingType = iframeEl.dataset.pendingPreviewType;
+                        const pendingQs = iframeEl.dataset.pendingPreviewParams || '';
+                        if (pendingType && iframeEl.contentWindow) {
+                            iframeEl.contentWindow.postMessage({ type: pendingType, params: pendingQs }, window.location.origin);
+                        }
+                    } catch {}
+                });
+            }
+            const currentAttr = iframeEl.getAttribute('src') || '';
+            if (!currentAttr && defaultBaseSrc) {
+                iframeEl.src = `${defaultBaseSrc}${qs ? `?${qs}` : ''}`;
+                return;
+            }
+            try {
+                if (iframeEl.contentWindow) {
+                    iframeEl.contentWindow.postMessage({ type: msgType, params: qs }, window.location.origin);
+                }
+            } catch {}
+        }
+
+function resetContainerControlsToDefaults(containerId) {
+            const container = $(containerId);
+            if (!container) return;
+            container.querySelectorAll('input, select, textarea').forEach(el => {
+                if (el.readOnly) return;
+                if (el.type === 'checkbox' || el.type === 'radio') {
+                    el.checked = el.defaultChecked;
+                } else if (el.tagName === 'SELECT') {
+                    const opts = Array.from(el.options || []);
+                    const defIdx = opts.findIndex(o => o.defaultSelected);
+                    el.selectedIndex = defIdx >= 0 ? defIdx : 0;
+                } else {
+                    el.value = el.defaultValue;
+                }
+            });
+        }
+
 export async function populateFontDatalist() {
             const list = $('overlay-fonts-list');
             if (!list) return;
@@ -674,12 +720,17 @@ export function updatePollOverlayUrl() {
             if (previewIframe) {
                 const previewParams = new URLSearchParams(urlParams);
                 previewParams.set('preview', '1');
-                const targetSrc = `/overlays/poll.html?${previewParams.toString()}`;
-                if (previewIframe.getAttribute('src') !== targetSrc) {
-                    previewIframe.src = targetSrc;
-                }
+                postPreviewParams(previewIframe, 'poll:preview-update', previewParams, '/overlays/poll.html');
             }
             savePollsOverlayPrefs();
+        }
+
+export function resetPollOverlayDefaults() {
+            resetContainerControlsToDefaults('ov-sec-poll');
+            updatePollOverlayUrl();
+            updateAssetFontBadges();
+            savePollsOverlayPrefs();
+            toast('Poll overlay settings reset to defaults');
         }
 
 export function syncPollTourneyRadius(val) {
@@ -808,12 +859,21 @@ export function updateTourneyOverlayUrl() {
                     previewParams.set('logo', activeTourneyData.logo);
                 }
                 previewParams.set('preview', '1');
-                const targetSrc = `/overlays/poll-tournament.html?${previewParams.toString()}`;
-                if (previewIframe.getAttribute('src') !== targetSrc) {
-                    previewIframe.src = targetSrc;
-                }
+                postPreviewParams(previewIframe, 'tournament:preview-update', previewParams, '/overlays/poll-tournament.html');
             }
             savePollsOverlayPrefs();
+        }
+
+export function resetPollTourneyOverlayDefaults() {
+            resetContainerControlsToDefaults('ov-sec-tourney');
+            if ($('tourney-opt-layout')) {
+                $('tourney-opt-layout').value = previewMode === 'active' ? 'active' : 'tree';
+            }
+            syncPollTourneyOverlayLogoUi('');
+            updateTourneyOverlayUrl();
+            updateAssetFontBadges();
+            savePollsOverlayPrefs();
+            toast('Audience bracket overlay settings reset to defaults');
         }
 
 export function setCreatePollTourneyLogo(url) {

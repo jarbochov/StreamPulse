@@ -25,7 +25,7 @@
         .cfg-toggle { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.65rem; color: var(--text); font-size: 0.82rem; }
         .cfg-toggle input[type="checkbox"] { accent-color: var(--accent); }
         .actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
-        .btn { border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); border-radius: 6px; padding: 0.5rem 0.9rem; font-size: 0.82rem; cursor: pointer; text-decoration: none; text-align: center; }
+        .btn { border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); border-radius: 6px; padding: 0.5rem 0.9rem; font-size: 0.82rem; cursor: pointer; text-decoration: none; text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; }
         .btn:hover { border-color: var(--accent); }
         .btn.primary { background: var(--success-strong); border-color: var(--success-strong); color: #fff; }
         .btn.danger { background: var(--danger-bg); border-color: var(--danger-bg); }
@@ -115,6 +115,15 @@
                 <div class="actions" style="margin-bottom:0.8rem;">
                     <button class="btn primary" onclick="addGoal()">New Goal</button>
                     <button class="btn" onclick="refreshSnapshot()">Refresh Live Data</button>
+                    <button class="btn" type="button" onclick="exportGoalsJson()" title="Export goals and settings to a JSON file">
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Export JSON
+                    </button>
+                    <button class="btn" type="button" onclick="document.getElementById('import-goals-file').click()" title="Import goals from a JSON file">
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Import JSON
+                    </button>
+                    <input type="file" id="import-goals-file" accept=".json,application/json" hidden onchange="importGoalsJson(event)">
                 </div>
                 <div id="goal-list" class="goal-list"></div>
                 <div id="goal-list-status" class="status"></div>
@@ -280,9 +289,27 @@
         donations: 1
     };
 
+    const SP_UI_GOALS_KEY = 'sp_ui_goals_editor_v1';
     let settingsState = null;
     let goalsSnapshot = null;
     let selectedGoalId = null;
+
+    function saveGoalsUiState() {
+        try {
+            localStorage.setItem(SP_UI_GOALS_KEY, JSON.stringify({ selectedGoalId: selectedGoalId || '' }));
+        } catch {}
+    }
+
+    function loadSavedGoalSelection() {
+        try {
+            const raw = localStorage.getItem(SP_UI_GOALS_KEY);
+            if (!raw) return '';
+            const parsed = JSON.parse(raw);
+            return typeof parsed?.selectedGoalId === 'string' ? parsed.selectedGoalId : '';
+        } catch {
+            return '';
+        }
+    }
 
     function showToast(msg) {
         const t = document.getElementById('toast');
@@ -335,9 +362,14 @@
         settingsState = await cfgRes.json();
         goalsSnapshot = await goalsRes.json();
         if (!Array.isArray(settingsState.goals?.items)) settingsState.goals.items = [];
+        const savedSelection = loadSavedGoalSelection();
+        if (!selectedGoalId && savedSelection && settingsState.goals.items.some(item => item.id === savedSelection)) {
+            selectedGoalId = savedSelection;
+        }
         if (!selectedGoalId || !settingsState.goals.items.some(item => item.id === selectedGoalId)) {
             selectedGoalId = settingsState.goals.items[0]?.id || null;
         }
+        saveGoalsUiState();
         renderAll();
         connectWebSocket();
     }
@@ -428,6 +460,7 @@
     function setSelection(goalId) {
         syncSelectedGoalFromDom();
         selectedGoalId = goalId;
+        saveGoalsUiState();
         renderGoalList();
         renderGoalEditor();
         updateOverlayLinks();
@@ -438,6 +471,7 @@
         const goal = defaultGoal();
         settingsState.goals.items.push(goal);
         selectedGoalId = goal.id;
+        saveGoalsUiState();
         renderAll();
     }
 
@@ -445,6 +479,7 @@
         if (!selectedGoalId) return;
         settingsState.goals.items = settingsState.goals.items.filter(item => item.id !== selectedGoalId);
         selectedGoalId = settingsState.goals.items[0]?.id || null;
+        saveGoalsUiState();
         renderAll();
     }
 
@@ -470,7 +505,7 @@
         showToast('Goal baseline reset');
     }
 
-    async function saveGoals() {
+    function collectGoalsSettingsFromDom() {
         syncSelectedGoalFromDom();
         settingsState.viewer_tracking = {
             enabled: document.getElementById('viewer-enabled').checked,
@@ -482,7 +517,114 @@
         settingsState.goals.rotate_seconds = Math.max(3, parseInt(document.getElementById('goals-rotate-seconds').value, 10) || 8);
         settingsState.goals.skip_completed = document.getElementById('goals-skip-completed').checked;
         settingsState.goals.pause_completed_seconds = Math.max(0, parseInt(document.getElementById('goals-pause-completed').value, 10) || 0);
+    }
 
+    function normalizeImportedGoal(raw, index) {
+        if (!raw || typeof raw !== 'object') return null;
+        const type = Object.prototype.hasOwnProperty.call(GOAL_LABELS, raw.type) ? raw.type : 'followers';
+        const base = defaultGoal(type);
+        const title = String(raw.title || base.title).trim() || base.title;
+        const id = sanitizeId(raw.id || title) || `${type}-goal-${Date.now().toString(36)}-${index + 1}`;
+        const bm = raw.baseline_metrics || {};
+        const w = raw.weights || {};
+        return {
+            id,
+            enabled: raw.enabled !== false,
+            title,
+            type,
+            target: Math.max(1, Number(raw.target) || 100),
+            tracking: type === 'viewers' ? 'session' : (raw.tracking === 'session' ? 'session' : 'persistent'),
+            viewer_mode: ['current', 'peak', 'average'].includes(raw.viewer_mode) ? raw.viewer_mode : 'current',
+            baseline: Math.max(0, Number(raw.baseline) || 0),
+            baseline_metrics: {
+                followers: Math.max(0, Number(bm.followers) || 0),
+                subscribers: Math.max(0, Number(bm.subscribers) || 0),
+                gift_subs: Math.max(0, Number(bm.gift_subs) || 0),
+                bits: Math.max(0, Number(bm.bits) || 0),
+                donations: Math.max(0, Number(bm.donations) || 0)
+            },
+            weights: {
+                followers: Math.max(0, Number(w.followers ?? DEFAULT_COMMUNITY_WEIGHTS.followers) || 0),
+                subscribers: Math.max(0, Number(w.subscribers ?? DEFAULT_COMMUNITY_WEIGHTS.subscribers) || 0),
+                gift_subs: Math.max(0, Number(w.gift_subs ?? DEFAULT_COMMUNITY_WEIGHTS.gift_subs) || 0),
+                bits_per_100: Math.max(0, Number(w.bits_per_100 ?? DEFAULT_COMMUNITY_WEIGHTS.bits_per_100) || 0),
+                donations: Math.max(0, Number(w.donations ?? DEFAULT_COMMUNITY_WEIGHTS.donations) || 0)
+            }
+        };
+    }
+
+    function exportGoalsJson() {
+        if (!settingsState?.goals) {
+            showToast('Goals not loaded yet');
+            return;
+        }
+        collectGoalsSettingsFromDom();
+        const payload = {
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            viewer_tracking: settingsState.viewer_tracking,
+            goals: settingsState.goals
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'streampulse-goals-backup.json';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        showToast(`Exported ${(settingsState.goals.items || []).length} goal(s)`);
+    }
+
+    async function importGoalsJson(event) {
+        const input = event?.target;
+        const file = input?.files?.[0];
+        if (!file) return;
+        try {
+            const parsed = JSON.parse(await file.text());
+            const rawItems = Array.isArray(parsed)
+                ? parsed
+                : (Array.isArray(parsed?.goals?.items)
+                    ? parsed.goals.items
+                    : (Array.isArray(parsed?.items) ? parsed.items : null));
+            if (!Array.isArray(rawItems)) {
+                showToast('Invalid goals JSON: missing items array');
+                return;
+            }
+            const imported = rawItems.map((item, idx) => normalizeImportedGoal(item, idx)).filter(Boolean);
+            if (!imported.length && rawItems.length > 0) {
+                showToast('No valid goals found in JSON');
+                return;
+            }
+            if (!settingsState) settingsState = { viewer_tracking: {}, goals: { items: [] } };
+            const byId = new Map((settingsState.goals.items || []).map(g => [g.id, g]));
+            imported.forEach(item => byId.set(item.id, item));
+            settingsState.goals.items = [...byId.values()];
+            if (parsed?.goals && typeof parsed.goals === 'object') {
+                if (typeof parsed.goals.enabled === 'boolean') settingsState.goals.enabled = parsed.goals.enabled;
+                if (parsed.goals.rotate_seconds != null) settingsState.goals.rotate_seconds = Math.max(3, parseInt(parsed.goals.rotate_seconds, 10) || 8);
+                if (typeof parsed.goals.skip_completed === 'boolean') settingsState.goals.skip_completed = parsed.goals.skip_completed;
+                if (parsed.goals.pause_completed_seconds != null) settingsState.goals.pause_completed_seconds = Math.max(0, parseInt(parsed.goals.pause_completed_seconds, 10) || 0);
+            }
+            if (parsed?.viewer_tracking && typeof parsed.viewer_tracking === 'object') {
+                settingsState.viewer_tracking = {
+                    ...(settingsState.viewer_tracking || {}),
+                    ...parsed.viewer_tracking
+                };
+            }
+            if (imported[0]?.id) selectedGoalId = imported[0].id;
+            saveGoalsUiState();
+            renderAll();
+            await persistGoalsPayload(`Imported ${imported.length} goal(s)`);
+        } catch (err) {
+            showToast(`Import failed: ${err?.message || 'Invalid JSON'}`);
+        } finally {
+            if (input) input.value = '';
+        }
+    }
+
+    async function persistGoalsPayload(successMessage = 'Goals saved') {
         const res = await fetch('/api/goals/config', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -497,8 +639,15 @@
             return;
         }
         settingsState = data;
+        saveGoalsUiState();
+        renderAll();
         await refreshSnapshot();
-        showToast('Goals saved');
+        showToast(successMessage);
+    }
+
+    async function saveGoals() {
+        collectGoalsSettingsFromDom();
+        await persistGoalsPayload('Goals saved');
     }
 
     async function refreshSnapshot() {

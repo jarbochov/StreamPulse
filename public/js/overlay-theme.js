@@ -270,18 +270,52 @@
     OverlayThemes.BUILT_IN_THEMES = BUILT_IN_THEMES;
     window.OverlayThemes = OverlayThemes;
 
+    function removeClassesWithPrefix(el, prefixes) {
+        if (!el || !el.classList) return;
+        const toRemove = [];
+        el.classList.forEach(cls => {
+            if (prefixes.some(p => cls.startsWith(p))) toRemove.push(cls);
+        });
+        toRemove.forEach(cls => el.classList.remove(cls));
+    }
+
+    function resolveThemeParams(options) {
+        if (options && options.params) {
+            if (typeof options.params.get === 'function') return options.params;
+            const raw = String(options.params);
+            return (typeof overlayParams === 'function') ? overlayParams(raw) : new URLSearchParams(raw);
+        }
+        return (typeof overlayParams === 'function')
+            ? overlayParams()
+            : new URLSearchParams(window.location.search);
+    }
+
     // Applied by /matchup.html
     window.applyVersusTheme = function applyVersusTheme(options = {}) {
-        const params = (typeof overlayParams === 'function') ? overlayParams() : new URLSearchParams(window.location.search);
+        const params = resolveThemeParams(options);
         const rawRoot = document.documentElement.style;
         const bodyStyle = document.body && document.body.style ? document.body.style : null;
         const root = {
             setProperty(k, v) {
                 rawRoot.setProperty(k, v);
                 if (bodyStyle) bodyStyle.setProperty(k, v);
+            },
+            removeProperty(k) {
+                rawRoot.removeProperty(k);
+                if (bodyStyle) bodyStyle.removeProperty(k);
             }
         };
-        const hashVal = (window.location.hash || '').replace(/^#/, '').trim();
+        removeClassesWithPrefix(document.body, ['theme-']);
+        [
+            '--matchup-bg', '--matchup-card-bg', '--matchup-border', '--matchup-text',
+            '--matchup-muted', '--matchup-accent', '--matchup-winner', '--matchup-radius',
+            '--matchup-backdrop', '--matchup-font', '--matchup-heading-font',
+            '--matchup-weight', '--matchup-heading-weight', '--matchup-text-transform',
+            '--matchup-heading-transform', '--matchup-scale', '--matchup-badge-color',
+            '--matchup-badge-bg', '--matchup-badge-border', '--matchup-text-shadow',
+            '--p1-color', '--p2-color', '--p3-color', '--p4-color'
+        ].forEach(prop => root.removeProperty(prop));
+        const hashVal = options && options.params ? '' : (window.location.hash || '').replace(/^#/, '').trim();
         const rawTheme = (params.get('overlay') || params.get('theme') || (!hashVal.includes('=') ? hashVal : '') || 'card').trim().toLowerCase();
 
         const matchedTheme = OverlayThemes.getTheme(rawTheme);
@@ -412,16 +446,31 @@
 
     // Applied by /tournament.html, /versus-tournament.html, /poll-tournament.html
     window.applyTourneyTheme = function applyTourneyTheme(options = {}) {
-        const params = (typeof overlayParams === 'function') ? overlayParams() : new URLSearchParams(window.location.search);
+        const params = resolveThemeParams(options);
         const rawRoot = document.documentElement.style;
         const bodyStyle = document.body && document.body.style ? document.body.style : null;
         const root = {
             setProperty(k, v) {
                 rawRoot.setProperty(k, v);
                 if (bodyStyle) bodyStyle.setProperty(k, v);
+            },
+            removeProperty(k) {
+                rawRoot.removeProperty(k);
+                if (bodyStyle) bodyStyle.removeProperty(k);
             }
         };
-        const hashVal = (window.location.hash || '').replace(/^#/, '').trim();
+        removeClassesWithPrefix(document.body, ['theme-', 'spacing-', 'lines-', 'roundheaders-']);
+        [
+            '--tourney-bg', '--tourney-card-bg', '--tourney-border', '--tourney-text',
+            '--tourney-muted', '--tourney-accent', '--tourney-winner', '--tourney-radius',
+            '--tourney-backdrop', '--tourney-font', '--tourney-heading-font',
+            '--tourney-weight', '--tourney-heading-weight', '--tourney-text-transform',
+            '--tourney-heading-transform', '--tourney-scale', '--tourney-badge-bg',
+            '--tourney-badge-color', '--tourney-p1-color', '--tourney-p2-color',
+            '--p1-color', '--p2-color', '--tourney-text-shadow',
+            '--round-min-width', '--round-max-width'
+        ].forEach(prop => root.removeProperty(prop));
+        const hashVal = options && options.params ? '' : (window.location.hash || '').replace(/^#/, '').trim();
         const rawTheme = (params.get('overlay') || params.get('theme') || (!hashVal.includes('=') ? hashVal : '') || 'card').trim().toLowerCase();
 
         const matchedTheme = OverlayThemes.getTheme(rawTheme);
@@ -565,8 +614,10 @@
         const lines = (params.get('lines') || 'glow').toLowerCase();
         if (lines) document.body.classList.add('lines-' + lines);
 
+        const showRoundsParam = params.get('showrounds') !== '0' && params.get('roundheaders') !== '0' && params.get('roundheaders') !== 'none';
         const rh = (params.get('roundheaders') || '').toLowerCase();
-        if (rh) document.body.classList.add('roundheaders-' + rh);
+        if (!showRoundsParam) document.body.classList.add('roundheaders-hidden');
+        else if (rh) document.body.classList.add('roundheaders-' + rh);
 
         const cardWidthParam = (params.get('cardwidth') || params.get('roundwidth') || params.get('matchwidth') || '').trim();
         const isWide = params.get('wide') === '1' || params.get('wide') === 'true';
@@ -584,9 +635,24 @@
 
     // Applied by /overlays/poll.html
     window.applyPollTheme = function applyPollTheme(options = {}) {
-        const params = (typeof overlayParams === 'function') ? overlayParams() : new URLSearchParams(window.location.search);
+        const params = resolveThemeParams(options);
         const root = document.documentElement.style;
-        const hashVal = (window.location.hash || '').replace(/^#/, '').trim();
+        [
+            '--poll-bg', '--poll-border', '--poll-text', '--poll-muted',
+            '--poll-accent', '--poll-winner', '--poll-track', '--poll-radius',
+            '--poll-backdrop', '--poll-font', '--poll-heading-font',
+            '--poll-font-scale', '--poll-text-shadow'
+        ].forEach(prop => root.removeProperty(prop));
+        [
+            'streampulse-poll-weight-style',
+            'streampulse-poll-heading-weight-style',
+            'streampulse-poll-transform-style',
+            'streampulse-poll-heading-transform-style'
+        ].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = '';
+        });
+        const hashVal = options && options.params ? '' : (window.location.hash || '').replace(/^#/, '').trim();
         const rawTheme = (params.get('overlay') || params.get('theme') || (!hashVal.includes('=') ? hashVal : '') || 'card').trim().toLowerCase();
 
         const matchedTheme = OverlayThemes.getTheme(rawTheme);
