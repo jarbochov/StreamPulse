@@ -4504,8 +4504,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       ...triviaValues(status, now),
       ...tierListValues(status, now),
       ...subathonValues(status),
-      ...Object.fromEntries((status.customVars || []).map((v) => [`var.${v.name}`, v.value])),
-      ...Object.fromEntries((status.customVars || []).filter((v) => v.type === "list" && v.items?.length).map((v) => [`var.${v.name}.random`, v.items[Math.floor(Math.random() * v.items.length)]])),
+      ...customVarValues(status),
       "stream.category": status.stream?.category?.name,
       "stream.live": status.viewers?.live ? "yes" : "no",
       "session.started": status.startedAt,
@@ -4649,10 +4648,36 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const date = clockKey ? new Date(now) : parseDateValue(value);
     return date ? formatDate(date, format) : value;
   }
+  function customVarValues(status) {
+    const vars = status.customVars || [];
+    const entries = Object.fromEntries(vars.map((v) => [`var.${v.name}`, v.value]));
+    for (const v of vars) {
+      if (v.type === "list" && v.items?.length) {
+        entries[`var.${v.name}.random`] = v.items[Math.floor(Math.random() * v.items.length)];
+      }
+    }
+    for (const v of vars) {
+      if (v.type !== "template") continue;
+      entries[`var.${v.name}`] = String(v.value ?? "").replace(/\{\{\s*var\.([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (_, ref, fb) => {
+        const val = entries[`var.${ref}`];
+        const str = val === void 0 || val === null ? "" : String(val);
+        return str !== "" ? str : fb !== void 0 ? fb.trim() : "";
+      });
+    }
+    return entries;
+  }
   function expandVariables(value, status, context = {}, keepEmpty = false) {
     const now = Date.now();
     const table = variableTable(status, context, now);
     return String(value ?? "").replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (match, name, format) => {
+      if (name.startsWith("var.") && format !== void 0 && !isListKey(name)) {
+        const raw = table[name];
+        const str = raw === void 0 || raw === null ? "" : String(raw);
+        if (str === "") {
+          const fb = format.trim();
+          return fb === "" && keepEmpty ? match : fb;
+        }
+      }
       const resolved = format === void 0 ? table[name] : applyFormat(name, table[name], isListKey(name) ? format.replace(/^\s+/, "") : format.trim(), now, table);
       const text = resolved === void 0 || resolved === null ? "" : String(resolved);
       return text === "" && keepEmpty ? match : text;

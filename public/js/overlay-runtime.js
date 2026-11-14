@@ -1502,6 +1502,11 @@
                     liveStatus = { ...liveStatus, external };
                     if (currentOverlay && shared.variableSnapshot(liveStatus, variableContext()) !== before) render(currentOverlay);
                 }
+                else if (message.type === 'variables-update' && message.data) {
+                    const before = shared.variableSnapshot(liveStatus, variableContext());
+                    liveStatus = { ...liveStatus, customVars: message.data.variables || [] };
+                    if (currentOverlay && shared.variableSnapshot(liveStatus, variableContext()) !== before) render(currentOverlay);
+                }
                 else if (message.type === 'custom-overlay-update' && message.data?.id === overlayId) {
                     if (message.data.overlay) {
                         if (pagesOn(message.data.overlay) && pageParam) currentPage = resolvePage(message.data.overlay, pageParam) || currentPage;

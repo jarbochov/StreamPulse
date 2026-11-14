@@ -11,6 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- **Variables & Variable Sets**: Added `image` (URL + Asset Library picker), `toggle`, `color`, and `template` variable types; flexible **Variable Sets** supporting both slotless preset mode (`0` slots) and multi-slot output channels (`1+` slots) with drag-and-drop roster assignment/swapping, Slot 1 aliases, live `variables-update` WebSocket refresh, `{{var.NAME|fallback}}` defaults, JSON export/import, and Companion `GET`/`POST` endpoints (`/api/variables/sets/:id/*`, `/api/variables/:name/toggle`).
 - **Analytics**: Period comparisons, activity heatmaps, milestone estimates, and remembered views and date ranges.
 - **Community insights**: Optional viewer history, Twitch follow dates, and configurable welcome-back and personal milestone chat messages.
 - **Trivia Leaderboard**: Dual session and persistent season player standings (points, correct count, accuracy, streaks, optional speed bonus), standalone `/overlays/trivia-leaderboard.html` overlay with Reset to Defaults, `!triviastats`/`!triviatop` chat commands, leaderboard & question bank JSON/CSV export and import, and `trivia.leader.*` placeholders.

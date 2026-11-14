@@ -14,7 +14,7 @@
         .header h1 { font-size: 1.3rem; font-weight: 600; }
         .header h1 span { color: var(--accent); }
         @media (max-width: 768px) { .header { flex-direction: column; gap: .5rem; } }
-        .wrap { max-width: 960px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; display: grid; gap: 1rem; }
+        .wrap { max-width: 1080px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; display: grid; gap: 1rem; }
         .tab-content { display: grid; gap: 1rem; animation: tabFade .18s ease-out; }
         .tab-content[hidden] { display: none !important; }
         .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.1rem; }
@@ -121,6 +121,66 @@
             padding: 1rem 1.1rem;
             animation: tabFade .18s ease-out;
         }
+        .var-head { display: flex; justify-content: space-between; align-items: center; gap: .75rem; flex-wrap: wrap; }
+        .var-img-thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 5px; border: 1px solid var(--border); background: repeating-conic-gradient(var(--bg-card) 0 25%, var(--bg-inset) 0 50%) 0 0 / 10px 10px; }
+        .var-switch { display: inline-flex; align-items: center; gap: .4rem; padding: .26rem .65rem; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-muted); font-size: .78rem; font-weight: 600; cursor: pointer; transition: all .15s; }
+        .var-switch[aria-pressed="true"] { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+        .var-switch-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+        .set-switcher { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; padding-bottom: .75rem; border-bottom: 1px solid var(--border); margin-bottom: .85rem; }
+        .set-pill { display: inline-flex; align-items: center; gap: .45rem; padding: .42rem .75rem; border-radius: 7px; border: 1px solid var(--border); background: var(--bg-inset); color: var(--text); font: inherit; font-size: .85rem; font-weight: 500; cursor: pointer; transition: all .15s; }
+        .set-pill:hover { border-color: var(--accent); }
+        .set-pill.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+        .set-workspace { display: grid; gap: 1rem; }
+        .set-card-head { display: flex; justify-content: space-between; align-items: center; gap: .75rem; flex-wrap: wrap; padding: .75rem .9rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; }
+        .set-section-title { font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); margin-bottom: .45rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+        .slots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .75rem; }
+        .slot-card { background: var(--bg-inset); border: 1.5px dashed var(--border); border-radius: 8px; padding: .75rem; display: grid; gap: .55rem; transition: border-color .15s, background .15s, box-shadow .15s; min-width: 0; }
+        .slot-card.filled { border-style: solid; background: var(--bg-card); cursor: grab; }
+        .slot-card.drag-over { border-color: var(--accent); background: var(--accent-bg); box-shadow: 0 0 0 2px var(--accent-bg); }
+        .slot-head { display: flex; justify-content: space-between; align-items: center; gap: .4rem; }
+        .slot-actions { display: flex; gap: .25rem; }
+        .slot-body { display: flex; align-items: center; gap: .6rem; min-width: 0; }
+        .slot-info { min-width: 0; flex: 1; }
+        .slot-title { font-weight: 600; font-size: .88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .slot-sub { font-size: .76rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .slot-empty-hint { font-size: .78rem; color: var(--text-muted); padding: .55rem 0; text-align: center; }
+        .slot-tokens summary { font-size: .74rem; color: var(--text-muted); cursor: pointer; }
+        .token-pills { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .35rem; }
+        .token-pills code { font-size: .72rem; }
+        .set-thumb, .set-thumb-placeholder { width: 40px; height: 40px; border-radius: 6px; border: 1px solid var(--border); flex-shrink: 0; }
+        .set-thumb { object-fit: cover; background: var(--bg-inset); }
+        .set-thumb-placeholder { display: flex; align-items: center; justify-content: center; color: var(--text-muted); background: var(--bg-inset); }
+        .roster-section { display: grid; gap: .5rem; }
+        .roster-list { display: grid; gap: .45rem; }
+        .roster-item { display: flex; align-items: center; gap: .6rem; padding: .5rem .7rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 7px; cursor: grab; flex-wrap: wrap; transition: border-color .15s; }
+        .roster-item:hover { border-color: var(--border-hover, var(--accent)); }
+        .roster-item.is-live { border-color: var(--accent); background: var(--bg-card); }
+        .roster-grip { color: var(--text-muted); display: inline-flex; align-items: center; }
+        .roster-meta { flex: 1; min-width: 140px; }
+        .roster-name { font-size: .88rem; font-weight: 600; }
+        .roster-sub { font-size: .76rem; color: var(--text-muted); }
+        .roster-controls { display: flex; gap: .35rem; align-items: center; flex-wrap: wrap; }
+        .vp-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.64); z-index: 99990; display: flex; align-items: center; justify-content: center; padding: 16px; }
+        .vp-modal { background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: 10px; width: min(680px, 100%); max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+        .vp-modal-head { display: flex; justify-content: space-between; align-items: center; padding: .85rem 1.1rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+        .vp-modal-body { padding: 1rem 1.1rem; overflow-y: auto; flex: 1; min-height: 0; }
+        .vp-form { display: grid; gap: .85rem; }
+        .vp-form label { display: grid; gap: .3rem; font-size: .82rem; color: var(--text-muted); min-width: 0; }
+        .vp-form input, .vp-form select { width: 100%; min-width: 0; }
+        .vp-form label.vp-check { display: flex; align-items: center; gap: .5rem; color: var(--text); cursor: pointer; }
+        .vp-form label.vp-check input { width: auto; }
+        .vp-row-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+        .vp-fields-box { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: .75rem; }
+        .vp-field-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 110px auto; gap: .45rem; align-items: center; }
+        .vp-fields-list { display: grid; gap: .45rem; }
+        .vp-img-row { display: flex; gap: .45rem; align-items: center; }
+        .vp-img-row input[type="text"] { flex: 1; min-width: 0; }
+        .vp-img-row input[type="color"] { width: 2.5rem; height: 2.1rem; padding: 0; flex-shrink: 0; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+        .vp-modal-foot { display: flex; justify-content: flex-end; gap: .5rem; padding: .75rem 1.1rem; border-top: 1px solid var(--border); background: var(--bg-card); flex-shrink: 0; }
+        @media (max-width: 560px) {
+            .vp-row-2 { grid-template-columns: 1fr; }
+            .vp-field-row { grid-template-columns: 1fr 1fr; }
+        }
     </style>
 </head>
 <body>
@@ -139,8 +199,13 @@
         </button>
         <button type="button" class="tab-btn" data-t="variables" role="tab" aria-selected="false">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
-            <span>Custom Variables &amp; Counters</span>
+            <span>Custom Variables</span>
             <span class="count" id="var-count"></span>
+        </button>
+        <button type="button" class="tab-btn" data-t="sets" role="tab" aria-selected="false">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <span>Variable Sets</span>
+            <span class="count" id="sets-count"></span>
         </button>
     </nav>
 
@@ -240,23 +305,47 @@
         <div class="card" id="vars-card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.6rem; flex-wrap:wrap; gap:.5rem;">
                 <h2 style="margin-bottom:0;">Custom Variables &amp; Counters</h2>
-                <div style="display:flex; gap:.6rem; align-items:center;">
+                <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+                    <button type="button" class="b sm" id="vars-export">Export JSON</button>
+                    <label class="b sm" style="display:inline-flex; align-items:center; cursor:pointer;">Import JSON<input type="file" id="vars-import" accept="application/json" hidden></label>
                     <a href="/chatbot.html#variables" style="font-size:.8rem; color:var(--accent); text-decoration:none; display:inline-flex; align-items:center; gap:0.25rem;">Open in Chat Bot <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
                 </div>
             </div>
             <p class="muted" style="margin-bottom:1rem;">
-                Custom variables can be displayed across overlays, alerts, game plans, and chat bot replies using <code>{{var.NAME}}</code>. Update their values here live without switching to the Chat Bot settings.
+                Custom variables can be displayed across overlays, alerts, game plans, and chat bot replies using <code>{{var.NAME}}</code> or <code>{{var.NAME|fallback}}</code>.
             </p>
 
             <!-- Create Variable Bar -->
-            <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin-bottom:1rem; background:var(--bg-inset); padding:.6rem .75rem; border-radius:6px; border:1px solid var(--border);">
-                <input type="text" id="var-name" placeholder="Variable name (e.g. deaths, boss)" style="flex:1; min-width:13rem;">
+            <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin-bottom:.75rem; background:var(--bg-inset); padding:.6rem .75rem; border-radius:6px; border:1px solid var(--border);">
+                <input type="text" id="var-name" placeholder="Variable name (e.g. deaths, sponsor_logo)" style="flex:1; min-width:13rem;">
                 <select id="var-type">
                     <option value="counter">Counter (number)</option>
                     <option value="text">Text (string)</option>
+                    <option value="image">Image (URL / Asset)</option>
+                    <option value="toggle">Toggle (true / false)</option>
+                    <option value="color">Color (#hex)</option>
+                    <option value="template">Template (expression)</option>
                     <option value="list">List (rotating items)</option>
                 </select>
-                <button class="b primary" id="var-add">+ Add Variable</button>
+                <button type="button" class="b primary" id="var-add">+ Add Variable</button>
+            </div>
+
+            <!-- Filter Bar -->
+            <div class="bar" style="margin-bottom:.85rem;">
+                <input type="search" id="var-search" placeholder="Filter variables..." style="flex:1; min-width:12rem;">
+                <select id="var-type-filter" aria-label="Filter by variable type">
+                    <option value="all">All types</option>
+                    <option value="counter">Counter</option>
+                    <option value="text">Text</option>
+                    <option value="image">Image</option>
+                    <option value="toggle">Toggle</option>
+                    <option value="color">Color</option>
+                    <option value="template">Template</option>
+                    <option value="list">List</option>
+                </select>
+                <label class="muted" style="display:flex; align-items:center; gap:.35rem; cursor:pointer;">
+                    <input type="checkbox" id="var-show-set"> Show set-managed variables
+                </label>
             </div>
 
             <!-- Variables List Container -->
@@ -265,351 +354,28 @@
             </div>
         </div>
     </div>
+
+    <!-- Tab 3: Variable Sets -->
+    <div class="tab-content" id="tab-sets" data-tab="sets" hidden>
+        <div class="card" id="sets-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem; flex-wrap:wrap; gap:.5rem;">
+                <h2 style="margin-bottom:0;">Variable Sets &amp; Output Slots</h2>
+                <div class="bar">
+                    <button type="button" class="b sm primary" id="set-add-btn">+ New Variable Set</button>
+                </div>
+            </div>
+            <p class="muted" style="margin-bottom:.9rem;">
+                Group structured fields (e.g. Sponsors, Casters, Guests, Teams, Products) into reusable presets. Use <strong>Preset mode (0 slots)</strong> for a single active output, or add <strong>1+ output slots</strong> for multi-channel scenes.
+            </p>
+            <div id="sets-list">
+                <div class="muted">Loading variable sets…</div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script src="/overlay-shared.js"></script>
-<script>
-const $ = id => document.getElementById(id);
-const S = window.OverlayShared;
-const esc = v => { const d = document.createElement('div'); d.textContent = v ?? ''; return d.innerHTML; };
-const toast = (msg, type = 'info') => {
-    if (window.StreamPulse?.toast) window.StreamPulse.toast(msg, type);
-    else console.log(msg);
-};
-let status = {};
-let customVars = [];
-
-// Tab Navigation
-function showTab(name) {
-    if (name !== 'variables' && name !== 'vars' && name !== 'placeholders') name = 'placeholders';
-    const activeKey = (name === 'vars' || name === 'variables') ? 'variables' : 'placeholders';
-    document.querySelectorAll('#tabs button').forEach(b => {
-        const isSel = b.dataset.t === activeKey;
-        b.setAttribute('aria-selected', String(isSel));
-        b.classList.toggle('active', isSel);
-    });
-    document.querySelectorAll('.tab-content').forEach(c => {
-        c.hidden = c.dataset.tab !== activeKey;
-    });
-    history.replaceState(null, '', `#${activeKey}`);
-}
-
-$('tabs').addEventListener('click', e => {
-    const b = e.target.closest('button[data-t]');
-    if (b) showTab(b.dataset.t);
-});
-
-// Copy helper
-async function copyToClipboard(text) {
-    try {
-        await navigator.clipboard.writeText(text);
-        toast(`Copied ${text}`, 'success');
-    } catch {
-        const t = document.createElement('textarea');
-        t.value = text;
-        document.body.append(t);
-        t.select();
-        document.execCommand('copy');
-        t.remove();
-        toast(`Copied ${text}`, 'success');
-    }
-}
-
-// Global click handler for copyable code tags
-document.addEventListener('click', e => {
-    const code = e.target.closest('code.copyable, [data-copy]');
-    if (code) {
-        const text = code.getAttribute('data-copy') || code.textContent;
-        if (text) copyToClipboard(text);
-    }
-});
-
-// API helper
-async function api(path, method = 'GET', body = null) {
-    const opts = { method, headers: {} };
-    if (body !== null) {
-        opts.headers['Content-Type'] = 'application/json';
-        opts.body = JSON.stringify(body);
-    }
-    const res = await fetch(path, opts);
-    if (!res.ok) {
-        let msg = res.statusText;
-        try { const err = await res.json(); msg = err.error || err.message || msg; } catch {}
-        throw new Error(msg);
-    }
-    return res.json();
-}
-
-// Render Custom Variables
-function renderVars() {
-    const container = $('vars-list');
-    $('var-count').textContent = customVars.length ? String(customVars.length) : '';
-
-    if (!customVars.length) {
-        container.innerHTML = '<div class="muted" style="padding:.5rem 0;">No custom variables defined yet. Create one above to display counters or custom text in your stream!</div>';
-        return;
-    }
-
-    container.innerHTML = customVars.map(v => {
-        let controls = '';
-        if (v.type === 'counter') {
-            controls = `
-                <button class="b sm" data-act="decrement" title="Decrement (-1)">-</button>
-                <input type="number" data-act="value" value="${v.value}" style="width:5rem; text-align:center; padding:.25rem .4rem;">
-                <button class="b sm" data-act="increment" title="Increment (+1)">+</button>
-                <button class="b sm" data-act="reset" title="Reset to 0">Reset</button>
-            `;
-        } else if (v.type === 'text') {
-            controls = `
-                <input type="text" data-act="value" value="${esc(v.value)}" placeholder="(empty value)" style="width:14rem; padding:.25rem .5rem;">
-            `;
-        } else {
-            controls = `
-                <span class="muted" style="max-width:14rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Current: <b style="color:var(--accent);">${esc(v.value) || '(empty)'}</b></span>
-                <button class="b sm" data-act="roll" title="Pick next item">Pick next</button>
-            `;
-        }
-
-        const listDetails = v.type === 'list' ? `
-            <details style="margin-top:.2rem;">
-                <summary class="muted" style="cursor:pointer; font-size:.8rem;">${(v.items || []).length} items · ${v.mode === 'sequential' ? 'Sequential order' : 'Random order'} (click to edit items)</summary>
-                <div style="margin-top:.5rem; display:grid; gap:.5rem;">
-                    <textarea data-act="items" rows="4" style="width:100%; padding:.45rem; font-family:monospace; font-size:.82rem;" placeholder="One item per line">${esc((v.items || []).join('\n'))}</textarea>
-                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem;">
-                        <label style="font-size:.82rem; color:var(--text-muted);">
-                            Pick mode:
-                            <select data-act="mode" style="margin-left:.3rem; padding:.2rem .4rem;">
-                                <option value="random" ${v.mode !== 'sequential' ? 'selected' : ''}>Randomly</option>
-                                <option value="sequential" ${v.mode === 'sequential' ? 'selected' : ''}>In order</option>
-                            </select>
-                        </label>
-                        <button class="b sm primary" data-act="save-items">Save list items</button>
-                    </div>
-                </div>
-            </details>
-        ` : '';
-
-        return `
-            <div class="var-row" data-n="${esc(v.name)}">
-                <div class="var-head">
-                    <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
-                        <strong style="font-size:.9rem;">${esc(v.name)}</strong>
-                        <span class="badge">${esc(v.type)}</span>
-                        <code class="copyable" title="Click to copy" data-copy="{{var.${esc(v.name)}}}">{{var.${esc(v.name)}}}</code>
-                    </div>
-                    <div style="display:flex; gap:.4rem; align-items:center;">
-                        ${controls}
-                        <button class="b sm danger" data-act="delete" title="Delete variable">Delete</button>
-                    </div>
-                </div>
-                ${listDetails}
-            </div>
-        `;
-    }).join('');
-}
-
-// Load Variables from API
-async function loadVars() {
-    try {
-        const res = await api('/api/variables');
-        customVars = res.variables || [];
-        status.customVars = customVars;
-        renderVars();
-        render(); // update placeholders table with latest variables
-    } catch (e) {
-        toast('Failed to load variables: ' + e.message, 'error');
-    }
-}
-
-// Add Variable
-$('var-add').onclick = async () => {
-    const rawName = $('var-name').value.trim();
-    const type = $('var-type').value;
-    const name = rawName.replace(/^[^a-z0-9_]+/i, '').replace(/[^a-z0-9_]/gi, '');
-    if (!name) {
-        toast('Variable name is required (letters, numbers, underscore)', 'error');
-        return;
-    }
-    try {
-        await api(`/api/variables/${encodeURIComponent(name)}`, 'PUT', { type });
-        $('var-name').value = '';
-        toast(`Variable "${name}" created`, 'success');
-        await loadVars();
-    } catch (e) {
-        toast(e.message, 'error');
-    }
-};
-
-$('var-name').addEventListener('keydown', e => {
-    if (e.key === 'Enter') $('var-add').click();
-});
-
-// Variables Actions
-$('vars-list').addEventListener('click', async event => {
-    const act = event.target.dataset.act;
-    const row = event.target.closest('[data-n]');
-    if (!act || ['value', 'items', 'mode'].includes(act) || !row) return;
-
-    const name = row.dataset.n;
-    const url = `/api/variables/${encodeURIComponent(name)}`;
-
-    try {
-        if (act === 'delete') {
-            const confirmed = window.StreamPulse?.confirm
-                ? await StreamPulse.confirm('Delete Variable', `Delete variable "${name}"? Any overlays using it will display empty.`, { danger: true, confirmText: 'Delete' })
-                : confirm(`Delete variable "${name}"?`);
-            if (!confirmed) return;
-
-            await api(url, 'DELETE');
-            toast(`Variable "${name}" deleted`, 'info');
-        } else if (act === 'save-items') {
-            const items = row.querySelector('[data-act="items"]').value;
-            const mode = row.querySelector('[data-act="mode"]').value;
-            await api(url, 'PUT', { items, mode });
-            toast(`List "${name}" saved`, 'success');
-        } else {
-            // increment, decrement, reset, roll
-            await api(`${url}/${act}`, 'POST', {});
-        }
-        await loadVars();
-    } catch (e) {
-        toast(e.message, 'error');
-    }
-});
-
-$('vars-list').addEventListener('change', async event => {
-    const row = event.target.closest('[data-n]');
-    if (event.target.dataset.act === 'value' && row) {
-        const name = row.dataset.n;
-        try {
-            await api(`/api/variables/${encodeURIComponent(name)}`, 'PUT', { value: event.target.value });
-            await loadVars();
-        } catch (e) {
-            toast(e.message, 'error');
-        }
-    }
-});
-
-// Placeholders rendering
-function groups() {
-    const table = S.variableTable(status, {});
-    const q = $('q').value.trim().toLowerCase();
-    const show = $('vals').checked;
-    return S.variableGroups(status).map(g => ({
-        label: g.label,
-        items: g.items.filter(([key, label]) => !q || `${g.label} ${key} ${label}`.toLowerCase().includes(q)).map(([key, label]) => {
-            const v = table[key];
-            return { key, label, value: show && v !== undefined && v !== null && v !== '' ? String(v) : '' };
-        })
-    })).filter(g => g.items.length);
-}
-
-function render() {
-    const gs = groups();
-    let totalItems = 0;
-    gs.forEach(g => { totalItems += g.items.length; });
-    $('ph-count').textContent = totalItems ? String(totalItems) : '';
-
-    $('out').innerHTML = gs.map(g => `
-        <div class="card">
-            <h2>${esc(g.label)}</h2>
-            <table>
-                ${g.items.map(i => `
-                    <tr>
-                        <td><code class="copyable" title="Click to copy" data-copy="{{${esc(i.key)}}}">{{${esc(i.key)}}}</code></td>
-                        <td>${esc(i.label)}</td>
-                        ${$('vals').checked ? `<td class="val">${esc(i.value)}</td>` : ''}
-                    </tr>
-                `).join('')}
-            </table>
-        </div>
-    `).join('') || '<div class="card muted">No placeholders match.</div>';
-}
-
-function markdown() {
-    const cell = v => String(v ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
-    const show = $('vals').checked;
-    let md = '# Placeholders\n\nUse as `{{name}}`. Dates, timers and lists accept a format: `{{name|format}}`.\n';
-    for (const g of groups()) {
-        md += `\n## ${cell(g.label)}\n\n| Placeholder | What it shows |${show ? ' Example |' : ''}\n|---|---|${show ? '---|' : ''}\n`;
-        md += g.items.map(i => `| \`{{${cell(i.key)}}}\` | ${cell(i.label)} |${show ? ` ${cell(i.value)} |` : ''}`).join('\n') + '\n';
-    }
-    return md;
-}
-
-// Collapsible Chat Bot Tokens state & search filter
-const tokensCard = $('chat-tokens-card');
-if (tokensCard) {
-    const saved = localStorage.getItem('placeholders_tokens_open');
-    if (saved !== null) {
-        tokensCard.open = (saved === 'true');
-    } else {
-        tokensCard.open = false; // Collapsed by default to avoid clutter
-    }
-    tokensCard.addEventListener('toggle', () => {
-        if (!tokensCard._searching) {
-            localStorage.setItem('placeholders_tokens_open', String(tokensCard.open));
-        }
-    });
-}
-
-function filterDynamicTokens(q) {
-    if (!tokensCard) return;
-    const rows = tokensCard.querySelectorAll('tbody tr');
-    if (!q) {
-        tokensCard._searching = true;
-        rows.forEach(r => r.style.display = '');
-        const saved = localStorage.getItem('placeholders_tokens_open');
-        tokensCard.open = (saved === 'true');
-        tokensCard._searching = false;
-        return;
-    }
-    tokensCard._searching = true;
-    let anyMatch = false;
-    rows.forEach(r => {
-        const text = r.textContent.toLowerCase();
-        const match = text.includes(q);
-        r.style.display = match ? '' : 'none';
-        if (match) anyMatch = true;
-    });
-    if (anyMatch) {
-        tokensCard.open = true;
-    }
-    tokensCard._searching = false;
-}
-
-$('q').oninput = () => {
-    render();
-    filterDynamicTokens($('q').value.trim().toLowerCase());
-};
-$('vals').onchange = render;
-$('copy').onclick = async () => {
-    try { await navigator.clipboard.writeText(markdown()); $('copy').textContent = 'Copied'; }
-    catch { const t = document.createElement('textarea'); t.value = markdown(); document.body.append(t); t.select(); document.execCommand('copy'); t.remove(); $('copy').textContent = 'Copied'; }
-    setTimeout(() => { $('copy').textContent = 'Copy Markdown'; }, 1500);
-};
-$('md').onclick = () => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([markdown()], { type: 'text/markdown' }));
-    a.download = 'streampulse-placeholders.md'; a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-};
-
-// Initial tab detection
-showTab(location.hash.slice(1));
-window.addEventListener('hashchange', () => showTab(location.hash.slice(1)));
-
-// Initial data load
-loadVars();
-fetch('/api/status', { cache: 'no-store' }).then(r => r.json()).then(async s => {
-    status = s;
-    if (s.customVars) {
-        customVars = s.customVars;
-        renderVars();
-    }
-    try { await S.loadLiveExtras(s); } catch { /* extras are optional */ }
-    render();
-}).catch(render);
-</script>
+<script src="/js/image-picker.js"></script>
+<script type="module" src="/js/variables/variables-main.js"></script>
 </body>
 </html>

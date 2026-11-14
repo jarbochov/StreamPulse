@@ -235,7 +235,10 @@ const staticRouter = createStaticRouter({
     filterRecords: records => userModeration.filterRecords(records)
 });
 
-const variablesStore = require('./server/services/variables')({ dataDir: DATA_DIR });
+const variablesStore = require('./server/services/variables')({
+    dataDir: DATA_DIR,
+    onChange: data => broadcastToOverlays('variables-update', data)
+});
 const chatbot = require('./server/services/chatbot')({ dataDir: DATA_DIR, getConfig: () => config, port: Number(process.env.PORT) || Number(config.port) || 3000, variables: variablesStore, onUse: (kind, name) => takeoverPages('command', name), onSettingsChange: () => communityBot?.configChanged(), sessionKey: () => String(chatData.startedAt || '') });
 const LIVE_CHAT_PATH = path.join(DATA_DIR, 'chat.json');
 const BANNED_HASHTAGS_PATH = path.join(DATA_DIR, '.banned-hashtags.json');
