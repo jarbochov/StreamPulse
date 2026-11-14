@@ -188,7 +188,7 @@
             <div class="indicator"><div class="dot" id="dot-ssn"></div><span>SocialStream: <span id="ssn-status">—</span></span></div>
             <div class="indicator"><div class="dot" id="dot-twitch"></div><span>Twitch token: <span id="twitch-status">—</span></span></div>
             <div class="indicator" id="obs-health" hidden><div class="dot" id="dot-obs"></div><span>OBS: <span id="obs-status">—</span></span></div>
-            <details class="danger-zone">
+            <details class="danger-zone" data-persist-open="health-diagnostics">
                 <summary>Diagnostics</summary>
                 <div class="detail-line" title="Resident Node process memory, including heap, native allocations and buffers."><strong>Node RSS:</strong> <span id="memory">—</span></div>
                 <div class="detail-line" title="Live JavaScript allocations / currently allocated V8 heap."><strong>JS heap:</strong> <span id="memory-heap">—</span></div>
@@ -202,13 +202,13 @@
                 <button class="btn" data-action="fetch-twitch">Fetch Twitch</button>
                 <button class="btn" data-action="reauth-twitch">Re-auth Twitch</button>
                 <a class="btn" href="/api/export?type=all" download>Export CSV</a>
+                <button class="btn" data-action="restart">Restart StreamPulse</button>
+                <button class="btn danger" data-action="shutdown">Shutdown</button>
             </div>
             <div id="lifecycle-hint" style="display:none;margin-top:8px;font-size:12px;color:var(--muted,var(--text-muted))"></div>
-            <details class="danger-zone">
-                <summary>System &amp; Danger zone</summary>
+            <details class="danger-zone" data-persist-open="actions-danger">
+                <summary>Danger zone</summary>
                 <div class="btn-grid">
-                    <button class="btn" data-action="restart">Restart StreamPulse</button>
-                    <button class="btn danger" data-action="shutdown">Shutdown</button>
                     <button class="btn danger" data-action="reset-chat">Reset session chat</button>
                     <button class="btn danger" data-action="reset-stats">Reset all stats</button>
                 </div>

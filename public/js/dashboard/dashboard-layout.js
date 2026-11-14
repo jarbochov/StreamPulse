@@ -17,7 +17,7 @@ export function createLayoutManager(grid) {
     const defaultOrder = cards().map(c => c.dataset.panelId);
 
     function defaultLayout() {
-        return { order: [...defaultOrder], spans: {}, heights: {}, hidden: [], showDisabled: [], compact: false };
+        return { order: [...defaultOrder], spans: {}, heights: {}, hidden: [], showDisabled: [], openDetails: {}, compact: false };
     }
 
     function loadLayout() {
@@ -31,7 +31,8 @@ export function createLayoutManager(grid) {
                     spans: stored.spans || {},
                     heights: stored.heights || {},
                     hidden: stored.hidden || [],
-                    showDisabled: stored.showDisabled || []
+                    showDisabled: stored.showDisabled || [],
+                    openDetails: stored.openDetails || {}
                 };
             }
             for (const key of LEGACY_KEYS) {
@@ -111,6 +112,9 @@ export function createLayoutManager(grid) {
         });
         document.body.classList.toggle('compact', !!layout.compact);
         $('density-btn').classList.toggle('on', !!layout.compact);
+        grid.querySelectorAll('details[data-persist-open]').forEach(el => {
+            el.open = !!layout.openDetails?.[el.dataset.persistOpen];
+        });
         renderHiddenBar();
     }
 
@@ -271,6 +275,13 @@ export function createLayoutManager(grid) {
             }
             saveLayout();
             applyLayout();
+        });
+
+        grid.querySelectorAll('details[data-persist-open]').forEach(el => {
+            el.addEventListener('toggle', () => {
+                layout.openDetails[el.dataset.persistOpen] = el.open;
+                saveLayout();
+            });
         });
     }
 
