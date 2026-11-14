@@ -14,17 +14,118 @@ const SVG_GRIP = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" st
 let dragPayload = null;
 let reloadHandler = async () => {};
 let rosterFilter = '';
-let targetSlotBySet = {};
-try { targetSlotBySet = JSON.parse(localStorage.getItem('variables_target_slots') || '{}') || {}; } catch { targetSlotBySet = {}; }
+let activePickerCleanup = null;
 
-function getTargetSlot(setObj) {
-    const count = Math.max(1, setObj?.slotsCount || 1);
-    return Math.max(1, Math.min(count, Number(targetSlotBySet[setObj?.id]) || 1));
+function closeSlotEntryPicker() {
+    if (typeof activePickerCleanup === 'function') {
+        activePickerCleanup();
+        activePickerCleanup = null;
+    }
 }
 
-function setTargetSlot(setId, slotNum) {
-    targetSlotBySet[setId] = Number(slotNum) || 1;
-    try { localStorage.setItem('variables_target_slots', JSON.stringify(targetSlotBySet)); } catch { /* ignore */ }
+function openSlotEntryPicker(anchorBtn, setObj, slotNum, mode = 'assign') {
+    closeSlotEntryPicker();
+    const entries = (setObj.roster || []).filter(e => e.enabled !== false);
+    const slotLabel = (setObj.slotNames?.[slotNum - 1] || '').trim() || `Slot ${slotNum}`;
+    const imgField = (setObj.fields || []).find(f => f.type === 'image');
+    const slotLiveByEntry = new Map();
+    (setObj.slots || []).forEach((id, idx) => {
+        if (id) slotLiveByEntry.set(id, (setObj.slotNames?.[idx] || '').trim() || `S${idx + 1}`);
+    });
+
+    const pop = document.createElement('div');
+    pop.className = 'slot-picker-popover';
+    pop.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:.4rem;">
+            <strong style="font-size:.8rem;">${mode === 'queue' ? `Queue for ${esc(slotLabel)}` : `Assign to ${esc(slotLabel)}`}</strong>
+            <button type="button" class="b sm" data-picker-close style="padding:.1rem .35rem;">&times;</button>
+        </div>
+        <input type="search" placeholder="Search roster..." aria-label="Search roster" style="padding:.3rem .5rem; font-size:.82rem;">
+        <div class="slot-picker-list"></div>
+    `;
+    document.body.appendChild(pop);
+
+    const rect = anchorBtn.getBoundingClientRect();
+    const popW = 290;
+    const left = Math.max(8, Math.min(window.innerWidth - popW - 8, rect.left));
+    const top = Math.min(window.innerHeight - 330, rect.bottom + 6);
+    pop.style.left = `${left}px`;
+    pop.style.top = `${Math.max(8, top)}px`;
+
+    const searchInput = pop.querySelector('input[type="search"]');
+    const listEl = pop.querySelector('.slot-picker-list');
+    let selectedIdx = 0;
+    let visibleEntries = entries;
+
+    const renderList = () => {
+        const q = searchInput.value.trim().toLowerCase();
+        visibleEntries = entries.filter(e => !q || `${e.label} ${e.id} ${getEntrySummary(setObj, e)}`.toLowerCase().includes(q));
+        if (selectedIdx >= visibleEntries.length) selectedIdx = Math.max(0, visibleEntries.length - 1);
+        if (!visibleEntries.length) {
+            listEl.innerHTML = `<div class="muted" style="font-size:.78rem; padding:.5rem; text-align:center;">${entries.length ? 'No matching enabled entries.' : 'No enabled entries in roster.'}</div>`;
+            return;
+        }
+        listEl.innerHTML = visibleEntries.map((e, i) => {
+            const thumb = imgField && e.values?.[imgField.key] ? `<img src="${esc(e.values[imgField.key])}" alt="">` : '';
+            const sub = getEntrySummary(setObj, e);
+            const liveWhere = slotLiveByEntry.get(e.id);
+            return `
+                <button type="button" class="slot-picker-item ${i === selectedIdx ? 'is-active' : ''}" data-pick-entry="${esc(e.id)}">
+                    ${thumb}
+                    <div class="slot-picker-meta">
+                        <div class="slot-picker-name">${esc(e.label)}</div>
+                        ${sub ? `<div class="slot-picker-sub">${esc(sub)}</div>` : ''}
+                    </div>
+                    ${liveWhere ? `<span class="badge">${esc(liveWhere)}</span>` : ''}
+                </button>
+            `;
+        }).join('');
+    };
+
+    const pickEntry = async entryId => {
+        closeSlotEntryPicker();
+        const base = `/api/variables/sets/${encodeURIComponent(setObj.id)}`;
+        const endpoint = mode === 'queue'
+            ? `${base}/queue/add?slot=${encodeURIComponent(slotNum)}&entry=${encodeURIComponent(entryId)}`
+            : `${base}/assign?slot=${encodeURIComponent(slotNum)}&entry=${encodeURIComponent(entryId)}`;
+        try {
+            await api(endpoint, 'POST', {});
+            await reloadHandler();
+        } catch (err) {
+            toast(err.message, 'error');
+        }
+    };
+
+    renderList();
+    searchInput.focus();
+
+    searchInput.addEventListener('input', () => { selectedIdx = 0; renderList(); });
+    searchInput.addEventListener('keydown', e => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); if (visibleEntries.length) { selectedIdx = (selectedIdx + 1) % visibleEntries.length; renderList(); } }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); if (visibleEntries.length) { selectedIdx = (selectedIdx - 1 + visibleEntries.length) % visibleEntries.length; renderList(); } }
+        else if (e.key === 'Enter' && visibleEntries[selectedIdx]) { e.preventDefault(); pickEntry(visibleEntries[selectedIdx].id); }
+    });
+
+    pop.addEventListener('click', e => {
+        if (e.target.closest('[data-picker-close]')) return closeSlotEntryPicker();
+        const item = e.target.closest('[data-pick-entry]');
+        if (item) pickEntry(item.dataset.pickEntry);
+    });
+
+    const onDocDown = e => {
+        if (!pop.contains(e.target) && !anchorBtn.contains(e.target)) closeSlotEntryPicker();
+    };
+    const onDocKey = e => { if (e.key === 'Escape') closeSlotEntryPicker(); };
+    setTimeout(() => {
+        document.addEventListener('mousedown', onDocDown);
+        document.addEventListener('keydown', onDocKey);
+    }, 0);
+
+    activePickerCleanup = () => {
+        document.removeEventListener('mousedown', onDocDown);
+        document.removeEventListener('keydown', onDocKey);
+        pop.remove();
+    };
 }
 
 function getEntryThumb(setObj, entry) {
@@ -68,15 +169,12 @@ function renderSlotCard(setObj, slotNum, entry) {
         return `<span class="queue-chip" title="${esc(qEntry.label)}"><span>${esc(qEntry.label)}</span><button type="button" data-set-act="q-remove" data-slot="${slotNum}" data-q-idx="${qIdx}" aria-label="Remove from queue">&times;</button></span>`;
     }).filter(Boolean).join('');
 
-    const isTargeted = (setObj.slotsCount || 0) > 1 && getTargetSlot(setObj) === slotNum;
-
     return `
-        <div class="slot-card ${entry ? 'filled' : 'empty'} ${isTargeted ? 'is-targeted' : ''}"
+        <div class="slot-card ${entry ? 'filled' : 'empty'}"
              data-set="${esc(setObj.id)}"
              data-slot="${slotNum}"
              ${entry ? 'draggable="true"' : ''}>
             <div class="slot-head">
-                ${(setObj.slotsCount || 0) > 1 ? `<button type="button" class="slot-target-btn ${isTargeted ? 'active' : ''}" data-set-act="target-slot" data-slot="${slotNum}" title="Click to target this slot for Assign / +Queue">${isTargeted ? 'Target' : `S${slotNum}`}</button>` : ''}
                 <input type="text"
                        class="slot-name-input"
                        data-slot-name="${slotNum}"
@@ -99,8 +197,12 @@ function renderSlotCard(setObj, slotNum, entry) {
                     </div>
                 </div>
             ` : `
-                <div class="slot-empty-hint">Drop an entry here or click Next</div>
+                <div class="slot-empty-hint">Empty — assign an entry or drop from roster</div>
             `}
+            <div class="slot-picker-bar">
+                <button type="button" class="b sm" data-set-act="pick-assign" data-slot="${slotNum}">${entry ? 'Change...' : 'Assign...'}</button>
+                <button type="button" class="b sm" data-set-act="pick-queue" data-slot="${slotNum}">+ Queue</button>
+            </div>
             <div class="slot-queue ${queueIds.length ? '' : 'is-empty'}" data-set="${esc(setObj.id)}" data-slot-queue="${slotNum}">
                 <div class="slot-queue-head">
                     <span>Queue (${queueIds.length})</span>
@@ -164,18 +266,9 @@ function renderRosterItem(setObj, entry) {
         ? setObj.activeEntry === entry.id
         : liveSlotLabels.length > 0;
 
-    let assignControl = '';
-    if (slotsCount === 0) {
-        assignControl = `<button type="button" class="b sm ${isLive ? 'primary' : ''}" data-set-act="assign" data-slot="1" data-entry="${esc(entry.id)}">${isLive ? 'Live' : 'Activate'}</button>`;
-    } else {
-        const tSlot = getTargetSlot(setObj);
-        const tLabel = (setObj.slotNames?.[tSlot - 1] || '').trim() || (slotsCount === 1 ? 'Slot 1' : `S${tSlot}`);
-        const isLiveInTarget = setObj.slots?.[tSlot - 1] === entry.id;
-        assignControl = `
-            <button type="button" class="b sm ${isLiveInTarget ? 'primary' : ''}" data-set-act="assign" data-slot="${tSlot}" data-entry="${esc(entry.id)}" title="Assign to ${esc(tLabel)}">${isLiveInTarget ? `Live (${esc(tLabel)})` : `Assign → ${esc(tLabel)}`}</button>
-            <button type="button" class="b sm" data-set-act="q-add" data-slot="${tSlot}" data-entry="${esc(entry.id)}" title="Add to ${esc(tLabel)} Queue">+Queue → ${esc(tLabel)}</button>
-        `;
-    }
+    const assignControl = slotsCount === 0
+        ? `<button type="button" class="b sm ${isLive ? 'primary' : ''}" data-set-act="assign" data-slot="1" data-entry="${esc(entry.id)}">${isLive ? 'Live' : 'Activate'}</button>`
+        : '';
 
     const summary = getEntrySummary(setObj, entry);
     const liveBadge = liveSlotLabels.length
@@ -274,29 +367,31 @@ export function renderSets() {
                     <button type="button" class="b sm danger" data-set-act="delete-set" title="Delete set">${SVG_TRASH}</button>
                 </div>
             </div>
-            <div>
-                <div class="set-section-title">
-                    <span>${slotsCount > 0 ? 'Output Channels (drag entries onto slots or swap)' : 'Active Output'}</span>
-                    ${slotsCount > 1 ? `
-                        <div style="display:flex; gap:.3rem; align-items:center; text-transform:none; letter-spacing:0; font-weight:500;">
-                            <span class="muted" style="font-size:.74rem;">Shift Queue:</span>
-                            <button type="button" class="b sm" data-set-act="rewind" title="Shift all slots back">${SVG_PREV} Prev</button>
-                            <button type="button" class="b sm" data-set-act="advance" title="Shift all slots forward">Next ${SVG_NEXT}</button>
-                        </div>
-                    ` : ''}
-                </div>
-                ${outputHtml}
-            </div>
-            <div class="roster-section">
-                <div class="set-section-title" style="flex-wrap:wrap;">
-                    <span>${slotsCount > 0 ? 'Roster Pool' : 'Saved Presets'}</span>
-                    <div style="display:flex; gap:.35rem; align-items:center; text-transform:none; letter-spacing:0; font-weight:500;">
-                        ${(activeSet.roster || []).length > 4 ? `<input type="search" id="set-roster-filter" value="${esc(rosterFilter)}" placeholder="Filter entries..." style="padding:.22rem .55rem; font-size:.78rem; width:11rem;">` : ''}
-                        <a class="b sm" href="/api/variables/sets/${encodeURIComponent(activeSet.id)}/export?format=csv" download="${esc(activeSet.id)}-roster.csv" style="text-decoration:none;">Export CSV</a>
-                        <label class="b sm" style="display:inline-flex; align-items:center; cursor:pointer;">Import CSV<input type="file" data-set-csv-import accept=".csv,text/csv" hidden></label>
+            <div class="${slotsCount > 0 ? 'sets-split' : ''}" style="${slotsCount > 0 ? '' : 'display:grid; gap:1rem;'}">
+                <div>
+                    <div class="set-section-title">
+                        <span>${slotsCount > 0 ? 'Output Channels' : 'Active Output'}</span>
+                        ${slotsCount > 1 ? `
+                            <div style="display:flex; gap:.3rem; align-items:center; text-transform:none; letter-spacing:0; font-weight:500;">
+                                <span class="muted" style="font-size:.74rem;">Shift Queue:</span>
+                                <button type="button" class="b sm" data-set-act="rewind" title="Shift all slots back">${SVG_PREV} Prev</button>
+                                <button type="button" class="b sm" data-set-act="advance" title="Shift all slots forward">Next ${SVG_NEXT}</button>
+                            </div>
+                        ` : ''}
                     </div>
+                    ${outputHtml}
                 </div>
-                <div class="roster-list">${rosterHtml}</div>
+                <div class="roster-section ${slotsCount > 0 ? 'sets-roster-pane' : ''}">
+                    <div class="set-section-title" style="flex-wrap:wrap;">
+                        <span>${slotsCount > 0 ? 'Roster Library (drag onto any slot)' : 'Saved Presets'}</span>
+                        <div style="display:flex; gap:.35rem; align-items:center; text-transform:none; letter-spacing:0; font-weight:500; flex-wrap:wrap;">
+                            ${(activeSet.roster || []).length > 4 ? `<input type="search" id="set-roster-filter" value="${esc(rosterFilter)}" placeholder="Filter entries..." style="padding:.22rem .55rem; font-size:.78rem; width:10rem;">` : ''}
+                            <a class="b sm" href="/api/variables/sets/${encodeURIComponent(activeSet.id)}/export?format=csv" download="${esc(activeSet.id)}-roster.csv" style="text-decoration:none;">Export CSV</a>
+                            <label class="b sm" style="display:inline-flex; align-items:center; cursor:pointer;">Import CSV<input type="file" data-set-csv-import accept=".csv,text/csv" hidden></label>
+                        </div>
+                    </div>
+                    <div class="roster-list">${rosterHtml}</div>
+                </div>
             </div>
         </div>
     `;
@@ -657,25 +752,15 @@ export function bindSetEvents(onReload) {
 
         const btn = e.target.closest('[data-set-act]');
         const card = e.target.closest('[data-set-card]');
-        if (!card) return;
+        if (!btn || !card) return;
         const setObj = (state.variableSets || []).find(s => s.id === card.dataset.setCard);
         if (!setObj) return;
-        if (!btn) {
-            const slotCard = e.target.closest('.slot-card[data-slot]');
-            if (slotCard && (setObj.slotsCount || 0) > 1 && !e.target.closest('input, button, code, summary, .slot-tokens')) {
-                setTargetSlot(setObj.id, slotCard.dataset.slot);
-                renderSets();
-            }
-            return;
-        }
         const act = btn.dataset.setAct;
         const base = `/api/variables/sets/${encodeURIComponent(setObj.id)}`;
 
         try {
-            if (act === 'target-slot') {
-                setTargetSlot(setObj.id, btn.dataset.slot);
-                return renderSets();
-            }
+            if (act === 'pick-assign') return openSlotEntryPicker(btn, setObj, Number(btn.dataset.slot), 'assign');
+            if (act === 'pick-queue') return openSlotEntryPicker(btn, setObj, Number(btn.dataset.slot), 'queue');
             if (act === 'edit-set') return openSetModal(setObj);
             if (act === 'inc-slot') {
                 await api(base, 'PUT', { slotsCount: Math.min(24, (setObj.slotsCount || 0) + 1) });
