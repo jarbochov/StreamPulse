@@ -80,7 +80,7 @@
         td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
         td.wrap { white-space: normal; min-width: 9rem; max-width: 13rem; }
         #sessions-table th, #sessions-table td { padding: 0.5rem 0.4rem; font-size: 0.74rem; }
-        td .sub { display: block; color: var(--text-muted); font-size: 0.72rem; margin-top: 0.1rem; white-space: normal; }
+        td .sub:not(.tag-badge) { display: block; color: var(--text-muted); font-size: 0.72rem; margin-top: 0.1rem; white-space: normal; }
         td.zero { color: var(--border-strong); }
         a { color: var(--accent); text-decoration: none; }
         a:hover { text-decoration: underline; }
@@ -143,7 +143,7 @@
         .tag-badge { display: inline-flex; align-items: center; padding: 0.08rem 0.42rem; border-radius: 999px; font-size: 0.68rem; font-weight: 600; line-height: 1.15; background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); margin-right: 0.25rem; white-space: nowrap; vertical-align: middle; }
         .tag-badge.vip { border-color: #e3b341; color: #e3b341; background: rgba(227, 179, 65, 0.12); font-size: 0.65rem; padding: 0.06rem 0.38rem; }
         .tag-badge.mod { border-color: #388bfd; color: #58a6ff; background: rgba(56, 139, 253, 0.15); font-size: 0.65rem; padding: 0.06rem 0.38rem; }
-        .tag-badge.sub { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); font-size: 0.65rem; padding: 0.06rem 0.38rem; }
+        .tag-badge.sub { display: inline-flex; border-color: var(--accent); color: var(--accent); background: var(--accent-bg); font-size: 0.65rem; padding: 0.06rem 0.38rem; margin-top: 0; }
         .note-preview { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: 0.75rem; font-style: italic; }
         .note-masked { font-family: ui-monospace, SFMono-Regular, monospace; letter-spacing: 2px; color: var(--text-muted); opacity: 0.6; font-style: normal; font-size: 0.78rem; }
         .crm-row { cursor: pointer; transition: background 0.12s ease; }
