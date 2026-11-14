@@ -122,7 +122,13 @@
             padding: 1rem 1.1rem;
             animation: tabFade .18s ease-out;
         }
-        .var-head { display: flex; justify-content: space-between; align-items: center; gap: .75rem; flex-wrap: wrap; }
+        .var-row { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: .65rem .8rem; display: grid; gap: .5rem; }
+        .var-head { display: flex; justify-content: space-between; align-items: center; gap: .6rem; flex-wrap: wrap; }
+        .var-controls { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+        .var-input-grow { flex: 1; min-width: 14rem; padding: .3rem .55rem; }
+        .var-mono { font-family: monospace; font-size: .82rem; }
+        .var-tpl-preview { font-size: .78rem; color: var(--text-muted); padding: .35rem .55rem; border-radius: 6px; background: var(--bg-card); border: 1px solid var(--border); display: flex; align-items: baseline; gap: .4rem; min-width: 0; }
+        .var-tpl-out { color: var(--text); font-weight: 500; overflow-wrap: anywhere; }
         .var-img-thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 5px; border: 1px solid var(--border); background: repeating-conic-gradient(var(--bg-card) 0 25%, var(--bg-inset) 0 50%) 0 0 / 10px 10px; }
         .var-switch { display: inline-flex; align-items: center; gap: .4rem; padding: .26rem .65rem; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-muted); font-size: .78rem; font-weight: 600; cursor: pointer; transition: all .15s; }
         .var-switch[aria-pressed="true"] { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
@@ -134,10 +140,13 @@
         .set-workspace { display: grid; gap: 1rem; }
         .set-card-head { display: flex; justify-content: space-between; align-items: center; gap: .75rem; flex-wrap: wrap; padding: .75rem .9rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; }
         .set-section-title { font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); margin-bottom: .45rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-        .slots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .75rem; }
-        .slot-card { background: var(--bg-inset); border: 1.5px dashed var(--border); border-radius: 8px; padding: .75rem; display: grid; gap: .55rem; transition: border-color .15s, background .15s, box-shadow .15s; min-width: 0; overflow: hidden; }
+        .slots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: .65rem; }
+        .slot-card { background: var(--bg-inset); border: 1.5px dashed var(--border); border-radius: 8px; padding: .65rem .7rem; display: grid; gap: .45rem; transition: border-color .15s, background .15s, box-shadow .15s; min-width: 0; overflow: hidden; }
         .slot-card.filled { border-style: solid; background: var(--bg-card); cursor: grab; }
+        .slot-card.is-targeted { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
         .slot-card.drag-over { border-color: var(--accent); background: var(--accent-bg); box-shadow: 0 0 0 2px var(--accent-bg); }
+        .slot-target-btn { font-size: .68rem; font-weight: 700; padding: .14rem .42rem; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-page); color: var(--text-muted); cursor: pointer; flex-shrink: 0; }
+        .slot-target-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
         .slot-head { display: flex; justify-content: space-between; align-items: center; gap: .4rem; min-width: 0; }
         .slot-name-input { flex: 1 1 0; min-width: 0; width: 0; font-size: .78rem; font-weight: 600; padding: .2rem .45rem; }
         .slot-actions { display: flex; gap: .25rem; flex-shrink: 0; }
@@ -165,11 +174,15 @@
         .roster-item { display: flex; align-items: center; gap: .6rem; padding: .5rem .7rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 7px; cursor: grab; flex-wrap: wrap; transition: border-color .15s; }
         .roster-item:hover { border-color: var(--border-hover, var(--accent)); }
         .roster-item.is-live { border-color: var(--accent); background: var(--bg-card); }
+        .roster-item.is-disabled { opacity: 0.52; }
+        .roster-item.is-disabled .roster-name { text-decoration: line-through; }
         .roster-grip { color: var(--text-muted); display: inline-flex; align-items: center; }
         .roster-meta { flex: 1; min-width: 140px; }
         .roster-name { font-size: .88rem; font-weight: 600; }
+        .live-slot-pill { display: inline-block; margin-left: .35rem; padding: .06rem .38rem; border-radius: 999px; font-size: .68rem; font-weight: 600; background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent); vertical-align: middle; }
         .roster-sub { font-size: .76rem; color: var(--text-muted); }
         .roster-controls { display: flex; gap: .35rem; align-items: center; flex-wrap: wrap; }
+        .roster-slot-select { max-width: 138px; }
         .vp-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.64); z-index: 99990; display: flex; align-items: center; justify-content: center; padding: 16px; }
         .vp-modal { background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: 10px; width: min(680px, 100%); max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
         .vp-modal-head { display: flex; justify-content: space-between; align-items: center; padding: .85rem 1.1rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
@@ -185,6 +198,13 @@
         .vp-fields-list { display: grid; gap: .45rem; }
         .vp-img-row { display: flex; gap: .45rem; align-items: center; }
         .vp-img-row input[type="text"] { flex: 1; min-width: 0; }
+        .vp-label-head { display: flex; align-items: center; justify-content: space-between; gap: .4rem; font-weight: 500; color: var(--text); }
+        .vp-label-head code { font-size: .72rem; color: var(--text-muted); }
+        .vp-entry-bar { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; padding-bottom: .6rem; border-bottom: 1px solid var(--border); }
+        .vp-entry-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem .9rem; align-items: start; }
+        .vp-entry-grid.single-col { grid-template-columns: 1fr; }
+        .vp-span-2 { grid-column: 1 / -1; }
+        @media (max-width: 640px) { .vp-entry-grid { grid-template-columns: 1fr; } }
         .vp-img-row input[type="color"] { width: 2.5rem; height: 2.1rem; padding: 0; flex-shrink: 0; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
         .vp-modal-foot { display: flex; justify-content: flex-end; gap: .5rem; padding: .75rem 1.1rem; border-top: 1px solid var(--border); background: var(--bg-card); flex-shrink: 0; }
         @media (max-width: 560px) {
@@ -341,6 +361,9 @@
                     <option value="list">List (rotating items)</option>
                 </select>
                 <button type="button" class="b primary" id="var-add">+ Add Variable</button>
+            </div>
+            <div id="var-type-hint" class="muted" style="font-size:.78rem; margin:-.35rem 0 .75rem .15rem;" hidden>
+                Template expression syntax: <code>{{var.other|Fallback}}</code> or any placeholder like <code>{{game.name}}</code>, <code>{{stream.followers}}</code>, <code>{{time}}</code>.
             </div>
 
             <!-- Filter Bar -->

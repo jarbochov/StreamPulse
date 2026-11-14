@@ -289,6 +289,7 @@ export const state = {
         revision: 1,
         canvas: { width: 1920, height: 1080, background: 'transparent' },
         pages: null,
+        variableSetRotations: [],
         elements: []
     },
     selectedIds: new Set(),
@@ -628,6 +629,7 @@ export function serializeOverlayForSave() {
         revision: state.overlay.revision,
         canvas: state.overlay.canvas,
         pages: state.overlay.pages,
+        variableSetRotations: state.overlay.variableSetRotations || [],
         elements: state.overlay.elements
     }));
     const srcEls = state.overlay.elements || [];
@@ -834,6 +836,7 @@ export const snapshot = () => {
         name: serialized.name,
         canvas: serialized.canvas,
         pages: serialized.pages,
+        variableSetRotations: serialized.variableSetRotations || [],
         elements: serialized.elements
     });
 };

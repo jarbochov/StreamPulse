@@ -41,31 +41,31 @@ function renderVarControls(v) {
         const hex = /^#[0-9a-f]{6}/i.test(v.value || '') ? v.value.slice(0, 7) : '#3b82f6';
         return `
             <input type="color" data-act="color-picker" value="${esc(hex)}" style="width:2.4rem; height:1.9rem; padding:0; border:1px solid var(--border); border-radius:5px; cursor:pointer;">
-            <input type="text" data-act="value" value="${esc(v.value)}" placeholder="#3b82f6" style="width:7.5rem; padding:.25rem .5rem; font-family:monospace;">
+            <input type="text" data-act="value" value="${esc(v.value)}" placeholder="#3b82f6" class="var-mono" style="width:7.5rem; padding:.3rem .5rem;">
+            <button type="button" class="b sm" data-act="save-value">Save</button>
         `;
     }
     if (v.type === 'image') {
         return `
             ${v.value ? `<img src="${esc(v.value)}" alt="" class="var-img-thumb">` : ''}
-            <input type="text" data-act="value" value="${esc(v.value)}" placeholder="https://... or /assets/..." style="width:14rem; padding:.25rem .5rem;">
+            <input type="text" data-act="value" value="${esc(v.value)}" placeholder="https://... or /assets/..." class="var-input-grow">
             <button type="button" class="b sm" data-act="pick-image">Asset Library</button>
             ${v.value ? '<button type="button" class="b sm" data-act="clear-image" title="Clear image">Clear</button>' : ''}
         `;
     }
     if (v.type === 'list') {
         return `
-            <span class="muted" style="max-width:14rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Current: <b style="color:var(--accent);">${esc(v.value) || '(empty)'}</b></span>
+            <span class="muted" style="flex:1; min-width:12rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Current: <b style="color:var(--accent);">${esc(v.value) || '(empty)'}</b></span>
             <button type="button" class="b sm" data-act="roll" title="Pick next item">Pick next</button>
         `;
     }
     if (v.type === 'template') {
-        const resolved = S?.expandVariables ? S.expandVariables(v.value || '', state.status, {}) : v.value;
         return `
-            <input type="text" data-act="value" value="${esc(v.value)}" placeholder="{{var.first}} — {{var.second|Fallback}}" style="width:18rem; padding:.25rem .5rem; font-family:monospace; font-size:.82rem;">
-            <span class="badge" title="Live preview" style="text-transform:none; max-width:12rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(resolved || '(empty)')}</span>
+            <input type="text" data-act="value" value="${esc(v.value)}" placeholder="{{var.first}} — {{var.second|Fallback}}" class="var-input-grow var-mono">
+            <button type="button" class="b sm primary" data-act="save-value">Save</button>
         `;
     }
-    return `<input type="text" data-act="value" value="${esc(v.value)}" placeholder="(empty value)" style="width:14rem; padding:.25rem .5rem;">`;
+    return `<input type="text" data-act="value" value="${esc(v.value)}" placeholder="(empty value)" class="var-input-grow"><button type="button" class="b sm" data-act="save-value">Save</button>`;
 }
 
 export function renderVars() {
@@ -109,8 +109,12 @@ export function renderVars() {
             </details>
         ` : '';
 
+        const tplPreview = v.type === 'template'
+            ? `<div class="var-tpl-preview"><span>Preview:</span><span class="var-tpl-out">${esc((S?.expandVariables ? S.expandVariables(v.value || '', state.status, {}) : v.value) || '(empty)')}</span></div>`
+            : '';
+
         return `
-            <div class="var-row" data-n="${esc(v.name)}">
+            <div class="var-row" data-n="${esc(v.name)}" data-type="${esc(v.type)}">
                 <div class="var-head">
                     <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
                         <strong style="font-size:.9rem;">${esc(v.name)}</strong>
@@ -118,11 +122,12 @@ export function renderVars() {
                         ${v.setId ? `<span class="badge">set:${esc(v.setId)}</span>` : ''}
                         <code class="copyable" title="Click to copy" data-copy="{{var.${esc(v.name)}}}">{{var.${esc(v.name)}}}</code>
                     </div>
-                    <div style="display:flex; gap:.4rem; align-items:center; flex-wrap:wrap;">
-                        ${renderVarControls(v)}
-                        ${v.setId ? '' : '<button type="button" class="b sm danger" data-act="delete" title="Delete variable">Delete</button>'}
-                    </div>
+                    ${v.setId ? '' : '<button type="button" class="b sm danger" data-act="delete" title="Delete variable">Delete</button>'}
                 </div>
+                <div class="var-controls">
+                    ${renderVarControls(v)}
+                </div>
+                ${tplPreview}
                 ${listDetails}
             </div>
         `;
@@ -238,6 +243,11 @@ function bindEvents() {
         }
     };
 
+    $('var-type')?.addEventListener('change', e => {
+        const hint = $('var-type-hint');
+        if (hint) hint.hidden = e.target.value !== 'template';
+    });
+
     $('var-name').addEventListener('keydown', e => {
         if (e.key === 'Enter') $('var-add').click();
     });
@@ -298,6 +308,13 @@ function bindEvents() {
                 });
                 return;
             }
+            if (act === 'save-value') {
+                const input = row.querySelector('[data-act="value"]');
+                await api(url, 'PUT', { value: input?.value ?? '' });
+                toast(`Variable "${name}" saved`, 'success');
+                await loadAllVars();
+                return;
+            }
             if (act === 'clear-image') {
                 await api(url, 'PUT', { value: '' });
                 await loadAllVars();
@@ -324,6 +341,15 @@ function bindEvents() {
         }
     });
 
+    $('vars-list').addEventListener('input', event => {
+        const row = event.target.closest('[data-n][data-type="template"]');
+        if (!row || event.target.dataset.act !== 'value') return;
+        const out = row.querySelector('.var-tpl-out');
+        if (!out) return;
+        const resolved = S?.expandVariables ? S.expandVariables(event.target.value || '', state.status, {}) : event.target.value;
+        out.textContent = resolved || '(empty)';
+    });
+
     $('vars-list').addEventListener('change', async event => {
         const row = event.target.closest('[data-n]');
         if (!row) return;
@@ -332,6 +358,7 @@ function bindEvents() {
         if (act === 'value' || act === 'color-picker') {
             try {
                 await api(`/api/variables/${encodeURIComponent(name)}`, 'PUT', { value: event.target.value });
+                toast(`Variable "${name}" saved`, 'success');
                 await loadAllVars();
             } catch (e) {
                 toast(e.message, 'error');

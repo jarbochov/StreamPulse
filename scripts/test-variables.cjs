@@ -243,6 +243,30 @@ test('Variable Sets: multi-slot roster, assign, swap, cycle, clear, and delete',
         assert.equal(expRes.status, 200);
         assert.ok(expRes.text.includes('"Pixel, Inc."'));
         assert.ok(expRes.text.includes('Vertex Studio'));
+
+        // Enable / Disable roster entries & skip disabled on next / advance
+        const toggleRes = await callApi(store, 'GET', '/api/variables/sets/sponsor/entry/toggle?entry=nova&enabled=false');
+        assert.equal(toggleRes.status, 200);
+        assert.equal(toggleRes.json.roster.find(r => r.id === 'nova').enabled, false);
+        await callApi(store, 'POST', '/api/variables/sets/sponsor/assign?entry=acme', {});
+        await callApi(store, 'GET', '/api/variables/sets/sponsor/next');
+        assert.notEqual(getVar(store, 'sponsor_name').value, 'Nova Labs');
+
+        // Multi-slot advance skips disabled entries
+        store.upsertSet('lineup', {
+            name: 'Lineup',
+            slotsCount: 2,
+            fields: [{ key: 'name', label: 'Name', type: 'text' }],
+            roster: [
+                { id: 'a', label: 'A', enabled: true, values: { name: 'Alpha' } },
+                { id: 'b', label: 'B', enabled: false, values: { name: 'Bravo' } },
+                { id: 'c', label: 'C', enabled: true, values: { name: 'Charlie' } }
+            ],
+            slots: ['a', 'c']
+        });
+        await callApi(store, 'GET', '/api/variables/sets/lineup/advance');
+        assert.equal(getVar(store, 'lineup_1_name').value, 'Charlie');
+        assert.equal(getVar(store, 'lineup_2_name').value, 'Alpha');
     } finally {
         fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -250,10 +274,12 @@ test('Variable Sets: multi-slot roster, assign, swap, cycle, clear, and delete',
 
 test('OverlayShared: template variables and {{var.NAME|fallback}} expansion', () => {
     const status = {
+        stream: { game: { name: 'Elden Ring' } },
         customVars: [
             { name: 'speaker_1_name', type: 'text', value: 'Maya Patel' },
             { name: 'speaker_1_title', type: 'text', value: '' },
-            { name: 'speaker_1_line', type: 'template', value: '{{var.speaker_1_name}} — {{var.speaker_1_title|Guest}}' }
+            { name: 'speaker_1_line', type: 'template', value: '{{var.speaker_1_name}} — {{var.speaker_1_title|Guest}}' },
+            { name: 'stream_banner', type: 'template', value: 'Playing {{game.name}} with {{var.speaker_1_line}}' }
         ]
     };
     assert.equal(
@@ -263,6 +289,10 @@ test('OverlayShared: template variables and {{var.NAME|fallback}} expansion', ()
     assert.equal(
         OverlayShared.expandVariables('{{var.speaker_1_line}}', status, {}),
         'Maya Patel — Guest'
+    );
+    assert.equal(
+        OverlayShared.expandVariables('{{var.stream_banner}}', status, {}),
+        'Playing Elden Ring with Maya Patel — Guest'
     );
     assert.equal(
         OverlayShared.expandVariables('{{var.missing_var|Default Value}}', status, {}),

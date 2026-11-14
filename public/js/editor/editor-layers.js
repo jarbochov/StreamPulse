@@ -15,6 +15,7 @@ import { captureEditorStateSnapshot, previewEditorStateMorph } from './editor-ca
 
 let pgSortable = null;
 let alertRules = null;
+let variableSets = null;
 let liveState = null;
 const TRIGGER_NAMES = { alert: 'On alert', featured: 'Featured chat', command: 'Chat command', 'poll-end': 'Poll end', 'poll-active': 'Poll active' };
 const pageSectionOpen = (id, dflt) => (prefs.sections[`pg-${id}`] ?? dflt) ? ' open' : '';
@@ -221,9 +222,74 @@ function triggersSummaryHtml() {
     }).join('')}</div>`;
 }
 
+function loadVariableSets() {
+    if (variableSets) return;
+    variableSets = [];
+    fetch('/api/variables').then(r => r.json()).then(d => {
+        variableSets = Array.isArray(d.sets) ? d.sets : [];
+        renderPagesPanel();
+    }).catch(() => { variableSets = []; });
+}
+
+function renderVarSetRotationSection() {
+    const rots = Array.isArray(state.overlay.variableSetRotations) ? state.overlay.variableSetRotations : [];
+    const activeCount = rots.filter(r => r.enabled !== false && r.setId).length;
+    const sets = variableSets || [];
+    const pageItems = state.overlay.pages?.items || [];
+
+    const rowsHtml = rots.map((r, ri) => {
+        const hasMatch = sets.some(s => s.id === r.setId);
+        const setOptions = [
+            '<option value="">Select set...</option>',
+            ...sets.map(s => `<option value="${esc(s.id)}"${s.id === r.setId ? ' selected' : ''}>${esc(s.name || s.id)} (${(s.roster || []).filter(e => e.enabled !== false).length} on)</option>`),
+            ...(r.setId && !hasMatch ? [`<option value="${esc(r.setId)}" selected>${esc(r.setId)}</option>`] : [])
+        ].join('');
+        const trigger = r.trigger === 'page' ? 'page' : 'timer';
+        const mode = r.mode === 'random' ? 'random' : 'sequential';
+        const pageOpts = [
+            '<option value="">Any page</option>',
+            ...pageItems.map(p => `<option value="${esc(p.id)}"${p.id === r.pageId ? ' selected' : ''}>${esc(p.name || p.id)}</option>`)
+        ].join('');
+        return `
+            <div class="vrot-row" data-vrot-idx="${ri}">
+                <div class="vrot-head">
+                    <input type="checkbox" data-vrot-field="enabled" data-vrot-idx="${ri}" ${r.enabled !== false ? 'checked' : ''} title="Enable rotation">
+                    <select data-vrot-field="setId" data-vrot-idx="${ri}" aria-label="Variable set">${setOptions}</select>
+                    <button type="button" class="btn sm ghost danger" data-vrot-del="${ri}" title="Remove"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                </div>
+                <div class="vrot-grid">
+                    <label>When
+                        <select data-vrot-field="trigger" data-vrot-idx="${ri}">
+                            <option value="timer"${trigger === 'timer' ? ' selected' : ''}>Every N sec</option>
+                            <option value="page"${trigger === 'page' ? ' selected' : ''}>On page show</option>
+                        </select>
+                    </label>
+                    <label>Order
+                        <select data-vrot-field="mode" data-vrot-idx="${ri}">
+                            <option value="sequential"${mode === 'sequential' ? ' selected' : ''}>In order</option>
+                            <option value="random"${mode === 'random' ? ' selected' : ''}>Random</option>
+                        </select>
+                    </label>
+                    ${trigger === 'timer'
+                        ? `<label>Interval (sec)<input type="number" min="1" max="3600" step="1" data-vrot-field="intervalSeconds" data-vrot-idx="${ri}" value="${Number(r.intervalSeconds) || 10}"></label>`
+                        : (pagesOn() ? `<label>Page<select data-vrot-field="pageId" data-vrot-idx="${ri}">${pageOpts}</select></label>` : '')}
+                </div>
+            </div>`;
+    }).join('');
+
+    return `
+        <details class="sub-details" data-sect="pg-var-rotations"${pageSectionOpen('var-rotations', rots.length > 0)}>
+            <summary>Variable Set Rotation <span class="spacer"></span><span class="badge-pill${activeCount ? '' : ' is-muted'}">${activeCount ? `${activeCount} active` : 'Off'}</span></summary>
+            <span class="hint">Rotate Variable Sets locally in this overlay without affecting other OBS sources. Disabled roster entries are skipped.</span>
+            ${rowsHtml ? `<div class="vrot-list">${rowsHtml}</div>` : ''}
+            <button type="button" class="btn sm" id="btn-add-var-rot">+ Add rotating set</button>
+        </details>`;
+}
+
 export function renderPagesPanel() {
     const panel = $('pages-panel');
     if (!panel) return;
+    if ((state.overlay.variableSetRotations || []).length > 0 && !variableSets) loadVariableSets();
     const sceneStatesEnabled = state.obs?.sceneSyncEnabled !== false;
     if (!pagesOn()) {
         panel.innerHTML = `
@@ -242,7 +308,8 @@ export function renderPagesPanel() {
                         <span class="badge-beta">BETA</span>
                     </button>` : ''}
                 </div>
-            </div>`;
+            </div>
+            ${renderVarSetRotationSection()}`;
         return;
     }
     const items = state.overlay.pages.items;
@@ -346,6 +413,7 @@ export function renderPagesPanel() {
             <button type="button" data-pg-kind="${isStates ? 'pages' : 'states'}" id="pg-kind-toggle" aria-pressed="${isStates}">${isStates ? 'Turn off Scene States (use Pages)' : 'Switch to Scene States'}</button>
             ${isStates && state.obs?.enabled && state.obs?.sceneSyncEnabled !== false ? `<div class="state-override-bar${obsLinkedCount ? ' is-active' : ''}"><span class="state-ovr-text"><strong>OBS Sync:</strong> ${obsLinkedCount ? `${obsLinkedCount} linked source${obsLinkedCount === 1 ? '' : 's'}` : 'Link Shape/Cutout boxes'}</span><button type="button" id="btn-pages-obs-setup" class="link-btn">${state.obs?.connected ? 'Connected' : 'Configure…'}</button></div>` : ''}
         </details>` : ''}
+        ${renderVarSetRotationSection()}
         <details class="sub-details" data-sect="pg-triggers"${pageSectionOpen('triggers', false)}>
             <summary>Triggers summary</summary>
             ${triggersSummaryHtml()}
@@ -747,6 +815,22 @@ export function initLayersAndPages() {
                 }
                 return;
             }
+            if (t?.id === 'btn-add-var-rot') {
+                if (!variableSets) loadVariableSets();
+                if (!Array.isArray(state.overlay.variableSetRotations)) state.overlay.variableSetRotations = [];
+                const defaultSetId = variableSets?.[0]?.id || '';
+                state.overlay.variableSetRotations.push({ setId: defaultSetId, trigger: 'timer', mode: 'sequential', intervalSeconds: 10, pageId: '', enabled: true });
+                changed(true);
+                return renderPagesPanel();
+            }
+            if (t?.dataset.vrotDel !== undefined) {
+                const ri = Number(t.dataset.vrotDel);
+                if (Array.isArray(state.overlay.variableSetRotations) && Number.isInteger(ri)) {
+                    state.overlay.variableSetRotations.splice(ri, 1);
+                    changed(true);
+                    return renderPagesPanel();
+                }
+            }
             if (t?.id === 'page-add') {
                 const isStates = statesModeOn();
                 const id = pageSeq();
@@ -839,7 +923,26 @@ export function initLayersAndPages() {
             if (/^pages\.(mode|transition)$/.test(path) || /^pages\.items\.\d+\.(trigger|triggerAlertMode)$/.test(path)) renderPagesPanel();
         });
 
+        pagesPanel.addEventListener('toggle', event => {
+            const det = event.target.closest('details[data-sect="pg-var-rotations"]');
+            if (det && det.open && !variableSets) loadVariableSets();
+        }, true);
+
         pagesPanel.addEventListener('change', event => {
+            const vrotField = event.target.closest('[data-vrot-field]');
+            if (vrotField) {
+                const ri = Number(vrotField.dataset.vrotIdx);
+                const field = vrotField.dataset.vrotField;
+                const rule = state.overlay.variableSetRotations?.[ri];
+                if (rule) {
+                    if (field === 'enabled') rule.enabled = vrotField.checked;
+                    else if (field === 'intervalSeconds') rule.intervalSeconds = Math.max(1, Math.min(3600, Number(vrotField.value) || 10));
+                    else rule[field] = vrotField.value;
+                    changed(false);
+                    if (field === 'trigger' || field === 'enabled') renderPagesPanel();
+                }
+                return;
+            }
             const box = event.target.closest('[data-trule]');
             if (box) {
                 const page = state.overlay.pages.items.find(p => p.id === state.curPage);

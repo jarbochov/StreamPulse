@@ -1094,3 +1094,12 @@ body.is-scrubbing, body.is-scrubbing * {
 .pattern-add-slot-btn { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 600; padding: 6px 10px; border-style: dashed; color: var(--accent, #58a6ff); border-color: rgba(88, 166, 255, 0.4); background: rgba(88, 166, 255, 0.05); }
 .pattern-add-slot-btn:hover { background: rgba(88, 166, 255, 0.12); border-color: var(--accent, #58a6ff); }
 .pattern-dist-box { margin-top: 4px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+
+/* Variable Set local rotations */
+.vrot-list { display: grid; gap: 6px; }
+.vrot-row { border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; background: var(--field); display: grid; gap: 6px; }
+.vrot-head { display: flex; align-items: center; gap: 6px; }
+.vrot-head select { flex: 1; min-width: 0; font-size: 11.5px; padding: 3px 6px; height: 26px; }
+.vrot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-items: center; }
+.vrot-grid label { display: grid; gap: 2px; font-size: 10.5px; color: var(--muted); }
+.vrot-grid select, .vrot-grid input { font-size: 11.5px; padding: 3px 6px; height: 26px; width: 100%; box-sizing: border-box; }

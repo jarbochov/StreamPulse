@@ -1192,6 +1192,18 @@ function normalizeCustomOverlay(input = {}, idOverride = '', alertTriggers = {})
     const elements = (Array.isArray(input.elements)
         ? input.elements.slice(0, 100).map((el, idx) => normalizeOverlayElement(el, idx, alertTriggers))
         : []).map(element => ({ ...element, page: element.page === '*' || pageIds.has(element.page) ? element.page : pages.items[0].id }));
+    const variableSetRotations = Array.isArray(input.variableSetRotations)
+        ? input.variableSetRotations.slice(0, 20).map(r => {
+            const setId = String(r?.setId || '').toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/^_+|_+$/g, '').slice(0, 24);
+            if (!setId) return null;
+            const trigger = r?.trigger === 'page' ? 'page' : 'timer';
+            const mode = r?.mode === 'random' ? 'random' : 'sequential';
+            const intervalSeconds = Math.max(1, Math.min(3600, Number(r?.intervalSeconds) || 10));
+            const pageId = String(r?.pageId || '').trim().slice(0, 40);
+            const enabled = r?.enabled !== false;
+            return { setId, trigger, mode, intervalSeconds, pageId, enabled };
+        }).filter(Boolean)
+        : [];
     return {
         id,
         name: String(input.name || id).trim().slice(0, 120) || id,
@@ -1203,6 +1215,7 @@ function normalizeCustomOverlay(input = {}, idOverride = '', alertTriggers = {})
             background: String(input.canvas?.background || 'transparent').slice(0, 120)
         },
         pages,
+        variableSetRotations,
         elements
     };
 }

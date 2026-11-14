@@ -197,6 +197,101 @@
         randomTimers.set(element.id, timer);
     }
 
+    const localVarOverrides = new Map();
+    const varRotState = new Map();
+    let varRotTimers = [];
+
+    function clearVarRotTimers() {
+        for (const id of varRotTimers) clearInterval(id);
+        varRotTimers = [];
+    }
+
+    function applySetEntryOverride(setObj, entry) {
+        if (!setObj?.id) return;
+        localVarOverrides.set(`${setObj.id}_active`, entry ? 'true' : 'false');
+        for (const f of (setObj.fields || [])) {
+            const val = entry ? String(entry.values?.[f.key] ?? '') : '';
+            localVarOverrides.set(`${setObj.id}_${f.key}`, val);
+            if ((setObj.slotsCount || 0) > 0) {
+                localVarOverrides.set(`${setObj.id}_1_${f.key}`, val);
+            }
+        }
+    }
+
+    function stepVarRotation(rule, { advance = true } = {}) {
+        const sets = liveStatus.variableSets || [];
+        const setObj = sets.find(s => s.id === rule?.setId);
+        if (!setObj) return false;
+        const pool = (setObj.roster || []).filter(e => e.enabled !== false);
+        if (!pool.length) {
+            applySetEntryOverride(setObj, null);
+            varRotState.delete(setObj.id);
+            return true;
+        }
+        const prev = varRotState.get(setObj.id);
+        let nextIdx = prev ? pool.findIndex(e => e.id === prev.entryId) : -1;
+        if (!advance && nextIdx !== -1) {
+            applySetEntryOverride(setObj, pool[nextIdx]);
+            return true;
+        }
+        if (rule.mode === 'random') {
+            if (pool.length === 1) nextIdx = 0;
+            else {
+                let pick = Math.floor(Math.random() * pool.length);
+                if (pick === nextIdx) pick = (pick + 1) % pool.length;
+                nextIdx = pick;
+            }
+        } else {
+            nextIdx = nextIdx === -1 ? 0 : (nextIdx + 1) % pool.length;
+        }
+        const chosen = pool[nextIdx];
+        varRotState.set(setObj.id, { index: nextIdx, entryId: chosen.id });
+        applySetEntryOverride(setObj, chosen);
+        return true;
+    }
+
+    function setupVarRotations(overlay) {
+        clearVarRotTimers();
+        const rules = (overlay?.variableSetRotations || []).filter(r => r && r.enabled !== false && r.setId);
+        if (!rules.length) {
+            localVarOverrides.clear();
+            return;
+        }
+        for (const rule of rules) {
+            stepVarRotation(rule, { advance: false });
+            if (rule.trigger !== 'page') {
+                const ms = Math.max(1000, (Number(rule.intervalSeconds) || 10) * 1000);
+                const timer = setInterval(() => {
+                    if (document.hidden || currentOverlay !== overlay) return;
+                    if (stepVarRotation(rule, { advance: true })) render(currentOverlay);
+                }, ms);
+                varRotTimers.push(timer);
+            }
+        }
+    }
+
+    function triggerPageVarRotations(pageId) {
+        const rules = (currentOverlay?.variableSetRotations || []).filter(r => r && r.enabled !== false && r.setId && r.trigger === 'page');
+        let changed = false;
+        for (const rule of rules) {
+            if (!rule.pageId || rule.pageId === pageId) {
+                if (stepVarRotation(rule, { advance: true })) changed = true;
+            }
+        }
+        return changed;
+    }
+
+    function effectiveStatus() {
+        if (!localVarOverrides.size) return liveStatus;
+        const base = liveStatus.customVars || [];
+        const merged = new Map(base.map(v => [v.name, v]));
+        for (const [k, val] of localVarOverrides.entries()) {
+            const prev = merged.get(k);
+            merged.set(k, prev ? { ...prev, value: val } : { name: k, type: 'text', value: val });
+        }
+        return { ...liveStatus, customVars: [...merged.values()] };
+    }
+
     function variableContext() {
         return { overlayName: liveStatus.overlayName };
     }
@@ -209,7 +304,7 @@
     }
 
     function expandVariables(value) {
-        return shared.expandVariables(value, liveStatus, variableContext());
+        return shared.expandVariables(value, effectiveStatus(), variableContext());
     }
 
     function renderMarkdown(source, element) {
@@ -1003,6 +1098,7 @@
         }
 
         currentPage = nextId;
+        triggerPageVarRotations(nextId);
         const { masked, top } = ensureLayers();
         const activeCutouts = pageElements(currentOverlay).filter(el => el.type === 'cutout' && (cutoutStates.has(el.id) ? cutoutStates.get(el.id) : el.visible !== false));
         const maxCutoutZ = activeCutouts.length ? Math.max(...activeCutouts.map(c => Number(c.zIndex) || 0)) : -Infinity;
@@ -1330,6 +1426,16 @@
                 const statusResponse = await fetch('/api/status', { cache: 'no-store' });
                 if (statusResponse.ok) liveStatus = { ...liveStatus, ...(await statusResponse.json()) };
             } catch {}
+            if (overlay.variableSetRotations?.length) {
+                try {
+                    const varsRes = await fetch('/api/variables', { cache: 'no-store' });
+                    if (varsRes.ok) {
+                        const varsData = await varsRes.json();
+                        liveStatus = { ...liveStatus, customVars: varsData.variables || liveStatus.customVars, variableSets: varsData.sets || [] };
+                    }
+                } catch {}
+                setupVarRotations(overlay);
+            }
             await shared.loadLiveExtras(liveStatus, overlay.elements);
             await shared.refreshTextSources(overlay.elements);
             if (pagesOn(overlay) && !pageParam) {
@@ -1355,11 +1461,11 @@
         try {
             const response = await fetch('/api/status', { cache: 'no-store' });
             if (!response.ok) return;
-            const before = shared.variableSnapshot(liveStatus, variableContext());
+            const before = shared.variableSnapshot(effectiveStatus(), variableContext());
             liveStatus = { ...liveStatus, ...(await response.json()) };
             await shared.loadLiveExtras(liveStatus, currentOverlay?.elements);
             // Re-rendering restarts typewriters, videos and embeds, so only do it when a placeholder value changed.
-            if (currentOverlay && shared.variableSnapshot(liveStatus, variableContext()) !== before) render(currentOverlay);
+            if (currentOverlay && shared.variableSnapshot(effectiveStatus(), variableContext()) !== before) render(currentOverlay);
         } catch {}
     }
 
@@ -1577,17 +1683,30 @@
                     if (currentOverlay && shared.variableSnapshot(liveStatus, variableContext()) !== before) render(currentOverlay);
                 }
                 else if (message.type === 'variables-update' && message.data) {
-                    const before = shared.variableSnapshot(liveStatus, variableContext());
-                    liveStatus = { ...liveStatus, customVars: message.data.variables || [] };
-                    if (currentOverlay && shared.variableSnapshot(liveStatus, variableContext()) !== before) render(currentOverlay);
+                    const before = shared.variableSnapshot(effectiveStatus(), variableContext());
+                    liveStatus = {
+                        ...liveStatus,
+                        customVars: message.data.variables || [],
+                        variableSets: Array.isArray(message.data.sets) ? message.data.sets : liveStatus.variableSets
+                    };
+                    if (currentOverlay?.variableSetRotations?.length) setupVarRotations(currentOverlay);
+                    if (currentOverlay && shared.variableSnapshot(effectiveStatus(), variableContext()) !== before) render(currentOverlay);
                 }
                 else if (message.type === 'custom-overlay-update' && message.data?.id === overlayId) {
                     if (message.data.overlay) {
                         if (pagesOn(message.data.overlay) && pageParam) currentPage = resolvePage(message.data.overlay, pageParam) || currentPage;
                         liveStatus.overlayName = message.data.overlay.name;
+                        if (message.data.overlay.variableSetRotations?.length && !liveStatus.variableSets) {
+                            fetch('/api/variables', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => {
+                                if (d) liveStatus = { ...liveStatus, variableSets: d.sets || [] };
+                                setupVarRotations(message.data.overlay);
+                            }).catch(() => null);
+                        } else {
+                            setupVarRotations(message.data.overlay);
+                        }
                         shared.refreshTextSources(message.data.overlay.elements).finally(() => render(message.data.overlay));
                     }
-                    else { stopAlerts(); root.replaceChildren(); }
+                    else { clearVarRotTimers(); stopAlerts(); root.replaceChildren(); }
                 }
             } catch {}
         });

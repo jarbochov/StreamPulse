@@ -55,7 +55,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             if (v?.type === 'template') {
                 out[name] = String(v.value ?? '').replace(/\{\{\s*var\.([a-z0-9_]+)\s*(?:\|([^{}]*?))?\s*\}\}/gi, (_m, ref, fallback) => {
                     const resolved = out[normName(ref)];
-                    return (resolved !== undefined && resolved !== null && String(resolved) !== '') ? String(resolved) : (fallback ?? '');
+                    return (resolved !== undefined && resolved !== null && String(resolved) !== '') ? String(resolved) : (fallback !== undefined ? fallback.trim() : '');
                 });
             }
         }
@@ -194,7 +194,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                 else valuesMap[f.key] = String(rawVal).slice(0, 500);
             }
             const label = String(r.label || valuesMap[fields[0].key] || entryId).trim().slice(0, 60) || entryId;
-            roster.push({ id: entryId, label, values: valuesMap });
+            const enabled = r.enabled !== false && r.enabled !== 'false' && r.enabled !== 0 && r.enabled !== '0';
+            roster.push({ id: entryId, label, enabled, values: valuesMap });
         }
 
         const prevSlots = Array.isArray(patch?.slots) ? patch.slots : (cur?.slots || []);
@@ -353,35 +354,41 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         const cleanId = normSetId(setId);
         const setObj = sets[cleanId];
         if (!setObj) throw new Error('Set not found');
-        if (!setObj.roster.length) return setObj;
+        const pool = setObj.roster.filter(r => r.enabled !== false);
+        if (!pool.length) return setObj;
 
         if (setObj.slotsCount === 0) {
-            const curPos = setObj.roster.findIndex(r => r.id === setObj.activeEntry);
+            const curPos = pool.findIndex(r => r.id === setObj.activeEntry);
             const nextPos = curPos === -1
-                ? (direction > 0 ? 0 : setObj.roster.length - 1)
-                : (curPos + direction + setObj.roster.length) % setObj.roster.length;
-            setObj.activeEntry = setObj.roster[nextPos].id;
+                ? (direction > 0 ? 0 : pool.length - 1)
+                : (curPos + direction + pool.length) % pool.length;
+            setObj.activeEntry = pool[nextPos].id;
         } else {
             const idx = parseSlotIndex(setObj, slotParam);
             if (!Array.isArray(setObj.slotQueues)) setObj.slotQueues = Array.from({ length: setObj.slotsCount }, () => []);
             const queue = setObj.slotQueues[idx];
-            if (direction > 0 && Array.isArray(queue) && queue.length > 0) {
-                setObj.slots[idx] = queue.shift();
+            let chosenFromQueue = '';
+            while (direction > 0 && Array.isArray(queue) && queue.length > 0) {
+                const candId = queue.shift();
+                if (pool.some(r => r.id === candId)) { chosenFromQueue = candId; break; }
+            }
+            if (chosenFromQueue) {
+                setObj.slots[idx] = chosenFromQueue;
             } else {
                 const occupied = new Set(setObj.slots.filter((id, i) => id && i !== idx));
-                const curPos = setObj.roster.findIndex(r => r.id === setObj.slots[idx]);
-                const len = setObj.roster.length;
+                const curPos = pool.findIndex(r => r.id === setObj.slots[idx]);
+                const len = pool.length;
                 let chosen = '';
                 for (let step = 1; step <= len; step++) {
                     const pos = curPos === -1
                         ? (direction > 0 ? (step - 1) % len : (len - step) % len)
                         : (curPos + direction * step + len * step) % len;
-                    const candidate = setObj.roster[pos].id;
+                    const candidate = pool[pos].id;
                     if (!occupied.has(candidate)) { chosen = candidate; break; }
                 }
                 if (!chosen) {
                     const fallbackPos = curPos === -1 ? (direction > 0 ? 0 : len - 1) : (curPos + direction + len) % len;
-                    chosen = setObj.roster[fallbackPos].id;
+                    chosen = pool[fallbackPos].id;
                 }
                 setObj.slots[idx] = chosen;
             }
@@ -393,30 +400,44 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         return setObj;
     }
 
-
+    function toggleSetEntry(setId, entryId, enabledParam) {
+        const cleanId = normSetId(setId);
+        const setObj = sets[cleanId];
+        if (!setObj) throw new Error('Set not found');
+        const cleanEntry = normSetId(entryId);
+        const entry = setObj.roster.find(r => r.id === cleanEntry || r.id === entryId);
+        if (!entry) throw new Error('Entry not found');
+        entry.enabled = (enabledParam !== undefined && enabledParam !== '')
+            ? normalizeBool(enabledParam) === 'true'
+            : (entry.enabled === false);
+        setObj.updatedAt = Date.now();
+        saveSets({ saveVarsAlso: false });
+        return setObj;
+    }
 
     function advanceSetQueue(setId, direction = 1, mode = 'shift') {
         const cleanId = normSetId(setId);
         const setObj = sets[cleanId];
         if (!setObj) throw new Error('Set not found');
-        if (!setObj.roster.length || setObj.slotsCount <= 1) {
+        const pool = setObj.roster.filter(r => r.enabled !== false);
+        if (!pool.length || setObj.slotsCount <= 1) {
             return cycleSetSlot(setId, 1, direction);
         }
-        const len = setObj.roster.length;
+        const len = pool.length;
         const n = setObj.slotsCount;
         if (mode === 'page') {
-            const firstPos = setObj.roster.findIndex(r => r.id === setObj.slots[0]);
+            const firstPos = pool.findIndex(r => r.id === setObj.slots[0]);
             const start = firstPos === -1 ? 0 : (firstPos + direction * n + len * n) % len;
-            setObj.slots = Array.from({ length: n }, (_, i) => (i < len ? setObj.roster[(start + i) % len].id : ''));
+            setObj.slots = Array.from({ length: n }, (_, i) => (i < len ? pool[(start + i) % len].id : ''));
         } else if (direction > 0) {
             const nextSlots = setObj.slots.slice(1);
             const occupied = new Set(nextSlots.filter(Boolean));
             const anchorId = setObj.slots[n - 1] || nextSlots[nextSlots.length - 1] || '';
-            const anchorPos = setObj.roster.findIndex(r => r.id === anchorId);
+            const anchorPos = pool.findIndex(r => r.id === anchorId);
             let incoming = '';
             for (let step = 1; step <= len; step++) {
                 const pos = anchorPos === -1 ? (step - 1) % len : (anchorPos + step) % len;
-                const cand = setObj.roster[pos].id;
+                const cand = pool[pos].id;
                 if (!occupied.has(cand)) { incoming = cand; break; }
             }
             nextSlots.push(incoming);
@@ -425,11 +446,11 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             const nextSlots = setObj.slots.slice(0, n - 1);
             const occupied = new Set(nextSlots.filter(Boolean));
             const anchorId = setObj.slots[0] || nextSlots[0] || '';
-            const anchorPos = setObj.roster.findIndex(r => r.id === anchorId);
+            const anchorPos = pool.findIndex(r => r.id === anchorId);
             let incoming = '';
             for (let step = 1; step <= len; step++) {
                 const pos = anchorPos === -1 ? (len - step) % len : (anchorPos - step + len * step) % len;
-                const cand = setObj.roster[pos].id;
+                const cand = pool[pos].id;
                 if (!occupied.has(cand)) { incoming = cand; break; }
             }
             setObj.slots = [incoming, ...nextSlots];
@@ -664,8 +685,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                 return json(200, { sets: listSets() }), true;
             }
 
-            // Variable Sets & Slots: /api/variables/sets/:setId[/assign|clear|next|prev|swap|advance|rewind|export|import|queue/*]
-            const setMatch = pathname.match(/^\/api\/variables\/sets\/([^/]+)(?:\/(assign|clear|next|prev|swap|advance|rewind|export|import|queue\/add|queue\/remove|queue\/clear))?$/);
+            // Variable Sets & Slots: /api/variables/sets/:setId[/assign|clear|next|prev|swap|advance|rewind|export|import|entry/toggle|queue/*]
+            const setMatch = pathname.match(/^\/api\/variables\/sets\/([^/]+)(?:\/(assign|clear|next|prev|swap|advance|rewind|export|import|entry\/toggle|queue\/add|queue\/remove|queue\/clear))?$/);
             if (setMatch) {
                 const setId = decodeURIComponent(setMatch[1]);
                 const action = setMatch[2];
@@ -702,6 +723,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                     if (action === 'swap') return json(200, swapSetSlots(setId, query.from ?? body.from ?? 1, query.to ?? body.to ?? 2)), true;
                     if (action === 'advance') return json(200, advanceSetQueue(setId, 1, query.mode ?? body.mode ?? 'shift')), true;
                     if (action === 'rewind') return json(200, advanceSetQueue(setId, -1, query.mode ?? body.mode ?? 'shift')), true;
+                    if (action === 'entry/toggle') return json(200, toggleSetEntry(setId, query.entry ?? body.entry ?? '', query.enabled ?? body.enabled)), true;
                     if (action === 'queue/add') return json(200, enqueueSetSlot(setId, slot, query.entry ?? body.entry ?? '')), true;
                     if (action === 'queue/remove') return json(200, removeSetSlotQueue(setId, slot, query.index ?? body.index ?? query.entry ?? body.entry ?? 0)), true;
                     if (action === 'queue/clear') return json(200, clearSetSlotQueue(setId, slot)), true;
@@ -746,6 +768,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         assignSetSlot,
         clearSetSlot,
         cycleSetSlot,
+        toggleSetEntry,
         swapSetSlots,
         advanceSetQueue,
         enqueueSetSlot,

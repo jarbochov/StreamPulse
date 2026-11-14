@@ -4666,10 +4666,20 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
     return entries;
   }
-  function expandVariables(value, status, context = {}, keepEmpty = false) {
+  function expandVariables(value, status, context = {}, keepEmpty = false, _depth = 0) {
     const now = Date.now();
     const table = variableTable(status, context, now);
+    const tplMap = new Map((status.customVars || []).filter((v) => v.type === "template").map((v) => [`var.${v.name}`, v.value]));
     return String(value ?? "").replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (match, name, format) => {
+      if (name.startsWith("var.") && tplMap.has(name) && _depth < 3) {
+        const expanded = expandVariables(tplMap.get(name) ?? "", status, context, keepEmpty, _depth + 1);
+        if (expanded !== "") return expanded;
+        if (format !== void 0) {
+          const fb = format.trim();
+          return fb === "" && keepEmpty ? match : fb;
+        }
+        return keepEmpty ? match : "";
+      }
       if (name.startsWith("var.") && format !== void 0 && !isListKey(name)) {
         const raw = table[name];
         const str = raw === void 0 || raw === null ? "" : String(raw);

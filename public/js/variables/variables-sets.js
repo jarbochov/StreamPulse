@@ -14,6 +14,18 @@ const SVG_GRIP = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" st
 let dragPayload = null;
 let reloadHandler = async () => {};
 let rosterFilter = '';
+let targetSlotBySet = {};
+try { targetSlotBySet = JSON.parse(localStorage.getItem('variables_target_slots') || '{}') || {}; } catch { targetSlotBySet = {}; }
+
+function getTargetSlot(setObj) {
+    const count = Math.max(1, setObj?.slotsCount || 1);
+    return Math.max(1, Math.min(count, Number(targetSlotBySet[setObj?.id]) || 1));
+}
+
+function setTargetSlot(setId, slotNum) {
+    targetSlotBySet[setId] = Number(slotNum) || 1;
+    try { localStorage.setItem('variables_target_slots', JSON.stringify(targetSlotBySet)); } catch { /* ignore */ }
+}
 
 function getEntryThumb(setObj, entry) {
     const imgField = (setObj.fields || []).find(f => f.type === 'image');
@@ -56,12 +68,15 @@ function renderSlotCard(setObj, slotNum, entry) {
         return `<span class="queue-chip" title="${esc(qEntry.label)}"><span>${esc(qEntry.label)}</span><button type="button" data-set-act="q-remove" data-slot="${slotNum}" data-q-idx="${qIdx}" aria-label="Remove from queue">&times;</button></span>`;
     }).filter(Boolean).join('');
 
+    const isTargeted = (setObj.slotsCount || 0) > 1 && getTargetSlot(setObj) === slotNum;
+
     return `
-        <div class="slot-card ${entry ? 'filled' : 'empty'}"
+        <div class="slot-card ${entry ? 'filled' : 'empty'} ${isTargeted ? 'is-targeted' : ''}"
              data-set="${esc(setObj.id)}"
              data-slot="${slotNum}"
              ${entry ? 'draggable="true"' : ''}>
             <div class="slot-head">
+                ${(setObj.slotsCount || 0) > 1 ? `<button type="button" class="slot-target-btn ${isTargeted ? 'active' : ''}" data-set-act="target-slot" data-slot="${slotNum}" title="Click to target this slot for Assign / +Queue">${isTargeted ? 'Target' : `S${slotNum}`}</button>` : ''}
                 <input type="text"
                        class="slot-name-input"
                        data-slot-name="${slotNum}"
@@ -86,12 +101,12 @@ function renderSlotCard(setObj, slotNum, entry) {
             ` : `
                 <div class="slot-empty-hint">Drop an entry here or click Next</div>
             `}
-            <div class="slot-queue" data-set="${esc(setObj.id)}" data-slot-queue="${slotNum}">
+            <div class="slot-queue ${queueIds.length ? '' : 'is-empty'}" data-set="${esc(setObj.id)}" data-slot-queue="${slotNum}">
                 <div class="slot-queue-head">
                     <span>Queue (${queueIds.length})</span>
-                    ${queueIds.length ? `<button type="button" class="b sm" style="padding:.08rem .35rem; font-size:.7rem;" data-set-act="q-clear" data-slot="${slotNum}">Clear</button>` : ''}
+                    ${queueIds.length ? `<button type="button" class="b sm" style="padding:.08rem .35rem; font-size:.7rem;" data-set-act="q-clear" data-slot="${slotNum}">Clear</button>` : `<span class="muted">Drop to queue</span>`}
                 </div>
-                ${queueIds.length ? `<div class="slot-queue-chips">${queueChips}</div>` : `<div class="muted" style="font-size:.72rem;">Drop entry here to queue for ${esc(displayName)}</div>`}
+                ${queueIds.length ? `<div class="slot-queue-chips">${queueChips}</div>` : ''}
             </div>
             ${aliasNote}
             <details class="slot-tokens">
@@ -140,59 +155,47 @@ function renderActivePresetBar(setObj, entry) {
 
 function renderRosterItem(setObj, entry) {
     const slotsCount = setObj.slotsCount || 0;
+    const isEnabled = entry.enabled !== false;
+    const slotLabel = idx => (setObj.slotNames?.[idx] || '').trim() || `Slot ${idx + 1}`;
+    const liveSlotLabels = slotsCount > 0
+        ? (setObj.slots || []).map((id, idx) => (id === entry.id ? slotLabel(idx) : '')).filter(Boolean)
+        : [];
     const isLive = slotsCount === 0
         ? setObj.activeEntry === entry.id
-        : (setObj.slots || []).includes(entry.id);
+        : liveSlotLabels.length > 0;
 
     let assignControl = '';
     if (slotsCount === 0) {
         assignControl = `<button type="button" class="b sm ${isLive ? 'primary' : ''}" data-set-act="assign" data-slot="1" data-entry="${esc(entry.id)}">${isLive ? 'Live' : 'Activate'}</button>`;
-    } else if (slotsCount <= 4) {
-        const sBtns = Array.from({ length: slotsCount }, (_, idx) => {
-            const s = idx + 1;
-            const isOn = setObj.slots?.[idx] === entry.id;
-            return `<button type="button" class="b sm ${isOn ? 'primary' : ''}" data-set-act="assign" data-slot="${s}" data-entry="${esc(entry.id)}" title="Assign to Slot ${s}">S${s}</button>`;
-        }).join('');
-        const qBtns = slotsCount <= 2
-            ? Array.from({ length: slotsCount }, (_, idx) => {
-                const s = idx + 1;
-                return `<button type="button" class="b sm" data-set-act="q-add" data-slot="${s}" data-entry="${esc(entry.id)}" title="Add to Slot ${s} Queue">+Q${slotsCount === 1 ? '' : s}</button>`;
-            }).join('')
-            : `<select class="b sm" data-set-queue-select="${esc(entry.id)}" aria-label="Add to slot queue"><option value="">+Queue...</option>${Array.from({ length: slotsCount }, (_, idx) => `<option value="${idx + 1}">Slot ${idx + 1}</option>`).join('')}</select>`;
-        assignControl = sBtns + qBtns;
     } else {
-        const options = Array.from({ length: slotsCount }, (_, idx) => {
-            const s = idx + 1;
-            const isOn = setObj.slots?.[idx] === entry.id;
-            return `<option value="${s}">${isOn ? `Slot ${s} (Live)` : `Slot ${s}`}</option>`;
-        }).join('');
+        const tSlot = getTargetSlot(setObj);
+        const tLabel = (setObj.slotNames?.[tSlot - 1] || '').trim() || (slotsCount === 1 ? 'Slot 1' : `S${tSlot}`);
+        const isLiveInTarget = setObj.slots?.[tSlot - 1] === entry.id;
         assignControl = `
-            <select class="b sm" data-set-assign-select="${esc(entry.id)}" aria-label="Assign to slot">
-                <option value="">Assign slot...</option>
-                ${options}
-            </select>
-            <select class="b sm" data-set-queue-select="${esc(entry.id)}" aria-label="Add to slot queue">
-                <option value="">+Queue...</option>
-                ${Array.from({ length: slotsCount }, (_, idx) => `<option value="${idx + 1}">Slot ${idx + 1}</option>`).join('')}
-            </select>
+            <button type="button" class="b sm ${isLiveInTarget ? 'primary' : ''}" data-set-act="assign" data-slot="${tSlot}" data-entry="${esc(entry.id)}" title="Assign to ${esc(tLabel)}">${isLiveInTarget ? `Live (${esc(tLabel)})` : `Assign → ${esc(tLabel)}`}</button>
+            <button type="button" class="b sm" data-set-act="q-add" data-slot="${tSlot}" data-entry="${esc(entry.id)}" title="Add to ${esc(tLabel)} Queue">+Queue → ${esc(tLabel)}</button>
         `;
     }
 
     const summary = getEntrySummary(setObj, entry);
+    const liveBadge = liveSlotLabels.length
+        ? `<span class="live-slot-pill">${esc(liveSlotLabels.join(', '))}</span>`
+        : '';
 
     return `
-        <div class="roster-item ${isLive ? 'is-live' : ''}"
+        <div class="roster-item ${isLive ? 'is-live' : ''} ${!isEnabled ? 'is-disabled' : ''}"
              ${slotsCount > 0 ? 'draggable="true"' : ''}
              data-set="${esc(setObj.id)}"
              data-entry="${esc(entry.id)}">
             ${slotsCount > 0 ? `<span class="roster-grip" title="Drag onto a slot">${SVG_GRIP}</span>` : ''}
             ${getEntryThumb(setObj, entry)}
             <div class="roster-meta">
-                <div class="roster-name">${esc(entry.label)}</div>
+                <div class="roster-name">${esc(entry.label)}${liveBadge}</div>
                 <div class="roster-sub">${esc(summary || entry.id)}</div>
             </div>
             <div class="roster-controls">
                 ${assignControl}
+                <button type="button" class="b sm ${isEnabled ? '' : 'primary'}" data-set-act="toggle-entry" data-entry="${esc(entry.id)}" title="${isEnabled ? 'Disable in rotation' : 'Enable in rotation'}">${isEnabled ? 'On' : 'Off'}</button>
                 <button type="button" class="b sm" data-set-act="edit-entry" data-entry="${esc(entry.id)}" title="Edit entry">${SVG_EDIT}</button>
                 <button type="button" class="b sm danger" data-set-act="delete-entry" data-entry="${esc(entry.id)}" title="Remove entry">${SVG_TRASH}</button>
             </div>
@@ -446,13 +449,21 @@ export function openSetModal(existing = null) {
 
 function openEntryModal(setObj, existingEntry = null) {
     const isEdit = Boolean(existingEntry);
+    const fields = setObj.fields || [];
     const values = { ...(existingEntry?.values || {}) };
-    const fieldsHtml = (setObj.fields || []).map(f => {
+    const isEnabled = existingEntry ? existingEntry.enabled !== false : true;
+    const useTwoCol = fields.length > 3;
+
+    const fieldsHtml = fields.map(f => {
         const val = values[f.key] ?? (f.type === 'color' ? '#3b82f6' : f.type === 'toggle' ? 'false' : '');
+        const head = `<span class="vp-label-head"><span>${esc(f.label)}</span><code>${esc(f.key)}</code></span>`;
+        const spanCls = useTwoCol && f.type === 'image' ? 'vp-span-2' : '';
         if (f.type === 'image') {
             return `
-                <label>${esc(f.label)} <span class="muted">(${esc(f.key)})</span>
+                <label class="${spanCls}" data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
+                    ${head}
                     <div class="vp-img-row">
+                        ${val ? `<img src="${esc(val)}" alt="" class="var-img-thumb" data-entry-thumb="${esc(f.key)}">` : ''}
                         <input type="text" data-entry-field="${esc(f.key)}" value="${esc(val)}" placeholder="https://... or /assets/...">
                         <button type="button" class="b sm" data-entry-pick="${esc(f.key)}">Asset Library</button>
                     </div>
@@ -461,9 +472,10 @@ function openEntryModal(setObj, existingEntry = null) {
         }
         if (f.type === 'color') {
             return `
-                <label>${esc(f.label)} <span class="muted">(${esc(f.key)})</span>
+                <label data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
+                    ${head}
                     <div class="vp-img-row">
-                        <input type="color" data-entry-color="${esc(f.key)}" value="${esc(/^#[0-9a-f]{6}/i.test(val) ? val.slice(0, 7) : '#3b82f6')}">
+                        <input type="color" data-entry-color="${esc(f.key)}" value="${esc(/^#[0-9a-f]{6}/i.test(val) ? val.slice(0, 7) : '#3b82f6')}" style="width:2.5rem; flex-shrink:0; padding:0; height:2rem;">
                         <input type="text" data-entry-field="${esc(f.key)}" value="${esc(val)}" placeholder="#3b82f6">
                     </div>
                 </label>
@@ -471,14 +483,15 @@ function openEntryModal(setObj, existingEntry = null) {
         }
         if (f.type === 'toggle') {
             return `
-                <label class="vp-check">
+                <label class="vp-check" data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}" style="align-self:end; padding:.35rem 0;">
                     <input type="checkbox" data-entry-toggle="${esc(f.key)}" ${val === 'true' ? 'checked' : ''}>
-                    <span>${esc(f.label)} (${esc(f.key)})</span>
+                    <span>${esc(f.label)} <code style="font-size:.72rem; color:var(--text-muted);">(${esc(f.key)})</code></span>
                 </label>
             `;
         }
         return `
-            <label>${esc(f.label)} <span class="muted">(${esc(f.key)})</span>
+            <label data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
+                ${head}
                 <input type="text" data-entry-field="${esc(f.key)}" value="${esc(val)}" placeholder="${esc(f.label)}">
             </label>
         `;
@@ -486,12 +499,30 @@ function openEntryModal(setObj, existingEntry = null) {
 
     showModal(isEdit ? `Edit Entry: ${existingEntry.label}` : `Add Entry to ${setObj.name}`, `
         <form id="vp-entry-form" class="vp-form">
-            ${fieldsHtml}
+            <div class="vp-entry-bar">
+                <label class="vp-check" style="margin:0;">
+                    <input type="checkbox" id="vp-entry-enabled" ${isEnabled ? 'checked' : ''}>
+                    <span>Enabled in rotation</span>
+                </label>
+                ${fields.length > 6 ? '<input type="search" id="vp-entry-filter" placeholder="Filter fields..." style="width:12rem;">' : ''}
+            </div>
+            <div class="vp-entry-grid ${useTwoCol ? '' : 'single-col'}">
+                ${fieldsHtml}
+            </div>
         </form>
     `, `
         <button type="button" class="b" data-vp-close>Cancel</button>
         <button type="submit" form="vp-entry-form" class="b primary">${isEdit ? 'Save Entry' : 'Add Entry'}</button>
     `, (modal, close) => {
+        const filterInput = modal.querySelector('#vp-entry-filter');
+        if (filterInput) {
+            filterInput.addEventListener('input', () => {
+                const q = filterInput.value.trim().toLowerCase();
+                modal.querySelectorAll('[data-entry-wrap]').forEach(el => {
+                    el.hidden = !!q && !el.dataset.entryWrap.includes(q);
+                });
+            });
+        }
         modal.querySelectorAll('[data-entry-pick]').forEach(btn => {
             btn.onclick = () => {
                 const key = btn.dataset.entryPick;
@@ -508,21 +539,22 @@ function openEntryModal(setObj, existingEntry = null) {
         modal.querySelector('#vp-entry-form').onsubmit = async e => {
             e.preventDefault();
             const nextValues = {};
-            for (const f of setObj.fields || []) {
+            for (const f of fields) {
                 if (f.type === 'toggle') {
                     nextValues[f.key] = modal.querySelector(`[data-entry-toggle="${CSS.escape(f.key)}"]`).checked ? 'true' : 'false';
                 } else {
                     nextValues[f.key] = modal.querySelector(`[data-entry-field="${CSS.escape(f.key)}"]`).value;
                 }
             }
-            const firstKey = setObj.fields?.[0]?.key || 'name';
+            const nextEnabled = modal.querySelector('#vp-entry-enabled')?.checked !== false;
+            const firstKey = fields[0]?.key || 'name';
             const label = String(nextValues[firstKey] || existingEntry?.label || `Entry ${(setObj.roster?.length || 0) + 1}`).trim();
             const roster = [...(setObj.roster || [])];
             if (isEdit) {
                 const idx = roster.findIndex(r => r.id === existingEntry.id);
-                if (idx >= 0) roster[idx] = { ...roster[idx], label, values: nextValues };
+                if (idx >= 0) roster[idx] = { ...roster[idx], label, enabled: nextEnabled, values: nextValues };
             } else {
-                roster.push({ id: slugId(label) || `entry_${Date.now()}`, label, values: nextValues });
+                roster.push({ id: slugId(label) || `entry_${Date.now()}`, label, enabled: nextEnabled, values: nextValues });
             }
             try {
                 await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}`, 'PUT', { roster });
@@ -625,13 +657,25 @@ export function bindSetEvents(onReload) {
 
         const btn = e.target.closest('[data-set-act]');
         const card = e.target.closest('[data-set-card]');
-        if (!btn || !card) return;
+        if (!card) return;
         const setObj = (state.variableSets || []).find(s => s.id === card.dataset.setCard);
         if (!setObj) return;
+        if (!btn) {
+            const slotCard = e.target.closest('.slot-card[data-slot]');
+            if (slotCard && (setObj.slotsCount || 0) > 1 && !e.target.closest('input, button, code, summary, .slot-tokens')) {
+                setTargetSlot(setObj.id, slotCard.dataset.slot);
+                renderSets();
+            }
+            return;
+        }
         const act = btn.dataset.setAct;
         const base = `/api/variables/sets/${encodeURIComponent(setObj.id)}`;
 
         try {
+            if (act === 'target-slot') {
+                setTargetSlot(setObj.id, btn.dataset.slot);
+                return renderSets();
+            }
             if (act === 'edit-set') return openSetModal(setObj);
             if (act === 'inc-slot') {
                 await api(base, 'PUT', { slotsCount: Math.min(24, (setObj.slotsCount || 0) + 1) });
@@ -646,6 +690,10 @@ export function bindSetEvents(onReload) {
                 const entry = (setObj.roster || []).find(r => r.id === btn.dataset.entry);
                 if (entry) openEntryModal(setObj, entry);
                 return;
+            }
+            if (act === 'toggle-entry') {
+                await api(`${base}/entry/toggle?entry=${encodeURIComponent(btn.dataset.entry)}`, 'POST', {});
+                return await reloadHandler();
             }
             if (act === 'delete-entry') {
                 const roster = (setObj.roster || []).filter(r => r.id !== btn.dataset.entry);
