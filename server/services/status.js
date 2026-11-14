@@ -207,6 +207,9 @@ function createStatusService({
                 versus: config.versus_enabled !== false,
                 trivia: config.trivia_enabled === true,
                 subathon: config.subathon_enabled === true,
+                variableSets: typeof config.variable_sets_enabled === 'boolean'
+                    ? config.variable_sets_enabled
+                    : Boolean(variablesStore?.isModuleEnabled?.() ?? (variablesStore?.listSets?.().length > 0)),
                 obs: Boolean(config.obs?.enabled)
             },
             obs: obsService ? obsService.getStatus() : { connected: false },

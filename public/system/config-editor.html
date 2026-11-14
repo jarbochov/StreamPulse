@@ -76,6 +76,7 @@
         .dirty-pill.show { display: inline-block; }
 
         .beta-tag { font-size: .65rem; padding: .08rem .45rem; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); letter-spacing: .05em; font-weight: 600; vertical-align: middle; margin-left: 0.35rem; display: inline-block; line-height: 1.2; }
+        .advanced-tag { font-size: .65rem; padding: .08rem .45rem; border-radius: 999px; border: 1px solid rgba(168,85,247,0.45); color: #c084fc; background: rgba(168,85,247,0.12); letter-spacing: .05em; font-weight: 600; vertical-align: middle; margin-left: 0.35rem; display: inline-block; line-height: 1.2; }
 
         .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--accent-strong); color: white; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
         .toast.show { opacity: 1; }
@@ -506,6 +507,26 @@
                             <a class="btn sm" href="/clips.html" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.25rem;">Open Clip Settings <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
                         </div>
                     </div>
+
+                    <!-- Variable Sets (Advanced) Card -->
+                    <div class="module-card" data-module="variable-sets">
+                        <div class="module-card-head">
+                            <div class="module-card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="8" ry="3"></ellipse><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"></path><path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3"></path></svg>
+                                <span>Variable Sets</span>
+                                <span class="advanced-tag">ADVANCED</span>
+                            </div>
+                            <span class="module-badge" id="badge-variable-sets">Disabled</span>
+                        </div>
+                        <p class="hint">Structured multi-entry rosters, timed live set rotations, multi-slot output channels, and dynamic group strips for custom overlays.</p>
+                        <div class="cfg-toggle" style="margin-top:auto;">
+                            <input type="checkbox" id="cfg-variable-sets-enabled">
+                            <label for="cfg-variable-sets-enabled">Enable Variable Sets module</label>
+                        </div>
+                        <div style="margin-top:0.4rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
+                            <a class="btn sm" href="/placeholders.html#sets" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.25rem;">Open Variable Sets <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -918,6 +939,7 @@
             document.getElementById('obs-scene-sync-options').hidden = !document.getElementById('cfg-obs-scene-sync-enabled')?.checked;
         }
         updateBadge('badge-speaker-badges', document.getElementById('cfg-speaker-badges-enabled')?.checked);
+        updateBadge('badge-variable-sets', document.getElementById('cfg-variable-sets-enabled')?.checked);
 
         // Update count summary
         const cards = document.querySelectorAll('#pane-modules .module-card');
@@ -997,6 +1019,7 @@
             document.getElementById('cfg-versus-enabled').checked = cfg.versus_enabled !== false;
             document.getElementById('cfg-trivia-enabled').checked = Boolean(cfg.trivia_enabled);
             document.getElementById('cfg-subathon-enabled').checked = Boolean(cfg.subathon_enabled);
+            document.getElementById('cfg-variable-sets-enabled').checked = Boolean(cfg.variable_sets_enabled);
 
             const obs = cfg.obs || {};
             document.getElementById('cfg-obs-enabled').checked = Boolean(obs.enabled);
@@ -1072,6 +1095,7 @@
             versus_enabled: document.getElementById('cfg-versus-enabled').checked,
             trivia_enabled: document.getElementById('cfg-trivia-enabled').checked,
             subathon_enabled: document.getElementById('cfg-subathon-enabled').checked,
+            variable_sets_enabled: document.getElementById('cfg-variable-sets-enabled').checked,
             music: {
                 ...(loadedConfig?.music || {}),
                 enabled: document.getElementById('cfg-music-enabled').checked,
@@ -1166,7 +1190,7 @@
     document.getElementById('ssn-session-toggle').addEventListener('click', toggleSsnSession);
 
     // Module toggles update badges live
-    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-trivia-enabled', 'cfg-subathon-enabled', 'cfg-obs-enabled', 'cfg-obs-scene-sync-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
+    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-trivia-enabled', 'cfg-subathon-enabled', 'cfg-variable-sets-enabled', 'cfg-obs-enabled', 'cfg-obs-scene-sync-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', updateModuleBadges);
     });
 

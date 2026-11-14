@@ -593,6 +593,7 @@ export function startPageRename(row) {
 }
 
 export function setRailTab(tab) {
+    if (tab === 'sets' && $('tab-sets')?.hidden) tab = 'layers';
     prefs.railTab = tab;
     savePrefs();
     for (const b of document.querySelectorAll('[data-rail-tab]')) {

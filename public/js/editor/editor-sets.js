@@ -3,7 +3,7 @@
  */
 
 import {
-    $, esc, state, pagesOn, byId, setSelection, changed, displayName, toast
+    $, esc, state, pagesOn, byId, setSelection, changed, displayName, toast, defaultImageGroupConfig
 } from './editor-state.js';
 
 const TRANSITION_OPTIONS = [
@@ -46,6 +46,13 @@ export function loadVariableSets({ force = false } = {}) {
         variableSets = Array.isArray(d.sets) ? d.sets : [];
         if (state.liveStatus && typeof state.liveStatus === 'object') {
             state.liveStatus.variableSets = variableSets;
+            if (typeof d.variableSetsEnabled === 'boolean') {
+                state.liveStatus.modules = { ...(state.liveStatus.modules || {}), variableSets: d.variableSetsEnabled };
+                const tabSets = $('tab-sets');
+                if (tabSets) tabSets.hidden = !d.variableSetsEnabled;
+                const groupStripBtn = $('menu-add-image-group');
+                if (groupStripBtn) groupStripBtn.hidden = !d.variableSetsEnabled;
+            }
         }
         loadingSets = false;
         renderCanvasHandler();
@@ -59,8 +66,12 @@ export function loadVariableSets({ force = false } = {}) {
 
 export function findElementsUsingSet(setId) {
     if (!setId) return [];
-    const needle = `{{var.${String(setId).toLowerCase()}_`;
+    const normalized = String(setId).toLowerCase();
+    const needle = `{{var.${normalized}_`;
     return (state.overlay.elements || []).filter(el => {
+        if (el.type === 'image' && el.imageGroup?.enabled && String(el.imageGroup?.setId || '').toLowerCase() === normalized) {
+            return true;
+        }
         const hay = [el.content, ...(el.items || []), el.src, el.embedUrl, el.qrText, el.progress?.label]
             .filter(Boolean).join(' ').toLowerCase();
         return hay.includes(needle);
@@ -169,6 +180,7 @@ function renderLibraryRow(setObj) {
     const isRunning = supportsRotation(setObj) && Boolean(setObj.rotation?.enabled);
     const modeText = slotsCount >= 2 ? `${slotsCount} slots` : isRunning ? 'Rotating' : slotsCount === 1 ? '1 slot' : 'Preset';
     const token = `{{${primaryTokenForSet(setObj)}}}`;
+    const hasImageField = (setObj.fields || []).some(f => f.type === 'image' || f.type === 'url');
     return `
         <div class="vset-lib-row" data-vset-lib="${esc(setObj.id)}">
             <div class="vset-lib-info">
@@ -181,6 +193,7 @@ function renderLibraryRow(setObj) {
             <div class="vset-lib-actions">
                 <button type="button" class="btn sm ghost" data-vset-copy="${esc(setObj.id)}" title="Copy ${esc(token)}">Copy</button>
                 <button type="button" class="btn sm" data-vset-insert="${esc(setObj.id)}" title="Add layer displaying ${esc(setObj.name || setObj.id)}">+ Layer</button>
+                ${hasImageField ? `<button type="button" class="btn sm" data-vset-insert-strip="${esc(setObj.id)}" title="Add Group Image Strip for ${esc(setObj.name || setObj.id)}">+ Strip</button>` : ''}
             </div>
         </div>`;
 }
@@ -383,6 +396,18 @@ export function initSetsPanel() {
             }
             renderSetsPanel();
             toast(`Added layer for ${setObj.name || setObj.id}`, 'success', 2200);
+            return;
+        }
+
+        if (btn.dataset.vsetInsertStrip) {
+            const setObj = (getSets() || []).find(s => s.id === btn.dataset.vsetInsertStrip);
+            if (!setObj || typeof addElementHandler !== 'function') return;
+            addElementHandler('image-group', {
+                name: `${setObj.name || setObj.id} Strip`,
+                imageGroup: defaultImageGroupConfig(setObj)
+            });
+            renderSetsPanel();
+            toast(`Added Group Image Strip for ${setObj.name || setObj.id}`, 'success', 2200);
             return;
         }
 

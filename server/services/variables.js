@@ -16,6 +16,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
     const setsFile = path.join(dataDir, 'variable-sets.json');
     let vars = {};
     let sets = {};
+    let moduleEnabled = true;
 
     function load() {
         try { vars = JSON.parse(fs.readFileSync(file, 'utf8')) || {}; } catch { vars = {}; }
@@ -25,7 +26,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
 
     function notifyChange(extra = {}) {
         if (typeof onChange === 'function') {
-            try { onChange({ variables: list(), sets: listSets(), ...extra }); } catch { /* ignore listener errors */ }
+            try { onChange({ variables: list(), sets: listSets(), variableSetsEnabled: moduleEnabled, ...extra }); } catch { /* ignore listener errors */ }
         }
     }
 
@@ -94,6 +95,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         const cur = vars[name];
         const type = VALID_TYPES.includes(patch.type) ? patch.type : cur?.type || 'text';
         const setId = patch.setId !== undefined ? (normSetId(patch.setId) || undefined) : cur?.setId;
+        const isHidden = patch.hidden !== undefined ? Boolean(patch.hidden) : Boolean(cur?.hidden);
         if (type === 'list') {
             const raw = patch.items ?? cur?.items ?? [];
             const items = (Array.isArray(raw) ? raw : String(raw).split(/\r?\n/)).map(i => String(i).trim().slice(0, 300)).filter(Boolean).slice(0, 200);
@@ -118,13 +120,14 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         } else if (type === 'image') {
             value = String(value).trim().slice(0, 1000);
         } else {
-            value = String(value).slice(0, 500);
+            value = String(value).slice(0, isHidden ? 16000 : 500);
         }
         vars[name] = {
             type,
             value,
             ...(type === 'counter' ? { initial: Number(patch.initial ?? cur?.initial ?? 0) || 0 } : {}),
             ...(setId ? { setId } : {}),
+            ...(isHidden ? { hidden: true } : {}),
             updatedAt: Date.now()
         };
         if (persist) save();
@@ -179,9 +182,10 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         ]);
         const fields = [];
         const seenKeys = new Set();
+        const reservedFieldKeys = new Set(['active', 'group', 'group_count', 'group_members']);
         for (const f of rawFields.slice(0, 12)) {
             const key = normSetId(f?.key || f?.label || '').slice(0, 20);
-            if (!key || seenKeys.has(key) || key === 'active') continue;
+            if (!key || seenKeys.has(key) || reservedFieldKeys.has(key)) continue;
             seenKeys.add(key);
             fields.push({
                 key,
@@ -212,7 +216,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             }
             const label = String(r.label || valuesMap[fields[0].key] || entryId).trim().slice(0, 60) || entryId;
             const enabled = r.enabled !== false && r.enabled !== 'false' && r.enabled !== 0 && r.enabled !== '0';
-            roster.push({ id: entryId, label, enabled, values: valuesMap });
+            const inGroup = r.inGroup !== false && r.inGroup !== 'false' && r.inGroup !== 0 && r.inGroup !== '0';
+            roster.push({ id: entryId, label, enabled, inGroup, values: valuesMap });
         }
 
         const prevSlots = Array.isArray(patch?.slots) ? patch.slots : (cur?.slots || []);
@@ -234,8 +239,45 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         const rawRotation = normalizeRotation({ ...(cur?.rotation || {}), ...(patch?.rotation || {}) }, validRosterIds);
         // Multi-slot sets (2+ slots) are queue/slot managed rather than single-spotlight timer rotated.
         const rotation = slotsCount >= 2 ? { ...rawRotation, enabled: false } : rawRotation;
+        const group = normalizeGroup({ ...(cur?.group || {}), ...(patch?.group && typeof patch.group === 'object' ? patch.group : {}) });
 
-        return { id, name, slotsCount, fields, roster, slots, slotNames, slotQueues, activeEntry, rotation, updatedAt: Date.now() };
+        return { id, name, slotsCount, fields, roster, slots, slotNames, slotQueues, activeEntry, rotation, group, updatedAt: Date.now() };
+    }
+
+    function normalizeGroup(raw = {}) {
+        return {
+            separator: raw.separator !== undefined ? String(raw.separator).slice(0, 40) : ', ',
+            lastSeparator: raw.lastSeparator !== undefined ? String(raw.lastSeparator).slice(0, 40) : '',
+            itemTemplate: String(raw.itemTemplate || '').slice(0, 240)
+        };
+    }
+
+    function formatGroupItem(template, entry, fields = []) {
+        const tpl = String(template || '').trim();
+        if (!tpl) {
+            const primaryKey = fields[0]?.key || 'name';
+            return String(entry?.values?.[primaryKey] ?? entry?.label ?? '').trim();
+        }
+        let hadTokenValue = false;
+        const rendered = tpl.replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi, (_m, rawKey) => {
+            const k = normSetId(rawKey);
+            const val = k === 'label' ? entry?.label : entry?.values?.[k];
+            const s = val === undefined || val === null ? '' : String(val).trim();
+            if (s) hadTokenValue = true;
+            return s;
+        });
+        if (!hadTokenValue && /\{\{\s*[a-z0-9_]+\s*\}\}/i.test(tpl)) return '';
+        return rendered
+            .replace(/\(\s*\)|\[\s*\]/g, '')
+            .replace(/[ \t]{2,}/g, ' ')
+            .trim();
+    }
+
+    function joinWithSeparators(items = [], separator = ', ', lastSeparator = '') {
+        if (!items.length) return '';
+        if (items.length === 1) return items[0];
+        if (lastSeparator) return `${items.slice(0, -1).join(separator)}${lastSeparator}${items[items.length - 1]}`;
+        return items.join(separator);
     }
 
     function normalizeRotation(raw = {}, validIds = null) {
@@ -270,9 +312,36 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             if (v?.setId === setObj.id) delete vars[k];
         }
         const byId = new Map(setObj.roster.map(r => [r.id, r]));
-        const writeField = (varName, type, value) => {
-            normalizeVarRecord(varName, { type, value, setId: setObj.id }, { persist: false });
+        const writeField = (varName, type, value, extra = {}) => {
+            normalizeVarRecord(varName, { type, value, setId: setObj.id, ...extra }, { persist: false });
         };
+
+        // Dynamic Group tokens (all active members with inGroup !== false, zero empty slots)
+        const groupCfg = normalizeGroup(setObj.group || {});
+        const sep = groupCfg.separator;
+        const lastSep = groupCfg.lastSeparator;
+        const groupEntries = (setObj.roster || []).filter(r => r.inGroup !== false);
+        const groupItems = groupEntries.map(e => formatGroupItem(groupCfg.itemTemplate, e, setObj.fields)).filter(Boolean);
+        writeField(`${setObj.id}_group`, 'text', joinWithSeparators(groupItems, sep, lastSep));
+        writeField(`${setObj.id}_group_count`, 'counter', groupEntries.length);
+
+        const imgField = (setObj.fields || []).find(f => f.type === 'image')
+            || (setObj.fields || []).find(f => /avatar|photo|image|img|icon|pic|logo/i.test(f.key));
+        const subField = (setObj.fields || []).find(f => f.type === 'text' && f !== setObj.fields[0]);
+        const groupMembers = groupEntries.map(e => ({
+            id: e.id,
+            label: e.label,
+            text: formatGroupItem(groupCfg.itemTemplate, e, setObj.fields) || e.label,
+            sub: subField ? String(e.values?.[subField.key] ?? '').trim() : '',
+            image: imgField ? String(e.values?.[imgField.key] ?? '').trim() : '',
+            values: e.values || {}
+        }));
+        writeField(`${setObj.id}_group_members`, 'text', JSON.stringify(groupMembers), { hidden: true });
+
+        for (const f of setObj.fields) {
+            const vals = groupEntries.map(e => String(e.values?.[f.key] ?? '').trim()).filter(Boolean);
+            writeField(`${setObj.id}_group_${f.key}`, 'text', joinWithSeparators(vals, sep, lastSep));
+        }
 
         if (setObj.slotsCount === 0) {
             const entry = byId.get(setObj.activeEntry) || null;
@@ -283,6 +352,15 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                 writeField(`${setObj.id}_${f.key}`, f.type, val);
             }
             return;
+        }
+
+        for (const f of setObj.fields) {
+            const slotVals = (setObj.slots || [])
+                .map(sId => byId.get(sId))
+                .filter(Boolean)
+                .map(e => String(e.values?.[f.key] ?? '').trim())
+                .filter(Boolean);
+            writeField(`${setObj.id}_joined_${f.key}`, 'text', joinWithSeparators(slotVals, sep, lastSep));
         }
 
         for (let i = 0; i < setObj.slotsCount; i++) {
@@ -462,6 +540,33 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         setObj.updatedAt = Date.now();
         saveSets({ saveVarsAlso: false });
         scheduleRotation(cleanId);
+        return setObj;
+    }
+
+    function toggleEntryGroupRaw(setId, entryId, inGroupParam) {
+        const cleanId = normSetId(setId);
+        const setObj = sets[cleanId];
+        if (!setObj) throw new Error('Set not found');
+        const cleanEntry = normSetId(entryId);
+        const entry = setObj.roster.find(r => r.id === cleanEntry || r.id === entryId);
+        if (!entry) throw new Error('Entry not found');
+        entry.inGroup = (inGroupParam !== undefined && inGroupParam !== '')
+            ? normalizeBool(inGroupParam) === 'true'
+            : (entry.inGroup === false);
+        setObj.updatedAt = Date.now();
+        materializeSetVars(setObj);
+        saveSets({ saveVarsAlso: true });
+        return setObj;
+    }
+
+    function updateSetGroupRaw(setId, patch = {}) {
+        const cleanId = normSetId(setId);
+        const setObj = sets[cleanId];
+        if (!setObj) throw new Error('Set not found');
+        setObj.group = normalizeGroup({ ...(setObj.group || {}), ...(patch || {}) });
+        setObj.updatedAt = Date.now();
+        materializeSetVars(setObj);
+        saveSets({ saveVarsAlso: true });
         return setObj;
     }
 
@@ -723,6 +828,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
     const cycleSetSlot = (...a) => atomic(() => cycleSetSlotRaw(...a));
     const advanceSetQueue = (...a) => atomic(() => advanceSetQueueRaw(...a));
     const swapSetSlots = (...a) => atomic(() => swapSetSlotsRaw(...a));
+    const toggleEntryGroup = (...a) => atomic(() => toggleEntryGroupRaw(...a));
+    const updateSetGroup = (...a) => atomic(() => updateSetGroupRaw(...a));
     const importBundle = (...a) => atomic(() => importBundleRaw(...a));
 
     // Server-owned rotation: one shared clock per set. Materialized vars keep live values; overlays that
@@ -733,12 +840,24 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         clearInterval(rotationTimers.get(setId));
         rotationTimers.delete(setId);
         const setObj = sets[setId];
-        if (!setObj?.rotation?.enabled) return;
+        if (!moduleEnabled || !setObj?.rotation?.enabled) return;
         const timer = setInterval(() => {
             try { stepRotation(setId, 1, { persist: false }); } catch { /* set removed */ }
         }, setObj.rotation.intervalSeconds * 1000);
         timer.unref?.();
         rotationTimers.set(setId, timer);
+    }
+
+    const isModuleEnabled = () => moduleEnabled;
+
+    function setModuleEnabled(enabled) {
+        const next = Boolean(enabled);
+        if (moduleEnabled === next) return moduleEnabled;
+        moduleEnabled = next;
+        if (!moduleEnabled) dispose();
+        else for (const id of Object.keys(sets)) scheduleRotation(id);
+        notifyChange();
+        return moduleEnabled;
     }
 
     function stepRotation(setId, direction = 1, { persist = true } = {}) {
@@ -827,7 +946,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             const body = contentType.includes('text/csv') ? {} : JSON.parse(rawBody || '{}');
 
             if (pathname === '/api/variables' && req.method === 'GET') {
-                return json(200, { variables: list(), sets: listSets() }), true;
+                return json(200, { variables: list(), sets: listSets(), variableSetsEnabled: moduleEnabled }), true;
             }
             if (pathname === '/api/variables/import' && req.method === 'POST') {
                 return json(200, importBundle(body)), true;
@@ -836,8 +955,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                 return json(200, { sets: listSets() }), true;
             }
 
-            // Variable Sets & Slots: /api/variables/sets/:setId[/assign|clear|next|prev|swap|advance|rewind|export|import|entry/toggle|queue/*]
-            const setMatch = pathname.match(/^\/api\/variables\/sets\/([^/]+)(?:\/(assign|clear|next|prev|swap|advance|rewind|export|import|entry\/toggle|queue\/add|queue\/remove|queue\/clear|rotation|rotation\/start|rotation\/stop|rotation\/toggle|rotation\/next|rotation\/prev))?$/);
+            // Variable Sets & Slots: /api/variables/sets/:setId[/assign|clear|next|prev|swap|advance|rewind|export|import|group|entry/toggle|entry/group-toggle|queue/*]
+            const setMatch = pathname.match(/^\/api\/variables\/sets\/([^/]+)(?:\/(assign|clear|next|prev|swap|advance|rewind|export|import|group|entry\/toggle|entry\/group-toggle|queue\/add|queue\/remove|queue\/clear|rotation|rotation\/start|rotation\/stop|rotation\/toggle|rotation\/next|rotation\/prev))?$/);
             if (setMatch) {
                 const setId = decodeURIComponent(setMatch[1]);
                 const action = setMatch[2];
@@ -865,6 +984,14 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                     const csvText = contentType.includes('text/csv') ? rawBody : String(body.csv || '');
                     const replace = query.replace === '1' || query.replace === 'true' || body.replace === true;
                     return json(200, importSetCsv(setId, csvText, { replace })), true;
+                } else if (action === 'group') {
+                    if (req.method === 'GET' && !Object.keys(query).length) {
+                        const s = sets[normSetId(setId)];
+                        if (!s) return json(404, { error: 'Set not found' }), true;
+                        const groupVar = vars[`${s.id}_group`]?.value ?? '';
+                        return json(200, { id: s.id, group: s.group || normalizeGroup(), value: groupVar }), true;
+                    }
+                    if (['GET', 'POST', 'PUT'].includes(req.method)) return json(200, updateSetGroup(setId, { ...query, ...body })), true;
                 } else if (action === 'rotation') {
                     if (req.method === 'GET' && !Object.keys(query).length) {
                         const s = sets[normSetId(setId)];
@@ -887,6 +1014,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                     if (action === 'advance') return json(200, advanceSetQueue(setId, 1, query.mode ?? body.mode ?? 'shift')), true;
                     if (action === 'rewind') return json(200, advanceSetQueue(setId, -1, query.mode ?? body.mode ?? 'shift')), true;
                     if (action === 'entry/toggle') return json(200, toggleSetEntry(setId, query.entry ?? body.entry ?? '', query.enabled ?? body.enabled)), true;
+                    if (action === 'entry/group-toggle') return json(200, toggleEntryGroup(setId, query.entry ?? body.entry ?? '', query.inGroup ?? body.inGroup)), true;
                     if (action === 'queue/add') return json(200, enqueueSetSlot(setId, slot, query.entry ?? body.entry ?? '')), true;
                     if (action === 'queue/remove') return json(200, removeSetSlotQueue(setId, slot, query.index ?? body.index ?? query.entry ?? body.entry ?? 0)), true;
                     if (action === 'queue/clear') return json(200, clearSetSlotQueue(setId, slot)), true;
@@ -932,6 +1060,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         clearSetSlot,
         cycleSetSlot,
         toggleSetEntry,
+        toggleEntryGroup,
+        updateSetGroup,
         swapSetSlots,
         advanceSetQueue,
         enqueueSetSlot,
@@ -945,6 +1075,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         stopRotation,
         toggleRotation,
         stepRotation,
+        isModuleEnabled,
+        setModuleEnabled,
         dispose,
         reload: () => { load(); for (const id of new Set([...rotationTimers.keys(), ...Object.keys(sets)])) scheduleRotation(id); }
     };

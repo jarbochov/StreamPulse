@@ -355,6 +355,7 @@ function renderRosterItem(setObj, entry) {
     const assignControl = slotsCount === 0
         ? `<button type="button" class="b sm ${isLive ? 'primary' : ''}" data-set-act="assign" data-slot="1" data-entry="${esc(entry.id)}">${isLive ? (rotLiveActive ? 'Default' : 'Live') : (rotLiveActive ? 'Set Default' : 'Activate')}</button>`
         : '';
+    const inGroup = entry.inGroup !== false;
 
     const summary = getEntrySummary(setObj, entry);
     const liveBadge = [
@@ -375,6 +376,7 @@ function renderRosterItem(setObj, entry) {
             </div>
             <div class="roster-controls">
                 ${assignControl}
+                <button type="button" class="b sm ${inGroup ? 'is-in-group' : ''}" data-set-act="toggle-group-entry" data-entry="${esc(entry.id)}" title="${inGroup ? 'Included in Group token & Group Strip (click to exclude)' : 'Excluded from Group token & Group Strip (click to include)'}">${inGroup ? 'In Group' : 'Out'}</button>
                 <button type="button" class="b sm ${isEnabled ? '' : 'primary'}" data-set-act="toggle-entry" data-entry="${esc(entry.id)}" title="${isEnabled ? 'Disable in rotation' : 'Enable in rotation'}">${isEnabled ? 'On' : 'Off'}</button>
                 <button type="button" class="b sm" data-set-act="edit-entry" data-entry="${esc(entry.id)}" title="Edit entry">${SVG_EDIT}</button>
                 <button type="button" class="b sm danger" data-set-act="delete-entry" data-entry="${esc(entry.id)}" title="Remove entry">${SVG_TRASH}</button>
@@ -420,6 +422,60 @@ function renderRotationBar(setObj) {
             ${isLive && enabledCount < 2 ? `<div class="rot-warn-note">Enable at least 2 roster entries for automatic rotation to cycle.</div>` : ''}
             ${isLive ? `<div class="set-rot-track" aria-hidden="true"><div class="set-rot-fill" data-rot-progress="${esc(setObj.id)}" style="width:${pct}%"></div></div>` : ''}
         </div>`;
+}
+
+function renderGroupBar(setObj) {
+    const group = setObj.group || { separator: ', ', lastSeparator: '', itemTemplate: '' };
+    const sep = group.separator !== undefined ? group.separator : ', ';
+    const lastSep = group.lastSeparator || '';
+    const tpl = group.itemTemplate || '';
+    const activeMembers = (setObj.roster || []).filter(e => e.inGroup !== false);
+    const groupVar = (state.customVars || []).find(v => v.name === `${setObj.id}_group`);
+    const previewText = groupVar ? String(groupVar.value ?? '') : activeMembers.map(e => e.label).join(sep);
+    const firstField = setObj.fields?.[0]?.key || 'name';
+    const isOpen = openTokenKeys.has(`${setObj.id}:group`);
+
+    const sepChips = [
+        [', ', 'Comma'],
+        [' • ', 'Bullet'],
+        [' | ', 'Pipe'],
+        [' / ', 'Slash'],
+        ['\n', 'Newline']
+    ].map(([val, lbl]) => `<button type="button" class="group-sep-chip" data-group-sep-chip="${esc(val)}">${esc(lbl)}</button>`).join('');
+
+    const tokenChips = [
+        `var.${setObj.id}_group`,
+        `var.${setObj.id}_group_count`,
+        ...(setObj.fields || []).map(f => `var.${setObj.id}_group_${f.key}`),
+        ...(setObj.slotsCount > 0 ? (setObj.fields || []).map(f => `var.${setObj.id}_joined_${f.key}`) : [])
+    ].map(key => `<code class="copyable" title="Click to copy" data-copy="{{${esc(key)}}}">{{${esc(key)}}}</code>`).join('');
+
+    return `
+        <details class="set-group-panel" data-group-details="${esc(setObj.id)}"${isOpen ? ' open' : ''}>
+            <summary>
+                <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; min-width:0;">
+                    <span class="set-section-title" style="margin:0;">Dynamic Group &amp; Delimiters</span>
+                    <span class="badge">${activeMembers.length} active</span>
+                    <code class="copyable" title="Click to copy" data-copy="{{var.${esc(setObj.id)}_group}}">{{var.${esc(setObj.id)}_group}}</code>
+                </div>
+                <span class="muted" style="font-size:.75rem;">Configure separators &amp; preview</span>
+            </summary>
+            <div class="set-group-body">
+                <div class="set-rot-controls" style="border-top:0; padding-top:0;">
+                    <label>Delimiter <input type="text" data-group-field="separator" value="${esc(sep)}" placeholder=", " style="width:6rem;" title="Separator between items"></label>
+                    <div class="group-sep-chips" aria-label="Quick delimiters">${sepChips}</div>
+                    <label>Final delimiter <input type="text" data-group-field="lastSeparator" value="${esc(lastSep)}" placeholder=" &amp; " style="width:6rem;" title="Optional delimiter before the final item (e.g. ' &amp; ' or ', and ')"></label>
+                </div>
+                <div class="set-rot-controls" style="border-top:0; padding-top:0;">
+                    <label style="flex:1; min-width:14rem;">Item format
+                        <input type="text" data-group-field="itemTemplate" value="${esc(tpl)}" placeholder="{{${esc(firstField)}}} (leave blank for first field)" style="flex:1; min-width:10rem;">
+                    </label>
+                    <span class="muted" style="font-size:.73rem;">Use field keys like <code>{{name}} ({{handle}})</code> — empty wrappers collapse automatically.</span>
+                </div>
+                <div class="group-preview-box">${previewText ? esc(previewText) : '<span class="muted">(no active group entries — click "In Group" on roster entries below)</span>'}</div>
+                <div class="token-pills">${tokenChips}</div>
+            </div>
+        </details>`;
 }
 
 function renderSetConsumers(setObj) {
@@ -576,6 +632,7 @@ export function renderSets() {
                     </div>
                 </div>
                 ${renderRotationBar(activeSet)}
+                ${renderGroupBar(activeSet)}
                 <div class="${slotsCount > 0 ? 'sets-split' : ''}" style="${slotsCount > 0 ? '' : 'display:grid; gap:1rem;'}">
                     <div>
                         <div class="set-section-title">
@@ -904,9 +961,17 @@ export function bindSetEvents(onReload) {
 
     host.addEventListener('toggle', e => {
         const det = e.target.closest('.slot-tokens[data-token-key]');
-        if (!det) return;
-        if (det.open) openTokenKeys.add(det.dataset.tokenKey);
-        else openTokenKeys.delete(det.dataset.tokenKey);
+        if (det) {
+            if (det.open) openTokenKeys.add(det.dataset.tokenKey);
+            else openTokenKeys.delete(det.dataset.tokenKey);
+            return;
+        }
+        const grpDet = e.target.closest('[data-group-details]');
+        if (grpDet) {
+            const key = `${grpDet.dataset.groupDetails}:group`;
+            if (grpDet.open) openTokenKeys.add(key);
+            else openTokenKeys.delete(key);
+        }
     }, true);
 
     host.addEventListener('change', async e => {
@@ -931,6 +996,14 @@ export function bindSetEvents(onReload) {
         if (rotField && card) {
             try {
                 await api(`/api/variables/sets/${encodeURIComponent(card.dataset.setCard)}/rotation`, 'POST', { [rotField.dataset.rotField]: rotField.value });
+                await reloadHandler();
+            } catch (err) { toast(err.message, 'error'); }
+            return;
+        }
+        const grpField = e.target.closest('[data-group-field]');
+        if (grpField && card) {
+            try {
+                await api(`/api/variables/sets/${encodeURIComponent(card.dataset.setCard)}/group`, 'POST', { [grpField.dataset.groupField]: grpField.value });
                 await reloadHandler();
             } catch (err) { toast(err.message, 'error'); }
             return;
@@ -1009,6 +1082,15 @@ export function bindSetEvents(onReload) {
         }
         if (e.target.closest('#set-new-empty')) return openSetModal();
 
+        const sepChip = e.target.closest('[data-group-sep-chip]');
+        const sepCard = e.target.closest('[data-set-card]');
+        if (sepChip && sepCard) {
+            try {
+                await api(`/api/variables/sets/${encodeURIComponent(sepCard.dataset.setCard)}/group`, 'POST', { separator: sepChip.dataset.groupSepChip });
+                await reloadHandler();
+            } catch (err) { toast(err.message, 'error'); }
+            return;
+        }
         const btn = e.target.closest('[data-set-act]');
         const card = e.target.closest('[data-set-card]');
         if (!btn || !card) return;
@@ -1037,6 +1119,10 @@ export function bindSetEvents(onReload) {
             }
             if (act === 'toggle-entry') {
                 await api(`${base}/entry/toggle?entry=${encodeURIComponent(btn.dataset.entry)}`, 'POST', {});
+                return await reloadHandler();
+            }
+            if (act === 'toggle-group-entry') {
+                await api(`${base}/entry/group-toggle?entry=${encodeURIComponent(btn.dataset.entry)}`, 'POST', {});
                 return await reloadHandler();
             }
             if (act === 'delete-entry') {

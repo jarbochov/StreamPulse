@@ -349,9 +349,27 @@ const Motion = require('../../public/js/motion-easing');
 const isPageEasing = name => Motion.isEasing(name);
 const PAGE_ENTER_EXITS = ['fade', 'slide', 'zoom', 'none'];
 const PAGE_DIRECTIONS = ['left', 'right', 'up', 'down'];
-const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset'];
+const BORDER_STYLES = [
+    'solid', 'dashed', 'dotted', 'double',
+    'groove', 'ridge', 'inset', 'outset',
+    'neon-tube', 'double-ring', 'corner-brackets', 'tech-hud', 'chamfer', 'notched', 'crosshair',
+    'hazard', 'chevron-track', 'scallop-stamp', 'ornate-filigree', 'pixel-arcade', 'film-sprocket'
+];
 const BORDER_PLACEMENTS = ['inside', 'center', 'outside'];
-const BORDER_ANIM_TYPES = ['none', 'rotating', 'radial', 'pulsing', 'gradient', 'rainbow', 'marching'];
+const BORDER_ANIM_TYPES = [
+    'none', 'rotating', 'dual-beam', 'radial', 'pulsing',
+    'strobe-flash', 'laser-scan', 'plasma', 'gradient', 'rainbow', 'marching'
+];
+const TEXT_ANIM_TYPES = [
+    'none',
+    'pulse', 'heartbeat', 'float', 'wave', 'wiggle', 'wobble', 'shake', 'swing', 'bounce', 'glitch',
+    'word-bounce', 'word-wave', 'word-wiggle', 'word-wobble', 'word-pop', 'word-reveal',
+    'char-bounce', 'char-wave', 'char-wiggle', 'char-wobble', 'char-jitter', 'char-pop', 'typing', 'matrix'
+];
+const IMAGE_GROUP_LAYOUTS = ['row', 'column', 'grid', 'overlap', 'cards', 'chips', 'spotlight'];
+const IMAGE_GROUP_SHAPES = ['rounded', 'circle', 'square', 'squircle', 'hexagon', 'diamond'];
+const IMAGE_GROUP_ASPECTS = ['1:1', '4:3', '16:9', '3:4'];
+const IMAGE_GROUP_LABEL_POSITIONS = ['below', 'right', 'inside-bottom'];
 const PATTERN_LAYOUTS = ['grid', 'brick', 'stagger', 'alternating', 'checkerboard'];
 const PATTERN_SYMMETRIES = ['none', 'quad', 'radial'];
 const PATTERN_MOTIONS = ['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'float', 'drift', 'orbit', 'pulse', 'pan', 'sweep', 'fall', 'aurora', 'flow'];
@@ -578,13 +596,14 @@ function normalizePattern(p = {}, isProcedural = false) {
 
 function normalizeGradient(g) {
     g = g || {};
+    const rawMid = String(g.mid || '').trim().slice(0, 80);
     return {
         enabled: g.enabled === true,
         from: String(g.from || '#1f6feb').slice(0, 80),
         to: String(g.to || '#8957e5').slice(0, 80),
         angle: Number.isFinite(Number(g.angle)) && g.angle !== '' && g.angle !== null ? Math.max(0, Math.min(360, Number(g.angle))) : 135,
         type: g.type === 'radial' ? 'radial' : 'linear',
-        mid: String(g.mid || '').slice(0, 80),
+        mid: rawMid && rawMid !== 'transparent' && rawMid !== 'none' ? rawMid : '',
         position: ['center', 'top', 'bottom', 'left', 'right'].includes(g.position) ? g.position : 'center',
         animate: g.animate === true,
         speed: Math.max(1, Math.min(120, Number(g.speed) || 8))
@@ -613,11 +632,12 @@ function normalizeInnerShadow(s = {}) {
 }
 
 function normalizeBorderAnimation(a = {}) {
+    const rawColor3 = String(a.color3 || '').trim().slice(0, 80);
     return {
         type: BORDER_ANIM_TYPES.includes(a.type) ? a.type : 'none',
         speed: Math.max(0.5, Math.min(60, Math.round((Number(a.speed) || 4) * 10) / 10)),
         color2: String(a.color2 || '').slice(0, 80),
-        color3: String(a.color3 || '').slice(0, 80),
+        color3: rawColor3 && rawColor3 !== 'transparent' && rawColor3 !== 'none' ? rawColor3 : '',
         size: Math.max(10, Math.min(100, Math.round(Number(a.size) || 35))),
         mode: ['spotlight', 'two-tone', 'fade-white', 'fade-black', 'rainbow'].includes(a.mode) ? a.mode : 'spotlight',
         direction: ['cw', 'ccw', 'alternate'].includes(a.direction) ? a.direction : 'cw'
@@ -796,6 +816,14 @@ function rewriteAssetReferences(text, oldName, newName, oldFamily, newFamily) {
     return result;
 }
 
+function normalizeTextAnimation(ta = {}) {
+    return {
+        type: TEXT_ANIM_TYPES.includes(ta?.type) ? ta.type : 'none',
+        speed: Math.max(0.3, Math.min(30, Number(ta?.speed) || 3)),
+        intensity: Math.max(10, Math.min(100, Math.round(Number(ta?.intensity) || 50)))
+    };
+}
+
 function normalizePageStateStyle(rawStyle = {}, entry = {}) {
     const s = (rawStyle && typeof rawStyle === 'object' && !Array.isArray(rawStyle)) ? rawStyle : {};
     const out = {};
@@ -824,6 +852,8 @@ function normalizePageStateStyle(rawStyle = {}, entry = {}) {
     pickNum('letterSpacing', -10, 50);
     pickEnum('textTransform', ['none', 'uppercase', 'lowercase', 'capitalize']);
     pickEnum('textDecoration', ['none', 'underline', 'line-through']);
+    pickEnum('fontStyle', ['normal', 'italic']);
+    if (s.tabularNums !== undefined) out.tabularNums = s.tabularNums === true;
     pickStr('background', 120);
     pickStr('fill', 80);
     pickStr('borderColor', 80);
@@ -831,6 +861,16 @@ function normalizePageStateStyle(rawStyle = {}, entry = {}) {
     pickEnum('borderStyle', BORDER_STYLES);
     pickEnum('borderPlacement', BORDER_PLACEMENTS);
     pickNum('borderRadius', 0, 200, true);
+    if (s.borderRadiusCorners && typeof s.borderRadiusCorners === 'object') {
+        const cornerVal = v => Math.max(0, Math.min(200, Math.round(Number(v) || 0)));
+        out.borderRadiusCorners = {
+            enabled: s.borderRadiusCorners.enabled === true,
+            tl: cornerVal(s.borderRadiusCorners.tl),
+            tr: cornerVal(s.borderRadiusCorners.tr),
+            br: cornerVal(s.borderRadiusCorners.br),
+            bl: cornerVal(s.borderRadiusCorners.bl)
+        };
+    }
     pickNum('padding', 0, 200, true);
     pickNum('opacity', 0, 1);
     pickNum('rotate', -360, 360);
@@ -860,8 +900,13 @@ function normalizePageStateStyle(rawStyle = {}, entry = {}) {
     if (s.textShadow && typeof s.textShadow === 'object') {
         out.textShadow = {
             blur: Math.max(0, Math.min(60, Number(s.textShadow.blur) || 0)),
+            x: Number.isFinite(Number(s.textShadow.x)) ? Math.max(-40, Math.min(40, Math.round(Number(s.textShadow.x)))) : 0,
+            y: Number.isFinite(Number(s.textShadow.y)) ? Math.max(-40, Math.min(40, Math.round(Number(s.textShadow.y)))) : 2,
             color: String(s.textShadow.color || 'rgba(0,0,0,0.7)').slice(0, 80)
         };
+    }
+    if (s.textAnimation && typeof s.textAnimation === 'object') {
+        out.textAnimation = normalizeTextAnimation(s.textAnimation);
     }
     return Object.keys(out).length ? out : undefined;
 }
@@ -1046,6 +1091,44 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
         },
         items: Array.isArray(element.items) ? element.items.map(item => String(item).slice(0, 2000)).filter(Boolean).slice(0, 2000) : [],
         src: String(element.src || '').slice(0, 2000),
+        imageGroup: type === 'image' ? (() => {
+            const ig = element.imageGroup || {};
+            const normKey = raw => String(raw || '').toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
+            return {
+                enabled: ig.enabled === true,
+                setId: normKey(ig.setId),
+                imageField: normKey(ig.imageField || 'image') || 'image',
+                labelField: normKey(ig.labelField),
+                subField: normKey(ig.subField),
+                fallbackMode: ig.fallbackMode === 'initials' ? 'initials' : 'skip',
+                sortOrder: ['roster', 'reverse', 'alpha'].includes(ig.sortOrder) ? ig.sortOrder : 'roster',
+                maxItems: Math.max(0, Math.min(60, Math.round(Number(ig.maxItems) || 0))),
+                showOverflowBadge: ig.showOverflowBadge !== false,
+                layout: IMAGE_GROUP_LAYOUTS.includes(ig.layout) ? ig.layout : 'row',
+                shape: IMAGE_GROUP_SHAPES.includes(ig.shape) ? ig.shape : 'rounded',
+                aspectRatio: IMAGE_GROUP_ASPECTS.includes(ig.aspectRatio) ? ig.aspectRatio : '1:1',
+                size: Math.max(16, Math.min(400, Math.round(Number(ig.size) || 56))),
+                gap: Math.max(0, Math.min(80, Math.round(Number(ig.gap ?? 10)))),
+                overlap: Math.max(4, Math.min(60, Math.round(Number(ig.overlap ?? 16)))),
+                spotlightScale: Math.max(1.1, Math.min(2.0, Math.round((Number(ig.spotlightScale) || 1.35) * 100) / 100)),
+                avatarBorderWidth: Math.max(0, Math.min(12, Math.round(Number(ig.avatarBorderWidth) || 0))),
+                avatarBorderColor: String(ig.avatarBorderColor || 'rgba(255,255,255,0.28)').slice(0, 80),
+                avatarBg: String(ig.avatarBg || '#1e293b').slice(0, 80),
+                avatarShadow: Math.max(0, Math.min(40, Math.round(Number(ig.avatarShadow) || 0))),
+                showLabels: ig.showLabels === true,
+                labelPosition: IMAGE_GROUP_LABEL_POSITIONS.includes(ig.labelPosition) ? ig.labelPosition : 'below',
+                labelSize: Math.max(0, Math.min(72, Math.round(Number(ig.labelSize) || 0))),
+                labelColor: String(ig.labelColor || '').slice(0, 80),
+                labelBg: String(ig.labelBg || 'transparent').slice(0, 80),
+                delimiter: String(ig.delimiter || '').slice(0, 20),
+                delimiterColor: String(ig.delimiterColor || '').slice(0, 80),
+                cardBg: String(ig.cardBg || 'rgba(15,23,42,0.78)').slice(0, 80),
+                cardBorderWidth: Math.max(0, Math.min(8, Math.round(Number(ig.cardBorderWidth ?? 1)))),
+                cardBorderColor: String(ig.cardBorderColor || 'rgba(255,255,255,0.16)').slice(0, 80),
+                cardRadius: Math.max(0, Math.min(999, Math.round(Number(ig.cardRadius ?? 12)))),
+                cardPadding: Math.max(0, Math.min(32, Math.round(Number(ig.cardPadding ?? 8))))
+            };
+        })() : undefined,
         video: {
             autoplay: element.video?.autoplay !== false,
             loop: element.video?.loop !== false,
@@ -1112,6 +1195,13 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
             borderPlacement: BORDER_PLACEMENTS.includes(element.style?.borderPlacement) ? element.style.borderPlacement
                 : type === 'shape' && obsLink?.enabled === true ? 'outside' : 'inside',
             borderRadius: Math.max(0, Math.min(200, Number(element.style?.borderRadius) || 0)),
+            borderRadiusCorners: {
+                enabled: element.style?.borderRadiusCorners?.enabled === true,
+                tl: Math.max(0, Math.min(200, Math.round(Number(element.style?.borderRadiusCorners?.tl ?? element.style?.borderRadius ?? 0) || 0))),
+                tr: Math.max(0, Math.min(200, Math.round(Number(element.style?.borderRadiusCorners?.tr ?? element.style?.borderRadius ?? 0) || 0))),
+                br: Math.max(0, Math.min(200, Math.round(Number(element.style?.borderRadiusCorners?.br ?? element.style?.borderRadius ?? 0) || 0))),
+                bl: Math.max(0, Math.min(200, Math.round(Number(element.style?.borderRadiusCorners?.bl ?? element.style?.borderRadius ?? 0) || 0)))
+            },
             borderGlow: normalizeBorderGlow(element.style?.borderGlow),
             borderAnimation: normalizeBorderAnimation(element.style?.borderAnimation),
             padding: TEXT_SOURCE_TYPES.has(type) ? Math.max(0, Math.min(200, Number(element.style?.padding) || 0)) : 0,
@@ -1138,8 +1228,13 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
             },
             textShadow: {
                 blur: Math.max(0, Math.min(60, Number(element.style?.textShadow?.blur) || 0)),
+                x: Number.isFinite(Number(element.style?.textShadow?.x)) ? Math.max(-40, Math.min(40, Math.round(Number(element.style.textShadow.x)))) : 0,
+                y: Number.isFinite(Number(element.style?.textShadow?.y)) ? Math.max(-40, Math.min(40, Math.round(Number(element.style.textShadow.y)))) : 2,
                 color: String(element.style?.textShadow?.color || 'rgba(0,0,0,0.7)').slice(0, 80)
             },
+            fontStyle: element.style?.fontStyle === 'italic' ? 'italic' : 'normal',
+            tabularNums: element.style?.tabularNums === true,
+            textAnimation: normalizeTextAnimation(element.style?.textAnimation),
             textTransform: ['none', 'uppercase', 'lowercase', 'capitalize'].includes(element.style?.textTransform) ? element.style.textTransform : 'none',
             textDecoration: ['none', 'underline', 'line-through'].includes(element.style?.textDecoration) ? element.style.textDecoration : 'none',
             lineHeight: Math.max(0.5, Math.min(3, Number(element.style?.lineHeight) || 1.2)),
@@ -1663,6 +1758,23 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
 </svg>`;
 }
 
+function normalizeStylePresets(list = []) {
+    return (Array.isArray(list) ? list : []).map(item => {
+        if (!item || typeof item !== 'object') return null;
+        const id = sanitizeOverlayId(item.id || item.name).slice(0, 48);
+        const name = String(item.name || id).trim().slice(0, 60);
+        if (!id || !name) return null;
+        const style = normalizeOverlayElement({ type: 'text', style: item.style || {} }, 0).style;
+        return {
+            id,
+            name,
+            category: ['all', 'text', 'box', 'media'].includes(item.category) ? item.category : 'all',
+            style,
+            updatedAt: item.updatedAt || new Date().toISOString()
+        };
+    }).filter(Boolean).slice(0, 100);
+}
+
 function createOverlayService({
     dataDir,
     safeWriteFileSync = defaultSafeWrite,
@@ -1673,6 +1785,7 @@ function createOverlayService({
 } = {}) {
     const customOverlaysPath = path.join(dataDir, 'custom-overlays.json');
     const overlayPresetsPath = path.join(dataDir, 'overlay-presets.json');
+    const stylePresetsPath = path.join(dataDir, 'style-presets.json');
     const assetTagsPath = path.join(dataDir, 'asset-tags.json');
     const assetCaptionsPath = path.join(dataDir, 'asset-captions.json');
     const customOverlayAssetsDir = path.join(dataDir, 'custom-overlay-assets');
@@ -1757,6 +1870,7 @@ function createOverlayService({
     let assetTags = {};
     let assetCaptions = {};
     let overlayPresets = [];
+    let stylePresets = [];
     const overlayPageState = new Map();
 
     function loadRandomizerPresets() {
@@ -2267,6 +2381,24 @@ function createOverlayService({
         safeWriteFileSync(overlayPresetsPath, JSON.stringify(overlayPresets, null, 2));
     }
 
+    function loadStylePresets() {
+        try {
+            if (fs.existsSync(stylePresetsPath)) {
+                stylePresets = normalizeStylePresets(JSON.parse(fs.readFileSync(stylePresetsPath, 'utf8')));
+            } else {
+                stylePresets = [];
+            }
+        } catch (error) {
+            warn('[Presets] Could not load style presets:', error.message);
+        }
+    }
+
+    loadStylePresets();
+
+    function saveStylePresets() {
+        safeWriteFileSync(stylePresetsPath, JSON.stringify(stylePresets, null, 2));
+    }
+
     // Initial load
     loadCustomOverlays();
     Object.values(customOverlays).forEach(overlay => syncOverlayPages(overlay));
@@ -2307,6 +2439,11 @@ function createOverlayService({
         loadOverlayPresets,
         saveOverlayPresets,
         normalizeOverlayPresets: (list) => normalizeOverlayPresets(list, ALERT_TRIGGERS),
+        getStylePresets: () => stylePresets,
+        setStylePresets: (val) => { stylePresets = val; },
+        loadStylePresets,
+        saveStylePresets,
+        normalizeStylePresets,
         loadRandomizerPresets,
         saveRandomizerPresets,
         loadRandomizerButtonPresets,
@@ -2332,6 +2469,7 @@ function createOverlayService({
         // Paths & directories
         customOverlaysPath,
         overlayPresetsPath,
+        stylePresetsPath,
         assetTagsPath,
         assetCaptionsPath,
         customOverlayAssetsDir,
@@ -2344,6 +2482,8 @@ function createOverlayService({
         TEXT_SOURCE_EXTS,
         TEXT_SOURCE_MAX_BYTES,
         CUSTOM_OVERLAY_ELEMENT_TYPES,
+        BORDER_STYLES,
+        TEXT_ANIM_TYPES,
         DEFAULT_RANDOMIZER_PRESETS,
         DEFAULT_RANDOMIZER_BUTTON_PRESETS,
         DEFAULT_RANDOMIZER_QUOTE_PRESETS,
@@ -2370,6 +2510,7 @@ module.exports = {
     normalizePages,
     normalizeCustomOverlay,
     normalizeOverlayPresets,
+    normalizeStylePresets,
     normalizeRandomizerPreset,
     getEffectiveWeights,
     pickWeightedWinner,
@@ -2384,6 +2525,8 @@ module.exports = {
     TEXT_SOURCE_EXTS,
     TEXT_SOURCE_MAX_BYTES,
     CUSTOM_OVERLAY_ELEMENT_TYPES,
+    BORDER_STYLES,
+    TEXT_ANIM_TYPES,
     DEFAULT_RANDOMIZER_PRESETS,
     DEFAULT_RANDOMIZER_BUTTON_PRESETS,
     DEFAULT_RANDOMIZER_QUOTE_PRESETS,

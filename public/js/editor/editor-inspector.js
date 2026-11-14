@@ -8,7 +8,7 @@ import {
     ALERT_TRIGGER_LABELS, ALERT_TRIGGER_META, triggerIcon, TEXT_TYPES, FILL_TEXT_TYPES, LOCAL_MEDIA, selectedElements,
     primary, byId, boundsOf, displayName, changed, toast, alertSample, variableContext,
     pagesOn, statesModeOn, isBasePage, hasPageOverride, resetElementPageState, extractElementState,
-    alertLookSelection, previewAlertElement, uid
+    alertLookSelection, previewAlertElement, uid, defaultImageGroupConfig
 } from './editor-state.js';
 import { F, bindFields } from './editor-form.js';
 import {
@@ -25,6 +25,10 @@ import {
     handlePatternInspectorClick,
     handlePatternInspectorChange
 } from './editor-patterns.js';
+import {
+    stylePresetsSection,
+    handleStylePresetClick
+} from './editor-style-presets.js';
 
 const shared = window.OverlayShared || {};
 
@@ -186,13 +190,16 @@ export function alignSection(items) {
 }
 
 export const gradOf = (s, key) => ({ from: '#1f6feb', to: '#8957e5', angle: 135, type: 'linear', position: 'center', speed: 8, ...(s[key] || {}) });
+export const hasMidStop = val => Boolean(val && val !== 'transparent' && val !== 'none');
 export const fillSeg = (s, key, label) => F.seg(`style.${key}.enabled`, label, s[key]?.enabled ? 'true' : 'false', [['false', 'Solid color', 'Solid'], ['true', 'Gradient', 'Gradient']]);
 
 export function gradientFields(s, key = 'gradient') {
     const g = gradOf(s, key), at = name => `style.${key}.${name}`;
+    const hasMid = hasMidStop(g.mid);
     return `<div class="grid2">${F.select(at('type'), 'Type', g.type, [['linear', 'Linear'], ['radial', 'Radial']])}${g.type === 'radial' ? F.select(at('position'), 'Center', g.position, [['center', 'Center'], ['top', 'Top'], ['bottom', 'Bottom'], ['left', 'Left'], ['right', 'Right']]) : F.number(at('angle'), 'Angle (°)', g.angle, { min: 0, max: 360 })}</div>
         <div class="grid2">${F.color(at('from'), 'From', g.from)}${F.color(at('to'), 'To', g.to)}</div>
-        ${F.color(at('mid'), 'Middle (optional)', g.mid || '', { clear: true })}
+        <label class="check"><input type="checkbox" data-grad-mid-toggle="${esc(at('mid'))}" ${hasMid ? 'checked' : ''}> Middle color stop (optional)</label>
+        ${hasMid ? F.color(at('mid'), 'Middle color', g.mid, { clear: true, clearValue: '', clearLabel: 'Off' }) : ''}
         ${F.check(at('animate'), 'Animate', g.animate)}
         ${g.animate ? F.number(at('speed'), 'Speed (sec per sweep)', g.speed, { min: 1, max: 120 }) : ''}`;
 }
@@ -204,10 +211,52 @@ export const noRadius = (s, shape) => shape && ['circle', 'pill', 'line'].includ
 
 export function textEffectsSection(el) {
     const s = el.style || {};
-    return F.section('textEffects', 'Text effects', `
+    const shadowGradientBlocked = Boolean(s.textGradient?.enabled && (s.gradient?.enabled || (s.background && s.background !== 'transparent')));
+    const tsBlur = Number(s.textShadow?.blur) || 0;
+    const ta = s.textAnimation || {};
+    const taType = ta.type || 'none';
+    return F.section('textEffects', 'Text effects & animation', `
         <div class="grid2">${F.select('style.textTransform', 'Case', s.textTransform || 'none', [['none', 'As typed'], ['uppercase', 'UPPERCASE'], ['lowercase', 'lowercase'], ['capitalize', 'Capitalize Words']])}${F.select('style.textDecoration', 'Decoration', s.textDecoration || 'none', [['none', 'None'], ['underline', 'Underline'], ['line-through', 'Strikethrough']])}</div>
         <div class="grid2">${F.number('style.textStroke.width', 'Outline (px)', s.textStroke?.width || 0, { min: 0, max: 20, step: 0.5 })}${s.textStroke?.width > 0 ? F.color('style.textStroke.color', 'Outline color', s.textStroke?.color || '#000000') : '<span></span>'}</div>
-        ${(s.textGradient?.enabled && (s.gradient?.enabled || (s.background && s.background !== 'transparent'))) ? '<p class="hint">Text shadow is off while the text is a gradient on a filled box (the shadow would hit the box).</p>' : `<div class="grid2">${F.number('style.textShadow.blur', 'Text shadow (px)', s.textShadow?.blur || 0, { min: 0, max: 60 })}${s.textShadow?.blur > 0 ? F.color('style.textShadow.color', 'Shadow color', s.textShadow?.color || 'rgba(0,0,0,0.7)') : '<span></span>'}</div>`}`, false);
+        ${shadowGradientBlocked ? '<p class="hint">Text shadow is off while the text is a gradient on a filled box (the shadow would hit the box).</p>' : `
+            <div class="field"><span>Shadow presets</span><span class="sp-chip-row"><button type="button" class="sp-quick-chip" data-text-shadow-preset="none">None</button><button type="button" class="sp-quick-chip" data-text-shadow-preset="soft">Soft</button><button type="button" class="sp-quick-chip" data-text-shadow-preset="hard">Hard Drop</button><button type="button" class="sp-quick-chip" data-text-shadow-preset="glow">Glow</button></span></div>
+            <div class="grid2">${F.number('style.textShadow.blur', 'Text shadow (px)', tsBlur, { min: 0, max: 60 })}${tsBlur > 0 ? F.color('style.textShadow.color', 'Shadow color', s.textShadow?.color || 'rgba(0,0,0,0.7)') : '<span></span>'}</div>
+            ${tsBlur > 0 ? `<div class="grid2">${F.number('style.textShadow.x', 'Shadow X (px)', s.textShadow?.x ?? 0, { min: -40, max: 40 })}${F.number('style.textShadow.y', 'Shadow Y (px)', s.textShadow?.y ?? 2, { min: -40, max: 40 })}</div>` : ''}
+        `}
+        ${F.select('style.textAnimation.type', 'Text animation', taType, [
+            ['none', 'None (static)'],
+            { group: 'Whole Text Block', options: [
+                ['pulse', 'Breathing Pulse'],
+                ['heartbeat', 'Heartbeat Pop'],
+                ['float', 'Floating Bob'],
+                ['wave', 'Gentle Sway'],
+                ['wiggle', 'Wiggle'],
+                ['wobble', 'Rubber Wobble'],
+                ['shake', 'Impact Shake'],
+                ['swing', 'Pendulum Swing'],
+                ['bounce', 'Block Bounce'],
+                ['glitch', 'Kinetic Glitch']
+            ] },
+            { group: 'Per Word', options: [
+                ['word-bounce', 'Word Bounce'],
+                ['word-wave', 'Word Wave'],
+                ['word-wiggle', 'Word Wiggle'],
+                ['word-wobble', 'Word Wobble'],
+                ['word-pop', 'Word Spotlight Pop'],
+                ['word-reveal', 'Word Slide Reveal']
+            ] },
+            { group: 'Per Character & Sequence', options: [
+                ['char-bounce', 'Character Bounce'],
+                ['char-wave', 'Character Wave'],
+                ['char-wiggle', 'Character Wiggle'],
+                ['char-wobble', 'Character Wobble'],
+                ['char-jitter', 'Character Jitter'],
+                ['char-pop', 'Character Ripple Pop'],
+                ['typing', 'Typewriter Typing'],
+                ['matrix', 'Matrix Cipher Decode']
+            ] }
+        ])}
+        ${taType !== 'none' ? `<div class="grid2">${F.number('style.textAnimation.speed', 'Cycle (sec)', ta.speed ?? 3, { min: 0.3, max: 30, step: 0.2 })}${F.number('style.textAnimation.intensity', 'Intensity (%)', ta.intensity ?? 50, { min: 10, max: 100, step: 5 })}</div>` : ''}`, false);
 }
 
 export function iconEffectsSection(el) {
@@ -244,7 +293,9 @@ export function typographySection(el) {
                 ${F.seg('style.textAlign', 'Horizontal', s.textAlign || 'left', [['left', 'Align text left', ICON.textLeft], ['center', 'Center text', ICON.textCenter], ['right', 'Align text right', ICON.textRight]])}
                 ${F.seg('style.verticalAlign', 'Vertical', s.verticalAlign || 'middle', [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}
             </div>
+            ${F.seg('style.fontStyle', 'Style', s.fontStyle || 'normal', [['normal', 'Regular font', 'Normal'], ['italic', 'Italic font', '<i>Italic</i>']])}
             <div class="grid2">${F.number('style.lineHeight', 'Line height', s.lineHeight, { min: 0.5, max: 3, step: 0.1 })}${F.number('style.letterSpacing', 'Letter spacing', s.letterSpacing, { min: -10, max: 50, step: 0.5 })}</div>
+            ${F.check('style.tabularNums', 'Tabular numbers (0–9 fixed width)', s.tabularNums === true)}
             ${fontExtras}`);
     }
     const textAlign = s.textAlign || (alert ? 'center' : 'left');
@@ -253,7 +304,9 @@ export function typographySection(el) {
         <label class="field"><span>Font</span><select id="font-picker" data-path="style.fontFamily" data-kind="text">${fontOptions(s.fontFamily)}</select></label>
         ${alert ? `<div class="grid2">${weight}${F.color('style.color', 'Text color', s.color)}</div>` : `<div class="grid2">${el.textFit === 'fit' && TEXT_TYPES.has(el.type) ? '' : F.number('style.fontSize', el.textFit === 'shrink' && TEXT_TYPES.has(el.type) ? 'Max size (px)' : 'Size (px)', s.fontSize, { min: 8, max: 400 })}${weight}</div>${TEXT_TYPES.has(el.type) && !(el.type === 'random-text' && el.random?.marquee) ? F.select('textFit', 'Auto-fit text', el.textFit || 'none', [['none', 'Off — use the size set here'], ['shrink', 'Shrink to fit the box'], ['fit', 'Grow or shrink to fill the box']]) : ''}${el.type === 'markdown' ? F.number('headingScale', 'Heading size (% of normal)', el.headingScale ?? 100, { min: 40, max: 200, step: 5 }) + F.select('columns', 'Columns', String(el.columns || 1), [['1', '1 column'], ['2', '2 columns'], ['3', '3 columns'], ['4', '4 columns']]) + ((el.columns || 1) > 1 ? F.select('headingSpan', 'Headings spanning all columns', String(el.headingSpan ?? 6), [['6', 'All headings (H1–H6)'], ['1', 'H1 only'], ['2', 'H1–H2'], ['3', 'H1–H3'], ['4', 'H1–H4'], ['0', 'None — headings stay in a column']]) : '') : ''}${FILL_TEXT_TYPES.has(el.type) ? fillControl(s, 'textGradient', 'Text color', F.color('style.color', 'Color', s.color)) : F.color('style.color', 'Text color', s.color)}`}
         ${el.type === 'poll' ? '' : `<div class="grid2">${F.seg('style.textAlign', 'Horizontal', textAlign, [['left', 'Align text left', ICON.textLeft], ['center', 'Center text', ICON.textCenter], ['right', 'Align text right', ICON.textRight]])}${el.type === 'markdown' && el.columns > 1 ? '' : F.seg('style.verticalAlign', 'Vertical', verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>`}
+        ${F.seg('style.fontStyle', 'Style', s.fontStyle || 'normal', [['normal', 'Regular font', 'Normal'], ['italic', 'Italic font', '<i>Italic</i>']])}
         <div class="grid2">${el.type === 'poll' ? '' : F.number('style.lineHeight', 'Line height', s.lineHeight, { min: 0.5, max: 3, step: 0.1 })}${F.number('style.letterSpacing', 'Letter spacing', s.letterSpacing, { min: -10, max: 50, step: 0.5 })}</div>
+        ${F.check('style.tabularNums', 'Tabular numbers (0–9 fixed width)', s.tabularNums === true)}
         ${fontExtras}`)
         + (FILL_TEXT_TYPES.has(el.type) || alert ? textEffectsSection(el) : '');
 }
@@ -271,7 +324,8 @@ export function boxEffectFields(el, multi) {
     const s = el.style || {};
     const ish = s.innerShadow || {};
     if (!boxEffectsRelevant(el, multi)) return '<p class="hint">Backdrop blur and box shadow appear once this text has a background, gradient or border. For a shadow on the letters, use Text effects.</p>';
-    return `<div class="grid2">${F.number('style.blur', 'Backdrop blur (px)', s.blur || 0, { min: 0, max: 60 })}${F.number('style.shadow.blur', 'Outer shadow (px)', s.shadow?.blur || 0, { min: 0, max: 100 })}</div>
+    return `<div class="field"><span>Shadow presets</span><span class="sp-chip-row"><button type="button" class="sp-quick-chip" data-box-shadow-preset="none">None</button><button type="button" class="sp-quick-chip" data-box-shadow-preset="subtle">Subtle</button><button type="button" class="sp-quick-chip" data-box-shadow-preset="elevated">Elevated</button><button type="button" class="sp-quick-chip" data-box-shadow-preset="glow">Glow</button></span></div>
+        <div class="grid2">${F.number('style.blur', 'Backdrop blur (px)', s.blur || 0, { min: 0, max: 60 })}${F.number('style.shadow.blur', 'Outer shadow (px)', s.shadow?.blur || 0, { min: 0, max: 100 })}</div>
         ${s.shadow?.blur > 0 ? F.color('style.shadow.color', 'Outer shadow color', s.shadow?.color || 'rgba(0,0,0,0.5)') : ''}
         <div class="grid2">${F.number('style.innerShadow.blur', 'Inner shadow blur (px)', ish.blur || 0, { min: 0, max: 100 })}${F.number('style.innerShadow.spread', 'Inner spread (px)', ish.spread || 0, { min: 0, max: 50 })}</div>
         ${(ish.blur > 0 || ish.spread > 0) ? `
@@ -286,8 +340,16 @@ export function borderControls(s = {}, shape = false, el = {}) {
     const hasCutoutRadius = isCutout && (el.cutout?.shape === 'circle' || el.cutout?.shape === 'pill');
     const hideRadius = isLineShape || (shape && ['circle', 'pill'].includes(s.shape)) || hasCutoutRadius;
     const width = Number(s.borderWidth) || 0;
+    const corners = s.borderRadiusCorners || {};
 
-    let html = `<div class="grid2">${F.number('style.borderWidth', isLineShape ? 'Thickness' : 'Border width', width, { min: 0, max: 40 })}${hideRadius ? '<span></span>' : F.number('style.borderRadius', 'Corner radius', s.borderRadius || 0, { min: 0, max: 200 })}</div>`;
+    let html = `<div class="grid2">${F.number('style.borderWidth', isLineShape ? 'Thickness' : 'Border width', width, { min: 0, max: 40 })}${hideRadius ? '<span></span>' : (corners.enabled ? '<span></span>' : F.number('style.borderRadius', 'Corner radius', s.borderRadius || 0, { min: 0, max: 200 }))}</div>`;
+    if (!hideRadius) {
+        html += F.check('style.borderRadiusCorners.enabled', 'Per-corner radius', corners.enabled === true);
+        if (corners.enabled) {
+            html += `<div class="grid2">${F.number('style.borderRadiusCorners.tl', 'Top-left', corners.tl ?? s.borderRadius ?? 0, { min: 0, max: 200 })}${F.number('style.borderRadiusCorners.tr', 'Top-right', corners.tr ?? s.borderRadius ?? 0, { min: 0, max: 200 })}</div>
+                <div class="grid2">${F.number('style.borderRadiusCorners.bl', 'Bottom-left', corners.bl ?? s.borderRadius ?? 0, { min: 0, max: 200 })}${F.number('style.borderRadiusCorners.br', 'Bottom-right', corners.br ?? s.borderRadius ?? 0, { min: 0, max: 200 })}</div>`;
+        }
+    }
 
     if (shape) {
         html += F.select('style.borderPlacement', 'Border placement', window.OverlayShared.borderPlacement(s, el), [
@@ -299,14 +361,25 @@ export function borderControls(s = {}, shape = false, el = {}) {
     if (isLineShape || width <= 0) return html;
 
     html += F.select('style.borderStyle', 'Border style', s.borderStyle || 'solid', [
-        ['solid', 'Solid'],
-        ['dashed', 'Dashed'],
-        ['dotted', 'Dotted'],
-        ['double', 'Double'],
-        ['groove', '3D Groove'],
-        ['ridge', '3D Ridge'],
-        ['inset', '3D Inset'],
-        ['outset', '3D Outset']
+        { group: 'Standard', options: [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double']] },
+        { group: '3D Bevel', options: [['groove', '3D Groove'], ['ridge', '3D Ridge'], ['inset', '3D Inset'], ['outset', '3D Outset']] },
+        { group: 'Broadcast & Tech HUD', options: [
+            ['neon-tube', 'Neon tube (hot core)'],
+            ['double-ring', 'Double ring track'],
+            ['corner-brackets', 'Corner brackets (HUD)'],
+            ['tech-hud', 'Mecha tech HUD'],
+            ['chamfer', 'Chamfered octagon'],
+            ['notched', 'Cyber notched HUD'],
+            ['crosshair', 'Scope crosshair reticles']
+        ] },
+        { group: 'Stylized & Decorative', options: [
+            ['hazard', 'Hazard stripes'],
+            ['chevron-track', 'Speed chevron track'],
+            ['scallop-stamp', 'Scallop ticket stamp'],
+            ['ornate-filigree', 'Royal diamond filigree'],
+            ['pixel-arcade', '8-bit pixel arcade'],
+            ['film-sprocket', 'Cinema filmstrip']
+        ] }
     ]);
 
     html += fillControl(s, 'borderGradient', 'Border fill', F.color('style.borderColor', 'Border color', s.borderColor || (isCutout ? '#ffffff' : '#38bdf8'), { clear: true }));
@@ -328,21 +401,44 @@ export function borderControls(s = {}, shape = false, el = {}) {
     const anim = s.borderAnimation || {};
     html += F.select('style.borderAnimation.type', 'Border animation', anim.type || 'none', [
         ['none', 'None (static)'],
-        ['rotating', 'Rotating beam (spotlight)'],
-        ['radial', 'Radial rotating (sweeping glow)'],
-        ['pulsing', 'Pulsing glow (breathing)'],
-        ['gradient', 'Gradient sweep (flowing)'],
-        ['rainbow', 'Rainbow cycle (RGB chroma)'],
-        ['marching', 'Marching ants (animated dashes)']
+        { group: 'Beams & Energy', options: [
+            ['rotating', 'Rotating beam (spotlight)'],
+            ['dual-beam', 'Twin chasing beams'],
+            ['laser-scan', 'Laser scanner sweep'],
+            ['plasma', 'Electric plasma arc']
+        ] },
+        { group: 'Glow & Pulse', options: [
+            ['radial', 'Radial rotating (sweeping glow)'],
+            ['pulsing', 'Pulsing glow (breathing)'],
+            ['strobe-flash', 'Energy surge (double flash)']
+        ] },
+        { group: 'Color & Perimeter', options: [
+            ['gradient', 'Gradient sweep (flowing)'],
+            ['rainbow', 'Rainbow cycle (RGB chroma)'],
+            ['marching', 'Marching ants (perimeter chase)']
+        ] }
     ]);
     if (anim.type && anim.type !== 'none') {
-        if (anim.type === 'rotating') {
+        if (anim.type === 'rotating' || anim.type === 'dual-beam') {
             html += `
                 <div class="grid2">
                     ${F.number('style.borderAnimation.speed', 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 60, step: 0.5 })}
                     ${F.number('style.borderAnimation.size', 'Beam arc (%)', anim.size ?? 35, { min: 10, max: 100 })}
                 </div>
                 ${F.color('style.borderAnimation.color2', 'Beam head color', anim.color2 || '#ffffff')}`;
+        } else if (anim.type === 'laser-scan' || anim.type === 'plasma') {
+            const hasBorderMid = hasMidStop(anim.color3);
+            html += `
+                <div class="grid2">
+                    ${F.number('style.borderAnimation.speed', 'Speed (seconds)', anim.speed ?? 3.5, { min: 0.5, max: 60, step: 0.5 })}
+                    ${F.color('style.borderAnimation.color2', anim.type === 'laser-scan' ? 'Laser core color' : 'Plasma accent color', anim.color2 || (anim.type === 'laser-scan' ? '#ffffff' : '#a855f7'))}
+                </div>`;
+            if (anim.type === 'plasma') {
+                html += `<label class="check"><input type="checkbox" data-grad-mid-toggle="style.borderAnimation.color3" ${hasBorderMid ? 'checked' : ''}> Middle color stop (optional)</label>`;
+                if (hasBorderMid) {
+                    html += F.color('style.borderAnimation.color3', 'Middle color', anim.color3, { clear: true, clearValue: '', clearLabel: 'Off' });
+                }
+            }
         } else if (anim.type === 'radial') {
             const mode = anim.mode || 'spotlight';
             html += `
@@ -366,19 +462,22 @@ export function borderControls(s = {}, shape = false, el = {}) {
                 </div>`;
             if (mode !== 'rainbow') {
                 const label = mode === 'two-tone' ? 'Accent color' : (mode === 'spotlight' ? 'Spotlight color' : 'Primary color');
-                html += `
-                    <div class="grid2">
-                        ${F.color('style.borderAnimation.color2', label, anim.color2 || (mode === 'spotlight' ? '#ffffff' : '#38bdf8'))}
-                        ${F.color('style.borderAnimation.color3', 'Middle color (optional)', anim.color3 || '', { clear: true })}
-                    </div>`;
+                const hasBorderMid = hasMidStop(anim.color3);
+                html += F.color('style.borderAnimation.color2', label, anim.color2 || (mode === 'spotlight' ? '#ffffff' : '#38bdf8'));
+                html += `<label class="check"><input type="checkbox" data-grad-mid-toggle="style.borderAnimation.color3" ${hasBorderMid ? 'checked' : ''}> Middle color stop (optional)</label>`;
+                if (hasBorderMid) {
+                    html += F.color('style.borderAnimation.color3', 'Middle color', anim.color3, { clear: true, clearValue: '', clearLabel: 'Off' });
+                }
             }
         } else if (anim.type === 'gradient') {
+            const hasBorderMid = hasMidStop(anim.color3);
             html += `
                 <div class="grid2">
                     ${F.number('style.borderAnimation.speed', 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 60, step: 0.5 })}
                     ${F.color('style.borderAnimation.color2', 'End color', anim.color2 || '#8957e5')}
                 </div>
-                ${F.color('style.borderAnimation.color3', 'Middle color (optional)', anim.color3 || '', { clear: true })}`;
+                <label class="check"><input type="checkbox" data-grad-mid-toggle="style.borderAnimation.color3" ${hasBorderMid ? 'checked' : ''}> Middle color stop (optional)</label>
+                ${hasBorderMid ? F.color('style.borderAnimation.color3', 'Middle color', anim.color3, { clear: true, clearValue: '', clearLabel: 'Off' }) : ''}`;
         } else {
             html += F.number('style.borderAnimation.speed', 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 60, step: 0.5 });
         }
@@ -427,8 +526,134 @@ export const tabBar = (label, attr, current, options) => `<div class="field"><sp
 export const friendlyAssetName = url => url ? decodeURIComponent(url.split('/').pop()).replace(/^[a-z0-9]{6,}-/, '') : '';
 
 export function mediaSourceBlock(el) {
+    const sets = Array.isArray(state.liveStatus?.variableSets) ? state.liveStatus.variableSets : [];
+    const setsEnabled = state.liveStatus?.modules?.variableSets !== false;
+    const isGroup = el.type === 'image' && Boolean(el.imageGroup?.enabled);
+    if (el.type === 'image' && (setsEnabled || isGroup)) {
+        let modeBar = tabBar('Mode', 'data-image-mode', isGroup ? 'group' : 'single', [['single', 'Single image'], ['group', 'Group strip']]);
+        if (isGroup) {
+            const ig = el.imageGroup || {};
+            const st = el.style || {};
+            const layout = ig.layout || 'row';
+            const setObj = sets.find(s => s.id === ig.setId) || sets[0] || null;
+            const setId = ig.setId || '';
+            const setOptions = sets.map(s => {
+                const list = s.entries || s.roster || [];
+                const count = list.filter(e => e.inGroup !== false).length;
+                return [s.id, `${s.label || s.name || s.id} (${count} in group)`];
+            });
+            const fields = setObj?.fields || [];
+            const imageFieldOpts = fields.length
+                ? [...fields.filter(f => f.type === 'image' || f.type === 'url'), ...fields.filter(f => f.type !== 'image' && f.type !== 'url')].map(f => [f.key, `${f.label} ({{var.${setObj.id}_${f.key}}})`])
+                : [['image', 'image']];
+            const labelFieldOpts = [['', 'Auto (first name / template)'], ...fields.map(f => [f.key, `${f.label} (${f.key})`])];
+            const subFieldOpts = [['', 'None'], ...fields.map(f => [f.key, `${f.label} (${f.key})`])];
+            const maxItems = Math.max(0, Math.min(60, Math.round(Number(ig.maxItems) || 0)));
+
+            modeBar += '<div class="sub-head">Roster &amp; Filtering</div>';
+            modeBar += sets.length
+                ? F.select('imageGroup.setId', 'Variable Set', setId, [['', 'Choose a set…'], ...setOptions])
+                : '<p class="hint">Create a Variable Set in Variables &amp; Placeholders and toggle entries <strong>In Group</strong> to populate this strip.</p>';
+            if (sets.length) {
+                modeBar += F.select('imageGroup.imageField', 'Image field', ig.imageField || 'image', imageFieldOpts);
+            } else {
+                modeBar += F.text('imageGroup.setId', 'Variable Set ID', setId, 'placeholder="e.g. guests"');
+                modeBar += F.text('imageGroup.imageField', 'Image field key', ig.imageField || 'image', 'placeholder="image"');
+            }
+            modeBar += F.select('imageGroup.fallbackMode', 'Missing images', ig.fallbackMode || 'skip', [
+                ['skip', 'Skip entries without images'],
+                ['initials', 'Show initials badge']
+            ]);
+            modeBar += `<div class="grid2">${F.select('imageGroup.sortOrder', 'Order', ig.sortOrder || 'roster', [
+                ['roster', 'Roster order'],
+                ['reverse', 'Reversed'],
+                ['alpha', 'Alphabetical (A–Z)']
+            ])}${F.number('imageGroup.maxItems', 'Max shown (0 = all)', maxItems, { min: 0, max: 60 })}</div>`;
+            if (maxItems > 0) {
+                modeBar += F.check('imageGroup.showOverflowBadge', 'Show +N overflow badge when capped', ig.showOverflowBadge !== false);
+            }
+
+            modeBar += '<div class="sub-head">Layout &amp; Framing</div>';
+            modeBar += F.select('imageGroup.layout', 'Layout style', layout, [
+                ['row', 'Row strip'],
+                ['column', 'Vertical stack'],
+                ['grid', 'Wrap grid'],
+                ['overlap', 'Overlapping avatar stack'],
+                ['cards', 'Member cards'],
+                ['chips', 'Capsule chips'],
+                ['spotlight', 'Spotlight lead + crew']
+            ]);
+            modeBar += `<div class="grid2">${F.select('imageGroup.shape', 'Avatar shape', ig.shape || 'rounded', [
+                ['rounded', 'Rounded'],
+                ['circle', 'Circle'],
+                ['squircle', 'Squircle'],
+                ['square', 'Square'],
+                ['hexagon', 'Hexagon'],
+                ['diamond', 'Diamond']
+            ])}${F.select('imageGroup.aspectRatio', 'Frame ratio', ig.aspectRatio || '1:1', [
+                ['1:1', 'Square (1:1)'],
+                ['4:3', 'Wide (4:3)'],
+                ['16:9', 'Cinema (16:9)'],
+                ['3:4', 'Portrait (3:4)']
+            ])}</div>`;
+            modeBar += `<div class="grid2">${F.number('imageGroup.size', 'Image size (px)', ig.size ?? 56, { min: 16, max: 400, step: 2 })}${layout === 'overlap'
+                ? F.number('imageGroup.overlap', 'Overlap (px)', ig.overlap ?? 16, { min: 4, max: 60, step: 2 })
+                : F.number('imageGroup.gap', 'Gap (px)', ig.gap ?? 10, { min: 0, max: 80, step: 2 })}</div>`;
+            if (layout === 'spotlight') {
+                modeBar += F.number('imageGroup.spotlightScale', 'Lead scale (×)', ig.spotlightScale ?? 1.35, { min: 1.1, max: 2.0, step: 0.05 });
+            }
+            modeBar += `<div class="grid2">${F.seg('style.textAlign', 'Align X', st.textAlign || 'left', [['left', 'Align left', ICON.textLeft], ['center', 'Center', ICON.textCenter], ['right', 'Align right', ICON.textRight]])}${F.seg('style.verticalAlign', 'Align Y', st.verticalAlign || 'top', [['top', 'Align top', ICON.vTop], ['middle', 'Middle', ICON.vMiddle], ['bottom', 'Align bottom', ICON.vBottom]])}</div>`;
+
+            modeBar += '<div class="sub-head">Avatar &amp; Card Style</div>';
+            modeBar += `<div class="grid2">${F.number('imageGroup.avatarBorderWidth', 'Avatar border (px)', ig.avatarBorderWidth ?? 0, { min: 0, max: 12 })}${F.number('imageGroup.avatarShadow', 'Avatar shadow (px)', ig.avatarShadow ?? 0, { min: 0, max: 40 })}</div>`;
+            if ((Number(ig.avatarBorderWidth) || 0) > 0 || layout === 'overlap') {
+                modeBar += F.color('imageGroup.avatarBorderColor', 'Avatar border color', ig.avatarBorderColor || 'rgba(255,255,255,0.28)');
+            }
+            if (ig.fallbackMode === 'initials') {
+                modeBar += F.color('imageGroup.avatarBg', 'Initials badge color', ig.avatarBg || '#1e293b');
+            }
+            if (layout === 'cards' || layout === 'chips') {
+                modeBar += F.color('imageGroup.cardBg', layout === 'chips' ? 'Chip background' : 'Card background', ig.cardBg || 'rgba(15,23,42,0.78)');
+                modeBar += `<div class="grid2">${F.number('imageGroup.cardBorderWidth', 'Frame border (px)', ig.cardBorderWidth ?? 1, { min: 0, max: 8 })}${layout === 'cards'
+                    ? F.number('imageGroup.cardRadius', 'Card radius (px)', ig.cardRadius ?? 12, { min: 0, max: 999 })
+                    : F.number('imageGroup.cardPadding', 'Padding (px)', ig.cardPadding ?? 8, { min: 0, max: 32 })}</div>`;
+                if ((Number(ig.cardBorderWidth ?? 1) || 0) > 0) {
+                    modeBar += F.color('imageGroup.cardBorderColor', 'Frame border color', ig.cardBorderColor || 'rgba(255,255,255,0.16)');
+                }
+                if (layout === 'cards') {
+                    modeBar += F.number('imageGroup.cardPadding', 'Card padding (px)', ig.cardPadding ?? 8, { min: 0, max: 32 });
+                }
+            }
+
+            modeBar += '<div class="sub-head">Labels &amp; Delimiters</div>';
+            modeBar += F.check('imageGroup.showLabels', 'Show member labels', ig.showLabels === true);
+            if (ig.showLabels) {
+                if (sets.length) {
+                    modeBar += `<div class="grid2">${F.select('imageGroup.labelField', 'Label field', ig.labelField || '', labelFieldOpts)}${F.select('imageGroup.subField', 'Subtitle field', ig.subField || '', subFieldOpts)}</div>`;
+                } else {
+                    modeBar += `<div class="grid2">${F.text('imageGroup.labelField', 'Label field key', ig.labelField || '', 'placeholder="name"')}${F.text('imageGroup.subField', 'Subtitle field key', ig.subField || '', 'placeholder="role"')}</div>`;
+                }
+                modeBar += `<div class="grid2">${F.select('imageGroup.labelPosition', 'Label placement', ig.labelPosition || 'below', [
+                    ['below', 'Below avatar'],
+                    ['right', 'Beside avatar'],
+                    ['inside-bottom', 'Overlay bottom']
+                ])}${F.number('imageGroup.labelSize', 'Label size (0 = auto)', ig.labelSize ?? 0, { min: 0, max: 72 })}</div>`;
+                modeBar += F.color('imageGroup.labelColor', 'Label text color', ig.labelColor || '', { clear: true, clearValue: '', clearLabel: 'Auto' });
+                modeBar += F.color('imageGroup.labelBg', 'Label badge background', ig.labelBg || 'transparent', { clear: true });
+                if (layout !== 'overlap') {
+                    modeBar += F.text('imageGroup.delimiter', 'Delimiter between items', ig.delimiter || '', 'placeholder="Optional, e.g. • or |" maxlength="20"');
+                    if (ig.delimiter) {
+                        modeBar += F.color('imageGroup.delimiterColor', 'Delimiter color', ig.delimiterColor || '', { clear: true, clearValue: '', clearLabel: 'Auto' });
+                    }
+                }
+            }
+            modeBar += '<p class="hint">Renders active Variable Set entries toggled <strong>In Group</strong> — zero empty slots.</p>';
+            return modeBar;
+        }
+        var imageModeHeader = modeBar;
+    }
     const tab = currentMediaTab(el);
-    let body = tabBar('Source', 'data-media-tab', tab, [['library', 'Library & upload'], ['file', 'File on computer'], ['url', 'Web URL']]);
+    let body = (typeof imageModeHeader === 'string' ? imageModeHeader : '') + tabBar('Source', 'data-media-tab', tab, [['library', 'Library & upload'], ['file', 'File on computer'], ['url', 'Web URL']]);
     if (tab === 'file') {
         body += `<div class="field"><span>File path</span><span class="upload-row"><input id="media-path" value="${esc(localMediaPath(el.src))}" placeholder="/Users/you/Pictures/logo.png" spellcheck="false"><button type="button" id="media-browse">Browse…</button></span><span class="hint">Uses the ${el.type === 'pattern' ? 'image' : el.type} in place, with nothing uploaded. If you move or delete it, the overlay shows nothing.</span></div>`;
         if ((el.type === 'image' || el.type === 'pattern') && el.src) body += `<img class="asset-preview" src="${esc(el.src)}" alt="Preview" onerror="this.style.display='none'">`;
@@ -579,7 +804,7 @@ export function contentSection(el) {
     }
     if (media) {
         body += mediaSourceBlock(el);
-        if (el.type === 'image' && el.src && !/\{\{/.test(el.src)) {
+        if (el.type === 'image' && !el.imageGroup?.enabled && el.src && !/\{\{/.test(el.src)) {
             body += `<div class="field"><span>Image tools</span><button type="button" id="crop-image-btn" class="crop-tool-btn" data-src="${esc(el.src)}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"/></svg>Crop &amp; Edit Image…</button></div>`;
         }
     }
@@ -1602,7 +1827,7 @@ export function renderProperties() {
     if (items.length > 1) {
         const textual = items.some(el => hasText(el) || el.type === 'shape');
         layout = scaleSection(items) + alignSection(items);
-        style = appearanceSection(items[0], true) + (textual ? typographySection(items.find(hasText) || items[0]) : '');
+        style = stylePresetsSection(items[0], true) + appearanceSection(items[0], true) + (textual ? typographySection(items.find(hasText) || items[0]) : '');
     } else {
         const base = items[0];
         const el = previewAlertElement(base);
@@ -1610,7 +1835,8 @@ export function renderProperties() {
         content = contentSection(base) + (specific ? specific(el.type === 'alert' ? base : el) : '');
         layout = layoutSection(base) + scaleSection(items) + obsLinkSection(base);
         const isProcedural = el.type === 'procedural-pattern' || (el.type === 'pattern' && el.pattern?.sourceType === 'preset');
-        style = (el.type === 'alert' ? alertLooksSection(base) + alertSection(el, true) : '')
+        style = stylePresetsSection(base, false)
+            + (el.type === 'alert' ? alertLooksSection(base) + alertSection(el, true) : '')
             + (el.type === 'icon' ? iconEffectsSection(el) : '') + (hasText(el) ? typographySection(el) : '')
             + (isProcedural ? effectsSection(el) + filterSection(el) : (el.type !== 'cutout' ? fillSection(el) + effectsSection(el) + filterSection(el) : ''));
     }
@@ -1630,8 +1856,8 @@ export function renderProperties() {
     if (lookIdx >= 0) {
         const presentationPath = path => path.startsWith('style.') || path.startsWith('mediaFilter.')
             || shared.ALERT_PRESENTATION_KEYS.includes(path.split('.')[1]) && path.startsWith('alert.');
-        for (const node of root.querySelectorAll('[data-inspector-panel="style"] [data-path], [data-inspector-panel="style"] [data-seg-path], [data-inspector-panel="style"] [data-swatch-path], [data-inspector-panel="style"] [data-reset], [data-inspector-panel="style"] [data-clear], [data-inspector-panel="style"] [data-eyedrop]')) {
-            for (const attr of ['data-path', 'data-seg-path', 'data-swatch-path', 'data-reset', 'data-clear', 'data-eyedrop']) {
+        for (const node of root.querySelectorAll('[data-inspector-panel="style"] [data-path], [data-inspector-panel="style"] [data-seg-path], [data-inspector-panel="style"] [data-swatch-path], [data-inspector-panel="style"] [data-reset], [data-inspector-panel="style"] [data-clear], [data-inspector-panel="style"] [data-eyedrop], [data-inspector-panel="style"] [data-grad-mid-toggle]')) {
+            for (const attr of ['data-path', 'data-seg-path', 'data-swatch-path', 'data-reset', 'data-clear', 'data-eyedrop', 'data-grad-mid-toggle']) {
                 const path = node.getAttribute(attr);
                 if (path && presentationPath(path) && path !== 'style.rotate') node.setAttribute(attr, `alert.looks.${lookIdx}.${path}`);
             }
@@ -2014,7 +2240,24 @@ export function initInspectorEvents() {
                 if (el && (el.type === 'embed' || el.type === 'video')) renderProperties();
             }
             if (path.startsWith('slideshow.')) refreshSlideCount();
+            if (event?.target?.closest?.('[data-clear]') && (path.endsWith('.mid') || path === 'style.borderAnimation.color3')) {
+                renderProperties();
+            }
             changed(false);
+        });
+
+        propEl.addEventListener('change', event => {
+            const midToggle = event.target.closest('[data-grad-mid-toggle]');
+            if (!midToggle) return;
+            const actualPath = midToggle.dataset.gradMidToggle || '';
+            const path = lookPath(actualPath);
+            const val = midToggle.checked ? '#38bdf8' : '';
+            for (const el of actualPath === path ? selectedElements() : lookPresentationTargets()) {
+                setPath(el, path, val);
+            }
+            renderCanvas();
+            renderProperties();
+            changed(true);
         });
 
         propEl.addEventListener('change', event => {
@@ -2028,7 +2271,26 @@ export function initInspectorEvents() {
 
         propEl.addEventListener('change', event => {
             const path = lookPath(event.target.closest('[data-path]')?.dataset.path || '');
-            if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.borderAnimation.mode' || path === 'style.shadow.blur' || path === 'style.innerShadow.blur' || path === 'style.innerShadow.spread') renderProperties();
+            if (path === 'style.borderRadiusCorners.enabled' && event.target.checked) {
+                for (const targetEl of selectedElements()) {
+                    const baseRad = Number(targetEl.style?.borderRadius) || 0;
+                    targetEl.style.borderRadiusCorners = {
+                        tl: baseRad, tr: baseRad, br: baseRad, bl: baseRad,
+                        ...(targetEl.style?.borderRadiusCorners || {}),
+                        enabled: true
+                    };
+                }
+                renderCanvas();
+            }
+            if (path === 'imageGroup.layout') {
+                for (const el of selectedElements()) {
+                    if (el.imageGroup && (el.imageGroup.layout === 'cards' || el.imageGroup.layout === 'chips')) {
+                        el.imageGroup.showLabels = true;
+                    }
+                }
+                renderCanvas();
+            }
+            if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderRadiusCorners.enabled' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.borderAnimation.mode' || path === 'style.shadow.blur' || path === 'style.innerShadow.blur' || path === 'style.innerShadow.spread' || path === 'style.textAnimation.type' || path === 'imageGroup.setId' || path === 'imageGroup.showLabels' || path === 'imageGroup.layout' || path === 'imageGroup.fallbackMode' || path === 'imageGroup.maxItems' || path === 'imageGroup.avatarBorderWidth' || path === 'imageGroup.cardBorderWidth') renderProperties();
             if (path === 'speakerBadge.layout') {
                 const el = primary();
                 if (el?.speakerBadge) {
@@ -2377,6 +2639,56 @@ export function initInspectorEvents() {
                 if (el) {
                     el.source = { ...(el.source || { path: '', split: 'lines' }), mode: modeButton.dataset.sourceMode };
                     if (shared.refreshTextSources) await shared.refreshTextSources([el]);
+                    renderCanvas();
+                    renderProperties();
+                    changed(true);
+                }
+                return;
+            }
+            if (await handleStylePresetClick(target, { selectedElements, primary, renderCanvas, renderProperties, changed })) return;
+            const boxShadowPreset = target.closest('[data-box-shadow-preset]');
+            if (boxShadowPreset) {
+                const mode = boxShadowPreset.dataset.boxShadowPreset;
+                for (const el of selectedElements()) {
+                    el.style = el.style || {};
+                    if (mode === 'none') {
+                        el.style.shadow = { blur: 0, color: 'rgba(0,0,0,0.5)' };
+                        el.style.innerShadow = { blur: 0, spread: 0, x: 0, y: 0, color: 'rgba(0,0,0,0.5)' };
+                    } else if (mode === 'subtle') {
+                        el.style.shadow = { blur: 12, color: 'rgba(0,0,0,0.45)' };
+                    } else if (mode === 'elevated') {
+                        el.style.shadow = { blur: 28, color: 'rgba(0,0,0,0.68)' };
+                    } else if (mode === 'glow') {
+                        const c = el.style.borderColor && el.style.borderColor !== 'transparent' ? el.style.borderColor : '#38bdf8';
+                        el.style.shadow = { blur: 22, color: c };
+                    }
+                }
+                renderCanvas();
+                renderProperties();
+                changed(true);
+                return;
+            }
+            const textShadowPreset = target.closest('[data-text-shadow-preset]');
+            if (textShadowPreset) {
+                const mode = textShadowPreset.dataset.textShadowPreset;
+                for (const el of selectedElements()) {
+                    el.style = el.style || {};
+                    if (mode === 'none') el.style.textShadow = { blur: 0, x: 0, y: 2, color: 'rgba(0,0,0,0.7)' };
+                    else if (mode === 'soft') el.style.textShadow = { blur: 8, x: 0, y: 2, color: 'rgba(0,0,0,0.75)' };
+                    else if (mode === 'hard') el.style.textShadow = { blur: 2, x: 3, y: 3, color: 'rgba(0,0,0,0.92)' };
+                    else if (mode === 'glow') el.style.textShadow = { blur: 14, x: 0, y: 0, color: el.style.color && el.style.color !== 'transparent' ? el.style.color : '#38bdf8' };
+                }
+                renderCanvas();
+                renderProperties();
+                changed(true);
+                return;
+            }
+            const imgModeBtn = target.closest('[data-image-mode]');
+            if (imgModeBtn) {
+                const el = primary();
+                if (el && el.type === 'image') {
+                    const enabled = imgModeBtn.dataset.imageMode === 'group';
+                    el.imageGroup = defaultImageGroupConfig(null, el.imageGroup, enabled);
                     renderCanvas();
                     renderProperties();
                     changed(true);

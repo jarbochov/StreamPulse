@@ -50,12 +50,12 @@ export const F = {
         return `<label class="field"><span>${label}</span><select data-path="${path}" data-kind="text">${renderOpts(options)}</select></label>`;
     },
 
-    color: (path, label, value, { clear = false } = {}) => {
+    color: (path, label, value, { clear = false, clearValue = 'transparent', clearLabel = 'None' } = {}) => {
         const hex = /^#[0-9a-f]{6}$/i.test(value) ? value : /^#[0-9a-f]{3}$/i.test(value) ? `#${[...value.slice(1)].map(c => c + c).join('')}` : '#000000';
         const eyedropBtn = (typeof window !== 'undefined' && window.EyeDropper)
             ? `<button type="button" class="eyedrop-btn" data-eyedrop="${path}" title="Sample color from screen" aria-label="Sample color from screen">${ICON.eyedrop}</button>`
             : '';
-        return `<div class="field"><span>${label}</span><span class="color-field${eyedropBtn && clear ? ' has-actions' : ''}"><input type="color" data-path="${path}" data-kind="text" value="${hex}" aria-label="${label} picker"><input class="color-text" data-path="${path}" data-kind="text" value="${esc(value)}" placeholder="#rrggbb or rgba()" spellcheck="false" aria-label="${label} value">${eyedropBtn}${clear ? `<button type="button" data-clear="${path}" title="Make transparent">None</button>` : ''}</span>${renderSwatches(path)}</div>`;
+        return `<div class="field"><span>${label}</span><span class="color-field${eyedropBtn && clear ? ' has-actions' : ''}"><input type="color" data-path="${path}" data-kind="text" value="${hex}" aria-label="${label} picker"><input class="color-text" data-path="${path}" data-kind="text" value="${esc(value)}" placeholder="#rrggbb or rgba()" spellcheck="false" aria-label="${label} value">${eyedropBtn}${clear ? `<button type="button" data-clear="${path}" data-clear-value="${esc(clearValue)}" title="Clear color">${esc(clearLabel)}</button>` : ''}</span>${renderSwatches(path)}</div>`;
     },
 
     seg: (path, label, value, options) =>
@@ -298,11 +298,12 @@ export function bindFields(container, getTargets, onApply) {
         const clear = event.target.closest('[data-clear]');
         if (clear) {
             const path = clear.dataset.clear;
-            getTargets().forEach(target => setPath(target, path, 'transparent'));
+            const clearVal = clear.dataset.clearValue !== undefined ? clear.dataset.clearValue : 'transparent';
+            getTargets().forEach(target => setPath(target, path, clearVal));
             const wrap = clear.closest('.color-field');
             if (wrap) {
                 const textInp = wrap.querySelector('.color-text');
-                if (textInp) textInp.value = 'transparent';
+                if (textInp) textInp.value = clearVal;
             }
             onApply(path, event);
             state.dirty = true;

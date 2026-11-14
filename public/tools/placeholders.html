@@ -183,6 +183,15 @@
         .roster-item.is-rotating { border-color: rgba(34, 197, 94, .55); background: linear-gradient(90deg, rgba(34, 197, 94, .08), transparent 45%), var(--bg-card); }
         .rot-live-pill { display: inline-block; margin-left: .35rem; padding: .06rem .38rem; border-radius: 999px; font-size: .68rem; font-weight: 600; background: rgba(34, 197, 94, .14); color: #22c55e; border: 1px solid rgba(34, 197, 94, .4); vertical-align: middle; }
         .rot-warn-note { font-size: .75rem; color: #f59e0b; }
+        .set-group-panel { border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); font-size: .82rem; padding: .6rem .9rem; }
+        .set-group-panel > summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: .6rem; flex-wrap: wrap; }
+        .set-group-panel > summary::-webkit-details-marker { display: none; }
+        .set-group-body { display: grid; gap: .6rem; padding-top: .6rem; margin-top: .55rem; border-top: 1px solid var(--border); }
+        .group-preview-box { padding: .45rem .65rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-inset); font-size: .82rem; color: var(--text); word-break: break-word; }
+        .group-sep-chips { display: inline-flex; align-items: center; gap: .25rem; flex-wrap: wrap; }
+        .group-sep-chip { padding: .1rem .38rem; border-radius: 5px; border: 1px solid var(--border); background: var(--bg-inset); color: var(--text-muted); font: inherit; font-size: .74rem; cursor: pointer; }
+        .group-sep-chip:hover { border-color: var(--accent); color: var(--accent); }
+        .b.sm.is-in-group { border-color: rgba(56, 189, 248, .55); background: rgba(56, 189, 248, .12); color: var(--accent); }
         .set-card-head { display: flex; justify-content: space-between; align-items: center; gap: .75rem; flex-wrap: wrap; padding: .75rem .9rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; }
         .set-section-title { font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); margin-bottom: .45rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
         .slots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: .65rem; }

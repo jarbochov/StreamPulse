@@ -694,7 +694,13 @@ kbd { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; background: var
 .canvas-element.type-markdown th { font-weight: 700; }
 .canvas-element.type-markdown hr { border: 0; border-top: 1px solid currentColor; opacity: .5; margin: .6em 0; }
 .canvas-element.type-markdown li::marker { -webkit-text-fill-color: currentColor; }
-.canvas-element img, .canvas-element video, .canvas-element iframe { width: 100%; height: 100%; border: 0; pointer-events: none; display: block; }
+.canvas-element img:not(.sp-image-group-img), .canvas-element video, .canvas-element iframe { width: 100%; height: 100%; border: 0; pointer-events: none; display: block; }
+.sp-image-group { width: 100%; height: 100%; box-sizing: border-box; overflow: hidden; }
+.sp-image-group-item { flex: 0 0 auto; max-width: 100%; }
+.sp-image-group-img { border: 0; pointer-events: none; display: block; }
+.sp-image-group-label, .sp-image-group-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; max-width: 100%; }
+.sp-image-group-delim { flex: 0 0 auto; opacity: 0.7; user-select: none; }
+.sp-image-group-overflow { flex: 0 0 auto; user-select: none; }
 .canvas-element.is-line, .canvas-element.type-icon { overflow: visible; }
 .canvas-element.is-line::after { content: ''; position: absolute; inset: calc(var(--inv, 1) * -8px) 0; }
 .media-placeholder { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: .5rem; font: 500 14px -apple-system, "Segoe UI", sans-serif; letter-spacing: 0; line-height: 1.3; color: #9da7b3; background: repeating-linear-gradient(135deg, #ffffff0d 0 10px, transparent 10px 20px); border: 1px dashed #ffffff44; pointer-events: none; white-space: normal; }
@@ -1120,8 +1126,8 @@ body.is-scrubbing, body.is-scrubbing * {
 .vset-library > summary { font-size: 11.5px; font-weight: 600; color: var(--muted); cursor: pointer; user-select: none; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .vset-library > summary::-webkit-details-marker { display: none; }
 .vset-lib-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 5px; max-height: 220px; overflow-y: auto; margin-top: 4px; }
-.vset-lib-row { display: flex; align-items: center; gap: 6px; padding: 5px 7px; border-radius: 6px; border: 1px solid var(--border); background: var(--field); min-width: 0; }
-.vset-lib-info { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.vset-lib-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 5px 7px; border-radius: 6px; border: 1px solid var(--border); background: var(--field); min-width: 0; }
+.vset-lib-info { flex: 1 1 110px; min-width: 0; display: grid; gap: 1px; }
 .vset-lib-title { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; min-width: 0; }
 .vset-lib-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vset-lib-sub { font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1135,3 +1141,20 @@ body.is-scrubbing, body.is-scrubbing * {
 .vrot-el-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); padding-top: 4px; border-top: 1px solid var(--border-soft); }
 .vrot-el-chip { font: inherit; font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vrot-el-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Element Style Presets & Quick Chips */
+.sp-preset-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: 6px; }
+.sp-preset-item { position: relative; display: flex; min-width: 0; }
+.sp-preset-btn { display: flex; align-items: center; gap: 7px; width: 100%; min-width: 0; padding: 5px 7px; border-radius: 6px; border: 1px solid var(--border); background: var(--field); color: var(--text); cursor: pointer; text-align: left; transition: border-color .14s ease, background .14s ease; }
+.sp-preset-btn:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--field)); }
+.sp-preset-swatch { flex: none; width: 24px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; box-sizing: border-box; line-height: 1; }
+.sp-preset-name { flex: 1; min-width: 0; font-size: 11px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-preset-del { position: absolute; right: 3px; top: 3px; width: 16px; height: 16px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; border: 1px solid var(--border); background: var(--panel-2); color: var(--muted); cursor: pointer; opacity: 0; transition: opacity .12s ease; }
+.sp-preset-item:hover .sp-preset-del, .sp-preset-del:focus-visible { opacity: 1; }
+.sp-preset-del:hover { color: var(--danger); border-color: var(--danger); }
+.sp-preset-save-row { display: flex; gap: 6px; margin-top: 8px; }
+.sp-preset-save-row input { flex: 1; min-width: 0; font-size: 11.5px; }
+.sp-preset-save-row button { flex: none; padding: 0 10px; font-size: 11.5px; }
+.sp-chip-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.sp-quick-chip { font: inherit; font-size: 10.5px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; }
+.sp-quick-chip:hover { border-color: var(--accent); color: var(--accent); }

@@ -239,6 +239,10 @@ const variablesStore = require('./server/services/variables')({
     dataDir: DATA_DIR,
     onChange: data => broadcastToOverlays('variables-update', data)
 });
+const isVariableSetsEnabled = (cfg = config) => (typeof cfg?.variable_sets_enabled === 'boolean'
+    ? cfg.variable_sets_enabled
+    : variablesStore.listSets().length > 0);
+variablesStore.setModuleEnabled(isVariableSetsEnabled(config));
 // One-time migration: overlay-local timer rotations become shared set rotations the overlay follows.
 (function migrateOverlayVarRotations() {
     let changed = false;
@@ -1067,6 +1071,7 @@ function applyRuntimeConfig(nextConfig) {
     userModeration.configChanged();
     communityService?.configChanged(previousCommunityEnabled);
     communityBot?.configChanged();
+    variablesStore.setModuleEnabled(isVariableSetsEnabled(config));
 
     const nextMusicConfig = config.music || { enabled: false, source: 'apple_music', poll_seconds: 5 };
     for (const key of Object.keys(MUSIC_CONFIG)) delete MUSIC_CONFIG[key];
@@ -1516,6 +1521,7 @@ const handleSystemRoutes = createSystemRoutes({
     rootDir: __dirname,
     configPath: CONFIG_PATH,
     getConfig: () => config,
+    getVariableSetsEnabled: () => variablesStore.isModuleEnabled(),
     safeWriteFileSync,
     applyRuntimeConfig,
     getRestartRequiredConfigChanges,

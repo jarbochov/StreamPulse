@@ -710,11 +710,39 @@ export function normalizeLoaded(data) {
     return next;
 }
 
+/**
+ * Build smart default Group Image Strip configuration for an image element or Variable Set.
+ */
+export function defaultImageGroupConfig(setObj = null, existing = {}, enabled = true) {
+    const sets = Array.isArray(state.liveStatus?.variableSets) ? state.liveStatus.variableSets : [];
+    const targetSet = setObj || sets.find(s => (s.fields || []).some(f => f.type === 'image' || f.type === 'url')) || sets[0] || null;
+    const fields = targetSet?.fields || [];
+    const imgField = fields.find(f => f.type === 'image' || f.type === 'url');
+    const txtField = fields.find(f => f.type !== 'image' && f.type !== 'url');
+    return {
+        setId: targetSet?.id || '',
+        imageField: imgField?.key || 'image',
+        labelField: txtField?.key || '',
+        layout: 'row',
+        shape: 'circle',
+        aspectRatio: '1:1',
+        size: 72,
+        gap: 12,
+        fallbackMode: 'skip',
+        showLabels: Boolean(txtField),
+        labelPosition: 'below',
+        delimiter: '',
+        ...(existing || {}),
+        enabled: typeof enabled === 'boolean' ? enabled : true
+    };
+}
+
 export function createElementData(rawType, overrides = {}) {
     const isObsFrame = rawType === 'obs-frame';
-    const type = isObsFrame ? 'shape' : rawType;
+    const isImageGroup = rawType === 'image-group';
+    const type = isObsFrame ? 'shape' : (isImageGroup ? 'image' : rawType);
     const sizes = {
-        text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270],
+        text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: isImageGroup ? [560, 140] : [480, 270],
         video: [640, 360], embed: [640, 360], qr: [320, 320], icon: [160, 160], shape: isObsFrame ? [480, 270] : [480, 160],
         cutout: [480, 270], progress: [480, 48], poll: [400, 150], 'game-list': [800, 320], alert: [640, 280], slideshow: [640, 360], pattern: [640, 360], 'procedural-pattern': [state.overlay?.canvas?.width || 1920, state.overlay?.canvas?.height || 1080],
         'speaker-badge': [340, 84]
@@ -722,7 +750,7 @@ export function createElementData(rawType, overrides = {}) {
     const [width, height] = sizes[type] || [480, 270];
     const offset = (state.overlay.elements.length % 6) * 24;
     const data = {
-        id: uid(type), name: isObsFrame ? 'OBS Source Frame' : (type === 'procedural-pattern' ? 'Background Pattern' : (type === 'speaker-badge' ? 'Speaker Badge' : '')), locked: false, type,
+        id: uid(type), name: isObsFrame ? 'OBS Source Frame' : (isImageGroup ? 'Group Image Strip' : (type === 'procedural-pattern' ? 'Background Pattern' : (type === 'speaker-badge' ? 'Speaker Badge' : ''))), locked: false, type,
         content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', icon: 'fa-brands fa-twitch', shape: '', cutout: '', progress: '50', poll: '', 'game-list': '', alert: '', slideshow: '', pattern: 'fa-brands fa-twitch', 'procedural-pattern': '', 'speaker-badge': '' }[type],
         textFit: 'none',
         columns: 1,
@@ -806,7 +834,12 @@ export function createElementData(rawType, overrides = {}) {
         }
     };
     if (type === 'icon' || type === 'alert') Object.assign(data.style, { textAlign: 'center', verticalAlign: 'middle' });
+    if (isImageGroup) {
+        data.imageGroup = defaultImageGroupConfig(null, overrides.imageGroup, true);
+        Object.assign(data.style, { textAlign: 'center', verticalAlign: 'middle' });
+    }
     const merged = Object.assign(data, overrides);
+    if (isImageGroup && overrides.imageGroup) merged.imageGroup = data.imageGroup;
     merged._baseState = extractElementState(merged);
     return merged;
 }
@@ -878,6 +911,11 @@ export function applyEditorVariablesUpdate(data) {
     if (!state.liveStatus || typeof state.liveStatus !== 'object') state.liveStatus = {};
     if (Array.isArray(data.variables)) state.liveStatus.customVars = data.variables;
     if (Array.isArray(data.sets)) state.liveStatus.variableSets = data.sets;
+    if (typeof data.variableSetsEnabled === 'boolean') {
+        state.liveStatus.modules = { ...(state.liveStatus.modules || {}), variableSets: data.variableSetsEnabled };
+        const tabSets = $('tab-sets');
+        if (tabSets) tabSets.hidden = !data.variableSetsEnabled;
+    }
     const engine = editorVarRotationEngine;
     if (!engine || !prefs.live) return false;
     engine.recompute();

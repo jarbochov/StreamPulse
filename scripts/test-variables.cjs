@@ -406,3 +406,95 @@ test('Variable Sets: overlays following a set apply server rotation to every slo
     assert.deepEqual(normalized.variableSetFollow, { p: true });
     assert.deepEqual(normalized.variableSetTransitions, { p: { transition: 'slide-up', durationMs: 600 } });
 });
+
+test('Variable Sets: moduleEnabled flag pauses timers, preserves sets on disk, and exposes variableSetsEnabled', async () => {
+    const dir = makeTmpDir();
+    const events = [];
+    const store = createVariablesStore({ dataDir: dir, onChange: ev => events.push(ev) });
+    try {
+        assert.equal(store.isModuleEnabled(), true);
+        store.upsertSet('spot', {
+            name: 'Spotlight',
+            slotsCount: 0,
+            fields: [{ key: 'name', type: 'text' }],
+            roster: [
+                { id: 'alex', label: 'Alex', values: { name: 'Alex' } },
+                { id: 'jordan', label: 'Jordan', values: { name: 'Jordan' } }
+            ],
+            rotation: { enabled: true, intervalSeconds: 1 }
+        });
+
+        assert.equal(store.setModuleEnabled(false), false);
+        assert.equal(store.isModuleEnabled(), false);
+        assert.equal(events.at(-1)?.variableSetsEnabled, false);
+
+        const apiDisabled = await callApi(store, 'GET', '/api/variables');
+        assert.equal(apiDisabled.status, 200);
+        assert.equal(apiDisabled.json.variableSetsEnabled, false);
+        assert.equal(apiDisabled.json.sets.length, 1, 'disabling module preserves saved sets on disk');
+
+        assert.equal(store.setModuleEnabled(true), true);
+        assert.equal(events.at(-1)?.variableSetsEnabled, true);
+        const apiEnabled = await callApi(store, 'GET', '/api/variables');
+        assert.equal(apiEnabled.json.variableSetsEnabled, true);
+        store.dispose();
+
+        // Reloading from disk finds saved set intact
+        const reloaded = createVariablesStore({ dataDir: dir });
+        assert.equal(reloaded.listSets().length, 1);
+        reloaded.dispose();
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('Variable Sets: Group Roster Mode delimiters, empty wrappers, entry toggle & non-empty slot joins', async () => {
+    const dir = makeTmpDir();
+    const store = createVariablesStore({ dataDir: dir });
+    try {
+        store.upsertSet('squad', {
+            name: 'Co-Stream Squad',
+            slotsCount: 3,
+            fields: [
+                { key: 'name', label: 'Name', type: 'text' },
+                { key: 'role', label: 'Role', type: 'text' },
+                { key: 'avatar', label: 'Avatar', type: 'image' }
+            ],
+            roster: [
+                { id: 'alex', label: 'Alex', inGroup: true, values: { name: 'Alex', role: 'Host', avatar: '/a.png' } },
+                { id: 'jordan', label: 'Jordan', inGroup: true, values: { name: 'Jordan', role: '', avatar: '/b.png' } },
+                { id: 'casey', label: 'Casey', inGroup: false, values: { name: 'Casey', role: 'Guest', avatar: '/c.png' } },
+                { id: 'morgan', label: 'Morgan', inGroup: true, values: { name: 'Morgan', role: 'Mod', avatar: '' } }
+            ]
+        });
+
+        const groupCfgRes = await callApi(store, 'POST', '/api/variables/sets/squad/group', {
+            separator: ', ',
+            lastSeparator: ', and ',
+            itemTemplate: '{{name}} ({{role}})'
+        });
+        assert.equal(groupCfgRes.status, 200);
+
+        assert.equal(store.values().squad_group, 'Alex (Host), Jordan, and Morgan (Mod)');
+        assert.equal(store.values().squad_group_count, 3);
+        assert.equal(store.values().squad_group_name, 'Alex, Jordan, and Morgan');
+        assert.equal(store.values().squad_group_role, 'Host, and Mod');
+
+        const membersVar = getVar(store, 'squad_group_members');
+        assert.equal(membersVar.hidden, true);
+        const members = JSON.parse(store.values().squad_group_members);
+        assert.deepEqual(members.map(m => m.id), ['alex', 'jordan', 'morgan']);
+        assert.deepEqual(members.map(m => m.image), ['/a.png', '/b.png', '']);
+
+        const toggleRes = await callApi(store, 'GET', '/api/variables/sets/squad/entry/group-toggle?entry=casey&inGroup=1');
+        assert.equal(toggleRes.status, 200);
+        assert.equal(store.values().squad_group_count, 4);
+        assert.equal(store.values().squad_group, 'Alex (Host), Jordan, Casey (Guest), and Morgan (Mod)');
+
+        // Multi-slot joined token skips empty slot 2 cleanly
+        store.assignSetSlot('squad', 1, 'alex');
+        store.clearSetSlot('squad', 2);
+        store.assignSetSlot('squad', 3, 'morgan');
+        assert.equal(store.values().squad_joined_name, 'Alex, and Morgan');
+
+        store.dispose();
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

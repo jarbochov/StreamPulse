@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import puppeteer from 'puppeteer';
 import overlays from '../server/services/overlays.js';
 
 const names = ['overlay-shared.js', 'poll-widget.js', 'patterns-shared.js', 'editor-geometry.js', 'motion-easing.js',
-    ...['state', 'canvas', 'form', 'layers', 'sets', 'inspector', 'speakers', 'patterns'].map(name => `editor/editor-${name}.js`)];
+    ...['state', 'canvas', 'form', 'layers', 'sets', 'inspector', 'speakers', 'patterns', 'style-presets'].map(name => `editor/editor-${name}.js`)];
 const sources = new Map(await Promise.all(names.map(async name =>
     [`/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8')])));
 const css = await readFile(new URL('../public/css/custom-overlay-editor.css', import.meta.url), 'utf8');
@@ -15,13 +17,22 @@ for (const name of ['overlay-retro.js', 'overlay-filters.js']) {
     sources.set(`/js/${name}`, source);
 }
 const unexpected = [];
-const server = createServer((req, res) => {
-    const path = new URL(req.url, 'http://fixture.local').pathname;
-    if (sources.has(path)) {
-        res.setHeader('Content-Type', 'text/javascript'); res.end(sources.get(path));
-    } else if (path === '/editor.css') {
+let savedStylePresets = [];
+const readJsonBody = req => new Promise(resolve => {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => {
+        try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}')); }
+        catch { resolve({}); }
+    });
+});
+const server = createServer(async (req, res) => {
+    const urlPath = new URL(req.url, 'http://fixture.local').pathname;
+    if (sources.has(urlPath)) {
+        res.setHeader('Content-Type', 'text/javascript'); res.end(sources.get(urlPath));
+    } else if (urlPath === '/editor.css') {
         res.setHeader('Content-Type', 'text/css'); res.end(css);
-    } else if (path === '/') {
+    } else if (urlPath === '/') {
         res.setHeader('Content-Type', 'text/html');
         res.end(`<!doctype html><link rel="stylesheet" href="/editor.css"><style>
             :root{--bg-inset:#10141b;--bg-card:#181e28;--bg-raised:#232d3c;--text:#edf2f8;
@@ -31,13 +42,27 @@ const server = createServer((req, res) => {
             </style><div id="stage"><div id="canvas"><div id="canvas-underlayer"></div>
             <div id="canvas-toplayer"></div></div><div id="ui"></div></div>
             <aside class="rail right"><div id="properties"></div></aside>`);
-    } else if (path === '/api/alerts') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"rules":[{"id":"fictional-brb","name":"BRB in 5 minutes"},{"id":"fictional-follow","name":"Follow"}]}');
-    } else if (path === '/api/obs/audio-inputs') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"inputs":["Mic/Aux","Desktop Audio"],"connected":true,"enabled":true}');
-    } else if (['/surviving-upload.png', '/newer.png', '/second.png'].includes(path)) {
+    } else if (urlPath === '/api/alerts') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"rules":[{"id":"fictional-brb","name":"BRB in 5 minutes"},{"id":"fictional-follow","name":"Follow"}]}');
+    } else if (urlPath === '/api/obs/audio-inputs') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"inputs":["Mic/Aux","Desktop Audio"],"connected":true,"enabled":true}');
+    } else if (urlPath === '/api/custom-overlays/style-presets' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(savedStylePresets));
+    } else if (urlPath === '/api/custom-overlays/style-presets' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        const preset = { id: String(body.id || `style-${savedStylePresets.length + 1}`), name: String(body.name || 'Custom'), category: body.category || 'box', style: body.style || {} };
+        savedStylePresets = [...savedStylePresets.filter(p => p.id !== preset.id), preset];
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(preset));
+    } else if (urlPath.startsWith('/api/custom-overlays/style-presets/') && req.method === 'DELETE') {
+        const id = decodeURIComponent(urlPath.slice('/api/custom-overlays/style-presets/'.length));
+        savedStylePresets = savedStylePresets.filter(p => p.id !== id);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, stylePresets: savedStylePresets }));
+    } else if (['/surviving-upload.png', '/newer.png', '/second.png', '/media-a.png', '/media-b.png'].includes(urlPath)) {
         res.writeHead(200, { 'Content-Type': 'image/svg+xml' });
-        res.end('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#abcdef"/></svg>');
-    } else if (path === '/favicon.ico') { res.writeHead(204); res.end(); }
-    else { unexpected.push(`${req.method} ${path}`); res.writeHead(404); res.end(); }
+        res.end(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="${urlPath === '/media-b.png' ? '#22c55e' : '#abcdef'}"/></svg>`);
+    } else if (urlPath === '/favicon.ico') { res.writeHead(204); res.end(); }
+    else { unexpected.push(`${req.method} ${urlPath}`); res.writeHead(404); res.end(); }
 });
 await new Promise(done => server.listen(0, '127.0.0.1', done));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -218,6 +243,7 @@ try {
                 }, width);
                 assert.deepEqual(overflow, [], `${type}/${tab} controls must fit the ${width}px inspector`);
             }
+            await page.evaluate(() => { document.querySelector('.rail.right').style.width = '344px'; });
         }
         assert.equal(await page.evaluate(() => JSON.stringify(window.fixture.state.overlay)), before, 'inspector navigation must not mutate the design');
     }
@@ -512,6 +538,327 @@ try {
     assert.equal(await page.$('#sets-panel [data-vrot-follow="casters"]'), null, 'Multi-slot set hides timed Follow rotation toggle');
     assert.ok(await page.$('#sets-panel [data-vrot-set="casters"] .vset-channel-meta'), 'Multi-slot set renders manual slots/queues summary card');
     assert.ok(await page.$('#sets-panel [data-vset-lib="sponsors"]'), 'Unlinked sets appear in the All Variable Sets library drawer');
+
+    // Extended Borders, Per-Corner Radii, Text Styles/Animations, and Element Style Presets
+    await page.evaluate(async () => {
+        const presetsMod = await import('/js/editor/editor-style-presets.js');
+        await presetsMod.loadStylePresets();
+        window.fixture.select('text', { id: 'styled-text', content: 'Stream Live' });
+    });
+    await page.click('[data-inspector-tab="style"]');
+    await page.$eval('[data-sect="stylePresets"]', d => { d.open = true; });
+    assert.ok(await page.$('[data-apply-style-preset="builtin-neon-tube"]'), 'Style Presets grid renders built-in presets');
+    await page.click('[data-apply-style-preset="builtin-neon-tube"]');
+    const afterPreset = await page.evaluate(() => {
+        const el = window.fixture.primary();
+        return { borderStyle: el.style.borderStyle, borderColor: el.style.borderColor, borderWidth: el.style.borderWidth };
+    });
+    assert.deepEqual(afterPreset, { borderStyle: 'neon-tube', borderColor: '#f43f5e', borderWidth: 3 }, 'Applying Style Preset updates border look cleanly');
+
+    await page.evaluate(() => {
+        const inp = document.querySelector('#style-preset-name');
+        inp.value = 'Broadcast Pink';
+        document.querySelector('#save-style-preset-btn').click();
+    });
+    await page.waitForSelector('[data-delete-style-preset]');
+    assert.equal(savedStylePresets.length, 1, 'Saving style preset persists via POST /api/custom-overlays/style-presets');
+    await page.click('[data-delete-style-preset]');
+    await page.waitForFunction(() => !document.querySelector('[data-delete-style-preset]'));
+    assert.equal(savedStylePresets.length, 0, 'Deleting custom style preset removes it via DELETE endpoint');
+
+    await edit('style.borderStyle', 'chamfer');
+    await page.click('input[type="checkbox"][data-path="style.borderRadiusCorners.enabled"]');
+    await page.waitForSelector('input[data-path="style.borderRadiusCorners.tl"]');
+    await edit('style.borderRadiusCorners.tl', '22');
+
+    // Optional middle gradient color stop toggle is explicitly off by default, and toggles/clears cleanly
+    await page.$eval('[data-sect="fill"]', d => { d.open = true; });
+    await page.click('[data-seg-path="style.gradient.enabled"] [data-seg-value="true"]');
+    await page.waitForSelector('[data-grad-mid-toggle="style.gradient.mid"]');
+    assert.equal(await page.$('[data-path="style.gradient.mid"]'), null, 'Middle color picker stays hidden until enabled');
+    await page.click('[data-grad-mid-toggle="style.gradient.mid"]');
+    await page.waitForSelector('input[data-path="style.gradient.mid"]');
+    assert.ok(await page.evaluate(() => Boolean(window.fixture.primary().style.gradient.mid)), 'Checking optional middle stop sets mid color');
+    await page.$eval('[data-clear="style.gradient.mid"]', el => el.scrollIntoView({ block: 'center' }));
+    await page.click('[data-clear="style.gradient.mid"]');
+    await page.waitForFunction(() => !document.querySelector('[data-path="style.gradient.mid"]'));
+    assert.equal(await page.evaluate(() => window.fixture.primary().style.gradient.mid), '', 'Clicking Off collapses and clears optional middle color');
+
+    await page.$eval('[data-sect="textEffects"]', d => { d.open = true; });
+    assert.equal(await page.$('[data-path="style.textHighlight.enabled"]'), null, 'Redundant textHighlight badge checkbox is removed');
+    await page.$eval('[data-path="style.textAnimation.type"]', el => el.scrollIntoView({ block: 'center' }));
+    await edit('style.textAnimation.type', 'wiggle');
+    await page.waitForSelector('input[data-path="style.textAnimation.speed"]');
+    assert.equal(await page.$('[data-path="style.textAnimation.color"]'), null, 'Text animation does not expose color pickers');
+    const styledState = await page.evaluate(() => window.fixture.primary().style);
+    assert.equal(styledState.borderStyle, 'chamfer');
+    assert.equal(styledState.borderRadiusCorners.enabled, true);
+    assert.equal(styledState.borderRadiusCorners.tl, 22);
+    assert.equal(styledState.textAnimation.type, 'wiggle');
+
+    // Pure-motion whole-block, per-word, and per-character animations render without mutating colors
+    const animChecks = await page.evaluate(async () => {
+        const canvas = await import('/js/editor/editor-canvas.js');
+        const { state } = window.fixture;
+        const el = window.fixture.primary();
+        el.content = 'Stream Alpha';
+        el.style.color = '#ef4444';
+        el.style.textGradient = { enabled: false };
+
+        el.style.textAnimation = { type: 'word-bounce', speed: 2, intensity: 60 };
+        canvas.renderCanvas();
+        const node = state.nodes.get(el.id);
+        const words = [...(node?.querySelectorAll('.sp-ta-word') || [])].map(w => w.textContent);
+        const wordWrapMode = node?.querySelector('[data-sp-ta-wrap]')?.dataset?.spTaWrap || '';
+        const colorDuringWord = node?.style.color || '';
+
+        el.style.textAnimation = { type: 'char-bounce', speed: 2, intensity: 60 };
+        canvas.renderCanvas();
+        const charsCount = node?.querySelectorAll('.sp-ta-char').length || 0;
+
+        el.style.textAnimation = { type: 'typing', speed: 2, intensity: 60 };
+        canvas.renderCanvas();
+        const hasCaret = Boolean(node?.querySelector('.sp-ta-caret'));
+        const typedInit = node?.querySelector('.sp-ta-typed')?.textContent || '';
+
+        el.style.textAnimation = { type: 'matrix', speed: 2, intensity: 60 };
+        canvas.renderCanvas();
+        const matrixChars = node?.querySelectorAll('.sp-ta-char').length || 0;
+
+        el.style.textAnimation = { type: 'wobble', speed: 2, intensity: 60 };
+        canvas.renderCanvas();
+        const wrapAfterBlock = node?.querySelector('[data-sp-ta-wrap]');
+        const rawRestored = [...(node?.childNodes || [])].filter(c => c.nodeType === 3).map(c => c.nodeValue).join('');
+
+        return { words, wordWrapMode, colorDuringWord, charsCount, hasCaret, typedInit, matrixChars, hasWrapAfterBlock: Boolean(wrapAfterBlock), rawRestored };
+    });
+    assert.deepEqual(animChecks.words, ['Stream', 'Alpha'], 'Per-word animation wraps individual words cleanly');
+    assert.equal(animChecks.wordWrapMode, 'word-bounce');
+    assert.ok(animChecks.colorDuringWord.includes('239') || animChecks.colorDuringWord === '#ef4444', 'Text animation preserves user text color');
+    assert.equal(animChecks.charsCount, 11, 'Per-char animation wraps every non-space character');
+    assert.equal(animChecks.hasCaret, true, 'Typing animation renders blinking caret');
+    assert.ok(animChecks.typedInit.length >= 1, 'Typing animation renders initial characters without flicker');
+    assert.equal(animChecks.matrixChars, 11, 'Matrix animation builds character slots for cipher decode');
+    assert.equal(animChecks.hasWrapAfterBlock, false, 'Switching back to whole-block animation cleans up split spans');
+    assert.equal(animChecks.rawRestored, 'Stream Alpha', 'Raw text is restored cleanly after exiting split animation');
+
+    // Dynamic variable image preview updates on variable set changes + Group Image Strip multi-layout customizations
+    const imageChecks = await page.evaluate(async () => {
+        const canvas = await import('/js/editor/editor-canvas.js');
+        const { state, createElementData, renderProperties } = window.fixture;
+        state.overlay.pages = { kind: 'pages', activePage: 'p1', transition: 'none', durationMs: 350, items: [{ id: 'p1', name: 'Main' }] };
+        state.editPage = 'p1';
+        state.liveStatus.modules = { ...(state.liveStatus.modules || {}), variableSets: true };
+        state.liveStatus.customVars = [{ name: 'cast_1_avatar', type: 'image', value: '/media-a.png' }];
+        state.liveStatus.variableSets = [{
+            id: 'cast',
+            label: 'Panel Cast',
+            fields: [
+                { key: 'name', type: 'text', label: 'Name' },
+                { key: 'role', type: 'text', label: 'Role' },
+                { key: 'avatar', type: 'image', label: 'Avatar' }
+            ],
+            entries: [
+                { id: 'alex', label: 'Alex', inGroup: true, values: { name: 'Alex', role: 'Host', avatar: '/media-a.png' } },
+                { id: 'jordan', label: 'Jordan', inGroup: false, values: { name: 'Jordan', role: 'Bench', avatar: '/media-b.png' } },
+                { id: 'morgan', label: 'Morgan', inGroup: true, values: { name: 'Morgan', role: 'Mod', avatar: '' } },
+                { id: 'casey', label: 'Casey', inGroup: true, values: { name: 'Casey', role: 'Co-Host', avatar: '/media-b.png' } }
+            ]
+        }];
+
+        const dynImg = createElementData('image', { id: 'dyn-img', page: 'p1', src: '{{var.cast_1_avatar}}' });
+        const stripImg = createElementData('image', {
+            id: 'strip-img',
+            page: 'p1',
+            imageGroup: { enabled: true, setId: 'cast', imageField: 'avatar', labelField: 'name', layout: 'row', shape: 'circle', showLabels: true, delimiter: '|' }
+        });
+        state.overlay.elements = [dynImg, stripImg];
+        state.selectedIds = new Set(['strip-img']);
+        renderProperties();
+        canvas.renderCanvas();
+
+        const firstSrc = state.nodes.get('dyn-img')?.querySelector('img')?.getAttribute('src') || '';
+        state.liveStatus.customVars = [{ name: 'cast_1_avatar', type: 'image', value: '/media-b.png' }];
+        canvas.renderCanvas();
+        const updatedSrc = state.nodes.get('dyn-img')?.querySelector('img')?.getAttribute('src') || '';
+
+        const stripImgs = [...(state.nodes.get('strip-img')?.querySelectorAll('.sp-image-group-img') || [])].map(i => i.getAttribute('src'));
+        const stripLabels = [...(state.nodes.get('strip-img')?.querySelectorAll('.sp-image-group-label') || [])].map(s => s.textContent);
+        const hasGroupSelect = Boolean(document.querySelector('[data-path="imageGroup.setId"]'));
+
+        // Test rich layouts: cards + initials fallback + subField + maxItems overflow badge, plus spotlight & overlap & chips
+        stripImg.imageGroup = {
+            ...stripImg.imageGroup,
+            layout: 'cards',
+            shape: 'hexagon',
+            subField: 'role',
+            fallbackMode: 'initials',
+            maxItems: 2,
+            showOverflowBadge: true,
+            cardBg: '#0f172a',
+            cardBorderWidth: 2,
+            cardBorderColor: '#38bdf8'
+        };
+        renderProperties();
+        canvas.renderCanvas();
+        const cardNode = state.nodes.get('strip-img');
+        const cardsCount = cardNode?.querySelectorAll('.sp-image-group-card').length || 0;
+        const cardInitials = [...(cardNode?.querySelectorAll('.sp-image-group-initials') || [])].map(s => s.textContent);
+        const cardSubs = [...(cardNode?.querySelectorAll('.sp-image-group-sub') || [])].map(s => s.textContent);
+        const overflowBadge = cardNode?.querySelector('.sp-image-group-overflow')?.textContent || '';
+
+        stripImg.imageGroup = { ...stripImg.imageGroup, layout: 'overlap', overlap: 14, maxItems: 0, fallbackMode: 'skip' };
+        canvas.renderCanvas();
+        const overlapMargin = state.nodes.get('strip-img')?.querySelectorAll('.sp-image-group-item')[1]?.style.marginLeft || '';
+
+        stripImg.imageGroup = { ...stripImg.imageGroup, layout: 'chips', maxItems: 0 };
+        canvas.renderCanvas();
+        const chipsCount = state.nodes.get('strip-img')?.querySelectorAll('.sp-image-group-chip').length || 0;
+
+        stripImg.imageGroup = { ...stripImg.imageGroup, layout: 'spotlight', spotlightScale: 1.5 };
+        canvas.renderCanvas();
+        const hasLead = Boolean(state.nodes.get('strip-img')?.querySelector('.sp-image-group-lead'));
+
+        return { firstSrc, updatedSrc, stripImgs, stripLabels, hasGroupSelect, cardsCount, cardInitials, cardSubs, overflowBadge, overlapMargin, chipsCount, hasLead };
+    });
+    assert.equal(imageChecks.firstSrc, '/media-a.png', 'Dynamic variable image resolves initial source in editor canvas');
+    assert.equal(imageChecks.updatedSrc, '/media-b.png', 'Dynamic variable image updates live when set variable changes');
+    assert.deepEqual(imageChecks.stripImgs, ['/media-a.png', '/media-b.png'], 'Group Image Strip excludes inGroup:false and blank-image entries');
+    assert.deepEqual(imageChecks.stripLabels, ['Alex', 'Casey']);
+    assert.equal(imageChecks.hasGroupSelect, true, 'Group strip inspector exposes Variable Set picker');
+    assert.equal(imageChecks.cardsCount, 2, 'Cards layout renders maxItems capped cards');
+    assert.deepEqual(imageChecks.cardInitials, ['MO'], 'Initials fallback renders monogram when avatar URL is blank');
+    assert.deepEqual(imageChecks.cardSubs, ['Host', 'Mod'], 'Cards layout renders subField subtitles');
+    assert.equal(imageChecks.overflowBadge, '+1', 'Overflow badge displays count of remaining active members');
+    assert.equal(imageChecks.overlapMargin, '-14px', 'Overlap layout applies negative overlap margin');
+    assert.equal(imageChecks.chipsCount, 2, 'Chips layout renders capsule chips');
+    assert.equal(imageChecks.hasLead, true, 'Spotlight layout marks first member as lead');
+    const stripNarrowOverflow = await page.evaluate(() => {
+        const rail = document.querySelector('.rail.right');
+        rail.style.width = '260px';
+        const panel = document.querySelector('[data-inspector-panel="content"]');
+        panel.querySelectorAll('details').forEach(node => { node.open = true; });
+        const bounds = rail.getBoundingClientRect();
+        const bad = [...panel.querySelectorAll('input:not([type=hidden]),select,textarea,button,summary')]
+            .filter(node => {
+                const rect = node.getBoundingClientRect();
+                return rect.width > 0 && (rect.right > bounds.right + 1 || rect.left < bounds.left - 1);
+            }).map(node => node.dataset.path || node.id || node.textContent.trim());
+        rail.style.width = '344px';
+        return bad;
+    });
+    assert.deepEqual(stripNarrowOverflow, [], 'Group Image Strip controls must fit the 260px inspector');
+
+    // Direct 1-click Group Image Strip creation helper + Sets drawer + Strip action + Add Menu markup
+    const editorHtmlMarkup = await readFile(new URL('../public/editors/custom-overlay-editor.html', import.meta.url), 'utf8');
+    assert.match(editorHtmlMarkup, /id="menu-add-image-group"[^>]*>|data-add="image-group"[^>]*id="menu-add-image-group"/, 'Group Image Strip menu item exists in custom-overlay-editor.html + Add menu');
+    const quickStripChecks = await page.evaluate(async () => {
+        const setsMod = await import('/js/editor/editor-sets.js');
+        const { state, createElementData } = window.fixture;
+        state.liveStatus.modules = { ...(state.liveStatus.modules || {}), variableSets: true };
+        const quickStrip = createElementData('image-group', { id: 'quick-strip' });
+        state.overlay.elements = [];
+        setsMod.renderSetsPanel();
+        return {
+            type: quickStrip.type,
+            enabled: quickStrip.imageGroup?.enabled,
+            setId: quickStrip.imageGroup?.setId,
+            imageField: quickStrip.imageGroup?.imageField,
+            hasStripBtn: Boolean(document.querySelector('#sets-panel [data-vset-insert-strip="cast"]'))
+        };
+    });
+    assert.equal(quickStripChecks.type, 'image');
+    assert.equal(quickStripChecks.enabled, true);
+    assert.equal(quickStripChecks.setId, 'cast');
+    assert.equal(quickStripChecks.imageField, 'avatar');
+    assert.equal(quickStripChecks.hasStripBtn, true, 'Sets library offers + Strip quick action for image-capable sets');
+
+    // Composable standout border styles, gradients, and animations
+    const borderChecks = await page.evaluate(() => {
+        const host = document.createElement('div');
+        host.style.cssText = 'position:fixed;left:-9999px;top:0;width:400px;height:140px;';
+        document.body.append(host);
+        const testCase = (stylePatch) => {
+            const node = document.createElement('div');
+            node.style.cssText = 'position:relative;width:320px;height:100px;';
+            host.append(node);
+            const el = { id: 'b', type: 'shape', width: 320, height: 100, style: { borderWidth: 6, borderColor: '#22d3ee', ...stylePatch } };
+            window.OverlayShared.applyBorderEffects(node, el.style, el);
+            const fxRing = node._borderFxRing;
+            const ring = node._borderRing;
+            const activeRing = fxRing || ring;
+            const animName = fxRing ? getComputedStyle(fxRing).animationName : 'none';
+            const maskImg = activeRing ? (activeRing.style.maskImage || activeRing.style.webkitMaskImage || '') : '';
+            const hasNeonCore = Boolean(activeRing?.querySelector('[data-neon-core="true"]'));
+            const clipPath = node.style.clipPath || '';
+            const bg = activeRing ? activeRing.style.backgroundImage || activeRing.style.background || '' : '';
+            node.remove();
+            return { animName, hasSvgMask: maskImg.includes('image/svg+xml'), hasNeonCore, clipPath, hasBg: Boolean(bg) };
+        };
+        const out = {
+            techHudDualBeam: testCase({ borderStyle: 'tech-hud', borderAnimation: { type: 'dual-beam', speed: 3, size: 35, color2: '#ffffff' }, borderGradient: { enabled: true, from: '#38bdf8', to: '#a855f7' } }),
+            notchedLaser: testCase({ borderStyle: 'notched', borderAnimation: { type: 'laser-scan', speed: 3, color2: '#ffffff' } }),
+            ornateGradient: testCase({ borderStyle: 'ornate-filigree', borderGradient: { enabled: true, from: '#facc15', to: '#f97316' } }),
+            pixelPlasma: testCase({ borderStyle: 'pixel-arcade', borderAnimation: { type: 'plasma', speed: 3, color2: '#a855f7', color3: '#ffffff' } }),
+            chamferRotating: testCase({ borderStyle: 'chamfer', borderAnimation: { type: 'rotating', speed: 4, size: 35, color2: '#ffffff' } }),
+            neonRainbow: testCase({ borderStyle: 'neon-tube', borderAnimation: { type: 'rainbow', speed: 3 } })
+        };
+        host.remove();
+        return out;
+    });
+    assert.notEqual(borderChecks.techHudDualBeam.animName, 'none');
+    assert.equal(borderChecks.techHudDualBeam.hasSvgMask, true, 'tech-hud keeps SVG mask even with gradient + dual-beam animation');
+    assert.notEqual(borderChecks.notchedLaser.animName, 'none');
+    assert.equal(borderChecks.notchedLaser.hasSvgMask, true);
+    assert.ok(borderChecks.notchedLaser.clipPath.includes('polygon('), 'notched clips node silhouette when animation is active');
+    assert.equal(borderChecks.ornateGradient.animName, 'none');
+    assert.equal(borderChecks.ornateGradient.hasSvgMask, true, 'ornate-filigree renders gradient inside SVG filigree mask');
+    assert.notEqual(borderChecks.pixelPlasma.animName, 'none');
+    assert.equal(borderChecks.pixelPlasma.hasSvgMask, true);
+    assert.ok(borderChecks.pixelPlasma.clipPath.includes('polygon('));
+    assert.notEqual(borderChecks.chamferRotating.animName, 'none');
+    assert.equal(borderChecks.chamferRotating.hasSvgMask, true);
+    assert.ok(borderChecks.chamferRotating.clipPath.includes('polygon('));
+    assert.notEqual(borderChecks.neonRainbow.animName, 'none');
+    assert.equal(borderChecks.neonRainbow.hasNeonCore, true, 'neon-tube preserves inner filament core during rainbow animation');
+
+    // Service-level schema normalization & saved Style Presets persistence
+    const tmpOverlaysDir = await mkdtemp(path.join(os.tmpdir(), 'sp-style-presets-'));
+    try {
+        const svc = overlays.createOverlayService({ dataDir: tmpOverlaysDir, broadcast: () => {} });
+        const normEl = overlays.normalizeOverlayElement({
+            type: 'text',
+            content: 'Host',
+            style: {
+                borderStyle: 'tech-hud',
+                borderAnimation: { type: 'dual-beam', speed: 3, size: 35, color2: '#ffffff', color3: '#a855f7' },
+                borderRadiusCorners: { enabled: true, tl: 16, tr: 4, br: 16, bl: 4 },
+                fontStyle: 'italic',
+                tabularNums: true,
+                textShadow: { blur: 6, x: 2, y: -3, color: '#000000' },
+                textAnimation: { type: 'char-wiggle', speed: 2.5, intensity: 70, color: '#ffffff' }
+            }
+        });
+        assert.equal(normEl.style.borderStyle, 'tech-hud');
+        assert.equal(normEl.style.borderAnimation.type, 'dual-beam');
+        assert.equal(overlays.normalizeOverlayElement({ type: 'shape', style: { borderStyle: 'ornate-filigree', borderAnimation: { type: 'laser-scan' } } }).style.borderStyle, 'ornate-filigree');
+        assert.equal(overlays.normalizeOverlayElement({ type: 'shape', style: { borderStyle: 'pixel-arcade', borderAnimation: { type: 'plasma' } } }).style.borderAnimation.type, 'plasma');
+        assert.deepEqual(normEl.style.borderRadiusCorners, { enabled: true, tl: 16, tr: 4, br: 16, bl: 4 });
+        assert.equal(normEl.style.fontStyle, 'italic');
+        assert.equal(normEl.style.tabularNums, true);
+        assert.equal(normEl.style.textShadow.x, 2);
+        assert.equal('textHighlight' in normEl.style, false, 'Removed redundant textHighlight from normalized style');
+        assert.equal(normEl.style.textAnimation.type, 'char-wiggle');
+        assert.equal('color' in normEl.style.textAnimation, false, 'Text animation normalization omits color overrides');
+
+        svc.setStylePresets(svc.normalizeStylePresets([{ id: 'p1', name: 'Studio Cyan', category: 'text', style: { borderStyle: 'corner-brackets', color: '#22d3ee' } }]));
+        svc.saveStylePresets();
+        const svcReloaded = overlays.createOverlayService({ dataDir: tmpOverlaysDir, broadcast: () => {} });
+        assert.equal(svcReloaded.getStylePresets().length, 1);
+        assert.equal(svcReloaded.getStylePresets()[0].name, 'Studio Cyan');
+    } finally {
+        await rm(tmpOverlaysDir, { recursive: true, force: true });
+    }
 
     assert.deepEqual(errors, []);
     assert.deepEqual(unexpected, []);

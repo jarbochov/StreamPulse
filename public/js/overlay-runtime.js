@@ -164,9 +164,48 @@
     });
     const clearVarRotTimers = () => varRotEngine.dispose();
     const setupVarRotations = overlay => varRotEngine.setup(overlay);
-    const usesVarSets = overlay => Boolean(overlay?.variableSetRotations?.length || Object.values(overlay?.variableSetFollow || {}).some(Boolean));
+    const usesVarSets = overlay => Boolean(
+        overlay?.variableSetRotations?.length
+        || Object.values(overlay?.variableSetFollow || {}).some(Boolean)
+        || (overlay?.elements || []).some(el => el.imageGroup?.enabled)
+    );
     const triggerPageVarRotations = pageId => varRotEngine.triggerPage(pageId);
     const effectiveStatus = () => varRotEngine.effectiveStatus(liveStatus);
+
+    function syncImageNode(node, element) {
+        if (element.imageGroup?.enabled && shared.renderImageGroupStrip) {
+            const hasItems = shared.renderImageGroupStrip(node, element, effectiveStatus(), { preview: params.get('preview') === 'true' });
+            node.classList.toggle('sp-empty-media', !hasItems);
+            return;
+        }
+        const src = String(expandVariables(element.src || '') || '').trim();
+        let media = node.querySelector(':scope > img');
+        if (!src) {
+            if (media) media.remove();
+            node.classList.add('sp-empty-media');
+            return;
+        }
+        node.classList.remove('sp-empty-media');
+        if (!media) {
+            node.replaceChildren();
+            media = document.createElement('img');
+            media.draggable = false;
+            media.decoding = 'async';
+            media.style.width = '100%';
+            media.style.height = '100%';
+            media.onerror = () => { media.style.visibility = 'hidden'; };
+            media.onload = () => { media.style.visibility = ''; };
+            node.appendChild(media);
+        }
+        if (!src.startsWith('data:')) media.crossOrigin = 'anonymous';
+        else media.removeAttribute('crossorigin');
+        if (media.getAttribute('src') !== src) {
+            media.style.visibility = '';
+            media.src = src;
+        }
+        media.style.objectFit = element.style?.objectFit || 'cover';
+        media.style.objectPosition = `${element.style?.focusX ?? 50}% ${element.style?.focusY ?? 50}%`;
+    }
 
     function variableContext() {
         return { overlayName: liveStatus.overlayName };
@@ -198,7 +237,7 @@
             zIndex: element.zIndex || 0,
             opacity: element.type === 'alert' ? 1 : style.opacity ?? 1,
             background: (element.type === 'alert' || element.type === 'speaker-badge') ? 'transparent' : (style.background || 'transparent'),
-            borderRadius: (element.type === 'alert' || element.type === 'speaker-badge') ? '0px' : `${style.borderRadius || 0}px`,
+            borderRadius: (element.type === 'alert' || element.type === 'speaker-badge') ? '0px' : (shared.resolveBorderRadius ? shared.resolveBorderRadius(style, element) : `${style.borderRadius || 0}px`),
             padding: (element.type === 'alert' || element.type === 'speaker-badge') ? '0px' : `${style.padding || 0}px`,
             fontFamily: style.fontFamily || 'sans-serif',
             fontSize: `${style.fontSize || 32}px`,
@@ -226,6 +265,7 @@
             shared.applyBorderEffects(node, style, element);
         }
         Object.assign(node.style, shared.textEffectStyle(style, element.type));
+        if (shared.applyTextAnimation) shared.applyTextAnimation(node, style, element.type);
         Object.assign(node.style, shared.shadowClipStyle(element));
         if (element.type === 'shape' || element.type === 'cutout') {
             const sh = element.type === 'cutout' ? (element.cutout?.shape || 'rectangle') : style.shape;
@@ -346,20 +386,32 @@
     }
 
     function setNodeText(node, text) {
-        if (!node.firstElementChild) {
-            if (node.textContent !== text) node.textContent = text;
+        const str = String(text ?? '');
+        node._rawText = str;
+        if (node._textAnimWrap) {
+            if (node._textNode) node._textNode.nodeValue = '';
+            if (shared.applyTextAnimation && node._lastTextAnimStyle) {
+                shared.applyTextAnimation(node, node._lastTextAnimStyle, node._lastTextAnimType);
+            }
             return;
         }
-        let tn = node._textNode;
-        if (!tn || tn.parentNode !== node) {
-            tn = [...node.childNodes].find(c => c.nodeType === 3);
-            if (!tn) {
-                tn = document.createTextNode('');
-                node.insertBefore(tn, node.firstChild);
+        if (!node.firstElementChild) {
+            if (node.textContent !== str) node.textContent = str;
+        } else {
+            let tn = node._textNode;
+            if (!tn || tn.parentNode !== node) {
+                tn = [...node.childNodes].find(c => c.nodeType === 3);
+                if (!tn) {
+                    tn = document.createTextNode('');
+                    node.insertBefore(tn, node.firstChild);
+                }
+                node._textNode = tn;
             }
-            node._textNode = tn;
+            if (tn.nodeValue !== str) tn.nodeValue = str;
         }
-        if (tn.nodeValue !== text) tn.nodeValue = text;
+        if (shared.applyTextAnimation && node._lastTextAnimStyle?.textAnimation?.type && node._lastTextAnimStyle.textAnimation.type !== 'none') {
+            shared.applyTextAnimation(node, node._lastTextAnimStyle, node._lastTextAnimType);
+        }
     }
 
     function tickPlaceholders() {
@@ -702,13 +754,7 @@
             applyElementStyle(existingNode, element);
 
             if (element.type === 'image') {
-                const media = existingNode.querySelector(':scope > img');
-                const targetSrc = expandVariables(element.src || '');
-                if (media) {
-                    if (media.getAttribute('src') !== targetSrc) media.src = targetSrc;
-                    media.style.objectFit = element.style?.objectFit || 'cover';
-                    media.style.objectPosition = `${element.style?.focusX ?? 50}% ${element.style?.focusY ?? 50}%`;
-                }
+                syncImageNode(existingNode, element);
             } else if (element.type === 'icon') {
                 shared.renderIcon(existingNode, element.content, element.style || {});
             } else if (element.type === 'qr') {
@@ -839,16 +885,7 @@
                     node.appendChild(media);
                 }
             } else if (element.type === 'image') {
-                const media = document.createElement('img');
-                const src = expandVariables(element.src || '');
-                if (src && !src.startsWith('data:')) media.crossOrigin = 'anonymous';
-                media.src = src;
-                media.draggable = false;
-                media.style.width = '100%';
-                media.style.height = '100%';
-                media.style.objectFit = element.style?.objectFit || 'cover';
-                media.style.objectPosition = `${element.style?.focusX ?? 50}% ${element.style?.focusY ?? 50}%`;
-                node.appendChild(media);
+                syncImageNode(node, element);
             } else if (element.type === 'icon') {
                 shared.renderIcon(node, element.content, element.style || {});
             } else if (element.type === 'qr') {

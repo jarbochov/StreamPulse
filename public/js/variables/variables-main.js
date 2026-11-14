@@ -6,8 +6,20 @@ import { bindSetEvents, renderSets, tickSetCountdowns } from './variables-sets.j
 const $ = id => document.getElementById(id);
 const S = window.OverlayShared;
 
+function applyVariableSetsVisibility() {
+    const enabled = state.variableSetsEnabled !== false;
+    const setsTabBtn = document.querySelector('#tabs button[data-t="sets"]');
+    if (setsTabBtn) setsTabBtn.hidden = !enabled;
+    const showSetWrap = $('var-show-set')?.closest('label');
+    if (showSetWrap) showSetWrap.style.display = enabled ? 'flex' : 'none';
+    if (!enabled) state.showSetVars = false;
+    if (!state.status || typeof state.status !== 'object') state.status = {};
+    state.status.modules = { ...(state.status.modules || {}), variableSets: enabled };
+    if (!enabled && location.hash === '#sets') showTab('variables');
+}
+
 function showTab(name) {
-    const activeKey = name === 'sets' ? 'sets' : (name === 'vars' || name === 'variables') ? 'variables' : 'placeholders';
+    const activeKey = (name === 'sets' && state.variableSetsEnabled !== false) ? 'sets' : (name === 'vars' || name === 'variables') ? 'variables' : 'placeholders';
     document.querySelectorAll('#tabs button').forEach(b => {
         const isSel = b.dataset.t === activeKey;
         b.setAttribute('aria-selected', String(isSel));
@@ -187,7 +199,8 @@ export function renderVars() {
     const q = state.varQuery.trim().toLowerCase();
     const typeFilter = state.varTypeFilter;
     const filtered = (state.customVars || []).filter(v => {
-        if (!state.showSetVars && v.setId) return false;
+        if (v.hidden) return false;
+        if ((state.variableSetsEnabled === false || !state.showSetVars) && v.setId) return false;
         if (typeFilter !== 'all' && v.type !== typeFilter) return false;
         if (q && !`${v.name} ${v.type} ${v.value}`.toLowerCase().includes(q)) return false;
         return true;
@@ -322,7 +335,9 @@ export async function loadAllVars() {
         const [res] = await Promise.all([api('/api/variables'), refreshOverlaysSummary()]);
         state.customVars = res.variables || [];
         state.variableSets = res.sets || [];
+        if (typeof res.variableSetsEnabled === 'boolean') state.variableSetsEnabled = res.variableSetsEnabled;
         state.status.customVars = state.customVars;
+        applyVariableSetsVisibility();
         renderSets();
         renderVars();
         renderPlaceholders();
@@ -351,6 +366,10 @@ function connectVariablesWs() {
         }
         if (Array.isArray(msg.data.sets)) {
             state.variableSets = msg.data.sets;
+        }
+        if (typeof msg.data.variableSetsEnabled === 'boolean') {
+            state.variableSetsEnabled = msg.data.variableSetsEnabled;
+            applyVariableSetsVisibility();
         }
         renderSets();
         renderVars();
@@ -584,10 +603,14 @@ setInterval(() => {
 }, 1000);
 fetch('/api/status', { cache: 'no-store' }).then(r => r.json()).then(async s => {
     state.status = s;
+    if (typeof s.modules?.variableSets === 'boolean') {
+        state.variableSetsEnabled = s.modules.variableSets;
+    }
     if (s.customVars) {
         state.customVars = s.customVars;
-        renderVars();
     }
+    applyVariableSetsVisibility();
+    renderVars();
     try { await S.loadLiveExtras(s); } catch { /* extras are optional */ }
     renderPlaceholders();
 }).catch(renderPlaceholders);

@@ -317,7 +317,9 @@ function clockValues(status, now) {
 function variableGroups(status = {}) {
     const groups = VARIABLE_GROUPS.map(g => ({ label: g.label, items: g.items.slice() }));
     groups.push({ label: 'Clock', items: CLOCK_ITEMS });
-    if (status.customVars?.length) groups.push({ label: 'Variables and counters', items: status.customVars.flatMap(v => [[`var.${v.name}`, `${v.name} (${v.type})`], ...(v.type === 'list' ? [[`var.${v.name}.random`, `${v.name}, random item each time`]] : [])]) });
+    const setsEnabled = status.modules?.variableSets !== false;
+    const customVars = (status.customVars || []).filter(v => !v.hidden && (setsEnabled || !v.setId));
+    if (customVars.length) groups.push({ label: 'Variables and counters', items: customVars.flatMap(v => [[`var.${v.name}`, `${v.name} (${v.type})`], ...(v.type === 'list' ? [[`var.${v.name}.random`, `${v.name}, random item each time`]] : [])]) });
     if (status.weather?.enabled) {
         groups.push({ label: 'Weather', items: WEATHER_ITEMS });
         for (const [slug, extra] of Object.entries(status.weather.extras || {})) {

@@ -142,6 +142,10 @@ function createOverlayRoutes({
     getOverlayPresets = overlayService ? overlayService.getOverlayPresets : () => [],
     setOverlayPresets = overlayService ? overlayService.setOverlayPresets : () => {},
     saveOverlayPresets = overlayService ? overlayService.saveOverlayPresets : () => {},
+    getStylePresets = overlayService ? overlayService.getStylePresets : () => [],
+    setStylePresets = overlayService ? overlayService.setStylePresets : () => {},
+    saveStylePresets = overlayService ? overlayService.saveStylePresets : () => {},
+    normalizeStylePresets = overlayService ? overlayService.normalizeStylePresets : (l => l),
     slideshowStates = new Map(),
     getOverlayClients = () => new Set(),
     isLoopbackRequest = () => true,
@@ -766,6 +770,47 @@ function createOverlayRoutes({
             req.on('error', err => {
                 sendError(res, err.message, 400);
             });
+            return true;
+        }
+
+        // --- 4b. Custom Overlays: Element Style Presets ---
+        if (pathname === '/api/custom-overlays/style-presets' && req.method === 'GET') {
+            sendJson(res, getStylePresets());
+            return true;
+        }
+
+        if (pathname === '/api/custom-overlays/style-presets' && req.method === 'POST') {
+            try {
+                const list = getStylePresets();
+                const body = JSON.parse(await readRequestBody(req) || '{}');
+                const [preset] = normalizeStylePresets([body]);
+                if (!preset) throw new Error('Style preset requires a valid name');
+                const idx = list.findIndex(item => item.id === preset.id);
+                if (idx >= 0) list[idx] = preset;
+                else if (list.length >= 100) throw new Error('Style preset limit reached (100). Delete some first.');
+                else list.push(preset);
+                setStylePresets(list);
+                saveStylePresets();
+                sendJson(res, preset);
+            } catch (err) {
+                sendError(res, err.message, 400);
+            }
+            return true;
+        }
+
+        const stylePresetMatch = pathname.match(/^\/api\/custom-overlays\/style-presets\/([^/]+)$/);
+        if (stylePresetMatch && req.method === 'DELETE') {
+            const id = sanitizeOverlayId(decodeURIComponent(stylePresetMatch[1]));
+            let list = getStylePresets();
+            const before = list.length;
+            list = list.filter(item => item.id !== id);
+            setStylePresets(list);
+            if (list.length !== before) {
+                saveStylePresets();
+                sendJson(res, { ok: true });
+            } else {
+                sendError(res, 'Style preset not found', 404);
+            }
             return true;
         }
 

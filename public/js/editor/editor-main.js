@@ -34,6 +34,7 @@ import {
     renderSettings, renderProperties, syncGeometryInputs,
     initInspectorEvents, registerInspectorCallbacks, loadAssetTags
 } from './editor-inspector.js';
+import { loadStylePresets } from './editor-style-presets.js';
 import { alignmentOffset } from '../editor-geometry.js';
 import { handleSpeakerMeter, clearSpeakerMeters } from './editor-speakers.js';
 import { openImageCropper } from '../image-cropper.js';
@@ -79,6 +80,7 @@ export function scaleSelectionBy(percent) {
 // ---- Selection & Action Helpers ---------------------------------------------------
 export function addElement(type, overrides = {}) {
     if (type === 'obs-frame' && state.obs?.sceneSyncEnabled === false) return;
+    if (type === 'image-group' && state.liveStatus?.modules?.variableSets === false) return;
     const el = createElementData(type, overrides);
     state.overlay.elements.push(el);
     normalizeZ();
@@ -962,6 +964,12 @@ export async function refreshLiveStatus() {
         state.liveStatus = await response.json();
         const badgeBtn = $('menu-add-speaker-badge');
         if (badgeBtn) badgeBtn.hidden = !state.liveStatus?.modules?.speakerBadges;
+        const vsEnabled = state.liveStatus?.modules?.variableSets !== false;
+        const tabSets = $('tab-sets');
+        if (tabSets) tabSets.hidden = !vsEnabled;
+        const groupStripBtn = $('menu-add-image-group');
+        if (groupStripBtn) groupStripBtn.hidden = !vsEnabled;
+        if (!vsEnabled && prefs.railTab === 'sets') setRailTab('layers');
         if (shared.loadLiveExtras) await shared.loadLiveExtras(state.liveStatus, state.overlay.elements);
         if (prefs.live && liveSignature() !== before) renderCanvas();
     } catch {}
@@ -997,7 +1005,12 @@ export function connectAlertPreview() {
         }
         if (message.type === 'variables-update' && message.data) {
             const before = liveSignature();
-            if (applyEditorVariablesUpdate(message.data)) return;
+            const rotated = applyEditorVariablesUpdate(message.data);
+            const vsEnabled = message.data.variableSetsEnabled !== false;
+            const groupStripBtn = $('menu-add-image-group');
+            if (groupStripBtn) groupStripBtn.hidden = !vsEnabled;
+            if (!vsEnabled && prefs.railTab === 'sets') setRailTab('layers');
+            if (rotated) return;
             if (prefs.live && liveSignature() !== before) renderCanvas();
             refreshVariableSetsPanel();
             return;
@@ -1191,8 +1204,12 @@ function initEventListeners() {
         let visibleCount = 0;
         const items = addMenu?.querySelectorAll('.menu-item-btn[data-add]') || [];
         items.forEach(btn => {
-            // Respect feature flags for speaker-badge and obs-frame
+            // Respect feature flags for speaker-badge, image-group, and obs-frame
             if (btn.id === 'menu-add-speaker-badge' && !state.liveStatus?.modules?.speakerBadges) {
+                btn.hidden = true;
+                return;
+            }
+            if (btn.id === 'menu-add-image-group' && state.liveStatus?.modules?.variableSets === false) {
                 btn.hidden = true;
                 return;
             }
@@ -2000,6 +2017,9 @@ export async function load() {
 
     loadAssetTags().then(() => {
         if (primary()?.type === 'slideshow') renderProperties();
+    });
+    loadStylePresets(() => {
+        if (primary()) renderProperties();
     });
 
     if (window.pollVisible) {

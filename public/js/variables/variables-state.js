@@ -4,6 +4,7 @@ export const state = {
     status: {},
     customVars: [],
     variableSets: [],
+    variableSetsEnabled: true,
     overlays: [],
     showSetVars: false,
     varQuery: '',

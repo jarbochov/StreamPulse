@@ -130,17 +130,18 @@ function fitText(node, el, probeText) {
     const mode = el.textFit;
     if ((mode !== 'shrink' && mode !== 'fit') || !node.isConnected || el.random?.marquee) return;
     const base = Number(el.style?.fontSize) || 32;
-    const textKey = probeText != null ? probeText : (node._textNode ? node._textNode.nodeValue : node.textContent);
+    const effectiveProbe = probeText != null ? probeText : (node._textAnimWrap && typeof node._rawText === 'string' ? node._rawText : null);
+    const textKey = effectiveProbe != null ? effectiveProbe : (node._textNode ? node._textNode.nodeValue : node.textContent);
     const fitKey = `${el.width}x${el.height}|${mode}|${base}|${el.style?.fontFamily}|${el.columns || 1}|${el.style?.padding || 0}|${textKey}`;
     if (node._fitKey === fitKey && node._fittedFontSize) {
         node.style.fontSize = `${node._fittedFontSize}px`;
         return;
     }
 
-    const saved = { display: node.style.display, children: probeText != null ? [...node.childNodes] : null };
+    const saved = { display: node.style.display, children: effectiveProbe != null ? [...node.childNodes] : null };
     // Centered flex boxes hide overflow at the top, so measure as a normal block.
     node.style.display = 'block';
-    if (probeText != null) node.replaceChildren(document.createTextNode(probeText));
+    if (effectiveProbe != null) node.replaceChildren(document.createTextNode(effectiveProbe));
     // Some browsers don't count overflowed columns in scrollWidth, so multi-column text is also checked against its actual content bounds.
     const columnar = el.type === 'markdown' && el.columns > 1;
     const inside = () => {
