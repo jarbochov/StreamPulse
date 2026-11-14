@@ -145,6 +145,7 @@
             <button type="button" class="layout-btn start-session" id="toolbar-session-btn" data-action="toggle-session" hidden>Start Session</button>
             <a class="layout-btn accent" href="/sessions.html?session=__current__" target="_blank" rel="noopener" title="Open the live session in a new tab">Current session</a>
             <a class="layout-btn accent" href="/sessions.html?session=__current__&view=chat" target="_blank" rel="noopener" title="Open the live chat log in a new tab">Current chat log</a>
+            <button class="layout-btn" id="live-ops-btn" title="Focus on live broadcast controls and feeds">Live Ops</button>
             <button class="layout-btn" id="density-btn" title="Smaller text and tighter spacing to fit more data">Compact</button>
             <button class="layout-btn" id="edit-btn" title="Reorder, hide and restore panels">Edit layout</button>
             <button class="layout-btn" id="reset-btn">Reset layout</button>
@@ -281,7 +282,14 @@
                 <div class="stat"><div class="value" id="timers-countdowns">0</div><div class="label">Countdowns</div></div>
                 <div class="stat"><div class="value" id="timers-stopwatches">0</div><div class="label">Stopwatches</div></div>
             </div>
+            <div class="detail-line" id="timer-primary-line" style="margin-top:.45rem;align-items:center;" hidden>
+                <strong id="timer-primary-label">—</strong>
+                <span id="timer-primary-clock" style="font-variant-numeric:tabular-nums;">—</span>
+                <span class="pill" id="timer-primary-state">idle</span>
+            </div>
             <div class="link-grid">
+                <button type="button" class="btn sm" id="timer-toggle-btn" data-action="timer-toggle" hidden>Start</button>
+                <button type="button" class="btn sm" id="timer-reset-btn" data-action="timer-reset" hidden>Reset</button>
                 <a class="btn sm" href="/timers-editor.html">Manager</a>
                 <a class="btn sm" href="/timer-url-wizard.html">Builder</a>
             </div>

@@ -16,8 +16,10 @@ export function createLayoutManager(grid) {
     const cards = () => [...grid.querySelectorAll(':scope > .card[data-panel-id]')];
     const defaultOrder = cards().map(c => c.dataset.panelId);
 
+    const LIVE_OPS_HIDDEN = new Set(['milestones', 'library', 'message-volume', 'hashtag-stats', 'goals', 'overlays']);
+
     function defaultLayout() {
-        return { order: [...defaultOrder], spans: {}, heights: {}, hidden: [], showDisabled: [], openDetails: {}, compact: false };
+        return { order: [...defaultOrder], spans: {}, heights: {}, hidden: [], showDisabled: [], openDetails: {}, compact: false, liveOps: false };
     }
 
     function loadLayout() {
@@ -32,7 +34,8 @@ export function createLayoutManager(grid) {
                     heights: stored.heights || {},
                     hidden: stored.hidden || [],
                     showDisabled: stored.showDisabled || [],
-                    openDetails: stored.openDetails || {}
+                    openDetails: stored.openDetails || {},
+                    liveOps: !!stored.liveOps
                 };
             }
             for (const key of LEGACY_KEYS) {
@@ -84,6 +87,7 @@ export function createLayoutManager(grid) {
     function isCardHidden(card) {
         const id = card.dataset.panelId;
         if (layout.hidden.includes(id)) return true;
+        if (layout.liveOps && LIVE_OPS_HIDDEN.has(id)) return true;
         const mod = card.dataset.module;
         return Boolean(mod && disabledModules.has(mod) && !layout.showDisabled.includes(id));
     }
@@ -112,6 +116,8 @@ export function createLayoutManager(grid) {
         });
         document.body.classList.toggle('compact', !!layout.compact);
         $('density-btn').classList.toggle('on', !!layout.compact);
+        const liveOpsBtn = $('live-ops-btn');
+        if (liveOpsBtn) liveOpsBtn.classList.toggle('on', !!layout.liveOps);
         grid.querySelectorAll('details[data-persist-open]').forEach(el => {
             el.open = !!layout.openDetails?.[el.dataset.persistOpen];
         });
@@ -248,6 +254,14 @@ export function createLayoutManager(grid) {
             saveLayout();
             applyLayout();
         });
+        const liveOpsBtn = $('live-ops-btn');
+        if (liveOpsBtn) {
+            liveOpsBtn.addEventListener('click', () => {
+                layout.liveOps = !layout.liveOps;
+                saveLayout();
+                applyLayout();
+            });
+        }
 
         $('edit-btn').addEventListener('click', () => {
             const editing = document.body.classList.toggle('editing');

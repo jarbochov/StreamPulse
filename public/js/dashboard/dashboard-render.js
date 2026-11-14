@@ -159,6 +159,28 @@ export function renderDashboard(data, layoutManager) {
     setText('timers-countdowns', data.timers?.countdowns || 0);
     setText('timers-stopwatches', data.timers?.stopwatches || 0);
 
+    const primaryTimer = data.timers?.primary || null;
+    const primaryLine = $('timer-primary-line');
+    const timerToggleBtn = $('timer-toggle-btn');
+    const timerResetBtn = $('timer-reset-btn');
+    if (primaryLine) primaryLine.hidden = !primaryTimer;
+    if (timerToggleBtn) {
+        timerToggleBtn.hidden = !primaryTimer;
+        const isRunning = primaryTimer?.state === 'running';
+        timerToggleBtn.textContent = isRunning ? 'Pause' : 'Start';
+        timerToggleBtn.classList.toggle('on', isRunning);
+    }
+    if (timerResetBtn) timerResetBtn.hidden = !primaryTimer;
+    if (primaryTimer) {
+        setText('timer-primary-label', primaryTimer.label || 'Timer');
+        setText('timer-primary-clock', primaryTimer.clock || '00:00');
+        const stateEl = $('timer-primary-state');
+        if (stateEl) {
+            stateEl.textContent = primaryTimer.state || 'idle';
+            stateEl.className = primaryTimer.state === 'running' ? 'pill is-accent' : 'pill';
+        }
+    }
+
     const musicEnabled = !!data.music?.enabled;
     const musicState = data.music?.state || 'stopped';
     setDot('dot-music', musicEnabled ? (musicState !== 'stopped' ? 'green' : 'yellow') : 'red');
@@ -233,5 +255,11 @@ export function renderDashboard(data, layoutManager) {
     if (toolbarSessionBtn) toolbarSessionBtn.hidden = sessionActive;
 
     renderLifecycle(data.lifecycle);
-    return { sessionActive, alertsPaused, alertsMuted };
+    return {
+        sessionActive,
+        alertsPaused,
+        alertsMuted,
+        primaryTimerId: primaryTimer?.id || null,
+        primaryTimerRunning: primaryTimer?.state === 'running'
+    };
 }

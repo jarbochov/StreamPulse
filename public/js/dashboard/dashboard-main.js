@@ -12,7 +12,13 @@ const layoutManager = createLayoutManager(grid);
 let refreshInterval;
 let inFlight = false;
 let lastOk = 0;
-let liveState = { sessionActive: true, alertsPaused: false, alertsMuted: false };
+let liveState = {
+    sessionActive: true,
+    alertsPaused: false,
+    alertsMuted: false,
+    primaryTimerId: null,
+    primaryTimerRunning: false
+};
 
 async function call(url, message) {
     const response = await fetch(url, { cache: 'no-store' });
@@ -82,6 +88,17 @@ const actions = {
     async 'alert-skip'() {
         try { await call('/api/alerts/queue/skip', 'Skipped active alert'); refresh(); }
         catch { showToast('Skip failed'); }
+    },
+    async 'timer-toggle'() {
+        if (!liveState.primaryTimerId) return;
+        const msg = liveState.primaryTimerRunning ? 'Timer paused' : 'Timer started';
+        try { await call(`/api/timers/${encodeURIComponent(liveState.primaryTimerId)}/toggle`, msg); refresh(); }
+        catch { showToast('Timer action failed'); }
+    },
+    async 'timer-reset'() {
+        if (!liveState.primaryTimerId) return;
+        try { await call(`/api/timers/${encodeURIComponent(liveState.primaryTimerId)}/reset`, 'Timer reset'); refresh(); }
+        catch { showToast('Timer reset failed'); }
     },
     async shutdown() {
         if (!await window.StreamPulse.confirm('Shut Down Server', 'Shut down the server? This archives data and stops the process.', { danger: true, confirmText: 'Shut Down' })) return;
