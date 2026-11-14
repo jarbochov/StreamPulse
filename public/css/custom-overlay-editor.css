@@ -1096,13 +1096,15 @@ body.is-scrubbing, body.is-scrubbing * {
 .pattern-dist-box { margin-top: 4px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
 
 /* Variable Set local rotations */
-.vrot-list { display: grid; gap: 6px; }
-.vrot-row { border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; background: var(--field); display: grid; gap: 6px; }
-.vrot-head { display: flex; align-items: center; gap: 6px; }
-.vrot-head select { flex: 1; min-width: 0; font-size: 11.5px; padding: 3px 6px; height: 26px; }
-.vrot-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; align-items: end; }
-.vrot-grid label { display: grid; gap: 2px; font-size: 10px; color: var(--muted); min-width: 0; }
-.vrot-grid select, .vrot-grid input { font-size: 11px; padding: 3px 5px; height: 25px; width: 100%; box-sizing: border-box; }
-.vrot-el-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 10.5px; color: var(--muted); }
-.vrot-el-chip { font: inherit; font-size: 10.5px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vrot-standalone { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.vrot-list { display: grid; gap: 10px; }
+.vrot-row { border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: var(--field); display: grid; gap: 10px; }
+.vrot-head { display: flex; align-items: center; gap: 8px; }
+.vrot-head select { flex: 1; min-width: 0; font-size: 12px; padding: 4px 8px; height: 28px; }
+.vrot-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: end; }
+.vrot-grid label { display: grid; gap: 4px; font-size: 10.5px; font-weight: 600; color: var(--muted); min-width: 0; }
+.vrot-grid label.vrot-span2 { grid-column: 1 / -1; }
+.vrot-grid select, .vrot-grid input { font-size: 11.5px; padding: 4px 6px; height: 28px; width: 100%; box-sizing: border-box; }
+.vrot-el-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); padding-top: 2px; border-top: 1px solid var(--border); }
+.vrot-el-chip { font: inherit; font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vrot-el-chip:hover { border-color: var(--accent); color: var(--accent); }

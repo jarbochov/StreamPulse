@@ -6,7 +6,7 @@ import {
     $, clamp, isLine, boxOf, visualBoxOf, boundsOf, scaleSnapshot, applyScale,
     TEXT_TYPES, MIN_SIZE, LIMITS, state, prefs, byId, selectedElements,
     primary, inView, visibleElements, withGroups, setSelection, changed,
-    expand, liveSignature, alertSample, toast, previewAlertElement
+    expand, liveSignature, syncEditorVarRotations, alertSample, toast, previewAlertElement
 } from './editor-state.js';
 import {
     snapAxis as findSnapAxis,
@@ -800,6 +800,8 @@ export function buildContent(node, el, playback) {
             node._extra += ' overlay-marquee';
             if (shared.wrapMarquee) shared.wrapMarquee(node);
         }
+    } else if (el.type === 'text' && el.cycle?.enabled && shared.mountTextCycle) {
+        shared.mountTextCycle(node, el, { expand });
     } else if (el.type === 'text') {
         setNodeText(node, expand(shared.elementContent ? shared.elementContent(el) : el.content));
     } else if (el.type === 'slideshow') {
@@ -852,7 +854,7 @@ export const contentSignature = (el, live) =>
         el.type, el.content, el.src, el.items, el.source, el.textFit, el.columns,
         el.headingSpan, el.headingScale, sourceSignature(el), el.progress,
         el.style.color, el.style.fontFamily, el.style.fontWeight, el.style.textStroke,
-        el.style.textShadow, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee,
+        el.style.textShadow, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.cycle,
         el.style.objectFit, el.style.focusX, el.style.focusY,
         usesLivePlaceholders(el) || Boolean(el.source && el.source.mode !== 'inline') ? live : ''
     ]);
@@ -896,6 +898,7 @@ let lastLive = '';
 const pagePlayback = new Map();
 export function renderCanvas(only) {
     shared.pruneSourceCaches(state.overlay.elements);
+    if (!only) syncEditorVarRotations(() => renderCanvas());
     const live = only ? lastLive : (lastLive = liveSignature());
     const activeCutouts = state.overlay.elements.filter(e => e.type === 'cutout' && e.visible !== false && inView(e));
     const maxCutoutIndex = activeCutouts.length ? Math.max(...activeCutouts.map(c => state.overlay.elements.indexOf(c))) : -1;
@@ -965,7 +968,7 @@ export function renderCanvas(only) {
             const existingImg = el.type === 'image' ? node.querySelector(':scope > img') : null;
             const canReuseImg = existingImg && node._src === el.src;
             const isPlainShape = el.type === 'shape';
-            const isTextType = el.type === 'text' && !el.random?.typewriter && !el.random?.marquee;
+            const isTextType = el.type === 'text' && !el.random?.typewriter && !el.random?.marquee && !el.cycle?.enabled && !node._cycleHandle;
             const canReuseText = isTextType && node._content === el.content && node._src === el.src;
             const canReusePattern = (el.type === 'pattern' || el.type === 'procedural-pattern') && node._patternHandle && !node._patternHandle.isStopped?.() && node.querySelector(':scope > .sp-pattern-wrap');
 
@@ -1009,10 +1012,16 @@ export function renderCanvas(only) {
             } else if (canReuseText) {
                 node._sig = signature;
                 setNodeText(node, expand(shared.elementContent ? shared.elementContent(el) : el.content));
+            } else if (el.type === 'text' && el.cycle?.enabled && node._cycleHandle && node._content === el.content && node._src === el.src && node._cycleSig === JSON.stringify(el.cycle)) {
+                node._sig = signature;
+                const resetIndex = Boolean(node._pendingCycleReset);
+                node._pendingCycleReset = false;
+                node._cycleHandle.update(el, { resetIndex });
             } else {
                 node._sig = signature;
                 node._src = el.src;
                 node._content = el.content;
+                node._cycleSig = JSON.stringify(el.cycle);
                 node._fit = el.style?.objectFit;
                 node._fx = el.style?.focusX;
                 node._fy = el.style?.focusY;

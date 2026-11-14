@@ -457,6 +457,13 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       }
       node._patternHandle = null;
     }
+    if (node._cycleHandle?.stop) {
+      try {
+        node._cycleHandle.stop();
+      } catch {
+      }
+      node._cycleHandle = null;
+    }
     if (root.OverlayFilters?.cleanupFilters) {
       root.OverlayFilters.cleanupFilters(node);
     }
@@ -4041,6 +4048,354 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
   });
 
+  // public/js/overlay/text-cycle.js
+  function resolveCycleLines(element, expand) {
+    const raw = elementContent(element) || "";
+    const skipEmpty = element.cycle?.skipEmpty !== false;
+    const lines = String(raw).split(/\r?\n/).map((line) => expand(line));
+    return skipEmpty ? lines.filter((line) => line.trim() !== "") : lines;
+  }
+  function cycleConfigKey(element) {
+    const cfg = element.cycle || {};
+    return JSON.stringify([
+      cfg.enabled !== false,
+      Math.max(1, Number(cfg.intervalSeconds) || 5),
+      cfg.transition || "fade",
+      Math.max(50, Math.min(2e3, Number(cfg.durationMs) || 350)),
+      cfg.skipEmpty !== false
+    ]);
+  }
+  function makeLayer(text) {
+    const span = document.createElement("span");
+    span.className = "sp-cycle-layer";
+    span.style.gridArea = "1 / 1";
+    span.style.width = "100%";
+    span.style.whiteSpace = "pre-wrap";
+    span.style.wordBreak = "break-word";
+    span.textContent = text;
+    return span;
+  }
+  function mountTextCycle(node, element, opts = {}) {
+    if (node._cycleHandle?.stop) {
+      try {
+        node._cycleHandle.stop();
+      } catch {
+      }
+    }
+    const expand = typeof opts.expand === "function" ? opts.expand : ((v) => String(v ?? ""));
+    const getIndex = typeof opts.getIndex === "function" ? opts.getIndex : null;
+    const setIndex = typeof opts.setIndex === "function" ? opts.setIndex : null;
+    let currentEl = element;
+    let configSig = cycleConfigKey(currentEl);
+    let stopped = false;
+    let timer = null;
+    const cleanupTimers = /* @__PURE__ */ new Set();
+    const stage = document.createElement("span");
+    stage.className = "sp-cycle-stage";
+    stage.style.display = "grid";
+    stage.style.width = "100%";
+    stage.style.alignItems = "inherit";
+    stage.style.justifyItems = "inherit";
+    let lines = resolveCycleLines(currentEl, expand);
+    let idx = lines.length ? ((getIndex ? getIndex(currentEl.id) : 0) || 0) % lines.length : 0;
+    let activeLayer = makeLayer(lines.length ? lines[idx] : "");
+    stage.appendChild(activeLayer);
+    node.replaceChildren(stage);
+    node._textNode = null;
+    const scheduleTimeout = (fn, ms) => {
+      const id = setTimeout(() => {
+        cleanupTimers.delete(id);
+        if (!stopped) fn();
+      }, ms);
+      cleanupTimers.add(id);
+      return id;
+    };
+    const clearCleanupTimers = () => {
+      for (const id of cleanupTimers) clearTimeout(id);
+      cleanupTimers.clear();
+    };
+    const transitionTo = (nextText) => {
+      const cfg = currentEl.cycle || {};
+      const method = cfg.transition || "fade";
+      const dur = Math.max(50, Math.min(2e3, Number(cfg.durationMs) || 350));
+      if (method === "none") {
+        if (activeLayer.textContent !== nextText) activeLayer.textContent = nextText;
+        return;
+      }
+      for (const child of [...stage.children]) {
+        if (child !== activeLayer) child.remove();
+      }
+      const outgoing = activeLayer;
+      const incoming = makeLayer(nextText);
+      incoming.style.opacity = "0";
+      if (method === "slide-up") incoming.style.transform = "translateY(8px)";
+      else if (method === "flip") incoming.style.transform = "perspective(400px) rotateX(-60deg)";
+      stage.appendChild(incoming);
+      void incoming.offsetWidth;
+      const transitionCss = `opacity ${dur}ms ease, transform ${dur}ms ease`;
+      outgoing.style.transition = transitionCss;
+      outgoing.style.opacity = "0";
+      if (method === "slide-up") outgoing.style.transform = "translateY(-8px)";
+      else if (method === "flip") outgoing.style.transform = "perspective(400px) rotateX(60deg)";
+      incoming.style.transition = transitionCss;
+      incoming.style.opacity = "1";
+      incoming.style.transform = method === "flip" ? "perspective(400px) rotateX(0deg)" : "";
+      activeLayer = incoming;
+      scheduleTimeout(() => {
+        if (outgoing.parentNode === stage) outgoing.remove();
+      }, dur + 40);
+    };
+    const startTimer = () => {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+      const cfg = currentEl.cycle || {};
+      const holdMs = Math.max(1, Number(cfg.intervalSeconds) || 5) * 1e3;
+      timer = setInterval(() => {
+        if (stopped) return;
+        lines = resolveCycleLines(currentEl, expand);
+        if (!lines.length) {
+          if (activeLayer.textContent !== "") activeLayer.textContent = "";
+          return;
+        }
+        if (lines.length === 1) {
+          idx = 0;
+          if (setIndex) setIndex(currentEl.id, 0);
+          if (activeLayer.textContent !== lines[0]) transitionTo(lines[0]);
+          return;
+        }
+        idx = (idx + 1) % lines.length;
+        if (setIndex) setIndex(currentEl.id, idx);
+        transitionTo(lines[idx]);
+      }, holdMs);
+    };
+    startTimer();
+    const handle = {
+      update(nextEl, { resetIndex = false } = {}) {
+        if (stopped) return;
+        currentEl = nextEl;
+        const nextConfigSig = cycleConfigKey(nextEl);
+        lines = resolveCycleLines(nextEl, expand);
+        if (!lines.length) {
+          idx = 0;
+          if (setIndex) setIndex(currentEl.id, 0);
+          if (activeLayer.textContent !== "") activeLayer.textContent = "";
+        } else if (resetIndex) {
+          idx = 0;
+          if (setIndex) setIndex(currentEl.id, 0);
+          if (activeLayer.textContent !== lines[0]) activeLayer.textContent = lines[0];
+          startTimer();
+        } else {
+          const wasEmpty = activeLayer.textContent === "";
+          idx = idx % lines.length;
+          if ((lines.length === 1 || wasEmpty) && activeLayer.textContent !== lines[idx]) {
+            activeLayer.textContent = lines[idx];
+          }
+        }
+        if (nextConfigSig !== configSig) {
+          configSig = nextConfigSig;
+          startTimer();
+        }
+      },
+      stop() {
+        stopped = true;
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+        clearCleanupTimers();
+      }
+    };
+    node._cycleHandle = handle;
+    return handle;
+  }
+  var init_text_cycle = __esm({
+    "public/js/overlay/text-cycle.js"() {
+      init_text();
+    }
+  });
+
+  // public/js/overlay/var-rotation.js
+  function elementUsesSet(el, setId) {
+    if (!el || !setId) return false;
+    const needle = `{{var.${setId}_`.toLowerCase();
+    const hay = `${el.content || ""} ${el.src || ""} ${el.progress?.label || ""} ${(el.items || []).join(" ")}`.toLowerCase();
+    return hay.includes(needle);
+  }
+  function createVarRotationEngine({ getOverlay, getSets, getNodes, onResetCycle, onRender }) {
+    const localVarOverrides = /* @__PURE__ */ new Map();
+    const varRotState = /* @__PURE__ */ new Map();
+    const cleanupFns = /* @__PURE__ */ new Set();
+    let timers = [];
+    function clear() {
+      for (const id of timers) clearInterval(id);
+      timers = [];
+      for (const fn of cleanupFns) {
+        try {
+          fn();
+        } catch {
+        }
+      }
+      cleanupFns.clear();
+    }
+    function applySetEntryOverride(setObj, entry) {
+      if (!setObj?.id) return;
+      localVarOverrides.set(`${setObj.id}_active`, entry ? "true" : "false");
+      for (const f of setObj.fields || []) {
+        const val = entry ? String(entry.values?.[f.key] ?? "") : "";
+        localVarOverrides.set(`${setObj.id}_${f.key}`, val);
+        if ((setObj.slotsCount || 0) > 0) {
+          localVarOverrides.set(`${setObj.id}_1_${f.key}`, val);
+        }
+      }
+    }
+    function step(rule, { advance = true } = {}) {
+      const sets = (typeof getSets === "function" ? getSets() : []) || [];
+      const setObj = sets.find((s) => s.id === rule?.setId);
+      if (!setObj) return false;
+      const pool = (setObj.roster || []).filter((e) => e.enabled !== false);
+      if (!pool.length) {
+        applySetEntryOverride(setObj, null);
+        varRotState.delete(setObj.id);
+        return true;
+      }
+      const prev = varRotState.get(setObj.id);
+      let nextIdx = prev ? pool.findIndex((e) => e.id === prev.entryId) : -1;
+      if (!advance && nextIdx !== -1) {
+        applySetEntryOverride(setObj, pool[nextIdx]);
+        return true;
+      }
+      if (rule.mode === "random") {
+        if (pool.length === 1) nextIdx = 0;
+        else {
+          let pick = Math.floor(Math.random() * pool.length);
+          if (pick === nextIdx) pick = (pick + 1) % pool.length;
+          nextIdx = pick;
+        }
+      } else {
+        nextIdx = nextIdx === -1 ? 0 : (nextIdx + 1) % pool.length;
+      }
+      const chosen = pool[nextIdx];
+      varRotState.set(setObj.id, { index: nextIdx, entryId: chosen.id });
+      applySetEntryOverride(setObj, chosen);
+      if (advance) {
+        const overlay = getOverlay?.();
+        const nodes = getNodes?.();
+        for (const el of overlay?.elements || []) {
+          if (el.type === "text" && el.cycle?.enabled && elementUsesSet(el, setObj.id)) {
+            const node = nodes?.get(el.id);
+            if (node) node._pendingCycleReset = true;
+            if (onResetCycle) onResetCycle(el);
+          }
+        }
+      }
+      return true;
+    }
+    function stepWithTransition(rule) {
+      const overlay = getOverlay?.();
+      const nodes = getNodes?.();
+      const method = ["none", "fade", "slide-up", "flip"].includes(rule?.transition) ? rule.transition : "fade";
+      const dur = Math.max(50, Math.min(2e3, Number(rule?.durationMs) || 350));
+      const targets = method === "none" || !overlay?.elements || !nodes ? [] : overlay.elements.filter((el) => elementUsesSet(el, rule.setId)).map((el) => ({ el, node: nodes.get(el.id) })).filter((x) => x.node && x.node.isConnected && x.node.parentNode);
+      if (!targets.length) {
+        if (step(rule, { advance: true })) onRender?.(overlay);
+        return true;
+      }
+      const snapshots = targets.map(({ el, node }) => {
+        const ghost = node.cloneNode(true);
+        ghost.removeAttribute("data-element-id");
+        ghost.removeAttribute("data-id");
+        ghost.setAttribute("aria-hidden", "true");
+        ghost.style.pointerEvents = "none";
+        ghost.style.transition = "none";
+        const baseOpacity = String(el.type === "alert" ? 1 : el.style?.opacity ?? 1);
+        const baseTransform = node.style.transform || "";
+        node.parentNode.insertBefore(ghost, node.nextSibling);
+        return { node, ghost, baseOpacity, baseTransform };
+      });
+      const changed = step(rule, { advance: true });
+      if (!changed) {
+        for (const s of snapshots) s.ghost.remove();
+        return false;
+      }
+      onRender?.(overlay);
+      for (const { node, ghost, baseOpacity, baseTransform } of snapshots) {
+        node.style.transition = "none";
+        node.style.opacity = "0";
+        if (method === "slide-up") node.style.transform = `${baseTransform} translateY(8px)`.trim();
+        else if (method === "flip") node.style.transform = `${baseTransform} perspective(400px) rotateX(-60deg)`.trim();
+        void node.offsetWidth;
+        const tr = `opacity ${dur}ms ease, transform ${dur}ms ease`;
+        ghost.style.transition = tr;
+        ghost.style.opacity = "0";
+        if (method === "slide-up") ghost.style.transform = `${baseTransform} translateY(-8px)`.trim();
+        else if (method === "flip") ghost.style.transform = `${baseTransform} perspective(400px) rotateX(60deg)`.trim();
+        node.style.transition = tr;
+        node.style.opacity = baseOpacity;
+        node.style.transform = baseTransform;
+        let done = false;
+        let tid = null;
+        const cleanup = () => {
+          if (done) return;
+          done = true;
+          if (tid) clearTimeout(tid);
+          cleanupFns.delete(cleanup);
+          if (ghost.parentNode) ghost.remove();
+          if (node.isConnected) node.style.transition = "";
+        };
+        cleanupFns.add(cleanup);
+        tid = setTimeout(cleanup, dur + 40);
+      }
+      return true;
+    }
+    function setup(overlay) {
+      clear();
+      const rules = (overlay?.variableSetRotations || []).filter((r) => r && r.enabled !== false && r.setId);
+      if (!rules.length) {
+        localVarOverrides.clear();
+        return;
+      }
+      for (const rule of rules) {
+        step(rule, { advance: false });
+        if (rule.trigger !== "page") {
+          const ms = Math.max(1e3, (Number(rule.intervalSeconds) || 10) * 1e3);
+          const timer = setInterval(() => {
+            if (document.hidden || getOverlay?.() !== overlay) return;
+            stepWithTransition(rule);
+          }, ms);
+          timers.push(timer);
+        }
+      }
+    }
+    function triggerPage(pageId) {
+      const overlay = getOverlay?.();
+      const rules = (overlay?.variableSetRotations || []).filter((r) => r && r.enabled !== false && r.setId && r.trigger === "page");
+      let changed = false;
+      for (const rule of rules) {
+        if (!rule.pageId || rule.pageId === pageId) {
+          if (stepWithTransition(rule)) changed = true;
+        }
+      }
+      return changed;
+    }
+    function effectiveStatus(baseStatus) {
+      if (!localVarOverrides.size) return baseStatus;
+      const base = baseStatus?.customVars || [];
+      const merged = new Map(base.map((v) => [v.name, v]));
+      for (const [k, val] of localVarOverrides.entries()) {
+        const prev = merged.get(k);
+        merged.set(k, prev ? { ...prev, value: val } : { name: k, type: "text", value: val });
+      }
+      return { ...baseStatus, customVars: [...merged.values()] };
+    }
+    return { setup, triggerPage, effectiveStatus, clear, step };
+  }
+  var init_var_rotation = __esm({
+    "public/js/overlay/var-rotation.js"() {
+    }
+  });
+
   // public/js/overlay/variables.js
   function formatMinutes(minutes) {
     const m = Math.max(0, Math.round(minutes || 0));
@@ -5538,9 +5893,11 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       init_speakers();
       init_styles();
       init_text();
+      init_text_cycle();
+      init_var_rotation();
       init_variables();
       init_widgets();
-      root.OverlayShared = Object.assign(root.OverlayShared || {}, { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, renderSpeakerBadge, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, applyMediaFilter: root.OverlayFilters?.applyMediaFilter || applyMediaFilter, shadowClipStyle });
+      root.OverlayShared = Object.assign(root.OverlayShared || {}, { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, renderSpeakerBadge, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, mountTextCycle, resolveCycleLines, createVarRotationEngine, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, applyMediaFilter: root.OverlayFilters?.applyMediaFilter || applyMediaFilter, shadowClipStyle });
       root.OverlayShared.borderPlacement = borderPlacement;
       Object.assign(root.OverlayShared, { ALERT_PRESENTATION_KEYS, resolveAlertLook });
       Object.defineProperty(root.OverlayShared, Symbol.for("StreamPulse.OverlayShared"), { value: true });

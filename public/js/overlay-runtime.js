@@ -142,155 +142,30 @@
     }
 
     function setCycleNode(node, element) {
-        const lines = resolveCycleLines(element);
-        if (!lines.length) {
-            setNodeText(node, '');
+        if (node._cycleHandle) {
+            const resetIndex = Boolean(node._pendingCycleReset);
+            node._pendingCycleReset = false;
+            node._cycleHandle.update(element, { resetIndex });
             return;
         }
-        if (lines.length === 1) {
-            setNodeText(node, lines[0]);
-            return;
-        }
-        const cfg = element.cycle || {};
-        const method = cfg.transition || 'fade';
-        const dur = Math.max(50, Math.min(2000, Number(cfg.durationMs) || 350));
-        const holdMs = Math.max(1, Number(cfg.intervalSeconds) || 5) * 1000;
-        let idx = (randomIndexes.get(element.id) || 0) % lines.length;
-        setNodeText(node, lines[idx]);
-
-        const applyOut = () => {
-            node.style.transition = `opacity ${dur}ms ease, transform ${dur}ms ease`;
-            node.style.opacity = '0';
-            if (method === 'slide-up') node.style.transform = 'translateY(-8px)';
-            else if (method === 'flip') node.style.transform = 'perspective(400px) rotateX(60deg)';
-        };
-        const applyIn = () => {
-            if (method === 'slide-up') {
-                node.style.transition = 'none';
-                node.style.transform = 'translateY(8px)';
-                void node.offsetWidth;
-            } else if (method === 'flip') {
-                node.style.transition = 'none';
-                node.style.transform = 'perspective(400px) rotateX(-60deg)';
-                void node.offsetWidth;
-            }
-            node.style.transition = `opacity ${dur}ms ease, transform ${dur}ms ease`;
-            node.style.opacity = '1';
-            node.style.transform = '';
-        };
-
-        const timer = setInterval(() => {
-            const currentLines = resolveCycleLines(element);
-            if (!currentLines.length) { setNodeText(node, ''); return; }
-            idx = (idx + 1) % currentLines.length;
-            randomIndexes.set(element.id, idx);
-            if (method === 'none') {
-                setNodeText(node, currentLines[idx]);
-                return;
-            }
-            applyOut();
-            setTimeout(() => {
-                setNodeText(node, currentLines[idx]);
-                applyIn();
-            }, Math.min(dur, Math.floor(holdMs * 0.45)));
-        }, holdMs);
-        randomTimers.set(element.id, timer);
+        shared.mountTextCycle(node, element, {
+            expand: expandVariables,
+            getIndex: id => randomIndexes.get(id) || 0,
+            setIndex: (id, idx) => randomIndexes.set(id, idx)
+        });
     }
 
-    const localVarOverrides = new Map();
-    const varRotState = new Map();
-    let varRotTimers = [];
-
-    function clearVarRotTimers() {
-        for (const id of varRotTimers) clearInterval(id);
-        varRotTimers = [];
-    }
-
-    function applySetEntryOverride(setObj, entry) {
-        if (!setObj?.id) return;
-        localVarOverrides.set(`${setObj.id}_active`, entry ? 'true' : 'false');
-        for (const f of (setObj.fields || [])) {
-            const val = entry ? String(entry.values?.[f.key] ?? '') : '';
-            localVarOverrides.set(`${setObj.id}_${f.key}`, val);
-            if ((setObj.slotsCount || 0) > 0) {
-                localVarOverrides.set(`${setObj.id}_1_${f.key}`, val);
-            }
-        }
-    }
-
-    function stepVarRotation(rule, { advance = true } = {}) {
-        const sets = liveStatus.variableSets || [];
-        const setObj = sets.find(s => s.id === rule?.setId);
-        if (!setObj) return false;
-        const pool = (setObj.roster || []).filter(e => e.enabled !== false);
-        if (!pool.length) {
-            applySetEntryOverride(setObj, null);
-            varRotState.delete(setObj.id);
-            return true;
-        }
-        const prev = varRotState.get(setObj.id);
-        let nextIdx = prev ? pool.findIndex(e => e.id === prev.entryId) : -1;
-        if (!advance && nextIdx !== -1) {
-            applySetEntryOverride(setObj, pool[nextIdx]);
-            return true;
-        }
-        if (rule.mode === 'random') {
-            if (pool.length === 1) nextIdx = 0;
-            else {
-                let pick = Math.floor(Math.random() * pool.length);
-                if (pick === nextIdx) pick = (pick + 1) % pool.length;
-                nextIdx = pick;
-            }
-        } else {
-            nextIdx = nextIdx === -1 ? 0 : (nextIdx + 1) % pool.length;
-        }
-        const chosen = pool[nextIdx];
-        varRotState.set(setObj.id, { index: nextIdx, entryId: chosen.id });
-        applySetEntryOverride(setObj, chosen);
-        return true;
-    }
-
-    function setupVarRotations(overlay) {
-        clearVarRotTimers();
-        const rules = (overlay?.variableSetRotations || []).filter(r => r && r.enabled !== false && r.setId);
-        if (!rules.length) {
-            localVarOverrides.clear();
-            return;
-        }
-        for (const rule of rules) {
-            stepVarRotation(rule, { advance: false });
-            if (rule.trigger !== 'page') {
-                const ms = Math.max(1000, (Number(rule.intervalSeconds) || 10) * 1000);
-                const timer = setInterval(() => {
-                    if (document.hidden || currentOverlay !== overlay) return;
-                    if (stepVarRotation(rule, { advance: true })) render(currentOverlay);
-                }, ms);
-                varRotTimers.push(timer);
-            }
-        }
-    }
-
-    function triggerPageVarRotations(pageId) {
-        const rules = (currentOverlay?.variableSetRotations || []).filter(r => r && r.enabled !== false && r.setId && r.trigger === 'page');
-        let changed = false;
-        for (const rule of rules) {
-            if (!rule.pageId || rule.pageId === pageId) {
-                if (stepVarRotation(rule, { advance: true })) changed = true;
-            }
-        }
-        return changed;
-    }
-
-    function effectiveStatus() {
-        if (!localVarOverrides.size) return liveStatus;
-        const base = liveStatus.customVars || [];
-        const merged = new Map(base.map(v => [v.name, v]));
-        for (const [k, val] of localVarOverrides.entries()) {
-            const prev = merged.get(k);
-            merged.set(k, prev ? { ...prev, value: val } : { name: k, type: 'text', value: val });
-        }
-        return { ...liveStatus, customVars: [...merged.values()] };
-    }
+    const varRotEngine = shared.createVarRotationEngine({
+        getOverlay: () => currentOverlay,
+        getSets: () => liveStatus.variableSets || [],
+        getNodes: () => elementNodes,
+        onResetCycle: el => randomIndexes.delete(el.id),
+        onRender: overlay => render(overlay)
+    });
+    const clearVarRotTimers = () => varRotEngine.clear();
+    const setupVarRotations = overlay => varRotEngine.setup(overlay);
+    const triggerPageVarRotations = pageId => varRotEngine.triggerPage(pageId);
+    const effectiveStatus = () => varRotEngine.effectiveStatus(liveStatus);
 
     function variableContext() {
         return { overlayName: liveStatus.overlayName };
@@ -872,6 +747,11 @@
             } else if (element.type === 'text' && element.cycle?.enabled) {
                 setCycleNode(existingNode, element);
             } else {
+                if (existingNode._cycleHandle?.stop) {
+                    try { existingNode._cycleHandle.stop(); } catch {}
+                    existingNode._cycleHandle = null;
+                    existingNode.replaceChildren();
+                }
                 setNodeText(existingNode, expandVariables(shared.elementContent(element) || ''));
             }
 

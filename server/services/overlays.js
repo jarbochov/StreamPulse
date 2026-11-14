@@ -1209,8 +1209,10 @@ function normalizeCustomOverlay(input = {}, idOverride = '', alertTriggers = {})
             const mode = r?.mode === 'random' ? 'random' : 'sequential';
             const intervalSeconds = Math.max(1, Math.min(3600, Number(r?.intervalSeconds) || 10));
             const pageId = String(r?.pageId || '').trim().slice(0, 40);
+            const transition = ['none', 'fade', 'slide-up', 'flip'].includes(r?.transition) ? r.transition : 'fade';
+            const durationMs = Math.max(50, Math.min(2000, Number(r?.durationMs) || 350));
             const enabled = r?.enabled !== false;
-            return { setId, trigger, mode, intervalSeconds, pageId, enabled };
+            return { setId, trigger, mode, intervalSeconds, pageId, transition, durationMs, enabled };
         }).filter(Boolean)
         : [];
     return {

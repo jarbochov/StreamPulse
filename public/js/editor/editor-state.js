@@ -814,14 +814,72 @@ export function withGroups(ids) {
     return set;
 }
 
+let editorVarRotationEngine = null;
+let lastVarRotationKey = '';
+let loadingEditorVarSets = false;
+
+function ensureEditorVariableSets(onLoaded) {
+    if (Array.isArray(state.liveStatus?.variableSets) || loadingEditorVarSets) return;
+    loadingEditorVarSets = true;
+    fetch('/api/variables').then(r => r.json()).then(d => {
+        if (!state.liveStatus || typeof state.liveStatus !== 'object') state.liveStatus = {};
+        state.liveStatus.variableSets = Array.isArray(d.sets) ? d.sets : [];
+        loadingEditorVarSets = false;
+        onLoaded?.();
+    }).catch(() => {
+        loadingEditorVarSets = false;
+    });
+}
+
+export function getEditorVarRotationEngine(onRender) {
+    const sh = window.OverlayShared;
+    if (!editorVarRotationEngine && sh?.createVarRotationEngine) {
+        editorVarRotationEngine = sh.createVarRotationEngine({
+            getOverlay: () => state.overlay,
+            getSets: () => state.liveStatus?.variableSets || [],
+            getNodes: () => state.nodes,
+            onRender
+        });
+    }
+    return editorVarRotationEngine;
+}
+
+export function syncEditorVarRotations(onRender) {
+    const engine = getEditorVarRotationEngine(onRender);
+    if (!engine) return;
+    const rots = prefs.live ? (state.overlay?.variableSetRotations || []) : [];
+    const hasActive = rots.some(r => r && r.enabled !== false && r.setId);
+    if (hasActive && !Array.isArray(state.liveStatus?.variableSets)) {
+        ensureEditorVariableSets(() => {
+            lastVarRotationKey = '';
+            syncEditorVarRotations(onRender);
+            onRender?.();
+        });
+    }
+    const setsSig = (state.liveStatus?.variableSets || []).map(s => `${s.id}:${(s.roster || []).length}`).join('|');
+    const key = `${state.overlay?.id || ''}|${JSON.stringify(rots)}|${setsSig}`;
+    if (key === lastVarRotationKey) return;
+    lastVarRotationKey = key;
+    if (!prefs.live || !hasActive) {
+        engine.clear();
+        return;
+    }
+    engine.setup(state.overlay);
+}
+
+export const effectiveLiveStatus = () => {
+    const engine = editorVarRotationEngine;
+    return engine ? engine.effectiveStatus(state.liveStatus) : state.liveStatus;
+};
+
 export const variableContext = () => ({ overlayName: state.overlay.name });
 export const expand = value => {
     const sh = window.OverlayShared;
-    return prefs.live && sh ? sh.expandVariables(value, state.liveStatus, variableContext(), true) : String(value ?? '');
+    return prefs.live && sh ? sh.expandVariables(value, effectiveLiveStatus(), variableContext(), true) : String(value ?? '');
 };
 export const liveSignature = () => {
     const sh = window.OverlayShared;
-    return prefs.live && sh ? sh.variableSnapshot(state.liveStatus, variableContext()) : 'off';
+    return prefs.live && sh ? sh.variableSnapshot(effectiveLiveStatus(), variableContext()) : 'off';
 };
 
 export const alertSample = el => {

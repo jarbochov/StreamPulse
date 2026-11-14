@@ -227,6 +227,9 @@ function loadVariableSets() {
     variableSets = [];
     fetch('/api/variables').then(r => r.json()).then(d => {
         variableSets = Array.isArray(d.sets) ? d.sets : [];
+        if (state.liveStatus && typeof state.liveStatus === 'object') {
+            state.liveStatus.variableSets = variableSets;
+        }
         renderPagesPanel();
     }).catch(() => { variableSets = []; });
 }
@@ -256,13 +259,15 @@ function renderVarSetRotationSection() {
         ].join('');
         const trigger = r.trigger === 'page' ? 'page' : 'timer';
         const mode = r.mode === 'random' ? 'random' : 'sequential';
+        const transition = ['none', 'fade', 'slide-up', 'flip'].includes(r.transition) ? r.transition : 'fade';
+        const durationMs = Math.max(50, Math.min(2000, Number(r.durationMs) || 350));
         const pageOpts = [
             '<option value="">Any page</option>',
             ...pageItems.map(p => `<option value="${esc(p.id)}"${p.id === r.pageId ? ' selected' : ''}>${esc(p.name || p.id)}</option>`)
         ].join('');
         const matchedEls = findElementsUsingSet(r.setId);
         const linkedHtml = r.setId
-            ? `<div class="vrot-el-chips"><span>Layers:</span>${matchedEls.length
+            ? `<div class="vrot-el-chips"><span>Applies to:</span>${matchedEls.length
                 ? matchedEls.map(el => `<button type="button" class="vrot-el-chip" data-vrot-select="${esc(el.id)}" title="Select ${esc(displayName(el))} on canvas">${esc(displayName(el))}</button>`).join('')
                 : `<span>none using <code>{{var.${esc(r.setId)}_*}}</code> yet</span>`}</div>`
             : '';
@@ -289,6 +294,17 @@ function renderVarSetRotationSection() {
                     ${trigger === 'timer'
                         ? `<label>Every (s)<input type="number" min="1" max="3600" step="1" data-vrot-field="intervalSeconds" data-vrot-idx="${ri}" value="${Number(r.intervalSeconds) || 10}"></label>`
                         : (pagesOn() ? `<label>Page<select data-vrot-field="pageId" data-vrot-idx="${ri}">${pageOpts}</select></label>` : '<div></div>')}
+                    <label>Transition
+                        <select data-vrot-field="transition" data-vrot-idx="${ri}">
+                            <option value="fade"${transition === 'fade' ? ' selected' : ''}>Crossfade</option>
+                            <option value="slide-up"${transition === 'slide-up' ? ' selected' : ''}>Slide up</option>
+                            <option value="flip"${transition === 'flip' ? ' selected' : ''}>Flip</option>
+                            <option value="none"${transition === 'none' ? ' selected' : ''}>Instant</option>
+                        </select>
+                    </label>
+                    ${transition !== 'none'
+                        ? `<label class="vrot-span2">Duration (ms)<input type="number" min="50" max="2000" step="50" data-vrot-field="durationMs" data-vrot-idx="${ri}" value="${durationMs}"></label>`
+                        : ''}
                 </div>
                 ${linkedHtml}
             </div>`;
@@ -430,14 +446,14 @@ export function renderPagesPanel() {
             <button type="button" data-pg-kind="${isStates ? 'pages' : 'states'}" id="pg-kind-toggle" aria-pressed="${isStates}">${isStates ? 'Turn off Scene States (use Pages)' : 'Switch to Scene States'}</button>
             ${isStates && state.obs?.enabled && state.obs?.sceneSyncEnabled !== false ? `<div class="state-override-bar${obsLinkedCount ? ' is-active' : ''}"><span class="state-ovr-text"><strong>OBS Sync:</strong> ${obsLinkedCount ? `${obsLinkedCount} linked source${obsLinkedCount === 1 ? '' : 's'}` : 'Link Shape/Cutout boxes'}</span><button type="button" id="btn-pages-obs-setup" class="link-btn">${state.obs?.connected ? 'Connected' : 'Configure…'}</button></div>` : ''}
         </details>` : ''}
-        ${renderVarSetRotationSection()}
         <details class="sub-details" data-sect="pg-triggers"${pageSectionOpen('triggers', false)}>
             <summary>Triggers summary</summary>
             ${triggersSummaryHtml()}
         </details>
         <div class="pg-foot">
             <a href="/overlay-control.html?id=${encodeURIComponent(state.overlay.id)}" target="_blank" rel="noopener" class="link sm">Control panel <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>
-            <button id="pages-disable" class="ghost" title="Back to a single view. Elements are kept.">Turn off ${noun}s</button></div>`;
+            <button id="pages-disable" class="ghost" title="Back to a single view. Elements are kept.">Turn off ${noun}s</button></div>
+        <div class="vrot-standalone">${renderVarSetRotationSection()}</div>`;
 
     if (pgSortable) pgSortable.destroy();
     const sortList = $('pg-list');
@@ -836,7 +852,7 @@ export function initLayersAndPages() {
                 if (!variableSets) loadVariableSets();
                 if (!Array.isArray(state.overlay.variableSetRotations)) state.overlay.variableSetRotations = [];
                 const defaultSetId = variableSets?.[0]?.id || '';
-                state.overlay.variableSetRotations.push({ setId: defaultSetId, trigger: 'timer', mode: 'sequential', intervalSeconds: 10, pageId: '', enabled: true });
+                state.overlay.variableSetRotations.push({ setId: defaultSetId, trigger: 'timer', mode: 'sequential', intervalSeconds: 10, pageId: '', transition: 'fade', durationMs: 350, enabled: true });
                 changed(true);
                 return renderPagesPanel();
             }
@@ -964,9 +980,10 @@ export function initLayersAndPages() {
                 if (rule) {
                     if (field === 'enabled') rule.enabled = vrotField.checked;
                     else if (field === 'intervalSeconds') rule.intervalSeconds = Math.max(1, Math.min(3600, Number(vrotField.value) || 10));
+                    else if (field === 'durationMs') rule.durationMs = Math.max(50, Math.min(2000, Number(vrotField.value) || 350));
                     else rule[field] = vrotField.value;
                     changed(false);
-                    if (field === 'trigger' || field === 'enabled') renderPagesPanel();
+                    if (field === 'trigger' || field === 'enabled' || field === 'transition') renderPagesPanel();
                 }
                 return;
             }

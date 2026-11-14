@@ -493,12 +493,14 @@ export function textSourceBlock(el) {
     }
     if (el.type === 'text') {
         const cyc = el.cycle || {};
-        body += F.check('cycle.enabled', 'Cycle lines (skip empty variables)', Boolean(cyc.enabled));
+        const lineCount = String(el.content || '').split(/\r?\n/).filter(l => l.trim() !== '').length;
+        let cycBody = F.check('cycle.enabled', 'Rotate lines in this box (1 line at a time)', Boolean(cyc.enabled));
         if (cyc.enabled) {
-            body += `<div class="grid2">${F.number('cycle.intervalSeconds', 'Hold (seconds)', cyc.intervalSeconds ?? 5, { min: 1, max: 300, step: 1 })}${F.select('cycle.transition', 'Transition', cyc.transition || 'fade', [['fade', 'Fade'], ['slide-up', 'Slide up'], ['flip', 'Flip'], ['none', 'Instant']])}</div>`;
-            body += `<div class="grid2">${F.number('cycle.durationMs', 'Transition (ms)', cyc.durationMs ?? 350, { min: 50, max: 2000, step: 50 })}${F.check('cycle.skipEmpty', 'Skip empty lines', cyc.skipEmpty !== false)}</div>`;
-            body += `<span class="hint">Each line in the Text box above rotates on a timer. Lines whose placeholders resolve to empty are skipped automatically.</span>`;
+            cycBody += `<div class="grid2">${F.number('cycle.intervalSeconds', 'Hold (seconds)', cyc.intervalSeconds ?? 5, { min: 1, max: 300, step: 1 })}${F.select('cycle.transition', 'Transition', cyc.transition || 'fade', [['fade', 'Crossfade'], ['slide-up', 'Slide up'], ['flip', 'Flip'], ['none', 'Instant']])}</div>`;
+            cycBody += `<div class="grid2">${F.number('cycle.durationMs', 'Transition (ms)', cyc.durationMs ?? 350, { min: 50, max: 2000, step: 50 })}${F.check('cycle.skipEmpty', 'Skip empty lines', cyc.skipEmpty !== false)}</div>`;
+            cycBody += `<span class="hint">Each line in the Text box above rotates on a timer, skipping lines whose variables resolve to empty.</span>`;
         }
+        body += `<div id="cycle-lines-wrap"${lineCount > 1 || cyc.enabled ? '' : ' hidden'}>${cycBody}</div>`;
     }
     return body;
 }
@@ -1928,6 +1930,13 @@ export function initInspectorEvents() {
             const actualPath = path;
             path = lookPath(path);
             for (const el of actualPath === path ? selectedElements() : lookPresentationTargets()) {
+                if (path === 'content' && el.type === 'text') {
+                    const wrap = $('cycle-lines-wrap');
+                    if (wrap) {
+                        const lineCount = String(el.content || '').split(/\r?\n/).filter(l => l.trim() !== '').length;
+                        wrap.hidden = lineCount <= 1 && !el.cycle?.enabled;
+                    }
+                }
                 el.width = clamp(el.width, 1, 3840);
                 el.height = clamp(el.height, 1, 2160);
                 if (path === 'pattern.layout' && el.pattern) {

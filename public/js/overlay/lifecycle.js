@@ -41,6 +41,7 @@ function cleanupNode(node) {
     if (node._slideshow?.stop) { try { node._slideshow.stop(); } catch {} node._slideshow = null; }
     if (node._slideHandle?.stop) { try { node._slideHandle.stop(); } catch {} node._slideHandle = null; }
     if (node._patternHandle?.stop) { try { node._patternHandle.stop(); } catch {} node._patternHandle = null; }
+    if (node._cycleHandle?.stop) { try { node._cycleHandle.stop(); } catch {} node._cycleHandle = null; }
     if (root.OverlayFilters?.cleanupFilters) {
         root.OverlayFilters.cleanupFilters(node);
     }
