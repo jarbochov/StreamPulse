@@ -4,7 +4,7 @@ Game Plan gives your broadcasts a flexible rundown. Keep tonight’s lineup clos
 
 ![Game Plan Studio with a fictional schedule](images/game-plan-studio.png)
 
-Use the calendar to plan upcoming streams, group titles into your own collections, and keep a backlog ready for the next time you need inspiration. A clear lineup makes it easier to change direction without losing track of what you had planned.
+Use the calendar to plan upcoming streams, pin games to **Tonight's Lineup** without removing them from their home list (`Schedule`, `Up Next`, or custom collections), group titles into flexible horizon blocks (like `Next Week`, `October`, or `Future`), and keep a backlog ready for the next time you need inspiration. Multi-select rows for bulk moves, sync unsynced schedule slots to Twitch in one pass, or export/import your plan as JSON.
 
 When you want viewers in on the plan, bring a schedule, checklist, or featured game into an OBS scene. Game artwork helps make the display recognizable at a glance, and the same plan can support both your own show notes and an on-screen update.
 

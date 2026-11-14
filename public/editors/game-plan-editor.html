@@ -25,9 +25,12 @@
             </form>
             <div class="card-foot">
                 <p class="status" id="status"></p>
-                <div style="display:flex;gap:0.5rem;align-items:center;">
+                <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;">
                     <a class="btn ghost" href="/game-plan-url-wizard.html">Overlay URL Wizard</a>
                     <button class="btn ghost" type="button" id="backfill" title="Add games from past live sessions that aren't on any list yet">Import past games</button>
+                    <button class="btn ghost" type="button" id="export-plan" title="Export Game Plan backup as JSON">Export</button>
+                    <button class="btn ghost" type="button" id="import-plan" title="Import Game Plan from JSON backup">Import</button>
+                    <input type="file" id="import-plan-file" accept=".json,application/json" hidden>
                 </div>
             </div>
         </div>
@@ -61,6 +64,7 @@
             <span id="v-month-wrap" hidden><select id="v-mon" aria-label="Month"></select> <select id="v-year" aria-label="Year"></select></span><span id="v-range" hidden><input type="date" id="v-from" aria-label="From"> to <input type="date" id="v-to" aria-label="To"></span>
         </div>
         <div class="period-bar" id="period-bar" hidden></div>
+        <div class="bulk-bar" id="bulk-bar" hidden></div>
         <div class="cal-wrap" id="cal-view" hidden></div>
         <div class="board" id="board" hidden></div>
         <div class="items" id="items"></div>
@@ -83,6 +87,9 @@
 
     <!-- Floating Calendar Event Context Menu -->
     <div id="cal-ctx-menu" class="ctx-menu" hidden></div>
+
+    <!-- Floating Row Overflow Menu -->
+    <div id="row-ctx-menu" class="ctx-menu" hidden></div>
 
     <dialog id="dlg">
         <h3>
@@ -112,12 +119,17 @@
                 </label>
             </div>
             <div class="dlg-fields">
-                <div class="dlg-section">
-                    <div class="dlg-section-title"><span>Game / Segment Info</span></div>
+                <div class="dlg-tabs" role="tablist" aria-label="Game details sections">
+                    <button type="button" class="dlg-tab active" data-dlg-tab="details" role="tab" aria-selected="true">Details</button>
+                    <button type="button" class="dlg-tab" data-dlg-tab="schedule" role="tab" aria-selected="false">Schedule &amp; Twitch</button>
+                    <button type="button" class="dlg-tab" data-dlg-tab="notes" role="tab" aria-selected="false">Notes &amp; Lists</button>
+                </div>
+
+                <div class="dlg-section dlg-panel" data-dlg-panel="details">
                     <label class="field"><span>Display Name</span><input id="f-name" maxlength="120"></label>
                     <div class="field two">
                         <div>
-                            <span>Main List</span>
+                            <span>Home List</span>
                             <select id="f-status"></select>
                         </div>
                         <div>
@@ -127,6 +139,12 @@
                                 <option value="one-off">One-Off / Variety / Segment</option>
                             </select>
                         </div>
+                    </div>
+                    <div class="field">
+                        <label style="display:flex;align-items:center;gap:0.45rem;font-size:0.8rem;cursor:pointer;color:var(--text);">
+                            <input type="checkbox" id="f-tonight">
+                            <span>Pin to Tonight's Lineup (keeps Home List intact)</span>
+                        </label>
                     </div>
                     <div class="field">
                         <span>Twitch Category (used for "Play Now" &amp; Twitch Schedule sync)</span>
@@ -144,7 +162,7 @@
                     </div>
                 </div>
 
-                <div class="dlg-section">
+                <div class="dlg-section dlg-panel" data-dlg-panel="schedule" hidden>
                     <div class="dlg-section-title">
                         <span>Stream Schedule &amp; Twitch Sync</span>
                         <button type="button" class="btn ghost" id="f-clear-dates" style="padding:0.1rem 0.45rem;font-size:0.7rem;">Clear dates</button>
@@ -192,15 +210,14 @@
                     </div>
                 </div>
 
-                <div class="dlg-section">
-                    <div class="dlg-section-title"><span>Notes &amp; Metadata</span></div>
+                <div class="dlg-section dlg-panel" data-dlg-panel="notes" hidden>
                     <div class="field two">
                         <div><span>Note / Subtitle (shown on overlay)</span><input id="f-note" maxlength="200" placeholder="e.g. Co-op w/ friends, Blind playthrough"></div>
                         <div><span>Tags (comma separated)</span><input id="f-tags" maxlength="200" placeholder="co-op, horror"></div>
                     </div>
                     <div class="field three">
                         <div><span>System / Platform</span><input id="f-system" maxlength="40" placeholder="e.g. Switch, PC"></div>
-                        <div><span>Block / Group (e.g. October)</span><input id="f-period" list="periods" maxlength="40" placeholder="e.g. October, November"></div>
+                        <div><span>Block / Horizon (e.g. Next Week, Future)</span><input id="f-period" list="periods" maxlength="40" placeholder="e.g. Next Week, October, Future"></div>
                         <div><span>Finished Date</span><input id="f-finished" type="date"></div>
                     </div>
                     <div class="field" id="f-extra-wrap" hidden><span>Also include in collections</span><div class="extra-lists" id="f-extra"></div></div>

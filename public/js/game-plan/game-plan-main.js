@@ -6,8 +6,11 @@ import {
     $,
     ICONS,
     BUILTIN,
+    HORIZON_PERIODS,
     state,
     inList,
+    isTonightItem,
+    homeListId,
     tiersOf,
     allLists,
     esc,
@@ -42,9 +45,44 @@ import {
 } from './game-plan-dialog.js';
 
 let periodPopItem = null;
+let rowCtxItem = null;
 let pickedId = '';
 let searchTimer = null;
 let searchSeq = 0;
+
+export function closeRowCtxMenu() {
+    rowCtxItem = null;
+    const menu = $('row-ctx-menu');
+    if (menu) menu.hidden = true;
+}
+
+export function openRowCtxMenu(item, anchorEl) {
+    if (!item) return;
+    rowCtxItem = item;
+    const menu = $('row-ctx-menu');
+    if (!menu) return;
+    const curStatus = item.status || 'up-next';
+    const pinned = isTonightItem(item);
+    menu.innerHTML = `
+        <div class="ctx-head">${esc(item.name)}</div>
+        <button type="button" class="ctx-btn" data-row-act="play-now">${ICONS.play} <span>Play Now</span></button>
+        <button type="button" class="ctx-btn" data-row-act="toggle-tonight">${ICONS.tv} <span>${pinned ? "Remove from Tonight's Lineup" : "Pin to Tonight's Lineup"}</span></button>
+        <button type="button" class="ctx-btn" data-row-act="edit">${ICONS.edit} <span>Edit Details &amp; Dates…</span></button>
+        <div class="ctx-sep"></div>
+        ${curStatus !== 'scheduled' ? `<button type="button" class="ctx-btn" data-row-act="move" data-target="scheduled">${ICONS.calendar} <span>Move to Schedule</span></button>` : ''}
+        ${curStatus !== 'up-next' ? `<button type="button" class="ctx-btn" data-row-act="move" data-target="up-next">${ICONS.undo} <span>Move to Up Next</span></button>` : ''}
+        ${curStatus !== 'backlog' ? `<button type="button" class="ctx-btn" data-row-act="move" data-target="backlog">${ICONS.folder} <span>Move to Backlog</span></button>` : ''}
+        ${curStatus !== 'played' ? `<button type="button" class="ctx-btn" data-row-act="move" data-target="played">${ICONS.check} <span>Mark as Played</span></button>` : ''}
+        <div class="ctx-sep"></div>
+        <button type="button" class="ctx-btn danger" data-row-act="delete">${ICONS.trash} <span>Remove from Plan</span></button>
+    `;
+    menu.hidden = false;
+    const rect = anchorEl.getBoundingClientRect();
+    const top = Math.min(window.innerHeight - menu.offsetHeight - 10, rect.bottom + 4);
+    const left = Math.min(window.innerWidth - menu.offsetWidth - 10, Math.max(10, rect.right - menu.offsetWidth));
+    menu.style.top = `${Math.max(10, top)}px`;
+    menu.style.left = `${left}px`;
+}
 
 export function coverTag(item) {
     return item.cover ? `<img class="cover" src="${esc(item.cover)}" alt="" loading="lazy" data-edit>` : `<div class="cover" data-edit>${item.custom ? ICONS.image : ICONS.game}</div>`;
@@ -193,64 +231,39 @@ export function renderItemRow(item, index, isCrossList = false) {
     const effectiveList = isCrossList ? item.status : state.active;
     const isTonight = !isCrossList && effectiveList === 'tonight';
     const isScheduled = !isCrossList && effectiveList === 'scheduled';
-    const isUpNext = !isCrossList && effectiveList === 'up-next';
-    const isBacklog = !isCrossList && effectiveList === 'backlog';
     const isPlayed = !isCrossList && effectiveList === 'played';
     const isPlaying = Boolean(item.playingNow);
+    const pinnedTonight = isTonightItem(item);
+    const isSelected = state.selectedIds.has(item.id);
     const hasAnyDate = Boolean(item.streamDate || (Array.isArray(item.streamDates) && item.streamDates.some(d => d && d.date)));
 
     let scheduleActions = '';
     if (isCrossList) {
         scheduleActions = `
-            ${item.status !== 'tonight' ? `<button type="button" class="btn play-btn" data-action="add-to-tonight" title="Move to Tonight's lineup">${ICONS.play} Tonight</button>` : ''}
+            <button type="button" class="btn ${pinnedTonight ? 'tonight-active' : 'play-btn'}" data-action="toggle-tonight" title="${pinnedTonight ? "Remove from Tonight's lineup" : "Pin to Tonight's lineup"}">${ICONS.tv} ${pinnedTonight ? 'In Tonight' : 'Tonight'}</button>
             ${item.status !== 'scheduled' ? `<button type="button" class="btn schedule-btn" data-action="move-to-schedule" title="Move to Schedule">${ICONS.calendar} Schedule</button>` : ''}
-            ${item.status !== 'up-next' ? `<button type="button" class="btn" data-action="move-up-next" title="Move to Up Next">Up Next</button>` : ''}
         `;
     } else if (isTonight) {
         if (isPlaying) {
             scheduleActions = `
                 <button type="button" class="btn stop-btn" data-action="stop-now" title="Stop playing on stream">${ICONS.stop} Stop</button>
                 <button type="button" class="btn advance-btn" data-action="advance-item" title="Finish current session and advance to next game in rundown">${ICONS.next} Next</button>
-                <button type="button" class="btn schedule-btn" data-action="move-to-schedule" title="Move back to Schedule">${ICONS.undo} Schedule</button>
-                <button type="button" class="btn" data-action="move-up-next" title="Move back to Up Next">Up Next</button>
             `;
         } else {
             scheduleActions = `
                 <button type="button" class="btn play-btn" data-action="play-now" title="Set as Currently Playing on stream">${ICONS.play} Play Now</button>
-                <button type="button" class="btn schedule-btn" data-action="move-to-schedule" title="Move back to Schedule">${ICONS.undo} Schedule</button>
-                <button type="button" class="btn" data-action="move-up-next" title="Move back to Up Next">Up Next</button>
+                <button type="button" class="btn schedule-btn" data-action="unpin-tonight" title="Remove from Tonight's lineup (keeps Home List)">Unpin</button>
             `;
         }
     } else if (isScheduled) {
         scheduleActions = `
-            <button type="button" class="btn play-btn" data-action="add-to-tonight" title="Add to Tonight's stream lineup">Tonight</button>
-            <button type="button" class="btn" data-action="move-up-next" title="Move back to Up Next">Up Next</button>
-            <button type="button" class="btn" data-action="play-now" title="Add to Tonight and Play Now">${ICONS.play} Play</button>
-            ${hasAnyDate ? `<button type="button" class="btn" data-action="push-twitch" title="${item.twitchSegmentId ? 'Twitch Schedule synced (click to re-sync)' : 'Push stream dates to Twitch Schedule'}">${ICONS.sync} ${item.twitchSegmentId ? 'Synced' : 'Sync'}</button>` : `<button type="button" class="btn schedule-btn" data-edit title="Pick stream dates">${ICONS.calendar} Dates</button>`}
-        `;
-    } else if (isUpNext) {
-        scheduleActions = `
-            <button type="button" class="btn play-btn" data-action="add-to-tonight" title="Add to Tonight's stream lineup">Tonight</button>
-            <button type="button" class="btn schedule-btn" data-action="schedule-item" title="Move to Schedule">${ICONS.calendar} Schedule</button>
-            <button type="button" class="btn" data-action="play-now" title="Play Now">${ICONS.play} Play</button>
-        `;
-    } else if (isBacklog) {
-        scheduleActions = `
-            <button type="button" class="btn" data-action="move-up-next" title="Move to Up Next">Up Next</button>
-            <button type="button" class="btn schedule-btn" data-action="schedule-item" title="Move to Schedule">${ICONS.calendar} Schedule</button>
-            <button type="button" class="btn play-btn" data-action="play-backlog" title="Add to Tonight and Play Now">${ICONS.play} Play</button>
-        `;
-    } else if (isPlayed) {
-        scheduleActions = `
-            <button type="button" class="btn" data-action="add-to-tonight" title="Play again on Tonight's stream">Replay</button>
-            <button type="button" class="btn" data-action="move-up-next" title="Move to Up Next">Up Next</button>
-            <button type="button" class="btn schedule-btn" data-action="schedule-item" title="Move to Schedule">${ICONS.calendar} Schedule</button>
+            <button type="button" class="btn ${pinnedTonight ? 'tonight-active' : 'play-btn'}" data-action="toggle-tonight" title="${pinnedTonight ? "Pinned to Tonight's lineup (click to unpin)" : "Pin to Tonight's stream lineup"}">${ICONS.tv} ${pinnedTonight ? 'In Tonight' : 'Tonight'}</button>
+            ${hasAnyDate ? `<button type="button" class="btn" data-action="push-twitch" title="${item.twitchSegmentId ? 'Twitch Schedule synced (click to re-sync)' : 'Push stream dates to Twitch Schedule'}">${ICONS.sync} ${item.twitchSegmentId ? 'Synced' : 'Sync'}</button>` : `<button type="button" class="btn schedule-btn" data-edit-tab="schedule" title="Pick stream dates">${ICONS.calendar} Dates</button>`}
         `;
     } else {
         scheduleActions = `
-            <button type="button" class="btn play-btn" data-action="add-to-tonight" title="Add to Tonight's stream lineup">Tonight</button>
-            <button type="button" class="btn" data-action="move-up-next" title="Move to Up Next">Up Next</button>
-            <button type="button" class="btn schedule-btn" data-action="schedule-item" title="Move to Schedule">${ICONS.calendar} Schedule</button>
+            <button type="button" class="btn ${pinnedTonight ? 'tonight-active' : 'play-btn'}" data-action="toggle-tonight" title="${pinnedTonight ? "Pinned to Tonight's lineup (click to unpin)" : "Pin to Tonight's stream lineup"}">${ICONS.tv} ${pinnedTonight ? 'In Tonight' : 'Tonight'}</button>
+            <button type="button" class="btn" data-action="play-now" title="Pin to Tonight and Play Now">${ICONS.play} Play</button>
         `;
     }
 
@@ -261,23 +274,29 @@ export function renderItemRow(item, index, isCrossList = false) {
     const catBadge = (item.twitchCategory && item.twitchCategory !== item.name && item.twitchCategory !== 'Just Chatting')
         ? `<span class="badge cat-badge" title="Twitch Category">${item.twitchCategory === '__none__' ? 'No Category' : esc(item.twitchCategory)}</span>`
         : '';
-    const crossBadge = isCrossList ? `<span class="badge list-pill" title="Currently in ${esc(listName(item.status))}">${esc(listName(item.status))}</span>` : '';
+    const homeId = homeListId(item);
+    const crossBadge = isCrossList
+        ? `<span class="badge list-pill" title="Home list: ${esc(listName(homeId))}">${esc(listName(homeId))}</span>`
+        : (isTonight && item.status && item.status !== 'tonight'
+            ? `<span class="badge list-pill" title="Home list: ${esc(listName(item.status))}">${esc(listName(item.status))}</span>`
+            : '');
     const blockName = itemBlock(item);
     const periodBadge = blockName
-        ? `<button type="button" class="badge period-pill" data-period-btn="${esc(item.id)}" title="Block / Group: ${esc(blockName)} — click to change or filter">${ICONS.tag} ${esc(blockName)}</button>`
-        : `<button type="button" class="badge period-pill empty-pill" data-period-btn="${esc(item.id)}" title="Assign a Block / Group (e.g. October, November)">+ Block</button>`;
+        ? `<button type="button" class="badge period-pill" data-period-btn="${esc(item.id)}" title="Block / Horizon: ${esc(blockName)} — click to change or filter">${ICONS.tag} ${esc(blockName)}</button>`
+        : `<button type="button" class="badge period-pill empty-pill" data-period-btn="${esc(item.id)}" title="Assign a Block / Horizon (e.g. Next Week, October, Future)">+ Block</button>`;
     const extraDatesCount = Array.isArray(item.streamDates) ? item.streamDates.filter(d => Boolean(d && (d.date || (typeof d === 'string' && d)))).length : 0;
     const recurringSuffix = item.streamRecurring ? ' · Weekly' : '';
     const dateBadge = item.streamDate
-        ? `<span class="date-badge" title="Scheduled Stream Date (click to edit)" data-edit>${ICONS.calendar} ${esc(item.streamDate)}${item.streamTime ? ` ${esc(item.streamTime)}` : ''}${extraDatesCount > 0 ? ` +${extraDatesCount}d` : ''}${recurringSuffix}</span>`
-        : (extraDatesCount > 0 ? `<span class="date-badge" title="Scheduled Stream Dates (click to edit)" data-edit>${ICONS.calendar} ${extraDatesCount} day${extraDatesCount === 1 ? '' : 's'}${recurringSuffix}</span>` : '');
+        ? `<span class="date-badge" title="Scheduled Stream Date (click to edit)" data-edit-tab="schedule">${ICONS.calendar} ${esc(item.streamDate)}${item.streamTime ? ` ${esc(item.streamTime)}` : ''}${extraDatesCount > 0 ? ` +${extraDatesCount}d` : ''}${recurringSuffix}</span>`
+        : (extraDatesCount > 0 ? `<span class="date-badge" title="Scheduled Stream Dates (click to edit)" data-edit-tab="schedule">${ICONS.calendar} ${extraDatesCount} day${extraDatesCount === 1 ? '' : 's'}${recurringSuffix}</span>` : '');
 
     const showStars = isPlayed || (item.rating > 0);
     const starsPart = showStars ? `<span class="stars" data-stars>${starsHtml(item.rating || 0, 'data-star')}</span>` : '';
     const subText = subLine(item);
 
     return `
-    <div class="item${isPlaying ? ' now' : ''}${isCrossList ? ' cross-item' : ''}" data-id="${esc(item.id)}">
+    <div class="item${isPlaying ? ' now' : ''}${isCrossList ? ' cross-item' : ''}${isSelected ? ' selected' : ''}" data-id="${esc(item.id)}">
+        <input type="checkbox" class="item-select" data-select-id="${esc(item.id)}"${isSelected ? ' checked' : ''} aria-label="Select ${esc(item.name)}">
         ${isCrossList ? `<span class="grip" style="opacity:0.4">${ICONS.search}</span>` : (isTonight ? `<span class="order-num" title="Drag to reorder or drop onto another tab to move"><span class="grip-dots">⋮⋮</span>${index + 1}</span>` : '<span class="grip" title="Drag to reorder, or drop on a tab to move">⋮⋮</span>')}
         ${coverTag(item)}
         <div class="main">
@@ -301,17 +320,16 @@ export function renderItemRow(item, index, isCrossList = false) {
         <div class="item-actions">
             ${scheduleActions}
             <button class="btn icon" data-edit title="Edit Details, Dates &amp; Artwork">${ICONS.edit}</button>
+            <button class="btn icon" data-row-menu="${esc(item.id)}" title="More Actions">${ICONS.more}</button>
         </div>
     </div>`;
 }
 
-export function moveTo(item, status) {
-    const wasPlaying = Boolean(item.playingNow);
-    item.status = status;
-    item.extraLists = (item.extraLists || []).filter(id => id !== status);
-    if (!tiersOf(status).some(entry => entry.id === item.tier)) item.tier = '';
-    if (item.period === 'Tonight') item.period = '';
-    if (status !== 'tonight' && wasPlaying) {
+export function unpinTonight(item) {
+    if (!item) return;
+    item.tonight = false;
+    if (item.status === 'tonight') item.status = homeListId(item);
+    if (item.playingNow) {
         item.playingNow = false;
         fetch('/api/game-plan/now', {
             method: 'POST',
@@ -319,7 +337,23 @@ export function moveTo(item, status) {
             body: JSON.stringify({ clear: true })
         }).catch(() => {});
     }
-    if (status === 'played' && !item.finished) item.finished = new Date().toISOString().slice(0, 10);
+}
+
+export function moveTo(item, status) {
+    if (status === 'tonight') {
+        item.tonight = true;
+        if (!item.status || item.status === 'tonight') item.status = 'up-next';
+        state.items = [...state.items.filter(entry => entry !== item), item];
+        return;
+    }
+    item.status = status;
+    item.extraLists = (item.extraLists || []).filter(id => id !== status);
+    if (!tiersOf(status).some(entry => entry.id === item.tier)) item.tier = '';
+    if (item.period === 'Tonight') item.period = '';
+    if (status === 'played') {
+        if (!item.finished) item.finished = new Date().toISOString().slice(0, 10);
+        if (isTonightItem(item)) unpinTonight(item);
+    }
     state.items = [...state.items.filter(entry => entry !== item), item];
 }
 
@@ -345,7 +379,7 @@ export async function save() {
                 tiers: state.tiers,
                 tierSets: state.tierSets,
                 periods: orderedPeriods(),
-                items: state.items.map(({ id, name, status, gameType, streamDate, streamTime, streamDuration, streamRecurring, streamDates, twitchSegmentId, twitchSegmentIds, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system, extraLists }) => ({ id, name, status, gameType, streamDate, streamTime, streamDuration: Number(streamDuration) || 180, streamRecurring, streamDates: Array.isArray(streamDates) ? streamDates : [], twitchSegmentId, twitchSegmentIds, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system, extraLists }))
+                items: state.items.map(({ id, name, status, tonight, gameType, streamDate, streamTime, streamDuration, streamRecurring, streamDates, twitchSegmentId, twitchSegmentIds, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system, extraLists }) => ({ id, name, status, tonight: Boolean(tonight || status === 'tonight'), gameType, streamDate, streamTime, streamDuration: Number(streamDuration) || 180, streamRecurring, streamDates: Array.isArray(streamDates) ? streamDates : [], twitchSegmentId, twitchSegmentIds, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system, extraLists }))
             })
         });
         if (!response.ok) throw new Error((await response.json()).error || response.statusText);
@@ -387,6 +421,43 @@ export async function refreshMeta() {
     } catch { /* try again on next change */ }
 }
 
+export function renderBulkBar() {
+    const bar = $('bulk-bar');
+    if (!bar) return;
+    if (state.view !== 'list' || state.selectedIds.size === 0) {
+        bar.hidden = true;
+        bar.innerHTML = '';
+        return;
+    }
+    const visibleIds = visibleItems().map(i => i.id);
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => state.selectedIds.has(id));
+    const listOptions = allLists().filter(l => l.id !== 'tonight').map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('');
+    const periodOptions = [...new Set([...orderedPeriods(), ...HORIZON_PERIODS])].map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+
+    bar.hidden = false;
+    bar.innerHTML = `
+        <div class="bulk-bar-group">
+            <strong>${state.selectedIds.size} selected</strong>
+            <button type="button" class="btn ghost" id="bulk-select-all">${allVisibleSelected ? 'Deselect visible' : 'Select all visible'}</button>
+            <button type="button" class="btn ghost" id="bulk-clear">Clear</button>
+        </div>
+        <div class="bulk-bar-group">
+            <button type="button" class="btn play-btn" id="bulk-pin-tonight">${ICONS.tv} Pin Tonight</button>
+            <button type="button" class="btn" id="bulk-unpin-tonight">Unpin Tonight</button>
+            <select id="bulk-move-list" aria-label="Move selected to list">
+                <option value="">Move to list…</option>
+                ${listOptions}
+            </select>
+            <select id="bulk-set-period" aria-label="Set block or horizon for selected">
+                <option value="">Set block…</option>
+                <option value="__clear__">Clear block</option>
+                ${periodOptions}
+            </select>
+            <button type="button" class="btn danger" id="bulk-remove">${ICONS.trash} Remove</button>
+        </div>
+    `;
+}
+
 export function render() {
     saveUiState();
     document.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === state.view));
@@ -399,12 +470,14 @@ export function render() {
         buildTabs();
         if ($('period-bar')) $('period-bar').hidden = true;
         if ($('view-bar')) $('view-bar').hidden = true;
+        if ($('bulk-bar')) $('bulk-bar').hidden = true;
         renderBoard(scheduleSave, openDialog);
         return;
     }
     if (state.view === 'calendar') {
         if ($('period-bar')) $('period-bar').hidden = true;
         if ($('view-bar')) $('view-bar').hidden = true;
+        if ($('bulk-bar')) $('bulk-bar').hidden = true;
         renderCalendar();
         return;
     }
@@ -418,6 +491,8 @@ export function render() {
     if (state.active === 'tonight') {
         const tonightItems = state.items.filter(i => inList(i, 'tonight'));
         const playingNow = state.items.find(i => Boolean(i.playingNow));
+        const todayIso = localDay(new Date());
+        const todayScheduledCount = state.items.filter(i => !isTonightItem(i) && (i.streamDate === todayIso || (i.streamDates || []).some(d => d && d.date === todayIso))).length;
         bannerHtml = `
             <div class="tonight-banner">
                 <div>
@@ -427,14 +502,28 @@ export function render() {
                         <span class="badge" style="background:var(--accent);color:#fff;border:none;">${tonightItems.length}</span>
                     </div>
                     <div style="font-size:0.74rem;color:var(--text-muted);margin-top:0.15rem;">
-                        ${playingNow ? `Currently Active: <b style="color:var(--success)">${esc(playingNow.name)}</b>` : 'Click "Play Now" on a game when you switch categories, or drag ⋮⋮ onto another tab to move.'}
+                        ${playingNow ? `Currently Active: <b style="color:var(--success)">${esc(playingNow.name)}</b>` : 'Pinned games stay in their Home List (Schedule, Up Next, or Collections).'}
                     </div>
                 </div>
-                <div style="display:flex;gap:0.4rem;align-items:center;">
+                <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;">
+                    ${todayScheduledCount > 0 ? `<button type="button" class="btn" id="btn-pull-today" title="Pin games scheduled for today (${todayIso}) onto Tonight's Lineup">${ICONS.calendar} Pull Today's Scheduled (${todayScheduledCount})</button>` : ''}
+                    ${tonightItems.length > 0 ? `<button type="button" class="btn ghost" id="btn-clear-tonight" title="Unpin all items from Tonight (keeps them in their Home Lists)">Clear Tonight</button>` : ''}
                     ${playingNow ? `<button type="button" class="btn advance-btn" data-action="advance-item" data-banner-id="${esc(playingNow.id)}" style="font-weight:600;">${ICONS.next} Finish &amp; Next</button>` : ''}
                 </div>
             </div>
         `;
+    } else if (state.active === 'scheduled') {
+        const unsynced = state.items.filter(i => inList(i, 'scheduled') && !i.twitchSegmentId && (i.streamDate || (i.streamDates || []).some(d => d && d.date)));
+        if (unsynced.length > 0) {
+            bannerHtml = `
+                <div class="tonight-banner">
+                    <div style="font-size:0.78rem;color:var(--text-muted);">
+                        <b style="color:var(--text);">${unsynced.length}</b> scheduled game${unsynced.length === 1 ? '' : 's'} with dates not yet synced to Twitch Schedule.
+                    </div>
+                    <button type="button" class="btn primary" id="btn-sync-all-twitch" style="padding:0.32rem 0.7rem;font-size:0.76rem;">${ICONS.sync} Sync All Unsynced (${unsynced.length})</button>
+                </div>
+            `;
+        }
     }
 
     const visible = visibleItems();
@@ -459,6 +548,7 @@ export function render() {
     holder.innerHTML = bannerHtml + itemsHtml + crossListHtml;
     buildViewBar();
     buildPeriodBar();
+    renderBulkBar();
     if ($('periods')) $('periods').innerHTML = orderedPeriods().map(value => `<option value="${esc(value)}">`).join('');
     
     state.sortable?.destroy();
@@ -507,7 +597,7 @@ export function openPeriodPop(item, anchorEl) {
     const now = new Date();
     const curMonthName = now.toLocaleDateString(undefined, { month: 'long' });
     const nextMonthName = new Date(now.getFullYear(), now.getMonth() + 1, 1).toLocaleDateString(undefined, { month: 'long' });
-    const suggestions = [...new Set([...orderedPeriods(), curMonthName, nextMonthName])];
+    const suggestions = [...new Set([...orderedPeriods(), curMonthName, nextMonthName, ...HORIZON_PERIODS])];
     $('period-pop-chips').innerHTML = suggestions.map(name => `
         <button type="button" class="pchip${cur === name ? ' active' : ''}" data-pick-period="${esc(name)}">${ICONS.tag} ${esc(name)}</button>
     `).join('');
@@ -851,7 +941,88 @@ function initEventHandlers() {
         }
     });
 
+    $('items')?.addEventListener('change', event => {
+        const cb = event.target.closest('[data-select-id]');
+        if (!cb) return;
+        const id = cb.dataset.selectId;
+        if (cb.checked) state.selectedIds.add(id);
+        else state.selectedIds.delete(id);
+        cb.closest('.item')?.classList.toggle('selected', cb.checked);
+        renderBulkBar();
+    });
+
     $('items')?.addEventListener('click', async event => {
+        if (event.target.closest('[data-select-id]')) return;
+        if (event.target.closest('#btn-pull-today')) {
+            const todayIso = localDay(new Date());
+            let count = 0;
+            for (const item of state.items) {
+                if (!isTonightItem(item) && (item.streamDate === todayIso || (item.streamDates || []).some(d => d && d.date === todayIso))) {
+                    item.tonight = true;
+                    count++;
+                }
+            }
+            if (count > 0) {
+                render();
+                scheduleSave();
+                setStatus(`Pinned ${count} game${count === 1 ? '' : 's'} scheduled for today to Tonight's Lineup.`);
+            }
+            return;
+        }
+        if (event.target.closest('#btn-clear-tonight')) {
+            const tonightItems = state.items.filter(i => isTonightItem(i));
+            if (!tonightItems.length) return;
+            tonightItems.forEach(item => unpinTonight(item));
+            render();
+            scheduleSave();
+            setStatus(`Cleared ${tonightItems.length} item${tonightItems.length === 1 ? '' : 's'} from Tonight's Lineup (Home Lists preserved).`);
+            return;
+        }
+        if (event.target.closest('#btn-sync-all-twitch')) {
+            const unsynced = state.items.filter(i => inList(i, 'scheduled') && !i.twitchSegmentId && (i.streamDate || (i.streamDates || []).some(d => d && d.date)));
+            if (!unsynced.length) return;
+            let synced = 0;
+            let failed = 0;
+            for (const item of unsynced) {
+                setStatus(`Syncing ${synced + 1}/${unsynced.length}: "${item.name}"…`);
+                try {
+                    const res = await fetch('/api/game-plan/twitch-schedule', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            itemId: item.id,
+                            streamDate: item.streamDate,
+                            streamTime: item.streamTime || '19:00',
+                            streamDuration: item.streamDuration || 180,
+                            streamRecurring: Boolean(item.streamRecurring),
+                            streamDates: Array.isArray(item.streamDates) ? item.streamDates : [],
+                            twitchCategory: item.twitchCategory || ''
+                        })
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.ok) {
+                        item.twitchSegmentId = data.segment?.id || 'synced';
+                        item.twitchSegmentIds = (data.segments || []).map(s => s.id);
+                        synced++;
+                    } else {
+                        failed++;
+                    }
+                } catch {
+                    failed++;
+                }
+            }
+            render();
+            scheduleSave();
+            setStatus(failed ? `Synced ${synced} game(s) to Twitch Schedule (${failed} failed).` : `Synced ${synced} game(s) to Twitch Schedule.`);
+            return;
+        }
+        const menuBtn = event.target.closest('[data-row-menu]');
+        if (menuBtn) {
+            event.stopPropagation();
+            const item = state.items.find(entry => entry.id === menuBtn.dataset.rowMenu);
+            if (item) openRowCtxMenu(item, menuBtn);
+            return;
+        }
         const periodBtn = event.target.closest('[data-period-btn]');
         if (periodBtn) {
             event.stopPropagation();
@@ -870,7 +1041,7 @@ function initEventHandlers() {
         if (actionBtn) {
             const action = actionBtn.dataset.action;
             if (action === 'play-now') {
-                if (item.status !== 'tonight') moveTo(item, 'tonight');
+                if (!isTonightItem(item)) moveTo(item, 'tonight');
                 state.items.forEach(g => { g.playingNow = (g.id === item.id); });
                 render();
                 try {
@@ -935,11 +1106,30 @@ function initEventHandlers() {
                 } catch (e) { setStatus(`Failed to advance: ${e.message}`); }
                 return;
             }
+            if (action === 'toggle-tonight') {
+                if (isTonightItem(item)) {
+                    unpinTonight(item);
+                    setStatus(`Removed "${item.name}" from Tonight's Lineup`);
+                } else {
+                    moveTo(item, 'tonight');
+                    setStatus(`Pinned "${item.name}" to Tonight's Lineup`);
+                }
+                render();
+                scheduleSave();
+                return;
+            }
+            if (action === 'unpin-tonight') {
+                unpinTonight(item);
+                render();
+                scheduleSave();
+                setStatus(`Removed "${item.name}" from Tonight's Lineup`);
+                return;
+            }
             if (action === 'add-to-tonight') {
                 moveTo(item, 'tonight');
                 render();
                 scheduleSave();
-                setStatus(`Added "${item.name}" to Tonight's stream lineup`);
+                setStatus(`Pinned "${item.name}" to Tonight's stream lineup`);
                 return;
             }
             if (action === 'move-to-schedule' || action === 'schedule-item') {
@@ -1022,7 +1212,137 @@ function initEventHandlers() {
             scheduleSave();
             return;
         }
+        const editTabEl = event.target.closest('[data-edit-tab]');
+        if (editTabEl) {
+            openDialog(item, editTabEl.dataset.editTab);
+            return;
+        }
         if (event.target.closest('[data-edit]')) openDialog(item);
+    });
+
+    $('row-ctx-menu')?.addEventListener('click', async event => {
+        const btn = event.target.closest('[data-row-act]');
+        if (!btn || !rowCtxItem) return;
+        const item = rowCtxItem;
+        const act = btn.dataset.rowAct;
+        closeRowCtxMenu();
+        if (act === 'play-now') {
+            if (!isTonightItem(item)) moveTo(item, 'tonight');
+            state.items.forEach(g => { g.playingNow = (g.id === item.id); });
+            render();
+            try {
+                await fetch('/api/game-plan/now', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: item.id })
+                });
+                setStatus(`Now playing on stream: ${item.name}`);
+            } catch (e) { setStatus(`Failed to set playing: ${e.message}`); }
+            scheduleSave();
+            return;
+        }
+        if (act === 'toggle-tonight') {
+            if (isTonightItem(item)) {
+                unpinTonight(item);
+                setStatus(`Removed "${item.name}" from Tonight's Lineup`);
+            } else {
+                moveTo(item, 'tonight');
+                setStatus(`Pinned "${item.name}" to Tonight's Lineup`);
+            }
+            render();
+            scheduleSave();
+            return;
+        }
+        if (act === 'edit') {
+            openDialog(item);
+            return;
+        }
+        if (act === 'move') {
+            const target = btn.dataset.target;
+            if (target) {
+                moveTo(item, target);
+                render();
+                scheduleSave();
+                setStatus(`Moved "${item.name}" to ${listName(target)}`);
+            }
+            return;
+        }
+        if (act === 'delete') {
+            const confirmFn = window.StreamPulse?.confirm || window.confirm;
+            if (!await confirmFn('Remove Game', `Remove “${item.name}” from the plan?`, { danger: true, confirmText: 'Remove' })) return;
+            state.items = state.items.filter(entry => entry !== item);
+            state.selectedIds.delete(item.id);
+            render();
+            scheduleSave();
+            setStatus(`Removed "${item.name}" from plan`);
+        }
+    });
+
+    $('bulk-bar')?.addEventListener('click', async event => {
+        if (event.target.closest('#bulk-select-all')) {
+            const visibleIds = visibleItems().map(i => i.id);
+            const allSelected = visibleIds.length > 0 && visibleIds.every(id => state.selectedIds.has(id));
+            if (allSelected) visibleIds.forEach(id => state.selectedIds.delete(id));
+            else visibleIds.forEach(id => state.selectedIds.add(id));
+            render();
+            return;
+        }
+        if (event.target.closest('#bulk-clear')) {
+            state.selectedIds.clear();
+            render();
+            return;
+        }
+        if (event.target.closest('#bulk-pin-tonight')) {
+            const selected = state.items.filter(i => state.selectedIds.has(i.id));
+            selected.forEach(i => moveTo(i, 'tonight'));
+            state.selectedIds.clear();
+            render();
+            scheduleSave();
+            setStatus(`Pinned ${selected.length} item(s) to Tonight's Lineup`);
+            return;
+        }
+        if (event.target.closest('#bulk-unpin-tonight')) {
+            const selected = state.items.filter(i => state.selectedIds.has(i.id));
+            selected.forEach(i => unpinTonight(i));
+            state.selectedIds.clear();
+            render();
+            scheduleSave();
+            setStatus(`Unpinned ${selected.length} item(s) from Tonight's Lineup`);
+            return;
+        }
+        if (event.target.closest('#bulk-remove')) {
+            const count = state.selectedIds.size;
+            const confirmFn = window.StreamPulse?.confirm || window.confirm;
+            if (!count || !await confirmFn('Remove Selected Games', `Remove ${count} selected game(s) from the plan?`, { danger: true, confirmText: 'Remove' })) return;
+            state.items = state.items.filter(i => !state.selectedIds.has(i.id));
+            state.selectedIds.clear();
+            render();
+            scheduleSave();
+            setStatus(`Removed ${count} item(s) from plan`);
+        }
+    });
+
+    $('bulk-bar')?.addEventListener('change', event => {
+        if (event.target.id === 'bulk-move-list' && event.target.value) {
+            const target = event.target.value;
+            const selected = state.items.filter(i => state.selectedIds.has(i.id));
+            selected.forEach(i => moveTo(i, target));
+            state.selectedIds.clear();
+            render();
+            scheduleSave();
+            setStatus(`Moved ${selected.length} item(s) to ${listName(target)}`);
+            return;
+        }
+        if (event.target.id === 'bulk-set-period' && event.target.value) {
+            const val = event.target.value === '__clear__' ? '' : event.target.value;
+            const selected = state.items.filter(i => state.selectedIds.has(i.id));
+            selected.forEach(i => { i.period = val; });
+            if (val && !state.periodOrder.includes(val)) state.periodOrder.push(val);
+            state.selectedIds.clear();
+            render();
+            scheduleSave();
+            setStatus(val ? `Assigned "${val}" to ${selected.length} item(s)` : `Cleared block on ${selected.length} item(s)`);
+        }
     });
 
     document.querySelector('.view-toggle')?.addEventListener('click', event => {
@@ -1036,6 +1356,9 @@ function initEventHandlers() {
         if (!$('cal-ctx-menu')?.hidden && !event.target.closest('#cal-ctx-menu') && !event.target.closest('[data-cal-menu]')) {
             closeCalCtxMenu();
         }
+        if (!$('row-ctx-menu')?.hidden && !event.target.closest('#row-ctx-menu') && !event.target.closest('[data-row-menu]')) {
+            closeRowCtxMenu();
+        }
         if (!$('period-pop')?.hidden && !event.target.closest('#period-pop') && !event.target.closest('[data-period-btn]')) {
             closePeriodPop();
         }
@@ -1048,8 +1371,66 @@ function initEventHandlers() {
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape') {
             if (!$('cal-ctx-menu')?.hidden) closeCalCtxMenu();
+            if (!$('row-ctx-menu')?.hidden) closeRowCtxMenu();
             if (!$('period-pop')?.hidden) closePeriodPop();
             if (state.collectionsOpen) { state.collectionsOpen = false; buildTabs(); }
+        }
+    });
+
+    $('export-plan')?.addEventListener('click', () => {
+        const payload = {
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            lists: state.customLists,
+            periods: orderedPeriods(),
+            tiers: state.tiers,
+            tierSets: state.tierSets,
+            items: state.items
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'streampulse-game-plan-backup.json';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setStatus(`Exported ${state.items.length} game(s) to JSON.`);
+    });
+
+    $('import-plan')?.addEventListener('click', () => $('import-plan-file')?.click());
+
+    $('import-plan-file')?.addEventListener('change', async event => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        try {
+            const parsed = JSON.parse(await file.text());
+            const importedItems = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.items) ? parsed.items : null);
+            if (!Array.isArray(importedItems)) throw new Error('Missing items array');
+            const confirmFn = window.StreamPulse?.confirm || window.confirm;
+            if (!await confirmFn('Import Game Plan', `Replace or merge ${importedItems.length} game(s) from this backup? Click Import to merge new items by ID and update matches.`, { confirmText: 'Import & Merge' })) return;
+            if (Array.isArray(parsed?.lists)) {
+                const knownLists = new Map(state.customLists.map(l => [l.id, l]));
+                parsed.lists.forEach(l => { if (l?.id && l?.name) knownLists.set(l.id, l); });
+                state.customLists = [...knownLists.values()];
+            }
+            if (Array.isArray(parsed?.periods)) {
+                state.periodOrder = [...new Set([...state.periodOrder, ...parsed.periods])];
+            }
+            const byId = new Map(state.items.map(i => [i.id, i]));
+            importedItems.forEach(item => { if (item?.name) byId.set(item.id || uid(), item); });
+            state.items = [...byId.values()];
+            await save();
+            const refreshed = await (await fetch('/api/game-plan', { cache: 'no-store' })).json();
+            state.items = refreshed.items || state.items;
+            state.customLists = refreshed.lists || state.customLists;
+            state.periodOrder = refreshed.periods || state.periodOrder;
+            render();
+            setStatus(`Imported ${importedItems.length} game(s) from backup.`);
+        } catch (err) {
+            setStatus(`Import failed: ${err?.message || 'Invalid JSON'}`);
         }
     });
 

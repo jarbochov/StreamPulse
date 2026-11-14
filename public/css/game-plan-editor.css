@@ -61,9 +61,17 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 /* Clean, low-density Item Rows */
 .items { display: flex; flex-direction: column; gap: 0.42rem; min-height: 64px; }
 .items:empty::before { content: attr(data-empty); color: var(--text-faint); font-size: 0.82rem; border: 1px dashed var(--border); border-radius: 8px; padding: 1.4rem; text-align: center; }
-.item { display: grid; grid-template-columns: 28px 44px minmax(0, 1fr) auto; gap: 0.65rem; align-items: center; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.45rem 0.7rem; transition: border-color 0.12s; }
+.item { display: grid; grid-template-columns: 20px 28px 44px minmax(0, 1fr) auto; gap: 0.6rem; align-items: center; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.45rem 0.7rem; transition: border-color 0.12s, background 0.12s; }
 .item:hover { border-color: color-mix(in srgb, var(--border) 60%, var(--text-muted)); }
+.item.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--bg-card)); }
 .item.now { border-color: var(--success); background: color-mix(in srgb, var(--success) 6%, var(--bg-card)); }
+.item-select { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; opacity: 0.55; transition: opacity 0.12s; }
+.item:hover .item-select, .item-select:checked { opacity: 1; }
+.bulk-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.55rem; flex-wrap: wrap; background: color-mix(in srgb, var(--accent) 10%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: 8px; padding: 0.45rem 0.75rem; font-size: 0.78rem; }
+.bulk-bar-group { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.bulk-bar select { padding: 0.25rem 0.45rem; font-size: 0.75rem; }
+.bulk-bar .btn { padding: 0.26rem 0.58rem; font-size: 0.74rem; }
+.btn.tonight-active { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .grip, .order-num { cursor: grab; color: var(--text-faint); user-select: none; display: inline-flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 600; width: 28px; }
 .order-num { color: var(--text-muted); }
 .cover { width: 44px; height: 58px; border-radius: 5px; background: var(--bg-raised); object-fit: cover; display: flex; align-items: center; justify-content: center; color: var(--text-faint); cursor: pointer; border: 1px solid rgba(255,255,255,0.04); }
@@ -227,6 +235,10 @@ dialog h3 { font-size: 1.02rem; margin-bottom: 0.75rem; display: flex; align-ite
 .dlg-cover { width: 128px; height: 170px; border-radius: 8px; background: var(--bg-raised); object-fit: cover; display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: 1.6rem; border: 1px solid var(--border); overflow: hidden; }
 .dlg-cover svg { width: 32px; height: 32px; opacity: 0.45; }
 .dlg-fields { display: flex; flex-direction: column; gap: 0.65rem; min-width: 0; }
+.dlg-tabs { display: flex; gap: 0.25rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.22rem; }
+.dlg-tab { flex: 1; border: 0; background: transparent; color: var(--text-muted); font-size: 0.77rem; font-weight: 600; padding: 0.36rem 0.6rem; border-radius: 6px; cursor: pointer; font-family: inherit; transition: all 0.12s; }
+.dlg-tab:hover { color: var(--text); }
+.dlg-tab.active { background: var(--bg-card); color: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,0.18); }
 .dlg-section { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem 0.85rem; display: flex; flex-direction: column; gap: 0.5rem; }
 .dlg-section-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; }
 .field { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.73rem; color: var(--text-muted); }
@@ -268,7 +280,7 @@ dialog h3 { font-size: 1.02rem; margin-bottom: 0.75rem; display: flex; align-ite
     .add-row { grid-template-columns: 1fr; }
     .container { padding: 1rem; }
     .dlg-grid { grid-template-columns: 1fr; }
-    .item { grid-template-columns: 44px minmax(0, 1fr) auto; }
+    .item { grid-template-columns: 20px 44px minmax(0, 1fr) auto; }
     .grip, .order-num { display: none; }
     .day-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .cal-cell { min-height: 76px; }

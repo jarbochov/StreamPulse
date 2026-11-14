@@ -9,6 +9,8 @@ import {
     esc,
     localDay,
     allLists,
+    homeListId,
+    isTonightItem,
     starsHtml,
     starValue,
     setStatus,
@@ -46,6 +48,12 @@ export function syncEditingFromDom() {
     if ($('f-tier')) state.editing.tier = $('f-tier').value;
     if ($('f-game-type')) state.editing.gameType = $('f-game-type').value;
     if ($('f-status')) state.editing.status = $('f-status').value;
+    if ($('f-tonight')) {
+        state.editing.tonight = $('f-tonight').checked;
+        if (!state.editing.tonight && state.editing.status === 'tonight') {
+            state.editing.status = homeListId(state.editing);
+        }
+    }
     if ($('f-twitch-category')) state.editing.twitchCategory = $('f-twitch-category').value.trim();
     if ($('f-stream-date')) state.editing.streamDate = $('f-stream-date').value;
     if ($('f-stream-time')) state.editing.streamTime = $('f-stream-time').value;
@@ -181,16 +189,33 @@ export function paintStreamDates() {
     `).join('');
 }
 
-export function openDialog(item) {
+export function switchDialogTab(tabName = 'details') {
+    const valid = ['details', 'schedule', 'notes'].includes(tabName) ? tabName : 'details';
+    document.querySelectorAll('.dlg-tab[data-dlg-tab]').forEach(btn => {
+        const active = btn.dataset.dlgTab === valid;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    document.querySelectorAll('.dlg-panel[data-dlg-panel]').forEach(panel => {
+        panel.hidden = panel.dataset.dlgPanel !== valid;
+    });
+}
+
+export function openDialog(item, initialTab = 'details') {
     state.editing = item;
     if (!Array.isArray(state.editing.streamDates)) state.editing.streamDates = [];
     if (!Array.isArray(state.editing.twitchSegmentIds)) state.editing.twitchSegmentIds = state.editing.twitchSegmentId ? [state.editing.twitchSegmentId] : [];
+    const effectiveHome = homeListId(item);
     $('f-name').value = item.name;
     $('f-name').disabled = false;
-    $('f-tier').innerHTML = '<option value="">Unranked</option>' + tiersOf(item.status).map(tier => `<option value="${esc(tier.id)}">${esc(tier.label)}</option>`).join('');
+    $('f-tier').innerHTML = '<option value="">Unranked</option>' + tiersOf(effectiveHome).map(tier => `<option value="${esc(tier.id)}">${esc(tier.label)}</option>`).join('');
     $('f-tier').value = item.tier || '';
     $('f-game-type').value = item.gameType || 'playthrough';
-    $('f-status').innerHTML = allLists().map(list => `<option value="${esc(list.id)}"${list.id === item.status ? ' selected' : ''}>${esc(list.name)}</option>`).join('');
+    $('f-status').innerHTML = allLists()
+        .filter(list => list.id !== 'tonight')
+        .map(list => `<option value="${esc(list.id)}"${list.id === effectiveHome ? ' selected' : ''}>${esc(list.name)}</option>`)
+        .join('');
+    if ($('f-tonight')) $('f-tonight').checked = isTonightItem(item);
     $('f-twitch-category').value = item.twitchCategory || (item.custom ? 'Just Chatting' : '');
     paintExtra();
     $('f-stream-date').value = item.streamDate || '';
@@ -210,6 +235,7 @@ export function openDialog(item) {
     $('f-note').value = item.note || '';
     $('f-system').value = item.system || '';
     paintDialog();
+    switchDialogTab(initialTab);
     if (!$('dlg').open) $('dlg').showModal();
 }
 
@@ -521,10 +547,22 @@ export function initDialogHandlers(commitCallback, renderCallback, scheduleSaveC
         }
     });
 
+    document.querySelectorAll('.dlg-tab[data-dlg-tab]').forEach(btn => {
+        btn.addEventListener('click', () => switchDialogTab(btn.dataset.dlgTab));
+    });
+
+    $('f-tonight')?.addEventListener('change', () => {
+        if (!state.editing) return;
+        state.editing.tonight = $('f-tonight').checked;
+        if (!state.editing.tonight && state.editing.status === 'tonight') {
+            state.editing.status = homeListId(state.editing);
+        }
+        if (commitCallback) commitCallback(true);
+    });
+
     $('f-status')?.addEventListener('change', () => {
         if (state.editing && moveToCallback) {
             moveToCallback(state.editing, $('f-status').value);
-            state.active = state.editing.status;
             paintExtra();
             $('f-finished').value = state.editing.finished || '';
             if (commitCallback) commitCallback(true);

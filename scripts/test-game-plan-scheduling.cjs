@@ -345,6 +345,7 @@ async function run() {
         console.log('Opening details dialog on first item...');
         await page.click('.item[data-id="game-1"] [data-edit]');
         await page.waitForSelector('#dlg[open]');
+        await page.click('.dlg-tab[data-dlg-tab="schedule"]');
 
         // Click 2nd and 3rd day pills in the 14-day quick strip
         await page.click('#f-quick-days .day-pill:nth-child(2)');
@@ -382,17 +383,32 @@ async function run() {
         await page.screenshot({ path: calScreenshotPath });
         console.log(`✓ Saved Full Calendar View screenshot to ${calScreenshotPath}`);
 
-        // Switch back to List View and test moving item 1 from Tonight back to Schedule
+        // Switch back to List View and test moving item 1 to Up Next then Schedule via overflow menu
         await page.click('[data-view="list"]');
         await page.waitForSelector('#items:not([hidden])');
-        await page.click('.item[data-id="game-1"] [data-action="move-to-schedule"]');
+        await page.click('.item[data-id="game-1"] [data-row-menu="game-1"]');
+        await page.waitForSelector('#row-ctx-menu:not([hidden])');
+        await page.click('#row-ctx-menu [data-row-act="move"][data-target="up-next"]');
+        await page.click('.item[data-id="game-1"] [data-row-menu="game-1"]');
+        await page.waitForSelector('#row-ctx-menu:not([hidden])');
+        await page.click('#row-ctx-menu [data-row-act="move"][data-target="scheduled"]');
         await new Promise(r => setTimeout(r, 600));
         const verifyAfterMove = await (await fetch(`http://localhost:${PORT}/api/game-plan`)).json();
         const movedItem1 = verifyAfterMove.items.find(i => i.id === 'game-1');
         if (movedItem1.status !== 'scheduled' || movedItem1.period !== '') {
             throw new Error(`Expected item 1 to move to scheduled and clear Tonight period, got status=${movedItem1.status}, period=${movedItem1.period}`);
         }
-        console.log('✓ Item 1 moved from Tonight back to Schedule and cleared auto "Tonight" period');
+        console.log('✓ Item 1 moved to Schedule via overflow menu while keeping Tonight pin independent');
+
+        // Verify Clear Tonight unpins without losing Home List ('scheduled')
+        await page.click('#btn-clear-tonight');
+        await new Promise(r => setTimeout(r, 600));
+        const verifyCleared = await (await fetch(`http://localhost:${PORT}/api/game-plan`)).json();
+        const clearedItem1 = verifyCleared.items.find(i => i.id === 'game-1');
+        if (clearedItem1.tonight !== false || clearedItem1.status !== 'scheduled') {
+            throw new Error(`Expected Clear Tonight to unpin item 1 while preserving status=scheduled, got tonight=${clearedItem1.tonight}, status=${clearedItem1.status}`);
+        }
+        console.log('✓ Clear Tonight unpinned item 1 while preserving its Home List (scheduled)');
 
         await browser.close();
         console.log('\nALL GAME PLAN SCHEDULING, CALENDAR & POLISH TESTS PASSED!');

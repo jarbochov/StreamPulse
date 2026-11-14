@@ -534,8 +534,12 @@
 
         let items = cachedPlan.items;
         if (list) {
-            if (list === 'scheduled') {
-                items = items.filter(i => i.status === 'scheduled' || i.status === 'tonight' || (i.extraLists || []).includes('scheduled'));
+            if (list === 'tonight') {
+                items = items.filter(i => Boolean(i.tonight || i.status === 'tonight'));
+            } else if (list === 'scheduled') {
+                items = items.filter(i => i.status === 'scheduled' || i.tonight || i.status === 'tonight' || (i.extraLists || []).includes('scheduled'));
+            } else if (list === 'scheduled-only') {
+                items = items.filter(i => (i.status === 'scheduled' || (i.extraLists || []).includes('scheduled')) && !i.tonight && i.status !== 'tonight');
             } else if (list !== 'all') {
                 items = items.filter(i => i.status === list || (i.extraLists || []).includes(list));
             }

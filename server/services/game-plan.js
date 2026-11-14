@@ -37,6 +37,7 @@ function normalizeGamePlan(input) {
         id: sanitizeOverlayId(item?.id) || `game-${Date.now().toString(36)}-${index}`,
         name: String(item?.name || '').trim().slice(0, 120),
         status: validStatus(item?.status) ? item.status : 'backlog',
+        tonight: item?.tonight === true || item?.status === 'tonight',
         gameType: ['playthrough', 'one-off'].includes(item?.gameType) ? item.gameType : 'playthrough',
         streamDate: /^\d{4}-\d{2}-\d{2}$/.test(String(item?.streamDate || '')) ? item.streamDate : '',
         streamTime: /^\d{2}:\d{2}$/.test(String(item?.streamTime || '')) ? item.streamTime : '',
@@ -273,15 +274,16 @@ function createGamePlanService({
             if (!currentItem.played.includes(today)) currentItem.played.push(today);
 
             const isOneOff = currentItem.gameType === 'one-off';
-            if (markPlayed && (isOneOff || currentItem.status === 'tonight' || currentItem.status === 'scheduled')) {
+            if (markPlayed && (isOneOff || currentItem.tonight || currentItem.status === 'tonight' || currentItem.status === 'scheduled')) {
                 if (isOneOff) {
                     currentItem.status = 'played';
+                    currentItem.tonight = false;
                     currentItem.finished = today;
                 }
             }
         }
 
-        const nextItem = plan.items.find(i => i.status === 'tonight' && (!currentItem || i.id !== currentItem.id))
+        const nextItem = plan.items.find(i => (i.tonight || i.status === 'tonight') && (!currentItem || i.id !== currentItem.id))
             || plan.items.find(i => i.status === 'scheduled' && (!currentItem || i.id !== currentItem.id));
         plan.playingNowId = nextItem ? nextItem.id : '';
         saveGamePlan(plan);

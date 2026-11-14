@@ -41,6 +41,7 @@ export const UI_STORAGE_KEY = 'sp_game_plan_ui';
 
 export const TIER_COLORS = ['#ff7f7f', '#ffbf7f', '#ffdf7f', '#bfff7f', '#7fbfff', '#bf9fff', '#ff9fd0', '#7fffd4'];
 export const DEFAULT_TIERS = ['S', 'A', 'B', 'C', 'D', 'F'].map((id, index) => ({ id, label: id, color: TIER_COLORS[index] }));
+export const HORIZON_PERIODS = ['This Week', 'Next Week', 'This Month', 'Next Month', 'Future', 'Distant Future'];
 
 // Reactive State Container
 export const state = {
@@ -60,6 +61,7 @@ export const state = {
     periodOrder: [],
     periodSortable: null,
     items: [],
+    selectedIds: new Set(),
     active: 'tonight',
     editing: null,
     saveTimer: null,
@@ -68,7 +70,13 @@ export const state = {
     viewState: { sort: 'manual', when: '', system: '', month: '', from: '', to: '', search: '', period: '' }
 };
 
-export const inList = (item, id) => item.status === id || (item.extraLists || []).includes(id);
+export const isTonightItem = item => Boolean(item?.tonight || item?.status === 'tonight');
+export const homeListId = item => {
+    if (!item) return 'up-next';
+    if (item.status && item.status !== 'tonight') return item.status;
+    return (item.streamDate || (Array.isArray(item.streamDates) && item.streamDates.some(d => d && d.date))) ? 'scheduled' : 'up-next';
+};
+export const inList = (item, id) => (id === 'tonight' ? isTonightItem(item) : (item.status === id || (item.extraLists || []).includes(id)));
 export const tiersOf = listId => state.tierSets[listId] || state.tiers;
 export const ownTiers = listId => (state.tierSets[listId] ||= state.tiers.map(entry => ({ ...entry })));
 export const allLists = () => [...BUILTIN, ...state.customLists.map(list => ({ ...list, custom: true, empty: 'Drag games here, or add one above' }))];

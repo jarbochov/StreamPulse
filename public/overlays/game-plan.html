@@ -596,7 +596,7 @@
             items.slice(0, maxItems).forEach(item => {
                 const isNow = Boolean(item.playingNow);
                 const isPlayed = item.status === 'played';
-                const isTonight = item.status === 'tonight';
+                const isTonight = Boolean(item.tonight || item.status === 'tonight');
                 const isOneOff = item.gameType === 'one-off';
                 const customListName = listMap.get(item.status) || (item.extraLists || []).map(id => listMap.get(id)).find(Boolean) || '';
 
@@ -643,7 +643,7 @@
             items.slice(0, maxItems).forEach((item, idx) => {
                 const isNow = Boolean(item.playingNow);
                 const isPlayed = item.status === 'played';
-                const isTonight = item.status === 'tonight';
+                const isTonight = Boolean(item.tonight || item.status === 'tonight');
                 const isOneOff = item.gameType === 'one-off';
                 const customListName = listMap.get(item.status) || (item.extraLists || []).map(id => listMap.get(id)).find(Boolean) || '';
                 const isBuiltin = ['tonight', 'scheduled', 'up-next', 'backlog', 'played'].includes(item.status);
@@ -699,7 +699,8 @@
             const periodLower = String(item.period || '').trim().toLowerCase();
 
             if (t === '@today' || t === 'today' || t === 'tonight') {
-                return item.status === 'tonight' ||
+                return Boolean(item.tonight) ||
+                       item.status === 'tonight' ||
                        periodLower === 'tonight' ||
                        periodLower === 'today' ||
                        itemDates.includes(todayStr);
@@ -761,10 +762,12 @@
 
             // Filter by list (e.g. 'tonight', 'scheduled', 'scheduled-only', 'up-next', 'backlog', 'all', or custom list id)
             if (listFilter) {
-                if (listFilter === 'scheduled') {
-                    items = items.filter(i => i.status === 'scheduled' || i.status === 'tonight' || (i.extraLists || []).includes('scheduled'));
+                if (listFilter === 'tonight') {
+                    items = items.filter(i => Boolean(i.tonight || i.status === 'tonight'));
+                } else if (listFilter === 'scheduled') {
+                    items = items.filter(i => i.status === 'scheduled' || i.tonight || i.status === 'tonight' || (i.extraLists || []).includes('scheduled'));
                 } else if (listFilter === 'scheduled-only') {
-                    items = items.filter(i => (i.status === 'scheduled' || (i.extraLists || []).includes('scheduled')) && i.status !== 'tonight');
+                    items = items.filter(i => (i.status === 'scheduled' || (i.extraLists || []).includes('scheduled')) && !i.tonight && i.status !== 'tonight');
                 } else if (listFilter !== 'all') {
                     items = items.filter(i => i.status === listFilter || (i.extraLists || []).includes(listFilter));
                 }

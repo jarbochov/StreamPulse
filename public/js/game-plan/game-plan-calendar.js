@@ -211,7 +211,7 @@ export function renderCalendar() {
 
     const filteredItems = state.items.filter(item => matchesSearch(item, state.viewState.search));
     for (const item of filteredItems) {
-        if (item.status === 'tonight') {
+        if (item.tonight || item.status === 'tonight') {
             pushEvent(todayIso, { id: item.id, item, time: item.streamTime || 'Tonight', kind: 'tonight' });
         }
         if (item.streamDate) {
