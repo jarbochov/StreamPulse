@@ -231,6 +231,16 @@ function loadVariableSets() {
     }).catch(() => { variableSets = []; });
 }
 
+function findElementsUsingSet(setId) {
+    if (!setId) return [];
+    const needle = `{{var.${String(setId).toLowerCase()}_`;
+    return (state.overlay.elements || []).filter(el => {
+        const hay = [el.content, ...(el.items || []), el.src, el.embedUrl, el.qrText, el.progress?.label]
+            .filter(Boolean).join(' ').toLowerCase();
+        return hay.includes(needle);
+    });
+}
+
 function renderVarSetRotationSection() {
     const rots = Array.isArray(state.overlay.variableSetRotations) ? state.overlay.variableSetRotations : [];
     const activeCount = rots.filter(r => r.enabled !== false && r.setId).length;
@@ -250,6 +260,12 @@ function renderVarSetRotationSection() {
             '<option value="">Any page</option>',
             ...pageItems.map(p => `<option value="${esc(p.id)}"${p.id === r.pageId ? ' selected' : ''}>${esc(p.name || p.id)}</option>`)
         ].join('');
+        const matchedEls = findElementsUsingSet(r.setId);
+        const linkedHtml = r.setId
+            ? `<div class="vrot-el-chips"><span>Layers:</span>${matchedEls.length
+                ? matchedEls.map(el => `<button type="button" class="vrot-el-chip" data-vrot-select="${esc(el.id)}" title="Select ${esc(displayName(el))} on canvas">${esc(displayName(el))}</button>`).join('')
+                : `<span>none using <code>{{var.${esc(r.setId)}_*}}</code> yet</span>`}</div>`
+            : '';
         return `
             <div class="vrot-row" data-vrot-idx="${ri}">
                 <div class="vrot-head">
@@ -258,10 +274,10 @@ function renderVarSetRotationSection() {
                     <button type="button" class="btn sm ghost danger" data-vrot-del="${ri}" title="Remove"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                 </div>
                 <div class="vrot-grid">
-                    <label>When
+                    <label>Trigger
                         <select data-vrot-field="trigger" data-vrot-idx="${ri}">
-                            <option value="timer"${trigger === 'timer' ? ' selected' : ''}>Every N sec</option>
-                            <option value="page"${trigger === 'page' ? ' selected' : ''}>On page show</option>
+                            <option value="timer"${trigger === 'timer' ? ' selected' : ''}>Timer</option>
+                            <option value="page"${trigger === 'page' ? ' selected' : ''}>Page show</option>
                         </select>
                     </label>
                     <label>Order
@@ -271,16 +287,17 @@ function renderVarSetRotationSection() {
                         </select>
                     </label>
                     ${trigger === 'timer'
-                        ? `<label>Interval (sec)<input type="number" min="1" max="3600" step="1" data-vrot-field="intervalSeconds" data-vrot-idx="${ri}" value="${Number(r.intervalSeconds) || 10}"></label>`
-                        : (pagesOn() ? `<label>Page<select data-vrot-field="pageId" data-vrot-idx="${ri}">${pageOpts}</select></label>` : '')}
+                        ? `<label>Every (s)<input type="number" min="1" max="3600" step="1" data-vrot-field="intervalSeconds" data-vrot-idx="${ri}" value="${Number(r.intervalSeconds) || 10}"></label>`
+                        : (pagesOn() ? `<label>Page<select data-vrot-field="pageId" data-vrot-idx="${ri}">${pageOpts}</select></label>` : '<div></div>')}
                 </div>
+                ${linkedHtml}
             </div>`;
     }).join('');
 
     return `
         <details class="sub-details" data-sect="pg-var-rotations"${pageSectionOpen('var-rotations', rots.length > 0)}>
             <summary>Variable Set Rotation <span class="spacer"></span><span class="badge-pill${activeCount ? '' : ' is-muted'}">${activeCount ? `${activeCount} active` : 'Off'}</span></summary>
-            <span class="hint">Rotate Variable Sets locally in this overlay without affecting other OBS sources. Disabled roster entries are skipped.</span>
+            <span class="hint">Rotates <code>{{var.set_*}}</code> locally per browser source (skips disabled entries).</span>
             ${rowsHtml ? `<div class="vrot-list">${rowsHtml}</div>` : ''}
             <button type="button" class="btn sm" id="btn-add-var-rot">+ Add rotating set</button>
         </details>`;
@@ -822,6 +839,16 @@ export function initLayersAndPages() {
                 state.overlay.variableSetRotations.push({ setId: defaultSetId, trigger: 'timer', mode: 'sequential', intervalSeconds: 10, pageId: '', enabled: true });
                 changed(true);
                 return renderPagesPanel();
+            }
+            if (t?.dataset.vrotSelect) {
+                const el = byId(t.dataset.vrotSelect);
+                if (el) {
+                    if (pagesOn() && el.page && el.page !== '*' && el.page !== state.curPage) {
+                        switchEditPage(el.page, { animate: false });
+                    }
+                    setSelection([el.id]);
+                }
+                return;
             }
             if (t?.dataset.vrotDel !== undefined) {
                 const ri = Number(t.dataset.vrotDel);

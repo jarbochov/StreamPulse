@@ -1100,6 +1100,9 @@ body.is-scrubbing, body.is-scrubbing * {
 .vrot-row { border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; background: var(--field); display: grid; gap: 6px; }
 .vrot-head { display: flex; align-items: center; gap: 6px; }
 .vrot-head select { flex: 1; min-width: 0; font-size: 11.5px; padding: 3px 6px; height: 26px; }
-.vrot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-items: center; }
-.vrot-grid label { display: grid; gap: 2px; font-size: 10.5px; color: var(--muted); }
-.vrot-grid select, .vrot-grid input { font-size: 11.5px; padding: 3px 6px; height: 26px; width: 100%; box-sizing: border-box; }
+.vrot-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; align-items: end; }
+.vrot-grid label { display: grid; gap: 2px; font-size: 10px; color: var(--muted); min-width: 0; }
+.vrot-grid select, .vrot-grid input { font-size: 11px; padding: 3px 5px; height: 25px; width: 100%; box-sizing: border-box; }
+.vrot-el-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 10.5px; color: var(--muted); }
+.vrot-el-chip { font: inherit; font-size: 10.5px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vrot-el-chip:hover { border-color: var(--accent); color: var(--accent); }

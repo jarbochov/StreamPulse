@@ -950,6 +950,15 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
         ...(morphId ? { morphId } : {}),
         ...(pageStates ? { pageStates } : {}),
         ...(obsLink ? { obsLink } : {}),
+        ...(type === 'text' && element.cycle?.enabled ? {
+            cycle: {
+                enabled: true,
+                intervalSeconds: Math.max(1, Math.min(300, Math.round(Number(element.cycle.intervalSeconds) || 5))),
+                transition: ['fade', 'slide-up', 'flip', 'none'].includes(element.cycle.transition) ? element.cycle.transition : 'fade',
+                durationMs: Math.max(50, Math.min(2000, Math.round(Number(element.cycle.durationMs) || 350))),
+                skipEmpty: element.cycle.skipEmpty !== false
+            }
+        } : {}),
         type,
         poll: type === 'poll' ? normalizePollSettings(element.poll) : undefined,
         speakerBadge: type === 'speaker-badge' ? normalizeSpeakerBadge(element.speakerBadge) : undefined,
