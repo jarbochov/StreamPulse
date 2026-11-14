@@ -436,6 +436,33 @@
         <div class="dialog-actions"><button id="help-close" class="primary">Done</button></div>
     </dialog>
 
+    <dialog id="ig-fields-dialog" aria-labelledby="ig-fields-title">
+        <div class="ig-modal-head">
+            <div>
+                <h3 id="ig-fields-title">Member Fields &amp; Arrangement</h3>
+                <p class="ig-modal-sub">Add and reorder up to 10 fields per member, group items inline, or apply a quick layout arrangement.</p>
+            </div>
+        </div>
+        <div class="ig-presets-section">
+            <span class="ig-presets-label">Arrangement Presets</span>
+            <div class="ig-presets-row" id="ig-arrangement-presets">
+                <button type="button" class="sp-quick-chip" data-ig-preset="stack">Clean Stack</button>
+                <button type="button" class="sp-quick-chip" data-ig-preset="card-grid">Card Grid</button>
+                <button type="button" class="sp-quick-chip" data-ig-preset="lower-banners">Nameplate Banners</button>
+                <button type="button" class="sp-quick-chip" data-ig-preset="split-hud">Split Header + Sub</button>
+                <button type="button" class="sp-quick-chip" data-ig-preset="inline-roster">Inline Roster</button>
+                <button type="button" class="sp-quick-chip" data-ig-preset="overlay-tags">Inside Overlay Tags</button>
+            </div>
+        </div>
+        <div class="ig-modal-placement" id="ig-modal-placement"></div>
+        <div class="ig-fields-list" id="ig-fields-list"></div>
+        <div class="dialog-actions ig-modal-footer">
+            <button type="button" id="ig-add-field-btn" class="ghost">+ Add Field</button>
+            <span class="ig-fields-count" id="ig-fields-count"></span>
+            <button type="button" id="ig-fields-close" class="primary">Done</button>
+        </div>
+    </dialog>
+
     <div id="canvas-ctx-menu" role="menu" aria-label="Canvas context menu"></div>
     <div id="placeholder-ac" role="listbox" aria-label="Placeholder suggestions"></div>
 

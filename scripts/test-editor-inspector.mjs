@@ -11,6 +11,8 @@ const names = ['overlay-shared.js', 'poll-widget.js', 'patterns-shared.js', 'edi
 const sources = new Map(await Promise.all(names.map(async name =>
     [`/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8')])));
 const css = await readFile(new URL('../public/css/custom-overlay-editor.css', import.meta.url), 'utf8');
+const editorHtml = await readFile(new URL('../public/editors/custom-overlay-editor.html', import.meta.url), 'utf8');
+const igDialogHtml = editorHtml.match(/<dialog id="ig-fields-dialog"[\s\S]*?<\/dialog>/)?.[0] || '';
 for (const name of ['overlay-retro.js', 'overlay-filters.js']) {
     const source = await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8');
     sources.set(`/${name}`, source);
@@ -41,7 +43,7 @@ const server = createServer(async (req, res) => {
             #canvas{width:640px;height:360px}
             </style><div id="stage"><div id="canvas"><div id="canvas-underlayer"></div>
             <div id="canvas-toplayer"></div></div><div id="ui"></div></div>
-            <aside class="rail right"><div id="properties"></div></aside>`);
+            <aside class="rail right"><div id="properties"></div></aside>${igDialogHtml}`);
     } else if (urlPath === '/api/alerts') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"rules":[{"id":"fictional-brb","name":"BRB in 5 minutes"},{"id":"fictional-follow","name":"Follow"}]}');
     } else if (urlPath === '/api/obs/audio-inputs') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"inputs":["Mic/Aux","Desktop Audio"],"connected":true,"enabled":true}');
     } else if (urlPath === '/api/custom-overlays/style-presets' && req.method === 'GET') {
@@ -201,6 +203,7 @@ try {
         'random-text': { content: 'content', behavior: 'content', typography: 'style' },
         markdown: { content: 'content', typography: 'style' },
         image: { content: 'content', fill: 'style' },
+        'image-group': { content: 'content', igLayout: 'layout', typography: 'style', igAvatar: 'style', igCards: 'style', igTextStyle: 'style', fill: 'style' },
         video: { content: 'content', fill: 'style' },
         embed: { content: 'content', fill: 'style' },
         qr: { content: 'content', fill: 'style' },
@@ -685,6 +688,11 @@ try {
         const stripImgs = [...(state.nodes.get('strip-img')?.querySelectorAll('.sp-image-group-img') || [])].map(i => i.getAttribute('src'));
         const stripLabels = [...(state.nodes.get('strip-img')?.querySelectorAll('.sp-image-group-label') || [])].map(s => s.textContent);
         const hasGroupSelect = Boolean(document.querySelector('[data-path="imageGroup.setId"]'));
+        const hasDeprecatedModeToggle = Boolean(document.querySelector('[data-image-mode]'));
+        const layoutControlsInLayoutTab = Boolean(document.querySelector('[data-inspector-panel="layout"] [data-path="imageGroup.layout"]'));
+        const typographyInStyleTab = Boolean(document.querySelector('[data-inspector-panel="style"] [data-sect="typography"]'));
+        const textEffectsInStyleTab = Boolean(document.querySelector('[data-inspector-panel="style"] [data-sect="textEffects"]'));
+        const noSingleObjectFit = !document.querySelector('[data-inspector-panel="style"] [data-path="style.objectFit"]');
 
         // Test rich layouts: cards + initials fallback + subField + maxItems overflow badge, plus spotlight & overlap & chips
         stripImg.imageGroup = {
@@ -707,6 +715,45 @@ try {
         const cardSubs = [...(cardNode?.querySelectorAll('.sp-image-group-sub') || [])].map(s => s.textContent);
         const overflowBadge = cardNode?.querySelector('.sp-image-group-overflow')?.textContent || '';
 
+        // Test multi-field modal, 3+ fields, inline badges, banners/stagger layouts, card 21 border styles, typography & text animations
+        stripImg.imageGroup = {
+            ...stripImg.imageGroup,
+            layout: 'banners',
+            shape: 'octagon',
+            maxItems: 0,
+            fallbackMode: 'skip',
+            showLabels: true,
+            cardFrame: true,
+            cardBorderWidth: 4,
+            cardBorderStyle: 'tech-hud',
+            cardBorderColor: '#38bdf8',
+            fields: [
+                { key: 'name', role: 'title', inline: true, prefix: '', suffix: '', sizeScale: 100 },
+                { key: 'role', role: 'badge', inline: true, prefix: '[', suffix: ']', sizeScale: 90 },
+                { key: 'avatar', role: 'caption', inline: false, prefix: '', suffix: '', sizeScale: 80 }
+            ]
+        };
+        stripImg.style = {
+            ...stripImg.style,
+            fontSize: 18,
+            fontWeight: '700',
+            textStroke: { width: 1.5, color: '#000000' },
+            textAnimation: { type: 'pulse', speed: 2, intensity: 40 }
+        };
+        renderProperties();
+        canvas.renderCanvas();
+        const bannerNode = state.nodes.get('strip-img');
+        const bannersCount = bannerNode?.querySelectorAll('.sp-image-group-banner').length || 0;
+        const badgesText = [...(bannerNode?.querySelectorAll('.sp-image-group-badge') || [])].map(s => s.textContent);
+        const inlineRows = bannerNode?.querySelectorAll('.sp-image-group-inline').length || 0;
+        const bannerFieldsCount = bannerNode?.querySelectorAll('.sp-image-group-card')[0]?.querySelectorAll('.sp-image-group-field').length || 0;
+        const bannerCardHasRing = Boolean(bannerNode?.querySelector('.sp-image-group-card')?.['_borderRing']);
+        const labelAnimActive = Boolean(bannerNode?.querySelector('.sp-image-group-label')?.style.animation || bannerNode?.querySelector('.sp-image-group-label')?.['_textAnimWrap']);
+
+        stripImg.imageGroup = { ...stripImg.imageGroup, layout: 'stagger', staggerOffset: 22 };
+        canvas.renderCanvas();
+        const staggerTop = state.nodes.get('strip-img')?.querySelectorAll('.sp-image-group-item')[1]?.style.marginTop || '';
+
         stripImg.imageGroup = { ...stripImg.imageGroup, layout: 'overlap', overlap: 14, maxItems: 0, fallbackMode: 'skip' };
         canvas.renderCanvas();
         const overlapMargin = state.nodes.get('strip-img')?.querySelectorAll('.sp-image-group-item')[1]?.style.marginLeft || '';
@@ -719,35 +766,76 @@ try {
         canvas.renderCanvas();
         const hasLead = Boolean(state.nodes.get('strip-img')?.querySelector('.sp-image-group-lead'));
 
-        return { firstSrc, updatedSrc, stripImgs, stripLabels, hasGroupSelect, cardsCount, cardInitials, cardSubs, overflowBadge, overlapMargin, chipsCount, hasLead };
+        return {
+            firstSrc, updatedSrc, stripImgs, stripLabels, hasGroupSelect,
+            hasDeprecatedModeToggle, layoutControlsInLayoutTab, typographyInStyleTab, textEffectsInStyleTab, noSingleObjectFit,
+            cardsCount, cardInitials, cardSubs, overflowBadge,
+            bannersCount, badgesText, inlineRows, bannerFieldsCount, bannerCardHasRing, labelAnimActive, staggerTop,
+            overlapMargin, chipsCount, hasLead
+        };
     });
     assert.equal(imageChecks.firstSrc, '/media-a.png', 'Dynamic variable image resolves initial source in editor canvas');
     assert.equal(imageChecks.updatedSrc, '/media-b.png', 'Dynamic variable image updates live when set variable changes');
     assert.deepEqual(imageChecks.stripImgs, ['/media-a.png', '/media-b.png'], 'Group Image Strip excludes inGroup:false and blank-image entries');
     assert.deepEqual(imageChecks.stripLabels, ['Alex', 'Casey']);
     assert.equal(imageChecks.hasGroupSelect, true, 'Group strip inspector exposes Variable Set picker');
+    assert.equal(imageChecks.hasDeprecatedModeToggle, false, 'Group Image Strip omits confusing Single image mode toggle');
+    assert.equal(imageChecks.layoutControlsInLayoutTab, true, 'Group strip layout controls live under Layout tab');
+    assert.equal(imageChecks.typographyInStyleTab, true, 'Group strip exposes full Typography controls under Style tab');
+    assert.equal(imageChecks.textEffectsInStyleTab, true, 'Group strip exposes Text Effects & Animations under Style tab');
+    assert.equal(imageChecks.noSingleObjectFit, true, 'Group strip hides single-image objectFit control');
     assert.equal(imageChecks.cardsCount, 2, 'Cards layout renders maxItems capped cards');
     assert.deepEqual(imageChecks.cardInitials, ['MO'], 'Initials fallback renders monogram when avatar URL is blank');
     assert.deepEqual(imageChecks.cardSubs, ['Host', 'Mod'], 'Cards layout renders subField subtitles');
     assert.equal(imageChecks.overflowBadge, '+1', 'Overflow badge displays count of remaining active members');
+    assert.equal(imageChecks.bannersCount, 2, 'Banners layout renders nameplate banners');
+    assert.deepEqual(imageChecks.badgesText, ['[Host]', '[Co-Host]'], 'Inline badge role supports prefix and suffix');
+    assert.equal(imageChecks.inlineRows, 2, 'Inline fields share horizontal rows per member');
+    assert.equal(imageChecks.bannerFieldsCount, 3, 'Multi-field configuration renders 3+ fields per member');
+    assert.equal(imageChecks.bannerCardHasRing, true, 'Member cards support standout border ring styles');
+    assert.equal(imageChecks.labelAnimActive, true, 'Group strip member labels apply typography text animations');
+    assert.equal(imageChecks.staggerTop, '22px', 'Stagger layout offsets alternating members vertically');
     assert.equal(imageChecks.overlapMargin, '-14px', 'Overlap layout applies negative overlap margin');
     assert.equal(imageChecks.chipsCount, 2, 'Chips layout renders capsule chips');
     assert.equal(imageChecks.hasLead, true, 'Spotlight layout marks first member as lead');
+    const stripModalChecks = await page.evaluate(() => {
+        const openBtn = document.querySelector('#open-ig-fields-modal');
+        openBtn?.click();
+        const dlg = document.querySelector('#ig-fields-dialog');
+        const beforeRows = dlg ? dlg.querySelectorAll('.ig-field-row').length : 0;
+        dlg?.querySelector('#ig-add-field-btn')?.click();
+        const afterRows = dlg ? dlg.querySelectorAll('.ig-field-row').length : 0;
+        dlg?.querySelector('[data-ig-preset="lower-banners"]')?.click();
+        const { state } = window.fixture;
+        const layoutAfterPreset = state.overlay.elements.find(e => e.id === 'strip-img')?.imageGroup?.layout || '';
+        dlg?.querySelector('#ig-fields-close')?.click();
+        return { isOpen: Boolean(dlg), beforeRows, afterRows, layoutAfterPreset };
+    });
+    assert.equal(stripModalChecks.isOpen, true);
+    assert.equal(stripModalChecks.beforeRows, 3);
+    assert.equal(stripModalChecks.afterRows, 4, 'Fields modal + Add Field appends a fourth configurable field');
+    assert.equal(stripModalChecks.layoutAfterPreset, 'banners', 'Fields modal arrangement preset updates strip layout');
     const stripNarrowOverflow = await page.evaluate(() => {
         const rail = document.querySelector('.rail.right');
         rail.style.width = '260px';
-        const panel = document.querySelector('[data-inspector-panel="content"]');
-        panel.querySelectorAll('details').forEach(node => { node.open = true; });
-        const bounds = rail.getBoundingClientRect();
-        const bad = [...panel.querySelectorAll('input:not([type=hidden]),select,textarea,button,summary')]
-            .filter(node => {
+        const bad = [];
+        for (const tabName of ['content', 'layout', 'style']) {
+            const panel = document.querySelector(`[data-inspector-panel="${tabName}"]`);
+            document.querySelector(`[data-inspector-tab="${tabName}"]`)?.click();
+            panel.querySelectorAll('details').forEach(node => { node.open = true; });
+            const bounds = rail.getBoundingClientRect();
+            for (const node of panel.querySelectorAll('input:not([type=hidden]),select,textarea,button,summary')) {
                 const rect = node.getBoundingClientRect();
-                return rect.width > 0 && (rect.right > bounds.right + 1 || rect.left < bounds.left - 1);
-            }).map(node => node.dataset.path || node.id || node.textContent.trim());
+                if (rect.width > 0 && (rect.right > bounds.right + 1 || rect.left < bounds.left - 1)) {
+                    bad.push(`${tabName}:${node.dataset.path || node.id || node.textContent.trim()}`);
+                }
+            }
+        }
+        document.querySelector('[data-inspector-tab="content"]')?.click();
         rail.style.width = '344px';
         return bad;
     });
-    assert.deepEqual(stripNarrowOverflow, [], 'Group Image Strip controls must fit the 260px inspector');
+    assert.deepEqual(stripNarrowOverflow, [], 'Group Image Strip controls must fit the 260px inspector across Content, Layout, and Style');
 
     // Direct 1-click Group Image Strip creation helper + Sets drawer + Strip action + Add Menu markup
     const editorHtmlMarkup = await readFile(new URL('../public/editors/custom-overlay-editor.html', import.meta.url), 'utf8');
@@ -822,6 +910,55 @@ try {
     assert.notEqual(borderChecks.neonRainbow.animName, 'none');
     assert.equal(borderChecks.neonRainbow.hasNeonCore, true, 'neon-tube preserves inner filament core during rainbow animation');
 
+    // Verify hazard & chevron-track masks keep interior 100% transparent in SVG and rendered pixels
+    const maskInteriorChecks = await page.evaluate(async () => {
+        const checkStyle = async (borderStyle) => {
+            const node = document.createElement('div');
+            node.style.cssText = 'position:relative;width:320px;height:100px;';
+            document.body.append(node);
+            const el = { id: `m-${borderStyle}`, type: 'shape', width: 320, height: 100, style: { borderWidth: 10, borderColor: '#facc15', borderStyle } };
+            window.OverlayShared.applyBorderEffects(node, el.style, el);
+            const rawMask = node._borderRing?.style.maskImage || node._borderRing?.style.webkitMaskImage || '';
+            const match = rawMask.match(/url\("([^"]+)"\)/) || rawMask.match(/url\('([^']+)'\)/);
+            const svgUri = match && match[1].startsWith('data:image/svg+xml') ? match[1] : '';
+            const decodedSvg = svgUri ? decodeURIComponent(svgUri.split(',')[1] || '') : '';
+            let centerAlpha = -1;
+            let rimMaxAlpha = 0;
+            if (svgUri) {
+                await new Promise(resolve => {
+                    const im = new window.Image();
+                    im.onload = () => {
+                        const c = document.createElement('canvas');
+                        c.width = 320;
+                        c.height = 100;
+                        const ctx = c.getContext('2d');
+                        ctx.drawImage(im, 0, 0, 320, 100);
+                        centerAlpha = ctx.getImageData(160, 50, 1, 1).data[3];
+                        const rowData = ctx.getImageData(0, 4, 80, 1).data;
+                        for (let i = 3; i < rowData.length; i += 4) {
+                            if (rowData[i] > rimMaxAlpha) rimMaxAlpha = rowData[i];
+                        }
+                        resolve();
+                    };
+                    im.onerror = resolve;
+                    im.src = svgUri;
+                });
+            }
+            node.remove();
+            return { hasClipPath: decodedSvg.includes('<clipPath'), centerAlpha, rimMaxAlpha };
+        };
+        return {
+            hazard: await checkStyle('hazard'),
+            chevron: await checkStyle('chevron-track')
+        };
+    });
+    assert.equal(maskInteriorChecks.hazard.hasClipPath, false, 'hazard mask uses fill-rule=evenodd path instead of clipPath');
+    assert.equal(maskInteriorChecks.hazard.centerAlpha, 0, 'hazard border mask leaves element interior transparent');
+    assert.ok(maskInteriorChecks.hazard.rimMaxAlpha > 100, 'hazard border mask paints stripes along perimeter rim');
+    assert.equal(maskInteriorChecks.chevron.hasClipPath, false, 'chevron-track mask uses fill-rule=evenodd path instead of clipPath');
+    assert.equal(maskInteriorChecks.chevron.centerAlpha, 0, 'chevron-track border mask leaves element interior transparent');
+    assert.ok(maskInteriorChecks.chevron.rimMaxAlpha > 100, 'chevron-track border mask paints chevrons along perimeter rim');
+
     // Service-level schema normalization & saved Style Presets persistence
     const tmpOverlaysDir = await mkdtemp(path.join(os.tmpdir(), 'sp-style-presets-'));
     try {
@@ -862,7 +999,7 @@ try {
 
     assert.deepEqual(errors, []);
     assert.deepEqual(unexpected, []);
-    console.log('Inspector browser tests passed: all 17 types, conditional panels, narrow rails, persistence, focus, keyboard navigation and multi-selection.');
+    console.log('Inspector browser tests passed: all 19 types, conditional panels, narrow rails, persistence, focus, keyboard navigation and multi-selection.');
 } finally {
     await browser?.close();
     await new Promise(done => server.close(done));

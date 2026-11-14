@@ -614,7 +614,7 @@ export function applyNodeStyle(node, el, index) {
         left: `${b.x}px`, top: `${b.y}px`, width: `${b.w}px`, height: `${b.h}px`, zIndex: index,
         opacity: el.type === 'alert' ? 1 : s.opacity ?? 1, background: (el.type === 'alert' || el.type === 'cutout' || el.type === 'speaker-badge') ? 'transparent' : (s.background || 'transparent'),
         borderRadius: (el.type === 'alert' || el.type === 'speaker-badge') ? '0' : el.type === 'cutout' ? cutoutRadius : (shared.resolveBorderRadius ? shared.resolveBorderRadius(s, el) : `${s.borderRadius || 0}px`),
-        padding: `${TEXT_TYPES.has(el.type) ? s.padding || 0 : 0}px`,
+        padding: `${(TEXT_TYPES.has(el.type) || el.imageGroup?.enabled) ? s.padding || 0 : 0}px`,
         fontFamily: s.fontFamily, fontSize: `${TEXT_TYPES.has(el.type) && el.textFit && el.textFit !== 'none' && node._fittedFontSize ? node._fittedFontSize : (s.fontSize != null && s.fontSize !== '' ? s.fontSize : 32)}px`, fontWeight: s.fontWeight, color: s.color, textAlign: s.textAlign,
         lineHeight: s.lineHeight, letterSpacing: `${s.letterSpacing || 0}px`,
         display: s.verticalAlign === 'top' ? 'block' : 'flex',
@@ -876,7 +876,7 @@ export const contentSignature = (el, live) =>
         el.headingSpan, el.headingScale, sourceSignature(el), el.progress,
         el.style.color, el.style.fontFamily, el.style.fontWeight, el.style.textStroke,
         el.style.textShadow, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.cycle,
-        el.imageGroup,
+        el.imageGroup, el.imageGroup?.enabled ? [el.style, el.width, el.height] : '',
         el.style.objectFit, el.style.focusX, el.style.focusY,
         usesLivePlaceholders(el) || Boolean(el.imageGroup?.enabled) || Boolean(el.source && el.source.mode !== 'inline') ? live : ''
     ]);

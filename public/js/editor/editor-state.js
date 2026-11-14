@@ -30,12 +30,15 @@ export const TYPE_META = {
     'speaker-badge': { label: 'Speaker Badge', icon: svg('<rect x="3" y="1" width="10" height="14" rx="2"/><circle cx="8" cy="5" r="2"/><path d="M5 11c0-1.5 1.5-2.5 3-2.5s3 1 3 2.5"/><path d="M1 5v6M15 5v6"/>') },
     slideshow: { label: 'Slideshow', icon: svg('<rect x="4.5" y="2" width="9.5" height="9.5" rx="1.5"/><path d="M2 5.5v7A1.5 1.5 0 003.5 14h7"/><path d="M7 7.5l2 2 1.5-1.5 2 2"/>') },
     pattern: { label: 'Pattern Tile', icon: svg('<rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/>') },
-    'procedural-pattern': { label: 'Background Pattern', icon: svg('<path d="M2 5.5l3-2.5 3 2.5 3-2.5 3 2.5"/><path d="M2 10.5l3-2.5 3 2.5 3-2.5 3 2.5"/><circle cx="5" cy="8" r="1" fill="currentColor"/><circle cx="11" cy="8" r="1" fill="currentColor"/>') }
+    'procedural-pattern': { label: 'Background Pattern', icon: svg('<path d="M2 5.5l3-2.5 3 2.5 3-2.5 3 2.5"/><path d="M2 10.5l3-2.5 3 2.5 3-2.5 3 2.5"/><circle cx="5" cy="8" r="1" fill="currentColor"/><circle cx="11" cy="8" r="1" fill="currentColor"/>') },
+    'image-group': { label: 'Group Strip', icon: svg('<circle cx="5.2" cy="5.5" r="2.2"/><circle cx="10.8" cy="5.5" r="2.2"/><path d="M1.8 13.5c0-2 1.5-3.3 3.4-3.3s3.4 1.3 3.4 3.3M7.4 13.5c0-2 1.5-3.3 3.4-3.3s3.4 1.3 3.4 3.3"/>') }
 };
 
+export const isImageGroup = el => el?.type === 'image' && el.imageGroup?.enabled === true;
 export const TEXT_TYPES = new Set(['text', 'random-text', 'markdown']);
 export const FILL_TEXT_TYPES = new Set([...TEXT_TYPES, 'game-list']);
-export const hasText = el => TEXT_TYPES.has(el.type) || el.type === 'progress' || el.type === 'game-list' || el.type === 'alert' || el.type === 'poll' || el.type === 'speaker-badge';
+export const hasText = el => TEXT_TYPES.has(el.type) || el.type === 'progress' || el.type === 'game-list' || el.type === 'alert' || el.type === 'poll' || el.type === 'speaker-badge' || isImageGroup(el);
+export const hasRichTextEffects = el => FILL_TEXT_TYPES.has(el.type) || el.type === 'alert' || isImageGroup(el);
 export const isLine = el => el.type === 'shape' && el.style?.shape === 'line';
 
 export const CANVAS_PRESETS = [
@@ -416,7 +419,13 @@ export function applyScale(snaps, anchor, sx, sy) {
 
 export function displayName(el) {
     if (el.name) return el.name;
-    return `${TYPE_META[el.type]?.label || el.type} ${state.overlay.elements.filter(item => item.type === el.type).indexOf(el) + 1}`;
+    if (isImageGroup(el)) {
+        return `Group Strip ${state.overlay.elements.filter(isImageGroup).indexOf(el) + 1}`;
+    }
+    const siblings = el.type === 'image'
+        ? state.overlay.elements.filter(item => item.type === 'image' && !isImageGroup(item))
+        : state.overlay.elements.filter(item => item.type === el.type);
+    return `${TYPE_META[el.type]?.label || el.type} ${siblings.indexOf(el) + 1}`;
 }
 
 export function normalizeZ() {
@@ -449,9 +458,9 @@ export const visibleElements = () => state.overlay.elements.filter(inView);
 export const pageName = id => state.overlay.pages?.items.find(p => p.id === id)?.name || id;
 
 export const STATE_STYLE_KEYS = [
-    'fontFamily', 'fontSize', 'fontWeight', 'color', 'textAlign', 'verticalAlign',
-    'lineHeight', 'letterSpacing', 'textTransform', 'textDecoration',
-    'background', 'fill', 'borderColor', 'borderWidth', 'borderStyle', 'borderPlacement', 'borderRadius',
+    'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'tabularNums', 'color', 'textAlign', 'verticalAlign',
+    'lineHeight', 'letterSpacing', 'textTransform', 'textDecoration', 'textAnimation',
+    'background', 'fill', 'borderColor', 'borderWidth', 'borderStyle', 'borderPlacement', 'borderRadius', 'borderRadiusCorners',
     'padding', 'opacity', 'rotate', 'blur', 'shape', 'objectFit', 'focusX', 'focusY',
     'gradient', 'textGradient', 'borderGradient', 'borderGlow', 'borderAnimation',
     'shadow', 'innerShadow', 'textStroke', 'textShadow'
@@ -713,26 +722,107 @@ export function normalizeLoaded(data) {
 /**
  * Build smart default Group Image Strip configuration for an image element or Variable Set.
  */
+export const IMAGE_GROUP_FIELD_ROLES = ['title', 'subtitle', 'badge', 'accent', 'caption'];
+
+export function normalizeGroupFieldItem(f, idx = 0) {
+    if (!f || typeof f !== 'object') return null;
+    const key = String(f.key || '').trim();
+    if (!key) return null;
+    return {
+        key,
+        role: IMAGE_GROUP_FIELD_ROLES.includes(f.role) ? f.role : (idx === 0 ? 'title' : 'subtitle'),
+        inline: f.inline === true,
+        prefix: String(f.prefix || '').slice(0, 24),
+        suffix: String(f.suffix || '').slice(0, 24),
+        sizeScale: Math.max(50, Math.min(200, Math.round(Number(f.sizeScale) || 100))),
+        color: String(f.color || '').slice(0, 80),
+        bgColor: String(f.bgColor || '').slice(0, 80)
+    };
+}
+
+export function resolveImageGroupFields(ig = {}) {
+    if (Array.isArray(ig.fields) && ig.fields.length) {
+        return ig.fields.map((f, i) => normalizeGroupFieldItem(f, i)).filter(Boolean).slice(0, 10);
+    }
+    const list = [];
+    if (ig.labelField) list.push(normalizeGroupFieldItem({ key: ig.labelField, role: 'title' }, 0));
+    if (ig.subField) list.push(normalizeGroupFieldItem({ key: ig.subField, role: 'subtitle' }, 1));
+    return list.filter(Boolean);
+}
+
+export function syncLegacyGroupFields(ig) {
+    if (!ig || !Array.isArray(ig.fields)) return;
+    ig.labelField = ig.fields[0]?.key || '';
+    ig.subField = ig.fields[1]?.key || '';
+}
+
 export function defaultImageGroupConfig(setObj = null, existing = {}, enabled = true) {
     const sets = Array.isArray(state.liveStatus?.variableSets) ? state.liveStatus.variableSets : [];
     const targetSet = setObj || sets.find(s => (s.fields || []).some(f => f.type === 'image' || f.type === 'url')) || sets[0] || null;
     const fields = targetSet?.fields || [];
     const imgField = fields.find(f => f.type === 'image' || f.type === 'url');
     const txtField = fields.find(f => f.type !== 'image' && f.type !== 'url');
+    const primaryKey = existing?.labelField !== undefined ? existing.labelField : (txtField?.key || '');
+    const secondaryKey = existing?.subField || '';
+    const initialFields = Array.isArray(existing?.fields)
+        ? existing.fields.map((f, i) => normalizeGroupFieldItem(f, i)).filter(Boolean).slice(0, 10)
+        : [
+            ...(primaryKey ? [normalizeGroupFieldItem({ key: primaryKey, role: 'title' }, 0)] : []),
+            ...(secondaryKey ? [normalizeGroupFieldItem({ key: secondaryKey, role: 'subtitle' }, 1)] : [])
+        ];
     return {
         setId: targetSet?.id || '',
         imageField: imgField?.key || 'image',
-        labelField: txtField?.key || '',
+        labelField: primaryKey,
+        subField: secondaryKey,
+        fields: initialFields,
+        onlySelected: false,
+        maxItems: 0,
+        showOverflowBadge: true,
+        sortOrder: 'roster',
         layout: 'row',
+        wrap: false,
+        columns: 0,
+        overlap: 16,
+        staggerOffset: 18,
+        spotlightScale: 1.35,
         shape: 'circle',
         aspectRatio: '1:1',
         size: 72,
+        avatarRadius: 10,
+        avatarBorderWidth: 0,
+        avatarBorderColor: 'rgba(255,255,255,0.28)',
+        avatarBorderStyle: 'solid',
+        avatarBg: '#1e293b',
+        avatarShadow: 0,
         gap: 12,
+        rowGap: null,
+        innerGap: 8,
+        fieldGap: 2,
         fallbackMode: 'skip',
-        showLabels: Boolean(txtField),
+        showLabels: Boolean(primaryKey),
         labelPosition: 'below',
+        textAlign: 'auto',
+        labelSize: 0,
+        labelColor: '',
+        subColor: '',
+        labelBg: 'transparent',
+        badgeBg: 'rgba(56,189,248,0.16)',
+        badgeColor: '#38bdf8',
         delimiter: '',
+        delimiterColor: '',
+        showStatusDot: false,
+        cardFrame: false,
+        cardBg: 'rgba(15,23,42,0.78)',
+        cardBorderColor: 'rgba(255,255,255,0.16)',
+        cardBorderWidth: 1,
+        cardBorderStyle: 'solid',
+        cardRadius: 12,
+        cardPaddingX: null,
+        cardPaddingY: null,
+        cardShadow: 0,
         ...(existing || {}),
+        ...(Array.isArray(existing?.fields) ? {} : { fields: initialFields }),
         enabled: typeof enabled === 'boolean' ? enabled : true
     };
 }
@@ -821,7 +911,7 @@ export function createElementData(rawType, overrides = {}) {
         width, height, zIndex: state.overlay.elements.length, visible: true,
         style: {
             fontFamily: 'sans-serif',
-            fontSize: type === 'poll' ? 12 : type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : (type === 'speaker-badge' ? 20 : 48),
+            fontSize: type === 'poll' ? 12 : isImageGroup ? 15 : type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : (type === 'speaker-badge' ? 20 : 48),
             fontWeight: type === 'alert' ? '600' : '400',
             color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0,
             background: isObsFrame ? 'transparent' : (type === 'speaker-badge' ? 'rgba(18, 18, 26, 0.88)' : (type === 'shape' ? '#1f6feb' : type === 'poll' ? 'rgba(13,17,23,0.85)' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent')),

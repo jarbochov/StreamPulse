@@ -695,10 +695,11 @@ kbd { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; background: var
 .canvas-element.type-markdown hr { border: 0; border-top: 1px solid currentColor; opacity: .5; margin: .6em 0; }
 .canvas-element.type-markdown li::marker { -webkit-text-fill-color: currentColor; }
 .canvas-element img:not(.sp-image-group-img), .canvas-element video, .canvas-element iframe { width: 100%; height: 100%; border: 0; pointer-events: none; display: block; }
-.sp-image-group { width: 100%; height: 100%; box-sizing: border-box; overflow: hidden; }
+.sp-image-group { width: 100%; height: 100%; box-sizing: border-box; overflow: visible; }
 .sp-image-group-item { flex: 0 0 auto; max-width: 100%; }
+.sp-image-group-meta { min-width: 0; max-width: 100%; }
 .sp-image-group-img { border: 0; pointer-events: none; display: block; }
-.sp-image-group-label, .sp-image-group-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; max-width: 100%; }
+.sp-image-group-field, .sp-image-group-label, .sp-image-group-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; max-width: 100%; }
 .sp-image-group-delim { flex: 0 0 auto; opacity: 0.7; user-select: none; }
 .sp-image-group-overflow { flex: 0 0 auto; user-select: none; }
 .canvas-element.is-line, .canvas-element.type-icon { overflow: visible; }
@@ -1158,3 +1159,39 @@ body.is-scrubbing, body.is-scrubbing * {
 .sp-chip-row { display: flex; flex-wrap: wrap; gap: 4px; }
 .sp-quick-chip { font: inherit; font-size: 10.5px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; }
 .sp-quick-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Group Image Strip Inspector & Member Fields Modal */
+.ig-field-summary { display: grid; gap: 5px; margin: 4px 0; }
+.ig-field-pill { display: flex; align-items: center; gap: 5px; min-width: 0; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--field); font-size: 11px; }
+.ig-field-pill .ig-fp-role { flex: none; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 1px 5px; border-radius: 4px; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.ig-field-pill .ig-fp-key { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.ig-field-pill .ig-fp-inline { flex: none; font-size: 9.5px; color: var(--muted); }
+.ig-field-pill button { flex: none; width: 20px; height: 20px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; }
+.ig-actions-row { display: flex; gap: 6px; margin-top: 4px; }
+.ig-actions-row button { flex: 1; min-width: 0; font-size: 11px; padding: 4px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+#ig-fields-dialog { width: min(680px, 94vw); max-width: 680px; }
+.ig-modal-head h3 { margin: 0 0 .2rem; font-size: 15px; }
+.ig-modal-sub { margin: 0 0 .75rem; font-size: 12px; color: var(--muted); line-height: 1.4; }
+.ig-presets-section { display: grid; gap: 5px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); margin-bottom: 10px; }
+.ig-presets-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.ig-presets-row { display: flex; flex-wrap: wrap; gap: 5px; }
+.ig-modal-placement { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+.ig-modal-placement label { display: grid; gap: 3px; font-size: 11px; font-weight: 600; color: var(--muted); }
+.ig-fields-list { display: grid; gap: 8px; max-height: 44vh; overflow: auto; padding-right: 2px; }
+.ig-field-row { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--field); }
+.ig-field-row-top { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto auto auto auto; gap: 6px; align-items: center; }
+.ig-field-row-bot { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, .9fr) minmax(0, .8fr) auto auto; gap: 6px; align-items: end; }
+.ig-field-row label { display: grid; gap: 2px; font-size: 10px; font-weight: 600; color: var(--muted); min-width: 0; }
+.ig-field-row select, .ig-field-row input[type="text"], .ig-field-row input[type="number"] { width: 100%; min-width: 0; box-sizing: border-box; font-size: 11.5px; height: 27px; padding: 3px 6px; }
+.ig-field-inline-chk { display: inline-flex !important; align-items: center; gap: 4px; font-size: 11px !important; color: var(--text) !important; cursor: pointer; white-space: nowrap; }
+.ig-field-row-top button { width: 26px; height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.ig-color-mini { display: flex; align-items: center; gap: 4px; }
+.ig-color-mini input[type="color"] { width: 26px; height: 26px; padding: 1px; border-radius: 5px; cursor: pointer; }
+.ig-modal-footer { display: flex; align-items: center; gap: 8px; justify-content: space-between; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.ig-fields-count { flex: 1; font-size: 11px; color: var(--muted); }
+@media (max-width: 600px) {
+    .ig-field-row-top { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto; }
+    .ig-field-row-bot { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ig-modal-placement { grid-template-columns: 1fr; }
+}

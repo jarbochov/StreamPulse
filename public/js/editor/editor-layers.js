@@ -3,7 +3,7 @@
  */
 
 import {
-    $, esc, ICON, TYPE_META, state, prefs, savePrefs, byId, selectedElements,
+    $, esc, ICON, TYPE_META, isImageGroup, state, prefs, savePrefs, byId, selectedElements,
     pagesOn, statesModeOn, basePageId, isBasePage, hasPageOverride, resetElementPageState,
     syncWorkingStateForCurrentPage, projectPageState, extractElementState, convertStatesToPages,
     inView, visibleElements, displayName, normalizeZ, setSelection,
@@ -100,7 +100,7 @@ export function renderLayers() {
         return `
         <div class="layer${state.selectedIds.has(el.id) ? ' selected' : ''}${el.visible === false ? ' is-hidden' : ''}${inGroup}${hasOvr ? ' has-state-override' : ''}" data-id="${esc(el.id)}">
             <span class="layer-grip" title="Drag to reorder">${ICON.grip}</span>
-            <span class="layer-icon">${TYPE_META[el.type]?.icon || '•'}</span>
+            <span class="layer-icon">${(isImageGroup(el) ? TYPE_META['image-group'] : TYPE_META[el.type])?.icon || '•'}</span>
             <span class="layer-name" title="Double-click to rename">${pagesOn() && el.page === '*' ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" class="shared-mark" title="${statesModeOn() ? 'Shared across all states' : 'Shared on all pages'}"><polygon points="12 2 22 12 12 22 2 12"/></svg>` : ''}${esc(displayName(el))}${obsBadge}${hasOvr ? '<span class="layer-ovr-dot" title="Overridden in this state"></span>' : ''}</span>
             <span class="layer-actions">
                 ${hasOvr ? `<button data-layer-action="reset-state" class="ovr-reset" title="Reset state override back to base layout" aria-label="Reset state override"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>` : ''}

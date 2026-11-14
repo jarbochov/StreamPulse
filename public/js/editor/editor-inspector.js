@@ -8,7 +8,9 @@ import {
     ALERT_TRIGGER_LABELS, ALERT_TRIGGER_META, triggerIcon, TEXT_TYPES, FILL_TEXT_TYPES, LOCAL_MEDIA, selectedElements,
     primary, byId, boundsOf, displayName, changed, toast, alertSample, variableContext,
     pagesOn, statesModeOn, isBasePage, hasPageOverride, resetElementPageState, extractElementState,
-    alertLookSelection, previewAlertElement, uid, defaultImageGroupConfig
+    alertLookSelection, previewAlertElement, uid, defaultImageGroupConfig,
+    isImageGroup, hasRichTextEffects, resolveImageGroupFields, syncLegacyGroupFields,
+    IMAGE_GROUP_FIELD_ROLES, normalizeGroupFieldItem
 } from './editor-state.js';
 import { F, bindFields } from './editor-form.js';
 import {
@@ -71,12 +73,15 @@ export const RERENDER_PATHS = new Set([
     'style.borderWidth', 'style.borderStyle', 'style.borderGlow.enabled', 'style.borderGlow.neon',
     'style.borderGlow.inner', 'style.borderAnimation.type', 'style.borderAnimation.mode',
     'style.shadow.blur', 'style.innerShadow.blur', 'style.innerShadow.spread',
-    'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'video.sound', 'alert.videoSound',
+    'style.textStroke.width', 'style.textShadow.blur', 'style.textAnimation.type', 'style.background', 'video.sound', 'alert.videoSound',
     'alert.layout', 'alert.hideText', 'alert.hideMessage', 'alert.alertMode', 'slideshow.source', 'slideshow.advance', 'slideshow.transition',
     'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee',
     'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.showStatusBadge',
     'speakerBadge.reaction.visualizer', 'speakerBadge.reaction.highlightBorder', 'speakerBadge.reaction.dimWhenIdle',
     'speakerBadge.autoSize',
+    'imageGroup.setId', 'imageGroup.onlySelected', 'imageGroup.showLabels', 'imageGroup.layout',
+    'imageGroup.shape', 'imageGroup.wrap', 'imageGroup.fallbackMode', 'imageGroup.maxItems',
+    'imageGroup.avatarBorderWidth', 'imageGroup.cardFrame', 'imageGroup.cardBorderWidth',
     'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta',
     'pattern.sourceType', 'pattern.tileDistribution', 'pattern.preset', 'pattern.palette', 'pattern.fillMode', 'pattern.inPlace', 'pattern.spin', 'pattern.panDirection', 'pattern.colorMode', 'pattern.colorAnim', 'pattern.vignette', 'pattern.snowflakeStyle', 'pattern.layout', 'pattern.symmetry', 'pattern.kaleidoMorph', 'pattern.aspectRatio', 'pattern.hueShift', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip', 'pattern.animateJitter',
     'pattern.tiles.0.sourceType', 'pattern.tiles.1.sourceType', 'pattern.tiles.2.sourceType'
@@ -145,7 +150,8 @@ export function fontOptions(current) {
 export function actionBar(items) {
     const single = items.length === 1 ? items[0] : null;
     const grouped = items.some(el => el.group);
-    const label = single ? `<span class="badge">${esc(TYPE_META[single.type]?.label || single.type)}</span><span class="nm">${esc(displayName(single))}</span>` : `<span class="badge">${items.length} selected</span>`;
+    const singleTypeLabel = single ? (isImageGroup(single) ? TYPE_META['image-group'].label : (TYPE_META[single.type]?.label || single.type)) : '';
+    const label = single ? `<span class="badge">${esc(singleTypeLabel)}</span><span class="nm">${esc(displayName(single))}</span>` : `<span class="badge">${items.length} selected</span>`;
     const link = (items.length > 1 ? `<button type="button" class="link-btn" data-act="group" title="Group (Ctrl/⌘+G)">Group</button>` : '') + (grouped ? `<button type="button" class="link-btn" data-act="ungroup" title="Ungroup (Ctrl/⌘+Shift+G)">Ungroup</button>` : '');
     const allLocked = items.every(el => el.locked), allHidden = items.every(el => el.visible === false);
     const btn = (act, icon, text, cls = '') => `<button type="button" class="icon ${cls}" data-act="${act}" title="${text}" aria-label="${text}">${icon}</button>`;
@@ -206,7 +212,7 @@ export function gradientFields(s, key = 'gradient') {
 
 export const fillControl = (s, key, label, solidField) => fillSeg(s, key, label) + (s[key]?.enabled ? gradientFields(s, key) : solidField);
 export const hasBox = s => s.borderWidth > 0 || (s.background && s.background !== 'transparent') || s.gradient?.enabled || (s.padding > 0);
-export const paddingField = el => TEXT_TYPES.has(el.type) ? F.number('style.padding', 'Padding (px)', el.style.padding || 0, { min: 0, max: 200 }) : '';
+export const paddingField = el => (TEXT_TYPES.has(el.type) || isImageGroup(el)) ? F.number('style.padding', 'Padding (px)', el.style.padding || 0, { min: 0, max: 200 }) : '';
 export const noRadius = (s, shape) => shape && ['circle', 'pill', 'line'].includes(s.shape);
 
 export function textEffectsSection(el) {
@@ -300,15 +306,17 @@ export function typographySection(el) {
     }
     const textAlign = s.textAlign || (alert ? 'center' : 'left');
     const verticalAlign = s.verticalAlign || (alert ? 'middle' : 'top');
+    const richText = hasRichTextEffects(el);
+    const groupImg = isImageGroup(el);
     return F.section('typography', alert ? 'Message text' : 'Typography', `
         <label class="field"><span>Font</span><select id="font-picker" data-path="style.fontFamily" data-kind="text">${fontOptions(s.fontFamily)}</select></label>
-        ${alert ? `<div class="grid2">${weight}${F.color('style.color', 'Text color', s.color)}</div>` : `<div class="grid2">${el.textFit === 'fit' && TEXT_TYPES.has(el.type) ? '' : F.number('style.fontSize', el.textFit === 'shrink' && TEXT_TYPES.has(el.type) ? 'Max size (px)' : 'Size (px)', s.fontSize, { min: 8, max: 400 })}${weight}</div>${TEXT_TYPES.has(el.type) && !(el.type === 'random-text' && el.random?.marquee) ? F.select('textFit', 'Auto-fit text', el.textFit || 'none', [['none', 'Off — use the size set here'], ['shrink', 'Shrink to fit the box'], ['fit', 'Grow or shrink to fill the box']]) : ''}${el.type === 'markdown' ? F.number('headingScale', 'Heading size (% of normal)', el.headingScale ?? 100, { min: 40, max: 200, step: 5 }) + F.select('columns', 'Columns', String(el.columns || 1), [['1', '1 column'], ['2', '2 columns'], ['3', '3 columns'], ['4', '4 columns']]) + ((el.columns || 1) > 1 ? F.select('headingSpan', 'Headings spanning all columns', String(el.headingSpan ?? 6), [['6', 'All headings (H1–H6)'], ['1', 'H1 only'], ['2', 'H1–H2'], ['3', 'H1–H3'], ['4', 'H1–H4'], ['0', 'None — headings stay in a column']]) : '') : ''}${FILL_TEXT_TYPES.has(el.type) ? fillControl(s, 'textGradient', 'Text color', F.color('style.color', 'Color', s.color)) : F.color('style.color', 'Text color', s.color)}`}
-        ${el.type === 'poll' ? '' : `<div class="grid2">${F.seg('style.textAlign', 'Horizontal', textAlign, [['left', 'Align text left', ICON.textLeft], ['center', 'Center text', ICON.textCenter], ['right', 'Align text right', ICON.textRight]])}${el.type === 'markdown' && el.columns > 1 ? '' : F.seg('style.verticalAlign', 'Vertical', verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>`}
+        ${alert ? `<div class="grid2">${weight}${F.color('style.color', 'Text color', s.color)}</div>` : `<div class="grid2">${el.textFit === 'fit' && TEXT_TYPES.has(el.type) ? '' : F.number('style.fontSize', el.textFit === 'shrink' && TEXT_TYPES.has(el.type) ? 'Max size (px)' : 'Size (px)', s.fontSize, { min: 8, max: 400 })}${weight}</div>${TEXT_TYPES.has(el.type) && !(el.type === 'random-text' && el.random?.marquee) ? F.select('textFit', 'Auto-fit text', el.textFit || 'none', [['none', 'Off — use the size set here'], ['shrink', 'Shrink to fit the box'], ['fit', 'Grow or shrink to fill the box']]) : ''}${el.type === 'markdown' ? F.number('headingScale', 'Heading size (% of normal)', el.headingScale ?? 100, { min: 40, max: 200, step: 5 }) + F.select('columns', 'Columns', String(el.columns || 1), [['1', '1 column'], ['2', '2 columns'], ['3', '3 columns'], ['4', '4 columns']]) + ((el.columns || 1) > 1 ? F.select('headingSpan', 'Headings spanning all columns', String(el.headingSpan ?? 6), [['6', 'All headings (H1–H6)'], ['1', 'H1 only'], ['2', 'H1–H2'], ['3', 'H1–H3'], ['4', 'H1–H4'], ['0', 'None — headings stay in a column']]) : '') : ''}${richText ? fillControl(s, 'textGradient', 'Text color', F.color('style.color', 'Color', s.color)) : F.color('style.color', 'Text color', s.color)}`}
+        ${el.type === 'poll' || groupImg ? '' : `<div class="grid2">${F.seg('style.textAlign', 'Horizontal', textAlign, [['left', 'Align text left', ICON.textLeft], ['center', 'Center text', ICON.textCenter], ['right', 'Align text right', ICON.textRight]])}${el.type === 'markdown' && el.columns > 1 ? '' : F.seg('style.verticalAlign', 'Vertical', verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>`}
         ${F.seg('style.fontStyle', 'Style', s.fontStyle || 'normal', [['normal', 'Regular font', 'Normal'], ['italic', 'Italic font', '<i>Italic</i>']])}
         <div class="grid2">${el.type === 'poll' ? '' : F.number('style.lineHeight', 'Line height', s.lineHeight, { min: 0.5, max: 3, step: 0.1 })}${F.number('style.letterSpacing', 'Letter spacing', s.letterSpacing, { min: -10, max: 50, step: 0.5 })}</div>
         ${F.check('style.tabularNums', 'Tabular numbers (0–9 fixed width)', s.tabularNums === true)}
         ${fontExtras}`)
-        + (FILL_TEXT_TYPES.has(el.type) || alert ? textEffectsSection(el) : '');
+        + (richText ? textEffectsSection(el) : '');
 }
 
 export function focusField(el) {
@@ -333,6 +341,28 @@ export function boxEffectFields(el, multi) {
             ${F.color('style.innerShadow.color', 'Inner shadow color', ish.color || 'rgba(0,0,0,0.5)')}` : ''}
         <p class="hint">Backdrop blur frosts whatever is behind this box. Outer and inner shadows add dimensional depth around and inside the box edges.</p>`;
 }
+
+export const BORDER_STYLE_OPTIONS = [
+    { group: 'Standard', options: [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double']] },
+    { group: '3D Bevel', options: [['groove', '3D Groove'], ['ridge', '3D Ridge'], ['inset', '3D Inset'], ['outset', '3D Outset']] },
+    { group: 'Broadcast & Tech HUD', options: [
+        ['neon-tube', 'Neon tube (hot core)'],
+        ['double-ring', 'Double ring track'],
+        ['corner-brackets', 'Corner brackets (HUD)'],
+        ['tech-hud', 'Mecha tech HUD'],
+        ['chamfer', 'Chamfered octagon'],
+        ['notched', 'Cyber notched HUD'],
+        ['crosshair', 'Scope crosshair reticles']
+    ] },
+    { group: 'Stylized & Decorative', options: [
+        ['hazard', 'Hazard stripes'],
+        ['chevron-track', 'Speed chevron track'],
+        ['scallop-stamp', 'Scallop ticket stamp'],
+        ['ornate-filigree', 'Royal diamond filigree'],
+        ['pixel-arcade', '8-bit pixel arcade'],
+        ['film-sprocket', 'Cinema filmstrip']
+    ] }
+];
 
 export function borderControls(s = {}, shape = false, el = {}) {
     const isLineShape = shape && s.shape === 'line';
@@ -360,27 +390,7 @@ export function borderControls(s = {}, shape = false, el = {}) {
 
     if (isLineShape || width <= 0) return html;
 
-    html += F.select('style.borderStyle', 'Border style', s.borderStyle || 'solid', [
-        { group: 'Standard', options: [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double']] },
-        { group: '3D Bevel', options: [['groove', '3D Groove'], ['ridge', '3D Ridge'], ['inset', '3D Inset'], ['outset', '3D Outset']] },
-        { group: 'Broadcast & Tech HUD', options: [
-            ['neon-tube', 'Neon tube (hot core)'],
-            ['double-ring', 'Double ring track'],
-            ['corner-brackets', 'Corner brackets (HUD)'],
-            ['tech-hud', 'Mecha tech HUD'],
-            ['chamfer', 'Chamfered octagon'],
-            ['notched', 'Cyber notched HUD'],
-            ['crosshair', 'Scope crosshair reticles']
-        ] },
-        { group: 'Stylized & Decorative', options: [
-            ['hazard', 'Hazard stripes'],
-            ['chevron-track', 'Speed chevron track'],
-            ['scallop-stamp', 'Scallop ticket stamp'],
-            ['ornate-filigree', 'Royal diamond filigree'],
-            ['pixel-arcade', '8-bit pixel arcade'],
-            ['film-sprocket', 'Cinema filmstrip']
-        ] }
-    ]);
+    html += F.select('style.borderStyle', 'Border style', s.borderStyle || 'solid', BORDER_STYLE_OPTIONS);
 
     html += fillControl(s, 'borderGradient', 'Border fill', F.color('style.borderColor', 'Border color', s.borderColor || (isCutout ? '#ffffff' : '#38bdf8'), { clear: true }));
 
@@ -503,9 +513,9 @@ export function appearanceSection(el, multi) {
 }
 
 export function fillSection(el) {
-    const s = el.style || {}, shape = el.type === 'shape';
-    return F.section('fill', shape ? 'Fill & outline' : 'Background & border', `
-        ${!shape && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) + focusField(el) : ''}
+    const s = el.style || {}, shape = el.type === 'shape', imgGroup = isImageGroup(el);
+    return F.section('fill', shape ? 'Fill & outline' : (imgGroup ? 'Container box & border' : 'Background & border'), `
+        ${!shape && !imgGroup && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) + focusField(el) : ''}
         ${shape ? F.select('style.shape', 'Shape', s.shape, [['rectangle', 'Rectangle'], ['circle', 'Circle'], ['pill', 'Pill'], ['line', 'Line']]) : ''}
         ${fillControl(s, 'gradient', shape ? 'Fill' : 'Background', F.color('style.background', 'Color', s.background, { clear: true }))}
         ${borderControls(s, shape, el)}
@@ -525,135 +535,94 @@ export const currentMediaTab = el => state.mediaTab.get(el.id) || (el.src?.start
 export const tabBar = (label, attr, current, options) => `<div class="field"><span>${label}</span><span class="seg">${options.map(([v, l]) => `<button type="button" ${attr}="${v}" aria-pressed="${v === current}">${l}</button>`).join('')}</span></div>`;
 export const friendlyAssetName = url => url ? decodeURIComponent(url.split('/').pop()).replace(/^[a-z0-9]{6,}-/, '') : '';
 
-export function mediaSourceBlock(el) {
+const IG_SVG_UP = '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10l4-4 4 4"/></svg>';
+const IG_SVG_DOWN = '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>';
+const IG_SVG_REMOVE = '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
+const IG_ROLE_LABELS = { title: 'Title', subtitle: 'Subtitle', badge: 'Badge pill', accent: 'Accent tag', caption: 'Caption' };
+const IG_PLACEMENTS = [
+    ['below', 'Below avatar'],
+    ['above', 'Above avatar'],
+    ['right', 'Beside avatar (right)'],
+    ['left', 'Beside avatar (left)'],
+    ['inside-bottom', 'Inside bottom overlay'],
+    ['inside-top', 'Inside top overlay'],
+    ['split', 'Split (Title top + Sub bottom)']
+];
+const IG_TEXT_ALIGNS = [['auto', 'Auto'], ['left', 'Left'], ['center', 'Center'], ['right', 'Right']];
+
+function imageGroupFieldMeta(ig = {}) {
     const sets = Array.isArray(state.liveStatus?.variableSets) ? state.liveStatus.variableSets : [];
-    const setsEnabled = state.liveStatus?.modules?.variableSets !== false;
-    const isGroup = el.type === 'image' && Boolean(el.imageGroup?.enabled);
-    if (el.type === 'image' && (setsEnabled || isGroup)) {
-        let modeBar = tabBar('Mode', 'data-image-mode', isGroup ? 'group' : 'single', [['single', 'Single image'], ['group', 'Group strip']]);
-        if (isGroup) {
-            const ig = el.imageGroup || {};
-            const st = el.style || {};
-            const layout = ig.layout || 'row';
-            const setObj = sets.find(s => s.id === ig.setId) || sets[0] || null;
-            const setId = ig.setId || '';
-            const setOptions = sets.map(s => {
-                const list = s.entries || s.roster || [];
-                const count = list.filter(e => e.inGroup !== false).length;
-                return [s.id, `${s.label || s.name || s.id} (${count} in group)`];
-            });
-            const fields = setObj?.fields || [];
-            const imageFieldOpts = fields.length
-                ? [...fields.filter(f => f.type === 'image' || f.type === 'url'), ...fields.filter(f => f.type !== 'image' && f.type !== 'url')].map(f => [f.key, `${f.label} ({{var.${setObj.id}_${f.key}}})`])
-                : [['image', 'image']];
-            const labelFieldOpts = [['', 'Auto (first name / template)'], ...fields.map(f => [f.key, `${f.label} (${f.key})`])];
-            const subFieldOpts = [['', 'None'], ...fields.map(f => [f.key, `${f.label} (${f.key})`])];
-            const maxItems = Math.max(0, Math.min(60, Math.round(Number(ig.maxItems) || 0)));
+    const setObj = sets.find(s => s.id === ig.setId) || sets[0] || null;
+    const fields = setObj?.fields || [];
+    return {
+        sets,
+        setObj,
+        fields,
+        imageFieldOpts: fields.length
+            ? [...fields.filter(f => f.type === 'image' || f.type === 'url'), ...fields.filter(f => f.type !== 'image' && f.type !== 'url')].map(f => [f.key, `${f.label} ({{var.${setObj.id}_${f.key}}})`])
+            : [['image', 'image']],
+        labelFieldOpts: [['', 'Auto / None'], ...fields.map(f => [f.key, `${f.label} (${f.key})`])],
+        subFieldOpts: [['', 'None'], ...fields.map(f => [f.key, `${f.label} (${f.key})`])]
+    };
+}
 
-            modeBar += '<div class="sub-head">Roster &amp; Filtering</div>';
-            modeBar += sets.length
-                ? F.select('imageGroup.setId', 'Variable Set', setId, [['', 'Choose a set…'], ...setOptions])
-                : '<p class="hint">Create a Variable Set in Variables &amp; Placeholders and toggle entries <strong>In Group</strong> to populate this strip.</p>';
-            if (sets.length) {
-                modeBar += F.select('imageGroup.imageField', 'Image field', ig.imageField || 'image', imageFieldOpts);
-            } else {
-                modeBar += F.text('imageGroup.setId', 'Variable Set ID', setId, 'placeholder="e.g. guests"');
-                modeBar += F.text('imageGroup.imageField', 'Image field key', ig.imageField || 'image', 'placeholder="image"');
-            }
-            modeBar += F.select('imageGroup.fallbackMode', 'Missing images', ig.fallbackMode || 'skip', [
-                ['skip', 'Skip entries without images'],
-                ['initials', 'Show initials badge']
-            ]);
-            modeBar += `<div class="grid2">${F.select('imageGroup.sortOrder', 'Order', ig.sortOrder || 'roster', [
-                ['roster', 'Roster order'],
-                ['reverse', 'Reversed'],
-                ['alpha', 'Alphabetical (A–Z)']
-            ])}${F.number('imageGroup.maxItems', 'Max shown (0 = all)', maxItems, { min: 0, max: 60 })}</div>`;
-            if (maxItems > 0) {
-                modeBar += F.check('imageGroup.showOverflowBadge', 'Show +N overflow badge when capped', ig.showOverflowBadge !== false);
-            }
+export function mediaSourceBlock(el) {
+    if (isImageGroup(el)) {
+        const ig = el.imageGroup || {};
+        const { sets, fields, imageFieldOpts, labelFieldOpts, subFieldOpts } = imageGroupFieldMeta(ig);
+        const setId = ig.setId || '';
+        const setOptions = sets.map(s => {
+            const list = s.entries || s.roster || [];
+            const count = list.filter(e => e.inGroup !== false).length;
+            return [s.id, `${s.label || s.name || s.id} (${count} in group)`];
+        });
+        const maxItems = Math.max(0, Math.min(60, Math.round(Number(ig.maxItems) || 0)));
+        const activeFields = resolveImageGroupFields(ig);
 
-            modeBar += '<div class="sub-head">Layout &amp; Framing</div>';
-            modeBar += F.select('imageGroup.layout', 'Layout style', layout, [
-                ['row', 'Row strip'],
-                ['column', 'Vertical stack'],
-                ['grid', 'Wrap grid'],
-                ['overlap', 'Overlapping avatar stack'],
-                ['cards', 'Member cards'],
-                ['chips', 'Capsule chips'],
-                ['spotlight', 'Spotlight lead + crew']
-            ]);
-            modeBar += `<div class="grid2">${F.select('imageGroup.shape', 'Avatar shape', ig.shape || 'rounded', [
-                ['rounded', 'Rounded'],
-                ['circle', 'Circle'],
-                ['squircle', 'Squircle'],
-                ['square', 'Square'],
-                ['hexagon', 'Hexagon'],
-                ['diamond', 'Diamond']
-            ])}${F.select('imageGroup.aspectRatio', 'Frame ratio', ig.aspectRatio || '1:1', [
-                ['1:1', 'Square (1:1)'],
-                ['4:3', 'Wide (4:3)'],
-                ['16:9', 'Cinema (16:9)'],
-                ['3:4', 'Portrait (3:4)']
-            ])}</div>`;
-            modeBar += `<div class="grid2">${F.number('imageGroup.size', 'Image size (px)', ig.size ?? 56, { min: 16, max: 400, step: 2 })}${layout === 'overlap'
-                ? F.number('imageGroup.overlap', 'Overlap (px)', ig.overlap ?? 16, { min: 4, max: 60, step: 2 })
-                : F.number('imageGroup.gap', 'Gap (px)', ig.gap ?? 10, { min: 0, max: 80, step: 2 })}</div>`;
-            if (layout === 'spotlight') {
-                modeBar += F.number('imageGroup.spotlightScale', 'Lead scale (×)', ig.spotlightScale ?? 1.35, { min: 1.1, max: 2.0, step: 0.05 });
-            }
-            modeBar += `<div class="grid2">${F.seg('style.textAlign', 'Align X', st.textAlign || 'left', [['left', 'Align left', ICON.textLeft], ['center', 'Center', ICON.textCenter], ['right', 'Align right', ICON.textRight]])}${F.seg('style.verticalAlign', 'Align Y', st.verticalAlign || 'top', [['top', 'Align top', ICON.vTop], ['middle', 'Middle', ICON.vMiddle], ['bottom', 'Align bottom', ICON.vBottom]])}</div>`;
-
-            modeBar += '<div class="sub-head">Avatar &amp; Card Style</div>';
-            modeBar += `<div class="grid2">${F.number('imageGroup.avatarBorderWidth', 'Avatar border (px)', ig.avatarBorderWidth ?? 0, { min: 0, max: 12 })}${F.number('imageGroup.avatarShadow', 'Avatar shadow (px)', ig.avatarShadow ?? 0, { min: 0, max: 40 })}</div>`;
-            if ((Number(ig.avatarBorderWidth) || 0) > 0 || layout === 'overlap') {
-                modeBar += F.color('imageGroup.avatarBorderColor', 'Avatar border color', ig.avatarBorderColor || 'rgba(255,255,255,0.28)');
-            }
-            if (ig.fallbackMode === 'initials') {
-                modeBar += F.color('imageGroup.avatarBg', 'Initials badge color', ig.avatarBg || '#1e293b');
-            }
-            if (layout === 'cards' || layout === 'chips') {
-                modeBar += F.color('imageGroup.cardBg', layout === 'chips' ? 'Chip background' : 'Card background', ig.cardBg || 'rgba(15,23,42,0.78)');
-                modeBar += `<div class="grid2">${F.number('imageGroup.cardBorderWidth', 'Frame border (px)', ig.cardBorderWidth ?? 1, { min: 0, max: 8 })}${layout === 'cards'
-                    ? F.number('imageGroup.cardRadius', 'Card radius (px)', ig.cardRadius ?? 12, { min: 0, max: 999 })
-                    : F.number('imageGroup.cardPadding', 'Padding (px)', ig.cardPadding ?? 8, { min: 0, max: 32 })}</div>`;
-                if ((Number(ig.cardBorderWidth ?? 1) || 0) > 0) {
-                    modeBar += F.color('imageGroup.cardBorderColor', 'Frame border color', ig.cardBorderColor || 'rgba(255,255,255,0.16)');
-                }
-                if (layout === 'cards') {
-                    modeBar += F.number('imageGroup.cardPadding', 'Card padding (px)', ig.cardPadding ?? 8, { min: 0, max: 32 });
-                }
-            }
-
-            modeBar += '<div class="sub-head">Labels &amp; Delimiters</div>';
-            modeBar += F.check('imageGroup.showLabels', 'Show member labels', ig.showLabels === true);
-            if (ig.showLabels) {
-                if (sets.length) {
-                    modeBar += `<div class="grid2">${F.select('imageGroup.labelField', 'Label field', ig.labelField || '', labelFieldOpts)}${F.select('imageGroup.subField', 'Subtitle field', ig.subField || '', subFieldOpts)}</div>`;
-                } else {
-                    modeBar += `<div class="grid2">${F.text('imageGroup.labelField', 'Label field key', ig.labelField || '', 'placeholder="name"')}${F.text('imageGroup.subField', 'Subtitle field key', ig.subField || '', 'placeholder="role"')}</div>`;
-                }
-                modeBar += `<div class="grid2">${F.select('imageGroup.labelPosition', 'Label placement', ig.labelPosition || 'below', [
-                    ['below', 'Below avatar'],
-                    ['right', 'Beside avatar'],
-                    ['inside-bottom', 'Overlay bottom']
-                ])}${F.number('imageGroup.labelSize', 'Label size (0 = auto)', ig.labelSize ?? 0, { min: 0, max: 72 })}</div>`;
-                modeBar += F.color('imageGroup.labelColor', 'Label text color', ig.labelColor || '', { clear: true, clearValue: '', clearLabel: 'Auto' });
-                modeBar += F.color('imageGroup.labelBg', 'Label badge background', ig.labelBg || 'transparent', { clear: true });
-                if (layout !== 'overlap') {
-                    modeBar += F.text('imageGroup.delimiter', 'Delimiter between items', ig.delimiter || '', 'placeholder="Optional, e.g. • or |" maxlength="20"');
-                    if (ig.delimiter) {
-                        modeBar += F.color('imageGroup.delimiterColor', 'Delimiter color', ig.delimiterColor || '', { clear: true, clearValue: '', clearLabel: 'Auto' });
-                    }
-                }
-            }
-            modeBar += '<p class="hint">Renders active Variable Set entries toggled <strong>In Group</strong> — zero empty slots.</p>';
-            return modeBar;
+        let body = '<div class="sub-head">Roster &amp; Filtering</div>';
+        body += sets.length
+            ? F.select('imageGroup.setId', 'Variable Set', setId, [['', 'Choose a set…'], ...setOptions])
+            : '<p class="hint">Create a Variable Set in Variables &amp; Placeholders and toggle entries <strong>In Group</strong> to populate this strip.</p>';
+        if (sets.length) {
+            body += F.select('imageGroup.imageField', 'Avatar / image field', ig.imageField || 'image', imageFieldOpts);
+        } else {
+            body += F.text('imageGroup.setId', 'Variable Set ID', setId, 'placeholder="e.g. guests"');
+            body += F.text('imageGroup.imageField', 'Image field key', ig.imageField || 'image', 'placeholder="image"');
         }
-        var imageModeHeader = modeBar;
+        body += F.check('imageGroup.onlySelected', 'Filter to selected roster entry only', ig.onlySelected === true);
+        body += F.select('imageGroup.fallbackMode', 'Missing images', ig.fallbackMode || 'skip', [
+            ['skip', 'Skip entries without images'],
+            ['initials', 'Show initials badge']
+        ]);
+        body += `<div class="grid2">${F.select('imageGroup.sortOrder', 'Order', ig.sortOrder || 'roster', [
+            ['roster', 'Roster order'],
+            ['reverse', 'Reversed'],
+            ['alpha', 'Alphabetical (A–Z)']
+        ])}${F.number('imageGroup.maxItems', 'Max shown (0 = all)', maxItems, { min: 0, max: 60 })}</div>`;
+        if (maxItems > 0) {
+            body += F.check('imageGroup.showOverflowBadge', 'Show +N overflow badge when capped', ig.showOverflowBadge !== false);
+        }
+
+        body += '<div class="sub-head">Member Text &amp; Fields</div>';
+        body += F.check('imageGroup.showLabels', 'Show member fields', ig.showLabels === true);
+        if (ig.showLabels) {
+            if (fields.length) {
+                body += `<div class="grid2">${F.select('imageGroup.labelField', 'Primary field', ig.labelField || '', labelFieldOpts)}${F.select('imageGroup.subField', 'Secondary field', ig.subField || '', subFieldOpts)}</div>`;
+            } else {
+                body += `<div class="grid2">${F.text('imageGroup.labelField', 'Primary field key', ig.labelField || '', 'placeholder="name"')}${F.text('imageGroup.subField', 'Secondary field key', ig.subField || '', 'placeholder="role"')}</div>`;
+            }
+            if (activeFields.length) {
+                body += `<div class="ig-field-summary" id="ig-fields-summary">${activeFields.map((f, idx) => `<div class="ig-field-pill"><span class="ig-fp-role">${esc(IG_ROLE_LABELS[f.role] || f.role)}</span><span class="ig-fp-key" title="${esc(f.key)}">${esc(f.key)}</span>${f.inline ? '<span class="ig-fp-inline">inline</span>' : ''}<button type="button" data-ig-quick-remove="${idx}" title="Remove field" aria-label="Remove ${esc(f.key)}">${IG_SVG_REMOVE}</button></div>`).join('')}</div>`;
+            }
+            body += `<div class="ig-actions-row"><button type="button" id="btn-ig-add-field">+ Add Field</button><button type="button" id="open-ig-fields-modal">Fields &amp; Arrange…</button></div>`;
+        }
+        body += F.text('imageGroup.delimiter', 'Delimiter between members', ig.delimiter || '', 'placeholder="Optional, e.g. • or |" maxlength="20"');
+        body += '<p class="hint">Renders Variable Set members toggled <strong>In Group</strong> — zero empty slots. Customize typography &amp; animations under Style, and layout &amp; gaps under Layout.</p>';
+        return body;
     }
+
     const tab = currentMediaTab(el);
-    let body = (typeof imageModeHeader === 'string' ? imageModeHeader : '') + tabBar('Source', 'data-media-tab', tab, [['library', 'Library & upload'], ['file', 'File on computer'], ['url', 'Web URL']]);
+    let body = tabBar('Source', 'data-media-tab', tab, [['library', 'Library & upload'], ['file', 'File on computer'], ['url', 'Web URL']]);
     if (tab === 'file') {
         body += `<div class="field"><span>File path</span><span class="upload-row"><input id="media-path" value="${esc(localMediaPath(el.src))}" placeholder="/Users/you/Pictures/logo.png" spellcheck="false"><button type="button" id="media-browse">Browse…</button></span><span class="hint">Uses the ${el.type === 'pattern' ? 'image' : el.type} in place, with nothing uploaded. If you move or delete it, the overlay shows nothing.</span></div>`;
         if ((el.type === 'image' || el.type === 'pattern') && el.src) body += `<img class="asset-preview" src="${esc(el.src)}" alt="Preview" onerror="this.style.display='none'">`;
@@ -680,6 +649,230 @@ export function mediaSourceBlock(el) {
         }
     }
     return body;
+}
+
+export function imageGroupLayoutSection(el) {
+    if (!isImageGroup(el)) return '';
+    const ig = el.imageGroup || {};
+    const st = el.style || {};
+    const layout = ig.layout || 'row';
+    const wrappable = layout === 'row' || layout === 'chips' || layout === 'cards';
+    const gapVal = ig.gap ?? 10;
+
+    let body = F.select('imageGroup.layout', 'Layout style', layout, [
+        ['row', 'Row strip'],
+        ['column', 'Vertical stack'],
+        ['grid', 'Wrap grid'],
+        ['cards', 'Member cards'],
+        ['banners', 'Nameplate banners'],
+        ['chips', 'Capsule chips'],
+        ['stagger', 'Staggered wave'],
+        ['spotlight', 'Spotlight lead + crew'],
+        ['overlap', 'Overlapping avatar stack']
+    ]);
+    if (layout === 'grid') {
+        body += F.number('imageGroup.columns', 'Grid columns (0 = auto)', ig.columns ?? 0, { min: 0, max: 12 });
+    } else if (wrappable) {
+        body += F.check('imageGroup.wrap', 'Wrap items onto multiple rows', ig.wrap === true);
+        if (ig.wrap) {
+            body += F.number('imageGroup.columns', 'Max columns per row (0 = auto)', ig.columns ?? 0, { min: 0, max: 12 });
+        }
+    } else if (layout === 'stagger') {
+        body += F.number('imageGroup.staggerOffset', 'Stagger wave offset (px)', ig.staggerOffset ?? 18, { min: 0, max: 80, step: 2 });
+    } else if (layout === 'spotlight') {
+        body += F.number('imageGroup.spotlightScale', 'Lead scale (×)', ig.spotlightScale ?? 1.35, { min: 1.1, max: 2.0, step: 0.05 });
+    } else if (layout === 'overlap') {
+        body += F.number('imageGroup.overlap', 'Overlap amount (px)', ig.overlap ?? 16, { min: 4, max: 60, step: 2 });
+    }
+
+    body += '<div class="sub-head">Avatar Size &amp; Ratio</div>';
+    body += `<div class="grid2">${F.number('imageGroup.size', 'Image size (px)', ig.size ?? 56, { min: 16, max: 400, step: 2 })}${F.select('imageGroup.aspectRatio', 'Frame ratio', ig.aspectRatio || '1:1', [
+        ['1:1', 'Square (1:1)'],
+        ['4:3', 'Wide (4:3)'],
+        ['16:9', 'Cinema (16:9)'],
+        ['3:4', 'Portrait (3:4)'],
+        ['21:9', 'Banner (21:9)']
+    ])}</div>`;
+
+    body += '<div class="sub-head">Spacing &amp; Gaps</div>';
+    body += `<div class="grid2">${layout === 'overlap' ? '<span></span>' : F.number('imageGroup.gap', 'Item gap (px)', gapVal, { min: 0, max: 80, step: 2 })}${F.number('imageGroup.rowGap', 'Row gap (px)', ig.rowGap ?? gapVal, { min: 0, max: 120, step: 2 })}</div>`;
+    if (ig.showLabels) {
+        body += `<div class="grid2">${F.number('imageGroup.innerGap', 'Avatar to text gap', ig.innerGap ?? 8, { min: 0, max: 60, step: 1 })}${F.number('imageGroup.fieldGap', 'Field line gap', ig.fieldGap ?? 2, { min: 0, max: 40, step: 1 })}</div>`;
+        body += '<div class="sub-head">Text Placement</div>';
+        body += `<div class="grid2">${F.select('imageGroup.labelPosition', 'Placement', ig.labelPosition || 'below', IG_PLACEMENTS)}${F.select('imageGroup.textAlign', 'Text align', ig.textAlign || 'auto', IG_TEXT_ALIGNS)}</div>`;
+    }
+
+    body += '<div class="sub-head">Strip Alignment in Box</div>';
+    body += `<div class="grid2">${F.seg('style.textAlign', 'Align X', st.textAlign || 'left', [['left', 'Align left', ICON.textLeft], ['center', 'Center', ICON.textCenter], ['right', 'Align right', ICON.textRight]])}${F.seg('style.verticalAlign', 'Align Y', st.verticalAlign || 'top', [['top', 'Align top', ICON.vTop], ['middle', 'Middle', ICON.vMiddle], ['bottom', 'Align bottom', ICON.vBottom]])}</div>`;
+    return F.section('igLayout', 'Group strip layout & spacing', body);
+}
+
+export function imageGroupStyleSections(el) {
+    if (!isImageGroup(el)) return '';
+    const ig = el.imageGroup || {};
+    const layout = ig.layout || 'row';
+    const shape = ig.shape || 'rounded';
+    const avBorderW = Number(ig.avatarBorderWidth) || 0;
+    const isPolyShape = shape === 'hexagon' || shape === 'diamond' || shape === 'octagon';
+
+    let avBody = `<div class="grid2">${F.select('imageGroup.shape', 'Avatar shape', shape, [
+        ['rounded', 'Rounded'],
+        ['circle', 'Circle'],
+        ['squircle', 'Squircle'],
+        ['octagon', 'Octagon'],
+        ['hexagon', 'Hexagon'],
+        ['diamond', 'Diamond'],
+        ['square', 'Square']
+    ])}${shape === 'rounded' ? F.number('imageGroup.avatarRadius', 'Corner radius (px)', ig.avatarRadius ?? 10, { min: 0, max: 100 }) : '<span></span>'}</div>`;
+    avBody += `<div class="grid2">${F.number('imageGroup.avatarBorderWidth', 'Avatar border (px)', avBorderW, { min: 0, max: 12 })}${F.number('imageGroup.avatarShadow', 'Avatar shadow (px)', ig.avatarShadow ?? 0, { min: 0, max: 40 })}</div>`;
+    if (avBorderW > 0 || layout === 'overlap') {
+        avBody += F.select('imageGroup.avatarBorderStyle', 'Avatar border style', ig.avatarBorderStyle || 'solid', BORDER_STYLE_OPTIONS);
+        avBody += F.color('imageGroup.avatarBorderColor', 'Avatar border color', ig.avatarBorderColor || 'rgba(255,255,255,0.28)');
+        if (isPolyShape) {
+            avBody += '<p class="hint">Polygon shapes use clean SVG contour outlines; choose rounded, square, or circle for full 21-style border patterns.</p>';
+        }
+    }
+    if (ig.fallbackMode === 'initials') {
+        avBody += F.color('imageGroup.avatarBg', 'Initials badge color', ig.avatarBg || '#1e293b');
+    }
+
+    const layoutAutoFrames = layout === 'cards' || layout === 'chips' || layout === 'banners';
+    const isFramed = ig.cardFrame === true || layoutAutoFrames;
+    const cardBW = Number(ig.cardBorderWidth ?? 1) || 0;
+    let cardBody = F.check('imageGroup.cardFrame', 'Frame each member in a card / plate', isFramed);
+    if (layoutAutoFrames) {
+        cardBody += `<p class="hint">${layout === 'banners' ? 'Banners' : layout === 'chips' ? 'Capsule chips' : 'Member cards'} automatically frame each member.</p>`;
+    }
+    if (isFramed) {
+        cardBody += F.color('imageGroup.cardBg', layout === 'chips' ? 'Chip background' : 'Card background', ig.cardBg || 'rgba(15,23,42,0.78)', { clear: true });
+        cardBody += `<div class="grid2">${F.number('imageGroup.cardBorderWidth', 'Card border (px)', cardBW, { min: 0, max: 16 })}${F.number('imageGroup.cardRadius', 'Corner radius (px)', ig.cardRadius ?? 12, { min: 0, max: 999 })}</div>`;
+        if (cardBW > 0) {
+            cardBody += F.select('imageGroup.cardBorderStyle', 'Card border style', ig.cardBorderStyle || 'solid', BORDER_STYLE_OPTIONS);
+            cardBody += F.color('imageGroup.cardBorderColor', 'Card border color', ig.cardBorderColor || 'rgba(255,255,255,0.16)');
+        }
+        cardBody += `<div class="grid2">${F.number('imageGroup.cardPaddingX', 'Card pad X (px)', ig.cardPaddingX ?? ig.cardPadding ?? 8, { min: 0, max: 64 })}${F.number('imageGroup.cardPaddingY', 'Card pad Y (px)', ig.cardPaddingY ?? ig.cardPadding ?? 8, { min: 0, max: 64 })}</div>`;
+        cardBody += F.number('imageGroup.cardShadow', 'Card shadow (px)', ig.cardShadow ?? 0, { min: 0, max: 48 });
+    }
+
+    let lblBody = '';
+    if (ig.showLabels) {
+        lblBody += F.number('imageGroup.labelSize', 'Size override px (0 = Typography)', ig.labelSize ?? 0, { min: 0, max: 72 });
+        lblBody += `<div class="grid2">${F.color('imageGroup.labelColor', 'Primary color', ig.labelColor || '', { clear: true, clearValue: '', clearLabel: 'Auto' })}${F.color('imageGroup.subColor', 'Secondary color', ig.subColor || '', { clear: true, clearValue: '', clearLabel: 'Auto' })}</div>`;
+        lblBody += F.color('imageGroup.labelBg', 'Text block background', ig.labelBg || 'transparent', { clear: true });
+        lblBody += `<div class="grid2">${F.color('imageGroup.badgeBg', 'Badge pill bg', ig.badgeBg || 'rgba(56,189,248,0.16)', { clear: true })}${F.color('imageGroup.badgeColor', 'Badge pill text', ig.badgeColor || '#38bdf8', { clear: true, clearValue: '', clearLabel: 'Auto' })}</div>`;
+    }
+    lblBody += F.check('imageGroup.showStatusDot', 'Show accent status dot on frame', ig.showStatusDot === true);
+    if (ig.delimiter && layout !== 'overlap') {
+        lblBody += F.color('imageGroup.delimiterColor', 'Delimiter color', ig.delimiterColor || '', { clear: true, clearValue: '', clearLabel: 'Auto' });
+    }
+
+    return F.section('igAvatar', 'Avatar frames', avBody)
+        + F.section('igCards', 'Member cards & plates', cardBody)
+        + F.section('igTextStyle', 'Labels, badges & delimiters', lblBody);
+}
+
+const IMAGE_GROUP_ARRANGEMENT_PRESETS = {
+    stack: { layout: 'row', cardFrame: false, showLabels: true, labelPosition: 'below', textAlign: 'center', delimiter: '', innerGap: 8, fieldGap: 2 },
+    'card-grid': { layout: 'grid', columns: 3, cardFrame: true, showLabels: true, labelPosition: 'below', textAlign: 'center', delimiter: '', cardPaddingX: 12, cardPaddingY: 12, innerGap: 8, fieldGap: 3 },
+    'lower-banners': { layout: 'banners', cardFrame: true, showLabels: true, labelPosition: 'right', textAlign: 'left', delimiter: '', cardPaddingX: 14, cardPaddingY: 10, innerGap: 12, fieldGap: 2 },
+    'split-hud': { layout: 'cards', cardFrame: true, showLabels: true, labelPosition: 'split', textAlign: 'center', delimiter: '', innerGap: 8, fieldGap: 2 },
+    'inline-roster': { layout: 'row', wrap: true, cardFrame: false, showLabels: true, labelPosition: 'below', textAlign: 'center', delimiter: '•', gap: 14 },
+    'overlay-tags': { layout: 'row', cardFrame: false, showLabels: true, labelPosition: 'inside-bottom', textAlign: 'center', delimiter: '' }
+};
+
+export function applyImageGroupPreset(el, presetName) {
+    if (!isImageGroup(el)) return false;
+    const preset = IMAGE_GROUP_ARRANGEMENT_PRESETS[presetName];
+    if (!preset) return false;
+    el.imageGroup = { ...(el.imageGroup || {}), ...preset };
+    return true;
+}
+
+export function renderImageGroupFieldsModal() {
+    const dlg = $('ig-fields-dialog');
+    if (!dlg) return;
+    const el = primary();
+    if (!isImageGroup(el)) return;
+    const ig = el.imageGroup || {};
+    const { fields } = imageGroupFieldMeta(ig);
+    const list = resolveImageGroupFields(ig);
+
+    const placeHost = $('ig-modal-placement');
+    if (placeHost) {
+        placeHost.innerHTML = `<label>Label placement<select id="ig-modal-pos">${IG_PLACEMENTS.map(([v, l]) => `<option value="${esc(v)}"${(ig.labelPosition || 'below') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+            <label>Text alignment<select id="ig-modal-align">${IG_TEXT_ALIGNS.map(([v, l]) => `<option value="${esc(v)}"${(ig.textAlign || 'auto') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`;
+    }
+
+    const host = $('ig-fields-list');
+    if (host) {
+        const hexOr = (val, fallback) => /^#[0-9a-f]{6}$/i.test(val) ? val : fallback;
+        host.innerHTML = list.length ? list.map((f, idx) => {
+            const setHasKey = fields.some(sf => sf.key === f.key);
+            const keyOptions = fields.length
+                ? [...fields.map(sf => [sf.key, `${sf.label} (${sf.key})`]), ...(setHasKey ? [] : [[f.key, `${f.key} (custom)`]])]
+                : [[f.key, f.key]];
+            return `<div class="ig-field-row" data-ig-field-idx="${idx}">
+                <div class="ig-field-row-top">
+                    <label>Field${fields.length
+                        ? `<select data-ig-fprop="key">${keyOptions.map(([v, l]) => `<option value="${esc(v)}"${v === f.key ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`
+                        : `<input type="text" data-ig-fprop="key" value="${esc(f.key)}" placeholder="field_key" maxlength="40">`}</label>
+                    <label>Role<select data-ig-fprop="role">${IMAGE_GROUP_FIELD_ROLES.map(r => `<option value="${esc(r)}"${r === f.role ? ' selected' : ''}>${esc(IG_ROLE_LABELS[r] || r)}</option>`).join('')}</select></label>
+                    <label class="ig-field-inline-chk"><input type="checkbox" data-ig-fprop="inline"${f.inline ? ' checked' : ''}> Inline</label>
+                    <button type="button" data-ig-move="up" data-idx="${idx}" title="Move up"${idx === 0 ? ' disabled' : ''}>${IG_SVG_UP}</button>
+                    <button type="button" data-ig-move="down" data-idx="${idx}" title="Move down"${idx === list.length - 1 ? ' disabled' : ''}>${IG_SVG_DOWN}</button>
+                    <button type="button" data-ig-remove="${idx}" title="Remove field" aria-label="Remove field">${IG_SVG_REMOVE}</button>
+                </div>
+                <div class="ig-field-row-bot">
+                    <label>Prefix<input type="text" data-ig-fprop="prefix" value="${esc(f.prefix || '')}" placeholder="e.g. @" maxlength="24"></label>
+                    <label>Suffix<input type="text" data-ig-fprop="suffix" value="${esc(f.suffix || '')}" placeholder="e.g. pts" maxlength="24"></label>
+                    <label>Size %<input type="number" data-ig-fprop="sizeScale" value="${esc(f.sizeScale ?? 100)}" min="50" max="200" step="5"></label>
+                    <label>Text color<span class="ig-color-mini"><input type="color" data-ig-fcolor="color" value="${esc(hexOr(f.color, '#ffffff'))}" aria-label="Field color picker"><input type="text" data-ig-fprop="color" value="${esc(f.color || '')}" placeholder="Auto" maxlength="40" spellcheck="false"></span></label>
+                    <label>Pill bg<span class="ig-color-mini"><input type="color" data-ig-fcolor="bgColor" value="${esc(hexOr(f.bgColor, '#0ea5e9'))}" aria-label="Field badge bg picker"><input type="text" data-ig-fprop="bgColor" value="${esc(f.bgColor || '')}" placeholder="None" maxlength="40" spellcheck="false"></span></label>
+                </div>
+            </div>`;
+        }).join('') : '<p class="hint">No fields configured yet. Click <strong>+ Add Field</strong> below or apply an Arrangement Preset above.</p>';
+    }
+
+    const cnt = $('ig-fields-count');
+    if (cnt) cnt.textContent = `${list.length} / 10 fields active`;
+    const addBtn = $('ig-add-field-btn');
+    if (addBtn) addBtn.disabled = list.length >= 10;
+}
+
+export function mutateImageGroupFields(el, mutator) {
+    if (!isImageGroup(el)) return false;
+    const ig = el.imageGroup || (el.imageGroup = defaultImageGroupConfig());
+    const list = resolveImageGroupFields(ig).map(f => ({ ...f }));
+    const next = mutator(list, ig);
+    ig.fields = (Array.isArray(next) ? next : list)
+        .map((f, idx) => normalizeGroupFieldItem(f, idx))
+        .filter(Boolean)
+        .slice(0, 10);
+    syncLegacyGroupFields(ig);
+    return true;
+}
+
+export function addNextImageGroupField(el) {
+    return mutateImageGroupFields(el, (fields, ig) => {
+        if (fields.length >= 10) return fields;
+        const { fields: setFields } = imageGroupFieldMeta(ig);
+        const used = new Set(fields.map(f => f.key));
+        const candidate = setFields.find(sf => sf.type !== 'image' && sf.type !== 'url' && !used.has(sf.key))
+            || setFields.find(sf => sf.type !== 'image' && sf.type !== 'url')
+            || setFields[0];
+        const key = candidate?.key || `field_${fields.length + 1}`;
+        const role = fields.length === 0 ? 'title' : fields.length === 1 ? 'subtitle' : 'badge';
+        ig.showLabels = true;
+        return [...fields, { key, role, inline: role === 'badge', prefix: '', suffix: '', sizeScale: 100, color: '', bgColor: '' }];
+    });
+}
+
+export function openImageGroupFieldsModal() {
+    const dlg = $('ig-fields-dialog');
+    if (!dlg || !isImageGroup(primary())) return;
+    renderImageGroupFieldsModal();
+    if (typeof dlg.showModal === 'function' && !dlg.open) dlg.showModal();
+    else dlg.setAttribute('open', '');
 }
 
 export function sourceStatusText(el) {
@@ -1833,11 +2026,12 @@ export function renderProperties() {
         const el = previewAlertElement(base);
         const specific = { 'random-text': randomSection, progress: progressSection, poll: pollSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection, pattern: patternSection, 'procedural-pattern': proceduralPatternSection, 'speaker-badge': speakerBadgeSection }[el.type];
         content = contentSection(base) + (specific ? specific(el.type === 'alert' ? base : el) : '');
-        layout = layoutSection(base) + scaleSection(items) + obsLinkSection(base);
+        layout = layoutSection(base) + (isImageGroup(base) ? imageGroupLayoutSection(base) : '') + scaleSection(items) + obsLinkSection(base);
         const isProcedural = el.type === 'procedural-pattern' || (el.type === 'pattern' && el.pattern?.sourceType === 'preset');
         style = stylePresetsSection(base, false)
             + (el.type === 'alert' ? alertLooksSection(base) + alertSection(el, true) : '')
             + (el.type === 'icon' ? iconEffectsSection(el) : '') + (hasText(el) ? typographySection(el) : '')
+            + (isImageGroup(base) ? imageGroupStyleSections(base) : '')
             + (isProcedural ? effectsSection(el) + filterSection(el) : (el.type !== 'cutout' ? fillSection(el) + effectsSection(el) + filterSection(el) : ''));
     }
     root.dataset.inspectorKey = key;
@@ -2282,15 +2476,64 @@ export function initInspectorEvents() {
                 }
                 renderCanvas();
             }
-            if (path === 'imageGroup.layout') {
+            if (path === 'imageGroup.setId') {
                 for (const el of selectedElements()) {
-                    if (el.imageGroup && (el.imageGroup.layout === 'cards' || el.imageGroup.layout === 'chips')) {
-                        el.imageGroup.showLabels = true;
+                    if (!isImageGroup(el)) continue;
+                    const ig = el.imageGroup;
+                    const { setObj, fields: setFields } = imageGroupFieldMeta(ig);
+                    if (setObj && setFields.length) {
+                        if (!setFields.some(f => f.key === ig.imageField)) {
+                            const imgF = setFields.find(f => f.type === 'image' || f.type === 'url');
+                            if (imgF) ig.imageField = imgF.key;
+                        }
+                        if (!ig.fields?.length) {
+                            const txtF = setFields.find(f => f.type !== 'image' && f.type !== 'url');
+                            if (txtF) {
+                                ig.fields = [normalizeGroupFieldItem({ key: txtF.key, role: 'title' }, 0)];
+                                syncLegacyGroupFields(ig);
+                            }
+                        }
                     }
                 }
                 renderCanvas();
             }
-            if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderRadiusCorners.enabled' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.borderAnimation.mode' || path === 'style.shadow.blur' || path === 'style.innerShadow.blur' || path === 'style.innerShadow.spread' || path === 'style.textAnimation.type' || path === 'imageGroup.setId' || path === 'imageGroup.showLabels' || path === 'imageGroup.layout' || path === 'imageGroup.fallbackMode' || path === 'imageGroup.maxItems' || path === 'imageGroup.avatarBorderWidth' || path === 'imageGroup.cardBorderWidth') renderProperties();
+            if (path === 'imageGroup.layout') {
+                for (const el of selectedElements()) {
+                    if (el.imageGroup && (el.imageGroup.layout === 'cards' || el.imageGroup.layout === 'chips' || el.imageGroup.layout === 'banners')) {
+                        el.imageGroup.showLabels = true;
+                        if (el.imageGroup.layout === 'banners') el.imageGroup.cardFrame = true;
+                    }
+                }
+                renderCanvas();
+            }
+            if (path === 'imageGroup.labelField' || path === 'imageGroup.subField') {
+                for (const el of selectedElements()) {
+                    if (!isImageGroup(el)) continue;
+                    const ig = el.imageGroup;
+                    const list = resolveImageGroupFields(ig).map(f => ({ ...f }));
+                    if (path === 'imageGroup.labelField') {
+                        if (ig.labelField) {
+                            if (list[0]) list[0].key = ig.labelField;
+                            else list.unshift(normalizeGroupFieldItem({ key: ig.labelField, role: 'title' }, 0));
+                        } else if (list.length > 0 && list[0].key !== ig.subField) {
+                            list.shift();
+                        }
+                    } else {
+                        if (ig.subField) {
+                            if (list[1]) list[1].key = ig.subField;
+                            else list.push(normalizeGroupFieldItem({ key: ig.subField, role: 'subtitle' }, 1));
+                        } else if (list.length > 1) {
+                            list.splice(1, 1);
+                        }
+                    }
+                    ig.fields = list.map((f, idx) => normalizeGroupFieldItem(f, idx)).filter(Boolean).slice(0, 10);
+                    syncLegacyGroupFields(ig);
+                }
+                renderCanvas();
+                if (event?.target?.tagName === 'SELECT' || event?.type === 'change') renderProperties();
+            }
+            if (path === 'imageGroup.delimiter' && event?.type === 'change') renderProperties();
+            if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderRadiusCorners.enabled' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.borderAnimation.mode' || path === 'style.shadow.blur' || path === 'style.innerShadow.blur' || path === 'style.innerShadow.spread' || path === 'style.textAnimation.type' || path === 'imageGroup.setId' || path === 'imageGroup.onlySelected' || path === 'imageGroup.showLabels' || path === 'imageGroup.layout' || path === 'imageGroup.shape' || path === 'imageGroup.wrap' || path === 'imageGroup.fallbackMode' || path === 'imageGroup.maxItems' || path === 'imageGroup.avatarBorderWidth' || path === 'imageGroup.cardFrame' || path === 'imageGroup.cardBorderWidth') renderProperties();
             if (path === 'speakerBadge.layout') {
                 const el = primary();
                 if (el?.speakerBadge) {
@@ -2645,6 +2888,28 @@ export function initInspectorEvents() {
                 }
                 return;
             }
+            if (target.closest('#btn-ig-add-field')) {
+                if (addNextImageGroupField(primary())) {
+                    renderCanvas();
+                    renderProperties();
+                    changed(true);
+                }
+                return;
+            }
+            if (target.closest('#open-ig-fields-modal')) {
+                openImageGroupFieldsModal();
+                return;
+            }
+            const quickRm = target.closest('[data-ig-quick-remove]');
+            if (quickRm) {
+                const idx = Number(quickRm.dataset.igQuickRemove);
+                if (Number.isInteger(idx) && mutateImageGroupFields(primary(), list => list.filter((_, i) => i !== idx))) {
+                    renderCanvas();
+                    renderProperties();
+                    changed(true);
+                }
+                return;
+            }
             if (await handleStylePresetClick(target, { selectedElements, primary, renderCanvas, renderProperties, changed })) return;
             const boxShadowPreset = target.closest('[data-box-shadow-preset]');
             if (boxShadowPreset) {
@@ -2681,18 +2946,6 @@ export function initInspectorEvents() {
                 renderCanvas();
                 renderProperties();
                 changed(true);
-                return;
-            }
-            const imgModeBtn = target.closest('[data-image-mode]');
-            if (imgModeBtn) {
-                const el = primary();
-                if (el && el.type === 'image') {
-                    const enabled = imgModeBtn.dataset.imageMode === 'group';
-                    el.imageGroup = defaultImageGroupConfig(null, el.imageGroup, enabled);
-                    renderCanvas();
-                    renderProperties();
-                    changed(true);
-                }
                 return;
             }
             const tab = target.closest('[data-media-tab]');
@@ -2907,6 +3160,89 @@ export function initInspectorEvents() {
             renderProperties();
             changed(true);
         });
+    }
+
+    const igDlg = $('ig-fields-dialog');
+    if (igDlg) {
+        const refreshIgAll = (commit, reModal = false) => {
+            renderCanvas();
+            renderProperties();
+            if (reModal) renderImageGroupFieldsModal();
+            changed(commit);
+        };
+        igDlg.addEventListener('click', event => {
+            const target = event.target.closest('button');
+            if (!target) return;
+            if (target.id === 'ig-fields-close') {
+                if (typeof igDlg.close === 'function') igDlg.close();
+                else igDlg.removeAttribute('open');
+                return;
+            }
+            const el = primary();
+            if (!isImageGroup(el)) return;
+            const presetBtn = target.closest('[data-ig-preset]');
+            if (presetBtn && applyImageGroupPreset(el, presetBtn.dataset.igPreset)) {
+                refreshIgAll(true, true);
+                return;
+            }
+            if (target.id === 'ig-add-field-btn') {
+                if (addNextImageGroupField(el)) refreshIgAll(true, true);
+                return;
+            }
+            const moveBtn = target.closest('[data-ig-move]');
+            if (moveBtn) {
+                const idx = Number(moveBtn.dataset.idx);
+                const dir = moveBtn.dataset.igMove === 'up' ? -1 : 1;
+                mutateImageGroupFields(el, list => {
+                    const swap = idx + dir;
+                    if (swap < 0 || swap >= list.length) return list;
+                    [list[idx], list[swap]] = [list[swap], list[idx]];
+                    return list;
+                });
+                refreshIgAll(true, true);
+                return;
+            }
+            const rmBtn = target.closest('[data-ig-remove]');
+            if (rmBtn) {
+                const idx = Number(rmBtn.dataset.igRemove);
+                mutateImageGroupFields(el, list => list.filter((_, i) => i !== idx));
+                refreshIgAll(true, true);
+            }
+        });
+        const onIgModalFieldEdit = event => {
+            const el = primary();
+            if (!isImageGroup(el)) return;
+            const t = event.target;
+            if (t.id === 'ig-modal-pos') {
+                el.imageGroup.labelPosition = t.value;
+                refreshIgAll(true, false);
+                return;
+            }
+            if (t.id === 'ig-modal-align') {
+                el.imageGroup.textAlign = t.value;
+                refreshIgAll(true, false);
+                return;
+            }
+            const row = t.closest('[data-ig-field-idx]');
+            if (!row) return;
+            const idx = Number(row.dataset.igFieldIdx);
+            const fColorProp = t.dataset.igFcolor;
+            const prop = fColorProp || t.dataset.igFprop;
+            if (!prop) return;
+            if (fColorProp) {
+                const pairedText = row.querySelector(`input[data-ig-fprop="${fColorProp}"]`);
+                if (pairedText) pairedText.value = t.value;
+            }
+            mutateImageGroupFields(el, list => {
+                if (!list[idx]) return list;
+                const val = t.type === 'checkbox' ? t.checked : (prop === 'sizeScale' ? Number(t.value) || 100 : t.value);
+                list[idx][prop] = val;
+                return list;
+            });
+            refreshIgAll(event.type === 'change', false);
+        };
+        igDlg.addEventListener('input', onIgModalFieldEdit);
+        igDlg.addEventListener('change', onIgModalFieldEdit);
     }
 
     if (pacEl) {

@@ -477,8 +477,8 @@ function buildBorderMaskSvg(borderStyle, width, rw, rh, style, element, outset) 
         const innerRail = `<path d="${svgInsetRimPath(W, H, Math.max(0, w - railW), railW, radii)}" fill="#fff" fill-opacity="0.45" fill-rule="evenodd"/>`;
         return {
             useBoxMask: false,
-            svg: wrapSvg(`<clipPath id="rim"><path d="${rim}" fill-rule="evenodd"/></clipPath>${patDef}`,
-                `<path d="${rim}" fill="#fff" fill-opacity="0.2" fill-rule="evenodd"/><rect width="${W}" height="${H}" fill="url(#p)" clip-path="url(#rim)"/>${innerRail}`)
+            svg: wrapSvg(patDef,
+                `<path d="${rim}" fill="#fff" fill-opacity="0.2" fill-rule="evenodd"/><path d="${rim}" fill="url(#p)" fill-rule="evenodd"/>${innerRail}`)
         };
     } else if (borderStyle === 'ornate-filigree') {
         const ow = Math.max(1.5, +(w * 0.42).toFixed(2)), iw = Math.max(1, +(w * 0.22).toFixed(2));
