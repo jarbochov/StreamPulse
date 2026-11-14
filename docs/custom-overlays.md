@@ -137,7 +137,7 @@ Ordinary variables at `/placeholders.html#variables` support inline value editin
 
 Rename a group in **Manage members**. Variable names, values and overlay bindings stay unchanged, and the current filtered URL updates. Existing group names cannot be merged by renaming; bookmarked links must use the new name.
 
-When enabled, Variable Sets (managed in **Tools → Placeholders → Sets** at `/placeholders.html#sets`) act as reusable multi-field rosters (`text`, `image`, `color`, `toggle`) powering custom overlay tokens:
+When enabled, Variable Sets (managed in **Tools → Placeholders → Sets** at `/placeholders.html#sets`) act as reusable multi-field rosters (`text`, `image`, `color`, `toggle`) powering custom overlay tokens. See the **[Custom Variables & Variable Sets Guide](variables-guide.md)** for full setup instructions, token syntax, Member Badge Builder presets, and Companion automation:
 
 - **Slotless Presets (`0` slots) vs. Multi-Slot Channels (`1+` slots)**:
   - `0` slots acts as a single active preset switcher (`{{var.<id>_<field>}}`, `{{var.<id>_active}}`).

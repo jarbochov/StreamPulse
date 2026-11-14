@@ -6,6 +6,8 @@ Some nights need a polished scene. Others need a quick countdown or a way to let
 
 **[Custom Overlay Studio](custom-overlays.md)** brings text, images, video, voice-reactive speaker badges, and live information into a visual editor. Keep starting, gameplay, and break layouts together with pages, or add a single element to your existing OBS scene.
 
+**[Custom Variables & Variable Sets](variables-guide.md)** power live counters, dynamic text templates, variable colors, and multi-field squad/guest rosters with rotating spotlights and Group Image Strips.
+
 **[Ready-to-use overlays](overlay-wizards.md)** get a timer, community goal, game schedule, or music display on screen without building a whole layout. Apple Music and VLC displays depend on your player and setup.
 
 **[Promo Creator](promo-creator.md)** carries your channel's look beyond OBS. Make stream announcements in square, landscape, and portrait formats, with still-image and animated exports.

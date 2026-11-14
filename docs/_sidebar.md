@@ -6,6 +6,7 @@
 
 * **Make it your show**
   * [Custom Overlays](custom-overlays.md)
+  * [Variables & Sets](variables-guide.md)
   * [Promos & Announcements](promo-creator.md)
   * [Game Nights & Planning](game-plan-guide.md)
   * [Tier Lists & Chat Voting](tier-list-guide.md)

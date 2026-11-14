@@ -546,7 +546,7 @@ const dummyStatus = {
     obs: { enabled: true, connected: true, sceneSyncEnabled: false },
     viewers: { live: true, current: 42, peak: 58, average: 36, source: 'twitch' },
     modules: { chatbot: true, clips: true, weather: true, music: true,
-        hashtags: true, polls: true, versus: true, obs: true },
+        hashtags: true, polls: true, versus: true, obs: true, variableSets: true },
     goals: { enabled: 3, completed: 1 },
     goalMetrics: { persistent: { subscribers: 128, followers: 640 },
         session: { subscribers: 3, followers: 5, gift_subs: 2, bits: 500, donations: 12 } },
@@ -568,8 +568,54 @@ const dummyStatus = {
     poll: dummyActivePoll, matchup: dummyMatchup, tournament: dummyTournament, pollTournament: dummyPollTournament,
     gamePlan: { playingNowId: 'fixture-game',
         playingNow: { id: 'fixture-game', name: 'Demo Adventure', category: 'Demo Adventure', notes: '' },
-        scheduledCount: 2 }
+        scheduledCount: 2 },
+    variableSets: null
 };
+
+const makeAvatarSvg = (bg, fg, initials) =>
+    `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><rect width="80" height="80" rx="18" fill="${bg}"/><circle cx="40" cy="30" r="14" fill="${fg}" opacity="0.9"/><path d="M14 74c2-16 14-24 26-24s24 8 26 24" fill="${fg}" opacity="0.85"/><text x="40" y="36" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="700" fill="${bg}">${initials}</text></svg>`)}`;
+
+const makeBadgeSvg = (color, label) =>
+    `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="${color}" stroke="#ffffff" stroke-width="2"/><text x="16" y="21" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="800" fill="#ffffff">${label}</text></svg>`)}`;
+
+const dummyVariablesPayload = {
+    variableSetsEnabled: true,
+    groups: ['Broadcast', 'Theme'],
+    variables: [
+        { name: 'deaths', type: 'counter', value: 14, defaultValue: 0, min: 0, max: 999, step: 1, group: 'Broadcast', description: 'Current expedition retries' },
+        { name: 'current_map', type: 'list', value: 'Moon Harbor', options: ['Moon Harbor', 'Silver Meadow', 'Cloud Ridge'], group: 'Broadcast', description: 'Active map rotation' },
+        { name: 'coop_mode', type: 'toggle', value: true, group: 'Broadcast', description: 'Squad overlay active' },
+        { name: 'team_accent', type: 'color', value: '#38bdf8', group: 'Theme', description: 'Primary broadcast accent' },
+        { name: 'scoreboard', type: 'template', value: '{{var.current_map}} | Retries: {{var.deaths}}', group: 'Broadcast', description: 'Formatted header ticker' }
+    ],
+    sets: [
+        {
+            id: 'squad',
+            name: 'Moon Harbor Squad',
+            label: 'Moon Harbor Squad',
+            slotsCount: 2,
+            slotCount: 2,
+            slotNames: ['Host', 'Guest'],
+            slots: ['alex-rivera', 'jordan-kim'],
+            group: { separator: ', ', lastSeparator: ', and ', itemTemplate: '{{name}} ({{role}})' },
+            rotation: { enabled: false, intervalSeconds: 30, mode: 'enabled', transition: 'fade', durationMs: 350 },
+            fields: [
+                { key: 'name', label: 'Name', type: 'text' },
+                { key: 'role', label: 'Role', type: 'text' },
+                { key: 'avatar', label: 'Avatar', type: 'image' },
+                { key: 'emblem', label: 'Role Emblem', type: 'image' },
+                { key: 'accent', label: 'Accent Color', type: 'color' }
+            ],
+            roster: [
+                { id: 'alex-rivera', label: 'Alex Rivera', enabled: true, inGroup: true, values: { name: 'Alex Rivera', role: 'Navigator', avatar: makeAvatarSvg('#1e3a5f', '#7dd3fc', 'AR'), emblem: makeBadgeSvg('#0284c7', 'N'), accent: '#38bdf8' } },
+                { id: 'jordan-kim', label: 'Jordan Kim', enabled: true, inGroup: true, values: { name: 'Jordan Kim', role: 'Pilot', avatar: makeAvatarSvg('#3b1d5e', '#d8b4fe', 'JK'), emblem: makeBadgeSvg('#7c3aed', 'P'), accent: '#a855f7' } },
+                { id: 'casey-lin', label: 'Casey Lin', enabled: true, inGroup: true, values: { name: 'Casey Lin', role: 'Engineer', avatar: makeAvatarSvg('#14452f', '#86efac', 'CL'), emblem: makeBadgeSvg('#059669', 'E'), accent: '#10b981' } },
+                { id: 'morgan-hale', label: 'Morgan Hale', enabled: true, inGroup: false, values: { name: 'Morgan Hale', role: 'Reserve', avatar: makeAvatarSvg('#4c2614', '#fdba74', 'MH'), emblem: makeBadgeSvg('#d97706', 'R'), accent: '#f59e0b' } }
+            ]
+        }
+    ]
+};
+dummyStatus.variableSets = dummyVariablesPayload.sets;
 
 const dummyChatbotSnapshot = {
     enabled: true,
@@ -702,8 +748,11 @@ async function run() {
             const data = pathname === '/api/custom-overlays/border-showcase' ? dummyCustomOverlay
                 : pathname === '/api/custom-overlays' ? [dummyCustomOverlay]
                 : pathname === '/api/alerts' ? { rules: [{ id: 'fictional-brb', name: 'BRB in 5 minutes' }, { id: 'fictional-follow', name: 'Welcome follower' }] }
+                : pathname === '/api/variables' ? dummyVariablesPayload
+                : pathname === '/api/variables/sets' ? { sets: dummyVariablesPayload.sets }
                 : pathname === '/api/obs/status' ? { enabled: false, connected: false }
-                : pathname === '/api/config' || pathname === '/api/status' ? {} : [];
+                : pathname === '/api/status' ? dummyStatus
+                : pathname === '/api/config' ? {} : [];
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
         } else if (new URL(url).pathname === '/api/trivia') {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({
@@ -773,6 +822,10 @@ async function run() {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', matchup: dummyMatchup }) });
         } else if (url.includes('/api/chatbot')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyChatbotSnapshot) });
+        } else if (new URL(url).pathname === '/api/variables') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyVariablesPayload) });
+        } else if (new URL(url).pathname === '/api/variables/sets') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ sets: dummyVariablesPayload.sets }) });
         } else if (new URL(url).pathname === '/api/status') {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyStatus) });
         } else if (new URL(url).pathname.startsWith('/api/')) {
@@ -1254,6 +1307,79 @@ async function run() {
                     }, { sound: false });
                 }, dummyPromoImage);
                 await p.waitForSelector('#alert-look-select');
+            }
+        },
+        {
+            url: `${baseUrl}/tools/placeholders.html#variables`,
+            file: 'variables-directory.png',
+            wait: 1200,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.waitForSelector('#vars-list > *');
+            }
+        },
+        {
+            url: `${baseUrl}/tools/placeholders.html#sets`,
+            file: 'variable-sets-roster.png',
+            wait: 1200,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.evaluate(() => {
+                    const btn = document.querySelector('[data-t="sets"]');
+                    if (btn) btn.click();
+                });
+                await p.waitForSelector('.set-workspace[data-set-card="squad"]');
+            }
+        },
+        {
+            url: `${baseUrl}/custom-overlay-editor.html?id=border-showcase`,
+            file: 'badge-builder-studio.png',
+            wait: 1500,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.evaluate(async () => {
+                    const { state, prefs, createElementData } = await import('/js/editor/editor-state.js');
+                    const { renderProperties } = await import('/js/editor/editor-inspector.js');
+                    const { renderCanvas, fitView } = await import('/js/editor/editor-canvas.js');
+                    const { renderLayers } = await import('/js/editor/editor-layers.js');
+                    const el = createElementData('image-group', {
+                        id: 'fictional-squad-strip',
+                        page: 'page-1',
+                        x: 180,
+                        y: 720,
+                        width: 1120,
+                        height: 220,
+                        imageGroup: {
+                            enabled: true,
+                            setId: 'squad',
+                            imageField: 'avatar',
+                            showAvatar: true,
+                            onlySelected: true,
+                            layout: 'row',
+                            badgePreset: 'esports-card',
+                            cardPaddingX: 16,
+                            cardPaddingY: 12,
+                            cornerInset: 8,
+                            fields: [
+                                { key: 'name', zone: 'bottom', fontSize: 18, fontWeight: '700', color: '#ffffff', padX: 4, padY: 2 },
+                                { key: 'role', zone: 'badge', fontSize: 12, fontWeight: '700', color: '@accent', bg: '#0f172acc', padX: 8, padY: 3 },
+                                { key: 'emblem', type: 'image', kind: 'field', zone: 'corner-tl', imgSize: 24, imgFit: 'contain', imgShape: 'circle', imgBorderW: 1 }
+                            ]
+                        }
+                    });
+                    state.overlay.elements = [el];
+                    state.selectedIds = new Set([el.id]);
+                    prefs.inspectorTabs['image-group'] = 'content';
+                    prefs.inspectorTabs.image = 'content';
+                    renderProperties();
+                    renderCanvas();
+                    renderLayers();
+                    fitView(true);
+                });
+                await p.waitForSelector('#open-ig-fields-modal');
+                await p.click('#open-ig-fields-modal');
+                await p.waitForSelector('#ig-fields-dialog[open]', { timeout: 5000 });
+                await new Promise(r => setTimeout(r, 400));
             }
         }
     ];

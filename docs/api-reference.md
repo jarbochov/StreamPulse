@@ -932,3 +932,52 @@ A standalone 60fps overlay that reflects configured rates in real time and can b
 - `?subs=0|1`, `?tips=0|1` (or `?donations=0|1`), `?bits=0|1`, `?follows=0|1`, `?raids=0|1`: Granular channel visibility toggles
 - `?preview=1` / `?sample=1`: Render high-fidelity sample rates for previewing when subathon is inactive
 - Real-time `postMessage` protocol: Accepts `{ type: 'subathon:preview-config', theme: {...}, sample: boolean }` for 0ms flicker-free 60fps theme and styling updates without reloading.
+
+## Variables & Variable Sets API
+
+Manage global Custom Variables (`counter`, `number`, `text`, `list`, `image`, `toggle`, `color`, `template`, `font`) and multi-field Variable Sets (`text`, `image`, `color`, `toggle`).
+
+### Global Variables
+
+| Endpoint | Methods | Description |
+| --- | --- | --- |
+| `/api/variables` | `GET` | Return `{ variables, groups, sets, variableSetsEnabled }` |
+| `/api/variables/:name` | `GET`, `PUT`, `POST`, `DELETE` | Read, create/update, or delete a variable (`GET ?raw=1`, `?plain=1`, or `?format=text` returns plain text for Companion) |
+| `/api/variables/:name/increment` | `GET`, `POST` | Increment a `counter` or `number` variable by `step` (or `?by=` / `{ by }`) |
+| `/api/variables/:name/decrement` | `GET`, `POST` | Decrement a `counter` or `number` variable by `step` (or `?by=` / `{ by }`) |
+| `/api/variables/:name/reset` | `GET`, `POST` | Reset variable to `defaultValue` |
+| `/api/variables/:name/set` | `GET`, `POST` | Set variable `value` via `?value=` or `{ value }` |
+| `/api/variables/:name/roll` | `GET`, `POST` | Pick a random item from a `list` or random number within `min`..`max` |
+| `/api/variables/:name/toggle` | `GET`, `POST` | Flip a `toggle` variable between `true` and `false` |
+| `/api/variables/groups/manage` | `POST` | Create, rename, or update variable groups (`name`, `variables`, `createOnly`, `originalName`) |
+| `/api/variables/import` | `POST` | Import a JSON bundle of variables and Variable Sets |
+
+### Variable Sets, Slots, Group Roster & Rotation
+
+| Endpoint | Methods | Description |
+| --- | --- | --- |
+| `/api/variables/sets` | `GET` | List all configured Variable Sets (`{ sets }`) |
+| `/api/variables/sets/:setId` | `GET`, `PUT`, `POST`, `DELETE` | Inspect, create/update, or delete a Variable Set |
+| `/api/variables/sets/:setId/export` | `GET` | Export Variable Set entries as downloadable `text/csv` |
+| `/api/variables/sets/:setId/import` | `POST` | Import CSV entries (`text/csv` body or JSON `{ csv, replace }`, optional `?replace=1`) |
+| `/api/variables/sets/:setId/group` | `GET`, `POST`, `PUT` | Inspect or update Group Roster formatting (`separator`, `lastSeparator`, `itemTemplate`) |
+| `/api/variables/sets/:setId/rotation` | `GET`, `POST`, `PUT` | Inspect or configure timed rotation (`enabled`, `intervalSeconds`, `mode`, `transition`, `durationMs`) |
+| `/api/variables/sets/:setId/rotation/start` | `GET`, `POST` | Start timed rotation |
+| `/api/variables/sets/:setId/rotation/stop` | `GET`, `POST` | Stop timed rotation |
+| `/api/variables/sets/:setId/rotation/toggle` | `GET`, `POST` | Toggle timed rotation |
+| `/api/variables/sets/:setId/rotation/next` | `GET`, `POST` | Advance timed rotation immediately |
+| `/api/variables/sets/:setId/rotation/prev` | `GET`, `POST` | Rewind timed rotation immediately |
+| `/api/variables/sets/:setId/assign` | `GET`, `POST` | Assign an entry to a slot (`?slot=1&entry=...`) |
+| `/api/variables/sets/:setId/clear` | `GET`, `POST` | Clear a slot (`?slot=1`) |
+| `/api/variables/sets/:setId/next` | `GET`, `POST` | Cycle a single slot forward (`?slot=1`) |
+| `/api/variables/sets/:setId/prev` | `GET`, `POST` | Cycle a single slot backward (`?slot=1`) |
+| `/api/variables/sets/:setId/swap` | `GET`, `POST` | Swap two slots (`?from=1&to=2`) |
+| `/api/variables/sets/:setId/advance` | `GET`, `POST` | Cascade/shift slots forward (`?mode=shift`) |
+| `/api/variables/sets/:setId/rewind` | `GET`, `POST` | Cascade/shift slots backward (`?mode=shift`) |
+| `/api/variables/sets/:setId/entry/toggle` | `GET`, `POST` | Enable/disable an entry (`?entry=...&enabled=0\|1`) |
+| `/api/variables/sets/:setId/entry/group-toggle` | `GET`, `POST` | Toggle an entry's `inGroup` roster membership (`?entry=...&inGroup=0\|1`) |
+| `/api/variables/sets/:setId/queue/add` | `GET`, `POST` | Add an entry to the rotation queue (`?entry=...`) |
+| `/api/variables/sets/:setId/queue/remove` | `GET`, `POST` | Remove an entry from the rotation queue (`?entry=...`) |
+| `/api/variables/sets/:setId/queue/clear` | `GET`, `POST` | Clear the rotation queue |
+
+See [Custom Variables & Variable Sets](variables-guide.md) for token syntax, Group Roster formatting, and overlay integration.
