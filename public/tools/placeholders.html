@@ -144,8 +144,14 @@
         .slot-card { background: var(--bg-inset); border: 1.5px dashed var(--border); border-radius: 8px; padding: .65rem .7rem; display: grid; gap: .45rem; transition: border-color .15s, background .15s, box-shadow .15s; min-width: 0; overflow: hidden; }
         .slot-card.filled { border-style: solid; background: var(--bg-card); cursor: grab; }
         .slot-card.drag-over { border-color: var(--accent); background: var(--accent-bg); box-shadow: 0 0 0 2px var(--accent-bg); }
-        .slot-picker-bar { display: flex; gap: .35rem; align-items: center; }
-        .slot-picker-bar .b { flex: 1; text-align: center; }
+        .slot-live-zone { border: 1px solid var(--border); border-radius: 6px; padding: .45rem .55rem; background: var(--bg-page); display: grid; gap: .38rem; }
+        .slot-card.drag-over .slot-live-zone { border-color: var(--accent); background: var(--accent-bg); }
+        .slot-zone-head { display: flex; justify-content: space-between; align-items: center; gap: .35rem; font-size: .68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
+        .slot-zone-pill { padding: .06rem .35rem; border-radius: 4px; font-size: .65rem; font-weight: 700; }
+        .slot-zone-pill.is-live { background: var(--accent-bg); color: var(--accent); }
+        .slot-zone-pill.is-queue { background: rgba(245, 158, 11, 0.14); color: #f59e0b; }
+        .slot-queue { background: var(--bg-page); border: 1px dashed var(--border); border-radius: 6px; padding: .45rem .55rem; display: grid; gap: .35rem; transition: border-color .15s, background .15s, box-shadow .15s; }
+        .slot-queue.drag-over { border-color: #f59e0b; border-style: solid; background: rgba(245, 158, 11, 0.12); box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.18); }
         .sets-split { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(310px, 1fr); gap: 1rem; align-items: start; }
         .sets-roster-pane { position: sticky; top: .75rem; display: grid; gap: .5rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: .7rem; }
         .sets-roster-pane .roster-list { overflow-y: auto; max-height: calc(100vh - 12rem); padding-right: 2px; }
@@ -168,8 +174,6 @@
         .slot-sub { font-size: .76rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .slot-empty-hint { font-size: .78rem; color: var(--text-muted); padding: .55rem 0; text-align: center; }
         .slot-tokens summary { font-size: .74rem; color: var(--text-muted); cursor: pointer; }
-        .slot-queue { background: var(--bg-page); border: 1px dashed var(--border); border-radius: 6px; padding: .4rem .5rem; display: grid; gap: .35rem; transition: border-color .15s, background .15s; }
-        .slot-queue.drag-over { border-color: var(--accent); background: var(--accent-bg); }
         .slot-queue-head { display: flex; justify-content: space-between; align-items: center; font-size: .72rem; color: var(--text-muted); }
         .slot-queue-chips { display: flex; flex-wrap: wrap; gap: .25rem; }
         .queue-chip { display: inline-flex; align-items: center; gap: .25rem; padding: .14rem .4rem; border-radius: 999px; background: var(--bg-card); border: 1px solid var(--border); font-size: .74rem; max-width: 100%; }

@@ -19,6 +19,119 @@ function showTab(name) {
     history.replaceState(null, '', `#${activeKey}`);
 }
 
+let activePhPickerCleanup = null;
+
+function closePlaceholderPicker() {
+    if (typeof activePhPickerCleanup === 'function') {
+        activePhPickerCleanup();
+        activePhPickerCleanup = null;
+    }
+}
+
+function openPlaceholderPicker(anchorBtn, inputEl, selfVarName = '') {
+    closePlaceholderPicker();
+    if (!S?.variableGroups || !inputEl) return;
+    const table = S.variableTable ? S.variableTable(state.status, {}) : {};
+    const allItems = [];
+    for (const g of S.variableGroups(state.status)) {
+        for (const [key, label] of g.items) {
+            if (selfVarName && key === `var.${selfVarName}`) continue;
+            const cur = table[key];
+            allItems.push({
+                group: g.label,
+                key,
+                label,
+                val: cur !== undefined && cur !== null && cur !== '' ? String(cur) : ''
+            });
+        }
+    }
+
+    const pop = document.createElement('div');
+    pop.className = 'slot-picker-popover';
+    pop.style.width = '340px';
+    pop.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:.4rem;">
+            <strong style="font-size:.8rem;">Insert Variable / Placeholder</strong>
+            <button type="button" class="b sm" data-picker-close style="padding:.1rem .35rem;">&times;</button>
+        </div>
+        <input type="search" placeholder="Search variables or placeholders..." aria-label="Search placeholders" style="padding:.3rem .5rem; font-size:.82rem;">
+        <div class="slot-picker-list"></div>
+    `;
+    document.body.appendChild(pop);
+
+    const rect = anchorBtn.getBoundingClientRect();
+    const popW = 340;
+    const left = Math.max(8, Math.min(window.innerWidth - popW - 8, rect.left));
+    const top = Math.min(window.innerHeight - 330, rect.bottom + 6);
+    pop.style.left = `${left}px`;
+    pop.style.top = `${Math.max(8, top)}px`;
+
+    const searchInput = pop.querySelector('input[type="search"]');
+    const listEl = pop.querySelector('.slot-picker-list');
+    let selectedIdx = 0;
+    let visible = allItems;
+
+    const renderList = () => {
+        const q = searchInput.value.trim().toLowerCase();
+        visible = allItems.filter(it => !q || `${it.group} ${it.key} ${it.label} ${it.val}`.toLowerCase().includes(q)).slice(0, 60);
+        if (selectedIdx >= visible.length) selectedIdx = Math.max(0, visible.length - 1);
+        if (!visible.length) {
+            listEl.innerHTML = '<div class="muted" style="font-size:.78rem; padding:.5rem; text-align:center;">No matching variables or placeholders.</div>';
+            return;
+        }
+        listEl.innerHTML = visible.map((it, i) => `
+            <button type="button" class="slot-picker-item ${i === selectedIdx ? 'is-active' : ''}" data-pick-ph="${esc(it.key)}">
+                <div class="slot-picker-meta">
+                    <div class="slot-picker-name"><code style="font-size:.76rem;">{{${esc(it.key)}}}</code></div>
+                    <div class="slot-picker-sub">${esc(it.group)} · ${esc(it.label)}${it.val ? ` = ${esc(it.val)}` : ''}</div>
+                </div>
+            </button>
+        `).join('');
+    };
+
+    const insertKey = key => {
+        closePlaceholderPicker();
+        const token = `{{${key}}}`;
+        const start = Number.isInteger(inputEl.selectionStart) ? inputEl.selectionStart : inputEl.value.length;
+        const end = Number.isInteger(inputEl.selectionEnd) ? inputEl.selectionEnd : start;
+        inputEl.value = inputEl.value.slice(0, start) + token + inputEl.value.slice(end);
+        inputEl.focus();
+        inputEl.setSelectionRange(start + token.length, start + token.length);
+        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    renderList();
+    searchInput.focus();
+
+    searchInput.addEventListener('input', () => { selectedIdx = 0; renderList(); });
+    searchInput.addEventListener('keydown', e => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); if (visible.length) { selectedIdx = (selectedIdx + 1) % visible.length; renderList(); } }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); if (visible.length) { selectedIdx = (selectedIdx - 1 + visible.length) % visible.length; renderList(); } }
+        else if (e.key === 'Enter' && visible[selectedIdx]) { e.preventDefault(); insertKey(visible[selectedIdx].key); }
+    });
+
+    pop.addEventListener('click', e => {
+        if (e.target.closest('[data-picker-close]')) return closePlaceholderPicker();
+        const item = e.target.closest('[data-pick-ph]');
+        if (item) insertKey(item.dataset.pickPh);
+    });
+
+    const onDocDown = e => {
+        if (!pop.contains(e.target) && !anchorBtn.contains(e.target)) closePlaceholderPicker();
+    };
+    const onDocKey = e => { if (e.key === 'Escape') closePlaceholderPicker(); };
+    setTimeout(() => {
+        document.addEventListener('mousedown', onDocDown);
+        document.addEventListener('keydown', onDocKey);
+    }, 0);
+
+    activePhPickerCleanup = () => {
+        document.removeEventListener('mousedown', onDocDown);
+        document.removeEventListener('keydown', onDocKey);
+        pop.remove();
+    };
+}
+
 function renderVarControls(v) {
     if (v.type === 'counter') {
         return `
@@ -62,6 +175,7 @@ function renderVarControls(v) {
     if (v.type === 'template') {
         return `
             <input type="text" data-act="value" value="${esc(v.value)}" placeholder="{{var.first}} — {{var.second|Fallback}}" class="var-input-grow var-mono">
+            <button type="button" class="b sm" data-act="pick-placeholder" title="Insert variable or placeholder">+ Insert...</button>
             <button type="button" class="b sm primary" data-act="save-value">Save</button>
         `;
     }
@@ -306,6 +420,11 @@ function bindEvents() {
                     await api(url, 'PUT', { value: urlPicked });
                     await loadAllVars();
                 });
+                return;
+            }
+            if (act === 'pick-placeholder') {
+                const input = row.querySelector('[data-act="value"]');
+                openPlaceholderPicker(btn, input, name);
                 return;
             }
             if (act === 'save-value') {

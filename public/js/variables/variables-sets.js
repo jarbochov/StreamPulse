@@ -33,13 +33,18 @@ function openSlotEntryPicker(anchorBtn, setObj, slotNum, mode = 'assign') {
         if (id) slotLiveByEntry.set(id, (setObj.slotNames?.[idx] || '').trim() || `S${idx + 1}`);
     });
 
+    const isQueue = mode === 'queue';
     const pop = document.createElement('div');
     pop.className = 'slot-picker-popover';
     pop.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; gap:.4rem;">
-            <strong style="font-size:.8rem;">${mode === 'queue' ? `Queue for ${esc(slotLabel)}` : `Assign to ${esc(slotLabel)}`}</strong>
+            <div style="display:flex; align-items:center; gap:.4rem; min-width:0;">
+                <span class="slot-zone-pill ${isQueue ? 'is-queue' : 'is-live'}">${isQueue ? 'UP NEXT' : 'SET LIVE'}</span>
+                <strong style="font-size:.8rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(slotLabel)}</strong>
+            </div>
             <button type="button" class="b sm" data-picker-close style="padding:.1rem .35rem;">&times;</button>
         </div>
+        <div class="muted" style="font-size:.72rem;">${isQueue ? `Adds to ${esc(slotLabel)}'s Up Next queue` : `Replaces what is currently live in ${esc(slotLabel)}`}</div>
         <input type="search" placeholder="Search roster..." aria-label="Search roster" style="padding:.3rem .5rem; font-size:.82rem;">
         <div class="slot-picker-list"></div>
     `;
@@ -156,9 +161,6 @@ function renderSlotCard(setObj, slotNum, entry) {
         ...(hasAlias ? (setObj.fields || []).map(f => `var.${setObj.id}_${slotSlug}_${f.key}`) : [])
     ];
     const tokens = tokenList.map(key => `<code class="copyable" title="Click to copy" data-copy="{{${esc(key)}}}">{{${esc(key)}}}</code>`).join('');
-    const aliasNote = slotNum === 1
-        ? `<div class="muted" style="font-size:.72rem;">Slot 1 alias: <code class="copyable" data-copy="{{var.${esc(setObj.id)}_${esc(setObj.fields?.[0]?.key || 'name')}}}">{{var.${esc(setObj.id)}_${esc(setObj.fields?.[0]?.key || 'name')}}}</code></div>`
-        : '';
     const subFields = entry ? getEntrySummary(setObj, entry) : '';
 
     const byId = new Map((setObj.roster || []).map(r => [r.id, r]));
@@ -188,29 +190,33 @@ function renderSlotCard(setObj, slotNum, entry) {
                     <button type="button" class="b sm" data-set-act="clear" data-slot="${slotNum}" title="Clear slot" ${entry ? '' : 'disabled'}>${SVG_CLEAR}</button>
                 </div>
             </div>
-            ${entry ? `
-                <div class="slot-body">
-                    ${getEntryThumb(setObj, entry)}
-                    <div class="slot-info">
-                        <div class="slot-title">${esc(entry.label)}</div>
-                        ${subFields ? `<div class="slot-sub">${esc(subFields)}</div>` : ''}
-                    </div>
+            <div class="slot-live-zone">
+                <div class="slot-zone-head">
+                    <span class="slot-zone-pill is-live">${entry ? 'Live Now' : 'Live Slot'}</span>
+                    <button type="button" class="b sm" style="padding:.12rem .42rem; font-size:.7rem;" data-set-act="pick-assign" data-slot="${slotNum}">${entry ? 'Swap...' : 'Set Live...'}</button>
                 </div>
-            ` : `
-                <div class="slot-empty-hint">Empty — assign an entry or drop from roster</div>
-            `}
-            <div class="slot-picker-bar">
-                <button type="button" class="b sm" data-set-act="pick-assign" data-slot="${slotNum}">${entry ? 'Change...' : 'Assign...'}</button>
-                <button type="button" class="b sm" data-set-act="pick-queue" data-slot="${slotNum}">+ Queue</button>
+                ${entry ? `
+                    <div class="slot-body">
+                        ${getEntryThumb(setObj, entry)}
+                        <div class="slot-info">
+                            <div class="slot-title">${esc(entry.label)}</div>
+                            ${subFields ? `<div class="slot-sub">${esc(subFields)}</div>` : ''}
+                        </div>
+                    </div>
+                ` : `
+                    <div class="slot-empty-hint" style="padding:.25rem 0;">Empty — click Set Live or drop here</div>
+                `}
             </div>
             <div class="slot-queue ${queueIds.length ? '' : 'is-empty'}" data-set="${esc(setObj.id)}" data-slot-queue="${slotNum}">
                 <div class="slot-queue-head">
-                    <span>Queue (${queueIds.length})</span>
-                    ${queueIds.length ? `<button type="button" class="b sm" style="padding:.08rem .35rem; font-size:.7rem;" data-set-act="q-clear" data-slot="${slotNum}">Clear</button>` : `<span class="muted">Drop to queue</span>`}
+                    <span style="display:inline-flex; align-items:center; gap:.3rem;"><span class="slot-zone-pill is-queue">Up Next (${queueIds.length})</span></span>
+                    <span style="display:inline-flex; gap:.25rem;">
+                        <button type="button" class="b sm" style="padding:.12rem .42rem; font-size:.7rem;" data-set-act="pick-queue" data-slot="${slotNum}">+ Queue</button>
+                        ${queueIds.length ? `<button type="button" class="b sm" style="padding:.12rem .35rem; font-size:.7rem;" data-set-act="q-clear" data-slot="${slotNum}">Clear</button>` : ''}
+                    </span>
                 </div>
-                ${queueIds.length ? `<div class="slot-queue-chips">${queueChips}</div>` : ''}
+                ${queueIds.length ? `<div class="slot-queue-chips">${queueChips}</div>` : `<div class="muted" style="font-size:.7rem;">Drop here to add to queue</div>`}
             </div>
-            ${aliasNote}
             <details class="slot-tokens">
                 <summary>Tokens (${tokenList.length})</summary>
                 <div class="token-pills">${tokens}</div>
@@ -846,12 +852,14 @@ export function bindSetEvents(onReload) {
         if (queueEl && dragPayload?.kind === 'roster' && dragPayload.setId === queueEl.dataset.set) {
             e.preventDefault();
             e.stopPropagation();
+            queueEl.closest('.slot-card')?.classList.remove('drag-over');
             queueEl.classList.add('drag-over');
             return;
         }
         const slotEl = e.target.closest('.slot-card[data-slot]');
         if (!slotEl || !dragPayload || dragPayload.setId !== slotEl.dataset.set) return;
         e.preventDefault();
+        slotEl.querySelectorAll('.slot-queue.drag-over').forEach(q => q.classList.remove('drag-over'));
         slotEl.classList.add('drag-over');
     });
 
