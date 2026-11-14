@@ -305,10 +305,15 @@
                 <div class="stat"><div class="value" id="chatbot-triggers">0</div><div class="label">Triggers</div></div>
                 <div class="stat"><div class="value" id="chatbot-quotes">0</div><div class="label">Quotes</div></div>
             </div>
+            <form id="chatbot-quick-form" style="display:flex;gap:.35rem;margin-top:.45rem;">
+                <input id="chatbot-quick-input" type="text" maxlength="400" placeholder="Send message as bot..." aria-label="Send message as bot" style="flex:1;min-width:0;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;padding:.28rem .5rem;color:var(--text);font-size:.76rem;">
+                <button type="submit" class="btn xs">Send</button>
+            </form>
             <div class="link-grid">
+                <button type="button" class="btn sm" id="chatbot-toggle-btn" data-action="chatbot-toggle">Pause Bot</button>
                 <a class="btn sm" href="/chatbot.html">Bot Studio</a>
                 <a class="btn sm" href="/chatbot.html#commands">Commands</a>
-                <a class="btn sm" href="/chatbot.html#timed">Timed</a>
+                <a class="btn sm" href="/chatbot.html#messages">Timed</a>
             </div>
         </div>
 

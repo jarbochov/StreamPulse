@@ -115,6 +115,7 @@ export function commandHtml(c, i) {
             </details>
             <div class="row" style="margin-top:.2rem;">
                 <button class="btn small" data-act="test" type="button">${svgIcon('send')} Send test</button>
+                <button class="btn small" data-act="duplicate" type="button">Duplicate</button>
                 <span style="flex:1"></span>
                 <button class="btn small danger" data-act="remove" type="button">${svgIcon('trash')} Remove</button>
             </div>
@@ -291,6 +292,17 @@ export function setupCommandsEvents(applyState) {
             }
             return;
         }
+        if (act === 'duplicate') {
+            state.commands = readCommands();
+            const idx = Number(item.dataset.i);
+            const copy = structuredClone(state.commands[idx]);
+            copy.name = copy.name ? `${copy.name}_copy`.slice(0, 30) : '';
+            copy._open = true;
+            state.commands.splice(idx + 1, 0, copy);
+            renderCommands();
+            document.querySelectorAll('#commands .item')[idx + 1]?.querySelector('[data-k="name"]')?.focus();
+            return;
+        }
         if (act === 'remove') {
             state.commands = readCommands();
             state.commands.splice(Number(item.dataset.i), 1);
@@ -299,14 +311,31 @@ export function setupCommandsEvents(applyState) {
         if (act === 'test') {
             try {
                 const text = item.querySelector('[data-k="response"]').value;
-                const { text: out } = await api('/api/chatbot/preview', 'POST', { text, user: 'viewer', arg: '@someone 100' });
-                await api('/api/chatbot/send', 'POST', { text: out || text });
+                const user = ($('cmd-test-user')?.value || '').trim() || 'viewer';
+                const arg = ($('cmd-test-arg')?.value || '').trim() || '@someone 100';
+                const { text: out } = await api('/api/chatbot/preview', 'POST', { text, user, arg });
+                await api('/api/chatbot/send', 'POST', { text: out || text, expand: false });
                 toast('Test sent to chat');
             } catch (e) {
                 toast(e.message);
             }
         }
     });
+
+    const testUserEl = $('cmd-test-user');
+    const testArgEl = $('cmd-test-arg');
+    if (testUserEl) {
+        try { testUserEl.value = localStorage.getItem('streampulse:chatbot:testUser') || ''; } catch {}
+        testUserEl.addEventListener('input', () => {
+            try { localStorage.setItem('streampulse:chatbot:testUser', testUserEl.value); } catch {}
+        });
+    }
+    if (testArgEl) {
+        try { testArgEl.value = localStorage.getItem('streampulse:chatbot:testArg') || ''; } catch {}
+        testArgEl.addEventListener('input', () => {
+            try { localStorage.setItem('streampulse:chatbot:testArg', testArgEl.value); } catch {}
+        });
+    }
 
     $('add-command')?.addEventListener('click', () => {
         const cmdFilter = $('cmd-filter');

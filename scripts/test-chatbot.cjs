@@ -93,3 +93,55 @@ test('Chatbot: pre-compiled trigger matching supports all match modes efficientl
     bot.stop();
     fs.rmSync(tempDir, { recursive: true, force: true });
 });
+
+test('Chatbot: trigger dry-run tester and timed message run endpoint', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-chatbot-api-'));
+    const bot = createChatbot({
+        dataDir: tempDir,
+        getConfig: () => ({ chatbot_enabled: true })
+    });
+
+    const callApi = (method, pathname, body = {}) => new Promise(resolve => {
+        let statusCode = 200;
+        bot.handleApi(
+            { method, url: pathname },
+            {
+                writeHead: code => { statusCode = code; },
+                end: raw => resolve({ statusCode, data: JSON.parse(raw || '{}') })
+            },
+            pathname,
+            async () => JSON.stringify(body)
+        );
+    });
+
+    await callApi('PUT', '/api/chatbot', {
+        settings: { enabled: true, prefix: '!', cooldown: 0 },
+        triggers: [
+            { id: 't_hi', name: 'Greeting', words: ['hello', 'hey'], matchMode: 'starts_with', text: 'Welcome {{user}}!' }
+        ],
+        messages: [
+            { id: 'm_1', name: 'Follow', kind: 'interval', every: 30, text: 'Follow the channel!' }
+        ]
+    });
+
+    bot.start();
+
+    const hit = await callApi('POST', '/api/chatbot/test-trigger', { text: 'hello chat', user: 'Alice' });
+    assert.equal(hit.statusCode, 200);
+    assert.equal(hit.data.matched, true);
+    assert.equal(hit.data.trigger.id, 't_hi');
+    assert.equal(hit.data.text, 'Welcome Alice!');
+
+    const miss = await callApi('POST', '/api/chatbot/test-trigger', { text: 'goodbye chat', user: 'Alice' });
+    assert.equal(miss.statusCode, 200);
+    assert.equal(miss.data.matched, false);
+
+    const missingMsg = await callApi('POST', '/api/chatbot/messages/does_not_exist/run', {});
+    assert.equal(missingMsg.statusCode, 404);
+
+    const emptySend = await callApi('POST', '/api/chatbot/send', { text: '   ' });
+    assert.equal(emptySend.statusCode, 400);
+
+    bot.stop();
+    fs.rmSync(tempDir, { recursive: true, force: true });
+});

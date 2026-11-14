@@ -15,7 +15,8 @@ let lastOk = 0;
 let liveState = {
     sessionActive: true,
     alertsPaused: false,
-    alertsMuted: false
+    alertsMuted: false,
+    botEnabled: true
 };
 
 async function call(url, message) {
@@ -87,6 +88,11 @@ const actions = {
         try { await call('/api/alerts/queue/skip', 'Skipped active alert'); refresh(); }
         catch { showToast('Skip failed'); }
     },
+    async 'chatbot-toggle'() {
+        const nextAction = liveState.botEnabled ? 'disable' : 'enable';
+        try { await call(`/api/chatbot/enabled?action=${nextAction}`, liveState.botEnabled ? 'Chat bot paused' : 'Chat bot enabled'); refresh(); }
+        catch { showToast('Chat bot toggle failed'); }
+    },
     async shutdown() {
         if (!await window.StreamPulse.confirm('Shut Down Server', 'Shut down the server? This archives data and stops the process.', { danger: true, confirmText: 'Shut Down' })) return;
         try {
@@ -133,6 +139,27 @@ document.addEventListener('click', async event => {
     }
     const action = event.target.closest('[data-action]')?.dataset.action;
     if (action && actions[action]) actions[action]();
+});
+
+document.getElementById('chatbot-quick-form')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const input = document.getElementById('chatbot-quick-input');
+    const text = input?.value.trim();
+    if (!text) return;
+    try {
+        const res = await fetch('/api/chatbot/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, source: 'Dashboard' })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        input.value = '';
+        showToast('Message sent to chat');
+        refresh();
+    } catch (err) {
+        showToast(err.message || 'Send failed');
+    }
 });
 
 setInterval(() => {

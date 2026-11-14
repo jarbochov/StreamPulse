@@ -74,12 +74,16 @@
             <div class="tab-header">
                 <div>
                     <h2>Recent Bot &amp; Companion Activity</h2>
-                    <p class="muted">Live execution feed of chat commands, triggers, and Companion button calls.</p>
+                    <p class="muted">Live execution feed of chat commands, triggers, and Companion button calls (auto-refreshes while open).</p>
                 </div>
                 <div class="tab-actions">
                     <button class="btn small" id="refresh-activity" type="button">Refresh activity</button>
                 </div>
             </div>
+            <form id="activity-send-form" class="row" style="margin-bottom:.85rem;">
+                <input id="activity-send-input" class="search-input" style="flex:1;min-width:200px;" maxlength="1000" placeholder="Send a message as bot (supports {{placeholders}}, e.g. Playing {{game}})...">
+                <button class="btn primary small" type="submit">Send as Bot</button>
+            </form>
             <div id="activity-list"></div>
         </div>
 
@@ -511,6 +515,11 @@
                 </div>
             </details>
 
+            <div class="row" style="margin-bottom:.65rem;align-items:center;gap:.5rem;flex-wrap:wrap;font-size:.8rem;">
+                <span class="muted">Test context:</span>
+                <input id="cmd-test-user" class="search-input" style="width:140px;" placeholder="User (viewer)" aria-label="Test command user">
+                <input id="cmd-test-arg" class="search-input" style="flex:1;min-width:160px;" placeholder="Args (@someone 100)" aria-label="Test command arguments">
+            </div>
             <div id="commands"></div>
             <div class="row" style="margin-top:.75rem;">
                 <button class="btn" id="add-command-bottom">+ Add command</button>
@@ -624,6 +633,12 @@
                     <input type="file" id="import-triggers-file" accept=".json,application/json" style="display:none;">
                 </div>
             </div>
+            <form id="trigger-test-form" class="row" style="margin-bottom:.75rem;align-items:center;gap:.5rem;flex-wrap:wrap;">
+                <input id="trigger-test-input" class="search-input" style="flex:1;min-width:200px;" placeholder="Dry-run test: type a sample chat message to see which trigger matches...">
+                <input id="trigger-test-user" class="search-input" style="width:140px;" placeholder="User (viewer)">
+                <button class="btn small" type="submit">Test match</button>
+            </form>
+            <div id="trigger-test-result" class="muted" style="font-size:.82rem;margin-bottom:.65rem;" hidden></div>
             <div id="triggers"></div>
             <div class="row" style="margin-top:.75rem;">
                 <button class="btn" id="add-trigger-bottom">+ Add trigger</button>

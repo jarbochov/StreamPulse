@@ -200,6 +200,11 @@ export function renderDashboard(data, layoutManager) {
     setText('chatbot-timed', bot.timedCount ?? 0);
     setText('chatbot-triggers', bot.triggersCount ?? 0);
     setText('chatbot-quotes', bot.quotesCount ?? 0);
+    const botToggleBtn = $('chatbot-toggle-btn');
+    if (botToggleBtn) {
+        botToggleBtn.textContent = botEnabled ? 'Pause Bot' : 'Enable Bot';
+        botToggleBtn.classList.toggle('on', !botEnabled);
+    }
 
     const al = data.alerts || {};
     const alEnabled = al.enabled !== false;
@@ -255,6 +260,7 @@ export function renderDashboard(data, layoutManager) {
     return {
         sessionActive,
         alertsPaused,
-        alertsMuted
+        alertsMuted,
+        botEnabled
     };
 }

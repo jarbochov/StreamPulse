@@ -836,6 +836,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
     async function tick() {
         if (!enabled() || Date.now() - lastAny < 1000) return;
         const d = new Date();
+        let sentCount = 0;
         for (const m of data.messages) {
             if (!m.enabled) continue;
             const due = messageDue(m, d);
@@ -857,9 +858,13 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 const raw = pick(m.text, m.random);
                 const formatted = formatTokens(raw, {});
                 const out = await expand(formatted);
-                if (out) { logUse('message', m.name || m.id, ''); await reply(`m:${m.id}`, out); }
+                if (out) {
+                    if (sentCount > 0) await new Promise(r => setTimeout(r, 1100));
+                    logUse('message', m.name || m.id, '');
+                    await reply(`m:${m.id}`, out);
+                    sentCount += 1;
+                }
             } catch (err) { console.warn(`[Chatbot] ${err.message}`); }
-            return;
         }
     }
 
@@ -1144,10 +1149,59 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             if (pathname === '/api/chatbot/send' && (req.method === 'POST' || req.method === 'GET')) {
                 const query = req.method === 'GET' ? Object.fromEntries(new URL(req.url, 'http://localhost').searchParams) : {};
                 const input = { ...query, ...body };
-                const text = clean(input.text || input.message || '', 400);
-                if (!text) return json(400, { error: 'Text message is required' }), true;
-                await send(text);
-                return json(200, { sent: true, text }), true;
+                const rawText = clean(input.text || input.message || '', 3000);
+                if (!rawText) return json(400, { error: 'Text message is required' }), true;
+                const shouldExpand = input.expand !== false && input.expand !== 'false';
+                const out = shouldExpand
+                    ? await expand(formatTokens(rawText, { user: clean(input.user || '', 60), arg: clean(input.arg || '', 500) }))
+                    : rawText;
+                if (!out) return json(400, { error: 'Message expanded to empty text' }), true;
+                await send(out);
+                logUse('send', clean(input.source || 'Manual', 40), clean(input.user || 'Dashboard', 60));
+                return json(200, { sent: true, text: out }), true;
+            }
+            const msgRunMatch = pathname.match(/^\/api\/chatbot\/messages\/([^/]+)\/run$/);
+            if (msgRunMatch && (req.method === 'POST' || req.method === 'GET')) {
+                const msgId = decodeURIComponent(msgRunMatch[1]);
+                const m = data.messages.find(item => item.id === msgId);
+                if (!m) return json(404, { error: `Timed message "${msgId}" not found` }), true;
+                const raw = pick(m.text, m.random);
+                const out = await expand(formatTokens(raw, {}));
+                if (!out) return json(400, { error: 'Timed message expanded to empty text' }), true;
+                await send(out);
+                logUse('message', m.name || m.id, 'Manual');
+                return json(200, { sent: true, id: m.id, name: m.name || m.id, text: out }), true;
+            }
+            if (pathname === '/api/chatbot/test-trigger' && req.method === 'POST') {
+                const text = clean(body.text || '', 500);
+                if (!text) return json(400, { error: 'Sample message text is required' }), true;
+                const user = clean(body.user || 'viewer', 60);
+                const msg = {
+                    chatname: user,
+                    mod: body.mod === true,
+                    isMod: body.mod === true,
+                    subscriber: body.sub === true
+                };
+                const trimmed = text.trim().toLowerCase();
+                for (const t of data.triggers) {
+                    if (!t.enabled) continue;
+                    const matcher = t.matcher || compileTriggerMatcher(t);
+                    if (!matcher(trimmed, text)) continue;
+                    const raw = pick(t.text, t.random);
+                    const out = raw ? await expand(formatTokens(raw, { user, arg: text, msg })) : '';
+                    if (body.send === true && !t.silent && out) {
+                        await send(out);
+                        logUse('trigger', t.name || t.id, user, { silent: Boolean(t.silent), http: Boolean(t.httpAction?.enabled) });
+                    }
+                    return json(200, {
+                        matched: true,
+                        trigger: { id: t.id, name: t.name || '', matchMode: t.matchMode || 'contains', words: t.words, cooldown: t.cooldown },
+                        silent: Boolean(t.silent),
+                        hasHttpAction: Boolean(t.httpAction?.enabled && t.httpAction?.url),
+                        text: out
+                    }), true;
+                }
+                return json(200, { matched: false }), true;
             }
         } catch (err) {
             return json(400, { error: err.message }), true;

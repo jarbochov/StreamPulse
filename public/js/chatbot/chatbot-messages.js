@@ -59,7 +59,8 @@ export function messageHtml(m, i) {
             <div class="preview-box" data-preview></div>
             <div class="row" style="margin-top:.2rem;">
                 <label class="check" title="One message per line; a random one is sent each time"><input type="checkbox" data-k="random" ${m.random ? 'checked' : ''}> Pick random line</label>
-                <button class="btn small" data-act="test" type="button">${svgIcon('send')} Send test</button>
+                <button class="btn small" data-act="test" type="button">${svgIcon('send')} Send now</button>
+                <button class="btn small" data-act="duplicate" type="button">Duplicate</button>
                 <span style="flex:1"></span>
                 <button class="btn small danger" data-act="remove" type="button">${svgIcon('trash')} Remove</button>
             </div>
@@ -121,6 +122,7 @@ export function triggerHtml(t, i) {
             </details>
             <div class="row" style="margin-top:.2rem;">
                 <button class="btn small" data-act="test" type="button">${svgIcon('send')} Send test</button>
+                <button class="btn small" data-act="duplicate" type="button">Duplicate</button>
                 <span style="flex:1"></span>
                 <button class="btn small danger" data-act="remove" type="button">${svgIcon('trash')} Remove</button>
             </div>
@@ -163,7 +165,9 @@ export async function renderPreview(item) {
     const lines = field.value.split(/\\n|\n/).map(l => l.trim()).filter(Boolean).slice(0, 12);
     if (!lines.length) { box.innerHTML = ''; return; }
     try {
-        const out = await Promise.all(lines.map(l => api('/api/chatbot/preview', 'POST', { text: l, user: 'viewer', arg: '@someone 100' }).then(r => r.text || '(no value yet)')));
+        const user = ($('cmd-test-user')?.value || '').trim() || 'viewer';
+        const arg = ($('cmd-test-arg')?.value || '').trim() || '@someone 100';
+        const out = await Promise.all(lines.map(l => api('/api/chatbot/preview', 'POST', { text: l, user, arg }).then(r => r.text || '(no value yet)')));
         const random = item.querySelector('[data-k="random"]')?.checked;
         box.innerHTML = random
             ? `Preview, one of these at random:<ul>${out.map(t => `<li>${esc(t)}</li>`).join('')}</ul>`
@@ -231,6 +235,18 @@ export function setupMessagesEvents(applyState) {
                         onPick: token => window.PlaceholderPicker.insertInto(field, token)
                     });
                 }
+                if (act === 'duplicate') {
+                    const idx = Number(item.dataset.i);
+                    state[name] = readList(name);
+                    const copy = structuredClone(state[name][idx]);
+                    delete copy.id;
+                    if (copy.name) copy.name = `${copy.name} (copy)`.slice(0, 60);
+                    copy._open = true;
+                    state[name].splice(idx + 1, 0, copy);
+                    renderList(name);
+                    document.querySelectorAll(`#${c.el} .item`)[idx + 1]?.querySelector('input')?.focus();
+                    return;
+                }
                 if (act === 'remove') {
                     state[name] = readList(name);
                     state[name].splice(Number(item.dataset.i), 1);
@@ -238,16 +254,45 @@ export function setupMessagesEvents(applyState) {
                 }
                 if (act === 'test') {
                     try {
-                        const { text } = await api('/api/chatbot/preview', 'POST', { text: field.value.split('\n')[0] });
-                        await api('/api/chatbot/send', 'POST', { text: text || field.value });
-                        toast('Test sent to chat');
+                        const existingId = name === 'messages' ? state.messages[Number(item.dataset.i)]?.id : null;
+                        if (existingId) {
+                            await api(`/api/chatbot/messages/${encodeURIComponent(existingId)}/run`, 'POST', {});
+                        } else {
+                            const { text } = await api('/api/chatbot/preview', 'POST', { text: field.value.split('\n')[0] });
+                            await api('/api/chatbot/send', 'POST', { text: text || field.value, expand: false });
+                        }
+                        toast(name === 'messages' ? 'Message sent to chat' : 'Test sent to chat');
                     } catch (e) { toast(e.message); }
                 }
             });
         }
     }
 
-    // Trigger-specific preset picker & HTTP actions
+    // Trigger-specific preset picker, dry-run tester & HTTP actions
+    $('trigger-test-form')?.addEventListener('submit', async e => {
+        e.preventDefault();
+        const input = $('trigger-test-input');
+        const resultEl = $('trigger-test-result');
+        const text = input?.value.trim();
+        if (!text || !resultEl) return;
+        const user = ($('trigger-test-user')?.value || '').trim() || 'viewer';
+        try {
+            const res = await api('/api/chatbot/test-trigger', 'POST', { text, user });
+            resultEl.hidden = false;
+            if (!res.matched) {
+                resultEl.innerHTML = 'No enabled saved trigger matched that message.';
+                return;
+            }
+            const t = res.trigger || {};
+            const meta = [t.matchMode || 'contains', res.silent ? 'silent' : null, res.hasHttpAction ? 'webhook' : null].filter(Boolean).join(' · ');
+            const reply = res.text ? ` → <b>${esc(res.text)}</b>` : (res.silent ? ' <em>(silent — no chat reply)</em>' : '');
+            resultEl.innerHTML = `Matched <b>${esc(t.name || t.id)}</b> <span class="meta-pill">${esc(meta)}</span>${reply}`;
+        } catch (err) {
+            resultEl.hidden = false;
+            resultEl.textContent = err.message;
+        }
+    });
+
     const triggersEl = $('triggers');
     if (triggersEl) {
         triggersEl.addEventListener('change', event => {

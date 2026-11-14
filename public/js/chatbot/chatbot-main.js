@@ -125,8 +125,24 @@ export async function loadVars() {
     }
 }
 
+let activeTabName = 'commands';
+let activityPollTimer = null;
+
+function syncActivityPolling() {
+    if (activityPollTimer) {
+        clearInterval(activityPollTimer);
+        activityPollTimer = null;
+    }
+    if (activeTabName === 'activity' && !document.hidden) {
+        activityPollTimer = setInterval(loadActivity, 3000);
+    }
+}
+
 export function showTab(name) {
+    if (name === 'timed') name = 'messages';
     if (!document.querySelector(`#tabs [data-t="${name}"]`)) name = 'commands';
+    activeTabName = name;
+    try { localStorage.setItem('streampulse:chatbot:tab', name); } catch {}
     let activeBtn = null;
     document.querySelectorAll('#tabs button').forEach(b => {
         const isSel = b.dataset.t === name;
@@ -138,6 +154,7 @@ export function showTab(name) {
     const refFrame = $('ref-frame');
     if (name === 'reference' && refFrame) refFrame.src = '/commands.html';
     if (name === 'activity') loadActivity();
+    syncActivityPolling();
     document.querySelectorAll('.card[data-tab]').forEach(c => { c.hidden = c.dataset.tab !== name; });
     history.replaceState(null, '', `#${name}`);
 }
@@ -234,8 +251,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (b) showTab(b.dataset.t);
     });
 
-    // Activity refresh
+    // Activity refresh & quick send
     $('refresh-activity')?.addEventListener('click', loadActivity);
+    $('activity-send-form')?.addEventListener('submit', async e => {
+        e.preventDefault();
+        const input = $('activity-send-input');
+        const text = input?.value.trim();
+        if (!text) return;
+        try {
+            await api('/api/chatbot/send', 'POST', { text, source: 'Studio' });
+            input.value = '';
+            toast('Message sent to chat');
+            loadActivity();
+        } catch (err) {
+            toast(err.message);
+        }
+    });
+    document.addEventListener('visibilitychange', () => {
+        if (activeTabName === 'activity' && !document.hidden) loadActivity();
+        syncActivityPolling();
+    });
 
     // Usage table filters and actions
     $('usage-cmd')?.addEventListener('change', renderUsage);
@@ -376,7 +411,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Initialize UI views
-    showTab(location.hash.slice(1));
+    let initialTab = location.hash.slice(1);
+    if (!initialTab) {
+        try { initialTab = localStorage.getItem('streampulse:chatbot:tab') || ''; } catch {}
+    }
+    showTab(initialTab);
     initSettingsSections();
     loadVars().then(updateCounts);
     loadHostInfo();

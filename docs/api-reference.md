@@ -566,6 +566,18 @@ Control also accepts direct REST triggers like `POST`/`GET /api/timers/:id/toggl
   ```
 - HTTP execution uses trusted broadcaster/moderator permissions. `bypassCooldown` defaults to true; set it to false to honor cooldowns. There is no `silent` option.
 
+### Send Message as Bot
+- **Endpoint**: `POST /api/chatbot/send` (or `GET /api/chatbot/send?text=...`)
+- **Description**: Sends a message (or multi-line sequence) to chat, expanding `{tokens}` and `{{placeholders}}` by default (`expand: false` to send literally).
+
+### Run Timed Message Now
+- **Endpoint**: `POST /api/chatbot/messages/:id/run` (or `GET /api/chatbot/messages/:id/run`)
+- **Description**: Immediately expands and sends a saved timed message by ID.
+
+### Test Word Trigger (Dry-Run)
+- **Endpoint**: `POST /api/chatbot/test-trigger`
+- **Description**: Tests `{ "text": "...", "user": "viewer" }` against enabled triggers without sending to chat unless `"send": true` is passed.
+
 ---
 
 ## 7. Community Directory & Viewer Dossiers
