@@ -135,10 +135,18 @@ test('Variable Sets: multi-slot roster, assign, swap, cycle, clear, and delete',
         assert.equal(getVar(store, 'speaker_2_name').value, 'Alex Chen');
         assert.equal(getVar(store, 'speaker_name').value, 'Maya Patel');
 
-        // Cycle slot 2 next (alex -> maya -> sam)
+        // Cycle slot 2 next: skips Maya (occupied in slot 1) and goes directly to Sam
         await callApi(store, 'POST', '/api/variables/sets/speaker/next?slot=2', {});
-        assert.equal(getVar(store, 'speaker_2_name').value, 'Maya Patel');
-        await callApi(store, 'POST', '/api/variables/sets/speaker/next?slot=2', {});
+        assert.equal(getVar(store, 'speaker_2_name').value, 'Sam Rivera');
+
+        // Advance queue shifts Slot 2 -> Slot 1 and pulls next unoccupied (Alex) into Slot 2
+        await callApi(store, 'GET', '/api/variables/sets/speaker/advance');
+        assert.equal(getVar(store, 'speaker_1_name').value, 'Sam Rivera');
+        assert.equal(getVar(store, 'speaker_2_name').value, 'Alex Chen');
+
+        // Rewind queue restores Maya -> Slot 1 and Sam -> Slot 2
+        await callApi(store, 'POST', '/api/variables/sets/speaker/rewind', {});
+        assert.equal(getVar(store, 'speaker_1_name').value, 'Maya Patel');
         assert.equal(getVar(store, 'speaker_2_name').value, 'Sam Rivera');
 
         // Clear slot 1

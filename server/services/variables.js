@@ -345,18 +345,77 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         const setObj = sets[cleanId];
         if (!setObj) throw new Error('Set not found');
         if (!setObj.roster.length) return setObj;
-        const curEntryId = setObj.slotsCount === 0
-            ? setObj.activeEntry
-            : setObj.slots[parseSlotIndex(setObj, slotParam)];
-        const curPos = setObj.roster.findIndex(r => r.id === curEntryId);
-        const nextPos = curPos === -1
-            ? (direction > 0 ? 0 : setObj.roster.length - 1)
-            : (curPos + direction + setObj.roster.length) % setObj.roster.length;
+
         if (setObj.slotsCount === 0) {
+            const curPos = setObj.roster.findIndex(r => r.id === setObj.activeEntry);
+            const nextPos = curPos === -1
+                ? (direction > 0 ? 0 : setObj.roster.length - 1)
+                : (curPos + direction + setObj.roster.length) % setObj.roster.length;
             setObj.activeEntry = setObj.roster[nextPos].id;
         } else {
             const idx = parseSlotIndex(setObj, slotParam);
-            setObj.slots[idx] = setObj.roster[nextPos].id;
+            const occupied = new Set(setObj.slots.filter((id, i) => id && i !== idx));
+            const curPos = setObj.roster.findIndex(r => r.id === setObj.slots[idx]);
+            const len = setObj.roster.length;
+            let chosen = '';
+            for (let step = 1; step <= len; step++) {
+                const pos = curPos === -1
+                    ? (direction > 0 ? (step - 1) % len : (len - step) % len)
+                    : (curPos + direction * step + len * step) % len;
+                const candidate = setObj.roster[pos].id;
+                if (!occupied.has(candidate)) { chosen = candidate; break; }
+            }
+            if (!chosen) {
+                const fallbackPos = curPos === -1 ? (direction > 0 ? 0 : len - 1) : (curPos + direction + len) % len;
+                chosen = setObj.roster[fallbackPos].id;
+            }
+            setObj.slots[idx] = chosen;
+        }
+
+        setObj.updatedAt = Date.now();
+        materializeSetVars(setObj);
+        saveSets({ saveVarsAlso: true });
+        return setObj;
+    }
+
+    function advanceSetQueue(setId, direction = 1, mode = 'shift') {
+        const cleanId = normSetId(setId);
+        const setObj = sets[cleanId];
+        if (!setObj) throw new Error('Set not found');
+        if (!setObj.roster.length || setObj.slotsCount <= 1) {
+            return cycleSetSlot(setId, 1, direction);
+        }
+        const len = setObj.roster.length;
+        const n = setObj.slotsCount;
+        if (mode === 'page') {
+            const firstPos = setObj.roster.findIndex(r => r.id === setObj.slots[0]);
+            const start = firstPos === -1 ? 0 : (firstPos + direction * n + len * n) % len;
+            setObj.slots = Array.from({ length: n }, (_, i) => (i < len ? setObj.roster[(start + i) % len].id : ''));
+        } else if (direction > 0) {
+            const nextSlots = setObj.slots.slice(1);
+            const occupied = new Set(nextSlots.filter(Boolean));
+            const anchorId = setObj.slots[n - 1] || nextSlots[nextSlots.length - 1] || '';
+            const anchorPos = setObj.roster.findIndex(r => r.id === anchorId);
+            let incoming = '';
+            for (let step = 1; step <= len; step++) {
+                const pos = anchorPos === -1 ? (step - 1) % len : (anchorPos + step) % len;
+                const cand = setObj.roster[pos].id;
+                if (!occupied.has(cand)) { incoming = cand; break; }
+            }
+            nextSlots.push(incoming);
+            setObj.slots = nextSlots;
+        } else {
+            const nextSlots = setObj.slots.slice(0, n - 1);
+            const occupied = new Set(nextSlots.filter(Boolean));
+            const anchorId = setObj.slots[0] || nextSlots[0] || '';
+            const anchorPos = setObj.roster.findIndex(r => r.id === anchorId);
+            let incoming = '';
+            for (let step = 1; step <= len; step++) {
+                const pos = anchorPos === -1 ? (len - step) % len : (anchorPos - step + len * step) % len;
+                const cand = setObj.roster[pos].id;
+                if (!occupied.has(cand)) { incoming = cand; break; }
+            }
+            setObj.slots = [incoming, ...nextSlots];
         }
         setObj.updatedAt = Date.now();
         materializeSetVars(setObj);
@@ -528,8 +587,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                 return json(200, { sets: listSets() }), true;
             }
 
-            // Variable Sets & Slots: /api/variables/sets/:setId[/assign|clear|next|prev|swap|export|import]
-            const setMatch = pathname.match(/^\/api\/variables\/sets\/([^/]+)(?:\/(assign|clear|next|prev|swap|export|import))?$/);
+            // Variable Sets & Slots: /api/variables/sets/:setId[/assign|clear|next|prev|swap|advance|rewind|export|import]
+            const setMatch = pathname.match(/^\/api\/variables\/sets\/([^/]+)(?:\/(assign|clear|next|prev|swap|advance|rewind|export|import))?$/);
             if (setMatch) {
                 const setId = decodeURIComponent(setMatch[1]);
                 const action = setMatch[2];
@@ -564,6 +623,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                     if (action === 'next') return json(200, cycleSetSlot(setId, slot, 1)), true;
                     if (action === 'prev') return json(200, cycleSetSlot(setId, slot, -1)), true;
                     if (action === 'swap') return json(200, swapSetSlots(setId, query.from ?? body.from ?? 1, query.to ?? body.to ?? 2)), true;
+                    if (action === 'advance') return json(200, advanceSetQueue(setId, 1, query.mode ?? body.mode ?? 'shift')), true;
+                    if (action === 'rewind') return json(200, advanceSetQueue(setId, -1, query.mode ?? body.mode ?? 'shift')), true;
                 }
                 return json(405, { error: 'Method not allowed' }), true;
             }
@@ -606,6 +667,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         clearSetSlot,
         cycleSetSlot,
         swapSetSlots,
+        advanceSetQueue,
         importBundle,
         exportSetCsv,
         importSetCsv,

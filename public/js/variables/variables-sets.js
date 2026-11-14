@@ -248,6 +248,13 @@ export function renderSets() {
             <div>
                 <div class="set-section-title">
                     <span>${slotsCount > 0 ? 'Output Channels (drag entries onto slots or swap)' : 'Active Output'}</span>
+                    ${slotsCount > 1 ? `
+                        <div style="display:flex; gap:.3rem; align-items:center; text-transform:none; letter-spacing:0; font-weight:500;">
+                            <span class="muted" style="font-size:.74rem;">Shift Queue:</span>
+                            <button type="button" class="b sm" data-set-act="rewind" title="Shift all slots back">${SVG_PREV} Prev</button>
+                            <button type="button" class="b sm" data-set-act="advance" title="Shift all slots forward">Next ${SVG_NEXT}</button>
+                        </div>
+                    ` : ''}
                 </div>
                 ${outputHtml}
             </div>
@@ -624,6 +631,10 @@ export function bindSetEvents(onReload) {
             }
             if (act === 'clear' || act === 'next' || act === 'prev') {
                 await api(`${base}/${act}?slot=${encodeURIComponent(btn.dataset.slot)}`, 'POST', {});
+                return await reloadHandler();
+            }
+            if (act === 'advance' || act === 'rewind') {
+                await api(`${base}/${act}`, 'POST', {});
                 return await reloadHandler();
             }
         } catch (err) {
