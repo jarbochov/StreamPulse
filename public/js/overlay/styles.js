@@ -956,6 +956,7 @@ function ensureTextAnimKeyframes() {
         @keyframes sp-ta-word-wobble { 0%, 100% { transform: translate3d(0, 0, 0) skewX(0deg) rotate(0deg); } 25% { transform: translate3d(calc(var(--sp-ta-dist, 6px) * -0.45), 0, 0) skewX(-6deg) rotate(calc(var(--sp-ta-rot, 4deg) * -0.7)); } 75% { transform: translate3d(calc(var(--sp-ta-dist, 6px) * 0.45), 0, 0) skewX(6deg) rotate(calc(var(--sp-ta-rot, 4deg) * 0.7)); } }
         @keyframes sp-ta-word-pop { 0%, 40%, 100% { transform: scale(1); } 16% { transform: scale(var(--sp-ta-scale, 1.14)); } 28% { transform: scale(0.96); } }
         @keyframes sp-ta-word-reveal { 0%, 6% { opacity: 0; transform: translate3d(0, calc(var(--sp-ta-dist, 8px) * 1.1), 0) scale(0.92); } 18%, 78% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } 90%, 100% { opacity: 0; transform: translate3d(0, calc(var(--sp-ta-dist, 8px) * -0.6), 0) scale(0.96); } }
+        @keyframes sp-ta-word-reveal-once { 0% { opacity: 0; transform: translate3d(0, calc(var(--sp-ta-dist, 8px) * 1.1), 0) scale(0.92); } 100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
 
         @keyframes sp-ta-char-bounce { 0%, 50%, 100% { transform: translate3d(0, 0, 0) scale(1, 1); } 20% { transform: translate3d(0, calc(var(--sp-ta-dist, 7px) * -1.25), 0) scale(0.94, 1.08); } 36% { transform: translate3d(0, 1px, 0) scale(1.06, 0.92); } }
         @keyframes sp-ta-char-wave { 0%, 100% { transform: translate3d(0, 0, 0); } 25% { transform: translate3d(0, calc(var(--sp-ta-dist, 6px) * -1), 0); } 75% { transform: translate3d(0, calc(var(--sp-ta-dist, 6px) * 0.65), 0); } }
@@ -966,6 +967,7 @@ function ensureTextAnimKeyframes() {
         @keyframes sp-ta-caret-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
 
         .sp-ta-wrap { display: inline-block; width: 100%; max-width: 100%; text-align: inherit; }
+        .sp-image-group-field .sp-ta-wrap { width: auto; }
         .sp-ta-word-group { display: inline; white-space: nowrap; }
         .sp-ta-unit { display: inline-block; will-change: transform, opacity; transform-origin: 50% 60%; }
         .sp-ta-caret { display: inline-block; width: 0; height: 0.92em; vertical-align: -0.1em; border-right: 0.11em solid currentColor; margin-left: 2px; animation: sp-ta-caret-blink 0.75s step-end infinite; }
@@ -1004,11 +1006,12 @@ function stopTextAnimation(node, restoreText = false) {
             if (tn.nodeValue !== text) tn.nodeValue = text;
         }
     }
+    if (restoreText) delete node._rawText;
 }
 
 function readRawText(node) {
-    if (typeof node._rawText === 'string') return node._rawText;
-    if (node._textNode && node._textNode.parentNode === node) return node._textNode.nodeValue || '';
+    if (typeof node._rawText === 'string' && node._textAnimWrap?.parentNode === node) return node._rawText;
+    if (node._textNode && node._textNode.parentNode === node && node._textNode.nodeValue) return node._textNode.nodeValue;
     const joined = [...node.childNodes].filter(c => c.nodeType === 3).map(c => c.nodeValue).join('');
     if (joined) return joined;
     return node.firstElementChild ? '' : (node.textContent || '');
@@ -1028,13 +1031,13 @@ function blockFallbackForSplit(animType) {
     return 'pulse';
 }
 
-function mountSplitTextAnimation(node, animType, speed, intensity) {
+function mountSplitTextAnimation(node, animType, speed, intensity, playMode = 'loop', delay = 0) {
     const rawText = readRawText(node);
     node._rawText = rawText;
     for (const c of [...node.childNodes]) {
         if (c.nodeType === 3) c.nodeValue = '';
     }
-    const sig = `${animType}|${speed}|${intensity}|${rawText}`;
+    const sig = `${animType}|${playMode}|${delay}|${speed}|${intensity}|${rawText}`;
     if (node._textAnimSig === sig && node._textAnimWrap?.parentNode === node) return;
 
     stopTextAnimation(node, false);
@@ -1048,11 +1051,15 @@ function mountSplitTextAnimation(node, animType, speed, intensity) {
     if (firstEl) node.insertBefore(wrap, firstEl);
     else node.appendChild(wrap);
 
+    const once = playMode === 'once';
+    const iter = once ? '1 both' : 'infinite';
+
     if (animType.startsWith('word-')) {
         const parts = rawText.split(/(\r?\n|[ \t]+)/);
         const words = parts.filter(p => p && !/^\s+$/.test(p));
         const stagger = Math.min(0.28, (speed * 0.55) / Math.max(1, words.length));
         const timing = animType === 'word-bounce' ? 'cubic-bezier(0.28, 0.84, 0.42, 1)' : 'ease-in-out';
+        const kfName = (animType === 'word-reveal' && once) ? 'sp-ta-word-reveal-once' : `sp-ta-${animType}`;
         let wIdx = 0;
         for (const part of parts) {
             if (!part) continue;
@@ -1062,7 +1069,7 @@ function mountSplitTextAnimation(node, animType, speed, intensity) {
                 const span = document.createElement('span');
                 span.className = 'sp-ta-unit sp-ta-word';
                 span.textContent = part;
-                span.style.animation = `sp-ta-${animType} ${speed}s ${timing} ${(wIdx * stagger).toFixed(3)}s infinite`;
+                span.style.animation = `${kfName} ${speed}s ${timing} ${(delay + wIdx * stagger).toFixed(3)}s ${iter}`;
                 wrap.appendChild(span);
                 wIdx++;
             }
@@ -1090,10 +1097,10 @@ function mountSplitTextAnimation(node, animType, speed, intensity) {
                 const span = document.createElement('span');
                 span.className = 'sp-ta-unit sp-ta-char';
                 span.textContent = ch;
-                const delay = animType === 'char-jitter'
-                    ? (((cIdx * 37) % 11) * (speed * 0.09)).toFixed(3)
-                    : (cIdx * stagger).toFixed(3);
-                span.style.animation = `sp-ta-${animType} ${speed}s ${timing} ${delay}s infinite`;
+                const d = delay + (animType === 'char-jitter'
+                    ? (((cIdx * 37) % 11) * (speed * 0.09))
+                    : (cIdx * stagger));
+                span.style.animation = `sp-ta-${animType} ${speed}s ${timing} ${d.toFixed(3)}s ${iter}`;
                 host.appendChild(span);
                 cIdx++;
             }
@@ -1112,11 +1119,14 @@ function mountSplitTextAnimation(node, animType, speed, intensity) {
 
         if (!glyphs.length) return;
         const totalMs = Math.max(400, speed * 1000);
-        const typeMs = totalMs * 0.55;
+        const typeMs = once ? totalMs : totalMs * 0.55;
         const stepMs = Math.max(25, Math.min(260, Math.round(typeMs / glyphs.length)));
         const holdSteps = Math.max(6, Math.round((totalMs * 0.45) / stepMs));
-        let cursor = 1;
+        const delayMs = Math.round(delay * 1000);
+        let cursor = delayMs > 0 ? 0 : 1;
         let hold = 0;
+        let timer = 0;
+        let delayTimer = 0;
 
         const paint = count => {
             const frag = document.createDocumentFragment();
@@ -1134,25 +1144,48 @@ function mountSplitTextAnimation(node, animType, speed, intensity) {
             typedEl.replaceChildren(frag);
         };
 
-        paint(isMotionPaused(node) ? glyphs.length : 1);
-        const timer = setInterval(() => {
-            if (!node.isConnected) { clearInterval(timer); return; }
-            if (isMotionPaused(node)) {
-                paint(glyphs.length);
-                return;
+        const startTypingLoop = () => {
+            if (!node.isConnected) return;
+            paint(isMotionPaused(node) ? glyphs.length : 1);
+            cursor = 1;
+            timer = setInterval(() => {
+                if (!node.isConnected) { clearInterval(timer); timer = 0; return; }
+                if (isMotionPaused(node)) {
+                    paint(glyphs.length);
+                    return;
+                }
+                if (cursor < glyphs.length) {
+                    cursor++;
+                    paint(cursor);
+                } else if (once) {
+                    clearInterval(timer);
+                    timer = 0;
+                    caret.remove();
+                } else if (hold < holdSteps) {
+                    hold++;
+                } else {
+                    cursor = 1;
+                    hold = 0;
+                    paint(cursor);
+                }
+            }, stepMs);
+        };
+
+        if (isMotionPaused(node)) {
+            paint(glyphs.length);
+            if (once) caret.remove();
+        } else if (delayMs > 0) {
+            paint(0);
+            delayTimer = setTimeout(() => { delayTimer = 0; startTypingLoop(); }, delayMs);
+        } else {
+            startTypingLoop();
+        }
+        node._textAnimHandle = {
+            stop: () => {
+                if (delayTimer) { clearTimeout(delayTimer); delayTimer = 0; }
+                if (timer) { clearInterval(timer); timer = 0; }
             }
-            if (cursor < glyphs.length) {
-                cursor++;
-                paint(cursor);
-            } else if (hold < holdSteps) {
-                hold++;
-            } else {
-                cursor = 1;
-                hold = 0;
-                paint(cursor);
-            }
-        }, stepMs);
-        node._textAnimHandle = { stop: () => clearInterval(timer) };
+        };
         return;
     }
 
@@ -1180,11 +1213,14 @@ function mountSplitTextAnimation(node, animType, speed, intensity) {
         if (!slots.length) return;
         const totalMs = Math.max(450, speed * 1000);
         const ticksPerDecode = Math.max(slots.length * 2, 12);
-        const tickMs = Math.max(35, Math.min(110, Math.round((totalMs * 0.55) / ticksPerDecode)));
+        const tickMs = Math.max(35, Math.min(110, Math.round((once ? totalMs : totalMs * 0.55) / ticksPerDecode)));
         const holdTicks = Math.max(8, Math.round((totalMs * 0.45) / tickMs));
+        const delayMs = Math.round(delay * 1000);
         let progress = 0;
         let hold = 0;
         let frame = 0;
+        let timer = 0;
+        let delayTimer = 0;
 
         const paintMatrix = lockedCount => {
             frame++;
@@ -1198,26 +1234,47 @@ function mountSplitTextAnimation(node, animType, speed, intensity) {
             }
         };
 
-        paintMatrix(isMotionPaused(node) ? slots.length : 0);
         const stepProgress = Math.max(0.25, slots.length / ticksPerDecode);
-        const timer = setInterval(() => {
-            if (!node.isConnected) { clearInterval(timer); return; }
-            if (isMotionPaused(node)) {
-                paintMatrix(slots.length);
-                return;
+        const startDecodeLoop = () => {
+            if (!node.isConnected) return;
+            timer = setInterval(() => {
+                if (!node.isConnected) { clearInterval(timer); timer = 0; return; }
+                if (isMotionPaused(node)) {
+                    paintMatrix(slots.length);
+                    return;
+                }
+                if (progress < slots.length) {
+                    progress += stepProgress;
+                    paintMatrix(Math.floor(progress));
+                } else if (once) {
+                    paintMatrix(slots.length);
+                    clearInterval(timer);
+                    timer = 0;
+                } else if (hold < holdTicks) {
+                    hold++;
+                } else {
+                    progress = 0;
+                    hold = 0;
+                    paintMatrix(0);
+                }
+            }, tickMs);
+        };
+
+        if (isMotionPaused(node)) {
+            paintMatrix(slots.length);
+        } else if (delayMs > 0) {
+            paintMatrix(0);
+            delayTimer = setTimeout(() => { delayTimer = 0; startDecodeLoop(); }, delayMs);
+        } else {
+            paintMatrix(0);
+            startDecodeLoop();
+        }
+        node._textAnimHandle = {
+            stop: () => {
+                if (delayTimer) { clearTimeout(delayTimer); delayTimer = 0; }
+                if (timer) { clearInterval(timer); timer = 0; }
             }
-            if (progress < slots.length) {
-                progress += stepProgress;
-                paintMatrix(Math.floor(progress));
-            } else if (hold < holdTicks) {
-                hold++;
-            } else {
-                progress = 0;
-                hold = 0;
-                paintMatrix(0);
-            }
-        }, tickMs);
-        node._textAnimHandle = { stop: () => clearInterval(timer) };
+        };
     }
 }
 
@@ -1231,6 +1288,8 @@ function applyTextAnimation(node, style = {}, type = '') {
 
     const anim = style.textAnimation || {};
     const animType = TEXT_ANIM_TYPES.includes(anim.type) ? anim.type : 'none';
+    const playMode = anim.mode === 'once' ? 'once' : 'loop';
+    const delay = Math.max(0, Math.min(30, Number(anim.delay) || 0));
     const useGrad = isTextGradient(style, type);
     node.classList.toggle('sp-ta-grad', useGrad);
     if (useGrad) node.style.setProperty('--sp-ta-tgrad', gradientCss(style.textGradient));
@@ -1262,7 +1321,7 @@ function applyTextAnimation(node, style = {}, type = '') {
         && !node.querySelector(':scope > .overlay-marquee-track, :scope > .overlay-caret');
 
     if (TEXT_SPLIT_ANIM_TYPES.has(animType) && canSplitText) {
-        mountSplitTextAnimation(node, animType, speed, intensity);
+        mountSplitTextAnimation(node, animType, speed, intensity, playMode, delay);
         return;
     }
 
@@ -1271,7 +1330,9 @@ function applyTextAnimation(node, style = {}, type = '') {
     const timing = (blockType === 'glitch') ? 'steps(1, end)'
         : (blockType === 'bounce') ? 'cubic-bezier(0.28, 0.84, 0.42, 1)' : 'ease-in-out';
     const dur = blockType === 'glitch' ? Math.max(0.8, speed) : speed;
-    const extraAnim = `sp-text-${blockType} ${dur}s ${timing} infinite`;
+    const iter = playMode === 'once' ? '1 both' : 'infinite';
+    const delayPart = delay > 0 ? `${delay}s ` : '';
+    const extraAnim = `sp-text-${blockType} ${dur}s ${timing} ${delayPart}${iter}`;
     node.style.animation = [...baseAnims, extraAnim].join(', ');
 }
 

@@ -604,7 +604,10 @@ function setNodeText(node, text) {
 
 // ---- Content and Styling ----------------------------------------------------------
 export function applyNodeStyle(node, el, index) {
-    const s = el.style || {}, b = boxOf(el);
+    const rawStyle = el.style || {}, b = boxOf(el);
+    const s = (prefs.live && shared.resolveStyleVariables)
+        ? shared.resolveStyleVariables(rawStyle, effectiveLiveStatus(), { overlayName: state.overlay?.name })
+        : rawStyle;
     node.className = `canvas-element type-${el.type}${isLine(el) ? ' is-line' : ''}${state.selectedIds.has(el.id) ? ' selected' : ''}${el.locked ? ' locked' : ''}${el.visible === false ? ' hidden' : ''}${node._extra || ''}`;
     let cutoutRadius = '0';
     if (el.type === 'cutout') {

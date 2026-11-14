@@ -43,7 +43,7 @@ select option, select optgroup { background: var(--panel); color: var(--text); }
 
 .rail { background: var(--panel); border-color: var(--border); overflow-y: auto; overflow-x: hidden; min-height: 0; }
 .rail.left { border-right: 1px solid var(--border); display: flex; flex-direction: column; }
-.rail.right { border-left: 1px solid var(--border); }
+.rail.right { border-left: 1px solid var(--border); scroll-padding-top: 96px; }
 .rail::-webkit-scrollbar { width: 10px; } .rail::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; border: 2px solid var(--panel); }
 
 details.sect { border-bottom: 1px solid var(--border-soft); }
@@ -74,8 +74,10 @@ details.sect > summary:hover { background: color-mix(in srgb, var(--text) 4%, tr
 .sect[data-sect^="speaker"] .grid2 { align-items: start; }
 .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
 .check { display: flex; align-items: center; gap: .5rem; color: var(--text); font-size: 12px; cursor: pointer; }
-.color-field { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: .4rem; align-items: center; }
-.color-field.has-actions { grid-template-columns: 38px minmax(0, 1fr) auto auto; }
+.color-field { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: .35rem; align-items: center; }
+.color-field-actions { display: inline-flex; align-items: center; gap: 3px; flex: none; }
+.color-var-btn, .eyedrop-btn { width: 26px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.color-var-btn:hover, .ig-var-btn:hover { border-color: var(--accent); color: var(--accent); }
 .range-field { display: grid; grid-template-columns: minmax(0, 1fr) 3.2rem; gap: .5rem; align-items: center; }
 .range-field input[type="range"] { width: 100%; min-width: 0; }
 .range-field.has-number { grid-template-columns: minmax(0, 1fr) 4.2rem; }
@@ -1160,38 +1162,96 @@ body.is-scrubbing, body.is-scrubbing * {
 .sp-quick-chip { font: inherit; font-size: 10.5px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; }
 .sp-quick-chip:hover { border-color: var(--accent); color: var(--accent); }
 
-/* Group Image Strip Inspector & Member Fields Modal */
+/* Group Image Strip Inspector & Member Badge Builder Studio */
+.ig-var-btn { flex: none; width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+
 .ig-field-summary { display: grid; gap: 5px; margin: 4px 0; }
 .ig-field-pill { display: flex; align-items: center; gap: 5px; min-width: 0; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--field); font-size: 11px; }
 .ig-field-pill .ig-fp-role { flex: none; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 1px 5px; border-radius: 4px; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.ig-field-pill .ig-fp-role.is-img { background: rgba(168, 85, 247, 0.16); color: #c084fc; }
+.ig-field-pill .ig-fp-slot { flex: none; font-size: 9.5px; font-weight: 600; padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); }
 .ig-field-pill .ig-fp-key { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .ig-field-pill .ig-fp-inline { flex: none; font-size: 9.5px; color: var(--muted); }
 .ig-field-pill button { flex: none; width: 20px; height: 20px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; }
-.ig-actions-row { display: flex; gap: 6px; margin-top: 4px; }
-.ig-actions-row button { flex: 1; min-width: 0; font-size: 11px; padding: 4px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ig-actions-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.ig-actions-row button { flex: 1 1 auto; min-width: 0; font-size: 11px; padding: 4px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-#ig-fields-dialog { width: min(680px, 94vw); max-width: 680px; }
-.ig-modal-head h3 { margin: 0 0 .2rem; font-size: 15px; }
-.ig-modal-sub { margin: 0 0 .75rem; font-size: 12px; color: var(--muted); line-height: 1.4; }
-.ig-presets-section { display: grid; gap: 5px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); margin-bottom: 10px; }
+#ig-fields-dialog { width: min(1140px, 96vw); max-width: 1140px; height: min(860px, 92vh); max-height: 92vh; padding: 0; overflow: hidden; }
+#ig-fields-dialog[open] { display: flex; flex-direction: column; }
+.ig-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--panel); flex: none; }
+.ig-modal-title-wrap { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ig-modal-icon { flex: none; width: 34px; height: 34px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+.ig-modal-head h3 { margin: 0 0 2px; font-size: 15px; }
+.ig-modal-sub { margin: 0; font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+.ig-modal-head-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+
+.ig-builder-cols { flex: 1; min-height: 0; display: grid; grid-template-columns: 400px minmax(0, 1fr); }
+.ig-builder-left { overflow-y: auto; padding: 14px 16px; border-right: 1px solid var(--border); display: grid; gap: 12px; align-content: start; background: color-mix(in srgb, var(--bg) 55%, var(--panel)); }
+.ig-builder-right { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--panel); }
+
+.ig-preview-section { display: grid; gap: 6px; }
+.ig-preview-bar { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+.ig-preview-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ig-preview-member-select { width: auto; max-width: 155px; height: 24px; padding: 1px 6px; font-size: 11px; border-radius: 6px; }
+.ig-preview-bg-seg { display: inline-flex; }
+.ig-preview-bg-seg button { font-size: 10.5px; padding: 2px 8px; height: 24px; }
+.ig-preview-stage { position: relative; min-height: 124px; max-height: 240px; overflow: auto; padding: 16px; border: 1px solid var(--border); border-radius: 9px; display: flex; align-items: center; justify-content: center; }
+.ig-preview-stage.is-dark { background: radial-gradient(circle at 30% 20%, rgba(56,189,248,0.08), transparent 60%), #0b1120; }
+.ig-preview-stage.is-light { background: #e2e8f0; }
+.ig-preview-stage.is-checker {
+    background-color: #182132;
+    background-image: linear-gradient(45deg, #232f46 25%, transparent 25%), linear-gradient(-45deg, #232f46 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #232f46 75%), linear-gradient(-45deg, transparent 75%, #232f46 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+.ig-badge-preview-host { position: relative; display: flex; align-items: center; justify-content: center; min-width: 120px; max-width: 100%; }
+.ig-badge-preview-host .sp-image-group { width: auto; max-width: 100%; height: auto; }
+
+.ig-presets-section, .ig-placement-card { display: grid; gap: 7px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
 .ig-presets-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .ig-presets-row { display: flex; flex-wrap: wrap; gap: 5px; }
-.ig-modal-placement { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
-.ig-modal-placement label { display: grid; gap: 3px; font-size: 11px; font-weight: 600; color: var(--muted); }
-.ig-fields-list { display: grid; gap: 8px; max-height: 44vh; overflow: auto; padding-right: 2px; }
-.ig-field-row { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--field); }
-.ig-field-row-top { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto auto auto auto; gap: 6px; align-items: center; }
-.ig-field-row-bot { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, .9fr) minmax(0, .8fr) auto auto; gap: 6px; align-items: end; }
-.ig-field-row label { display: grid; gap: 2px; font-size: 10px; font-weight: 600; color: var(--muted); min-width: 0; }
-.ig-field-row select, .ig-field-row input[type="text"], .ig-field-row input[type="number"] { width: 100%; min-width: 0; box-sizing: border-box; font-size: 11.5px; height: 27px; padding: 3px 6px; }
-.ig-field-inline-chk { display: inline-flex !important; align-items: center; gap: 4px; font-size: 11px !important; color: var(--text) !important; cursor: pointer; white-space: nowrap; }
-.ig-field-row-top button { width: 26px; height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.ig-modal-placement { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: end; }
+.ig-modal-placement label { display: grid; gap: 3px; font-size: 11px; font-weight: 600; color: var(--muted); min-width: 0; }
+.ig-modal-placement select, .ig-modal-placement input[type="number"] { height: 28px; padding: 3px 7px; font-size: 11.5px; }
+.ig-modal-placement .ig-inline-checks { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; grid-column: 1 / -1; padding-top: 2px; }
+.ig-modal-placement .ig-inline-checks label { display: inline-flex; flex-direction: row; align-items: center; gap: 5px; font-size: 11.5px; color: var(--text); font-weight: 500; cursor: pointer; }
+
+.ig-fields-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--panel-2); flex: none; flex-wrap: wrap; }
+.ig-fields-toolbar-meta { display: flex; align-items: center; gap: 8px; }
+.ig-fields-count { font-size: 11px; font-weight: 600; color: var(--muted); padding: 2px 7px; border-radius: 999px; background: var(--field); border: 1px solid var(--border); }
+.ig-fields-toolbar-actions { display: flex; align-items: center; gap: 6px; }
+.ig-fields-toolbar-actions button { height: 28px; font-size: 11.5px; padding: 0 10px; }
+
+.ig-fields-list { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px; display: grid; gap: 10px; align-content: start; }
+.ig-field-row { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--field); }
+.ig-field-row.is-img-card { border-color: color-mix(in srgb, #a855f7 35%, var(--border)); }
+.ig-field-head { display: flex; align-items: end; gap: 7px; flex-wrap: wrap; }
+.ig-kind-badge { flex: none; align-self: center; font-size: 9.5px; font-weight: 700; letter-spacing: .05em; padding: 2px 6px; border-radius: 5px; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); text-transform: uppercase; }
+.ig-kind-badge.is-img { background: rgba(168, 85, 247, 0.18); color: #c084fc; }
+.ig-field-head-grow { flex: 1 1 135px; min-width: 110px; }
+.ig-field-head-zone { flex: 1 1 145px; min-width: 120px; }
+.ig-field-head-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+.ig-field-head-actions button { width: 27px; height: 27px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+
+.ig-field-row-mid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; align-items: end; }
+.ig-field-row-bot { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; align-items: end; }
+.ig-field-row label { display: grid; gap: 3px; font-size: 10px; font-weight: 600; color: var(--muted); min-width: 0; }
+.ig-field-row select, .ig-field-row input[type="text"], .ig-field-row input[type="number"] { width: 100%; min-width: 0; box-sizing: border-box; font-size: 11.5px; height: 28px; padding: 3px 6px; }
+.ig-field-inline-chk { display: inline-flex !important; flex-direction: row !important; align-items: center; gap: 5px; font-size: 11.5px !important; color: var(--text) !important; cursor: pointer; white-space: nowrap; height: 28px; }
 .ig-color-mini { display: flex; align-items: center; gap: 4px; }
-.ig-color-mini input[type="color"] { width: 26px; height: 26px; padding: 1px; border-radius: 5px; cursor: pointer; }
-.ig-modal-footer { display: flex; align-items: center; gap: 8px; justify-content: space-between; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
-.ig-fields-count { flex: 1; font-size: 11px; color: var(--muted); }
-@media (max-width: 600px) {
-    .ig-field-row-top { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto; }
-    .ig-field-row-bot { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .ig-modal-placement { grid-template-columns: 1fr; }
+.ig-color-mini input[type="color"] { flex: none; width: 28px; height: 28px; padding: 1px; border-radius: 5px; cursor: pointer; }
+.ig-src-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px; align-items: end; grid-column: 1 / -1; }
+.ig-src-row button { height: 28px; font-size: 11px; padding: 0 9px; flex: none; }
+.ig-grid-span2 { grid-column: span 2; }
+.sp-image-group-item.is-wrap .sp-image-group-field,
+.sp-image-group-item.is-wrap .sp-image-group-label,
+.sp-image-group-item.is-wrap .sp-image-group-sub { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+.sp-image-group-avatar-slot { display: flex; flex-direction: column; align-items: center; max-width: 100%; }
+@media (max-width: 880px) {
+    #ig-fields-dialog { height: min(92vh, 920px); }
+    .ig-builder-cols { grid-template-columns: minmax(0, 1fr); overflow-y: auto; }
+    .ig-builder-left { border-right: 0; border-bottom: 1px solid var(--border); overflow: visible; }
+    .ig-builder-right { overflow: visible; }
+    .ig-fields-list { overflow: visible; }
+    .ig-field-row-mid, .ig-field-row-bot { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

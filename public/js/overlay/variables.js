@@ -845,4 +845,68 @@ async function loadLiveExtras(status, elements = null) {
     return status;
 }
 
-export { FORMAT_PRESETS, LIST_FORMAT_PRESETS, VARIABLE_GROUPS, applyFormat, expandVariables, formatDate, formatDuration, hasTicking, inPlanList, isDateKey, isListFormat, isListKey, loadLiveExtras, variableGroups, variableSnapshot, variableTable };
+function resolveColorToken(raw, status, context, member = null) {
+    const str = String(raw ?? '').trim();
+    if (!str) return '';
+    if (str.startsWith('@') && member) {
+        const fk = str.slice(1).trim();
+        return String(member.values?.[fk] ?? member[fk] ?? '').trim();
+    }
+    if (!str.includes('{{')) return str;
+    return expandVariables(str, status, context, false).trim();
+}
+
+function resolveStyleVariables(style, status, context, member = null) {
+    if (!style || typeof style !== 'object') return style;
+    const expandFn = v => resolveColorToken(v, status, context, member);
+    const hasToken = v => typeof v === 'string' && (v.includes('{{') || (Boolean(member) && v.trim().startsWith('@')));
+    const gradKeys = ['gradient', 'textGradient', 'borderGradient'];
+    const needsClone = ['color', 'background', 'fill', 'borderColor'].some(k => hasToken(style[k]))
+        || gradKeys.some(k => style[k] && (hasToken(style[k].from) || hasToken(style[k].mid) || hasToken(style[k].to)))
+        || (style.borderGlow && hasToken(style.borderGlow.color))
+        || (style.borderAnimation && (hasToken(style.borderAnimation.color2) || hasToken(style.borderAnimation.color3)))
+        || (style.shadow && hasToken(style.shadow.color))
+        || (style.innerShadow && hasToken(style.innerShadow.color))
+        || (style.textStroke && hasToken(style.textStroke.color))
+        || (style.textShadow && hasToken(style.textShadow.color));
+    if (!needsClone) return style;
+    const out = { ...style };
+    for (const k of ['color', 'background', 'fill', 'borderColor']) {
+        if (hasToken(out[k])) out[k] = expandFn(out[k]) || (k === 'background' ? 'transparent' : out[k]);
+    }
+    for (const k of gradKeys) {
+        if (out[k] && typeof out[k] === 'object') {
+            out[k] = {
+                ...out[k],
+                from: hasToken(out[k].from) ? (expandFn(out[k].from) || '#1f6feb') : out[k].from,
+                mid: hasToken(out[k].mid) ? expandFn(out[k].mid) : out[k].mid,
+                to: hasToken(out[k].to) ? (expandFn(out[k].to) || '#8957e5') : out[k].to
+            };
+        }
+    }
+    if (out.borderGlow && hasToken(out.borderGlow.color)) {
+        out.borderGlow = { ...out.borderGlow, color: expandFn(out.borderGlow.color) || '#38bdf8' };
+    }
+    if (out.borderAnimation && (hasToken(out.borderAnimation.color2) || hasToken(out.borderAnimation.color3))) {
+        out.borderAnimation = {
+            ...out.borderAnimation,
+            color2: hasToken(out.borderAnimation.color2) ? (expandFn(out.borderAnimation.color2) || '#ffffff') : out.borderAnimation.color2,
+            color3: hasToken(out.borderAnimation.color3) ? expandFn(out.borderAnimation.color3) : out.borderAnimation.color3
+        };
+    }
+    if (out.shadow && hasToken(out.shadow.color)) {
+        out.shadow = { ...out.shadow, color: expandFn(out.shadow.color) || 'rgba(0,0,0,0.5)' };
+    }
+    if (out.innerShadow && hasToken(out.innerShadow.color)) {
+        out.innerShadow = { ...out.innerShadow, color: expandFn(out.innerShadow.color) || 'rgba(0,0,0,0.65)' };
+    }
+    if (out.textStroke && hasToken(out.textStroke.color)) {
+        out.textStroke = { ...out.textStroke, color: expandFn(out.textStroke.color) || '#000000' };
+    }
+    if (out.textShadow && hasToken(out.textShadow.color)) {
+        out.textShadow = { ...out.textShadow, color: expandFn(out.textShadow.color) || 'rgba(0,0,0,0.7)' };
+    }
+    return out;
+}
+
+export { FORMAT_PRESETS, LIST_FORMAT_PRESETS, VARIABLE_GROUPS, applyFormat, expandVariables, formatDate, formatDuration, hasTicking, inPlanList, isDateKey, isListFormat, isListKey, loadLiveExtras, resolveColorToken, resolveStyleVariables, variableGroups, variableSnapshot, variableTable };

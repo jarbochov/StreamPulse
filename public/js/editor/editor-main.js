@@ -961,7 +961,11 @@ export async function refreshLiveStatus() {
         const response = await fetch('/api/status', { cache: 'no-store' });
         if (!response.ok) return;
         const before = liveSignature();
-        state.liveStatus = await response.json();
+        const prevSets = state.liveStatus?.variableSets;
+        state.liveStatus = {
+            ...(await response.json()),
+            ...(Array.isArray(prevSets) ? { variableSets: prevSets } : {})
+        };
         const badgeBtn = $('menu-add-speaker-badge');
         if (badgeBtn) badgeBtn.hidden = !state.liveStatus?.modules?.speakerBadges;
         const vsEnabled = state.liveStatus?.modules?.variableSets !== false;

@@ -438,28 +438,71 @@
 
     <dialog id="ig-fields-dialog" aria-labelledby="ig-fields-title">
         <div class="ig-modal-head">
-            <div>
-                <h3 id="ig-fields-title">Member Fields &amp; Arrangement</h3>
-                <p class="ig-modal-sub">Add and reorder up to 10 fields per member, group items inline, or apply a quick layout arrangement.</p>
+            <div class="ig-modal-title-wrap">
+                <span class="ig-modal-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10.5" r="2.2"/><path d="M5.8 16.5c.7-1.9 2.2-2.7 3.2-2.7s2.5.8 3.2 2.7"/><line x1="14.5" y1="9.5" x2="18.5" y2="9.5"/><line x1="14.5" y1="13" x2="18.5" y2="13"/></svg>
+                </span>
+                <div>
+                    <h3 id="ig-fields-title">Member Badge Builder &amp; Fields</h3>
+                    <p class="ig-modal-sub">Arrange text fields &amp; secondary images (team logos, rank icons, corner crests), adjust padding &amp; font sizes, or pick a preset.</p>
+                </div>
+            </div>
+            <div class="ig-modal-head-actions">
+                <button type="button" id="ig-fields-close" class="primary">Done</button>
             </div>
         </div>
-        <div class="ig-presets-section">
-            <span class="ig-presets-label">Arrangement Presets</span>
-            <div class="ig-presets-row" id="ig-arrangement-presets">
-                <button type="button" class="sp-quick-chip" data-ig-preset="stack">Clean Stack</button>
-                <button type="button" class="sp-quick-chip" data-ig-preset="card-grid">Card Grid</button>
-                <button type="button" class="sp-quick-chip" data-ig-preset="lower-banners">Nameplate Banners</button>
-                <button type="button" class="sp-quick-chip" data-ig-preset="split-hud">Split Header + Sub</button>
-                <button type="button" class="sp-quick-chip" data-ig-preset="inline-roster">Inline Roster</button>
-                <button type="button" class="sp-quick-chip" data-ig-preset="overlay-tags">Inside Overlay Tags</button>
-            </div>
-        </div>
-        <div class="ig-modal-placement" id="ig-modal-placement"></div>
-        <div class="ig-fields-list" id="ig-fields-list"></div>
-        <div class="dialog-actions ig-modal-footer">
-            <button type="button" id="ig-add-field-btn" class="ghost">+ Add Field</button>
-            <span class="ig-fields-count" id="ig-fields-count"></span>
-            <button type="button" id="ig-fields-close" class="primary">Done</button>
+        <div class="ig-builder-cols">
+            <aside class="ig-builder-left">
+                <div class="ig-preview-section">
+                    <div class="ig-preview-bar">
+                        <span class="ig-presets-label">Live Badge Preview</span>
+                        <div class="ig-preview-controls">
+                            <select id="ig-preview-member" class="ig-preview-member-select" aria-label="Preview roster member" title="Switch preview member"></select>
+                            <div class="seg ig-preview-bg-seg" id="ig-preview-bg-seg" role="group" aria-label="Preview backdrop">
+                                <button type="button" data-ig-preview-bg="dark" aria-pressed="true">Dark</button>
+                                <button type="button" data-ig-preview-bg="light" aria-pressed="false">Light</button>
+                                <button type="button" data-ig-preview-bg="checker" aria-pressed="false">Checker</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ig-preview-stage is-dark" id="ig-preview-stage">
+                        <div class="ig-badge-preview-host" id="ig-badge-preview"></div>
+                    </div>
+                </div>
+                <div class="ig-presets-section">
+                    <span class="ig-presets-label">Arrangement Presets</span>
+                    <div class="ig-presets-row" id="ig-arrangement-presets">
+                        <button type="button" class="sp-quick-chip" data-ig-preset="stack">Clean Stack</button>
+                        <button type="button" class="sp-quick-chip" data-ig-preset="profile-card">Profile Card</button>
+                        <button type="button" class="sp-quick-chip" data-ig-preset="card-grid">Card Grid</button>
+                        <button type="button" class="sp-quick-chip" data-ig-preset="lower-banners">Nameplate Banners</button>
+                        <button type="button" class="sp-quick-chip" data-ig-preset="broadcast-hud">Broadcast HUD</button>
+                        <button type="button" class="sp-quick-chip" data-ig-preset="split-hud">Split Header + Sub</button>
+                        <button type="button" class="sp-quick-chip" data-ig-preset="corner-tag">Avatar Corner Tag</button>
+                        <button type="button" class="sp-quick-chip" data-ig-preset="upper-left-crest">Upper-Left Crest</button>
+                        <button type="button" class="sp-quick-chip" data-ig-preset="avatar-emblem">Avatar Emblem</button>
+                        <button type="button" class="sp-quick-chip" data-ig-preset="inline-roster">Inline Roster</button>
+                        <button type="button" class="sp-quick-chip" data-ig-preset="overlay-tags">Inside Overlay Tags</button>
+                    </div>
+                </div>
+                <div class="ig-placement-card">
+                    <span class="ig-presets-label">Badge Layout, Spacing &amp; Font Size</span>
+                    <div class="ig-modal-placement" id="ig-modal-placement"></div>
+                </div>
+            </aside>
+            <section class="ig-builder-right" aria-label="Badge Fields and Secondary Images">
+                <div class="ig-fields-toolbar">
+                    <div class="ig-fields-toolbar-meta">
+                        <span class="ig-presets-label">Fields &amp; Secondary Images</span>
+                        <span class="ig-fields-count" id="ig-fields-count"></span>
+                    </div>
+                    <div class="ig-fields-toolbar-actions">
+                        <button type="button" id="ig-add-field-btn" class="ghost">+ Text Field</button>
+                        <button type="button" id="ig-add-image-btn" class="ghost">+ Image / Icon</button>
+                    </div>
+                </div>
+                <div class="ig-fields-list" id="ig-fields-list"></div>
+            </section>
         </div>
     </dialog>
 

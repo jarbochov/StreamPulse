@@ -26,7 +26,9 @@
         #sp-list .sep-input { width: 11rem; padding: .15rem .4rem; font-size: .7rem; }
         #sp-list .chips { display: flex; flex-wrap: wrap; gap: .3rem; align-items: center; margin: -.1rem 0 .4rem .5rem; font-size: .7rem; color: var(--muted, var(--text-muted)); }
         #sp-list .chip { width: auto; margin: 0; padding: .15rem .5rem; font-size: .7rem; display: inline-block; }
-        #sp-list .preview { grid-row: 1 / span 2; grid-column: 2; align-self: center; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); }`;
+        #sp-list .preview { grid-row: 1 / span 2; grid-column: 2; align-self: center; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; }
+        #sp-picker.is-color-mode .sp-fmt { display: none; }
+        .sp-color-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.35); flex: none; }`;
         document.head.append(style);
     }
 
@@ -34,8 +36,8 @@
         injectStyles();
         dialog = document.createElement('dialog');
         dialog.id = 'sp-picker';
-        dialog.innerHTML = `<h3>Insert placeholder</h3>
-            <p class="hint" style="margin:0 0 .5rem">Live values update as data changes. Click one to insert it at your cursor.</p>
+        dialog.innerHTML = `<h3 id="sp-title">Insert placeholder</h3>
+            <p id="sp-subtitle" class="hint" style="margin:0 0 .5rem">Live values update as data changes. Click one to insert it at your cursor.</p>
             <input id="sp-search" type="search" placeholder="Search timers, clock, events, goals…">
             <div class="sp-fmt"><span>Format <span class="hint">(optional; dates, timer clocks and lists)</span></span>
                 <input id="sp-format" list="sp-format-presets" placeholder="e.g. dddd, MMM D · h:mm A" spellcheck="false"><datalist id="sp-format-presets"></datalist>
@@ -50,16 +52,84 @@
         $('sp-close').addEventListener('click', () => dialog.close());
         $('sp-list').addEventListener('click', event => {
             const sepKey = event.target.closest('[data-sep-key]');
-            let token = event.target.closest('[data-token]')?.dataset.token;
+            const tokenBtn = event.target.closest('[data-token]');
+            let token = tokenBtn?.dataset.token;
+            const raw = tokenBtn?.dataset.rawToken === '1';
             if (sepKey) {
-                const raw = sepKey.parentElement.querySelector('.sep-input').value;
-                if (!raw) { options.onWarn?.('Type a separator first.'); return; }
-                token = `${sepKey.dataset.sepKey}|sep:${raw.replace(/^ /, '\\s').replace(/ $/, '\\s').replace(/\n/g, '\\n')}`;
+                const rawSep = sepKey.parentElement.querySelector('.sep-input').value;
+                if (!rawSep) { options.onWarn?.('Type a separator first.'); return; }
+                token = `${sepKey.dataset.sepKey}|sep:${rawSep.replace(/^ /, '\\s').replace(/ $/, '\\s').replace(/\n/g, '\\n')}`;
             }
             if (!token) return;
             dialog.close();
-            options.onPick(token);
+            options.onPick(token, { raw });
         });
+    }
+
+    function looksLikeCssColor(value) {
+        const s = String(value || '').trim();
+        return /^#[0-9a-f]{3,8}$/i.test(s) || /^rgba?\([^)]+\)$/i.test(s) || /^hsla?\([^)]+\)$/i.test(s);
+    }
+
+    function buildColorGroups(status, table) {
+        const groups = [];
+        const memberColors = Array.isArray(options.memberColorFields) ? options.memberColorFields : [];
+        if (memberColors.length) {
+            groups.push({
+                label: 'Member Fields (Per-Member Color)',
+                items: memberColors.map(mf => ({
+                    key: `@${mf.key}`,
+                    label: mf.label || mf.key,
+                    preview: mf.sample || '',
+                    raw: true
+                }))
+            });
+        }
+        const customColorVars = (status?.customVars || []).filter(v => v && v.type === 'color' && v.name);
+        if (customColorVars.length) {
+            groups.push({
+                label: 'Global Color Variables',
+                items: customColorVars.map(v => ({
+                    key: `var.${v.name}`,
+                    label: v.label || v.name,
+                    preview: v.value || table[`var.${v.name}`] || ''
+                }))
+            });
+        }
+        const setItems = [];
+        for (const setObj of (status?.variableSets || [])) {
+            if (!setObj || !setObj.id) continue;
+            const colorFields = (setObj.fields || []).filter(sf => sf && sf.type === 'color' && sf.key);
+            if (!colorFields.length) continue;
+            const roster = setObj.roster || setObj.entries || [];
+            const activeEntry = roster.find(r => r && r.id === (setObj.activeEntry || setObj.activeEntryId)) || roster[0];
+            const slotCount = Number(setObj.slotsCount) || 0;
+            for (const sf of colorFields) {
+                if (slotCount > 0) {
+                    for (let idx = 1; idx <= slotCount; idx++) {
+                        const tok = `var.${setObj.id}_${idx}_${sf.key}`;
+                        const slotEntryId = Array.isArray(setObj.slots) ? (typeof setObj.slots[idx - 1] === 'string' ? setObj.slots[idx - 1] : setObj.slots[idx - 1]?.entryId) : '';
+                        const slotMember = roster.find(r => r && r.id === slotEntryId) || activeEntry;
+                        setItems.push({
+                            key: tok,
+                            label: `${setObj.label || setObj.name || setObj.id} · Slot ${idx} ${sf.label || sf.key}`,
+                            preview: table[tok] || slotMember?.values?.[sf.key] || ''
+                        });
+                    }
+                } else {
+                    const tok = `var.${setObj.id}_${sf.key}`;
+                    setItems.push({
+                        key: tok,
+                        label: `${setObj.label || setObj.name || setObj.id} · ${sf.label || sf.key}`,
+                        preview: table[tok] || activeEntry?.values?.[sf.key] || ''
+                    });
+                }
+            }
+        }
+        if (setItems.length) {
+            groups.push({ label: 'Variable Set Colors', items: setItems });
+        }
+        return groups;
     }
 
     function render() {
@@ -67,6 +137,26 @@
         const status = options.getStatus() || {};
         const table = shared.variableTable(status, options.getContext?.() || {});
         const query = dialog.querySelector('#sp-search').value.trim().toLowerCase();
+        const colorMode = options.filter === 'color';
+
+        if (colorMode) {
+            const groups = buildColorGroups(status, table);
+            const html = groups.map(group => {
+                const items = group.items.filter(item => !query || `${group.label} ${item.key} ${item.label} ${item.preview || ''}`.toLowerCase().includes(query));
+                if (!items.length) return '';
+                return `<h4>${esc(group.label)}</h4>` + items.map(item => {
+                    const previewColor = item.preview || '';
+                    const swatch = looksLikeCssColor(previewColor)
+                        ? `<span class="sp-color-dot" style="background-color:${esc(previewColor)}"></span>`
+                        : '';
+                    const codeText = item.raw ? item.key : `{{${item.key}}}`;
+                    return `<button type="button" data-token="${esc(item.key)}"${item.raw ? ' data-raw-token="1"' : ''}><span>${esc(item.label)}</span><code>${esc(codeText)}</code><span class="preview">${swatch}<span>${esc(previewColor || 'Per member')}</span></span></button>`;
+                }).join('');
+            }).join('');
+            dialog.querySelector('#sp-list').innerHTML = html || '<p class="hint">No color variables or member color fields defined yet. Create a Color variable in Variables &amp; Placeholders.</p>';
+            return;
+        }
+
         const format = dialog.querySelector('#sp-format').value.trim();
         dialog.querySelector('#sp-format-presets').innerHTML = [...shared.FORMAT_PRESETS, ...shared.LIST_FORMAT_PRESETS].map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`).join('');
         let groups = shared.variableGroups(status);
@@ -117,8 +207,13 @@
     }
 
     function open(opts) {
-        options = opts;
+        options = opts || {};
         if (!dialog) build();
+        const isColor = options.filter === 'color';
+        dialog.classList.toggle('is-color-mode', isColor);
+        dialog.querySelector('#sp-title').textContent = options.title || (isColor ? 'Bind color variable' : 'Insert placeholder');
+        dialog.querySelector('#sp-subtitle').textContent = options.subtitle || (isColor ? 'Click a color variable or member color field to bind it dynamically.' : 'Live values update as data changes. Click one to insert it at your cursor.');
+        dialog.querySelector('#sp-search').placeholder = isColor ? 'Search color variables or member fields…' : 'Search timers, clock, events, goals…';
         dialog.querySelector('#sp-search').value = '';
         render();
         dialog.showModal();

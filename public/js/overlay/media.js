@@ -1,5 +1,7 @@
 
-import { applyBorderEffects, applyTextAnimation, decorationStyle, textEffectStyle } from './styles.js';
+import { loadGoogleFont } from './fonts.js';
+import { applyBorderEffects, applyTextAnimation, decorationStyle, gradientStyle, textEffectStyle } from './styles.js';
+import { resolveColorToken, resolveStyleVariables } from './variables.js';
 
 function parseYouTubeUrl(urlStr) {
     if (!urlStr || typeof urlStr !== 'string') return null;
@@ -119,6 +121,7 @@ function resolveGroupMembers(setId, status = {}, onlySelected = false) {
     if (!setId) return [];
     const sets = status?.variableSets || [];
     const setObj = sets.find(s => s && s.id === setId);
+    if (onlySelected && !setObj) return [];
     let members = [];
     if (setObj && Array.isArray(setObj.roster)) {
         members = setObj.roster.filter(r => r && r.inGroup !== false);
@@ -134,10 +137,24 @@ function resolveGroupMembers(setId, status = {}, onlySelected = false) {
         }
     }
     if (onlySelected && setObj) {
-        const activeIds = new Set(Array.isArray(setObj.slots) ? setObj.slots.filter(Boolean) : []);
-        if (setObj.activeEntryId) activeIds.add(setObj.activeEntryId);
+        const activeIds = new Set();
+        const usesSlots = typeof setObj.slotsCount === 'number'
+            ? setObj.slotsCount > 0
+            : (Array.isArray(setObj.slots) && setObj.slots.length > 0);
+        if (usesSlots && Array.isArray(setObj.slots)) {
+            for (const s of setObj.slots) {
+                const sid = typeof s === 'string' ? s : (s?.entryId || s?.id);
+                if (sid) activeIds.add(sid);
+            }
+        } else {
+            if (setObj.activeEntry) activeIds.add(setObj.activeEntry);
+            if (setObj.activeEntryId) activeIds.add(setObj.activeEntryId);
+        }
         if (setObj.selectedEntryId) activeIds.add(setObj.selectedEntryId);
-        if (activeIds.size > 0) members = members.filter(m => activeIds.has(m.id));
+        if (!activeIds.size && setObj.rotation?.enabled && setObj.rotation?.entryId) {
+            activeIds.add(setObj.rotation.entryId);
+        }
+        members = activeIds.size > 0 ? members.filter(m => activeIds.has(m.id)) : [];
     }
     return members;
 }
@@ -206,7 +223,15 @@ function mountPolygonBorder(avBox, shape, width, color, borderStyle) {
 const IMAGE_GROUP_LAYOUTS = new Set(['row', 'column', 'grid', 'overlap', 'cards', 'chips', 'spotlight', 'banners', 'stagger']);
 const IMAGE_GROUP_SHAPES = new Set(['rounded', 'circle', 'square', 'squircle', 'hexagon', 'diamond', 'octagon']);
 const IMAGE_GROUP_PLACEMENTS = new Set(['below', 'above', 'left', 'right', 'inside-bottom', 'inside-top', 'split']);
+const IMAGE_GROUP_SLOTS = new Set(['main', 'header', 'footer', 'trailing', 'avatar-top', 'avatar-bottom', 'corner-tl', 'corner-tr', 'corner-bl', 'corner-br', 'avatar-tl', 'avatar-tr', 'avatar-bl', 'avatar-br']);
 const FIELD_ROLE_SCALE = { title: 1, accent: 0.88, subtitle: 0.82, caption: 0.75, badge: 0.72 };
+
+function looksLikeImageSource(val) {
+    const s = String(val || '').trim();
+    if (!s) return false;
+    return /^(data:image\/|\/assets\/|\/uploads\/)/i.test(s)
+        || /^https?:\/\/.+\.(png|jpe?g|webp|gif|svg|avif)(\?|#|$)/i.test(s);
+}
 
 function resolveGroupFieldSpecs(cfg = {}) {
     const hasExplicit = Array.isArray(cfg.fields) && cfg.fields.length > 0;
@@ -219,13 +244,29 @@ function resolveGroupFieldSpecs(cfg = {}) {
     if (hasExplicit && cfg.subField && !list.some(f => f.key === cfg.subField)) {
         list = [...list, { key: cfg.subField, role: 'subtitle' }];
     }
+    const optNum = (raw, min, max) => (raw === null || raw === undefined || raw === '') ? null : Math.max(min, Math.min(max, Math.round(Number(raw) || 0)));
     return list.map((f, idx) => ({
         key: String(f.key),
+        kind: ['auto', 'text', 'image'].includes(f.kind) ? f.kind : 'auto',
+        customSrc: String(f.customSrc || '').trim(),
         role: f.role || (idx === 0 ? 'title' : 'subtitle'),
+        slot: IMAGE_GROUP_SLOTS.has(f.slot) ? f.slot : 'main',
+        align: ['auto', 'left', 'center', 'right'].includes(f.align) ? f.align : 'auto',
         inline: f.inline === true,
         prefix: String(f.prefix || ''),
         suffix: String(f.suffix || ''),
         sizeScale: Math.max(50, Math.min(200, Number(f.sizeScale) || 100)),
+        fontSize: optNum(f.fontSize, 8, 96),
+        padX: optNum(f.padX, 0, 32),
+        padY: optNum(f.padY, 0, 32),
+        imgSize: Math.max(10, Math.min(200, Math.round(Number(f.imgSize) || 28))),
+        imgShape: ['rounded', 'circle', 'square', 'auto'].includes(f.imgShape) ? f.imgShape : 'rounded',
+        imgFit: ['contain', 'cover'].includes(f.imgFit) ? f.imgFit : 'contain',
+        imgBorderW: Math.max(0, Math.min(8, Math.round(Number(f.imgBorderW) || 0))),
+        fontFamily: String(f.fontFamily || '').trim(),
+        fontWeight: ['400', '600', '700', '900'].includes(String(f.fontWeight || '')) ? String(f.fontWeight) : '',
+        fontStyle: ['normal', 'italic'].includes(f.fontStyle) ? f.fontStyle : '',
+        textTransform: ['none', 'uppercase', 'lowercase', 'capitalize'].includes(f.textTransform) ? f.textTransform : '',
         color: String(f.color || '').trim(),
         bgColor: String(f.bgColor || '').trim()
     }));
@@ -253,37 +294,55 @@ function createStyledFieldNode(spec, text, ctx) {
         roleCls = 'sp-image-group-caption';
     }
     span.className = `sp-image-group-field ${roleCls}`;
+    if (spec.slot && spec.slot !== 'main') span.dataset.igSlot = spec.slot;
     span.textContent = `${spec.prefix}${text}${spec.suffix}`;
 
+    const roleFont = (spec.role === 'subtitle' || spec.role === 'caption')
+        ? String(cfg.subFontFamily || '').trim()
+        : ((spec.role === 'badge' || spec.role === 'accent') ? String(cfg.badgeFontFamily || '').trim() : '');
+    const resolvedFont = spec.fontFamily || roleFont || st.fontFamily || 'sans-serif';
+    if (typeof loadGoogleFont === 'function') loadGoogleFont(resolvedFont);
+
     const roleFactor = FIELD_ROLE_SCALE[spec.role] ?? 0.9;
-    const px = Math.max(9, Math.round(baseSize * roleFactor * (spec.sizeScale / 100) * (isSpotlightLead ? 1.12 : 1)));
-    span.style.fontFamily = st.fontFamily || 'sans-serif';
+    const rawPx = spec.fontSize ? (spec.fontSize * (isSpotlightLead ? 1.12 : 1)) : (baseSize * roleFactor * (spec.sizeScale / 100) * (isSpotlightLead ? 1.12 : 1));
+    const px = Math.max(8, Math.round(rawPx));
+    span.style.fontFamily = resolvedFont;
     span.style.fontSize = `${px}px`;
-    span.style.fontWeight = spec.role === 'badge' ? '700'
+    span.style.fontWeight = spec.fontWeight || (spec.role === 'badge' ? '700'
         : spec.role === 'title' ? (st.fontWeight && st.fontWeight !== '400' ? st.fontWeight : '600')
-            : (st.fontWeight || '400');
-    span.style.fontStyle = st.fontStyle === 'italic' ? 'italic' : 'normal';
+            : (st.fontWeight || '400'));
+    span.style.fontStyle = spec.fontStyle || (st.fontStyle === 'italic' ? 'italic' : 'normal');
     span.style.lineHeight = String(st.lineHeight || 1.2);
     if (st.letterSpacing) span.style.letterSpacing = `${st.letterSpacing}px`;
-    if (st.textTransform && st.textTransform !== 'none') span.style.textTransform = st.textTransform;
+    const xform = spec.textTransform || st.textTransform;
+    if (xform && xform !== 'none') span.style.textTransform = xform;
     if (st.textDecoration && st.textDecoration !== 'none') span.style.textDecoration = st.textDecoration;
     if (st.tabularNums) span.style.fontVariantNumeric = 'tabular-nums';
+    if (cfg.textWrap === 'wrap') {
+        span.style.whiteSpace = 'normal';
+        span.style.overflow = 'visible';
+        span.style.textOverflow = 'clip';
+        span.style.wordBreak = 'break-word';
+    }
 
     const labelColor = String(cfg.labelColor || '').trim();
     const subColor = String(cfg.subColor || '').trim();
     const defaultTextColor = st.color && st.color !== 'transparent' ? st.color : '#f8fafc';
     if (spec.role === 'badge') {
         span.style.display = 'inline-block';
-        span.style.padding = '2px 7px';
+        span.style.padding = `${spec.padY ?? 2}px ${spec.padX ?? 7}px`;
         span.style.borderRadius = '999px';
         span.style.background = spec.bgColor || cfg.badgeBg || 'rgba(56,189,248,0.16)';
         span.style.color = spec.color || cfg.badgeColor || '#38bdf8';
     } else {
-        if (spec.bgColor && spec.bgColor !== 'transparent') {
+        const hasPad = spec.padX !== null || spec.padY !== null;
+        if ((spec.bgColor && spec.bgColor !== 'transparent') || hasPad) {
             span.style.display = 'inline-block';
-            span.style.padding = '1px 6px';
-            span.style.borderRadius = '5px';
-            span.style.background = spec.bgColor;
+            span.style.padding = `${spec.padY ?? 1}px ${spec.padX ?? 6}px`;
+            if (spec.bgColor && spec.bgColor !== 'transparent') {
+                span.style.borderRadius = '5px';
+                span.style.background = spec.bgColor;
+            }
         }
         const resolvedColor = spec.color || (
             (spec.role === 'subtitle' || spec.role === 'caption')
@@ -309,34 +368,86 @@ function createStyledFieldNode(spec, text, ctx) {
     return span;
 }
 
+function createStyledImageFieldNode(spec, src, { isSpotlightLead = false } = {}) {
+    const wrap = document.createElement('span');
+    wrap.className = 'sp-image-group-field sp-image-group-img-field';
+    if (spec.slot && spec.slot !== 'main') wrap.dataset.igSlot = spec.slot;
+    const size = Math.max(10, Math.round((spec.imgSize || 28) * (isSpotlightLead ? 1.12 : 1)));
+    const shape = spec.imgShape || 'rounded';
+    const radius = shape === 'circle' ? '50%' : shape === 'square' ? '0' : shape === 'auto' ? '4px' : `${Math.max(4, Math.round(size * 0.22))}px`;
+    wrap.style.display = 'inline-flex';
+    wrap.style.alignItems = 'center';
+    wrap.style.justifyContent = 'center';
+    wrap.style.boxSizing = 'border-box';
+    wrap.style.flex = '0 0 auto';
+    wrap.style.lineHeight = '0';
+    wrap.style.borderRadius = radius;
+    const hasPlate = spec.bgColor && spec.bgColor !== 'transparent';
+    if (hasPlate) wrap.style.background = spec.bgColor;
+    const padX = spec.padX ?? (hasPlate ? 4 : 0);
+    const padY = spec.padY ?? (hasPlate ? 4 : 0);
+    if (padX > 0 || padY > 0) wrap.style.padding = `${padY}px ${padX}px`;
+    if (spec.imgBorderW > 0) {
+        wrap.style.border = `${spec.imgBorderW}px solid ${spec.color || 'rgba(255,255,255,0.45)'}`;
+    }
+
+    const img = document.createElement('img');
+    img.draggable = false;
+    img.decoding = 'async';
+    img.alt = '';
+    if (!src.startsWith('data:')) img.crossOrigin = 'anonymous';
+    img.src = src;
+    img.style.display = 'block';
+    img.style.objectFit = spec.imgFit === 'cover' ? 'cover' : 'contain';
+    img.style.borderRadius = hasPlate || spec.imgBorderW > 0 ? (shape === 'circle' ? '50%' : '2px') : radius;
+    if (shape === 'auto') {
+        img.style.height = `${size}px`;
+        img.style.width = 'auto';
+        img.style.maxWidth = `${Math.round(size * 2.8)}px`;
+    } else {
+        img.style.width = `${size}px`;
+        img.style.height = `${size}px`;
+    }
+    img.onerror = () => { wrap.style.display = 'none'; };
+    wrap.appendChild(img);
+    return wrap;
+}
+
+function alignToFlex(align) {
+    return align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start';
+}
+
 function buildGroupMetaContainer(renderedFields, ctx) {
-    const { alignMode, horizontalItem, inside, fieldGap, labelBg, maxTextW } = ctx;
+    const { alignMode, horizontalItem, inside, overlayEdge, fieldGap, labelBg, maxTextW, slotClass = 'sp-image-group-meta', stretchMain = false } = ctx;
     const textWrap = document.createElement('div');
-    textWrap.className = 'sp-image-group-meta';
+    textWrap.className = slotClass;
     textWrap.style.display = 'flex';
     textWrap.style.flexDirection = 'column';
     textWrap.style.gap = `${fieldGap}px`;
     textWrap.style.minWidth = '0';
+    if (stretchMain) textWrap.style.flex = '1 1 auto';
 
-    const effectiveAlign = alignMode !== 'auto'
+    const effectiveAlign = ctx.slotAlign || (alignMode !== 'auto'
         ? alignMode
-        : (horizontalItem ? (ctx.labelPosition === 'left' ? 'right' : 'left') : 'center');
-    textWrap.style.alignItems = effectiveAlign === 'center' ? 'center' : effectiveAlign === 'right' ? 'flex-end' : 'flex-start';
+        : (horizontalItem ? (ctx.labelPosition === 'left' ? 'right' : 'left') : 'center'));
+    textWrap.style.alignItems = alignToFlex(effectiveAlign);
     textWrap.style.textAlign = effectiveAlign;
 
     if (inside) {
+        const edge = overlayEdge || ctx.labelPosition;
+        const isTop = edge === 'inside-top' || edge === 'avatar-top';
         textWrap.style.position = 'absolute';
         textWrap.style.left = '0';
         textWrap.style.right = '0';
-        textWrap.style[ctx.labelPosition === 'inside-top' ? 'top' : 'bottom'] = '0';
+        textWrap.style[isTop ? 'top' : 'bottom'] = '0';
         textWrap.style.zIndex = '2';
         textWrap.style.background = (labelBg && labelBg !== 'transparent')
             ? labelBg
-            : (ctx.labelPosition === 'inside-top'
+            : (isTop
                 ? 'linear-gradient(180deg, rgba(9,13,22,0.88) 0%, rgba(9,13,22,0) 100%)'
                 : 'linear-gradient(0deg, rgba(9,13,22,0.88) 0%, rgba(9,13,22,0) 100%)');
-        textWrap.style.padding = ctx.labelPosition === 'inside-top' ? '4px 6px 8px' : '8px 6px 4px';
-    } else if (labelBg && labelBg !== 'transparent') {
+        textWrap.style.padding = isTop ? '4px 6px 8px' : '8px 6px 4px';
+    } else if (!ctx.noLabelBg && labelBg && labelBg !== 'transparent') {
         textWrap.style.background = labelBg;
         textWrap.style.padding = '3px 7px';
         textWrap.style.borderRadius = '6px';
@@ -355,16 +466,114 @@ function buildGroupMetaContainer(renderedFields, ctx) {
                 inlineRow.style.flexWrap = 'wrap';
                 inlineRow.style.alignItems = 'center';
                 inlineRow.style.gap = '6px';
-                inlineRow.style.justifyContent = effectiveAlign === 'center' ? 'center' : effectiveAlign === 'right' ? 'flex-end' : 'flex-start';
+                const rowAlign = spec.align !== 'auto' ? spec.align : effectiveAlign;
+                inlineRow.style.justifyContent = alignToFlex(rowAlign);
                 textWrap.appendChild(inlineRow);
             }
             inlineRow.appendChild(node);
         } else {
             inlineRow = null;
+            if (spec.align && spec.align !== 'auto') {
+                node.style.alignSelf = alignToFlex(spec.align);
+                node.style.textAlign = spec.align;
+            }
             textWrap.appendChild(node);
         }
     });
     return textWrap;
+}
+
+function buildCornerGroupContainer(cornerKey, items, fieldGap, cornerInset = 6) {
+    const pos = document.createElement('div');
+    pos.className = `sp-image-group-corner sp-image-group-${cornerKey}`;
+    const isTop = cornerKey === 'corner-tl' || cornerKey === 'corner-tr' || cornerKey === 'avatar-tl' || cornerKey === 'avatar-tr';
+    const isRight = cornerKey === 'corner-tr' || cornerKey === 'corner-br' || cornerKey === 'avatar-tr' || cornerKey === 'avatar-br';
+    const inset = Math.max(0, Math.min(32, Math.round(Number(cornerInset ?? 6))));
+    const padCss = `${isTop ? `top:${inset}px;` : `bottom:${inset}px;`}${isRight ? `right:${inset}px;align-items:flex-end;text-align:right;` : `left:${inset}px;align-items:flex-start;text-align:left;`}`;
+    pos.style.cssText = `position:absolute;${padCss}display:flex;flex-direction:column;gap:${Math.max(2, fieldGap)}px;z-index:5;pointer-events:none;max-width:calc(100% - ${inset * 2}px);`;
+    items.forEach(({ node }) => pos.appendChild(node));
+    return pos;
+}
+
+function mountGroupAvatarMedia(avBox, item, dims, ctx) {
+    const { avBg, avBorderW, avBorderC, avBorderStyle, avShadow, shape, avatarRadius, st, cfg, fallbackMode, preview, card, itemSize } = ctx;
+    avBox.className = 'sp-image-group-avatar';
+    avBox.style.width = `${dims.w}px`;
+    avBox.style.height = `${dims.h}px`;
+    avBox.style.flex = '0 0 auto';
+    avBox.style.position = 'relative';
+    avBox.style.overflow = 'visible';
+    avBox.style.boxSizing = 'border-box';
+    applyGroupAvatarShape(avBox, GROUP_POLY_CLIPS[shape] ? 'square' : shape, avatarRadius);
+
+    const avMedia = document.createElement('div');
+    avMedia.className = 'sp-image-group-media';
+    avMedia.style.cssText = 'position:relative;width:100%;height:100%;overflow:hidden;box-sizing:border-box;';
+    avMedia.style.background = avBg;
+    applyGroupAvatarShape(avMedia, shape, avatarRadius);
+    avBox.appendChild(avMedia);
+
+    if (GROUP_POLY_CLIPS[shape]) {
+        if (avShadow > 0) avBox.style.filter = `drop-shadow(0 3px ${Math.round(avShadow * 0.6)}px rgba(0,0,0,0.55))`;
+        if (avBorderW > 0) mountPolygonBorder(avBox, shape, avBorderW, avBorderC, avBorderStyle);
+    } else {
+        const avStyleObj = {
+            borderWidth: avBorderW,
+            borderColor: avBorderC,
+            borderGradient: cfg.avatarBorderGradient,
+            borderStyle: avBorderStyle,
+            borderGlow: cfg.avatarBorderGlow,
+            borderAnimation: cfg.avatarBorderAnimation,
+            shape: shape === 'circle' ? 'circle' : 'rectangle',
+            borderRadius: shape === 'squircle' ? Math.round(Math.min(dims.w, dims.h) * 0.26) : (shape === 'rounded' ? avatarRadius : 0),
+            shadow: avShadow > 0 ? { blur: avShadow, color: 'rgba(0,0,0,0.55)' } : undefined
+        };
+        applyBorderEffects(avBox, avStyleObj, { type: 'box', width: dims.w, height: dims.h });
+    }
+
+    const renderInitials = () => {
+        const mono = document.createElement('span');
+        mono.className = 'sp-image-group-initials';
+        mono.textContent = computeInitials(item.labelText);
+        mono.style.cssText = `width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${Math.max(11, Math.round(itemSize * 0.38))}px;color:${cfg.labelColor || st.color || '#f8fafc'};user-select:none;`;
+        avMedia.appendChild(mono);
+    };
+
+    if (item.imgUrl) {
+        const img = document.createElement('img');
+        img.className = 'sp-image-group-img';
+        img.draggable = false;
+        img.decoding = 'async';
+        if (!item.imgUrl.startsWith('data:')) img.crossOrigin = 'anonymous';
+        img.src = item.imgUrl;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.display = 'block';
+        img.style.objectFit = st.objectFit || 'cover';
+        img.style.objectPosition = `${st.focusX ?? 50}% ${st.focusY ?? 50}%`;
+        img.addEventListener('error', () => {
+            if (fallbackMode === 'initials' && item.labelText) {
+                img.remove();
+                renderInitials();
+            } else if (!preview) {
+                card.style.display = 'none';
+            } else {
+                img.style.opacity = '0.25';
+            }
+        });
+        avMedia.appendChild(img);
+    } else {
+        renderInitials();
+    }
+
+    if (ctx.showStatusDot) {
+        const dot = document.createElement('span');
+        dot.className = 'sp-image-group-dot';
+        const dotPx = Math.max(8, Math.round(Math.min(dims.w, dims.h) * 0.2));
+        dot.style.cssText = `position:absolute;right:1px;bottom:1px;width:${dotPx}px;height:${dotPx}px;border-radius:50%;background:${cfg.badgeColor || '#22c55e'};border:2px solid rgba(9,13,22,0.92);box-shadow:0 0 8px rgba(34,197,94,0.45);z-index:4;pointer-events:none;`;
+        avBox.appendChild(dot);
+    }
+    return avMedia;
 }
 
 function renderImageGroupStrip(container, element, status, options = {}) {
@@ -376,6 +585,7 @@ function renderImageGroupStrip(container, element, status, options = {}) {
     const layout = IMAGE_GROUP_LAYOUTS.has(cfg.layout) ? cfg.layout : 'row';
     const shape = IMAGE_GROUP_SHAPES.has(cfg.shape) ? cfg.shape : (layout === 'overlap' || layout === 'chips' ? 'circle' : 'rounded');
     const aspectRatio = ['1:1', '4:3', '16:9', '3:4', '21:9'].includes(cfg.aspectRatio) ? cfg.aspectRatio : '1:1';
+    const showAvatar = cfg.showAvatar !== false;
     const baseSize = Math.max(16, Math.min(400, Number(cfg.size) || 56));
     const avatarRadius = Math.max(0, Math.min(100, Math.round(Number(cfg.avatarRadius ?? 10))));
     const gap = Math.max(0, Math.min(80, Number(cfg.gap ?? 10)));
@@ -399,12 +609,11 @@ function renderImageGroupStrip(container, element, status, options = {}) {
         const vals = m.values || {};
         const imgUrl = String(vals[imgField] ?? m[imgField] ?? m.image ?? '').trim();
         const autoFallbackLabel = String(m.text || m.label || Object.values(vals).find(v => typeof v === 'string' && v.trim() && v.trim() !== imgUrl) || '').trim();
-        const labelText = primarySpec.key
-            ? readMemberFieldValue(m, primarySpec.key, '')
-            : autoFallbackLabel;
+        const labelText = primarySpec.key ? readMemberFieldValue(m, primarySpec.key, '') : autoFallbackLabel;
         const subText = subSpec && subSpec.key ? readMemberFieldValue(m, subSpec.key, '') : '';
-        return { id: m.id, raw: m, imgUrl, labelText, subText };
-    }).filter(item => (fallbackMode === 'initials' ? (item.imgUrl !== '' || item.labelText !== '') : item.imgUrl !== ''));
+        const hasAnyText = Boolean(labelText || subText || fieldSpecs.some(s => readMemberFieldValue(m, s.key, '')));
+        return { id: m.id, raw: m, imgUrl, labelText, subText, hasAnyText };
+    }).filter(item => (!showAvatar ? (item.hasAnyText || item.imgUrl !== '') : (fallbackMode === 'initials' ? (item.imgUrl !== '' || item.labelText !== '') : item.imgUrl !== '')));
 
     if (sortOrder === 'reverse') items = items.slice().reverse();
     else if (sortOrder === 'alpha') items = items.slice().sort((a, b) => (a.labelText || a.id || '').localeCompare(b.labelText || b.id || ''));
@@ -416,30 +625,48 @@ function renderImageGroupStrip(container, element, status, options = {}) {
     container.replaceChildren();
     if (!items.length) return false;
 
-    const st = element.style || {};
+    const st = resolveStyleVariables(element.style || {}, status, {});
+    if (typeof loadGoogleFont === 'function' && st.fontFamily) loadGoogleFont(st.fontFamily);
+    const setObj = (status?.variableSets || []).find(s => s && s.id === cfg.setId) || null;
+    const setFieldTypes = new Map((setObj?.fields || []).map(f => [f.key, f.type]));
+    const resolveMemberColor = (val, member, fallback = '') => resolveColorToken(val, status, {}, member) || fallback;
+    const resolveMemberGradient = (grad, member) => {
+        if (!grad || typeof grad !== 'object') return grad;
+        return {
+            ...grad,
+            from: resolveMemberColor(grad.from, member, '#1f6feb'),
+            mid: grad.mid ? resolveMemberColor(grad.mid, member, '') : grad.mid,
+            to: resolveMemberColor(grad.to, member, '#8957e5')
+        };
+    };
     const showLabels = cfg.showLabels === true;
     const labelPosition = IMAGE_GROUP_PLACEMENTS.has(cfg.labelPosition) ? cfg.labelPosition : 'below';
     const alignMode = ['auto', 'left', 'center', 'right'].includes(cfg.textAlign) ? cfg.textAlign : 'auto';
     const labelSize = Math.max(0, Math.min(72, Math.round(Number(cfg.labelSize) || 0)));
     const baseSizePx = labelSize > 0 ? labelSize : (Number(st.fontSize) || 15);
-    const labelBg = String(cfg.labelBg || '').trim();
+    const cornerInset = Math.max(0, Math.min(32, Math.round(Number(cfg.cornerInset ?? 6))));
     const delimiter = String(cfg.delimiter || '');
-    const delimiterColor = String(cfg.delimiterColor || '').trim();
+    const delimiterColor = resolveColorToken(cfg.delimiterColor || '', status, {});
     const showStatusDot = cfg.showStatusDot === true;
 
     const avBorderW = Math.max(0, Math.min(12, Math.round(Number(cfg.avatarBorderWidth) || (layout === 'overlap' ? 2 : 0))));
-    const avBorderC = String(cfg.avatarBorderColor || (layout === 'overlap' && !cfg.avatarBorderWidth ? '#0f172a' : 'rgba(255,255,255,0.28)')).trim();
+    const rawAvBorderC = String(cfg.avatarBorderColor || (layout === 'overlap' && !cfg.avatarBorderWidth ? '#0f172a' : 'rgba(255,255,255,0.28)')).trim();
     const avBorderStyle = String(cfg.avatarBorderStyle || 'solid');
-    const avBg = String(cfg.avatarBg || '#1e293b').trim();
+    const rawAvBg = String(cfg.avatarBg || '#1e293b').trim();
     const avShadow = Math.max(0, Math.min(40, Math.round(Number(cfg.avatarShadow) || 0)));
 
     const isChip = layout === 'chips';
     const isBanner = layout === 'banners';
     const layoutAutoFrames = layout === 'cards' || isChip || isBanner;
     const isFramed = cfg.cardFrame === true || layoutAutoFrames;
-    const cardBg = String(cfg.cardBg || 'rgba(15,23,42,0.78)').trim();
+    const widthMode = ['auto', 'full', 'fixed'].includes(cfg.cardWidthMode) ? cfg.cardWidthMode : (isBanner ? 'full' : 'auto');
+    const cardWidthPx = Math.max(60, Math.min(1600, Math.round(Number(cfg.cardWidth) || 240)));
+    const cardMinHeight = Math.max(0, Math.min(800, Math.round(Number(cfg.cardMinHeight) || 0)));
+    const cardAlign = cfg.cardAlign === 'top' ? 'flex-start' : cfg.cardAlign === 'bottom' ? 'flex-end' : 'center';
+    const rawCardBg = String(cfg.cardBg || 'rgba(15,23,42,0.78)').trim();
+    const cardBlur = Math.max(0, Math.min(40, Math.round(Number(cfg.cardBlur) || 0)));
     const cardBorderW = Math.max(0, Math.min(16, Math.round(Number(cfg.cardBorderWidth ?? 1))));
-    const cardBorderC = String(cfg.cardBorderColor || 'rgba(255,255,255,0.16)').trim();
+    const rawCardBorderC = String(cfg.cardBorderColor || 'rgba(255,255,255,0.16)').trim();
     const cardBorderStyle = String(cfg.cardBorderStyle || 'solid');
     const cardRadius = Math.max(0, Math.min(999, Math.round(Number(cfg.cardRadius ?? 12))));
     const basePad = Math.max(0, Math.min(48, Math.round(Number(cfg.cardPadding ?? 8))));
@@ -459,10 +686,13 @@ function renderImageGroupStrip(container, element, status, options = {}) {
         wrap.style.display = 'grid';
         wrap.style.gridTemplateColumns = columns > 0
             ? `repeat(${columns}, minmax(0, 1fr))`
-            : `repeat(auto-fill, minmax(${Math.max(48, baseSize)}px, 1fr))`;
+            : widthMode === 'fixed'
+                ? `repeat(auto-fill, ${cardWidthPx}px)`
+                : `repeat(auto-fill, minmax(${Math.max(48, baseSize)}px, 1fr))`;
         wrap.style.columnGap = `${gap}px`;
         wrap.style.rowGap = `${rowGap}px`;
         wrap.style.justifyItems = st.textAlign === 'center' ? 'center' : st.textAlign === 'right' ? 'end' : 'start';
+        wrap.style.justifyContent = alignH;
         wrap.style.alignItems = 'start';
         wrap.style.alignContent = alignV;
     } else if (layout === 'column' || isBanner) {
@@ -470,7 +700,7 @@ function renderImageGroupStrip(container, element, status, options = {}) {
         wrap.style.flexDirection = 'column';
         wrap.style.rowGap = `${rowGap}px`;
         wrap.style.columnGap = `${gap}px`;
-        wrap.style.alignItems = (isBanner && st.textAlign !== 'center' && st.textAlign !== 'right') ? 'stretch' : alignH;
+        wrap.style.alignItems = (widthMode === 'full' && st.textAlign !== 'center' && st.textAlign !== 'right') ? 'stretch' : alignH;
         wrap.style.justifyContent = alignV;
     } else {
         wrap.style.display = 'flex';
@@ -489,26 +719,57 @@ function renderImageGroupStrip(container, element, status, options = {}) {
         const isSpotlightLead = layout === 'spotlight' && idx === 0;
         const itemSize = isSpotlightLead ? Math.min(400, Math.round(baseSize * spotlightScale)) : baseSize;
         const dims = groupAvatarDimensions(itemSize, aspectRatio);
-        const inside = showLabels && (labelPosition === 'inside-bottom' || labelPosition === 'inside-top') && !isChip;
-        const splitMode = showLabels && labelPosition === 'split' && !isChip;
+        const inside = showAvatar && showLabels && (labelPosition === 'inside-bottom' || labelPosition === 'inside-top') && !isChip;
+        const splitMode = showAvatar && showLabels && labelPosition === 'split' && !isChip;
+        const memberCfg = {
+            ...cfg,
+            labelColor: resolveMemberColor(cfg.labelColor, item.raw, ''),
+            subColor: resolveMemberColor(cfg.subColor, item.raw, ''),
+            badgeBg: resolveMemberColor(cfg.badgeBg || 'rgba(56,189,248,0.16)', item.raw, 'rgba(56,189,248,0.16)'),
+            badgeColor: resolveMemberColor(cfg.badgeColor || '#38bdf8', item.raw, '#38bdf8'),
+            avatarBorderGradient: resolveMemberGradient(cfg.avatarBorderGradient, item.raw),
+            avatarBorderGlow: cfg.avatarBorderGlow ? { ...cfg.avatarBorderGlow, color: resolveMemberColor(cfg.avatarBorderGlow.color, item.raw, '#38bdf8') } : cfg.avatarBorderGlow,
+            avatarBorderAnimation: cfg.avatarBorderAnimation ? {
+                ...cfg.avatarBorderAnimation,
+                color2: resolveMemberColor(cfg.avatarBorderAnimation.color2, item.raw, '#ffffff'),
+                color3: resolveMemberColor(cfg.avatarBorderAnimation.color3, item.raw, '')
+            } : cfg.avatarBorderAnimation
+        };
+        const avBg = resolveMemberColor(rawAvBg, item.raw, '#1e293b');
+        const avBorderC = resolveMemberColor(rawAvBorderC, item.raw, 'rgba(255,255,255,0.28)');
+        const cardBg = resolveMemberColor(rawCardBg, item.raw, 'rgba(15,23,42,0.78)');
+        const cardBorderC = resolveMemberColor(rawCardBorderC, item.raw, 'rgba(255,255,255,0.16)');
+        const labelBg = resolveMemberColor(cfg.labelBg || '', item.raw, '');
         const horizontalItem = showLabels && !inside && !splitMode && (
-            labelPosition === 'right' || labelPosition === 'left' || ((isChip || isBanner) && labelPosition === 'below')
+            !showAvatar
+            || labelPosition === 'right'
+            || labelPosition === 'left'
+            || ((isChip || isBanner) && labelPosition === 'below')
         );
 
         const card = document.createElement('div');
-        card.className = `sp-image-group-item${isFramed && !isChip ? ' sp-image-group-card' : ''}${isChip ? ' sp-image-group-chip' : ''}${isBanner ? ' sp-image-group-banner' : ''}${isSpotlightLead ? ' sp-image-group-lead' : ''}`;
-        card.style.display = 'flex';
-        card.style.flexDirection = horizontalItem ? 'row' : 'column';
-        card.style.alignItems = 'center';
-        card.style.gap = `${innerGap}px`;
+        card.className = `sp-image-group-item${isFramed && !isChip ? ' sp-image-group-card' : ''}${isChip ? ' sp-image-group-chip' : ''}${isBanner ? ' sp-image-group-banner' : ''}${isSpotlightLead ? ' sp-image-group-lead' : ''}${cfg.textWrap === 'wrap' ? ' is-wrap' : ''}`;
         card.style.position = 'relative';
         card.style.boxSizing = 'border-box';
         if (layout === 'overlap' && idx > 0) card.style.marginLeft = `-${overlap}px`;
         if (layout === 'stagger' && idx % 2 === 1 && staggerOffset > 0) card.style.marginTop = `${staggerOffset}px`;
-        if (isBanner) card.style.width = '100%';
+        if (widthMode === 'full') card.style.width = '100%';
+        else if (widthMode === 'fixed') card.style.width = `${cardWidthPx}px`;
+        if (cardMinHeight > 0) card.style.minHeight = `${cardMinHeight}px`;
 
         if (isFramed) {
-            card.style.background = cardBg;
+            if (cfg.cardGradient?.enabled) {
+                const grad = gradientStyle(resolveMemberGradient(cfg.cardGradient, item.raw));
+                card.style.background = grad.background;
+                card.style.backgroundSize = grad.backgroundSize;
+                card.style.animation = grad.animation;
+            } else {
+                card.style.background = cardBg;
+            }
+            if (cardBlur > 0) {
+                card.style.backdropFilter = `blur(${cardBlur}px)`;
+                card.style.webkitBackdropFilter = `blur(${cardBlur}px)`;
+            }
             card.style.borderRadius = `${isChip ? 999 : cardRadius}px`;
             if (isChip && cfg.cardPaddingX == null && cfg.cardPaddingY == null) {
                 card.style.padding = '4px 12px 4px 4px';
@@ -520,129 +781,193 @@ function renderImageGroupStrip(container, element, status, options = {}) {
             const cardStyleObj = {
                 borderWidth: cardBorderW,
                 borderColor: cardBorderC,
+                borderGradient: resolveMemberGradient(cfg.cardBorderGradient, item.raw),
                 borderStyle: cardBorderStyle,
+                borderGlow: cfg.cardBorderGlow ? { ...cfg.cardBorderGlow, color: resolveMemberColor(cfg.cardBorderGlow.color, item.raw, '#38bdf8') } : cfg.cardBorderGlow,
+                borderAnimation: cfg.cardBorderAnimation ? {
+                    ...cfg.cardBorderAnimation,
+                    color2: resolveMemberColor(cfg.cardBorderAnimation.color2, item.raw, '#ffffff'),
+                    color3: resolveMemberColor(cfg.cardBorderAnimation.color3, item.raw, '')
+                } : cfg.cardBorderAnimation,
                 borderRadius: isChip ? 999 : cardRadius,
                 shape: isChip ? 'pill' : 'rectangle',
                 shadow: cardShadow > 0 ? { blur: cardShadow, color: 'rgba(0,0,0,0.45)' } : undefined
             };
             applyBorderEffects(card, cardStyleObj, { type: 'box' });
-            if (cardBorderW > 0 && cardBorderStyle !== 'solid' && cardBorderStyle !== 'dashed' && cardBorderStyle !== 'dotted' && cardBorderStyle !== 'double') {
-                deferredRingCards.push([card, cardStyleObj]);
+            const needsRingResize = cardBorderW > 0 && (
+                (cardBorderStyle !== 'solid' && cardBorderStyle !== 'dashed' && cardBorderStyle !== 'dotted' && cardBorderStyle !== 'double')
+                || cfg.cardBorderGradient?.enabled
+                || (cfg.cardBorderAnimation?.type && cfg.cardBorderAnimation.type !== 'none')
+            );
+            if (needsRingResize) deferredRingCards.push([card, cardStyleObj]);
+        }
+
+        let avBox = null;
+        let avMedia = null;
+        if (showAvatar) {
+            avBox = document.createElement('div');
+            avMedia = mountGroupAvatarMedia(avBox, item, dims, {
+                avBg, avBorderW, avBorderC, avBorderStyle, avShadow, shape, avatarRadius, st, cfg: memberCfg, fallbackMode, preview: options.preview, card, itemSize, showStatusDot
+            });
+        }
+
+        const slotBuckets = {
+            header: [], main: [], trailing: [], footer: [],
+            'avatar-top': [], 'avatar-bottom': [],
+            'corner-tl': [], 'corner-tr': [], 'corner-bl': [], 'corner-br': [],
+            'avatar-tl': [], 'avatar-tr': [], 'avatar-bl': [], 'avatar-br': []
+        };
+        let labelCount = 0;
+        let subCount = 0;
+        const activeSpecs = fieldSpecs.length ? fieldSpecs : (item.labelText ? [{ key: '', kind: 'text', role: 'title', slot: 'main', align: 'auto', inline: false, prefix: '', suffix: '', sizeScale: 100, color: '', bgColor: '' }] : []);
+        activeSpecs.forEach((spec, fIdx) => {
+            const memberRaw = spec.key ? readMemberFieldValue(item.raw, spec.key, fIdx === 0 && !cfg.labelField && spec.kind !== 'image' ? item.labelText : '') : (spec.kind === 'image' ? '' : item.labelText);
+            const resolvedVal = memberRaw || spec.customSrc || '';
+            if (!resolvedVal) return;
+            const sfType = setFieldTypes.get(spec.key);
+            const isImgField = spec.kind === 'image' || (spec.kind !== 'text' && (sfType === 'image' || Boolean(spec.customSrc && !memberRaw) || looksLikeImageSource(resolvedVal)));
+            if (!isImgField && !showLabels) return;
+            const resolvedSpec = {
+                ...spec,
+                color: spec.color ? resolveMemberColor(spec.color, item.raw, '') : '',
+                bgColor: spec.bgColor ? resolveMemberColor(spec.bgColor, item.raw, '') : ''
+            };
+            const node = isImgField
+                ? createStyledImageFieldNode(resolvedSpec, resolvedVal, { isSpotlightLead })
+                : createStyledFieldNode(resolvedSpec, resolvedVal, {
+                    st, baseSize: baseSizePx, isSpotlightLead, cfg: memberCfg,
+                    labelIdx: resolvedSpec.role === 'title' ? labelCount++ : -1,
+                    subIdx: resolvedSpec.role === 'subtitle' ? subCount++ : -1
+                });
+            let slot = resolvedSpec.slot || 'main';
+            if (!showAvatar && slot === 'avatar-top') slot = 'header';
+            else if (!showAvatar && slot === 'avatar-bottom') slot = 'footer';
+            else if (!showAvatar && slot.startsWith('avatar-')) slot = slot.replace('avatar-', 'corner-');
+            (slotBuckets[slot] || slotBuckets.main).push({ spec: resolvedSpec, node });
+        });
+
+        const stretchMain = widthMode === 'full' || widthMode === 'fixed';
+        const unframedCompactCap = (!horizontalItem && !inside && !isFramed && widthMode === 'auto' && cfg.textWrap !== 'wrap')
+            ? Math.max(dims.w + 36, 120) : 0;
+        const metaCtx = {
+            alignMode, horizontalItem, inside, labelPosition, fieldGap, labelBg,
+            maxTextW: unframedCompactCap, stretchMain: horizontalItem && stretchMain
+        };
+
+        const appendCoreParts = (rowHost, stackColumnFirst = false) => {
+            const mainList = slotBuckets.main;
+            const trailingList = slotBuckets.trailing;
+            const buildTrailing = () => trailingList.length
+                ? buildGroupMetaContainer(trailingList, { ...metaCtx, inside: false, stretchMain: false, noLabelBg: true, slotAlign: alignMode !== 'auto' ? alignMode : 'right', slotClass: 'sp-image-group-meta sp-image-group-trailing' })
+                : null;
+            const trailingNode = buildTrailing();
+
+            if (!horizontalItem && trailingNode) {
+                rowHost.style.display = 'flex';
+                rowHost.style.flexDirection = 'row';
+                rowHost.style.alignItems = cardAlign;
+                rowHost.style.gap = `${innerGap}px`;
+                const leftCol = document.createElement('div');
+                leftCol.className = 'sp-image-group-core-stack';
+                leftCol.style.cssText = `display:flex;flex-direction:column;align-items:center;gap:${innerGap}px;flex:1 1 auto;min-width:0;`;
+                if (splitMode && mainList.length) {
+                    leftCol.appendChild(buildGroupMetaContainer(mainList.slice(0, 1), { ...metaCtx, inside: false, stretchMain: false }));
+                    if (avBox) leftCol.appendChild(avBox);
+                    if (mainList.length > 1) leftCol.appendChild(buildGroupMetaContainer(mainList.slice(1), { ...metaCtx, inside: false, stretchMain: false }));
+                } else if (labelPosition === 'above' && mainList.length) {
+                    leftCol.appendChild(buildGroupMetaContainer(mainList, { ...metaCtx, stretchMain: false }));
+                    if (avBox) leftCol.appendChild(avBox);
+                } else {
+                    if (avBox) leftCol.appendChild(avBox);
+                    if (mainList.length) leftCol.appendChild(buildGroupMetaContainer(mainList, { ...metaCtx, stretchMain: false }));
+                }
+                rowHost.appendChild(leftCol);
+                trailingNode.style.marginLeft = 'auto';
+                trailingNode.style.flex = '0 0 auto';
+                rowHost.appendChild(trailingNode);
+                return;
+            }
+
+            rowHost.style.display = 'flex';
+            rowHost.style.flexDirection = horizontalItem ? 'row' : 'column';
+            rowHost.style.alignItems = horizontalItem ? cardAlign : 'center';
+            if (stackColumnFirst) rowHost.style.justifyContent = stretchMain ? 'space-between' : 'center';
+            rowHost.style.gap = `${innerGap}px`;
+
+            if (splitMode && mainList.length) {
+                rowHost.appendChild(buildGroupMetaContainer(mainList.slice(0, 1), { ...metaCtx, inside: false }));
+                if (avBox) rowHost.appendChild(avBox);
+                if (mainList.length > 1) rowHost.appendChild(buildGroupMetaContainer(mainList.slice(1), { ...metaCtx, inside: false }));
+            } else if (inside && mainList.length && avMedia) {
+                avMedia.appendChild(buildGroupMetaContainer(mainList, metaCtx));
+                if (avBox) rowHost.appendChild(avBox);
+            } else if ((labelPosition === 'above' || labelPosition === 'left') && mainList.length) {
+                rowHost.appendChild(buildGroupMetaContainer(mainList, metaCtx));
+                if (avBox) rowHost.appendChild(avBox);
+            } else {
+                if (avBox) rowHost.appendChild(avBox);
+                if (mainList.length) rowHost.appendChild(buildGroupMetaContainer(mainList, metaCtx));
+            }
+            if (trailingNode) {
+                trailingNode.style.marginLeft = 'auto';
+                trailingNode.style.flex = '0 0 auto';
+                rowHost.appendChild(trailingNode);
+            }
+        };
+
+        if (avMedia) {
+            if (slotBuckets['avatar-top'].length) {
+                avMedia.appendChild(buildGroupMetaContainer(slotBuckets['avatar-top'], {
+                    ...metaCtx, inside: true, overlayEdge: 'avatar-top', slotAlign: 'center', stretchMain: false,
+                    slotClass: 'sp-image-group-meta sp-image-group-avtop'
+                }));
+            }
+            if (slotBuckets['avatar-bottom'].length) {
+                avMedia.appendChild(buildGroupMetaContainer(slotBuckets['avatar-bottom'], {
+                    ...metaCtx, inside: true, overlayEdge: 'avatar-bottom', slotAlign: 'center', stretchMain: false,
+                    slotClass: 'sp-image-group-meta sp-image-group-avbot'
+                }));
             }
         }
 
-        const avBox = document.createElement('div');
-        avBox.className = 'sp-image-group-avatar';
-        avBox.style.width = `${dims.w}px`;
-        avBox.style.height = `${dims.h}px`;
-        avBox.style.flex = '0 0 auto';
-        avBox.style.position = 'relative';
-        avBox.style.overflow = 'visible';
-        avBox.style.boxSizing = 'border-box';
-        applyGroupAvatarShape(avBox, GROUP_POLY_CLIPS[shape] ? 'square' : shape, avatarRadius);
-
-        const avMedia = document.createElement('div');
-        avMedia.className = 'sp-image-group-media';
-        avMedia.style.cssText = 'position:relative;width:100%;height:100%;overflow:hidden;box-sizing:border-box;';
-        avMedia.style.background = avBg;
-        applyGroupAvatarShape(avMedia, shape, avatarRadius);
-        avBox.appendChild(avMedia);
-
-        if (GROUP_POLY_CLIPS[shape]) {
-            if (avShadow > 0) avBox.style.filter = `drop-shadow(0 3px ${Math.round(avShadow * 0.6)}px rgba(0,0,0,0.55))`;
-            if (avBorderW > 0) mountPolygonBorder(avBox, shape, avBorderW, avBorderC, avBorderStyle);
+        const hasOuterZones = slotBuckets.header.length > 0 || slotBuckets.footer.length > 0;
+        if (hasOuterZones) {
+            card.style.display = 'flex';
+            card.style.flexDirection = 'column';
+            card.style.alignItems = 'stretch';
+            card.style.justifyContent = cardAlign;
+            card.style.gap = `${Math.max(4, fieldGap + 3)}px`;
+            if (slotBuckets.header.length) {
+                card.appendChild(buildGroupMetaContainer(slotBuckets.header, {
+                    ...metaCtx, inside: false, horizontalItem: false, stretchMain: false,
+                    slotAlign: alignMode !== 'auto' ? alignMode : (horizontalItem ? 'left' : 'center'),
+                    slotClass: 'sp-image-group-meta sp-image-group-header'
+                }));
+            }
+            const coreRow = document.createElement('div');
+            coreRow.className = 'sp-image-group-core';
+            coreRow.style.cssText = 'width:100%;min-width:0;flex:1 1 auto;';
+            appendCoreParts(coreRow, true);
+            card.appendChild(coreRow);
+            if (slotBuckets.footer.length) {
+                card.appendChild(buildGroupMetaContainer(slotBuckets.footer, {
+                    ...metaCtx, inside: false, horizontalItem: false, stretchMain: false,
+                    slotAlign: alignMode !== 'auto' ? alignMode : (horizontalItem ? 'left' : 'center'),
+                    slotClass: 'sp-image-group-meta sp-image-group-footer'
+                }));
+            }
         } else {
-            const avStyleObj = {
-                borderWidth: avBorderW,
-                borderColor: avBorderC,
-                borderStyle: avBorderStyle,
-                shape: shape === 'circle' ? 'circle' : 'rectangle',
-                borderRadius: shape === 'squircle' ? Math.round(Math.min(dims.w, dims.h) * 0.26) : (shape === 'rounded' ? avatarRadius : 0),
-                shadow: avShadow > 0 ? { blur: avShadow, color: 'rgba(0,0,0,0.55)' } : undefined
-            };
-            applyBorderEffects(avBox, avStyleObj, { type: 'box', width: dims.w, height: dims.h });
+            card.style.justifyContent = cardAlign === 'flex-start' ? 'flex-start' : (cardAlign === 'flex-end' ? 'flex-end' : 'center');
+            appendCoreParts(card, false);
         }
 
-        if (item.imgUrl) {
-            const img = document.createElement('img');
-            img.className = 'sp-image-group-img';
-            img.draggable = false;
-            img.decoding = 'async';
-            if (!item.imgUrl.startsWith('data:')) img.crossOrigin = 'anonymous';
-            img.src = item.imgUrl;
-            img.style.width = '100%';
-            img.style.height = '100%';
-            img.style.display = 'block';
-            img.style.objectFit = st.objectFit || 'cover';
-            img.style.objectPosition = `${st.focusX ?? 50}% ${st.focusY ?? 50}%`;
-            img.addEventListener('error', () => {
-                if (fallbackMode === 'initials' && item.labelText) {
-                    img.remove();
-                    const mono = document.createElement('span');
-                    mono.className = 'sp-image-group-initials';
-                    mono.textContent = computeInitials(item.labelText);
-                    mono.style.cssText = `width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${Math.max(11, Math.round(itemSize * 0.38))}px;color:${cfg.labelColor || st.color || '#f8fafc'};user-select:none;`;
-                    avMedia.appendChild(mono);
-                } else if (!options.preview) {
-                    card.style.display = 'none';
-                } else {
-                    img.style.opacity = '0.25';
-                }
-            });
-            avMedia.appendChild(img);
-        } else {
-            const mono = document.createElement('span');
-            mono.className = 'sp-image-group-initials';
-            mono.textContent = computeInitials(item.labelText);
-            mono.style.cssText = `width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${Math.max(11, Math.round(itemSize * 0.38))}px;color:${cfg.labelColor || st.color || '#f8fafc'};user-select:none;`;
-            avMedia.appendChild(mono);
+        if (avBox) {
+            for (const ak of ['avatar-tl', 'avatar-tr', 'avatar-bl', 'avatar-br']) {
+                if (slotBuckets[ak].length) avBox.appendChild(buildCornerGroupContainer(ak, slotBuckets[ak], fieldGap, cornerInset));
+            }
         }
-
-        if (showStatusDot) {
-            const dot = document.createElement('span');
-            dot.className = 'sp-image-group-dot';
-            const dotPx = Math.max(8, Math.round(Math.min(dims.w, dims.h) * 0.2));
-            dot.style.cssText = `position:absolute;right:1px;bottom:1px;width:${dotPx}px;height:${dotPx}px;border-radius:50%;background:${cfg.badgeColor || '#22c55e'};border:2px solid rgba(9,13,22,0.92);box-shadow:0 0 8px rgba(34,197,94,0.45);z-index:4;pointer-events:none;`;
-            avBox.appendChild(dot);
-        }
-
-        const renderedFields = [];
-        if (showLabels) {
-            let labelCount = 0;
-            let subCount = 0;
-            const activeSpecs = fieldSpecs.length ? fieldSpecs : (item.labelText ? [{ key: '', role: 'title', inline: false, prefix: '', suffix: '', sizeScale: 100, color: '', bgColor: '' }] : []);
-            activeSpecs.forEach((spec, fIdx) => {
-                const rawVal = spec.key ? readMemberFieldValue(item.raw, spec.key, fIdx === 0 && !cfg.labelField ? item.labelText : '') : item.labelText;
-                if (!rawVal) return;
-                const node = createStyledFieldNode(spec, rawVal, {
-                    st, baseSize: baseSizePx, isSpotlightLead, cfg,
-                    labelIdx: spec.role === 'title' ? labelCount++ : -1,
-                    subIdx: spec.role === 'subtitle' ? subCount++ : -1
-                });
-                renderedFields.push({ spec, node });
-            });
-        }
-
-        const metaCtx = {
-            alignMode, horizontalItem, inside, labelPosition, fieldGap, labelBg,
-            maxTextW: horizontalItem ? 0 : Math.max(dims.w + 36, 120)
-        };
-
-        if (splitMode && renderedFields.length) {
-            const topList = renderedFields.slice(0, 1);
-            const botList = renderedFields.slice(1);
-            card.appendChild(buildGroupMetaContainer(topList, { ...metaCtx, inside: false }));
-            card.appendChild(avBox);
-            if (botList.length) card.appendChild(buildGroupMetaContainer(botList, { ...metaCtx, inside: false }));
-        } else if (inside && renderedFields.length) {
-            avMedia.appendChild(buildGroupMetaContainer(renderedFields, metaCtx));
-            card.appendChild(avBox);
-        } else if ((labelPosition === 'above' || labelPosition === 'left') && renderedFields.length) {
-            card.appendChild(buildGroupMetaContainer(renderedFields, metaCtx));
-            card.appendChild(avBox);
-        } else {
-            card.appendChild(avBox);
-            if (renderedFields.length) card.appendChild(buildGroupMetaContainer(renderedFields, metaCtx));
+        for (const ck of ['corner-tl', 'corner-tr', 'corner-bl', 'corner-br']) {
+            if (slotBuckets[ck].length) card.appendChild(buildCornerGroupContainer(ck, slotBuckets[ck], fieldGap, cornerInset));
         }
 
         wrap.appendChild(card);
@@ -672,9 +997,13 @@ function renderImageGroupStrip(container, element, status, options = {}) {
         badge.style.justifyContent = 'center';
         badge.style.fontWeight = '700';
         badge.style.fontSize = `${Math.max(12, Math.round(baseSize * 0.34))}px`;
-        badge.style.background = cardBg;
-        badge.style.color = cfg.labelColor || st.color || '#f8fafc';
-        badge.style.border = `${Math.max(1, avBorderW)}px solid ${avBorderC}`;
+        const resolveStripColor = (raw, fb) => {
+            const c = resolveColorToken(raw, status, {});
+            return (c && !c.startsWith('@')) ? c : fb;
+        };
+        badge.style.background = resolveStripColor(rawCardBg, 'rgba(15,23,42,0.78)');
+        badge.style.color = resolveStripColor(cfg.labelColor, st.color || '#f8fafc');
+        badge.style.border = `${Math.max(1, avBorderW)}px solid ${resolveStripColor(rawAvBorderC, 'rgba(255,255,255,0.28)')}`;
         badge.style.boxSizing = 'border-box';
         if (layout === 'overlap') badge.style.marginLeft = `-${overlap}px`;
         applyGroupAvatarShape(badge, shape, avatarRadius);

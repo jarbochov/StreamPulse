@@ -7,6 +7,36 @@ import {
     getDocumentColors, ICON, LIMITS, toast, state
 } from './editor-state.js';
 
+const ICON_COLOR_VAR = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 3h1a2 2 0 0 1 2 2v5a2 2 0 0 0 2 2 2 2 0 0 0-2 2v5a2 2 0 0 1-2 2h-1"/></svg>';
+
+function hasVariableColors(path) {
+    const vars = Array.isArray(state.liveStatus?.customVars) ? state.liveStatus.customVars : [];
+    if (vars.some(v => v && v.type === 'color')) return true;
+    const sets = Array.isArray(state.liveStatus?.variableSets) ? state.liveStatus.variableSets : [];
+    if (sets.some(s => (s?.fields || []).some(f => f && f.type === 'color'))) return true;
+    return Boolean(path && String(path).includes('imageGroup.') && sets.some(s => (s?.fields || []).some(f => f?.type === 'color')));
+}
+
+function resolveColorPreviewHex(value) {
+    const raw = String(value || '').trim();
+    if (/^#[0-9a-f]{6}$/i.test(raw)) return raw;
+    if (/^#[0-9a-f]{3}$/i.test(raw)) return `#${[...raw.slice(1)].map(c => c + c).join('')}`;
+    if (raw.startsWith('@')) {
+        const key = raw.slice(1).trim();
+        const sets = Array.isArray(state.liveStatus?.variableSets) ? state.liveStatus.variableSets : [];
+        const selectedEl = state.overlay?.elements?.find(e => state.selectedIds?.has(e.id));
+        const setObj = sets.find(s => s.id === selectedEl?.imageGroup?.setId) || sets[0];
+        const sample = String((setObj?.roster || setObj?.entries || [])[0]?.values?.[key] || '').trim();
+        if (/^#[0-9a-f]{6}$/i.test(sample)) return sample;
+    } else if (raw.includes('{{')) {
+        const shared = typeof window !== 'undefined' ? window.OverlayShared : null;
+        const resolved = String(shared?.resolveColorToken?.(raw, state.liveStatus || {}, {}) || '').trim();
+        if (/^#[0-9a-f]{6}$/i.test(resolved)) return resolved;
+        if (/^#[0-9a-f]{3}$/i.test(resolved)) return `#${[...resolved.slice(1)].map(c => c + c).join('')}`;
+    }
+    return '#000000';
+}
+
 export function renderSwatches(path) {
     const docColors = getDocumentColors();
     const recents = (prefs.recentColors || []).filter(c => !docColors.includes(c));
@@ -51,11 +81,18 @@ export const F = {
     },
 
     color: (path, label, value, { clear = false, clearValue = 'transparent', clearLabel = 'None' } = {}) => {
-        const hex = /^#[0-9a-f]{6}$/i.test(value) ? value : /^#[0-9a-f]{3}$/i.test(value) ? `#${[...value.slice(1)].map(c => c + c).join('')}` : '#000000';
+        const hex = resolveColorPreviewHex(value);
+        const varBtn = hasVariableColors(path)
+            ? `<button type="button" class="color-var-btn" data-color-pick="${path}" title="Bind color placeholder" aria-label="Bind color placeholder">${ICON_COLOR_VAR}</button>`
+            : '';
         const eyedropBtn = (typeof window !== 'undefined' && window.EyeDropper)
             ? `<button type="button" class="eyedrop-btn" data-eyedrop="${path}" title="Sample color from screen" aria-label="Sample color from screen">${ICON.eyedrop}</button>`
             : '';
-        return `<div class="field"><span>${label}</span><span class="color-field${eyedropBtn && clear ? ' has-actions' : ''}"><input type="color" data-path="${path}" data-kind="text" value="${hex}" aria-label="${label} picker"><input class="color-text" data-path="${path}" data-kind="text" value="${esc(value)}" placeholder="#rrggbb or rgba()" spellcheck="false" aria-label="${label} value">${eyedropBtn}${clear ? `<button type="button" data-clear="${path}" data-clear-value="${esc(clearValue)}" title="Clear color">${esc(clearLabel)}</button>` : ''}</span>${renderSwatches(path)}</div>`;
+        const clearBtn = clear
+            ? `<button type="button" data-clear="${path}" data-clear-value="${esc(clearValue)}" title="Clear color">${esc(clearLabel)}</button>`
+            : '';
+        const actions = `${varBtn}${eyedropBtn}${clearBtn}`;
+        return `<div class="field"><span>${label}</span><span class="color-field">${''}<input type="color" data-path="${path}" data-kind="text" value="${hex}" aria-label="${label} picker"><input class="color-text" data-path="${path}" data-kind="text" value="${esc(value)}" placeholder="#rrggbb, rgba(), or {{var.name}}" spellcheck="false" aria-label="${label} value">${actions ? `<span class="color-field-actions">${actions}</span>` : ''}</span>${renderSwatches(path)}</div>`;
     },
 
     seg: (path, label, value, options) =>
@@ -93,6 +130,9 @@ export function syncColorPair(input) {
         const v = input.value.trim();
         const colorInp = wrap.querySelector('input[type="color"]');
         if (colorInp) colorInp.value = v.length === 4 ? `#${[...v.slice(1)].map(c => c + c).join('')}` : v;
+    } else if (input.value.trim().startsWith('@') || input.value.includes('{{')) {
+        const colorInp = wrap.querySelector('input[type="color"]');
+        if (colorInp) colorInp.value = resolveColorPreviewHex(input.value);
     }
 }
 
@@ -170,7 +210,7 @@ export function bindFields(container, getTargets, onApply) {
     container.addEventListener('change', event => {
         const input = event.target.closest('[data-path]');
         if (!input) return;
-        if (input.dataset.lazy === '1' || input.dataset.kind === 'number') apply(input, event);
+        if (input.dataset.lazy === '1' || input.dataset.kind === 'number' || input.tagName === 'SELECT') apply(input, event);
         const target = getTargets()[0];
         if (target && input.dataset.kind === 'number') {
             const formatted = fmt(getPath(target, input.dataset.path), Number(input.dataset.scale) || 1);
@@ -343,11 +383,14 @@ export function bindFields(container, getTargets, onApply) {
                     const hexInput = colorField.querySelector('input[type="color"]');
                     const textInput = colorField.querySelector('.color-text');
                     if (textInput) textInput.value = color;
-                    if (hexInput && /^#[0-9a-f]{3,6}$/i.test(color)) {
-                        hexInput.value = color.length === 4 ? `#${[...color.slice(1)].map(c => c + c).join('')}` : color;
+                    if (hexInput) {
+                        const previewHex = swatch.dataset.swatchPreview || color;
+                        if (/^#[0-9a-f]{3,6}$/i.test(previewHex)) {
+                            hexInput.value = previewHex.length === 4 ? `#${[...previewHex.slice(1)].map(c => c + c).join('')}` : previewHex;
+                        }
                     }
                 }
-                addRecentColor(color);
+                if (color.startsWith('#')) addRecentColor(color);
                 onApply(path, event);
                 state.dirty = true;
             }

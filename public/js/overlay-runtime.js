@@ -227,7 +227,10 @@
     }
 
     function applyElementStyle(node, element) {
-        const style = element.style || {};
+        const rawStyle = element.style || {};
+        const style = shared.resolveStyleVariables
+            ? shared.resolveStyleVariables(rawStyle, effectiveStatus(), variableContext())
+            : rawStyle;
         loadGoogleFont(style.fontFamily);
         Object.assign(node.style, {
             left: `${element.x || 0}px`,
@@ -1337,21 +1340,23 @@
         // Render immediately on initial frame so cutouts, media, and layout display with zero latency.
         render(overlay);
 
-        // Concurrently fetch assets, fonts, status, and live extras in the background.
+        // Concurrently fetch assets, fonts, status, variables, and live extras in the background.
         (async () => {
             shared.loadAssetFonts?.().catch(() => null);
+            const needVars = usesVarSets(overlay);
+            const [statusResponse, varsData] = await Promise.all([
+                fetch('/api/status', { cache: 'no-store' }).catch(() => null),
+                needVars ? fetch('/api/variables', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).catch(() => null) : Promise.resolve(null)
+            ]);
             try {
-                const statusResponse = await fetch('/api/status', { cache: 'no-store' });
-                if (statusResponse.ok) liveStatus = { ...liveStatus, ...(await statusResponse.json()) };
+                if (statusResponse?.ok) liveStatus = { ...liveStatus, ...(await statusResponse.json()) };
             } catch {}
-            if (usesVarSets(overlay)) {
-                try {
-                    const varsRes = await fetch('/api/variables', { cache: 'no-store' });
-                    if (varsRes.ok) {
-                        const varsData = await varsRes.json();
-                        liveStatus = { ...liveStatus, customVars: varsData.variables || liveStatus.customVars, variableSets: varsData.sets || [] };
-                    }
-                } catch {}
+            if (needVars) {
+                if (varsData) {
+                    liveStatus = { ...liveStatus, customVars: varsData.variables || liveStatus.customVars, variableSets: varsData.sets || [] };
+                } else if (!Array.isArray(liveStatus.variableSets)) {
+                    liveStatus = { ...liveStatus, variableSets: [] };
+                }
                 setupVarRotations(overlay);
             }
             await shared.loadLiveExtras(liveStatus, overlay.elements);

@@ -723,18 +723,36 @@ export function normalizeLoaded(data) {
  * Build smart default Group Image Strip configuration for an image element or Variable Set.
  */
 export const IMAGE_GROUP_FIELD_ROLES = ['title', 'subtitle', 'badge', 'accent', 'caption'];
+export const IMAGE_GROUP_SLOTS = ['main', 'header', 'footer', 'trailing', 'avatar-top', 'avatar-bottom', 'corner-tl', 'corner-tr', 'corner-bl', 'corner-br', 'avatar-tl', 'avatar-tr', 'avatar-bl', 'avatar-br'];
+export const IMAGE_GROUP_FIELD_ALIGNS = ['auto', 'left', 'center', 'right'];
 
 export function normalizeGroupFieldItem(f, idx = 0) {
     if (!f || typeof f !== 'object') return null;
     const key = String(f.key || '').trim();
     if (!key) return null;
+    const optNum = (raw, min, max) => (raw === null || raw === undefined || raw === '') ? null : Math.max(min, Math.min(max, Math.round(Number(raw) || 0)));
     return {
         key,
+        kind: ['auto', 'text', 'image'].includes(f.kind) ? f.kind : 'auto',
+        customSrc: String(f.customSrc || '').trim().slice(0, 1000),
         role: IMAGE_GROUP_FIELD_ROLES.includes(f.role) ? f.role : (idx === 0 ? 'title' : 'subtitle'),
+        slot: IMAGE_GROUP_SLOTS.includes(f.slot) ? f.slot : 'main',
+        align: IMAGE_GROUP_FIELD_ALIGNS.includes(f.align) ? f.align : 'auto',
         inline: f.inline === true,
         prefix: String(f.prefix || '').slice(0, 24),
         suffix: String(f.suffix || '').slice(0, 24),
         sizeScale: Math.max(50, Math.min(200, Math.round(Number(f.sizeScale) || 100))),
+        fontSize: optNum(f.fontSize, 8, 96),
+        padX: optNum(f.padX, 0, 32),
+        padY: optNum(f.padY, 0, 32),
+        imgSize: Math.max(10, Math.min(200, Math.round(Number(f.imgSize) || 28))),
+        imgShape: ['rounded', 'circle', 'square', 'auto'].includes(f.imgShape) ? f.imgShape : 'rounded',
+        imgFit: ['contain', 'cover'].includes(f.imgFit) ? f.imgFit : 'contain',
+        imgBorderW: Math.max(0, Math.min(8, Math.round(Number(f.imgBorderW) || 0))),
+        fontFamily: String(f.fontFamily || '').slice(0, 120),
+        fontWeight: ['400', '600', '700', '900'].includes(String(f.fontWeight || '')) ? String(f.fontWeight) : '',
+        fontStyle: ['normal', 'italic'].includes(f.fontStyle) ? f.fontStyle : '',
+        textTransform: ['none', 'uppercase', 'lowercase', 'capitalize'].includes(f.textTransform) ? f.textTransform : '',
         color: String(f.color || '').slice(0, 80),
         bgColor: String(f.bgColor || '').slice(0, 80)
     };
@@ -779,6 +797,7 @@ export function defaultImageGroupConfig(setObj = null, existing = {}, enabled = 
         onlySelected: false,
         maxItems: 0,
         showOverflowBadge: true,
+        showAvatar: true,
         sortOrder: 'roster',
         layout: 'row',
         wrap: false,
@@ -792,7 +811,10 @@ export function defaultImageGroupConfig(setObj = null, existing = {}, enabled = 
         avatarRadius: 10,
         avatarBorderWidth: 0,
         avatarBorderColor: 'rgba(255,255,255,0.28)',
+        avatarBorderGradient: { enabled: false, type: 'linear', angle: 135, position: 'center', from: '#38bdf8', mid: '', to: '#8957e5', animate: false, speed: 8 },
         avatarBorderStyle: 'solid',
+        avatarBorderGlow: { enabled: false, color: '#38bdf8', blur: 16, spread: 2, neon: false, inner: false },
+        avatarBorderAnimation: { type: 'none', speed: 4, size: 35, color2: '#ffffff', color3: '' },
         avatarBg: '#1e293b',
         avatarShadow: 0,
         gap: 12,
@@ -803,7 +825,10 @@ export function defaultImageGroupConfig(setObj = null, existing = {}, enabled = 
         showLabels: Boolean(primaryKey),
         labelPosition: 'below',
         textAlign: 'auto',
+        textWrap: 'truncate',
         labelSize: 0,
+        subFontFamily: '',
+        badgeFontFamily: '',
         labelColor: '',
         subColor: '',
         labelBg: 'transparent',
@@ -813,13 +838,23 @@ export function defaultImageGroupConfig(setObj = null, existing = {}, enabled = 
         delimiterColor: '',
         showStatusDot: false,
         cardFrame: false,
+        cardWidthMode: 'auto',
+        cardWidth: 240,
+        cardMinHeight: 0,
+        cardAlign: 'center',
         cardBg: 'rgba(15,23,42,0.78)',
+        cardGradient: { enabled: false, type: 'linear', angle: 135, position: 'center', from: '#0f172a', mid: '', to: '#1e293b', animate: false, speed: 8 },
+        cardBlur: 0,
         cardBorderColor: 'rgba(255,255,255,0.16)',
+        cardBorderGradient: { enabled: false, type: 'linear', angle: 135, position: 'center', from: '#38bdf8', mid: '', to: '#8957e5', animate: false, speed: 8 },
         cardBorderWidth: 1,
         cardBorderStyle: 'solid',
+        cardBorderGlow: { enabled: false, color: '#38bdf8', blur: 16, spread: 2, neon: false, inner: false },
+        cardBorderAnimation: { type: 'none', speed: 4, size: 35, color2: '#ffffff', color3: '' },
         cardRadius: 12,
         cardPaddingX: null,
         cardPaddingY: null,
+        cornerInset: 6,
         cardShadow: 0,
         ...(existing || {}),
         ...(Array.isArray(existing?.fields) ? {} : { fields: initialFields }),
@@ -979,7 +1014,8 @@ export function syncEditorVarRotations(onRender) {
     const follow = prefs.live ? (overlay?.variableSetFollow || {}) : {};
     const trans = prefs.live ? (overlay?.variableSetTransitions || {}) : {};
     const hasActive = rots.some(r => r && r.enabled !== false && r.setId) || Object.values(follow).some(Boolean);
-    if (hasActive && !Array.isArray(state.liveStatus?.variableSets)) {
+    const hasGroupStrips = (overlay?.elements || []).some(el => el.imageGroup?.enabled);
+    if ((hasActive || hasGroupStrips) && !Array.isArray(state.liveStatus?.variableSets)) {
         ensureEditorVariableSets(() => {
             lastVarRotationKey = '';
             syncEditorVarRotations(onRender);

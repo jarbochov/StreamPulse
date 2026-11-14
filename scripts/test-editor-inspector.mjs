@@ -13,7 +13,7 @@ const sources = new Map(await Promise.all(names.map(async name =>
 const css = await readFile(new URL('../public/css/custom-overlay-editor.css', import.meta.url), 'utf8');
 const editorHtml = await readFile(new URL('../public/editors/custom-overlay-editor.html', import.meta.url), 'utf8');
 const igDialogHtml = editorHtml.match(/<dialog id="ig-fields-dialog"[\s\S]*?<\/dialog>/)?.[0] || '';
-for (const name of ['overlay-retro.js', 'overlay-filters.js']) {
+for (const name of ['overlay-retro.js', 'overlay-filters.js', 'placeholder-picker.js']) {
     const source = await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8');
     sources.set(`/${name}`, source);
     sources.set(`/js/${name}`, source);
@@ -83,6 +83,7 @@ try {
         await page.goto(origin);
         for (const name of names.slice(0, 3)) await page.addScriptTag({ url: `${origin}/js/${name}` });
         await page.addScriptTag({ url: `${origin}/js/motion-easing.js` });
+        await page.addScriptTag({ url: `${origin}/placeholder-picker.js` });
         await page.evaluate(async () => {
             window.OverlayShared.slideshowItems = async () => [];
             const model = await import('/js/editor/editor-state.js');
@@ -473,6 +474,7 @@ try {
         const { state, createElementData } = window.fixture;
         const tabBar = document.createElement('div');
         tabBar.className = 'rail-tabs';
+        tabBar.style.maxWidth = '240px';
         for (const id of ['layers', 'pages', 'sets', 'canvas']) {
             const btn = document.createElement('button');
             btn.dataset.railTab = id;
@@ -481,6 +483,7 @@ try {
         }
         const setsPanel = document.createElement('section');
         setsPanel.id = 'sets-panel';
+        setsPanel.style.maxWidth = '240px';
         setsPanel.hidden = true;
         document.body.append(tabBar, setsPanel);
         state.liveStatus.variableSets = [{
@@ -565,6 +568,7 @@ try {
     });
     await page.waitForSelector('[data-delete-style-preset]');
     assert.equal(savedStylePresets.length, 1, 'Saving style preset persists via POST /api/custom-overlays/style-presets');
+    await page.$eval('[data-delete-style-preset]', el => el.scrollIntoView({ block: 'center' }));
     await page.click('[data-delete-style-preset]');
     await page.waitForFunction(() => !document.querySelector('[data-delete-style-preset]'));
     assert.equal(savedStylePresets.length, 0, 'Deleting custom style preset removes it via DELETE endpoint');
@@ -955,9 +959,131 @@ try {
     assert.equal(maskInteriorChecks.hazard.hasClipPath, false, 'hazard mask uses fill-rule=evenodd path instead of clipPath');
     assert.equal(maskInteriorChecks.hazard.centerAlpha, 0, 'hazard border mask leaves element interior transparent');
     assert.ok(maskInteriorChecks.hazard.rimMaxAlpha > 100, 'hazard border mask paints stripes along perimeter rim');
-    assert.equal(maskInteriorChecks.chevron.hasClipPath, false, 'chevron-track mask uses fill-rule=evenodd path instead of clipPath');
+    assert.deepEqual(maskInteriorChecks.chevron.hasClipPath, false, 'chevron-track mask uses fill-rule=evenodd path instead of clipPath');
     assert.equal(maskInteriorChecks.chevron.centerAlpha, 0, 'chevron-track border mask leaves element interior transparent');
     assert.ok(maskInteriorChecks.chevron.rimMaxAlpha > 100, 'chevron-track border mask paints chevrons along perimeter rim');
+
+    // Verify Style tab places element-specific controls at the top across element types
+    const styleOrderChecks = await page.evaluate(() => {
+        const check = type => {
+            window.fixture.select(type);
+            const first = document.querySelector('[data-inspector-panel="style"] > [data-sect]');
+            return first ? first.dataset.sect : '';
+        };
+        return {
+            'image-group': check('image-group'),
+            alert: check('alert'),
+            icon: check('icon'),
+            progress: check('progress'),
+            'game-list': check('game-list')
+        };
+    });
+    assert.equal(styleOrderChecks['image-group'], 'igAvatar', 'image-group opens Style with Avatar/Card sections before generic box/presets');
+    assert.equal(styleOrderChecks.alert, 'alert-looks', 'alert opens Style with alert-specific sections before generic presets');
+    assert.equal(styleOrderChecks.icon, 'iconEffects', 'icon opens Style with Icon effects before generic presets');
+    assert.equal(styleOrderChecks.progress, 'progress', 'progress opens Style with Progress bar styling at top');
+    assert.ok(['gamecovers', 'gametext'].includes(styleOrderChecks['game-list']), 'game-list opens Style with Game list sections at top');
+
+    // Verify Text animation Once on load + 1s delay default & runtime CSS/Matrix once playback
+    await page.evaluate(() => window.fixture.select('text'));
+    await page.click('[data-inspector-tab="style"]');
+    await page.$eval('[data-sect="textEffects"]', d => { d.open = true; });
+    await page.select('[data-path="style.textAnimation.type"]', 'char-bounce');
+    await page.$eval('[data-sect="textEffects"]', d => { d.open = true; });
+    await page.waitForSelector('[data-path="style.textAnimation.mode"]');
+    await page.select('[data-path="style.textAnimation.mode"]', 'once');
+    await page.waitForSelector('[data-path="style.textAnimation.delay"]');
+    const taOnceCheck = await page.evaluate(async () => {
+        const delayVal = document.querySelector('[data-path="style.textAnimation.delay"]').value;
+        const el = window.fixture.state.overlay.elements.find(e => e.id === [...window.fixture.state.selectedIds][0]);
+        const wrap = document.createElement('div');
+        wrap.textContent = 'READY';
+        document.body.append(wrap);
+        window.OverlayShared.applyTextAnimation(wrap, {
+            ...el.style,
+            textAnimation: { type: 'char-bounce', mode: 'once', delay: 1, speed: 1, intensity: 60 }
+        }, 'text');
+        const charSpan = wrap.querySelector('.sp-ta-char');
+        const charAnim = charSpan ? charSpan.style.animation : '';
+        window.OverlayShared.applyTextAnimation(wrap, {}, 'text');
+        wrap.textContent = 'AB';
+
+        window.OverlayShared.applyTextAnimation(wrap, {
+            textAnimation: { type: 'matrix', mode: 'once', delay: 0, speed: 0.3, intensity: 50 }
+        }, 'text');
+        await new Promise(r => setTimeout(r, 600));
+        const finalMatrixText = wrap.textContent;
+        window.OverlayShared.applyTextAnimation(wrap, {}, 'text');
+        wrap.remove();
+        return { delayVal, taState: el.style.textAnimation, charAnim, finalMatrixText };
+    });
+    assert.equal(taOnceCheck.delayVal, '1', `Switching text animation to once-on-load defaults start delay to 1s (got: ${JSON.stringify(taOnceCheck)})`);
+    assert.equal(taOnceCheck.taState.mode, 'once');
+    assert.ok(taOnceCheck.charAnim.includes(' 1s 1 ') && taOnceCheck.charAnim.includes(' both'), `Once CSS animation includes 1s delay and finite once-both fill: ${taOnceCheck.charAnim}`);
+    assert.equal(taOnceCheck.finalMatrixText, 'AB', 'Matrix cipher in once mode settles cleanly onto the final decoded text');
+
+    // Verify Group Image Strip badge slots, fonts, width mode, consistent gradients/borders, and live modal preview
+    const igModalCheck = await page.evaluate(() => {
+        window.fixture.select('image-group');
+        const el = window.fixture.state.overlay.elements.find(e => e.id === [...window.fixture.state.selectedIds][0]);
+        el.imageGroup.showLabels = true;
+        el.imageGroup.cardFrame = true;
+        el.imageGroup.avatarBorderWidth = 3;
+        el.imageGroup.cardBorderWidth = 3;
+        el.imageGroup.fields = [
+            { key: 'name', role: 'title', slot: 'main', fontFamily: "'Orbitron', sans-serif", fontWeight: '700', textTransform: 'uppercase' },
+            { key: 'role', role: 'subtitle', slot: 'footer', fontStyle: 'italic' },
+            { key: 'tag', role: 'badge', slot: 'corner-tr', inline: false }
+        ];
+        window.fixture.renderProperties();
+        document.querySelector('.open-ig-fields-trigger')?.click();
+        const dlg = document.getElementById('ig-fields-dialog');
+        const previewItems = dlg?.querySelectorAll('#ig-badge-preview .sp-image-group-item').length || 0;
+        const cornerCount = dlg?.querySelectorAll('#ig-badge-preview .sp-image-group-corner-tr .sp-image-group-field').length || 0;
+        const footerCount = dlg?.querySelectorAll('#ig-badge-preview .sp-image-group-footer .sp-image-group-field').length || 0;
+        dlg?.querySelector('[data-ig-preview-bg="light"]')?.click();
+        const lightStage = document.getElementById('ig-preview-stage')?.classList.contains('is-light') || false;
+
+        // Change width mode & border gradient/animation on card & avatar via runtime renderer
+        el.imageGroup.cardWidthMode = 'fixed';
+        el.imageGroup.cardWidth = 280;
+        el.imageGroup.cardMinHeight = 96;
+        el.imageGroup.textWrap = 'wrap';
+        el.imageGroup.cardGradient = { enabled: true, type: 'linear', angle: 90, from: '#0f172a', to: '#1e1b4b', animate: false, speed: 8 };
+        el.imageGroup.cardBorderGradient = { enabled: true, type: 'linear', angle: 90, from: '#38bdf8', to: '#a855f7', animate: false, speed: 8 };
+        el.imageGroup.cardBorderAnimation = { type: 'rotating', speed: 4, size: 35, color2: '#ffffff', color3: '' };
+        el.imageGroup.avatarBorderGradient = { enabled: true, type: 'linear', angle: 90, from: '#22d3ee', to: '#ec4899', animate: false, speed: 8 };
+        el.imageGroup.avatarBorderAnimation = { type: 'rainbow', speed: 3, size: 35, color2: '#ffffff', color3: '' };
+
+        const host = document.createElement('div');
+        document.body.append(host);
+        window.OverlayShared.renderImageGroupStrip(host, el, window.fixture.state.liveStatus);
+        const card = host.querySelector('.sp-image-group-item');
+        const av = host.querySelector('.sp-image-group-avatar');
+        const hasCardFx = Boolean(card?._borderFxRing);
+        const hasAvFx = Boolean(av?._borderFxRing);
+        const hasWrapClass = card?.classList.contains('is-wrap') || false;
+        const widthCss = card?.style.width || '';
+        const minHCss = card?.style.minHeight || '';
+        const hasSubFont = Boolean(document.querySelector('[data-path="imageGroup.subFontFamily"]'));
+        const hasCardGradUI = Boolean(document.querySelector('[data-seg-path="imageGroup.cardBorderGradient.enabled"]'));
+        const hasAvGradUI = Boolean(document.querySelector('[data-seg-path="imageGroup.avatarBorderGradient.enabled"]'));
+        host.remove();
+        dlg?.removeAttribute('open');
+        return { previewItems, cornerCount, footerCount, lightStage, hasCardFx, hasAvFx, hasWrapClass, widthCss, minHCss, hasSubFont, hasCardGradUI, hasAvGradUI };
+    });
+    assert.equal(igModalCheck.previewItems, 1, 'Member Badge Builder modal renders a live single-member preview');
+    assert.equal(igModalCheck.cornerCount, 1, 'corner-tr slot places field on avatar corner container');
+    assert.equal(igModalCheck.footerCount, 1, 'footer slot places field in card footer container');
+    assert.equal(igModalCheck.lightStage, true, 'Modal preview backdrop toggle switches light/dark/checker');
+    assert.equal(igModalCheck.hasCardFx, true, 'Group card renders border gradient + animation ring consistently');
+    assert.equal(igModalCheck.hasAvFx, true, 'Group avatar renders border gradient + animation ring consistently');
+    assert.equal(igModalCheck.hasWrapClass, true, 'textWrap: wrap adds .is-wrap multi-line wrapping class');
+    assert.equal(igModalCheck.widthCss, '280px');
+    assert.equal(igModalCheck.minHCss, '96px');
+    assert.equal(igModalCheck.hasSubFont, true, 'Typography section exposes quick Subtitle / accent font override');
+    assert.equal(igModalCheck.hasCardGradUI, true, 'Member card border section exposes Solid/Gradient border fill toggle');
+    assert.equal(igModalCheck.hasAvGradUI, true, 'Avatar border section exposes Solid/Gradient border fill toggle');
 
     // Service-level schema normalization & saved Style Presets persistence
     const tmpOverlaysDir = await mkdtemp(path.join(os.tmpdir(), 'sp-style-presets-'));
@@ -973,7 +1099,7 @@ try {
                 fontStyle: 'italic',
                 tabularNums: true,
                 textShadow: { blur: 6, x: 2, y: -3, color: '#000000' },
-                textAnimation: { type: 'char-wiggle', speed: 2.5, intensity: 70, color: '#ffffff' }
+                textAnimation: { type: 'char-wiggle', mode: 'once', delay: 1.5, speed: 2.5, intensity: 70, color: '#ffffff' }
             }
         });
         assert.equal(normEl.style.borderStyle, 'tech-hud');
@@ -986,7 +1112,57 @@ try {
         assert.equal(normEl.style.textShadow.x, 2);
         assert.equal('textHighlight' in normEl.style, false, 'Removed redundant textHighlight from normalized style');
         assert.equal(normEl.style.textAnimation.type, 'char-wiggle');
+        assert.equal(normEl.style.textAnimation.mode, 'once');
+        assert.equal(normEl.style.textAnimation.delay, 1.5);
         assert.equal('color' in normEl.style.textAnimation, false, 'Text animation normalization omits color overrides');
+
+        const normGroup = overlays.normalizeOverlayElement({
+            type: 'image',
+            imageGroup: {
+                enabled: true,
+                setId: 'crew',
+                showAvatar: false,
+                cardWidthMode: 'fixed',
+                cardWidth: 300,
+                cardMinHeight: 110,
+                textWrap: 'wrap',
+                subFontFamily: "'Inter', sans-serif",
+                badgeFontFamily: "'Orbitron', sans-serif",
+                cornerInset: 8,
+                cardBorderColor: '@team_color',
+                cardBorderGradient: { enabled: true, from: '#38bdf8', to: '{{var.accent}}' },
+                avatarBorderGradient: { enabled: true, from: '#22d3ee', to: '#a855f7' },
+                avatarBorderGlow: { enabled: true, color: '#22d3ee', blur: 12 },
+                avatarBorderAnimation: { type: 'rainbow', speed: 3 },
+                fields: [
+                    { key: 'name', role: 'title', slot: 'corner-tr', align: 'right', fontFamily: "'Oswald', sans-serif", fontWeight: '900', fontStyle: 'italic', textTransform: 'uppercase', fontSize: 18, padX: 10, padY: 4, bgColor: '@team_color' },
+                    { key: 'crest', kind: 'image', role: 'badge', slot: 'avatar-tl', customSrc: '/media-b.png', imgSize: 24, imgShape: 'circle', imgFit: 'contain', imgBorderW: 2 }
+                ]
+            }
+        });
+        assert.equal(normGroup.imageGroup.showAvatar, false);
+        assert.equal(normGroup.imageGroup.cardWidthMode, 'fixed');
+        assert.equal(normGroup.imageGroup.cardWidth, 300);
+        assert.equal(normGroup.imageGroup.cornerInset, 8);
+        assert.equal(normGroup.imageGroup.cardBorderColor, '@team_color');
+        assert.equal(normGroup.imageGroup.cardBorderGradient.to, '{{var.accent}}');
+        assert.equal(normGroup.imageGroup.cardBorderGradient.enabled, true);
+        assert.equal(normGroup.imageGroup.avatarBorderGradient.enabled, true);
+        assert.equal(normGroup.imageGroup.avatarBorderGlow.enabled, true);
+        assert.equal(normGroup.imageGroup.avatarBorderAnimation.type, 'rainbow');
+        assert.equal(normGroup.imageGroup.fields[0].slot, 'corner-tr');
+        assert.equal(normGroup.imageGroup.fields[0].fontFamily, "'Oswald', sans-serif");
+        assert.equal(normGroup.imageGroup.fields[0].fontSize, 18);
+        assert.equal(normGroup.imageGroup.fields[0].padX, 10);
+        assert.equal(normGroup.imageGroup.fields[0].padY, 4);
+        assert.equal(normGroup.imageGroup.fields[0].bgColor, '@team_color');
+        assert.equal(normGroup.imageGroup.fields[1].kind, 'image');
+        assert.equal(normGroup.imageGroup.fields[1].slot, 'avatar-tl');
+        assert.equal(normGroup.imageGroup.fields[1].customSrc, '/media-b.png');
+        assert.equal(normGroup.imageGroup.fields[1].imgSize, 24);
+        assert.equal(normGroup.imageGroup.fields[1].imgShape, 'circle');
+        assert.equal(normGroup.imageGroup.fields[1].imgFit, 'contain');
+        assert.equal(normGroup.imageGroup.fields[1].imgBorderW, 2);
 
         svc.setStylePresets(svc.normalizeStylePresets([{ id: 'p1', name: 'Studio Cyan', category: 'text', style: { borderStyle: 'corner-brackets', color: '#22d3ee' } }]));
         svc.saveStylePresets();
@@ -996,6 +1172,198 @@ try {
     } finally {
         await rm(tmpOverlaysDir, { recursive: true, force: true });
     }
+
+    // Verify imageGroup onlySelected filtering never flashes unselected roster entries.
+    const onlySelectedCheck = await page.evaluate(() => {
+        const sh = window.OverlayShared;
+        const container = document.createElement('div');
+        container.style.width = '800px';
+        container.style.height = '180px';
+        document.body.appendChild(container);
+        const roster = [
+            { id: 'm1', label: 'Alpha', inGroup: true, values: { name: 'Alpha', img: '/assets/1.png' } },
+            { id: 'm2', label: 'Bravo', inGroup: true, values: { name: 'Bravo', img: '/assets/2.png' } },
+            { id: 'm3', label: 'Charlie', inGroup: true, values: { name: 'Charlie', img: '/assets/3.png' } }
+        ];
+        const baseEl = {
+            id: 'ig-filter-check',
+            type: 'image',
+            width: 800,
+            height: 180,
+            imageGroup: { enabled: true, setId: 'squad', onlySelected: true, showLabels: true, fallbackMode: 'initials' },
+            style: {}
+        };
+        sh.renderImageGroupStrip(container, baseEl, {
+            customVars: [{ name: 'squad_group_members', type: 'text', value: JSON.stringify(roster.map(r => ({ id: r.id, label: r.label, text: r.label, values: r.values }))) }]
+        });
+        const beforeHydrateCount = container.querySelectorAll('.sp-image-group-item').length;
+
+        sh.renderImageGroupStrip(container, baseEl, {
+            variableSets: [{ id: 'squad', slotsCount: 2, slots: ['', ''], roster }]
+        });
+        const emptySlotsCount = container.querySelectorAll('.sp-image-group-item').length;
+
+        sh.renderImageGroupStrip(container, baseEl, {
+            variableSets: [{ id: 'squad', slotsCount: 0, activeEntry: 'm2', roster }]
+        });
+        const spotlightLabels = [...container.querySelectorAll('.sp-image-group-label')].map(n => n.textContent.trim());
+
+        sh.renderImageGroupStrip(container, baseEl, {
+            variableSets: [{ id: 'squad', slotsCount: 2, slots: ['m1', { entryId: 'm3' }], roster }]
+        });
+        const slotLabels = [...container.querySelectorAll('.sp-image-group-label')].map(n => n.textContent.trim());
+
+        sh.cleanupNode?.(container);
+        container.remove();
+        return { beforeHydrateCount, emptySlotsCount, spotlightLabels, slotLabels };
+    });
+    assert.equal(onlySelectedCheck.beforeHydrateCount, 0);
+    assert.equal(onlySelectedCheck.emptySlotsCount, 0);
+    assert.deepEqual(onlySelectedCheck.spotlightLabels, ['Bravo']);
+    assert.deepEqual(onlySelectedCheck.slotLabels, ['Alpha', 'Charlie']);
+
+    // Verify Secondary Images, Avatar/Corner Icons, Padding, FontSize, and Variable Colors ({{var.*}} & @field)
+    const builderAndColorsCheck = await page.evaluate(async () => {
+        const sh = window.OverlayShared;
+        const { state, prefs } = window.fixture;
+        const canvasMod = await import('/js/editor/editor-canvas.js');
+        prefs.live = true;
+        state.liveStatus = {
+            ...(state.liveStatus || {}),
+            customVars: [{ name: 'accent_color', type: 'color', value: '#f43f5e' }],
+            variableSets: [{
+                id: 'squad',
+                name: 'Squad',
+                slotsCount: 0,
+                fields: [
+                    { key: 'name', type: 'text' },
+                    { key: 'image', type: 'image' },
+                    { key: 'team_color', type: 'color' },
+                    { key: 'crest', type: 'image' }
+                ],
+                roster: [
+                    { id: 'm1', label: 'Alpha', inGroup: true, values: { name: 'Alpha', image: '/media-a.png', team_color: '#22c55e', crest: '/media-b.png' } },
+                    { id: 'm2', label: 'Bravo', inGroup: true, values: { name: 'Bravo', image: '/media-a.png', team_color: '#38bdf8', crest: '/media-b.png' } }
+                ]
+            }]
+        };
+
+        // 1. Color-filtered Placeholder Picker (replaces cluttered color swatches) & canvas applyNodeStyle
+        const resolvedDirect = sh.resolveColorToken('{{var.accent_color}}', state.liveStatus, {});
+        const boxEl = window.fixture.select('box', { id: 'var-color-box', style: { background: '{{var.accent_color}}' } });
+        const styledNode = document.createElement('div');
+        canvasMod.applyNodeStyle(styledNode, boxEl, 0);
+        const liveCanvasBg = styledNode.style.backgroundColor || '';
+        document.querySelector('[data-inspector-tab="style"]')?.click();
+        const clutteredSwatchCount = document.querySelectorAll('.swatch-var-btn').length;
+        const colorPickBtn = document.querySelector('[data-color-pick="style.background"]');
+        let chipAppliedValue = '';
+        let colorPickerColorOnly = false;
+        if (colorPickBtn) {
+            boxEl.style.background = '#000000';
+            colorPickBtn.click();
+            const spDlg = document.getElementById('sp-picker');
+            const tokens = [...(spDlg?.querySelectorAll('#sp-list [data-token]') || [])].map(b => b.dataset.token);
+            colorPickerColorOnly = Boolean(spDlg?.classList.contains('is-color-mode') && tokens.includes('var.accent_color') && !tokens.includes('stream.title'));
+            spDlg?.querySelector('[data-token="var.accent_color"]')?.click();
+            chipAppliedValue = boxEl.style.background;
+        }
+
+        // 2. Group Strip & Member Badge Builder: Secondary Images, Avatar Corners, Padding, FontSize & @team_color picker
+        const grpEl = window.fixture.select('image', {
+            id: 'ig-polish-check',
+            imageGroup: {
+                enabled: true,
+                setId: 'squad',
+                layout: 'cards',
+                cardFrame: true,
+                showAvatar: true,
+                showLabels: false,
+                cardPaddingX: 16,
+                cardPaddingY: 12,
+                cornerInset: 8,
+                labelSize: 15,
+                cardBorderColor: '@team_color',
+                fields: [
+                    { key: 'name', kind: 'text', role: 'title', slot: 'main', fontSize: 19, padX: 9, padY: 4, bgColor: '' }
+                ]
+            }
+        });
+        document.querySelector('[data-inspector-tab="content"]')?.click();
+        document.querySelector('#open-ig-fields-modal')?.click();
+        const dlg = document.getElementById('ig-fields-dialog');
+        const hasMemberSelect = Boolean(dlg?.querySelector('#ig-preview-member option[value="m1"]'));
+        dlg?.querySelector('#ig-add-image-btn')?.click();
+        const hasImageCard = Boolean(dlg?.querySelector('.ig-field-row.is-img-card'));
+        const noClutteredSelects = document.querySelectorAll('.ig-color-var-select').length === 0;
+        const igVarBtn = dlg?.querySelector('[data-ig-var-pick="bgColor"]');
+        let pickedMemberColor = false;
+        if (igVarBtn) {
+            igVarBtn.click();
+            const spDlg = document.getElementById('sp-picker');
+            const teamBtn = spDlg?.querySelector('[data-token="@team_color"]');
+            pickedMemberColor = Boolean(teamBtn);
+            teamBtn?.click();
+        }
+        const hasGroupColorSwatch = noClutteredSelects && pickedMemberColor && grpEl.imageGroup.fields[0].bgColor === '@team_color';
+
+        // #ig-add-image-btn already placed `crest` at `corner-tl`; add a static secondary image on `avatar-tl` with customSrc
+        grpEl.imageGroup.fields.push(
+            { key: 'emblem', kind: 'image', customSrc: '/media-b.png', slot: 'avatar-tl', imgSize: 20, imgShape: 'circle', imgBorderW: 1 }
+        );
+        dlg?.close();
+
+        const container = document.createElement('div');
+        container.style.width = '760px';
+        container.style.height = '220px';
+        document.body.appendChild(container);
+        sh.renderImageGroupStrip(container, grpEl, state.liveStatus);
+        const cornerImgs = container.querySelectorAll('.sp-image-group-corner-tl .sp-image-group-img-field img').length;
+        const avatarCornerImgs = container.querySelectorAll('.sp-image-group-avatar .sp-image-group-img-field img').length;
+        const hiddenTextCount = container.querySelectorAll('.sp-image-group-field:not(.sp-image-group-img-field)').length;
+        const cornerInsetTop = container.querySelector('.sp-image-group-corner-tl')?.style.top || '';
+        const cardColors = [...container.querySelectorAll('.sp-image-group-card')].map(n => n.style.borderColor);
+        grpEl.imageGroup.showLabels = true;
+        sh.renderImageGroupStrip(container, grpEl, state.liveStatus);
+        const badgeEl = container.querySelector('.sp-image-group-field:not(.sp-image-group-img-field)');
+        const badgeStyle = badgeEl ? { fontSize: badgeEl.style.fontSize, paddingLeft: badgeEl.style.paddingLeft, paddingTop: badgeEl.style.paddingTop, bg: badgeEl.style.backgroundColor } : null;
+        sh.cleanupNode?.(container);
+        container.remove();
+
+        return {
+            resolvedDirect,
+            liveCanvasBg,
+            clutteredSwatchCount,
+            hasVarChip: Boolean(colorPickBtn) && colorPickerColorOnly,
+            chipAppliedValue,
+            hasMemberSelect,
+            hasImageCard,
+            hasGroupColorSwatch,
+            cornerImgs,
+            avatarCornerImgs,
+            hiddenTextCount,
+            cornerInsetTop,
+            cardColors,
+            badgeStyle
+        };
+    });
+    assert.equal(builderAndColorsCheck.resolvedDirect, '#f43f5e');
+    assert.equal(builderAndColorsCheck.liveCanvasBg, 'rgb(244, 63, 94)');
+    assert.equal(builderAndColorsCheck.clutteredSwatchCount, 0);
+    assert.equal(builderAndColorsCheck.hasVarChip, true);
+    assert.equal(builderAndColorsCheck.chipAppliedValue, '{{var.accent_color}}');
+    assert.equal(builderAndColorsCheck.hasMemberSelect, true);
+    assert.equal(builderAndColorsCheck.hasImageCard, true);
+    assert.equal(builderAndColorsCheck.hasGroupColorSwatch, true);
+    assert.equal(builderAndColorsCheck.cornerImgs, 2);
+    assert.equal(builderAndColorsCheck.avatarCornerImgs, 2);
+    assert.equal(builderAndColorsCheck.hiddenTextCount, 0);
+    assert.equal(builderAndColorsCheck.cornerInsetTop, '8px');
+    assert.deepEqual(builderAndColorsCheck.cardColors, ['rgb(34, 197, 94)', 'rgb(56, 189, 248)']);
+    assert.equal(builderAndColorsCheck.badgeStyle?.fontSize, '19px');
+    assert.equal(builderAndColorsCheck.badgeStyle?.paddingLeft, '9px');
+    assert.equal(builderAndColorsCheck.badgeStyle?.paddingTop, '4px');
+    assert.equal(builderAndColorsCheck.badgeStyle?.bg, 'rgb(34, 197, 94)');
 
     assert.deepEqual(errors, []);
     assert.deepEqual(unexpected, []);

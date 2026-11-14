@@ -10,7 +10,7 @@ import {
     pagesOn, statesModeOn, isBasePage, hasPageOverride, resetElementPageState, extractElementState,
     alertLookSelection, previewAlertElement, uid, defaultImageGroupConfig,
     isImageGroup, hasRichTextEffects, resolveImageGroupFields, syncLegacyGroupFields,
-    IMAGE_GROUP_FIELD_ROLES, normalizeGroupFieldItem
+    IMAGE_GROUP_FIELD_ROLES, IMAGE_GROUP_SLOTS, IMAGE_GROUP_FIELD_ALIGNS, normalizeGroupFieldItem
 } from './editor-state.js';
 import { F, bindFields } from './editor-form.js';
 import {
@@ -147,6 +147,12 @@ export function fontOptions(current) {
     return `${custom}${SYSTEM_FONTS.map(opt).join('')}${uploaded.length ? `<optgroup label="Uploaded fonts">${uploaded.map(opt).join('')}</optgroup>` : ''}<optgroup label="Google Fonts">${GOOGLE_FONT_OPTIONS.map(opt).join('')}</optgroup>`;
 }
 
+export function inheritFontOptions(current, inheritLabel = 'Use base font') {
+    const val = current || '';
+    const inner = val ? fontOptions(val) : fontOptions(SYSTEM_FONTS[0][0]).replace(' selected', '');
+    return `<option value=""${!val ? ' selected' : ''}>${esc(inheritLabel)}</option>${inner}`;
+}
+
 export function actionBar(items) {
     const single = items.length === 1 ? items[0] : null;
     const grouped = items.some(el => el.group);
@@ -197,10 +203,10 @@ export function alignSection(items) {
 
 export const gradOf = (s, key) => ({ from: '#1f6feb', to: '#8957e5', angle: 135, type: 'linear', position: 'center', speed: 8, ...(s[key] || {}) });
 export const hasMidStop = val => Boolean(val && val !== 'transparent' && val !== 'none');
-export const fillSeg = (s, key, label) => F.seg(`style.${key}.enabled`, label, s[key]?.enabled ? 'true' : 'false', [['false', 'Solid color', 'Solid'], ['true', 'Gradient', 'Gradient']]);
+export const fillSeg = (s, key, label, prefix = 'style') => F.seg(`${prefix}.${key}.enabled`, label, s[key]?.enabled ? 'true' : 'false', [['false', 'Solid color', 'Solid'], ['true', 'Gradient', 'Gradient']]);
 
-export function gradientFields(s, key = 'gradient') {
-    const g = gradOf(s, key), at = name => `style.${key}.${name}`;
+export function gradientFields(s, key = 'gradient', prefix = 'style') {
+    const g = gradOf(s, key), at = name => `${prefix}.${key}.${name}`;
     const hasMid = hasMidStop(g.mid);
     return `<div class="grid2">${F.select(at('type'), 'Type', g.type, [['linear', 'Linear'], ['radial', 'Radial']])}${g.type === 'radial' ? F.select(at('position'), 'Center', g.position, [['center', 'Center'], ['top', 'Top'], ['bottom', 'Bottom'], ['left', 'Left'], ['right', 'Right']]) : F.number(at('angle'), 'Angle (°)', g.angle, { min: 0, max: 360 })}</div>
         <div class="grid2">${F.color(at('from'), 'From', g.from)}${F.color(at('to'), 'To', g.to)}</div>
@@ -210,7 +216,7 @@ export function gradientFields(s, key = 'gradient') {
         ${g.animate ? F.number(at('speed'), 'Speed (sec per sweep)', g.speed, { min: 1, max: 120 }) : ''}`;
 }
 
-export const fillControl = (s, key, label, solidField) => fillSeg(s, key, label) + (s[key]?.enabled ? gradientFields(s, key) : solidField);
+export const fillControl = (s, key, label, solidField, prefix = 'style') => fillSeg(s, key, label, prefix) + (s[key]?.enabled ? gradientFields(s, key, prefix) : solidField);
 export const hasBox = s => s.borderWidth > 0 || (s.background && s.background !== 'transparent') || s.gradient?.enabled || (s.padding > 0);
 export const paddingField = el => (TEXT_TYPES.has(el.type) || isImageGroup(el)) ? F.number('style.padding', 'Padding (px)', el.style.padding || 0, { min: 0, max: 200 }) : '';
 export const noRadius = (s, shape) => shape && ['circle', 'pill', 'line'].includes(s.shape);
@@ -262,7 +268,8 @@ export function textEffectsSection(el) {
                 ['matrix', 'Matrix Cipher Decode']
             ] }
         ])}
-        ${taType !== 'none' ? `<div class="grid2">${F.number('style.textAnimation.speed', 'Cycle (sec)', ta.speed ?? 3, { min: 0.3, max: 30, step: 0.2 })}${F.number('style.textAnimation.intensity', 'Intensity (%)', ta.intensity ?? 50, { min: 10, max: 100, step: 5 })}</div>` : ''}`, false);
+        ${taType !== 'none' ? `<div class="grid2">${F.select('style.textAnimation.mode', 'Playback', ta.mode === 'once' ? 'once' : 'loop', [['loop', 'Loop continuously'], ['once', 'Once on load']])}${F.number('style.textAnimation.delay', 'Start delay (sec)', ta.delay ?? 0, { min: 0, max: 30, step: 0.1 })}</div>
+        <div class="grid2">${F.number('style.textAnimation.speed', 'Cycle (sec)', ta.speed ?? 3, { min: 0.3, max: 30, step: 0.2 })}${F.number('style.textAnimation.intensity', 'Intensity (%)', ta.intensity ?? 50, { min: 10, max: 100, step: 5 })}</div>` : ''}`, false);
 }
 
 export function iconEffectsSection(el) {
@@ -286,7 +293,7 @@ export function typographySection(el) {
         const autoSize = badge.autoSize !== false;
         const secondaryFont = (key, label) => {
             const value = fonts[key] || '';
-            return `<label class="field"><span>${label}</span><select data-path="speakerBadge.typography.${key}" data-kind="text"><option value=""${!value ? ' selected' : ''}>Use name font</option>${fontOptions(value || 'sans-serif').replace(' selected', value ? ' selected' : '')}</select></label>`;
+            return `<label class="field"><span>${label}</span><select data-path="speakerBadge.typography.${key}" data-kind="text" data-font-picker>${inheritFontOptions(value, 'Use name font')}</select></label>`;
         };
         return F.section('typography', 'Typography', `
             ${F.check('speakerBadge.autoSize', 'Auto-size to fill badge', autoSize)}
@@ -309,7 +316,10 @@ export function typographySection(el) {
     const richText = hasRichTextEffects(el);
     const groupImg = isImageGroup(el);
     return F.section('typography', alert ? 'Message text' : 'Typography', `
-        <label class="field"><span>Font</span><select id="font-picker" data-path="style.fontFamily" data-kind="text">${fontOptions(s.fontFamily)}</select></label>
+        <label class="field"><span>${groupImg ? 'Base / title font' : 'Font'}</span><select id="font-picker" data-path="style.fontFamily" data-kind="text" data-font-picker>${fontOptions(s.fontFamily)}</select></label>
+        ${groupImg && el.imageGroup?.showLabels ? `<label class="field"><span>Subtitle / accent font</span><select data-path="imageGroup.subFontFamily" data-kind="text" data-font-picker>${inheritFontOptions(el.imageGroup.subFontFamily, 'Use base font')}</select></label>
+        <label class="field"><span>Badge pill font</span><select data-path="imageGroup.badgeFontFamily" data-kind="text" data-font-picker>${inheritFontOptions(el.imageGroup.badgeFontFamily, 'Use base font')}</select></label>
+        <div class="field"><button type="button" class="open-ig-fields-trigger">Per-Field Fonts &amp; Slot Arrange…</button></div>` : ''}
         ${alert ? `<div class="grid2">${weight}${F.color('style.color', 'Text color', s.color)}</div>` : `<div class="grid2">${el.textFit === 'fit' && TEXT_TYPES.has(el.type) ? '' : F.number('style.fontSize', el.textFit === 'shrink' && TEXT_TYPES.has(el.type) ? 'Max size (px)' : 'Size (px)', s.fontSize, { min: 8, max: 400 })}${weight}</div>${TEXT_TYPES.has(el.type) && !(el.type === 'random-text' && el.random?.marquee) ? F.select('textFit', 'Auto-fit text', el.textFit || 'none', [['none', 'Off — use the size set here'], ['shrink', 'Shrink to fit the box'], ['fit', 'Grow or shrink to fill the box']]) : ''}${el.type === 'markdown' ? F.number('headingScale', 'Heading size (% of normal)', el.headingScale ?? 100, { min: 40, max: 200, step: 5 }) + F.select('columns', 'Columns', String(el.columns || 1), [['1', '1 column'], ['2', '2 columns'], ['3', '3 columns'], ['4', '4 columns']]) + ((el.columns || 1) > 1 ? F.select('headingSpan', 'Headings spanning all columns', String(el.headingSpan ?? 6), [['6', 'All headings (H1–H6)'], ['1', 'H1 only'], ['2', 'H1–H2'], ['3', 'H1–H3'], ['4', 'H1–H4'], ['0', 'None — headings stay in a column']]) : '') : ''}${richText ? fillControl(s, 'textGradient', 'Text color', F.color('style.color', 'Color', s.color)) : F.color('style.color', 'Text color', s.color)}`}
         ${el.type === 'poll' || groupImg ? '' : `<div class="grid2">${F.seg('style.textAlign', 'Horizontal', textAlign, [['left', 'Align text left', ICON.textLeft], ['center', 'Center text', ICON.textCenter], ['right', 'Align text right', ICON.textRight]])}${el.type === 'markdown' && el.columns > 1 ? '' : F.seg('style.verticalAlign', 'Vertical', verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>`}
         ${F.seg('style.fontStyle', 'Style', s.fontStyle || 'normal', [['normal', 'Regular font', 'Normal'], ['italic', 'Italic font', '<i>Italic</i>']])}
@@ -364,6 +374,113 @@ export const BORDER_STYLE_OPTIONS = [
     ] }
 ];
 
+export function borderFxControls(container = {}, { glowKey = 'borderGlow', animKey = 'borderAnimation', prefix = 'style', fallbackColor = '#38bdf8' } = {}) {
+    let html = '';
+    const glow = container[glowKey] || {};
+    const gp = `${prefix}.${glowKey}`;
+    html += F.check(`${gp}.enabled`, 'Border glow', glow.enabled);
+    if (glow.enabled) {
+        html += `
+            <div class="grid2">
+                ${F.color(`${gp}.color`, 'Glow color', glow.color || fallbackColor, { clear: true })}
+                ${F.number(`${gp}.blur`, 'Glow blur (px)', glow.blur ?? 16, { min: 0, max: 100 })}
+            </div>
+            <div class="grid2">
+                ${F.check(`${gp}.neon`, 'Neon core mode', glow.neon)}
+                ${F.check(`${gp}.inner`, 'Inner glow', glow.inner)}
+            </div>`;
+    }
+
+    const anim = container[animKey] || {};
+    const ap = `${prefix}.${animKey}`;
+    html += F.select(`${ap}.type`, 'Border animation', anim.type || 'none', [
+        ['none', 'None (static)'],
+        { group: 'Beams & Energy', options: [
+            ['rotating', 'Rotating beam (spotlight)'],
+            ['dual-beam', 'Twin chasing beams'],
+            ['laser-scan', 'Laser scanner sweep'],
+            ['plasma', 'Electric plasma arc']
+        ] },
+        { group: 'Glow & Pulse', options: [
+            ['radial', 'Radial rotating (sweeping glow)'],
+            ['pulsing', 'Pulsing glow (breathing)'],
+            ['strobe-flash', 'Energy surge (double flash)']
+        ] },
+        { group: 'Color & Perimeter', options: [
+            ['gradient', 'Gradient sweep (flowing)'],
+            ['rainbow', 'Rainbow cycle (RGB chroma)'],
+            ['marching', 'Marching ants (perimeter chase)']
+        ] }
+    ]);
+    if (anim.type && anim.type !== 'none') {
+        if (anim.type === 'rotating' || anim.type === 'dual-beam') {
+            html += `
+                <div class="grid2">
+                    ${F.number(`${ap}.speed`, 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 60, step: 0.5 })}
+                    ${F.number(`${ap}.size`, 'Beam arc (%)', anim.size ?? 35, { min: 10, max: 100 })}
+                </div>
+                ${F.color(`${ap}.color2`, 'Beam head color', anim.color2 || '#ffffff')}`;
+        } else if (anim.type === 'laser-scan' || anim.type === 'plasma') {
+            const hasBorderMid = hasMidStop(anim.color3);
+            html += `
+                <div class="grid2">
+                    ${F.number(`${ap}.speed`, 'Speed (seconds)', anim.speed ?? 3.5, { min: 0.5, max: 60, step: 0.5 })}
+                    ${F.color(`${ap}.color2`, anim.type === 'laser-scan' ? 'Laser core color' : 'Plasma accent color', anim.color2 || (anim.type === 'laser-scan' ? '#ffffff' : '#a855f7'))}
+                </div>`;
+            if (anim.type === 'plasma') {
+                html += `<label class="check"><input type="checkbox" data-grad-mid-toggle="${esc(`${ap}.color3`)}" ${hasBorderMid ? 'checked' : ''}> Middle color stop (optional)</label>`;
+                if (hasBorderMid) {
+                    html += F.color(`${ap}.color3`, 'Middle color', anim.color3, { clear: true, clearValue: '', clearLabel: 'Off' });
+                }
+            }
+        } else if (anim.type === 'radial') {
+            const mode = anim.mode || 'spotlight';
+            html += `
+                <div class="grid2">
+                    ${F.select(`${ap}.mode`, 'Radial mode', mode, [
+                        ['spotlight', 'Spotlight (focused glow)'],
+                        ['two-tone', 'Two-tone (head & trail)'],
+                        ['fade-white', 'Fade to white'],
+                        ['fade-black', 'Fade to black'],
+                        ['rainbow', 'Rainbow cycle']
+                    ])}
+                    ${F.select(`${ap}.direction`, 'Direction', anim.direction || 'cw', [
+                        ['cw', 'Clockwise'],
+                        ['ccw', 'Counter-clockwise'],
+                        ['alternate', 'Alternate (back & forth)']
+                    ])}
+                </div>
+                <div class="grid2">
+                    ${F.number(`${ap}.speed`, 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 60, step: 0.5 })}
+                    ${F.number(`${ap}.size`, 'Glow spread (%)', anim.size ?? 40, { min: 10, max: 100 })}
+                </div>`;
+            if (mode !== 'rainbow') {
+                const label = mode === 'two-tone' ? 'Accent color' : (mode === 'spotlight' ? 'Spotlight color' : 'Primary color');
+                const hasBorderMid = hasMidStop(anim.color3);
+                html += F.color(`${ap}.color2`, label, anim.color2 || (mode === 'spotlight' ? '#ffffff' : '#38bdf8'));
+                html += `<label class="check"><input type="checkbox" data-grad-mid-toggle="${esc(`${ap}.color3`)}" ${hasBorderMid ? 'checked' : ''}> Middle color stop (optional)</label>`;
+                if (hasBorderMid) {
+                    html += F.color(`${ap}.color3`, 'Middle color', anim.color3, { clear: true, clearValue: '', clearLabel: 'Off' });
+                }
+            }
+        } else if (anim.type === 'gradient') {
+            const hasBorderMid = hasMidStop(anim.color3);
+            html += `
+                <div class="grid2">
+                    ${F.number(`${ap}.speed`, 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 60, step: 0.5 })}
+                    ${F.color(`${ap}.color2`, 'End color', anim.color2 || '#8957e5')}
+                </div>
+                <label class="check"><input type="checkbox" data-grad-mid-toggle="${esc(`${ap}.color3`)}" ${hasBorderMid ? 'checked' : ''}> Middle color stop (optional)</label>`;
+            if (hasBorderMid) {
+                html += F.color(`${ap}.color3`, 'Middle color', anim.color3, { clear: true, clearValue: '', clearLabel: 'Off' });
+            }
+        } else {
+            html += F.number(`${ap}.speed`, 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 60, step: 0.5 });
+        }
+    }
+    return html;
+}
+
 export function borderControls(s = {}, shape = false, el = {}) {
     const isLineShape = shape && s.shape === 'line';
     const isCutout = el?.type === 'cutout';
@@ -394,106 +511,7 @@ export function borderControls(s = {}, shape = false, el = {}) {
 
     html += fillControl(s, 'borderGradient', 'Border fill', F.color('style.borderColor', 'Border color', s.borderColor || (isCutout ? '#ffffff' : '#38bdf8'), { clear: true }));
 
-    const glow = s.borderGlow || {};
-    html += F.check('style.borderGlow.enabled', 'Border glow', glow.enabled);
-    if (glow.enabled) {
-        html += `
-            <div class="grid2">
-                ${F.color('style.borderGlow.color', 'Glow color', glow.color || s.borderColor || '#38bdf8', { clear: true })}
-                ${F.number('style.borderGlow.blur', 'Glow blur (px)', glow.blur ?? 16, { min: 0, max: 100 })}
-            </div>
-            <div class="grid2">
-                ${F.check('style.borderGlow.neon', 'Neon core mode', glow.neon)}
-                ${F.check('style.borderGlow.inner', 'Inner glow', glow.inner)}
-            </div>`;
-    }
-
-    const anim = s.borderAnimation || {};
-    html += F.select('style.borderAnimation.type', 'Border animation', anim.type || 'none', [
-        ['none', 'None (static)'],
-        { group: 'Beams & Energy', options: [
-            ['rotating', 'Rotating beam (spotlight)'],
-            ['dual-beam', 'Twin chasing beams'],
-            ['laser-scan', 'Laser scanner sweep'],
-            ['plasma', 'Electric plasma arc']
-        ] },
-        { group: 'Glow & Pulse', options: [
-            ['radial', 'Radial rotating (sweeping glow)'],
-            ['pulsing', 'Pulsing glow (breathing)'],
-            ['strobe-flash', 'Energy surge (double flash)']
-        ] },
-        { group: 'Color & Perimeter', options: [
-            ['gradient', 'Gradient sweep (flowing)'],
-            ['rainbow', 'Rainbow cycle (RGB chroma)'],
-            ['marching', 'Marching ants (perimeter chase)']
-        ] }
-    ]);
-    if (anim.type && anim.type !== 'none') {
-        if (anim.type === 'rotating' || anim.type === 'dual-beam') {
-            html += `
-                <div class="grid2">
-                    ${F.number('style.borderAnimation.speed', 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 60, step: 0.5 })}
-                    ${F.number('style.borderAnimation.size', 'Beam arc (%)', anim.size ?? 35, { min: 10, max: 100 })}
-                </div>
-                ${F.color('style.borderAnimation.color2', 'Beam head color', anim.color2 || '#ffffff')}`;
-        } else if (anim.type === 'laser-scan' || anim.type === 'plasma') {
-            const hasBorderMid = hasMidStop(anim.color3);
-            html += `
-                <div class="grid2">
-                    ${F.number('style.borderAnimation.speed', 'Speed (seconds)', anim.speed ?? 3.5, { min: 0.5, max: 60, step: 0.5 })}
-                    ${F.color('style.borderAnimation.color2', anim.type === 'laser-scan' ? 'Laser core color' : 'Plasma accent color', anim.color2 || (anim.type === 'laser-scan' ? '#ffffff' : '#a855f7'))}
-                </div>`;
-            if (anim.type === 'plasma') {
-                html += `<label class="check"><input type="checkbox" data-grad-mid-toggle="style.borderAnimation.color3" ${hasBorderMid ? 'checked' : ''}> Middle color stop (optional)</label>`;
-                if (hasBorderMid) {
-                    html += F.color('style.borderAnimation.color3', 'Middle color', anim.color3, { clear: true, clearValue: '', clearLabel: 'Off' });
-                }
-            }
-        } else if (anim.type === 'radial') {
-            const mode = anim.mode || 'spotlight';
-            html += `
-                <div class="grid2">
-                    ${F.select('style.borderAnimation.mode', 'Radial mode', mode, [
-                        ['spotlight', 'Spotlight (focused glow)'],
-                        ['two-tone', 'Two-tone (head & trail)'],
-                        ['fade-white', 'Fade to white'],
-                        ['fade-black', 'Fade to black'],
-                        ['rainbow', 'Rainbow cycle']
-                    ])}
-                    ${F.select('style.borderAnimation.direction', 'Direction', anim.direction || 'cw', [
-                        ['cw', 'Clockwise'],
-                        ['ccw', 'Counter-clockwise'],
-                        ['alternate', 'Alternate (back & forth)']
-                    ])}
-                </div>
-                <div class="grid2">
-                    ${F.number('style.borderAnimation.speed', 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 60, step: 0.5 })}
-                    ${F.number('style.borderAnimation.size', 'Glow spread (%)', anim.size ?? 40, { min: 10, max: 100 })}
-                </div>`;
-            if (mode !== 'rainbow') {
-                const label = mode === 'two-tone' ? 'Accent color' : (mode === 'spotlight' ? 'Spotlight color' : 'Primary color');
-                const hasBorderMid = hasMidStop(anim.color3);
-                html += F.color('style.borderAnimation.color2', label, anim.color2 || (mode === 'spotlight' ? '#ffffff' : '#38bdf8'));
-                html += `<label class="check"><input type="checkbox" data-grad-mid-toggle="style.borderAnimation.color3" ${hasBorderMid ? 'checked' : ''}> Middle color stop (optional)</label>`;
-                if (hasBorderMid) {
-                    html += F.color('style.borderAnimation.color3', 'Middle color', anim.color3, { clear: true, clearValue: '', clearLabel: 'Off' });
-                }
-            }
-        } else if (anim.type === 'gradient') {
-            const hasBorderMid = hasMidStop(anim.color3);
-            html += `
-                <div class="grid2">
-                    ${F.number('style.borderAnimation.speed', 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 60, step: 0.5 })}
-                    ${F.color('style.borderAnimation.color2', 'End color', anim.color2 || '#8957e5')}
-                </div>
-                <label class="check"><input type="checkbox" data-grad-mid-toggle="style.borderAnimation.color3" ${hasBorderMid ? 'checked' : ''}> Middle color stop (optional)</label>
-                ${hasBorderMid ? F.color('style.borderAnimation.color3', 'Middle color', anim.color3, { clear: true, clearValue: '', clearLabel: 'Off' }) : ''}`;
-        } else {
-            html += F.number('style.borderAnimation.speed', 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 60, step: 0.5 });
-        }
-    }
-
-    return html;
+    return html + borderFxControls(s, { fallbackColor: s.borderColor || '#38bdf8' });
 }
 
 export function appearanceBody(el, multi) {
@@ -539,6 +557,38 @@ const IG_SVG_UP = '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" s
 const IG_SVG_DOWN = '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>';
 const IG_SVG_REMOVE = '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
 const IG_ROLE_LABELS = { title: 'Title', subtitle: 'Subtitle', badge: 'Badge pill', accent: 'Accent tag', caption: 'Caption' };
+const IG_SLOT_LABELS = {
+    main: 'Meta stack (Main)',
+    header: 'Card header (Top)',
+    footer: 'Card footer (Bottom)',
+    trailing: 'Badge right (Trailing)',
+    'avatar-top': 'Above avatar',
+    'avatar-bottom': 'Below avatar',
+    'corner-tl': 'Card corner top-left',
+    'corner-tr': 'Card corner top-right',
+    'corner-bl': 'Card corner bottom-left',
+    'corner-br': 'Card corner bottom-right',
+    'avatar-tl': 'Avatar corner top-left',
+    'avatar-tr': 'Avatar corner top-right',
+    'avatar-bl': 'Avatar corner bottom-left',
+    'avatar-br': 'Avatar corner bottom-right'
+};
+const IG_SLOT_SHORT = {
+    main: 'Main',
+    header: 'Top',
+    footer: 'Footer',
+    trailing: 'Right',
+    'avatar-top': 'Av-Top',
+    'avatar-bottom': 'Av-Bot',
+    'corner-tl': 'Card-TL',
+    'corner-tr': 'Card-TR',
+    'corner-bl': 'Card-BL',
+    'corner-br': 'Card-BR',
+    'avatar-tl': 'Av-TL',
+    'avatar-tr': 'Av-TR',
+    'avatar-bl': 'Av-BL',
+    'avatar-br': 'Av-BR'
+};
 const IG_PLACEMENTS = [
     ['below', 'Below avatar'],
     ['above', 'Above avatar'],
@@ -549,6 +599,8 @@ const IG_PLACEMENTS = [
     ['split', 'Split (Title top + Sub bottom)']
 ];
 const IG_TEXT_ALIGNS = [['auto', 'Auto'], ['left', 'Left'], ['center', 'Center'], ['right', 'Right']];
+const IG_WIDTH_MODES = [['auto', 'Auto fit content'], ['full', 'Full strip width (100%)'], ['fixed', 'Custom width (px)']];
+const IG_CARD_ALIGNS = [['top', 'Top'], ['center', 'Center'], ['bottom', 'Bottom']];
 
 function imageGroupFieldMeta(ig = {}) {
     const sets = Array.isArray(state.liveStatus?.variableSets) ? state.liveStatus.variableSets : [];
@@ -603,19 +655,25 @@ export function mediaSourceBlock(el) {
             body += F.check('imageGroup.showOverflowBadge', 'Show +N overflow badge when capped', ig.showOverflowBadge !== false);
         }
 
-        body += '<div class="sub-head">Member Text &amp; Fields</div>';
-        body += F.check('imageGroup.showLabels', 'Show member fields', ig.showLabels === true);
+        body += '<div class="sub-head">Member Fields &amp; Secondary Images</div>';
+        body += F.check('imageGroup.showLabels', 'Show member text fields', ig.showLabels === true);
         if (ig.showLabels) {
             if (fields.length) {
                 body += `<div class="grid2">${F.select('imageGroup.labelField', 'Primary field', ig.labelField || '', labelFieldOpts)}${F.select('imageGroup.subField', 'Secondary field', ig.subField || '', subFieldOpts)}</div>`;
             } else {
                 body += `<div class="grid2">${F.text('imageGroup.labelField', 'Primary field key', ig.labelField || '', 'placeholder="name"')}${F.text('imageGroup.subField', 'Secondary field key', ig.subField || '', 'placeholder="role"')}</div>`;
             }
-            if (activeFields.length) {
-                body += `<div class="ig-field-summary" id="ig-fields-summary">${activeFields.map((f, idx) => `<div class="ig-field-pill"><span class="ig-fp-role">${esc(IG_ROLE_LABELS[f.role] || f.role)}</span><span class="ig-fp-key" title="${esc(f.key)}">${esc(f.key)}</span>${f.inline ? '<span class="ig-fp-inline">inline</span>' : ''}<button type="button" data-ig-quick-remove="${idx}" title="Remove field" aria-label="Remove ${esc(f.key)}">${IG_SVG_REMOVE}</button></div>`).join('')}</div>`;
-            }
-            body += `<div class="ig-actions-row"><button type="button" id="btn-ig-add-field">+ Add Field</button><button type="button" id="open-ig-fields-modal">Fields &amp; Arrange…</button></div>`;
         }
+        if (activeFields.length) {
+            body += `<div class="ig-field-summary" id="ig-fields-summary">${activeFields.map((f, idx) => {
+                const isImg = resolveImageGroupFieldKind(f, fields) === 'image';
+                const slotTag = f.slot && f.slot !== 'main' ? `<span class="ig-fp-slot">${esc(IG_SLOT_SHORT[f.slot] || f.slot)}</span>` : '';
+                const fontHint = !isImg && f.fontFamily ? ' · font' : (isImg ? ` · ${f.imgSize || 28}px` : '');
+                const badgeLabel = isImg ? 'IMG' : (IG_ROLE_LABELS[f.role] || f.role);
+                return `<div class="ig-field-pill"><span class="ig-fp-role${isImg ? ' is-img' : ''}">${esc(badgeLabel)}</span>${slotTag}<span class="ig-fp-key" title="${esc(f.key)}">${esc(f.key)}${fontHint}</span>${f.inline ? '<span class="ig-fp-inline">inline</span>' : ''}<button type="button" data-ig-quick-remove="${idx}" title="Remove field" aria-label="Remove ${esc(f.key)}">${IG_SVG_REMOVE}</button></div>`;
+            }).join('')}</div>`;
+        }
+        body += `<div class="ig-actions-row"><button type="button" id="btn-ig-add-field">+ Text Field</button><button type="button" id="btn-ig-add-image">+ Image / Icon</button><button type="button" id="open-ig-fields-modal" class="open-ig-fields-trigger">Badge Builder…</button></div>`;
         body += F.text('imageGroup.delimiter', 'Delimiter between members', ig.delimiter || '', 'placeholder="Optional, e.g. • or |" maxlength="20"');
         body += '<p class="hint">Renders Variable Set members toggled <strong>In Group</strong> — zero empty slots. Customize typography &amp; animations under Style, and layout &amp; gaps under Layout.</p>';
         return body;
@@ -686,13 +744,28 @@ export function imageGroupLayoutSection(el) {
     }
 
     body += '<div class="sub-head">Avatar Size &amp; Ratio</div>';
-    body += `<div class="grid2">${F.number('imageGroup.size', 'Image size (px)', ig.size ?? 56, { min: 16, max: 400, step: 2 })}${F.select('imageGroup.aspectRatio', 'Frame ratio', ig.aspectRatio || '1:1', [
-        ['1:1', 'Square (1:1)'],
-        ['4:3', 'Wide (4:3)'],
-        ['16:9', 'Cinema (16:9)'],
-        ['3:4', 'Portrait (3:4)'],
-        ['21:9', 'Banner (21:9)']
-    ])}</div>`;
+    body += F.check('imageGroup.showAvatar', 'Show avatar / image', ig.showAvatar !== false);
+    if (ig.showAvatar !== false) {
+        body += `<div class="grid2">${F.number('imageGroup.size', 'Image size (px)', ig.size ?? 56, { min: 16, max: 400, step: 2 })}${F.select('imageGroup.aspectRatio', 'Frame ratio', ig.aspectRatio || '1:1', [
+            ['1:1', 'Square (1:1)'],
+            ['4:3', 'Wide (4:3)'],
+            ['16:9', 'Cinema (16:9)'],
+            ['3:4', 'Portrait (3:4)'],
+            ['21:9', 'Banner (21:9)']
+        ])}</div>`;
+    }
+
+    const widthMode = ig.cardWidthMode || (layout === 'banners' ? 'full' : 'auto');
+    body += '<div class="sub-head">Member Badge Size &amp; Wrapping</div>';
+    body += F.select('imageGroup.cardWidthMode', 'Badge width mode', widthMode, IG_WIDTH_MODES);
+    if (widthMode === 'fixed') {
+        body += `<div class="grid2">${F.number('imageGroup.cardWidth', 'Badge width (px)', ig.cardWidth ?? 240, { min: 60, max: 1600, step: 4 })}${F.number('imageGroup.cardMinHeight', 'Min height (px)', ig.cardMinHeight ?? 0, { min: 0, max: 800, step: 2 })}</div>`;
+    } else {
+        body += F.number('imageGroup.cardMinHeight', 'Min badge height (px)', ig.cardMinHeight ?? 0, { min: 0, max: 800, step: 2 });
+    }
+    if (ig.showLabels) {
+        body += `<div class="grid2">${ig.showAvatar !== false ? F.select('imageGroup.cardAlign', 'Badge Y align', ig.cardAlign || 'center', IG_CARD_ALIGNS) : '<span></span>'}${F.select('imageGroup.textWrap', 'Text wrap', ig.textWrap === 'wrap' ? 'wrap' : 'truncate', [['truncate', 'Truncate (...)'], ['wrap', 'Wrap multi-line']])}</div>`;
+    }
 
     body += '<div class="sub-head">Spacing &amp; Gaps</div>';
     body += `<div class="grid2">${layout === 'overlap' ? '<span></span>' : F.number('imageGroup.gap', 'Item gap (px)', gapVal, { min: 0, max: 80, step: 2 })}${F.number('imageGroup.rowGap', 'Row gap (px)', ig.rowGap ?? gapVal, { min: 0, max: 120, step: 2 })}</div>`;
@@ -700,6 +773,7 @@ export function imageGroupLayoutSection(el) {
         body += `<div class="grid2">${F.number('imageGroup.innerGap', 'Avatar to text gap', ig.innerGap ?? 8, { min: 0, max: 60, step: 1 })}${F.number('imageGroup.fieldGap', 'Field line gap', ig.fieldGap ?? 2, { min: 0, max: 40, step: 1 })}</div>`;
         body += '<div class="sub-head">Text Placement</div>';
         body += `<div class="grid2">${F.select('imageGroup.labelPosition', 'Placement', ig.labelPosition || 'below', IG_PLACEMENTS)}${F.select('imageGroup.textAlign', 'Text align', ig.textAlign || 'auto', IG_TEXT_ALIGNS)}</div>`;
+        body += '<div class="field"><button type="button" class="open-ig-fields-trigger">Arrange Badge Zones &amp; Preview…</button></div>';
     }
 
     body += '<div class="sub-head">Strip Alignment in Box</div>';
@@ -727,9 +801,12 @@ export function imageGroupStyleSections(el) {
     avBody += `<div class="grid2">${F.number('imageGroup.avatarBorderWidth', 'Avatar border (px)', avBorderW, { min: 0, max: 12 })}${F.number('imageGroup.avatarShadow', 'Avatar shadow (px)', ig.avatarShadow ?? 0, { min: 0, max: 40 })}</div>`;
     if (avBorderW > 0 || layout === 'overlap') {
         avBody += F.select('imageGroup.avatarBorderStyle', 'Avatar border style', ig.avatarBorderStyle || 'solid', BORDER_STYLE_OPTIONS);
-        avBody += F.color('imageGroup.avatarBorderColor', 'Avatar border color', ig.avatarBorderColor || 'rgba(255,255,255,0.28)');
         if (isPolyShape) {
-            avBody += '<p class="hint">Polygon shapes use clean SVG contour outlines; choose rounded, square, or circle for full 21-style border patterns.</p>';
+            avBody += F.color('imageGroup.avatarBorderColor', 'Avatar border color', ig.avatarBorderColor || 'rgba(255,255,255,0.28)');
+            avBody += '<p class="hint">Polygon shapes use clean SVG contour outlines; choose rounded, square, or circle for gradient fills, glows, and 21-style animated borders.</p>';
+        } else {
+            avBody += fillControl(ig, 'avatarBorderGradient', 'Avatar border fill', F.color('imageGroup.avatarBorderColor', 'Avatar border color', ig.avatarBorderColor || 'rgba(255,255,255,0.28)', { clear: true }), 'imageGroup');
+            avBody += borderFxControls(ig, { glowKey: 'avatarBorderGlow', animKey: 'avatarBorderAnimation', prefix: 'imageGroup', fallbackColor: ig.avatarBorderColor || '#38bdf8' });
         }
     }
     if (ig.fallbackMode === 'initials') {
@@ -744,22 +821,24 @@ export function imageGroupStyleSections(el) {
         cardBody += `<p class="hint">${layout === 'banners' ? 'Banners' : layout === 'chips' ? 'Capsule chips' : 'Member cards'} automatically frame each member.</p>`;
     }
     if (isFramed) {
-        cardBody += F.color('imageGroup.cardBg', layout === 'chips' ? 'Chip background' : 'Card background', ig.cardBg || 'rgba(15,23,42,0.78)', { clear: true });
+        cardBody += fillControl(ig, 'cardGradient', layout === 'chips' ? 'Chip fill' : 'Card fill', F.color('imageGroup.cardBg', layout === 'chips' ? 'Chip background' : 'Card background', ig.cardBg || 'rgba(15,23,42,0.78)', { clear: true }), 'imageGroup');
         cardBody += `<div class="grid2">${F.number('imageGroup.cardBorderWidth', 'Card border (px)', cardBW, { min: 0, max: 16 })}${F.number('imageGroup.cardRadius', 'Corner radius (px)', ig.cardRadius ?? 12, { min: 0, max: 999 })}</div>`;
         if (cardBW > 0) {
             cardBody += F.select('imageGroup.cardBorderStyle', 'Card border style', ig.cardBorderStyle || 'solid', BORDER_STYLE_OPTIONS);
-            cardBody += F.color('imageGroup.cardBorderColor', 'Card border color', ig.cardBorderColor || 'rgba(255,255,255,0.16)');
+            cardBody += fillControl(ig, 'cardBorderGradient', 'Card border fill', F.color('imageGroup.cardBorderColor', 'Card border color', ig.cardBorderColor || 'rgba(255,255,255,0.16)', { clear: true }), 'imageGroup');
+            cardBody += borderFxControls(ig, { glowKey: 'cardBorderGlow', animKey: 'cardBorderAnimation', prefix: 'imageGroup', fallbackColor: ig.cardBorderColor || '#38bdf8' });
         }
         cardBody += `<div class="grid2">${F.number('imageGroup.cardPaddingX', 'Card pad X (px)', ig.cardPaddingX ?? ig.cardPadding ?? 8, { min: 0, max: 64 })}${F.number('imageGroup.cardPaddingY', 'Card pad Y (px)', ig.cardPaddingY ?? ig.cardPadding ?? 8, { min: 0, max: 64 })}</div>`;
-        cardBody += F.number('imageGroup.cardShadow', 'Card shadow (px)', ig.cardShadow ?? 0, { min: 0, max: 48 });
+        cardBody += `<div class="grid2">${F.number('imageGroup.cardShadow', 'Card shadow (px)', ig.cardShadow ?? 0, { min: 0, max: 48 })}${F.number('imageGroup.cardBlur', 'Backdrop blur (px)', ig.cardBlur ?? 0, { min: 0, max: 40 })}</div>`;
     }
 
     let lblBody = '';
     if (ig.showLabels) {
-        lblBody += F.number('imageGroup.labelSize', 'Size override px (0 = Typography)', ig.labelSize ?? 0, { min: 0, max: 72 });
+        lblBody += F.number('imageGroup.labelSize', 'Base size px (0 = Typography)', ig.labelSize ?? 0, { min: 0, max: 72 });
         lblBody += `<div class="grid2">${F.color('imageGroup.labelColor', 'Primary color', ig.labelColor || '', { clear: true, clearValue: '', clearLabel: 'Auto' })}${F.color('imageGroup.subColor', 'Secondary color', ig.subColor || '', { clear: true, clearValue: '', clearLabel: 'Auto' })}</div>`;
         lblBody += F.color('imageGroup.labelBg', 'Text block background', ig.labelBg || 'transparent', { clear: true });
         lblBody += `<div class="grid2">${F.color('imageGroup.badgeBg', 'Badge pill bg', ig.badgeBg || 'rgba(56,189,248,0.16)', { clear: true })}${F.color('imageGroup.badgeColor', 'Badge pill text', ig.badgeColor || '#38bdf8', { clear: true, clearValue: '', clearLabel: 'Auto' })}</div>`;
+        lblBody += '<div class="field"><button type="button" class="open-ig-fields-trigger">Per-Field Colors &amp; Pill Styling…</button></div>';
     }
     lblBody += F.check('imageGroup.showStatusDot', 'Show accent status dot on frame', ig.showStatusDot === true);
     if (ig.delimiter && layout !== 'overlap') {
@@ -771,21 +850,143 @@ export function imageGroupStyleSections(el) {
         + F.section('igTextStyle', 'Labels, badges & delimiters', lblBody);
 }
 
+const IG_MODAL_SAMPLE_AVATAR = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#818cf8"/></linearGradient></defs><rect width="120" height="120" rx="20" fill="url(#g)"/><circle cx="60" cy="46" r="20" fill="#ffffff" fill-opacity="0.9"/><path d="M26 106c4-20 18-30 34-30s30 10 34 30" fill="#ffffff" fill-opacity="0.9"/></svg>');
+const IG_MODAL_SAMPLE_CREST = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="c" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#6366f1"/></linearGradient></defs><path d="M32 6l20 8v16c0 14-8.5 23.5-20 28C20.5 53.5 12 44 12 30V14l20-8z" fill="url(#c)" stroke="#e0f2fe" stroke-width="3"/><path d="M32 18l4.2 8.5 9.4 1.4-6.8 6.6 1.6 9.4-8.4-4.4-8.4 4.4 1.6-9.4-6.8-6.6 9.4-1.4z" fill="#fff"/></svg>');
+const IG_MODAL_SAMPLE_RANK = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#0f172a" stroke="#f59e0b" stroke-width="4"/><polygon points="32,12 38,26 53,27 41,37 45,51 32,43 19,51 23,37 11,27 26,26" fill="#fbbf24"/></svg>');
+
+let igPreviewMemberId = '';
+
+export function resolveImageGroupFieldKind(f, setFields = []) {
+    if (!f) return 'text';
+    if (f.kind === 'image' || f.kind === 'text') return f.kind;
+    const sf = (setFields || []).find(item => item.key === f.key);
+    if (sf?.type === 'image') return 'image';
+    if (f.customSrc && !sf) return 'image';
+    if (/^(avatar|photo|image|img|icon|pic|logo|crest|emblem|badge_img|flag)/i.test(String(f.key || ''))) return 'image';
+    return 'text';
+}
+
 const IMAGE_GROUP_ARRANGEMENT_PRESETS = {
-    stack: { layout: 'row', cardFrame: false, showLabels: true, labelPosition: 'below', textAlign: 'center', delimiter: '', innerGap: 8, fieldGap: 2 },
-    'card-grid': { layout: 'grid', columns: 3, cardFrame: true, showLabels: true, labelPosition: 'below', textAlign: 'center', delimiter: '', cardPaddingX: 12, cardPaddingY: 12, innerGap: 8, fieldGap: 3 },
-    'lower-banners': { layout: 'banners', cardFrame: true, showLabels: true, labelPosition: 'right', textAlign: 'left', delimiter: '', cardPaddingX: 14, cardPaddingY: 10, innerGap: 12, fieldGap: 2 },
-    'split-hud': { layout: 'cards', cardFrame: true, showLabels: true, labelPosition: 'split', textAlign: 'center', delimiter: '', innerGap: 8, fieldGap: 2 },
-    'inline-roster': { layout: 'row', wrap: true, cardFrame: false, showLabels: true, labelPosition: 'below', textAlign: 'center', delimiter: '•', gap: 14 },
-    'overlay-tags': { layout: 'row', cardFrame: false, showLabels: true, labelPosition: 'inside-bottom', textAlign: 'center', delimiter: '' }
+    stack: { layout: 'row', cardFrame: false, cardWidthMode: 'auto', showAvatar: true, showLabels: true, labelPosition: 'below', textAlign: 'center', delimiter: '', innerGap: 8, fieldGap: 2, slots: ['main', 'main', 'main'] },
+    'profile-card': { layout: 'cards', cardFrame: true, cardWidthMode: 'fixed', cardWidth: 260, showAvatar: true, showLabels: true, labelPosition: 'below', textAlign: 'center', delimiter: '', cardPaddingX: 14, cardPaddingY: 14, innerGap: 8, fieldGap: 3, slots: ['header', 'main', 'main', 'footer'] },
+    'card-grid': { layout: 'grid', columns: 3, cardFrame: true, cardWidthMode: 'full', showAvatar: true, showLabels: true, labelPosition: 'below', textAlign: 'center', delimiter: '', cardPaddingX: 12, cardPaddingY: 12, innerGap: 8, fieldGap: 3, slots: ['main', 'main', 'footer'] },
+    'lower-banners': { layout: 'banners', cardFrame: true, cardWidthMode: 'fixed', cardWidth: 320, showAvatar: true, showLabels: true, labelPosition: 'right', textAlign: 'left', delimiter: '', cardPaddingX: 14, cardPaddingY: 10, innerGap: 12, fieldGap: 2, slots: ['main', 'main', 'trailing'] },
+    'broadcast-hud': { layout: 'cards', cardFrame: true, cardWidthMode: 'fixed', cardWidth: 340, cardAlign: 'center', showAvatar: true, showLabels: true, labelPosition: 'right', textAlign: 'left', delimiter: '', cardPaddingX: 14, cardPaddingY: 10, innerGap: 12, fieldGap: 2, slots: ['main', 'main', 'trailing', 'footer'] },
+    'split-hud': { layout: 'cards', cardFrame: true, cardWidthMode: 'fixed', cardWidth: 240, showAvatar: true, showLabels: true, labelPosition: 'split', textAlign: 'center', delimiter: '', innerGap: 8, fieldGap: 2, slots: ['avatar-top', 'avatar-bottom', 'trailing'] },
+    'corner-tag': { layout: 'cards', cardFrame: true, cardWidthMode: 'auto', showAvatar: true, showLabels: true, labelPosition: 'below', textAlign: 'center', delimiter: '', cardPaddingX: 10, cardPaddingY: 10, innerGap: 8, fieldGap: 2, cornerInset: 6, slots: ['main', 'main', 'corner-tr', 'avatar-top'] },
+    'upper-left-crest': { layout: 'cards', cardFrame: true, cardWidthMode: 'fixed', cardWidth: 280, showAvatar: true, showLabels: true, labelPosition: 'right', textAlign: 'left', delimiter: '', cardPaddingX: 14, cardPaddingY: 12, innerGap: 10, fieldGap: 3, cornerInset: 6, imgSlot: 'corner-tl', slots: ['main', 'main', 'trailing'] },
+    'avatar-emblem': { layout: 'cards', cardFrame: true, cardWidthMode: 'fixed', cardWidth: 290, showAvatar: true, showLabels: true, labelPosition: 'right', textAlign: 'left', delimiter: '', cardPaddingX: 12, cardPaddingY: 10, innerGap: 12, fieldGap: 2, cornerInset: 2, imgSlot: 'avatar-br', slots: ['main', 'main', 'trailing'] },
+    'inline-roster': { layout: 'row', wrap: true, cardFrame: false, cardWidthMode: 'auto', showAvatar: true, showLabels: true, labelPosition: 'below', textAlign: 'center', delimiter: '•', gap: 14, slots: ['main', 'main', 'main'] },
+    'overlay-tags': { layout: 'row', cardFrame: false, cardWidthMode: 'auto', showAvatar: true, showLabels: true, labelPosition: 'inside-bottom', textAlign: 'center', delimiter: '', slots: ['main', 'corner-tr', 'main'] }
 };
 
 export function applyImageGroupPreset(el, presetName) {
     if (!isImageGroup(el)) return false;
     const preset = IMAGE_GROUP_ARRANGEMENT_PRESETS[presetName];
     if (!preset) return false;
-    el.imageGroup = { ...(el.imageGroup || {}), ...preset };
+    const { slots, imgSlot, ...props } = preset;
+    el.imageGroup = { ...(el.imageGroup || {}), ...props };
+    const { fields: setFields } = imageGroupFieldMeta(el.imageGroup);
+    if (Array.isArray(slots)) {
+        let txtIdx = 0;
+        let imgIdx = 0;
+        const list = resolveImageGroupFields(el.imageGroup).map((f, idx) => {
+            const isImg = resolveImageGroupFieldKind(f, setFields) === 'image';
+            let nextSlot = f.slot || 'main';
+            if (imgSlot && isImg) {
+                nextSlot = imgIdx === 0 ? imgSlot : (imgSlot === 'corner-tl' ? 'avatar-br' : 'corner-tl');
+                imgIdx += 1;
+            } else {
+                nextSlot = slots[txtIdx] || (isImg ? 'corner-tl' : 'main');
+                txtIdx += 1;
+            }
+            return normalizeGroupFieldItem({ ...f, slot: nextSlot }, idx);
+        }).filter(Boolean);
+        el.imageGroup.fields = list;
+        syncLegacyGroupFields(el.imageGroup);
+    }
     return true;
+}
+
+export function renderGroupBadgePreview(el) {
+    const previewHost = $('ig-badge-preview');
+    if (!previewHost || !isImageGroup(el) || !shared.renderImageGroupStrip) return;
+    const ig = el.imageGroup || {};
+    const fields = resolveImageGroupFields(ig);
+    const { setObj, fields: setFields } = imageGroupFieldMeta(ig);
+    const roster = (setObj?.roster || setObj?.entries || []).filter(r => r && r.inGroup !== false);
+    const memberSelect = $('ig-preview-member');
+    if (memberSelect) {
+        if (igPreviewMemberId !== '__sample__' && !roster.some(r => r.id === igPreviewMemberId)) {
+            igPreviewMemberId = roster[0]?.id || '__sample__';
+        }
+        const opts = [
+            ...roster.map(r => `<option value="${esc(r.id)}"${igPreviewMemberId === r.id ? ' selected' : ''}>${esc(r.label || r.id)}</option>`),
+            `<option value="__sample__"${igPreviewMemberId === '__sample__' || !roster.length ? ' selected' : ''}>Rich Multi-Image Sample</option>`
+        ];
+        memberSelect.innerHTML = opts.join('');
+    }
+    const chosenMember = (igPreviewMemberId && igPreviewMemberId !== '__sample__')
+        ? roster.find(r => r.id === igPreviewMemberId) || null
+        : null;
+    const previewEl = {
+        ...el,
+        width: ig.cardWidthMode === 'fixed' ? Math.min(640, Math.max(120, Number(ig.cardWidth) || 240)) : Math.min(540, Math.max(220, el.width || 320)),
+        height: Math.max(140, Math.min(260, el.height || 180)),
+        imageGroup: {
+            ...ig,
+            onlySelected: false,
+            layout: ig.layout === 'overlap' ? 'row' : (ig.layout || 'row'),
+            maxItems: 1,
+            showOverflowBadge: false,
+            delimiter: ''
+        }
+    };
+    let status = state.liveStatus;
+    if (chosenMember && setObj) {
+        const previewValues = { ...(chosenMember.values || {}) };
+        const fallbackVals = ['Alex Rivera', 'Host', 'LIVE', 'Squad A', '98 pts'];
+        let txtIdx = 0;
+        let imgCount = 0;
+        fields.forEach(f => {
+            const isSetField = setFields.some(sf => sf.key === f.key);
+            const cur = previewValues[f.key];
+            if (!isSetField && (cur === undefined || cur === '')) {
+                const isImg = resolveImageGroupFieldKind(f, setFields) === 'image';
+                previewValues[f.key] = isImg
+                    ? (f.customSrc || (imgCount++ % 2 === 0 ? IG_MODAL_SAMPLE_CREST : IG_MODAL_SAMPLE_RANK))
+                    : fallbackVals[txtIdx++ % fallbackVals.length];
+            }
+        });
+        status = {
+            ...(state.liveStatus || {}),
+            variableSets: (state.liveStatus?.variableSets || []).map(s => (s.id === setObj.id ? { ...s, roster: [{ ...chosenMember, values: previewValues }] } : s))
+        };
+    } else {
+        const setId = ig.setId || 'sample';
+        const imgKey = ig.imageField || 'image';
+        const values = { [imgKey]: IG_MODAL_SAMPLE_AVATAR };
+        const fallbackVals = ['Alex Rivera', 'Host', 'LIVE', 'Squad A', '98 pts'];
+        let txtIdx = 0;
+        let imgCount = 0;
+        fields.forEach(f => {
+            const isImg = resolveImageGroupFieldKind(f, setFields) === 'image';
+            if (isImg) {
+                values[f.key] = f.customSrc || (imgCount++ % 2 === 0 ? IG_MODAL_SAMPLE_CREST : IG_MODAL_SAMPLE_RANK);
+            } else {
+                values[f.key] = fallbackVals[txtIdx++ % fallbackVals.length];
+            }
+        });
+        for (const sf of setFields) {
+            if (sf.type === 'color' && !values[sf.key]) values[sf.key] = '#38bdf8';
+            else if (sf.type === 'image' && !values[sf.key]) values[sf.key] = IG_MODAL_SAMPLE_CREST;
+        }
+        status = {
+            ...(state.liveStatus || {}),
+            variableSets: [{ id: setId, label: 'Sample', fields: setFields, roster: [{ id: 'preview-1', label: 'Alex Rivera', inGroup: true, values }] }]
+        };
+    }
+    shared.renderImageGroupStrip(previewHost, previewEl, status);
 }
 
 export function renderImageGroupFieldsModal() {
@@ -794,49 +995,144 @@ export function renderImageGroupFieldsModal() {
     const el = primary();
     if (!isImageGroup(el)) return;
     const ig = el.imageGroup || {};
-    const { fields } = imageGroupFieldMeta(ig);
+    const { setObj, fields } = imageGroupFieldMeta(ig);
     const list = resolveImageGroupFields(ig);
+    const widthMode = ig.cardWidthMode || ((ig.layout === 'banners') ? 'full' : 'auto');
+    const padXVal = ig.cardPaddingX ?? ig.cardPadding ?? 8;
+    const padYVal = ig.cardPaddingY ?? ig.cardPadding ?? 8;
+    const baseTextFallback = Number(ig.labelSize) > 0 ? ig.labelSize : '';
+    const layerFontPx = Number(el.style?.fontSize) || 15;
 
     const placeHost = $('ig-modal-placement');
     if (placeHost) {
-        placeHost.innerHTML = `<label>Label placement<select id="ig-modal-pos">${IG_PLACEMENTS.map(([v, l]) => `<option value="${esc(v)}"${(ig.labelPosition || 'below') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
-            <label>Text alignment<select id="ig-modal-align">${IG_TEXT_ALIGNS.map(([v, l]) => `<option value="${esc(v)}"${(ig.textAlign || 'auto') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`;
+        placeHost.innerHTML = `<label>Fields placement<select id="ig-modal-pos">${IG_PLACEMENTS.map(([v, l]) => `<option value="${esc(v)}"${(ig.labelPosition || 'below') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+            <label>Text alignment<select id="ig-modal-align">${IG_TEXT_ALIGNS.map(([v, l]) => `<option value="${esc(v)}"${(ig.textAlign || 'auto') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+            <label>Badge Y align<select id="ig-modal-card-align">${IG_CARD_ALIGNS.map(([v, l]) => `<option value="${esc(v)}"${(ig.cardAlign || 'center') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+            <label>Base font size (px)<input type="number" id="ig-modal-label-size" value="${esc(baseTextFallback)}" placeholder="Auto (${layerFontPx}px)" min="0" max="72" step="1"></label>
+            <label>Width mode<select id="ig-modal-width-mode">${IG_WIDTH_MODES.map(([v, l]) => `<option value="${esc(v)}"${widthMode === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+            <label>Width (px)<input type="number" id="ig-modal-card-width" value="${esc(ig.cardWidth ?? 240)}" min="60" max="1600" step="4"${widthMode === 'fixed' ? '' : ' disabled'}></label>
+            <label>Min height (px)<input type="number" id="ig-modal-card-height" value="${esc(ig.cardMinHeight ?? 0)}" min="0" max="800" step="2"></label>
+            <label>Corner inset (px)<input type="number" id="ig-modal-corner-inset" value="${esc(ig.cornerInset ?? 6)}" min="0" max="32" step="1"></label>
+            <label>Card pad X (px)<input type="number" id="ig-modal-pad-x" value="${esc(padXVal)}" min="0" max="64" step="1"></label>
+            <label>Card pad Y (px)<input type="number" id="ig-modal-pad-y" value="${esc(padYVal)}" min="0" max="64" step="1"></label>
+            <label>Field gap (px)<input type="number" id="ig-modal-field-gap" value="${esc(ig.fieldGap ?? 2)}" min="0" max="40" step="1"></label>
+            <div class="ig-inline-checks">
+                <label><input type="checkbox" id="ig-modal-show-avatar"${ig.showAvatar !== false ? ' checked' : ''}> Show primary avatar</label>
+                <label><input type="checkbox" id="ig-modal-wrap-text"${ig.textWrap === 'wrap' ? ' checked' : ''}> Wrap multi-line text</label>
+            </div>`;
     }
+
+    const IG_SVG_COLOR_VAR = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 3h1a2 2 0 0 1 2 2v5a2 2 0 0 0 2 2 2 2 0 0 0-2 2v5a2 2 0 0 1-2 2h-1"/></svg>';
+    const hasColorVars = fields.some(sf => sf?.type === 'color')
+        || (state.liveStatus?.customVars || []).some(cv => cv?.type === 'color')
+        || (state.liveStatus?.variableSets || []).some(s => (s?.fields || []).some(sf => sf?.type === 'color'));
+    const colorVarPickBtn = targetProp => (hasColorVars
+        ? `<button type="button" class="ig-var-btn" data-ig-var-pick="${targetProp}" title="Bind color placeholder (@field or {{var.*}})" aria-label="Bind color placeholder">${IG_SVG_COLOR_VAR}</button>`
+        : '');
 
     const host = $('ig-fields-list');
     if (host) {
-        const hexOr = (val, fallback) => /^#[0-9a-f]{6}$/i.test(val) ? val : fallback;
-        host.innerHTML = list.length ? list.map((f, idx) => {
+        const hexOr = (val, fallback) => {
+            const raw = String(val || '').trim();
+            if (/^#[0-9a-f]{6}$/i.test(raw)) return raw;
+            if (raw.startsWith('@')) {
+                const fk = raw.slice(1).trim();
+                const sample = String((setObj?.roster || [])[0]?.values?.[fk] || '').trim();
+                if (/^#[0-9a-f]{6}$/i.test(sample)) return sample;
+            }
+            if (raw.includes('{{var.')) {
+                const m = raw.match(/\{\{\s*var\.([a-z0-9_]+)\s*\}\}/i);
+                const cv = m && (state.liveStatus?.customVars || []).find(v => v.name === m[1]);
+                if (cv && /^#[0-9a-f]{6}$/i.test(cv.value || '')) return cv.value;
+            }
+            return fallback;
+        };
+        const imgFields = fields.filter(sf => sf.type === 'image');
+        const otherFields = fields.filter(sf => sf.type !== 'image');
+        const buildKeySelect = f => {
+            if (!fields.length) {
+                return `<input type="text" data-ig-fprop="key" value="${esc(f.key)}" placeholder="field_key" maxlength="40">`;
+            }
             const setHasKey = fields.some(sf => sf.key === f.key);
-            const keyOptions = fields.length
-                ? [...fields.map(sf => [sf.key, `${sf.label} (${sf.key})`]), ...(setHasKey ? [] : [[f.key, `${f.key} (custom)`]])]
-                : [[f.key, f.key]];
-            return `<div class="ig-field-row" data-ig-field-idx="${idx}">
-                <div class="ig-field-row-top">
-                    <label>Field${fields.length
-                        ? `<select data-ig-fprop="key">${keyOptions.map(([v, l]) => `<option value="${esc(v)}"${v === f.key ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`
-                        : `<input type="text" data-ig-fprop="key" value="${esc(f.key)}" placeholder="field_key" maxlength="40">`}</label>
-                    <label>Role<select data-ig-fprop="role">${IMAGE_GROUP_FIELD_ROLES.map(r => `<option value="${esc(r)}"${r === f.role ? ' selected' : ''}>${esc(IG_ROLE_LABELS[r] || r)}</option>`).join('')}</select></label>
-                    <label class="ig-field-inline-chk"><input type="checkbox" data-ig-fprop="inline"${f.inline ? ' checked' : ''}> Inline</label>
-                    <button type="button" data-ig-move="up" data-idx="${idx}" title="Move up"${idx === 0 ? ' disabled' : ''}>${IG_SVG_UP}</button>
-                    <button type="button" data-ig-move="down" data-idx="${idx}" title="Move down"${idx === list.length - 1 ? ' disabled' : ''}>${IG_SVG_DOWN}</button>
-                    <button type="button" data-ig-remove="${idx}" title="Remove field" aria-label="Remove field">${IG_SVG_REMOVE}</button>
+            const optTag = sf => `<option value="${esc(sf.key)}"${sf.key === f.key ? ' selected' : ''}>${esc(sf.label)} (${esc(sf.key)})</option>`;
+            return `<select data-ig-fprop="key">
+                ${otherFields.length ? `<optgroup label="Text & Data Fields">${otherFields.map(optTag).join('')}</optgroup>` : ''}
+                ${imgFields.length ? `<optgroup label="Image Fields">${imgFields.map(optTag).join('')}</optgroup>` : ''}
+                ${!setHasKey ? `<option value="${esc(f.key)}" selected>${esc(f.key)} (custom)</option>` : ''}
+            </select>`;
+        };
+        host.innerHTML = list.length ? list.map((f, idx) => {
+            const isImg = resolveImageGroupFieldKind(f, fields) === 'image';
+            const weightOpts = [['', 'Auto'], ['400', 'Normal'], ['600', 'Semi-bold'], ['700', 'Bold'], ['900', 'Black']];
+            const caseOpts = [['', 'Inherit'], ['none', 'As typed'], ['uppercase', 'UPPER'], ['lowercase', 'lower'], ['capitalize', 'Title']];
+            const kindOpts = [['auto', 'Auto'], ['text', 'Text'], ['image', 'Image / Icon']];
+            const fitOpts = [['contain', 'Contain (logos / icons)'], ['cover', 'Cover (crop fill)']];
+            const imgShapeOpts = [['rounded', 'Rounded'], ['circle', 'Circle'], ['square', 'Square'], ['auto', 'Original ratio']];
+            const approxPx = Math.max(8, Math.round((Number(ig.labelSize) > 0 ? ig.labelSize : layerFontPx) * ({ title: 1, accent: 0.88, subtitle: 0.82, caption: 0.75, badge: 0.72 }[f.role] || 0.9) * ((f.sizeScale || 100) / 100)));
+
+            const bodyHtml = isImg
+                ? `<div class="ig-field-row-mid">
+                    <label>Display as<select data-ig-fprop="kind">${kindOpts.map(([v, l]) => `<option value="${esc(v)}"${(f.kind || 'auto') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+                    <label>Image size (px)<input type="number" data-ig-fprop="imgSize" value="${esc(f.imgSize ?? 28)}" min="10" max="200" step="2"></label>
+                    <label>Fit<select data-ig-fprop="imgFit">${fitOpts.map(([v, l]) => `<option value="${esc(v)}"${(f.imgFit || 'contain') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+                    <label>Shape<select data-ig-fprop="imgShape">${imgShapeOpts.map(([v, l]) => `<option value="${esc(v)}"${(f.imgShape || 'rounded') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+                    <div class="ig-src-row">
+                        <label>Static icon / fallback URL<input type="text" data-ig-fprop="customSrc" value="${esc(f.customSrc || '')}" placeholder="Optional URL or pick from Assets (used if member field empty)" maxlength="1000"></label>
+                        <button type="button" data-ig-pick-img="${idx}">Assets…</button>
+                    </div>
+                </div>
+                <div class="ig-field-row-bot">
+                    <label>Plate pad X (px)<input type="number" data-ig-fprop="padX" value="${esc(f.padX ?? '')}" placeholder="Auto" min="0" max="32"></label>
+                    <label>Plate pad Y (px)<input type="number" data-ig-fprop="padY" value="${esc(f.padY ?? '')}" placeholder="Auto" min="0" max="32"></label>
+                    <label>Border (px)<input type="number" data-ig-fprop="imgBorderW" value="${esc(f.imgBorderW ?? 0)}" min="0" max="8"></label>
+                    <label class="ig-field-inline-chk"><input type="checkbox" data-ig-fprop="inline"${f.inline ? ' checked' : ''}> Inline with neighbor</label>
+                    <label class="ig-grid-span2">Border color<span class="ig-color-mini"><input type="color" data-ig-fcolor="color" value="${esc(hexOr(f.color, '#ffffff'))}" aria-label="Image border color"><input type="text" data-ig-fprop="color" value="${esc(f.color || '')}" placeholder="Auto or @var" maxlength="80" spellcheck="false">${colorVarPickBtn('color')}</span></label>
+                    <label class="ig-grid-span2">Plate background<span class="ig-color-mini"><input type="color" data-ig-fcolor="bgColor" value="${esc(hexOr(f.bgColor, '#0f172a'))}" aria-label="Image plate background"><input type="text" data-ig-fprop="bgColor" value="${esc(f.bgColor || '')}" placeholder="None or @var" maxlength="80" spellcheck="false">${colorVarPickBtn('bgColor')}</span></label>
+                </div>`
+                : `<div class="ig-field-row-mid">
+                    <label>Style role<select data-ig-fprop="role">${IMAGE_GROUP_FIELD_ROLES.map(r => `<option value="${esc(r)}"${r === f.role ? ' selected' : ''}>${esc(IG_ROLE_LABELS[r] || r)}</option>`).join('')}</select></label>
+                    <label>Display as<select data-ig-fprop="kind">${kindOpts.map(([v, l]) => `<option value="${esc(v)}"${(f.kind || 'auto') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+                    <label>Font<select data-ig-fprop="fontFamily" data-font-picker>${inheritFontOptions(f.fontFamily || '', 'Inherit role/base')}</select></label>
+                    <label>Font size (px)<input type="number" data-ig-fprop="fontSize" value="${esc(f.fontSize ?? '')}" placeholder="Auto (~${approxPx}px)" min="8" max="96" step="1"></label>
+                    <label>Scale %<input type="number" data-ig-fprop="sizeScale" value="${esc(f.sizeScale ?? 100)}" min="50" max="200" step="5"></label>
+                    <label>Weight<select data-ig-fprop="fontWeight">${weightOpts.map(([v, l]) => `<option value="${esc(v)}"${(f.fontWeight || '') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+                    <label>Case<select data-ig-fprop="textTransform">${caseOpts.map(([v, l]) => `<option value="${esc(v)}"${(f.textTransform || '') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+                    <label>Align<select data-ig-fprop="align">${IG_TEXT_ALIGNS.map(([v, l]) => `<option value="${esc(v)}"${(f.align || 'auto') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
                 </div>
                 <div class="ig-field-row-bot">
                     <label>Prefix<input type="text" data-ig-fprop="prefix" value="${esc(f.prefix || '')}" placeholder="e.g. @" maxlength="24"></label>
                     <label>Suffix<input type="text" data-ig-fprop="suffix" value="${esc(f.suffix || '')}" placeholder="e.g. pts" maxlength="24"></label>
-                    <label>Size %<input type="number" data-ig-fprop="sizeScale" value="${esc(f.sizeScale ?? 100)}" min="50" max="200" step="5"></label>
-                    <label>Text color<span class="ig-color-mini"><input type="color" data-ig-fcolor="color" value="${esc(hexOr(f.color, '#ffffff'))}" aria-label="Field color picker"><input type="text" data-ig-fprop="color" value="${esc(f.color || '')}" placeholder="Auto" maxlength="40" spellcheck="false"></span></label>
-                    <label>Pill bg<span class="ig-color-mini"><input type="color" data-ig-fcolor="bgColor" value="${esc(hexOr(f.bgColor, '#0ea5e9'))}" aria-label="Field badge bg picker"><input type="text" data-ig-fprop="bgColor" value="${esc(f.bgColor || '')}" placeholder="None" maxlength="40" spellcheck="false"></span></label>
+                    <label>Pad X (px)<input type="number" data-ig-fprop="padX" value="${esc(f.padX ?? '')}" placeholder="Auto" min="0" max="32"></label>
+                    <label>Pad Y (px)<input type="number" data-ig-fprop="padY" value="${esc(f.padY ?? '')}" placeholder="Auto" min="0" max="32"></label>
+                    <label class="ig-field-inline-chk"><input type="checkbox" data-ig-fprop="fontStyle"${f.fontStyle === 'italic' ? ' checked' : ''}> Italic</label>
+                    <label class="ig-field-inline-chk"><input type="checkbox" data-ig-fprop="inline"${f.inline ? ' checked' : ''}> Inline</label>
+                    <label class="ig-grid-span2">Text color<span class="ig-color-mini"><input type="color" data-ig-fcolor="color" value="${esc(hexOr(f.color, '#ffffff'))}" aria-label="Field color picker"><input type="text" data-ig-fprop="color" value="${esc(f.color || '')}" placeholder="Auto, @field, or {{var.x}}" maxlength="80" spellcheck="false">${colorVarPickBtn('color')}</span></label>
+                    <label class="ig-grid-span2">Pill background<span class="ig-color-mini"><input type="color" data-ig-fcolor="bgColor" value="${esc(hexOr(f.bgColor, '#0ea5e9'))}" aria-label="Field badge bg picker"><input type="text" data-ig-fprop="bgColor" value="${esc(f.bgColor || '')}" placeholder="None, @field, or {{var.x}}" maxlength="80" spellcheck="false">${colorVarPickBtn('bgColor')}</span></label>
+                </div>`;
+
+            return `<div class="ig-field-row${isImg ? ' is-img-card' : ''}" data-ig-field-idx="${idx}">
+                <div class="ig-field-head">
+                    <span class="ig-kind-badge${isImg ? ' is-img' : ''}">${isImg ? 'IMG' : 'TXT'}</span>
+                    <label class="ig-field-head-grow">Field source${buildKeySelect(f)}</label>
+                    <label class="ig-field-head-zone">Zone / Position<select data-ig-fprop="slot">${IMAGE_GROUP_SLOTS.map(s => `<option value="${esc(s)}"${s === (f.slot || 'main') ? ' selected' : ''}>${esc(IG_SLOT_LABELS[s] || s)}</option>`).join('')}</select></label>
+                    <div class="ig-field-head-actions">
+                        <button type="button" data-ig-move="up" data-idx="${idx}" title="Move up"${idx === 0 ? ' disabled' : ''}>${IG_SVG_UP}</button>
+                        <button type="button" data-ig-move="down" data-idx="${idx}" title="Move down"${idx === list.length - 1 ? ' disabled' : ''}>${IG_SVG_DOWN}</button>
+                        <button type="button" data-ig-remove="${idx}" title="Remove field" aria-label="Remove field">${IG_SVG_REMOVE}</button>
+                    </div>
                 </div>
+                ${bodyHtml}
             </div>`;
-        }).join('') : '<p class="hint">No fields configured yet. Click <strong>+ Add Field</strong> below or apply an Arrangement Preset above.</p>';
+        }).join('') : '<p class="hint">No fields configured yet. Click <strong>+ Text Field</strong> or <strong>+ Image / Icon</strong> above, or pick an Arrangement Preset on the left.</p>';
     }
 
     const cnt = $('ig-fields-count');
-    if (cnt) cnt.textContent = `${list.length} / 10 fields active`;
+    if (cnt) cnt.textContent = `${list.length} / 10`;
     const addBtn = $('ig-add-field-btn');
     if (addBtn) addBtn.disabled = list.length >= 10;
+    const addImgBtn = $('ig-add-image-btn');
+    if (addImgBtn) addImgBtn.disabled = list.length >= 10;
+    renderGroupBadgePreview(el);
 }
 
 export function mutateImageGroupFields(el, mutator) {
@@ -852,18 +1148,44 @@ export function mutateImageGroupFields(el, mutator) {
     return true;
 }
 
-export function addNextImageGroupField(el) {
+export function addNextImageGroupField(el, { preferImage = false } = {}) {
     return mutateImageGroupFields(el, (fields, ig) => {
         if (fields.length >= 10) return fields;
         const { fields: setFields } = imageGroupFieldMeta(ig);
         const used = new Set(fields.map(f => f.key));
+        if (preferImage) {
+            const primaryImgKey = ig.imageField || 'image';
+            const candidate = setFields.find(sf => sf.type === 'image' && sf.key !== primaryImgKey && !used.has(sf.key))
+                || setFields.find(sf => sf.type === 'image' && !used.has(sf.key))
+                || setFields.find(sf => sf.type === 'image');
+            const key = candidate?.key || (used.has('crest') ? `icon_${fields.length + 1}` : 'crest');
+            const usedCorners = new Set(fields.map(f => f.slot));
+            const defaultSlot = ['corner-tl', 'avatar-br', 'corner-tr', 'trailing'].find(s => !usedCorners.has(s)) || 'corner-tl';
+            return [...fields, {
+                key,
+                kind: 'image',
+                customSrc: candidate ? '' : IG_MODAL_SAMPLE_CREST,
+                role: 'accent',
+                slot: defaultSlot,
+                align: 'auto',
+                inline: false,
+                imgSize: 26,
+                imgFit: 'contain',
+                imgShape: 'rounded',
+                imgBorderW: 0,
+                sizeScale: 100,
+                color: '',
+                bgColor: ''
+            }];
+        }
         const candidate = setFields.find(sf => sf.type !== 'image' && sf.type !== 'url' && !used.has(sf.key))
             || setFields.find(sf => sf.type !== 'image' && sf.type !== 'url')
             || setFields[0];
         const key = candidate?.key || `field_${fields.length + 1}`;
-        const role = fields.length === 0 ? 'title' : fields.length === 1 ? 'subtitle' : 'badge';
+        const textCount = fields.filter(f => resolveImageGroupFieldKind(f, setFields) !== 'image').length;
+        const role = textCount === 0 ? 'title' : textCount === 1 ? 'subtitle' : 'badge';
         ig.showLabels = true;
-        return [...fields, { key, role, inline: role === 'badge', prefix: '', suffix: '', sizeScale: 100, color: '', bgColor: '' }];
+        return [...fields, { key, kind: 'auto', role, slot: 'main', align: 'auto', fontFamily: '', fontWeight: '', fontStyle: '', textTransform: '', inline: role === 'badge', prefix: '', suffix: '', sizeScale: 100, color: '', bgColor: '' }];
     });
 }
 
@@ -2020,7 +2342,7 @@ export function renderProperties() {
     if (items.length > 1) {
         const textual = items.some(el => hasText(el) || el.type === 'shape');
         layout = scaleSection(items) + alignSection(items);
-        style = stylePresetsSection(items[0], true) + appearanceSection(items[0], true) + (textual ? typographySection(items.find(hasText) || items[0]) : '');
+        style = appearanceSection(items[0], true) + (textual ? typographySection(items.find(hasText) || items[0]) : '') + stylePresetsSection(items[0], true);
     } else {
         const base = items[0];
         const el = previewAlertElement(base);
@@ -2028,11 +2350,12 @@ export function renderProperties() {
         content = contentSection(base) + (specific ? specific(el.type === 'alert' ? base : el) : '');
         layout = layoutSection(base) + (isImageGroup(base) ? imageGroupLayoutSection(base) : '') + scaleSection(items) + obsLinkSection(base);
         const isProcedural = el.type === 'procedural-pattern' || (el.type === 'pattern' && el.pattern?.sourceType === 'preset');
-        style = stylePresetsSection(base, false)
-            + (el.type === 'alert' ? alertLooksSection(base) + alertSection(el, true) : '')
-            + (el.type === 'icon' ? iconEffectsSection(el) : '') + (hasText(el) ? typographySection(el) : '')
+        style = (el.type === 'alert' ? alertLooksSection(base) + alertSection(el, true) : '')
+            + (el.type === 'icon' ? iconEffectsSection(el) : '')
             + (isImageGroup(base) ? imageGroupStyleSections(base) : '')
-            + (isProcedural ? effectsSection(el) + filterSection(el) : (el.type !== 'cutout' ? fillSection(el) + effectsSection(el) + filterSection(el) : ''));
+            + (hasText(el) ? typographySection(el) : '')
+            + (isProcedural ? effectsSection(el) + filterSection(el) : (el.type !== 'cutout' ? fillSection(el) + effectsSection(el) + filterSection(el) : ''))
+            + stylePresetsSection(base, false);
     }
     root.dataset.inspectorKey = key;
     const bodies = { content, layout, style };
@@ -2199,6 +2522,34 @@ export function openVariableDialog() {
                 : ($('prop-content') || document.querySelector('#properties input[data-path="src"]'));
             if (!field) { toast('Select a text element first.', 'warn', 1800); return; }
             window.PlaceholderPicker.insertInto(field, token);
+        }
+    });
+}
+
+export function openColorVariablePicker({ allowMember = false, onSelect } = {}) {
+    if (!window.PlaceholderPicker || typeof onSelect !== 'function') return;
+    let memberColorFields = [];
+    if (allowMember) {
+        const el = primary();
+        const ig = el?.imageGroup || {};
+        const { setObj, fields } = imageGroupFieldMeta(ig);
+        const firstMember = (setObj?.roster || setObj?.entries || [])[0];
+        memberColorFields = fields
+            .filter(sf => sf && sf.type === 'color')
+            .map(sf => ({
+                key: sf.key,
+                label: sf.label || sf.key,
+                sample: String(firstMember?.values?.[sf.key] || '#38bdf8').trim()
+            }));
+    }
+    window.PlaceholderPicker.open({
+        filter: 'color',
+        getStatus: () => state.liveStatus,
+        getContext: variableContext,
+        memberColorFields,
+        onWarn: message => toast(message, 'warn', 1800),
+        onPick: (token, meta) => {
+            onSelect(meta?.raw ? token : `{{${token}}}`);
         }
     });
 }
@@ -2398,6 +2749,11 @@ export function initInspectorEvents() {
                         el.mediaFilter.halftone.size = 6;
                     }
                 }
+                if (path === 'style.textAnimation.mode' && el.style?.textAnimation) {
+                    if (el.style.textAnimation.mode === 'once' && (!el.style.textAnimation.delay || Number(el.style.textAnimation.delay) === 0)) {
+                        el.style.textAnimation.delay = 1;
+                    }
+                }
             }
             if (path === 'pattern.layout') {
                 for (const el of selectedElements()) {
@@ -2425,8 +2781,8 @@ export function initInspectorEvents() {
             renderSelectionUI();
             updateStatusBarHandler();
             if (path === 'name' || path.startsWith('obsLink.')) renderLayers();
-            if (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || RERENDER_PATHS.has(path) || /^style\.(gradient|textGradient|borderGradient)\.(enabled|type|animate)$/.test(path)) {
-                if (numberCrossedZero(actualPath, event)) renderProperties();
+            if (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || path === 'style.textAnimation.mode' || RERENDER_PATHS.has(path) || /^(?:style|imageGroup)\.(gradient|textGradient|borderGradient|cardGradient|cardBorderGradient|avatarBorderGradient)\.(enabled|type|animate)$/.test(path)) {
+                if (path === 'style.textAnimation.mode' || numberCrossedZero(actualPath, event)) renderProperties();
             }
             if (/^alert\.looks\.\d+\.name$/.test(actualPath) && event?.type === 'change') renderProperties();
             if (path === 'src') {
@@ -2434,7 +2790,7 @@ export function initInspectorEvents() {
                 if (el && (el.type === 'embed' || el.type === 'video')) renderProperties();
             }
             if (path.startsWith('slideshow.')) refreshSlideCount();
-            if (event?.target?.closest?.('[data-clear]') && (path.endsWith('.mid') || path === 'style.borderAnimation.color3')) {
+            if (event?.target?.closest?.('[data-clear]') && (path.endsWith('.mid') || path === 'style.borderAnimation.color3' || path === 'imageGroup.cardBorderAnimation.color3' || path === 'imageGroup.avatarBorderAnimation.color3')) {
                 renderProperties();
             }
             changed(false);
@@ -2532,8 +2888,20 @@ export function initInspectorEvents() {
                 renderCanvas();
                 if (event?.target?.tagName === 'SELECT' || event?.type === 'change') renderProperties();
             }
+            if (path === 'style.textAnimation.mode') {
+                for (const targetEl of selectedElements()) {
+                    const ta = targetEl.style?.textAnimation;
+                    if (ta && ta.mode === 'once' && (!ta.delay || Number(ta.delay) === 0)) {
+                        ta.delay = 1;
+                    }
+                }
+                renderCanvas();
+                renderProperties();
+                changed(true);
+                return;
+            }
             if (path === 'imageGroup.delimiter' && event?.type === 'change') renderProperties();
-            if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderRadiusCorners.enabled' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.borderAnimation.mode' || path === 'style.shadow.blur' || path === 'style.innerShadow.blur' || path === 'style.innerShadow.spread' || path === 'style.textAnimation.type' || path === 'imageGroup.setId' || path === 'imageGroup.onlySelected' || path === 'imageGroup.showLabels' || path === 'imageGroup.layout' || path === 'imageGroup.shape' || path === 'imageGroup.wrap' || path === 'imageGroup.fallbackMode' || path === 'imageGroup.maxItems' || path === 'imageGroup.avatarBorderWidth' || path === 'imageGroup.cardFrame' || path === 'imageGroup.cardBorderWidth') renderProperties();
+            if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderRadiusCorners.enabled' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.borderAnimation.mode' || path === 'style.shadow.blur' || path === 'style.innerShadow.blur' || path === 'style.innerShadow.spread' || path === 'style.textAnimation.type' || path === 'imageGroup.setId' || path === 'imageGroup.onlySelected' || path === 'imageGroup.showLabels' || path === 'imageGroup.showAvatar' || path === 'imageGroup.layout' || path === 'imageGroup.shape' || path === 'imageGroup.wrap' || path === 'imageGroup.fallbackMode' || path === 'imageGroup.maxItems' || path === 'imageGroup.avatarBorderWidth' || path === 'imageGroup.avatarBorderGlow.enabled' || path === 'imageGroup.avatarBorderAnimation.type' || path === 'imageGroup.avatarBorderAnimation.mode' || path === 'imageGroup.cardFrame' || path === 'imageGroup.cardWidthMode' || path === 'imageGroup.cardBorderWidth' || path === 'imageGroup.cardBorderGlow.enabled' || path === 'imageGroup.cardBorderAnimation.type' || path === 'imageGroup.cardBorderAnimation.mode') renderProperties();
             if (path === 'speakerBadge.layout') {
                 const el = primary();
                 if (el?.speakerBadge) {
@@ -2748,14 +3116,15 @@ export function initInspectorEvents() {
         });
 
         propEl.addEventListener('mousedown', event => {
-            if (event.target.id === 'font-picker' && shared.loadGoogleFont) {
+            if ((event.target.id === 'font-picker' || event.target.matches?.('[data-font-picker]')) && shared.loadGoogleFont) {
                 GOOGLE_FONT_OPTIONS.forEach(([v]) => shared.loadGoogleFont(v));
             }
         });
 
         propEl.addEventListener('input', event => {
-            if (event.target.dataset?.path === 'style.fontFamily' && shared.loadGoogleFont) {
-                shared.loadGoogleFont(event.target.value);
+            const p = event.target.dataset?.path;
+            if ((p === 'style.fontFamily' || p === 'imageGroup.subFontFamily' || p === 'imageGroup.badgeFontFamily' || p?.startsWith('speakerBadge.typography.')) && shared.loadGoogleFont) {
+                if (event.target.value) shared.loadGoogleFont(event.target.value);
             }
             if (event.target.id === 'slide-tag-q') renderTagSuggestions();
             if (event.target.matches('textarea, input[data-kind="text"], input[data-path]')) {
@@ -2781,6 +3150,21 @@ export function initInspectorEvents() {
                 return;
             }
             if (target.closest('#open-variables')) openVariableDialog();
+            const colorPickBtn = target.closest('[data-color-pick]');
+            if (colorPickBtn) {
+                const path = colorPickBtn.dataset.colorPick;
+                openColorVariablePicker({
+                    allowMember: Boolean(path && String(path).includes('imageGroup.')),
+                    onSelect: val => {
+                        const textInp = colorPickBtn.closest('.color-field')?.querySelector('.color-text');
+                        if (!textInp) return;
+                        textInp.value = val;
+                        textInp.dispatchEvent(new Event('input', { bubbles: true }));
+                        textInp.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                });
+                return;
+            }
             const quick = target.closest('button[data-scale]');
             if (quick) scaleSelectionByHandler(Number(quick.dataset.scale));
             if (target.closest('#scale-apply')) scaleSelectionByHandler(Number($('scale-pct')?.value || 100));
@@ -2896,7 +3280,15 @@ export function initInspectorEvents() {
                 }
                 return;
             }
-            if (target.closest('#open-ig-fields-modal')) {
+            if (target.closest('#btn-ig-add-image')) {
+                if (addNextImageGroupField(primary(), { preferImage: true })) {
+                    renderCanvas();
+                    renderProperties();
+                    changed(true);
+                }
+                return;
+            }
+            if (target.closest('#open-ig-fields-modal') || target.closest('.open-ig-fields-trigger')) {
                 openImageGroupFieldsModal();
                 return;
             }
@@ -3168,11 +3560,31 @@ export function initInspectorEvents() {
             renderCanvas();
             renderProperties();
             if (reModal) renderImageGroupFieldsModal();
+            else {
+                const cur = primary();
+                if (isImageGroup(cur)) renderGroupBadgePreview(cur);
+            }
             changed(commit);
         };
+        igDlg.addEventListener('mousedown', event => {
+            if (event.target.matches?.('[data-font-picker]') && shared.loadGoogleFont) {
+                GOOGLE_FONT_OPTIONS.forEach(([v]) => shared.loadGoogleFont(v));
+            }
+        });
         igDlg.addEventListener('click', event => {
             const target = event.target.closest('button');
             if (!target) return;
+            const bgBtn = target.closest('[data-ig-preview-bg]');
+            if (bgBtn) {
+                const bg = bgBtn.dataset.igPreviewBg || 'dark';
+                const stage = $('ig-preview-stage');
+                if (stage) {
+                    stage.classList.remove('is-dark', 'is-light', 'is-checker');
+                    stage.classList.add(`is-${bg}`);
+                }
+                igDlg.querySelectorAll('[data-ig-preview-bg]').forEach(btn => btn.setAttribute('aria-pressed', String(btn === bgBtn)));
+                return;
+            }
             if (target.id === 'ig-fields-close') {
                 if (typeof igDlg.close === 'function') igDlg.close();
                 else igDlg.removeAttribute('open');
@@ -3187,6 +3599,43 @@ export function initInspectorEvents() {
             }
             if (target.id === 'ig-add-field-btn') {
                 if (addNextImageGroupField(el)) refreshIgAll(true, true);
+                return;
+            }
+            if (target.id === 'ig-add-image-btn') {
+                if (addNextImageGroupField(el, { preferImage: true })) refreshIgAll(true, true);
+                return;
+            }
+            const varPickBtn = target.closest('[data-ig-var-pick]');
+            if (varPickBtn) {
+                const row = varPickBtn.closest('[data-ig-field-idx]');
+                const idx = row ? Number(row.dataset.igFieldIdx) : -1;
+                const varTarget = varPickBtn.dataset.igVarPick;
+                if (idx >= 0 && varTarget) {
+                    openColorVariablePicker({
+                        allowMember: true,
+                        onSelect: val => {
+                            mutateImageGroupFields(el, list => {
+                                if (list[idx]) list[idx][varTarget] = val;
+                                return list;
+                            });
+                            refreshIgAll(true, true);
+                        }
+                    });
+                }
+                return;
+            }
+            const pickImgBtn = target.closest('[data-ig-pick-img]');
+            if (pickImgBtn) {
+                const idx = Number(pickImgBtn.dataset.igPickImg);
+                openAssetDialogHandler(el.id, url => {
+                    mutateImageGroupFields(el, list => {
+                        if (!list[idx]) return list;
+                        list[idx].kind = 'image';
+                        list[idx].customSrc = url;
+                        return list;
+                    });
+                    refreshIgAll(true, true);
+                });
                 return;
             }
             const moveBtn = target.closest('[data-ig-move]');
@@ -3213,6 +3662,11 @@ export function initInspectorEvents() {
             const el = primary();
             if (!isImageGroup(el)) return;
             const t = event.target;
+            if (t.id === 'ig-preview-member') {
+                igPreviewMemberId = t.value;
+                renderGroupBadgePreview(el);
+                return;
+            }
             if (t.id === 'ig-modal-pos') {
                 el.imageGroup.labelPosition = t.value;
                 refreshIgAll(true, false);
@@ -3223,23 +3677,89 @@ export function initInspectorEvents() {
                 refreshIgAll(true, false);
                 return;
             }
+            if (t.id === 'ig-modal-card-align') {
+                el.imageGroup.cardAlign = t.value;
+                refreshIgAll(true, false);
+                return;
+            }
+            if (t.id === 'ig-modal-label-size') {
+                el.imageGroup.labelSize = t.value === '' ? 0 : Math.max(0, Math.min(72, Math.round(Number(t.value) || 0)));
+                refreshIgAll(event.type === 'change', false);
+                return;
+            }
+            if (t.id === 'ig-modal-width-mode') {
+                el.imageGroup.cardWidthMode = t.value;
+                const wInput = $('ig-modal-card-width');
+                if (wInput) wInput.disabled = t.value !== 'fixed';
+                refreshIgAll(true, false);
+                return;
+            }
+            if (t.id === 'ig-modal-card-width') {
+                el.imageGroup.cardWidth = Math.max(60, Math.min(1600, Math.round(Number(t.value) || 240)));
+                refreshIgAll(event.type === 'change', false);
+                return;
+            }
+            if (t.id === 'ig-modal-card-height') {
+                el.imageGroup.cardMinHeight = Math.max(0, Math.min(800, Math.round(Number(t.value) || 0)));
+                refreshIgAll(event.type === 'change', false);
+                return;
+            }
+            if (t.id === 'ig-modal-corner-inset') {
+                el.imageGroup.cornerInset = Math.max(0, Math.min(32, Math.round(Number(t.value) || 0)));
+                refreshIgAll(event.type === 'change', false);
+                return;
+            }
+            if (t.id === 'ig-modal-pad-x') {
+                el.imageGroup.cardPaddingX = t.value === '' ? null : Math.max(0, Math.min(64, Math.round(Number(t.value) || 0)));
+                refreshIgAll(event.type === 'change', false);
+                return;
+            }
+            if (t.id === 'ig-modal-pad-y') {
+                el.imageGroup.cardPaddingY = t.value === '' ? null : Math.max(0, Math.min(64, Math.round(Number(t.value) || 0)));
+                refreshIgAll(event.type === 'change', false);
+                return;
+            }
+            if (t.id === 'ig-modal-field-gap') {
+                el.imageGroup.fieldGap = Math.max(0, Math.min(40, Math.round(Number(t.value) || 0)));
+                refreshIgAll(event.type === 'change', false);
+                return;
+            }
+            if (t.id === 'ig-modal-show-avatar') {
+                el.imageGroup.showAvatar = t.checked;
+                refreshIgAll(true, false);
+                return;
+            }
+            if (t.id === 'ig-modal-wrap-text') {
+                el.imageGroup.textWrap = t.checked ? 'wrap' : 'truncate';
+                refreshIgAll(true, false);
+                return;
+            }
             const row = t.closest('[data-ig-field-idx]');
             if (!row) return;
             const idx = Number(row.dataset.igFieldIdx);
             const fColorProp = t.dataset.igFcolor;
             const prop = fColorProp || t.dataset.igFprop;
             if (!prop) return;
+            if (prop === 'fontFamily' && t.value && shared.loadGoogleFont) shared.loadGoogleFont(t.value);
             if (fColorProp) {
                 const pairedText = row.querySelector(`input[data-ig-fprop="${fColorProp}"]`);
                 if (pairedText) pairedText.value = t.value;
             }
             mutateImageGroupFields(el, list => {
                 if (!list[idx]) return list;
-                const val = t.type === 'checkbox' ? t.checked : (prop === 'sizeScale' ? Number(t.value) || 100 : t.value);
+                let val = t.value;
+                if (prop === 'fontStyle') val = t.checked ? 'italic' : '';
+                else if (t.type === 'checkbox') val = t.checked;
+                else if (prop === 'sizeScale') val = Number(t.value) || 100;
+                else if (prop === 'imgSize') val = Math.max(10, Math.min(200, Math.round(Number(t.value) || 28)));
+                else if (prop === 'imgBorderW') val = Math.max(0, Math.min(8, Math.round(Number(t.value) || 0)));
+                else if (prop === 'fontSize') val = t.value === '' ? null : Math.max(8, Math.min(96, Math.round(Number(t.value) || 14)));
+                else if (prop === 'padX' || prop === 'padY') val = t.value === '' ? null : Math.max(0, Math.min(32, Math.round(Number(t.value) || 0)));
                 list[idx][prop] = val;
                 return list;
             });
-            refreshIgAll(event.type === 'change', false);
+            const needsModalRebuild = prop === 'kind' || (prop === 'key' && event.type === 'change');
+            refreshIgAll(event.type === 'change', needsModalRebuild);
         };
         igDlg.addEventListener('input', onIgModalFieldEdit);
         igDlg.addEventListener('change', onIgModalFieldEdit);

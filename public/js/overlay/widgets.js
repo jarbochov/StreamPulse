@@ -44,18 +44,33 @@ function renderProgress(node, element, expand) {
         node._progress = holder;
     }
     const holder = node._progress;
+    const expandColor = (val, fallback) => {
+        const s = String(val ?? '').trim();
+        const out = s.includes('{{') ? String(expand(s) || '').trim() : s;
+        return out || fallback;
+    };
+    const trackColor = expandColor(config.trackColor, 'rgba(255,255,255,.18)');
+    const fillColor = expandColor(style.fill, '#1f6feb');
     if (ring) {
         const thickness = Math.max(2, Math.min(40, config.thickness || 10));
         const radius = 50 - thickness / 2, circumference = 2 * Math.PI * radius;
-        holder._track.setAttribute('r', radius); holder._track.setAttribute('stroke', config.trackColor || 'rgba(255,255,255,.18)'); holder._track.setAttribute('stroke-width', thickness);
-        holder._fill.setAttribute('r', radius); holder._fill.setAttribute('stroke', style.fill || '#1f6feb'); holder._fill.setAttribute('stroke-width', thickness);
+        holder._track.setAttribute('r', radius); holder._track.setAttribute('stroke', trackColor); holder._track.setAttribute('stroke-width', thickness);
+        holder._fill.setAttribute('r', radius); holder._fill.setAttribute('stroke', fillColor); holder._fill.setAttribute('stroke-width', thickness);
         holder._fill.style.strokeDasharray = circumference;
         holder._fill.style.strokeDashoffset = circumference * (1 - percent / 100);
     } else {
-        holder._track.style.background = config.trackColor || 'rgba(255,255,255,.18)';
-        holder._fill.style.background = style.fill || '#1f6feb';
+        holder._track.style.background = trackColor;
+        holder._fill.style.background = fillColor;
         holder._fill.style.width = `${percent}%`;
-        const fillStyle = style.gradient?.enabled ? gradientStyle(style.gradient) : { backgroundSize: '', animation: '' };
+        const resolvedGrad = style.gradient?.enabled
+            ? {
+                ...style.gradient,
+                from: expandColor(style.gradient.from, '#1f6feb'),
+                mid: style.gradient.mid ? expandColor(style.gradient.mid, '') : style.gradient.mid,
+                to: expandColor(style.gradient.to, '#8957e5')
+            }
+            : null;
+        const fillStyle = resolvedGrad ? gradientStyle(resolvedGrad) : { backgroundSize: '', animation: '' };
         Object.assign(holder._fill.style, fillStyle);
     }
     holder._text.textContent = config.showLabel === false ? '' : label;

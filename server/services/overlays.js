@@ -366,11 +366,15 @@ const TEXT_ANIM_TYPES = [
     'word-bounce', 'word-wave', 'word-wiggle', 'word-wobble', 'word-pop', 'word-reveal',
     'char-bounce', 'char-wave', 'char-wiggle', 'char-wobble', 'char-jitter', 'char-pop', 'typing', 'matrix'
 ];
+const TEXT_ANIM_MODES = ['loop', 'once'];
 const IMAGE_GROUP_LAYOUTS = ['row', 'column', 'grid', 'overlap', 'cards', 'chips', 'spotlight', 'banners', 'stagger'];
 const IMAGE_GROUP_SHAPES = ['rounded', 'circle', 'square', 'squircle', 'hexagon', 'diamond', 'octagon'];
 const IMAGE_GROUP_ASPECTS = ['1:1', '4:3', '16:9', '3:4', '21:9'];
 const IMAGE_GROUP_LABEL_POSITIONS = ['below', 'above', 'left', 'right', 'inside-bottom', 'inside-top', 'split'];
 const IMAGE_GROUP_FIELD_ROLES = ['title', 'subtitle', 'badge', 'accent', 'caption'];
+const IMAGE_GROUP_SLOTS = ['main', 'header', 'footer', 'trailing', 'avatar-top', 'avatar-bottom', 'corner-tl', 'corner-tr', 'corner-bl', 'corner-br', 'avatar-tl', 'avatar-tr', 'avatar-bl', 'avatar-br'];
+const IMAGE_GROUP_FIELD_ALIGNS = ['auto', 'left', 'center', 'right'];
+const IMAGE_GROUP_CARD_WIDTH_MODES = ['auto', 'full', 'fixed'];
 const PATTERN_LAYOUTS = ['grid', 'brick', 'stagger', 'alternating', 'checkerboard'];
 const PATTERN_SYMMETRIES = ['none', 'quad', 'radial'];
 const PATTERN_MOTIONS = ['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'float', 'drift', 'orbit', 'pulse', 'pan', 'sweep', 'fall', 'aurora', 'flow'];
@@ -820,6 +824,8 @@ function rewriteAssetReferences(text, oldName, newName, oldFamily, newFamily) {
 function normalizeTextAnimation(ta = {}) {
     return {
         type: TEXT_ANIM_TYPES.includes(ta?.type) ? ta.type : 'none',
+        mode: TEXT_ANIM_MODES.includes(ta?.mode) ? ta.mode : 'loop',
+        delay: Math.max(0, Math.min(30, Math.round((Number(ta?.delay) || 0) * 10) / 10)),
         speed: Math.max(0.3, Math.min(30, Number(ta?.speed) || 3)),
         intensity: Math.max(10, Math.min(100, Math.round(Number(ta?.intensity) || 50)))
     };
@@ -1097,25 +1103,41 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
             const normKey = raw => String(raw || '').toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
             const optNum = (raw, min, max) => (raw === null || raw === undefined || raw === '') ? null : Math.max(min, Math.min(max, Math.round(Number(raw) || 0)));
             const hasFieldsArr = Array.isArray(ig.fields);
+            const normField = (f, idx) => {
+                if (!f || typeof f !== 'object') return null;
+                const key = normKey(f.key);
+                if (!key) return null;
+                return {
+                    key,
+                    kind: ['auto', 'text', 'image'].includes(f.kind) ? f.kind : 'auto',
+                    customSrc: String(f.customSrc || '').trim().slice(0, 1000),
+                    role: IMAGE_GROUP_FIELD_ROLES.includes(f.role) ? f.role : (idx === 0 ? 'title' : 'subtitle'),
+                    slot: IMAGE_GROUP_SLOTS.includes(f.slot) ? f.slot : 'main',
+                    align: IMAGE_GROUP_FIELD_ALIGNS.includes(f.align) ? f.align : 'auto',
+                    inline: f.inline === true,
+                    prefix: String(f.prefix || '').slice(0, 24),
+                    suffix: String(f.suffix || '').slice(0, 24),
+                    sizeScale: Math.max(50, Math.min(200, Math.round(Number(f.sizeScale) || 100))),
+                    fontSize: optNum(f.fontSize, 8, 96),
+                    padX: optNum(f.padX, 0, 32),
+                    padY: optNum(f.padY, 0, 32),
+                    imgSize: Math.max(10, Math.min(200, Math.round(Number(f.imgSize) || 28))),
+                    imgShape: ['rounded', 'circle', 'square', 'auto'].includes(f.imgShape) ? f.imgShape : 'rounded',
+                    imgFit: ['contain', 'cover'].includes(f.imgFit) ? f.imgFit : 'contain',
+                    imgBorderW: Math.max(0, Math.min(8, Math.round(Number(f.imgBorderW) || 0))),
+                    fontFamily: String(f.fontFamily || '').slice(0, 120),
+                    fontWeight: ['400', '600', '700', '900'].includes(String(f.fontWeight || '')) ? String(f.fontWeight) : '',
+                    fontStyle: ['normal', 'italic'].includes(f.fontStyle) ? f.fontStyle : '',
+                    textTransform: ['none', 'uppercase', 'lowercase', 'capitalize'].includes(f.textTransform) ? f.textTransform : '',
+                    color: String(f.color || '').slice(0, 80),
+                    bgColor: String(f.bgColor || '').slice(0, 80)
+                };
+            };
             const fields = hasFieldsArr
-                ? ig.fields.map((f, idx) => {
-                    if (!f || typeof f !== 'object') return null;
-                    const key = normKey(f.key);
-                    if (!key) return null;
-                    return {
-                        key,
-                        role: IMAGE_GROUP_FIELD_ROLES.includes(f.role) ? f.role : (idx === 0 ? 'title' : 'subtitle'),
-                        inline: f.inline === true,
-                        prefix: String(f.prefix || '').slice(0, 24),
-                        suffix: String(f.suffix || '').slice(0, 24),
-                        sizeScale: Math.max(50, Math.min(200, Math.round(Number(f.sizeScale) || 100))),
-                        color: String(f.color || '').slice(0, 80),
-                        bgColor: String(f.bgColor || '').slice(0, 80)
-                    };
-                }).filter(Boolean).slice(0, 10)
+                ? ig.fields.map((f, idx) => normField(f, idx)).filter(Boolean).slice(0, 10)
                 : [
-                    ...(normKey(ig.labelField) ? [{ key: normKey(ig.labelField), role: 'title', inline: false, prefix: '', suffix: '', sizeScale: 100, color: '', bgColor: '' }] : []),
-                    ...(normKey(ig.subField) ? [{ key: normKey(ig.subField), role: 'subtitle', inline: false, prefix: '', suffix: '', sizeScale: 100, color: '', bgColor: '' }] : [])
+                    ...(normKey(ig.labelField) ? [normField({ key: normKey(ig.labelField), role: 'title' }, 0)] : []),
+                    ...(normKey(ig.subField) ? [normField({ key: normKey(ig.subField), role: 'subtitle' }, 1)] : [])
                 ];
             return {
                 enabled: ig.enabled === true,
@@ -1129,6 +1151,7 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
                 sortOrder: ['roster', 'reverse', 'alpha'].includes(ig.sortOrder) ? ig.sortOrder : 'roster',
                 maxItems: Math.max(0, Math.min(60, Math.round(Number(ig.maxItems) || 0))),
                 showOverflowBadge: ig.showOverflowBadge !== false,
+                showAvatar: ig.showAvatar !== false,
                 layout: IMAGE_GROUP_LAYOUTS.includes(ig.layout) ? ig.layout : 'row',
                 wrap: ig.wrap === true,
                 columns: Math.max(0, Math.min(12, Math.round(Number(ig.columns) || 0))),
@@ -1145,13 +1168,19 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
                 spotlightScale: Math.max(1.1, Math.min(2.0, Math.round((Number(ig.spotlightScale) || 1.35) * 100) / 100)),
                 avatarBorderWidth: Math.max(0, Math.min(12, Math.round(Number(ig.avatarBorderWidth) || 0))),
                 avatarBorderColor: String(ig.avatarBorderColor || 'rgba(255,255,255,0.28)').slice(0, 80),
+                avatarBorderGradient: normalizeGradient(ig.avatarBorderGradient),
                 avatarBorderStyle: BORDER_STYLES.includes(ig.avatarBorderStyle) ? ig.avatarBorderStyle : 'solid',
+                avatarBorderGlow: normalizeBorderGlow(ig.avatarBorderGlow),
+                avatarBorderAnimation: normalizeBorderAnimation(ig.avatarBorderAnimation),
                 avatarBg: String(ig.avatarBg || '#1e293b').slice(0, 80),
                 avatarShadow: Math.max(0, Math.min(40, Math.round(Number(ig.avatarShadow) || 0))),
                 showLabels: ig.showLabels === true,
                 labelPosition: IMAGE_GROUP_LABEL_POSITIONS.includes(ig.labelPosition) ? ig.labelPosition : 'below',
-                textAlign: ['auto', 'left', 'center', 'right'].includes(ig.textAlign) ? ig.textAlign : 'auto',
+                textAlign: IMAGE_GROUP_FIELD_ALIGNS.includes(ig.textAlign) ? ig.textAlign : 'auto',
+                textWrap: ig.textWrap === 'wrap' ? 'wrap' : 'truncate',
                 labelSize: Math.max(0, Math.min(72, Math.round(Number(ig.labelSize) || 0))),
+                subFontFamily: String(ig.subFontFamily || '').slice(0, 120),
+                badgeFontFamily: String(ig.badgeFontFamily || '').slice(0, 120),
                 labelColor: String(ig.labelColor || '').slice(0, 80),
                 subColor: String(ig.subColor || '').slice(0, 80),
                 labelBg: String(ig.labelBg || 'transparent').slice(0, 80),
@@ -1161,14 +1190,24 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
                 delimiterColor: String(ig.delimiterColor || '').slice(0, 80),
                 showStatusDot: ig.showStatusDot === true,
                 cardFrame: ig.cardFrame === true,
+                cardWidthMode: IMAGE_GROUP_CARD_WIDTH_MODES.includes(ig.cardWidthMode) ? ig.cardWidthMode : 'auto',
+                cardWidth: Math.max(60, Math.min(1600, Math.round(Number(ig.cardWidth) || 240))),
+                cardMinHeight: Math.max(0, Math.min(800, Math.round(Number(ig.cardMinHeight) || 0))),
+                cardAlign: ['top', 'center', 'bottom'].includes(ig.cardAlign) ? ig.cardAlign : 'center',
                 cardBg: String(ig.cardBg || 'rgba(15,23,42,0.78)').slice(0, 80),
+                cardGradient: normalizeGradient(ig.cardGradient),
+                cardBlur: Math.max(0, Math.min(40, Math.round(Number(ig.cardBlur) || 0))),
                 cardBorderWidth: Math.max(0, Math.min(16, Math.round(Number(ig.cardBorderWidth ?? 1)))),
                 cardBorderColor: String(ig.cardBorderColor || 'rgba(255,255,255,0.16)').slice(0, 80),
+                cardBorderGradient: normalizeGradient(ig.cardBorderGradient),
                 cardBorderStyle: BORDER_STYLES.includes(ig.cardBorderStyle) ? ig.cardBorderStyle : 'solid',
+                cardBorderGlow: normalizeBorderGlow(ig.cardBorderGlow),
+                cardBorderAnimation: normalizeBorderAnimation(ig.cardBorderAnimation),
                 cardRadius: Math.max(0, Math.min(999, Math.round(Number(ig.cardRadius ?? 12)))),
                 cardPadding: Math.max(0, Math.min(48, Math.round(Number(ig.cardPadding ?? 8)))),
                 cardPaddingX: optNum(ig.cardPaddingX, 0, 64),
                 cardPaddingY: optNum(ig.cardPaddingY, 0, 64),
+                cornerInset: Math.max(0, Math.min(32, Math.round(Number(ig.cornerInset ?? 6)))),
                 cardShadow: Math.max(0, Math.min(48, Math.round(Number(ig.cardShadow) || 0)))
             };
         })() : undefined,

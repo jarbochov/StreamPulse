@@ -1426,6 +1426,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         @keyframes sp-ta-word-wobble { 0%, 100% { transform: translate3d(0, 0, 0) skewX(0deg) rotate(0deg); } 25% { transform: translate3d(calc(var(--sp-ta-dist, 6px) * -0.45), 0, 0) skewX(-6deg) rotate(calc(var(--sp-ta-rot, 4deg) * -0.7)); } 75% { transform: translate3d(calc(var(--sp-ta-dist, 6px) * 0.45), 0, 0) skewX(6deg) rotate(calc(var(--sp-ta-rot, 4deg) * 0.7)); } }
         @keyframes sp-ta-word-pop { 0%, 40%, 100% { transform: scale(1); } 16% { transform: scale(var(--sp-ta-scale, 1.14)); } 28% { transform: scale(0.96); } }
         @keyframes sp-ta-word-reveal { 0%, 6% { opacity: 0; transform: translate3d(0, calc(var(--sp-ta-dist, 8px) * 1.1), 0) scale(0.92); } 18%, 78% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } 90%, 100% { opacity: 0; transform: translate3d(0, calc(var(--sp-ta-dist, 8px) * -0.6), 0) scale(0.96); } }
+        @keyframes sp-ta-word-reveal-once { 0% { opacity: 0; transform: translate3d(0, calc(var(--sp-ta-dist, 8px) * 1.1), 0) scale(0.92); } 100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
 
         @keyframes sp-ta-char-bounce { 0%, 50%, 100% { transform: translate3d(0, 0, 0) scale(1, 1); } 20% { transform: translate3d(0, calc(var(--sp-ta-dist, 7px) * -1.25), 0) scale(0.94, 1.08); } 36% { transform: translate3d(0, 1px, 0) scale(1.06, 0.92); } }
         @keyframes sp-ta-char-wave { 0%, 100% { transform: translate3d(0, 0, 0); } 25% { transform: translate3d(0, calc(var(--sp-ta-dist, 6px) * -1), 0); } 75% { transform: translate3d(0, calc(var(--sp-ta-dist, 6px) * 0.65), 0); } }
@@ -1436,6 +1437,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         @keyframes sp-ta-caret-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
 
         .sp-ta-wrap { display: inline-block; width: 100%; max-width: 100%; text-align: inherit; }
+        .sp-image-group-field .sp-ta-wrap { width: auto; }
         .sp-ta-word-group { display: inline; white-space: nowrap; }
         .sp-ta-unit { display: inline-block; will-change: transform, opacity; transform-origin: 50% 60%; }
         .sp-ta-caret { display: inline-block; width: 0; height: 0.92em; vertical-align: -0.1em; border-right: 0.11em solid currentColor; margin-left: 2px; animation: sp-ta-caret-blink 0.75s step-end infinite; }
@@ -1476,10 +1478,11 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         if (tn.nodeValue !== text) tn.nodeValue = text;
       }
     }
+    if (restoreText) delete node._rawText;
   }
   function readRawText(node) {
-    if (typeof node._rawText === "string") return node._rawText;
-    if (node._textNode && node._textNode.parentNode === node) return node._textNode.nodeValue || "";
+    if (typeof node._rawText === "string" && node._textAnimWrap?.parentNode === node) return node._rawText;
+    if (node._textNode && node._textNode.parentNode === node && node._textNode.nodeValue) return node._textNode.nodeValue;
     const joined = [...node.childNodes].filter((c) => c.nodeType === 3).map((c) => c.nodeValue).join("");
     if (joined) return joined;
     return node.firstElementChild ? "" : node.textContent || "";
@@ -1496,13 +1499,13 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     if (animType === "char-jitter") return "shake";
     return "pulse";
   }
-  function mountSplitTextAnimation(node, animType, speed, intensity) {
+  function mountSplitTextAnimation(node, animType, speed, intensity, playMode = "loop", delay = 0) {
     const rawText = readRawText(node);
     node._rawText = rawText;
     for (const c of [...node.childNodes]) {
       if (c.nodeType === 3) c.nodeValue = "";
     }
-    const sig = `${animType}|${speed}|${intensity}|${rawText}`;
+    const sig = `${animType}|${playMode}|${delay}|${speed}|${intensity}|${rawText}`;
     if (node._textAnimSig === sig && node._textAnimWrap?.parentNode === node) return;
     stopTextAnimation(node, false);
     node._textAnimSig = sig;
@@ -1513,11 +1516,14 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const firstEl = [...node.children].find((c) => !c.hasAttribute("aria-hidden"));
     if (firstEl) node.insertBefore(wrap, firstEl);
     else node.appendChild(wrap);
+    const once = playMode === "once";
+    const iter = once ? "1 both" : "infinite";
     if (animType.startsWith("word-")) {
       const parts = rawText.split(/(\r?\n|[ \t]+)/);
       const words = parts.filter((p) => p && !/^\s+$/.test(p));
       const stagger = Math.min(0.28, speed * 0.55 / Math.max(1, words.length));
       const timing = animType === "word-bounce" ? "cubic-bezier(0.28, 0.84, 0.42, 1)" : "ease-in-out";
+      const kfName = animType === "word-reveal" && once ? "sp-ta-word-reveal-once" : `sp-ta-${animType}`;
       let wIdx = 0;
       for (const part of parts) {
         if (!part) continue;
@@ -1527,7 +1533,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           const span = document.createElement("span");
           span.className = "sp-ta-unit sp-ta-word";
           span.textContent = part;
-          span.style.animation = `sp-ta-${animType} ${speed}s ${timing} ${(wIdx * stagger).toFixed(3)}s infinite`;
+          span.style.animation = `${kfName} ${speed}s ${timing} ${(delay + wIdx * stagger).toFixed(3)}s ${iter}`;
           wrap.appendChild(span);
           wIdx++;
         }
@@ -1560,8 +1566,8 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           const span = document.createElement("span");
           span.className = "sp-ta-unit sp-ta-char";
           span.textContent = ch;
-          const delay = animType === "char-jitter" ? (cIdx * 37 % 11 * (speed * 0.09)).toFixed(3) : (cIdx * stagger).toFixed(3);
-          span.style.animation = `sp-ta-${animType} ${speed}s ${timing} ${delay}s infinite`;
+          const d = delay + (animType === "char-jitter" ? cIdx * 37 % 11 * (speed * 0.09) : cIdx * stagger);
+          span.style.animation = `sp-ta-${animType} ${speed}s ${timing} ${d.toFixed(3)}s ${iter}`;
           host.appendChild(span);
           cIdx++;
         }
@@ -1578,11 +1584,14 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       wrap.append(typedEl, caret);
       if (!glyphs.length) return;
       const totalMs = Math.max(400, speed * 1e3);
-      const typeMs = totalMs * 0.55;
+      const typeMs = once ? totalMs : totalMs * 0.55;
       const stepMs = Math.max(25, Math.min(260, Math.round(typeMs / glyphs.length)));
       const holdSteps = Math.max(6, Math.round(totalMs * 0.45 / stepMs));
-      let cursor = 1;
+      const delayMs = Math.round(delay * 1e3);
+      let cursor = delayMs > 0 ? 0 : 1;
       let hold = 0;
+      let timer = 0;
+      let delayTimer = 0;
       const paint = (count) => {
         const frag = document.createDocumentFragment();
         let buf = "";
@@ -1601,28 +1610,60 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         if (buf) frag.appendChild(document.createTextNode(buf));
         typedEl.replaceChildren(frag);
       };
-      paint(isMotionPaused(node) ? glyphs.length : 1);
-      const timer = setInterval(() => {
-        if (!node.isConnected) {
-          clearInterval(timer);
-          return;
+      const startTypingLoop = () => {
+        if (!node.isConnected) return;
+        paint(isMotionPaused(node) ? glyphs.length : 1);
+        cursor = 1;
+        timer = setInterval(() => {
+          if (!node.isConnected) {
+            clearInterval(timer);
+            timer = 0;
+            return;
+          }
+          if (isMotionPaused(node)) {
+            paint(glyphs.length);
+            return;
+          }
+          if (cursor < glyphs.length) {
+            cursor++;
+            paint(cursor);
+          } else if (once) {
+            clearInterval(timer);
+            timer = 0;
+            caret.remove();
+          } else if (hold < holdSteps) {
+            hold++;
+          } else {
+            cursor = 1;
+            hold = 0;
+            paint(cursor);
+          }
+        }, stepMs);
+      };
+      if (isMotionPaused(node)) {
+        paint(glyphs.length);
+        if (once) caret.remove();
+      } else if (delayMs > 0) {
+        paint(0);
+        delayTimer = setTimeout(() => {
+          delayTimer = 0;
+          startTypingLoop();
+        }, delayMs);
+      } else {
+        startTypingLoop();
+      }
+      node._textAnimHandle = {
+        stop: () => {
+          if (delayTimer) {
+            clearTimeout(delayTimer);
+            delayTimer = 0;
+          }
+          if (timer) {
+            clearInterval(timer);
+            timer = 0;
+          }
         }
-        if (isMotionPaused(node)) {
-          paint(glyphs.length);
-          return;
-        }
-        if (cursor < glyphs.length) {
-          cursor++;
-          paint(cursor);
-        } else if (hold < holdSteps) {
-          hold++;
-        } else {
-          cursor = 1;
-          hold = 0;
-          paint(cursor);
-        }
-      }, stepMs);
-      node._textAnimHandle = { stop: () => clearInterval(timer) };
+      };
       return;
     }
     if (animType === "matrix") {
@@ -1655,11 +1696,14 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       if (!slots.length) return;
       const totalMs = Math.max(450, speed * 1e3);
       const ticksPerDecode = Math.max(slots.length * 2, 12);
-      const tickMs = Math.max(35, Math.min(110, Math.round(totalMs * 0.55 / ticksPerDecode)));
+      const tickMs = Math.max(35, Math.min(110, Math.round((once ? totalMs : totalMs * 0.55) / ticksPerDecode)));
       const holdTicks = Math.max(8, Math.round(totalMs * 0.45 / tickMs));
+      const delayMs = Math.round(delay * 1e3);
       let progress = 0;
       let hold = 0;
       let frame = 0;
+      let timer = 0;
+      let delayTimer = 0;
       const paintMatrix = (lockedCount) => {
         frame++;
         for (let i = 0; i < slots.length; i++) {
@@ -1671,29 +1715,59 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           }
         }
       };
-      paintMatrix(isMotionPaused(node) ? slots.length : 0);
       const stepProgress = Math.max(0.25, slots.length / ticksPerDecode);
-      const timer = setInterval(() => {
-        if (!node.isConnected) {
-          clearInterval(timer);
-          return;
+      const startDecodeLoop = () => {
+        if (!node.isConnected) return;
+        timer = setInterval(() => {
+          if (!node.isConnected) {
+            clearInterval(timer);
+            timer = 0;
+            return;
+          }
+          if (isMotionPaused(node)) {
+            paintMatrix(slots.length);
+            return;
+          }
+          if (progress < slots.length) {
+            progress += stepProgress;
+            paintMatrix(Math.floor(progress));
+          } else if (once) {
+            paintMatrix(slots.length);
+            clearInterval(timer);
+            timer = 0;
+          } else if (hold < holdTicks) {
+            hold++;
+          } else {
+            progress = 0;
+            hold = 0;
+            paintMatrix(0);
+          }
+        }, tickMs);
+      };
+      if (isMotionPaused(node)) {
+        paintMatrix(slots.length);
+      } else if (delayMs > 0) {
+        paintMatrix(0);
+        delayTimer = setTimeout(() => {
+          delayTimer = 0;
+          startDecodeLoop();
+        }, delayMs);
+      } else {
+        paintMatrix(0);
+        startDecodeLoop();
+      }
+      node._textAnimHandle = {
+        stop: () => {
+          if (delayTimer) {
+            clearTimeout(delayTimer);
+            delayTimer = 0;
+          }
+          if (timer) {
+            clearInterval(timer);
+            timer = 0;
+          }
         }
-        if (isMotionPaused(node)) {
-          paintMatrix(slots.length);
-          return;
-        }
-        if (progress < slots.length) {
-          progress += stepProgress;
-          paintMatrix(Math.floor(progress));
-        } else if (hold < holdTicks) {
-          hold++;
-        } else {
-          progress = 0;
-          hold = 0;
-          paintMatrix(0);
-        }
-      }, tickMs);
-      node._textAnimHandle = { stop: () => clearInterval(timer) };
+      };
     }
   }
   function applyTextAnimation(node, style = {}, type = "") {
@@ -1704,6 +1778,8 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     node._lastTextAnimType = type;
     const anim = style.textAnimation || {};
     const animType = TEXT_ANIM_TYPES.includes(anim.type) ? anim.type : "none";
+    const playMode = anim.mode === "once" ? "once" : "loop";
+    const delay = Math.max(0, Math.min(30, Number(anim.delay) || 0));
     const useGrad = isTextGradient(style, type);
     node.classList.toggle("sp-ta-grad", useGrad);
     if (useGrad) node.style.setProperty("--sp-ta-tgrad", gradientCss(style.textGradient));
@@ -1725,14 +1801,16 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     node.style.setProperty("--sp-ta-glitch", `${(1.5 + intensity * 5.5).toFixed(1)}px`);
     const canSplitText = (type === "text" || type === "random-text") && !node._cycleHandle && !node.querySelector(":scope > .overlay-marquee-track, :scope > .overlay-caret");
     if (TEXT_SPLIT_ANIM_TYPES.has(animType) && canSplitText) {
-      mountSplitTextAnimation(node, animType, speed, intensity);
+      mountSplitTextAnimation(node, animType, speed, intensity, playMode, delay);
       return;
     }
     stopTextAnimation(node, true);
     const blockType = TEXT_SPLIT_ANIM_TYPES.has(animType) ? blockFallbackForSplit(animType) : animType;
     const timing = blockType === "glitch" ? "steps(1, end)" : blockType === "bounce" ? "cubic-bezier(0.28, 0.84, 0.42, 1)" : "ease-in-out";
     const dur = blockType === "glitch" ? Math.max(0.8, speed) : speed;
-    const extraAnim = `sp-text-${blockType} ${dur}s ${timing} infinite`;
+    const iter = playMode === "once" ? "1 both" : "infinite";
+    const delayPart = delay > 0 ? `${delay}s ` : "";
+    const extraAnim = `sp-text-${blockType} ${dur}s ${timing} ${delayPart}${iter}`;
     node.style.animation = [...baseAnims, extraAnim].join(", ");
   }
   function shadowClipStyle(element) {
@@ -2418,6 +2496,934 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
   });
 
+  // public/js/overlay/variables.js
+  function formatMinutes(minutes) {
+    const m = Math.max(0, Math.round(minutes || 0));
+    return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
+  }
+  function pad(n) {
+    return String(n).padStart(2, "0");
+  }
+  function clock(ms) {
+    const total = Math.max(0, Math.floor(ms / 1e3));
+    const h = Math.floor(total / 3600), m = Math.floor(total % 3600 / 60), s = total % 60;
+    return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+  }
+  function timerValues(status, now) {
+    const out = {};
+    const data = status.timerData;
+    if (!data) return out;
+    const drift = Math.max(0, now - (data.fetchedAt || now));
+    for (const [id, timer] of Object.entries(data.timers || {})) {
+      const running = timer.state === "running";
+      let text, percent;
+      if (timer.kind === "countdown") {
+        const remaining = Math.max(0, (timer.remainingMs || 0) - (running ? drift : 0));
+        text = clock(remaining);
+        percent = timer.totalMs > 0 ? Math.round(Math.min(1, (timer.totalMs - remaining) / timer.totalMs) * 100) : 0;
+      } else {
+        text = clock((timer.elapsedMs || 0) + (running ? drift : 0));
+        percent = "";
+      }
+      out[`timer.${id}`] = text;
+      out[`timer.${id}.ms`] = timer.kind === "countdown" ? Math.max(0, (timer.remainingMs || 0) - (running ? drift : 0)) : (timer.elapsedMs || 0) + (running ? drift : 0);
+      out[`timer.${id}.label`] = timer.label;
+      out[`timer.${id}.state`] = timer.state;
+      out[`timer.${id}.percent`] = percent;
+      if (timer.kind === "countdown" && timer.targetAt) out[`timer.${id}.target`] = timer.targetAt;
+    }
+    return out;
+  }
+  function musicValues(status, now) {
+    const music = status.music;
+    if (!music) return {};
+    const duration = Number(music.duration) || 0;
+    let position = Number(music.position) || 0;
+    if (music.state === "playing") position += (Number(music.positionAgeMs) || 0) / 1e3 + Math.max(0, now - (status.musicFetchedAt || now)) / 1e3;
+    if (duration > 0) position = Math.min(position, duration);
+    const hasTrack = !!music.track;
+    const mmss = (seconds) => `${Math.floor(seconds / 60)}:${pad(Math.floor(seconds % 60))}`;
+    return {
+      "music.album": music.album,
+      "music.cover": music.artworkUrl,
+      "music.position": hasTrack ? mmss(position) : "",
+      "music.duration": hasTrack && duration ? mmss(duration) : "",
+      "music.remaining": hasTrack && duration ? mmss(Math.max(0, duration - position)) : "",
+      "music.percent": hasTrack && duration ? Math.round(position / duration * 100) : ""
+    };
+  }
+  function weatherFields(w) {
+    return {
+      temp: w.temp,
+      temp_full: `${w.temp}${w.unit}`,
+      unit: w.unit,
+      feels_like: w.feels_like,
+      condition: w.condition,
+      icon: w.icon,
+      "icon.url": `/api/weather/icon.svg?e=${encodeURIComponent(w.icon)}`,
+      humidity: w.humidity,
+      wind: `${w.wind} ${w.wind_unit}${w.wind_dir ? ` ${w.wind_dir}` : ""}`,
+      "wind.speed": w.wind,
+      "wind.dir": w.wind_dir,
+      high: w.high,
+      low: w.low,
+      precip_chance: w.precip_chance,
+      city: w.city,
+      location: [w.city, w.region].filter(Boolean).join(", "),
+      gusts: w.gusts,
+      cloud_cover: w.cloud_cover,
+      pressure: w.pressure,
+      "pressure.unit": w.pressure_unit,
+      uv: w.uv,
+      sunrise: w.sunrise,
+      sunset: w.sunset,
+      ...forecastFields(w.hourly, "h", ["time", "temp", "condition", "icon", "precip"]),
+      ...forecastFields(w.daily, "d", ["day", "high", "low", "condition", "icon", "precip"])
+    };
+  }
+  function forecastFields(rows, prefix, keys) {
+    const out = {};
+    (rows || []).forEach((row, index) => {
+      for (const key of keys) out[`${prefix}${index + 1}.${key}`] = row[key];
+      out[`${prefix}${index + 1}.icon.url`] = `/api/weather/icon.svg?e=${encodeURIComponent(row.icon)}`;
+    });
+    return out;
+  }
+  function weatherValues(status) {
+    const w = status.weather;
+    const out = {};
+    if (!w?.enabled) return out;
+    if (w.ok) for (const [key, value] of Object.entries(weatherFields(w))) out[`weather.${key}`] = value;
+    for (const [slug, extra] of Object.entries(w.extras || {})) {
+      if (!extra.ok) continue;
+      for (const [key, value] of Object.entries(weatherFields(extra))) out[`weather.${slug}.${key}`] = value;
+    }
+    return out;
+  }
+  function flattenExternal(value, prefix, out, depth = 0) {
+    if (value === null || value === void 0) {
+      out[prefix] = "";
+      return out;
+    }
+    if (typeof value !== "object") {
+      out[prefix] = value;
+      return out;
+    }
+    if (depth >= 6) return out;
+    if (Array.isArray(value)) {
+      out[`${prefix}.length`] = value.length;
+      value.slice(0, 50).forEach((item, i) => flattenExternal(item, `${prefix}.${i}`, out, depth + 1));
+      return out;
+    }
+    for (const [key, item] of Object.entries(value)) flattenExternal(item, `${prefix}.${key}`, out, depth + 1);
+    return out;
+  }
+  function externalValues(status) {
+    const out = {};
+    for (const [key, value] of Object.entries(status.external || {})) flattenExternal(value, `rep.${key}`, out);
+    return out;
+  }
+  function planListValues(status) {
+    const out = {};
+    for (const list of status.gamePlan?.lists || []) out[`plan.list.${list.id}`] = (status.gamePlan.items || []).filter((item) => inPlanList(item, list.id)).map((item) => item.name).join(", ");
+    return out;
+  }
+  function goalValues(status) {
+    const out = {};
+    for (const goal of status.goalItems || []) {
+      out[`goal.${goal.id}.title`] = goal.title;
+      out[`goal.${goal.id}.current`] = goal.progress;
+      out[`goal.${goal.id}.target`] = goal.target;
+      out[`goal.${goal.id}.percent`] = goal.percent;
+      out[`goal.${goal.id}.remaining`] = goal.remaining;
+      const text = (value) => goal.unit === "usd" ? `$${Number(value || 0).toLocaleString(void 0, { minimumFractionDigits: Number.isInteger(Number(value)) ? 0 : 2, maximumFractionDigits: 2 })}` : String(value ?? "");
+      out[`goal.${goal.id}.current_text`] = text(goal.progress);
+      out[`goal.${goal.id}.target_text`] = text(goal.target);
+      out[`goal.${goal.id}.remaining_text`] = text(goal.remaining);
+    }
+    return out;
+  }
+  function eventValues(status) {
+    const out = {};
+    const first = (type) => (status.recentEvents || []).find((event) => event.type === type);
+    const pick = (name, type, field = "user") => {
+      const found = first(type);
+      if (found) out[name] = found[field];
+    };
+    pick("latest.follower", "follow");
+    pick("latest.subscriber", "sub");
+    pick("latest.gifter", "gift");
+    pick("latest.cheer", "bits");
+    pick("latest.cheer.amount", "bits", "detail");
+    pick("latest.donation", "donation");
+    pick("latest.donation.amount", "donation", "detail");
+    pick("latest.raider", "raid");
+    pick("latest.subscriber.tier", "sub", "detail");
+    const gift = first("gift");
+    if (gift?.detail) out["latest.gifter.recipient"] = gift.detail.replace(/^\u2192\s*/, "");
+    const raid = first("raid");
+    if (raid) out["latest.raider.viewers"] = parseInt(raid.detail, 10) || raid.detail;
+    const top = status.topChatters?.[0];
+    if (top) {
+      out["chatter.top"] = top.chatname;
+      out["chatter.top.count"] = top.messageCount;
+    }
+    out["chatter.last"] = status.recentChat?.last;
+    const seen = (status.topChatters || []).map((c) => c.chatname).filter(Boolean);
+    if (seen.length) {
+      out["chatter.random"] = seen[Math.floor(Math.random() * seen.length)];
+      out["chatter.list"] = seen.slice(0, 20).join(", ");
+    }
+    for (const minutes of [5, 10, 15, 30, 60]) {
+      const w = status.recentChat?.windows?.[minutes];
+      out[`chatter.top.${minutes}m`] = w?.name;
+      out[`chatter.top.${minutes}m.count`] = w?.count;
+    }
+    return out;
+  }
+  function clockValues(status, now) {
+    const d = new Date(now);
+    const started = Date.parse(status.viewers?.streamStartedAt || "") || Date.parse(status.startedAt || "");
+    return {
+      "time": d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+      "time.24": `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+      "time.seconds": d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }),
+      "date": d.toLocaleDateString(),
+      "date.long": d.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", year: "numeric" }),
+      "weekday": d.toLocaleDateString([], { weekday: "long" }),
+      "month": d.toLocaleDateString([], { month: "long" }),
+      "year": String(d.getFullYear()),
+      "now": d.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }),
+      "uptime": started ? clock(now - started) : "",
+      "session.duration": Date.parse(status.startedAt || "") ? clock(now - Date.parse(status.startedAt)) : ""
+    };
+  }
+  function variableGroups(status = {}) {
+    const groups = VARIABLE_GROUPS.map((g) => ({ label: g.label, items: g.items.slice() }));
+    groups.push({ label: "Clock", items: CLOCK_ITEMS });
+    const setsEnabled = status.modules?.variableSets !== false;
+    const customVars = (status.customVars || []).filter((v) => !v.hidden && (setsEnabled || !v.setId));
+    if (customVars.length) groups.push({ label: "Variables and counters", items: customVars.flatMap((v) => [[`var.${v.name}`, `${v.name} (${v.type})`], ...v.type === "list" ? [[`var.${v.name}.random`, `${v.name}, random item each time`]] : []]) });
+    if (status.weather?.enabled) {
+      groups.push({ label: "Weather", items: WEATHER_ITEMS });
+      for (const [slug, extra] of Object.entries(status.weather.extras || {})) {
+        if (extra.ok) groups.push({ label: `Weather: ${extra.city}`, items: WEATHER_ITEMS.map(([name, label]) => [name.replace("weather.", `weather.${slug}.`), label]) });
+      }
+    }
+    for (const [key, value] of Object.entries(status.external || {})) {
+      const items = Object.keys(flattenExternal(value, `rep.${key}`, {})).slice(0, 200).map((name) => [name, name.slice(`rep.${key}.`.length) || key]);
+      if (items.length) groups.push({ label: `Host: ${key}`, items });
+    }
+    groups.push({ label: "Game (IGDB)", items: GAME_ITEMS });
+    groups.push({ label: "Game plan", items: [...PLAN_ITEMS, ...(status.gamePlan?.lists || []).map((list) => [`plan.list.${list.id}`, `${list.name} list (comma list)`])] });
+    groups.push({ label: "Latest events", items: EVENT_ITEMS });
+    groups.push({ label: "Milestones & Streaks", items: MILESTONE_ITEMS });
+    for (const [id, timer] of Object.entries(status.timerData?.timers || {})) {
+      const items = [[`timer.${id}`, `${timer.label} \u2014 clock (format it: {{timer.${id}|short}})`], [`timer.${id}.ms`, `${timer.label} \u2014 milliseconds`], [`timer.${id}.label`, `${timer.label} \u2014 title`], [`timer.${id}.state`, `${timer.label} \u2014 state`]];
+      if (timer.kind === "countdown") items.push([`timer.${id}.percent`, `${timer.label} \u2014 percent complete`]);
+      if (timer.kind === "countdown" && timer.targetAt) items.push([`timer.${id}.target`, `${timer.label} \u2014 target date & time (formattable)`]);
+      groups.push({ label: `Timer: ${timer.label}`, items });
+    }
+    for (const goal of status.goalItems || []) {
+      groups.push({ label: `Goal: ${goal.title}`, items: [["title", "title"], ["current", "current progress"], ["target", "target"], ["percent", "percent"], ["remaining", "remaining"], ["current_text", "current (with $ for donations)"], ["target_text", "target (with $ for donations)"], ["remaining_text", "remaining (with $ for donations)"]].map(([key, label]) => [`goal.${goal.id}.${key}`, `${goal.title} \u2014 ${label}`]) });
+    }
+    groups.push({ label: "Versus / Matchup", items: MATCHUP_ITEMS });
+    groups.push({ label: "Tournament / Brackets", items: TOURNAMENT_ITEMS });
+    groups.push({ label: "Trivia Studio", items: TRIVIA_ITEMS });
+    groups.push({ label: "Tier List", items: TIER_LIST_ITEMS });
+    groups.push({ label: "Subathon Rates & Stats", items: SUBATHON_ITEMS });
+    return groups;
+  }
+  function milestoneValues(status) {
+    const m = status.milestones || {};
+    const streamNum = Number(m.stream_number) || 0;
+    const nextStreamGoal = Number(m.next_stream_goal) || 0;
+    const streamsRemaining = Math.max(0, nextStreamGoal - streamNum);
+    const streamGoalPercent = nextStreamGoal > 0 ? Math.min(100, Math.round(streamNum / nextStreamGoal * 100)) : 0;
+    const totalHours = Number(m.total_hours) || 0;
+    const nextHoursGoal = Number(m.next_hours_goal) || 0;
+    const hoursRemaining = Math.max(0, nextHoursGoal - totalHours);
+    const hoursGoalPercent = nextHoursGoal > 0 ? Math.min(100, Math.round(totalHours / nextHoursGoal * 100)) : 0;
+    return {
+      "milestone.stream_number": m.stream_number ?? "",
+      "milestone.total_hours": m.total_hours ?? "",
+      "milestone.total_time": m.total_time ?? "",
+      "milestone.streak_days": m.streak_days ?? 0,
+      "milestone.streak_weeks": m.streak_weeks ?? 0,
+      "milestone.lifetime_chatters": m.lifetime_chatters !== void 0 ? Number(m.lifetime_chatters).toLocaleString() : "",
+      "milestone.lifetime_messages": m.lifetime_messages !== void 0 ? Number(m.lifetime_messages).toLocaleString() : "",
+      "milestone.next_stream_goal": m.next_stream_goal ?? "",
+      "milestone.streams_remaining": streamsRemaining,
+      "milestone.stream_goal_percent": streamGoalPercent,
+      "milestone.next_hours_goal": m.next_hours_goal ?? "",
+      "milestone.hours_remaining": hoursRemaining,
+      "milestone.hours_goal_percent": hoursGoalPercent
+    };
+  }
+  function pollValues(status, now = Date.now()) {
+    const poll = status.poll;
+    if (!poll) return {};
+    const p = {
+      "poll.title": poll.title || "",
+      "poll.status": poll.status || "",
+      "poll.winner": poll.winner || "",
+      "poll.winner_votes": poll.winningVotes !== void 0 ? poll.winningVotes : "",
+      "poll.winner_percent": poll.winningPercent !== void 0 ? `${poll.winningPercent}%` : "",
+      "poll.total_votes": poll.totalVotes !== void 0 ? poll.totalVotes : "",
+      "poll.duration": poll.duration ? String(poll.duration) : ""
+    };
+    if (poll.status === "ACTIVE" && poll.duration && poll.startedAt) {
+      const startedMs = Date.parse(poll.startedAt);
+      const elapsed = !isNaN(startedMs) ? Math.floor((now - startedMs) / 1e3) : 0;
+      const remaining = Math.max(0, Number(poll.duration) - elapsed);
+      const m = Math.floor(remaining / 60);
+      const s = remaining % 60;
+      p["poll.remaining"] = m > 0 ? `${m}:${String(s).padStart(2, "0")}` : `${s}s`;
+      p["poll.remaining_seconds"] = remaining;
+    } else {
+      p["poll.remaining"] = "0s";
+      p["poll.remaining_seconds"] = 0;
+    }
+    (poll.choices || []).forEach((c, i) => {
+      const idx = i + 1;
+      p[`poll.choice.${idx}.title`] = c.title || "";
+      p[`poll.choice.${idx}.votes`] = c.votes !== void 0 ? c.votes : "";
+      p[`poll.choice.${idx}.percent`] = c.percent !== void 0 ? `${c.percent}%` : "";
+    });
+    return p;
+  }
+  function matchupValues(status) {
+    const m = status?.matchup;
+    if (!m) return {};
+    const c1 = m.competitors?.[0];
+    const c2 = m.competitors?.[1];
+    return {
+      "matchup.title": m.title || "",
+      "matchup.phase": m.phase || "",
+      "matchup.round": m.phase || "",
+      "matchup.format": m.format || "",
+      "matchup.status": m.status || "",
+      "matchup.winner": m.winner || "",
+      "matchup.clock": m.clock?.formatted || "",
+      "matchup.player1.name": c1?.name || "",
+      "matchup.player1.score": c1?.score !== void 0 ? c1.score : "",
+      "matchup.player1.tag": c1?.tag || "",
+      "matchup.player1.color": c1?.color || "",
+      "matchup.c1_name": c1?.name || "",
+      "matchup.c1_score": c1?.score !== void 0 ? c1.score : "",
+      "matchup.player2.name": c2?.name || "",
+      "matchup.player2.score": c2?.score !== void 0 ? c2.score : "",
+      "matchup.player2.tag": c2?.tag || "",
+      "matchup.player2.color": c2?.color || "",
+      "matchup.c2_name": c2?.name || "",
+      "matchup.c2_score": c2?.score !== void 0 ? c2.score : ""
+    };
+  }
+  function tournamentValues(status) {
+    const t = status?.tournament || status?.pollTournament;
+    if (!t) return {};
+    const match = t.activeMatch;
+    const e1 = match?.entrant1;
+    const e2 = match?.entrant2;
+    const matchTitle = e1?.name && e2?.name ? `${e1.name} vs ${e2.name}` : match?.title || "";
+    const roundText = match?.roundName || (match?.round !== void 0 ? `Round ${match.round}` : "");
+    return {
+      "tournament.title": t.title || "",
+      "tournament.format": t.format || "",
+      "tournament.status": t.status || "",
+      "tournament.champion": t.champion?.name || t.winner?.name || (typeof t.champion === "string" ? t.champion : "") || (typeof t.winner === "string" ? t.winner : ""),
+      "tournament.match.current": matchTitle,
+      "tournament.match.round": roundText,
+      "tournament.round": roundText,
+      "tournament.match.entrant1": e1?.name || "",
+      "tournament.match.entrant1.score": match?.e1Score !== void 0 ? match.e1Score : e1?.score !== void 0 ? e1.score : "",
+      "tournament.match.entrant2": e2?.name || "",
+      "tournament.match.entrant2.score": match?.e2Score !== void 0 ? match.e2Score : e2?.score !== void 0 ? e2.score : ""
+    };
+  }
+  function triviaValues(status, now = Date.now()) {
+    const t = status?.trivia;
+    if (!t) return {};
+    const active = t.activeQuestion;
+    const isReveal = t.status === "reveal";
+    let timerText = "";
+    if (t.status === "question" && active?.endsAt) {
+      const remaining = Math.max(0, Math.ceil((active.endsAt - now) / 1e3));
+      timerText = `${remaining}s`;
+    } else if (t.remainingSeconds !== void 0 && t.status === "question") {
+      timerText = `${t.remainingSeconds}s`;
+    }
+    let answerText = "";
+    let funfactText = "";
+    if (isReveal && active) {
+      funfactText = active.funfact || "";
+      if (active.correctIndex !== null && active.correctIndex !== void 0 && Array.isArray(active.choices)) {
+        const correctChoice = active.choices[active.correctIndex];
+        answerText = typeof correctChoice === "string" ? correctChoice : correctChoice?.text || "";
+      }
+    }
+    const out = {
+      "trivia.question": active?.question || t.activeQuestionText || "",
+      "trivia.category": active?.category || t.activeCategory || "",
+      "trivia.phase": t.status || "idle",
+      "trivia.number": t.currentIndex !== void 0 && t.currentIndex >= 0 ? t.currentIndex + 1 : "",
+      "trivia.total": t.totalQuestions !== void 0 ? t.totalQuestions : "",
+      "trivia.answer": answerText,
+      "trivia.funfact": funfactText,
+      "trivia.timer": timerText,
+      "trivia.votes": active?.totalVotes !== void 0 ? active.totalVotes : t.totalVotes || ""
+    };
+    const choices = active?.choices || [];
+    for (let i = 0; i < 6; i++) {
+      const idx = i + 1;
+      const c = choices[i];
+      out[`trivia.choice.${idx}`] = c ? typeof c === "string" ? c : c.text || "" : "";
+      out[`trivia.choice.${idx}.votes`] = c && c.votes !== void 0 ? c.votes : "";
+      out[`trivia.choice.${idx}.percent`] = c && c.percent !== void 0 ? `${c.percent}%` : "";
+    }
+    const lb = t.leaderboard || {};
+    const leader = lb.seasonLeader || lb.sessionLeader || null;
+    const top3 = Array.isArray(lb.seasonTop3) && lb.seasonTop3.length ? lb.seasonTop3 : Array.isArray(lb.sessionTop3) ? lb.sessionTop3 : [];
+    out["trivia.leader.name"] = leader?.name || "";
+    out["trivia.leader.points"] = leader && leader.points !== void 0 ? leader.points : "";
+    out["trivia.leader.correct"] = leader && leader.correct !== void 0 ? leader.correct : "";
+    out["trivia.leader.accuracy"] = leader && leader.accuracy !== void 0 ? `${leader.accuracy}%` : "";
+    out["trivia.leader.top3"] = top3.length ? top3.map((e, i) => `#${e.rank || i + 1} ${e.name} (${e.points})`).join(", ") : "";
+    return out;
+  }
+  function tierListValues(status, now = Date.now()) {
+    const tl = status?.tierList;
+    if (!tl) return {};
+    const vote = tl.activeVote;
+    const consensus = vote?.consensus;
+    const tier = consensus?.consensusTier;
+    let timerText = "";
+    if (vote && vote.status === "ACTIVE" && vote.endsAt) {
+      const remaining = Math.max(0, Math.ceil((vote.endsAt - now) / 1e3));
+      const m = Math.floor(remaining / 60);
+      const s = remaining % 60;
+      timerText = m > 0 ? `${m}:${pad(s)}` : `${s}s`;
+    } else if (vote?.status === "LOCKED") {
+      timerText = "Locked";
+    }
+    return {
+      "tier_list.title": tl.title || "",
+      "tier_list.item": vote?.itemName || "",
+      "tier_list.item_image": vote?.itemImage || "",
+      "tier_list.vote_status": vote?.status ? vote.status.toLowerCase() : "idle",
+      "tier_list.vote_timer": timerText,
+      "tier_list.consensus_tier": tier?.label || "",
+      "tier_list.consensus_percent": consensus?.agreementPercent !== void 0 ? `${consensus.agreementPercent}%` : "",
+      "tier_list.total_votes": consensus?.totalVotes !== void 0 ? consensus.totalVotes : vote?.totalVotes || ""
+    };
+  }
+  function subathonValues(status) {
+    const sb = status?.subathon;
+    if (!sb || !sb.enabled) return {};
+    const totalSec = Number(sb.totalAddedSeconds) || 0;
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor(totalSec % 3600 / 60);
+    const totalFormatted = h > 0 ? `${h}h ${m}m` : `${m}m`;
+    return {
+      "subathon.total_added": totalFormatted,
+      "subathon.multiplier": sb.multiplier || "",
+      "subathon.boost": sb.boostActive || sb.happyHour ? "true" : "false",
+      "subathon.boost_active": sb.boostActive || sb.happyHour ? "true" : "false",
+      "subathon.happy_hour": sb.boostActive || sb.happyHour ? "true" : "false",
+      "subathon.subs": sb.totalSubs !== void 0 ? String(sb.totalSubs) : "",
+      "subathon.bits": sb.totalBits !== void 0 ? String(sb.totalBits) : "",
+      "subathon.donations": sb.totalDonations !== void 0 ? String(sb.totalDonations) : "",
+      "subathon.follows": sb.totalFollows !== void 0 ? String(sb.totalFollows) : "",
+      "subathon.raids": sb.totalRaids !== void 0 ? String(sb.totalRaids) : "",
+      "subathon.rule.tier1": sb.subTier1Formatted || "",
+      "subathon.rule.tier2": sb.subTier2Formatted || "",
+      "subathon.rule.tier3": sb.subTier3Formatted || "",
+      "subathon.rule.tip_rate": sb.tipRateFormatted || "",
+      "subathon.rule.bits_rate": sb.bitsRateFormatted || "",
+      "subathon.rule.follow": sb.followFormatted || "",
+      "subathon.rule.summary": sb.rulesSummary || ""
+    };
+  }
+  function variableTable(status = {}, context = {}, now = Date.now()) {
+    const table = {
+      ...clockValues(status, now),
+      ...eventValues(status),
+      ...goalValues(status),
+      ...timerValues(status, now),
+      ...musicValues(status, now),
+      ...planListValues(status),
+      ...weatherValues(status),
+      ...externalValues(status),
+      ...pollValues(status, now),
+      ...milestoneValues(status),
+      ...matchupValues(status),
+      ...tournamentValues(status),
+      ...triviaValues(status, now),
+      ...tierListValues(status, now),
+      ...subathonValues(status),
+      ...customVarValues(status),
+      "stream.category": status.stream?.category?.name,
+      "stream.live": status.viewers?.live ? "yes" : "no",
+      "session.started": status.startedAt,
+      "music.state": status.music?.state,
+      "emotes": status.ssn?.emotes,
+      "raids": status.ssn?.raids,
+      "highlights": status.library?.highlights,
+      "clips.pending": status.library?.clipCandidates,
+      "hashtags.top.count": status.popularHashtags?.overall?.[0]?.count,
+      "hashtags.top.2": status.popularHashtags?.overall?.[1]?.tag,
+      "hashtags.top.3": status.popularHashtags?.overall?.[2]?.tag,
+      "game.name": status.stream?.game?.igdbName || status.stream?.game?.name,
+      "game.url": status.stream?.game?.igdbUrl,
+      "plan.next": (status.gamePlan?.items || []).find((item) => item.status === "scheduled" && !item.playingNow)?.name,
+      "plan.scheduled.count": (status.gamePlan?.items || []).filter((item) => item.status === "scheduled").length,
+      "plan.backlog.count": (status.gamePlan?.items || []).filter((item) => item.status === "backlog").length,
+      "game.cover": status.stream?.game?.cover,
+      "game.release_date": status.stream?.game?.releaseDate,
+      "game.release_year": status.stream?.game?.releaseYear,
+      "game.rating": status.stream?.game?.rating,
+      "game.genres": (status.stream?.game?.genres || []).join(", "),
+      "game.developer": (status.stream?.game?.developers || [])[0],
+      "game.platforms": (status.stream?.game?.platforms || []).join(", "),
+      "game.summary": status.stream?.game?.summary,
+      "plan.now": (status.gamePlan?.items || []).find((item) => item.playingNow)?.name,
+      "plan.scheduled": (status.gamePlan?.items || []).filter((item) => item.status === "scheduled").map((item) => item.name).join(", "),
+      "plan.backlog": (status.gamePlan?.items || []).filter((item) => item.status === "backlog").map((item) => item.name).join(", "),
+      "category.session_time": status.stream?.category ? formatMinutes(status.stream.category.sessionMinutes) : void 0,
+      "category.total_time": status.stream?.category ? formatMinutes(status.stream.category.totalMinutes) : void 0,
+      "category.total_hours": status.stream?.category ? (status.stream.category.totalMinutes / 60).toFixed(1) : void 0,
+      "viewer.current": status.viewers?.current,
+      "viewers.current": status.viewers?.current,
+      "viewer.peak": status.viewers?.peak,
+      "viewers.peak": status.viewers?.peak,
+      "viewer.average": status.viewers?.average,
+      "viewers.average": status.viewers?.average,
+      "chatters": status.ssn?.chatters,
+      "messages": status.ssn?.messages,
+      "followers": status.goalMetrics?.persistent?.followers ?? status.ssn?.followers,
+      "followers.session": status.goalMetrics?.session?.followers ?? status.ssn?.followers,
+      "subscribers": status.goalMetrics?.persistent?.subscribers ?? status.ssn?.subscribers,
+      "subscribers.session": status.goalMetrics?.session?.subscribers ?? status.ssn?.subscribers,
+      "gift_subs": status.goalMetrics?.session?.gift_subs,
+      "gift_subs.total": status.goalMetrics?.persistent?.gift_subs,
+      "bits": status.goalMetrics?.session?.bits,
+      "bits.total": status.goalMetrics?.persistent?.bits,
+      "donations": status.goalMetrics?.session?.donations,
+      "donations.total": status.goalMetrics?.persistent?.donations,
+      "hashtags": status.ssn?.hashtags,
+      "hashtags.top": status.popularHashtags?.overall?.[0]?.tag || status.hashtags?.topTag,
+      "hashtags.session_top": status.popularHashtags?.session?.[0]?.tag,
+      "hashtags.total": status.hashtags?.totalMentions,
+      "music.title": status.music?.track,
+      "music.artist": status.music?.artist,
+      "stream.title": status.stream?.title,
+      "overlay.name": context.overlayName
+    };
+    const planItems = status.gamePlan?.items || [];
+    const lists = {
+      "plan.scheduled": planItems.filter((item) => item.status === "scheduled").map((item) => item.name),
+      "plan.backlog": planItems.filter((item) => item.status === "backlog").map((item) => item.name),
+      "game.genres": status.stream?.game?.genres || [],
+      "game.platforms": status.stream?.game?.platforms || []
+    };
+    for (const list of status.gamePlan?.lists || []) lists[`plan.list.${list.id}`] = planItems.filter((item) => inPlanList(item, list.id)).map((item) => item.name);
+    Object.defineProperty(table, "__lists", { value: lists, enumerable: false });
+    return table;
+  }
+  function formatDate(date, format) {
+    const h12 = date.getHours() % 12 || 12;
+    const names = { MMMM: { month: "long" }, MMM: { month: "short" }, dddd: { weekday: "long" }, ddd: { weekday: "short" } };
+    const map = {
+      YYYY: () => date.getFullYear(),
+      YY: () => String(date.getFullYear()).slice(-2),
+      MM: () => pad(date.getMonth() + 1),
+      M: () => date.getMonth() + 1,
+      DD: () => pad(date.getDate()),
+      Do: () => ordinal(date.getDate()),
+      D: () => date.getDate(),
+      HH: () => pad(date.getHours()),
+      H: () => date.getHours(),
+      hh: () => pad(h12),
+      h: () => h12,
+      mm: () => pad(date.getMinutes()),
+      m: () => date.getMinutes(),
+      ss: () => pad(date.getSeconds()),
+      s: () => date.getSeconds(),
+      A: () => date.getHours() < 12 ? "AM" : "PM",
+      a: () => date.getHours() < 12 ? "am" : "pm"
+    };
+    return format.replace(/\[([^\]]*)\]|MMMM|MMM|dddd|ddd|YYYY|YY|MM|M|DD|Do|D|HH|H|hh|h|mm|m|ss|s|A|a/g, (token, literal) => {
+      if (literal !== void 0) return literal;
+      if (names[token]) return date.toLocaleDateString([], names[token]);
+      return String(map[token]());
+    });
+  }
+  function parseDateValue(value) {
+    const text = String(value ?? "").trim();
+    if (!text) return null;
+    const dateOnly = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const date = dateOnly ? new Date(+dateOnly[1], +dateOnly[2] - 1, +dateOnly[3]) : new Date(text);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  function formatDuration(ms, format) {
+    const total = Math.max(0, Math.floor((Number(ms) || 0) / 1e3));
+    const v = { d: Math.floor(total / 86400), h: Math.floor(total % 86400 / 3600), m: Math.floor(total % 3600 / 60), s: total % 60 };
+    const first = v.d ? "d" : v.h ? "h" : v.m ? "m" : "s";
+    const order = ["d", "h", "m", "s"].slice(["d", "h", "m", "s"].indexOf(first));
+    const presets = {
+      short: order.map((u) => `${v[u]}${u}`).join(" "),
+      long: order.map((u) => `${v[u]} ${{ d: "day", h: "hour", m: "minute", s: "second" }[u]}${v[u] === 1 ? "" : "s"}`).join(", "),
+      clock: v.d ? `${v.d}d ${v.h}:${pad(v.m)}:${pad(v.s)}` : v.h ? `${v.h}:${pad(v.m)}:${pad(v.s)}` : `${v.m}:${pad(v.s)}`
+    };
+    if (presets[format] !== void 0) return presets[format];
+    const map = { d: v.d, dd: pad(v.d), h: v.h, hh: pad(v.h), m: v.m, mm: pad(v.m), s: v.s, ss: pad(v.s), th: Math.floor(total / 3600), tm: Math.floor(total / 60), ts: total };
+    return format.replace(/\[([^\]]*)\]|th|tm|ts|dd|d|hh|h|mm|m|ss|s/g, (token, literal) => literal !== void 0 ? literal : String(map[token]));
+  }
+  function applyFormat(name, value, format, now, table = {}) {
+    if (!format) return value;
+    const money = format.match(/^money(?::([a-z]{3}))?$/i);
+    if (money) {
+      const n = Number(String(value ?? "").replace(/[^0-9.-]/g, ""));
+      if (value === "" || value === void 0 || value === null || !Number.isFinite(n)) return value;
+      try {
+        return new Intl.NumberFormat("en-US", { style: "currency", currency: (money[1] || "USD").toUpperCase() }).format(n);
+      } catch {
+        return n.toFixed(2);
+      }
+    }
+    if (isListKey(name)) {
+      const items = (table.__lists?.[name] || String(value ?? "").split(", ")).filter(Boolean);
+      if (/^(lines|newline|br)$/i.test(format)) return items.join("\n");
+      if (/^bullets$/i.test(format)) return items.map((item) => `\u2022 ${item}`).join("\n");
+      if (/^numbered$/i.test(format)) return items.map((item, i) => `${i + 1}. ${item}`).join("\n");
+      const limit = format.match(/^(\d+)(?::(.*))?$/s);
+      if (limit) return items.slice(0, Number(limit[1])).join(limit[2] === void 0 ? ", " : limit[2].replace(/\\n/g, "\n").replace(/\\s/g, " "));
+      return items.join(format.replace(/^sep:/, "").replace(/\\n/g, "\n").replace(/\\s/g, " "));
+    }
+    if (/^timer\.[a-zA-Z0-9_-]+$/.test(name) && table[`${name}.ms`] !== void 0) return formatDuration(table[`${name}.ms`], format);
+    const clockKey = /^(now|time|time\.24|time\.seconds|date|date\.long)$/.test(name);
+    const date = clockKey ? new Date(now) : parseDateValue(value);
+    return date ? formatDate(date, format) : value;
+  }
+  function customVarValues(status) {
+    const vars = status.customVars || [];
+    const entries = Object.fromEntries(vars.map((v) => [`var.${v.name}`, v.value]));
+    for (const v of vars) {
+      if (v.type === "list" && v.items?.length) {
+        entries[`var.${v.name}.random`] = v.items[Math.floor(Math.random() * v.items.length)];
+      }
+    }
+    const templates = new Map(vars.filter((v) => v.type === "template").map((v) => [`var.${v.name}`, String(v.value ?? "")]));
+    const done = /* @__PURE__ */ new Map();
+    const resolving = /* @__PURE__ */ new Set();
+    const resolve = (key, depth) => {
+      if (!templates.has(key)) return entries[key];
+      if (done.has(key)) return done.get(key);
+      if (depth > 3 || resolving.has(key)) return "";
+      resolving.add(key);
+      const text = templates.get(key).replace(/\{\{\s*var\.([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (_, ref, fb) => {
+        const val = resolve(`var.${ref}`, depth + 1);
+        const str = val === void 0 || val === null ? "" : String(val);
+        return str !== "" ? str : fb !== void 0 ? fb.trim() : "";
+      });
+      resolving.delete(key);
+      done.set(key, text);
+      return text;
+    };
+    for (const key of templates.keys()) entries[key] = resolve(key, 0);
+    return entries;
+  }
+  function expandVariables(value, status, context = {}, keepEmpty = false, _depth = 0) {
+    const now = Date.now();
+    const table = variableTable(status, context, now);
+    const tplMap = new Map((status.customVars || []).filter((v) => v.type === "template").map((v) => [`var.${v.name}`, v.value]));
+    return String(value ?? "").replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (match, name, format) => {
+      if (name.startsWith("var.") && tplMap.has(name) && _depth < 3) {
+        const expanded = expandVariables(tplMap.get(name) ?? "", status, context, keepEmpty, _depth + 1);
+        if (expanded !== "") return expanded;
+        if (format !== void 0) {
+          const fb = format.trim();
+          return fb === "" && keepEmpty ? match : fb;
+        }
+        return keepEmpty ? match : "";
+      }
+      if (name.startsWith("var.") && format !== void 0 && !isListKey(name)) {
+        const raw = table[name];
+        const str = raw === void 0 || raw === null ? "" : String(raw);
+        if (str === "") {
+          const fb = format.trim();
+          return fb === "" && keepEmpty ? match : fb;
+        }
+      }
+      const resolved = format === void 0 ? table[name] : applyFormat(name, table[name], isListKey(name) ? format.replace(/^\s+/, "") : format.trim(), now, table);
+      const text = resolved === void 0 || resolved === null ? "" : String(resolved);
+      return text === "" && keepEmpty ? match : text;
+    });
+  }
+  function variableSnapshot(status, context) {
+    const table = variableTable(status, context);
+    for (const key of Object.keys(table)) {
+      if (isTicking(key) && !key.startsWith("timer.") || key === "chatter.random" || /\.random$/i.test(key)) delete table[key];
+    }
+    for (const key of Object.keys(table)) if (key.startsWith("timer.") && !/\.(label|state)$/.test(key)) delete table[key];
+    table.__plan = (status.gamePlan?.items || []).map((item) => [item.name, item.status, item.period, item.cover, item.playingNow, item.note, item.finished, (item.played || []).join(","), (item.extraLists || []).join(",")]);
+    return JSON.stringify(table);
+  }
+  async function loadLiveExtras(status, elements = null) {
+    try {
+      let needTimers = true, needGoals = true, needPlan = true, needWeather = true;
+      if (Array.isArray(elements)) {
+        const raw = elements.map((el) => `${el.type || ""} ${el.content || ""} ${el.progress?.label || ""} ${(el.items || []).join(" ")}`).join(" ");
+        needTimers = /\btimer\./i.test(raw);
+        needGoals = /\bgoal\./i.test(raw);
+        needPlan = elements.some((el) => el.type === "game-list") || /\bplan\./i.test(raw);
+        needWeather = /\bweather\./i.test(raw);
+      }
+      const [timers, goals, plan, weather] = await Promise.all([
+        needTimers ? fetch("/api/timers", { cache: "no-store" }).then((r) => r.ok ? r.json() : null) : null,
+        needGoals ? fetch("/api/goals", { cache: "no-store" }).then((r) => r.ok ? r.json() : null) : null,
+        needPlan ? fetch("/api/game-plan", { cache: "no-store" }).then((r) => r.ok ? r.json() : null) : null,
+        needWeather ? fetch("/api/weather", { cache: "no-store" }).then((r) => r.ok ? r.json() : null) : null
+      ]);
+      if (weather) status.weather = weather;
+      if (plan) status.gamePlan = plan;
+      status.musicFetchedAt = Date.now();
+      if (timers) status.timerData = { fetchedAt: Date.now(), timers: timers.timers || {} };
+      if (goals) status.goalItems = goals.items || [];
+    } catch {
+    }
+    return status;
+  }
+  function resolveColorToken(raw, status, context, member = null) {
+    const str = String(raw ?? "").trim();
+    if (!str) return "";
+    if (str.startsWith("@") && member) {
+      const fk = str.slice(1).trim();
+      return String(member.values?.[fk] ?? member[fk] ?? "").trim();
+    }
+    if (!str.includes("{{")) return str;
+    return expandVariables(str, status, context, false).trim();
+  }
+  function resolveStyleVariables(style, status, context, member = null) {
+    if (!style || typeof style !== "object") return style;
+    const expandFn = (v) => resolveColorToken(v, status, context, member);
+    const hasToken = (v) => typeof v === "string" && (v.includes("{{") || Boolean(member) && v.trim().startsWith("@"));
+    const gradKeys = ["gradient", "textGradient", "borderGradient"];
+    const needsClone = ["color", "background", "fill", "borderColor"].some((k) => hasToken(style[k])) || gradKeys.some((k) => style[k] && (hasToken(style[k].from) || hasToken(style[k].mid) || hasToken(style[k].to))) || style.borderGlow && hasToken(style.borderGlow.color) || style.borderAnimation && (hasToken(style.borderAnimation.color2) || hasToken(style.borderAnimation.color3)) || style.shadow && hasToken(style.shadow.color) || style.innerShadow && hasToken(style.innerShadow.color) || style.textStroke && hasToken(style.textStroke.color) || style.textShadow && hasToken(style.textShadow.color);
+    if (!needsClone) return style;
+    const out = { ...style };
+    for (const k of ["color", "background", "fill", "borderColor"]) {
+      if (hasToken(out[k])) out[k] = expandFn(out[k]) || (k === "background" ? "transparent" : out[k]);
+    }
+    for (const k of gradKeys) {
+      if (out[k] && typeof out[k] === "object") {
+        out[k] = {
+          ...out[k],
+          from: hasToken(out[k].from) ? expandFn(out[k].from) || "#1f6feb" : out[k].from,
+          mid: hasToken(out[k].mid) ? expandFn(out[k].mid) : out[k].mid,
+          to: hasToken(out[k].to) ? expandFn(out[k].to) || "#8957e5" : out[k].to
+        };
+      }
+    }
+    if (out.borderGlow && hasToken(out.borderGlow.color)) {
+      out.borderGlow = { ...out.borderGlow, color: expandFn(out.borderGlow.color) || "#38bdf8" };
+    }
+    if (out.borderAnimation && (hasToken(out.borderAnimation.color2) || hasToken(out.borderAnimation.color3))) {
+      out.borderAnimation = {
+        ...out.borderAnimation,
+        color2: hasToken(out.borderAnimation.color2) ? expandFn(out.borderAnimation.color2) || "#ffffff" : out.borderAnimation.color2,
+        color3: hasToken(out.borderAnimation.color3) ? expandFn(out.borderAnimation.color3) : out.borderAnimation.color3
+      };
+    }
+    if (out.shadow && hasToken(out.shadow.color)) {
+      out.shadow = { ...out.shadow, color: expandFn(out.shadow.color) || "rgba(0,0,0,0.5)" };
+    }
+    if (out.innerShadow && hasToken(out.innerShadow.color)) {
+      out.innerShadow = { ...out.innerShadow, color: expandFn(out.innerShadow.color) || "rgba(0,0,0,0.65)" };
+    }
+    if (out.textStroke && hasToken(out.textStroke.color)) {
+      out.textStroke = { ...out.textStroke, color: expandFn(out.textStroke.color) || "#000000" };
+    }
+    if (out.textShadow && hasToken(out.textShadow.color)) {
+      out.textShadow = { ...out.textShadow, color: expandFn(out.textShadow.color) || "rgba(0,0,0,0.7)" };
+    }
+    return out;
+  }
+  var VARIABLE_GROUPS, CLOCK_ITEMS, GAME_ITEMS, WEATHER_ITEMS, PLAN_ITEMS, EVENT_ITEMS, MILESTONE_ITEMS, MATCHUP_ITEMS, TOURNAMENT_ITEMS, TRIVIA_ITEMS, TIER_LIST_ITEMS, SUBATHON_ITEMS, TICKING, isTicking, hasTicking, inPlanList, LIST_FORMAT_PRESETS, FORMAT_PRESETS, isDateKey, ordinal, isListFormat, isListKey;
+  var init_variables = __esm({
+    "public/js/overlay/variables.js"() {
+      VARIABLE_GROUPS = [
+        { label: "Viewers", items: [["viewers.current", "Current viewers"], ["viewers.peak", "Peak viewers"], ["viewers.average", "Average viewers"]] },
+        { label: "Chat", items: [["chatters", "Chatters"], ["messages", "Messages"], ["followers", "Followers (current total)"], ["followers.session", "New followers this session"], ["subscribers", "Subscribers (current total)"], ["subscribers.session", "Subscribers seen this session"], ["emotes", "Different emotes used this session"], ["raids", "Raids this session"], ["highlights", "Saved highlights"], ["clips.pending", "Clip candidates waiting"]] },
+        { label: "Engagement", items: [["gift_subs", "Gift subs this session"], ["gift_subs.total", "Gift subs (lifetime)"], ["bits", "Bits this session"], ["bits.total", "Bits (lifetime)"], ["donations", "Donations this session"], ["donations.total", "Donations (lifetime)"]] },
+        { label: "Hashtags", items: [["hashtags.top", "Most popular hashtag overall"], ["hashtags.session_top", "Most popular hashtag this session"], ["hashtags.top.count", "Mentions of the most popular hashtag"], ["hashtags.top.2", "Second most popular hashtag"], ["hashtags.top.3", "Third most popular hashtag"], ["hashtags.total", "Total hashtag mentions"]] },
+        { label: "Twitch Poll", items: [["poll.title", "Poll question / title"], ["poll.winner", "Winning choice title"], ["poll.winner_votes", "Winning choice vote count"], ["poll.winner_percent", "Winning choice percentage (e.g. 64%)"], ["poll.total_votes", "Total votes across all choices"], ["poll.status", "Status (ACTIVE, COMPLETED, etc.)"], ["poll.duration", "Total poll duration (seconds)"], ["poll.remaining", "Remaining countdown timer (e.g. 1:45)"], ["poll.choice.1.title", "Choice 1 title"], ["poll.choice.1.votes", "Choice 1 votes"], ["poll.choice.1.percent", "Choice 1 percent"], ["poll.choice.2.title", "Choice 2 title"], ["poll.choice.2.votes", "Choice 2 votes"], ["poll.choice.2.percent", "Choice 2 percent"], ["poll.choice.3.title", "Choice 3 title"], ["poll.choice.3.votes", "Choice 3 votes"], ["poll.choice.3.percent", "Choice 3 percent"], ["poll.choice.4.title", "Choice 4 title"], ["poll.choice.4.votes", "Choice 4 votes"], ["poll.choice.4.percent", "Choice 4 percent"], ["poll.choice.5.title", "Choice 5 title"], ["poll.choice.5.votes", "Choice 5 votes"], ["poll.choice.5.percent", "Choice 5 percent"]] },
+        { label: "Stream", items: [["music.title", "Music title"], ["music.artist", "Music artist"], ["music.album", "Music album"], ["music.cover", "Album art URL (use as an image source)"], ["music.position", "Track position (m:ss)"], ["music.duration", "Track length (m:ss)"], ["music.remaining", "Track time remaining (m:ss)"], ["music.percent", "Track progress % (for a progress element)"], ["music.state", "Music state (playing / paused / stopped)"], ["stream.title", "Stream title"], ["stream.category", "Stream category (from Twitch)"], ["stream.live", "Live on Twitch (yes / no)"], ["session.started", "Session start time (formattable)"], ["session.duration", "Time since the session started"], ["category.session_time", "Time in this category, this session"], ["category.total_time", "Time in this category, all sessions"], ["category.total_hours", "Hours in this category, all sessions"], ["overlay.name", "Overlay name"]] }
+      ];
+      CLOCK_ITEMS = [["now", "Current date & time (format it with {{now|MMMM D, h:mm A}})"], ["time", "Time (e.g. 3:07 PM)"], ["time.24", "Time, 24-hour"], ["time.seconds", "Time with seconds"], ["date", "Date (short)"], ["date.long", "Date (long)"], ["weekday", "Weekday"], ["month", "Month"], ["year", "Year"], ["uptime", "Stream uptime (H:MM:SS)"]];
+      GAME_ITEMS = [["game.name", "Game name"], ["game.url", "IGDB page link"], ["game.cover", "Cover art URL (use as an image source)"], ["game.release_date", "Release date"], ["game.release_year", "Release year"], ["game.genres", "Genres"], ["game.developer", "Developer"], ["game.platforms", "Platforms"], ["game.rating", "IGDB rating (0\u2013100)"], ["game.summary", "Summary"]];
+      WEATHER_ITEMS = [
+        ["weather.temp", "Temperature (number)"],
+        ["weather.temp_full", "Temperature with unit (72\xB0F)"],
+        ["weather.unit", "Temperature unit (\xB0F / \xB0C)"],
+        ["weather.feels_like", "Feels like (number)"],
+        ["weather.condition", "Conditions (Partly cloudy)"],
+        ["weather.icon", "Weather icon (emoji)"],
+        ["weather.icon.url", "Weather icon image URL (use as an image source)"],
+        ["weather.humidity", "Humidity %"],
+        ["weather.wind", "Wind with unit (8 mph NW)"],
+        ["weather.wind.speed", "Wind speed (number)"],
+        ["weather.wind.dir", "Wind direction (NW)"],
+        ["weather.high", "Today's high"],
+        ["weather.low", "Today's low"],
+        ["weather.precip_chance", "Chance of precipitation %"],
+        ["weather.city", "City"],
+        ["weather.location", "City, region"],
+        ["weather.gusts", "Wind gusts (number)"],
+        ["weather.cloud_cover", "Cloud cover %"],
+        ["weather.pressure", "Pressure (29.92 inHg / 1013 hPa)"],
+        ["weather.pressure.unit", "Pressure unit"],
+        ["weather.uv", "UV index (today's max)"],
+        ["weather.sunrise", "Sunrise (6:52 AM)"],
+        ["weather.sunset", "Sunset (7:14 PM)"],
+        ["weather.h1.time", "Next hours: h1\u2013h6 time (3 PM)"],
+        ["weather.h1.temp", "Next hours: h1\u2013h6 temperature"],
+        ["weather.h1.icon", "Next hours: h1\u2013h6 icon (emoji)"],
+        ["weather.h1.icon.url", "Next hours: h1\u2013h6 icon image URL"],
+        ["weather.h1.condition", "Next hours: h1\u2013h6 conditions"],
+        ["weather.h1.precip", "Next hours: h1\u2013h6 chance of precipitation %"],
+        ["weather.d1.day", "Next days: d1\u2013d5 weekday (d1 = tomorrow)"],
+        ["weather.d1.high", "Next days: d1\u2013d5 high"],
+        ["weather.d1.low", "Next days: d1\u2013d5 low"],
+        ["weather.d1.icon", "Next days: d1\u2013d5 icon (emoji)"],
+        ["weather.d1.icon.url", "Next days: d1\u2013d5 icon image URL"],
+        ["weather.d1.condition", "Next days: d1\u2013d5 conditions"],
+        ["weather.d1.precip", "Next days: d1\u2013d5 chance of precipitation %"]
+      ];
+      PLAN_ITEMS = [["plan.now", "Game from your plan you are playing now"], ["plan.scheduled", "Scheduled games (comma list)"], ["plan.backlog", "Backlog games (comma list)"], ["plan.next", "Next scheduled game"], ["plan.scheduled.count", "Number of scheduled games"], ["plan.backlog.count", "Number of backlog games"]];
+      EVENT_ITEMS = [["latest.follower", "Latest follower"], ["latest.subscriber", "Latest subscriber"], ["latest.gifter", "Latest gift sub gifter"], ["latest.gifter.recipient", "Latest gift sub recipient"], ["latest.subscriber.tier", "Latest subscriber tier or type"], ["latest.cheer", "Latest cheerer"], ["latest.cheer.amount", "Latest cheer amount"], ["latest.donation", "Latest donor"], ["latest.donation.amount", "Latest donation amount"], ["latest.raider", "Latest raider"], ["latest.raider.viewers", "Latest raid size"], ["chatter.top", "Top chatter this session"], ["chatter.top.count", "Top chatter message count"], ["chatter.last", "Most recent chatter"], ["chatter.random", "Random chatter seen this session"], ["chatter.list", "Chatters seen this session (first 20)"], ["chatter.top.5m", "Top chatter, last 5 minutes (also 10m, 15m, 30m, 60m)"], ["chatter.top.10m", "Top chatter, last 10 minutes"], ["chatter.top.15m", "Top chatter, last 15 minutes"], ["chatter.top.30m", "Top chatter, last 30 minutes"], ["chatter.top.60m", "Top chatter, last hour"], ["chatter.top.5m.count", "Messages from the last-5-minutes top chatter (also 10m\u202660m)"]];
+      MILESTONE_ITEMS = [
+        ["milestone.stream_number", "Current stream broadcast number (e.g. 46)"],
+        ["milestone.total_hours", "Total lifetime streamed hours (e.g. 466)"],
+        ["milestone.total_time", "Total lifetime streamed time (e.g. 466h 18m)"],
+        ["milestone.streak_days", "Consecutive stream days streak (e.g. 3)"],
+        ["milestone.streak_weeks", "Consecutive stream weeks streak (e.g. 12)"],
+        ["milestone.lifetime_chatters", "Total unique chatters all-time (e.g. 158)"],
+        ["milestone.lifetime_messages", "Total chat messages all-time (e.g. 14,230)"],
+        ["milestone.next_stream_goal", "Next stream count milestone (e.g. 50)"],
+        ["milestone.streams_remaining", "Streams remaining until next stream goal (e.g. 4)"],
+        ["milestone.stream_goal_percent", "Percent progress to next stream goal (e.g. 92)"],
+        ["milestone.next_hours_goal", "Next broadcast hours milestone (e.g. 500)"],
+        ["milestone.hours_remaining", "Broadcast hours remaining until goal (e.g. 34)"],
+        ["milestone.hours_goal_percent", "Percent progress to next hours goal (e.g. 93)"]
+      ];
+      MATCHUP_ITEMS = [
+        ["matchup.title", "Event / matchup title (e.g. Grand Finals)"],
+        ["matchup.phase", "Phase / round (e.g. Winners Finals)"],
+        ["matchup.format", "Match format (e.g. Best of 5)"],
+        ["matchup.status", "Matchup status (ACTIVE, PAUSED, COMPLETED)"],
+        ["matchup.winner", "Winner name (when completed)"],
+        ["matchup.clock", "Matchup clock (e.g. 14:20)"],
+        ["matchup.player1.name", "Player 1 / Competitor 1 name"],
+        ["matchup.player1.score", "Player 1 score"],
+        ["matchup.player1.tag", "Player 1 team / tag / country"],
+        ["matchup.player1.color", "Player 1 accent color"],
+        ["matchup.player2.name", "Player 2 / Competitor 2 name"],
+        ["matchup.player2.score", "Player 2 score"],
+        ["matchup.player2.tag", "Player 2 team / tag / country"],
+        ["matchup.player2.color", "Player 2 accent color"]
+      ];
+      TOURNAMENT_ITEMS = [
+        ["tournament.title", "Tournament title"],
+        ["tournament.format", "Format (singleElimination, doubleElimination, roundRobin)"],
+        ["tournament.status", "Tournament status (ACTIVE, PENDING, COMPLETED)"],
+        ["tournament.champion", "Champion / tournament winner name"],
+        ["tournament.match.current", "Current match description (e.g. Alice vs Bob)"],
+        ["tournament.match.round", "Current match round name (e.g. Semifinals)"],
+        ["tournament.match.entrant1", "Current match entrant 1 name"],
+        ["tournament.match.entrant1.score", "Current match entrant 1 score"],
+        ["tournament.match.entrant2", "Current match entrant 2 name"],
+        ["tournament.match.entrant2.score", "Current match entrant 2 score"]
+      ];
+      TRIVIA_ITEMS = [
+        ["trivia.question", "Active question text"],
+        ["trivia.category", "Active question category"],
+        ["trivia.phase", "Trivia phase (question / reveal / finished / idle)"],
+        ["trivia.number", "Current question number (e.g. 1)"],
+        ["trivia.total", "Total number of questions"],
+        ["trivia.answer", "Correct answer text (when revealed)"],
+        ["trivia.funfact", "Fun fact / explanation (when revealed)"],
+        ["trivia.timer", "Remaining question time (e.g. 15s)"],
+        ["trivia.votes", "Total votes cast on active question"],
+        ["trivia.choice.1", "Choice 1 (A) text"],
+        ["trivia.choice.1.votes", "Choice 1 vote count"],
+        ["trivia.choice.1.percent", "Choice 1 percent (e.g. 45%)"],
+        ["trivia.choice.2", "Choice 2 (B) text"],
+        ["trivia.choice.2.votes", "Choice 2 vote count"],
+        ["trivia.choice.2.percent", "Choice 2 percent"],
+        ["trivia.choice.3", "Choice 3 (C) text"],
+        ["trivia.choice.3.votes", "Choice 3 vote count"],
+        ["trivia.choice.3.percent", "Choice 3 percent"],
+        ["trivia.choice.4", "Choice 4 (D) text"],
+        ["trivia.choice.4.votes", "Choice 4 vote count"],
+        ["trivia.choice.4.percent", "Choice 4 percent"],
+        ["trivia.choice.5", "Choice 5 (E) text"],
+        ["trivia.choice.5.votes", "Choice 5 vote count"],
+        ["trivia.choice.5.percent", "Choice 5 percent"],
+        ["trivia.choice.6", "Choice 6 (F) text"],
+        ["trivia.choice.6.votes", "Choice 6 vote count"],
+        ["trivia.choice.6.percent", "Choice 6 percent"],
+        ["trivia.leader.name", "Top trivia leaderboard player name"],
+        ["trivia.leader.points", "Top trivia leaderboard player points"],
+        ["trivia.leader.correct", "Top trivia leaderboard player correct answers"],
+        ["trivia.leader.accuracy", "Top trivia leaderboard player accuracy percentage"],
+        ["trivia.leader.top3", "Top 3 trivia leaderboard players formatted summary"]
+      ];
+      TIER_LIST_ITEMS = [
+        ["tier_list.title", "Tier list title"],
+        ["tier_list.item", "Current voting item name"],
+        ["tier_list.item_image", "Current voting item image URL (use as an image source)"],
+        ["tier_list.vote_status", "Vote status (active / locked / completed / idle)"],
+        ["tier_list.vote_timer", "Remaining voting time (e.g. 45s)"],
+        ["tier_list.consensus_tier", "Current winning / consensus tier label (e.g. S)"],
+        ["tier_list.consensus_percent", "Percentage agreement for consensus tier (e.g. 78%)"],
+        ["tier_list.total_votes", "Total votes cast on active item"]
+      ];
+      SUBATHON_ITEMS = [
+        ["subathon.total_added", "Total time added to subathon (e.g. 4h 25m)"],
+        ["subathon.multiplier", "Active Boost Period multiplier (e.g. 2x) or empty"],
+        ["subathon.boost", "Boost Period status (true / false)"],
+        ["subathon.boost_active", "Boost Period status (true / false)"],
+        ["subathon.happy_hour", "Happy Hour status (true / false)"],
+        ["subathon.subs", "Total subscriptions credited to subathon"],
+        ["subathon.bits", "Total cheer bits credited to subathon"],
+        ["subathon.donations", "Total tips/donations credited to subathon"],
+        ["subathon.follows", "Total follows credited to subathon"],
+        ["subathon.raids", "Total raids credited to subathon"],
+        ["subathon.rule.tier1", "Configured Tier 1 Sub rate (e.g. 2m 00s)"],
+        ["subathon.rule.tier2", "Configured Tier 2 Sub rate (e.g. 4m 00s)"],
+        ["subathon.rule.tier3", "Configured Tier 3 Sub rate (e.g. 10m 00s)"],
+        ["subathon.rule.tip_rate", "Configured tip rate (e.g. 1m 00s / $1.00)"],
+        ["subathon.rule.bits_rate", "Configured bits rate (e.g. 30s / 100 bits)"],
+        ["subathon.rule.follow", "Configured follow rate (e.g. 15s)"],
+        ["subathon.rule.summary", "One-line summary of all active subathon rates"]
+      ];
+      TICKING = /^(now$|time|date|weekday|month|year|uptime|session\.duration|timer\.|music\.(position|remaining|percent)$|category\.|viewers?\.|chatters$|messages$|poll\.|tier_list\.vote_timer|trivia\.timer|matchup\.clock)/;
+      isTicking = (name) => TICKING.test(name);
+      hasTicking = (value) => /\{\{\s*(now|time|date|weekday|month|year|uptime|session\.duration|timer\.|music\.(position|remaining|percent)|category\.|viewers?\.|chatters|messages|poll\.|tier_list\.vote_timer|trivia\.timer|matchup\.clock)/.test(String(value ?? ""));
+      inPlanList = (item, id) => item.status === id || (item.extraLists || []).includes(id);
+      LIST_FORMAT_PRESETS = [["lines", "One per line"], ["bullets", "\u2022 One per line"], ["numbered", "1. One per line"], ["3", "First 3 only"], ["sep:\\s/\\s", "Separated by /"], ["sep:\\s\u2022\\s", "Separated by \u2022"]];
+      FORMAT_PRESETS = [["short", "4d 3h 22m 2s (timers)"], ["long", "4 days, 3 hours\u2026 (timers)"], ["clock", "4d 3:22:02 (timers)"], ["d[d] h[h] m[m]", "4d 3h 22m (timers)"], ["MMMM D, YYYY", "October 2, 2026"], ["MMM D", "Oct 2"], ["ddd, MMM D", "Fri, Oct 2"], ["dddd, MMMM Do", "Friday, October 2nd"], ["YYYY-MM-DD", "2026-10-02"], ["MM/DD/YYYY", "10/02/2026"], ["h:mm A", "1:34 PM"], ["HH:mm", "13:34"], ["MMM D, h:mm A", "Oct 2, 1:34 PM"], ["dddd [at] h A", "Friday at 1 PM"]];
+      isDateKey = (name) => /^timer\.[a-zA-Z0-9_-]+$/.test(name) || /^(now|time|time\.24|time\.seconds|date|date\.long|game\.release_date|session\.started|timer\.[a-zA-Z0-9_-]+\.target)$/.test(name);
+      ordinal = (n) => {
+        const v = n % 100;
+        return n + (["th", "st", "nd", "rd"][(v - 20) % 10] || ["th", "st", "nd", "rd"][v] || "th");
+      };
+      isListFormat = (format) => /^(lines|newline|br|bullets|numbered|sep:|\d+(:|$))/i.test(String(format || "").trim());
+      isListKey = (name) => /^(plan\.scheduled|plan\.backlog|plan\.list\..+|game\.genres|game\.platforms)$/.test(name);
+    }
+  });
+
   // public/js/overlay/media.js
   function parseYouTubeUrl(urlStr) {
     if (!urlStr || typeof urlStr !== "string") return null;
@@ -2540,6 +3546,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     if (!setId) return [];
     const sets = status?.variableSets || [];
     const setObj = sets.find((s) => s && s.id === setId);
+    if (onlySelected && !setObj) return [];
     let members = [];
     if (setObj && Array.isArray(setObj.roster)) {
       members = setObj.roster.filter((r) => r && r.inGroup !== false);
@@ -2556,10 +3563,22 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       }
     }
     if (onlySelected && setObj) {
-      const activeIds = new Set(Array.isArray(setObj.slots) ? setObj.slots.filter(Boolean) : []);
-      if (setObj.activeEntryId) activeIds.add(setObj.activeEntryId);
+      const activeIds = /* @__PURE__ */ new Set();
+      const usesSlots = typeof setObj.slotsCount === "number" ? setObj.slotsCount > 0 : Array.isArray(setObj.slots) && setObj.slots.length > 0;
+      if (usesSlots && Array.isArray(setObj.slots)) {
+        for (const s of setObj.slots) {
+          const sid = typeof s === "string" ? s : s?.entryId || s?.id;
+          if (sid) activeIds.add(sid);
+        }
+      } else {
+        if (setObj.activeEntry) activeIds.add(setObj.activeEntry);
+        if (setObj.activeEntryId) activeIds.add(setObj.activeEntryId);
+      }
       if (setObj.selectedEntryId) activeIds.add(setObj.selectedEntryId);
-      if (activeIds.size > 0) members = members.filter((m) => activeIds.has(m.id));
+      if (!activeIds.size && setObj.rotation?.enabled && setObj.rotation?.entryId) {
+        activeIds.add(setObj.rotation.entryId);
+      }
+      members = activeIds.size > 0 ? members.filter((m) => activeIds.has(m.id)) : [];
     }
     return members;
   }
@@ -2608,6 +3627,11 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     svgEl.appendChild(poly);
     avBox.appendChild(svgEl);
   }
+  function looksLikeImageSource(val) {
+    const s = String(val || "").trim();
+    if (!s) return false;
+    return /^(data:image\/|\/assets\/|\/uploads\/)/i.test(s) || /^https?:\/\/.+\.(png|jpe?g|webp|gif|svg|avif)(\?|#|$)/i.test(s);
+  }
   function resolveGroupFieldSpecs(cfg = {}) {
     const hasExplicit = Array.isArray(cfg.fields) && cfg.fields.length > 0;
     let list = hasExplicit ? cfg.fields.filter((f) => f && f.key).slice(0, 10) : [
@@ -2617,13 +3641,29 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     if (hasExplicit && cfg.subField && !list.some((f) => f.key === cfg.subField)) {
       list = [...list, { key: cfg.subField, role: "subtitle" }];
     }
+    const optNum = (raw, min, max) => raw === null || raw === void 0 || raw === "" ? null : Math.max(min, Math.min(max, Math.round(Number(raw) || 0)));
     return list.map((f, idx) => ({
       key: String(f.key),
+      kind: ["auto", "text", "image"].includes(f.kind) ? f.kind : "auto",
+      customSrc: String(f.customSrc || "").trim(),
       role: f.role || (idx === 0 ? "title" : "subtitle"),
+      slot: IMAGE_GROUP_SLOTS.has(f.slot) ? f.slot : "main",
+      align: ["auto", "left", "center", "right"].includes(f.align) ? f.align : "auto",
       inline: f.inline === true,
       prefix: String(f.prefix || ""),
       suffix: String(f.suffix || ""),
       sizeScale: Math.max(50, Math.min(200, Number(f.sizeScale) || 100)),
+      fontSize: optNum(f.fontSize, 8, 96),
+      padX: optNum(f.padX, 0, 32),
+      padY: optNum(f.padY, 0, 32),
+      imgSize: Math.max(10, Math.min(200, Math.round(Number(f.imgSize) || 28))),
+      imgShape: ["rounded", "circle", "square", "auto"].includes(f.imgShape) ? f.imgShape : "rounded",
+      imgFit: ["contain", "cover"].includes(f.imgFit) ? f.imgFit : "contain",
+      imgBorderW: Math.max(0, Math.min(8, Math.round(Number(f.imgBorderW) || 0))),
+      fontFamily: String(f.fontFamily || "").trim(),
+      fontWeight: ["400", "600", "700", "900"].includes(String(f.fontWeight || "")) ? String(f.fontWeight) : "",
+      fontStyle: ["normal", "italic"].includes(f.fontStyle) ? f.fontStyle : "",
+      textTransform: ["none", "uppercase", "lowercase", "capitalize"].includes(f.textTransform) ? f.textTransform : "",
       color: String(f.color || "").trim(),
       bgColor: String(f.bgColor || "").trim()
     }));
@@ -2649,33 +3689,48 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       roleCls = "sp-image-group-caption";
     }
     span.className = `sp-image-group-field ${roleCls}`;
+    if (spec.slot && spec.slot !== "main") span.dataset.igSlot = spec.slot;
     span.textContent = `${spec.prefix}${text}${spec.suffix}`;
+    const roleFont = spec.role === "subtitle" || spec.role === "caption" ? String(cfg.subFontFamily || "").trim() : spec.role === "badge" || spec.role === "accent" ? String(cfg.badgeFontFamily || "").trim() : "";
+    const resolvedFont = spec.fontFamily || roleFont || st.fontFamily || "sans-serif";
+    if (typeof loadGoogleFont === "function") loadGoogleFont(resolvedFont);
     const roleFactor = FIELD_ROLE_SCALE[spec.role] ?? 0.9;
-    const px = Math.max(9, Math.round(baseSize * roleFactor * (spec.sizeScale / 100) * (isSpotlightLead ? 1.12 : 1)));
-    span.style.fontFamily = st.fontFamily || "sans-serif";
+    const rawPx = spec.fontSize ? spec.fontSize * (isSpotlightLead ? 1.12 : 1) : baseSize * roleFactor * (spec.sizeScale / 100) * (isSpotlightLead ? 1.12 : 1);
+    const px = Math.max(8, Math.round(rawPx));
+    span.style.fontFamily = resolvedFont;
     span.style.fontSize = `${px}px`;
-    span.style.fontWeight = spec.role === "badge" ? "700" : spec.role === "title" ? st.fontWeight && st.fontWeight !== "400" ? st.fontWeight : "600" : st.fontWeight || "400";
-    span.style.fontStyle = st.fontStyle === "italic" ? "italic" : "normal";
+    span.style.fontWeight = spec.fontWeight || (spec.role === "badge" ? "700" : spec.role === "title" ? st.fontWeight && st.fontWeight !== "400" ? st.fontWeight : "600" : st.fontWeight || "400");
+    span.style.fontStyle = spec.fontStyle || (st.fontStyle === "italic" ? "italic" : "normal");
     span.style.lineHeight = String(st.lineHeight || 1.2);
     if (st.letterSpacing) span.style.letterSpacing = `${st.letterSpacing}px`;
-    if (st.textTransform && st.textTransform !== "none") span.style.textTransform = st.textTransform;
+    const xform = spec.textTransform || st.textTransform;
+    if (xform && xform !== "none") span.style.textTransform = xform;
     if (st.textDecoration && st.textDecoration !== "none") span.style.textDecoration = st.textDecoration;
     if (st.tabularNums) span.style.fontVariantNumeric = "tabular-nums";
+    if (cfg.textWrap === "wrap") {
+      span.style.whiteSpace = "normal";
+      span.style.overflow = "visible";
+      span.style.textOverflow = "clip";
+      span.style.wordBreak = "break-word";
+    }
     const labelColor = String(cfg.labelColor || "").trim();
     const subColor = String(cfg.subColor || "").trim();
     const defaultTextColor = st.color && st.color !== "transparent" ? st.color : "#f8fafc";
     if (spec.role === "badge") {
       span.style.display = "inline-block";
-      span.style.padding = "2px 7px";
+      span.style.padding = `${spec.padY ?? 2}px ${spec.padX ?? 7}px`;
       span.style.borderRadius = "999px";
       span.style.background = spec.bgColor || cfg.badgeBg || "rgba(56,189,248,0.16)";
       span.style.color = spec.color || cfg.badgeColor || "#38bdf8";
     } else {
-      if (spec.bgColor && spec.bgColor !== "transparent") {
+      const hasPad = spec.padX !== null || spec.padY !== null;
+      if (spec.bgColor && spec.bgColor !== "transparent" || hasPad) {
         span.style.display = "inline-block";
-        span.style.padding = "1px 6px";
-        span.style.borderRadius = "5px";
-        span.style.background = spec.bgColor;
+        span.style.padding = `${spec.padY ?? 1}px ${spec.padX ?? 6}px`;
+        if (spec.bgColor && spec.bgColor !== "transparent") {
+          span.style.borderRadius = "5px";
+          span.style.background = spec.bgColor;
+        }
       }
       const resolvedColor = spec.color || (spec.role === "subtitle" || spec.role === "caption" ? subColor || labelColor || defaultTextColor : labelColor || defaultTextColor);
       span.style.color = resolvedColor;
@@ -2695,26 +3750,77 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
     return span;
   }
+  function createStyledImageFieldNode(spec, src, { isSpotlightLead = false } = {}) {
+    const wrap = document.createElement("span");
+    wrap.className = "sp-image-group-field sp-image-group-img-field";
+    if (spec.slot && spec.slot !== "main") wrap.dataset.igSlot = spec.slot;
+    const size = Math.max(10, Math.round((spec.imgSize || 28) * (isSpotlightLead ? 1.12 : 1)));
+    const shape = spec.imgShape || "rounded";
+    const radius = shape === "circle" ? "50%" : shape === "square" ? "0" : shape === "auto" ? "4px" : `${Math.max(4, Math.round(size * 0.22))}px`;
+    wrap.style.display = "inline-flex";
+    wrap.style.alignItems = "center";
+    wrap.style.justifyContent = "center";
+    wrap.style.boxSizing = "border-box";
+    wrap.style.flex = "0 0 auto";
+    wrap.style.lineHeight = "0";
+    wrap.style.borderRadius = radius;
+    const hasPlate = spec.bgColor && spec.bgColor !== "transparent";
+    if (hasPlate) wrap.style.background = spec.bgColor;
+    const padX = spec.padX ?? (hasPlate ? 4 : 0);
+    const padY = spec.padY ?? (hasPlate ? 4 : 0);
+    if (padX > 0 || padY > 0) wrap.style.padding = `${padY}px ${padX}px`;
+    if (spec.imgBorderW > 0) {
+      wrap.style.border = `${spec.imgBorderW}px solid ${spec.color || "rgba(255,255,255,0.45)"}`;
+    }
+    const img = document.createElement("img");
+    img.draggable = false;
+    img.decoding = "async";
+    img.alt = "";
+    if (!src.startsWith("data:")) img.crossOrigin = "anonymous";
+    img.src = src;
+    img.style.display = "block";
+    img.style.objectFit = spec.imgFit === "cover" ? "cover" : "contain";
+    img.style.borderRadius = hasPlate || spec.imgBorderW > 0 ? shape === "circle" ? "50%" : "2px" : radius;
+    if (shape === "auto") {
+      img.style.height = `${size}px`;
+      img.style.width = "auto";
+      img.style.maxWidth = `${Math.round(size * 2.8)}px`;
+    } else {
+      img.style.width = `${size}px`;
+      img.style.height = `${size}px`;
+    }
+    img.onerror = () => {
+      wrap.style.display = "none";
+    };
+    wrap.appendChild(img);
+    return wrap;
+  }
+  function alignToFlex(align) {
+    return align === "center" ? "center" : align === "right" ? "flex-end" : "flex-start";
+  }
   function buildGroupMetaContainer(renderedFields, ctx) {
-    const { alignMode, horizontalItem, inside, fieldGap, labelBg, maxTextW } = ctx;
+    const { alignMode, horizontalItem, inside, overlayEdge, fieldGap, labelBg, maxTextW, slotClass = "sp-image-group-meta", stretchMain = false } = ctx;
     const textWrap = document.createElement("div");
-    textWrap.className = "sp-image-group-meta";
+    textWrap.className = slotClass;
     textWrap.style.display = "flex";
     textWrap.style.flexDirection = "column";
     textWrap.style.gap = `${fieldGap}px`;
     textWrap.style.minWidth = "0";
-    const effectiveAlign = alignMode !== "auto" ? alignMode : horizontalItem ? ctx.labelPosition === "left" ? "right" : "left" : "center";
-    textWrap.style.alignItems = effectiveAlign === "center" ? "center" : effectiveAlign === "right" ? "flex-end" : "flex-start";
+    if (stretchMain) textWrap.style.flex = "1 1 auto";
+    const effectiveAlign = ctx.slotAlign || (alignMode !== "auto" ? alignMode : horizontalItem ? ctx.labelPosition === "left" ? "right" : "left" : "center");
+    textWrap.style.alignItems = alignToFlex(effectiveAlign);
     textWrap.style.textAlign = effectiveAlign;
     if (inside) {
+      const edge = overlayEdge || ctx.labelPosition;
+      const isTop = edge === "inside-top" || edge === "avatar-top";
       textWrap.style.position = "absolute";
       textWrap.style.left = "0";
       textWrap.style.right = "0";
-      textWrap.style[ctx.labelPosition === "inside-top" ? "top" : "bottom"] = "0";
+      textWrap.style[isTop ? "top" : "bottom"] = "0";
       textWrap.style.zIndex = "2";
-      textWrap.style.background = labelBg && labelBg !== "transparent" ? labelBg : ctx.labelPosition === "inside-top" ? "linear-gradient(180deg, rgba(9,13,22,0.88) 0%, rgba(9,13,22,0) 100%)" : "linear-gradient(0deg, rgba(9,13,22,0.88) 0%, rgba(9,13,22,0) 100%)";
-      textWrap.style.padding = ctx.labelPosition === "inside-top" ? "4px 6px 8px" : "8px 6px 4px";
-    } else if (labelBg && labelBg !== "transparent") {
+      textWrap.style.background = labelBg && labelBg !== "transparent" ? labelBg : isTop ? "linear-gradient(180deg, rgba(9,13,22,0.88) 0%, rgba(9,13,22,0) 100%)" : "linear-gradient(0deg, rgba(9,13,22,0.88) 0%, rgba(9,13,22,0) 100%)";
+      textWrap.style.padding = isTop ? "4px 6px 8px" : "8px 6px 4px";
+    } else if (!ctx.noLabelBg && labelBg && labelBg !== "transparent") {
       textWrap.style.background = labelBg;
       textWrap.style.padding = "3px 7px";
       textWrap.style.borderRadius = "6px";
@@ -2732,16 +3838,107 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           inlineRow.style.flexWrap = "wrap";
           inlineRow.style.alignItems = "center";
           inlineRow.style.gap = "6px";
-          inlineRow.style.justifyContent = effectiveAlign === "center" ? "center" : effectiveAlign === "right" ? "flex-end" : "flex-start";
+          const rowAlign = spec.align !== "auto" ? spec.align : effectiveAlign;
+          inlineRow.style.justifyContent = alignToFlex(rowAlign);
           textWrap.appendChild(inlineRow);
         }
         inlineRow.appendChild(node);
       } else {
         inlineRow = null;
+        if (spec.align && spec.align !== "auto") {
+          node.style.alignSelf = alignToFlex(spec.align);
+          node.style.textAlign = spec.align;
+        }
         textWrap.appendChild(node);
       }
     });
     return textWrap;
+  }
+  function buildCornerGroupContainer(cornerKey, items, fieldGap, cornerInset = 6) {
+    const pos = document.createElement("div");
+    pos.className = `sp-image-group-corner sp-image-group-${cornerKey}`;
+    const isTop = cornerKey === "corner-tl" || cornerKey === "corner-tr" || cornerKey === "avatar-tl" || cornerKey === "avatar-tr";
+    const isRight = cornerKey === "corner-tr" || cornerKey === "corner-br" || cornerKey === "avatar-tr" || cornerKey === "avatar-br";
+    const inset = Math.max(0, Math.min(32, Math.round(Number(cornerInset ?? 6))));
+    const padCss = `${isTop ? `top:${inset}px;` : `bottom:${inset}px;`}${isRight ? `right:${inset}px;align-items:flex-end;text-align:right;` : `left:${inset}px;align-items:flex-start;text-align:left;`}`;
+    pos.style.cssText = `position:absolute;${padCss}display:flex;flex-direction:column;gap:${Math.max(2, fieldGap)}px;z-index:5;pointer-events:none;max-width:calc(100% - ${inset * 2}px);`;
+    items.forEach(({ node }) => pos.appendChild(node));
+    return pos;
+  }
+  function mountGroupAvatarMedia(avBox, item, dims, ctx) {
+    const { avBg, avBorderW, avBorderC, avBorderStyle, avShadow, shape, avatarRadius, st, cfg, fallbackMode, preview, card, itemSize } = ctx;
+    avBox.className = "sp-image-group-avatar";
+    avBox.style.width = `${dims.w}px`;
+    avBox.style.height = `${dims.h}px`;
+    avBox.style.flex = "0 0 auto";
+    avBox.style.position = "relative";
+    avBox.style.overflow = "visible";
+    avBox.style.boxSizing = "border-box";
+    applyGroupAvatarShape(avBox, GROUP_POLY_CLIPS[shape] ? "square" : shape, avatarRadius);
+    const avMedia = document.createElement("div");
+    avMedia.className = "sp-image-group-media";
+    avMedia.style.cssText = "position:relative;width:100%;height:100%;overflow:hidden;box-sizing:border-box;";
+    avMedia.style.background = avBg;
+    applyGroupAvatarShape(avMedia, shape, avatarRadius);
+    avBox.appendChild(avMedia);
+    if (GROUP_POLY_CLIPS[shape]) {
+      if (avShadow > 0) avBox.style.filter = `drop-shadow(0 3px ${Math.round(avShadow * 0.6)}px rgba(0,0,0,0.55))`;
+      if (avBorderW > 0) mountPolygonBorder(avBox, shape, avBorderW, avBorderC, avBorderStyle);
+    } else {
+      const avStyleObj = {
+        borderWidth: avBorderW,
+        borderColor: avBorderC,
+        borderGradient: cfg.avatarBorderGradient,
+        borderStyle: avBorderStyle,
+        borderGlow: cfg.avatarBorderGlow,
+        borderAnimation: cfg.avatarBorderAnimation,
+        shape: shape === "circle" ? "circle" : "rectangle",
+        borderRadius: shape === "squircle" ? Math.round(Math.min(dims.w, dims.h) * 0.26) : shape === "rounded" ? avatarRadius : 0,
+        shadow: avShadow > 0 ? { blur: avShadow, color: "rgba(0,0,0,0.55)" } : void 0
+      };
+      applyBorderEffects(avBox, avStyleObj, { type: "box", width: dims.w, height: dims.h });
+    }
+    const renderInitials = () => {
+      const mono = document.createElement("span");
+      mono.className = "sp-image-group-initials";
+      mono.textContent = computeInitials(item.labelText);
+      mono.style.cssText = `width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${Math.max(11, Math.round(itemSize * 0.38))}px;color:${cfg.labelColor || st.color || "#f8fafc"};user-select:none;`;
+      avMedia.appendChild(mono);
+    };
+    if (item.imgUrl) {
+      const img = document.createElement("img");
+      img.className = "sp-image-group-img";
+      img.draggable = false;
+      img.decoding = "async";
+      if (!item.imgUrl.startsWith("data:")) img.crossOrigin = "anonymous";
+      img.src = item.imgUrl;
+      img.style.width = "100%";
+      img.style.height = "100%";
+      img.style.display = "block";
+      img.style.objectFit = st.objectFit || "cover";
+      img.style.objectPosition = `${st.focusX ?? 50}% ${st.focusY ?? 50}%`;
+      img.addEventListener("error", () => {
+        if (fallbackMode === "initials" && item.labelText) {
+          img.remove();
+          renderInitials();
+        } else if (!preview) {
+          card.style.display = "none";
+        } else {
+          img.style.opacity = "0.25";
+        }
+      });
+      avMedia.appendChild(img);
+    } else {
+      renderInitials();
+    }
+    if (ctx.showStatusDot) {
+      const dot = document.createElement("span");
+      dot.className = "sp-image-group-dot";
+      const dotPx = Math.max(8, Math.round(Math.min(dims.w, dims.h) * 0.2));
+      dot.style.cssText = `position:absolute;right:1px;bottom:1px;width:${dotPx}px;height:${dotPx}px;border-radius:50%;background:${cfg.badgeColor || "#22c55e"};border:2px solid rgba(9,13,22,0.92);box-shadow:0 0 8px rgba(34,197,94,0.45);z-index:4;pointer-events:none;`;
+      avBox.appendChild(dot);
+    }
+    return avMedia;
   }
   function renderImageGroupStrip(container, element, status, options = {}) {
     cleanupGroupStrip(container);
@@ -2752,6 +3949,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const layout = IMAGE_GROUP_LAYOUTS.has(cfg.layout) ? cfg.layout : "row";
     const shape = IMAGE_GROUP_SHAPES.has(cfg.shape) ? cfg.shape : layout === "overlap" || layout === "chips" ? "circle" : "rounded";
     const aspectRatio = ["1:1", "4:3", "16:9", "3:4", "21:9"].includes(cfg.aspectRatio) ? cfg.aspectRatio : "1:1";
+    const showAvatar = cfg.showAvatar !== false;
     const baseSize = Math.max(16, Math.min(400, Number(cfg.size) || 56));
     const avatarRadius = Math.max(0, Math.min(100, Math.round(Number(cfg.avatarRadius ?? 10))));
     const gap = Math.max(0, Math.min(80, Number(cfg.gap ?? 10)));
@@ -2775,8 +3973,9 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       const autoFallbackLabel = String(m.text || m.label || Object.values(vals).find((v) => typeof v === "string" && v.trim() && v.trim() !== imgUrl) || "").trim();
       const labelText = primarySpec.key ? readMemberFieldValue(m, primarySpec.key, "") : autoFallbackLabel;
       const subText = subSpec && subSpec.key ? readMemberFieldValue(m, subSpec.key, "") : "";
-      return { id: m.id, raw: m, imgUrl, labelText, subText };
-    }).filter((item) => fallbackMode === "initials" ? item.imgUrl !== "" || item.labelText !== "" : item.imgUrl !== "");
+      const hasAnyText = Boolean(labelText || subText || fieldSpecs.some((s) => readMemberFieldValue(m, s.key, "")));
+      return { id: m.id, raw: m, imgUrl, labelText, subText, hasAnyText };
+    }).filter((item) => !showAvatar ? item.hasAnyText || item.imgUrl !== "" : fallbackMode === "initials" ? item.imgUrl !== "" || item.labelText !== "" : item.imgUrl !== "");
     if (sortOrder === "reverse") items = items.slice().reverse();
     else if (sortOrder === "alpha") items = items.slice().sort((a, b) => (a.labelText || a.id || "").localeCompare(b.labelText || b.id || ""));
     const totalCount = items.length;
@@ -2784,28 +3983,46 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     if (maxItems > 0 && items.length > maxItems) items = items.slice(0, maxItems);
     container.replaceChildren();
     if (!items.length) return false;
-    const st = element.style || {};
+    const st = resolveStyleVariables(element.style || {}, status, {});
+    if (typeof loadGoogleFont === "function" && st.fontFamily) loadGoogleFont(st.fontFamily);
+    const setObj = (status?.variableSets || []).find((s) => s && s.id === cfg.setId) || null;
+    const setFieldTypes = new Map((setObj?.fields || []).map((f) => [f.key, f.type]));
+    const resolveMemberColor = (val, member, fallback = "") => resolveColorToken(val, status, {}, member) || fallback;
+    const resolveMemberGradient = (grad, member) => {
+      if (!grad || typeof grad !== "object") return grad;
+      return {
+        ...grad,
+        from: resolveMemberColor(grad.from, member, "#1f6feb"),
+        mid: grad.mid ? resolveMemberColor(grad.mid, member, "") : grad.mid,
+        to: resolveMemberColor(grad.to, member, "#8957e5")
+      };
+    };
     const showLabels = cfg.showLabels === true;
     const labelPosition = IMAGE_GROUP_PLACEMENTS.has(cfg.labelPosition) ? cfg.labelPosition : "below";
     const alignMode = ["auto", "left", "center", "right"].includes(cfg.textAlign) ? cfg.textAlign : "auto";
     const labelSize = Math.max(0, Math.min(72, Math.round(Number(cfg.labelSize) || 0)));
     const baseSizePx = labelSize > 0 ? labelSize : Number(st.fontSize) || 15;
-    const labelBg = String(cfg.labelBg || "").trim();
+    const cornerInset = Math.max(0, Math.min(32, Math.round(Number(cfg.cornerInset ?? 6))));
     const delimiter = String(cfg.delimiter || "");
-    const delimiterColor = String(cfg.delimiterColor || "").trim();
+    const delimiterColor = resolveColorToken(cfg.delimiterColor || "", status, {});
     const showStatusDot = cfg.showStatusDot === true;
     const avBorderW = Math.max(0, Math.min(12, Math.round(Number(cfg.avatarBorderWidth) || (layout === "overlap" ? 2 : 0))));
-    const avBorderC = String(cfg.avatarBorderColor || (layout === "overlap" && !cfg.avatarBorderWidth ? "#0f172a" : "rgba(255,255,255,0.28)")).trim();
+    const rawAvBorderC = String(cfg.avatarBorderColor || (layout === "overlap" && !cfg.avatarBorderWidth ? "#0f172a" : "rgba(255,255,255,0.28)")).trim();
     const avBorderStyle = String(cfg.avatarBorderStyle || "solid");
-    const avBg = String(cfg.avatarBg || "#1e293b").trim();
+    const rawAvBg = String(cfg.avatarBg || "#1e293b").trim();
     const avShadow = Math.max(0, Math.min(40, Math.round(Number(cfg.avatarShadow) || 0)));
     const isChip = layout === "chips";
     const isBanner = layout === "banners";
     const layoutAutoFrames = layout === "cards" || isChip || isBanner;
     const isFramed = cfg.cardFrame === true || layoutAutoFrames;
-    const cardBg = String(cfg.cardBg || "rgba(15,23,42,0.78)").trim();
+    const widthMode = ["auto", "full", "fixed"].includes(cfg.cardWidthMode) ? cfg.cardWidthMode : isBanner ? "full" : "auto";
+    const cardWidthPx = Math.max(60, Math.min(1600, Math.round(Number(cfg.cardWidth) || 240)));
+    const cardMinHeight = Math.max(0, Math.min(800, Math.round(Number(cfg.cardMinHeight) || 0)));
+    const cardAlign = cfg.cardAlign === "top" ? "flex-start" : cfg.cardAlign === "bottom" ? "flex-end" : "center";
+    const rawCardBg = String(cfg.cardBg || "rgba(15,23,42,0.78)").trim();
+    const cardBlur = Math.max(0, Math.min(40, Math.round(Number(cfg.cardBlur) || 0)));
     const cardBorderW = Math.max(0, Math.min(16, Math.round(Number(cfg.cardBorderWidth ?? 1))));
-    const cardBorderC = String(cfg.cardBorderColor || "rgba(255,255,255,0.16)").trim();
+    const rawCardBorderC = String(cfg.cardBorderColor || "rgba(255,255,255,0.16)").trim();
     const cardBorderStyle = String(cfg.cardBorderStyle || "solid");
     const cardRadius = Math.max(0, Math.min(999, Math.round(Number(cfg.cardRadius ?? 12))));
     const basePad = Math.max(0, Math.min(48, Math.round(Number(cfg.cardPadding ?? 8))));
@@ -2820,10 +4037,11 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const useCssGrid = layout === "grid" || columns > 0 && wrapItems && layout !== "overlap" && layout !== "column" && layout !== "banners";
     if (useCssGrid) {
       wrap.style.display = "grid";
-      wrap.style.gridTemplateColumns = columns > 0 ? `repeat(${columns}, minmax(0, 1fr))` : `repeat(auto-fill, minmax(${Math.max(48, baseSize)}px, 1fr))`;
+      wrap.style.gridTemplateColumns = columns > 0 ? `repeat(${columns}, minmax(0, 1fr))` : widthMode === "fixed" ? `repeat(auto-fill, ${cardWidthPx}px)` : `repeat(auto-fill, minmax(${Math.max(48, baseSize)}px, 1fr))`;
       wrap.style.columnGap = `${gap}px`;
       wrap.style.rowGap = `${rowGap}px`;
       wrap.style.justifyItems = st.textAlign === "center" ? "center" : st.textAlign === "right" ? "end" : "start";
+      wrap.style.justifyContent = alignH;
       wrap.style.alignItems = "start";
       wrap.style.alignContent = alignV;
     } else if (layout === "column" || isBanner) {
@@ -2831,7 +4049,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       wrap.style.flexDirection = "column";
       wrap.style.rowGap = `${rowGap}px`;
       wrap.style.columnGap = `${gap}px`;
-      wrap.style.alignItems = isBanner && st.textAlign !== "center" && st.textAlign !== "right" ? "stretch" : alignH;
+      wrap.style.alignItems = widthMode === "full" && st.textAlign !== "center" && st.textAlign !== "right" ? "stretch" : alignH;
       wrap.style.justifyContent = alignV;
     } else {
       wrap.style.display = "flex";
@@ -2848,22 +4066,50 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       const isSpotlightLead = layout === "spotlight" && idx === 0;
       const itemSize = isSpotlightLead ? Math.min(400, Math.round(baseSize * spotlightScale)) : baseSize;
       const dims = groupAvatarDimensions(itemSize, aspectRatio);
-      const inside = showLabels && (labelPosition === "inside-bottom" || labelPosition === "inside-top") && !isChip;
-      const splitMode = showLabels && labelPosition === "split" && !isChip;
-      const horizontalItem = showLabels && !inside && !splitMode && (labelPosition === "right" || labelPosition === "left" || (isChip || isBanner) && labelPosition === "below");
+      const inside = showAvatar && showLabels && (labelPosition === "inside-bottom" || labelPosition === "inside-top") && !isChip;
+      const splitMode = showAvatar && showLabels && labelPosition === "split" && !isChip;
+      const memberCfg = {
+        ...cfg,
+        labelColor: resolveMemberColor(cfg.labelColor, item.raw, ""),
+        subColor: resolveMemberColor(cfg.subColor, item.raw, ""),
+        badgeBg: resolveMemberColor(cfg.badgeBg || "rgba(56,189,248,0.16)", item.raw, "rgba(56,189,248,0.16)"),
+        badgeColor: resolveMemberColor(cfg.badgeColor || "#38bdf8", item.raw, "#38bdf8"),
+        avatarBorderGradient: resolveMemberGradient(cfg.avatarBorderGradient, item.raw),
+        avatarBorderGlow: cfg.avatarBorderGlow ? { ...cfg.avatarBorderGlow, color: resolveMemberColor(cfg.avatarBorderGlow.color, item.raw, "#38bdf8") } : cfg.avatarBorderGlow,
+        avatarBorderAnimation: cfg.avatarBorderAnimation ? {
+          ...cfg.avatarBorderAnimation,
+          color2: resolveMemberColor(cfg.avatarBorderAnimation.color2, item.raw, "#ffffff"),
+          color3: resolveMemberColor(cfg.avatarBorderAnimation.color3, item.raw, "")
+        } : cfg.avatarBorderAnimation
+      };
+      const avBg = resolveMemberColor(rawAvBg, item.raw, "#1e293b");
+      const avBorderC = resolveMemberColor(rawAvBorderC, item.raw, "rgba(255,255,255,0.28)");
+      const cardBg = resolveMemberColor(rawCardBg, item.raw, "rgba(15,23,42,0.78)");
+      const cardBorderC = resolveMemberColor(rawCardBorderC, item.raw, "rgba(255,255,255,0.16)");
+      const labelBg = resolveMemberColor(cfg.labelBg || "", item.raw, "");
+      const horizontalItem = showLabels && !inside && !splitMode && (!showAvatar || labelPosition === "right" || labelPosition === "left" || (isChip || isBanner) && labelPosition === "below");
       const card = document.createElement("div");
-      card.className = `sp-image-group-item${isFramed && !isChip ? " sp-image-group-card" : ""}${isChip ? " sp-image-group-chip" : ""}${isBanner ? " sp-image-group-banner" : ""}${isSpotlightLead ? " sp-image-group-lead" : ""}`;
-      card.style.display = "flex";
-      card.style.flexDirection = horizontalItem ? "row" : "column";
-      card.style.alignItems = "center";
-      card.style.gap = `${innerGap}px`;
+      card.className = `sp-image-group-item${isFramed && !isChip ? " sp-image-group-card" : ""}${isChip ? " sp-image-group-chip" : ""}${isBanner ? " sp-image-group-banner" : ""}${isSpotlightLead ? " sp-image-group-lead" : ""}${cfg.textWrap === "wrap" ? " is-wrap" : ""}`;
       card.style.position = "relative";
       card.style.boxSizing = "border-box";
       if (layout === "overlap" && idx > 0) card.style.marginLeft = `-${overlap}px`;
       if (layout === "stagger" && idx % 2 === 1 && staggerOffset > 0) card.style.marginTop = `${staggerOffset}px`;
-      if (isBanner) card.style.width = "100%";
+      if (widthMode === "full") card.style.width = "100%";
+      else if (widthMode === "fixed") card.style.width = `${cardWidthPx}px`;
+      if (cardMinHeight > 0) card.style.minHeight = `${cardMinHeight}px`;
       if (isFramed) {
-        card.style.background = cardBg;
+        if (cfg.cardGradient?.enabled) {
+          const grad = gradientStyle(resolveMemberGradient(cfg.cardGradient, item.raw));
+          card.style.background = grad.background;
+          card.style.backgroundSize = grad.backgroundSize;
+          card.style.animation = grad.animation;
+        } else {
+          card.style.background = cardBg;
+        }
+        if (cardBlur > 0) {
+          card.style.backdropFilter = `blur(${cardBlur}px)`;
+          card.style.webkitBackdropFilter = `blur(${cardBlur}px)`;
+        }
         card.style.borderRadius = `${isChip ? 999 : cardRadius}px`;
         if (isChip && cfg.cardPaddingX == null && cfg.cardPaddingY == null) {
           card.style.padding = "4px 12px 4px 4px";
@@ -2875,105 +4121,90 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         const cardStyleObj = {
           borderWidth: cardBorderW,
           borderColor: cardBorderC,
+          borderGradient: resolveMemberGradient(cfg.cardBorderGradient, item.raw),
           borderStyle: cardBorderStyle,
+          borderGlow: cfg.cardBorderGlow ? { ...cfg.cardBorderGlow, color: resolveMemberColor(cfg.cardBorderGlow.color, item.raw, "#38bdf8") } : cfg.cardBorderGlow,
+          borderAnimation: cfg.cardBorderAnimation ? {
+            ...cfg.cardBorderAnimation,
+            color2: resolveMemberColor(cfg.cardBorderAnimation.color2, item.raw, "#ffffff"),
+            color3: resolveMemberColor(cfg.cardBorderAnimation.color3, item.raw, "")
+          } : cfg.cardBorderAnimation,
           borderRadius: isChip ? 999 : cardRadius,
           shape: isChip ? "pill" : "rectangle",
           shadow: cardShadow > 0 ? { blur: cardShadow, color: "rgba(0,0,0,0.45)" } : void 0
         };
         applyBorderEffects(card, cardStyleObj, { type: "box" });
-        if (cardBorderW > 0 && cardBorderStyle !== "solid" && cardBorderStyle !== "dashed" && cardBorderStyle !== "dotted" && cardBorderStyle !== "double") {
-          deferredRingCards.push([card, cardStyleObj]);
-        }
+        const needsRingResize = cardBorderW > 0 && (cardBorderStyle !== "solid" && cardBorderStyle !== "dashed" && cardBorderStyle !== "dotted" && cardBorderStyle !== "double" || cfg.cardBorderGradient?.enabled || cfg.cardBorderAnimation?.type && cfg.cardBorderAnimation.type !== "none");
+        if (needsRingResize) deferredRingCards.push([card, cardStyleObj]);
       }
-      const avBox = document.createElement("div");
-      avBox.className = "sp-image-group-avatar";
-      avBox.style.width = `${dims.w}px`;
-      avBox.style.height = `${dims.h}px`;
-      avBox.style.flex = "0 0 auto";
-      avBox.style.position = "relative";
-      avBox.style.overflow = "visible";
-      avBox.style.boxSizing = "border-box";
-      applyGroupAvatarShape(avBox, GROUP_POLY_CLIPS[shape] ? "square" : shape, avatarRadius);
-      const avMedia = document.createElement("div");
-      avMedia.className = "sp-image-group-media";
-      avMedia.style.cssText = "position:relative;width:100%;height:100%;overflow:hidden;box-sizing:border-box;";
-      avMedia.style.background = avBg;
-      applyGroupAvatarShape(avMedia, shape, avatarRadius);
-      avBox.appendChild(avMedia);
-      if (GROUP_POLY_CLIPS[shape]) {
-        if (avShadow > 0) avBox.style.filter = `drop-shadow(0 3px ${Math.round(avShadow * 0.6)}px rgba(0,0,0,0.55))`;
-        if (avBorderW > 0) mountPolygonBorder(avBox, shape, avBorderW, avBorderC, avBorderStyle);
-      } else {
-        const avStyleObj = {
-          borderWidth: avBorderW,
-          borderColor: avBorderC,
-          borderStyle: avBorderStyle,
-          shape: shape === "circle" ? "circle" : "rectangle",
-          borderRadius: shape === "squircle" ? Math.round(Math.min(dims.w, dims.h) * 0.26) : shape === "rounded" ? avatarRadius : 0,
-          shadow: avShadow > 0 ? { blur: avShadow, color: "rgba(0,0,0,0.55)" } : void 0
+      let avBox = null;
+      let avMedia = null;
+      if (showAvatar) {
+        avBox = document.createElement("div");
+        avMedia = mountGroupAvatarMedia(avBox, item, dims, {
+          avBg,
+          avBorderW,
+          avBorderC,
+          avBorderStyle,
+          avShadow,
+          shape,
+          avatarRadius,
+          st,
+          cfg: memberCfg,
+          fallbackMode,
+          preview: options.preview,
+          card,
+          itemSize,
+          showStatusDot
+        });
+      }
+      const slotBuckets = {
+        header: [],
+        main: [],
+        trailing: [],
+        footer: [],
+        "avatar-top": [],
+        "avatar-bottom": [],
+        "corner-tl": [],
+        "corner-tr": [],
+        "corner-bl": [],
+        "corner-br": [],
+        "avatar-tl": [],
+        "avatar-tr": [],
+        "avatar-bl": [],
+        "avatar-br": []
+      };
+      let labelCount = 0;
+      let subCount = 0;
+      const activeSpecs = fieldSpecs.length ? fieldSpecs : item.labelText ? [{ key: "", kind: "text", role: "title", slot: "main", align: "auto", inline: false, prefix: "", suffix: "", sizeScale: 100, color: "", bgColor: "" }] : [];
+      activeSpecs.forEach((spec, fIdx) => {
+        const memberRaw = spec.key ? readMemberFieldValue(item.raw, spec.key, fIdx === 0 && !cfg.labelField && spec.kind !== "image" ? item.labelText : "") : spec.kind === "image" ? "" : item.labelText;
+        const resolvedVal = memberRaw || spec.customSrc || "";
+        if (!resolvedVal) return;
+        const sfType = setFieldTypes.get(spec.key);
+        const isImgField = spec.kind === "image" || spec.kind !== "text" && (sfType === "image" || Boolean(spec.customSrc && !memberRaw) || looksLikeImageSource(resolvedVal));
+        if (!isImgField && !showLabels) return;
+        const resolvedSpec = {
+          ...spec,
+          color: spec.color ? resolveMemberColor(spec.color, item.raw, "") : "",
+          bgColor: spec.bgColor ? resolveMemberColor(spec.bgColor, item.raw, "") : ""
         };
-        applyBorderEffects(avBox, avStyleObj, { type: "box", width: dims.w, height: dims.h });
-      }
-      if (item.imgUrl) {
-        const img = document.createElement("img");
-        img.className = "sp-image-group-img";
-        img.draggable = false;
-        img.decoding = "async";
-        if (!item.imgUrl.startsWith("data:")) img.crossOrigin = "anonymous";
-        img.src = item.imgUrl;
-        img.style.width = "100%";
-        img.style.height = "100%";
-        img.style.display = "block";
-        img.style.objectFit = st.objectFit || "cover";
-        img.style.objectPosition = `${st.focusX ?? 50}% ${st.focusY ?? 50}%`;
-        img.addEventListener("error", () => {
-          if (fallbackMode === "initials" && item.labelText) {
-            img.remove();
-            const mono = document.createElement("span");
-            mono.className = "sp-image-group-initials";
-            mono.textContent = computeInitials(item.labelText);
-            mono.style.cssText = `width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${Math.max(11, Math.round(itemSize * 0.38))}px;color:${cfg.labelColor || st.color || "#f8fafc"};user-select:none;`;
-            avMedia.appendChild(mono);
-          } else if (!options.preview) {
-            card.style.display = "none";
-          } else {
-            img.style.opacity = "0.25";
-          }
+        const node = isImgField ? createStyledImageFieldNode(resolvedSpec, resolvedVal, { isSpotlightLead }) : createStyledFieldNode(resolvedSpec, resolvedVal, {
+          st,
+          baseSize: baseSizePx,
+          isSpotlightLead,
+          cfg: memberCfg,
+          labelIdx: resolvedSpec.role === "title" ? labelCount++ : -1,
+          subIdx: resolvedSpec.role === "subtitle" ? subCount++ : -1
         });
-        avMedia.appendChild(img);
-      } else {
-        const mono = document.createElement("span");
-        mono.className = "sp-image-group-initials";
-        mono.textContent = computeInitials(item.labelText);
-        mono.style.cssText = `width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${Math.max(11, Math.round(itemSize * 0.38))}px;color:${cfg.labelColor || st.color || "#f8fafc"};user-select:none;`;
-        avMedia.appendChild(mono);
-      }
-      if (showStatusDot) {
-        const dot = document.createElement("span");
-        dot.className = "sp-image-group-dot";
-        const dotPx = Math.max(8, Math.round(Math.min(dims.w, dims.h) * 0.2));
-        dot.style.cssText = `position:absolute;right:1px;bottom:1px;width:${dotPx}px;height:${dotPx}px;border-radius:50%;background:${cfg.badgeColor || "#22c55e"};border:2px solid rgba(9,13,22,0.92);box-shadow:0 0 8px rgba(34,197,94,0.45);z-index:4;pointer-events:none;`;
-        avBox.appendChild(dot);
-      }
-      const renderedFields = [];
-      if (showLabels) {
-        let labelCount = 0;
-        let subCount = 0;
-        const activeSpecs = fieldSpecs.length ? fieldSpecs : item.labelText ? [{ key: "", role: "title", inline: false, prefix: "", suffix: "", sizeScale: 100, color: "", bgColor: "" }] : [];
-        activeSpecs.forEach((spec, fIdx) => {
-          const rawVal = spec.key ? readMemberFieldValue(item.raw, spec.key, fIdx === 0 && !cfg.labelField ? item.labelText : "") : item.labelText;
-          if (!rawVal) return;
-          const node = createStyledFieldNode(spec, rawVal, {
-            st,
-            baseSize: baseSizePx,
-            isSpotlightLead,
-            cfg,
-            labelIdx: spec.role === "title" ? labelCount++ : -1,
-            subIdx: spec.role === "subtitle" ? subCount++ : -1
-          });
-          renderedFields.push({ spec, node });
-        });
-      }
+        let slot = resolvedSpec.slot || "main";
+        if (!showAvatar && slot === "avatar-top") slot = "header";
+        else if (!showAvatar && slot === "avatar-bottom") slot = "footer";
+        else if (!showAvatar && slot.startsWith("avatar-")) slot = slot.replace("avatar-", "corner-");
+        (slotBuckets[slot] || slotBuckets.main).push({ spec: resolvedSpec, node });
+      });
+      const stretchMain = widthMode === "full" || widthMode === "fixed";
+      const unframedCompactCap = !horizontalItem && !inside && !isFramed && widthMode === "auto" && cfg.textWrap !== "wrap" ? Math.max(dims.w + 36, 120) : 0;
       const metaCtx = {
         alignMode,
         horizontalItem,
@@ -2981,23 +4212,129 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         labelPosition,
         fieldGap,
         labelBg,
-        maxTextW: horizontalItem ? 0 : Math.max(dims.w + 36, 120)
+        maxTextW: unframedCompactCap,
+        stretchMain: horizontalItem && stretchMain
       };
-      if (splitMode && renderedFields.length) {
-        const topList = renderedFields.slice(0, 1);
-        const botList = renderedFields.slice(1);
-        card.appendChild(buildGroupMetaContainer(topList, { ...metaCtx, inside: false }));
-        card.appendChild(avBox);
-        if (botList.length) card.appendChild(buildGroupMetaContainer(botList, { ...metaCtx, inside: false }));
-      } else if (inside && renderedFields.length) {
-        avMedia.appendChild(buildGroupMetaContainer(renderedFields, metaCtx));
-        card.appendChild(avBox);
-      } else if ((labelPosition === "above" || labelPosition === "left") && renderedFields.length) {
-        card.appendChild(buildGroupMetaContainer(renderedFields, metaCtx));
-        card.appendChild(avBox);
+      const appendCoreParts = (rowHost, stackColumnFirst = false) => {
+        const mainList = slotBuckets.main;
+        const trailingList = slotBuckets.trailing;
+        const buildTrailing = () => trailingList.length ? buildGroupMetaContainer(trailingList, { ...metaCtx, inside: false, stretchMain: false, noLabelBg: true, slotAlign: alignMode !== "auto" ? alignMode : "right", slotClass: "sp-image-group-meta sp-image-group-trailing" }) : null;
+        const trailingNode = buildTrailing();
+        if (!horizontalItem && trailingNode) {
+          rowHost.style.display = "flex";
+          rowHost.style.flexDirection = "row";
+          rowHost.style.alignItems = cardAlign;
+          rowHost.style.gap = `${innerGap}px`;
+          const leftCol = document.createElement("div");
+          leftCol.className = "sp-image-group-core-stack";
+          leftCol.style.cssText = `display:flex;flex-direction:column;align-items:center;gap:${innerGap}px;flex:1 1 auto;min-width:0;`;
+          if (splitMode && mainList.length) {
+            leftCol.appendChild(buildGroupMetaContainer(mainList.slice(0, 1), { ...metaCtx, inside: false, stretchMain: false }));
+            if (avBox) leftCol.appendChild(avBox);
+            if (mainList.length > 1) leftCol.appendChild(buildGroupMetaContainer(mainList.slice(1), { ...metaCtx, inside: false, stretchMain: false }));
+          } else if (labelPosition === "above" && mainList.length) {
+            leftCol.appendChild(buildGroupMetaContainer(mainList, { ...metaCtx, stretchMain: false }));
+            if (avBox) leftCol.appendChild(avBox);
+          } else {
+            if (avBox) leftCol.appendChild(avBox);
+            if (mainList.length) leftCol.appendChild(buildGroupMetaContainer(mainList, { ...metaCtx, stretchMain: false }));
+          }
+          rowHost.appendChild(leftCol);
+          trailingNode.style.marginLeft = "auto";
+          trailingNode.style.flex = "0 0 auto";
+          rowHost.appendChild(trailingNode);
+          return;
+        }
+        rowHost.style.display = "flex";
+        rowHost.style.flexDirection = horizontalItem ? "row" : "column";
+        rowHost.style.alignItems = horizontalItem ? cardAlign : "center";
+        if (stackColumnFirst) rowHost.style.justifyContent = stretchMain ? "space-between" : "center";
+        rowHost.style.gap = `${innerGap}px`;
+        if (splitMode && mainList.length) {
+          rowHost.appendChild(buildGroupMetaContainer(mainList.slice(0, 1), { ...metaCtx, inside: false }));
+          if (avBox) rowHost.appendChild(avBox);
+          if (mainList.length > 1) rowHost.appendChild(buildGroupMetaContainer(mainList.slice(1), { ...metaCtx, inside: false }));
+        } else if (inside && mainList.length && avMedia) {
+          avMedia.appendChild(buildGroupMetaContainer(mainList, metaCtx));
+          if (avBox) rowHost.appendChild(avBox);
+        } else if ((labelPosition === "above" || labelPosition === "left") && mainList.length) {
+          rowHost.appendChild(buildGroupMetaContainer(mainList, metaCtx));
+          if (avBox) rowHost.appendChild(avBox);
+        } else {
+          if (avBox) rowHost.appendChild(avBox);
+          if (mainList.length) rowHost.appendChild(buildGroupMetaContainer(mainList, metaCtx));
+        }
+        if (trailingNode) {
+          trailingNode.style.marginLeft = "auto";
+          trailingNode.style.flex = "0 0 auto";
+          rowHost.appendChild(trailingNode);
+        }
+      };
+      if (avMedia) {
+        if (slotBuckets["avatar-top"].length) {
+          avMedia.appendChild(buildGroupMetaContainer(slotBuckets["avatar-top"], {
+            ...metaCtx,
+            inside: true,
+            overlayEdge: "avatar-top",
+            slotAlign: "center",
+            stretchMain: false,
+            slotClass: "sp-image-group-meta sp-image-group-avtop"
+          }));
+        }
+        if (slotBuckets["avatar-bottom"].length) {
+          avMedia.appendChild(buildGroupMetaContainer(slotBuckets["avatar-bottom"], {
+            ...metaCtx,
+            inside: true,
+            overlayEdge: "avatar-bottom",
+            slotAlign: "center",
+            stretchMain: false,
+            slotClass: "sp-image-group-meta sp-image-group-avbot"
+          }));
+        }
+      }
+      const hasOuterZones = slotBuckets.header.length > 0 || slotBuckets.footer.length > 0;
+      if (hasOuterZones) {
+        card.style.display = "flex";
+        card.style.flexDirection = "column";
+        card.style.alignItems = "stretch";
+        card.style.justifyContent = cardAlign;
+        card.style.gap = `${Math.max(4, fieldGap + 3)}px`;
+        if (slotBuckets.header.length) {
+          card.appendChild(buildGroupMetaContainer(slotBuckets.header, {
+            ...metaCtx,
+            inside: false,
+            horizontalItem: false,
+            stretchMain: false,
+            slotAlign: alignMode !== "auto" ? alignMode : horizontalItem ? "left" : "center",
+            slotClass: "sp-image-group-meta sp-image-group-header"
+          }));
+        }
+        const coreRow = document.createElement("div");
+        coreRow.className = "sp-image-group-core";
+        coreRow.style.cssText = "width:100%;min-width:0;flex:1 1 auto;";
+        appendCoreParts(coreRow, true);
+        card.appendChild(coreRow);
+        if (slotBuckets.footer.length) {
+          card.appendChild(buildGroupMetaContainer(slotBuckets.footer, {
+            ...metaCtx,
+            inside: false,
+            horizontalItem: false,
+            stretchMain: false,
+            slotAlign: alignMode !== "auto" ? alignMode : horizontalItem ? "left" : "center",
+            slotClass: "sp-image-group-meta sp-image-group-footer"
+          }));
+        }
       } else {
-        card.appendChild(avBox);
-        if (renderedFields.length) card.appendChild(buildGroupMetaContainer(renderedFields, metaCtx));
+        card.style.justifyContent = cardAlign === "flex-start" ? "flex-start" : cardAlign === "flex-end" ? "flex-end" : "center";
+        appendCoreParts(card, false);
+      }
+      if (avBox) {
+        for (const ak of ["avatar-tl", "avatar-tr", "avatar-bl", "avatar-br"]) {
+          if (slotBuckets[ak].length) avBox.appendChild(buildCornerGroupContainer(ak, slotBuckets[ak], fieldGap, cornerInset));
+        }
+      }
+      for (const ck of ["corner-tl", "corner-tr", "corner-bl", "corner-br"]) {
+        if (slotBuckets[ck].length) card.appendChild(buildCornerGroupContainer(ck, slotBuckets[ck], fieldGap, cornerInset));
       }
       wrap.appendChild(card);
       if (delimiter && layout !== "overlap" && idx < items.length - 1) {
@@ -3024,9 +4361,13 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       badge.style.justifyContent = "center";
       badge.style.fontWeight = "700";
       badge.style.fontSize = `${Math.max(12, Math.round(baseSize * 0.34))}px`;
-      badge.style.background = cardBg;
-      badge.style.color = cfg.labelColor || st.color || "#f8fafc";
-      badge.style.border = `${Math.max(1, avBorderW)}px solid ${avBorderC}`;
+      const resolveStripColor = (raw, fb) => {
+        const c = resolveColorToken(raw, status, {});
+        return c && !c.startsWith("@") ? c : fb;
+      };
+      badge.style.background = resolveStripColor(rawCardBg, "rgba(15,23,42,0.78)");
+      badge.style.color = resolveStripColor(cfg.labelColor, st.color || "#f8fafc");
+      badge.style.border = `${Math.max(1, avBorderW)}px solid ${resolveStripColor(rawAvBorderC, "rgba(255,255,255,0.28)")}`;
       badge.style.boxSizing = "border-box";
       if (layout === "overlap") badge.style.marginLeft = `-${overlap}px`;
       applyGroupAvatarShape(badge, shape, avatarRadius);
@@ -3045,10 +4386,12 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
     return true;
   }
-  var GROUP_POLY_CLIPS, GROUP_POLY_POINTS, IMAGE_GROUP_LAYOUTS, IMAGE_GROUP_SHAPES, IMAGE_GROUP_PLACEMENTS, FIELD_ROLE_SCALE;
+  var GROUP_POLY_CLIPS, GROUP_POLY_POINTS, IMAGE_GROUP_LAYOUTS, IMAGE_GROUP_SHAPES, IMAGE_GROUP_PLACEMENTS, IMAGE_GROUP_SLOTS, FIELD_ROLE_SCALE;
   var init_media = __esm({
     "public/js/overlay/media.js"() {
+      init_fonts();
       init_styles();
+      init_variables();
       GROUP_POLY_CLIPS = {
         hexagon: "polygon(50% 0%, 96% 25%, 96% 75%, 50% 100%, 4% 75%, 4% 25%)",
         diamond: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)",
@@ -3062,6 +4405,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       IMAGE_GROUP_LAYOUTS = /* @__PURE__ */ new Set(["row", "column", "grid", "overlap", "cards", "chips", "spotlight", "banners", "stagger"]);
       IMAGE_GROUP_SHAPES = /* @__PURE__ */ new Set(["rounded", "circle", "square", "squircle", "hexagon", "diamond", "octagon"]);
       IMAGE_GROUP_PLACEMENTS = /* @__PURE__ */ new Set(["below", "above", "left", "right", "inside-bottom", "inside-top", "split"]);
+      IMAGE_GROUP_SLOTS = /* @__PURE__ */ new Set(["main", "header", "footer", "trailing", "avatar-top", "avatar-bottom", "corner-tl", "corner-tr", "corner-bl", "corner-br", "avatar-tl", "avatar-tr", "avatar-bl", "avatar-br"]);
       FIELD_ROLE_SCALE = { title: 1, accent: 0.88, subtitle: 0.82, caption: 0.75, badge: 0.72 };
     }
   });
@@ -5910,879 +7254,6 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
   });
 
-  // public/js/overlay/variables.js
-  function formatMinutes(minutes) {
-    const m = Math.max(0, Math.round(minutes || 0));
-    return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
-  }
-  function pad(n) {
-    return String(n).padStart(2, "0");
-  }
-  function clock(ms) {
-    const total = Math.max(0, Math.floor(ms / 1e3));
-    const h = Math.floor(total / 3600), m = Math.floor(total % 3600 / 60), s = total % 60;
-    return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
-  }
-  function timerValues(status, now) {
-    const out = {};
-    const data = status.timerData;
-    if (!data) return out;
-    const drift = Math.max(0, now - (data.fetchedAt || now));
-    for (const [id, timer] of Object.entries(data.timers || {})) {
-      const running = timer.state === "running";
-      let text, percent;
-      if (timer.kind === "countdown") {
-        const remaining = Math.max(0, (timer.remainingMs || 0) - (running ? drift : 0));
-        text = clock(remaining);
-        percent = timer.totalMs > 0 ? Math.round(Math.min(1, (timer.totalMs - remaining) / timer.totalMs) * 100) : 0;
-      } else {
-        text = clock((timer.elapsedMs || 0) + (running ? drift : 0));
-        percent = "";
-      }
-      out[`timer.${id}`] = text;
-      out[`timer.${id}.ms`] = timer.kind === "countdown" ? Math.max(0, (timer.remainingMs || 0) - (running ? drift : 0)) : (timer.elapsedMs || 0) + (running ? drift : 0);
-      out[`timer.${id}.label`] = timer.label;
-      out[`timer.${id}.state`] = timer.state;
-      out[`timer.${id}.percent`] = percent;
-      if (timer.kind === "countdown" && timer.targetAt) out[`timer.${id}.target`] = timer.targetAt;
-    }
-    return out;
-  }
-  function musicValues(status, now) {
-    const music = status.music;
-    if (!music) return {};
-    const duration = Number(music.duration) || 0;
-    let position = Number(music.position) || 0;
-    if (music.state === "playing") position += (Number(music.positionAgeMs) || 0) / 1e3 + Math.max(0, now - (status.musicFetchedAt || now)) / 1e3;
-    if (duration > 0) position = Math.min(position, duration);
-    const hasTrack = !!music.track;
-    const mmss = (seconds) => `${Math.floor(seconds / 60)}:${pad(Math.floor(seconds % 60))}`;
-    return {
-      "music.album": music.album,
-      "music.cover": music.artworkUrl,
-      "music.position": hasTrack ? mmss(position) : "",
-      "music.duration": hasTrack && duration ? mmss(duration) : "",
-      "music.remaining": hasTrack && duration ? mmss(Math.max(0, duration - position)) : "",
-      "music.percent": hasTrack && duration ? Math.round(position / duration * 100) : ""
-    };
-  }
-  function weatherFields(w) {
-    return {
-      temp: w.temp,
-      temp_full: `${w.temp}${w.unit}`,
-      unit: w.unit,
-      feels_like: w.feels_like,
-      condition: w.condition,
-      icon: w.icon,
-      "icon.url": `/api/weather/icon.svg?e=${encodeURIComponent(w.icon)}`,
-      humidity: w.humidity,
-      wind: `${w.wind} ${w.wind_unit}${w.wind_dir ? ` ${w.wind_dir}` : ""}`,
-      "wind.speed": w.wind,
-      "wind.dir": w.wind_dir,
-      high: w.high,
-      low: w.low,
-      precip_chance: w.precip_chance,
-      city: w.city,
-      location: [w.city, w.region].filter(Boolean).join(", "),
-      gusts: w.gusts,
-      cloud_cover: w.cloud_cover,
-      pressure: w.pressure,
-      "pressure.unit": w.pressure_unit,
-      uv: w.uv,
-      sunrise: w.sunrise,
-      sunset: w.sunset,
-      ...forecastFields(w.hourly, "h", ["time", "temp", "condition", "icon", "precip"]),
-      ...forecastFields(w.daily, "d", ["day", "high", "low", "condition", "icon", "precip"])
-    };
-  }
-  function forecastFields(rows, prefix, keys) {
-    const out = {};
-    (rows || []).forEach((row, index) => {
-      for (const key of keys) out[`${prefix}${index + 1}.${key}`] = row[key];
-      out[`${prefix}${index + 1}.icon.url`] = `/api/weather/icon.svg?e=${encodeURIComponent(row.icon)}`;
-    });
-    return out;
-  }
-  function weatherValues(status) {
-    const w = status.weather;
-    const out = {};
-    if (!w?.enabled) return out;
-    if (w.ok) for (const [key, value] of Object.entries(weatherFields(w))) out[`weather.${key}`] = value;
-    for (const [slug, extra] of Object.entries(w.extras || {})) {
-      if (!extra.ok) continue;
-      for (const [key, value] of Object.entries(weatherFields(extra))) out[`weather.${slug}.${key}`] = value;
-    }
-    return out;
-  }
-  function flattenExternal(value, prefix, out, depth = 0) {
-    if (value === null || value === void 0) {
-      out[prefix] = "";
-      return out;
-    }
-    if (typeof value !== "object") {
-      out[prefix] = value;
-      return out;
-    }
-    if (depth >= 6) return out;
-    if (Array.isArray(value)) {
-      out[`${prefix}.length`] = value.length;
-      value.slice(0, 50).forEach((item, i) => flattenExternal(item, `${prefix}.${i}`, out, depth + 1));
-      return out;
-    }
-    for (const [key, item] of Object.entries(value)) flattenExternal(item, `${prefix}.${key}`, out, depth + 1);
-    return out;
-  }
-  function externalValues(status) {
-    const out = {};
-    for (const [key, value] of Object.entries(status.external || {})) flattenExternal(value, `rep.${key}`, out);
-    return out;
-  }
-  function planListValues(status) {
-    const out = {};
-    for (const list of status.gamePlan?.lists || []) out[`plan.list.${list.id}`] = (status.gamePlan.items || []).filter((item) => inPlanList(item, list.id)).map((item) => item.name).join(", ");
-    return out;
-  }
-  function goalValues(status) {
-    const out = {};
-    for (const goal of status.goalItems || []) {
-      out[`goal.${goal.id}.title`] = goal.title;
-      out[`goal.${goal.id}.current`] = goal.progress;
-      out[`goal.${goal.id}.target`] = goal.target;
-      out[`goal.${goal.id}.percent`] = goal.percent;
-      out[`goal.${goal.id}.remaining`] = goal.remaining;
-      const text = (value) => goal.unit === "usd" ? `$${Number(value || 0).toLocaleString(void 0, { minimumFractionDigits: Number.isInteger(Number(value)) ? 0 : 2, maximumFractionDigits: 2 })}` : String(value ?? "");
-      out[`goal.${goal.id}.current_text`] = text(goal.progress);
-      out[`goal.${goal.id}.target_text`] = text(goal.target);
-      out[`goal.${goal.id}.remaining_text`] = text(goal.remaining);
-    }
-    return out;
-  }
-  function eventValues(status) {
-    const out = {};
-    const first = (type) => (status.recentEvents || []).find((event) => event.type === type);
-    const pick = (name, type, field = "user") => {
-      const found = first(type);
-      if (found) out[name] = found[field];
-    };
-    pick("latest.follower", "follow");
-    pick("latest.subscriber", "sub");
-    pick("latest.gifter", "gift");
-    pick("latest.cheer", "bits");
-    pick("latest.cheer.amount", "bits", "detail");
-    pick("latest.donation", "donation");
-    pick("latest.donation.amount", "donation", "detail");
-    pick("latest.raider", "raid");
-    pick("latest.subscriber.tier", "sub", "detail");
-    const gift = first("gift");
-    if (gift?.detail) out["latest.gifter.recipient"] = gift.detail.replace(/^\u2192\s*/, "");
-    const raid = first("raid");
-    if (raid) out["latest.raider.viewers"] = parseInt(raid.detail, 10) || raid.detail;
-    const top = status.topChatters?.[0];
-    if (top) {
-      out["chatter.top"] = top.chatname;
-      out["chatter.top.count"] = top.messageCount;
-    }
-    out["chatter.last"] = status.recentChat?.last;
-    const seen = (status.topChatters || []).map((c) => c.chatname).filter(Boolean);
-    if (seen.length) {
-      out["chatter.random"] = seen[Math.floor(Math.random() * seen.length)];
-      out["chatter.list"] = seen.slice(0, 20).join(", ");
-    }
-    for (const minutes of [5, 10, 15, 30, 60]) {
-      const w = status.recentChat?.windows?.[minutes];
-      out[`chatter.top.${minutes}m`] = w?.name;
-      out[`chatter.top.${minutes}m.count`] = w?.count;
-    }
-    return out;
-  }
-  function clockValues(status, now) {
-    const d = new Date(now);
-    const started = Date.parse(status.viewers?.streamStartedAt || "") || Date.parse(status.startedAt || "");
-    return {
-      "time": d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
-      "time.24": `${pad(d.getHours())}:${pad(d.getMinutes())}`,
-      "time.seconds": d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }),
-      "date": d.toLocaleDateString(),
-      "date.long": d.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", year: "numeric" }),
-      "weekday": d.toLocaleDateString([], { weekday: "long" }),
-      "month": d.toLocaleDateString([], { month: "long" }),
-      "year": String(d.getFullYear()),
-      "now": d.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }),
-      "uptime": started ? clock(now - started) : "",
-      "session.duration": Date.parse(status.startedAt || "") ? clock(now - Date.parse(status.startedAt)) : ""
-    };
-  }
-  function variableGroups(status = {}) {
-    const groups = VARIABLE_GROUPS.map((g) => ({ label: g.label, items: g.items.slice() }));
-    groups.push({ label: "Clock", items: CLOCK_ITEMS });
-    const setsEnabled = status.modules?.variableSets !== false;
-    const customVars = (status.customVars || []).filter((v) => !v.hidden && (setsEnabled || !v.setId));
-    if (customVars.length) groups.push({ label: "Variables and counters", items: customVars.flatMap((v) => [[`var.${v.name}`, `${v.name} (${v.type})`], ...v.type === "list" ? [[`var.${v.name}.random`, `${v.name}, random item each time`]] : []]) });
-    if (status.weather?.enabled) {
-      groups.push({ label: "Weather", items: WEATHER_ITEMS });
-      for (const [slug, extra] of Object.entries(status.weather.extras || {})) {
-        if (extra.ok) groups.push({ label: `Weather: ${extra.city}`, items: WEATHER_ITEMS.map(([name, label]) => [name.replace("weather.", `weather.${slug}.`), label]) });
-      }
-    }
-    for (const [key, value] of Object.entries(status.external || {})) {
-      const items = Object.keys(flattenExternal(value, `rep.${key}`, {})).slice(0, 200).map((name) => [name, name.slice(`rep.${key}.`.length) || key]);
-      if (items.length) groups.push({ label: `Host: ${key}`, items });
-    }
-    groups.push({ label: "Game (IGDB)", items: GAME_ITEMS });
-    groups.push({ label: "Game plan", items: [...PLAN_ITEMS, ...(status.gamePlan?.lists || []).map((list) => [`plan.list.${list.id}`, `${list.name} list (comma list)`])] });
-    groups.push({ label: "Latest events", items: EVENT_ITEMS });
-    groups.push({ label: "Milestones & Streaks", items: MILESTONE_ITEMS });
-    for (const [id, timer] of Object.entries(status.timerData?.timers || {})) {
-      const items = [[`timer.${id}`, `${timer.label} \u2014 clock (format it: {{timer.${id}|short}})`], [`timer.${id}.ms`, `${timer.label} \u2014 milliseconds`], [`timer.${id}.label`, `${timer.label} \u2014 title`], [`timer.${id}.state`, `${timer.label} \u2014 state`]];
-      if (timer.kind === "countdown") items.push([`timer.${id}.percent`, `${timer.label} \u2014 percent complete`]);
-      if (timer.kind === "countdown" && timer.targetAt) items.push([`timer.${id}.target`, `${timer.label} \u2014 target date & time (formattable)`]);
-      groups.push({ label: `Timer: ${timer.label}`, items });
-    }
-    for (const goal of status.goalItems || []) {
-      groups.push({ label: `Goal: ${goal.title}`, items: [["title", "title"], ["current", "current progress"], ["target", "target"], ["percent", "percent"], ["remaining", "remaining"], ["current_text", "current (with $ for donations)"], ["target_text", "target (with $ for donations)"], ["remaining_text", "remaining (with $ for donations)"]].map(([key, label]) => [`goal.${goal.id}.${key}`, `${goal.title} \u2014 ${label}`]) });
-    }
-    groups.push({ label: "Versus / Matchup", items: MATCHUP_ITEMS });
-    groups.push({ label: "Tournament / Brackets", items: TOURNAMENT_ITEMS });
-    groups.push({ label: "Trivia Studio", items: TRIVIA_ITEMS });
-    groups.push({ label: "Tier List", items: TIER_LIST_ITEMS });
-    groups.push({ label: "Subathon Rates & Stats", items: SUBATHON_ITEMS });
-    return groups;
-  }
-  function milestoneValues(status) {
-    const m = status.milestones || {};
-    const streamNum = Number(m.stream_number) || 0;
-    const nextStreamGoal = Number(m.next_stream_goal) || 0;
-    const streamsRemaining = Math.max(0, nextStreamGoal - streamNum);
-    const streamGoalPercent = nextStreamGoal > 0 ? Math.min(100, Math.round(streamNum / nextStreamGoal * 100)) : 0;
-    const totalHours = Number(m.total_hours) || 0;
-    const nextHoursGoal = Number(m.next_hours_goal) || 0;
-    const hoursRemaining = Math.max(0, nextHoursGoal - totalHours);
-    const hoursGoalPercent = nextHoursGoal > 0 ? Math.min(100, Math.round(totalHours / nextHoursGoal * 100)) : 0;
-    return {
-      "milestone.stream_number": m.stream_number ?? "",
-      "milestone.total_hours": m.total_hours ?? "",
-      "milestone.total_time": m.total_time ?? "",
-      "milestone.streak_days": m.streak_days ?? 0,
-      "milestone.streak_weeks": m.streak_weeks ?? 0,
-      "milestone.lifetime_chatters": m.lifetime_chatters !== void 0 ? Number(m.lifetime_chatters).toLocaleString() : "",
-      "milestone.lifetime_messages": m.lifetime_messages !== void 0 ? Number(m.lifetime_messages).toLocaleString() : "",
-      "milestone.next_stream_goal": m.next_stream_goal ?? "",
-      "milestone.streams_remaining": streamsRemaining,
-      "milestone.stream_goal_percent": streamGoalPercent,
-      "milestone.next_hours_goal": m.next_hours_goal ?? "",
-      "milestone.hours_remaining": hoursRemaining,
-      "milestone.hours_goal_percent": hoursGoalPercent
-    };
-  }
-  function pollValues(status, now = Date.now()) {
-    const poll = status.poll;
-    if (!poll) return {};
-    const p = {
-      "poll.title": poll.title || "",
-      "poll.status": poll.status || "",
-      "poll.winner": poll.winner || "",
-      "poll.winner_votes": poll.winningVotes !== void 0 ? poll.winningVotes : "",
-      "poll.winner_percent": poll.winningPercent !== void 0 ? `${poll.winningPercent}%` : "",
-      "poll.total_votes": poll.totalVotes !== void 0 ? poll.totalVotes : "",
-      "poll.duration": poll.duration ? String(poll.duration) : ""
-    };
-    if (poll.status === "ACTIVE" && poll.duration && poll.startedAt) {
-      const startedMs = Date.parse(poll.startedAt);
-      const elapsed = !isNaN(startedMs) ? Math.floor((now - startedMs) / 1e3) : 0;
-      const remaining = Math.max(0, Number(poll.duration) - elapsed);
-      const m = Math.floor(remaining / 60);
-      const s = remaining % 60;
-      p["poll.remaining"] = m > 0 ? `${m}:${String(s).padStart(2, "0")}` : `${s}s`;
-      p["poll.remaining_seconds"] = remaining;
-    } else {
-      p["poll.remaining"] = "0s";
-      p["poll.remaining_seconds"] = 0;
-    }
-    (poll.choices || []).forEach((c, i) => {
-      const idx = i + 1;
-      p[`poll.choice.${idx}.title`] = c.title || "";
-      p[`poll.choice.${idx}.votes`] = c.votes !== void 0 ? c.votes : "";
-      p[`poll.choice.${idx}.percent`] = c.percent !== void 0 ? `${c.percent}%` : "";
-    });
-    return p;
-  }
-  function matchupValues(status) {
-    const m = status?.matchup;
-    if (!m) return {};
-    const c1 = m.competitors?.[0];
-    const c2 = m.competitors?.[1];
-    return {
-      "matchup.title": m.title || "",
-      "matchup.phase": m.phase || "",
-      "matchup.round": m.phase || "",
-      "matchup.format": m.format || "",
-      "matchup.status": m.status || "",
-      "matchup.winner": m.winner || "",
-      "matchup.clock": m.clock?.formatted || "",
-      "matchup.player1.name": c1?.name || "",
-      "matchup.player1.score": c1?.score !== void 0 ? c1.score : "",
-      "matchup.player1.tag": c1?.tag || "",
-      "matchup.player1.color": c1?.color || "",
-      "matchup.c1_name": c1?.name || "",
-      "matchup.c1_score": c1?.score !== void 0 ? c1.score : "",
-      "matchup.player2.name": c2?.name || "",
-      "matchup.player2.score": c2?.score !== void 0 ? c2.score : "",
-      "matchup.player2.tag": c2?.tag || "",
-      "matchup.player2.color": c2?.color || "",
-      "matchup.c2_name": c2?.name || "",
-      "matchup.c2_score": c2?.score !== void 0 ? c2.score : ""
-    };
-  }
-  function tournamentValues(status) {
-    const t = status?.tournament || status?.pollTournament;
-    if (!t) return {};
-    const match = t.activeMatch;
-    const e1 = match?.entrant1;
-    const e2 = match?.entrant2;
-    const matchTitle = e1?.name && e2?.name ? `${e1.name} vs ${e2.name}` : match?.title || "";
-    const roundText = match?.roundName || (match?.round !== void 0 ? `Round ${match.round}` : "");
-    return {
-      "tournament.title": t.title || "",
-      "tournament.format": t.format || "",
-      "tournament.status": t.status || "",
-      "tournament.champion": t.champion?.name || t.winner?.name || (typeof t.champion === "string" ? t.champion : "") || (typeof t.winner === "string" ? t.winner : ""),
-      "tournament.match.current": matchTitle,
-      "tournament.match.round": roundText,
-      "tournament.round": roundText,
-      "tournament.match.entrant1": e1?.name || "",
-      "tournament.match.entrant1.score": match?.e1Score !== void 0 ? match.e1Score : e1?.score !== void 0 ? e1.score : "",
-      "tournament.match.entrant2": e2?.name || "",
-      "tournament.match.entrant2.score": match?.e2Score !== void 0 ? match.e2Score : e2?.score !== void 0 ? e2.score : ""
-    };
-  }
-  function triviaValues(status, now = Date.now()) {
-    const t = status?.trivia;
-    if (!t) return {};
-    const active = t.activeQuestion;
-    const isReveal = t.status === "reveal";
-    let timerText = "";
-    if (t.status === "question" && active?.endsAt) {
-      const remaining = Math.max(0, Math.ceil((active.endsAt - now) / 1e3));
-      timerText = `${remaining}s`;
-    } else if (t.remainingSeconds !== void 0 && t.status === "question") {
-      timerText = `${t.remainingSeconds}s`;
-    }
-    let answerText = "";
-    let funfactText = "";
-    if (isReveal && active) {
-      funfactText = active.funfact || "";
-      if (active.correctIndex !== null && active.correctIndex !== void 0 && Array.isArray(active.choices)) {
-        const correctChoice = active.choices[active.correctIndex];
-        answerText = typeof correctChoice === "string" ? correctChoice : correctChoice?.text || "";
-      }
-    }
-    const out = {
-      "trivia.question": active?.question || t.activeQuestionText || "",
-      "trivia.category": active?.category || t.activeCategory || "",
-      "trivia.phase": t.status || "idle",
-      "trivia.number": t.currentIndex !== void 0 && t.currentIndex >= 0 ? t.currentIndex + 1 : "",
-      "trivia.total": t.totalQuestions !== void 0 ? t.totalQuestions : "",
-      "trivia.answer": answerText,
-      "trivia.funfact": funfactText,
-      "trivia.timer": timerText,
-      "trivia.votes": active?.totalVotes !== void 0 ? active.totalVotes : t.totalVotes || ""
-    };
-    const choices = active?.choices || [];
-    for (let i = 0; i < 6; i++) {
-      const idx = i + 1;
-      const c = choices[i];
-      out[`trivia.choice.${idx}`] = c ? typeof c === "string" ? c : c.text || "" : "";
-      out[`trivia.choice.${idx}.votes`] = c && c.votes !== void 0 ? c.votes : "";
-      out[`trivia.choice.${idx}.percent`] = c && c.percent !== void 0 ? `${c.percent}%` : "";
-    }
-    const lb = t.leaderboard || {};
-    const leader = lb.seasonLeader || lb.sessionLeader || null;
-    const top3 = Array.isArray(lb.seasonTop3) && lb.seasonTop3.length ? lb.seasonTop3 : Array.isArray(lb.sessionTop3) ? lb.sessionTop3 : [];
-    out["trivia.leader.name"] = leader?.name || "";
-    out["trivia.leader.points"] = leader && leader.points !== void 0 ? leader.points : "";
-    out["trivia.leader.correct"] = leader && leader.correct !== void 0 ? leader.correct : "";
-    out["trivia.leader.accuracy"] = leader && leader.accuracy !== void 0 ? `${leader.accuracy}%` : "";
-    out["trivia.leader.top3"] = top3.length ? top3.map((e, i) => `#${e.rank || i + 1} ${e.name} (${e.points})`).join(", ") : "";
-    return out;
-  }
-  function tierListValues(status, now = Date.now()) {
-    const tl = status?.tierList;
-    if (!tl) return {};
-    const vote = tl.activeVote;
-    const consensus = vote?.consensus;
-    const tier = consensus?.consensusTier;
-    let timerText = "";
-    if (vote && vote.status === "ACTIVE" && vote.endsAt) {
-      const remaining = Math.max(0, Math.ceil((vote.endsAt - now) / 1e3));
-      const m = Math.floor(remaining / 60);
-      const s = remaining % 60;
-      timerText = m > 0 ? `${m}:${pad(s)}` : `${s}s`;
-    } else if (vote?.status === "LOCKED") {
-      timerText = "Locked";
-    }
-    return {
-      "tier_list.title": tl.title || "",
-      "tier_list.item": vote?.itemName || "",
-      "tier_list.item_image": vote?.itemImage || "",
-      "tier_list.vote_status": vote?.status ? vote.status.toLowerCase() : "idle",
-      "tier_list.vote_timer": timerText,
-      "tier_list.consensus_tier": tier?.label || "",
-      "tier_list.consensus_percent": consensus?.agreementPercent !== void 0 ? `${consensus.agreementPercent}%` : "",
-      "tier_list.total_votes": consensus?.totalVotes !== void 0 ? consensus.totalVotes : vote?.totalVotes || ""
-    };
-  }
-  function subathonValues(status) {
-    const sb = status?.subathon;
-    if (!sb || !sb.enabled) return {};
-    const totalSec = Number(sb.totalAddedSeconds) || 0;
-    const h = Math.floor(totalSec / 3600);
-    const m = Math.floor(totalSec % 3600 / 60);
-    const totalFormatted = h > 0 ? `${h}h ${m}m` : `${m}m`;
-    return {
-      "subathon.total_added": totalFormatted,
-      "subathon.multiplier": sb.multiplier || "",
-      "subathon.boost": sb.boostActive || sb.happyHour ? "true" : "false",
-      "subathon.boost_active": sb.boostActive || sb.happyHour ? "true" : "false",
-      "subathon.happy_hour": sb.boostActive || sb.happyHour ? "true" : "false",
-      "subathon.subs": sb.totalSubs !== void 0 ? String(sb.totalSubs) : "",
-      "subathon.bits": sb.totalBits !== void 0 ? String(sb.totalBits) : "",
-      "subathon.donations": sb.totalDonations !== void 0 ? String(sb.totalDonations) : "",
-      "subathon.follows": sb.totalFollows !== void 0 ? String(sb.totalFollows) : "",
-      "subathon.raids": sb.totalRaids !== void 0 ? String(sb.totalRaids) : "",
-      "subathon.rule.tier1": sb.subTier1Formatted || "",
-      "subathon.rule.tier2": sb.subTier2Formatted || "",
-      "subathon.rule.tier3": sb.subTier3Formatted || "",
-      "subathon.rule.tip_rate": sb.tipRateFormatted || "",
-      "subathon.rule.bits_rate": sb.bitsRateFormatted || "",
-      "subathon.rule.follow": sb.followFormatted || "",
-      "subathon.rule.summary": sb.rulesSummary || ""
-    };
-  }
-  function variableTable(status = {}, context = {}, now = Date.now()) {
-    const table = {
-      ...clockValues(status, now),
-      ...eventValues(status),
-      ...goalValues(status),
-      ...timerValues(status, now),
-      ...musicValues(status, now),
-      ...planListValues(status),
-      ...weatherValues(status),
-      ...externalValues(status),
-      ...pollValues(status, now),
-      ...milestoneValues(status),
-      ...matchupValues(status),
-      ...tournamentValues(status),
-      ...triviaValues(status, now),
-      ...tierListValues(status, now),
-      ...subathonValues(status),
-      ...customVarValues(status),
-      "stream.category": status.stream?.category?.name,
-      "stream.live": status.viewers?.live ? "yes" : "no",
-      "session.started": status.startedAt,
-      "music.state": status.music?.state,
-      "emotes": status.ssn?.emotes,
-      "raids": status.ssn?.raids,
-      "highlights": status.library?.highlights,
-      "clips.pending": status.library?.clipCandidates,
-      "hashtags.top.count": status.popularHashtags?.overall?.[0]?.count,
-      "hashtags.top.2": status.popularHashtags?.overall?.[1]?.tag,
-      "hashtags.top.3": status.popularHashtags?.overall?.[2]?.tag,
-      "game.name": status.stream?.game?.igdbName || status.stream?.game?.name,
-      "game.url": status.stream?.game?.igdbUrl,
-      "plan.next": (status.gamePlan?.items || []).find((item) => item.status === "scheduled" && !item.playingNow)?.name,
-      "plan.scheduled.count": (status.gamePlan?.items || []).filter((item) => item.status === "scheduled").length,
-      "plan.backlog.count": (status.gamePlan?.items || []).filter((item) => item.status === "backlog").length,
-      "game.cover": status.stream?.game?.cover,
-      "game.release_date": status.stream?.game?.releaseDate,
-      "game.release_year": status.stream?.game?.releaseYear,
-      "game.rating": status.stream?.game?.rating,
-      "game.genres": (status.stream?.game?.genres || []).join(", "),
-      "game.developer": (status.stream?.game?.developers || [])[0],
-      "game.platforms": (status.stream?.game?.platforms || []).join(", "),
-      "game.summary": status.stream?.game?.summary,
-      "plan.now": (status.gamePlan?.items || []).find((item) => item.playingNow)?.name,
-      "plan.scheduled": (status.gamePlan?.items || []).filter((item) => item.status === "scheduled").map((item) => item.name).join(", "),
-      "plan.backlog": (status.gamePlan?.items || []).filter((item) => item.status === "backlog").map((item) => item.name).join(", "),
-      "category.session_time": status.stream?.category ? formatMinutes(status.stream.category.sessionMinutes) : void 0,
-      "category.total_time": status.stream?.category ? formatMinutes(status.stream.category.totalMinutes) : void 0,
-      "category.total_hours": status.stream?.category ? (status.stream.category.totalMinutes / 60).toFixed(1) : void 0,
-      "viewer.current": status.viewers?.current,
-      "viewers.current": status.viewers?.current,
-      "viewer.peak": status.viewers?.peak,
-      "viewers.peak": status.viewers?.peak,
-      "viewer.average": status.viewers?.average,
-      "viewers.average": status.viewers?.average,
-      "chatters": status.ssn?.chatters,
-      "messages": status.ssn?.messages,
-      "followers": status.goalMetrics?.persistent?.followers ?? status.ssn?.followers,
-      "followers.session": status.goalMetrics?.session?.followers ?? status.ssn?.followers,
-      "subscribers": status.goalMetrics?.persistent?.subscribers ?? status.ssn?.subscribers,
-      "subscribers.session": status.goalMetrics?.session?.subscribers ?? status.ssn?.subscribers,
-      "gift_subs": status.goalMetrics?.session?.gift_subs,
-      "gift_subs.total": status.goalMetrics?.persistent?.gift_subs,
-      "bits": status.goalMetrics?.session?.bits,
-      "bits.total": status.goalMetrics?.persistent?.bits,
-      "donations": status.goalMetrics?.session?.donations,
-      "donations.total": status.goalMetrics?.persistent?.donations,
-      "hashtags": status.ssn?.hashtags,
-      "hashtags.top": status.popularHashtags?.overall?.[0]?.tag || status.hashtags?.topTag,
-      "hashtags.session_top": status.popularHashtags?.session?.[0]?.tag,
-      "hashtags.total": status.hashtags?.totalMentions,
-      "music.title": status.music?.track,
-      "music.artist": status.music?.artist,
-      "stream.title": status.stream?.title,
-      "overlay.name": context.overlayName
-    };
-    const planItems = status.gamePlan?.items || [];
-    const lists = {
-      "plan.scheduled": planItems.filter((item) => item.status === "scheduled").map((item) => item.name),
-      "plan.backlog": planItems.filter((item) => item.status === "backlog").map((item) => item.name),
-      "game.genres": status.stream?.game?.genres || [],
-      "game.platforms": status.stream?.game?.platforms || []
-    };
-    for (const list of status.gamePlan?.lists || []) lists[`plan.list.${list.id}`] = planItems.filter((item) => inPlanList(item, list.id)).map((item) => item.name);
-    Object.defineProperty(table, "__lists", { value: lists, enumerable: false });
-    return table;
-  }
-  function formatDate(date, format) {
-    const h12 = date.getHours() % 12 || 12;
-    const names = { MMMM: { month: "long" }, MMM: { month: "short" }, dddd: { weekday: "long" }, ddd: { weekday: "short" } };
-    const map = {
-      YYYY: () => date.getFullYear(),
-      YY: () => String(date.getFullYear()).slice(-2),
-      MM: () => pad(date.getMonth() + 1),
-      M: () => date.getMonth() + 1,
-      DD: () => pad(date.getDate()),
-      Do: () => ordinal(date.getDate()),
-      D: () => date.getDate(),
-      HH: () => pad(date.getHours()),
-      H: () => date.getHours(),
-      hh: () => pad(h12),
-      h: () => h12,
-      mm: () => pad(date.getMinutes()),
-      m: () => date.getMinutes(),
-      ss: () => pad(date.getSeconds()),
-      s: () => date.getSeconds(),
-      A: () => date.getHours() < 12 ? "AM" : "PM",
-      a: () => date.getHours() < 12 ? "am" : "pm"
-    };
-    return format.replace(/\[([^\]]*)\]|MMMM|MMM|dddd|ddd|YYYY|YY|MM|M|DD|Do|D|HH|H|hh|h|mm|m|ss|s|A|a/g, (token, literal) => {
-      if (literal !== void 0) return literal;
-      if (names[token]) return date.toLocaleDateString([], names[token]);
-      return String(map[token]());
-    });
-  }
-  function parseDateValue(value) {
-    const text = String(value ?? "").trim();
-    if (!text) return null;
-    const dateOnly = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    const date = dateOnly ? new Date(+dateOnly[1], +dateOnly[2] - 1, +dateOnly[3]) : new Date(text);
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
-  function formatDuration(ms, format) {
-    const total = Math.max(0, Math.floor((Number(ms) || 0) / 1e3));
-    const v = { d: Math.floor(total / 86400), h: Math.floor(total % 86400 / 3600), m: Math.floor(total % 3600 / 60), s: total % 60 };
-    const first = v.d ? "d" : v.h ? "h" : v.m ? "m" : "s";
-    const order = ["d", "h", "m", "s"].slice(["d", "h", "m", "s"].indexOf(first));
-    const presets = {
-      short: order.map((u) => `${v[u]}${u}`).join(" "),
-      long: order.map((u) => `${v[u]} ${{ d: "day", h: "hour", m: "minute", s: "second" }[u]}${v[u] === 1 ? "" : "s"}`).join(", "),
-      clock: v.d ? `${v.d}d ${v.h}:${pad(v.m)}:${pad(v.s)}` : v.h ? `${v.h}:${pad(v.m)}:${pad(v.s)}` : `${v.m}:${pad(v.s)}`
-    };
-    if (presets[format] !== void 0) return presets[format];
-    const map = { d: v.d, dd: pad(v.d), h: v.h, hh: pad(v.h), m: v.m, mm: pad(v.m), s: v.s, ss: pad(v.s), th: Math.floor(total / 3600), tm: Math.floor(total / 60), ts: total };
-    return format.replace(/\[([^\]]*)\]|th|tm|ts|dd|d|hh|h|mm|m|ss|s/g, (token, literal) => literal !== void 0 ? literal : String(map[token]));
-  }
-  function applyFormat(name, value, format, now, table = {}) {
-    if (!format) return value;
-    const money = format.match(/^money(?::([a-z]{3}))?$/i);
-    if (money) {
-      const n = Number(String(value ?? "").replace(/[^0-9.-]/g, ""));
-      if (value === "" || value === void 0 || value === null || !Number.isFinite(n)) return value;
-      try {
-        return new Intl.NumberFormat("en-US", { style: "currency", currency: (money[1] || "USD").toUpperCase() }).format(n);
-      } catch {
-        return n.toFixed(2);
-      }
-    }
-    if (isListKey(name)) {
-      const items = (table.__lists?.[name] || String(value ?? "").split(", ")).filter(Boolean);
-      if (/^(lines|newline|br)$/i.test(format)) return items.join("\n");
-      if (/^bullets$/i.test(format)) return items.map((item) => `\u2022 ${item}`).join("\n");
-      if (/^numbered$/i.test(format)) return items.map((item, i) => `${i + 1}. ${item}`).join("\n");
-      const limit = format.match(/^(\d+)(?::(.*))?$/s);
-      if (limit) return items.slice(0, Number(limit[1])).join(limit[2] === void 0 ? ", " : limit[2].replace(/\\n/g, "\n").replace(/\\s/g, " "));
-      return items.join(format.replace(/^sep:/, "").replace(/\\n/g, "\n").replace(/\\s/g, " "));
-    }
-    if (/^timer\.[a-zA-Z0-9_-]+$/.test(name) && table[`${name}.ms`] !== void 0) return formatDuration(table[`${name}.ms`], format);
-    const clockKey = /^(now|time|time\.24|time\.seconds|date|date\.long)$/.test(name);
-    const date = clockKey ? new Date(now) : parseDateValue(value);
-    return date ? formatDate(date, format) : value;
-  }
-  function customVarValues(status) {
-    const vars = status.customVars || [];
-    const entries = Object.fromEntries(vars.map((v) => [`var.${v.name}`, v.value]));
-    for (const v of vars) {
-      if (v.type === "list" && v.items?.length) {
-        entries[`var.${v.name}.random`] = v.items[Math.floor(Math.random() * v.items.length)];
-      }
-    }
-    const templates = new Map(vars.filter((v) => v.type === "template").map((v) => [`var.${v.name}`, String(v.value ?? "")]));
-    const done = /* @__PURE__ */ new Map();
-    const resolving = /* @__PURE__ */ new Set();
-    const resolve = (key, depth) => {
-      if (!templates.has(key)) return entries[key];
-      if (done.has(key)) return done.get(key);
-      if (depth > 3 || resolving.has(key)) return "";
-      resolving.add(key);
-      const text = templates.get(key).replace(/\{\{\s*var\.([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (_, ref, fb) => {
-        const val = resolve(`var.${ref}`, depth + 1);
-        const str = val === void 0 || val === null ? "" : String(val);
-        return str !== "" ? str : fb !== void 0 ? fb.trim() : "";
-      });
-      resolving.delete(key);
-      done.set(key, text);
-      return text;
-    };
-    for (const key of templates.keys()) entries[key] = resolve(key, 0);
-    return entries;
-  }
-  function expandVariables(value, status, context = {}, keepEmpty = false, _depth = 0) {
-    const now = Date.now();
-    const table = variableTable(status, context, now);
-    const tplMap = new Map((status.customVars || []).filter((v) => v.type === "template").map((v) => [`var.${v.name}`, v.value]));
-    return String(value ?? "").replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (match, name, format) => {
-      if (name.startsWith("var.") && tplMap.has(name) && _depth < 3) {
-        const expanded = expandVariables(tplMap.get(name) ?? "", status, context, keepEmpty, _depth + 1);
-        if (expanded !== "") return expanded;
-        if (format !== void 0) {
-          const fb = format.trim();
-          return fb === "" && keepEmpty ? match : fb;
-        }
-        return keepEmpty ? match : "";
-      }
-      if (name.startsWith("var.") && format !== void 0 && !isListKey(name)) {
-        const raw = table[name];
-        const str = raw === void 0 || raw === null ? "" : String(raw);
-        if (str === "") {
-          const fb = format.trim();
-          return fb === "" && keepEmpty ? match : fb;
-        }
-      }
-      const resolved = format === void 0 ? table[name] : applyFormat(name, table[name], isListKey(name) ? format.replace(/^\s+/, "") : format.trim(), now, table);
-      const text = resolved === void 0 || resolved === null ? "" : String(resolved);
-      return text === "" && keepEmpty ? match : text;
-    });
-  }
-  function variableSnapshot(status, context) {
-    const table = variableTable(status, context);
-    for (const key of Object.keys(table)) {
-      if (isTicking(key) && !key.startsWith("timer.") || key === "chatter.random" || /\.random$/i.test(key)) delete table[key];
-    }
-    for (const key of Object.keys(table)) if (key.startsWith("timer.") && !/\.(label|state)$/.test(key)) delete table[key];
-    table.__plan = (status.gamePlan?.items || []).map((item) => [item.name, item.status, item.period, item.cover, item.playingNow, item.note, item.finished, (item.played || []).join(","), (item.extraLists || []).join(",")]);
-    return JSON.stringify(table);
-  }
-  async function loadLiveExtras(status, elements = null) {
-    try {
-      let needTimers = true, needGoals = true, needPlan = true, needWeather = true;
-      if (Array.isArray(elements)) {
-        const raw = elements.map((el) => `${el.type || ""} ${el.content || ""} ${el.progress?.label || ""} ${(el.items || []).join(" ")}`).join(" ");
-        needTimers = /\btimer\./i.test(raw);
-        needGoals = /\bgoal\./i.test(raw);
-        needPlan = elements.some((el) => el.type === "game-list") || /\bplan\./i.test(raw);
-        needWeather = /\bweather\./i.test(raw);
-      }
-      const [timers, goals, plan, weather] = await Promise.all([
-        needTimers ? fetch("/api/timers", { cache: "no-store" }).then((r) => r.ok ? r.json() : null) : null,
-        needGoals ? fetch("/api/goals", { cache: "no-store" }).then((r) => r.ok ? r.json() : null) : null,
-        needPlan ? fetch("/api/game-plan", { cache: "no-store" }).then((r) => r.ok ? r.json() : null) : null,
-        needWeather ? fetch("/api/weather", { cache: "no-store" }).then((r) => r.ok ? r.json() : null) : null
-      ]);
-      if (weather) status.weather = weather;
-      if (plan) status.gamePlan = plan;
-      status.musicFetchedAt = Date.now();
-      if (timers) status.timerData = { fetchedAt: Date.now(), timers: timers.timers || {} };
-      if (goals) status.goalItems = goals.items || [];
-    } catch {
-    }
-    return status;
-  }
-  var VARIABLE_GROUPS, CLOCK_ITEMS, GAME_ITEMS, WEATHER_ITEMS, PLAN_ITEMS, EVENT_ITEMS, MILESTONE_ITEMS, MATCHUP_ITEMS, TOURNAMENT_ITEMS, TRIVIA_ITEMS, TIER_LIST_ITEMS, SUBATHON_ITEMS, TICKING, isTicking, hasTicking, inPlanList, LIST_FORMAT_PRESETS, FORMAT_PRESETS, isDateKey, ordinal, isListFormat, isListKey;
-  var init_variables = __esm({
-    "public/js/overlay/variables.js"() {
-      VARIABLE_GROUPS = [
-        { label: "Viewers", items: [["viewers.current", "Current viewers"], ["viewers.peak", "Peak viewers"], ["viewers.average", "Average viewers"]] },
-        { label: "Chat", items: [["chatters", "Chatters"], ["messages", "Messages"], ["followers", "Followers (current total)"], ["followers.session", "New followers this session"], ["subscribers", "Subscribers (current total)"], ["subscribers.session", "Subscribers seen this session"], ["emotes", "Different emotes used this session"], ["raids", "Raids this session"], ["highlights", "Saved highlights"], ["clips.pending", "Clip candidates waiting"]] },
-        { label: "Engagement", items: [["gift_subs", "Gift subs this session"], ["gift_subs.total", "Gift subs (lifetime)"], ["bits", "Bits this session"], ["bits.total", "Bits (lifetime)"], ["donations", "Donations this session"], ["donations.total", "Donations (lifetime)"]] },
-        { label: "Hashtags", items: [["hashtags.top", "Most popular hashtag overall"], ["hashtags.session_top", "Most popular hashtag this session"], ["hashtags.top.count", "Mentions of the most popular hashtag"], ["hashtags.top.2", "Second most popular hashtag"], ["hashtags.top.3", "Third most popular hashtag"], ["hashtags.total", "Total hashtag mentions"]] },
-        { label: "Twitch Poll", items: [["poll.title", "Poll question / title"], ["poll.winner", "Winning choice title"], ["poll.winner_votes", "Winning choice vote count"], ["poll.winner_percent", "Winning choice percentage (e.g. 64%)"], ["poll.total_votes", "Total votes across all choices"], ["poll.status", "Status (ACTIVE, COMPLETED, etc.)"], ["poll.duration", "Total poll duration (seconds)"], ["poll.remaining", "Remaining countdown timer (e.g. 1:45)"], ["poll.choice.1.title", "Choice 1 title"], ["poll.choice.1.votes", "Choice 1 votes"], ["poll.choice.1.percent", "Choice 1 percent"], ["poll.choice.2.title", "Choice 2 title"], ["poll.choice.2.votes", "Choice 2 votes"], ["poll.choice.2.percent", "Choice 2 percent"], ["poll.choice.3.title", "Choice 3 title"], ["poll.choice.3.votes", "Choice 3 votes"], ["poll.choice.3.percent", "Choice 3 percent"], ["poll.choice.4.title", "Choice 4 title"], ["poll.choice.4.votes", "Choice 4 votes"], ["poll.choice.4.percent", "Choice 4 percent"], ["poll.choice.5.title", "Choice 5 title"], ["poll.choice.5.votes", "Choice 5 votes"], ["poll.choice.5.percent", "Choice 5 percent"]] },
-        { label: "Stream", items: [["music.title", "Music title"], ["music.artist", "Music artist"], ["music.album", "Music album"], ["music.cover", "Album art URL (use as an image source)"], ["music.position", "Track position (m:ss)"], ["music.duration", "Track length (m:ss)"], ["music.remaining", "Track time remaining (m:ss)"], ["music.percent", "Track progress % (for a progress element)"], ["music.state", "Music state (playing / paused / stopped)"], ["stream.title", "Stream title"], ["stream.category", "Stream category (from Twitch)"], ["stream.live", "Live on Twitch (yes / no)"], ["session.started", "Session start time (formattable)"], ["session.duration", "Time since the session started"], ["category.session_time", "Time in this category, this session"], ["category.total_time", "Time in this category, all sessions"], ["category.total_hours", "Hours in this category, all sessions"], ["overlay.name", "Overlay name"]] }
-      ];
-      CLOCK_ITEMS = [["now", "Current date & time (format it with {{now|MMMM D, h:mm A}})"], ["time", "Time (e.g. 3:07 PM)"], ["time.24", "Time, 24-hour"], ["time.seconds", "Time with seconds"], ["date", "Date (short)"], ["date.long", "Date (long)"], ["weekday", "Weekday"], ["month", "Month"], ["year", "Year"], ["uptime", "Stream uptime (H:MM:SS)"]];
-      GAME_ITEMS = [["game.name", "Game name"], ["game.url", "IGDB page link"], ["game.cover", "Cover art URL (use as an image source)"], ["game.release_date", "Release date"], ["game.release_year", "Release year"], ["game.genres", "Genres"], ["game.developer", "Developer"], ["game.platforms", "Platforms"], ["game.rating", "IGDB rating (0\u2013100)"], ["game.summary", "Summary"]];
-      WEATHER_ITEMS = [
-        ["weather.temp", "Temperature (number)"],
-        ["weather.temp_full", "Temperature with unit (72\xB0F)"],
-        ["weather.unit", "Temperature unit (\xB0F / \xB0C)"],
-        ["weather.feels_like", "Feels like (number)"],
-        ["weather.condition", "Conditions (Partly cloudy)"],
-        ["weather.icon", "Weather icon (emoji)"],
-        ["weather.icon.url", "Weather icon image URL (use as an image source)"],
-        ["weather.humidity", "Humidity %"],
-        ["weather.wind", "Wind with unit (8 mph NW)"],
-        ["weather.wind.speed", "Wind speed (number)"],
-        ["weather.wind.dir", "Wind direction (NW)"],
-        ["weather.high", "Today's high"],
-        ["weather.low", "Today's low"],
-        ["weather.precip_chance", "Chance of precipitation %"],
-        ["weather.city", "City"],
-        ["weather.location", "City, region"],
-        ["weather.gusts", "Wind gusts (number)"],
-        ["weather.cloud_cover", "Cloud cover %"],
-        ["weather.pressure", "Pressure (29.92 inHg / 1013 hPa)"],
-        ["weather.pressure.unit", "Pressure unit"],
-        ["weather.uv", "UV index (today's max)"],
-        ["weather.sunrise", "Sunrise (6:52 AM)"],
-        ["weather.sunset", "Sunset (7:14 PM)"],
-        ["weather.h1.time", "Next hours: h1\u2013h6 time (3 PM)"],
-        ["weather.h1.temp", "Next hours: h1\u2013h6 temperature"],
-        ["weather.h1.icon", "Next hours: h1\u2013h6 icon (emoji)"],
-        ["weather.h1.icon.url", "Next hours: h1\u2013h6 icon image URL"],
-        ["weather.h1.condition", "Next hours: h1\u2013h6 conditions"],
-        ["weather.h1.precip", "Next hours: h1\u2013h6 chance of precipitation %"],
-        ["weather.d1.day", "Next days: d1\u2013d5 weekday (d1 = tomorrow)"],
-        ["weather.d1.high", "Next days: d1\u2013d5 high"],
-        ["weather.d1.low", "Next days: d1\u2013d5 low"],
-        ["weather.d1.icon", "Next days: d1\u2013d5 icon (emoji)"],
-        ["weather.d1.icon.url", "Next days: d1\u2013d5 icon image URL"],
-        ["weather.d1.condition", "Next days: d1\u2013d5 conditions"],
-        ["weather.d1.precip", "Next days: d1\u2013d5 chance of precipitation %"]
-      ];
-      PLAN_ITEMS = [["plan.now", "Game from your plan you are playing now"], ["plan.scheduled", "Scheduled games (comma list)"], ["plan.backlog", "Backlog games (comma list)"], ["plan.next", "Next scheduled game"], ["plan.scheduled.count", "Number of scheduled games"], ["plan.backlog.count", "Number of backlog games"]];
-      EVENT_ITEMS = [["latest.follower", "Latest follower"], ["latest.subscriber", "Latest subscriber"], ["latest.gifter", "Latest gift sub gifter"], ["latest.gifter.recipient", "Latest gift sub recipient"], ["latest.subscriber.tier", "Latest subscriber tier or type"], ["latest.cheer", "Latest cheerer"], ["latest.cheer.amount", "Latest cheer amount"], ["latest.donation", "Latest donor"], ["latest.donation.amount", "Latest donation amount"], ["latest.raider", "Latest raider"], ["latest.raider.viewers", "Latest raid size"], ["chatter.top", "Top chatter this session"], ["chatter.top.count", "Top chatter message count"], ["chatter.last", "Most recent chatter"], ["chatter.random", "Random chatter seen this session"], ["chatter.list", "Chatters seen this session (first 20)"], ["chatter.top.5m", "Top chatter, last 5 minutes (also 10m, 15m, 30m, 60m)"], ["chatter.top.10m", "Top chatter, last 10 minutes"], ["chatter.top.15m", "Top chatter, last 15 minutes"], ["chatter.top.30m", "Top chatter, last 30 minutes"], ["chatter.top.60m", "Top chatter, last hour"], ["chatter.top.5m.count", "Messages from the last-5-minutes top chatter (also 10m\u202660m)"]];
-      MILESTONE_ITEMS = [
-        ["milestone.stream_number", "Current stream broadcast number (e.g. 46)"],
-        ["milestone.total_hours", "Total lifetime streamed hours (e.g. 466)"],
-        ["milestone.total_time", "Total lifetime streamed time (e.g. 466h 18m)"],
-        ["milestone.streak_days", "Consecutive stream days streak (e.g. 3)"],
-        ["milestone.streak_weeks", "Consecutive stream weeks streak (e.g. 12)"],
-        ["milestone.lifetime_chatters", "Total unique chatters all-time (e.g. 158)"],
-        ["milestone.lifetime_messages", "Total chat messages all-time (e.g. 14,230)"],
-        ["milestone.next_stream_goal", "Next stream count milestone (e.g. 50)"],
-        ["milestone.streams_remaining", "Streams remaining until next stream goal (e.g. 4)"],
-        ["milestone.stream_goal_percent", "Percent progress to next stream goal (e.g. 92)"],
-        ["milestone.next_hours_goal", "Next broadcast hours milestone (e.g. 500)"],
-        ["milestone.hours_remaining", "Broadcast hours remaining until goal (e.g. 34)"],
-        ["milestone.hours_goal_percent", "Percent progress to next hours goal (e.g. 93)"]
-      ];
-      MATCHUP_ITEMS = [
-        ["matchup.title", "Event / matchup title (e.g. Grand Finals)"],
-        ["matchup.phase", "Phase / round (e.g. Winners Finals)"],
-        ["matchup.format", "Match format (e.g. Best of 5)"],
-        ["matchup.status", "Matchup status (ACTIVE, PAUSED, COMPLETED)"],
-        ["matchup.winner", "Winner name (when completed)"],
-        ["matchup.clock", "Matchup clock (e.g. 14:20)"],
-        ["matchup.player1.name", "Player 1 / Competitor 1 name"],
-        ["matchup.player1.score", "Player 1 score"],
-        ["matchup.player1.tag", "Player 1 team / tag / country"],
-        ["matchup.player1.color", "Player 1 accent color"],
-        ["matchup.player2.name", "Player 2 / Competitor 2 name"],
-        ["matchup.player2.score", "Player 2 score"],
-        ["matchup.player2.tag", "Player 2 team / tag / country"],
-        ["matchup.player2.color", "Player 2 accent color"]
-      ];
-      TOURNAMENT_ITEMS = [
-        ["tournament.title", "Tournament title"],
-        ["tournament.format", "Format (singleElimination, doubleElimination, roundRobin)"],
-        ["tournament.status", "Tournament status (ACTIVE, PENDING, COMPLETED)"],
-        ["tournament.champion", "Champion / tournament winner name"],
-        ["tournament.match.current", "Current match description (e.g. Alice vs Bob)"],
-        ["tournament.match.round", "Current match round name (e.g. Semifinals)"],
-        ["tournament.match.entrant1", "Current match entrant 1 name"],
-        ["tournament.match.entrant1.score", "Current match entrant 1 score"],
-        ["tournament.match.entrant2", "Current match entrant 2 name"],
-        ["tournament.match.entrant2.score", "Current match entrant 2 score"]
-      ];
-      TRIVIA_ITEMS = [
-        ["trivia.question", "Active question text"],
-        ["trivia.category", "Active question category"],
-        ["trivia.phase", "Trivia phase (question / reveal / finished / idle)"],
-        ["trivia.number", "Current question number (e.g. 1)"],
-        ["trivia.total", "Total number of questions"],
-        ["trivia.answer", "Correct answer text (when revealed)"],
-        ["trivia.funfact", "Fun fact / explanation (when revealed)"],
-        ["trivia.timer", "Remaining question time (e.g. 15s)"],
-        ["trivia.votes", "Total votes cast on active question"],
-        ["trivia.choice.1", "Choice 1 (A) text"],
-        ["trivia.choice.1.votes", "Choice 1 vote count"],
-        ["trivia.choice.1.percent", "Choice 1 percent (e.g. 45%)"],
-        ["trivia.choice.2", "Choice 2 (B) text"],
-        ["trivia.choice.2.votes", "Choice 2 vote count"],
-        ["trivia.choice.2.percent", "Choice 2 percent"],
-        ["trivia.choice.3", "Choice 3 (C) text"],
-        ["trivia.choice.3.votes", "Choice 3 vote count"],
-        ["trivia.choice.3.percent", "Choice 3 percent"],
-        ["trivia.choice.4", "Choice 4 (D) text"],
-        ["trivia.choice.4.votes", "Choice 4 vote count"],
-        ["trivia.choice.4.percent", "Choice 4 percent"],
-        ["trivia.choice.5", "Choice 5 (E) text"],
-        ["trivia.choice.5.votes", "Choice 5 vote count"],
-        ["trivia.choice.5.percent", "Choice 5 percent"],
-        ["trivia.choice.6", "Choice 6 (F) text"],
-        ["trivia.choice.6.votes", "Choice 6 vote count"],
-        ["trivia.choice.6.percent", "Choice 6 percent"],
-        ["trivia.leader.name", "Top trivia leaderboard player name"],
-        ["trivia.leader.points", "Top trivia leaderboard player points"],
-        ["trivia.leader.correct", "Top trivia leaderboard player correct answers"],
-        ["trivia.leader.accuracy", "Top trivia leaderboard player accuracy percentage"],
-        ["trivia.leader.top3", "Top 3 trivia leaderboard players formatted summary"]
-      ];
-      TIER_LIST_ITEMS = [
-        ["tier_list.title", "Tier list title"],
-        ["tier_list.item", "Current voting item name"],
-        ["tier_list.item_image", "Current voting item image URL (use as an image source)"],
-        ["tier_list.vote_status", "Vote status (active / locked / completed / idle)"],
-        ["tier_list.vote_timer", "Remaining voting time (e.g. 45s)"],
-        ["tier_list.consensus_tier", "Current winning / consensus tier label (e.g. S)"],
-        ["tier_list.consensus_percent", "Percentage agreement for consensus tier (e.g. 78%)"],
-        ["tier_list.total_votes", "Total votes cast on active item"]
-      ];
-      SUBATHON_ITEMS = [
-        ["subathon.total_added", "Total time added to subathon (e.g. 4h 25m)"],
-        ["subathon.multiplier", "Active Boost Period multiplier (e.g. 2x) or empty"],
-        ["subathon.boost", "Boost Period status (true / false)"],
-        ["subathon.boost_active", "Boost Period status (true / false)"],
-        ["subathon.happy_hour", "Happy Hour status (true / false)"],
-        ["subathon.subs", "Total subscriptions credited to subathon"],
-        ["subathon.bits", "Total cheer bits credited to subathon"],
-        ["subathon.donations", "Total tips/donations credited to subathon"],
-        ["subathon.follows", "Total follows credited to subathon"],
-        ["subathon.raids", "Total raids credited to subathon"],
-        ["subathon.rule.tier1", "Configured Tier 1 Sub rate (e.g. 2m 00s)"],
-        ["subathon.rule.tier2", "Configured Tier 2 Sub rate (e.g. 4m 00s)"],
-        ["subathon.rule.tier3", "Configured Tier 3 Sub rate (e.g. 10m 00s)"],
-        ["subathon.rule.tip_rate", "Configured tip rate (e.g. 1m 00s / $1.00)"],
-        ["subathon.rule.bits_rate", "Configured bits rate (e.g. 30s / 100 bits)"],
-        ["subathon.rule.follow", "Configured follow rate (e.g. 15s)"],
-        ["subathon.rule.summary", "One-line summary of all active subathon rates"]
-      ];
-      TICKING = /^(now$|time|date|weekday|month|year|uptime|session\.duration|timer\.|music\.(position|remaining|percent)$|category\.|viewers?\.|chatters$|messages$|poll\.|tier_list\.vote_timer|trivia\.timer|matchup\.clock)/;
-      isTicking = (name) => TICKING.test(name);
-      hasTicking = (value) => /\{\{\s*(now|time|date|weekday|month|year|uptime|session\.duration|timer\.|music\.(position|remaining|percent)|category\.|viewers?\.|chatters|messages|poll\.|tier_list\.vote_timer|trivia\.timer|matchup\.clock)/.test(String(value ?? ""));
-      inPlanList = (item, id) => item.status === id || (item.extraLists || []).includes(id);
-      LIST_FORMAT_PRESETS = [["lines", "One per line"], ["bullets", "\u2022 One per line"], ["numbered", "1. One per line"], ["3", "First 3 only"], ["sep:\\s/\\s", "Separated by /"], ["sep:\\s\u2022\\s", "Separated by \u2022"]];
-      FORMAT_PRESETS = [["short", "4d 3h 22m 2s (timers)"], ["long", "4 days, 3 hours\u2026 (timers)"], ["clock", "4d 3:22:02 (timers)"], ["d[d] h[h] m[m]", "4d 3h 22m (timers)"], ["MMMM D, YYYY", "October 2, 2026"], ["MMM D", "Oct 2"], ["ddd, MMM D", "Fri, Oct 2"], ["dddd, MMMM Do", "Friday, October 2nd"], ["YYYY-MM-DD", "2026-10-02"], ["MM/DD/YYYY", "10/02/2026"], ["h:mm A", "1:34 PM"], ["HH:mm", "13:34"], ["MMM D, h:mm A", "Oct 2, 1:34 PM"], ["dddd [at] h A", "Friday at 1 PM"]];
-      isDateKey = (name) => /^timer\.[a-zA-Z0-9_-]+$/.test(name) || /^(now|time|time\.24|time\.seconds|date|date\.long|game\.release_date|session\.started|timer\.[a-zA-Z0-9_-]+\.target)$/.test(name);
-      ordinal = (n) => {
-        const v = n % 100;
-        return n + (["th", "st", "nd", "rd"][(v - 20) % 10] || ["th", "st", "nd", "rd"][v] || "th");
-      };
-      isListFormat = (format) => /^(lines|newline|br|bullets|numbered|sep:|\d+(:|$))/i.test(String(format || "").trim());
-      isListKey = (name) => /^(plan\.scheduled|plan\.backlog|plan\.list\..+|game\.genres|game\.platforms)$/.test(name);
-    }
-  });
-
   // public/js/overlay/widgets.js
   function renderProgress(node, element, expand) {
     const config = element.progress || {};
@@ -6831,22 +7302,35 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       node._progress = holder2;
     }
     const holder = node._progress;
+    const expandColor = (val, fallback) => {
+      const s = String(val ?? "").trim();
+      const out = s.includes("{{") ? String(expand(s) || "").trim() : s;
+      return out || fallback;
+    };
+    const trackColor = expandColor(config.trackColor, "rgba(255,255,255,.18)");
+    const fillColor = expandColor(style.fill, "#1f6feb");
     if (ring) {
       const thickness = Math.max(2, Math.min(40, config.thickness || 10));
       const radius = 50 - thickness / 2, circumference = 2 * Math.PI * radius;
       holder._track.setAttribute("r", radius);
-      holder._track.setAttribute("stroke", config.trackColor || "rgba(255,255,255,.18)");
+      holder._track.setAttribute("stroke", trackColor);
       holder._track.setAttribute("stroke-width", thickness);
       holder._fill.setAttribute("r", radius);
-      holder._fill.setAttribute("stroke", style.fill || "#1f6feb");
+      holder._fill.setAttribute("stroke", fillColor);
       holder._fill.setAttribute("stroke-width", thickness);
       holder._fill.style.strokeDasharray = circumference;
       holder._fill.style.strokeDashoffset = circumference * (1 - percent / 100);
     } else {
-      holder._track.style.background = config.trackColor || "rgba(255,255,255,.18)";
-      holder._fill.style.background = style.fill || "#1f6feb";
+      holder._track.style.background = trackColor;
+      holder._fill.style.background = fillColor;
       holder._fill.style.width = `${percent}%`;
-      const fillStyle = style.gradient?.enabled ? gradientStyle(style.gradient) : { backgroundSize: "", animation: "" };
+      const resolvedGrad = style.gradient?.enabled ? {
+        ...style.gradient,
+        from: expandColor(style.gradient.from, "#1f6feb"),
+        mid: style.gradient.mid ? expandColor(style.gradient.mid, "") : style.gradient.mid,
+        to: expandColor(style.gradient.to, "#8957e5")
+      } : null;
+      const fillStyle = resolvedGrad ? gradientStyle(resolvedGrad) : { backgroundSize: "", animation: "" };
       Object.assign(holder._fill.style, fillStyle);
     }
     holder._text.textContent = config.showLabel === false ? "" : label;
@@ -7423,7 +7907,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       init_var_rotation();
       init_variables();
       init_widgets();
-      root.OverlayShared = Object.assign(root.OverlayShared || {}, { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, TEXT_ANIM_TYPES, applyBorderGradient, applyTextAnimation, resolveBorderRadius, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, renderSpeakerBadge, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, mountTextCycle, resolveCycleLines, createVarRotationEngine, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, renderImageGroupStrip, applyMediaFilter: root.OverlayFilters?.applyMediaFilter || applyMediaFilter, shadowClipStyle });
+      root.OverlayShared = Object.assign(root.OverlayShared || {}, { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, TEXT_ANIM_TYPES, applyBorderGradient, applyTextAnimation, resolveBorderRadius, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, renderSpeakerBadge, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, mountTextCycle, resolveCycleLines, createVarRotationEngine, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, resolveColorToken, resolveStyleVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, renderImageGroupStrip, applyMediaFilter: root.OverlayFilters?.applyMediaFilter || applyMediaFilter, shadowClipStyle });
       root.OverlayShared.borderPlacement = borderPlacement;
       Object.assign(root.OverlayShared, { ALERT_PRESENTATION_KEYS, resolveAlertLook });
       Object.defineProperty(root.OverlayShared, Symbol.for("StreamPulse.OverlayShared"), { value: true });
