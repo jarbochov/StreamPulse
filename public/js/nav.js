@@ -130,7 +130,7 @@
         { label: 'Library', children: [
             { label: 'Asset Library', href: '/assets.html' },
             { label: 'Highlights', href: '/highlights.html' },
-            { label: 'Sessions', href: '/sessions.html?session=__current__' },
+            { label: 'Sessions', href: '/sessions.html' },
             { label: 'Categories', href: '/categories.html' },
             { label: 'Analytics & Community', href: '/analytics.html' },
             { label: 'Hashtag Stats', href: '/hashtag-stats.html', module: 'hashtags' }

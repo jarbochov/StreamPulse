@@ -8,26 +8,27 @@ import puppeteer from 'puppeteer';
 const choices = ['Fictional Orbit', 'Fictional Moss', 'Fictional Harbor', 'Fictional Cloud'];
 const weights = { [choices[0]]: 1, [choices[1]]: 5, [choices[2]]: 2, [choices[3]]: 2 };
 const moduleNames = ['wheel', 'stage-rendering', 'spin-animation', 'animation-scope'];
-const sources = new Map(await Promise.all(moduleNames.map(async name => [
+const editorModuleNames = ['randomizer-state', 'randomizer-preview', 'randomizer-presets'];
+const sources = new Map(await Promise.all([...moduleNames, ...editorModuleNames].map(async name => [
     `/js/randomizer/${name}.js`, await readFile(new URL(`../public/js/randomizer/${name}.js`, import.meta.url), 'utf8')
 ])));
 sources.set('/js/studio-themes.js', await readFile(new URL('../public/js/studio-themes.js', import.meta.url), 'utf8'));
 sources.set('/css/randomizer-editor.css', await readFile(new URL('../public/css/randomizer-editor.css', import.meta.url), 'utf8'));
-const hooks = `
+const makeHooks = (statePrefix = '') => `
         window.fixture.controls = {
             spin: runSpin, draw: drawWheel,
             idleRoller: renderIdleRoller, idleDeck: renderIdleDeck,
             configure({ mode, colors, logo, watermark, style } = {}) {
-                if (mode) currentMode = mode;
-                if (colors) currentThemeSlices = colors;
-                if (logo !== undefined) currentDeckLogo = logo;
-                if (watermark !== undefined) currentDeckWatermark = watermark;
+                if (mode) ${statePrefix}currentMode = mode;
+                if (colors) ${statePrefix}currentThemeSlices = colors;
+                if (logo !== undefined) ${statePrefix}currentDeckLogo = logo;
+                if (watermark !== undefined) ${statePrefix}currentDeckWatermark = watermark;
                 for (const [name, value] of Object.entries(style || {})) {
                     $('display-stage').style.setProperty(name, value);
                 }
                 updateDeckVisuals();
             },
-            spinning: () => isSpinning
+            spinning: () => ${statePrefix}isSpinning
         };
         const originalFanfare = AudioFX.fanfare;
         AudioFX.fanfare = function() {
@@ -35,13 +36,11 @@ const hooks = `
             return originalFanfare.call(this);
         };
 `;
-for (const [route, file] of [
-    ['/randomizer-editor.html', 'editors/randomizer-editor.html'],
-    ['/overlays/randomizer.html', 'overlays/randomizer.html']
-]) {
-    const html = await readFile(new URL(`../public/${file}`, import.meta.url), 'utf8');
-    sources.set(route, html.replace('        connectWs();', `        connectWs();\n${hooks}`));
-}
+const editorMainSource = await readFile(new URL('../public/js/randomizer/randomizer-main.js', import.meta.url), 'utf8');
+sources.set('/js/randomizer/randomizer-main.js', editorMainSource.replace(/\nconnectWs\(\);/, `\nconnectWs();\n${makeHooks('state.')}`));
+sources.set('/randomizer-editor.html', await readFile(new URL('../public/editors/randomizer-editor.html', import.meta.url), 'utf8'));
+const overlayHtml = await readFile(new URL('../public/overlays/randomizer.html', import.meta.url), 'utf8');
+sources.set('/overlays/randomizer.html', overlayHtml.replace('        connectWs();', `        connectWs();\n${makeHooks('')}`));
 const profile = resolve(tmpdir(), `.randomizer-browser-${process.pid}`);
 const errors = [];
 const measurements = [];

@@ -208,7 +208,7 @@ All trivia endpoints support both standard REST methods and Companion-friendly `
 
 The **Leaderboard & Stats** tab in Trivia Studio tracks points, correct answers, accuracy percentages, and answer streaks across both **Season / All-Time** (persisted to `data/trivia-leaderboard.json`) and **Current Session** (in-memory) scopes.
 
-- **Overlay URL**: `http://localhost:3000/overlays/trivia-leaderboard.html` (supports `?scope=season|session`, `?sort=points|correct|accuracy`, `?layout=full|sidebar|compact`, `?theme=modern|arcade|esports|minimal|broadcast-text`, `?limit=10`, `?title=...`, and column toggles `points`, `correct`, `accuracy`, `streak`, `header`).
+- **Overlay URL & Theming**: Customize layout, visual theme, colors, scale, and visible stat columns under **Overlay & Theming → Leaderboard Overlay** (`http://localhost:3000/overlays/trivia-leaderboard.html`; supports `?scope=season|session`, `?sort=points|correct|accuracy`, `?layout=full|sidebar|compact`, `?theme=modern|arcade|esports|minimal|broadcast-text`, `?limit=10`, `?title=...`, and column toggles `points`, `correct`, `accuracy`, `streak`, `header`).
 - **Scoring & Speed Bonus**: Players are scored automatically once when an answer is revealed; optional **Speed Bonus** grants up to `+50%` extra points for faster correct answers.
 - **Built-in Chat Commands**: Chatters can query stats anytime (including between questions) using `!triviastats` / `!tstats [@player]` and `!triviatop` / `!trivialeaderboard` `[session]`.
 - **Placeholders**: `{{trivia.leader.name}}`, `{{trivia.leader.points}}`, `{{trivia.leader.correct}}`, `{{trivia.leader.accuracy}}`, and `{{trivia.leader.top3}}`.

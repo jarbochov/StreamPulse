@@ -16,7 +16,7 @@
         .container { max-width: 1320px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: 340px 1fr; gap: 1.25rem; }
         .stack { display: flex; flex-direction: column; gap: 1rem; }
         .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.1rem 1.2rem; }
-        .card h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 0.9rem; }
+        .card h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 0.9rem; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
         .card h3 { font-size: 0.78rem; color: var(--accent); margin: 1rem 0 0.55rem; padding-top: 0.65rem; border-top: 1px solid var(--bg-raised); }
         .cfg-row { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.65rem; flex-wrap: wrap; }
         .cfg-row label { min-width: 130px; font-size: 0.82rem; color: var(--text-muted); }
@@ -30,6 +30,7 @@
         .btn.primary { background: var(--success-strong); border-color: var(--success-strong); color: #fff; }
         .btn.danger { background: var(--danger-bg); border-color: var(--danger-bg); }
         .btn.warn { background: var(--warn-bg); border-color: var(--warn-bg); }
+        .btn.sm { padding: 0.24rem 0.55rem; font-size: 0.74rem; }
         .status { color: var(--text-muted); font-size: 0.8rem; margin-top: 0.75rem; min-height: 1.2em; }
         .hint { color: var(--text-muted); font-size: 0.78rem; line-height: 1.45; }
         .goal-list { display: flex; flex-direction: column; gap: 0.55rem; }
@@ -95,7 +96,20 @@
             </div>
 
             <div class="card">
-                <h2>Goals</h2>
+                <h2>
+                    <span>Goals</span>
+                    <span style="display:inline-flex; gap:0.35rem; text-transform:none; letter-spacing:0; font-weight:500;">
+                        <button class="btn sm" type="button" onclick="exportGoalsJson()" title="Export goals and settings to a JSON file">
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Export
+                        </button>
+                        <button class="btn sm" type="button" onclick="document.getElementById('import-goals-file').click()" title="Import goals from a JSON file">
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Import
+                        </button>
+                        <input type="file" id="import-goals-file" accept=".json,application/json" hidden onchange="importGoalsJson(event)">
+                    </span>
+                </h2>
                 <div class="cfg-toggle">
                     <input type="checkbox" id="goals-enabled">
                     <label for="goals-enabled">Enable goal overlays</label>
@@ -115,15 +129,6 @@
                 <div class="actions" style="margin-bottom:0.8rem;">
                     <button class="btn primary" onclick="addGoal()">New Goal</button>
                     <button class="btn" onclick="refreshSnapshot()">Refresh Live Data</button>
-                    <button class="btn" type="button" onclick="exportGoalsJson()" title="Export goals and settings to a JSON file">
-                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Export JSON
-                    </button>
-                    <button class="btn" type="button" onclick="document.getElementById('import-goals-file').click()" title="Import goals from a JSON file">
-                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        Import JSON
-                    </button>
-                    <input type="file" id="import-goals-file" accept=".json,application/json" hidden onchange="importGoalsJson(event)">
                 </div>
                 <div id="goal-list" class="goal-list"></div>
                 <div id="goal-list-status" class="status"></div>
@@ -646,8 +651,34 @@
     }
 
     async function saveGoals() {
-        collectGoalsSettingsFromDom();
-        await persistGoalsPayload('Goals saved');
+        syncSelectedGoalFromDom();
+        settingsState.viewer_tracking = {
+            enabled: document.getElementById('viewer-enabled').checked,
+            source: document.getElementById('viewer-source').value,
+            poll_seconds: Math.max(15, parseInt(document.getElementById('viewer-poll-seconds').value, 10) || 60),
+            retain_samples: Math.max(60, parseInt(document.getElementById('viewer-retain-samples').value, 10) || 720)
+        };
+        settingsState.goals.enabled = document.getElementById('goals-enabled').checked;
+        settingsState.goals.rotate_seconds = Math.max(3, parseInt(document.getElementById('goals-rotate-seconds').value, 10) || 8);
+        settingsState.goals.skip_completed = document.getElementById('goals-skip-completed').checked;
+        settingsState.goals.pause_completed_seconds = Math.max(0, parseInt(document.getElementById('goals-pause-completed').value, 10) || 0);
+
+        const res = await fetch('/api/goals/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                viewer_tracking: settingsState.viewer_tracking,
+                goals: settingsState.goals
+            })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showToast(data.error || 'Save failed');
+            return;
+        }
+        settingsState = data;
+        await refreshSnapshot();
+        showToast('Goals saved');
     }
 
     async function refreshSnapshot() {

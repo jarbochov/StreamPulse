@@ -156,17 +156,28 @@ test('dashboard defaults form ordered rows before scripts, after load, and after
         return { id: card.dataset.panelId, x, y, width, height, hidden: card.hidden };
     }));
     function checkRows(cards, mobile = false) {
-        assert.deepEqual(cards.slice(0, 2).map(card => card.id), ['server-status', 'quick-actions']);
+        const visible = cards.filter(card => !card.hidden && card.height > 0);
+        assert.deepEqual(visible.slice(0, 2).map(card => card.id), ['current-session', 'viewer-stats']);
         if (mobile) {
-            for (let i = 1; i < cards.length; i++) {
-                assert.ok(cards[i].y > cards[i - 1].y);
-                assert.ok(Math.abs(cards[i].width - cards[0].width) < 1);
+            for (let i = 1; i < visible.length; i++) {
+                assert.ok(visible[i].y > visible[i - 1].y);
+                assert.ok(Math.abs(visible[i].width - visible[0].width) < 1);
             }
         } else {
-            for (let i = 0; i < cards.length; i += 2) {
-                assert.equal(cards[i].y, cards[i + 1].y, `${cards[i].id} pair shares a row`);
-                assert.ok(Math.abs(cards[i].height - cards[i + 1].height) < 1, `${cards[i].id} pair aligns in height`);
-                if (i) assert.ok(cards[i].y > cards[i - 1].y);
+            const rows = [];
+            for (const card of visible) {
+                const lastRow = rows[rows.length - 1];
+                if (lastRow && Math.abs(card.y - lastRow[0].y) < 1) lastRow.push(card);
+                else rows.push([card]);
+            }
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                if (i < rows.length - 1) assert.ok(row.length >= 2, `row ${i} (${row.map(c => c.id).join(', ')}) has multiple cards`);
+                for (const card of row) {
+                    assert.ok(Math.abs(card.y - row[0].y) < 1, `${card.id} aligns in row ${i}`);
+                    assert.ok(Math.abs(card.height - row[0].height) < 1, `${card.id} aligns in height`);
+                }
+                if (i) assert.ok(row[0].y > rows[i - 1][0].y);
             }
         }
     }
@@ -192,7 +203,7 @@ test('dashboard defaults form ordered rows before scripts, after load, and after
     await page.setViewport({ width: 1440, height: 1000 });
     await page.evaluate(() => {
         window.localStorage.setItem('streampulse.dashboard.layout.v2', JSON.stringify({ order: ['music', 'server-status'] }));
-        window.localStorage.setItem('streampulse.dashboard.layout.v3', JSON.stringify({
+        window.localStorage.setItem('streampulse.dashboard.layout.v4', JSON.stringify({
             order: ['music', 'server-status', 'quick-actions'],
             spans: { music: 12 }, heights: { music: 300 }, hidden: ['goals'], compact: true
         }));
@@ -205,9 +216,10 @@ test('dashboard defaults form ordered rows before scripts, after load, and after
     assert.equal(cards.find(card => card.id === 'goals').hidden, true);
     await page.evaluate(() => { window.StreamPulse.confirm = async () => true; });
     await page.click('#reset-btn');
-    await page.waitForFunction(() => document.querySelector('#dashboard-grid > .card').dataset.panelId === 'server-status');
+    await page.waitForFunction(() => document.querySelector('#dashboard-grid > .card').dataset.panelId === 'current-session');
     await page.reload();
     checkRows(await boxes());
     assert.equal(await page.evaluate(() => window.localStorage.getItem('streampulse.dashboard.layout.v2')), null);
+    assert.equal(await page.evaluate(() => window.localStorage.getItem('streampulse.dashboard.layout.v4')), null);
     assert.deepEqual(errors, []);
 });

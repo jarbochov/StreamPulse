@@ -10,8 +10,63 @@ import { initEditorListeners, openEditModal, removeModalChoice, updateCorrectOpt
 import { initLeaderboardListeners, updateLeaderboardPreview } from './trivia-leaderboard.js';
 
 let currentTab = 'studio';
+let currentThemingSubTab = 'questions';
 
-export function switchTab(tab) {
+function updateOpenOverlayLink() {
+    const link = document.getElementById('tab-open-overlay-link');
+    if (!link) return;
+    if (currentTab === 'leaderboard' || (currentTab === 'theming' && currentThemingSubTab === 'leaderboard')) {
+        link.href = '/overlays/trivia-leaderboard.html';
+        link.title = 'Open live trivia leaderboard overlay in new window';
+    } else {
+        link.href = '/overlays/trivia.html';
+        link.title = 'Open live trivia overlay in new window';
+    }
+}
+
+export function switchThemingSubTab(subTab) {
+    currentThemingSubTab = subTab === 'leaderboard' ? 'leaderboard' : 'questions';
+
+    const btnQuestions = document.getElementById('theming-sub-btn-questions');
+    const btnLeaderboard = document.getElementById('theming-sub-btn-leaderboard');
+    const viewQuestions = document.getElementById('theming-view-questions');
+    const viewLeaderboard = document.getElementById('theming-view-leaderboard');
+
+    if (btnQuestions) {
+        const active = currentThemingSubTab === 'questions';
+        btnQuestions.classList.toggle('active', active);
+        btnQuestions.setAttribute('aria-selected', active ? 'true' : 'false');
+    }
+    if (btnLeaderboard) {
+        const active = currentThemingSubTab === 'leaderboard';
+        btnLeaderboard.classList.toggle('active', active);
+        btnLeaderboard.setAttribute('aria-selected', active ? 'true' : 'false');
+    }
+
+    if (viewQuestions) viewQuestions.style.display = currentThemingSubTab === 'questions' ? 'grid' : 'none';
+    if (viewLeaderboard) viewLeaderboard.style.display = currentThemingSubTab === 'leaderboard' ? 'grid' : 'none';
+
+    try {
+        localStorage.setItem('trivia-theming-subtab', currentThemingSubTab);
+    } catch {}
+
+    updateOpenOverlayLink();
+
+    if (currentTab === 'theming') {
+        if (currentThemingSubTab === 'questions') {
+            setTimeout(() => {
+                applyViewportScale();
+                updateObsUrl();
+            }, 50);
+        } else {
+            setTimeout(() => {
+                updateLeaderboardPreview();
+            }, 50);
+        }
+    }
+}
+
+export function switchTab(tab, subTab) {
     currentTab = tab;
     setActiveTab(tab);
 
@@ -36,7 +91,7 @@ export function switchTab(tab) {
     }
 
     if (panelStudio) panelStudio.style.display = (tab === 'studio') ? 'grid' : 'none';
-    if (panelTheming) panelTheming.style.display = (tab === 'theming') ? 'grid' : 'none';
+    if (panelTheming) panelTheming.style.display = (tab === 'theming') ? 'block' : 'none';
     if (panelLeaderboard) panelLeaderboard.style.display = (tab === 'leaderboard') ? 'grid' : 'none';
 
     try {
@@ -44,20 +99,16 @@ export function switchTab(tab) {
     } catch {}
 
     if (tab === 'theming') {
-        setTimeout(() => {
-            applyViewportScale();
-            updateObsUrl();
-        }, 50);
-    } else if (tab === 'leaderboard') {
-        setTimeout(() => {
-            updateLeaderboardPreview();
-        }, 50);
+        switchThemingSubTab(subTab || currentThemingSubTab);
+    } else {
+        updateOpenOverlayLink();
     }
 }
 
 // ── Global Window Bridge for Dynamic Markup Callbacks ────────────────────────
 window.triviaApp = {
     switchTab,
+    switchThemingSubTab,
     startSpecificQuestion: (id) => startQuestion(id),
     toggleQuestionDone: (id) => toggleQuestionDone(id),
     moveQuestion: (id, dir) => moveQuestion(id, dir),
@@ -100,6 +151,9 @@ function initToolbarTriggers() {
     document.getElementById('tab-btn-studio')?.addEventListener('click', () => switchTab('studio'));
     document.getElementById('tab-btn-theming')?.addEventListener('click', () => switchTab('theming'));
     document.getElementById('tab-btn-leaderboard')?.addEventListener('click', () => switchTab('leaderboard'));
+    document.getElementById('theming-sub-btn-questions')?.addEventListener('click', () => switchThemingSubTab('questions'));
+    document.getElementById('theming-sub-btn-leaderboard')?.addEventListener('click', () => switchThemingSubTab('leaderboard'));
+    document.getElementById('btn-goto-lb-theming')?.addEventListener('click', () => switchTab('theming', 'leaderboard'));
 
     document.getElementById('prev-btn-bg')?.addEventListener('click', () => togglePreviewBackdrop());
     document.getElementById('prev-btn-backdrop')?.addEventListener('click', () => togglePreviewBackdrop());
@@ -130,9 +184,15 @@ function initToolbarTriggers() {
 
 function restoreUserPreferences() {
     try {
+        const savedSubTab = localStorage.getItem('trivia-theming-subtab');
+        if (savedSubTab === 'questions' || savedSubTab === 'leaderboard') {
+            currentThemingSubTab = savedSubTab;
+        }
         const savedTab = localStorage.getItem('trivia-active-tab');
         if (savedTab && (savedTab === 'theming' || savedTab === 'studio' || savedTab === 'leaderboard')) {
             switchTab(savedTab);
+        } else {
+            switchThemingSubTab(currentThemingSubTab);
         }
         const savedBackdrop = localStorage.getItem('trivia-preview-backdrop');
         if (savedBackdrop) {

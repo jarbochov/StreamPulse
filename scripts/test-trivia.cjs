@@ -1002,7 +1002,10 @@ test('Trivia Studio preserves unsaved toggles during live updates; overlay sound
     assert.equal(service.getState().theme.timerWarningColor, '#654321');
     assert.equal(service.getState().theme.timerCriticalColor, '#AABBCC');
     const previewFrame = await (await studio.$('#trivia-preview-iframe')).contentFrame();
-    await previewFrame.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--card-max-width').trim() === '1600px');
+    await previewFrame.waitForFunction(() =>
+        getComputedStyle(document.documentElement).getPropertyValue('--card-max-width').trim() === '1600px' &&
+        getComputedStyle(document.getElementById('timer-bar')).backgroundColor === 'rgba(18, 52, 86, 0.5)'
+    );
     assert.equal(await previewFrame.$eval('#timer-bar', el => getComputedStyle(el).backgroundColor), 'rgba(18, 52, 86, 0.5)');
     const previewLoads = await studio.evaluate(() => {
         const iframe = document.getElementById('trivia-preview-iframe');

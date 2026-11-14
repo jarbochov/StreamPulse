@@ -366,17 +366,56 @@
                 }).join('');
             }
             list.innerHTML = html;
-            try {
-                const savedFile = localStorage.getItem('streampulse:sessions:file');
-                const savedEl = savedFile && list.querySelector(`.session-item[data-file="${CSS.escape(savedFile)}"]`);
-                if (savedEl) loadSession(savedFile, savedEl);
-            } catch {}
         } catch {
             document.getElementById('session-list').innerHTML = '<div class="empty">Failed to load sessions</div>';
         }
     }
 
-    async function loadSession(filename, el) {
+    function getActiveDetailView() {
+        const activePane = document.querySelector('#detail-panel .tab-pane.active');
+        if (!activePane) return { tool: null, tab: null };
+        const id = activePane.id.replace(/^pane-/, '');
+        if (id === 'chatlog' || id === 'highlights') return { tool: id, tab: null };
+        return { tool: null, tab: id };
+    }
+
+    function syncSessionUrl(options = {}) {
+        const url = new URL(window.location.href);
+        if (activeSessionFile) {
+            url.searchParams.set('session', activeSessionFile);
+        } else {
+            url.searchParams.delete('session');
+        }
+        url.searchParams.delete('tab');
+
+        const { tool, tab } = getActiveDetailView();
+        if (tool === 'chatlog') {
+            url.searchParams.set('view', 'chat');
+            url.hash = '#chatlog';
+        } else if (tool === 'highlights') {
+            url.searchParams.set('view', 'highlights');
+            url.hash = '#highlights';
+        } else {
+            url.searchParams.delete('view');
+            if (tab && tab !== 'chatters') {
+                url.hash = `#${tab}`;
+            } else if (url.hash) {
+                url.hash = '';
+            }
+        }
+
+        if (!options.preserveTs) {
+            url.searchParams.delete('ts');
+        }
+
+        const nextUrl = url.pathname + url.search + url.hash;
+        const currentUrl = window.location.pathname + window.location.search + window.location.hash;
+        if (nextUrl !== currentUrl) {
+            history.replaceState(null, '', nextUrl);
+        }
+    }
+
+    async function loadSession(filename, el, options = {}) {
         document.querySelectorAll('.session-item').forEach(i => i.classList.remove('active'));
         el.classList.add('active');
         activeSessionFile = filename;
@@ -393,6 +432,7 @@
             }
             activeSession = data;
             renderDetail(data, filename);
+            if (!options.skipUrlSync) syncSessionUrl();
         } catch {
             document.getElementById('detail-panel').innerHTML = '<div class="empty">Failed to load session</div>';
         }
@@ -890,20 +930,21 @@
         applyChatLogFilter();
     }
 
-    function switchTab(id, el) {
+    function switchTab(id, el, options = {}) {
         // Deactivate all tabs and tool buttons
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.detail-header-actions button').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
         el.classList.add('active');
-        document.getElementById(`pane-${id}`).classList.add('active');
+        document.getElementById(`pane-${id}`)?.classList.add('active');
         try { localStorage.setItem('streampulse:sessions:tab', id); } catch {}
         if (activeSessionFile === '__current__' && activeSession) {
             renderActiveSessionPane(activeSession, '__current__', id);
         }
+        if (!options.skipUrlSync) syncSessionUrl();
     }
 
-    function switchTool(id, btn) {
+    function switchTool(id, btn, options = {}) {
         const isActive = btn.classList.contains('active');
         // Deactivate all tabs and tool buttons
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -911,16 +952,22 @@
         document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
 
         if (isActive) {
-            // Toggle off — go back to first stat tab
-            const firstTab = document.querySelector('.tab');
-            if (firstTab) { firstTab.classList.add('active'); }
-            const firstPane = document.querySelector('.tab-pane');
-            if (firstPane) { firstPane.classList.add('active'); }
+            // Toggle off — return to saved/first stat tab
+            const savedTab = (() => { try { return localStorage.getItem('streampulse:sessions:tab'); } catch { return null; } })();
+            const fallbackTab = (savedTab && [...document.querySelectorAll('.tab')].find(t => t.getAttribute('onclick')?.includes(`'${savedTab}'`))) || document.querySelector('.tab');
+            if (fallbackTab) {
+                fallbackTab.classList.add('active');
+                const match = fallbackTab.getAttribute('onclick')?.match(/switchTab\('([^']+)'/);
+                const fallbackPane = match ? document.getElementById(`pane-${match[1]}`) : document.querySelector('.tab-pane');
+                if (fallbackPane) fallbackPane.classList.add('active');
+            }
+            if (!options.skipUrlSync) syncSessionUrl();
             return;
         }
 
         btn.classList.add('active');
-        document.getElementById(`pane-${id}`).classList.add('active');
+        document.getElementById(`pane-${id}`)?.classList.add('active');
+        if (!options.skipUrlSync) syncSessionUrl();
 
         // Lazy load chat log on first open
         if (id === 'chatlog' && activeSessionFile && !chatLogCache[activeSessionFile]) {
@@ -931,10 +978,10 @@
         }
     }
 
-    async function openChatAtTimestamp(timestamp) {
+    async function openChatAtTimestamp(timestamp, options = {}) {
         const button = [...document.querySelectorAll('.detail-header-actions button')].find(btn => btn.getAttribute('onclick')?.includes("'chatlog'"));
         if (!button) return;
-        switchTool('chatlog', button);
+        switchTool('chatlog', button, { skipUrlSync: options.skipUrlSync });
         await loadChatLog(activeSessionFile);
         const messages = chatLogCache[activeSessionFile] || [];
         if (!messages.length) return;
@@ -967,6 +1014,7 @@
                 activeSessionFile = null;
                 activeSession = null;
                 document.getElementById('detail-panel').innerHTML = '<div class="placeholder">Select a session to view details</div>';
+                syncSessionUrl();
             }
             await loadSessions();
             StreamPulse.toast('Session deleted', 'info');
@@ -976,8 +1024,11 @@
     }
 
     function closeDetail() {
+        activeSessionFile = null;
+        activeSession = null;
         document.getElementById('detail-panel').innerHTML = '<div class="placeholder">Select a session to view details</div>';
         document.querySelectorAll('.session-item').forEach(i => i.classList.remove('active'));
+        syncSessionUrl();
     }
 
     function handleSessionClick(filename, el) {
@@ -1842,23 +1893,59 @@
         globalSearch();
     }
 
-    loadSessions().then(() => {
-        connectLiveSessionSocket();
+    async function applyUrlAndSavedSessionState() {
         const params = new URLSearchParams(location.search);
-        let requested = params.get('session');
-        const timestamp = Number(params.get('ts'));
-        if (!requested) return;
-        if (requested === 'current') requested = '__current__';
-        const item = document.querySelector(`.session-item[data-file="${CSS.escape(requested)}"]`);
-        if (item) {
-            loadSession(requested, item).then(() => {
-                if (Number.isFinite(timestamp) && timestamp > 0) openChatAtTimestamp(timestamp);
-                else if (params.get('view') === 'chat') {
-                    const button = [...document.querySelectorAll('.detail-header-actions button')].find(btn => btn.getAttribute('onclick')?.includes('chatlog'));
-                    if (button) { switchTool('chatlog', button); loadChatLog(activeSessionFile); }
-                }
-            });
+        const rawHash = location.hash.replace(/^#/, '').trim();
+        const hashParams = rawHash.includes('=') ? new URLSearchParams(rawHash) : null;
+
+        let requested = params.get('session') || hashParams?.get('session') || '';
+        if (!requested) {
+            try { requested = localStorage.getItem('streampulse:sessions:file') || ''; } catch {}
         }
+        if (!requested || requested === 'current') requested = '__current__';
+
+        const list = document.getElementById('session-list');
+        if (!list) return;
+        const item = list.querySelector(`.session-item[data-file="${CSS.escape(requested)}"]`)
+            || list.querySelector('.session-item[data-file="__current__"]');
+        if (!item) return;
+
+        const targetFile = item.dataset.file;
+        if (activeSessionFile !== targetFile || !activeSession) {
+            await loadSession(targetFile, item, { skipUrlSync: true });
+        }
+
+        const timestamp = Number(params.get('ts'));
+        const view = params.get('view') || hashParams?.get('view')
+            || (rawHash === 'chat' || rawHash === 'chatlog' ? 'chat' : rawHash === 'highlights' ? 'highlights' : '');
+        const tabParam = params.get('tab') || hashParams?.get('tab') || (!hashParams && rawHash ? rawHash : '');
+
+        if (Number.isFinite(timestamp) && timestamp > 0) {
+            await openChatAtTimestamp(timestamp, { skipUrlSync: true });
+        } else if (view === 'chat') {
+            const button = [...document.querySelectorAll('.detail-header-actions button')].find(btn => btn.getAttribute('onclick')?.includes('chatlog'));
+            if (button && !button.classList.contains('active')) {
+                switchTool('chatlog', button, { skipUrlSync: true });
+            }
+        } else if (view === 'highlights') {
+            const button = [...document.querySelectorAll('.detail-header-actions button')].find(btn => btn.getAttribute('onclick')?.includes('highlights'));
+            if (button && !button.classList.contains('active')) {
+                switchTool('highlights', button, { skipUrlSync: true });
+            }
+        } else if (tabParam) {
+            const tabEl = [...document.querySelectorAll('.detail-tabs .tab')].find(t => t.getAttribute('onclick')?.includes(`'${tabParam}'`));
+            if (tabEl) switchTab(tabParam, tabEl, { skipUrlSync: true });
+        }
+
+        syncSessionUrl({ preserveTs: Number.isFinite(timestamp) && timestamp > 0 });
+    }
+
+    window.addEventListener('popstate', applyUrlAndSavedSessionState);
+    window.addEventListener('hashchange', applyUrlAndSavedSessionState);
+
+    loadSessions().then(async () => {
+        connectLiveSessionSocket();
+        await applyUrlAndSavedSessionState();
     });
     </script>
 </body>
