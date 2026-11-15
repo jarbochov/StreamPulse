@@ -3829,6 +3829,10 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       cancelAnimationFrame(container._igResizeFrame);
       container._igResizeFrame = 0;
     }
+    if (container._igResizeObserver) {
+      container._igResizeObserver.disconnect();
+      container._igResizeObserver = null;
+    }
     if (typeof container.querySelectorAll !== "function") return;
     container.querySelectorAll(".sp-image-group-item, .sp-image-group-avatar, .sp-image-group-field").forEach((node) => {
       if (node._borderObserver) {
@@ -4289,6 +4293,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const showOverflowBadge = cfg.showOverflowBadge !== false;
     const columns = Math.max(0, Math.min(12, Math.round(Number(cfg.columns) || 0)));
     const wrapItems = cfg.wrap === true || layout === "grid" || layout === "cards" || layout === "chips";
+    const autoScale = cfg.autoScale === true;
     const fieldSpecs = resolveGroupFieldSpecs(cfg);
     const primarySpec = fieldSpecs[0] || { key: cfg.labelField || "", role: "title" };
     const subSpec = fieldSpecs.find((f, i) => f.role === "subtitle" || i === 1) || (cfg.subField ? { key: cfg.subField, role: "subtitle" } : null);
@@ -4359,8 +4364,11 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const alignV = st.verticalAlign === "middle" ? "center" : st.verticalAlign === "bottom" ? "flex-end" : "flex-start";
     const wrap = document.createElement("div");
     wrap.className = `sp-image-group sp-image-group-${layout}`;
-    wrap.style.width = "100%";
-    wrap.style.height = "100%";
+    const unconstrainedRow = autoScale && !wrapItems && layout !== "column" && !isBanner && layout !== "grid";
+    wrap.style.width = unconstrainedRow ? "max-content" : "100%";
+    if (unconstrainedRow) wrap.style.minWidth = "100%";
+    wrap.style.height = autoScale ? "auto" : "100%";
+    if (autoScale) wrap.style.minHeight = "100%";
     wrap.style.boxSizing = "border-box";
     const useCssGrid = layout === "grid" || columns > 0 && wrapItems && layout !== "overlap" && layout !== "column" && layout !== "banners";
     if (useCssGrid) {
@@ -4712,7 +4720,23 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       wrap.appendChild(badge);
     }
     container.appendChild(wrap);
-    if (deferredRingCards.length && typeof requestAnimationFrame === "function") {
+    const applyGroupAutoScale = () => {
+      if (!autoScale || !wrap.isConnected || !container.isConnected) return;
+      const availW = container.clientWidth;
+      const availH = container.clientHeight;
+      if (availW <= 0 || availH <= 0) return;
+      wrap.style.transform = "";
+      const naturalW = wrap.scrollWidth;
+      const naturalH = wrap.scrollHeight;
+      const scale = Math.max(0.25, Math.min(1, availW / Math.max(1, naturalW), availH / Math.max(1, naturalH)));
+      if (scale < 0.995) {
+        const ox = alignH === "center" ? "center" : alignH === "flex-end" ? "right" : "left";
+        const oy = alignV === "center" ? "center" : alignV === "flex-end" ? "bottom" : "top";
+        wrap.style.transformOrigin = `${ox} ${oy}`;
+        wrap.style.transform = `scale(${scale.toFixed(4)})`;
+      }
+    };
+    if ((deferredRingCards.length || autoScale) && typeof requestAnimationFrame === "function") {
       container._igResizeFrame = requestAnimationFrame(() => {
         container._igResizeFrame = 0;
         for (const [card, styleObj] of deferredRingCards) {
@@ -4720,7 +4744,12 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
             applyBorderEffects(card, styleObj, { type: "box", width: card.offsetWidth, height: card.offsetHeight });
           }
         }
+        applyGroupAutoScale();
       });
+    }
+    if (autoScale && typeof ResizeObserver !== "undefined") {
+      container._igResizeObserver = new ResizeObserver(() => applyGroupAutoScale());
+      container._igResizeObserver.observe(container);
     }
     return true;
   }

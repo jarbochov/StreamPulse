@@ -753,6 +753,8 @@ export function imageGroupLayoutSection(el, inBuilder = false) {
     } else if (layout === 'overlap') {
         body += F.number('imageGroup.overlap', 'Overlap amount (px)', ig.overlap ?? 16, { min: 4, max: 60, step: 2 });
     }
+    body += F.check('imageGroup.autoScale', 'Auto-scale content to fit box', ig.autoScale === true);
+    body += '<p class="hint">Proportionally shrinks avatars, text, and cards if longer names or extra members exceed the box.</p>';
 
     body += '<div class="sub-head">Spacing &amp; Gaps</div>';
     body += `<div class="grid2">${layout === 'overlap' ? '<span></span>' : F.number('imageGroup.gap', 'Item gap (px)', gapVal, { min: 0, max: 80, step: 2 })}${F.number('imageGroup.rowGap', 'Row gap (px)', ig.rowGap ?? gapVal, { min: 0, max: 120, step: 2 })}</div>`;

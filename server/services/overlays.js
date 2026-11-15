@@ -1159,6 +1159,7 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
                 showAvatar: ig.showAvatar !== false,
                 layout: IMAGE_GROUP_LAYOUTS.includes(ig.layout) ? ig.layout : 'row',
                 wrap: ig.wrap === true,
+                autoScale: ig.autoScale === true,
                 columns: Math.max(0, Math.min(12, Math.round(Number(ig.columns) || 0))),
                 shape: IMAGE_GROUP_SHAPES.includes(ig.shape) ? ig.shape : 'rounded',
                 aspectRatio: IMAGE_GROUP_ASPECTS.includes(ig.aspectRatio) ? ig.aspectRatio : '1:1',
