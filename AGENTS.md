@@ -153,7 +153,8 @@ This document provides project architecture context, mandatory UI/UX design rule
 - Keep commits focused, descriptive, and atomic.
 - Verify changes with existing test suites (`npm test`) before pushing.
 - **Documentation & GitHub Pages Sync**:
-  - Always update the documentation in `docs/` whenever adding, modifying, or refactoring features, studio controllers, overlays, APIs, or configurations.
+  - Always update the documentation in `docs/`, `public/docs.html`, and the in-app API reference (`public/api.html`) whenever adding, modifying, or refactoring features, studio controllers, overlays, APIs, or configurations.
+  - Keep all API docs and feature guides **comprehensive and human-readable**: document every endpoint, HTTP method (`GET` and `POST`/`PUT`/`DELETE`), query parameter, request body, response shape, generated variable/token naming, and clear step-by-step usage examples showing how to use the feature in practice (OBS, Companion, and UI workflows).
   - Maintain the live documentation site at `https://jarbochov.github.io/StreamPulse/` up to date on every change.
   - Keep all screenshots in `docs/images/` sanitized with purely fictional dummy data (never use real names or live streamer notes). Run `node scripts/capture-screenshots.mjs` when updating visuals.
 - **Changelog**: Unreleased features get one short entry describing what exists (under Added). Only describe changes or fixes (Changed/Fixed) for features already shipped in a release. Keep entries terse while a feature is in development.

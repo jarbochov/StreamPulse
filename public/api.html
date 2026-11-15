@@ -639,7 +639,8 @@
                 {
                     method: 'GET', path: '/api/variables/:name',
                     desc: 'Read a single variable or counter',
-                    details: 'Returns { name, type, value, initial?, items?, mode? } or 404 if not found.'
+                    companion: true,
+                    details: 'Returns { name, type, value, initial?, items?, mode? } or 404 if not found. Append ?raw=1, ?plain=1, or ?format=text for plain text. Variable Set slots generate variables named <setId>_<slotNum>_<fieldKey> (e.g. hosts_1_name), <setId>_<slotNum>_slot_name, and <setId>_<slotNum>_active.'
                 },
                 {
                     method: 'PUT', path: '/api/variables/:name',
@@ -681,7 +682,64 @@
                     method: 'POST', path: '/api/variables/:name/roll',
                     desc: 'Advance or randomize a list variable',
                     companion: true,
-                    details: 'Picks the next sequential item or a new random item for a list variable.'
+                    details: 'POST or GET picks the next sequential item or a new random item for a list variable.'
+                },
+                {
+                    method: 'POST', path: '/api/variables/:name/toggle',
+                    desc: 'Flip a toggle variable',
+                    companion: true,
+                    details: 'POST or GET flips a toggle variable between true and false, or sets an explicit value (?value=true|false).'
+                },
+                {
+                    method: 'POST', path: '/api/variables/import',
+                    desc: 'Import a JSON bundle of variables and Variable Sets',
+                    details: 'Restores or merges exported variables and Variable Sets.'
+                },
+                {
+                    method: 'GET', path: '/api/variables/sets',
+                    desc: 'List all Variable Sets',
+                    companion: true,
+                    details: 'Returns { sets } with each set\'s id, name, slotsCount, slots, slotNames, slotQueues, fields, roster, group, and rotation.'
+                },
+                {
+                    method: 'GET', path: '/api/variables/sets/:setId',
+                    desc: 'Inspect, create/update, or delete a Variable Set',
+                    companion: true,
+                    details: 'GET returns the full set object (including slots[0] for Slot 1, slotNames, slotQueues, roster, and rotation). PUT/POST creates or updates the set; DELETE removes it.'
+                },
+                {
+                    method: 'GET', path: '/api/variables/sets/:setId/export',
+                    desc: 'Export Variable Set entries as CSV',
+                    details: 'Downloads text/csv roster data for the specified Variable Set.'
+                },
+                {
+                    method: 'POST', path: '/api/variables/sets/:setId/import',
+                    desc: 'Import CSV entries into a Variable Set',
+                    details: 'Accepts text/csv body or JSON { csv, replace } (optional ?replace=1).'
+                },
+                {
+                    method: 'GET', path: '/api/variables/sets/:setId/group',
+                    desc: 'Inspect or update Group Roster formatting',
+                    companion: true,
+                    details: 'GET without query params returns { id, group, value }. GET with query params or POST/PUT updates separator, lastSeparator, and itemTemplate.'
+                },
+                {
+                    method: 'POST', path: '/api/variables/sets/:setId/assign',
+                    desc: 'Assign an entry to a Variable Set slot',
+                    companion: true,
+                    details: 'POST or GET assigns an entry to a slot (?slot=1&entry=<entryId>; slot defaults to 1). Related Companion-friendly GET/POST slot actions: /clear?slot=1, /next?slot=1, /prev?slot=1, /swap?from=1&to=2, /advance?mode=shift, and /rewind?mode=shift.'
+                },
+                {
+                    method: 'POST', path: '/api/variables/sets/:setId/entry/toggle',
+                    desc: 'Toggle Variable Set entry enabled or group membership',
+                    companion: true,
+                    details: 'POST or GET /entry/toggle?entry=<id>&enabled=0|1 enables/disables an entry. Use /entry/group-toggle?entry=<id>&inGroup=0|1 to toggle Group Roster membership.'
+                },
+                {
+                    method: 'POST', path: '/api/variables/sets/:setId/queue/add',
+                    desc: 'Manage a Variable Set slot queue',
+                    companion: true,
+                    details: 'POST or GET /queue/add?slot=1&entry=<entryId>, /queue/remove?slot=1&index=0, and /queue/clear?slot=1.'
                 },
                 {
                     method: 'POST', path: '/api/variables/sets/:id/rotation',

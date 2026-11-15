@@ -139,6 +139,47 @@ function syncActivityPolling() {
     }
 }
 
+let refResizeObserver = null;
+
+function syncRefFrameHeight(frame) {
+    try {
+        const doc = frame.contentDocument;
+        if (!doc) return;
+        const height = Math.max(240, doc.documentElement?.scrollHeight || doc.body?.scrollHeight || 0);
+        frame.style.height = `${height}px`;
+    } catch {
+        // ignore cross-origin or detached frame errors
+    }
+}
+
+function attachRefFrameAutoResize(frame) {
+    if (!frame || frame.dataset.autoResizeBound === '1') return;
+    frame.dataset.autoResizeBound = '1';
+    frame.addEventListener('load', () => {
+        if (refResizeObserver) {
+            refResizeObserver.disconnect();
+            refResizeObserver = null;
+        }
+        syncRefFrameHeight(frame);
+        try {
+            const doc = frame.contentDocument;
+            if (doc && typeof ResizeObserver !== 'undefined') {
+                refResizeObserver = new ResizeObserver(() => syncRefFrameHeight(frame));
+                if (doc.body) refResizeObserver.observe(doc.body);
+                if (doc.documentElement) refResizeObserver.observe(doc.documentElement);
+            }
+        } catch {
+            // ignore
+        }
+    });
+    window.addEventListener('pagehide', () => {
+        if (refResizeObserver) {
+            refResizeObserver.disconnect();
+            refResizeObserver = null;
+        }
+    }, { once: true });
+}
+
 export function showTab(name) {
     if (name === 'timed') name = 'messages';
     if (!document.querySelector(`#tabs [data-t="${name}"]`)) name = 'commands';
@@ -153,7 +194,10 @@ export function showTab(name) {
     });
     if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
     const refFrame = $('ref-frame');
-    if (name === 'reference' && refFrame) refFrame.src = '/commands.html';
+    if (name === 'reference' && refFrame) {
+        attachRefFrameAutoResize(refFrame);
+        refFrame.src = '/commands.html?embed=1';
+    }
     if (name === 'activity') loadActivity();
     syncActivityPolling();
     document.querySelectorAll('.card[data-tab]').forEach(c => { c.hidden = c.dataset.tab !== name; });
