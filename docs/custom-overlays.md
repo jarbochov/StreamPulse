@@ -18,6 +18,8 @@ For more coordinated scene changes, optional OBS source frames let a saved state
 
 Frame borders can sit inside, centered on, or outside a shape. Linked OBS frames start with an outside border, keeping the decoration clear of the camera or video without changing its layout.
 
+Magnetic snapping guides include group bounding boxes and centers alongside individual layers, and **View → Edge Distances (T/R/B/L)** displays pixel measurements from the selected layer or group to the top, right, bottom, and left canvas edges.
+
 Keep a coordinated look without crowding the editor: organize reusable colors and fonts into Variable Groups, then choose font variables from the existing typography dropdowns. Group Strip fields retain their individual overrides while inheriting shared role and base fonts. Text-only stacks need no primary image; image controls appear only when that image is enabled.
 
 The Group Strip Builder has separate **Badge** and **Strip** tabs: customize each member's fields, image placement and internal spacing in Badge, and manage the overall arrangement, wrapping, columns and member gaps in Strip. Live previews preserve the source dimensions and scale uniformly, so badge proportions and wrapping match the overlay rather than squeezing into the sidebar.

@@ -1119,6 +1119,7 @@ export function syncToggles() {
     if ($('snap-opt-dimensions')) $('snap-opt-dimensions').checked = prefs.snapDimensions !== false;
     $('toggle-grid')?.setAttribute('aria-pressed', String(prefs.grid));
     $('toggle-safe')?.setAttribute('aria-pressed', String(!!prefs.safeZones));
+    $('toggle-edge-distances')?.setAttribute('aria-pressed', String(!!prefs.edgeDistances));
     $('toggle-live')?.setAttribute('aria-pressed', String(prefs.live));
     $('toggle-fx')?.setAttribute('aria-pressed', String(prefs.fx));
     $('view-options-btn')?.setAttribute('aria-pressed', String(Boolean(prefs.grid || prefs.safeZones)));
@@ -1163,6 +1164,7 @@ function initEventListeners() {
     $('snap-opt-dimensions')?.addEventListener('change', e => { prefs.snapDimensions = e.target.checked; savePrefs(); });
     $('toggle-grid')?.addEventListener('click', () => { prefs.grid = !prefs.grid; savePrefs(); syncToggles(); syncCanvasUI(); });
     $('toggle-safe')?.addEventListener('click', () => { prefs.safeZones = !prefs.safeZones; savePrefs(); syncToggles(); syncCanvasUI(); });
+    $('toggle-edge-distances')?.addEventListener('click', () => { prefs.edgeDistances = !prefs.edgeDistances; savePrefs(); syncToggles(); renderSelectionUI(); });
     $('toggle-fx')?.addEventListener('click', () => { prefs.fx = !prefs.fx; savePrefs(); syncToggles(); });
     $('toggle-live')?.addEventListener('click', () => { prefs.live = !prefs.live; savePrefs(); syncToggles(); renderCanvas(); });
 

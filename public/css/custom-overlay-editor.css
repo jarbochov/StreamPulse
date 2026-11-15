@@ -726,6 +726,9 @@ kbd { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; background: var
 .guide.v { width: calc(var(--inv, 1) * 1.5px); top: 0; bottom: 0; transform: translateX(-50%); }
 .guide.h { height: calc(var(--inv, 1) * 1.5px); left: 0; right: 0; transform: translateY(-50%); }
 .guide-pill { position: absolute; transform: translate(-50%, -50%) scale(var(--inv, 1)); transform-origin: 50% 50%; background: #ff4fa3; color: #fff; font: 700 10px ui-monospace, Menlo, monospace; padding: 1px 5px; border-radius: 999px; white-space: nowrap; pointer-events: none; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45); z-index: 4; }
+.guide.v.is-edge { border-left: calc(var(--inv, 1) * 1.5px) dashed #38bdf8; background: transparent; width: 0; }
+.guide.h.is-edge { border-top: calc(var(--inv, 1) * 1.5px) dashed #38bdf8; background: transparent; height: 0; }
+.guide-pill.edge { background: #0284c7; }
 .guide-pill.gap { background: #10b981; }
 .guide-pill.dim { top: 0; left: 50%; transform: translate(-50%, -100%) scale(var(--inv, 1)); transform-origin: 50% 100%; background: #a855f7; }
 .guide-gap { position: absolute; pointer-events: none; z-index: 3; }

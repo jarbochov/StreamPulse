@@ -226,7 +226,7 @@ export function toast(message, kind = 'info', ms = 3200) {
 // ---- preferences ------------------------------------------------------------------
 export const PREF_KEY = 'streampulse.overlayEditor.v1';
 export const prefs = Object.assign({
-    snap: true, snapAlign: true, snapSpacing: true, snapDimensions: true,
+    snap: true, snapAlign: true, snapSpacing: true, snapDimensions: true, edgeDistances: false,
     scaleText: true, grid: false, safeZones: false, live: true, fx: true,
     backdrop: 'checker', backdropImage: '', backdropOpacity: 80, alignTo: 'selection',
     sections: {}, recentColors: [], inspectorTabs: {}, inspectorScroll: {}

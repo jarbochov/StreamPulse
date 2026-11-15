@@ -1201,6 +1201,33 @@ export function renderSelectionUI(chipText) {
             cache.chip.style.display = 'none';
         }
     }
+    if (!state.gesture) showGuides([]);
+}
+
+function edgeDistanceGuides(bounds, canW, canH) {
+    if (!bounds || (!bounds.w && !bounds.h)) return [];
+    const cx = Math.round(bounds.x + bounds.w / 2);
+    const cy = Math.round(bounds.y + bounds.h / 2);
+    const topDist = Math.round(bounds.y);
+    const leftDist = Math.round(bounds.x);
+    const rightDist = Math.round(canW - (bounds.x + bounds.w));
+    const bottomDist = Math.round(canH - (bounds.y + bounds.h));
+    const items = [
+        { side: 'T', axis: 'v', pos: cx, start: Math.min(0, bounds.y), end: Math.max(0, bounds.y), dist: topDist, distPos: topDist > 0 ? Math.round(bounds.y / 2) : 14 },
+        { side: 'B', axis: 'v', pos: cx, start: Math.min(canH, bounds.y + bounds.h), end: Math.max(canH, bounds.y + bounds.h), dist: bottomDist, distPos: bottomDist > 0 ? Math.round(bounds.y + bounds.h + bottomDist / 2) : canH - 14 },
+        { side: 'L', axis: 'h', pos: cy, start: Math.min(0, bounds.x), end: Math.max(0, bounds.x), dist: leftDist, distPos: leftDist > 0 ? Math.round(bounds.x / 2) : 22 },
+        { side: 'R', axis: 'h', pos: cy, start: Math.min(canW, bounds.x + bounds.w), end: Math.max(canW, bounds.x + bounds.w), dist: rightDist, distPos: rightDist > 0 ? Math.round(bounds.x + bounds.w + rightDist / 2) : canW - 22 }
+    ];
+    return items.map(item => ({
+        kind: 'edge',
+        side: item.side,
+        axis: item.axis,
+        pos: item.pos,
+        start: item.start,
+        end: item.end,
+        dist: item.dist,
+        distPos: item.distPos
+    }));
 }
 
 export function showGuides(xs = [], ys = [], smartGuides = []) {
@@ -1210,13 +1237,22 @@ export function showGuides(xs = [], ys = [], smartGuides = []) {
         xs = [];
         ys = [];
     }
-    if (!xs.length && !ys.length && !smartGuides.length) {
+    const canW = state.overlay?.canvas?.width || 1920;
+    const canH = state.overlay?.canvas?.height || 1080;
+    let combinedSmart = smartGuides;
+    if (prefs.edgeDistances) {
+        const activeItems = state.gesture?.items?.length
+            ? state.gesture.items.map(i => i.el)
+            : selectedElements();
+        if (activeItems.length) {
+            combinedSmart = [...smartGuides, ...edgeDistanceGuides(boundsOf(activeItems), canW, canH)];
+        }
+    }
+    if (!xs.length && !ys.length && !combinedSmart.length) {
         if (guidesEl.firstChild) guidesEl.replaceChildren();
         return;
     }
     const frag = document.createDocumentFragment();
-    const canW = state.overlay?.canvas?.width || 1920;
-    const canH = state.overlay?.canvas?.height || 1080;
 
     for (const x of xs) {
         const line = document.createElement('div');
@@ -1231,27 +1267,30 @@ export function showGuides(xs = [], ys = [], smartGuides = []) {
         frag.appendChild(line);
     }
 
-    for (const g of smartGuides) {
-        if (g.kind === 'line') {
-            const line = document.createElement('div');
-            line.className = `guide ${g.axis}${g.isCenter ? ' is-center' : ''}`;
-            if (g.axis === 'v') {
-                line.style.left = `${g.pos}px`;
-                line.style.top = `${g.start ?? 0}px`;
-                line.style.height = `${Math.max(1, (g.end ?? canH) - (g.start ?? 0))}px`;
-                line.style.bottom = 'auto';
-            } else {
-                line.style.top = `${g.pos}px`;
-                line.style.left = `${g.start ?? 0}px`;
-                line.style.width = `${Math.max(1, (g.end ?? canW) - (g.start ?? 0))}px`;
-                line.style.right = 'auto';
+    for (const g of combinedSmart) {
+        if (g.kind === 'line' || g.kind === 'edge') {
+            const isEdge = g.kind === 'edge';
+            if (!isEdge || g.end - g.start > 1) {
+                const line = document.createElement('div');
+                line.className = `guide ${g.axis}${g.isCenter ? ' is-center' : ''}${isEdge ? ' is-edge' : ''}`;
+                if (g.axis === 'v') {
+                    line.style.left = `${g.pos}px`;
+                    line.style.top = `${g.start ?? 0}px`;
+                    line.style.height = `${Math.max(1, (g.end ?? canH) - (g.start ?? 0))}px`;
+                    line.style.bottom = 'auto';
+                } else {
+                    line.style.top = `${g.pos}px`;
+                    line.style.left = `${g.start ?? 0}px`;
+                    line.style.width = `${Math.max(1, (g.end ?? canW) - (g.start ?? 0))}px`;
+                    line.style.right = 'auto';
+                }
+                frag.appendChild(line);
             }
-            frag.appendChild(line);
 
-            if (g.distance > 0) {
+            if (isEdge || g.distance > 0) {
                 const pill = document.createElement('div');
-                pill.className = 'guide-pill';
-                pill.textContent = `${g.distance} px`;
+                pill.className = `guide-pill${isEdge ? ' edge' : ''}`;
+                pill.textContent = isEdge ? `${g.side} ${g.dist}px` : `${g.distance} px`;
                 pill.style.left = `${g.axis === 'v' ? g.pos : g.distPos}px`;
                 pill.style.top = `${g.axis === 'v' ? g.distPos : g.pos}px`;
                 frag.appendChild(pill);
@@ -1293,9 +1332,19 @@ export function showGuides(xs = [], ys = [], smartGuides = []) {
 
 export function snapTargets(excludeIds) {
     const boxes = [];
+    const groupMembers = new Map();
     for (const el of visibleElements()) {
         if (excludeIds.has(el.id) || el.visible === false) continue;
         boxes.push({ id: el.id, ...visualBoxOf(el) });
+        if (el.group) {
+            if (!groupMembers.has(el.group)) groupMembers.set(el.group, []);
+            groupMembers.get(el.group).push(el);
+        }
+    }
+    for (const [groupId, members] of groupMembers) {
+        if (members.length < 2) continue;
+        const gb = boundsOf(members);
+        boxes.push({ id: `group:${groupId}`, x: gb.x, y: gb.y, w: gb.w, h: gb.h });
     }
     return buildSnapModel(boxes, state.overlay.canvas.width, state.overlay.canvas.height);
 }
