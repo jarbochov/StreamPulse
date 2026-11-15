@@ -105,11 +105,15 @@ export function syncCanvasUI() {
 }
 
 // ---- Cutout Underlayer Masking ----------------------------------------------------
-export function updateEditorCutoutMask(overrideCutouts = null) {
+export function updateEditorCutoutMask(overrideCutouts = null, { dragPad = false } = {}) {
     const under = $('canvas-underlayer');
     if (!under) return;
     const canW = Number(state.overlay.canvas?.width) || 1920;
     const canH = Number(state.overlay.canvas?.height) || 1080;
+    const svgW = dragPad ? canW * 3 : canW;
+    const svgH = dragPad ? canH * 3 : canH;
+    const vbX = dragPad ? -canW : 0;
+    const vbY = dragPad ? -canH : 0;
     const cutouts = Array.isArray(overrideCutouts)
         ? overrideCutouts
         : state.overlay.elements.filter(e => e.type === 'cutout' && e.visible !== false && inView(e));
@@ -156,7 +160,7 @@ export function updateEditorCutoutMask(overrideCutouts = null) {
             return `M ${x + r} ${y} H ${x + w - r} A ${r} ${r} 0 0 1 ${x + w} ${y + r} V ${y + h - r} A ${r} ${r} 0 0 1 ${x + w - r} ${y + h} H ${x + r} A ${r} ${r} 0 0 1 ${x} ${y + h - r} V ${y + r} A ${r} ${r} 0 0 1 ${x + r} ${y} Z`;
         }).join(' ');
 
-        svgXml = `<svg xmlns="http://www.w3.org/2000/svg" width="${canW}" height="${canH}" viewBox="0 0 ${canW} ${canH}"><path fill="white" fill-rule="evenodd" d="M 0 0 H ${canW} V ${canH} H 0 Z ${holePaths}"/></svg>`;
+        svgXml = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="${vbX} ${vbY} ${svgW} ${svgH}"><path fill="white" fill-rule="evenodd" d="M ${vbX} ${vbY} H ${vbX + svgW} V ${vbY + svgH} H ${vbX} Z ${holePaths}"/></svg>`;
     } else {
         const filters = [];
         const shapes = cutouts.map(el => {
@@ -187,20 +191,22 @@ export function updateEditorCutoutMask(overrideCutouts = null) {
             const rad = Math.round(Math.max(0, Number(el.style?.borderRadius) || 0));
             return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rad}" ry="${rad}" fill="black" ${filterAttr}/>`;
         });
-        svgXml = `<svg xmlns="http://www.w3.org/2000/svg" width="${canW}" height="${canH}" viewBox="0 0 ${canW} ${canH}"><defs>${filters.join('')}<mask id="m"><rect width="100%" height="100%" fill="white"/>${shapes.join('')}</mask></defs><rect width="100%" height="100%" fill="white" mask="url(#m)"/></svg>`;
+        svgXml = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="${vbX} ${vbY} ${svgW} ${svgH}"><defs>${filters.join('')}<mask id="m"><rect x="${vbX}" y="${vbY}" width="${svgW}" height="${svgH}" fill="white"/>${shapes.join('')}</mask></defs><rect x="${vbX}" y="${vbY}" width="${svgW}" height="${svgH}" fill="white" mask="url(#m)"/></svg>`;
     }
 
     const maskDataUrl = `url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgXml)}")`;
     if (under._lastMaskUrl === maskDataUrl) return;
     under._lastMaskUrl = maskDataUrl;
+    const maskSize = dragPad ? `${svgW}px ${svgH}px` : '100% 100%';
+    const maskPos = dragPad ? `${vbX}px ${vbY}px` : '0 0';
     under.style.setProperty('-webkit-mask-image', maskDataUrl);
-    under.style.setProperty('-webkit-mask-size', '100% 100%');
+    under.style.setProperty('-webkit-mask-size', maskSize);
     under.style.setProperty('-webkit-mask-repeat', 'no-repeat');
-    under.style.setProperty('-webkit-mask-position', '0 0');
+    under.style.setProperty('-webkit-mask-position', maskPos);
     under.style.setProperty('mask-image', maskDataUrl);
-    under.style.setProperty('mask-size', '100% 100%');
+    under.style.setProperty('mask-size', maskSize);
     under.style.setProperty('mask-repeat', 'no-repeat');
-    under.style.setProperty('mask-position', '0 0');
+    under.style.setProperty('mask-position', maskPos);
 }
 
 let editorCutoutMaskRaf = null;
@@ -1375,6 +1381,10 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
             dy += res.dy;
             smartGuides = res.guides;
         }
+        if (gesture.cutoutDragMask && !gesture.cutoutDragInit) {
+            gesture.cutoutDragInit = true;
+            updateEditorCutoutMask(null, { dragPad: true });
+        }
         for (const item of gesture.items) {
             item.el.x = Math.round(item.x + dx);
             item.el.y = Math.round(item.y + dy);
@@ -1386,7 +1396,18 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
             }
         }
         showGuides(smartGuides);
-        if (gesture.hasCutout) scheduleEditorCutoutMask();
+        if (gesture.cutoutDragMask) {
+            const under = $('canvas-underlayer');
+            if (under) {
+                const canW = Number(state.overlay.canvas?.width) || 1920;
+                const canH = Number(state.overlay.canvas?.height) || 1080;
+                const pos = `${-canW + Math.round(dx)}px ${-canH + Math.round(dy)}px`;
+                under.style.setProperty('-webkit-mask-position', pos);
+                under.style.setProperty('mask-position', pos);
+            }
+        } else if (gesture.hasCutout) {
+            scheduleEditorCutoutMask();
+        }
         renderSelectionUI(gesture.items.length === 1 ? `${gesture.items[0].el.x}, ${gesture.items[0].el.y}` : undefined);
         if (onSyncGeometry) onSyncGeometry();
         if (onUpdateStatusBar) onUpdateStatusBar();
@@ -1530,7 +1551,11 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
             if (done.type === 'move' && done.items) {
                 renderCanvas(new Set(done.items.map(i => i.el.id)));
             }
-            if (state.overlay.elements.some(e => e.type === 'cutout')) updateEditorCutoutMask();
+            if (state.overlay.elements.some(e => e.type === 'cutout')) {
+                const under = $('canvas-underlayer');
+                if (under && done.cutoutDragInit) under._lastMaskUrl = '';
+                updateEditorCutoutMask();
+            }
             renderSelectionUI();
             changed(true);
             if (onRenderProperties) onRenderProperties();
@@ -1573,13 +1598,21 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
                 deferCollapse = true;
             }
             const movable = selectedElements().filter(item => !item.locked && item.visible !== false);
+            const hasCutout = movable.some(m => m.type === 'cutout');
+            let cutoutDragMask = false;
+            if (hasCutout) {
+                const activeCutouts = state.overlay.elements.filter(e => e.type === 'cutout' && e.visible !== false && inView(e));
+                const movableIds = new Set(movable.map(m => m.id));
+                cutoutDragMask = activeCutouts.length > 0 && activeCutouts.every(c => movableIds.has(c.id));
+            }
             state.gesture = {
                 type: 'move', startX: event.clientX, startY: event.clientY, id,
                 deferCollapse, moved: false,
                 items: movable.map(item => ({ el: item, x: item.x, y: item.y })),
                 bounds: movable.length ? boundsOf(movable) : null,
                 locked: !movable.length,
-                hasCutout: movable.some(m => m.type === 'cutout')
+                hasCutout,
+                cutoutDragMask
             };
             if (el?.locked && state.selectedIds.size === 1) state.gesture.locked = true;
         } else {
