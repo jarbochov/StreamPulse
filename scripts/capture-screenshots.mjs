@@ -582,10 +582,11 @@ const dummyVariablesPayload = {
     variableSetsEnabled: true,
     groups: ['Broadcast', 'Theme'],
     variables: [
-        { name: 'deaths', type: 'counter', value: 14, defaultValue: 0, min: 0, max: 999, step: 1, group: 'Broadcast', description: 'Current expedition retries' },
+        { name: 'deaths', type: 'number', value: 14, resetValue: 0, min: 0, max: 999, step: 1, group: 'Broadcast', description: 'Current expedition retries' },
         { name: 'current_map', type: 'list', value: 'Moon Harbor', options: ['Moon Harbor', 'Silver Meadow', 'Cloud Ridge'], group: 'Broadcast', description: 'Active map rotation' },
         { name: 'coop_mode', type: 'toggle', value: true, group: 'Broadcast', description: 'Squad overlay active' },
         { name: 'team_accent', type: 'color', value: '#38bdf8', group: 'Theme', description: 'Primary broadcast accent' },
+        { name: 'title_size', type: 'number', value: 48, resetValue: 48, min: 8, max: 120, step: 2, group: 'Theme' },
         { name: 'scoreboard', type: 'template', value: '{{var.current_map}} | Retries: {{var.deaths}}', group: 'Broadcast', description: 'Formatted header ticker' }
     ],
     sets: [
@@ -1316,6 +1317,7 @@ async function run() {
             action: async (p) => {
                 await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
                 await p.waitForSelector('#vars-list > *');
+                await p.click('[data-select-variable="title_size"]');
             }
         },
         {

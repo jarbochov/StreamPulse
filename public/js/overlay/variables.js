@@ -1,4 +1,4 @@
-
+import numericBindings from '../../../shared/numeric-bindings.cjs';
 const VARIABLE_GROUPS = [
     { label: 'Viewers', items: [['viewers.current', 'Current viewers'], ['viewers.peak', 'Peak viewers'], ['viewers.average', 'Average viewers']] },
     { label: 'Chat', items: [['chatters', 'Chatters'], ['messages', 'Messages'], ['followers', 'Followers (current total)'], ['followers.session', 'New followers this session'], ['subscribers', 'Subscribers (current total)'], ['subscribers.session', 'Subscribers seen this session'], ['emotes', 'Different emotes used this session'], ['raids', 'Raids this session'], ['highlights', 'Saved highlights'], ['clips.pending', 'Clip candidates waiting']] },
@@ -884,6 +884,7 @@ function resolveColorToken(raw, status, context, member = null) {
 }
 
 function resolveStyleVariables(style, status, context, member = null) {
+    style = numericBindings.resolveNumericConfig(style, 'style', status);
     if (!style || typeof style !== 'object') return style;
     const expandFn = v => resolveColorToken(v, status, context, member);
     const hasToken = v => typeof v === 'string' && (v.includes('{{') || (Boolean(member) && v.trim().startsWith('@')));

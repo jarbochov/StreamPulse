@@ -104,6 +104,90 @@ try {
         });
     };
     await setup();
+    await page.evaluate(() => {
+        const { state, prefs, select } = window.fixture;
+        prefs.live = true;
+        state.liveStatus = { customVars: [
+            { name: 'title_size', type: 'number', value: 32 },
+            { name: 'caption', type: 'text', value: 'Not a numeric binding' }
+        ] };
+        select('text', { content: 'Fictional title', textFit: 'none', style: { fontSize: 20 } });
+        document.querySelector('[data-inspector-tab="style"]').click();
+        const button = document.querySelector('[data-number-pick="style.fontSize"]');
+        for (let parent = button.parentElement; parent; parent = parent.parentElement) {
+            if (parent.tagName === 'DETAILS') parent.open = true;
+        }
+    });
+    const numberControlLayout = () => page.evaluate(() => {
+        const input = document.querySelector('input[data-path="style.fontSize"]').getBoundingClientRect();
+        const button = document.querySelector('[data-number-pick="style.fontSize"]').getBoundingClientRect();
+        return { inputWidth: input.width, buttonLeft: button.left };
+    });
+    const unboundLayout = await numberControlLayout();
+    await page.click('[data-number-pick="style.fontSize"]');
+    await page.waitForSelector('[data-token="var.title_size"]');
+    assert.equal(await page.$('[data-token="var.caption"]'), null, 'numeric picker excludes Text variables');
+    await page.click('[data-token="var.title_size"]');
+    assert.deepEqual(await numberControlLayout(), unboundLayout, 'unlink control does not shift the Number input or picker');
+    assert.equal(await page.evaluate(() => {
+        const pick = document.querySelector('[data-number-pick="style.fontSize"]').getBoundingClientRect();
+        const unlink = document.querySelector('[data-number-unbind="style.fontSize"]').getBoundingClientRect();
+        return pick.top === unlink.top && pick.height === unlink.height;
+    }), true, 'binding and unlink buttons align vertically');
+    assert.deepEqual(await page.evaluate(() => {
+        const element = window.fixture.state.overlay.elements[0];
+        const input = document.querySelector('input[data-path="style.fontSize"]');
+        return { fallback: element.style.fontSize, binding: element.style.numberBindings.fontSize, disabled: input.disabled, value: input.value };
+    }), { fallback: 20, binding: 'title_size', disabled: true, value: '32' });
+    await page.evaluate(async () => {
+        window.fixture.state.liveStatus.customVars[0].value = 48;
+        window.fixture.refreshNumericControls();
+        (await import('/js/editor/editor-canvas.js')).renderCanvas();
+    });
+    assert.equal(await page.$eval('input[data-path="style.fontSize"]', input => input.value), '48');
+    assert.equal(await page.$eval('.canvas-element', node => node.style.fontSize), '48px');
+    await page.evaluate(() => document.querySelector('[data-number-unbind="style.fontSize"]').click());
+    assert.equal(await page.$eval('input[data-path="style.fontSize"]', input => input.disabled), false);
+    await page.evaluate(async () => (await import('/js/editor/editor-canvas.js')).renderCanvas());
+    assert.equal(await page.$eval('.canvas-element', node => node.style.fontSize), '20px');
+    const rangeLayouts = await page.evaluate(async () => {
+        const { F } = await import('/js/editor/editor-form.js');
+        const host = document.createElement('div');
+        host.style.cssText = 'position:absolute;left:0;top:400px;width:300px';
+        document.body.appendChild(host);
+        const element = window.fixture.state.overlay.elements[0];
+        const render = () => {
+            host.innerHTML = F.range('style.rotate', 'Rotation', 0, { min: -180, max: 180, editable: true, reset: 0 });
+            const input = host.querySelector('input[type="number"]').getBoundingClientRect();
+            const button = host.querySelector('[data-number-pick]').getBoundingClientRect();
+            return [input.left, input.width, button.left, button.top - input.top];
+        };
+        const before = render();
+        element.style.numberBindings.rotate = 'title_size';
+        const after = render();
+        delete element.style.numberBindings.rotate;
+        host.remove();
+        return { before, after };
+    });
+    assert.deepEqual(rangeLayouts.after, rangeLayouts.before, 'range controls keep their alignment when unlink appears and reset hides');
+    const colorInteraction = await page.evaluate(async () => {
+        window.fixture.select('shape', { style: { background: '#123456' } });
+        document.querySelector('[data-inspector-tab="style"]').click();
+        const picker = document.querySelector('input[type="color"][data-path="style.background"]');
+        picker.focus();
+        for (const value of ['#234567', '#345678', '#456789']) {
+            picker.value = value;
+            picker.dispatchEvent(new Event('input', { bubbles: true }));
+            await new Promise(resolve => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+        }
+        const duringDrag = picker.isConnected;
+        picker.dispatchEvent(new Event('change', { bubbles: true }));
+        const duringChange = picker.isConnected;
+        picker.blur();
+        return { duringDrag, duringChange, afterBlur: picker.isConnected, value: window.fixture.state.overlay.elements[0].style.background };
+    });
+    assert.deepEqual(colorInteraction, { duringDrag: true, duringChange: true, afterBlur: false, value: '#456789' }, 'color interaction keeps its picker mounted until editing finishes');
+    await setup();
     const tileEdits = await page.evaluate(async () => {
         const patterns = await import('/js/editor/editor-patterns.js');
         const { state, createElementData } = window.fixture;

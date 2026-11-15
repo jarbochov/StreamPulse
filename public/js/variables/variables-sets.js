@@ -623,7 +623,7 @@ export function renderSets() {
                         </div>
                         ${renderSetConsumers(activeSet)}
                     </div>
-                    <div style="display:flex; gap:.35rem; flex-wrap:wrap;">
+                    <div class="set-card-actions">
                         <button type="button" class="b sm primary" data-set-act="add-entry">${SVG_PLUS} Add Entry</button>
                         <button type="button" class="b sm" data-set-act="inc-slot" title="Add an output slot">+ Slot</button>
                         ${slotsCount > 0 ? '<button type="button" class="b sm" data-set-act="dec-slot" title="Remove last output slot">- Slot</button>' : ''}
@@ -649,7 +649,7 @@ export function renderSets() {
                     </div>
                     <div class="roster-section ${slotsCount > 0 ? 'sets-roster-pane' : ''}">
                         <div class="set-section-title" style="flex-wrap:wrap;">
-                            <span>${slotsCount > 0 ? 'Roster Library (drag onto any slot)' : 'Saved Presets'}</span>
+                            <span title="${slotsCount > 0 ? 'Drag entries onto any output slot' : 'Activate a saved preset'}">${slotsCount > 0 ? 'Roster library' : 'Saved presets'}</span>
                             <div style="display:flex; gap:.35rem; align-items:center; text-transform:none; letter-spacing:0; font-weight:500; flex-wrap:wrap;">
                                 ${(activeSet.roster || []).length > 4 ? `<input type="search" id="set-roster-filter" value="${esc(rosterFilter)}" placeholder="Filter entries..." style="padding:.22rem .55rem; font-size:.78rem; width:10rem;">` : ''}
                                 <a class="b sm" href="/api/variables/sets/${encodeURIComponent(activeSet.id)}/export?format=csv" download="${esc(activeSet.id)}-roster.csv" style="text-decoration:none;">Export CSV</a>

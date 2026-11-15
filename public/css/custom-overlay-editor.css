@@ -1260,3 +1260,16 @@ body.is-scrubbing, body.is-scrubbing * {
     .ig-fields-list { overflow: visible; }
     .ig-field-row-mid, .ig-field-row-bot { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+.number-field { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.number-field input { flex: 1; min-width: 0; width: 0; }
+.number-var-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 26px; padding: 0; color: var(--text-muted); background: var(--bg-inset); border: 1px solid var(--border); border-radius: 5px; cursor: pointer; }
+.number-var-btn:hover { color: var(--accent); border-color: var(--accent); }
+.number-binding-note { color: var(--accent); font-size: 10px; overflow-wrap: anywhere; }
+.number-binding-note span { color: var(--text-muted); }
+.grid2 > .field, .grid3 > .field { align-content: start; }
+.field .range-field.has-number-binding { grid-template-columns: minmax(0, 1fr) 3.2rem 51px; }
+.field .range-field.has-number.has-number-binding { grid-template-columns: minmax(0, 1fr) 4.2rem 51px; }
+.field .range-field.has-reset.has-number-binding { grid-template-columns: minmax(0, 1fr) 3.2rem 28px 51px; }
+.field .range-field.has-number.has-reset.has-number-binding { grid-template-columns: minmax(0, 1fr) 4.2rem 28px 51px; }
+.number-binding-actions { display: inline-grid; grid-template-columns: repeat(2, 24px); align-items: center; gap: 3px; flex: none; }
+.range-reset-slot { width: 28px; min-height: 26px; }

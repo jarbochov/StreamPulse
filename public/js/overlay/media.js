@@ -2,6 +2,7 @@
 import { loadGoogleFont } from './fonts.js';
 import { applyBorderEffects, applyTextAnimation, decorationStyle, gradientStyle, textEffectStyle } from './styles.js';
 import { resolveColorToken, resolveStyleVariables } from './variables.js';
+import numericBindings from '../../../shared/numeric-bindings.cjs';
 
 function parseYouTubeUrl(urlStr) {
     if (!urlStr || typeof urlStr !== 'string') return null;
@@ -578,6 +579,7 @@ function mountGroupAvatarMedia(avBox, item, dims, ctx) {
 }
 
 function renderImageGroupStrip(container, element, status, options = {}) {
+    element = numericBindings.resolveNumericElement(element, status);
     cleanupGroupStrip(container);
     const cfg = element?.imageGroup || {};
     const imgField = cfg.imageField || 'image';

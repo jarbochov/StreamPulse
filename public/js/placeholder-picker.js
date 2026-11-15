@@ -152,6 +152,13 @@
         const table = shared.variableTable(status, options.getContext?.() || {});
         const query = dialog.querySelector('#sp-search').value.trim().toLowerCase();
         const colorMode = options.filter === 'color';
+        if (options.filter === 'number') {
+            const items = (status.customVars || []).filter(variable => !variable.hidden && ['number', 'counter'].includes(variable.type));
+            dialog.querySelector('#sp-list').innerHTML = items.filter(variable => !query || `${variable.name} ${variable.group || ''}`.toLowerCase().includes(query))
+                .map(variable => `<button type="button" data-token="var.${esc(variable.name)}"><span>${esc(variable.group ? `${variable.group} / ${variable.name}` : variable.name)}</span><code>{{var.${esc(variable.name)}}}</code><span class="preview">${esc(variable.value)}</span></button>`).join('')
+                || '<p class="hint">No Number variables match. Create one in <a href="/placeholders.html#variables" target="_blank" rel="noopener">Variables</a>.</p>';
+            return;
+        }
 
         if (colorMode) {
             const groups = buildColorGroups(status, table);
@@ -230,10 +237,10 @@
         options = opts || {};
         if (!dialog) build();
         const isColor = options.filter === 'color';
-        dialog.classList.toggle('is-color-mode', isColor);
+        dialog.classList.toggle('is-color-mode', isColor || options.filter === 'number');
         dialog.querySelector('#sp-title').textContent = options.title || (isColor ? 'Bind color variable' : 'Insert placeholder');
         dialog.querySelector('#sp-subtitle').textContent = options.subtitle || (isColor ? 'Click a color variable or member color field to bind it dynamically.' : 'Live values update as data changes. Click one to insert it at your cursor.');
-        dialog.querySelector('#sp-search').placeholder = isColor ? 'Search color variables or member fields…' : 'Search timers, clock, events, goals…';
+        dialog.querySelector('#sp-search').placeholder = options.filter === 'number' ? 'Search Number variables or groups...' : isColor ? 'Search color variables or member fields…' : 'Search timers, clock, events, goals…';
         dialog.querySelector('#sp-search').value = '';
         render();
         dialog.showModal();

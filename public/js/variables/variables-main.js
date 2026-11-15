@@ -1,15 +1,19 @@
 // Main controller for Placeholders Reference & Custom Variables Studio
 
-import { api, copyToClipboard, esc, pickImage, state, toast } from './variables-state.js';
+import { api, copyToClipboard, esc, state, toast } from './variables-state.js';
 import { bindSetEvents, renderSets, tickSetCountdowns } from './variables-sets.js';
-import { bindGroupDragDrop, exportVariables, fontControls, groupedRows, openGroupEditor } from './variables-groups.js';
-import { numberControls, openNumberEditor } from './variables-numbers.js';
+import { bindGroupDragDrop, exportVariables, openGroupEditor } from './variables-groups.js';
+import { numberControls } from './variables-numbers.js';
 import { bindInlineEditing, inlineValue } from './variables-inline.js';
 import { groupFilterLink, groupFilterTag, groupQueryFromFragment, matchesVariableQuery, parseVariableQuery } from './variables-filter.js';
+import { createVariableInspector } from './variables-inspector.js';
 
 const $ = id => document.getElementById(id);
 const S = window.OverlayShared;
 let inlineEditor = null;
+let variableInspector = null;
+let varsLoaded = false;
+let groupNavigation = '';
 
 function applyVariableSetsVisibility() {
     const enabled = state.variableSetsEnabled !== false;
@@ -40,122 +44,7 @@ function showTab(name) {
     renderVars();
 }
 
-let activePhPickerCleanup = null;
-
-function closePlaceholderPicker() {
-    if (typeof activePhPickerCleanup === 'function') {
-        activePhPickerCleanup();
-        activePhPickerCleanup = null;
-    }
-}
-
-function openPlaceholderPicker(anchorBtn, inputEl, selfVarName = '') {
-    closePlaceholderPicker();
-    if (!S?.variableGroups || !inputEl) return;
-    const table = S.variableTable ? S.variableTable(state.status, {}) : {};
-    const allItems = [];
-    for (const g of S.variableGroups(state.status)) {
-        for (const [key, label] of g.items) {
-            if (selfVarName && key === `var.${selfVarName}`) continue;
-            const cur = table[key];
-            allItems.push({
-                group: g.label,
-                key,
-                label,
-                val: cur !== undefined && cur !== null && cur !== '' ? String(cur) : ''
-            });
-        }
-    }
-
-    const pop = document.createElement('div');
-    pop.className = 'slot-picker-popover';
-    pop.style.width = '340px';
-    pop.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:.4rem;">
-            <strong style="font-size:.8rem;">Insert Variable / Placeholder</strong>
-            <button type="button" class="b sm" data-picker-close style="padding:.1rem .35rem;">&times;</button>
-        </div>
-        <input type="search" placeholder="Search variables or placeholders..." aria-label="Search placeholders" style="padding:.3rem .5rem; font-size:.82rem;">
-        <div class="slot-picker-list"></div>
-    `;
-    document.body.appendChild(pop);
-
-    const rect = anchorBtn.getBoundingClientRect();
-    const popW = 340;
-    const left = Math.max(8, Math.min(window.innerWidth - popW - 8, rect.left));
-    const top = Math.min(window.innerHeight - 330, rect.bottom + 6);
-    pop.style.left = `${left}px`;
-    pop.style.top = `${Math.max(8, top)}px`;
-
-    const searchInput = pop.querySelector('input[type="search"]');
-    const listEl = pop.querySelector('.slot-picker-list');
-    let selectedIdx = 0;
-    let visible = allItems;
-
-    const renderList = () => {
-        const q = searchInput.value.trim().toLowerCase();
-        visible = allItems.filter(it => !q || `${it.group} ${it.key} ${it.label} ${it.val}`.toLowerCase().includes(q)).slice(0, 60);
-        if (selectedIdx >= visible.length) selectedIdx = Math.max(0, visible.length - 1);
-        if (!visible.length) {
-            listEl.innerHTML = '<div class="muted" style="font-size:.78rem; padding:.5rem; text-align:center;">No matching variables or placeholders.</div>';
-            return;
-        }
-        listEl.innerHTML = visible.map((it, i) => `
-            <button type="button" class="slot-picker-item ${i === selectedIdx ? 'is-active' : ''}" data-pick-ph="${esc(it.key)}">
-                <div class="slot-picker-meta">
-                    <div class="slot-picker-name"><code style="font-size:.76rem;">{{${esc(it.key)}}}</code></div>
-                    <div class="slot-picker-sub">${esc(it.group)} · ${esc(it.label)}${it.val ? ` = ${esc(it.val)}` : ''}</div>
-                </div>
-            </button>
-        `).join('');
-    };
-
-    const insertKey = key => {
-        closePlaceholderPicker();
-        const token = `{{${key}}}`;
-        const start = Number.isInteger(inputEl.selectionStart) ? inputEl.selectionStart : inputEl.value.length;
-        const end = Number.isInteger(inputEl.selectionEnd) ? inputEl.selectionEnd : start;
-        inputEl.value = inputEl.value.slice(0, start) + token + inputEl.value.slice(end);
-        inputEl.focus();
-        inputEl.setSelectionRange(start + token.length, start + token.length);
-        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-    };
-
-    renderList();
-    searchInput.focus();
-
-    searchInput.addEventListener('input', () => { selectedIdx = 0; renderList(); });
-    searchInput.addEventListener('keydown', e => {
-        if (e.key === 'ArrowDown') { e.preventDefault(); if (visible.length) { selectedIdx = (selectedIdx + 1) % visible.length; renderList(); } }
-        else if (e.key === 'ArrowUp') { e.preventDefault(); if (visible.length) { selectedIdx = (selectedIdx - 1 + visible.length) % visible.length; renderList(); } }
-        else if (e.key === 'Enter' && visible[selectedIdx]) { e.preventDefault(); insertKey(visible[selectedIdx].key); }
-    });
-
-    pop.addEventListener('click', e => {
-        if (e.target.closest('[data-picker-close]')) return closePlaceholderPicker();
-        const item = e.target.closest('[data-pick-ph]');
-        if (item) insertKey(item.dataset.pickPh);
-    });
-
-    const onDocDown = e => {
-        if (!pop.contains(e.target) && !anchorBtn.contains(e.target)) closePlaceholderPicker();
-    };
-    const onDocKey = e => { if (e.key === 'Escape') closePlaceholderPicker(); };
-    setTimeout(() => {
-        document.addEventListener('mousedown', onDocDown);
-        document.addEventListener('keydown', onDocKey);
-    }, 0);
-
-    activePhPickerCleanup = () => {
-        document.removeEventListener('mousedown', onDocDown);
-        document.removeEventListener('keydown', onDocKey);
-        pop.remove();
-    };
-}
-
 function renderVarControls(v) {
-    if (v.type === 'font') return fontControls(v);
-    if (v.type === 'number' || v.type === 'counter') return numberControls(v);
     if (v.type === 'toggle') {
         const on = String(v.value) === 'true';
         return `
@@ -165,42 +54,14 @@ function renderVarControls(v) {
             </button>
         `;
     }
-    if (v.type === 'color') {
-        const hex = /^#[0-9a-f]{6}/i.test(v.value || '') ? v.value.slice(0, 7) : '#3b82f6';
-        return `
-            <input type="color" data-act="color-picker" value="${esc(hex)}" style="width:2.4rem; height:1.9rem; padding:0; border:1px solid var(--border); border-radius:5px; cursor:pointer;">
-            <input type="text" data-act="value" value="${esc(v.value)}" placeholder="#3b82f6" class="var-mono" style="width:7.5rem; padding:.3rem .5rem;">
-            <button type="button" class="b sm" data-act="save-value">Save</button>
-        `;
-    }
-    if (v.type === 'image') {
-        return `
-            ${v.value ? `<img src="${esc(v.value)}" alt="" class="var-img-thumb">` : ''}
-            <input type="text" data-act="value" value="${esc(v.value)}" placeholder="https://... or /assets/..." class="var-input-grow">
-            <button type="button" class="b sm" data-act="pick-image">Asset Library</button>
-            ${v.value ? '<button type="button" class="b sm" data-act="clear-image" title="Clear image">Clear</button>' : ''}
-        `;
-    }
-    if (v.type === 'list') {
-        return `
-            <span class="muted" style="flex:1; min-width:12rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Current: <b style="color:var(--accent);">${esc(v.value) || '(empty)'}</b></span>
-            <button type="button" class="b sm" data-act="roll" title="Pick next item">Pick next</button>
-        `;
-    }
-    if (v.type === 'template') {
-        return `
-            <input type="text" data-act="value" value="${esc(v.value)}" placeholder="{{var.first}} — {{var.second|Fallback}}" class="var-input-grow var-mono">
-            <button type="button" class="b sm" data-act="pick-placeholder" title="Insert variable or placeholder">+ Insert...</button>
-            <button type="button" class="b sm primary" data-act="save-value">Save</button>
-        `;
-    }
-    return `<input type="text" data-act="value" value="${esc(v.value)}" placeholder="(empty value)" class="var-input-grow"><button type="button" class="b sm" data-act="save-value">Save</button>`;
+    return '';
 }
 
 export function renderVars() {
     const container = $('vars-list');
+    if (!varsLoaded) return;
+    variableInspector?.refresh();
     if (inlineEditor?.isEditing()) return;
-    const openOptions = new Set([...container.querySelectorAll('.var-edit[open]')].map(node => node.closest('[data-n]').dataset.n));
     const q = { ...parseVariableQuery(state.varGroupQuery, state.variableGroups), text: state.varQuery.trim() };
     const groupChip = $('var-group-filter');
     if (groupChip) {
@@ -222,53 +83,27 @@ export function renderVars() {
     const setsCountEl = $('sets-count');
     if (setsCountEl) setsCountEl.textContent = (state.variableSets || []).length ? String(state.variableSets.length) : '';
 
-    if (!filtered.length && !visibleGroups?.length && (q.hasGroup || state.varQuery.trim() || typeFilter !== 'all' || !state.variableGroups.length)) {
+    const ordinary = state.customVars.filter(variable => !variable.setId && !variable.hidden);
+    const counts = new Map();
+    ordinary.forEach(variable => counts.set(variable.group || '', (counts.get(variable.group || '') || 0) + 1));
+    const nav = (label, href, count, active, attrs) => `<a class="variable-group-link${active ? ' is-active' : ''}" href="${esc(href)}"${active ? ' aria-current="page"' : ''} ${attrs}><span>${esc(label)}</span><small>${count}</small></a>`;
+    const navigation = nav('All variables', '#variables', ordinary.length, !q.hasGroup, 'data-filter-all')
+        + nav('Ungrouped', '#variables#ungrouped', counts.get('') || 0, q.ungrouped, 'data-filter-ungrouped data-drop-group=""')
+        + state.variableGroups.map(group => nav(group, groupFilterLink(group), counts.get(group) || 0, !q.ungrouped && q.groups.includes(group), `data-filter-group="${esc(group)}" data-drop-group="${esc(group)}"`)).join('');
+    if (navigation !== groupNavigation) { $('variable-group-nav').innerHTML = navigation; groupNavigation = navigation; }
+    const manage = $('var-group-manage');
+    manage.hidden = q.ungrouped || q.groups.length !== 1;
+    manage.dataset.manageGroup = q.groups[0] || '';
+    if (!filtered.length && !visibleGroups?.length) {
         container.innerHTML = `<div class="muted" style="padding:.5rem 0;">${(state.customVars || []).length ? 'No variables match your current filter.' : 'No custom variables defined yet. Create one above!'}</div>`;
         return;
     }
-
-    const rows = filtered.map(v => {
-        const listDetails = v.type === 'list' ? `
-            <details style="margin-top:.2rem;">
-                <summary class="muted" style="cursor:pointer; font-size:.8rem;">${(v.items || []).length} items · ${v.mode === 'sequential' ? 'Sequential order' : 'Random order'} (click to edit items)</summary>
-                <div style="margin-top:.5rem; display:grid; gap:.5rem;">
-                    <textarea data-act="items" rows="4" style="width:100%; padding:.45rem; font-family:monospace; font-size:.82rem;" placeholder="One item per line">${esc((v.items || []).join('\n'))}</textarea>
-                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem;">
-                        <label style="font-size:.82rem; color:var(--text-muted);">
-                            Pick mode:
-                            <select data-act="mode" style="margin-left:.3rem; padding:.2rem .4rem;">
-                                <option value="random" ${v.mode !== 'sequential' ? 'selected' : ''}>Randomly</option>
-                                <option value="sequential" ${v.mode === 'sequential' ? 'selected' : ''}>In order</option>
-                            </select>
-                        </label>
-                        <button type="button" class="b sm primary" data-act="save-items">Save list items</button>
-                    </div>
-                </div>
-            </details>
-        ` : '';
-
-        const tplPreview = v.type === 'template'
-            ? `<div class="var-tpl-preview"><span>Preview:</span><span class="var-tpl-out">${esc((S?.expandVariables ? S.expandVariables(v.value || '', state.status, {}) : v.value) || '(empty)')}</span></div>`
-            : '';
-
-        return `
-            <div class="var-row" data-n="${esc(v.name)}" data-type="${esc(v.type)}">
-                <div class="var-head">
-                    <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
-                        <strong style="font-size:.9rem;"${v.setId ? '' : ` draggable="true" data-drag-variable="${esc(v.name)}" title="Drag to a group header"`}>${esc(v.name)}</strong>
-                        <span class="badge">${esc(v.type === 'counter' ? 'number' : v.type)}</span>
-                        ${v.setId ? `<span class="badge">set:${esc(v.setId)}</span>` : ''}
-                        <code class="copyable" title="Click to copy" data-copy="{{var.${esc(v.name)}}}">{{var.${esc(v.name)}}}</code>
-                    </div>
-                    ${v.setId ? '' : '<button type="button" class="b sm danger" data-act="delete" title="Delete variable">Delete</button>'}
-                </div>
-                <div class="var-controls">
-                    ${v.type === 'toggle' ? renderVarControls(v) : `${inlineValue(v)}${['number', 'counter'].includes(v.type) ? renderVarControls(v) : `<details class="var-edit"${openOptions.has(v.name) ? ' open' : ''}><summary>Options</summary><div class="var-edit-panel">${renderVarControls(v)}${tplPreview}${listDetails}</div></details>`}`}
-                </div>
-            </div>
-        `;
-    });
-    container.innerHTML = groupedRows(filtered, rows, visibleGroups);
+    container.innerHTML = filtered.length ? `<div class="variable-table-heading"><span>Variable</span><span>Type</span><span>Value</span></div>` + filtered.map(variable =>
+        `<div class="var-row variable-studio-row${variableInspector?.selected() === variable.name ? ' is-selected' : ''}" data-n="${esc(variable.name)}" data-type="${esc(variable.type)}">
+            <button type="button" class="variable-name" data-select-variable="${esc(variable.name)}"${variable.setId ? '' : ` draggable="true" data-drag-variable="${esc(variable.name)}"`} title="Open variable inspector${variable.setId ? '' : '; drag to a group'}">${esc(variable.name)}${variable.group && !q.hasGroup ? `<small>${esc(variable.group)}</small>` : ''}</button>
+            <span class="variable-type">${esc(variable.type === 'counter' ? 'number' : variable.type)}</span>
+            <div class="var-controls">${variable.type === 'toggle' ? renderVarControls(variable) : inlineValue(variable)}${['number', 'counter'].includes(variable.type) ? numberControls(variable) : variable.type === 'list' ? '<button type="button" class="b sm" data-act="roll">Next</button>' : ''}</div>
+        </div>`).join('') : '<p class="muted">This group is empty. Drag a variable here or use Manage members.</p>';
 }
 
 // Placeholders rendering
@@ -309,12 +144,13 @@ function renderPlaceholders() {
     $('out').innerHTML = gs.map(g => `
         <div class="card">
             <h2>${esc(g.label)}</h2>
-            <table>
+            <table class="placeholder-table${$('vals').checked ? ' has-values' : ''}">
+                <colgroup><col class="placeholder-key"><col>${$('vals').checked ? '<col class="placeholder-value">' : ''}</colgroup>
                 ${g.items.map(i => `
                     <tr>
                         <td><code class="copyable" title="Click to copy" data-copy="{{${esc(i.key)}}}">{{${esc(i.key)}}}</code></td>
                         <td>${esc(i.label)}</td>
-                        ${$('vals').checked ? `<td class="val">${esc(i.value)}</td>` : ''}
+                        ${$('vals').checked ? `<td class="val" title="${esc(i.value)}">${esc(i.value)}</td>` : ''}
                     </tr>
                 `).join('')}
             </table>
@@ -344,6 +180,7 @@ export async function loadAllVars() {
     try {
         const [res] = await Promise.all([api('/api/variables'), refreshOverlaysSummary()]);
         state.customVars = res.variables || [];
+        varsLoaded = true;
         state.variableGroups = res.groups || [];
         state.variableSets = res.sets || [];
         if (typeof res.variableSetsEnabled === 'boolean') state.variableSetsEnabled = res.variableSetsEnabled;
@@ -418,6 +255,11 @@ function bindEvents() {
         renderVars();
         renderPlaceholders();
     });
+    variableInspector = createVariableInspector($('variable-inspector'), {
+        getVariable: name => state.customVars.find(variable => variable.name === name),
+        getStatus: () => state.status,
+        onSaved: loadAllVars
+    });
     $('tabs').addEventListener('click', e => {
         const b = e.target.closest('button[data-t]');
         if (b) showTab(b.dataset.t);
@@ -441,10 +283,12 @@ function bindEvents() {
         const name = rawName.replace(/^[^a-z0-9_]+/i, '').replace(/[^a-z0-9_]/gi, '');
         if (!name) return toast('Variable name is required (letters, numbers, underscore)', 'error');
         try {
-            await api(`/api/variables/${encodeURIComponent(name)}`, 'PUT', { type });
+            const selectedGroup = parseVariableQuery(state.varGroupQuery, state.variableGroups);
+            const created = await api(`/api/variables/${encodeURIComponent(name)}`, 'PUT', { type, ...(!selectedGroup.ungrouped && selectedGroup.groups.length === 1 ? { group: selectedGroup.groups[0] } : {}) });
             $('var-name').value = '';
             toast(`Variable "${name}" created`, 'success');
             await loadAllVars();
+            await variableInspector.open(created.name || name);
         } catch (e) {
             toast(e.message, 'error');
         }
@@ -491,7 +335,7 @@ function bindEvents() {
         await loadAllVars();
     };
     $('var-group-add').onclick = () => openGroupEditor(groupSaved);
-    bindGroupDragDrop($('vars-list'), loadAllVars);
+    bindGroupDragDrop($('variable-workspace'), loadAllVars);
 
     $('vars-import').onchange = async e => {
         const file = e.target.files?.[0];
@@ -518,8 +362,16 @@ function bindEvents() {
         }
     };
 
-    $('vars-list').addEventListener('click', async event => {
-        const groupFilter = event.target.closest('[data-filter-group], [data-filter-ungrouped]');
+    $('vars-card').addEventListener('click', async event => {
+        const selected = event.target.closest('[data-select-variable]');
+        if (selected) {
+            const name = selected.dataset.selectVariable;
+            await inlineEditor.flush();
+            await variableInspector.open(name);
+            $('vars-list').querySelectorAll('[data-n]').forEach(row => row.classList.toggle('is-selected', row.dataset.n === variableInspector.selected()));
+            return;
+        }
+        const groupFilter = event.target.closest('[data-filter-group], [data-filter-ungrouped], [data-filter-all]');
         if (groupFilter) {
             if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
             event.preventDefault();
@@ -548,52 +400,9 @@ function bindEvents() {
         const url = `/api/variables/${encodeURIComponent(name)}`;
 
         try {
-            if (act === 'edit-number') {
-                await inlineEditor.flush();
-                openNumberEditor(state.customVars.find(v => v.name === name), loadAllVars);
-                return;
-            }
-            if (act === 'pick-image') {
-                const input = row.querySelector('[data-act="value"]');
-                pickImage(input?.value || '', async urlPicked => {
-                    if (urlPicked === undefined) return;
-                    await api(url, 'PUT', { value: urlPicked });
-                    await loadAllVars();
-                });
-                return;
-            }
-            if (act === 'pick-placeholder') {
-                const input = row.querySelector('[data-act="value"]');
-                openPlaceholderPicker(btn, input, name);
-                return;
-            }
-            if (act === 'save-value') {
-                const input = row.querySelector('[data-act="value"]');
-                await api(url, 'PUT', { value: input?.value ?? '' });
-                toast(`Variable "${name}" saved`, 'success');
-                await loadAllVars();
-                return;
-            }
-            if (act === 'clear-image') {
-                await api(url, 'PUT', { value: '' });
-                await loadAllVars();
-                return;
-            }
-            if (act === 'delete') {
-                const confirmed = window.StreamPulse?.confirm
-                    ? await StreamPulse.confirm('Delete Variable', `Delete variable "${name}"? Any overlays using it will display empty.`, { danger: true, confirmText: 'Delete' })
-                    : confirm(`Delete variable "${name}"?`);
-                if (!confirmed) return;
-                await api(url, 'DELETE');
-                toast(`Variable "${name}" deleted`, 'info');
-            } else if (act === 'save-items') {
-                const items = row.querySelector('[data-act="items"]').value;
-                const mode = row.querySelector('[data-act="mode"]').value;
-                await api(url, 'PUT', { items, mode });
-                toast(`List "${name}" saved`, 'success');
-            } else {
-                await api(`${url}/${act}`, 'POST', {});
-            }
+            if (['increment', 'decrement', 'reset'].includes(act)) await inlineEditor.flush();
+            if (!['increment', 'decrement', 'reset', 'toggle', 'roll'].includes(act)) return;
+            await api(`${url}/${act}`, 'POST', {});
             await loadAllVars();
         } catch (e) {
             toast(e.message, 'error');
@@ -609,25 +418,6 @@ function bindEvents() {
         out.textContent = resolved || '(empty)';
     });
 
-    $('vars-list').addEventListener('change', async event => {
-        const row = event.target.closest('[data-n]');
-        if (!row) return;
-        const name = row.dataset.n;
-        const act = event.target.dataset.act;
-        if (act === 'value' || act === 'color-picker') {
-            try {
-                await api(`/api/variables/${encodeURIComponent(name)}`, 'PUT', { value: event.target.value });
-                toast(`Variable "${name}" saved`, 'success');
-                await loadAllVars();
-            } catch (e) {
-                toast(e.message, 'error');
-            }
-        }
-    });
-    $('vars-list').addEventListener('toggle', event => {
-        const key = event.target.dataset.groupOpen;
-        if (key) localStorage.setItem(key, String(event.target.open));
-    }, true);
 
     // Collapsible Chat Bot Tokens
     const tokensCard = $('chat-tokens-card');

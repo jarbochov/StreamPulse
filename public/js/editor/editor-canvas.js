@@ -604,6 +604,7 @@ function setNodeText(node, text) {
 
 // ---- Content and Styling ----------------------------------------------------------
 export function applyNodeStyle(node, el, index) {
+    if (prefs.live && shared.resolveNumericElement) el = shared.resolveNumericElement(el, effectiveLiveStatus());
     const rawStyle = el.style || {}, b = boxOf(el);
     const s = (prefs.live && shared.resolveStyleVariables)
         ? shared.resolveStyleVariables(rawStyle, effectiveLiveStatus(), { overlayName: state.overlay?.name })
@@ -700,6 +701,7 @@ export const placeholder = text => {
 };
 
 export function buildContent(node, el, playback) {
+    if (prefs.live && shared.resolveNumericElement) el = shared.resolveNumericElement(el, effectiveLiveStatus());
     if (shared.cleanupNode) shared.cleanupNode(node);
     node.replaceChildren();
     node._textNode = null;
@@ -1058,7 +1060,7 @@ export function renderCanvas(only) {
         applyNodeStyle(node, el, index);
         if (TEXT_TYPES.has(el.type) && el.textFit && el.textFit !== 'none' && shared.fitText) {
             const probe = el.type === 'random-text' ? (shared.elementItems ? shared.elementItems(el).map(expand).reduce((a, b) => (b.length > a.length ? b : a), '') : null) : null;
-            shared.fitText(node, el, probe);
+            shared.fitText(node, prefs.live && shared.resolveNumericElement ? shared.resolveNumericElement(el, effectiveLiveStatus()) : el, probe);
         }
     });
     if (only) {

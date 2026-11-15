@@ -22,7 +22,9 @@ Keep a coordinated look without crowding the editor: organize reusable colors an
 
 The Group Strip Builder has separate **Badge** and **Strip** tabs: customize each member's fields, image placement and internal spacing in Badge, and manage the overall arrangement, wrapping, columns and member gaps in Strip. Live previews preserve the source dimensions and scale uniformly, so badge proportions and wrapping match the overlay rather than squeezing into the sidebar.
 
-Number variables fit naturally into Text layers, with counter controls for live changes and per-placeholder display formatting. Show the same underlying value as a score, currency or a progress label in different scenes, all with existing typography, animation and font-variable bindings. Type-specific variable controls stay tucked behind Edit; Style Presets stays last in each applicable Style panel.
+Number variables can coordinate font sizes, borders, opacity and spacing as well as display scores in Text layers. The Variables Studio combines compact editable rows, group navigation and a single settings inspector, with a wider laptop-friendly workspace and consistent controls. The inspector only takes space when a variable is selected. Existing typography, animation and font bindings remain available; Style Presets stays last in each applicable Style panel.
+
+![Variables Studio with fictional theme settings](images/variables-directory.png)
 
 ## Custom Overlay Elements (20 Built-In Layers)
 
@@ -133,7 +135,7 @@ StreamPulse provides built-in media and artwork management through the Asset Lib
 
 **Variable Sets is an opt-in Advanced module.** Enable or disable it in **System Config → Modules & Services → Variable Sets** (`variable_sets_enabled`). Fresh installs start with Variable Sets disabled (`false`) so the workspace stays streamlined, while existing installations that already contain saved sets in `data/variable-sets.json` enable automatically unless explicitly turned off. When disabled, StreamPulse hides the Variable Sets directory, custom overlay **Sets** tab, Group Strip image mode, and `Set` placeholder picker group, and pauses server-side rotation timers while preserving all saved set definitions and rosters on disk.
 
-Ordinary variables at `/placeholders.html#variables` support inline value editing: Enter or blur saves, Escape cancels, and Shift+Enter adds text lines. Group headings are bookmarkable links such as `/placeholders.html#variables#theme`; names with spaces are URL-encoded, and `#variables#ungrouped` selects ordinary ungrouped variables. Search and type filters are remembered separately. Number constraints and counter controls stay behind **Options**.
+The Placeholders, Variables and Variable Sets tabs share a laptop-friendly workspace and consistent controls. The reference keeps token, description and live-value columns aligned. Variables combines group navigation, inline values and one shared inspector; Sets keeps output cards side by side, with aligned roster actions and an adaptive directory.
 
 Rename a group in **Manage members**. Variable names, values and overlay bindings stay unchanged, and the current filtered URL updates. Existing group names cannot be merged by renaming; bookmarked links must use the new name.
 

@@ -1,13 +1,11 @@
 import { api, esc, toast } from './variables-state.js';
 
 export function numberControls(variable) {
-    return `<button type="button" class="b sm" data-act="edit-number" title="Number options and counter controls">Options</button>`;
+    return `<span class="variable-counter-controls"><button type="button" class="b sm" data-act="decrement" aria-label="Decrement ${esc(variable.name)}">-</button><button type="button" class="b sm" data-act="increment" aria-label="Increment ${esc(variable.name)}">+</button><button type="button" class="b sm" data-act="reset" aria-label="Reset ${esc(variable.name)}" title="Reset to saved reset value"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2.5 7M3 4v7h7"/></svg></button></span>`;
 }
 
-export function openNumberEditor(variable, onSaved) {
-    const dialog = document.createElement('dialog');
-    dialog.className = 'variable-group-dialog';
-    const fields = [
+export function numberFields(variable) {
+    return [
         ['value', 'Value', variable.value],
         ['resetValue', 'Reset value', variable.resetValue ?? variable.initial ?? 0],
         ['min', 'Minimum (optional)', variable.min],
@@ -15,8 +13,18 @@ export function openNumberEditor(variable, onSaved) {
         ['step', 'Counter step', variable.step ?? 1],
         ['precision', 'Stored decimal precision (optional)', variable.precision]
     ];
+}
+
+export function numberOptions(variable, compact = false) {
+    return `<div class="variable-number-options">${numberFields(variable).map(([name, label, value]) => `<label>${compact && name === 'precision' ? 'Decimal precision' : label}<input name="${name}" type="number" step="${name === 'precision' ? '1' : 'any'}" value="${esc(value ?? '')}"${compact && name === 'precision' ? ' placeholder="Automatic" title="Optional stored decimal precision (0–12)"' : ''}${['value', 'resetValue', 'step'].includes(name) ? ' required' : ''}></label>`).join('')}</div>`;
+}
+
+export function openNumberEditor(variable, onSaved) {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'variable-group-dialog';
+    const fields = numberFields(variable);
     dialog.innerHTML = `<form><h2>Number: ${esc(variable.name)}</h2>
-        <div class="variable-number-options">${fields.map(([name, label, value]) => `<label>${label}<input name="${name}" type="number" step="${name === 'precision' ? '1' : 'any'}" value="${esc(value ?? '')}"${['value', 'resetValue', 'step'].includes(name) ? ' required' : ''}></label>`).join('')}</div>
+        ${numberOptions(variable)}
         <p class="muted">Values clamp to the bounds. Step controls increments, not manual entries. Precision rounds the stored value; overlay formatting stays separate.</p>
         <div class="variable-number-actions"><button type="button" class="b btn" data-number-action="decrement">Decrement</button><button type="button" class="b btn" data-number-action="increment">Increment</button><button type="button" class="b btn" data-number-action="reset">Reset</button></div>
         <p class="muted">Counter controls act immediately using saved options. Save applies the entered value and options.</p>

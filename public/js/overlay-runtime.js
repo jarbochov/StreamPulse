@@ -227,6 +227,7 @@
     }
 
     function applyElementStyle(node, element) {
+        if (shared.resolveNumericElement) element = shared.resolveNumericElement(element, effectiveStatus());
         const rawStyle = element.style || {};
         const style = shared.resolveStyleVariables
             ? shared.resolveStyleVariables(rawStyle, effectiveStatus(), variableContext())
@@ -439,7 +440,7 @@
     function refit() {
         for (const { node, element } of fitNodes) {
             const probe = element.type === 'random-text' ? shared.elementItems(element).map(expandVariables).reduce((a, b) => (b.length > a.length ? b : a), '') : null;
-            shared.fitText(node, element, probe);
+            shared.fitText(node, shared.resolveNumericElement ? shared.resolveNumericElement(element, effectiveStatus()) : element, probe);
         }
     }
     if (document.fonts) document.fonts.addEventListener('loadingdone', () => refit());
@@ -710,6 +711,8 @@
     }
 
     function buildNode(element) {
+        const rawElement = element;
+        if (shared.resolveNumericElement) element = shared.resolveNumericElement(element, effectiveStatus());
         if (element.type === 'pattern' || element.type === 'procedural-pattern') {
             const existing = slideshows.get(element.id);
             if (existing) {
@@ -807,7 +810,7 @@
 
             const tickSource = element.type === 'progress' ? `${element.content} ${element.progress?.label}` : shared.elementContent(element);
             if (element.type === 'poll' || (['text', 'markdown', 'progress'].includes(element.type) && shared.hasTicking(tickSource))) tickingNodes.push({ node: existingNode, element });
-            if (element.textFit && element.textFit !== 'none') fitNodes.push({ node: existingNode, element });
+            if (element.textFit && element.textFit !== 'none') fitNodes.push({ node: existingNode, element: rawElement });
             shared.applyMediaFilter(existingNode, element);
             return existingNode;
         }
@@ -979,7 +982,7 @@
             }
             const tickSource = element.type === 'progress' ? `${element.content} ${element.progress?.label}` : shared.elementContent(element);
             if (element.type === 'poll' || (['text', 'markdown', 'progress'].includes(element.type) && shared.hasTicking(tickSource))) tickingNodes.push({ node, element });
-            if (element.textFit && element.textFit !== 'none') fitNodes.push({ node, element });
+            if (element.textFit && element.textFit !== 'none') fitNodes.push({ node, element: rawElement });
             if (embedSig) { embeds.set(element.id, { sig: embedSig, node }); embedsKept.add(element.id); }
             shared.applyMediaFilter(node, element);
             return node;
@@ -1115,7 +1118,7 @@
                     let targetFitted = Number(afterEl.style?.fontSize) || 32;
                     if (isAutoFit) {
                         targetFitted = node._fittedFontSize || targetFitted;
-                        shared.fitText(node, prevEl);
+                        shared.fitText(node, shared.resolveNumericElement ? shared.resolveNumericElement(prevEl, effectiveStatus()) : prevEl);
                         prevFitted = node._fittedFontSize || prevFitted;
                     }
                     // Set initial before-state styles so browser can transition to afterEl
@@ -1182,7 +1185,7 @@
         for (const { node, element } of fitNodes) {
             if (morphedNodesSet.has(node)) continue;
             const probe = element.type === 'random-text' ? shared.elementItems(element).map(expandVariables).reduce((a, b) => (b.length > a.length ? b : a), '') : null;
-            shared.fitText(node, element, probe);
+            shared.fitText(node, shared.resolveNumericElement ? shared.resolveNumericElement(element, effectiveStatus()) : element, probe);
         }
         if (!ms || !isMorph) updateCutoutMask();
 
@@ -1607,6 +1610,8 @@
                 }
                 else if (message.type === 'variables-update' && message.data) {
                     const before = shared.variableSnapshot(effectiveStatus(), variableContext());
+                    const numericNames = variables => (variables || []).filter(variable => ['number', 'counter'].includes(variable.type)).map(variable => variable.name).join('\0');
+                    const numericBefore = numericNames(liveStatus.customVars);
                     liveStatus = {
                         ...liveStatus,
                         customVars: message.data.variables || [],
@@ -1614,7 +1619,7 @@
                     };
                     varRotEngine.recompute();
                     if (message.data.rotated && varRotEngine.serverRotated(message.data.rotated)) return;
-                    if (currentOverlay && shared.variableSnapshot(effectiveStatus(), variableContext()) !== before) render(currentOverlay);
+                    if (currentOverlay && (shared.variableSnapshot(effectiveStatus(), variableContext()) !== before || numericNames(liveStatus.customVars) !== numericBefore)) render(currentOverlay);
                 }
                 else if (message.type === 'custom-overlay-update' && message.data?.id === overlayId) {
                     if (message.data.overlay) {

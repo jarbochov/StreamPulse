@@ -47,23 +47,42 @@ export function renderSwatches(path) {
         `</div>`;
 }
 
+function numberBinding(path, label, value) {
+    const shared = window.OverlayShared;
+    const field = shared?.numericBindingField?.(path);
+    if (!field) return { value, actions: '', note: '', disabled: '' };
+    const element = state.overlay?.elements?.find(el => state.selectedIds?.has(el.id));
+    const config = getPath(element, field.domain);
+    const name = config?.numberBindings?.[field.key];
+    const resolved = shared.resolveNumericConfig(config, field.domain, state.liveStatus);
+    return {
+        value: name ? getPath(resolved, field.key) ?? value : value,
+        disabled: name ? ' disabled' : '',
+        actions: `<span class="number-binding-actions"><button type="button" class="number-var-btn" data-number-pick="${path}" title="${name ? `Change Number binding: ${esc(name)}` : 'Bind Number variable'}" aria-label="Bind ${esc(label)} to Number variable">${ICON_COLOR_VAR}</button>${name ? `<button type="button" class="number-var-btn" data-number-unbind="${path}" title="Unlink and restore saved value" aria-label="Unlink ${esc(label)}">&times;</button>` : ''}</span>`,
+        note: name ? `<small class="number-binding-note">${esc(name)} <span> · saved value is fallback</span></small>` : ''
+    };
+}
+
 export const F = {
     text: (path, label, value, extra = '') =>
         `<label class="field"><span>${label}</span><input data-path="${path}" data-kind="text" value="${esc(value)}" ${extra}></label>`,
 
-    number: (path, label, value, { min, max, step = 1, scale = 1, lazy = false } = {}) =>
-        `<label class="field"><span>${label}</span><input type="number" data-path="${path}" data-kind="number" value="${fmt(value, scale)}" ${min !== undefined ? `min="${min}" data-min="${min}"` : ''} ${max !== undefined ? `max="${max}" data-max="${max}"` : ''} step="${step}" data-scale="${scale}" ${lazy ? 'data-lazy="1"' : ''}></label>`,
+    number: (path, label, value, { min, max, step = 1, scale = 1, lazy = false } = {}) => {
+        const binding = numberBinding(path, label, value);
+        return `<label class="field"><span>${label}</span><span class="number-field"><input type="number" data-path="${path}" data-kind="number" value="${fmt(binding.value, scale)}" ${min !== undefined ? `min="${min}" data-min="${min}"` : ''} ${max !== undefined ? `max="${max}" data-max="${max}"` : ''} step="${step}" data-scale="${scale}" ${lazy ? 'data-lazy="1"' : ''}${binding.disabled}>${binding.actions}</span>${binding.note}</label>`;
+    },
 
     range: (path, label, value, { min, max, step = 1, scale = 1, unit = '', editable = false, reset = undefined, resetTitle = '' } = {}) => {
-        const v = fmt(value, scale);
-        const cls = ['range-field', editable ? 'has-number' : '', reset !== undefined ? 'has-reset' : ''].filter(Boolean).join(' ');
+        const binding = numberBinding(path, label, value);
+        const v = fmt(binding.value, scale);
+        const cls = ['range-field', editable ? 'has-number' : '', reset !== undefined ? 'has-reset' : '', binding.actions ? 'has-number-binding' : ''].filter(Boolean).join(' ');
         const valInput = editable
-            ? `<input type="number" class="range-num" data-path="${path}" data-kind="number" data-scale="${scale}" min="${min}" max="${max}" data-min="${min}" data-max="${max}" step="${step}" value="${v}" aria-label="${label} value">`
+            ? `<input type="number" class="range-num" data-path="${path}" data-kind="number" data-scale="${scale}" min="${min}" max="${max}" data-min="${min}" data-max="${max}" step="${step}" value="${v}" aria-label="${label} value"${binding.disabled}>`
             : `<output>${v}${unit}</output>`;
-        const resetBtn = reset !== undefined
+        const resetBtn = reset !== undefined && !binding.disabled
             ? `<button type="button" class="range-reset" data-reset="${path}" data-reset-value="${reset}" title="${esc(resetTitle || `Reset to ${reset}${unit}`)}" aria-label="${esc(resetTitle || `Reset to ${reset}${unit}`)}">${ICON.reset}</button>`
             : '';
-        return `<label class="field"><span>${label}</span><span class="${cls}" data-unit="${esc(unit)}"><input type="range" data-path="${path}" data-kind="number" data-scale="${scale}" min="${min}" max="${max}" data-min="${min}" data-max="${max}" step="${step}" value="${v}">${valInput}${resetBtn}</span></label>`;
+        return `<label class="field"><span>${label}</span><span class="${cls}" data-unit="${esc(unit)}"><input type="range" data-path="${path}" data-kind="number" data-scale="${scale}" min="${min}" max="${max}" data-min="${min}" data-max="${max}" step="${step}" value="${v}"${binding.disabled}>${valInput}${reset !== undefined && binding.actions ? `<span class="range-reset-slot">${resetBtn}</span>` : resetBtn}${binding.actions}</span>${binding.note}</label>`;
     },
 
     check: (path, label, value) =>
@@ -137,9 +156,36 @@ export function syncColorPair(input) {
 }
 
 export function bindFields(container, getTargets, onApply) {
+    container.addEventListener('click', event => {
+        const button = event.target.closest('[data-number-pick], [data-number-unbind]');
+        if (!button) return;
+        event.preventDefault();
+        const path = button.dataset.numberPick || button.dataset.numberUnbind;
+        const field = window.OverlayShared?.numericBindingField?.(path);
+        if (!field) return;
+        const applyBinding = name => {
+            for (const target of getTargets()) {
+                const config = target[field.domain];
+                if (!config) continue;
+                config.numberBindings = { ...(config.numberBindings || {}) };
+                if (name) config.numberBindings[field.key] = name;
+                else delete config.numberBindings[field.key];
+            }
+            onApply(`${field.domain}.numberBindings`, new Event('change'));
+        };
+        if (button.dataset.numberUnbind) applyBinding('');
+        else window.PlaceholderPicker?.open({
+            filter: 'number',
+            getStatus: () => state.liveStatus,
+            title: 'Bind Number variable',
+            subtitle: 'Uses this control’s displayed units and limits. Unlinking restores its saved value.',
+            onPick: key => applyBinding(key.replace(/^var\./, ''))
+        });
+    });
     let pendingRaf = null;
     let pendingPath = null;
     let pendingEvent = null;
+    const editedColors = new WeakMap();
 
     const flushOnApply = () => {
         if (!pendingPath) return;
@@ -156,6 +202,7 @@ export function bindFields(container, getTargets, onApply) {
         if (value === undefined) return;
         const targets = getTargets();
         if (!targets.length) return;
+        if (input.type === 'color' || input.classList.contains('color-text')) editedColors.set(input, targets);
         targets.forEach(target => {
             setPath(target, input.dataset.path, value);
             if (input.dataset.path === 'video.sound' && target.video) {
@@ -210,7 +257,7 @@ export function bindFields(container, getTargets, onApply) {
     container.addEventListener('change', event => {
         const input = event.target.closest('[data-path]');
         if (!input) return;
-        if (input.dataset.lazy === '1' || input.dataset.kind === 'number' || input.tagName === 'SELECT') apply(input, event);
+        if (input.dataset.lazy === '1' || input.dataset.kind === 'number' || input.tagName === 'SELECT' || input.type === 'color' || input.classList.contains('color-text')) apply(input, event);
         const target = getTargets()[0];
         if (target && input.dataset.kind === 'number') {
             const formatted = fmt(getPath(target, input.dataset.path), Number(input.dataset.scale) || 1);
@@ -224,12 +271,23 @@ export function bindFields(container, getTargets, onApply) {
         state.dirty = true;
     });
 
+    container.addEventListener('focusout', event => {
+        const input = event.target.closest('[data-path]');
+        if (!input || !editedColors.has(input)) return;
+        const editedTargets = editedColors.get(input);
+        editedColors.delete(input);
+        const currentTargets = getTargets();
+        if (currentTargets.length !== editedTargets.length || currentTargets.some(target => !editedTargets.includes(target))) return;
+        apply(input, event);
+        editedColors.delete(input);
+    });
+
     container.addEventListener('pointerdown', event => {
         const labelSpan = event.target.closest('.field > span:first-child');
         if (labelSpan) {
             const field = labelSpan.closest('.field');
             const numInput = field?.querySelector('input[data-kind="number"]');
-            if (numInput) {
+            if (numInput && !numInput.disabled) {
                 event.preventDefault();
                 const startX = event.clientX;
                 const startVal = Number(numInput.value) || 0;

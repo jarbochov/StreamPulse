@@ -186,6 +186,31 @@ try {
         document.dispatchEvent(new window.Event('visibilitychange'));
     }, hidden);
 
+    const numericOverlay = clone(overlay);
+    numericOverlay.elements.find(element => element.id === 'label').style = {
+        fontSize: 20, opacity: 0.8, borderWidth: 2,
+        numberBindings: { fontSize: 'size', opacity: 'alpha', borderWidth: 'size' }
+    };
+    await update(numericOverlay);
+    const numericUpdate = variables => page.evaluate(variables =>
+        window.testState.message('variables-update', { variables }), variables);
+    await numericUpdate([{ name: 'size', type: 'number', value: 32 }, { name: 'alpha', type: 'number', value: 50 }]);
+    await page.waitForFunction(() => document.querySelector('[data-element-id="label"]').style.fontSize === '32px');
+    assert.deepEqual(await page.$eval('[data-element-id="label"]', node =>
+        [node.style.fontSize, node.style.opacity, node.style.borderWidth]), ['32px', '0.5', '32px']);
+    await numericUpdate([{ name: 'size', type: 'number', value: 80 }, { name: 'alpha', type: 'number', value: 150 }]);
+    await page.waitForFunction(() => document.querySelector('[data-element-id="label"]').style.fontSize === '80px');
+    assert.deepEqual(await page.$eval('[data-element-id="label"]', node =>
+        [node.style.opacity, node.style.borderWidth]), ['1', '40px']);
+    await numericUpdate([{ name: 'size', type: 'text', value: 80 }, { name: 'alpha', type: 'number', value: 150 }]);
+    await page.waitForFunction(() => document.querySelector('[data-element-id="label"]').style.fontSize === '20px');
+    assert.equal(await page.$eval('[data-element-id="label"]', node => node.style.borderWidth), '2px', 'changing type restores fallbacks even when the displayed value is unchanged');
+    await numericUpdate([]);
+    await page.waitForFunction(() => document.querySelector('[data-element-id="label"]').style.fontSize === '20px');
+    assert.deepEqual(await page.$eval('[data-element-id="label"]', node =>
+        [node.style.opacity, node.style.borderWidth]), ['0.8', '2px']);
+    await update(overlay);
+
     assert.deepEqual(await state('manual'), { paused: true, muted: true, volume: 0.25, plays: 0, time: 0 });
     assert.equal((await state('auto')).plays, 1, 'two-phase initial load must not replay media');
     for (const id of ['youtube', 'youtube-embed']) {

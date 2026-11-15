@@ -61,6 +61,42 @@ test('Numbers: counter actions clamp, round, reset explicitly and preserve metad
     }
 });
 
+test('Number style bindings preserve saved fallbacks, clamp displayed units and reject nonnumeric variables', () => {
+    const { normalizeOverlayElement } = require('../server/services/overlays');
+    const { numericBindingField } = require('../shared/numeric-bindings.cjs');
+    const element = normalizeOverlayElement({
+        type: 'text', style: {
+            fontSize: 20, borderWidth: 2, opacity: 1, shadow: { blur: 6 },
+            numberBindings: { fontSize: 'size', borderWidth: 'size', opacity: 'alpha', 'shadow.blur': 'size', color: 'size' }
+        }
+    }, 0);
+    const status = { customVars: [{ name: 'size', type: 'number', value: 48 }, { name: 'alpha', type: 'counter', value: 50 }] };
+    const resolved = OverlayShared.resolveStyleVariables(element.style, status, {});
+    assert.equal(resolved.fontSize, 48);
+    assert.equal(resolved.borderWidth, 40);
+    assert.equal(resolved.opacity, 0.5);
+    assert.equal(resolved.shadow.blur, 48);
+    assert.equal(element.style.fontSize, 20);
+    assert.equal(element.style.shadow.blur, 6);
+    assert.equal(element.style.numberBindings.color, undefined);
+    status.customVars[0].value = -5;
+    const negative = OverlayShared.resolveStyleVariables(element.style, status, {});
+    assert.equal(negative.fontSize, 8);
+    assert.equal(negative.borderWidth, 0);
+    status.customVars[0].type = 'text';
+    assert.equal(OverlayShared.resolveStyleVariables(element.style, status, {}).fontSize, 20);
+    assert.equal(OverlayShared.resolveStyleVariables(element.style, { customVars: [] }, {}).opacity, 1);
+    assert.equal(numericBindingField('style.__proto__'), null);
+    assert.equal(numericBindingField('style.constructor'), null);
+    const roundtrip = normalizeOverlayElement(JSON.parse(JSON.stringify(element)), 0);
+    assert.deepEqual(roundtrip.style.numberBindings, element.style.numberBindings);
+    const image = normalizeOverlayElement({ type: 'image', imageGroup: { enabled: true, cardPaddingX: 8, numberBindings: { cardPaddingX: 'size' } } }, 0);
+    status.customVars[0] = { name: 'size', type: 'number', value: 32 };
+    const imageResolved = OverlayShared.resolveNumericElement(image, { customVars: [...status.customVars] });
+    assert.equal(imageResolved.imageGroup.cardPaddingX, 32);
+    assert.equal(image.imageGroup.cardPaddingX, 8);
+});
+
 test('Numbers: each placeholder formats independently without changing numeric values or legacy fallbacks', () => {
     const status = { customVars: [{ name: 'score', type: 'number', value: 1234.5 }, { name: 'legacy', type: 'counter', value: 0 }] };
     assert.equal(OverlayShared.expandVariables('{{var.score|number:2:comma:%24:%20points}}', status), '$1,234.50 points');
@@ -391,11 +427,10 @@ test('Variables page: inline saves, cancellation, live snapshots and persistent 
         assert.equal(mutations, 3);
 
         await edit('score', '1.4');
-        await page.click('[data-n="score"] [data-act="edit-number"]');
-        await page.waitForSelector('dialog [name="value"]');
-        assert.equal(await page.$eval('dialog [name="value"]', node => node.value), '1.4');
-        await page.keyboard.press('Escape');
-        await page.waitForFunction(() => !document.querySelector('dialog'));
+        await page.click('[data-select-variable="score"]');
+        await page.waitForSelector('#variable-inspector [name="value"]');
+        assert.equal(await page.$eval('#variable-inspector [name="value"]', node => node.value), '1.4');
+        await page.click('[data-inspector-close]');
         await edit('score', '');
         await page.keyboard.press('Enter');
         await page.waitForFunction(() => document.querySelector('[data-n="score"] [data-inline-edit]')?.textContent.includes('1.4'));
@@ -405,7 +440,7 @@ test('Variables page: inline saves, cancellation, live snapshots and persistent 
         };
         await page.click('[data-filter-group="Broadcast Theme"]');
         assert.equal(await page.evaluate(() => window.location.hash), '#variables#Broadcast%20Theme');
-        assert.equal(await page.$eval('[data-filter-group="Broadcast Theme"]', node => node.textContent), 'Broadcast Theme');
+        assert.equal(await page.$eval('[data-filter-group="Broadcast Theme"] span', node => node.textContent), 'Broadcast Theme');
         assert.equal(await page.$eval('#var-group-filter span', node => node.textContent), 'Broadcast Theme');
         assert.equal(await page.$eval('#var-search', node => node.value), '');
         assert.equal(await page.$$eval('#vars-list [data-n]', rows => rows.length), 2);
@@ -433,7 +468,7 @@ test('Variables page: inline saves, cancellation, live snapshots and persistent 
         await page.waitForSelector('[data-filter-group="Empty"]');
         await page.evaluate(() => { window.location.hash = '#variables#empty'; });
         await page.waitForSelector('[data-manage-group="Empty"]');
-        assert.equal(await page.$$eval('#vars-list [data-filter-group]', rows => rows.length), 1);
+        assert.equal(await page.$$eval('#variable-group-nav .is-active', rows => rows.length), 1);
         await page.evaluate(() => { window.location.hash = '#variables#BroadcastTheme'; });
         await page.waitForSelector('[data-n="score"]');
         await search('score');
@@ -444,6 +479,20 @@ test('Variables page: inline saves, cancellation, live snapshots and persistent 
         assert.equal(await page.$eval('#var-search', node => node.value), 'score');
         assert.equal(await page.$eval('#var-type-filter', node => node.value), 'number');
         assert.equal(await page.$$eval('#vars-list [data-n]', rows => rows.length), 1);
+        await page.click('[data-select-variable="score"]');
+        await page.$eval('#variable-inspector [name="step"]', node => { node.value = '0.5'; node.dispatchEvent(new Event('input', { bubbles: true })); });
+        await page.click('[data-select-variable="score"]');
+        assert.equal(await page.$eval('#variable-inspector [name="step"]', node => node.value), '0.5', 'reselecting the same variable preserves unsaved options');
+        await page.click('[data-n="score"] [data-act="increment"]');
+        await page.waitForFunction(() => document.querySelector('[data-n="score"] [data-inline-edit]')?.textContent.includes('1.65'));
+        assert.equal(await page.$eval('#variable-inspector [name="value"]', node => node.value), '1.4');
+        await page.click('#variable-inspector [type="submit"]');
+        await page.waitForFunction(() => document.querySelector('#variable-inspector [name="step"]').value === '0.5' && document.querySelector('#variable-inspector [name="value"]').value === '1.65');
+        assert.equal(getVar(store, 'score').value, 1.65);
+        assert.equal(getVar(store, 'score').step, 0.5);
+        await edit('score', '1.4');
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => document.querySelector('[data-n="score"] [data-inline-edit]')?.textContent.includes('1.4'));
         await page.evaluate(() => {
             const nativeFetch = window.fetch.bind(window);
             window.fetch = async (...args) => {
@@ -462,14 +511,90 @@ test('Variables page: inline saves, cancellation, live snapshots and persistent 
         assert.equal(await page.evaluate(() => window.location.hash), '#variables#Theme');
         assert.equal(getVar(store, 'score').group, 'Theme');
         assert.equal(getVar(store, 'score').value, 1.4);
-        assert.equal(getVar(store, 'score').step, 0.25);
+        assert.equal(getVar(store, 'score').step, 0.5);
         assert.equal(getVar(store, 'message').group, 'Theme');
         await page.evaluate(() => { window.location.hash = '#variables#theme'; });
         await page.waitForFunction(() => window.location.hash === '#variables#theme' && document.querySelector('[data-n="score"]'));
         await page.evaluate(() => { window.location.hash = '#variables#BroadcastTheme'; });
         await page.waitForFunction(() => document.querySelector('#vars-list').textContent.includes('No variables match'));
+        await search('');
+        await page.select('#var-type-filter', 'all');
+        await page.evaluate(() => { window.location.hash = '#variables#Theme'; });
+        await page.waitForSelector('[data-n="score"]');
+        await page.type('#var-name', 'Accent');
+        await page.select('#var-type', 'color');
+        await page.click('#var-add');
+        await page.waitForSelector('#variable-inspector [data-inspector-color]');
+        assert.equal(getVar(store, 'accent').group, 'Theme', 'creation uses the current group');
+        await page.$eval('#variable-inspector [name="value"]', node => {
+            node.value = '#12345678'; node.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        await page.$eval('[data-inspector-color]', node => {
+            node.value = '#654321'; node.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await page.click('#variable-inspector [type="submit"]');
+        await page.waitForFunction(() => !document.querySelector('#variable-inspector [type="submit"]').disabled);
+        assert.equal(getVar(store, 'accent').value, '#65432178', 'native color editing preserves opacity');
+        await page.click('[data-select-variable="score"]');
+        for (const width of [1366, 1280, 1024, 900]) {
+            await page.setViewport({ width, height: 768 });
+            assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `no horizontal overflow at ${width}px`);
+            assert.ok(await page.evaluate(() => {
+                const table = document.querySelector('#vars-list').getBoundingClientRect();
+                const inspector = document.querySelector('#variable-inspector').getBoundingClientRect();
+                return inspector.left >= table.right && inspector.width >= 280;
+            }), 'laptop inspector stays beside the variable list');
+        }
+        await page.setViewport({ width: 1280, height: 768 });
+        assert.ok(await page.$eval('#variable-inspector', node => node.getBoundingClientRect().width) >= 360, 'desktop inspector has room for settings');
+        const actionRects = await page.$$eval('.variable-inspector-footer button', buttons =>
+            buttons.map(button => ({ top: button.getBoundingClientRect().top, height: button.getBoundingClientRect().height })));
+        assert.equal(new Set(actionRects.map(rect => rect.top)).size, 1, 'inspector actions share one row');
+        assert.equal(new Set(actionRects.map(rect => rect.height)).size, 1, 'inspector action heights match');
+        const selectedWidth = await page.$eval('#vars-list', node => node.getBoundingClientRect().width);
+        await page.click('[data-inspector-close]');
+        assert.ok(await page.$eval('#vars-list', node => node.getBoundingClientRect().width) > selectedWidth, 'closing the inspector returns space to the list');
         await page.setViewport({ width: 375, height: 700 });
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+        store.upsertSet('laptop', {
+            name: 'Fictional panel', slotsCount: 2,
+            fields: [{ key: 'name', label: 'Name', type: 'text' }],
+            roster: [
+                { id: 'alpha', label: 'Fictional Alpha', values: { name: 'Alpha' } },
+                { id: 'beta', label: 'Fictional Beta', values: { name: 'Beta' } }
+            ],
+            slots: ['alpha', 'beta']
+        });
+        store.setModuleEnabled(true);
+        await page.setViewport({ width: 1366, height: 768 });
+        await page.goto(`${origin}/placeholders.html#sets`);
+        await page.reload();
+        await page.waitForSelector('[data-set-card="laptop"] .slot-card');
+        const slotTops = await page.$$eval('.slot-card', slots => slots.map(slot => slot.getBoundingClientRect().top));
+        assert.equal(new Set(slotTops).size, 1, 'laptop output slots use the available width instead of stacking');
+        for (const width of [1366, 1280, 1024, 900, 375]) {
+            await page.setViewport({ width, height: 768 });
+            assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `Sets has no horizontal overflow at ${width}px`);
+            assert.ok(await page.$$eval('.roster-controls', controls => controls.every(control =>
+                new Set([...control.children].map(button => button.getBoundingClientRect().top)).size === 1)), 'roster buttons stay aligned');
+        }
+        await page.click('[data-set-act="toggle-group-entry"][data-entry="alpha"]');
+        await page.waitForFunction(() => document.querySelector('[data-set-act="toggle-group-entry"][data-entry="alpha"]').textContent === 'Out');
+        assert.equal(store.listSets().find(set => set.id === 'laptop').roster[0].inGroup, false);
+        await page.setViewport({ width: 1366, height: 768 });
+        await page.goto(`${origin}/placeholders.html#placeholders`);
+        await page.waitForSelector('.placeholder-table');
+        const toolbarHeights = await page.$$eval('.placeholder-toolbar input[type="search"], .placeholder-toolbar select, .placeholder-toolbar button',
+            controls => controls.map(control => control.getBoundingClientRect().height));
+        assert.equal(new Set(toolbarHeights).size, 1, 'reference toolbar controls share one height');
+        await page.$eval('#q', input => { input.value = 'var.score'; input.dispatchEvent(new Event('input', { bubbles: true })); });
+        assert.equal(await page.$eval('#out [data-copy]', code => code.dataset.copy), '{{var.score}}', 'reference search still finds Number placeholders');
+        await page.click('#vals');
+        assert.equal(await page.$$eval('#out tr:first-child td', cells => cells.length), 2, 'hiding live values retains token and description columns');
+        await page.$eval('#q', input => { input.value = ''; input.dispatchEvent(new Event('input', { bubbles: true })); });
+        await page.click('#vals');
+        await page.setViewport({ width: 375, height: 700 });
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'reference tables do not leak horizontally on mobile');
         assert.deepEqual(errors, []);
     } finally {
         await browser?.close();

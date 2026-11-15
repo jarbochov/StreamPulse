@@ -1,0 +1,54 @@
+#sets-card { padding: 16px; }
+#sets-card .sets-directory-layout { grid-template-columns: 220px minmax(0, 1fr); gap: 12px; }
+#sets-card .sets-dir { top: 80px; padding: 10px; gap: 8px; }
+#sets-card .sets-dir-search { height: 32px; font-size: 13px; padding: 5px 8px; }
+#sets-card .sets-dir-list { gap: 5px; max-height: calc(100dvh - 200px); }
+#sets-card .set-dir-item { padding: 8px; }
+#sets-card .set-workspace { gap: 12px; }
+#sets-card .set-card-head { padding: 10px 12px; gap: 12px; flex-wrap: nowrap; }
+#sets-card .set-card-head > div:first-child { flex: 1; }
+.set-card-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+#sets-card .b { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 28px; line-height: 1.3; white-space: nowrap; }
+#sets-card .b svg { flex: none; }
+#sets-card .set-card-actions .b, #set-add-btn { height: 32px; padding: 5px 10px; }
+#sets-card .b:focus-visible, #sets-card .set-dir-main:focus-visible, #sets-card .sets-filter-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#sets-card .sets-split { grid-template-columns: minmax(0, 1fr) 350px; gap: 12px; }
+#sets-card .set-section-title { min-height: 28px; margin-bottom: 8px; gap: 8px; }
+#sets-card .slots-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 8px; }
+#sets-card .slot-card { padding: 10px; gap: 8px; }
+#sets-card .slot-name-input { height: 28px; font-size: 13px; padding: 4px 8px; }
+#sets-card .slot-actions .b { width: 28px; height: 28px; padding: 0; }
+#sets-card .sets-roster-pane { top: 80px; padding: 0; border: 0; background: none; gap: 0; }
+#sets-card .sets-roster-pane .roster-list { max-height: calc(100dvh - 140px); }
+#sets-card .roster-list { gap: 8px; }
+#sets-card .roster-item { display: grid; grid-template-columns: 14px 40px minmax(0, 1fr); gap: 8px; padding: 8px 10px; }
+#sets-card .roster-item:not([draggable="true"]) { grid-template-columns: 40px minmax(0, 1fr); }
+#sets-card .roster-meta { min-width: 0; }
+#sets-card .roster-name { font-size: 13px; overflow-wrap: anywhere; }
+#sets-card .roster-sub { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#sets-card .roster-controls { grid-column: 1 / -1; justify-content: flex-end; gap: 5px; flex-wrap: nowrap; }
+#sets-card .roster-controls .b { height: 28px; }
+#sets-card .roster-controls :is([data-set-act="edit-entry"], [data-set-act="delete-entry"]) { width: 28px; padding: 0; }
+#sets-card .roster-section:not(.sets-roster-pane) .roster-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+#sets-card .set-rot-panel, #sets-card .set-group-panel { padding: 10px 12px; }
+#sets-card .set-rot-controls { gap: 10px; align-items: center; }
+#sets-card .set-rot-controls :is(select, input) { height: 28px; }
+@media (max-width: 1100px) {
+    #sets-card .sets-directory-layout { grid-template-columns: minmax(0, 1fr); }
+    #sets-card .sets-dir { position: static; grid-template-columns: minmax(160px, 220px) minmax(0, 1fr); }
+    #sets-card .sets-dir-list { grid-column: 2; grid-row: 1 / span 2; display: flex; overflow-x: auto; max-height: 100px; }
+    #sets-card .set-dir-item { flex: 0 0 210px; }
+}
+@media (max-width: 900px) {
+    #sets-card .sets-split { grid-template-columns: minmax(0, 1fr); }
+    #sets-card .sets-roster-pane { position: static; }
+    #sets-card .sets-roster-pane .roster-list { max-height: none; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+    #sets-card .set-card-head { flex-wrap: wrap; }
+}
+@media (max-width: 640px) {
+    .wrap:has(#tab-sets:not([hidden])) { padding: 12px; }
+    #sets-card { padding: 12px; }
+    #sets-card .sets-dir { grid-template-columns: minmax(0, 1fr); }
+    #sets-card .sets-dir-list { grid-column: 1; grid-row: auto; }
+    #sets-card .set-card-actions { width: 100%; }
+}

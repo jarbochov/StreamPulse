@@ -3,7 +3,7 @@
  */
 
 import {
-    $, esc, clamp, getPath, setPath, hasText, isLine, state, prefs, savePrefs,
+    $, esc, fmt, clamp, getPath, setPath, hasText, isLine, state, prefs, savePrefs,
     CANVAS_PRESETS, SYSTEM_FONTS, GOOGLE_FONT_OPTIONS, LIMITS, ICON, TYPE_META,
     ALERT_TRIGGER_LABELS, ALERT_TRIGGER_META, triggerIcon, TEXT_TYPES, FILL_TEXT_TYPES, LOCAL_MEDIA, selectedElements,
     primary, byId, boundsOf, displayName, changed, toast, alertSample, variableContext, effectiveLiveStatus,
@@ -63,6 +63,7 @@ export function registerInspectorCallbacks(callbacks) {
 
 // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
 export const RERENDER_PATHS = new Set([
+    'style.numberBindings', 'imageGroup.numberBindings',
     'poll.previewMode',
     'cutout.shape', 'obsLink.enabled', 'alert.showOnPreview', 'alert.effectsTarget', 'alert.mediaFit', 'style.objectFit', 'mediaFilter.duotone.enabled',
     'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled',
@@ -2311,6 +2312,26 @@ function activateInspectorTab(root, tab, remember = true) {
     }
 }
 
+export function refreshNumericControls() {
+    const element = primary();
+    if (!element || !shared.resolveNumericElement) return;
+    const resolved = shared.resolveNumericElement(element, effectiveLiveStatus());
+    let rebuild = false;
+    for (const root of [$('properties'), $('ig-fields-dialog')].filter(Boolean)) {
+        for (const input of root.querySelectorAll('input[data-kind="number"]:disabled')) {
+            const path = input.dataset.path;
+            const value = getPath(resolved, path);
+            const scale = Number(input.dataset.scale) || 1;
+            if (RERENDER_PATHS.has(path) && (Number(input.value) > 0) !== (Number(value) > 0)) rebuild = true;
+            input.value = fmt(value, scale);
+            const range = input.closest('.range-field');
+            const output = range?.querySelector('output');
+            if (output) output.textContent = `${fmt(value, scale)}${range.dataset.unit || ''}`;
+        }
+    }
+    if (rebuild) renderProperties();
+}
+
 export function renderProperties() {
     const items = selectedElements();
     const root = $('properties');
@@ -2334,14 +2355,14 @@ export function renderProperties() {
         style = appearanceSection(items[0], true) + (textual ? typographySection(items.find(hasText) || items[0]) : '') + stylePresetsSection(items[0], true);
     } else {
         const base = items[0];
-        const el = previewAlertElement(base);
+        const el = shared.resolveNumericElement ? shared.resolveNumericElement(previewAlertElement(base), effectiveLiveStatus()) : previewAlertElement(base);
         const specific = { 'random-text': randomSection, progress: progressSection, poll: pollSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection, pattern: patternSection, 'procedural-pattern': proceduralPatternSection, 'speaker-badge': speakerBadgeSection }[el.type];
         content = contentSection(base) + (specific ? specific(el.type === 'alert' ? base : el) : '');
         layout = layoutSection(base) + (isImageGroup(base) ? imageGroupLayoutSection(base) : '') + scaleSection(items) + obsLinkSection(base);
         const isProcedural = el.type === 'procedural-pattern' || (el.type === 'pattern' && el.pattern?.sourceType === 'preset');
         style = (el.type === 'alert' ? alertLooksSection(base) + alertSection(el, true) : '')
             + (el.type === 'icon' ? iconEffectsSection(el) : '')
-            + (isImageGroup(base) ? imageGroupStyleSections(base) : '')
+            + (isImageGroup(base) ? imageGroupStyleSections(el) : '')
             + (hasText(el) ? typographySection(el) : '')
             + (isProcedural ? effectsSection(el) + filterSection(el) : (el.type !== 'cutout' ? fillSection(el) + effectsSection(el) + filterSection(el) : ''))
             + stylePresetsSection(base, false);
@@ -2773,7 +2794,8 @@ export function initInspectorEvents() {
             renderSelectionUI();
             updateStatusBarHandler();
             if (path === 'name' || path.startsWith('obsLink.')) renderLayers();
-            if (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || path === 'style.textAnimation.mode' || RERENDER_PATHS.has(path) || /^(?:style|imageGroup)\.(gradient|textGradient|borderGradient|cardGradient|cardBorderGradient|avatarBorderGradient)\.(enabled|type|animate)$/.test(path)) {
+            const editingColor = ['input', 'change'].includes(event?.type) && (event?.target?.type === 'color' || event?.target?.classList?.contains('color-text'));
+            if (!editingColor && (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || path === 'style.textAnimation.mode' || RERENDER_PATHS.has(path) || /^(?:style|imageGroup)\.(gradient|textGradient|borderGradient|cardGradient|cardBorderGradient|avatarBorderGradient)\.(enabled|type|animate)$/.test(path))) {
                 if (path === 'style.textAnimation.mode' || numberCrossedZero(actualPath, event)) renderProperties();
             }
             if (/^alert\.looks\.\d+\.name$/.test(actualPath) && event?.type === 'change') renderProperties();

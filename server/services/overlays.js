@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { normalizeNumericBindings } = require('../../shared/numeric-bindings.cjs');
 const { sanitizeOverlayId } = require('./game-plan');
 const { safeWriteFileSync: defaultSafeWrite } = require('../routes/helpers');
 const { settings: normalizePollSettings } = require('../../public/js/poll-widget');
@@ -1140,6 +1141,7 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
                     ...(normKey(ig.subField) ? [normField({ key: normKey(ig.subField), role: 'subtitle' }, 1)] : [])
                 ];
             return {
+                numberBindings: normalizeNumericBindings(ig.numberBindings, 'imageGroup'),
                 enabled: ig.enabled === true,
                 setId: normKey(ig.setId),
                 imageField: normKey(ig.imageField || 'image') || 'image',
@@ -1264,6 +1266,7 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
         zIndex: Math.round(Number(element.zIndex) || 0),
         visible: element.visible !== false,
         style: {
+            numberBindings: normalizeNumericBindings(element.style?.numberBindings, 'style'),
             fontFamily: String(element.style?.fontFamily || 'sans-serif').slice(0, 120),
             fontSize: Math.max(8, Math.min(400, Number(element.style?.fontSize) || 32)),
             fontWeight: String(element.style?.fontWeight || '400').slice(0, 20),

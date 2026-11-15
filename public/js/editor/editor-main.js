@@ -31,7 +31,7 @@ import {
 } from './editor-sets.js';
 
 import {
-    renderSettings, renderProperties, syncGeometryInputs,
+    renderSettings, renderProperties, syncGeometryInputs, refreshNumericControls,
     initInspectorEvents, registerInspectorCallbacks, loadAssetTags, renderGroupBadgePreview
 } from './editor-inspector.js';
 import { loadStylePresets } from './editor-style-presets.js';
@@ -957,6 +957,7 @@ export function renderAll() {
 
 // ---- Live Status & Alert Preview --------------------------------------------------
 function refreshOpenGroupBuilder() {
+    refreshNumericControls();
     const element = primary();
     if ($('ig-fields-dialog')?.open && element) renderGroupBadgePreview(element);
 }
