@@ -927,8 +927,8 @@ function renderImageGroupZoneBlueprint(ig, list) {
     const zoneHtml = (slot, title, extraClass = '') => {
         const items = bySlot[slot] || [];
         const isTarget = activeField && (activeField.slot || 'main') === slot;
-        const pills = items.map(({ f, idx }) => `<span class="ig-bp-pill${idx === igSelectedFieldIdx ? ' is-selected' : ''}" data-ig-bp-pill="${idx}" title="Select field ${esc(f.key)}">${esc(f.key || `#${idx + 1}`)}</span>`).join('');
-        return `<button type="button" class="ig-bp-zone${items.length ? ' has-items' : ''}${isTarget ? ' is-target' : ''}${extraClass ? ` ${extraClass}` : ''}" data-ig-bp-zone="${esc(slot)}" title="Click to place selected field (${activeLabel}) into ${esc(title)}"><span class="ig-bp-zone-label">${esc(title)}</span>${pills}</button>`;
+        const pills = items.map(({ f, idx }) => `<button type="button" class="ig-bp-pill${idx === igSelectedFieldIdx ? ' is-selected' : ''}" data-ig-bp-pill="${idx}" title="Select field ${esc(f.key)}">${esc(f.key || `#${idx + 1}`)}</button>`).join('');
+        return `<div class="ig-bp-zone${items.length ? ' has-items' : ''}${isTarget ? ' is-target' : ''}${extraClass ? ` ${extraClass}` : ''}" data-ig-bp-zone="${esc(slot)}" title="Click to place selected field (${activeLabel}) into ${esc(title)}"><span class="ig-bp-zone-label">${esc(title)}</span>${pills}</div>`;
     };
     bpHost.innerHTML = `<div class="ig-bp-head"><span class="ig-presets-label">Card Zone Blueprint</span><span class="ig-bp-sub">${activeField ? `Selected: <strong>${activeLabel}</strong> — click any zone to move it` : 'Add a field below, then click a zone to place it'}</span></div>
         <div class="ig-bp-card">
@@ -3749,7 +3749,41 @@ export function initInspectorEvents() {
             }
         });
         igDlg.addEventListener('click', event => {
-            const target = event.target.closest('button');
+            const rawTarget = event.target;
+            const bpPill = rawTarget.closest('[data-ig-bp-pill]');
+            if (bpPill) {
+                igSelectedFieldIdx = Number(bpPill.dataset.igBpPill) || 0;
+                refreshIgAll(false, true);
+                igDlg.querySelector(`.ig-field-row[data-ig-field-idx="${igSelectedFieldIdx}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                return;
+            }
+            const bpZone = rawTarget.closest('[data-ig-bp-zone]');
+            if (bpZone) {
+                const el = primary();
+                if (!isImageGroup(el)) return;
+                const zone = bpZone.dataset.igBpZone;
+                mutateImageGroupFields(el, list => {
+                    const idx = Math.max(0, Math.min(list.length - 1, igSelectedFieldIdx));
+                    if (list[idx]) list[idx].slot = zone;
+                    return list;
+                });
+                refreshIgAll(true, true);
+                return;
+            }
+            const fieldRow = rawTarget.closest('.ig-field-row[data-ig-field-idx]');
+            if (fieldRow) {
+                const el = primary();
+                if (isImageGroup(el)) {
+                    const nextIdx = Number(fieldRow.dataset.igFieldIdx) || 0;
+                    if (nextIdx !== igSelectedFieldIdx) {
+                        igSelectedFieldIdx = nextIdx;
+                        igDlg.querySelectorAll('.ig-field-row[data-ig-field-idx]').forEach(r => r.classList.toggle('is-selected', Number(r.dataset.igFieldIdx) === igSelectedFieldIdx));
+                        renderImageGroupZoneBlueprint(el.imageGroup || {}, resolveImageGroupFields(el.imageGroup || {}));
+                    }
+                }
+                if (!rawTarget.closest('button, input, select, label')) return;
+            }
+            const target = rawTarget.closest('button');
             if (!target) return;
             if (target.dataset.igBuilderTab) {
                 selectGroupBuilderTab(target.dataset.igBuilderTab);
@@ -3798,33 +3832,6 @@ export function initInspectorEvents() {
                     if (Number(ig.cardBorderWidth ?? 0) > 6) ig.cardBorderWidth = 4;
                 }
                 refreshIgAll(true, true);
-                return;
-            }
-            const bpPill = target.closest('[data-ig-bp-pill]');
-            if (bpPill) {
-                igSelectedFieldIdx = Number(bpPill.dataset.igBpPill) || 0;
-                refreshIgAll(false, true);
-                igDlg.querySelector(`.ig-field-row[data-ig-field-idx="${igSelectedFieldIdx}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-                return;
-            }
-            const bpZone = target.closest('[data-ig-bp-zone]');
-            if (bpZone) {
-                const zone = bpZone.dataset.igBpZone;
-                mutateImageGroupFields(el, list => {
-                    const idx = Math.max(0, Math.min(list.length - 1, igSelectedFieldIdx));
-                    if (list[idx]) list[idx].slot = zone;
-                    return list;
-                });
-                refreshIgAll(true, true);
-                return;
-            }
-            const fieldRow = target.closest('.ig-field-row[data-ig-field-idx]');
-            if (fieldRow && !target.closest('button, input, select, label')) {
-                const nextIdx = Number(fieldRow.dataset.igFieldIdx) || 0;
-                if (nextIdx !== igSelectedFieldIdx) {
-                    igSelectedFieldIdx = nextIdx;
-                    refreshIgAll(false, true);
-                }
                 return;
             }
             if (target.id === 'ig-add-field-btn') {

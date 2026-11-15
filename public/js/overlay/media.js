@@ -330,8 +330,13 @@ function createStyledFieldNode(spec, text, ctx) {
     span.style.fontWeight = spec.fontWeight || (spec.role === 'badge' ? '700'
         : spec.role === 'title' ? (st.fontWeight && st.fontWeight !== '400' ? st.fontWeight : '600')
             : (st.fontWeight || '400'));
-    span.style.fontStyle = spec.fontStyle || (st.fontStyle === 'italic' ? 'italic' : 'normal');
+    const isItalic = (spec.fontStyle || (st.fontStyle === 'italic' ? 'italic' : 'normal')) === 'italic';
+    span.style.fontStyle = isItalic ? 'italic' : 'normal';
     span.style.lineHeight = String(st.lineHeight || 1.2);
+    if (isItalic) {
+        span.style.paddingLeft = '0.06em';
+        span.style.paddingRight = '0.16em';
+    }
     if (st.letterSpacing) span.style.letterSpacing = `${st.letterSpacing}px`;
     const xform = spec.textTransform || st.textTransform;
     if (xform && xform !== 'none') span.style.textTransform = xform;
@@ -350,6 +355,10 @@ function createStyledFieldNode(spec, text, ctx) {
     if (spec.role === 'badge') {
         span.style.display = 'inline-block';
         span.style.padding = `${spec.padY ?? 2}px ${spec.padX ?? 7}px`;
+        if (isItalic) {
+            span.style.paddingLeft = `calc(${spec.padX ?? 7}px + 0.05em)`;
+            span.style.paddingRight = `calc(${spec.padX ?? 7}px + 0.14em)`;
+        }
         span.style.borderRadius = '999px';
         span.style.background = spec.bgColor || cfg.badgeBg || 'rgba(56,189,248,0.16)';
         span.style.color = spec.color || cfg.badgeColor || '#38bdf8';
