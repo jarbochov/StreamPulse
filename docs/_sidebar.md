@@ -13,6 +13,8 @@
   * [Polls & Tournaments](polls-guide.md)
   * [Live Chat Trivia](trivia-guide.md)
   * [Closing Credits](credits-guide.md)
+  * [Community & Analytics](community-guide.md)
+  * [Sessions & Hashtags](sessions-hashtags.md)
 
 * **The Project**
   * [Support & Questions](support.md)

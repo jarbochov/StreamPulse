@@ -428,6 +428,18 @@
             custom: true
         },
         {
+            id: 'sessions-analytics',
+            group: 'Overlays & Features',
+            title: 'Sessions, Search & Analytics',
+            custom: true
+        },
+        {
+            id: 'hashtags',
+            group: 'Overlays & Features',
+            title: 'Hashtag Tools & Stats',
+            custom: true
+        },
+        {
             id: 'config',
             group: 'Configuration & Data',
             title: 'config.json Reference',
@@ -2088,6 +2100,64 @@
                         • <strong>Estimates:</strong> Upcoming goals show approximate dates based on recent pace; estimates are unavailable when progress is too slow or missing.<br>
                         • <strong>Activity Patterns:</strong> The Streams &amp; Activity tab charts recorded chat and average live viewer samples by weekday and hour in the server's local time. Viewer samples are limited by retention, and deleted or banned-user messages are excluded.<br>
                         • <strong>Overlay Integration:</strong> Display these live on stream using placeholders like <code>{{milestone.stream_number}}</code>, <code>{{milestone.total_hours}}</code>, and <code>{{milestone.streak_days}}</code> or via the <a href="/milestone-url-wizard.html" style="color:var(--accent);">Milestone URL Wizard</a>.
+                    </div>
+                </div>
+            </div>`;
+
+            case 'sessions-analytics': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Chat Sessions &amp; Global Search</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        Browse your live broadcast and archived stream logs in <a href="/sessions.html" style="color:var(--accent);">Sessions</a>. Each session preserves chat history, viewer samples, category/game transitions, events, and pinned highlights.<br><br>
+                        • <strong>Global Chat Search:</strong> Search across the current session and all archived sessions simultaneously. Supports <code>AND</code>, <code>OR</code>, <code>"exact phrase"</code>, <code>user:username</code>, <code>#hashtag</code>, and wildcards (<code>*</code>), plus quick search helper pills, scope/sort selectors, and <strong>Load More</strong> pagination.<br>
+                        • <strong>Shareable Search Links:</strong> Search queries sync to <code>?q=</code> in the URL so you can bookmark or share filtered results.<br>
+                        • <strong>Highlights &amp; Exports:</strong> Pin memorable messages to <a href="/highlights.html" style="color:var(--accent);">Highlights</a>, or export any session as TSV, TXT, JSON, or PDF.
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Analytics &amp; Activity Patterns</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        Explore stream performance over time in <a href="/analytics.html" style="color:var(--accent);">Analytics &amp; Community</a>:<br><br>
+                        • <strong>Streams &amp; Activity:</strong> Summarize sessions across <code>7</code>, <code>30</code>, <code>60</code>, or <code>90</code> days, all time, or custom date ranges. Enable <strong>Compare</strong> to view period-over-period deltas against the preceding window, click any summary card to chart it, or export the table to CSV.<br>
+                        • <strong>Activity Patterns Heatmap:</strong> Inspect chat volume or average live viewers by weekday and hour in the server's local time. Viewer averages use retained samples; deleted and banned-user messages are excluded.<br>
+                        • <strong>Subscribers &amp; Growth:</strong> Track daily subscriber snapshots (total, tiers, gifted, joined, left) stored in <code>data/sub-history.json</code>.<br>
+                        • <strong>Milestones &amp; Streaks:</strong> View lifetime stream counts, hours, streaks, and estimated dates for upcoming goals.
+                    </div>
+                </div>
+            </div>`;
+
+            case 'hashtags': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Hashtag Stats &amp; Originators</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        Track every hashtag used in chat across sessions and all-time history on <a href="/hashtag-stats.html" style="color:var(--accent);">Hashtag Stats</a>.<br><br>
+                        • <strong>Originator Attribution:</strong> When <strong>Community insights</strong> is enabled in <a href="/config-editor.html" style="color:var(--accent);">Config Editor</a>, StreamPulse scans retained session logs (<code>chat-*.json</code> and <code>chatlog-*.jsonl</code>) to identify the first observed chatter (<em>Originator</em>) for each hashtag. Older tags whose chat logs are no longer on disk show <code>—</code>.<br>
+                        • <strong>Date Ranges &amp; Filtering:</strong> Filter by current session, 7/30/90 days, or all time, sort by total uses, session uses, or unique days, and export stats.
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Hashtag Moderation &amp; Overlay</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        • <strong>Manage Hashtags (<a href="/manage-hashtags.html" style="color:var(--accent);">Hashtag Tools</a>):</strong> Merge duplicate or misspelled tags, rename tags while preserving counts, ban spam tags, or purge unwanted entries from stats and overlays.<br>
+                        • <strong>Hashtags Overlay (<a href="/hashtags.html" style="color:var(--accent);">hashtags.html</a>):</strong> Display trending chat hashtags live in OBS with customizable layout, count limits, and sorting.
                     </div>
                 </div>
             </div>`;
