@@ -19,9 +19,14 @@
 
         .layout { display: grid; grid-template-columns: 300px 1fr; gap: 1rem; height: calc(100vh - 80px); }
 
-        .sidebar { display: flex; flex-direction: column; gap: 0.5rem; overflow: hidden; }
-        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem; }
-        .sidebar-header h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+        .sidebar { display: flex; flex-direction: column; gap: 0.5rem; overflow: hidden; min-height: 0; }
+        .sidebar-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 9px; padding: 3px; flex-shrink: 0; }
+        .sidebar-tab-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; background: transparent; border: none; border-radius: 6px; padding: 0.4rem 0.6rem; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+        .sidebar-tab-btn:hover { color: var(--text); }
+        .sidebar-tab-btn.active { background: var(--bg-card); color: var(--accent); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+        .sidebar-pane { display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+        .sidebar-pane.active { display: flex; }
+        #sidebar-pane-search { overflow-y: auto; padding-right: 0.15rem; }
 
         .session-list { display: flex; flex-direction: column; gap: 0.35rem; overflow-y: auto; flex: 1; padding-right: 0.25rem; }
         .session-list::-webkit-scrollbar { width: 4px; }
@@ -126,7 +131,9 @@
         .chat-msg .badge-event { background: color-mix(in srgb, var(--accent-strong) 19%, transparent); color: var(--accent); }
         .chat-msg .badge-donation { background: color-mix(in srgb, var(--success) 19%, transparent); color: var(--success); }
         .chat-msg .badge-sub { background: color-mix(in srgb, var(--purple) 19%, transparent); color: var(--purple); }
-        .chat-msg .chat-session-tag { font-size: 0.7rem; color: var(--border-strong); margin-top: 0.15rem; }
+        .chat-msg .chat-session-tag { font-size: 0.7rem; color: var(--border-strong); margin-top: 0.15rem; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+        .chat-context-link { background: none; border: none; padding: 0; font: inherit; font-size: 0.7rem; color: var(--text-muted); cursor: pointer; text-decoration: none; opacity: 0.8; transition: color 0.15s, opacity 0.15s; }
+        .chat-context-link:hover { color: var(--accent); text-decoration: underline; opacity: 1; }
         .chat-msg.chat-jump-target { background: color-mix(in srgb, var(--accent-strong) 19%, transparent); outline: 1px solid var(--accent); border-radius: 4px; padding-left: 0.35rem; padding-right: 0.35rem; }
         .chat-msg .chat-text a { color: var(--accent); text-decoration: underline; }
         .chat-reply-quote { font-size: 0.75rem; color: var(--text-faint); border-left: 2px solid var(--border); padding-left: 0.5rem; margin-bottom: 0.25rem; overflow: hidden; text-overflow: ellipsis; max-width: 100%; font-style: italic; background: var(--bg-card); padding: 0.2rem 0.5rem; border-radius: 0 4px 4px 0; }
@@ -154,48 +161,62 @@
         .chatlog-export-group .btn-sm:hover { color: var(--text); border-color: var(--accent); }
 
         /* Cross-session search */
-        .global-search { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
-        .global-search input { flex: 1; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.45rem 0.65rem; color: var(--text); font-size: 0.8rem; outline: none; }
+        #sidebar-pane-search { gap: 0.7rem; overflow-y: auto; padding-right: 0.15rem; }
+        .search-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem; display: flex; flex-direction: column; gap: 0.6rem; flex-shrink: 0; }
+        .search-section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+        .global-search { display: flex; gap: 0.4rem; }
+        .global-search input { flex: 1; min-width: 0; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.48rem 0.65rem; color: var(--text); font-size: 0.8rem; outline: none; }
         .global-search input:focus { border-color: var(--accent); }
-        .global-search button { background: var(--accent-strong); border: none; color: white; border-radius: 6px; padding: 0.45rem 0.65rem; font-size: 0.8rem; cursor: pointer; }
+        .global-search button { background: var(--accent-strong); border: none; color: white; border-radius: 6px; padding: 0.48rem 0.72rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
         .global-search button:hover { background: var(--accent-strong); color: #fff; }
-        .global-search .clear-btn { background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); padding: 0.45rem 0.55rem; }
-        .global-search .clear-btn:hover { background: var(--bg-card); color: var(--text); border-color: var(--accent); }
-        .search-helper-pills { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-bottom: 0.45rem; align-items: center; }
-        .search-pill { font-size: 0.7rem; padding: 0.16rem 0.48rem; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-inset); color: var(--text-muted); cursor: pointer; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; transition: all 0.15s; }
+        .global-search .clear-btn { background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); padding: 0.48rem 0.58rem; font-weight: 500; }
+        .global-search .clear-btn:hover { background: var(--bg-inset); color: var(--text); border-color: var(--accent); }
+        .search-helper-pills { display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center; }
+        .search-pill { font-size: 0.72rem; padding: 0.22rem 0.52rem; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-inset); color: var(--text-muted); cursor: pointer; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; transition: all 0.15s; }
         .search-pill:hover { color: var(--text); border-color: var(--accent); background: var(--accent-bg); }
-        .search-options-row { display: flex; gap: 0.35rem; margin-bottom: 0.5rem; flex-wrap: wrap; align-items: center; }
-        .search-hints { margin-bottom: 0.5rem; font-size: 0.7rem; color: var(--text-muted); }
-        .search-hints summary { cursor: pointer; color: var(--accent); font-size: 0.75rem; }
+        .search-type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
+        .search-type-grid .filter-toggle { padding: 0.42rem 0.35rem; font-size: 0.75rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.28rem; }
+        .search-type-grid .filter-toggle svg { flex-shrink: 0; }
+        .search-select-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+        .search-select-grid .chat-filter-select { width: 100%; background: var(--bg-inset); border-radius: 6px; padding: 0.42rem 0.5rem; font-size: 0.76rem; }
+        .search-hints { font-size: 0.72rem; color: var(--text-muted); }
+        .search-hints summary { cursor: pointer; color: var(--accent); font-size: 0.74rem; }
         .search-hints summary:hover { text-decoration: underline; }
-        .hints-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin-top: 6px; }
-        .hints-grid code { background: var(--bg-card); padding: 1px 5px; border-radius: 3px; color: var(--text); font-size: 0.7rem; white-space: nowrap; cursor: pointer; border: 1px solid transparent; }
+        .hints-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin-top: 8px; }
+        .hints-grid code { background: var(--bg-inset); padding: 2px 6px; border-radius: 4px; color: var(--text); font-size: 0.7rem; white-space: nowrap; cursor: pointer; border: 1px solid var(--border); }
         .hints-grid code:hover { border-color: var(--accent); color: var(--accent); }
         .hints-grid span { color: var(--text-muted); }
 
-        .compare-bar { display: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 1rem; align-items: center; gap: 0.75rem; }
-        .compare-bar.show { display: flex; }
-        .compare-bar span { font-size: 0.8rem; color: var(--text-muted); }
-        .compare-bar .sel { color: var(--accent); font-weight: 600; }
-        .compare-btn { padding: 0.4rem 0.8rem; background: var(--accent-strong); border: none; border-radius: 6px; color: white; font-size: 0.8rem; cursor: pointer; }
-        .compare-btn:hover { background: var(--accent-strong); color: #fff; }
-        .compare-btn.cancel { background: var(--bg-raised); color: var(--text-muted); }
+        .saved-searches-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.65rem 0.7rem; display: flex; flex-direction: column; gap: 0.55rem; flex-shrink: 0; }
+        .saved-searches-head { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; }
+        .saved-searches-toggle { background: none; border: none; padding: 0; color: var(--text-muted); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; }
+        .saved-searches-toggle:hover { color: var(--text); }
+        .saved-searches-toggle svg { width: 12px; height: 12px; transition: transform 0.15s; }
+        .saved-searches-box.open .saved-searches-toggle svg { transform: rotate(90deg); }
+        .saved-searches-body { display: none; flex-direction: column; gap: 0.45rem; max-height: 360px; overflow-y: auto; }
+        .saved-searches-box.open .saved-searches-body { display: flex; }
+        .saved-search-add { background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); border-radius: 5px; padding: 0.16rem 0.48rem; font-size: 0.72rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem; transition: all 0.15s; }
+        .saved-search-add:hover { color: var(--text); border-color: var(--accent); background: var(--accent-bg); }
+        .saved-searches-list { display: flex; flex-direction: column; gap: 0.25rem; }
+        .saved-search-empty { font-size: 0.72rem; color: var(--text-faint); }
+        .saved-search-item { display: flex; align-items: center; gap: 0.3rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 0.24rem 0.35rem 0.24rem 0.5rem; transition: border-color 0.15s; }
+        .saved-search-item:hover { border-color: var(--accent); }
+        .saved-search-run { flex: 1; min-width: 0; background: none; border: none; color: var(--text); font-size: 0.76rem; font-weight: 500; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0.1rem 0; }
+        .saved-search-run:hover { color: var(--accent); }
+        .saved-search-icon-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; width: 22px; height: 22px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
+        .saved-search-icon-btn:hover { color: var(--text); background: var(--bg-raised); }
+        .saved-search-icon-btn.danger:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+        .saved-search-form { display: none; flex-direction: column; gap: 0.35rem; padding-top: 0.35rem; border-top: 1px solid var(--border); }
+        .saved-search-form.open { display: flex; }
+        .saved-search-form input, .saved-search-form select { width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-size: 0.75rem; padding: 0.3rem 0.45rem; font-family: inherit; }
+        .saved-search-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem; }
+        .saved-search-form-actions { display: flex; justify-content: flex-end; gap: 0.3rem; }
+        .saved-search-form-actions button { padding: 0.25rem 0.55rem; font-size: 0.72rem; border-radius: 5px; cursor: pointer; border: 1px solid var(--border); background: var(--bg-raised); color: var(--text-muted); }
+        .saved-search-form-actions button.primary { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; font-weight: 600; }
 
         .export-bar { display: flex; gap: 0.4rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
         .export-btn { background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; text-decoration: none; }
         .export-btn:hover { color: var(--text); border-color: var(--accent); background: var(--accent-bg); }
-
-        .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
-        .compare-col { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
-        .compare-col h3 { font-size: 0.95rem; color: var(--accent); margin-bottom: 1rem; }
-        .compare-stat { display: flex; justify-content: space-between; padding: 0.3rem 0; font-size: 0.85rem; border-bottom: 1px solid var(--bg-raised); }
-        .compare-stat:last-child { border-bottom: none; }
-        .compare-stat .label { color: var(--text-muted); }
-        .compare-stat .value { font-weight: 600; }
-        .compare-stat .value.higher { color: var(--success); }
-        .compare-stat .value.lower { color: var(--danger); }
-
-        .session-checkbox { margin-right: 0.5rem; accent-color: var(--accent); }
 
 
         @media (max-width: 768px) {
@@ -215,63 +236,110 @@
     </div>
 
     <div class="container">
-        <div class="compare-bar" id="compare-bar">
-            <span>Compare: <span class="sel" id="compare-sel-1">—</span> vs <span class="sel" id="compare-sel-2">—</span></span>
-            <button class="compare-btn" id="compare-go" onclick="runCompare()" disabled>Compare</button>
-            <button class="compare-btn cancel" onclick="cancelCompare()">Cancel</button>
-        </div>
-
-        <div class="compare-grid" id="compare-grid" style="display: none;"></div>
-
         <div class="layout" id="main-layout">
             <div class="sidebar">
-                <div class="sidebar-header">
-                    <h2>Sessions</h2>
-                    <button class="compare-btn" id="compare-toggle" onclick="toggleCompareMode()" style="background: var(--bg-raised); color: var(--text-muted); font-size: 0.75rem; padding: 0.3rem 0.6rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:3px;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> Compare</button>
+                <div class="sidebar-tabs" role="tablist" aria-label="Sidebar Views">
+                    <button type="button" class="sidebar-tab-btn active" id="sidebar-tab-sessions" role="tab" aria-selected="true" onclick="setSidebarTab('sessions')">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        Sessions
+                    </button>
+                    <button type="button" class="sidebar-tab-btn" id="sidebar-tab-search" role="tab" aria-selected="false" onclick="setSidebarTab('search')">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        Search
+                    </button>
                 </div>
-                <div class="global-search">
-                    <input type="text" id="global-search-input" placeholder="Search all chats (* and ? wildcards)..." onkeydown="if(event.key==='Enter')globalSearch()">
-                    <button type="button" class="clear-btn" onclick="clearGlobalSearch()" title="Clear search">&times;</button>
-                    <button onclick="globalSearch()">Search</button>
-                </div>
-                <div class="search-helper-pills" aria-label="Search syntax helpers">
-                    <button type="button" class="search-pill" onclick="insertSearchHelper('global-search-input', 'user:')">user:</button>
-                    <button type="button" class="search-pill" onclick="insertSearchHelper('global-search-input', '&quot;&quot;', -1)">"phrase"</button>
-                    <button type="button" class="search-pill" onclick="insertSearchHelper('global-search-input', 'OR ')">OR</button>
-                    <button type="button" class="search-pill" onclick="insertSearchHelper('global-search-input', '*', 0, true)">*</button>
-                    <button type="button" class="search-pill" onclick="insertSearchHelper('global-search-input', '?', 0, true)">?</button>
-                </div>
-                <details class="search-hints">
-                    <summary>Search tips (click example to insert)</summary>
-                    <div class="hints-grid" onclick="if(event.target.tagName==='CODE')insertSearchExample('global-search-input', event.target.textContent)">
-                        <code>pizza</code><span>Messages containing "pizza"</span>
-                        <code>pizza cheese</code><span>Contains both words (AND)</span>
-                        <code>pizza OR tacos</code><span>Contains either word</span>
-                        <code>"good game"</code><span>Exact phrase</span>
-                        <code>win*</code><span>Words starting with "win" (wildcard)</span>
-                        <code>*ing</code><span>Words ending with "ing" (wildcard)</span>
-                        <code>d?g</code><span>Single-character wildcard (dog, dig)</span>
-                        <code>user:bot*</code><span>From users matching "bot*"</span>
-                        <code>@ChatFan*</code><span>Shorthand user wildcard</span>
+                <div class="sidebar-pane active" id="sidebar-pane-sessions" role="tabpanel">
+                    <div class="session-list" id="session-list">
+                        <div class="empty">Loading sessions...</div>
                     </div>
-                </details>
-                <div class="search-options-row">
-                    <button class="filter-toggle" onclick="globalSearchType('links', this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg> Links</button>
-                    <button class="filter-toggle" onclick="globalSearchType('events', this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg> Events</button>
-                    <button class="filter-toggle" onclick="globalSearchType('donations', this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg> Donations</button>
                 </div>
-                <div class="search-options-row">
-                    <select class="chat-filter-select" id="global-search-scope" onchange="if(document.getElementById('global-search-input').value.trim()||globalSearchTypeFilter)globalSearch()" aria-label="Search scope">
-                        <option value="all">All sessions</option>
-                        <option value="current">Current session</option>
-                    </select>
-                    <select class="chat-filter-select" id="global-search-sort" onchange="if(document.getElementById('global-search-input').value.trim()||globalSearchTypeFilter)globalSearch()" aria-label="Search sort">
-                        <option value="desc">Newest first</option>
-                        <option value="asc">Oldest first</option>
-                    </select>
+                <div class="sidebar-pane" id="sidebar-pane-search" role="tabpanel">
+                    <div class="search-section">
+                        <div class="search-section-label">Query</div>
+                        <div class="global-search">
+                            <input type="text" id="global-search-input" placeholder="Search all chats..." onkeydown="if(event.key==='Enter')globalSearch()">
+                            <button type="button" class="clear-btn" onclick="clearGlobalSearch()" title="Clear search">&times;</button>
+                            <button onclick="globalSearch()">Search</button>
+                        </div>
+                        <div class="search-helper-pills" aria-label="Search syntax helpers">
+                            <button type="button" class="search-pill" onclick="insertSearchHelper('global-search-input', 'user:')">user:</button>
+                            <button type="button" class="search-pill" onclick="insertSearchHelper('global-search-input', '&quot;&quot;', -1)">"phrase"</button>
+                            <button type="button" class="search-pill" onclick="insertSearchHelper('global-search-input', 'OR ')">OR</button>
+                            <button type="button" class="search-pill" onclick="insertSearchHelper('global-search-input', '*', 0, true)">*</button>
+                            <button type="button" class="search-pill" onclick="insertSearchHelper('global-search-input', '?', 0, true)">?</button>
+                        </div>
+                        <details class="search-hints">
+                            <summary>Search tips (click example to insert)</summary>
+                            <div class="hints-grid" onclick="if(event.target.tagName==='CODE')insertSearchExample('global-search-input', event.target.textContent)">
+                                <code>pizza</code><span>Messages containing "pizza"</span>
+                                <code>pizza cheese</code><span>Contains both words (AND)</span>
+                                <code>pizza OR tacos</code><span>Contains either word</span>
+                                <code>"good game"</code><span>Exact phrase</span>
+                                <code>win*</code><span>Words starting with "win" (wildcard)</span>
+                                <code>*ing</code><span>Words ending with "ing" (wildcard)</span>
+                                <code>d?g</code><span>Single-character wildcard (dog, dig)</span>
+                                <code>user:bot*</code><span>From users matching "bot*"</span>
+                                <code>@ChatFan*</code><span>Shorthand user wildcard</span>
+                            </div>
+                        </details>
+                    </div>
+                    <div class="search-section">
+                        <div class="search-section-label">Filters</div>
+                        <div class="search-type-grid">
+                            <button class="filter-toggle" onclick="globalSearchType('links', this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>Links</button>
+                            <button class="filter-toggle" onclick="globalSearchType('events', this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>Events</button>
+                            <button class="filter-toggle" onclick="globalSearchType('donations', this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>Donations</button>
+                        </div>
+                        <div class="search-select-grid">
+                            <select class="chat-filter-select" id="global-search-scope" onchange="if(document.getElementById('global-search-input').value.trim()||globalSearchTypeFilter)globalSearch()" aria-label="Search scope">
+                                <option value="all">All sessions</option>
+                                <option value="current">Current session</option>
+                            </select>
+                            <select class="chat-filter-select" id="global-search-sort" onchange="if(document.getElementById('global-search-input').value.trim()||globalSearchTypeFilter)globalSearch()" aria-label="Search sort">
+                                <option value="desc">Newest first</option>
+                                <option value="asc">Oldest first</option>
+                            </select>
+                        </div>
+                    </div>
+                <div class="saved-searches-box" id="saved-searches-box">
+                    <div class="saved-searches-head">
+                        <button type="button" class="saved-searches-toggle" id="saved-searches-toggle" onclick="toggleSavedSearches()" aria-expanded="false">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            <span id="saved-searches-label">Saved Searches</span>
+                        </button>
+                        <button type="button" class="saved-search-add" id="saved-search-add-btn" onclick="openSavedSearchForm()">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            Save current
+                        </button>
+                    </div>
+                    <div class="saved-searches-body" id="saved-searches-body">
+                        <div class="saved-searches-list" id="saved-searches-list"></div>
+                        <div class="saved-search-form" id="saved-search-form">
+                            <input type="text" id="saved-search-name" placeholder="Name (e.g. Sub Gifts, @Mods)" maxlength="48">
+                            <input type="text" id="saved-search-query" placeholder="Search query (optional if type filter set)">
+                            <div class="saved-search-form-row">
+                                <select id="saved-search-type" aria-label="Saved search type">
+                                    <option value="">All types</option>
+                                    <option value="links">Links</option>
+                                    <option value="events">Events</option>
+                                    <option value="donations">Donations</option>
+                                </select>
+                                <select id="saved-search-scope" aria-label="Saved search scope">
+                                    <option value="all">All sessions</option>
+                                    <option value="current">Current session</option>
+                                </select>
+                            </div>
+                            <select id="saved-search-sort" aria-label="Saved search sort">
+                                <option value="desc">Newest first</option>
+                                <option value="asc">Oldest first</option>
+                            </select>
+                            <div class="saved-search-form-actions">
+                                <button type="button" onclick="closeSavedSearchForm()">Cancel</button>
+                                <button type="button" class="primary" onclick="submitSavedSearchForm()">Save</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="session-list" id="session-list">
-                    <div class="empty">Loading sessions...</div>
                 </div>
             </div>
 
@@ -295,11 +363,12 @@
         const pad = n => String(n).padStart(2, '0');
         return `chat-${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}-${pad(dt.getMinutes())}.json`;
     }
-    let compareMode = false;
-    let compareSelections = [];
     let chatLogCache = {};  // cache loaded chat logs by session name
     let highlightsCache = null;  // cached highlights from server
     let globalSearchTypeFilter = '';
+    let editingSavedSearchId = null;
+    const SAVED_SEARCHES_KEY = 'streampulse:sessions:savedSearches';
+    const SAVED_SEARCHES_OPEN_KEY = 'streampulse:sessions:savedSearchesOpen';
     let liveSessionSocket = null;
     let liveRefreshTimer = null;
 
@@ -356,7 +425,6 @@
             const currentTimes = current ? getStreamTimes(current) : { start: null, stop: null };
             const currentRange = current ? formatStreamTimeRange(currentTimes.start, null) : '';
             let html = `<div class="session-item${currentRange ? ' has-subtitle' : ''}" data-file="__current__" onclick="handleSessionClick('__current__', this)" style="border-color: var(--success-strong); background: var(--bg-inset);">
-                <input type="checkbox" class="session-checkbox" style="display: none;" onclick="event.stopPropagation(); toggleCompareSelection('__current__')">
                 <div style="display:flex;align-items:center;gap:0.5rem;width:100%;">
                     <span class="session-date"><span class="status-dot live" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fb950;margin-right:6px;"></span>Current Session</span>
                     <span class="session-meta">Live</span>
@@ -381,7 +449,6 @@
                     }
                     return `<div class="session-item${subtitle ? ' has-subtitle' : ''}" data-file="${f}" onclick="handleSessionClick('${f}', this)">
                         <div style="display:flex;align-items:center;gap:0.5rem;width:100%;">
-                            <input type="checkbox" class="session-checkbox" style="display: none;" onclick="event.stopPropagation(); toggleCompareSelection('${f}')">
                             <span class="session-date">${dateStr}</span>
                             <span class="session-meta">${timeStr}</span>
                         </div>
@@ -444,7 +511,8 @@
 
     async function loadSession(filename, el, options = {}) {
         document.querySelectorAll('.session-item').forEach(i => i.classList.remove('active'));
-        el.classList.add('active');
+        const targetEl = el || document.querySelector(`.session-item[data-file="${CSS.escape(filename)}"]`);
+        if (targetEl) targetEl.classList.add('active');
         activeSessionFile = filename;
         try { localStorage.setItem('streampulse:sessions:file', filename); } catch {}
 
@@ -1033,6 +1101,13 @@
         }
     }
 
+    async function jumpToSearchResult(sessionName, ts) {
+        if (!sessionName) return;
+        const filename = (sessionName === 'current' || sessionName === '__current__') ? '__current__' : sessionName;
+        await loadSession(filename);
+        await openChatAtTimestamp(Number(ts) || 0);
+    }
+
     async function deleteArchivedSession(filename = activeSessionFile) {
         if (!filename || filename === '__current__') return;
         const confirmed = await StreamPulse.confirm(
@@ -1067,138 +1142,191 @@
     }
 
     function handleSessionClick(filename, el) {
-        if (compareMode) {
-            const checkbox = el.querySelector('.session-checkbox');
-            if (checkbox) checkbox.checked = !checkbox.checked;
-            toggleCompareSelection(filename);
-            return;
-        }
         loadSession(filename, el);
     }
 
-    // Compare mode
-    function toggleCompareMode() {
-        compareMode = !compareMode;
-        compareSelections = [];
-        const bar = document.getElementById('compare-bar');
-        const toggle = document.getElementById('compare-toggle');
-        const checkboxes = document.querySelectorAll('.session-checkbox');
-        const grid = document.getElementById('compare-grid');
-
-        if (compareMode) {
-            bar.classList.add('show');
-            toggle.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:3px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Cancel Compare';
-            toggle.style.background = 'color-mix(in srgb, var(--danger) 19%, transparent)';
-            toggle.style.color = '#f85149';
-            checkboxes.forEach(cb => { cb.style.display = 'inline'; cb.checked = false; });
-            closeDetail();
-            grid.style.display = 'none';
-        } else {
-            cancelCompare();
-        }
-        updateCompareBar();
-    }
-
-    function cancelCompare() {
-        compareMode = false;
-        compareSelections = [];
-        document.getElementById('compare-bar').classList.remove('show');
-        const toggle = document.getElementById('compare-toggle');
-        toggle.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:3px;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> Compare Sessions';
-        toggle.style.background = 'var(--bg-raised)';
-        toggle.style.color = 'var(--text-muted)';
-        document.querySelectorAll('.session-checkbox').forEach(cb => { cb.style.display = 'none'; cb.checked = false; });
-        document.getElementById('compare-grid').style.display = 'none';
-    }
-
-    function toggleCompareSelection(filename) {
-        if (filename === '__current__') {
-            const currentCheckbox = document.querySelector('[data-file="__current__"] .session-checkbox');
-            if (currentCheckbox && !compareMode) return;
-        }
-        const idx = compareSelections.indexOf(filename);
-        if (idx > -1) {
-            compareSelections.splice(idx, 1);
-        } else if (compareSelections.length < 2) {
-            compareSelections.push(filename);
-        } else {
-            // Deselect oldest
-            const oldCb = document.querySelector(`[data-file="${compareSelections[0]}"] .session-checkbox`);
-            if (oldCb) oldCb.checked = false;
-            compareSelections.shift();
-            compareSelections.push(filename);
-        }
-        updateCompareBar();
-    }
-
-    function updateCompareBar() {
-        const getName = f => { const m = f?.match(/chat-(\d{4}-\d{2}-\d{2})/); return m ? m[1] : f || '—'; };
-        document.getElementById('compare-sel-1').textContent = getName(compareSelections[0]);
-        document.getElementById('compare-sel-2').textContent = getName(compareSelections[1]);
-        document.getElementById('compare-go').disabled = compareSelections.length < 2;
-    }
-
-    async function runCompare() {
-        if (compareSelections.length < 2) return;
+    function loadSavedSearches() {
         try {
-            const loadCompareSession = async filename => {
-                const endpoint = filename === '__current__'
-                    ? '/api/chat'
-                    : `/api/sessions/${encodeURIComponent(filename)}`;
-                const response = await fetch(endpoint);
-                if (!response.ok) throw new Error(`Session request failed (${response.status})`);
-                return response.json();
-            };
-            const [res1, res2] = await Promise.all([
-                loadCompareSession(compareSelections[0]),
-                loadCompareSession(compareSelections[1])
-            ]);
-            renderCompare(compareSelections[0], res1, compareSelections[1], res2);
-        } catch (err) {
-            document.getElementById('compare-grid').innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
-            document.getElementById('compare-grid').style.display = 'block';
+            const raw = localStorage.getItem(SAVED_SEARCHES_KEY);
+            const parsed = raw ? JSON.parse(raw) : [];
+            return Array.isArray(parsed) ? parsed.filter(s => s && typeof s === 'object' && s.id) : [];
+        } catch {
+            return [];
         }
     }
 
-    function renderCompare(name1, data1, name2, data2) {
-        const grid = document.getElementById('compare-grid');
-        grid.style.display = 'grid';
-        closeDetail();
+    function persistSavedSearches(list) {
+        try {
+            localStorage.setItem(SAVED_SEARCHES_KEY, JSON.stringify(list));
+        } catch {}
+    }
 
-        const getLabel = f => {
-            if (f === '__current__') return 'Current Session';
-            const m = f.match(/chat-(\d{4}-\d{2}-\d{2})/);
-            return m ? m[1] : f;
-        };
-        const metrics = [
-            { label: 'Messages', fn: d => d.messageCount || 0 },
-            { label: 'Chatters', fn: d => Object.keys(d.chatters || {}).length },
-            { label: 'Emotes', fn: d => Object.keys(d.emotes || {}).length },
-            { label: 'Hashtags', fn: d => Object.keys(d.hashtags || {}).length },
-            { label: 'Subscribers', fn: d => (d.subscribers || []).length },
-            { label: 'Gift Subs', fn: d => (d.giftSubs || []).length },
-            { label: 'Followers', fn: d => (d.followers || []).length },
-            { label: 'Donations', fn: d => (d.donations || []).length },
-            { label: 'Cheerers', fn: d => (d.bits || []).length },
-            { label: 'Raids', fn: d => (d.raids || []).length },
-        ];
+    const SIDEBAR_TAB_KEY = 'streampulse:sessions:sidebarTab';
 
-        function renderCol(name, data, otherData) {
-            return `<div class="compare-col">
-                <h3>${getLabel(name)}</h3>
-                ${metrics.map(m => {
-                    const v = m.fn(data);
-                    const ov = m.fn(otherData);
-                    const cls = v > ov ? 'higher' : v < ov ? 'lower' : '';
-                    return `<div class="compare-stat">
-                        <span class="label">${m.label}</span>
-                        <span class="value ${cls}">${v.toLocaleString()}</span>
-                    </div>`;
-                }).join('')}
-            </div>`;
+    function setSidebarTab(tab, { persist = true } = {}) {
+        const next = tab === 'search' ? 'search' : 'sessions';
+        const sessionsBtn = document.getElementById('sidebar-tab-sessions');
+        const searchBtn = document.getElementById('sidebar-tab-search');
+        const sessionsPane = document.getElementById('sidebar-pane-sessions');
+        const searchPane = document.getElementById('sidebar-pane-search');
+        if (sessionsBtn) {
+            sessionsBtn.classList.toggle('active', next === 'sessions');
+            sessionsBtn.setAttribute('aria-selected', next === 'sessions' ? 'true' : 'false');
         }
+        if (searchBtn) {
+            searchBtn.classList.toggle('active', next === 'search');
+            searchBtn.setAttribute('aria-selected', next === 'search' ? 'true' : 'false');
+        }
+        if (sessionsPane) sessionsPane.classList.toggle('active', next === 'sessions');
+        if (searchPane) searchPane.classList.toggle('active', next === 'search');
+        if (persist) {
+            try {
+                localStorage.setItem(SIDEBAR_TAB_KEY, next);
+            } catch {
+                // ignore storage errors
+            }
+        }
+    }
 
-        grid.innerHTML = renderCol(name1, data1, data2) + renderCol(name2, data2, data1);
+    function setSavedSearchesOpen(isOpen, { persist = true } = {}) {
+        const box = document.getElementById('saved-searches-box');
+        const toggle = document.getElementById('saved-searches-toggle');
+        if (!box || !toggle) return;
+        box.classList.toggle('open', Boolean(isOpen));
+        toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        if (persist) {
+            try {
+                localStorage.setItem(SAVED_SEARCHES_OPEN_KEY, isOpen ? '1' : '0');
+            } catch {
+                // ignore storage errors
+            }
+        }
+    }
+
+    function toggleSavedSearches() {
+        const box = document.getElementById('saved-searches-box');
+        if (!box) return;
+        setSavedSearchesOpen(!box.classList.contains('open'));
+    }
+
+    function renderSavedSearches() {
+        const container = document.getElementById('saved-searches-list');
+        const label = document.getElementById('saved-searches-label');
+        if (!container) return;
+        const list = loadSavedSearches();
+        if (label) {
+            label.textContent = list.length ? `Saved Searches (${list.length})` : 'Saved Searches';
+        }
+        if (!list.length) {
+            container.innerHTML = '<div class="saved-search-empty">No saved searches yet.</div>';
+            return;
+        }
+        container.innerHTML = list.map(s => {
+            const meta = [s.query, s.type, s.scope === 'current' ? 'current' : ''].filter(Boolean).join(' · ');
+            return `<div class="saved-search-item" data-saved-id="${escapeHtml(s.id)}">
+                <button type="button" class="saved-search-run" onclick="applySavedSearch('${escapeHtml(s.id)}')" title="${escapeHtml(meta || s.name)}">${escapeHtml(s.name)}</button>
+                <button type="button" class="saved-search-icon-btn" onclick="openSavedSearchForm('${escapeHtml(s.id)}')" title="Edit saved search" aria-label="Edit saved search">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                </button>
+                <button type="button" class="saved-search-icon-btn danger" onclick="deleteSavedSearch('${escapeHtml(s.id)}')" title="Delete saved search" aria-label="Delete saved search">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
+            </div>`;
+        }).join('');
+    }
+
+    function openSavedSearchForm(id = null) {
+        const form = document.getElementById('saved-search-form');
+        if (!form) return;
+        setSavedSearchesOpen(true, { persist: false });
+        editingSavedSearchId = id || null;
+        const existing = id ? loadSavedSearches().find(s => s.id === id) : null;
+        const currentQuery = document.getElementById('global-search-input')?.value.trim() || '';
+        const currentScope = document.getElementById('global-search-scope')?.value || 'all';
+        const currentSort = document.getElementById('global-search-sort')?.value || 'desc';
+
+        const nameEl = document.getElementById('saved-search-name');
+        const queryEl = document.getElementById('saved-search-query');
+        const typeEl = document.getElementById('saved-search-type');
+        const scopeEl = document.getElementById('saved-search-scope');
+        const sortEl = document.getElementById('saved-search-sort');
+
+        if (existing) {
+            nameEl.value = existing.name || '';
+            queryEl.value = existing.query || '';
+            typeEl.value = existing.type || '';
+            scopeEl.value = existing.scope || 'all';
+            sortEl.value = existing.sort || 'desc';
+        } else {
+            nameEl.value = currentQuery || (globalSearchTypeFilter ? `${globalSearchTypeFilter[0].toUpperCase()}${globalSearchTypeFilter.slice(1)}` : '');
+            queryEl.value = currentQuery;
+            typeEl.value = globalSearchTypeFilter || '';
+            scopeEl.value = currentScope;
+            sortEl.value = currentSort;
+        }
+        form.classList.add('open');
+        nameEl.focus();
+    }
+
+    function closeSavedSearchForm() {
+        editingSavedSearchId = null;
+        document.getElementById('saved-search-form')?.classList.remove('open');
+    }
+
+    function submitSavedSearchForm() {
+        const name = document.getElementById('saved-search-name')?.value.trim() || '';
+        const query = document.getElementById('saved-search-query')?.value.trim() || '';
+        const type = document.getElementById('saved-search-type')?.value || '';
+        const scope = document.getElementById('saved-search-scope')?.value || 'all';
+        const sort = document.getElementById('saved-search-sort')?.value || 'desc';
+        if (!query && !type) {
+            document.getElementById('saved-search-query')?.focus();
+            return;
+        }
+        const finalName = name || query || type;
+        const list = loadSavedSearches();
+        if (editingSavedSearchId) {
+            const idx = list.findIndex(s => s.id === editingSavedSearchId);
+            if (idx !== -1) {
+                list[idx] = { ...list[idx], name: finalName, query, type, scope, sort };
+            }
+        } else {
+            list.push({
+                id: `ss-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+                name: finalName,
+                query,
+                type,
+                scope,
+                sort
+            });
+        }
+        persistSavedSearches(list);
+        closeSavedSearchForm();
+        renderSavedSearches();
+    }
+
+    function applySavedSearch(id) {
+        const item = loadSavedSearches().find(s => s.id === id);
+        if (!item) return;
+        const input = document.getElementById('global-search-input');
+        const scopeEl = document.getElementById('global-search-scope');
+        const sortEl = document.getElementById('global-search-sort');
+        if (input) input.value = item.query || '';
+        if (scopeEl) scopeEl.value = item.scope || 'all';
+        if (sortEl) sortEl.value = item.sort || 'desc';
+        globalSearchTypeFilter = item.type || '';
+        document.querySelectorAll('.search-options-row .filter-toggle').forEach(btn => {
+            const fn = btn.getAttribute('onclick') || '';
+            btn.classList.toggle('active', Boolean(globalSearchTypeFilter && fn.includes(`'${globalSearchTypeFilter}'`)));
+        });
+        globalSearch();
+    }
+
+    function deleteSavedSearch(id) {
+        const list = loadSavedSearches().filter(s => s.id !== id);
+        persistSavedSearches(list);
+        if (editingSavedSearchId === id) closeSavedSearchForm();
+        renderSavedSearches();
     }
 
     function formatTimestamp(ts) {
@@ -1261,7 +1389,13 @@
         const sessionDisplay = isCurrentSession
             ? '<span class="status-dot live" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fb950;margin-right:6px;"></span>Current Session'
             : escapeHtml(m.session || '');
-        const sessionTag = showSession ? `<div class="chat-session-tag">${sessionDisplay}</div>` : '';
+        const sessionTarget = isCurrentSession ? 'current' : (m.session || sessionName || '');
+        const contextLink = (showSession && sessionTarget)
+            ? `<button type="button" class="chat-context-link" onclick="jumpToSearchResult('${escapeHtml(sessionTarget)}', ${Number(m.ts) || 0})">View in chat</button>`
+            : '';
+        const sessionTag = showSession
+            ? `<div class="chat-session-tag"><span>${sessionDisplay}</span>${contextLink ? `<span>&middot;</span>${contextLink}` : ''}</div>`
+            : '';
 
         const isPinned = highlightsCache && highlightsCache.some(h => h.ts === m.ts && h.user === m.user);
         const STAR_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
@@ -1809,7 +1943,7 @@
                     <div class="chat-meta">
                         <div><span class="chat-user dossier-clickable" data-chatter="${escapeHtml(message.user)}" title="View Chatter Dossier" style="color:${userColor(message.user)}">${escapeHtml(message.user)}</span><span class="chat-session-tag">${escapeHtml(session)}</span></div>
                         <div class="chat-text">${urls.map(url => `<div><a href="${escapeHtml(/^(?:[a-z][a-z0-9+.-]*:\/\/)/i.test(url) ? url : `https://${url}`)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a><span class="chat-actions"><button class="chat-action-btn" onclick="copyLink('${encodeURIComponent(url)}')">Copy</button><a class="chat-action-btn" href="${escapeHtml(/^(?:[a-z][a-z0-9+.-]*:\/\/)/i.test(url) ? url : `https://${url}`)}" target="_blank" rel="noopener noreferrer">Open</a></span></div>`).join('')}</div>
-                        <div class="chat-session-tag">${formatDateTimestamp(message.ts)}${message.message ? ` · ${escapeHtml(message.message)}` : ''}</div>
+                        <div class="chat-session-tag"><span>${formatDateTimestamp(message.ts)}${message.message ? ` · ${escapeHtml(message.message)}` : ''}</span>${session ? `<span>&middot;</span><button type="button" class="chat-context-link" onclick="jumpToSearchResult('${escapeHtml(session)}', ${Number(message.ts) || 0})">View in chat</button>` : ''}</div>
                     </div>
                     <span class="chat-time">${formatTimestamp(message.ts)}</span>
                 </div>`;
@@ -2109,6 +2243,13 @@
     window.addEventListener('popstate', applyUrlAndSavedSessionState);
     window.addEventListener('hashchange', applyUrlAndSavedSessionState);
 
+    try {
+        setSidebarTab(localStorage.getItem(SIDEBAR_TAB_KEY) === 'search' ? 'search' : 'sessions', { persist: false });
+        setSavedSearchesOpen(localStorage.getItem(SAVED_SEARCHES_OPEN_KEY) === '1', { persist: false });
+    } catch {
+        // ignore storage errors
+    }
+    renderSavedSearches();
     loadSessions().then(async () => {
         connectLiveSessionSocket();
         await applyUrlAndSavedSessionState();
