@@ -838,6 +838,109 @@ const IG_MODAL_SAMPLE_CREST = 'data:image/svg+xml,' + encodeURIComponent('<svg x
 const IG_MODAL_SAMPLE_RANK = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#0f172a" stroke="#f59e0b" stroke-width="4"/><polygon points="32,12 38,26 53,27 41,37 45,51 32,43 19,51 23,37 11,27 26,26" fill="#fbbf24"/></svg>');
 
 let igPreviewMemberId = '';
+let igSelectedFieldIdx = 0;
+
+const IG_QUICK_GEOMETRIES = [
+    {
+        id: 'left-left',
+        label: 'Avatar L · Text L',
+        match: ig => (ig.labelPosition || 'below') === 'right' && (ig.textAlign || 'auto') !== 'right' && (ig.cardWidthMode || 'auto') !== 'full',
+        apply: ig => Object.assign(ig, { showAvatar: true, showLabels: true, labelPosition: 'right', textAlign: 'left', cardWidthMode: 'auto' }),
+        svg: '<svg viewBox="0 0 54 26" fill="none"><rect x="1" y="1" width="52" height="24" rx="4" stroke="currentColor" stroke-opacity=".35"/><circle cx="11" cy="13" r="6" fill="currentColor" fill-opacity=".85"/><rect x="21" y="8" width="18" height="3.5" rx="1.5" fill="currentColor"/><rect x="21" y="14.5" width="12" height="2.5" rx="1.2" fill="currentColor" fill-opacity=".45"/></svg>'
+    },
+    {
+        id: 'split-lr',
+        label: 'Split: L / R',
+        match: ig => (ig.labelPosition || 'below') === 'right' && ig.textAlign === 'right' && (ig.cardWidthMode === 'full' || ig.cardWidthMode === 'fixed'),
+        apply: ig => Object.assign(ig, { showAvatar: true, showLabels: true, labelPosition: 'right', textAlign: 'right', cardWidthMode: 'full' }),
+        svg: '<svg viewBox="0 0 54 26" fill="none"><rect x="1" y="1" width="52" height="24" rx="4" stroke="currentColor" stroke-opacity=".35"/><circle cx="11" cy="13" r="6" fill="currentColor" fill-opacity=".85"/><rect x="30" y="8" width="18" height="3.5" rx="1.5" fill="currentColor"/><rect x="36" y="14.5" width="12" height="2.5" rx="1.2" fill="currentColor" fill-opacity=".45"/></svg>'
+    },
+    {
+        id: 'split-rl',
+        label: 'Split: R / L',
+        match: ig => ig.labelPosition === 'left' && (ig.textAlign === 'left' || ig.textAlign === 'auto') && (ig.cardWidthMode === 'full' || ig.cardWidthMode === 'fixed'),
+        apply: ig => Object.assign(ig, { showAvatar: true, showLabels: true, labelPosition: 'left', textAlign: 'left', cardWidthMode: 'full' }),
+        svg: '<svg viewBox="0 0 54 26" fill="none"><rect x="1" y="1" width="52" height="24" rx="4" stroke="currentColor" stroke-opacity=".35"/><circle cx="43" cy="13" r="6" fill="currentColor" fill-opacity=".85"/><rect x="6" y="8" width="18" height="3.5" rx="1.5" fill="currentColor"/><rect x="6" y="14.5" width="12" height="2.5" rx="1.2" fill="currentColor" fill-opacity=".45"/></svg>'
+    },
+    {
+        id: 'stacked',
+        label: 'Stacked',
+        match: ig => (ig.labelPosition || 'below') === 'below' && (ig.textAlign || 'center') === 'center',
+        apply: ig => Object.assign(ig, { showAvatar: true, showLabels: true, labelPosition: 'below', textAlign: 'center', cardWidthMode: 'auto' }),
+        svg: '<svg viewBox="0 0 54 26" fill="none"><rect x="1" y="1" width="52" height="24" rx="4" stroke="currentColor" stroke-opacity=".35"/><circle cx="27" cy="9" r="5" fill="currentColor" fill-opacity=".85"/><rect x="17" y="17" width="20" height="3" rx="1.5" fill="currentColor"/></svg>'
+    },
+    {
+        id: 'banner-trail',
+        label: 'L + Trailing',
+        match: ig => ig.labelPosition === 'right' && ig.textAlign === 'left' && (ig.cardWidthMode === 'full' || ig.cardWidthMode === 'fixed'),
+        apply: ig => Object.assign(ig, { showAvatar: true, showLabels: true, labelPosition: 'right', textAlign: 'left', cardWidthMode: 'full' }),
+        svg: '<svg viewBox="0 0 54 26" fill="none"><rect x="1" y="1" width="52" height="24" rx="4" stroke="currentColor" stroke-opacity=".35"/><circle cx="10" cy="13" r="5.5" fill="currentColor" fill-opacity=".85"/><rect x="19" y="10" width="14" height="3" rx="1.5" fill="currentColor"/><rect x="39" y="9.5" width="9" height="7" rx="2" fill="currentColor" fill-opacity=".55"/></svg>'
+    },
+    {
+        id: 'overlay-bot',
+        label: 'Inside Bottom',
+        match: ig => ig.labelPosition === 'inside-bottom' || ig.labelPosition === 'inside-top',
+        apply: ig => Object.assign(ig, { showAvatar: true, showLabels: true, labelPosition: 'inside-bottom', textAlign: 'center', cardWidthMode: 'auto' }),
+        svg: '<svg viewBox="0 0 54 26" fill="none"><rect x="14" y="2" width="26" height="22" rx="4" stroke="currentColor" stroke-opacity=".55"/><circle cx="27" cy="10" r="4" fill="currentColor" fill-opacity=".75"/><rect x="16" y="17" width="22" height="5" rx="1.5" fill="currentColor" fill-opacity=".85"/></svg>'
+    }
+];
+
+function renderImageGroupLayoutHint(el, ig, list) {
+    const hintHost = $('ig-layout-hint');
+    if (!hintHost) return;
+    const widthMode = ig.cardWidthMode || ((ig.layout === 'banners') ? 'full' : 'auto');
+    const hasTrailing = list.some(f => (f.slot || 'main') === 'trailing');
+    const padX = Number(ig.cardPaddingX ?? ig.cardPadding ?? 8);
+    const borderW = Number(ig.cardBorderWidth ?? 1);
+    const avW = ig.showAvatar !== false ? (Number(ig.size ?? 56) + Number(ig.avatarBorderWidth ?? 0) * 2) : 0;
+    const chromeW = padX * 2 + borderW * 2 + avW;
+    const cols = Math.max(1, Number(ig.columns || 1));
+    const elW = Number(el?.width || 0);
+    const estSlotW = ig.layout === 'grid' && elW > 0 ? Math.round((elW - (Number(ig.gap ?? 12) * (cols - 1))) / cols) : (widthMode === 'fixed' ? Number(ig.cardWidth || 240) : elW);
+
+    if ((ig.textAlign === 'right' || hasTrailing) && widthMode === 'auto') {
+        hintHost.innerHTML = '<span><strong>Auto-fit width</strong> wraps tightly around content, so right-aligned/trailing fields sit next to the avatar.</span><button type="button" data-ig-hint-action="full-width">Switch to Full Width</button>';
+        hintHost.hidden = false;
+        return;
+    }
+    if (estSlotW > 0 && chromeW > estSlotW * 0.72 && (padX > 20 || borderW > 6)) {
+        hintHost.innerHTML = `<span>Tight card budget: <strong>${chromeW}px</strong> padding/border + avatar inside <strong>~${estSlotW}px</strong> slot leaves little room to separate fields.</span><button type="button" data-ig-hint-action="trim-pad">Trim Pad X</button>`;
+        hintHost.hidden = false;
+        return;
+    }
+    hintHost.hidden = true;
+    hintHost.innerHTML = '';
+}
+
+function renderImageGroupZoneBlueprint(ig, list) {
+    const bpHost = $('ig-zone-blueprint');
+    if (!bpHost) return;
+    if (igSelectedFieldIdx >= list.length) igSelectedFieldIdx = Math.max(0, list.length - 1);
+    const activeField = list[igSelectedFieldIdx];
+    const activeLabel = activeField ? esc(activeField.key || `Field ${igSelectedFieldIdx + 1}`) : 'None';
+
+    const bySlot = {};
+    list.forEach((f, idx) => {
+        const s = f.slot || 'main';
+        (bySlot[s] || (bySlot[s] = [])).push({ f, idx });
+    });
+    const zoneHtml = (slot, title, extraClass = '') => {
+        const items = bySlot[slot] || [];
+        const isTarget = activeField && (activeField.slot || 'main') === slot;
+        const pills = items.map(({ f, idx }) => `<span class="ig-bp-pill${idx === igSelectedFieldIdx ? ' is-selected' : ''}" data-ig-bp-pill="${idx}" title="Select field ${esc(f.key)}">${esc(f.key || `#${idx + 1}`)}</span>`).join('');
+        return `<button type="button" class="ig-bp-zone${items.length ? ' has-items' : ''}${isTarget ? ' is-target' : ''}${extraClass ? ` ${extraClass}` : ''}" data-ig-bp-zone="${esc(slot)}" title="Click to place selected field (${activeLabel}) into ${esc(title)}"><span class="ig-bp-zone-label">${esc(title)}</span>${pills}</button>`;
+    };
+    bpHost.innerHTML = `<div class="ig-bp-head"><span class="ig-presets-label">Card Zone Blueprint</span><span class="ig-bp-sub">${activeField ? `Selected: <strong>${activeLabel}</strong> — click any zone to move it` : 'Add a field below, then click a zone to place it'}</span></div>
+        <div class="ig-bp-card">
+            <div class="ig-bp-corner-row">${zoneHtml('corner-tl', 'TL')}${zoneHtml('header', 'Header')}${zoneHtml('corner-tr', 'TR')}</div>
+            <div class="ig-bp-mid">
+                <div class="ig-bp-avatar-box"><span>${ig.showAvatar !== false ? 'Avatar' : 'No Avatar'}</span>${zoneHtml('avatar-top', 'Av Top')}${zoneHtml('avatar-bottom', 'Av Bot')}</div>
+                ${zoneHtml('main', 'Main')}
+                ${zoneHtml('trailing', 'Trailing (R)')}
+            </div>
+            <div class="ig-bp-corner-row">${zoneHtml('corner-bl', 'BL')}${zoneHtml('footer', 'Footer')}${zoneHtml('corner-br', 'BR')}</div>
+        </div>`;
+}
 
 function selectGroupBuilderTab(tab) {
     const dialog = $('ig-fields-dialog');
@@ -992,6 +1095,13 @@ export function renderImageGroupFieldsModal() {
     if (stripHost) stripHost.innerHTML = imageGroupLayoutSection(el, true);
     selectGroupBuilderTab(dlg.dataset.builderTab || localStorage.getItem('streampulse_badge_builder_tab'));
 
+    const geomHost = $('ig-quick-geometries');
+    if (geomHost) {
+        geomHost.innerHTML = IG_QUICK_GEOMETRIES.map(g => `<button type="button" class="ig-geom-btn${g.match(ig) ? ' active' : ''}" data-ig-geom="${esc(g.id)}">${g.svg}<span>${esc(g.label)}</span></button>`).join('');
+    }
+    renderImageGroupLayoutHint(el, ig, list);
+    renderImageGroupZoneBlueprint(ig, list);
+
     const placeHost = $('ig-modal-placement');
     if (placeHost) {
         placeHost.innerHTML = `<label>Fields placement<select id="ig-modal-pos">${IG_PLACEMENTS.map(([v, l]) => `<option value="${esc(v)}"${(ig.labelPosition || 'below') === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
@@ -1104,7 +1214,7 @@ export function renderImageGroupFieldsModal() {
                     <label class="ig-grid-span2">Inline icon<span class="ig-color-mini"><button type="button" data-ig-pick-icon="${idx}" style="flex:1;min-width:0;display:inline-flex;align-items:center;gap:0.35rem;justify-content:flex-start;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.icon === 'none' ? '<span>Hidden</span>' : f.icon ? `<i class="${esc(f.icon)}"></i> <span>${esc(f.icon)}</span>` : setFieldIcon ? `<i class="${esc(setFieldIcon)}"></i> <span>Auto (${esc(setFieldIcon)})</span>` : '<span>Pick icon…</span>'}</button>${f.icon ? `<button type="button" class="ig-var-pick-btn" data-ig-clear-icon="${idx}" title="Reset icon to Auto / None">&times;</button>` : ''}</span></label>
                 </div>`;
 
-            return `<div class="ig-field-row${isImg ? ' is-img-card' : ''}" data-ig-field-idx="${idx}">
+            return `<div class="ig-field-row${isImg ? ' is-img-card' : ''}${idx === igSelectedFieldIdx ? ' is-selected' : ''}" data-ig-field-idx="${idx}">
                 <div class="ig-field-head">
                     <span class="ig-kind-badge${isImg ? ' is-img' : ''}">${isImg ? 'IMG' : 'TXT'}</span>
                     <label class="ig-field-head-grow">Field source${buildKeySelect(f)}</label>
@@ -3667,6 +3777,54 @@ export function initInspectorEvents() {
             const presetBtn = target.closest('[data-ig-preset]');
             if (presetBtn && applyImageGroupPreset(el, presetBtn.dataset.igPreset)) {
                 refreshIgAll(true, true);
+                return;
+            }
+            const geomBtn = target.closest('[data-ig-geom]');
+            if (geomBtn) {
+                const geom = IG_QUICK_GEOMETRIES.find(g => g.id === geomBtn.dataset.igGeom);
+                if (geom) {
+                    const ig = el.imageGroup || (el.imageGroup = defaultImageGroupConfig());
+                    geom.apply(ig);
+                    refreshIgAll(true, true);
+                }
+                return;
+            }
+            const hintBtn = target.closest('[data-ig-hint-action]');
+            if (hintBtn) {
+                const ig = el.imageGroup || (el.imageGroup = defaultImageGroupConfig());
+                if (hintBtn.dataset.igHintAction === 'full-width') ig.cardWidthMode = 'full';
+                else if (hintBtn.dataset.igHintAction === 'trim-pad') {
+                    ig.cardPaddingX = 14;
+                    if (Number(ig.cardBorderWidth ?? 0) > 6) ig.cardBorderWidth = 4;
+                }
+                refreshIgAll(true, true);
+                return;
+            }
+            const bpPill = target.closest('[data-ig-bp-pill]');
+            if (bpPill) {
+                igSelectedFieldIdx = Number(bpPill.dataset.igBpPill) || 0;
+                refreshIgAll(false, true);
+                igDlg.querySelector(`.ig-field-row[data-ig-field-idx="${igSelectedFieldIdx}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                return;
+            }
+            const bpZone = target.closest('[data-ig-bp-zone]');
+            if (bpZone) {
+                const zone = bpZone.dataset.igBpZone;
+                mutateImageGroupFields(el, list => {
+                    const idx = Math.max(0, Math.min(list.length - 1, igSelectedFieldIdx));
+                    if (list[idx]) list[idx].slot = zone;
+                    return list;
+                });
+                refreshIgAll(true, true);
+                return;
+            }
+            const fieldRow = target.closest('.ig-field-row[data-ig-field-idx]');
+            if (fieldRow && !target.closest('button, input, select, label')) {
+                const nextIdx = Number(fieldRow.dataset.igFieldIdx) || 0;
+                if (nextIdx !== igSelectedFieldIdx) {
+                    igSelectedFieldIdx = nextIdx;
+                    refreshIgAll(false, true);
+                }
                 return;
             }
             if (target.id === 'ig-add-field-btn') {

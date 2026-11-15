@@ -1218,6 +1218,30 @@ body.is-scrubbing, body.is-scrubbing * {
 .ig-presets-section, .ig-placement-card { display: grid; gap: 7px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
 .ig-presets-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .ig-presets-row { display: flex; flex-wrap: wrap; gap: 5px; }
+.ig-geom-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.ig-geom-btn { display: grid; justify-items: center; gap: 4px; padding: 6px 5px; border: 1px solid var(--border); border-radius: 7px; background: var(--field); color: var(--muted); font-size: 10px; font-weight: 600; line-height: 1.15; text-align: center; cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
+.ig-geom-btn:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); color: var(--text); }
+.ig-geom-btn.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--field)); color: var(--text); }
+.ig-geom-btn svg { display: block; width: 54px; height: 26px; }
+.ig-layout-hint { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; border-radius: 7px; border: 1px solid color-mix(in srgb, #f59e0b 45%, var(--border)); background: color-mix(in srgb, #f59e0b 10%, var(--panel)); font-size: 11px; line-height: 1.35; color: var(--text); }
+.ig-layout-hint[hidden] { display: none; }
+.ig-layout-hint button { flex: none; height: 24px; padding: 0 8px; font-size: 10.5px; font-weight: 600; border-radius: 5px; border: 1px solid color-mix(in srgb, #f59e0b 60%, var(--border)); background: var(--panel); color: var(--text); cursor: pointer; }
+.ig-layout-hint button:hover { border-color: var(--accent); color: var(--accent); }
+.ig-blueprint-wrap { padding: 10px 16px 8px; border-bottom: 1px solid var(--border); background: var(--panel); flex: none; display: grid; gap: 6px; }
+.ig-bp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.ig-bp-sub { font-size: 10.5px; color: var(--muted); }
+.ig-bp-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 5px; padding: 7px; border: 1px solid var(--border); border-radius: 8px; background: var(--field); }
+.ig-bp-corner-row { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 5px; align-items: stretch; }
+.ig-bp-mid { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 5px; align-items: stretch; }
+.ig-bp-zone { display: flex; flex-wrap: wrap; align-items: center; align-content: center; gap: 3px; min-height: 24px; padding: 3px 6px; border: 1px dashed color-mix(in srgb, var(--border) 90%, transparent); border-radius: 5px; background: color-mix(in srgb, var(--panel) 65%, transparent); color: var(--muted); font-size: 10px; font-weight: 600; cursor: pointer; text-align: left; transition: border-color .15s, background .15s, color .15s; }
+.ig-bp-zone:hover { border-color: var(--accent); color: var(--text); }
+.ig-bp-zone.has-items { border-style: solid; border-color: color-mix(in srgb, var(--accent) 38%, var(--border)); }
+.ig-bp-zone.is-target { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
+.ig-bp-zone-label { font-size: 9px; text-transform: uppercase; letter-spacing: .04em; opacity: .78; margin-right: 2px; }
+.ig-bp-avatar-box { display: grid; gap: 3px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; background: color-mix(in srgb, var(--accent) 8%, var(--panel)); min-width: 74px; justify-items: center; align-content: center; font-size: 9.5px; font-weight: 700; color: var(--muted); }
+.ig-bp-pill { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 600; background: color-mix(in srgb, var(--accent) 18%, var(--panel)); color: var(--text); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); cursor: pointer; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ig-bp-pill.is-selected { background: var(--accent); color: #0b1120; border-color: var(--accent); }
+.ig-field-row.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
 .ig-modal-placement { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: end; }
 .ig-modal-placement label { display: grid; gap: 3px; font-size: 11px; font-weight: 600; color: var(--muted); min-width: 0; }
 .ig-modal-placement select, .ig-modal-placement input[type="number"] { height: 28px; padding: 3px 7px; font-size: 11.5px; }
