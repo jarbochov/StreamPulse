@@ -110,6 +110,7 @@
             const speed = Math.max(10, Number(config.typewriterSpeed) || 110);
             if (node._typeTimer) clearInterval(node._typeTimer);
             node._typeTimer = setInterval(() => {
+                if (document.hidden) return;
                 typed.textContent = value.slice(0, ++position);
                 if (position >= value.length) {
                     clearInterval(node._typeTimer);
@@ -791,7 +792,9 @@
             } else if (element.type === 'random-text') {
                 setRandomText(existingNode, element);
                 const interval = Math.max(1, Number(element.random?.intervalSeconds) || 5) * 1000;
-                randomTimers.set(element.id, setInterval(() => setRandomText(existingNode, element), interval));
+                randomTimers.set(element.id, setInterval(() => {
+                    if (!document.hidden) setRandomText(existingNode, element);
+                }, interval));
             } else if (element.type === 'game-list') {
                 shared.renderGameList(existingNode, element, liveStatus.gamePlan);
             } else if (element.type === 'speaker-badge') {
@@ -960,7 +963,9 @@
             } else if (element.type === 'random-text') {
                 setRandomText(node, element);
                 const interval = Math.max(1, Number(element.random?.intervalSeconds) || 5) * 1000;
-                randomTimers.set(element.id, setInterval(() => setRandomText(node, element), interval));
+                randomTimers.set(element.id, setInterval(() => {
+                    if (!document.hidden) setRandomText(node, element);
+                }, interval));
             } else if (element.type === 'slideshow') {
                 slideshows.get(element.id)?.handle.stop();
                 slideshows.set(element.id, { sig: mediaContentSig(element), node, handle: shared.mountSlideshow(node, element, { onState: state => reportSlideshow(element.id, state) }) });
@@ -1678,6 +1683,8 @@
                 }
             });
         } else {
+            refreshStatus();
+            tickPlaceholders();
             root.querySelectorAll('video').forEach(v => {
                 if (v._pausedByHidden) {
                     delete v._pausedByHidden;

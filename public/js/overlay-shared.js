@@ -6300,7 +6300,9 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       else if (!timer) schedule(config.seconds * 1e3);
     }
     refresh(true);
-    if (!frozen && config.source !== "manual") refreshTimer = setInterval(() => refresh(false), 2e4);
+    if (!frozen && config.source !== "manual") refreshTimer = setInterval(() => {
+      if (!document.hidden) refresh(false);
+    }, 2e4);
     const control = (action) => {
       if (stopped || !items.length) return;
       if (action === "toggle") action = paused ? "play" : "pause";
