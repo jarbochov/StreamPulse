@@ -4380,8 +4380,8 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     if (autoScale) wrap.style.minHeight = "100%";
     wrap.style.boxSizing = "border-box";
     const useCssGrid = layout === "grid" || columns > 0 && wrapItems && layout !== "overlap" && layout !== "column" && layout !== "banners";
+    const hasWideGridCard = cfg.showLabels === true && (cfg.labelPosition === "left" || cfg.labelPosition === "right" || cfg.cardFrame === true);
     if (useCssGrid) {
-      const hasWideGridCard = cfg.showLabels === true && (cfg.labelPosition === "left" || cfg.labelPosition === "right" || cfg.cardFrame === true);
       wrap.style.display = "grid";
       wrap.style.gridTemplateColumns = columns > 0 ? `repeat(${columns}, minmax(0, 1fr))` : widthMode === "fixed" ? `repeat(auto-fill, ${cardWidthPx}px)` : `repeat(auto-fill, minmax(${Math.max(hasWideGridCard ? 140 : 48, baseSize)}px, 1fr))`;
       wrap.style.columnGap = `${gap}px`;
@@ -4736,11 +4736,18 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const applyGroupAutoScale = () => {
       if (!autoScale || !wrap.isConnected || !container.isConnected) return;
       const cs = typeof getComputedStyle === "function" ? getComputedStyle(container) : null;
-      const padX = cs ? (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) : 0;
-      const padY = cs ? (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0) : 0;
+      const padL = cs ? parseFloat(cs.paddingLeft) || 0 : 0;
+      const padR = cs ? parseFloat(cs.paddingRight) || 0 : 0;
+      const padT = cs ? parseFloat(cs.paddingTop) || 0 : 0;
+      const padB = cs ? parseFloat(cs.paddingBottom) || 0 : 0;
+      const padX = padL + padR;
+      const padY = padT + padB;
       const availW = container.clientWidth - padX;
       const availH = container.clientHeight - padY;
       if (availW <= 0 || availH <= 0) return;
+      wrap.style.position = "";
+      wrap.style.left = "";
+      wrap.style.top = "";
       wrap.style.transform = "";
       wrap.style.transformOrigin = "0 0";
       wrap.style.columnGap = layout === "overlap" ? "0px" : `${gap}px`;
@@ -4781,10 +4788,11 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         }
         fieldEl.style.fontSize = `${fieldEl._baseFontSize}px`;
       });
-      if (useCssGrid && columns > 0 || widthMode === "fixed") {
-        const cols = useCssGrid && columns > 0 ? columns : Math.max(1, Math.floor((availW + gap) / (cardWidthPx + gap)));
+      if (useCssGrid || widthMode === "fixed") {
+        const autoTrackMin = Math.max(hasWideGridCard ? 140 : 48, baseSize);
+        const cols = useCssGrid ? columns > 0 ? columns : Math.min(items.length, Math.max(1, Math.floor((availW + gap) / (autoTrackMin + gap)))) : Math.max(1, Math.floor((availW + gap) / (cardWidthPx + gap)));
         const rows = Math.max(1, Math.ceil(items.length / cols));
-        const slotW = useCssGrid && columns > 0 ? Math.max(24, (availW - gap * (cols - 1)) / cols) : cardWidthPx;
+        const slotW = useCssGrid ? Math.max(24, (availW - gap * (cols - 1)) / cols) : cardWidthPx;
         const slotH = Math.max(24, (availH - rowGap * (rows - 1)) / rows);
         let maxCardW = 0;
         let maxCardH = 0;
@@ -4856,6 +4864,9 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         const scaledH = naturalH * scale;
         const tx = alignH === "center" ? Math.max(0, (availW - scaledW) / 2) : alignH === "flex-end" ? Math.max(0, availW - scaledW) : 0;
         const ty = alignV === "center" ? Math.max(0, (availH - scaledH) / 2) : alignV === "flex-end" ? Math.max(0, availH - scaledH) : 0;
+        wrap.style.position = "absolute";
+        wrap.style.left = `${padL}px`;
+        wrap.style.top = `${padT}px`;
         wrap.style.transform = `translate(${tx.toFixed(2)}px, ${ty.toFixed(2)}px) scale(${scale.toFixed(4)})`;
       }
     };
