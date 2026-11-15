@@ -657,8 +657,18 @@ function createTriviaService({
         }
     }
 
+    function scoreActiveIfPending() {
+        if (state.status !== 'question' || !state.activeQuestion || state.activeQuestion._scored || userVotes.size === 0) {
+            return false;
+        }
+        const updated = scoreActiveQuestion();
+        if (updated) broadcastLeaderboard();
+        return updated;
+    }
+
     function startQuestion(indexOrId = null, options = {}) {
         clearTimers();
+        scoreActiveIfPending();
         userVotes.clear();
         voterMeta.clear();
 
@@ -949,6 +959,7 @@ function createTriviaService({
 
     function clearQuestion() {
         clearTimers();
+        scoreActiveIfPending();
         userVotes.clear();
         voterMeta.clear();
         activeChoiceOrder = [];

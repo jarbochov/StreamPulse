@@ -966,9 +966,10 @@ function ensureTextAnimKeyframes() {
         @keyframes sp-ta-char-pop { 0%, 35%, 100% { transform: scale(1); } 14% { transform: scale(var(--sp-ta-scale, 1.18)); } 24% { transform: scale(0.92); } }
         @keyframes sp-ta-caret-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
 
-        .sp-ta-wrap { display: inline-block; width: 100%; max-width: 100%; text-align: inherit; }
+        [data-text-anim]:not(.overlay-marquee) { overflow: visible !important; text-overflow: clip; }
+        .sp-ta-wrap { display: inline-block; width: 100%; max-width: 100%; text-align: inherit; overflow: visible; }
         .sp-image-group-field .sp-ta-wrap { width: auto; }
-        .sp-ta-word-group { display: inline; white-space: nowrap; }
+        .sp-ta-word-group { display: inline; white-space: nowrap; overflow: visible; }
         .sp-ta-unit { display: inline-block; will-change: transform, opacity; transform-origin: 50% 60%; }
         .sp-ta-caret { display: inline-block; width: 0; height: 0.92em; vertical-align: -0.1em; border-right: 0.11em solid currentColor; margin-left: 2px; animation: sp-ta-caret-blink 0.75s step-end infinite; }
         .sp-ta-grad .sp-ta-unit, .sp-ta-grad .sp-ta-typed { background-image: var(--sp-ta-tgrad); background-size: 200% 200%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
@@ -1323,7 +1324,7 @@ function applyTextAnimation(node, style = {}, type = '') {
 
     const canSplitText = (type === 'text' || type === 'random-text')
         && !node._cycleHandle
-        && !node.querySelector(':scope > .overlay-marquee-track, :scope > .overlay-caret');
+        && !node.querySelector('.sp-inline-icon, :scope > .overlay-marquee-track, :scope > .overlay-caret');
 
     if (TEXT_SPLIT_ANIM_TYPES.has(animType) && canSplitText) {
         mountSplitTextAnimation(node, animType, speed, intensity, playMode, delay);
@@ -1350,9 +1351,11 @@ function shadowClipStyle(element) {
     }
     const blur = Number(style.textShadow?.blur) || 0;
     const hasTextAnim = Boolean(style.textAnimation?.type && style.textAnimation.type !== 'none');
-    const textual = !['image', 'video', 'slideshow', 'embed', 'qr', 'icon', 'shape', 'progress', 'game-list', 'pattern'].includes(element.type);
+    const textual = !['image', 'video', 'slideshow', 'embed', 'qr', 'icon', 'shape', 'progress', 'game-list', 'pattern'].includes(element.type)
+        || Boolean(element.type === 'image' && element.imageGroup?.enabled);
     if ((!(blur > 0) && !hasTextAnim) || !textual || element.random?.marquee) return { overflow: '', overflowClipMargin: '' };
-    const margin = Math.max(blur * 2 + 4, hasTextAnim ? 24 : 0);
+    if (hasTextAnim) return { overflow: 'visible', overflowClipMargin: '' };
+    const margin = blur * 2 + 4;
     if (window.CSS?.supports?.('overflow-clip-margin', '4px')) return { overflow: 'clip', overflowClipMargin: `${Math.ceil(margin)}px` };
     return { overflow: 'visible', overflowClipMargin: '' };
 }

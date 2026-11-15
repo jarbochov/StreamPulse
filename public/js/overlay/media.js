@@ -378,6 +378,8 @@ function createStyledFieldNode(spec, text, ctx) {
     if (fx.paintOrder) span.style.paintOrder = fx.paintOrder;
     if (fx.textShadow) span.style.textShadow = fx.textShadow;
     if (st.textAnimation?.type && st.textAnimation.type !== 'none') {
+        span.style.overflow = 'visible';
+        span.style.textOverflow = 'clip';
         applyTextAnimation(span, st, 'text');
     }
     return span;
