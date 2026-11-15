@@ -4292,8 +4292,8 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const maxItems = Math.max(0, Math.min(60, Math.round(Number(cfg.maxItems) || 0)));
     const showOverflowBadge = cfg.showOverflowBadge !== false;
     const columns = Math.max(0, Math.min(12, Math.round(Number(cfg.columns) || 0)));
-    const wrapItems = cfg.wrap === true || layout === "grid" || layout === "cards" || layout === "chips";
     const autoScale = cfg.autoScale === true;
+    const wrapItems = cfg.wrap === true || layout === "grid" || !autoScale && (layout === "cards" || layout === "chips");
     const fieldSpecs = resolveGroupFieldSpecs(cfg);
     const primarySpec = fieldSpecs[0] || { key: cfg.labelField || "", role: "title" };
     const subSpec = fieldSpecs.find((f, i) => f.role === "subtitle" || i === 1) || (cfg.subField ? { key: cfg.subField, role: "subtitle" } : null);
@@ -4437,7 +4437,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       else if (widthMode === "fixed") card.style.width = `${cardWidthPx}px`;
       else {
         card.style.width = "max-content";
-        card.style.maxWidth = "100%";
+        if (!autoScale) card.style.maxWidth = "100%";
       }
       if (cardMinHeight > 0) card.style.minHeight = `${cardMinHeight}px`;
       if (isFramed) {
@@ -4500,6 +4500,9 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           itemSize,
           showStatusDot
         });
+        avBox._baseW = dims.w;
+        avBox._baseH = dims.h;
+        avBox._baseBorderW = avBorderW;
       }
       const slotBuckets = {
         header: [],
@@ -4720,20 +4723,131 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       wrap.appendChild(badge);
     }
     container.appendChild(wrap);
+    container.appendChild(wrap);
     const applyGroupAutoScale = () => {
       if (!autoScale || !wrap.isConnected || !container.isConnected) return;
-      const availW = container.clientWidth;
-      const availH = container.clientHeight;
+      const cs = typeof getComputedStyle === "function" ? getComputedStyle(container) : null;
+      const padX = cs ? (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) : 0;
+      const padY = cs ? (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0) : 0;
+      const availW = container.clientWidth - padX;
+      const availH = container.clientHeight - padY;
       if (availW <= 0 || availH <= 0) return;
       wrap.style.transform = "";
+      wrap.style.transformOrigin = "0 0";
+      wrap.style.columnGap = layout === "overlap" ? "0px" : `${gap}px`;
+      wrap.style.rowGap = `${rowGap}px`;
+      wrap.querySelectorAll(".sp-image-group-row-host, .sp-image-group-core-stack").forEach((n) => {
+        n.style.gap = `${innerGap}px`;
+      });
+      wrap.querySelectorAll(".sp-image-group-item").forEach((c) => {
+        if (!c._basePad) {
+          const ccs = getComputedStyle(c);
+          c._basePad = [parseFloat(ccs.paddingTop) || 0, parseFloat(ccs.paddingRight) || 0, parseFloat(ccs.paddingBottom) || 0, parseFloat(ccs.paddingLeft) || 0];
+          c._baseBorderW = parseFloat(ccs.borderLeftWidth) || 0;
+        }
+        c.style.padding = c._basePad.map((v) => `${v}px`).join(" ");
+        if (c._baseBorderW > 0) c.style.borderWidth = `${c._baseBorderW}px`;
+        c.querySelectorAll(".sp-image-group-avatar").forEach((av) => {
+          if (av._baseW) {
+            av.style.width = `${av._baseW}px`;
+            av.style.height = `${av._baseH}px`;
+          }
+          if (av._baseBorderW > 0) av.style.borderWidth = `${av._baseBorderW}px`;
+        });
+        c.querySelectorAll(".sp-image-group-field img").forEach((im) => {
+          if (!im._baseImgW) {
+            im._baseImgW = parseFloat(im.style.width) || im.offsetWidth || 24;
+            im._baseImgH = parseFloat(im.style.height) || im.offsetHeight || 24;
+          }
+          im.style.width = `${im._baseImgW}px`;
+          im.style.height = `${im._baseImgH}px`;
+        });
+      });
+      wrap.querySelectorAll(".sp-image-group-corner").forEach((c) => {
+        c.style.overflow = "hidden";
+      });
+      wrap.querySelectorAll(".sp-image-group-field").forEach((fieldEl) => {
+        if (!fieldEl._baseFontSize) {
+          fieldEl._baseFontSize = parseFloat(getComputedStyle(fieldEl).fontSize) || 16;
+        }
+        fieldEl.style.fontSize = `${fieldEl._baseFontSize}px`;
+      });
+      if (useCssGrid && columns > 0 || widthMode === "fixed") {
+        const cols = useCssGrid && columns > 0 ? columns : Math.max(1, Math.floor((availW + gap) / (cardWidthPx + gap)));
+        const rows = Math.max(1, Math.ceil(items.length / cols));
+        const slotW = useCssGrid && columns > 0 ? Math.max(24, (availW - gap * (cols - 1)) / cols) : cardWidthPx;
+        const slotH = Math.max(24, (availH - rowGap * (rows - 1)) / rows);
+        let maxCardW = 0;
+        let maxCardH = 0;
+        wrap.querySelectorAll(".sp-image-group-item").forEach((c) => {
+          const prevMaxW = c.style.maxWidth;
+          c.style.maxWidth = "none";
+          const corners = [...c.querySelectorAll(".sp-image-group-corner")];
+          corners.forEach((cn) => {
+            cn.style.display = "none";
+          });
+          maxCardW = Math.max(maxCardW, c.scrollWidth, c.offsetWidth);
+          maxCardH = Math.max(maxCardH, c.scrollHeight, c.offsetHeight);
+          corners.forEach((cn) => {
+            cn.style.display = "";
+          });
+          c.style.maxWidth = prevMaxW;
+        });
+        const s = Math.max(0.28, Math.min(1, slotW / Math.max(1, maxCardW), slotH / Math.max(1, maxCardH)));
+        if (s < 0.995) {
+          wrap.style.columnGap = layout === "overlap" ? "0px" : `${Math.round(gap * s)}px`;
+          wrap.style.rowGap = `${Math.round(rowGap * s)}px`;
+          wrap.querySelectorAll(".sp-image-group-row-host, .sp-image-group-core-stack").forEach((n) => {
+            n.style.gap = `${Math.max(2, Math.round(innerGap * s))}px`;
+          });
+          wrap.querySelectorAll(".sp-image-group-item").forEach((c) => {
+            if (c._basePad) c.style.padding = c._basePad.map((v) => `${Math.round(v * s)}px`).join(" ");
+            if (c._baseBorderW > 0) c.style.borderWidth = `${Math.max(1, Math.round(c._baseBorderW * s))}px`;
+            c.querySelectorAll(".sp-image-group-avatar").forEach((av) => {
+              if (av._baseW) {
+                av.style.width = `${Math.max(18, Math.round(av._baseW * s))}px`;
+                av.style.height = `${Math.max(18, Math.round(av._baseH * s))}px`;
+              }
+              if (av._baseBorderW > 0) av.style.borderWidth = `${Math.max(1, Math.round(av._baseBorderW * s))}px`;
+            });
+            c.querySelectorAll(".sp-image-group-field img").forEach((im) => {
+              if (im._baseImgW) {
+                im.style.width = `${Math.max(12, Math.round(im._baseImgW * s))}px`;
+                im.style.height = `${Math.max(12, Math.round(im._baseImgH * s))}px`;
+              }
+            });
+          });
+          wrap.querySelectorAll(".sp-image-group-field").forEach((fieldEl) => {
+            fieldEl.style.fontSize = `${Math.max(9, Math.round(fieldEl._baseFontSize * s * 10) / 10)}px`;
+          });
+        }
+      }
+      wrap.querySelectorAll(".sp-image-group-field").forEach((fieldEl) => {
+        if (!fieldEl.clientWidth) return;
+        const base = parseFloat(fieldEl.style.fontSize) || fieldEl._baseFontSize || 16;
+        if (fieldEl.scrollWidth <= fieldEl.clientWidth + 1 || base <= 9) return;
+        let lo = 9, hi = base, best = 9;
+        while (hi - lo > 0.5) {
+          const mid = (lo + hi) / 2;
+          fieldEl.style.fontSize = `${mid}px`;
+          if (fieldEl.scrollWidth <= fieldEl.clientWidth + 1) {
+            best = mid;
+            lo = mid;
+          } else {
+            hi = mid;
+          }
+        }
+        fieldEl.style.fontSize = `${Math.floor(best * 10) / 10}px`;
+      });
       const naturalW = wrap.scrollWidth;
       const naturalH = wrap.scrollHeight;
       const scale = Math.max(0.25, Math.min(1, availW / Math.max(1, naturalW), availH / Math.max(1, naturalH)));
       if (scale < 0.995) {
-        const ox = alignH === "center" ? "center" : alignH === "flex-end" ? "right" : "left";
-        const oy = alignV === "center" ? "center" : alignV === "flex-end" ? "bottom" : "top";
-        wrap.style.transformOrigin = `${ox} ${oy}`;
-        wrap.style.transform = `scale(${scale.toFixed(4)})`;
+        const scaledW = naturalW * scale;
+        const scaledH = naturalH * scale;
+        const tx = alignH === "center" ? Math.max(0, (availW - scaledW) / 2) : alignH === "flex-end" ? Math.max(0, availW - scaledW) : 0;
+        const ty = alignV === "center" ? Math.max(0, (availH - scaledH) / 2) : alignV === "flex-end" ? Math.max(0, availH - scaledH) : 0;
+        wrap.style.transform = `translate(${tx.toFixed(2)}px, ${ty.toFixed(2)}px) scale(${scale.toFixed(4)})`;
       }
     };
     if ((deferredRingCards.length || autoScale) && typeof requestAnimationFrame === "function") {
