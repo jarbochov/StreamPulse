@@ -31,6 +31,18 @@
         .toc a:hover { color: var(--text); background: var(--bg-raised); }
         .toc a.active { color: var(--accent); background: var(--accent-bg); border-left-color: var(--accent); }
         .toc a.dim { opacity: 0.35; }
+        .toc-row { display: flex; align-items: center; gap: 0.15rem; }
+        .toc-row > a { flex: 1; min-width: 0; }
+        .toc-toggle { background: none; border: none; color: var(--text-muted); cursor: pointer; width: 24px; height: 24px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; transition: color 0.15s, background 0.15s, transform 0.15s; }
+        .toc-toggle:hover { color: var(--text); background: var(--bg-raised); }
+        .toc-toggle svg { width: 12px; height: 12px; transition: transform 0.15s; }
+        .toc-group.open > .toc-row .toc-toggle svg { transform: rotate(90deg); }
+        .toc-sub { display: none; flex-direction: column; gap: 0.1rem; margin: 0.15rem 0 0.35rem 0.65rem; padding-left: 0.5rem; border-left: 1px solid var(--border); }
+        .toc-group.open > .toc-sub { display: flex; }
+        .toc-sub a { font-size: 0.78rem; padding: 0.25rem 0.5rem; border-left: none; color: var(--text-faint); }
+        .toc-sub a:hover { color: var(--text); }
+        .toc-sub a.active { color: var(--accent); background: var(--accent-bg); font-weight: 500; }
+        .card[id] { scroll-margin-top: 1rem; }
         .side-actions { display: flex; gap: 0.5rem; }
         .side-actions button { flex: 1; background: var(--bg-raised); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 0.4rem; font: inherit; font-size: 0.78rem; cursor: pointer; }
         .side-actions button:hover { border-color: var(--accent); }
@@ -472,6 +484,8 @@
                     name: 'Chat, Backups & Limits',
                     items: [
                         { param: 'chatbot_enabled', type: 'boolean', default: 'true', desc: 'Master toggle for chat bot commands, quotes, and timed messages. When false, the bot stops listening and the feature is dynamically hidden from navigation.', hot: true },
+                        { param: 'variable_sets_enabled', type: 'boolean', default: 'true', desc: 'Advanced: enable multi-field Variable Sets, slot assignments, queues, and Group Strips.', hot: true },
+                        { param: 'variable_settings_enabled', type: 'boolean', default: 'true', desc: 'Advanced: allow Custom Overlay controls to bind settings (spacing, sizes, opacity, fonts, colors) to variables.', hot: true },
                         { param: 'clip_candidates.enabled', type: 'boolean', default: 'true', desc: 'Enable automated clip candidate detection from chat spikes and notable events.', hot: true },
                         { param: 'hashtags_enabled', type: 'boolean', default: 'true', desc: 'Track hashtags from chat.', hot: true },
                         { param: 'chat_log_enabled', type: 'boolean', default: 'true', desc: 'Keep the per-session chat log.', hot: true },
@@ -623,14 +637,75 @@
         buildToc();
     }
 
+    function slugify(text) {
+        return String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'item';
+    }
+
     function buildToc() {
         const toc = document.getElementById('toc');
+        const blocks = new Map();
+        const usedIds = new Set([...document.querySelectorAll('[id]')].map(el => el.id));
+        for (const { title, cards } of sectionBlocks()) {
+            const subItems = cards.map(card => {
+                const label = card.querySelector('.card-header strong')?.textContent?.trim() || 'Section';
+                if (!card.id) {
+                    let base = `${title.id}-${slugify(label)}`;
+                    let candidate = base;
+                    let n = 2;
+                    while (usedIds.has(candidate)) candidate = `${base}-${n++}`;
+                    card.id = candidate;
+                    usedIds.add(candidate);
+                }
+                return { id: card.id, label };
+            });
+            blocks.set(title.id, subItems);
+        }
+
         let last = '';
         toc.innerHTML = '<h2>Contents</h2>' + sections.map(section => {
             const head = section.group !== last ? `<h3>${section.group}</h3>` : '';
             last = section.group;
-            return head + `<a href="#${section.id}" data-id="${section.id}">${section.title}</a>`;
+            const subItems = blocks.get(section.id) || [];
+            if (subItems.length <= 1) {
+                return head + `<a href="#${section.id}" data-id="${section.id}">${section.title}</a>`;
+            }
+            const subLinks = subItems.map(item => `<a href="#${item.id}" data-id="${item.id}" data-parent="${section.id}">${item.label}</a>`).join('');
+            return head + `
+                <div class="toc-group" data-group="${section.id}">
+                    <div class="toc-row">
+                        <a href="#${section.id}" data-id="${section.id}">${section.title}</a>
+                        <button type="button" class="toc-toggle" aria-label="Toggle ${section.title} subsections" aria-expanded="false">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                    </div>
+                    <div class="toc-sub">${subLinks}</div>
+                </div>`;
         }).join('');
+
+        toc.querySelectorAll('.toc-toggle').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.preventDefault();
+                const group = btn.closest('.toc-group');
+                if (!group) return;
+                const willOpen = !group.classList.contains('open');
+                group.classList.toggle('open', willOpen);
+                group.dataset.userToggled = willOpen ? 'open' : 'closed';
+                btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+            });
+        });
+
+        toc.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                const target = document.getElementById(link.dataset.id);
+                if (target?.classList.contains('card')) target.classList.add('open');
+                const group = link.closest('.toc-group');
+                if (group) {
+                    group.classList.add('open');
+                    group.dataset.userToggled = 'open';
+                    group.querySelector('.toc-toggle')?.setAttribute('aria-expanded', 'true');
+                }
+            });
+        });
     }
 
     function sectionBlocks() {
@@ -649,15 +724,30 @@
             for (const card of cards) {
                 const rows = [...card.querySelectorAll('tr')].filter(row => row.querySelector('td'));
                 rows.forEach(row => row.classList.remove('hidden'));
-                if (!query) { card.classList.remove('hidden'); visible++; continue; }
+                if (!query) {
+                    card.classList.remove('hidden');
+                    visible++;
+                    document.querySelector(`#toc a[data-id="${card.id}"]`)?.classList.remove('dim');
+                    continue;
+                }
                 const headerMatch = card.querySelector('.card-header').textContent.toLowerCase().includes(query);
                 const bodyMatch = card.textContent.toLowerCase().includes(query);
-                if (!headerMatch && !bodyMatch) { card.classList.add('hidden'); continue; }
+                if (!headerMatch && !bodyMatch) {
+                    card.classList.add('hidden');
+                    document.querySelector(`#toc a[data-id="${card.id}"]`)?.classList.add('dim');
+                    continue;
+                }
                 card.classList.remove('hidden'); card.classList.add('open'); visible++;
+                document.querySelector(`#toc a[data-id="${card.id}"]`)?.classList.remove('dim');
                 if (!headerMatch && rows.length) rows.forEach(row => row.classList.toggle('hidden', !row.textContent.toLowerCase().includes(query)));
             }
             title.classList.toggle('hidden', !visible);
             document.querySelector(`#toc a[data-id="${title.id}"]`)?.classList.toggle('dim', !visible);
+            const tocGroup = document.querySelector(`.toc-group[data-group="${title.id}"]`);
+            if (tocGroup && query && visible > 0) {
+                tocGroup.classList.add('open');
+                tocGroup.querySelector('.toc-toggle')?.setAttribute('aria-expanded', 'true');
+            }
             if (visible) anyVisible = true;
         }
         document.getElementById('no-results').style.display = anyVisible ? 'none' : 'block';
@@ -665,13 +755,28 @@
 
     function setupScrollSpy() {
         const links = [...document.querySelectorAll('#toc a')];
+        let lastActiveSection = null;
         const update = () => {
             let current = links[0];
             for (const link of links) {
-                const title = document.getElementById(link.dataset.id);
-                if (title && !title.classList.contains('hidden') && title.getBoundingClientRect().top < window.innerHeight * 0.3) current = link;
+                const target = document.getElementById(link.dataset.id);
+                if (target && !target.classList.contains('hidden') && target.getBoundingClientRect().top < window.innerHeight * 0.3) current = link;
             }
             links.forEach(link => link.classList.toggle('active', link === current));
+            const activeSectionId = current?.dataset.parent || current?.dataset.id || null;
+            if (activeSectionId !== lastActiveSection) {
+                lastActiveSection = activeSectionId;
+                document.querySelectorAll('.toc-group').forEach(group => {
+                    const isActive = group.dataset.group === activeSectionId;
+                    if (isActive && group.dataset.userToggled !== 'closed') {
+                        group.classList.add('open');
+                        group.querySelector('.toc-toggle')?.setAttribute('aria-expanded', 'true');
+                    } else if (!isActive && group.dataset.userToggled !== 'open') {
+                        group.classList.remove('open');
+                        group.querySelector('.toc-toggle')?.setAttribute('aria-expanded', 'false');
+                    }
+                });
+            }
         };
         window.addEventListener('scroll', update, { passive: true });
         update();
@@ -1839,32 +1944,9 @@
                 </div>
                 <div class="card-body">
                     <div class="detail-text">
-                        The integrated Chat Bot runs entirely locally and sends replies to your live stream via SocialStream Ninja. It supports custom commands, quotes, timed interval messages, word triggers, and custom counter/list variables.
+                        The integrated Chat Bot runs entirely locally and sends replies to your live stream via SocialStream Ninja. It supports custom commands, quotes, timed interval messages, word triggers, community milestone greetings, and live custom variables.
                         <br><br>
-                        Configure commands and quotes in the <a href="/chatbot.html" style="color:var(--accent);">Chat Bot Tool</a>, view a public viewer command reference at <a href="/commands.html" style="color:var(--accent);">Chat Commands Cheat Sheet</a>, and manage custom variables at <a href="/placeholders.html" style="color:var(--accent);">Placeholders &amp; Variables</a>.
-                        <br><br><strong>Variable Groups</strong> organize ordinary variables independently of Variable Sets and rotation. Use <strong>+ New</strong> beside Groups. Drag a variable's name onto a group in the navigation rail, or onto <strong>Ungrouped</strong> to remove membership. Select a group and use <strong>Manage members</strong> for bulk or keyboard-friendly editing and renaming. Empty groups are supported. Creating a variable inside a selected group adds it to that group. Names/placeholders never change when moving variables; renamed groups do not retain old bookmark aliases. Export all variables/sets or a group as JSON; import merges by variable name and confirms existing-name updates. Membership is stored in <code>variables.json</code>, group names in <code>variable-groups.json</code>, and both are included in backups. JSON does not bundle uploaded font/image files.
-                        <br><br><strong>Font variables</strong> use system, Google, or uploaded font families. The overlay's existing font dropdown includes a Font variables section with a safe <code>sans-serif</code> fallback. Group Strip fields inherit field override → role font → base font; explicit child choices stay intact. Primary images are optional: switch off <strong>Show primary image</strong> in Content for text-only stacks. Image-field, missing-image, size and frame controls then hide without deleting saved image settings.
-                        <br><br><strong>Group Strip Builder</strong> keeps layout controls together without duplicating them in the inspector: <strong>Badge</strong> contains fields, image placement, badge dimensions and internal spacing; <strong>Strip</strong> contains overall arrangement, wrapping, columns, alignment and gaps between members. Layout opens the Strip tab directly; the last Builder tab is remembered. Badge preview uses the real roster and source layer dimensions, then crops the selected member and scales uniformly to fit, preserving production width and wrapping. Strip preview shows the full live arrangement. Members excluded by filters, missing-image handling or item caps display a preview explanation rather than synthetic content.
-                        <br><br>Click a scalar value to edit inline: Enter or blur saves, Escape cancels, and Shift+Enter inserts a text newline. Group headings are bookmarkable links, such as <code>/placeholders.html#variables#theme</code>; names with spaces are URL-encoded. <code>#variables#ungrouped</code> selects ordinary variables without a group. Ordinary search and type filters are remembered separately.
-                        Rename a group in <strong>Manage members</strong>: variable names, values and bindings remain unchanged, and the current group URL updates. Existing group names are rejected, not merged; bookmarked links must use the new name.
-                        <br><br><strong>Variables Studio</strong> uses compact name/type/value rows and one shared inspector: select a name for type-specific settings. The workspace uses laptop screen width, hides the unused inspector, and adapts to smaller displays. Variable Sets also uses wider output cards, aligned roster buttons and a responsive directory; assignment, queues and rotation controls remain unchanged. <strong>Number variables</strong> have optional minimum, maximum and stored decimal precision (0–12), a counter step (default 1), and an explicit reset value (default 0). Values clamp to bounds and round to precision; step supplies the default increment/decrement amount, not a restriction on manual entries. Row counter controls act immediately using saved options. <strong>Save changes</strong> saves only changed settings, so changing a step does not overwrite a newer live value. Existing Counter variables remain compatible.
-                        <br><br><strong>Numeric appearance bindings:</strong> create a Number, then click the <code>{}</code> button beside a supported numeric editor control and select it. Supported controls include font size, borders and radiuses, padding, opacity, line height, letter spacing, common shadow/animation settings and Group Strip spacing/card/avatar settings. Values use the control's displayed units: <code>32</code> means 32px for font size; <code>50</code> means 50% opacity. Each property retains its existing limits. Binding preserves the saved static value as fallback for a missing, invalid or nonnumeric variable; unlink restores it. No expressions or unit strings are needed. Canvas geometry and specialized controls without a binding button are not supported. Text placeholder formatting does not affect these bindings. Binding/unlink buttons retain their alignment. Color sliders update live without rebuilding the picker; dependent controls refresh when leaving the color field.
-                        <br>When stored precision is set, step must be at least its smallest decimal unit, and the bounds must allow a value at that precision.
-                        <br><br>Insert a Number through the existing Text placeholder picker, then expand <strong>Number formatting</strong> for separators, decimal places and prefixes/suffixes. Formatting lives in that placeholder, not the variable, so overlays can display one value differently while reusing all typography, font bindings, animations and Style Presets. For example, <code>{{var.score|number:2:comma:%24:%20points}}</code> displays <code>$1,234.50 points</code> from <code>1234.5</code>. Affixes are URL-encoded. Plain <code>{{var.score}}</code> and existing fallback syntax still work. Style Presets always appears last in applicable Style panels.
-                        Matrix text animation scrambles each field independently rather than sharing identical character sequences; decode timing and reduced-motion behavior remain unchanged.
-                    </div>
-                </div>
-            </div>
-            <div class="card open">
-                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
-                    <strong style="font-size:0.9rem;">Community Messages</strong>
-                    <span class="chevron">▶</span>
-                </div>
-                <div class="card-body">
-                    <div class="detail-text">
-                        Enable <strong>Community insights</strong> in Config Editor first, then open <strong>Chat Bot → Settings → Community Messages</strong>. Welcome-back greetings and each milestone type have separate switches, all off by default. Existing bot settings are unchanged. The bot, SocialStream connection, Community indexing, and live detection must be ready before anything is sent.<br><br>
-                        Welcome back defaults to a 30-day absence and requires a previous observed chat; adjust the number of days as needed. Message and recorded-stream intervals default to 100 and 10; chat and Twitch follow anniversaries default to yearly, with a 7-day window after the anniversary. Subscription milestones default to 3, 6, 12, 24 months and every 12 after that. All thresholds, the anniversary window and each template are editable. Set subscription repeat to 0 for only the listed months. Subscription announcements require an exact newly observed threshold; missed or older milestones are not replayed.<br><br>
-                        Messages queue separately with adjustable spacing (10 seconds by default) and expiry (5 minutes). The queue holds at most 100 messages and is cleared when the stream goes offline, the bot is paused or tracking is unavailable; stale messages are dropped rather than replayed. A send failure is not retried. Templates are public chat messages: use <code>{{user}}</code> and the tokens shown next to each template.
+                        Configure commands and quotes in the <a href="/chatbot.html" style="color:var(--accent);">Chat Bot Tool</a>, view a public viewer command reference at <a href="/commands.html" style="color:var(--accent);">Chat Commands Cheat Sheet</a>, and manage custom variables &amp; sets at <a href="/placeholders.html" style="color:var(--accent);">Placeholders &amp; Variables</a>.
                     </div>
                 </div>
             </div>
@@ -1895,6 +1977,66 @@
                         • <strong>Quotes:</strong> Viewers or mods can trigger <code>!quote</code> for a random quote, <code>!quote 12</code> for a specific quote, or <code>!addquote "funny moment"</code> to add one on the fly. Quotes can also be imported or exported as JSON.<br>
                         • <strong>Timed Messages:</strong> Automated chat messages posted on a recurring interval (e.g. every 15 minutes, or hourly) with optional chat line thresholds so bot messages don't post to quiet chats.<br>
                         • <strong>Auto-Shoutout on Raids:</strong> Automatically sends a welcome shoutout and Twitch channel link when incoming raids arrive.
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Community Messages</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        Enable <strong>Community insights</strong> in Config Editor first, then open <strong>Chat Bot → Settings → Community Messages</strong>. Welcome-back greetings and each milestone type have separate switches, all off by default. Existing bot settings are unchanged. The bot, SocialStream connection, Community indexing, and live detection must be ready before anything is sent.<br><br>
+                        Welcome back defaults to a 30-day absence and requires a previous observed chat; adjust the number of days as needed. Message and recorded-stream intervals default to 100 and 10; chat and Twitch follow anniversaries default to yearly, with a 7-day window after the anniversary. Subscription milestones default to 3, 6, 12, 24 months and every 12 after that. All thresholds, the anniversary window and each template are editable. Set subscription repeat to 0 for only the listed months. Subscription announcements require an exact newly observed threshold; missed or older milestones are not replayed.<br><br>
+                        Messages queue separately with adjustable spacing (10 seconds by default) and expiry (5 minutes). The queue holds at most 100 messages and is cleared when the stream goes offline, the bot is paused or tracking is unavailable; stale messages are dropped rather than replayed. A send failure is not retried. Templates are public chat messages: use <code>{{user}}</code> and the tokens shown next to each template.
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Custom Variables &amp; Variable Groups</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        <strong>Variables Studio</strong> (<a href="/placeholders.html#variables" style="color:var(--accent);">Placeholders &amp; Variables</a>) manages global variables across nine types: <code>counter</code>, <code>number</code>, <code>text</code>, <code>list</code>, <code>image</code>, <code>toggle</code>, <code>color</code>, <code>template</code>, and <code>font</code>. Click any scalar value to edit inline (Enter/blur saves, Escape cancels, Shift+Enter inserts a text newline) or select a variable row for type-specific settings in the shared inspector.<br><br>
+                        • <strong>Number Variables &amp; Formatting:</strong> <code>number</code> variables support optional <code>min</code>/<code>max</code> bounds, decimal precision (0–12), a counter step (default 1), and an explicit reset value (default 0). Row counter controls act immediately; <strong>Save changes</strong> updates only changed settings so editing a step never overwrites a newer live value. Insert a Number via the Text placeholder picker and expand <strong>Number formatting</strong> for separators, decimal places, and affixes—for example, <code>{{var.score|number:2:comma:%24:%20points}}</code> displays <code>$1,234.50 points</code> from <code>1234.5</code>.<br><br>
+                        • <strong>Font Variables:</strong> Reference system, Google, or uploaded font families with a safe <code>sans-serif</code> fallback in overlay font pickers.<br><br>
+                        • <strong>Variable Groups:</strong> Organize ordinary variables independently of Variable Sets. Click <strong>+ New</strong> beside Groups, drag a variable's name onto a group in the navigation rail (or onto <strong>Ungrouped</strong>), or use <strong>Manage members</strong> for bulk editing and renaming. Group headings are bookmarkable (<code>/placeholders.html#variables#theme</code>; <code>#variables#ungrouped</code> for ungrouped). Export all variables/sets or a single group as JSON; import merges by variable name and confirms updates to existing names. Membership is saved in <code>variables.json</code> and group names in <code>variable-groups.json</code> (both included in backups; uploaded font/image binaries are not bundled in JSON).<br><br>
+                        • <strong>Variable Settings (<code>variable_settings_enabled</code>):</strong> An advanced module toggle in <a href="/config-editor.html#modules" style="color:var(--accent);">Config Editor → Modules</a> that lets Custom Overlay controls bind numeric settings (font size, padding, borders, radiuses, opacity, line height, letter spacing, shadows/animations, Group Strip spacing) to live variables via the <code>{}</code> binding button. Values use the control's displayed units (<code>32</code> = 32px font size; <code>50</code> = 50% opacity), preserving static fallbacks if a variable is missing or nonnumeric.
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Variable Sets &amp; Rotation</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        <strong>Variable Sets</strong> (<a href="/placeholders.html#sets" style="color:var(--accent);">Placeholders &amp; Variables → Variable Sets</a>; enable <code>variable_sets_enabled</code> under <em>Config Editor → Modules → Variables &amp; Data</em>) track structured multi-field rosters—such as podcast guests, co-op squads, tournament players, or rotating sponsors.<br><br>
+                        • <strong>Custom Schema Fields:</strong> Define per-entry fields of type <code>text</code>, <code>image</code>, <code>color</code>, or <code>toggle</code>, and import/export roster entries via CSV (<code>GET /api/variables/sets/:setId/export</code>, <code>POST /api/variables/sets/:setId/import</code>).<br><br>
+                        • <strong>Slots &amp; Shorthand Tokens:</strong> Configure <strong>0 or more active slots</strong> (<code>slotCount</code>). Use <code>0</code> slots for pure Group Roster / Image Strip mode, or <code>1+</code> slots for spotlight assignments (numbered <code>Slot 1</code>, <code>Slot 2</code>, or custom slot names like <code>Host</code> / <code>Guest</code>). For a set ID <code>squad</code>, StreamPulse materializes:<br>
+                        &nbsp;&nbsp;– <strong>Numbered Slot Tokens:</strong> <code>{{var.squad_1_name}}</code>, <code>{{var.squad_1_avatar}}</code>, <code>{{var.squad_1_slot_name}}</code>, <code>{{var.squad_1_active}}</code><br>
+                        &nbsp;&nbsp;– <strong>Slot 1 Shorthand:</strong> <code>{{var.squad_name}}</code>, <code>{{var.squad_avatar}}</code> (mirrors Slot 1)<br>
+                        &nbsp;&nbsp;– <strong>Named Slot Aliases:</strong> <code>{{var.squad_guest_name}}</code> (when a slot is named <code>Guest</code>)<br>
+                        &nbsp;&nbsp;– <strong>Group Summary Tokens:</strong> <code>{{var.squad_group}}</code> (formatted list of <strong>In Group</strong> entries), <code>{{var.squad_group_count}}</code>, <code>{{var.squad_group_members}}</code>, and <code>{{var.squad_group_&lt;field&gt;}}</code><br><br>
+                        • <strong>Timed Rotation &amp; Queues:</strong> Cycle through enabled entries or a dedicated queue on an interval (<code>intervalSeconds</code>), or trigger <code>advance?mode=shift</code> / <code>rewind?mode=shift</code> from Companion or the HTTP API to cascade slots. In Custom Overlay Editor, enable <strong>Studio Sets Follow</strong> so spotlight elements track the active rotating slot automatically.
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Group Strip &amp; Member Badge Builder</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        Add an <strong>Image Group</strong> element in the <a href="/overlay-editor.html" style="color:var(--accent);">Custom Overlay Editor</a> and bind it to a Variable Set to render a live horizontal or vertical strip of member badges.<br><br>
+                        • <strong>Builder Tabs:</strong> <strong>Badge</strong> contains fields, image placement, badge dimensions, and internal spacing; <strong>Strip</strong> contains overall arrangement, wrapping, columns, alignment, and gaps between members. Primary images are optional—switch off <strong>Show primary image</strong> in Content for text-only stacks.<br><br>
+                        • <strong>Filtering &amp; Formatting:</strong> Enable <strong>Only Selected Roster (<code>inGroup</code>)</strong> to render only checked members. Configure <code>separator</code>, <code>lastSeparator</code>, and <code>itemTemplate</code> (e.g. <code>{{name}} ({{role}})</code>); empty wrapper tokens like <code>()</code> or <code>[]</code> around blank optional fields are stripped automatically.<br><br>
+                        • <strong>Inheritance &amp; Live Previews:</strong> Group Strip fields inherit <code>field override → role font → base font</code>. Badge preview uses real roster data and source layer dimensions; Strip preview shows the full live arrangement and explains excluded members rather than faking data. Matrix text animations scramble each field independently.
                     </div>
                 </div>
             </div>`;

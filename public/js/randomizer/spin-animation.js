@@ -261,14 +261,49 @@ export function createSpinAnimator({ $, AudioFX, drawWheel, getDeckPatternHtml, 
             activeCard.style.transform = '';
 
             // Set card face values (Choice ONLY - no repeated winner banner)
-            $('card-front-name').textContent = winner;
+            const cardNameEl = $('card-front-name');
+            cardNameEl.textContent = winner;
+            cardNameEl.style.fontSize = '';
             const rank = (winnerIdx >= 0 && winnerIdx < 13) ? ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'][winnerIdx] : `#${winnerIdx + 1}`;
             $('card-front-rank-tl').textContent = rank;
             $('card-front-rank-br').textContent = rank;
 
+            const fitCardName = () => {
+                const body = cardNameEl?.parentElement;
+                if (!cardNameEl || !body) return;
+                cardNameEl.style.fontSize = '';
+                const bodyStyle = getComputedStyle(body);
+                const padX = (parseFloat(bodyStyle.paddingLeft) || 0) + (parseFloat(bodyStyle.paddingRight) || 0);
+                const padY = (parseFloat(bodyStyle.paddingTop) || 0) + (parseFloat(bodyStyle.paddingBottom) || 0);
+                const availW = Math.max(40, body.clientWidth - padX - 8);
+                const availH = Math.max(40, body.clientHeight - padY - 8);
+                const words = String(cardNameEl.textContent || '').trim().split(/\s+/).filter(Boolean);
+                if (!words.length) return;
+                const cs = getComputedStyle(cardNameEl);
+                let size = parseFloat(cs.fontSize) || 22;
+                const probe = document.createElement('span');
+                probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;pointer-events:none;';
+                probe.style.fontFamily = cs.fontFamily;
+                probe.style.fontWeight = cs.fontWeight;
+                probe.style.letterSpacing = cs.letterSpacing;
+                probe.textContent = words.reduce((a, b) => (b.length > a.length ? b : a), '');
+                body.appendChild(probe);
+                try {
+                    while (size > 10) {
+                        probe.style.fontSize = `${size}px`;
+                        cardNameEl.style.fontSize = `${size}px`;
+                        if (probe.getBoundingClientRect().width <= availW && cardNameEl.scrollHeight <= availH) break;
+                        size -= 0.5;
+                    }
+                } finally {
+                    probe.remove();
+                }
+            };
+
             if (suspense === 'instant') {
                 AudioFX.cardSlide();
                 activeCard.style.display = 'block';
+                fitCardName();
                 activeCard.style.transform = 'translate3d(0, 0, 40px) scale(1.05)';
                 setTimeout(() => {
                     AudioFX.cardFlip();
@@ -363,6 +398,7 @@ export function createSpinAnimator({ $, AudioFX, drawWheel, getDeckPatternHtml, 
 
                     // Slide top card to center stage
                     activeCard.style.display = 'block';
+                    fitCardName();
                     activeCard.style.transform = 'translate3d(-52px, -8px, 0) scale(0.92)';
                     AudioFX.cardSlide();
 

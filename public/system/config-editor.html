@@ -15,7 +15,7 @@
         .header h1 { font-size: 1.3rem; font-weight: 600; }
         .header h1 span { color: var(--accent); }
 
-        .container { max-width: 960px; margin: 0 auto; padding: 1.25rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
+        .container { max-width: 1240px; margin: 0 auto; padding: 1.25rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
 
         /* Top Toolbar & Tabs */
         .editor-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem 0.85rem; }
@@ -49,10 +49,27 @@
         .module-section { display: flex; flex-direction: column; gap: 0.65rem; }
         .module-section-head { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem; margin-top: 0.35rem; }
         .module-section-head svg { width: 13px; height: 13px; color: var(--accent); }
-        .module-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 0.85rem; }
-        .module-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.15rem; display: flex; flex-direction: column; gap: 0.65rem; transition: border-color 0.15s; }
+        .module-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 0.85rem; }
+        .module-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.15rem; display: flex; flex-direction: column; gap: 0.65rem; transition: border-color 0.15s, opacity 0.15s; }
         .module-card:hover { border-color: var(--border-strong, var(--accent)); }
-        .module-card.is-off { opacity: 0.88; }
+        .module-card.is-off { opacity: 0.72; }
+        .module-card > .hint:first-of-type { min-height: 4.35em; }
+        .module-card .cfg-toggle { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.5rem 0.7rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 7px; cursor: pointer; }
+        .module-card .cfg-toggle label { order: 1; font-size: 0.84rem; font-weight: 600; color: var(--text); cursor: pointer; flex: 1; }
+        .module-card .cfg-toggle input[type="checkbox"] {
+            order: 2; appearance: none; -webkit-appearance: none; width: 40px !important; height: 22px !important; border-radius: 999px;
+            background: var(--bg-raised); border: 1px solid var(--border); position: relative; cursor: pointer;
+            flex-shrink: 0; transition: background 0.18s, border-color 0.18s; margin: 0;
+        }
+        .module-card .cfg-toggle input[type="checkbox"]::after {
+            content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+            background: var(--text-muted); transition: transform 0.18s, background 0.18s;
+        }
+        .module-card .cfg-toggle input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
+        .module-card .cfg-toggle input[type="checkbox"]:checked::after { transform: translateX(18px); background: #fff; }
+        .module-links { display: flex; gap: 0.9rem; flex-wrap: wrap; align-items: center; margin-top: auto; padding-top: 0.45rem; border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+        .module-link { font-size: 0.76rem; color: var(--text-muted); text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem; transition: color 0.15s; }
+        .module-link:hover { color: var(--accent); text-decoration: underline; }
         .module-card-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
         .module-card-title { display: flex; align-items: center; gap: 0.5rem; font-weight: 600; font-size: 0.92rem; color: var(--text); }
         .module-card-title svg { width: 16px; height: 16px; color: var(--accent); }
@@ -293,20 +310,50 @@
 
         <!-- TAB 3: MODULES & SERVICES -->
         <div class="tab-pane" id="pane-modules" hidden>
+            <div class="sub-nav-bar" style="border-radius:8px;border:1px solid var(--border);padding:0 0.75rem;">
+                <div class="sub-nav-inner">
+                    <div class="sub-nav-group" role="tablist" aria-label="Module Categories">
+                        <button type="button" class="sub-nav-btn active" data-module-cat="all" role="tab" aria-selected="true">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                            All Modules
+                        </button>
+                        <button type="button" class="sub-nav-btn" data-module-cat="overlays" role="tab" aria-selected="false">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="12 8 8 12 12 16 16 12 12 8"/></svg>
+                            Overlays &amp; Games
+                        </button>
+                        <button type="button" class="sub-nav-btn" data-module-cat="automation" role="tab" aria-selected="false">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                            Automation &amp; Media
+                        </button>
+                        <button type="button" class="sub-nav-btn" data-module-cat="variables" role="tab" aria-selected="false">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/><path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3"/></svg>
+                            Variables &amp; Data
+                        </button>
+                        <button type="button" class="sub-nav-btn" data-module-cat="obs" role="tab" aria-selected="false">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                            OBS Integrations
+                        </button>
+                    </div>
+                    <div class="sub-nav-actions">
+                        <span class="module-stats-badge" id="module-stats-summary">12 Modules</span>
+                    </div>
+                </div>
+            </div>
+
             <div class="module-toolbar">
                 <div class="module-stats-badge">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                    <span id="module-stats-summary">10 Modules</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                    <span>Filter by Status</span>
                 </div>
                 <div class="module-filter-group" role="tablist">
-                    <button type="button" class="module-filter-btn active" data-filter="all">All (10)</button>
+                    <button type="button" class="module-filter-btn active" data-filter="all">All (12)</button>
                     <button type="button" class="module-filter-btn" data-filter="active">Active</button>
                     <button type="button" class="module-filter-btn" data-filter="disabled">Disabled</button>
                 </div>
             </div>
 
             <!-- Category 1: Audience & Interactive Overlays -->
-            <div class="module-section">
+            <div class="module-section" data-category="overlays">
                 <div class="module-section-head">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="12 8 8 12 12 16 16 12 12 8"></polygon></svg>
                     <span>Audience &amp; Interactive Overlays</span>
@@ -323,13 +370,13 @@
                             <span class="module-badge" id="badge-subathon">Disabled</span>
                         </div>
                         <p class="hint">Automate marathon countdown additions from Twitch subscriptions, bits, tips, follows, raids, and channel points with safety caps and live rules overlays.</p>
-                        <div class="cfg-toggle" style="margin-top:auto;">
+                        <div class="cfg-toggle">
                             <input type="checkbox" id="cfg-subathon-enabled">
                             <label for="cfg-subathon-enabled">Enable Subathon module</label>
                         </div>
-                        <div style="margin-top:0.4rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
-                            <a class="btn sm" href="/editors/timers-editor.html#subathon" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.25rem;">Open Timer Manager <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
-                            <a class="btn sm" href="/overlays/subathon-rules.html?preview=true" target="_blank" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.25rem;">Rules Overlay <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+                        <div class="module-links">
+                            <a class="module-link" href="/editors/timers-editor.html#subathon">Open Timer Manager <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+                            <a class="module-link" href="/overlays/subathon-rules.html?preview=true" target="_blank">Rules Overlay <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
                         </div>
                     </div>
 
@@ -344,13 +391,13 @@
                             <span class="module-badge" id="badge-trivia">Disabled</span>
                         </div>
                         <p class="hint">Interactive stream trivia questions, live audience chat voting (!a, !b, !c, !d), answer reveals, and quiz pack presets.</p>
-                        <div class="cfg-toggle" style="margin-top:auto;">
+                        <div class="cfg-toggle">
                             <input type="checkbox" id="cfg-trivia-enabled">
                             <label for="cfg-trivia-enabled">Enable Interactive Trivia module</label>
                         </div>
-                        <div style="margin-top:0.4rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
-                            <a class="btn sm" href="/tools/trivia.html" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.25rem;">Open Trivia Studio <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
-                            <a class="btn sm" href="/overlays/trivia.html?preview=true" target="_blank" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.25rem;">Overlay Preview <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+                        <div class="module-links">
+                            <a class="module-link" href="/tools/trivia.html">Open Trivia Studio <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+                            <a class="module-link" href="/overlays/trivia.html?preview=true" target="_blank">Overlay Preview <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
                         </div>
                     </div>
 
@@ -364,12 +411,12 @@
                             <span class="module-badge" id="badge-polls">Active</span>
                         </div>
                         <p class="hint">Interactive audience polls, multi-choice chat voting, and viewer-voted elimination tournament brackets.</p>
-                        <div class="cfg-toggle" style="margin-top:auto;">
+                        <div class="cfg-toggle">
                             <input type="checkbox" id="cfg-polls-enabled" checked>
                             <label for="cfg-polls-enabled">Enable Poll Manager module</label>
                         </div>
-                        <div style="margin-top:0.4rem;">
-                            <a class="btn sm" href="/polls.html" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.25rem;">Open Poll Manager <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+                        <div class="module-links">
+                            <a class="module-link" href="/polls.html">Open Poll Manager <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
                         </div>
                     </div>
 
@@ -383,20 +430,20 @@
                             <span class="module-badge" id="badge-versus">Active</span>
                         </div>
                         <p class="hint">Competitive head-to-head scoreboards, fighting game HUDs, speedrun race timers, and tournament brackets.</p>
-                        <div class="cfg-toggle" style="margin-top:auto;">
+                        <div class="cfg-toggle">
                             <input type="checkbox" id="cfg-versus-enabled" checked>
                             <label for="cfg-versus-enabled">Enable Versus &amp; Tournaments module</label>
                         </div>
-                        <div style="margin-top:0.4rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
-                            <a class="btn sm" href="/versus.html" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.25rem;">Open Versus Studio <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
-                            <a class="btn sm" href="/tournament-admin.html" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.25rem;">Multi-Match Admin <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+                        <div class="module-links">
+                            <a class="module-link" href="/versus.html">Open Versus Studio <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+                            <a class="module-link" href="/tournament-admin.html">Multi-Match Admin <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Category 2: Stream Automation & Media -->
-            <div class="module-section">
+            <div class="module-section" data-category="automation">
                 <div class="module-section-head">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
                     <span>Stream Automation &amp; Audio</span>
@@ -412,12 +459,12 @@
                             <span class="module-badge" id="badge-chatbot">Disabled</span>
                         </div>
                         <p class="hint">Automated chat responses, custom commands, quotes, timed messages, and Bitfocus Companion integrations.</p>
-                        <div class="cfg-toggle" style="margin-top:auto;">
+                        <div class="cfg-toggle">
                             <input type="checkbox" id="cfg-chatbot-enabled">
                             <label for="cfg-chatbot-enabled">Enable Chat Bot service</label>
                         </div>
-                        <div style="margin-top:0.4rem;">
-                            <a class="btn sm" href="/chatbot.html" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.25rem;">Open Chat Bot Manager <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+                        <div class="module-links">
+                            <a class="module-link" href="/chatbot.html">Open Chat Bot Manager <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
                         </div>
                     </div>
 
@@ -447,8 +494,8 @@
                             <label style="min-width:110px;">Poll every (sec)</label>
                             <input type="number" id="cfg-music-poll" min="1" max="15" value="5">
                         </div>
-                        <div style="margin-top:auto;padding-top:0.4rem;">
-                            <a class="btn sm" href="/music-editor.html" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.25rem;">Open Music Settings <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+                        <div class="module-links" style="margin-top:auto;">
+                            <a class="module-link" href="/music-editor.html">Open Music Settings <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
                         </div>
                     </div>
 
@@ -499,15 +546,24 @@
                             <span class="module-badge" id="badge-clips">Disabled</span>
                         </div>
                         <p class="hint">Automatic clip candidate bookmarking driven by chat activity spikes, raids, subscriptions, and bit cheers.</p>
-                        <div class="cfg-toggle" style="margin-top:auto;">
+                        <div class="cfg-toggle">
                             <input type="checkbox" id="cfg-clips-enabled">
                             <label for="cfg-clips-enabled">Enable Clip Candidate Detection</label>
                         </div>
-                        <div style="margin-top:0.4rem;">
-                            <a class="btn sm" href="/clips.html" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.25rem;">Open Clip Settings <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+                        <div class="module-links">
+                            <a class="module-link" href="/clips.html">Open Clip Settings <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
                         </div>
                     </div>
+                </div>
+            </div>
 
+            <!-- Category 3: Variables & Data (Advanced) -->
+            <div class="module-section" data-category="variables">
+                <div class="module-section-head">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="8" ry="3"></ellipse><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"></path><path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3"></path></svg>
+                    <span>Variables &amp; Dynamic Settings</span>
+                </div>
+                <div class="module-grid">
                     <!-- Variable Sets (Advanced) Card -->
                     <div class="module-card" data-module="variable-sets">
                         <div class="module-card-head">
@@ -519,26 +575,27 @@
                             <span class="module-badge" id="badge-variable-sets">Disabled</span>
                         </div>
                         <p class="hint">Structured multi-entry rosters, timed live set rotations, multi-slot output channels, and dynamic group strips for custom overlays.</p>
-                        <div class="cfg-toggle" style="margin-top:auto;">
+                        <div class="cfg-toggle">
                             <input type="checkbox" id="cfg-variable-sets-enabled">
                             <label for="cfg-variable-sets-enabled">Enable Variable Sets module</label>
                         </div>
-                        <div style="margin-top:0.4rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
-                            <a class="btn sm" href="/placeholders.html#sets" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.25rem;">Open Variable Sets <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+                        <div class="module-links">
+                            <a class="module-link" href="/placeholders.html#sets">Open Variable Sets <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
                         </div>
                     </div>
 
-                    <!-- Variable Settings Card -->
+                    <!-- Variable Settings (Advanced) Card -->
                     <div class="module-card" data-module="variable-settings">
                         <div class="module-card-head">
                             <div class="module-card-title">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
                                 <span>Variable Settings</span>
+                                <span class="advanced-tag">ADVANCED</span>
                             </div>
                             <span class="module-badge" id="badge-variable-settings">Enabled</span>
                         </div>
                         <p class="hint">Allow variables to drive element settings (colors, fonts, numeric layout properties, and future wizards) outside text placeholders.</p>
-                        <div class="cfg-toggle" style="margin-top:auto;">
+                        <div class="cfg-toggle">
                             <input type="checkbox" id="cfg-variable-settings-enabled" checked>
                             <label for="cfg-variable-settings-enabled">Enable variable-driven settings</label>
                         </div>
@@ -546,8 +603,8 @@
                 </div>
             </div>
 
-            <!-- Category 3: OBS Studio Integrations -->
-            <div class="module-section">
+            <!-- Category 4: OBS Studio Integrations -->
+            <div class="module-section" data-category="obs">
                 <div class="module-section-head">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                     <span>OBS Studio Integrations</span>
@@ -590,13 +647,13 @@
                         <div class="module-card-head">
                             <div class="module-card-title">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-                                <span>Voice-Reactive Speaker Badges</span>
+                                <span>Speaker Badges</span>
                                 <span class="beta-tag">BETA</span>
                             </div>
                             <span class="module-badge" id="badge-speaker-badges">Disabled</span>
                         </div>
-                        <p class="hint">Voice-reactive badges and call-in banners use the global <a href="#connection">OBS Connection in Connection &amp; Security</a>. Enable that connection and Speaker Badges, then save. Scene syncing and Move Plugin are not required.</p>
-                        <div class="cfg-toggle" style="margin-top:auto;">
+                        <p class="hint">Voice-reactive badges and call-in banners using the global <a href="#connection">OBS Connection</a>. Scene syncing and Move Plugin are not required.</p>
+                        <div class="cfg-toggle">
                             <input type="checkbox" id="cfg-speaker-badges-enabled">
                             <label for="cfg-speaker-badges-enabled">Enable Speaker Badges module</label>
                         </div>
@@ -907,6 +964,20 @@
     }
 
     let activeModuleFilter = 'all';
+    let activeModuleCategory = localStorage.getItem('streampulse:config:module-cat') || 'all';
+
+    function applyModuleCategory(cat) {
+        if (cat) {
+            activeModuleCategory = cat;
+            try { localStorage.setItem('streampulse:config:module-cat', activeModuleCategory); } catch {}
+        }
+        document.querySelectorAll('#pane-modules [data-module-cat]').forEach(btn => {
+            const active = btn.getAttribute('data-module-cat') === activeModuleCategory;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        applyModuleFilter();
+    }
 
     function applyModuleFilter(filter) {
         if (filter) activeModuleFilter = filter;
@@ -924,10 +995,17 @@
             }
         });
         document.querySelectorAll('#pane-modules .module-section').forEach(sec => {
+            const cat = sec.getAttribute('data-category') || 'all';
+            const catMatch = activeModuleCategory === 'all' || cat === activeModuleCategory;
             const visible = sec.querySelectorAll('.module-card:not([style*="display: none"])');
-            sec.style.display = visible.length === 0 ? 'none' : '';
+            sec.style.display = (!catMatch || visible.length === 0) ? 'none' : '';
         });
     }
+
+    document.querySelectorAll('#pane-modules [data-module-cat]').forEach(btn => {
+        btn.addEventListener('click', () => applyModuleCategory(btn.getAttribute('data-module-cat')));
+    });
+    applyModuleCategory(activeModuleCategory);
 
     function updateModuleBadges() {
         const updateBadge = (id, active) => {
@@ -966,6 +1044,8 @@
         if (summaryEl) {
             summaryEl.textContent = `${activeCount} of ${totalCount} Modules Active`;
         }
+        const allBtn = document.querySelector('.module-filter-btn[data-filter="all"]');
+        if (allBtn) allBtn.textContent = `All (${totalCount})`;
         applyModuleFilter();
     }
 

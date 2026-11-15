@@ -539,7 +539,10 @@
             font-weight: 900;
             color: var(--stage-text);
             text-shadow: var(--stage-outline-shadow), 0 0 20px var(--stage-glow);
-            word-break: break-word;
+            overflow-wrap: break-word;
+            word-break: normal;
+            hyphens: none;
+            max-width: 100%;
             line-height: 1.25;
             padding: 0 4px;
         }
