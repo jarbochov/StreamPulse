@@ -24,7 +24,8 @@
         const style = document.createElement('style');
         style.id = 'icon-picker-style';
         style.textContent = `
-.ip-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 100000; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.ip-backdrop { position: fixed; inset: 0; margin: 0; max-width: none; max-height: none; width: 100%; height: 100%; border: 0; box-sizing: border-box; background: rgba(0,0,0,.6); z-index: 100000; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.ip-backdrop::backdrop { background: transparent; }
 .ip-dialog { background: var(--bg-card, #1c2128); color: var(--text, #e6edf3); border: 1px solid var(--border, #30363d); border-radius: 10px; width: min(640px, 100%); max-height: min(640px, 90vh); display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,.5); font: 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .ip-head { display: flex; gap: 8px; padding: 12px; border-bottom: 1px solid var(--border, #30363d); align-items: center; }
 .ip-head input { flex: 1; min-width: 0; padding: 8px 10px; background: var(--bg-inset, #0d1117); border: 1px solid var(--border, #30363d); border-radius: 6px; color: inherit; font: inherit; }
@@ -43,9 +44,10 @@
 
     function open({ value = '', onPick }) {
         ensureFont(); injectStyle();
-        const backdrop = document.createElement('div');
+        const backdrop = document.createElement('dialog');
         backdrop.className = 'ip-backdrop';
-        backdrop.innerHTML = `<div class="ip-dialog" role="dialog" aria-label="Pick an icon">
+        backdrop.setAttribute('aria-label', 'Pick an icon');
+        backdrop.innerHTML = `<div class="ip-dialog">
             <div class="ip-head"><input type="search" placeholder="Search icons, or type any Font Awesome name and press Enter" aria-label="Search icons"><button type="button" data-act="clear">No icon</button><button type="button" data-act="close">Close</button></div>
             <div class="ip-grid" role="listbox"></div>
             <div class="ip-foot"><span class="ip-note">Free Font Awesome 6 icons. Typing a name not in the list uses it directly.</span><a href="https://fontawesome.com/search?o=r&m=free" target="_blank" rel="noopener" style="color:var(--accent,#58a6ff);display:inline-flex;align-items:center;gap:0.25rem;">Browse all <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a></div>
@@ -53,7 +55,11 @@
         const input = backdrop.querySelector('input');
         const grid = backdrop.querySelector('.ip-grid');
         const current = normalize(value);
-        const close = () => { backdrop.remove(); document.removeEventListener('keydown', onKey, true); };
+        const close = () => {
+            if (backdrop.open && typeof backdrop.close === 'function') backdrop.close();
+            backdrop.remove();
+            document.removeEventListener('keydown', onKey, true);
+        };
         const pick = cls => { close(); onPick && onPick(cls); };
         const label = cls => cls.split(' ').pop().replace(/^fa-/, '');
         function draw() {
@@ -79,8 +85,10 @@
             if (act === 'close') close();
             if (act === 'clear') pick('');
         });
+        backdrop.addEventListener('cancel', e => { e.preventDefault(); close(); });
         document.addEventListener('keydown', onKey, true);
         document.body.appendChild(backdrop);
+        if (typeof backdrop.showModal === 'function') backdrop.showModal();
         draw();
         input.focus();
     }
