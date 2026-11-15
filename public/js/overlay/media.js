@@ -308,7 +308,7 @@ function createStyledFieldNode(spec, text, ctx) {
         const iconEl = document.createElement('i');
         iconEl.className = `${iconCls} sp-inline-icon`;
         iconEl.setAttribute('aria-hidden', 'true');
-        iconEl.style.cssText = 'display:inline-block;margin-right:0.35em;vertical-align:-0.08em;line-height:1;font-style:normal;';
+        iconEl.style.cssText = `display:inline-block;margin-right:${text ? '0.35em' : '0'};vertical-align:-0.08em;line-height:1;font-style:normal;`;
         span.appendChild(iconEl);
         span.appendChild(document.createTextNode(`${spec.prefix}${text}${spec.suffix}`));
     } else {
@@ -875,15 +875,24 @@ function renderImageGroupStrip(container, element, status, options = {}) {
         let subCount = 0;
         const activeSpecs = fieldSpecs.length ? fieldSpecs : (item.labelText ? [{ key: '', kind: 'text', role: 'title', slot: 'main', align: 'auto', inline: false, prefix: '', suffix: '', sizeScale: 100, color: '', bgColor: '' }] : []);
         activeSpecs.forEach((spec, fIdx) => {
-            const memberRaw = spec.key ? readMemberFieldValue(item.raw, spec.key, fIdx === 0 && !cfg.labelField && spec.kind !== 'image' ? item.labelText : '') : (spec.kind === 'image' ? '' : item.labelText);
-            const resolvedVal = memberRaw || spec.customSrc || '';
-            if (!resolvedVal) return;
             const sfType = setFieldTypes.get(spec.key);
-            const isImgField = spec.kind === 'image' || (spec.kind !== 'text' && (sfType === 'image' || Boolean(spec.customSrc && !memberRaw) || looksLikeImageSource(resolvedVal)));
+            let memberRaw = spec.key ? readMemberFieldValue(item.raw, spec.key, fIdx === 0 && !cfg.labelField && spec.kind !== 'image' ? item.labelText : '') : (spec.kind === 'image' ? '' : item.labelText);
+            if (sfType === 'template' && memberRaw) {
+                const vals = item.raw?.values || {};
+                memberRaw = memberRaw.replace(/@([a-z0-9_]{1,20})\b/gi, (_, k) => (vals[k] !== undefined && vals[k] !== null ? String(vals[k]) : ''));
+                if (typeof expandVariables === 'function') memberRaw = expandVariables(memberRaw, status);
+            } else if (sfType === 'list' && memberRaw) {
+                memberRaw = memberRaw.split(/\r?\n/).map(s => s.trim()).filter(Boolean).join(', ');
+            }
+            let resolvedVal = memberRaw || spec.customSrc || '';
+            if (!resolvedVal) return;
+            const iconFieldCls = sfType === 'icon' ? sanitizeIconClass(resolvedVal) : '';
+            if (iconFieldCls) resolvedVal = '';
+            const isImgField = !iconFieldCls && (spec.kind === 'image' || (spec.kind !== 'text' && (sfType === 'image' || Boolean(spec.customSrc && !memberRaw) || looksLikeImageSource(resolvedVal))));
             if (!isImgField && !showLabels) return;
             const resolvedSpec = {
                 ...spec,
-                icon: spec.icon === 'none' ? '' : (spec.icon || setFieldIcons.get(spec.key) || ''),
+                icon: iconFieldCls || (spec.icon === 'none' ? '' : (spec.icon || setFieldIcons.get(spec.key) || '')),
                 color: spec.color ? resolveMemberColor(spec.color, item.raw, '') : '',
                 bgColor: spec.bgColor ? resolveMemberColor(spec.bgColor, item.raw, '') : ''
             };

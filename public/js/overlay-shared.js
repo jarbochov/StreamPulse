@@ -3413,7 +3413,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }).join("");
     return `${prefix}${formatted}${suffix}`;
   }
-  function expandVariables(value, status, context = {}, keepEmpty = false, _depth = 0) {
+  function expandVariables2(value, status, context = {}, keepEmpty = false, _depth = 0) {
     const now = Date.now();
     const table = variableTable(status, context, now);
     const tplMap = new Map((status.customVars || []).filter((v) => v.type === "template").map((v) => [`var.${v.name}`, v.value]));
@@ -3429,7 +3429,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         return keepEmpty ? match : "";
       }
       if (name.startsWith("var.") && tplMap.has(name) && _depth < 3) {
-        const expanded = expandVariables(tplMap.get(name) ?? "", status, context, keepEmpty, _depth + 1);
+        const expanded = expandVariables2(tplMap.get(name) ?? "", status, context, keepEmpty, _depth + 1);
         if (expanded !== "") return expanded;
         if (format !== void 0) {
           const fb = format.trim();
@@ -3501,7 +3501,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       return String(member.values?.[fk] ?? member[fk] ?? "").trim();
     }
     if (!str.includes("{{")) return str;
-    return expandVariables(str, status, context, false).trim();
+    return expandVariables2(str, status, context, false).trim();
   }
   function resolveStyleVariables(style, status, context, member = null) {
     if (status?.modules?.variableSettings === false) return style;
@@ -4005,7 +4005,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       const iconEl = document.createElement("i");
       iconEl.className = `${iconCls} sp-inline-icon`;
       iconEl.setAttribute("aria-hidden", "true");
-      iconEl.style.cssText = "display:inline-block;margin-right:0.35em;vertical-align:-0.08em;line-height:1;font-style:normal;";
+      iconEl.style.cssText = `display:inline-block;margin-right:${text ? "0.35em" : "0"};vertical-align:-0.08em;line-height:1;font-style:normal;`;
       span.appendChild(iconEl);
       span.appendChild(document.createTextNode(`${spec.prefix}${text}${spec.suffix}`));
     } else {
@@ -4533,15 +4533,24 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       let subCount = 0;
       const activeSpecs = fieldSpecs.length ? fieldSpecs : item.labelText ? [{ key: "", kind: "text", role: "title", slot: "main", align: "auto", inline: false, prefix: "", suffix: "", sizeScale: 100, color: "", bgColor: "" }] : [];
       activeSpecs.forEach((spec, fIdx) => {
-        const memberRaw = spec.key ? readMemberFieldValue(item.raw, spec.key, fIdx === 0 && !cfg.labelField && spec.kind !== "image" ? item.labelText : "") : spec.kind === "image" ? "" : item.labelText;
-        const resolvedVal = memberRaw || spec.customSrc || "";
-        if (!resolvedVal) return;
         const sfType = setFieldTypes.get(spec.key);
-        const isImgField = spec.kind === "image" || spec.kind !== "text" && (sfType === "image" || Boolean(spec.customSrc && !memberRaw) || looksLikeImageSource(resolvedVal));
+        let memberRaw = spec.key ? readMemberFieldValue(item.raw, spec.key, fIdx === 0 && !cfg.labelField && spec.kind !== "image" ? item.labelText : "") : spec.kind === "image" ? "" : item.labelText;
+        if (sfType === "template" && memberRaw) {
+          const vals = item.raw?.values || {};
+          memberRaw = memberRaw.replace(/@([a-z0-9_]{1,20})\b/gi, (_, k) => vals[k] !== void 0 && vals[k] !== null ? String(vals[k]) : "");
+          if (typeof expandVariables === "function") memberRaw = expandVariables(memberRaw, status);
+        } else if (sfType === "list" && memberRaw) {
+          memberRaw = memberRaw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean).join(", ");
+        }
+        let resolvedVal = memberRaw || spec.customSrc || "";
+        if (!resolvedVal) return;
+        const iconFieldCls = sfType === "icon" ? sanitizeIconClass(resolvedVal) : "";
+        if (iconFieldCls) resolvedVal = "";
+        const isImgField = !iconFieldCls && (spec.kind === "image" || spec.kind !== "text" && (sfType === "image" || Boolean(spec.customSrc && !memberRaw) || looksLikeImageSource(resolvedVal)));
         if (!isImgField && !showLabels) return;
         const resolvedSpec = {
           ...spec,
-          icon: spec.icon === "none" ? "" : spec.icon || setFieldIcons.get(spec.key) || "",
+          icon: iconFieldCls || (spec.icon === "none" ? "" : spec.icon || setFieldIcons.get(spec.key) || ""),
           color: spec.color ? resolveMemberColor(spec.color, item.raw, "") : "",
           bgColor: spec.bgColor ? resolveMemberColor(spec.bgColor, item.raw, "") : ""
         };
@@ -7621,8 +7630,12 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       for (const prefix of setAliases(setObj)) {
         overrides.set(`${prefix}_active`, entry ? "true" : "false");
         for (const f of setObj.fields || []) {
-          const raw = entry ? String(entry.values?.[f.key] ?? "") : "";
-          overrides.set(`${prefix}_${f.key}`, raw || (f.type === "toggle" ? "false" : f.type === "color" ? "#3b82f6" : ""));
+          let raw = entry ? String(entry.values?.[f.key] ?? "") : "";
+          if (f.type === "template" && raw && entry?.values) {
+            raw = raw.replace(/@([a-z0-9_]{1,20})\b/gi, (_, k) => entry.values[k] !== void 0 && entry.values[k] !== null ? String(entry.values[k]) : "");
+          }
+          const fallback = f.type === "toggle" ? "false" : f.type === "color" ? "#3b82f6" : f.type === "counter" || f.type === "number" ? "0" : "";
+          overrides.set(`${prefix}_${f.key}`, raw || fallback);
         }
       }
     }
@@ -8433,7 +8446,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       init_variables();
       init_widgets();
       var import_numeric_bindings3 = __toESM(require_numeric_bindings());
-      root.OverlayShared = Object.assign(root.OverlayShared || {}, { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, TEXT_ANIM_TYPES, applyBorderGradient, applyTextAnimation, resolveBorderRadius, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, renderSpeakerBadge, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, mountTextCycle, resolveCycleLines, createVarRotationEngine, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, resolveColorToken, resolveStyleVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, renderImageGroupStrip, applyMediaFilter: root.OverlayFilters?.applyMediaFilter || applyMediaFilter, shadowClipStyle });
+      root.OverlayShared = Object.assign(root.OverlayShared || {}, { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, TEXT_ANIM_TYPES, applyBorderGradient, applyTextAnimation, resolveBorderRadius, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, renderSpeakerBadge, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, mountTextCycle, resolveCycleLines, createVarRotationEngine, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables: expandVariables2, resolveColorToken, resolveStyleVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, renderImageGroupStrip, applyMediaFilter: root.OverlayFilters?.applyMediaFilter || applyMediaFilter, shadowClipStyle });
       root.OverlayShared.borderPlacement = borderPlacement;
       Object.assign(root.OverlayShared, { ALERT_PRESENTATION_KEYS, resolveAlertLook, renderInlineText, sanitizeIconClass });
       Object.assign(root.OverlayShared, import_numeric_bindings3.default);

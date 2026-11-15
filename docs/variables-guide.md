@@ -71,11 +71,26 @@ Each Variable Set defines its own custom fields:
 | Field Type | Description |
 | :--- | :--- |
 | **text** | Display name, handle, role, or short bio |
+| **number** | Numeric value (score, rank, seed, or rating) |
+| **counter** | Live integer counter with inline `-1` / `+1` steppers |
 | **image** | Avatar portrait, emblem, or secondary badge icon |
+| **icon** | Font Awesome icon class (`fa-solid`, `fa-brands`, etc.) |
 | **color** | Per-member accent or badge color (`#RRGGBB` / `#RRGGBBAA`) |
 | **toggle** | Boolean flag (e.g., `verified`, `captain`, `muted`) |
+| **font** | Per-member font family override |
+| **list** | Multi-line item list (one entry per line) |
+| **template** | Dynamic text composed from other fields via `@fieldKey` (e.g., `@name (@role)`) |
 
 You can import and export Variable Set entries via **CSV** directly from the Variable Sets panel (`GET /api/variables/sets/:setId/export` and `POST /api/variables/sets/:setId/import`).
+
+### Variable Set Operator Console (`/variable-set-operator.html`)
+
+For fast live-show updates, open **Operator Grid** on any Variable Set (or navigate to `/variable-set-operator.html#<setId>`) to edit all entries and fields in a dense, spreadsheet-style console with live WebSocket sync:
+
+- **Inline Field Editing**: Update `text`, `number`, `counter` (`-1` / `+1` steppers), `image`, `icon`, `color`, `toggle`, `font`, `list`, and `template` fields directly in the table, plus 1-click slot assignment and **In Group** toggles.
+- **Column Chooser & Reordering**: Click **Columns** to show/hide specific schema fields or built-in columns (Entry, Slots, Group, Enabled) and move columns up or down.
+- **Sorting**: Click any sortable column header to cycle ascending/descending order across entry names, slot assignments, numeric counters, booleans, and text fields.
+- **Saved Layouts**: Save named column visibility, column order, and sort configurations per Variable Set (`localStorage`) and switch between operator presets in one click.
 
 ### Slots, Queues & Shorthand Tokens
 

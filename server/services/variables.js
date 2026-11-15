@@ -4,9 +4,28 @@ const fs = require('fs');
 const path = require('path');
 
 const NAME_RE = /^[a-z0-9_]{1,40}$/;
-const VALID_TYPES = ['counter', 'number', 'text', 'list', 'image', 'toggle', 'color', 'template', 'font'];
+const VALID_TYPES = ['counter', 'number', 'text', 'list', 'image', 'icon', 'toggle', 'color', 'template', 'font'];
 const normalizeNumber = require('./variable-numbers');
-const VALID_SET_FIELD_TYPES = ['text', 'image', 'color', 'toggle'];
+const VALID_SET_FIELD_TYPES = ['text', 'number', 'counter', 'image', 'icon', 'color', 'toggle', 'font', 'list', 'template'];
+
+function defaultSetFieldValue(type) {
+    if (type === 'toggle') return 'false';
+    if (type === 'color') return '#3b82f6';
+    if (type === 'counter' || type === 'number') return '0';
+    return '';
+}
+
+function resolveSetFieldValue(field, entry) {
+    const raw = entry ? (entry.values?.[field.key] ?? '') : '';
+    if (field.type === 'template') {
+        const tpl = String(raw || '');
+        if (!tpl) return '';
+        const vals = entry?.values || {};
+        return tpl.replace(/@([a-z0-9_]{1,20})\b/gi, (_, k) => (vals[k] !== undefined && vals[k] !== null ? String(vals[k]) : ''));
+    }
+    if (raw !== '' && raw !== undefined && raw !== null) return String(raw);
+    return defaultSetFieldValue(field.type);
+}
 const ROTATION_TRANSITIONS = ['none', 'fade', 'slide-up', 'flip'];
 const MAX_USER_VARS = 500;
 const MAX_SET_VARS = 25000;
@@ -379,8 +398,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             const entry = byId.get(setObj.activeEntry) || null;
             writeField(`${setObj.id}_active`, 'toggle', entry ? 'true' : 'false');
             for (const f of setObj.fields) {
-                const rawVal = entry ? (entry.values?.[f.key] ?? '') : '';
-                const val = rawVal || (f.type === 'toggle' ? 'false' : f.type === 'color' ? '#3b82f6' : '');
+                const val = resolveSetFieldValue(f, entry);
                 writeField(`${setObj.id}_${f.key}`, f.type, val, f.icon ? { icon: f.icon } : {});
             }
             return;
@@ -416,8 +434,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             }
 
             for (const f of setObj.fields) {
-                const rawVal = entry ? (entry.values?.[f.key] ?? '') : '';
-                const val = rawVal || (f.type === 'toggle' ? 'false' : f.type === 'color' ? '#3b82f6' : '');
+                const val = resolveSetFieldValue(f, entry);
                 const iconExtra = f.icon ? { icon: f.icon } : {};
                 writeField(`${setObj.id}_${slotNum}_${f.key}`, f.type, val, iconExtra);
                 if (i === 0) writeField(`${setObj.id}_${f.key}`, f.type, val, iconExtra);

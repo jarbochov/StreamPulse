@@ -653,6 +653,7 @@ export function renderSets() {
                             <span title="${slotsCount > 0 ? 'Drag entries onto any output slot' : 'Activate a saved preset'}">${slotsCount > 0 ? 'Roster library' : 'Saved presets'}</span>
                             <div style="display:flex; gap:.35rem; align-items:center; text-transform:none; letter-spacing:0; font-weight:500; flex-wrap:wrap;">
                                 ${(activeSet.roster || []).length > 4 ? `<input type="search" id="set-roster-filter" value="${esc(rosterFilter)}" placeholder="Filter entries..." style="padding:.22rem .55rem; font-size:.78rem; width:10rem;">` : ''}
+                                <a class="b sm" href="/variable-set-operator.html#${encodeURIComponent(activeSet.id)}" style="text-decoration:none;">Operator Grid</a>
                                 <a class="b sm" href="/api/variables/sets/${encodeURIComponent(activeSet.id)}/export?format=csv" download="${esc(activeSet.id)}-roster.csv" style="text-decoration:none;">Export CSV</a>
                                 <label class="b sm" style="display:inline-flex; align-items:center; cursor:pointer;">Import CSV<input type="file" data-set-csv-import accept=".csv,text/csv" hidden></label>
                             </div>
@@ -722,9 +723,15 @@ export function openSetModal(existing = null) {
                 <input type="text" data-f-prop="key" value="${esc(f.key)}" placeholder="key (e.g. name)">
                 <select data-f-prop="type">
                     <option value="text" ${f.type === 'text' ? 'selected' : ''}>Text</option>
+                    <option value="number" ${f.type === 'number' ? 'selected' : ''}>Number</option>
+                    <option value="counter" ${f.type === 'counter' ? 'selected' : ''}>Counter</option>
                     <option value="image" ${f.type === 'image' ? 'selected' : ''}>Image</option>
+                    <option value="icon" ${f.type === 'icon' ? 'selected' : ''}>Icon</option>
                     <option value="color" ${f.type === 'color' ? 'selected' : ''}>Color</option>
                     <option value="toggle" ${f.type === 'toggle' ? 'selected' : ''}>Toggle</option>
+                    <option value="font" ${f.type === 'font' ? 'selected' : ''}>Font</option>
+                    <option value="list" ${f.type === 'list' ? 'selected' : ''}>List</option>
+                    <option value="template" ${f.type === 'template' ? 'selected' : ''}>Template</option>
                 </select>
                 <button type="button" class="b sm vp-f-icon-btn" data-f-icon="${idx}" title="${f.icon ? `Field icon: ${esc(f.icon)}` : 'Optional icon (e.g. fa-brands fa-twitch)'}">${f.icon ? `<i class="${esc(f.icon)}"></i>` : 'Icon'}</button>
                 <button type="button" class="b sm danger" data-f-remove="${idx}" ${fields.length <= 1 ? 'disabled' : ''}>${SVG_TRASH}</button>
@@ -842,10 +849,12 @@ function openEntryModal(setObj, existingEntry = null) {
     const isEnabled = existingEntry ? existingEntry.enabled !== false : true;
     const useTwoCol = fields.length > 3;
 
+    const defaultValForType = t => (t === 'color' ? '#3b82f6' : t === 'toggle' ? 'false' : (t === 'counter' || t === 'number') ? '0' : '');
+    if (fields.some(f => f.type === 'icon')) window.IconPicker?.ensureFont?.();
     const fieldsHtml = fields.map(f => {
-        const val = values[f.key] ?? (f.type === 'color' ? '#3b82f6' : f.type === 'toggle' ? 'false' : '');
+        const val = values[f.key] ?? defaultValForType(f.type);
         const head = `<span class="vp-label-head"><span>${esc(f.label)}</span><code>${esc(f.key)}</code></span>`;
-        const spanCls = useTwoCol && f.type === 'image' ? 'vp-span-2' : '';
+        const spanCls = useTwoCol && (f.type === 'image' || f.type === 'list' || f.type === 'template') ? 'vp-span-2' : '';
         if (f.type === 'image') {
             return `
                 <label class="${spanCls}" data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
@@ -855,6 +864,54 @@ function openEntryModal(setObj, existingEntry = null) {
                         <input type="text" data-entry-field="${esc(f.key)}" value="${esc(val)}" placeholder="https://... or /assets/...">
                         <button type="button" class="b sm" data-entry-pick="${esc(f.key)}">Asset Library</button>
                     </div>
+                </label>
+            `;
+        }
+        if (f.type === 'icon') {
+            return `
+                <label data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
+                    ${head}
+                    <div class="vp-img-row">
+                        <span class="vp-icon-preview" data-entry-icon-preview="${esc(f.key)}" style="width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:6px;background:var(--bg-inset);flex-shrink:0;">${val ? `<i class="${esc(val)}"></i>` : ''}</span>
+                        <input type="text" data-entry-field="${esc(f.key)}" value="${esc(val)}" placeholder="e.g. fa-solid fa-crown">
+                        <button type="button" class="b sm" data-entry-pick-icon="${esc(f.key)}">Pick Icon</button>
+                    </div>
+                </label>
+            `;
+        }
+        if (f.type === 'counter' || f.type === 'number') {
+            return `
+                <label data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
+                    ${head}
+                    <div class="vp-img-row">
+                        ${f.type === 'counter' ? `<button type="button" class="b sm" data-entry-step="${esc(f.key)}" data-step-delta="-1" aria-label="Decrement ${esc(f.label)}">-1</button>` : ''}
+                        <input type="number" step="any" data-entry-field="${esc(f.key)}" value="${esc(val)}" placeholder="0">
+                        ${f.type === 'counter' ? `<button type="button" class="b sm" data-entry-step="${esc(f.key)}" data-step-delta="1" aria-label="Increment ${esc(f.label)}">+1</button>` : ''}
+                    </div>
+                </label>
+            `;
+        }
+        if (f.type === 'list') {
+            return `
+                <label class="${spanCls}" data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
+                    ${head}
+                    <textarea rows="3" data-entry-field="${esc(f.key)}" placeholder="One item per line">${esc(val)}</textarea>
+                </label>
+            `;
+        }
+        if (f.type === 'template') {
+            return `
+                <label class="${spanCls}" data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
+                    ${head}
+                    <input type="text" data-entry-field="${esc(f.key)}" value="${esc(val)}" placeholder="e.g. @wins W - @losses L or {{var.other}}">
+                </label>
+            `;
+        }
+        if (f.type === 'font') {
+            return `
+                <label data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
+                    ${head}
+                    <input type="text" data-entry-field="${esc(f.key)}" value="${esc(val)}" placeholder="e.g. Inter, sans-serif">
                 </label>
             `;
         }
@@ -916,6 +973,28 @@ function openEntryModal(setObj, existingEntry = null) {
                 const key = btn.dataset.entryPick;
                 const input = modal.querySelector(`[data-entry-field="${CSS.escape(key)}"]`);
                 pickImage(input.value, url => { input.value = url || ''; });
+            };
+        });
+        modal.querySelectorAll('[data-entry-pick-icon]').forEach(btn => {
+            btn.onclick = () => {
+                const key = btn.dataset.entryPickIcon;
+                const input = modal.querySelector(`[data-entry-field="${CSS.escape(key)}"]`);
+                const preview = modal.querySelector(`[data-entry-icon-preview="${CSS.escape(key)}"]`);
+                window.IconPicker?.open?.({
+                    value: input?.value || '',
+                    onPick: cls => {
+                        if (input) input.value = cls || '';
+                        if (preview) preview.innerHTML = cls ? `<i class="${esc(cls)}"></i>` : '';
+                    }
+                });
+            };
+        });
+        modal.querySelectorAll('[data-entry-step]').forEach(btn => {
+            btn.onclick = () => {
+                const key = btn.dataset.entryStep;
+                const delta = Number(btn.dataset.stepDelta) || 0;
+                const input = modal.querySelector(`[data-entry-field="${CSS.escape(key)}"]`);
+                if (input) input.value = String((Number(input.value) || 0) + delta);
             };
         });
         modal.querySelectorAll('[data-entry-color]').forEach(picker => {

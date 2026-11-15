@@ -45,8 +45,12 @@ function createVarRotationEngine({ getOverlay, getSets, getNodes, onResetCycle, 
         for (const prefix of setAliases(setObj)) {
             overrides.set(`${prefix}_active`, entry ? 'true' : 'false');
             for (const f of (setObj.fields || [])) {
-                const raw = entry ? String(entry.values?.[f.key] ?? '') : '';
-                overrides.set(`${prefix}_${f.key}`, raw || (f.type === 'toggle' ? 'false' : f.type === 'color' ? '#3b82f6' : ''));
+                let raw = entry ? String(entry.values?.[f.key] ?? '') : '';
+                if (f.type === 'template' && raw && entry?.values) {
+                    raw = raw.replace(/@([a-z0-9_]{1,20})\b/gi, (_, k) => (entry.values[k] !== undefined && entry.values[k] !== null ? String(entry.values[k]) : ''));
+                }
+                const fallback = f.type === 'toggle' ? 'false' : f.type === 'color' ? '#3b82f6' : (f.type === 'counter' || f.type === 'number') ? '0' : '';
+                overrides.set(`${prefix}_${f.key}`, raw || fallback);
             }
         }
     }

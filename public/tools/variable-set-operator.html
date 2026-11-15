@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="/admin.css">
+    <link rel="stylesheet" href="/css/variable-set-operator.css">
+    <script src="/appearance.js"></script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Variable Set Operator</title>
+</head>
+<body>
+    <header class="op-header">
+        <div class="op-title-group">
+            <h1>Variable Set <span>Operator</span></h1>
+            <span class="op-pill" id="op-stats">Loading…</span>
+            <span class="op-pill is-ok" id="op-save-state" hidden>Saved</span>
+        </div>
+        <div class="op-header-actions">
+            <a class="op-btn" href="/placeholders.html#sets">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                Schema &amp; Placeholders
+            </a>
+            <button type="button" class="op-btn primary" id="op-add-entry">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Item
+            </button>
+        </div>
+    </header>
+
+    <main class="op-wrap">
+        <section class="op-toolbar" aria-label="Operator controls">
+            <div class="op-toolbar-left">
+                <select id="op-set-select" class="op-set-select" aria-label="Select Variable Set"></select>
+                <input type="search" id="op-search" class="op-search" placeholder="Filter items or values…" aria-label="Filter items">
+                <div class="op-filter-seg" id="op-filter-seg" role="group" aria-label="Item filter">
+                    <button type="button" class="op-filter-btn active" data-op-filter="all">All</button>
+                    <button type="button" class="op-filter-btn" data-op-filter="enabled">Enabled</button>
+                    <button type="button" class="op-filter-btn" data-op-filter="group">In Group</button>
+                    <button type="button" class="op-filter-btn" data-op-filter="slotted">On Air</button>
+                </div>
+                <div class="op-layout-bar" aria-label="Column layouts">
+                    <select id="op-layout-select" class="op-layout-select" aria-label="Saved column layouts"></select>
+                    <button type="button" class="op-btn sm" id="op-save-layout" title="Save current columns, order, and sort as a named layout">Save Layout</button>
+                    <button type="button" class="op-btn sm danger" id="op-del-layout" title="Delete selected layout" hidden>Delete</button>
+                    <div class="op-cols-wrap">
+                        <button type="button" class="op-btn sm" id="op-cols-btn" aria-expanded="false" aria-controls="op-cols-pop">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+                            Columns
+                        </button>
+                        <div class="op-cols-pop" id="op-cols-pop" hidden></div>
+                    </div>
+                </div>
+            </div>
+            <div class="op-toolbar-right" id="op-rotation-bar" hidden>
+                <button type="button" class="op-btn sm" id="op-rot-prev" title="Previous enabled item">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                    Prev
+                </button>
+                <button type="button" class="op-btn sm" id="op-rot-next" title="Next enabled item">
+                    Next
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+            </div>
+        </section>
+
+        <section class="op-card" aria-label="Variable Set items">
+            <div class="op-table-scroll" id="op-table-host"></div>
+        </section>
+    </main>
+
+    <script src="/nav.js"></script>
+    <script src="/js/image-picker.js"></script>
+    <script src="/icon-picker.js"></script>
+    <script type="module" src="/js/variables/variable-set-operator.js"></script>
+</body>
+</html>
