@@ -232,7 +232,7 @@ for (const [button, factor] of [['zoom-in', 1.25], ['zoom-out', .8]]) $(button).
 $('zoom-fit').addEventListener('click', () => { zoom = 1; applyScale(); });
 
 // The backdrop is cached on the canvas and redrawn only when it changes (or per frame when animated).
-let backdropKey = '', backdropBusy = false, backdropRaf = 0;
+let backdropKey = '', backdropBusy = false, backdropRaf = 0, hiddenIdleTimer = 0;
 const startedAt = performance.now();
 async function backdropFrame(now) {
     backdropRaf = 0;
@@ -253,7 +253,22 @@ async function backdropFrame(now) {
     backdropBusy = false;
 }
 document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && !backdropRaf) backdropRaf = requestAnimationFrame(backdropFrame);
+    if (document.hidden) {
+        clearTimeout(hiddenIdleTimer);
+        hiddenIdleTimer = setTimeout(() => {
+            if (!document.hidden) return;
+            const target = $('preview');
+            if (target && (target.width || target.height)) {
+                target.width = 0;
+                target.height = 0;
+                backdropKey = '';
+            }
+        }, 10000);
+    } else {
+        clearTimeout(hiddenIdleTimer);
+        hiddenIdleTimer = 0;
+        if (!backdropRaf) backdropRaf = requestAnimationFrame(backdropFrame);
+    }
 });
 backdropRaf = requestAnimationFrame(backdropFrame);
 

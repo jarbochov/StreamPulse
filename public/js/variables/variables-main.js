@@ -195,6 +195,18 @@ export async function loadAllVars() {
     }
 }
 
+let pendingWsRender = null;
+
+function flushPendingWsRender() {
+    if (!pendingWsRender || document.hidden) return;
+    const { varsOrGroups } = pendingWsRender;
+    pendingWsRender = null;
+    applyVariableSetsVisibility();
+    renderSets();
+    if (varsOrGroups) renderVars();
+    renderPlaceholders();
+}
+
 function connectVariablesWs() {
     if (typeof WebSocket !== 'function') return;
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -221,7 +233,11 @@ function connectVariablesWs() {
         }
         if (typeof msg.data.variableSetsEnabled === 'boolean') {
             state.variableSetsEnabled = msg.data.variableSetsEnabled;
-            applyVariableSetsVisibility();
+            if (!document.hidden) applyVariableSetsVisibility();
+        }
+        if (document.hidden) {
+            pendingWsRender = { varsOrGroups: Boolean(pendingWsRender?.varsOrGroups || varsChanged || groupsChanged) };
+            return;
         }
         renderSets();
         if (varsChanged || groupsChanged) renderVars();
@@ -230,6 +246,10 @@ function connectVariablesWs() {
     ws.addEventListener('close', () => {
         setTimeout(connectVariablesWs, 3000);
     });
+}
+
+if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', flushPendingWsRender);
 }
 
 function bindEvents() {

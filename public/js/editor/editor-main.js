@@ -988,13 +988,56 @@ export async function refreshLiveStatus() {
     } catch {}
 }
 
+let pendingHiddenSync = false;
+let hiddenBuffersReleased = false;
+let hiddenIdleTimer = 0;
+
+function setupEditorVisibilityIdle() {
+    if (typeof document === 'undefined') return;
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            shared.setEffectsPaused?.(true);
+            document.querySelectorAll('#canvas video').forEach(v => {
+                if (!v.paused) { v._pausedByHidden = true; v.pause(); }
+            });
+            clearTimeout(hiddenIdleTimer);
+            hiddenIdleTimer = setTimeout(() => {
+                if (!document.hidden) return;
+                hiddenBuffersReleased = true;
+                document.querySelectorAll('#canvas canvas').forEach(c => {
+                    if (c.width || c.height) { c.width = 0; c.height = 0; }
+                });
+            }, 10000);
+        } else {
+            clearTimeout(hiddenIdleTimer);
+            hiddenIdleTimer = 0;
+            shared.setEffectsPaused?.(false);
+            document.querySelectorAll('#canvas video').forEach(v => {
+                if (v._pausedByHidden) {
+                    delete v._pausedByHidden;
+                    v.play?.().catch(() => {});
+                }
+            });
+            if (hiddenBuffersReleased || pendingHiddenSync) {
+                hiddenBuffersReleased = false;
+                pendingHiddenSync = false;
+                renderCanvas();
+                refreshOpenGroupBuilder();
+                refreshVariableSetsPanel();
+                refreshLiveStatus();
+            }
+        }
+    });
+}
+
 export function connectAlertPreview() {
+    setupEditorVisibilityIdle();
     const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`);
     socket.addEventListener('message', event => {
         if (typeof event.data === 'string' && !event.data.includes('"alert') && !event.data.includes('"poll-update"') && !event.data.includes('"custom-overlay-page"') && !event.data.includes('"obs-status"') && !event.data.includes('"obs-audio-meter"') && !event.data.includes('"variables-update"')) return;
         let message; try { message = JSON.parse(event.data); } catch { return; }
         if (message.type === 'obs-audio-meter') {
-            handleSpeakerMeter(message.data);
+            if (!document.hidden) handleSpeakerMeter(message.data);
             return;
         }
         if (message.type === 'obs-status' && message.data) {
@@ -1023,6 +1066,10 @@ export function connectAlertPreview() {
             const groupStripBtn = $('menu-add-image-group');
             if (groupStripBtn) groupStripBtn.hidden = !vsEnabled;
             if (!vsEnabled && prefs.railTab === 'sets') setRailTab('layers');
+            if (document.hidden) {
+                pendingHiddenSync = true;
+                return;
+            }
             if (rotated) {
                 refreshOpenGroupBuilder();
                 return;
@@ -1036,6 +1083,10 @@ export function connectAlertPreview() {
         }
         if (message.type === 'poll-update') {
             state.liveStatus.poll = message.data;
+            if (document.hidden) {
+                pendingHiddenSync = true;
+                return;
+            }
             if (prefs.live) renderCanvas();
             return;
         }
