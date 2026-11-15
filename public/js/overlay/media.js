@@ -652,8 +652,9 @@ function renderImageGroupStrip(container, element, status, options = {}) {
     const delimiterColor = resolveColorToken(cfg.delimiterColor || '', status, {});
     const showStatusDot = cfg.showStatusDot === true;
 
-    const avBorderW = Math.max(0, Math.min(12, Math.round(Number(cfg.avatarBorderWidth) || (layout === 'overlap' ? 2 : 0))));
-    const rawAvBorderC = String(cfg.avatarBorderColor || (layout === 'overlap' && !cfg.avatarBorderWidth ? '#0f172a' : 'rgba(255,255,255,0.28)')).trim();
+    const rawAvBorderW = cfg.avatarBorderWidth;
+    const avBorderW = Math.max(0, Math.min(12, Math.round(rawAvBorderW !== undefined && rawAvBorderW !== '' ? Number(rawAvBorderW) || 0 : (layout === 'overlap' ? 2 : 0))));
+    const rawAvBorderC = String(cfg.avatarBorderColor || (layout === 'overlap' && !avBorderW ? '#0f172a' : 'rgba(255,255,255,0.28)')).trim();
     const avBorderStyle = String(cfg.avatarBorderStyle || 'solid');
     const rawAvBg = String(cfg.avatarBg || '#1e293b').trim();
     const avShadow = Math.max(0, Math.min(40, Math.round(Number(cfg.avatarShadow) || 0)));

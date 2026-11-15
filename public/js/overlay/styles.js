@@ -1150,6 +1150,7 @@ function mountSplitTextAnimation(node, animType, speed, intensity, playMode = 'l
             cursor = 1;
             timer = setInterval(() => {
                 if (!node.isConnected) { clearInterval(timer); timer = 0; return; }
+                if (document.hidden) return;
                 if (isMotionPaused(node)) {
                     paint(glyphs.length);
                     return;
@@ -1223,8 +1224,9 @@ function mountSplitTextAnimation(node, animType, speed, intensity, playMode = 'l
         let delayTimer = 0;
 
         const paintMatrix = lockedCount => {
+            const paused = isMotionPaused(node);
             for (let i = 0; i < slots.length; i++) {
-                if (i < lockedCount || isMotionPaused(node)) {
+                if (i < lockedCount || paused) {
                     if (slots[i].span.textContent !== slots[i].target) slots[i].span.textContent = slots[i].target;
                 } else {
                     randomState ^= randomState << 13;
@@ -1241,6 +1243,7 @@ function mountSplitTextAnimation(node, animType, speed, intensity, playMode = 'l
             if (!node.isConnected) return;
             timer = setInterval(() => {
                 if (!node.isConnected) { clearInterval(timer); timer = 0; return; }
+                if (document.hidden) return;
                 if (isMotionPaused(node)) {
                     paintMatrix(slots.length);
                     return;

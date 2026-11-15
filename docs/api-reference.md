@@ -943,11 +943,11 @@ Manage global Custom Variables (`counter`, `number`, `text`, `list`, `image`, `t
 | --- | --- | --- |
 | `/api/variables` | `GET` | Return `{ variables, groups, sets, variableSetsEnabled }` |
 | `/api/variables/:name` | `GET`, `PUT`, `POST`, `DELETE` | Read, create/update, or delete a variable (`GET ?raw=1`, `?plain=1`, or `?format=text` returns plain text for Companion) |
-| `/api/variables/:name/increment` | `GET`, `POST` | Increment a `counter` or `number` variable by `step` (or `?by=` / `{ by }`) |
-| `/api/variables/:name/decrement` | `GET`, `POST` | Decrement a `counter` or `number` variable by `step` (or `?by=` / `{ by }`) |
-| `/api/variables/:name/reset` | `GET`, `POST` | Reset variable to `defaultValue` |
+| `/api/variables/:name/increment` | `GET`, `POST` | Increment a `counter` or `number` variable by `step` (or `?amount=` / `{ amount }`) |
+| `/api/variables/:name/decrement` | `GET`, `POST` | Decrement a `counter` or `number` variable by `step` (or `?amount=` / `{ amount }`) |
+| `/api/variables/:name/reset` | `GET`, `POST` | Reset variable to `resetValue` (or `initial`) |
 | `/api/variables/:name/set` | `GET`, `POST` | Set variable `value` via `?value=` or `{ value }` |
-| `/api/variables/:name/roll` | `GET`, `POST` | Pick a random item from a `list` or random number within `min`..`max` |
+| `/api/variables/:name/roll` | `GET`, `POST` | Pick a random item from a `list` variable |
 | `/api/variables/:name/toggle` | `GET`, `POST` | Flip a `toggle` variable between `true` and `false` |
 | `/api/variables/groups/manage` | `POST` | Create, rename, or update variable groups (`name`, `variables`, `createOnly`, `originalName`) |
 | `/api/variables/import` | `POST` | Import a JSON bundle of variables and Variable Sets |

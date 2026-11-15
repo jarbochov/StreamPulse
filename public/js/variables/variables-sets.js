@@ -193,12 +193,13 @@ function openSlotEntryPicker(anchorBtn, setObj, slotNum, mode = 'assign') {
         if (!pop.contains(e.target) && !anchorBtn.contains(e.target)) closeSlotEntryPicker();
     };
     const onDocKey = e => { if (e.key === 'Escape') closeSlotEntryPicker(); };
-    setTimeout(() => {
+    const timer = setTimeout(() => {
         document.addEventListener('mousedown', onDocDown);
         document.addEventListener('keydown', onDocKey);
     }, 0);
 
     activePickerCleanup = () => {
+        clearTimeout(timer);
         document.removeEventListener('mousedown', onDocDown);
         document.removeEventListener('keydown', onDocKey);
         pop.remove();

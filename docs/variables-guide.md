@@ -16,7 +16,7 @@ Manage global variables in **Admin -> Variables** (or open the Variables drawer 
 
 | Type | Behavior | Common Uses |
 | :--- | :--- | :--- |
-| **counter** | Integer with optional `min`, `max`, `step`, and `defaultValue` | Death counters, win streaks, round trackers |
+| **counter** | Integer with optional `min`, `max`, `step`, and `resetValue` | Death counters, win streaks, round trackers |
 | **number** | Numeric value supporting decimals (`precision`) and bounds | Scores, speedrun splits, K/D ratios |
 | **text** | Free-form single-line or short string | Current game, stream topic, guest name |
 | **list** | Ordered array of choices that can be cycled or rolled | Map pool, challenge wheel, trivia topics |
@@ -50,8 +50,8 @@ Provide a default fallback with `|` in case a variable is empty or not yet initi
 Counter, number, list, and toggle variables support instant live mutations from the Admin UI, Companion buttons, or HTTP endpoints:
 
 - **Increment / Decrement**: Adds or subtracts `step` (respecting `min` / `max` bounds).
-- **Reset**: Restores `defaultValue`.
-- **Roll**: Picks a random item from a `list` variable (or random integer within `min`..`max` for `counter`/`number`).
+- **Reset**: Restores `resetValue` (or `initial`).
+- **Roll**: Picks a random item from a `list` variable.
 - **Toggle**: Flips a `toggle` variable between `true` and `false`.
 
 ---

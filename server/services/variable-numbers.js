@@ -4,7 +4,21 @@ function finite(value, label) {
 }
 const formatters = new Map();
 
-module.exports = function normalizeNumber(patch, current = {}) {
+function addNumbers(value, delta) {
+    const decimalPlaces = number => {
+        const [base, exponent = '0'] = String(number).split(/[eE]/);
+        return Math.max(0, (base.split('.')[1]?.length || 0) - Number(exponent));
+    };
+    const digits = Math.max(decimalPlaces(value), decimalPlaces(delta));
+    if (digits <= 12) {
+        const scale = 10 ** digits;
+        const left = Math.round(value * scale), right = Math.round(delta * scale);
+        if ([left, right, left + right].every(Number.isSafeInteger)) return (left + right) / scale;
+    }
+    return value + delta;
+}
+
+function normalizeNumber(patch, current = {}) {
     const optional = key => {
         const raw = patch[key] !== undefined ? patch[key] : current[key];
         return raw === undefined || raw === null || raw === '' ? null : finite(raw, key);
@@ -23,11 +37,11 @@ module.exports = function normalizeNumber(patch, current = {}) {
     if (precision !== null) {
         if (min !== null) {
             lower = round(min);
-            if (lower < min) lower = module.exports.add(lower, 1 / factor);
+            if (lower < min) lower = addNumbers(lower, 1 / factor);
         }
         if (max !== null) {
             upper = round(max);
-            if (upper > max) upper = module.exports.add(upper, -1 / factor);
+            if (upper > max) upper = addNumbers(upper, -1 / factor);
         }
     }
     if ((min !== null && !Number.isFinite(lower)) || (max !== null && !Number.isFinite(upper))) throw new Error('Bounds exceed the supported precision range');
@@ -39,23 +53,13 @@ module.exports = function normalizeNumber(patch, current = {}) {
         return Math.max(lower, Math.min(upper, rounded));
     };
 
-    module.exports.add = (value, delta) => {
-        const decimalPlaces = number => {
-            const [base, exponent = '0'] = String(number).split(/[eE]/);
-            return Math.max(0, (base.split('.')[1]?.length || 0) - Number(exponent));
-        };
-        module.exports.parse = finite;
-        const digits = Math.max(decimalPlaces(value), decimalPlaces(delta));
-        if (digits <= 12) {
-            const scale = 10 ** digits;
-            const left = Math.round(value * scale), right = Math.round(delta * scale);
-            if ([left, right, left + right].every(Number.isSafeInteger)) return (left + right) / scale;
-        }
-        return value + delta;
-    };
     return {
         value: normalize(patch.value !== undefined ? patch.value : current.value ?? 0),
         resetValue: normalize(patch.resetValue !== undefined ? patch.resetValue : current.resetValue ?? current.initial ?? 0),
         min, max, step, precision
     };
-};
+}
+
+normalizeNumber.add = addNumbers;
+normalizeNumber.parse = finite;
+module.exports = normalizeNumber;

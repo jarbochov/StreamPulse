@@ -98,6 +98,9 @@
         let index = randomIndexes.get(element.id) || 0;
         const value = expandVariables(config.mode === 'order' ? items[index % items.length] : items[Math.floor(Math.random() * items.length)]);
         randomIndexes.set(element.id, config.mode === 'order' ? index + 1 : index);
+        if (node._textAnimHandle?.stop) { try { node._textAnimHandle.stop(); } catch {} node._textAnimHandle = null; }
+        node._textAnimWrap = null;
+        node._textAnimSig = '';
         if (config.typewriter) {
             node.classList.add('overlay-typewriter');
             const typed = document.createElement('span');
@@ -177,6 +180,10 @@
             const hasItems = shared.renderImageGroupStrip(node, element, effectiveStatus(), { preview: params.get('preview') === 'true' });
             node.classList.toggle('sp-empty-media', !hasItems);
             return;
+        }
+        if (node._igResizeFrame || node.querySelector('.sp-image-group')) {
+            shared.cleanupMedia(node);
+            node.replaceChildren();
         }
         const src = String(expandVariables(element.src || '') || '').trim();
         let media = node.querySelector(':scope > img');
@@ -421,18 +428,26 @@
     function tickPlaceholders() {
         if (document.hidden) return;
         for (const { node, element } of tickingNodes) {
-            if (element.type === 'poll') window.PollWidget.render(node, element, liveStatus.poll, { preview: params.get('preview') === 'true' });
-            else if (element.type === 'progress') shared.renderProgress(node, element, expandVariables);
+            let changed = false;
+            if (element.type === 'poll') { window.PollWidget.render(node, element, liveStatus.poll, { preview: params.get('preview') === 'true' }); changed = true; }
+            else if (element.type === 'progress') { shared.renderProgress(node, element, expandVariables); changed = true; }
             else if (element.type === 'markdown') {
                 const nextHtml = renderMarkdown(shared.elementContent(element), element);
                 if (node._mdHtml !== nextHtml) {
                     node._mdHtml = nextHtml;
                     node.innerHTML = nextHtml;
                     shared.applyMediaFilter(node, element);
+                    changed = true;
+                }
+            } else {
+                const nextText = expandVariables(shared.elementContent(element) || '');
+                if (node._lastTickText !== nextText) {
+                    node._lastTickText = nextText;
+                    setNodeText(node, nextText);
+                    changed = true;
                 }
             }
-            else setNodeText(node, expandVariables(shared.elementContent(element) || ''));
-            if (element.textFit && element.textFit !== 'none') shared.fitText(node, element);
+            if (changed && element.textFit && element.textFit !== 'none') shared.fitText(node, element);
         }
     }
 

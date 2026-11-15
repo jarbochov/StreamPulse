@@ -2386,8 +2386,8 @@ export function renderProperties() {
     if (lookIdx >= 0) {
         const presentationPath = path => path.startsWith('style.') || path.startsWith('mediaFilter.')
             || shared.ALERT_PRESENTATION_KEYS.includes(path.split('.')[1]) && path.startsWith('alert.');
-        for (const node of root.querySelectorAll('[data-inspector-panel="style"] [data-path], [data-inspector-panel="style"] [data-seg-path], [data-inspector-panel="style"] [data-swatch-path], [data-inspector-panel="style"] [data-reset], [data-inspector-panel="style"] [data-clear], [data-inspector-panel="style"] [data-eyedrop], [data-inspector-panel="style"] [data-grad-mid-toggle]')) {
-            for (const attr of ['data-path', 'data-seg-path', 'data-swatch-path', 'data-reset', 'data-clear', 'data-eyedrop', 'data-grad-mid-toggle']) {
+        for (const node of root.querySelectorAll('[data-inspector-panel="style"] [data-path], [data-inspector-panel="style"] [data-seg-path], [data-inspector-panel="style"] [data-swatch-path], [data-inspector-panel="style"] [data-reset], [data-inspector-panel="style"] [data-clear], [data-inspector-panel="style"] [data-eyedrop], [data-inspector-panel="style"] [data-grad-mid-toggle], [data-inspector-panel="style"] [data-number-pick], [data-inspector-panel="style"] [data-number-unbind]')) {
+            for (const attr of ['data-path', 'data-seg-path', 'data-swatch-path', 'data-reset', 'data-clear', 'data-eyedrop', 'data-grad-mid-toggle', 'data-number-pick', 'data-number-unbind']) {
                 const path = node.getAttribute(attr);
                 if (path && presentationPath(path) && path !== 'style.rotate') node.setAttribute(attr, `alert.looks.${lookIdx}.${path}`);
             }
@@ -3579,14 +3579,36 @@ export function initInspectorEvents() {
             buttons[next].focus();
             buttons[next].click();
         });
-        bindFields(igDlg, () => selectedElements().filter(isImageGroup), (path, event) => {
+        let igInputFrame = 0;
+        const flushIgPreview = () => {
+            igInputFrame = 0;
             renderCanvas();
-            renderProperties();
-            if (['imageGroup.layout', 'imageGroup.wrap'].includes(path)) renderImageGroupFieldsModal();
-            else if (isImageGroup(primary())) renderGroupBadgePreview(primary());
-            changed(event?.type === 'change');
+            const cur = primary();
+            if (isImageGroup(cur)) renderGroupBadgePreview(cur);
+        };
+        const scheduleIgPreview = () => {
+            if (!igInputFrame) igInputFrame = requestAnimationFrame(flushIgPreview);
+        };
+        bindFields(igDlg, () => selectedElements().filter(isImageGroup), (path, event) => {
+            const isCommit = !event || event.type === 'change';
+            if (isCommit) {
+                if (igInputFrame) { cancelAnimationFrame(igInputFrame); igInputFrame = 0; }
+                renderCanvas();
+                renderProperties();
+                if (['imageGroup.layout', 'imageGroup.wrap'].includes(path)) renderImageGroupFieldsModal();
+                else if (isImageGroup(primary())) renderGroupBadgePreview(primary());
+            } else {
+                scheduleIgPreview();
+            }
+            changed(isCommit);
         });
         const refreshIgAll = (commit, reModal = false) => {
+            if (!commit && !reModal) {
+                scheduleIgPreview();
+                changed(false);
+                return;
+            }
+            if (igInputFrame) { cancelAnimationFrame(igInputFrame); igInputFrame = 0; }
             renderCanvas();
             renderProperties();
             if (reModal) renderImageGroupFieldsModal();

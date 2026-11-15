@@ -59,6 +59,9 @@ function mountTextCycle(node, element, opts = {}) {
     let idx = lines.length ? ((getIndex ? getIndex(currentEl.id) : 0) || 0) % lines.length : 0;
     let activeLayer = makeLayer(lines.length ? lines[idx] : '');
     stage.appendChild(activeLayer);
+    if (node._textAnimHandle?.stop) { try { node._textAnimHandle.stop(); } catch {} node._textAnimHandle = null; }
+    node._textAnimWrap = null;
+    node._textAnimSig = '';
     node.replaceChildren(stage);
     node._textNode = null;
 
@@ -121,7 +124,7 @@ function mountTextCycle(node, element, opts = {}) {
         const cfg = currentEl.cycle || {};
         const holdMs = Math.max(1, Number(cfg.intervalSeconds) || 5) * 1000;
         timer = setInterval(() => {
-            if (stopped) return;
+            if (stopped || document.hidden) return;
             lines = resolveCycleLines(currentEl, expand);
             if (!lines.length) {
                 if (activeLayer.textContent !== '') activeLayer.textContent = '';

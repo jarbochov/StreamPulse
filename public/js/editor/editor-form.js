@@ -4,7 +4,7 @@
 
 import {
     esc, fmt, round2, setPath, getPath, prefs, savePrefs, addRecentColor,
-    getDocumentColors, ICON, LIMITS, toast, state
+    getDocumentColors, ICON, LIMITS, toast, state, alertLookSelection
 } from './editor-state.js';
 
 const ICON_COLOR_VAR = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 3h1a2 2 0 0 1 2 2v5a2 2 0 0 0 2 2 2 2 0 0 0-2 2v5a2 2 0 0 1-2 2h-1"/></svg>';
@@ -52,7 +52,9 @@ function numberBinding(path, label, value) {
     const field = shared?.numericBindingField?.(path);
     if (!field) return { value, actions: '', note: '', disabled: '' };
     const element = state.overlay?.elements?.find(el => state.selectedIds?.has(el.id));
-    const config = getPath(element, field.domain);
+    const lookId = element?.type === 'alert' ? alertLookSelection?.get?.(element.id) : null;
+    const look = lookId ? (element.alert?.looks || []).find(l => l.id === lookId) : null;
+    const config = getPath(look || element, field.domain);
     const name = config?.numberBindings?.[field.key];
     const resolved = shared.resolveNumericConfig(config, field.domain, state.liveStatus);
     return {

@@ -825,7 +825,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             const firstKey = setObj.fields?.[0]?.key || 'name';
             const derivedLabel = labelVal || values[firstKey] || idVal;
             if (!derivedLabel && !Object.values(values).some(Boolean)) continue;
-            const entryId = normSetId(idVal || derivedLabel || `entry_${existing.length + 1}`);
+            const entryId = normSetId(idVal || derivedLabel) || normSetId(`entry_${existing.length + 1}`);
             const entry = { id: entryId, label: derivedLabel || entryId, values };
             if (byId.has(entryId)) {
                 const idx = byId.get(entryId);

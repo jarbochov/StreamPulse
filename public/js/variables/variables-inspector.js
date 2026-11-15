@@ -23,7 +23,13 @@ export function createVariableInspector(host, { getVariable, getStatus, onSaved 
         if (variable.type === 'font') return `${fontControls(variable)}<p class="variable-font-sample">The quick brown fox</p>`;
         if (variable.type === 'list') return `<label>Items<textarea name="items" rows="7">${esc((variable.items || []).join('\n'))}</textarea></label><label>Order<select name="mode"><option value="random"${variable.mode !== 'sequential' ? ' selected' : ''}>Random</option><option value="sequential"${variable.mode === 'sequential' ? ' selected' : ''}>Sequential</option></select></label>`;
         if (variable.type === 'toggle') return `<label class="variable-toggle-option"><input type="checkbox" name="value"${String(variable.value) === 'true' ? ' checked' : ''}> Enabled</label>`;
-        if (variable.type === 'color') return `<label>Color<span class="variable-color-edit"><input type="color" data-inspector-color value="${esc(String(variable.value).slice(0, 7))}" aria-label="Color picker"><input name="value" value="${esc(variable.value)}" maxlength="9" placeholder="#RRGGBBAA"></span></label>`;
+        if (variable.type === 'color') {
+            const rawHex = String(variable.value || '').trim();
+            const hexInputVal = /^#[0-9a-f]{3}$/i.test(rawHex)
+                ? `#${rawHex[1]}${rawHex[1]}${rawHex[2]}${rawHex[2]}${rawHex[3]}${rawHex[3]}`
+                : (/^#[0-9a-f]{6}/i.test(rawHex) ? rawHex.slice(0, 7) : '#000000');
+            return `<label>Color<span class="variable-color-edit"><input type="color" data-inspector-color value="${esc(hexInputVal)}" aria-label="Color picker"><input name="value" value="${esc(variable.value)}" maxlength="9" placeholder="#RRGGBBAA"></span></label>`;
+        }
         if (variable.type === 'image') return `${variable.value ? `<img class="variable-image-preview" src="${esc(variable.value)}" alt="Variable image preview" referrerpolicy="no-referrer">` : ''}<label>Image URL<input name="value" value="${esc(variable.value)}" maxlength="1000"></label><button type="button" class="b sm" data-inspector-image>Asset Library</button>`;
         return `<label>${variable.type === 'template' ? 'Expression' : 'Value'}<textarea name="value" rows="4" maxlength="500">${esc(variable.value)}</textarea></label>${variable.type === 'template' ? '<button type="button" class="b sm" data-inspector-placeholder>Insert placeholder</button><div class="variable-template-preview"><span>Preview</span><p data-template-preview></p></div>' : ''}`;
     };

@@ -19,11 +19,21 @@ function cleanupMedia(rootNode) {
     if (rootNode.tagName === 'VIDEO') unloadVideo(rootNode);
     else if (rootNode.tagName === 'IFRAME') unloadFrame(rootNode);
     else if (rootNode.tagName === 'CANVAS') unloadCanvas(rootNode);
+    if (rootNode._igResizeFrame && typeof root.cancelAnimationFrame === 'function') {
+        root.cancelAnimationFrame(rootNode._igResizeFrame);
+        rootNode._igResizeFrame = 0;
+    }
     if (rootNode._patternHandle?.stop) { try { rootNode._patternHandle.stop(); } catch {} rootNode._patternHandle = null; }
     if (typeof rootNode.querySelectorAll === 'function') {
         rootNode.querySelectorAll('video').forEach(unloadVideo);
         rootNode.querySelectorAll('iframe').forEach(unloadFrame);
         rootNode.querySelectorAll('canvas.sp-pattern-canvas').forEach(unloadCanvas);
+        rootNode.querySelectorAll('.sp-image-group-item, .sp-image-group-avatar, .sp-image-group-field').forEach(child => {
+            if (child._borderObserver) { child._borderObserver.disconnect(); child._borderObserver = null; }
+            if (child._textAnimHandle?.stop) { try { child._textAnimHandle.stop(); } catch {} child._textAnimHandle = null; }
+            child._textAnimWrap = null;
+            child._textAnimSig = '';
+        });
     }
 }
 
@@ -43,6 +53,7 @@ function cleanupNode(node) {
     if (node._slideHandle?.stop) { try { node._slideHandle.stop(); } catch {} node._slideHandle = null; }
     if (node._patternHandle?.stop) { try { node._patternHandle.stop(); } catch {} node._patternHandle = null; }
     if (node._cycleHandle?.stop) { try { node._cycleHandle.stop(); } catch {} node._cycleHandle = null; }
+    if (node._typeTimer) { clearInterval(node._typeTimer); node._typeTimer = null; }
     if (node._textAnimHandle?.stop) { try { node._textAnimHandle.stop(); } catch {} node._textAnimHandle = null; }
     node._textAnimWrap = null;
     node._textAnimSig = '';

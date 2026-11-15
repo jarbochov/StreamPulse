@@ -424,6 +424,10 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     if (rootNode.tagName === "VIDEO") unloadVideo(rootNode);
     else if (rootNode.tagName === "IFRAME") unloadFrame(rootNode);
     else if (rootNode.tagName === "CANVAS") unloadCanvas(rootNode);
+    if (rootNode._igResizeFrame && typeof root.cancelAnimationFrame === "function") {
+      root.cancelAnimationFrame(rootNode._igResizeFrame);
+      rootNode._igResizeFrame = 0;
+    }
     if (rootNode._patternHandle?.stop) {
       try {
         rootNode._patternHandle.stop();
@@ -435,6 +439,21 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       rootNode.querySelectorAll("video").forEach(unloadVideo);
       rootNode.querySelectorAll("iframe").forEach(unloadFrame);
       rootNode.querySelectorAll("canvas.sp-pattern-canvas").forEach(unloadCanvas);
+      rootNode.querySelectorAll(".sp-image-group-item, .sp-image-group-avatar, .sp-image-group-field").forEach((child) => {
+        if (child._borderObserver) {
+          child._borderObserver.disconnect();
+          child._borderObserver = null;
+        }
+        if (child._textAnimHandle?.stop) {
+          try {
+            child._textAnimHandle.stop();
+          } catch {
+          }
+          child._textAnimHandle = null;
+        }
+        child._textAnimWrap = null;
+        child._textAnimSig = "";
+      });
     }
   }
   function cleanupNode(node) {
@@ -488,6 +507,10 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       } catch {
       }
       node._cycleHandle = null;
+    }
+    if (node._typeTimer) {
+      clearInterval(node._typeTimer);
+      node._typeTimer = null;
     }
     if (node._textAnimHandle?.stop) {
       try {
@@ -1641,6 +1664,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
             timer = 0;
             return;
           }
+          if (document.hidden) return;
           if (isMotionPaused(node)) {
             paint(glyphs.length);
             return;
@@ -1726,8 +1750,9 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       let timer = 0;
       let delayTimer = 0;
       const paintMatrix = (lockedCount) => {
+        const paused = isMotionPaused(node);
         for (let i = 0; i < slots.length; i++) {
-          if (i < lockedCount || isMotionPaused(node)) {
+          if (i < lockedCount || paused) {
             if (slots[i].span.textContent !== slots[i].target) slots[i].span.textContent = slots[i].target;
           } else {
             randomState ^= randomState << 13;
@@ -1747,6 +1772,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
             timer = 0;
             return;
           }
+          if (document.hidden) return;
           if (isMotionPaused(node)) {
             paintMatrix(slots.length);
             return;
@@ -4172,8 +4198,9 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const delimiter = String(cfg.delimiter || "");
     const delimiterColor = resolveColorToken(cfg.delimiterColor || "", status, {});
     const showStatusDot = cfg.showStatusDot === true;
-    const avBorderW = Math.max(0, Math.min(12, Math.round(Number(cfg.avatarBorderWidth) || (layout === "overlap" ? 2 : 0))));
-    const rawAvBorderC = String(cfg.avatarBorderColor || (layout === "overlap" && !cfg.avatarBorderWidth ? "#0f172a" : "rgba(255,255,255,0.28)")).trim();
+    const rawAvBorderW = cfg.avatarBorderWidth;
+    const avBorderW = Math.max(0, Math.min(12, Math.round(rawAvBorderW !== void 0 && rawAvBorderW !== "" ? Number(rawAvBorderW) || 0 : layout === "overlap" ? 2 : 0)));
+    const rawAvBorderC = String(cfg.avatarBorderColor || (layout === "overlap" && !avBorderW ? "#0f172a" : "rgba(255,255,255,0.28)")).trim();
     const avBorderStyle = String(cfg.avatarBorderStyle || "solid");
     const rawAvBg = String(cfg.avatarBg || "#1e293b").trim();
     const avShadow = Math.max(0, Math.min(40, Math.round(Number(cfg.avatarShadow) || 0)));
@@ -7111,6 +7138,15 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     let idx = lines.length ? ((getIndex ? getIndex(currentEl.id) : 0) || 0) % lines.length : 0;
     let activeLayer = makeLayer(lines.length ? lines[idx] : "");
     stage.appendChild(activeLayer);
+    if (node._textAnimHandle?.stop) {
+      try {
+        node._textAnimHandle.stop();
+      } catch {
+      }
+      node._textAnimHandle = null;
+    }
+    node._textAnimWrap = null;
+    node._textAnimSig = "";
     node.replaceChildren(stage);
     node._textNode = null;
     const scheduleTimeout = (fn, ms) => {
@@ -7164,7 +7200,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       const cfg = currentEl.cycle || {};
       const holdMs = Math.max(1, Number(cfg.intervalSeconds) || 5) * 1e3;
       timer = setInterval(() => {
-        if (stopped) return;
+        if (stopped || document.hidden) return;
         lines = resolveCycleLines(currentEl, expand);
         if (!lines.length) {
           if (activeLayer.textContent !== "") activeLayer.textContent = "";

@@ -153,10 +153,20 @@
         const query = dialog.querySelector('#sp-search').value.trim().toLowerCase();
         const colorMode = options.filter === 'color';
         if (options.filter === 'number') {
-            const items = (status.customVars || []).filter(variable => !variable.hidden && ['number', 'counter'].includes(variable.type));
-            dialog.querySelector('#sp-list').innerHTML = items.filter(variable => !query || `${variable.name} ${variable.group || ''}`.toLowerCase().includes(query))
-                .map(variable => `<button type="button" data-token="var.${esc(variable.name)}"><span>${esc(variable.group ? `${variable.group} / ${variable.name}` : variable.name)}</span><code>{{var.${esc(variable.name)}}}</code><span class="preview">${esc(variable.value)}</span></button>`).join('')
-                || '<p class="hint">No Number variables match. Create one in <a href="/placeholders.html#variables" target="_blank" rel="noopener">Variables</a>.</p>';
+            const items = (status.customVars || []).filter(variable => !variable.hidden && ['number', 'counter'].includes(variable.type))
+                .filter(variable => !query || `${variable.name} ${variable.group || ''}`.toLowerCase().includes(query));
+            const byGroup = new Map();
+            for (const variable of items) {
+                const label = variable.group ? `${variable.group} Numbers` : 'Custom Numbers';
+                if (!byGroup.has(label)) byGroup.set(label, []);
+                byGroup.get(label).push(variable);
+            }
+            dialog.querySelector('#sp-list').innerHTML = [...byGroup.entries()].map(([label, list]) =>
+                `<h4>${esc(label)}</h4>` + list.map(variable =>
+                    `<button type="button" data-token="var.${esc(variable.name)}"><span>${esc(variable.name)}</span><code>{{var.${esc(variable.name)}}}</code><span class="preview">${esc(variable.value)}</span></button>`
+                ).join('')
+            ).join('')
+                || '<p class="hint">No Number variables match. Create one in <a href="/tools/placeholders.html#variables" target="_blank" rel="noopener">Variables</a>.</p>';
             return;
         }
 
