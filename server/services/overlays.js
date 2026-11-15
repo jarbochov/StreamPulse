@@ -1660,11 +1660,43 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
                 elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${escapeXml(shapeFill)}"${strokeAttr}${opacityAttr}${transform} />`);
             }
         } else if (el.type === 'cutout') {
-            elementsSvg.push(`<g${opacityAttr}${transform}>
-                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(239, 68, 68, 0.08)" stroke="#ef4444" stroke-width="2" stroke-dasharray="6,4" />
-                <rect x="${x + 6}" y="${y + 6}" width="64" height="20" rx="3" fill="#ef4444" />
-                <text x="${x + 38}" y="${y + 20}" fill="#ffffff" font-family="-apple-system, system-ui, sans-serif" font-size="10" font-weight="700" text-anchor="middle" letter-spacing="0.05em">CUTOUT</text>
-            </g>`);
+            const maskId = `cutout-mask-${idx}`;
+            const shape = el.cutout?.shape || 'rect';
+            const cutoutShape = shape === 'circle' || shape === 'ellipse'
+                ? `<ellipse cx="${x + w / 2}" cy="${y + h / 2}" rx="${w / 2}" ry="${h / 2}" fill="#000000" />`
+                : `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="#000000" />`;
+            defs.push(`<mask id="${maskId}">
+                <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff" />
+                <g${transform}>${cutoutShape}</g>
+            </mask>`);
+            const under = elementsSvg.splice(0, elementsSvg.length);
+            if (under.length) {
+                elementsSvg.push(`<g mask="url(#${maskId})">\n    ${under.join('\n    ')}\n    </g>`);
+            }
+        } else if (el.type === 'image-group' || (el.type === 'image' && el.imageGroup?.enabled === true)) {
+            if (bgFill !== 'none') elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${escapeXml(bgFill)}"${strokeAttr}${opacityAttr}${transform} />`);
+            const gs = el.imageGroup || el.groupStrip || {};
+            const count = Math.min(4, Math.max(2, Number(gs.maxItems || gs.limit) || 3));
+            const vertical = gs.direction === 'vertical' || gs.layout === 'vertical' || (h > w * 1.15);
+            const gap = Math.min(18, Number(gs.gap) || 10);
+            const pad = 10;
+            const showAvatar = gs.showImage !== false;
+            const cardBg = escapeXml(gs.cardBackground || style.cardBackground || 'rgba(15, 23, 42, 0.85)');
+            const cardAccent = escapeXml(gs.accentColor || style.accentColor || '#7c5cff');
+            const cardW = vertical ? Math.max(40, w - pad * 2) : Math.max(40, (w - pad * 2 - gap * (count - 1)) / count);
+            const cardH = vertical ? Math.max(28, (h - pad * 2 - gap * (count - 1)) / count) : Math.max(36, h - pad * 2);
+            const cards = Array.from({ length: count }, (_, i) => {
+                const cx = vertical ? x + pad : x + pad + i * (cardW + gap);
+                const cy = vertical ? y + pad + i * (cardH + gap) : y + pad;
+                const avSize = showAvatar ? Math.min(28, cardH * 0.55, cardW * 0.28) : 0;
+                const textX = showAvatar ? cx + 18 + avSize : cx + 12;
+                const textW = Math.max(16, showAvatar ? cardW - avSize - 28 : cardW - 24);
+                return `<rect x="${cx}" y="${cy}" width="${cardW}" height="${cardH}" rx="8" fill="${cardBg}" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+                    ${showAvatar ? `<circle cx="${cx + 10 + avSize / 2}" cy="${cy + cardH / 2}" r="${avSize / 2}" fill="${cardAccent}" opacity="0.85" />` : ''}
+                    <rect x="${textX}" y="${cy + cardH / 2 - 7}" width="${textW}" height="6" rx="3" fill="rgba(255,255,255,0.75)" />
+                    <rect x="${textX}" y="${cy + cardH / 2 + 3}" width="${Math.max(12, textW * 0.65)}" height="4" rx="2" fill="rgba(255,255,255,0.35)" />`;
+            }).join('');
+            elementsSvg.push(`<g${opacityAttr}${transform}>${cards}</g>`);
         } else if (el.type === 'image') {
             let href = el.src || '';
             if (customOverlayAssetsDir && href.startsWith('/custom-overlay-assets/')) {
@@ -1705,36 +1737,56 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
             if (bgFill !== 'none') {
                 elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${escapeXml(bgFill)}"${opacityAttr}${transform} />`);
             }
-            const rawContent = el.content || (el.items && el.items.length ? el.items[0] : '') || el.name || '';
+            let rawContent = el.content || (el.items && el.items.length ? el.items[0] : '') || el.name || '';
             if (rawContent) {
+                // Resolve {{var|fallback}} tokens to their fallback text for cleaner static previews
+                rawContent = String(rawContent).replace(/\{\{[^|}]+\|([^}]+)\}\}/g, '$1');
+                if (el.type === 'markdown') {
+                    rawContent = rawContent
+                        .replace(/^#{1,6}\s+/gm, '')
+                        .replace(/\*\*(.*?)\*\*/g, '$1')
+                        .replace(/__(.*?)__/g, '$1')
+                        .replace(/\*(.*?)\*/g, '$1')
+                        .replace(/`([^`]+)`/g, '$1');
+                }
+                const transformMode = style.textTransform || 'none';
+                if (transformMode === 'uppercase') rawContent = rawContent.toUpperCase();
+                else if (transformMode === 'lowercase') rawContent = rawContent.toLowerCase();
+                else if (transformMode === 'capitalize') rawContent = rawContent.replace(/\b\w/g, c => c.toUpperCase());
+
                 const fontSize = Math.max(10, Math.min(180, Number(style.fontSize) || 24));
                 const fontFamily = style.fontFamily ? style.fontFamily.replace(/['"]/g, '') : '-apple-system, system-ui, sans-serif';
                 const textColor = style.color || '#ffffff';
                 const textAlign = style.textAlign || 'left';
                 const fontWeight = style.fontWeight || '400';
+                const fontStyleAttr = style.fontStyle === 'italic' ? ' font-style="italic"' : '';
+                const letterSpacingAttr = style.letterSpacing ? ` letter-spacing="${escapeXml(String(style.letterSpacing))}"` : '';
+                const pad = Number(style.padding) >= 0 ? Number(style.padding) : 12;
 
                 let textAnchor = 'start';
-                let tx = x + 12;
+                let tx = x + pad;
                 if (textAlign === 'center') {
                     textAnchor = 'middle';
                     tx = x + w / 2;
                 } else if (textAlign === 'right') {
                     textAnchor = 'end';
-                    tx = x + w - 12;
+                    tx = x + w - pad;
                 }
 
-                const lines = String(rawContent).split('\n').slice(0, 8);
+                const lines = rawContent.split('\n').slice(0, 8);
                 const lineHeight = fontSize * 1.25;
                 const totalTextH = lines.length * lineHeight;
                 let ty = y + (h - totalTextH) / 2 + fontSize * 0.88;
                 if (style.verticalAlign === 'top') {
-                    ty = y + fontSize * 0.9 + 8;
+                    ty = y + fontSize * 0.9 + pad;
                 } else if (style.verticalAlign === 'bottom') {
-                    ty = y + h - totalTextH + fontSize * 0.9 - 8;
+                    ty = y + h - totalTextH + fontSize * 0.9 - pad;
                 }
 
+                const textClipId = `tclip-${escapeXml(el.id || idx)}`;
+                defs.push(`<clipPath id="${textClipId}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" /></clipPath>`);
                 const tspans = lines.map((line, i) => `<tspan x="${tx}" dy="${i === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`).join('');
-                elementsSvg.push(`<text x="${tx}" y="${ty}" fill="${escapeXml(textColor)}" font-family="${escapeXml(fontFamily)}" font-size="${fontSize}" font-weight="${escapeXml(fontWeight)}" text-anchor="${textAnchor}"${opacityAttr}${transform}>${tspans}</text>`);
+                elementsSvg.push(`<g clip-path="url(#${textClipId})"${opacityAttr}${transform}><text x="${tx}" y="${ty}" fill="${escapeXml(textColor)}" font-family="${escapeXml(fontFamily)}" font-size="${fontSize}" font-weight="${escapeXml(fontWeight)}"${fontStyleAttr}${letterSpacingAttr} text-anchor="${textAnchor}">${tspans}</text></g>`);
             }
             const borderSvg = renderBorderOverlay();
             if (borderSvg) elementsSvg.push(borderSvg);
@@ -1791,11 +1843,109 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
                 </g>`);
             }
         } else if (el.type === 'pattern' || el.type === 'procedural-pattern') {
-            const patternTitle = el.type === 'procedural-pattern' ? `Pattern (${escapeXml(el.pattern?.preset || 'Hexagons')})` : `Pattern (${escapeXml(el.pattern?.layout || 'Grid')})`;
+            const patId = `pat-${escapeXml(el.id || idx)}`;
+            const pat = el.pattern || {};
+            const preset = String(pat.preset || pat.layout || 'hexagons').toLowerCase();
+            const pColor = escapeXml(pat.color || style.color || '#7c5cff');
+            const pColor2 = escapeXml(pat.color2 || 'rgba(255,255,255,0.22)');
+            const tileSize = Math.max(20, Math.min(96, Number(pat.size) || 40));
+            const half = tileSize / 2;
+            let patContent = `<circle cx="${half}" cy="${half}" r="${Math.max(2, tileSize * 0.14)}" fill="${pColor}" opacity="0.65" />`;
+            if (preset.includes('checker')) {
+                patContent = `<rect width="${half}" height="${half}" fill="${pColor}" opacity="0.45"/><rect x="${half}" y="${half}" width="${half}" height="${half}" fill="${pColor}" opacity="0.45"/>`;
+            } else if (preset.includes('diamond')) {
+                patContent = `<polygon points="${half},2 ${tileSize - 2},${half} ${half},${tileSize - 2} 2,${half}" fill="none" stroke="${pColor}" stroke-width="1.5" opacity="0.65"/>`;
+            } else if (preset.includes('triangle')) {
+                patContent = `<polygon points="${half},3 ${tileSize - 3},${tileSize - 3} 3,${tileSize - 3}" fill="none" stroke="${pColor}" stroke-width="1.5" opacity="0.65"/>`;
+            } else if (preset.includes('chevron')) {
+                patContent = `<polyline points="0,${half} ${half},4 ${tileSize},${half}" fill="none" stroke="${pColor}" stroke-width="2" opacity="0.6"/>`;
+            } else if (preset.includes('hex') || preset.includes('scale') || preset.includes('circuit')) {
+                patContent = `<polygon points="${half},2 ${tileSize - 3},${tileSize * 0.28} ${tileSize - 3},${tileSize * 0.72} ${half},${tileSize - 2} 3,${tileSize * 0.72} 3,${tileSize * 0.28}" fill="none" stroke="${pColor}" stroke-width="1.5" opacity="0.6"/><circle cx="${half}" cy="${half}" r="2.2" fill="${pColor2}"/>`;
+            } else if (preset.includes('grid')) {
+                patContent = `<path d="M ${tileSize} 0 L 0 0 0 ${tileSize}" fill="none" stroke="${pColor}" stroke-width="1.2" opacity="0.5"/>`;
+            } else if (preset.includes('star') || preset.includes('confetti')) {
+                patContent = `<polygon points="${half},${tileSize * 0.15} ${half + 2.5},${half - 2.5} ${tileSize * 0.85},${half} ${half + 2.5},${half + 2.5} ${half},${tileSize * 0.85} ${half - 2.5},${half + 2.5} ${tileSize * 0.15},${half} ${half - 2.5},${half - 2.5}" fill="${pColor}" opacity="0.75"/><circle cx="${tileSize * 0.2}" cy="${tileSize * 0.22}" r="1.5" fill="${pColor2}"/>`;
+            }
+            defs.push(`<pattern id="${patId}" width="${tileSize}" height="${tileSize}" patternUnits="userSpaceOnUse">${patContent}</pattern>`);
             elementsSvg.push(`<g${opacityAttr}${transform}>
-                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : '#1e1b4b'}" stroke="${borderWidth > 0 && borderStroke ? escapeXml(borderStroke) : 'rgba(167, 139, 250, 0.3)'}" stroke-width="${Math.max(1, borderWidth)}"${strokeDashAttr} />
-                <text x="${x + w / 2}" y="${y + h / 2 + 4}" fill="#c4b5fd" font-family="-apple-system, system-ui, sans-serif" font-size="13" font-weight="600" text-anchor="middle">${patternTitle}</text>
+                ${bgFill !== 'none' ? `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${escapeXml(bgFill)}" />` : ''}
+                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="url(#${patId})"${strokeAttr} />
             </g>`);
+        } else if (el.type === 'slideshow') {
+            const firstItem = Array.isArray(el.items) && el.items.length ? el.items[0] : null;
+            let href = (firstItem && (firstItem.src || firstItem.url)) || el.src || '';
+            if (customOverlayAssetsDir && href.startsWith('/custom-overlay-assets/')) {
+                const filename = href.replace('/custom-overlay-assets/', '');
+                const filePath = path.join(customOverlayAssetsDir, filename);
+                try {
+                    const stats = fs.statSync(filePath);
+                    if (stats.size > 0 && stats.size <= 50 * 1024 * 1024) {
+                        const ext = path.extname(filename).toLowerCase().replace('.', '');
+                        const mime = ext === 'svg' ? 'image/svg+xml' : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : 'image/png';
+                        href = `data:${mime};base64,${fs.readFileSync(filePath).toString('base64')}`;
+                    }
+                } catch {}
+            }
+            if (bgFill !== 'none') elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${escapeXml(bgFill)}"${opacityAttr}${transform} />`);
+            if (href) {
+                let clipAttr = '';
+                if (rx > 0) {
+                    const clipId = `clip-${escapeXml(el.id || idx)}`;
+                    defs.push(`<clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" /></clipPath>`);
+                    clipAttr = ` clip-path="url(#${clipId})"`;
+                }
+                const fit = style.objectFit === 'contain' ? 'meet' : 'slice';
+                elementsSvg.push(`<image href="${escapeXml(href)}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid ${fit}"${clipAttr}${opacityAttr}${transform} />`);
+            } else {
+                elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.18)" stroke-width="1"${opacityAttr}${transform} />`);
+            }
+            const borderSvg = renderBorderOverlay();
+            if (borderSvg) elementsSvg.push(borderSvg);
+        } else if (['timer', 'stopwatch', 'countdown'].includes(el.type)) {
+            if (bgFill !== 'none' || borderWidth > 0) {
+                elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${escapeXml(bgFill)}"${strokeAttr}${opacityAttr}${transform} />`);
+            }
+            const fontSize = Math.max(14, Math.min(120, Number(style.fontSize) || Math.min(h * 0.55, 42)));
+            const textColor = escapeXml(style.color || '#ffffff');
+            const fontFamily = escapeXml(style.fontFamily ? style.fontFamily.replace(/['"]/g, '') : 'ui-monospace, Menlo, monospace');
+            const sampleTime = el.type === 'stopwatch' ? '01:23:45' : '00:05:00';
+            elementsSvg.push(`<text x="${x + w / 2}" y="${y + h / 2 + fontSize * 0.35}" fill="${textColor}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="${escapeXml(style.fontWeight || '700')}" text-anchor="middle"${opacityAttr}${transform}>${sampleTime}</text>`);
+        } else if (el.type === 'chat' || el.type === 'recent-events') {
+            elementsSvg.push(`<g${opacityAttr}${transform}>
+                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : 'rgba(13, 17, 23, 0.78)'}"${strokeAttr} />
+                ${[0, 1, 2].map(i => {
+                    const ry = y + 14 + i * Math.min(34, (h - 24) / 3);
+                    const badgeC = ['#7c5cff', '#3fb950', '#38bdf8'][i];
+                    return ry + 16 < y + h ? `<rect x="${x + 12}" y="${ry}" width="${Math.min(54, w * 0.25)}" height="12" rx="4" fill="${badgeC}" opacity="0.85" />
+                        <rect x="${x + 18 + Math.min(54, w * 0.25)}" y="${ry + 2}" width="${Math.max(20, (w - 92) * (0.85 - i * 0.15))}" height="8" rx="4" fill="rgba(255,255,255,0.55)" />` : '';
+                }).join('')}
+            </g>`);
+        } else if (el.type === 'music') {
+            const artSize = Math.max(24, Math.min(h - 16, w * 0.35, 80));
+            elementsSvg.push(`<g${opacityAttr}${transform}>
+                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : 'rgba(15, 23, 42, 0.85)'}"${strokeAttr} />
+                <rect x="${x + 10}" y="${y + (h - artSize) / 2}" width="${artSize}" height="${artSize}" rx="6" fill="rgba(124, 92, 255, 0.35)" />
+                <rect x="${x + artSize + 20}" y="${y + h / 2 - 10}" width="${Math.max(30, w - artSize - 34)}" height="8" rx="4" fill="rgba(255,255,255,0.8)" />
+                <rect x="${x + artSize + 20}" y="${y + h / 2 + 4}" width="${Math.max(20, (w - artSize - 34) * 0.6)}" height="6" rx="3" fill="rgba(255,255,255,0.45)" />
+            </g>`);
+        } else if (el.type === 'speaker-badge') {
+            const horiz = w > h * 1.8;
+            if (horiz) {
+                const avR = Math.max(10, Math.min(h * 0.34, 24));
+                elementsSvg.push(`<g${opacityAttr}${transform}>
+                    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx || 10}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : 'rgba(15, 23, 42, 0.85)'}"${strokeAttr} />
+                    <circle cx="${x + 16 + avR}" cy="${y + h / 2}" r="${avR}" fill="rgba(124, 92, 255, 0.35)" stroke="#3fb950" stroke-width="2" />
+                    <rect x="${x + 28 + avR * 2}" y="${y + h / 2 - 9}" width="${Math.max(30, w - avR * 2 - 48)}" height="7" rx="3.5" fill="rgba(255,255,255,0.85)" />
+                    <rect x="${x + 28 + avR * 2}" y="${y + h / 2 + 3}" width="${Math.max(20, (w - avR * 2 - 48) * 0.55)}" height="5" rx="2.5" fill="rgba(255,255,255,0.45)" />
+                </g>`);
+            } else {
+                const avR = Math.max(12, Math.min(w, h) * 0.32);
+                elementsSvg.push(`<g${opacityAttr}${transform}>
+                    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : 'rgba(15, 23, 42, 0.82)'}"${strokeAttr} />
+                    <circle cx="${x + w / 2}" cy="${y + h * 0.42}" r="${avR}" fill="rgba(124, 92, 255, 0.35)" stroke="#7c5cff" stroke-width="2.5" />
+                    <rect x="${x + w * 0.2}" y="${y + h * 0.76}" width="${w * 0.6}" height="8" rx="4" fill="rgba(255,255,255,0.8)" />
+                </g>`);
+            }
         } else if (el.type === 'game-list') {
             elementsSvg.push(`<g${opacityAttr}${transform}>
                 <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : 'rgba(15, 23, 42, 0.8)'}" stroke="${borderWidth > 0 && borderStroke ? escapeXml(borderStroke) : '#3fb950'}" stroke-width="${Math.max(1, borderWidth)}"${strokeDashAttr} />
@@ -1811,19 +1961,25 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
                 <text x="${x + w * .03}" y="${y + h * .17}" fill="${escapeXml(style.color || '#fff')}" font-family="sans-serif" font-size="${h * .1}" font-weight="700">Poll question</text>
                 ${[.65, .25, .1].map((fraction, i) => `<rect x="${x + w * .03}" y="${y + h * .3 + i * rowHeight}" width="${w * .94 * fraction}" height="${h * .05}" rx="2" fill="${accent}" />`).join('')}
             </g>`);
-        } else if (el.type === 'progress') {
+        } else if (el.type === 'progress' || el.type === 'goal') {
             elementsSvg.push(`<g${opacityAttr}${transform}>
                 <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : 'rgba(15, 23, 42, 0.6)'}" stroke="${borderWidth > 0 && borderStroke ? escapeXml(borderStroke) : 'rgba(255,255,255,0.15)'}" stroke-width="${Math.max(1, borderWidth)}"${strokeDashAttr} />
                 <rect x="${x + 8}" y="${y + h / 2 - 4}" width="${w - 16}" height="8" rx="4" fill="rgba(255,255,255,0.18)" />
                 <rect x="${x + 8}" y="${y + h / 2 - 4}" width="${(w - 16) * 0.65}" height="8" rx="4" fill="#3fb950" />
-                <text x="${x + w / 2}" y="${y + h / 2 - 10}" fill="#ffffff" font-family="-apple-system, system-ui, sans-serif" font-size="11" font-weight="600" text-anchor="middle">65%</text>
+                <text x="${x + w / 2}" y="${y + h / 2 - 10}" fill="#ffffff" font-family="-apple-system, system-ui, sans-serif" font-size="11" font-weight="600" text-anchor="middle">${el.type === 'goal' ? 'Goal · 65%' : '65%'}</text>
             </g>`);
         } else if (el.type === 'qr') {
+            const m = Math.max(6, Math.min(w, h) * 0.08);
+            const f = Math.max(8, Math.min(w, h) * 0.26);
             elementsSvg.push(`<g${opacityAttr}${transform}>
                 <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="#ffffff" stroke="${borderWidth > 0 && borderStroke ? escapeXml(borderStroke) : 'none'}" stroke-width="${borderWidth}"${strokeDashAttr} />
-                <rect x="${x + 8}" y="${y + 8}" width="${w / 3}" height="${h / 3}" fill="#000000" />
-                <rect x="${x + w - 8 - w / 3}" y="${y + 8}" width="${w / 3}" height="${h / 3}" fill="#000000" />
-                <rect x="${x + 8}" y="${y + h - 8 - h / 3}" width="${w / 3}" height="${h / 3}" fill="#000000" />
+                <rect x="${x + m}" y="${y + m}" width="${f}" height="${f}" fill="none" stroke="#000" stroke-width="${Math.max(2, f * 0.14)}" />
+                <rect x="${x + m + f * 0.28}" y="${y + m + f * 0.28}" width="${f * 0.44}" height="${f * 0.44}" fill="#000" />
+                <rect x="${x + w - m - f}" y="${y + m}" width="${f}" height="${f}" fill="none" stroke="#000" stroke-width="${Math.max(2, f * 0.14)}" />
+                <rect x="${x + w - m - f * 0.72}" y="${y + m + f * 0.28}" width="${f * 0.44}" height="${f * 0.44}" fill="#000" />
+                <rect x="${x + m}" y="${y + h - m - f}" width="${f}" height="${f}" fill="none" stroke="#000" stroke-width="${Math.max(2, f * 0.14)}" />
+                <rect x="${x + m + f * 0.28}" y="${y + h - m - f * 0.72}" width="${f * 0.44}" height="${f * 0.44}" fill="#000" />
+                <rect x="${x + w * 0.45}" y="${y + h * 0.45}" width="${f * 0.35}" height="${f * 0.35}" fill="#000" />
             </g>`);
         } else {
             if (bgFill !== 'none' || borderWidth > 0) {

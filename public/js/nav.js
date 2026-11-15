@@ -163,14 +163,32 @@
         '/milestone-url-wizard.html': '/analytics.html'
     };
 
+    const explicitHashTargets = new Set();
+    (function collectHashTargets(items) {
+        for (const item of items) {
+            if (item.href && item.href.includes('#')) {
+                const [p, h] = item.href.split('#');
+                explicitHashTargets.add(`${p.split('?')[0]}#${h}`);
+            }
+            if (Array.isArray(item.children)) collectHashTargets(item.children);
+        }
+    })(nav);
+
     function isActive(href) {
         if (!href) return false;
+        const hashIdx = href.indexOf('#');
+        const hrefHash = hashIdx >= 0 ? href.slice(hashIdx) : '';
         const cleanHref = href.split('?')[0].split('#')[0];
         const cleanCurrent = currentPath.split('?')[0].split('#')[0];
-        if (cleanCurrent === cleanHref) return true;
-        if (pageParentMap[cleanCurrent] === cleanHref) return true;
+        const currentHash = window.location.hash || '';
         const rootCurrent = cleanCurrent.replace(/^\/(?:system|tools|editors|wizards|library|overlays)\//, '/');
-        if (rootCurrent === cleanHref) return true;
+        const pathMatches = cleanCurrent === cleanHref || rootCurrent === cleanHref;
+        if (pathMatches) {
+            if (hrefHash) return currentHash === hrefHash;
+            if (currentHash && explicitHashTargets.has(`${cleanHref}${currentHash}`)) return false;
+            return true;
+        }
+        if (pageParentMap[cleanCurrent] === cleanHref) return true;
         if (pageParentMap[rootCurrent] === cleanHref) return true;
         return false;
     }
@@ -590,6 +608,14 @@
         // Theme toggle
         html += `<a href="#" id="nav-theme-toggle" title="Switch light / dark" style="padding:0.4rem 0.6rem;"></a>`;
         container.innerHTML = html;
+
+        const syncHashActive = () => {
+            container.querySelectorAll('.dropdown-menu a[href], :scope > a[href]:not(.nav-status-pill)').forEach(link => {
+                const href = link.getAttribute('href');
+                if (href && href !== '#') link.classList.toggle('active', isActive(href));
+            });
+        };
+        window.addEventListener('hashchange', syncHashActive);
 
         // Command palette click
         document.getElementById('nav-cmd-k')?.addEventListener('click', openCommandPalette);
