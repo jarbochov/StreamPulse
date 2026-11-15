@@ -1108,6 +1108,8 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
                 if (!f || typeof f !== 'object') return null;
                 const key = normKey(f.key);
                 if (!key) return null;
+                const rawIcon = String(f.icon || '').trim().replace(/^fab\b/, 'fa-brands').replace(/^fas\b/, 'fa-solid').replace(/^far\b/, 'fa-regular').replace(/\s+/g, ' ').slice(0, 80);
+                const icon = rawIcon === 'none' ? 'none' : (/^[a-z0-9 -]+$/i.test(rawIcon) && /\bfa-[a-z0-9-]+/i.test(rawIcon) ? rawIcon : '');
                 return {
                     key,
                     kind: ['auto', 'text', 'image'].includes(f.kind) ? f.kind : 'auto',
@@ -1118,6 +1120,7 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
                     inline: f.inline === true,
                     prefix: String(f.prefix || '').slice(0, 24),
                     suffix: String(f.suffix || '').slice(0, 24),
+                    icon,
                     sizeScale: Math.max(50, Math.min(200, Math.round(Number(f.sizeScale) || 100))),
                     fontSize: optNum(f.fontSize, 8, 96),
                     padX: optNum(f.padX, 0, 32),
