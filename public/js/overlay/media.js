@@ -380,7 +380,11 @@ function createStyledFieldNode(spec, text, ctx) {
     if (st.textAnimation?.type && st.textAnimation.type !== 'none') {
         span.style.overflow = 'visible';
         span.style.textOverflow = 'clip';
-        applyTextAnimation(span, st, 'text');
+        const animKey = `${ctx.itemId || ''}:${spec.key || ''}:${text}:${st.textAnimation.type}:${st.textAnimation.mode || 'loop'}:${st.textAnimation.speed ?? ''}:${st.textAnimation.intensity ?? ''}:${st.textAnimation.delay ?? ''}`;
+        if (!(st.textAnimation.mode === 'once' && ctx.playedOnce?.has(animKey))) {
+            if (st.textAnimation.mode === 'once') ctx.playedOnce?.add(animKey);
+            applyTextAnimation(span, st, 'text');
+        }
     }
     return span;
 }
@@ -442,7 +446,9 @@ function buildGroupMetaContainer(renderedFields, ctx) {
     textWrap.style.flexDirection = 'column';
     textWrap.style.gap = `${fieldGap}px`;
     textWrap.style.minWidth = '0';
+    textWrap.style.maxWidth = '100%';
     if (stretchMain) textWrap.style.flex = '1 1 auto';
+    else textWrap.style.flex = '0 1 auto';
 
     const effectiveAlign = ctx.slotAlign || (alignMode !== 'auto'
         ? alignMode
@@ -483,6 +489,7 @@ function buildGroupMetaContainer(renderedFields, ctx) {
                 inlineRow.style.flexWrap = 'wrap';
                 inlineRow.style.alignItems = 'center';
                 inlineRow.style.gap = '6px';
+                inlineRow.style.maxWidth = '100%';
                 const rowAlign = spec.align !== 'auto' ? spec.align : effectiveAlign;
                 inlineRow.style.justifyContent = alignToFlex(rowAlign);
                 textWrap.appendChild(inlineRow);
@@ -703,12 +710,13 @@ function renderImageGroupStrip(container, element, status, options = {}) {
 
     const useCssGrid = (layout === 'grid') || (columns > 0 && wrapItems && layout !== 'overlap' && layout !== 'column' && layout !== 'banners');
     if (useCssGrid) {
+        const hasWideGridCard = cfg.showLabels === true && (cfg.labelPosition === 'left' || cfg.labelPosition === 'right' || cfg.cardFrame === true);
         wrap.style.display = 'grid';
         wrap.style.gridTemplateColumns = columns > 0
             ? `repeat(${columns}, minmax(0, 1fr))`
             : widthMode === 'fixed'
                 ? `repeat(auto-fill, ${cardWidthPx}px)`
-                : `repeat(auto-fill, minmax(${Math.max(48, baseSize)}px, 1fr))`;
+                : `repeat(auto-fill, minmax(${Math.max(hasWideGridCard ? 140 : 48, baseSize)}px, 1fr))`;
         wrap.style.columnGap = `${gap}px`;
         wrap.style.rowGap = `${rowGap}px`;
         wrap.style.justifyItems = st.textAlign === 'center' ? 'center' : st.textAlign === 'right' ? 'end' : 'start';
@@ -734,6 +742,7 @@ function renderImageGroupStrip(container, element, status, options = {}) {
     }
 
     const deferredRingCards = [];
+    const playedOnce = container._onceTextAnimPlayed || (container._onceTextAnimPlayed = new Set());
 
     items.forEach((item, idx) => {
         const isSpotlightLead = layout === 'spotlight' && idx === 0;
@@ -776,6 +785,10 @@ function renderImageGroupStrip(container, element, status, options = {}) {
         if (layout === 'stagger' && idx % 2 === 1 && staggerOffset > 0) card.style.marginTop = `${staggerOffset}px`;
         if (widthMode === 'full') card.style.width = '100%';
         else if (widthMode === 'fixed') card.style.width = `${cardWidthPx}px`;
+        else {
+            card.style.width = 'max-content';
+            card.style.maxWidth = '100%';
+        }
         if (cardMinHeight > 0) card.style.minHeight = `${cardMinHeight}px`;
 
         if (isFramed) {
@@ -858,6 +871,7 @@ function renderImageGroupStrip(container, element, status, options = {}) {
                 ? createStyledImageFieldNode(resolvedSpec, resolvedVal, { isSpotlightLead })
                 : createStyledFieldNode(resolvedSpec, resolvedVal, {
                     st, baseSize: baseSizePx, isSpotlightLead, cfg: memberCfg, status,
+                    itemId: item.id, playedOnce,
                     labelIdx: resolvedSpec.role === 'title' ? labelCount++ : -1,
                     subIdx: resolvedSpec.role === 'subtitle' ? subCount++ : -1
                 });
@@ -869,11 +883,9 @@ function renderImageGroupStrip(container, element, status, options = {}) {
         });
 
         const stretchMain = widthMode === 'full' || widthMode === 'fixed';
-        const unframedCompactCap = (!horizontalItem && !inside && !isFramed && widthMode === 'auto' && cfg.textWrap !== 'wrap')
-            ? Math.max(dims.w + 36, 120) : 0;
         const metaCtx = {
             alignMode, horizontalItem, inside, labelPosition, fieldGap, labelBg,
-            maxTextW: unframedCompactCap, stretchMain: horizontalItem && stretchMain
+            maxTextW: 0, stretchMain: horizontalItem && stretchMain
         };
 
         const appendCoreParts = (rowHost, stackColumnFirst = false) => {

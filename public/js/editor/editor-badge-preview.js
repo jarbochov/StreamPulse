@@ -6,6 +6,7 @@ export function disposeBadgePreview(host) {
     if (host) {
         host._badgePreviewObserver = null;
         host._badgePreviewFrame = 0;
+        host._onceTextAnimPlayed = null;
         shared.cleanupNode?.(host);
     }
 }

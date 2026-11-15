@@ -1839,11 +1839,19 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     if (animType === "none" || type === "speaker-badge") {
       stopTextAnimation(node, true);
       delete node.dataset.textAnim;
+      delete node.dataset.textAnimOnceSig;
       return;
     }
     ensureTextAnimKeyframes();
     const speed = Math.max(0.3, Math.min(30, Number(anim.speed) || 3));
     const intensity = Math.max(10, Math.min(100, Number(anim.intensity) || 50)) / 100;
+    const animSourceText = node.dataset.textAnimSource ?? node.textContent ?? "";
+    const animSig = `${animType}|${playMode}|${speed}|${intensity}|${delay}|${useGrad ? 1 : 0}|${animSourceText}`;
+    if (playMode === "once" && node.dataset.textAnimOnceSig === animSig && node.dataset.textAnim === animType) {
+      return;
+    }
+    if (playMode === "once") node.dataset.textAnimOnceSig = animSig;
+    else delete node.dataset.textAnimOnceSig;
     node.dataset.textAnim = animType;
     node.style.setProperty("--sp-ta-scale", (1 + intensity * 0.14).toFixed(3));
     node.style.setProperty("--sp-ta-dist", `${Math.round(3 + intensity * 12)}px`);
@@ -4056,7 +4064,11 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     if (st.textAnimation?.type && st.textAnimation.type !== "none") {
       span.style.overflow = "visible";
       span.style.textOverflow = "clip";
-      applyTextAnimation(span, st, "text");
+      const animKey = `${ctx.itemId || ""}:${spec.key || ""}:${text}:${st.textAnimation.type}:${st.textAnimation.mode || "loop"}:${st.textAnimation.speed ?? ""}:${st.textAnimation.intensity ?? ""}:${st.textAnimation.delay ?? ""}`;
+      if (!(st.textAnimation.mode === "once" && ctx.playedOnce?.has(animKey))) {
+        if (st.textAnimation.mode === "once") ctx.playedOnce?.add(animKey);
+        applyTextAnimation(span, st, "text");
+      }
     }
     return span;
   }
@@ -4116,7 +4128,9 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     textWrap.style.flexDirection = "column";
     textWrap.style.gap = `${fieldGap}px`;
     textWrap.style.minWidth = "0";
+    textWrap.style.maxWidth = "100%";
     if (stretchMain) textWrap.style.flex = "1 1 auto";
+    else textWrap.style.flex = "0 1 auto";
     const effectiveAlign = ctx.slotAlign || (alignMode !== "auto" ? alignMode : horizontalItem ? ctx.labelPosition === "left" ? "right" : "left" : "center");
     textWrap.style.alignItems = alignToFlex(effectiveAlign);
     textWrap.style.textAlign = effectiveAlign;
@@ -4148,6 +4162,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           inlineRow.style.flexWrap = "wrap";
           inlineRow.style.alignItems = "center";
           inlineRow.style.gap = "6px";
+          inlineRow.style.maxWidth = "100%";
           const rowAlign = spec.align !== "auto" ? spec.align : effectiveAlign;
           inlineRow.style.justifyContent = alignToFlex(rowAlign);
           textWrap.appendChild(inlineRow);
@@ -4349,8 +4364,9 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     wrap.style.boxSizing = "border-box";
     const useCssGrid = layout === "grid" || columns > 0 && wrapItems && layout !== "overlap" && layout !== "column" && layout !== "banners";
     if (useCssGrid) {
+      const hasWideGridCard = cfg.showLabels === true && (cfg.labelPosition === "left" || cfg.labelPosition === "right" || cfg.cardFrame === true);
       wrap.style.display = "grid";
-      wrap.style.gridTemplateColumns = columns > 0 ? `repeat(${columns}, minmax(0, 1fr))` : widthMode === "fixed" ? `repeat(auto-fill, ${cardWidthPx}px)` : `repeat(auto-fill, minmax(${Math.max(48, baseSize)}px, 1fr))`;
+      wrap.style.gridTemplateColumns = columns > 0 ? `repeat(${columns}, minmax(0, 1fr))` : widthMode === "fixed" ? `repeat(auto-fill, ${cardWidthPx}px)` : `repeat(auto-fill, minmax(${Math.max(hasWideGridCard ? 140 : 48, baseSize)}px, 1fr))`;
       wrap.style.columnGap = `${gap}px`;
       wrap.style.rowGap = `${rowGap}px`;
       wrap.style.justifyItems = st.textAlign === "center" ? "center" : st.textAlign === "right" ? "end" : "start";
@@ -4375,6 +4391,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       if (wrapItems) wrap.style.alignContent = alignV;
     }
     const deferredRingCards = [];
+    const playedOnce = container._onceTextAnimPlayed || (container._onceTextAnimPlayed = /* @__PURE__ */ new Set());
     items.forEach((item, idx) => {
       const isSpotlightLead = layout === "spotlight" && idx === 0;
       const itemSize = isSpotlightLead ? Math.min(400, Math.round(baseSize * spotlightScale)) : baseSize;
@@ -4410,6 +4427,10 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       if (layout === "stagger" && idx % 2 === 1 && staggerOffset > 0) card.style.marginTop = `${staggerOffset}px`;
       if (widthMode === "full") card.style.width = "100%";
       else if (widthMode === "fixed") card.style.width = `${cardWidthPx}px`;
+      else {
+        card.style.width = "max-content";
+        card.style.maxWidth = "100%";
+      }
       if (cardMinHeight > 0) card.style.minHeight = `${cardMinHeight}px`;
       if (isFramed) {
         if (cfg.cardGradient?.enabled) {
@@ -4510,6 +4531,8 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           isSpotlightLead,
           cfg: memberCfg,
           status,
+          itemId: item.id,
+          playedOnce,
           labelIdx: resolvedSpec.role === "title" ? labelCount++ : -1,
           subIdx: resolvedSpec.role === "subtitle" ? subCount++ : -1
         });
@@ -4520,7 +4543,6 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         (slotBuckets[slot] || slotBuckets.main).push({ spec: resolvedSpec, node });
       });
       const stretchMain = widthMode === "full" || widthMode === "fixed";
-      const unframedCompactCap = !horizontalItem && !inside && !isFramed && widthMode === "auto" && cfg.textWrap !== "wrap" ? Math.max(dims.w + 36, 120) : 0;
       const metaCtx = {
         alignMode,
         horizontalItem,
@@ -4528,7 +4550,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         labelPosition,
         fieldGap,
         labelBg,
-        maxTextW: unframedCompactCap,
+        maxTextW: 0,
         stretchMain: horizontalItem && stretchMain
       };
       const appendCoreParts = (rowHost, stackColumnFirst = false) => {

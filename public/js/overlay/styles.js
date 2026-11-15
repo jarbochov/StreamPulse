@@ -1310,12 +1310,21 @@ function applyTextAnimation(node, style = {}, type = '') {
     if (animType === 'none' || type === 'speaker-badge') {
         stopTextAnimation(node, true);
         delete node.dataset.textAnim;
+        delete node.dataset.textAnimOnceSig;
         return;
     }
 
     ensureTextAnimKeyframes();
     const speed = Math.max(0.3, Math.min(30, Number(anim.speed) || 3));
     const intensity = Math.max(10, Math.min(100, Number(anim.intensity) || 50)) / 100;
+    const animSourceText = node.dataset.textAnimSource ?? node.textContent ?? '';
+    const animSig = `${animType}|${playMode}|${speed}|${intensity}|${delay}|${useGrad ? 1 : 0}|${animSourceText}`;
+    if (playMode === 'once' && node.dataset.textAnimOnceSig === animSig && node.dataset.textAnim === animType) {
+        return;
+    }
+    if (playMode === 'once') node.dataset.textAnimOnceSig = animSig;
+    else delete node.dataset.textAnimOnceSig;
+
     node.dataset.textAnim = animType;
     node.style.setProperty('--sp-ta-scale', (1 + intensity * 0.14).toFixed(3));
     node.style.setProperty('--sp-ta-dist', `${Math.round(3 + intensity * 12)}px`);
