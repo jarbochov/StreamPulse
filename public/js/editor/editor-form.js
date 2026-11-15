@@ -10,6 +10,7 @@ import {
 const ICON_COLOR_VAR = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 3h1a2 2 0 0 1 2 2v5a2 2 0 0 0 2 2 2 2 0 0 0-2 2v5a2 2 0 0 1-2 2h-1"/></svg>';
 
 function hasVariableColors(path) {
+    if (state.liveStatus?.modules?.variableSettings === false) return false;
     const vars = Array.isArray(state.liveStatus?.customVars) ? state.liveStatus.customVars : [];
     if (vars.some(v => v && v.type === 'color')) return true;
     const sets = Array.isArray(state.liveStatus?.variableSets) ? state.liveStatus.variableSets : [];
@@ -56,12 +57,17 @@ function numberBinding(path, label, value) {
     const look = lookId ? (element.alert?.looks || []).find(l => l.id === lookId) : null;
     const config = getPath(look || element, field.domain);
     const name = config?.numberBindings?.[field.key];
+    const settingsEnabled = state.liveStatus?.modules?.variableSettings !== false;
+    if (!settingsEnabled && !name) return { value, actions: '', note: '', disabled: '' };
     const resolved = shared.resolveNumericConfig(config, field.domain, state.liveStatus);
+    const pickBtn = settingsEnabled
+        ? `<button type="button" class="number-var-btn" data-number-pick="${path}" title="${name ? `Change Number binding: ${esc(name)}` : 'Bind Number variable'}" aria-label="Bind ${esc(label)} to Number variable">${ICON_COLOR_VAR}</button>`
+        : '';
     return {
         value: name ? getPath(resolved, field.key) ?? value : value,
-        disabled: name ? ' disabled' : '',
-        actions: `<span class="number-binding-actions"><button type="button" class="number-var-btn" data-number-pick="${path}" title="${name ? `Change Number binding: ${esc(name)}` : 'Bind Number variable'}" aria-label="Bind ${esc(label)} to Number variable">${ICON_COLOR_VAR}</button>${name ? `<button type="button" class="number-var-btn" data-number-unbind="${path}" title="Unlink and restore saved value" aria-label="Unlink ${esc(label)}">&times;</button>` : ''}</span>`,
-        note: name ? `<small class="number-binding-note">${esc(name)} <span> · saved value is fallback</span></small>` : ''
+        disabled: name && settingsEnabled ? ' disabled' : '',
+        actions: `<span class="number-binding-actions">${pickBtn}${name ? `<button type="button" class="number-var-btn" data-number-unbind="${path}" title="Unlink and restore saved value" aria-label="Unlink ${esc(label)}">&times;</button>` : ''}</span>`,
+        note: name ? `<small class="number-binding-note">${esc(name)} <span> · ${settingsEnabled ? 'saved value is fallback' : 'variable settings disabled'}</span></small>` : ''
     };
 }
 

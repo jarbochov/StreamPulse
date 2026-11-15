@@ -124,13 +124,33 @@ function matchChatWildcardTerm(text, term) {
     const startWord = /^[a-z0-9_]/i.test(term) && !term.startsWith('*');
     const endWord = /[a-z0-9_]$/i.test(term) && !term.endsWith('*');
     let regexStr = pattern;
-    if (startWord) regexStr = '(?<=^|\\s|[.,!?;:\'"()\\[\\]{}])' + regexStr;
-    if (endWord) regexStr = regexStr + '(?=$|\\s|[.,!?;:\'"()\\[\\]{}])';
+    if (startWord) regexStr = '(?<=^|[^a-z0-9_])' + regexStr;
+    if (endWord) regexStr = regexStr + '(?=$|[^a-z0-9_])';
     try {
         return new RegExp(regexStr, 'i').test(text);
     } catch {
         return text.includes(term.replace(/[*?]/g, ''));
     }
+}
+
+function getMessageSearchableText(message) {
+    const base = String(message?.message || '');
+    const html = String(message?.messageHtml || '');
+    if (!html) return base;
+    const strippedHtml = html
+        .replace(/<img\b[^>]*\balt=["']([^"']+)["'][^>]*>/gi, ' $1 ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#0*39;|&#x0*27;/gi, "'")
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!base) return strippedHtml;
+    if (!strippedHtml || strippedHtml === base) return base;
+    return `${base} ${strippedHtml}`;
 }
 
 function matchesChatSearchText(text, searchFilter) {
@@ -153,7 +173,7 @@ function matchesChatFilters(message, filters) {
             return false;
         }
     }
-    if (!matchesChatSearchText(message.message || '', filters.searchFilter)) return false;
+    if (!matchesChatSearchText(getMessageSearchableText(message), filters.searchFilter)) return false;
     if (filters.type === 'links' && !chatMessageHasLink(message)) return false;
     if (filters.type === 'events' && !message.event) return false;
     if (filters.type === 'donations' && !message.donation) return false;

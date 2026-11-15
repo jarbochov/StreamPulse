@@ -903,6 +903,7 @@ function resolveColorToken(raw, status, context, member = null) {
 }
 
 function resolveStyleVariables(style, status, context, member = null) {
+    if (status?.modules?.variableSettings === false) return style;
     style = numericBindings.resolveNumericConfig(style, 'style', status);
     if (!style || typeof style !== 'object') return style;
     const expandFn = v => resolveColorToken(v, status, context, member);

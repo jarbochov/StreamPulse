@@ -602,6 +602,7 @@ function createSessionRoutes({
             });
             const limit = parseInt(params.get('limit'), 10) || 200;
             const offset = parseInt(params.get('offset'), 10) || 0;
+            const sort = params.get('sort') === 'asc' ? 'asc' : 'desc';
 
             const allResults = [];
             function searchMessages(messages, sessionName) {
@@ -633,7 +634,7 @@ function createSessionRoutes({
                 }
             }
 
-            allResults.sort((a, b) => b.ts - a.ts);
+            allResults.sort((a, b) => sort === 'asc' ? (a.ts - b.ts) : (b.ts - a.ts));
             const total = allResults.length;
             const paged = allResults.slice(offset, offset + limit);
             sendJson(res, { total, offset, limit, count: paged.length, results: paged });

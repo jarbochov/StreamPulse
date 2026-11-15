@@ -2700,6 +2700,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         return out;
       }
       function resolveNumericConfig(config, domain, status) {
+        if (status?.modules?.variableSettings === false) return config;
         if (!config?.numberBindings || typeof config.numberBindings !== "object") return config;
         const vars = status?.customVars;
         if (!Array.isArray(vars)) return config;
@@ -3495,6 +3496,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     return expandVariables(str, status, context, false).trim();
   }
   function resolveStyleVariables(style, status, context, member = null) {
+    if (status?.modules?.variableSettings === false) return style;
     style = import_numeric_bindings.default.resolveNumericConfig(style, "style", status);
     if (!style || typeof style !== "object") return style;
     const expandFn = (v) => resolveColorToken(v, status, context, member);

@@ -357,30 +357,61 @@ function bindEvents() {
     $('var-group-add').onclick = () => openGroupEditor(groupSaved);
     bindGroupDragDrop($('variable-workspace'), loadAllVars);
 
+    async function importVariableBundle(data, targetGroup = null) {
+        const payload = targetGroup
+            ? {
+                ...data,
+                groups: [targetGroup],
+                sets: [],
+                variables: (Array.isArray(data?.variables) ? data.variables : [])
+                    .filter(v => v && !v.setId)
+                    .map(v => ({ ...v, group: targetGroup }))
+            }
+            : data;
+        const names = new Set(state.customVars.map(v => v.name));
+        const overlaps = (payload.variables || []).filter(v => !v.setId && names.has(v.name)).length;
+        const setNames = new Set(state.variableSets.map(s => s.id));
+        const setOverlaps = (payload.sets || []).filter(s => setNames.has(s.id)).length;
+        if (overlaps || setOverlaps) {
+            const message = targetGroup
+                ? `This import will update ${overlaps} existing variables in "${targetGroup}". Other entries stay unchanged. Continue?`
+                : `This import will update ${overlaps} existing variables and ${setOverlaps} existing sets. Other entries stay unchanged. Continue?`;
+            const confirmed = window.StreamPulse?.confirm
+                ? await StreamPulse.confirm('Import variables', message, { confirmText: 'Import' })
+                : confirm(message);
+            if (!confirmed) return;
+        }
+        await api('/api/variables/import', 'POST', payload);
+        toast(targetGroup ? `Imported variables into "${targetGroup}"` : 'Variables and sets imported', 'success');
+        await loadAllVars();
+    }
+
     $('vars-import').onchange = async e => {
         const file = e.target.files?.[0];
         e.target.value = '';
         if (!file) return;
         try {
             const data = JSON.parse(await file.text());
-            const names = new Set(state.customVars.map(v => v.name));
-            const overlaps = (data.variables || []).filter(v => !v.setId && names.has(v.name)).length;
-            const setNames = new Set(state.variableSets.map(s => s.id));
-            const setOverlaps = (data.sets || []).filter(s => setNames.has(s.id)).length;
-            if (overlaps || setOverlaps) {
-                const message = `This import will update ${overlaps} existing variables and ${setOverlaps} existing sets. Other entries stay unchanged. Continue?`;
-                const confirmed = window.StreamPulse?.confirm
-                    ? await StreamPulse.confirm('Import variables', message, { confirmText: 'Import' })
-                    : confirm(message);
-                if (!confirmed) return;
-            }
-            await api('/api/variables/import', 'POST', data);
-            toast('Variables and sets imported', 'success');
-            await loadAllVars();
+            await importVariableBundle(data);
         } catch (err) {
             toast('Import failed: ' + err.message, 'error');
         }
     };
+
+    $('vars-card').addEventListener('change', async event => {
+        const input = event.target.closest('[data-import-group]');
+        if (!input) return;
+        const group = input.dataset.importGroup;
+        const file = input.files?.[0];
+        input.value = '';
+        if (!file || !group) return;
+        try {
+            const data = JSON.parse(await file.text());
+            await importVariableBundle(data, group);
+        } catch (err) {
+            toast('Import failed: ' + err.message, 'error');
+        }
+    });
 
     $('vars-card').addEventListener('click', async event => {
         const selected = event.target.closest('[data-select-variable]');
@@ -409,7 +440,8 @@ function bindEvents() {
         const exportGroup = event.target.closest('[data-export-group]');
         if (exportGroup) {
             const group = exportGroup.dataset.exportGroup;
-            exportVariables(state.customVars.filter(v => !v.setId && !v.hidden && v.group === group), [], 'streampulse-variable-group.json', [group]);
+            const slug = group.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'group';
+            exportVariables(state.customVars.filter(v => !v.setId && !v.hidden && v.group === group), [], `streampulse-variable-group-${slug}.json`, [group]);
             return;
         }
         const btn = event.target.closest('[data-act]');

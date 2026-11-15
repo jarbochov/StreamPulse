@@ -159,11 +159,18 @@
         .global-search input:focus { border-color: var(--accent); }
         .global-search button { background: var(--accent-strong); border: none; color: white; border-radius: 6px; padding: 0.45rem 0.65rem; font-size: 0.8rem; cursor: pointer; }
         .global-search button:hover { background: var(--accent-strong); color: #fff; }
+        .global-search .clear-btn { background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); padding: 0.45rem 0.55rem; }
+        .global-search .clear-btn:hover { background: var(--bg-card); color: var(--text); border-color: var(--accent); }
+        .search-helper-pills { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-bottom: 0.45rem; align-items: center; }
+        .search-pill { font-size: 0.7rem; padding: 0.16rem 0.48rem; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-inset); color: var(--text-muted); cursor: pointer; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; transition: all 0.15s; }
+        .search-pill:hover { color: var(--text); border-color: var(--accent); background: var(--accent-bg); }
+        .search-options-row { display: flex; gap: 0.35rem; margin-bottom: 0.5rem; flex-wrap: wrap; align-items: center; }
         .search-hints { margin-bottom: 0.5rem; font-size: 0.7rem; color: var(--text-muted); }
         .search-hints summary { cursor: pointer; color: var(--accent); font-size: 0.75rem; }
         .search-hints summary:hover { text-decoration: underline; }
         .hints-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin-top: 6px; }
-        .hints-grid code { background: var(--bg-card); padding: 1px 5px; border-radius: 3px; color: var(--text); font-size: 0.7rem; white-space: nowrap; }
+        .hints-grid code { background: var(--bg-card); padding: 1px 5px; border-radius: 3px; color: var(--text); font-size: 0.7rem; white-space: nowrap; cursor: pointer; border: 1px solid transparent; }
+        .hints-grid code:hover { border-color: var(--accent); color: var(--accent); }
         .hints-grid span { color: var(--text-muted); }
 
         .compare-bar { display: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 1rem; align-items: center; gap: 0.75rem; }
@@ -224,11 +231,19 @@
                 </div>
                 <div class="global-search">
                     <input type="text" id="global-search-input" placeholder="Search all chats (* and ? wildcards)..." onkeydown="if(event.key==='Enter')globalSearch()">
+                    <button type="button" class="clear-btn" onclick="clearGlobalSearch()" title="Clear search">&times;</button>
                     <button onclick="globalSearch()">Search</button>
                 </div>
+                <div class="search-helper-pills" aria-label="Search syntax helpers">
+                    <button type="button" class="search-pill" onclick="insertSearchHelper('global-search-input', 'user:')">user:</button>
+                    <button type="button" class="search-pill" onclick="insertSearchHelper('global-search-input', '&quot;&quot;', -1)">"phrase"</button>
+                    <button type="button" class="search-pill" onclick="insertSearchHelper('global-search-input', 'OR ')">OR</button>
+                    <button type="button" class="search-pill" onclick="insertSearchHelper('global-search-input', '*', 0, true)">*</button>
+                    <button type="button" class="search-pill" onclick="insertSearchHelper('global-search-input', '?', 0, true)">?</button>
+                </div>
                 <details class="search-hints">
-                    <summary>Search tips</summary>
-                    <div class="hints-grid">
+                    <summary>Search tips (click example to insert)</summary>
+                    <div class="hints-grid" onclick="if(event.target.tagName==='CODE')insertSearchExample('global-search-input', event.target.textContent)">
                         <code>pizza</code><span>Messages containing "pizza"</span>
                         <code>pizza cheese</code><span>Contains both words (AND)</span>
                         <code>pizza OR tacos</code><span>Contains either word</span>
@@ -240,10 +255,20 @@
                         <code>@ChatFan*</code><span>Shorthand user wildcard</span>
                     </div>
                 </details>
-                <div style="display:flex;gap:0.35rem;margin-bottom:0.5rem;flex-wrap:wrap;">
+                <div class="search-options-row">
                     <button class="filter-toggle" onclick="globalSearchType('links', this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg> Links</button>
                     <button class="filter-toggle" onclick="globalSearchType('events', this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg> Events</button>
                     <button class="filter-toggle" onclick="globalSearchType('donations', this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg> Donations</button>
+                </div>
+                <div class="search-options-row">
+                    <select class="chat-filter-select" id="global-search-scope" onchange="if(document.getElementById('global-search-input').value.trim()||globalSearchTypeFilter)globalSearch()" aria-label="Search scope">
+                        <option value="all">All sessions</option>
+                        <option value="current">Current session</option>
+                    </select>
+                    <select class="chat-filter-select" id="global-search-sort" onchange="if(document.getElementById('global-search-input').value.trim()||globalSearchTypeFilter)globalSearch()" aria-label="Search sort">
+                        <option value="desc">Newest first</option>
+                        <option value="asc">Oldest first</option>
+                    </select>
                 </div>
                 <div class="session-list" id="session-list">
                     <div class="empty">Loading sessions...</div>
@@ -757,6 +782,14 @@
                 <button class="filter-toggle" id="events-toggle" onclick="toggleChatLogFilter('events', this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg> Events</button>
                 <button class="filter-toggle" id="donations-toggle" onclick="toggleChatLogFilter('donations', this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg> Donations</button>
                 <select class="chat-filter-select" onchange="setChatLogSort(this.value)"><option value="desc">Newest first</option><option value="asc">Oldest first</option></select>
+            </div>
+            <div class="search-helper-pills" style="margin-bottom:0.55rem;" aria-label="In-session filter helpers">
+                <button type="button" class="search-pill" onclick="insertSearchHelper('chatlog-filter', 'user:')">user:</button>
+                <button type="button" class="search-pill" onclick="insertSearchHelper('chatlog-filter', '&quot;&quot;', -1)">"phrase"</button>
+                <button type="button" class="search-pill" onclick="insertSearchHelper('chatlog-filter', 'OR ')">OR</button>
+                <button type="button" class="search-pill" onclick="insertSearchHelper('chatlog-filter', '*', 0, true)">*</button>
+                <button type="button" class="search-pill" onclick="insertSearchHelper('chatlog-filter', '?', 0, true)">?</button>
+                <button type="button" class="search-pill" onclick="clearChatLogFilter()">Clear</button>
             </div>
             <div class="chat-log-info" id="chatlog-info"></div>
             <div id="chatlog-messages"><div class="chat-log-loading">Click to load chat log...</div></div>
@@ -1437,13 +1470,33 @@
         const startWord = /^[a-z0-9_]/i.test(term) && !term.startsWith('*');
         const endWord = /[a-z0-9_]$/i.test(term) && !term.endsWith('*');
         let regexStr = pattern;
-        if (startWord) regexStr = '(?<=^|\\s|[.,!?;:\'"()\\[\\]{}])' + regexStr;
-        if (endWord) regexStr = regexStr + '(?=$|\\s|[.,!?;:\'"()\\[\\]{}])';
+        if (startWord) regexStr = '(?<=^|[^a-z0-9_])' + regexStr;
+        if (endWord) regexStr = regexStr + '(?=$|[^a-z0-9_])';
         try {
             return new RegExp(regexStr, 'i').test(text);
         } catch {
             return text.includes(term.replace(/[*?]/g, ''));
         }
+    }
+
+    function getMessageSearchableText(message) {
+        const base = String(message?.message || '');
+        const html = String(message?.messageHtml || '');
+        if (!html) return base;
+        const strippedHtml = html
+            .replace(/<img\b[^>]*\balt=["']([^"']+)["'][^>]*>/gi, ' $1 ')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&amp;/gi, '&')
+            .replace(/&lt;/gi, '<')
+            .replace(/&gt;/gi, '>')
+            .replace(/&quot;/gi, '"')
+            .replace(/&#0*39;|&#x0*27;/gi, "'")
+            .replace(/&nbsp;/gi, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        if (!base) return strippedHtml;
+        if (!strippedHtml || strippedHtml === base) return base;
+        return `${base} ${strippedHtml}`;
     }
 
     function matchesSearchText(text, searchFilter) {
@@ -1480,7 +1533,7 @@
             }
         }
         if (filters.searchFilter) {
-            messages = messages.filter(m => matchesSearchText(m.message || '', filters.searchFilter));
+            messages = messages.filter(m => matchesSearchText(getMessageSearchableText(m), filters.searchFilter));
         }
 
         const infoEl = document.getElementById('chatlog-info');
@@ -1569,6 +1622,44 @@
         }
     }
 
+    function insertSearchHelper(inputId, snippet, cursorOffset = 0, attach = false) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        const val = input.value;
+        const start = input.selectionStart ?? val.length;
+        const end = input.selectionEnd ?? val.length;
+        const needsSpace = !attach && start > 0 && !/\s$/.test(val.slice(0, start));
+        const prefix = needsSpace ? ' ' : '';
+        const nextVal = val.slice(0, start) + prefix + snippet + val.slice(end);
+        input.value = nextVal;
+        const caret = start + prefix.length + snippet.length + cursorOffset;
+        input.focus();
+        input.setSelectionRange(caret, caret);
+    }
+
+    function insertSearchExample(inputId, example) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        input.value = example;
+        input.focus();
+    }
+
+    function clearGlobalSearch() {
+        const input = document.getElementById('global-search-input');
+        if (input) input.value = '';
+        globalSearchTypeFilter = '';
+        document.querySelectorAll('.sidebar .filter-toggle').forEach(b => b.classList.remove('active'));
+        globalSearch({ fromFilter: true });
+    }
+
+    function clearChatLogFilter() {
+        const input = document.getElementById('chatlog-filter');
+        if (input) input.value = '';
+        chatLogTypeFilter = '';
+        document.querySelectorAll('#pane-chatlog .filter-toggle').forEach(b => b.classList.remove('active'));
+        applyChatLogFilter();
+    }
+
     function syncGlobalSearchUrl(query, type) {
         const url = new URL(window.location.href);
         url.searchParams.delete('session');
@@ -1636,7 +1727,9 @@
 
         try {
             const parsed = normalizeChatSearch(query);
-            const params = new URLSearchParams({ limit: '500' });
+            const scope = document.getElementById('global-search-scope')?.value || 'all';
+            const sort = document.getElementById('global-search-sort')?.value || 'desc';
+            const params = new URLSearchParams({ limit: '500', session: scope, sort });
             if (parsed.user) params.set('user', parsed.user);
             if (parsed.queryText) params.set('q', parsed.queryText);
             else if (!parsed.user && query) params.set('q', query);
@@ -1664,16 +1757,40 @@
             `;
 
             const container = document.getElementById('search-results');
+            const renderResultsChunk = list => list.map(m => {
+                if (type === 'links') return renderLinkResult(m);
+                return renderChatMessage(m, true, m.session);
+            }).join('');
+            let loadedCount = results.length;
             if (results.length === 0) {
                 container.innerHTML = '<div class="empty">No results found</div>';
             } else {
-                container.innerHTML = results.map(m => {
-                    if (type === 'links') return renderLinkResult(m);
-                    return renderChatMessage(m, true, m.session);
-                }).join('');
-                if (data.total > results.length) {
-                    container.innerHTML += `<div class="chat-log-info" style="text-align:center;margin-top:1rem;">Showing ${results.length} of ${data.total} results</div>`;
-                }
+                container.innerHTML = renderResultsChunk(results);
+                const appendMoreFooter = () => {
+                    container.querySelector('.search-load-more-wrap')?.remove();
+                    if (data.total > loadedCount) {
+                        const footer = document.createElement('div');
+                        footer.className = 'chat-log-info search-load-more-wrap';
+                        footer.style.cssText = 'text-align:center;margin-top:1rem;display:flex;align-items:center;justify-content:center;gap:0.75rem;';
+                        footer.innerHTML = `<span>Showing ${loadedCount} of ${data.total} results</span><button type="button" class="export-btn" id="search-load-more-btn">Load more</button>`;
+                        container.appendChild(footer);
+                        footer.querySelector('#search-load-more-btn').onclick = async () => {
+                            const btn = footer.querySelector('#search-load-more-btn');
+                            btn.disabled = true;
+                            btn.textContent = 'Loading...';
+                            const nextParams = new URLSearchParams(params);
+                            nextParams.set('offset', String(loadedCount));
+                            const nextRes = await fetch(`/api/chat-log/search?${nextParams.toString()}`);
+                            if (!nextRes.ok) { btn.disabled = false; btn.textContent = 'Load more'; return; }
+                            const nextData = await nextRes.json();
+                            const nextResults = nextData.results || [];
+                            loadedCount += nextResults.length;
+                            footer.insertAdjacentHTML('beforebegin', renderResultsChunk(nextResults));
+                            appendMoreFooter();
+                        };
+                    }
+                };
+                appendMoreFooter();
             }
 
             function messageUrls(message) {

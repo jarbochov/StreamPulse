@@ -78,7 +78,7 @@ export function groupedRows(variables, rows, visibleGroups = null) {
             const open = localStorage.getItem(key) !== 'false';
             return `<details class="var-group" data-group-open="${esc(key)}"${open ? ' open' : ''}>
                 <summary${name === 'Set-managed variables' && !group ? '' : ` data-drop-group="${esc(group || '')}"`}>${group ? `<a class="var-group-tag" href="${esc(groupFilterLink(group))}" data-filter-group="${esc(group)}" title="Open this group">${esc(name)}</a>` : name === 'Ungrouped' ? '<a class="var-group-tag" href="#variables#ungrouped" data-filter-ungrouped title="Open ungrouped variables">Ungrouped</a>' : `<span>${esc(name)}</span>`}<span class="badge">${groupRows.length}</span></summary>
-                ${group ? `<div class="var-group-actions"><button type="button" class="b sm" data-manage-group="${esc(group)}">Manage members</button><button type="button" class="b sm" data-export-group="${esc(group)}">Export JSON</button></div>` : ''}
+                ${group ? `<div class="var-group-actions"><button type="button" class="b sm" data-manage-group="${esc(group)}">Manage members</button><button type="button" class="b sm" data-export-group="${esc(group)}">Export JSON</button><label class="b sm" style="display:inline-flex;align-items:center;cursor:pointer;">Import JSON<input type="file" data-import-group="${esc(group)}" accept=".json,application/json" hidden></label></div>` : ''}
                 <div class="var-group-rows">${groupRows.join('') || '<span class="muted">No variables in this group yet.</span>'}</div>
             </details>`;
         }).join('');

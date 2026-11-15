@@ -527,6 +527,22 @@
                             <a class="btn sm" href="/placeholders.html#sets" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.25rem;">Open Variable Sets <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
                         </div>
                     </div>
+
+                    <!-- Variable Settings Card -->
+                    <div class="module-card" data-module="variable-settings">
+                        <div class="module-card-head">
+                            <div class="module-card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                                <span>Variable Settings</span>
+                            </div>
+                            <span class="module-badge" id="badge-variable-settings">Enabled</span>
+                        </div>
+                        <p class="hint">Allow variables to drive element settings (colors, fonts, numeric layout properties, and future wizards) outside text placeholders.</p>
+                        <div class="cfg-toggle" style="margin-top:auto;">
+                            <input type="checkbox" id="cfg-variable-settings-enabled" checked>
+                            <label for="cfg-variable-settings-enabled">Enable variable-driven settings</label>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -940,6 +956,7 @@
         }
         updateBadge('badge-speaker-badges', document.getElementById('cfg-speaker-badges-enabled')?.checked);
         updateBadge('badge-variable-sets', document.getElementById('cfg-variable-sets-enabled')?.checked);
+        updateBadge('badge-variable-settings', document.getElementById('cfg-variable-settings-enabled')?.checked);
 
         // Update count summary
         const cards = document.querySelectorAll('#pane-modules .module-card');
@@ -1020,6 +1037,7 @@
             document.getElementById('cfg-trivia-enabled').checked = Boolean(cfg.trivia_enabled);
             document.getElementById('cfg-subathon-enabled').checked = Boolean(cfg.subathon_enabled);
             document.getElementById('cfg-variable-sets-enabled').checked = Boolean(cfg.variable_sets_enabled);
+            document.getElementById('cfg-variable-settings-enabled').checked = cfg.variable_settings_enabled !== false;
 
             const obs = cfg.obs || {};
             document.getElementById('cfg-obs-enabled').checked = Boolean(obs.enabled);
@@ -1096,6 +1114,7 @@
             trivia_enabled: document.getElementById('cfg-trivia-enabled').checked,
             subathon_enabled: document.getElementById('cfg-subathon-enabled').checked,
             variable_sets_enabled: document.getElementById('cfg-variable-sets-enabled').checked,
+            variable_settings_enabled: document.getElementById('cfg-variable-settings-enabled').checked,
             music: {
                 ...(loadedConfig?.music || {}),
                 enabled: document.getElementById('cfg-music-enabled').checked,
@@ -1190,7 +1209,7 @@
     document.getElementById('ssn-session-toggle').addEventListener('click', toggleSsnSession);
 
     // Module toggles update badges live
-    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-trivia-enabled', 'cfg-subathon-enabled', 'cfg-variable-sets-enabled', 'cfg-obs-enabled', 'cfg-obs-scene-sync-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
+    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-trivia-enabled', 'cfg-subathon-enabled', 'cfg-variable-sets-enabled', 'cfg-variable-settings-enabled', 'cfg-obs-enabled', 'cfg-obs-scene-sync-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', updateModuleBadges);
     });
 

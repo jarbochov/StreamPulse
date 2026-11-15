@@ -210,6 +210,7 @@ function createStatusService({
                 variableSets: typeof config.variable_sets_enabled === 'boolean'
                     ? config.variable_sets_enabled
                     : Boolean(variablesStore?.isModuleEnabled?.() ?? (variablesStore?.listSets?.().length > 0)),
+                variableSettings: config.variable_settings_enabled !== false,
                 obs: Boolean(config.obs?.enabled)
             },
             obs: obsService ? obsService.getStatus() : { connected: false },

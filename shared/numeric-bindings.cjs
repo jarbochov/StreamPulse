@@ -42,6 +42,7 @@ function normalizeNumericBindings(bindings, domain) {
 }
 
 function resolveNumericConfig(config, domain, status) {
+    if (status?.modules?.variableSettings === false) return config;
     if (!config?.numberBindings || typeof config.numberBindings !== 'object') return config;
     const vars = status?.customVars;
     if (!Array.isArray(vars)) return config;
