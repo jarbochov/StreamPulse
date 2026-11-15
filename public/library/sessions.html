@@ -387,6 +387,8 @@
             url.searchParams.delete('session');
         }
         url.searchParams.delete('tab');
+        url.searchParams.delete('q');
+        url.searchParams.delete('type');
 
         const { tool, tab } = getActiveDetailView();
         if (tool === 'chatlog') {
@@ -1567,11 +1569,57 @@
         }
     }
 
-    async function globalSearch() {
+    function syncGlobalSearchUrl(query, type) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('session');
+        url.searchParams.delete('tab');
+        url.searchParams.delete('view');
+        url.searchParams.delete('ts');
+        url.hash = '';
+        if (query) url.searchParams.set('q', query);
+        else url.searchParams.delete('q');
+        if (type) url.searchParams.set('type', type);
+        else url.searchParams.delete('type');
+        const nextUrl = url.pathname + url.search;
+        const currentUrl = window.location.pathname + window.location.search + window.location.hash;
+        if (nextUrl !== currentUrl) {
+            history.replaceState(null, '', nextUrl);
+        }
+    }
+
+    async function copyLink(encodedUrl) {
+        const url = decodeURIComponent(encodedUrl);
+        try {
+            await navigator.clipboard.writeText(url);
+        } catch {
+            const input = document.createElement('input');
+            input.value = url;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            input.remove();
+        }
+    }
+
+    async function globalSearch(options = {}) {
         const input = document.getElementById('global-search-input');
         const query = (input?.value || '').trim();
         const type = globalSearchTypeFilter;
-        if (!query && !type) return;
+        if (!query && !type) {
+            if (options.fromFilter) {
+                syncGlobalSearchUrl('', '');
+                const list = document.getElementById('session-list');
+                const saved = (() => { try { return localStorage.getItem('streampulse:sessions:file') || ''; } catch { return ''; } })();
+                const target = (saved && list?.querySelector(`.session-item[data-file="${CSS.escape(saved)}"]`))
+                    || list?.querySelector('.session-item[data-file="__current__"]')
+                    || list?.querySelector('.session-item');
+                if (target) await loadSession(target.dataset.file, target);
+            }
+            return;
+        }
+        if (!options.skipUrlSync) {
+            syncGlobalSearchUrl(query, type);
+        }
 
         const panel = document.getElementById('detail-panel');
         document.querySelectorAll('.session-item').forEach(i => i.classList.remove('active'));
@@ -1596,6 +1644,7 @@
             const url = `/api/chat-log/search?${params.toString()}`;
 
             const res = await fetch(url);
+            if (!res.ok) throw new Error('Search failed');
             const data = await res.json();
             const results = data.results || [];
 
@@ -1647,20 +1696,6 @@
                     </div>
                     <span class="chat-time">${formatTimestamp(message.ts)}</span>
                 </div>`;
-            }
-
-            async function copyLink(encodedUrl) {
-                const url = decodeURIComponent(encodedUrl);
-                try {
-                    await navigator.clipboard.writeText(url);
-                } catch {
-                    const input = document.createElement('input');
-                    input.value = url;
-                    document.body.appendChild(input);
-                    input.select();
-                    document.execCommand('copy');
-                    input.remove();
-                }
             }
         } catch {
             panel.innerHTML = `
@@ -1890,8 +1925,7 @@
             btn.classList.add('active');
         }
         // Trigger search with the type filter
-        const input = document.getElementById('global-search-input');
-        globalSearch();
+        globalSearch({ fromFilter: true });
     }
 
     async function applyUrlAndSavedSessionState() {
@@ -1900,10 +1934,16 @@
         const hashParams = rawHash.includes('=') ? new URLSearchParams(rawHash) : null;
 
         const qParam = (params.get('q') || hashParams?.get('q') || '').trim();
-        if (qParam) {
+        const typeParam = (params.get('type') || hashParams?.get('type') || '').trim();
+        if (qParam || typeParam) {
             const searchInput = document.getElementById('global-search-input');
             if (searchInput) searchInput.value = qParam;
-            await globalSearch();
+            globalSearchTypeFilter = typeParam;
+            document.querySelectorAll('.filter-toggle').forEach(b => {
+                const onclick = b.getAttribute('onclick') || '';
+                b.classList.toggle('active', Boolean(typeParam) && onclick.includes(`'${typeParam}'`));
+            });
+            await globalSearch({ skipUrlSync: true });
             return;
         }
 
