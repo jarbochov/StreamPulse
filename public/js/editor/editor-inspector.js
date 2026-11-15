@@ -1052,6 +1052,8 @@ export function renderImageGroupFieldsModal() {
         };
         host.innerHTML = list.length ? list.map((f, idx) => {
             const isImg = resolveImageGroupFieldKind(f, fields) === 'image';
+            const setFieldIcon = fields.find(sf => sf.key === f.key)?.icon || '';
+            if (!isImg && (f.icon || setFieldIcon)) window.IconPicker?.ensureFont?.();
             const weightOpts = [['', 'Auto'], ['400', 'Normal'], ['600', 'Semi-bold'], ['700', 'Bold'], ['900', 'Black']];
             const caseOpts = [['', 'Inherit'], ['none', 'As typed'], ['uppercase', 'UPPER'], ['lowercase', 'lower'], ['capitalize', 'Title']];
             const kindOpts = [['auto', 'Auto'], ['text', 'Text'], ['image', 'Image / Icon']];
@@ -1097,6 +1099,7 @@ export function renderImageGroupFieldsModal() {
                     <label class="ig-field-inline-chk"><input type="checkbox" data-ig-fprop="inline"${f.inline ? ' checked' : ''}> Inline</label>
                     <label class="ig-grid-span2">Text color<span class="ig-color-mini"><input type="color" data-ig-fcolor="color" value="${esc(hexOr(f.color, '#ffffff'))}" aria-label="Field color picker"><input type="text" data-ig-fprop="color" value="${esc(f.color || '')}" placeholder="Auto, @field, or {{var.x}}" maxlength="80" spellcheck="false">${colorVarPickBtn('color')}</span></label>
                     <label class="ig-grid-span2">Pill background<span class="ig-color-mini"><input type="color" data-ig-fcolor="bgColor" value="${esc(hexOr(f.bgColor, '#0ea5e9'))}" aria-label="Field badge bg picker"><input type="text" data-ig-fprop="bgColor" value="${esc(f.bgColor || '')}" placeholder="None, @field, or {{var.x}}" maxlength="80" spellcheck="false">${colorVarPickBtn('bgColor')}</span></label>
+                    <label class="ig-grid-span2">Inline icon<span class="ig-color-mini"><button type="button" data-ig-pick-icon="${idx}" style="flex:1;min-width:0;display:inline-flex;align-items:center;gap:0.35rem;justify-content:flex-start;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.icon === 'none' ? '<span>Hidden</span>' : f.icon ? `<i class="${esc(f.icon)}"></i> <span>${esc(f.icon)}</span>` : setFieldIcon ? `<i class="${esc(setFieldIcon)}"></i> <span>Auto (${esc(setFieldIcon)})</span>` : '<span>Pick icon…</span>'}</button>${f.icon ? `<button type="button" class="ig-var-pick-btn" data-ig-clear-icon="${idx}" title="Reset icon to Auto / None">&times;</button>` : ''}</span></label>
                 </div>`;
 
             return `<div class="ig-field-row${isImg ? ' is-img-card' : ''}" data-ig-field-idx="${idx}">
@@ -1209,7 +1212,7 @@ export function textSourceBlock(el) {
     if (src.mode === 'inline') {
         body += typed;
         if (el.type === 'random-text') body += `<label class="field"><span>Phrase pool</span><textarea id="prop-items" data-path="items" data-kind="lines" style="min-height:120px">${esc((el.items || []).join('\n'))}</textarea><span class="hint">One phrase per line. Placeholders work here too.</span></label>`;
-        body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button></div>`;
+        body += `<div class="field"><span>Placeholders &amp; Icons</span><div class="grid2"><button type="button" id="open-variables">Insert placeholder…</button><button type="button" id="insert-inline-icon">Insert icon…</button></div></div>`;
     } else {
         if (src.mode === 'library') {
             body += `<div class="field"><span>Library file</span><span class="upload-row"><input readonly value="${esc(friendlyAssetName(src.path))}" placeholder="No file chosen"><button type="button" id="source-library">Choose…</button></span></div>`;
@@ -3164,6 +3167,16 @@ export function initInspectorEvents() {
                 return;
             }
             if (target.closest('#open-variables')) openVariableDialog();
+            if (target.closest('#insert-inline-icon')) {
+                const field = $('prop-content');
+                window.IconPicker?.open({
+                    value: '',
+                    onPick: cls => {
+                        if (!cls || !field) return;
+                        window.PlaceholderPicker?.insertInto(field, `icon:${cls}`);
+                    }
+                });
+            }
             const colorPickBtn = target.closest('[data-color-pick]');
             if (colorPickBtn) {
                 const path = colorPickBtn.dataset.colorPick;
@@ -3679,6 +3692,39 @@ export function initInspectorEvents() {
                         }
                     });
                 }
+                return;
+            }
+            const pickIconBtn = target.closest('[data-ig-pick-icon]');
+            if (pickIconBtn) {
+                const idx = Number(pickIconBtn.dataset.igPickIcon);
+                const ig = el.imageGroup || {};
+                const fields = resolveImageGroupFields(ig);
+                const curField = fields[idx];
+                const { fields: setFields } = imageGroupFieldMeta(ig);
+                const setFieldIcon = setFields.find(sf => sf.key === curField?.key)?.icon || '';
+                const curVal = curField?.icon && curField.icon !== 'none' ? curField.icon : setFieldIcon;
+                window.IconPicker?.open({
+                    value: curVal,
+                    onPick: cls => {
+                        mutateImageGroupFields(el, list => {
+                            if (!list[idx]) return list;
+                            list[idx].icon = cls ? cls : (setFieldIcon ? 'none' : '');
+                            return list;
+                        });
+                        refreshIgAll(true, true);
+                    }
+                });
+                return;
+            }
+            const clearIconBtn = target.closest('[data-ig-clear-icon]');
+            if (clearIconBtn) {
+                const idx = Number(clearIconBtn.dataset.igClearIcon);
+                mutateImageGroupFields(el, list => {
+                    if (!list[idx]) return list;
+                    list[idx].icon = '';
+                    return list;
+                });
+                refreshIgAll(true, true);
                 return;
             }
             const pickImgBtn = target.closest('[data-ig-pick-img]');

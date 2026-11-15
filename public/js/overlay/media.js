@@ -1,5 +1,6 @@
 
 import { loadGoogleFont } from './fonts.js';
+import { ensureFontAwesome, sanitizeIconClass } from './icons.js';
 import { applyBorderEffects, applyTextAnimation, decorationStyle, gradientStyle, textEffectStyle } from './styles.js';
 import { resolveColorToken, resolveStyleVariables } from './variables.js';
 import numericBindings from '../../../shared/numeric-bindings.cjs';
@@ -256,6 +257,7 @@ function resolveGroupFieldSpecs(cfg = {}) {
         inline: f.inline === true,
         prefix: String(f.prefix || ''),
         suffix: String(f.suffix || ''),
+        icon: String(f.icon || '').trim(),
         sizeScale: Math.max(50, Math.min(200, Number(f.sizeScale) || 100)),
         fontSize: optNum(f.fontSize, 8, 96),
         padX: optNum(f.padX, 0, 32),
@@ -296,7 +298,18 @@ function createStyledFieldNode(spec, text, ctx) {
     }
     span.className = `sp-image-group-field ${roleCls}`;
     if (spec.slot && spec.slot !== 'main') span.dataset.igSlot = spec.slot;
-    span.textContent = `${spec.prefix}${text}${spec.suffix}`;
+    const iconCls = sanitizeIconClass(spec.icon);
+    if (iconCls) {
+        ensureFontAwesome();
+        const iconEl = document.createElement('i');
+        iconEl.className = `${iconCls} sp-inline-icon`;
+        iconEl.setAttribute('aria-hidden', 'true');
+        iconEl.style.cssText = 'display:inline-block;margin-right:0.35em;vertical-align:-0.08em;line-height:1;font-style:normal;';
+        span.appendChild(iconEl);
+        span.appendChild(document.createTextNode(`${spec.prefix}${text}${spec.suffix}`));
+    } else {
+        span.textContent = `${spec.prefix}${text}${spec.suffix}`;
+    }
 
     const roleFont = (spec.role === 'subtitle' || spec.role === 'caption')
         ? String(cfg.subFontFamily || '').trim()
@@ -632,6 +645,7 @@ function renderImageGroupStrip(container, element, status, options = {}) {
     if (typeof loadGoogleFont === 'function' && st.fontFamily) loadGoogleFont(st.fontFamily);
     const setObj = (status?.variableSets || []).find(s => s && s.id === cfg.setId) || null;
     const setFieldTypes = new Map((setObj?.fields || []).map(f => [f.key, f.type]));
+    const setFieldIcons = new Map((setObj?.fields || []).filter(f => f.icon).map(f => [f.key, f.icon]));
     const resolveMemberColor = (val, member, fallback = '') => resolveColorToken(val, status, {}, member) || fallback;
     const resolveMemberGradient = (grad, member) => {
         if (!grad || typeof grad !== 'object') return grad;
@@ -834,6 +848,7 @@ function renderImageGroupStrip(container, element, status, options = {}) {
             if (!isImgField && !showLabels) return;
             const resolvedSpec = {
                 ...spec,
+                icon: spec.icon === 'none' ? '' : (spec.icon || setFieldIcons.get(spec.key) || ''),
                 color: spec.color ? resolveMemberColor(spec.color, item.raw, '') : '',
                 bgColor: spec.bgColor ? resolveMemberColor(spec.bgColor, item.raw, '') : ''
             };

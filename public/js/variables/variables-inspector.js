@@ -46,10 +46,12 @@ export function createVariableInspector(host, { getVariable, getStatus, onSaved 
             return;
         }
         type = variable.type;
+        if (variable.icon) window.IconPicker?.ensureFont?.();
+        const iconField = variable.setId ? '' : `<label>Icon (optional)<span class="variable-icon-edit"><span class="variable-icon-preview" data-inspector-icon-preview>${variable.icon ? `<i class="${esc(variable.icon)}"></i>` : ''}</span><input name="icon" value="${esc(variable.icon || '')}" placeholder="e.g. fa-brands fa-twitch" maxlength="80" spellcheck="false"><button type="button" class="b sm" data-inspector-icon>Pick…</button></span></label>`;
         host.innerHTML = `<div class="variable-inspector-heading"><div><span class="variable-micro-heading">${esc(type === 'counter' ? 'Number' : type)}</span><h3>${esc(name)}</h3></div><button type="button" class="b sm" data-inspector-close aria-label="Close variable inspector">&times;</button></div>
-            <code class="copyable" data-copy="{{var.${esc(name)}}}" title="Copy placeholder">{{var.${esc(name)}}}</code>
+            <div style="display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;"><code class="copyable" data-copy="{{var.${esc(name)}}}" title="Copy placeholder">{{var.${esc(name)}}}</code>${variable.icon ? `<code class="copyable" data-copy="{{var.${esc(name)}.icon}}" title="Copy icon placeholder">{{var.${esc(name)}.icon}}</code>` : ''}</div>
             <p class="variable-live-value">Live value <strong data-live-value></strong></p>
-            <form class="variable-inspector-form">${fields(variable)}<div class="variable-inspector-footer">${variable.setId ? '' : '<button type="button" class="b sm danger variable-inspector-delete" data-inspector-delete title="Delete variable">Delete</button>'}<button type="button" class="b sm" data-inspector-cancel>Revert</button><button type="submit" class="b sm primary">Save changes</button></div></form>
+            <form class="variable-inspector-form">${fields(variable)}${iconField}<div class="variable-inspector-footer">${variable.setId ? '' : '<button type="button" class="b sm danger variable-inspector-delete" data-inspector-delete title="Delete variable">Delete</button>'}<button type="button" class="b sm" data-inspector-cancel>Revert</button><button type="submit" class="b sm primary">Save changes</button></div></form>
             ${variable.setId ? '<p class="muted">This value is managed by a Variable Set.</p>' : ''}`;
         const font = host.querySelector('select[data-act="value"]');
         if (font) font.name = 'value';
@@ -67,6 +69,12 @@ export function createVariableInspector(host, { getVariable, getStatus, onSaved 
     }
     host.addEventListener('input', event => {
         dirty = true;
+        if (event.target.matches('input[name="icon"]')) {
+            const box = host.querySelector('[data-inspector-icon-preview]');
+            const cls = window.OverlayShared?.sanitizeIconClass?.(event.target.value) || '';
+            if (cls) window.IconPicker?.ensureFont?.();
+            if (box) box.innerHTML = cls ? `<i class="${esc(cls)}"></i>` : '';
+        }
         const customFont = event.target.closest('input[data-act="value"]');
         if (customFont) {
             const select = host.querySelector('select[name="value"]');
@@ -90,6 +98,18 @@ export function createVariableInspector(host, { getVariable, getStatus, onSaved 
         if (busy) return;
         if (event.target.closest('[data-inspector-close]')) { await open(''); return; }
         if (event.target.closest('[data-inspector-cancel]')) { dirty = false; rendered = ''; refresh(); return; }
+        if (event.target.closest('[data-inspector-icon]')) {
+            const selected = name;
+            const input = host.querySelector('input[name="icon"]');
+            window.IconPicker?.open({
+                value: input?.value || '',
+                onPick: cls => {
+                    if (selected !== name || !input) return;
+                    input.value = cls || '';
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            });
+        }
         if (event.target.closest('[data-inspector-image]')) {
             const selected = name;
             pickImage(host.querySelector('[name="value"]').value, value => {

@@ -4,7 +4,7 @@ import { setEffectsPaused } from './effects.js';
 import { root } from './environment.js';
 import { applyMediaFilter } from './filters.js';
 import { GOOGLE_FONTS, assetFonts, loadAssetFonts, loadGoogleFont } from './fonts.js';
-import { qrUrl, renderIcon } from './icons.js';
+import { qrUrl, renderIcon, renderInlineText, sanitizeIconClass } from './icons.js';
 import { cleanupMedia, cleanupNode } from './lifecycle.js';
 import { embedUrl, parseYouTubeUrl, renderImageGroupStrip } from './media.js';
 import { mountPattern } from './patterns.js';
@@ -22,6 +22,6 @@ import numericBindings from '../../../shared/numeric-bindings.cjs';
 
 root.OverlayShared = Object.assign(root.OverlayShared || {}, { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, TEXT_ANIM_TYPES, applyBorderGradient, applyTextAnimation, resolveBorderRadius, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, renderSpeakerBadge, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, mountTextCycle, resolveCycleLines, createVarRotationEngine, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, resolveColorToken, resolveStyleVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, renderImageGroupStrip, applyMediaFilter: root.OverlayFilters?.applyMediaFilter || applyMediaFilter, shadowClipStyle });
 root.OverlayShared.borderPlacement = borderPlacement;
-Object.assign(root.OverlayShared, { ALERT_PRESENTATION_KEYS, resolveAlertLook });
+Object.assign(root.OverlayShared, { ALERT_PRESENTATION_KEYS, resolveAlertLook, renderInlineText, sanitizeIconClass });
 Object.assign(root.OverlayShared, numericBindings);
 Object.defineProperty(root.OverlayShared, Symbol.for('StreamPulse.OverlayShared'), { value: true });

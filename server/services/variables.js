@@ -12,6 +12,16 @@ const MAX_USER_VARS = 500;
 const MAX_SET_VARS = 25000;
 const TEMPLATE_RE = /\{\{\s*var\.([a-z0-9_]+)\s*(?:\|([^{}]*?))?\s*\}\}/gi;
 
+function sanitizeIcon(raw) {
+    const cls = String(raw || '').trim()
+        .replace(/^fab\b/, 'fa-brands')
+        .replace(/^fas\b/, 'fa-solid')
+        .replace(/^far\b/, 'fa-regular')
+        .replace(/\s+/g, ' ')
+        .slice(0, 80);
+    return /^[a-z0-9 -]+$/i.test(cls) && /\bfa-[a-z0-9-]+/i.test(cls) ? cls : '';
+}
+
 module.exports = function createVariables({ dataDir, onChange = null }) {
     const file = path.join(dataDir, 'variables.json');
     const setsFile = path.join(dataDir, 'variable-sets.json');
@@ -103,6 +113,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         const setId = patch.setId !== undefined ? (normSetId(patch.setId) || undefined) : cur?.setId;
         const isHidden = patch.hidden !== undefined ? Boolean(patch.hidden) : Boolean(cur?.hidden);
         const group = setId || isHidden ? '' : variableGroups.normalize(patch.group ?? cur?.group ?? '');
+        const icon = sanitizeIcon(patch.icon !== undefined ? patch.icon : cur?.icon);
         const number = type === 'number' ? normalizeNumber(patch, cur?.type === 'number' || cur?.type === 'counter' ? cur : {}) : null;
         if (!cur) {
             const count = Object.values(vars).filter(v => Boolean(v?.setId) === Boolean(setId)).length;
@@ -115,7 +126,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             const mode = patch.mode === 'sequential' ? 'sequential' : patch.mode === 'random' ? 'random' : cur?.mode || 'random';
             let value = patch.value ?? cur?.value ?? '';
             if (!items.includes(value)) value = items[0] || '';
-            vars[name] = { type, items, mode, value, ...(setId ? { setId } : {}), ...(group ? { group } : {}), ...(isHidden ? { hidden: true } : {}), updatedAt: Date.now() };
+            vars[name] = { type, items, mode, value, ...(setId ? { setId } : {}), ...(group ? { group } : {}), ...(icon ? { icon } : {}), ...(isHidden ? { hidden: true } : {}), updatedAt: Date.now() };
             if (persist) save();
             return { name, ...vars[name] };
         }
@@ -139,6 +150,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             ...(type === 'counter' ? { initial: Number(patch.initial ?? cur?.initial ?? 0) || 0 } : {}),
             ...(setId ? { setId } : {}),
             ...(group ? { group } : {}),
+            ...(icon ? { icon } : {}),
             ...(isHidden ? { hidden: true } : {}),
             updatedAt: Date.now()
         };
@@ -203,10 +215,12 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             const key = normSetId(f?.key || f?.label || '').slice(0, 20);
             if (!key || seenKeys.has(key) || reservedFieldKeys.has(key)) continue;
             seenKeys.add(key);
+            const icon = sanitizeIcon(f?.icon);
             fields.push({
                 key,
                 label: String(f?.label || key).trim().slice(0, 40) || key,
-                type: VALID_SET_FIELD_TYPES.includes(f?.type) ? f.type : 'text'
+                type: VALID_SET_FIELD_TYPES.includes(f?.type) ? f.type : 'text',
+                ...(icon ? { icon } : {})
             });
         }
         if (!fields.length) fields.push({ key: 'name', label: 'Name', type: 'text' });
@@ -367,7 +381,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             for (const f of setObj.fields) {
                 const rawVal = entry ? (entry.values?.[f.key] ?? '') : '';
                 const val = rawVal || (f.type === 'toggle' ? 'false' : f.type === 'color' ? '#3b82f6' : '');
-                writeField(`${setObj.id}_${f.key}`, f.type, val);
+                writeField(`${setObj.id}_${f.key}`, f.type, val, f.icon ? { icon: f.icon } : {});
             }
             return;
         }
@@ -404,9 +418,10 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             for (const f of setObj.fields) {
                 const rawVal = entry ? (entry.values?.[f.key] ?? '') : '';
                 const val = rawVal || (f.type === 'toggle' ? 'false' : f.type === 'color' ? '#3b82f6' : '');
-                writeField(`${setObj.id}_${slotNum}_${f.key}`, f.type, val);
-                if (i === 0) writeField(`${setObj.id}_${f.key}`, f.type, val);
-                if (hasNamedAlias) writeField(`${setObj.id}_${slotSlug}_${f.key}`, f.type, val);
+                const iconExtra = f.icon ? { icon: f.icon } : {};
+                writeField(`${setObj.id}_${slotNum}_${f.key}`, f.type, val, iconExtra);
+                if (i === 0) writeField(`${setObj.id}_${f.key}`, f.type, val, iconExtra);
+                if (hasNamedAlias) writeField(`${setObj.id}_${slotSlug}_${f.key}`, f.type, val, iconExtra);
             }
         }
     }

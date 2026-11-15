@@ -266,7 +266,10 @@
         .vp-form label.vp-check input { width: auto; }
         .vp-row-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
         .vp-fields-box { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: .75rem; }
-        .vp-field-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 110px auto; gap: .45rem; align-items: center; }
+        .vp-field-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 105px auto auto; gap: .45rem; align-items: center; }
+        .vp-f-icon-btn { min-width: 2.3rem; justify-content: center; gap: .3rem; }
+        .variable-icon-edit { display: grid; grid-template-columns: 2.1rem minmax(0, 1fr) auto; gap: .4rem; align-items: center; }
+        .variable-icon-preview { display: inline-flex; align-items: center; justify-content: center; width: 2.1rem; height: 2.1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-inset); color: var(--text); font-size: .95rem; }
         .vp-fields-list { display: grid; gap: .45rem; }
         .vp-img-row { display: flex; gap: .45rem; align-items: center; }
         .vp-img-row input[type="text"] { flex: 1; min-width: 0; }
@@ -494,6 +497,7 @@
 
 <script src="/overlay-shared.js"></script>
 <script src="/js/image-picker.js"></script>
+<script src="/icon-picker.js"></script>
 <script src="/js/placeholder-picker.js"></script>
 <script type="module" src="/js/variables/variables-main.js"></script>
 </body>

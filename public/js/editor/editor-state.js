@@ -741,6 +741,7 @@ export function normalizeGroupFieldItem(f, idx = 0) {
         inline: f.inline === true,
         prefix: String(f.prefix || '').slice(0, 24),
         suffix: String(f.suffix || '').slice(0, 24),
+        icon: String(f.icon || '').trim().slice(0, 80),
         sizeScale: Math.max(50, Math.min(200, Math.round(Number(f.sizeScale) || 100))),
         fontSize: optNum(f.fontSize, 8, 96),
         padX: optNum(f.padX, 0, 32),
@@ -1057,6 +1058,10 @@ export const variableContext = () => ({ overlayName: state.overlay.name });
 export const expand = value => {
     const sh = window.OverlayShared;
     return prefs.live && sh ? sh.expandVariables(value, effectiveLiveStatus(), variableContext(), true) : String(value ?? '');
+};
+export const expandInlineText = value => {
+    const sh = window.OverlayShared;
+    return prefs.live && sh ? sh.expandVariables(value, effectiveLiveStatus(), { ...variableContext(), inlineIcons: true }, true) : String(value ?? '');
 };
 export const liveSignature = () => {
     const sh = window.OverlayShared;

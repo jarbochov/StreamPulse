@@ -715,6 +715,7 @@ export function openSetModal(existing = null) {
     ]).map(f => ({ ...f }));
 
     const renderFieldRows = host => {
+        if (fields.some(f => f.icon)) window.IconPicker?.ensureFont?.();
         host.innerHTML = fields.map((f, idx) => `
             <div class="vp-field-row" data-f-idx="${idx}">
                 <input type="text" data-f-prop="label" value="${esc(f.label)}" placeholder="Label (e.g. Name)">
@@ -725,6 +726,7 @@ export function openSetModal(existing = null) {
                     <option value="color" ${f.type === 'color' ? 'selected' : ''}>Color</option>
                     <option value="toggle" ${f.type === 'toggle' ? 'selected' : ''}>Toggle</option>
                 </select>
+                <button type="button" class="b sm vp-f-icon-btn" data-f-icon="${idx}" title="${f.icon ? `Field icon: ${esc(f.icon)}` : 'Optional icon (e.g. fa-brands fa-twitch)'}">${f.icon ? `<i class="${esc(f.icon)}"></i>` : 'Icon'}</button>
                 <button type="button" class="b sm danger" data-f-remove="${idx}" ${fields.length <= 1 ? 'disabled' : ''}>${SVG_TRASH}</button>
             </div>
         `).join('');
@@ -784,6 +786,19 @@ export function openSetModal(existing = null) {
         });
 
         fieldsHost.addEventListener('click', e => {
+            const iconBtn = e.target.closest('[data-f-icon]');
+            if (iconBtn) {
+                const idx = Number(iconBtn.dataset.fIcon);
+                window.IconPicker?.open({
+                    value: fields[idx]?.icon || '',
+                    onPick: cls => {
+                        if (!fields[idx]) return;
+                        fields[idx].icon = cls || '';
+                        renderFieldRows(fieldsHost);
+                    }
+                });
+                return;
+            }
             const btn = e.target.closest('[data-f-remove]');
             if (!btn || fields.length <= 1) return;
             fields.splice(Number(btn.dataset.fRemove), 1);
@@ -803,7 +818,7 @@ export function openSetModal(existing = null) {
             const payload = {
                 name: nameInput.value.trim() || setId,
                 slotsCount: Number.isFinite(parsedSlots) ? Math.max(0, parsedSlots) : 0,
-                fields: fields.map(f => ({ key: slugId(f.key) || 'field', label: f.label.trim() || f.key, type: f.type })),
+                fields: fields.map(f => ({ key: slugId(f.key) || 'field', label: f.label.trim() || f.key, type: f.type, ...(f.icon ? { icon: f.icon } : {}) })),
                 roster: existing?.roster || [],
                 slots: existing?.slots || [],
                 activeEntry: existing?.activeEntry || ''

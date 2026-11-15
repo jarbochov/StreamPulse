@@ -6,7 +6,7 @@ import {
     $, clamp, isLine, boxOf, visualBoxOf, boundsOf, scaleSnapshot, applyScale,
     TEXT_TYPES, MIN_SIZE, LIMITS, state, prefs, byId, selectedElements,
     primary, inView, visibleElements, withGroups, setSelection, changed,
-    expand, liveSignature, effectiveLiveStatus, syncEditorVarRotations, alertSample, toast, previewAlertElement
+    expand, expandInlineText, liveSignature, effectiveLiveStatus, syncEditorVarRotations, alertSample, toast, previewAlertElement
 } from './editor-state.js';
 import {
     snapAxis as findSnapAxis,
@@ -589,7 +589,9 @@ function setNodeText(node, text) {
         }
         return;
     }
-    if (!node.firstElementChild) {
+    if (shared.renderInlineText) {
+        shared.renderInlineText(node, str);
+    } else if (!node.firstElementChild) {
         if (node.textContent !== str) node.textContent = str;
     } else {
         let tn = node._textNode;
@@ -781,7 +783,7 @@ export function buildContent(node, el, playback) {
         });
         node.appendChild(media);
     } else if (el.type === 'icon') {
-        if (shared.renderIcon) shared.renderIcon(node, el.content, el.style);
+        if (shared.renderIcon) shared.renderIcon(node, expand(el.content), el.style);
     } else if (el.type === 'qr') {
         const url = shared.qrUrl ? shared.qrUrl(expand(el.src), el.qr) : '';
         if (!url || /\{\{/.test(expand(el.src))) { node.appendChild(placeholder('Enter a link or text for the QR code')); return; }
@@ -819,7 +821,7 @@ export function buildContent(node, el, playback) {
             </div>
         `;
     } else if (el.type === 'markdown') {
-        node.innerHTML = shared.renderMarkdown ? shared.renderMarkdown(expand(shared.elementContent(el)), el) : expand(el.content);
+        node.innerHTML = shared.renderMarkdown ? shared.renderMarkdown(expandInlineText(shared.elementContent(el)), el) : expandInlineText(el.content);
     } else if (el.type === 'random-text') {
         const first = shared.elementItems ? shared.elementItems(el).find(Boolean) ?? el.content ?? '' : el.content;
         if (el.random?.typewriter) {
@@ -827,15 +829,15 @@ export function buildContent(node, el, playback) {
             caret.className = 'overlay-caret'; caret.textContent = expand(first);
             node.replaceChildren(caret);
             node._extra += ' overlay-typewriter';
-        } else setNodeText(node, expand(first));
+        } else setNodeText(node, expandInlineText(first));
         if (el.random?.marquee) {
             node._extra += ' overlay-marquee';
             if (shared.wrapMarquee) shared.wrapMarquee(node);
         }
     } else if (el.type === 'text' && el.cycle?.enabled && shared.mountTextCycle) {
-        shared.mountTextCycle(node, el, { expand });
+        shared.mountTextCycle(node, el, { expand: expandInlineText });
     } else if (el.type === 'text') {
-        setNodeText(node, expand(shared.elementContent ? shared.elementContent(el) : el.content));
+        setNodeText(node, expandInlineText(shared.elementContent ? shared.elementContent(el) : el.content));
     } else if (el.type === 'slideshow') {
         node._slideHandle?.stop();
         if (shared.mountSlideshow) node._slideHandle = shared.mountSlideshow(node, el, { preview: true, animate: true, initialState: playback?.slideshow });
@@ -907,14 +909,14 @@ export function tickPlaceholders() {
         if (el.type === 'progress') {
             if (shared.renderProgress) shared.renderProgress(node, el, expand);
         } else if (el.type === 'markdown') {
-            const nextHtml = shared.renderMarkdown ? shared.renderMarkdown(expand(shared.elementContent(el)), el) : expand(el.content);
+            const nextHtml = shared.renderMarkdown ? shared.renderMarkdown(expandInlineText(shared.elementContent(el)), el) : expandInlineText(el.content);
             if (node._mdHtml !== nextHtml) {
                 node._mdHtml = nextHtml;
                 node.innerHTML = nextHtml;
                 if (shared.applyMediaFilter) shared.applyMediaFilter(node, el);
             }
         } else {
-            setNodeText(node, expand(shared.elementContent ? shared.elementContent(el) : el.content));
+            setNodeText(node, expandInlineText(shared.elementContent ? shared.elementContent(el) : el.content));
         }
         if (el.textFit && el.textFit !== 'none' && shared.fitText) shared.fitText(node, el);
     }

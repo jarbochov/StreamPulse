@@ -2500,18 +2500,98 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
     return Array.from(s).slice(0, max).join("");
   }
-  function renderIcon(node, value, style = {}) {
-    node.replaceChildren();
-    const cls = String(value || "").trim().replace(/^fab\b/, "fa-brands").replace(/^fas\b/, "fa-solid").replace(/^far\b/, "fa-regular");
-    if (!cls) return;
-    const isFa = /^[a-z0-9 -]+$/i.test(cls) && /\bfa-[a-z0-9-]+/i.test(cls);
-    if (isFa && !document.querySelector("link[data-fa]")) {
+  function sanitizeIconClass(value) {
+    const cls = String(value || "").trim().replace(/^fab\b/, "fa-brands").replace(/^fas\b/, "fa-solid").replace(/^far\b/, "fa-regular").replace(/\s+/g, " ");
+    return /^[a-z0-9 -]+$/i.test(cls) && /\bfa-[a-z0-9-]+/i.test(cls) ? cls : "";
+  }
+  function ensureFontAwesome() {
+    if (!document.querySelector("link[data-fa]")) {
       const link = document.createElement("link");
       link.rel = "stylesheet";
       link.href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css";
       link.dataset.fa = "1";
       document.head.appendChild(link);
     }
+  }
+  function renderInlineText(node, text) {
+    const str = String(text ?? "");
+    INLINE_ICON_RE.lastIndex = 0;
+    const hasIcons = INLINE_ICON_RE.test(str);
+    INLINE_ICON_RE.lastIndex = 0;
+    if (!hasIcons) {
+      if (node._inlineWrap) {
+        node._inlineWrap.remove();
+        node._inlineWrap = null;
+        node._inlineSig = "";
+      }
+      if (!node.firstElementChild) {
+        if (node.textContent !== str) node.textContent = str;
+      } else {
+        let tn = node._textNode;
+        if (!tn || tn.parentNode !== node) {
+          tn = [...node.childNodes].find((c) => c.nodeType === 3);
+          if (!tn) {
+            tn = document.createTextNode("");
+            node.insertBefore(tn, node.firstChild);
+          }
+          node._textNode = tn;
+        }
+        if (tn.nodeValue !== str) tn.nodeValue = str;
+      }
+      return;
+    }
+    if (node._inlineSig === str && node._inlineWrap && node._inlineWrap.parentNode === node) return;
+    node._inlineSig = str;
+    if (node._textNode && node._textNode.parentNode === node) {
+      node._textNode.nodeValue = "";
+    } else if (!node.firstElementChild) {
+      node.textContent = "";
+    }
+    let wrap = node._inlineWrap;
+    if (!wrap || wrap.parentNode !== node) {
+      wrap = document.createElement("span");
+      wrap.className = "sp-inline-text-wrap";
+      wrap.style.display = "contents";
+      node.insertBefore(wrap, node.firstChild);
+      node._inlineWrap = wrap;
+    }
+    const frag = document.createDocumentFragment();
+    let last = 0;
+    let m;
+    while ((m = INLINE_ICON_RE.exec(str)) !== null) {
+      if (m.index > last) frag.appendChild(document.createTextNode(str.slice(last, m.index)));
+      const cls = sanitizeIconClass(m[1]);
+      if (cls) {
+        ensureFontAwesome();
+        const icon = document.createElement("i");
+        icon.className = `${cls} sp-inline-icon`;
+        icon.setAttribute("aria-hidden", "true");
+        icon.style.cssText = "display:inline-block;vertical-align:-0.08em;line-height:1;font-style:normal;";
+        frag.appendChild(icon);
+      } else {
+        frag.appendChild(document.createTextNode(m[0]));
+      }
+      last = m.index + m[0].length;
+    }
+    if (last < str.length) frag.appendChild(document.createTextNode(str.slice(last)));
+    wrap.replaceChildren(frag);
+  }
+  function replaceInlineIconTokensInHtml(html) {
+    const str = String(html ?? "");
+    if (!str.includes("icon:")) return str;
+    return str.replace(INLINE_ICON_RE, (full, rawCls) => {
+      const cls = sanitizeIconClass(rawCls);
+      if (!cls) return full;
+      ensureFontAwesome();
+      return `<i class="${cls} sp-inline-icon" aria-hidden="true" style="display:inline-block;vertical-align:-0.08em;line-height:1;font-style:normal;"></i>`;
+    });
+  }
+  function renderIcon(node, value, style = {}) {
+    node.replaceChildren();
+    const cls = String(value || "").trim().replace(/^fab\b/, "fa-brands").replace(/^fas\b/, "fa-solid").replace(/^far\b/, "fa-regular");
+    if (!cls) return;
+    const isFa = /^[a-z0-9 -]+$/i.test(cls) && /\bfa-[a-z0-9-]+/i.test(cls);
+    if (isFa) ensureFontAwesome();
     const icon = document.createElement(isFa ? "i" : "span");
     if (isFa) {
       icon.className = cls;
@@ -2540,8 +2620,10 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const params = new URLSearchParams({ text: value, fg: qr.fg || "#000000", bg: qr.bg || "#ffffff", margin: String(qr.margin ?? 2), ecc: qr.ecc || "M" });
     return `/api/qr?${params}`;
   }
+  var INLINE_ICON_RE;
   var init_icons = __esm({
     "public/js/overlay/icons.js"() {
+      INLINE_ICON_RE = /\{\{\s*icon:([a-z0-9 _-]+)\s*\}\}/gi;
     }
   });
 
@@ -2864,6 +2946,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       if (!customGroups.has(label)) customGroups.set(label, []);
       customGroups.get(label).push([`var.${v.name}`, `${v.name} (${v.type})`]);
       if (v.type === "list") customGroups.get(label).push([`var.${v.name}.random`, `${v.name}, random item each time`]);
+      if (v.icon) customGroups.get(label).push([`var.${v.name}.icon`, `${v.name} icon (${v.icon})`]);
     }
     for (const [label, items] of customGroups) groups.push({ label, items });
     if (status.weather?.enabled) {
@@ -3274,6 +3357,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       if (v.type === "list" && v.items?.length) {
         entries[`var.${v.name}.random`] = v.items[Math.floor(Math.random() * v.items.length)];
       }
+      if (v.icon) entries[`var.${v.name}.icon`] = v.icon;
     }
     const templates = new Map(vars.filter((v) => v.type === "template").map((v) => [`var.${v.name}`, String(v.value ?? "")]));
     const done = /* @__PURE__ */ new Map();
@@ -3324,6 +3408,15 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const tplMap = new Map((status.customVars || []).filter((v) => v.type === "template").map((v) => [`var.${v.name}`, v.value]));
     const numberNames = new Set((status.customVars || []).filter((v) => v.type === "number" || v.type === "counter").map((v) => `var.${v.name}`));
     return String(value ?? "").replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (match, name, format) => {
+      if (name.startsWith("var.") && name.endsWith(".icon")) {
+        const iconCls = String(table[name] || "").trim();
+        if (iconCls) return context?.inlineIcons ? `{{icon:${iconCls}}}` : iconCls;
+        if (format !== void 0) {
+          const fb = format.trim();
+          return fb === "" && keepEmpty ? match : fb;
+        }
+        return keepEmpty ? match : "";
+      }
       if (name.startsWith("var.") && tplMap.has(name) && _depth < 3) {
         const expanded = expandVariables(tplMap.get(name) ?? "", status, context, keepEmpty, _depth + 1);
         if (expanded !== "") return expanded;
@@ -3334,10 +3427,18 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         return keepEmpty ? match : "";
       }
       if (name.startsWith("var.") && format !== void 0 && !isListKey(name)) {
+        const trimmedFmt = format.trim();
         const raw = table[name];
         const str = raw === void 0 || raw === null ? "" : String(raw);
+        if (trimmedFmt === "icon" || trimmedFmt === "withIcon") {
+          const iconCls = String(table[`${name}.icon`] || "").trim();
+          if (str === "") return keepEmpty ? match : "";
+          if (!iconCls) return trimmedFmt === "icon" ? "" : str;
+          const iconTok = context?.inlineIcons ? `{{icon:${iconCls}}}` : iconCls;
+          return trimmedFmt === "icon" ? iconTok : context?.inlineIcons ? `${iconTok} ${str}` : str;
+        }
         if (str === "") {
-          const fb = format.trim();
+          const fb = trimmedFmt;
           return fb === "" && keepEmpty ? match : fb;
         }
       }
@@ -3843,6 +3944,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       inline: f.inline === true,
       prefix: String(f.prefix || ""),
       suffix: String(f.suffix || ""),
+      icon: String(f.icon || "").trim(),
       sizeScale: Math.max(50, Math.min(200, Number(f.sizeScale) || 100)),
       fontSize: optNum(f.fontSize, 8, 96),
       padX: optNum(f.padX, 0, 32),
@@ -3881,7 +3983,18 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
     span.className = `sp-image-group-field ${roleCls}`;
     if (spec.slot && spec.slot !== "main") span.dataset.igSlot = spec.slot;
-    span.textContent = `${spec.prefix}${text}${spec.suffix}`;
+    const iconCls = sanitizeIconClass(spec.icon);
+    if (iconCls) {
+      ensureFontAwesome();
+      const iconEl = document.createElement("i");
+      iconEl.className = `${iconCls} sp-inline-icon`;
+      iconEl.setAttribute("aria-hidden", "true");
+      iconEl.style.cssText = "display:inline-block;margin-right:0.35em;vertical-align:-0.08em;line-height:1;font-style:normal;";
+      span.appendChild(iconEl);
+      span.appendChild(document.createTextNode(`${spec.prefix}${text}${spec.suffix}`));
+    } else {
+      span.textContent = `${spec.prefix}${text}${spec.suffix}`;
+    }
     const roleFont = spec.role === "subtitle" || spec.role === "caption" ? String(cfg.subFontFamily || "").trim() : spec.role === "badge" || spec.role === "accent" ? String(cfg.badgeFontFamily || "").trim() : "";
     const resolvedFont = resolveColorToken(spec.fontFamily, status, {}) || resolveColorToken(roleFont, status, {}) || st.fontFamily || "sans-serif";
     if (typeof loadGoogleFont === "function") loadGoogleFont(resolvedFont);
@@ -4179,6 +4292,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     if (typeof loadGoogleFont === "function" && st.fontFamily) loadGoogleFont(st.fontFamily);
     const setObj = (status?.variableSets || []).find((s) => s && s.id === cfg.setId) || null;
     const setFieldTypes = new Map((setObj?.fields || []).map((f) => [f.key, f.type]));
+    const setFieldIcons = new Map((setObj?.fields || []).filter((f) => f.icon).map((f) => [f.key, f.icon]));
     const resolveMemberColor = (val, member, fallback = "") => resolveColorToken(val, status, {}, member) || fallback;
     const resolveMemberGradient = (grad, member) => {
       if (!grad || typeof grad !== "object") return grad;
@@ -4380,6 +4494,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         if (!isImgField && !showLabels) return;
         const resolvedSpec = {
           ...spec,
+          icon: spec.icon === "none" ? "" : spec.icon || setFieldIcons.get(spec.key) || "",
           color: spec.color ? resolveMemberColor(spec.color, item.raw, "") : "",
           bgColor: spec.bgColor ? resolveMemberColor(spec.bgColor, item.raw, "") : ""
         };
@@ -4585,6 +4700,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
   var init_media = __esm({
     "public/js/overlay/media.js"() {
       init_fonts();
+      init_icons();
       init_styles();
       init_variables();
       import_numeric_bindings2 = __toESM(require_numeric_bindings());
@@ -6430,9 +6546,9 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         } else run.push(child);
       });
       flush();
-      return out.innerHTML;
+      return replaceInlineIconTokensInHtml(out.innerHTML);
     }
-    return holder.innerHTML;
+    return replaceInlineIconTokensInHtml(holder.innerHTML);
   }
   async function loadTextSource(key) {
     const [mode, ...rest] = key.split("|");
@@ -6527,6 +6643,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
   var init_text = __esm({
     "public/js/overlay/text.js"() {
       init_environment();
+      init_icons();
       textSources = /* @__PURE__ */ new Map();
       textSourceKey = (el) => el?.source && el.source.mode !== "inline" && el.source.path ? `${el.source.mode}|${el.source.path}` : "";
       textSourceState = (el) => textSources.get(textSourceKey(el))?.state || null;
@@ -7105,6 +7222,12 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       cfg.skipEmpty !== false
     ]);
   }
+  function setLayerText(layer, text) {
+    const str = String(text ?? "");
+    if (layer._rawText === str) return;
+    layer._rawText = str;
+    renderInlineText(layer, str);
+  }
   function makeLayer(text) {
     const span = document.createElement("span");
     span.className = "sp-cycle-layer";
@@ -7112,7 +7235,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     span.style.width = "100%";
     span.style.whiteSpace = "pre-wrap";
     span.style.wordBreak = "break-word";
-    span.textContent = text;
+    setLayerText(span, text);
     return span;
   }
   function mountTextCycle(node, element, opts = {}) {
@@ -7168,7 +7291,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       const method = cfg.transition || "fade";
       const dur = Math.max(50, Math.min(2e3, Number(cfg.durationMs) || 350));
       if (method === "none") {
-        if (activeLayer.textContent !== nextText) activeLayer.textContent = nextText;
+        setLayerText(activeLayer, nextText);
         return;
       }
       for (const child of [...stage.children]) {
@@ -7205,13 +7328,13 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         if (stopped || document.hidden) return;
         lines = resolveCycleLines(currentEl, expand);
         if (!lines.length) {
-          if (activeLayer.textContent !== "") activeLayer.textContent = "";
+          setLayerText(activeLayer, "");
           return;
         }
         if (lines.length === 1) {
           idx = 0;
           if (setIndex) setIndex(currentEl.id, 0);
-          if (activeLayer.textContent !== lines[0]) transitionTo(lines[0]);
+          if (activeLayer._rawText !== lines[0]) transitionTo(lines[0]);
           return;
         }
         idx = (idx + 1) % lines.length;
@@ -7229,17 +7352,17 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         if (!lines.length) {
           idx = 0;
           if (setIndex) setIndex(currentEl.id, 0);
-          if (activeLayer.textContent !== "") activeLayer.textContent = "";
+          setLayerText(activeLayer, "");
         } else if (resetIndex) {
           idx = 0;
           if (setIndex) setIndex(currentEl.id, 0);
-          if (activeLayer.textContent !== lines[0]) activeLayer.textContent = lines[0];
+          setLayerText(activeLayer, lines[0]);
           startTimer();
         } else {
-          const wasEmpty = activeLayer.textContent === "";
+          const wasEmpty = (activeLayer._rawText ?? activeLayer.textContent) === "";
           idx = idx % lines.length;
-          if ((lines.length === 1 || wasEmpty) && activeLayer.textContent !== lines[idx]) {
-            activeLayer.textContent = lines[idx];
+          if (lines.length === 1 || wasEmpty) {
+            setLayerText(activeLayer, lines[idx]);
           }
         }
         if (nextConfigSig !== configSig) {
@@ -7261,6 +7384,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
   }
   var init_text_cycle = __esm({
     "public/js/overlay/text-cycle.js"() {
+      init_icons();
       init_text();
     }
   });
@@ -8120,7 +8244,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       var import_numeric_bindings3 = __toESM(require_numeric_bindings());
       root.OverlayShared = Object.assign(root.OverlayShared || {}, { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, TEXT_ANIM_TYPES, applyBorderGradient, applyTextAnimation, resolveBorderRadius, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, renderSpeakerBadge, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, mountTextCycle, resolveCycleLines, createVarRotationEngine, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, resolveColorToken, resolveStyleVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, renderImageGroupStrip, applyMediaFilter: root.OverlayFilters?.applyMediaFilter || applyMediaFilter, shadowClipStyle });
       root.OverlayShared.borderPlacement = borderPlacement;
-      Object.assign(root.OverlayShared, { ALERT_PRESENTATION_KEYS, resolveAlertLook });
+      Object.assign(root.OverlayShared, { ALERT_PRESENTATION_KEYS, resolveAlertLook, renderInlineText, sanitizeIconClass });
       Object.assign(root.OverlayShared, import_numeric_bindings3.default);
       Object.defineProperty(root.OverlayShared, Symbol.for("StreamPulse.OverlayShared"), { value: true });
     }

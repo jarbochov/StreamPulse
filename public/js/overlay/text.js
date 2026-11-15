@@ -1,4 +1,5 @@
 import { root } from './environment.js';
+import { replaceInlineIconTokensInHtml } from './icons.js';
 
 
 // Splits blocks into balanced flex columns, breaking lists between items and keeping numbering continuous.
@@ -68,9 +69,9 @@ function renderMarkdown(source, el) {
             if (level && level <= span) { flush(); out.appendChild(child); } else run.push(child);
         });
         flush();
-        return out.innerHTML;
+        return replaceInlineIconTokensInHtml(out.innerHTML);
     }
-    return holder.innerHTML;
+    return replaceInlineIconTokensInHtml(holder.innerHTML);
 }
 
 

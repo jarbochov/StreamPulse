@@ -325,6 +325,7 @@ function variableGroups(status = {}) {
         if (!customGroups.has(label)) customGroups.set(label, []);
         customGroups.get(label).push([`var.${v.name}`, `${v.name} (${v.type})`]);
         if (v.type === 'list') customGroups.get(label).push([`var.${v.name}.random`, `${v.name}, random item each time`]);
+        if (v.icon) customGroups.get(label).push([`var.${v.name}.icon`, `${v.name} icon (${v.icon})`]);
     }
     for (const [label, items] of customGroups) groups.push({ label, items });
     if (status.weather?.enabled) {
@@ -764,6 +765,7 @@ function customVarValues(status) {
         if (v.type === 'list' && v.items?.length) {
             entries[`var.${v.name}.random`] = v.items[Math.floor(Math.random() * v.items.length)];
         }
+        if (v.icon) entries[`var.${v.name}.icon`] = v.icon;
     }
     // Templates may reference other templates in any order; depth 3, cycles resolve empty.
     const templates = new Map(vars.filter(v => v.type === 'template').map(v => [`var.${v.name}`, String(v.value ?? '')]));
@@ -812,6 +814,15 @@ function expandVariables(value, status, context = {}, keepEmpty = false, _depth 
     const tplMap = new Map((status.customVars || []).filter(v => v.type === 'template').map(v => [`var.${v.name}`, v.value]));
     const numberNames = new Set((status.customVars || []).filter(v => v.type === 'number' || v.type === 'counter').map(v => `var.${v.name}`));
     return String(value ?? '').replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (match, name, format) => {
+        if (name.startsWith('var.') && name.endsWith('.icon')) {
+            const iconCls = String(table[name] || '').trim();
+            if (iconCls) return context?.inlineIcons ? `{{icon:${iconCls}}}` : iconCls;
+            if (format !== undefined) {
+                const fb = format.trim();
+                return fb === '' && keepEmpty ? match : fb;
+            }
+            return keepEmpty ? match : '';
+        }
         if (name.startsWith('var.') && tplMap.has(name) && _depth < 3) {
             const expanded = expandVariables(tplMap.get(name) ?? '', status, context, keepEmpty, _depth + 1);
             if (expanded !== '') return expanded;
@@ -822,10 +833,18 @@ function expandVariables(value, status, context = {}, keepEmpty = false, _depth 
             return keepEmpty ? match : '';
         }
         if (name.startsWith('var.') && format !== undefined && !isListKey(name)) {
+            const trimmedFmt = format.trim();
             const raw = table[name];
             const str = raw === undefined || raw === null ? '' : String(raw);
+            if (trimmedFmt === 'icon' || trimmedFmt === 'withIcon') {
+                const iconCls = String(table[`${name}.icon`] || '').trim();
+                if (str === '') return keepEmpty ? match : '';
+                if (!iconCls) return trimmedFmt === 'icon' ? '' : str;
+                const iconTok = context?.inlineIcons ? `{{icon:${iconCls}}}` : iconCls;
+                return trimmedFmt === 'icon' ? iconTok : (context?.inlineIcons ? `${iconTok} ${str}` : str);
+            }
             if (str === '') {
-                const fb = format.trim();
+                const fb = trimmedFmt;
                 return fb === '' && keepEmpty ? match : fb;
             }
         }

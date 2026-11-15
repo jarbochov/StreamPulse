@@ -96,7 +96,7 @@
         const items = pool.length ? pool : [element.content || ''];
         const config = element.random || {};
         let index = randomIndexes.get(element.id) || 0;
-        const value = expandVariables(config.mode === 'order' ? items[index % items.length] : items[Math.floor(Math.random() * items.length)]);
+        const value = expandInlineText(config.mode === 'order' ? items[index % items.length] : items[Math.floor(Math.random() * items.length)]);
         randomIndexes.set(element.id, config.mode === 'order' ? index + 1 : index);
         if (node._textAnimHandle?.stop) { try { node._textAnimHandle.stop(); } catch {} node._textAnimHandle = null; }
         node._textAnimWrap = null;
@@ -120,7 +120,7 @@
         } else {
             if (node._typeTimer) { clearInterval(node._typeTimer); node._typeTimer = null; }
             node.classList.remove('overlay-typewriter');
-            node.textContent = value;
+            setNodeText(node, value);
         }
         if (config.marquee) {
             node.classList.add('overlay-marquee');
@@ -135,13 +135,13 @@
         const raw = String(shared.elementContent(element) || '');
         const skipEmpty = element.cycle?.skipEmpty !== false;
         return raw.split(/\r?\n/).map(line => {
-            if (!skipEmpty) return expandVariables(line);
+            if (!skipEmpty) return expandInlineText(line);
             const tokens = [...line.matchAll(/\{\{([^{}]+)\}\}/g)];
             if (tokens.length) {
                 const anyPopulated = tokens.some(m => expandVariables(m[0]).trim() !== '');
                 if (!anyPopulated) return '';
             }
-            return expandVariables(line);
+            return expandInlineText(line);
         }).filter(text => text.trim() !== '');
     }
 
@@ -153,7 +153,7 @@
             return;
         }
         shared.mountTextCycle(node, element, {
-            expand: expandVariables,
+            expand: expandInlineText,
             getIndex: id => randomIndexes.get(id) || 0,
             setIndex: (id, idx) => randomIndexes.set(id, idx)
         });
@@ -226,12 +226,17 @@
         return out;
     }
 
-    function expandVariables(value) {
-        return shared.expandVariables(value, effectiveStatus(), variableContext());
+    function expandVariables(value, extraCtx = null) {
+        const ctx = extraCtx ? { ...variableContext(), ...extraCtx } : variableContext();
+        return shared.expandVariables(value, effectiveStatus(), ctx);
+    }
+
+    function expandInlineText(value) {
+        return expandVariables(value, { inlineIcons: true });
     }
 
     function renderMarkdown(source, element) {
-        return shared.renderMarkdown(expandVariables(source), element);
+        return shared.renderMarkdown(expandInlineText(source), element);
     }
 
     function applyElementStyle(node, element) {
@@ -407,7 +412,9 @@
             }
             return;
         }
-        if (!node.firstElementChild) {
+        if (shared.renderInlineText) {
+            shared.renderInlineText(node, str);
+        } else if (!node.firstElementChild) {
             if (node.textContent !== str) node.textContent = str;
         } else {
             let tn = node._textNode;
@@ -441,7 +448,7 @@
                     changed = true;
                 }
             } else {
-                const nextText = expandVariables(shared.elementContent(element) || '');
+                const nextText = expandInlineText(shared.elementContent(element) || '');
                 if (node._lastTickText !== nextText) {
                     node._lastTickText = nextText;
                     setNodeText(node, nextText);
@@ -778,7 +785,7 @@
             if (element.type === 'image') {
                 syncImageNode(existingNode, element);
             } else if (element.type === 'icon') {
-                shared.renderIcon(existingNode, element.content, element.style || {});
+                shared.renderIcon(existingNode, expandVariables(element.content), element.style || {});
             } else if (element.type === 'qr') {
                 const img = existingNode.querySelector(':scope > img');
                 const targetSrc = shared.qrUrl(expandVariables(element.src || ''), element.qr);
@@ -823,7 +830,7 @@
                     existingNode._cycleHandle = null;
                     existingNode.replaceChildren();
                 }
-                setNodeText(existingNode, expandVariables(shared.elementContent(element) || ''));
+                setNodeText(existingNode, expandInlineText(shared.elementContent(element) || ''));
             }
 
             const tickSource = element.type === 'progress' ? `${element.content} ${element.progress?.label}` : shared.elementContent(element);
@@ -911,7 +918,7 @@
             } else if (element.type === 'image') {
                 syncImageNode(node, element);
             } else if (element.type === 'icon') {
-                shared.renderIcon(node, element.content, element.style || {});
+                shared.renderIcon(node, expandVariables(element.content), element.style || {});
             } else if (element.type === 'qr') {
                 const img = document.createElement('img');
                 img.src = shared.qrUrl(expandVariables(element.src || ''), element.qr);
@@ -998,7 +1005,7 @@
             } else if (element.type === 'text' && element.cycle?.enabled) {
                 setCycleNode(node, element);
             } else {
-                setNodeText(node, expandVariables(shared.elementContent(element) || ''));
+                setNodeText(node, expandInlineText(shared.elementContent(element) || ''));
             }
             const tickSource = element.type === 'progress' ? `${element.content} ${element.progress?.label}` : shared.elementContent(element);
             if (element.type === 'poll' || (['text', 'markdown', 'progress'].includes(element.type) && shared.hasTicking(tickSource))) tickingNodes.push({ node, element });
@@ -1293,7 +1300,7 @@
                 if (afterEl.type === 'progress') {
                     shared.renderProgress(node, afterEl, expandVariables);
                 } else if (afterEl.type === 'icon') {
-                    shared.renderIcon(node, afterEl.content, afterEl.style || {});
+                    shared.renderIcon(node, expandVariables(afterEl.content), afterEl.style || {});
                 }
                 node.style.opacity = String(nowVis ? (afterEl.style?.opacity ?? 1) : 0);
                 if (!nowVis) node.style.pointerEvents = 'none';

@@ -1,3 +1,4 @@
+import { renderInlineText } from './icons.js';
 import { elementContent } from './text.js';
 
 function resolveCycleLines(element, expand) {
@@ -18,6 +19,13 @@ function cycleConfigKey(element) {
     ]);
 }
 
+function setLayerText(layer, text) {
+    const str = String(text ?? '');
+    if (layer._rawText === str) return;
+    layer._rawText = str;
+    renderInlineText(layer, str);
+}
+
 function makeLayer(text) {
     const span = document.createElement('span');
     span.className = 'sp-cycle-layer';
@@ -25,7 +33,7 @@ function makeLayer(text) {
     span.style.width = '100%';
     span.style.whiteSpace = 'pre-wrap';
     span.style.wordBreak = 'break-word';
-    span.textContent = text;
+    setLayerText(span, text);
     return span;
 }
 
@@ -85,7 +93,7 @@ function mountTextCycle(node, element, opts = {}) {
         const dur = Math.max(50, Math.min(2000, Number(cfg.durationMs) || 350));
 
         if (method === 'none') {
-            if (activeLayer.textContent !== nextText) activeLayer.textContent = nextText;
+            setLayerText(activeLayer, nextText);
             return;
         }
 
@@ -127,13 +135,13 @@ function mountTextCycle(node, element, opts = {}) {
             if (stopped || document.hidden) return;
             lines = resolveCycleLines(currentEl, expand);
             if (!lines.length) {
-                if (activeLayer.textContent !== '') activeLayer.textContent = '';
+                setLayerText(activeLayer, '');
                 return;
             }
             if (lines.length === 1) {
                 idx = 0;
                 if (setIndex) setIndex(currentEl.id, 0);
-                if (activeLayer.textContent !== lines[0]) transitionTo(lines[0]);
+                if (activeLayer._rawText !== lines[0]) transitionTo(lines[0]);
                 return;
             }
             idx = (idx + 1) % lines.length;
@@ -153,17 +161,17 @@ function mountTextCycle(node, element, opts = {}) {
             if (!lines.length) {
                 idx = 0;
                 if (setIndex) setIndex(currentEl.id, 0);
-                if (activeLayer.textContent !== '') activeLayer.textContent = '';
+                setLayerText(activeLayer, '');
             } else if (resetIndex) {
                 idx = 0;
                 if (setIndex) setIndex(currentEl.id, 0);
-                if (activeLayer.textContent !== lines[0]) activeLayer.textContent = lines[0];
+                setLayerText(activeLayer, lines[0]);
                 startTimer();
             } else {
-                const wasEmpty = activeLayer.textContent === '';
+                const wasEmpty = (activeLayer._rawText ?? activeLayer.textContent) === '';
                 idx = idx % lines.length;
-                if ((lines.length === 1 || wasEmpty) && activeLayer.textContent !== lines[idx]) {
-                    activeLayer.textContent = lines[idx];
+                if (lines.length === 1 || wasEmpty) {
+                    setLayerText(activeLayer, lines[idx]);
                 }
             }
             if (nextConfigSig !== configSig) {

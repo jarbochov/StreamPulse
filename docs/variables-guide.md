@@ -143,7 +143,20 @@ Instead of cluttering color inputs with full variable lists, click the **`{}`** 
 
 ---
 
-## 5. Bitfocus Companion & HTTP Automation
+## 5. Variable & Field Icons (Inline Text & Badge Builder)
+
+Attach a Font Awesome icon (such as `fa-brands fa-twitch` or `fa-brands fa-youtube`) to any **Global Variable** (in the Variable Inspector) or any **Variable Set Field** (in the Set Schema modal):
+
+- **Keep plain values safe**: `{{var.twitch}}` and `{{var.squad_1_twitch}}` continue to resolve as plain text so URLs, QR codes, and links like `https://twitch.tv/{{var.twitch}}` never break.
+- **Inline in Text & Markdown elements**:
+  - `{{var.twitch.icon}}` — renders the variable's icon inline in Text / Random Text / Markdown elements (or resolves to the Font Awesome class name inside an **Icon** element).
+  - `{{var.twitch|withIcon}}` — renders the icon followed by the value, and outputs nothing if the handle is empty.
+  - `{{icon:fa-brands fa-twitch}}` — inserts any Font Awesome icon directly inline with text (use **Insert icon…** in the Text inspector).
+- **Member Badge Builder**: Text fields in the Badge Builder automatically inherit the Variable Set field's icon (`Auto`), or you can override/hide it per field with **Inline icon**.
+
+---
+
+## 6. Bitfocus Companion & HTTP Automation
 
 Every Variable and Variable Set action exposes Companion-friendly `GET` and `POST` endpoints:
 
