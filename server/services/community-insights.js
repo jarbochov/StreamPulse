@@ -515,11 +515,21 @@ function createCommunityInsights({
             recordStream();
         }
     }
+    function getTagOriginators() {
+        if (!enabled() || phase !== 'ready') return {};
+        const banned = getBannedHashtags();
+        const out = {};
+        for (const [tag, first] of Object.entries(index.tags)) {
+            if (!first?.user || banned.has(tag) || isExcluded(first.user)) continue;
+            out[tag] = { user: first.user, ts: first.ts || null };
+        }
+        return out;
+    }
     function invalidate() {
         if (enabled()) void rebuild();
     }
     return {
-        start, stop, pause, record, recordStream, recordSubscription, getPerson, getFollow, hasAnnounced, markAnnounced, configChanged, invalidate,
+        start, stop, pause, record, recordStream, recordSubscription, getPerson, getFollow, getTagOriginators, hasAnnounced, markAnnounced, configChanged, invalidate,
         flush: () => { if (phase === 'ready') save(); else flushJournal(); },
         status: () => ({ enabled: enabled(), phase, error, progress })
     };

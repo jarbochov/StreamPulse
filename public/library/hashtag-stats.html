@@ -3,6 +3,7 @@
 <head>
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
+    <script src="/chatter-dossier.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -148,6 +149,7 @@
                     <thead>
                         <tr>
                             <th data-sort="tag" onclick="setSort('tag')">Hashtag</th>
+                            <th data-sort="originator" onclick="setSort('originator')">Originator</th>
                             <th data-sort="count" class="numeric sort-active" onclick="setSort('count')">Count</th>
                             <th data-sort="sessionCount" class="numeric" onclick="setSort('sessionCount')">Session</th>
                             <th data-sort="uniqueDays" class="numeric" onclick="setSort('uniqueDays')">Days</th>
@@ -158,7 +160,7 @@
                         </tr>
                     </thead>
                     <tbody id="stats-table-body">
-                        <tr><td colspan="8" class="empty">Loading hashtag stats…</td></tr>
+                        <tr><td colspan="9" class="empty">Loading hashtag stats…</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -249,7 +251,7 @@
         let rows = hashtagStats.filter(row => {
             if (!Number.isNaN(minCount) && (row.count || 0) < minCount) return false;
             if (!Number.isNaN(maxCount) && (row.count || 0) > maxCount) return false;
-            if (search && !row.tag.toLowerCase().includes(search)) return false;
+            if (search && !row.tag.toLowerCase().includes(search) && !(row.originator || '').toLowerCase().includes(search)) return false;
             if (status === 'live' && row.sessionCount <= 0) return false;
             if (status === 'banned' && !row.banned) return false;
             if (status === 'tracked' && row.banned && row.count <= 0 && row.sessionCount <= 0) return false;
@@ -258,6 +260,7 @@
 
         const compare = (a, b) => {
             if (sortKey === 'tag') return a.tag.localeCompare(b.tag);
+            if (sortKey === 'originator') return String(a.originator || '').localeCompare(String(b.originator || ''));
             if (sortKey === 'firstUsed' || sortKey === 'lastUsed') {
                 return (new Date(a[sortKey] || 0).getTime()) - (new Date(b[sortKey] || 0).getTime());
             }
@@ -278,13 +281,14 @@
         });
 
         if (rows.length === 0) {
-            body.innerHTML = '<tr><td colspan="8" class="empty">No hashtags match the current filters.</td></tr>';
+            body.innerHTML = '<tr><td colspan="9" class="empty">No hashtags match the current filters.</td></tr>';
             return;
         }
 
         body.innerHTML = rows.map(row => `
             <tr>
                 <td><span class="tag" title="${escapeHtml(row.tag)}">${escapeHtml(truncateHashtag(row.tag))}</span></td>
+                <td>${row.originator ? `<span class="dossier-clickable" data-chatter="${escapeHtml(row.originator)}">${escapeHtml(row.originator)}</span>` : '<span class="muted">—</span>'}</td>
                 <td class="numeric">${(row.count || 0).toLocaleString()}</td>
                 <td class="numeric">${(row.sessionCount || 0).toLocaleString()}</td>
                 <td class="numeric">${(row.uniqueDays || 0).toLocaleString()}</td>

@@ -29,6 +29,7 @@ function createSessionRoutes({
     saveChatLog = () => {},
     bannedHashtags = new Set(),
     saveBannedHashtags = () => {},
+    getTagOriginators = () => ({}),
     sessionsDir = '',
     generatePdf = () => Promise.reject(new Error('PDF generation not available'))
 }) {
@@ -135,7 +136,7 @@ function createSessionRoutes({
 
         if (pathname === '/api/hashtags/stats' && req.method === 'GET') {
             const range = buildDateRange(url.searchParams);
-            const stats = ssnService.collectHashtagStats(range);
+            const stats = ssnService.collectHashtagStats(range, getTagOriginators());
             sendJson(res, {
                 ...stats,
                 range

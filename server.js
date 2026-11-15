@@ -1368,6 +1368,7 @@ const handleSessionRoutes = createSessionRoutes({
     saveChatLog,
     bannedHashtags,
     saveBannedHashtags,
+    getTagOriginators: () => communityService.getTagOriginators(),
     sessionsDir: SESSIONS_DIR,
     generatePdf
 });

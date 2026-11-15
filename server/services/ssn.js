@@ -88,10 +88,11 @@ function normalizeChatSearchFilters(input = {}) {
     const type = String(input.type || '').trim();
 
     if (!user) {
-        const userMatches = [...queryText.matchAll(/(?:^|\s)(?:user|from):\s*(\S+)/gi)];
+        const userMatches = [...queryText.matchAll(/(?:^|\s)(?:user|from):\s*(?:"([^"]+)"|(\S+))/gi)];
         if (userMatches.length > 0) {
-            user = (userMatches[userMatches.length - 1][1] || '').replace(/^@/, '').toLowerCase();
-            queryText = queryText.replace(/(?:^|\s)(?:user|from):\s*(\S+)/gi, ' ').replace(/\s+/g, ' ').trim();
+            const lastMatch = userMatches[userMatches.length - 1];
+            user = (lastMatch[1] || lastMatch[2] || '').replace(/^@/, '').toLowerCase();
+            queryText = queryText.replace(/(?:^|\s)(?:user|from):\s*(?:"([^"]+)"|(\S+))/gi, ' ').replace(/\s+/g, ' ').trim();
         }
     }
 
@@ -761,7 +762,9 @@ function createSsnService({
                         const normalized = h.toLowerCase();
                         if (bannedHashtags.has(normalized)) return;
                         if (!statsData.hashtags[normalized]) {
-                            statsData.hashtags[normalized] = { firstUsed: nowISO, lastUsed: nowISO, days: {} };
+                            statsData.hashtags[normalized] = { firstUsed: nowISO, lastUsed: nowISO, firstBy: msg.chatname || null, days: {} };
+                        } else if (!statsData.hashtags[normalized].firstBy && msg.chatname) {
+                            statsData.hashtags[normalized].firstBy = msg.chatname;
                         }
                         statsData.hashtags[normalized].days[today] = (statsData.hashtags[normalized].days[today] || 0) + 1;
                         statsData.hashtags[normalized].lastUsed = now;
@@ -781,7 +784,7 @@ function createSsnService({
         }
     }
 
-    function collectHashtagStats(range = null) {
+    function collectHashtagStats(range = null, originators = null) {
         const statsData = getStatsData();
         const chatData = getChatData();
         const bannedHashtags = getBannedHashtags();
@@ -792,8 +795,13 @@ function createSsnService({
         const hashtags = Array.from(allTags).map(tag => {
             const statsEntry = statsData?.hashtags?.[tag] || {};
             const sessionEntry = chatData?.hashtags?.[tag] || {};
+            const insightOriginator = originators?.[tag]?.user || null;
+            const originator = isSessionOnly
+                ? (sessionEntry.firstBy || sessionEntry.users?.[0] || insightOriginator || null)
+                : (insightOriginator || statsEntry.firstBy || sessionEntry.firstBy || sessionEntry.users?.[0] || null);
             return {
                 tag,
+                originator,
                 count: isSessionOnly ? (sessionEntry.count || 0) : sumDailyBuckets(statsEntry.days, range),
                 sessionCount: sessionEntry.count || 0,
                 uniqueDays: isSessionOnly ? (sessionEntry.count > 0 ? 1 : 0) : countRangeDays(statsEntry.days, range),
@@ -1272,7 +1280,7 @@ function createSsnService({
                         const normalized = tag.toLowerCase();
                         if (bannedHashtags.has(normalized)) return;
                         if (!chatData.hashtags[normalized]) {
-                            chatData.hashtags[normalized] = { count: 0, users: [] };
+                            chatData.hashtags[normalized] = { count: 0, users: [], firstBy: chatname || null };
                         }
                         chatData.hashtags[normalized].count++;
                         if (!chatData.hashtags[normalized].users.includes(chatname)) {

@@ -1401,10 +1401,11 @@
             user = shorthandMatch[1].replace(/^@/, '').toLowerCase();
             queryText = '';
         } else {
-            const userMatches = [...queryText.matchAll(/(?:^|\s)(?:user|from):\s*(\S+)/gi)];
+            const userMatches = [...queryText.matchAll(/(?:^|\s)(?:user|from):\s*(?:"([^"]+)"|(\S+))/gi)];
             if (userMatches.length > 0) {
-                user = (userMatches[userMatches.length - 1][1] || '').replace(/^@/, '').toLowerCase();
-                queryText = queryText.replace(/(?:^|\s)(?:user|from):\s*(\S+)/gi, ' ').replace(/\s+/g, ' ').trim();
+                const lastMatch = userMatches[userMatches.length - 1];
+                user = (lastMatch[1] || lastMatch[2] || '').replace(/^@/, '').toLowerCase();
+                queryText = queryText.replace(/(?:^|\s)(?:user|from):\s*(?:"([^"]+)"|(\S+))/gi, ' ').replace(/\s+/g, ' ').trim();
             }
         }
 
@@ -1897,6 +1898,14 @@
         const params = new URLSearchParams(location.search);
         const rawHash = location.hash.replace(/^#/, '').trim();
         const hashParams = rawHash.includes('=') ? new URLSearchParams(rawHash) : null;
+
+        const qParam = (params.get('q') || hashParams?.get('q') || '').trim();
+        if (qParam) {
+            const searchInput = document.getElementById('global-search-input');
+            if (searchInput) searchInput.value = qParam;
+            await globalSearch();
+            return;
+        }
 
         let requested = params.get('session') || hashParams?.get('session') || '';
         if (!requested) {

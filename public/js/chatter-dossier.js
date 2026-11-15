@@ -534,7 +534,8 @@
         document.getElementById('dos-search-btn').addEventListener('click', () => {
             if (!currentChatter) return;
             dialog.close();
-            const q = `user:${currentChatter.username}`;
+            const uname = String(currentChatter.username || '').trim();
+            const q = /\s/.test(uname) ? `user:"${uname}"` : `user:${uname}`;
             const searchInput = document.getElementById('global-search-input');
             if (searchInput && typeof window.globalSearch === 'function') {
                 searchInput.value = q;
