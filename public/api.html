@@ -321,12 +321,13 @@
                 {
                     method: 'GET', path: '/api/chat-log/search',
                     desc: 'Search chat messages across sessions',
-                    details: 'Query params: q (text search), user (filter by username), session ("all", "current", or specific filename), type ("links", "events", or "donations"), limit (default 200), offset (pagination). Prefix user search with @ in the sessions UI. Example: /api/chat-log/search?q=hello&limit=50&type=links',
+                    details: 'Query params: q (text search with * and ? wildcards, "phrases", AND/OR), user (supports * and ? wildcards), session ("all", "current", or specific filename), type ("links", "events", or "donations"), sort ("desc" newest first or "asc" oldest first), limit (default 200), offset (pagination). Prefix user search with @ in the sessions UI. Example: /api/chat-log/search?q=hello&sort=asc&limit=50&type=links',
                     params: [
-                        { name: 'q', desc: 'Text search query', values: 'string', default: '—' },
-                        { name: 'user', desc: 'Filter by username', values: 'string', default: '—' },
+                        { name: 'q', desc: 'Text search query (* and ? wildcards, phrases, OR)', values: 'string', default: '—' },
+                        { name: 'user', desc: 'Filter by username (* and ? wildcards)', values: 'string', default: '—' },
                         { name: 'session', desc: 'Session filter', values: 'all, current, filename', default: 'all' },
                         { name: 'type', desc: 'Message type filter', values: 'links, events, donations', default: '— (all)' },
+                        { name: 'sort', desc: 'Result order by timestamp', values: 'desc, asc', default: 'desc' },
                         { name: 'limit', desc: 'Max results', values: 'number', default: '200' },
                         { name: 'offset', desc: 'Pagination offset', values: 'number', default: '0' }
                     ]
@@ -380,7 +381,7 @@
                 {
                     method: 'GET', path: '/api/hashtags/stats',
                     desc: 'Detailed hashtag stats summary',
-                    details: 'Returns { summary, hashtags, range } for the hashtag admin table. Supports optional date filters with ?days=7, ?date=2026-03-14, or ?from=2026-03-01&to=2026-03-14. Each hashtag row includes tag, count, sessionCount, uniqueDays, firstUsed, lastUsed, and banned.'
+                    details: 'Returns { summary, hashtags, range } for the hashtag admin table. Supports optional date filters with ?days=7, ?date=2026-03-14, or ?from=2026-03-01&to=2026-03-14. Each hashtag row includes tag, count, sessionCount, uniqueDays, firstUsed, lastUsed, originator, and banned.'
                 },
                 {
                     method: 'GET', path: '/api/hashtags/banned',
