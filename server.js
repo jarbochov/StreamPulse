@@ -197,8 +197,16 @@ const CUSTOM_OVERLAY_HISTORY_LIMIT = overlayService.customOverlayHistoryLimit;
 const takeoverPages = (kind, name, ms, poll) => overlayService.takeoverPages(kind, name, ms, poll);
 const assetReferencedIn = (text, name, family) => overlayService.assetReferencedIn(text, name, family);
 const rewriteAssetReferences = (text, oldName, newName, oldFamily, newFamily) => overlayService.rewriteAssetReferences(text, oldName, newName, oldFamily, newFamily);
-const normalizeCustomOverlay = (input, idOverride) => overlayService.normalizeCustomOverlay(input, idOverride);
-const normalizeOverlayPresets = (list) => overlayService.normalizeOverlayPresets(list);
+const normalizeCustomOverlay = (input, idOverride) => {
+    const overlay = overlayService.normalizeCustomOverlay(input, idOverride);
+    migrateBadgePlacements([overlay]);
+    return overlay;
+};
+const normalizeOverlayPresets = (list) => {
+    const presets = overlayService.normalizeOverlayPresets(list);
+    migrateBadgePlacements(presets);
+    return presets;
+};
 const saveCustomOverlays = () => overlayService.saveCustomOverlays();
 const loadCustomOverlays = () => overlayService.loadCustomOverlays();
 const loadOverlayPresets = () => overlayService.loadOverlayPresets();
@@ -248,6 +256,14 @@ const variableDisplays = require('./server/services/variable-displays')({
     onChange: data => broadcastToOverlays('variable-displays-update', data)
 });
 const handleVariableDisplayRoutes = require('./server/routes/variable-displays')(variableDisplays);
+function migrateBadgePlacements(overlays, saveOverlays = () => {}) {
+    const { migrateDisplayBadges } = require('./server/services/display-badges');
+    return migrateDisplayBadges({ overlays, saveOverlays, displays: variableDisplays, sets: variablesStore.listSets() });
+}
+function migrateSavedBadges() {
+    migrateBadgePlacements(overlayService.getCustomOverlays(), saveCustomOverlays);
+    migrateBadgePlacements(overlayService.getOverlayPresets(), saveOverlayPresets);
+}
 // One-time migration: overlay-local timer rotations become shared set rotations the overlay follows.
 (function migrateOverlayVarRotations() {
     let changed = false;
@@ -359,6 +375,7 @@ const broadcastToOverlays = (type, payload) => {
 };
 const slideshowStates = wsService.slideshowStates;
 const overlayClients = wsService.overlayClients;
+migrateSavedBadges();
 
 const ssnService = createSsnService({
     messageDeletions,
@@ -1614,6 +1631,7 @@ function handleRestoreReload({ previousConfig }) {
     try { chatbot.reload(); } catch (err) { console.warn('[Restore] Chatbot reload failed:', err.message); }
     try { variablesStore.reload(); } catch (err) { console.warn('[Restore] Variables reload failed:', err.message); }
     variableDisplays.reload();
+    migrateSavedBadges();
     try { alertEngine.reload(); } catch (err) { console.warn('[Restore] Alert engine reload failed:', err.message); }
     try { crmService.reload(); } catch (err) { console.warn('[Restore] CRM reload failed:', err.message); }
     userModeration.reload();

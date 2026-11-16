@@ -1,5 +1,8 @@
 import { resolveDisplayOwner } from '../../../shared/variable-displays.cjs';
 import { trackerMax } from '../../../shared/variable-links.cjs';
+import { renderDisplayTable } from './display-table.js';
+import { renderSavedBadge } from './display-badges.js';
+import { cleanupNode } from './lifecycle.js';
 
 let library = null, revision = null, pending = null;
 export function setDisplayLibrary(data) {
@@ -36,11 +39,15 @@ export function renderVariableDisplay(host, element, status = {}) {
     const { set: ownerSet, entry: owner } = resolveDisplayOwner(status.variableSets, binding);
     const tracker = ownerSet?.fields?.find(field => field.key === binding.tracker && field.type === 'checklist' && field.targetSet === definition?.catalogId);
     const tracks = Boolean(binding.setId);
-    const signature = JSON.stringify([definition, catalog?.roster, tracks ? owner : null, tracker, binding, status.modules?.variableSets]);
+    const signature = JSON.stringify([definition, definition?.kind === 'inventory' ? catalog?.roster : status.variableSets, tracks ? owner : null, tracker, binding, element.style, element.width, element.height, status.customVars, status.modules?.variableSets]);
     if (host._displaySignature === signature && host.querySelector('.sp-variable-display')) return true;
     host._displaySignature = signature;
+    for (const child of host.querySelectorAll(':scope > .sp-variable-display')) cleanupNode(child);
     host.replaceChildren();
-    if (!definition || !catalog || status.modules?.variableSets === false || (tracks && (!owner || !tracker))) return false;
+    if (!definition || !catalog || status.modules?.variableSets === false) return false;
+    if (definition.kind === 'table') return renderDisplayTable(host, element, status, definition);
+    if (definition.kind === 'badge') return renderSavedBadge(host, element, status, definition);
+    if (tracks && (!owner || !tracker)) return false;
     const { layout, style } = definition;
     const map = owner?.values?.[tracker?.key] || {};
     const members = new Map((catalog.roster || []).map(item => [item.id, item]));

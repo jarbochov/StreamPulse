@@ -11,7 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- **Display Library**: Reusable inventory designs with ordered sections, auto grids or fixed slots, and independent role-following player trackers in Custom Overlays.
+- **Display Library**: Reusable inventories, ordered schedule/data tables and member badges, with shared designs and independent live sources in Custom Overlays.
 - **Linked Variable Sets**: Reusable single/multiple entry links, role-following overlays, date/time/duration fields, and resettable per-owner item trackers with upgrade labels and images.
 - **Temporal Variables**: Standalone Date, Time, Date & Time, and Duration values with inline editing, inspector controls and type filters.
 - **Variable Groups & Fonts**: Renamable, collapsible groups with drag-and-drop membership, JSON import/export, inline value editing and bookmarkable group links, live font inheritance, optional primary images, independent Matrix sequences, and separate Badge/Strip Builder tabs with uniformly scaled previews.

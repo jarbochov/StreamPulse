@@ -718,7 +718,7 @@ export function buildContent(node, el, playback) {
     node._rawText = undefined;
     node._extra = '';
     if (el.type === 'data-display') {
-        if (!shared.renderVariableDisplay(node, el, effectiveLiveStatus())) node.append(placeholder('Saved Display: choose a design and a valid tracker source in Content'));
+        if (!shared.renderVariableDisplay(node, el, effectiveLiveStatus())) node.append(placeholder('Saved Display: choose a design and a populated source in Content'));
         return;
     }
     if (el.type === 'image' && el.imageGroup?.enabled && shared.renderImageGroupStrip) {
@@ -876,6 +876,7 @@ const usesLivePlaceholders = el => /\{\{/.test(`${el.content || ''} ${el.src || 
 
 export const contentSignature = (el, live) =>
     el.type === 'embed' ? JSON.stringify([el.type, expand(el.src), el.video]) :
+    el.type === 'data-display' ? JSON.stringify([el.type, el.display, el.style, el.width, el.height, live]) :
     el.type === 'speaker-badge' ? JSON.stringify([el.type, el.speakerBadge, speakerIsSpeaking(el), el.style, el.width, el.height]) :
     el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) :
     (el.type === 'pattern' || el.type === 'procedural-pattern') ? JSON.stringify([el.type, el.pattern, expand(el.src), el.content, el.style?.color, el.style?.objectFit, el.style?.focusX, el.style?.focusY, el.style?.textStroke, el.style?.textShadow]) :

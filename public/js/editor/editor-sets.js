@@ -193,7 +193,7 @@ function renderLibraryRow(setObj) {
             <div class="vset-lib-actions">
                 <button type="button" class="btn sm ghost" data-vset-copy="${esc(setObj.id)}" title="Copy ${esc(token)}">Copy</button>
                 <button type="button" class="btn sm" data-vset-insert="${esc(setObj.id)}" title="Add layer displaying ${esc(setObj.name || setObj.id)}">+ Layer</button>
-                ${hasImageField ? `<button type="button" class="btn sm" data-vset-insert-strip="${esc(setObj.id)}" title="Add Group Image Strip for ${esc(setObj.name || setObj.id)}">+ Strip</button>` : ''}
+                ${hasImageField ? `<a class="btn sm" href="/variable-displays.html?kind=badge&amp;catalog=${esc(setObj.id)}" target="_blank" rel="noopener">Badge Designer</a>` : ''}
             </div>
         </div>`;
 }
@@ -399,17 +399,7 @@ export function initSetsPanel() {
             return;
         }
 
-        if (btn.dataset.vsetInsertStrip) {
-            const setObj = (getSets() || []).find(s => s.id === btn.dataset.vsetInsertStrip);
-            if (!setObj || typeof addElementHandler !== 'function') return;
-            addElementHandler('image-group', {
-                name: `${setObj.name || setObj.id} Strip`,
-                imageGroup: defaultImageGroupConfig(setObj)
-            });
-            renderSetsPanel();
-            toast(`Added Group Image Strip for ${setObj.name || setObj.id}`, 'success', 2200);
-            return;
-        }
+
 
         if (btn.id === 'btn-add-var-rot') {
             const sets = getSets();

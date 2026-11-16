@@ -2,17 +2,23 @@ const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
 const { normalizeDisplay } = require('../../shared/variable-displays.cjs');
+const { normalizeBadge } = require('./display-badges');
 
 module.exports = function createVariableDisplays({ dataDir, onChange = () => {} }) {
     const file = path.join(dataDir, 'variable-displays.json');
     let displays = [];
     let revision = Date.now();
     const copy = value => globalThis.structuredClone(value);
+    const normalize = (input, id) => {
+        const display = normalizeDisplay(input, id);
+        if (display.kind === 'badge') display.badge = normalizeBadge(input.badge);
+        return display;
+    };
     function reload() {
         let raw;
         try { raw = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { raw = []; }
         displays = (Array.isArray(raw) ? raw : []).slice(0, 100).flatMap(input => {
-            try { return [normalizeDisplay(input)]; } catch { return []; }
+            try { return [normalize(input)]; } catch { return []; }
         });
         revision = Date.now();
     }
@@ -31,7 +37,7 @@ module.exports = function createVariableDisplays({ dataDir, onChange = () => {} 
         getRevision: () => revision,
         get(id) { return copy(displays.find(display => display.id === id) || null); },
         save(input, id = input.id || randomUUID()) {
-            const display = normalizeDisplay(input, id);
+            const display = normalize(input, id);
             if (!display.id || !display.catalogId) throw new Error('Choose an item catalog and a display ID');
             if (display.id !== id) throw new Error('Invalid display ID');
             if (!displays.some(item => item.id === display.id) && displays.length >= 100) throw new Error('Display library is full');

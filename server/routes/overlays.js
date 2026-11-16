@@ -146,6 +146,7 @@ function createOverlayRoutes({
     setStylePresets = overlayService ? overlayService.setStylePresets : () => {},
     saveStylePresets = overlayService ? overlayService.saveStylePresets : () => {},
     normalizeStylePresets = overlayService ? overlayService.normalizeStylePresets : (l => l),
+    normalizeOverlayPresets: normalizePresets = overlayService ? overlayService.normalizeOverlayPresets : normalizeOverlayPresets,
     slideshowStates = new Map(),
     getOverlayClients = () => new Set(),
     isLoopbackRequest = () => true,
@@ -1476,7 +1477,7 @@ function createOverlayRoutes({
         if (pathname === '/api/overlay-presets' && req.method === 'POST') {
             try {
                 const overlayPresets = getOverlayPresets();
-                const [preset] = normalizeOverlayPresets([JSON.parse(await readRequestBody(req) || '{}')]);
+                const [preset] = normalizePresets([JSON.parse(await readRequestBody(req) || '{}')]);
                 if (!preset) throw new Error('A preset needs an id and at least one element');
                 const index = overlayPresets.findIndex(item => item.id === preset.id);
                 if (index >= 0) overlayPresets[index] = preset;

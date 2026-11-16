@@ -7,6 +7,7 @@ const http = require('node:http');
 const puppeteer = require('puppeteer');
 const { WebSocketServer } = require('ws');
 const { normalizeDisplay, normalizeDisplayBinding, resolveDisplayOwner } = require('../shared/variable-displays.cjs');
+const { getDisplayRows, displayFieldValue } = require('../shared/display-table.cjs');
 const createDisplays = require('../server/services/variable-displays');
 const createRoutes = require('../server/routes/variable-displays');
 const { normalizeCustomOverlay } = require('../server/services/overlays');
@@ -15,7 +16,7 @@ const { createStaticRouter } = require('../server/static-router');
 const fixture = require('./fixtures/variable-display.cjs');
 
 test('displays validate ordered sections, fixed cells, type boundaries and read-only role paths', () => {
-    assert.throws(() => normalizeDisplay({ kind: 'table' }), /Unsupported/);
+    assert.throws(() => normalizeDisplay({ kind: 'chart' }), /Unsupported/);
     assert.throws(() => normalizeDisplay({ sections: [{ items: [{ itemId: 'sword' }, { itemId: 'sword' }] }] }), /once/);
     assert.throws(() => normalizeDisplay({ layout: { mode: 'fixed' }, sections: [{ items: [{ itemId: 'a', cell: 0 }, { itemId: 'b', cell: 0 }] }] }), /same cell/);
     const flow = normalizeDisplay({ ...fixture.display, layout: { mode: 'flow' } });
@@ -46,6 +47,7 @@ test('display API saves atomically, persists, reloads after restore and broadcas
     const server = http.createServer(async (req, res) => {
         if (!await route(req, res, new URL(req.url, 'http://fixture.local'))) { res.writeHead(404); res.end(); }
     });
+
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     t.after(async () => { await new Promise(resolve => server.close(resolve)); fs.rmSync(dir, { recursive: true, force: true }); });
     const url = `http://127.0.0.1:${server.address().port}/api/variable-displays`;
@@ -70,6 +72,28 @@ test('display API saves atomically, persists, reloads after restore and broadcas
     assert.equal(changes.length, 3);
     assert.equal(changes.at(-1).displays.length, 0);
     assert.equal(fs.existsSync(path.join(dir, 'variable-displays.json.tmp')), false);
+});
+
+test('table rows follow saved order, typed linked fields, scopes and live list assignments without changing data', () => {
+    const sets = globalThis.structuredClone(fixture.sets);
+    const original = globalThis.structuredClone(sets);
+    const table = normalizeDisplay({ ...fixture.table, table: { ...fixture.table.table, rowOrder: ['later', 'tonight'] } });
+    const rows = binding => getDisplayRows(sets, table, binding).entries.map(entry => entry.id);
+    assert.deepEqual(rows({}), ['later', 'tonight']);
+    assert.deepEqual(rows({ rows: 'slots' }), ['tonight']);
+    assert.deepEqual(rows({ rows: 'active' }), ['tonight']);
+    assert.equal(displayFieldValue(sets, sets[2], sets[2].roster[0], 'p1.$label').value, 'River Vale');
+    assert.equal(displayFieldValue(sets, sets[2], sets[2].roster[0], 'duration').value, '45m');
+    assert.equal(displayFieldValue(sets, sets[2], sets[2].roster[0], 'p1.missing').value, '');
+    assert.deepEqual(getDisplayRows(sets, { ...table, table: { ...table.table, sortKey: 'start' } }, {}).entries.map(entry => entry.id), ['tonight', 'later']);
+    assert.throws(() => normalizeDisplay({ ...table, table: { columns: [{ key: 'start' }, { key: 'start' }] } }), /unique field/);
+    assert.deepEqual(sets, original, 'sorting and row selection do not mutate rosters or live slots');
+    sets[2].slots = [null];
+    assert.deepEqual(rows({ rows: 'active' }), []);
+    assert.deepEqual(rows({ setId: 'schedule', path: ['missing'] }), []);
+    sets.push({ id: 'show', slotsCount: 1, slots: ['now'], fields: [{ key: 'events', type: 'ref_list', targetSet: 'schedule' }], roster: [{ id: 'now', values: { events: ['later', 'tonight'] } }] });
+    assert.deepEqual(rows({ setId: 'show', listField: 'events' }), ['later', 'tonight']);
+    assert.deepEqual(rows({ setId: 'show', listField: 'unknown' }), []);
 });
 
 test('saved inventories render independently in production/editor and update live without iframe reloads', { timeout: 90000 }, async t => {
@@ -138,11 +162,14 @@ test('saved inventories render independently in production/editor and update liv
     const bind = await editor.$eval('[data-path="display.path.0"]', select => select.options[select.selectedIndex].text);
     assert.match(bind, /Player 1/);
     const send = (type, data) => wss.clients.forEach(socket => socket.send(JSON.stringify({ type, data })));
+    await runtime.bringToFront();
     sets[1].roster[0].values.gear.sword = 1;
     send('variables-update', { sets, variables: [] });
     await runtime.waitForSelector('[data-display-item="sword"][data-level="1"]');
+    await editor.bringToFront();
     await editor.waitForSelector('[data-display-item="sword"][data-level="1"]');
     assert.equal(sets[1].roster[1].values.gear.sword, undefined, 'P2 progress remains independent');
+    await runtime.bringToFront();
     display.sections[0].title = 'Shared weapons';
     revision++;
     send('variable-displays-update', { displays: [display], revision });
@@ -173,5 +200,187 @@ test('saved inventories render independently in production/editor and update liv
         await builder.setViewport({ width, height: 768 });
         assert.equal(await builder.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, `Builder fits ${width}px viewport`);
     }
+    assert.deepEqual(errors, []);
+});
+
+test('table library, overlay editor and production share ordered typed rows and live field updates', { timeout: 60000 }, async t => {
+    const sets = globalThis.structuredClone(fixture.sets);
+    let table = globalThis.structuredClone(fixture.table);
+    const overlay = normalizeCustomOverlay({
+        id: 'table-fixture', canvas: { width: 1280, height: 720 },
+        elements: [{ id: 'schedule-table', type: 'data-display', width: 1100, height: 400, display: { displayId: table.id, rows: 'all' } }]
+    });
+    const router = createStaticRouter({ rootDir: path.resolve(__dirname, '..'), publicDir: path.resolve(__dirname, '../public') });
+    const server = http.createServer(async (req, res) => {
+        const url = new URL(req.url, 'http://fixture.local');
+        if (url.pathname.startsWith('/api/')) {
+            if (url.pathname.startsWith('/api/variable-displays') && ['PUT', 'POST'].includes(req.method)) {
+                let body = '';
+                for await (const chunk of req) body += chunk;
+                table = normalizeDisplay(JSON.parse(body));
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(table));
+                return;
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(url.pathname === '/api/variable-displays' ? { displays: [table], revision: 1 }
+                : url.pathname === '/api/variables' ? { sets, variables: [], variableSetsEnabled: true }
+                    : url.pathname === '/api/status' ? { modules: { variableSets: true }, variableDisplaysRevision: 1 }
+                        : url.pathname === '/api/custom-overlays/table-fixture' ? overlay : {}));
+        } else if (!router.handleRequest(req, res)) { res.writeHead(404); res.end(); }
+    });
+    const sockets = new WebSocketServer({ server });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+    t.after(async () => {
+        await browser.close();
+        sockets.clients.forEach(socket => socket.terminate());
+        await new Promise(resolve => sockets.close(resolve));
+        await new Promise(resolve => server.close(resolve));
+    });
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    const errors = [];
+    const pages = [];
+    for (const route of ['/custom-overlay.html?id=table-fixture', '/custom-overlay-editor.html?id=table-fixture&select=schedule-table', `/variable-displays.html?id=${table.id}`]) {
+        const page = await browser.newPage();
+        page.on('pageerror', error => errors.push(error.message));
+        await page.setRequestInterception(true);
+        page.on('request', request => request.url().startsWith(origin) || request.url().startsWith('data:')
+            ? request.continue() : request.respond({ status: 200, body: '' }));
+        await page.goto(origin + route);
+        await page.waitForSelector('.sp-display-table [data-display-row="tonight"]');
+        assert.deepEqual(await page.$$eval('.sp-display-table tbody tr', rows => rows.map(row => row.dataset.displayRow)), ['tonight', 'later']);
+        assert.equal(await page.$eval('[data-display-row="tonight"] [data-display-column="p1.$label"]', cell => cell.textContent), 'River Vale');
+        assert.equal(await page.$eval('[data-display-row="tonight"] [data-display-column="duration"]', cell => cell.textContent), '45m');
+        pages.push(page);
+    }
+    sets[2].roster[0].values.duration = '50m';
+    sockets.clients.forEach(socket => socket.send(JSON.stringify({ type: 'variables-update', data: { sets, variables: [] } })));
+    for (const page of pages) {
+        await page.bringToFront();
+        await page.waitForFunction(() => document.querySelector('[data-display-row="tonight"] [data-display-column="duration"]')?.textContent === '50m');
+    }
+    assert.equal(await pages[0].evaluate(({ table, sets }) => {
+        const host = document.createElement('div');
+        host.style.cssText = 'position:fixed;top:0;left:0;width:700px;height:220px';
+        document.body.append(host);
+        const definition = { ...table, style: { ...table.style, fontSize: 60 }, table: { ...table.table, rowHeight: 20, headerHeight: 20 } };
+        window.OverlayShared.renderVariableDisplay(host, { display: { displayId: table.id } }, { variableDisplays: [definition], variableSets: sets });
+        const root = host.querySelector('.sp-display-table').getBoundingClientRect();
+        const last = host.querySelector('tbody tr:last-child').getBoundingClientRect();
+        host.remove();
+        return last.bottom <= root.bottom + 1;
+    }, { table, sets }), true, 'large fonts expand logical row heights and remain inside the scaled placement');
+    const builder = pages[2];
+    await builder.$eval('#table-column-editor [data-column="0"] [data-path="label"]', input => {
+        input.value = 'Goes live';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await builder.click('#table-column-editor [data-column="0"] [data-table-move="1"]');
+    await builder.click('[data-row="later"][data-row-move="-1"]');
+    await builder.click('#save-display');
+    await builder.waitForFunction(() => document.querySelector('#dirty-state').textContent === 'Saved');
+    assert.equal(table.table.columns[1].label, 'Goes live');
+    assert.deepEqual(table.table.rowOrder, ['later', 'tonight']);
+    await builder.reload();
+    await builder.waitForSelector('.sp-display-table [data-display-row="later"]');
+    assert.deepEqual(await builder.$$eval('.sp-display-table tbody tr', rows => rows.map(row => row.dataset.displayRow)), ['later', 'tonight'], 'saved row order survives reopening the designer');
+    assert.equal(await builder.$eval('.sp-display-table thead th:nth-child(2)', cell => cell.textContent), 'Goes live');
+    assert.deepEqual(errors, []);
+});
+
+test('badge library uses persistent active navigation and keeps placement effects out of its appearance controls', { timeout: 60000 }, async t => {
+    const router = createStaticRouter({ rootDir: path.resolve(__dirname, '..'), publicDir: path.resolve(__dirname, '../public') });
+    const server = http.createServer((req, res) => {
+        const url = new URL(req.url, 'http://fixture.local');
+        if (url.pathname.startsWith('/api/')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(url.pathname === '/api/variable-displays' ? { displays: [fixture.badge], revision: 1 }
+                : url.pathname === '/api/variables' ? { sets: fixture.sets, variables: [], variableSetsEnabled: true }
+                    : url.pathname === '/api/status' ? { modules: { variableSets: true }, variableDisplaysRevision: 1 } : {}));
+        } else if (!router.handleRequest(req, res)) { res.writeHead(404); res.end(); }
+    });
+    const sockets = new WebSocketServer({ server });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+    t.after(async () => {
+        await browser.close();
+        sockets.clients.forEach(socket => socket.terminate());
+        await new Promise(resolve => sockets.close(resolve));
+        await new Promise(resolve => server.close(resolve));
+    });
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1366, height: 768 });
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.setRequestInterception(true);
+    page.on('request', request => request.url().startsWith(origin) || request.url().startsWith('data:')
+        ? request.continue() : request.respond({ status: 200, body: '' }));
+    await page.goto(`${origin}/variable-displays.html?id=${fixture.badge.id}`);
+    await page.waitForSelector('#badge-design-controls');
+    const selectedMode = () => page.evaluate(() => [...document.querySelectorAll('.tabs-nav .tab-btn.active')]
+        .filter(button => ['Badge', 'Strip'].includes(button.textContent.trim())).map(button => button.textContent.trim()));
+    assert.deepEqual(await selectedMode(), ['Badge'], 'shared segmented navigation visibly identifies the initial mode');
+    await page.$eval('#ig-zone-blueprint', node => node.scrollIntoView({ block: 'start' }));
+    const workspace = await page.evaluate(() => {
+        const blueprint = document.querySelector('#ig-zone-blueprint').getBoundingClientRect();
+        const fields = document.querySelector('#ig-fields-list').getBoundingClientRect();
+        return {
+            sideBySide: blueprint.right <= fields.left + 1,
+            blueprintWidth: blueprint.width,
+            fieldWidth: fields.width,
+            visibleFieldHeight: Math.min(fields.bottom, window.innerHeight) - Math.max(fields.top, 0),
+            controlHeight: document.querySelector('.ig-field-row.is-selected select').getBoundingClientRect().height
+        };
+    });
+    assert.equal(workspace.sideBySide, true, 'the blueprint has its own laptop column instead of sitting above field settings');
+    assert.ok(workspace.blueprintWidth >= 295, `blueprint has room for its zone map (${workspace.blueprintWidth}px)`);
+    assert.ok(workspace.fieldWidth >= 420, `field settings retain a readable width (${workspace.fieldWidth}px)`);
+    assert.ok(workspace.visibleFieldHeight >= 320, `field settings have usable laptop height (${workspace.visibleFieldHeight}px)`);
+    assert.ok(workspace.controlHeight <= 30, `laptop field controls are condensed (${workspace.controlHeight}px)`);
+    await page.evaluate(() => [...document.querySelectorAll('.tabs-nav .tab-btn')].find(button => button.textContent.trim() === 'Strip').click());
+    assert.deepEqual(await selectedMode(), ['Strip']);
+    assert.equal(await page.evaluate(() => {
+        const buttons = [...document.querySelectorAll('.tabs-nav .tab-btn')].filter(button => ['Badge', 'Strip'].includes(button.textContent.trim()));
+        return buttons.every(button => button.getAttribute('aria-selected') === String(button.classList.contains('active')));
+    }), true, 'accessible selection matches visible selection');
+    const backgrounds = await page.evaluate(() => {
+        const buttons = [...document.querySelectorAll('.tabs-nav .tab-btn')].filter(button => ['Badge', 'Strip'].includes(button.textContent.trim()));
+        return buttons.map(button => getComputedStyle(button).backgroundColor);
+    });
+    assert.notEqual(backgrounds[0], backgrounds[1], 'the active segmented button has a visibly different background');
+    await page.reload();
+    await page.waitForSelector('#badge-design-controls');
+    assert.deepEqual(await selectedMode(), ['Strip'], 'reloading retains the designer mode');
+    await page.evaluate(() => [...document.querySelectorAll('button')].find(button => button.textContent.trim() === 'Appearance').click());
+    const genericEffects = await page.evaluate(() => [...document.querySelectorAll('input, select')]
+        .filter(input => input.getClientRects().length)
+        .flatMap(input => [...input.attributes].filter(attribute => /path|name/.test(attribute.name)).map(attribute => attribute.value))
+        .filter(path => /^(?:badge\.)?(?:mediaFilter\.|style\.(?:opacity|rotation|blendMode|shadow|border|animation))/.test(path)));
+    assert.deepEqual(genericEffects, [], 'outer placement effects belong to the overlay inspector, not the library');
+    assert.deepEqual(await page.evaluate(({ definition, sets }) => {
+        const host = document.createElement('div');
+        host.style.cssText = 'width:720px;height:220px;background:rgb(17,34,51);opacity:0.4;border:5px solid red';
+        document.body.append(host);
+        let disconnected = false;
+        host._borderObserver = { disconnect: () => { disconnected = true; } };
+        const element = { width: 720, height: 220, display: { displayId: definition.id }, style: { opacity: .4 } };
+        const status = { variableDisplays: [definition], variableSets: sets };
+        window.OverlayShared.renderVariableDisplay(host, element, status);
+        const original = host.querySelector('.sp-saved-badge');
+        window.OverlayShared.renderVariableDisplay(host, element, status);
+        const unchanged = original === host.querySelector('.sp-saved-badge');
+        element.width = 900;
+        window.OverlayShared.renderVariableDisplay(host, element, status);
+        const resized = original !== host.querySelector('.sp-saved-badge');
+        const result = { opacity: host.style.opacity, background: host.style.backgroundColor, border: host.style.borderWidth, disconnected, unchanged, resized };
+        host._borderObserver = null;
+        window.OverlayShared.cleanupNode(host);
+        host.remove();
+        return result;
+    }, { definition: fixture.badge, sets: fixture.sets }), {
+        opacity: '0.4', background: 'rgb(17, 34, 51)', border: '5px', disconnected: false, unchanged: true, resized: true
+    }, 'badge rendering preserves outer placement styling and observers while invalidating size-dependent content');
     assert.deepEqual(errors, []);
 });

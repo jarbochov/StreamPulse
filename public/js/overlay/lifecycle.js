@@ -39,6 +39,8 @@ function cleanupMedia(rootNode) {
 
 function cleanupNode(node) {
     if (!node) return;
+    if (node._igResizeObserver) { node._igResizeObserver.disconnect(); node._igResizeObserver = null; }
+    node.querySelectorAll?.('.sp-saved-badge').forEach(child => cleanupNode(child));
     if (node._alertHandle) {
         const handle = node._alertHandle;
         node._alertHandle = null;

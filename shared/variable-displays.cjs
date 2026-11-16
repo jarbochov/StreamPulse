@@ -1,10 +1,12 @@
+const { resolveDisplayOwner } = require('./display-source.cjs');
+const { normalizeDisplayTable } = require('./display-table.cjs');
 const key = value => String(value || '').replace(/[^a-z0-9_-]/gi, '_').slice(0, 60);
 const text = (value, limit = 80) => String(value ?? '').trim().slice(0, limit);
 const number = (value, fallback, min, max) => Number.isFinite(Number(value)) && value !== '' && value != null ? Math.max(min, Math.min(max, Number(value))) : fallback;
 const color = (value, fallback) => /^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(value || '') ? value : fallback;
 
 function normalizeDisplay(input = {}, id = input.id) {
-    if (input.kind && input.kind !== 'inventory') throw new Error('Unsupported display kind');
+    if (input.kind && !['inventory', 'table', 'badge'].includes(input.kind)) throw new Error('Unsupported display kind');
     const seen = new Set();
     const sections = (Array.isArray(input.sections) ? input.sections : []).slice(0, 20).map((section, index) => {
         const cells = new Set();
@@ -25,7 +27,9 @@ function normalizeDisplay(input = {}, id = input.id) {
     if (seen.size > 60) throw new Error('A display supports up to 60 items');
     const style = input.style || {};
     return {
-        id: key(id), name: text(input.name) || 'Inventory display', kind: 'inventory',
+        id: key(id), name: text(input.name) || `${input.kind || 'inventory'} display`, kind: input.kind || 'inventory',
+        ...(input.kind === 'table' ? { table: normalizeDisplayTable(input.table) } : {}),
+        ...(input.kind === 'badge' ? { badge: JSON.parse(JSON.stringify(input.badge || {})) } : {}),
         catalogId: key(input.catalogId), imageField: key(input.imageField) || 'image', labelField: key(input.labelField) || 'name',
         layout: {
             mode: input.layout?.mode === 'fixed' ? 'fixed' : 'flow',
@@ -54,22 +58,22 @@ function normalizeDisplayBinding(input = {}) {
         displayId: key(input.displayId), setId: key(input.setId),
         selector: /^(active|slot:\d{1,2}|entry:[a-z0-9_-]{1,60})$/.test(input.selector || '') ? input.selector : 'active',
         path: (Array.isArray(input.path) ? input.path : []).slice(0, 4).map(key).filter(Boolean),
-        tracker: key(input.tracker), showMode: input.showMode === 'active' ? 'active' : 'dim'
+        tracker: key(input.tracker), showMode: input.showMode === 'active' ? 'active' : 'dim',
+        rows: ['all', 'active', 'slots', 'group', 'ordered'].includes(input.rows) ? input.rows : 'all',
+        listField: key(input.listField),
+        fields: (Array.isArray(input.fields) ? input.fields : []).slice(0, 10).map(key).filter(Boolean),
+        ...(input.badgeSource ? { badgeSource: {
+            setId: key(input.badgeSource.setId),
+            filterMode: ['all', 'inGroup', 'linked', 'checklist'].includes(input.badgeSource.filterMode) ? input.badgeSource.filterMode : 'all',
+            onlySelected: input.badgeSource.onlySelected === true,
+            showMode: input.badgeSource.showMode === 'active' ? 'active' : 'dim',
+            linkedSource: {
+                setId: key(input.badgeSource.linkedSource?.setId),
+                selector: /^(active|slot:\d{1,2}|entry:[a-z0-9_-]{1,60})$/.test(input.badgeSource.linkedSource?.selector || '') ? input.badgeSource.linkedSource.selector : 'active',
+                fields: (input.badgeSource.linkedSource?.fields || []).slice(0, 10).map(key)
+            }
+        } } : {})
     };
-}
-
-function resolveDisplayOwner(sets = [], binding = {}) {
-    let set = sets.find(candidate => candidate.id === binding.setId);
-    const selector = binding.selector || 'active';
-    const id = selector.startsWith('entry:') ? selector.slice(6) : selector.startsWith('slot:') ? set?.slots?.[Number(selector.slice(5)) - 1] : set?.slotsCount > 0 ? set.slots?.[0] : set?.activeEntry;
-    let entry = set?.roster?.find(candidate => candidate.id === id);
-    for (const fieldKey of binding.path || []) {
-        const field = set?.fields?.find(candidate => candidate.key === fieldKey && candidate.type === 'ref');
-        const nextId = entry?.values?.[fieldKey];
-        set = sets.find(candidate => candidate.id === field?.targetSet);
-        entry = set?.roster?.find(candidate => candidate.id === nextId);
-    }
-    return { set, entry };
 }
 
 module.exports = { normalizeDisplay, normalizeDisplayBinding, resolveDisplayOwner };

@@ -6,7 +6,7 @@ import path from 'node:path';
 import puppeteer from 'puppeteer';
 import overlays from '../server/services/overlays.js';
 
-const names = ['overlay-shared.js', 'poll-widget.js', 'patterns-shared.js', 'editor-geometry.js', 'motion-easing.js', 'displays/display-source.js',
+const names = ['overlay-shared.js', 'poll-widget.js', 'patterns-shared.js', 'editor-geometry.js', 'motion-easing.js', 'displays/display-source.js', 'displays/badge-model.js', 'displays/style-preset-model.js',
     ...['state', 'canvas', 'form', 'layers', 'sets', 'inspector', 'display', 'speakers', 'patterns', 'style-presets', 'badge-preview'].map(name => `editor/editor-${name}.js`)];
 const sources = new Map(await Promise.all(names.map(async name =>
     [`/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8')])));
@@ -104,28 +104,9 @@ try {
         });
     };
     await setup();
-    const linkedConfig = await page.evaluate(() => {
-        const { state, select, renderProperties } = window.fixture;
-        state.liveStatus = { variableSets: [
-            { id: 'people', fields: [{ key: 'name', label: 'Name', type: 'text' }, { key: 'avatar', label: 'Avatar', type: 'image' }], roster: [] },
-            { id: 'schedule', slotsCount: 1, slotNames: ['Main Event'], fields: [
-                { key: 'player', label: 'Player', type: 'ref', targetSet: 'people' },
-                { key: 'guests', label: 'Guests', type: 'ref_list', targetSet: 'people' }
-            ], roster: [{ id: 'first', label: 'Opening' }] }
-        ] };
-        select('image', { imageGroup: { enabled: true, filterMode: 'linked', linkedSource: { setId: 'schedule', selector: 'slot:1', fields: [] } } });
-        const player = document.querySelector('[data-linked-fields][value="player"]');
-        player.checked = true; player.dispatchEvent(new Event('change', { bubbles: true }));
-        const guests = document.querySelector('[data-linked-fields][value="guests"]');
-        guests.checked = true; guests.dispatchEvent(new Event('change', { bubbles: true }));
-        const source = state.overlay.elements[0].imageGroup;
-        const choices = [...document.querySelector('[data-path="imageGroup.imageField"]').options].map(option => option.value);
-        renderProperties();
-        return { source, choices };
-    });
-    assert.deepEqual(linkedConfig.source.linkedSource.fields, ['player', 'guests']);
-    assert.ok(linkedConfig.choices.includes('avatar'), 'badge fields come from linked catalog, not the schedule');
-    const persistedLinked = overlays.normalizeOverlayElement({ type: 'image', imageGroup: { ...linkedConfig.source, showMode: 'dim' } }, 0).imageGroup;
+    const persistedLinked = overlays.normalizeOverlayElement({ type: 'image', imageGroup: {
+        enabled: true, filterMode: 'linked', showMode: 'dim', linkedSource: { setId: 'schedule', selector: 'slot:1', fields: ['player', 'guests'] }
+    } }, 0).imageGroup;
     assert.deepEqual(persistedLinked.linkedSource, { setId: 'schedule', selector: 'slot:1', fields: ['player', 'guests'] });
     assert.equal(persistedLinked.filterMode, 'linked');
     assert.equal(persistedLinked.showMode, 'dim');
@@ -314,7 +295,7 @@ try {
         'random-text': { content: 'content', behavior: 'content', typography: 'style' },
         markdown: { content: 'content', typography: 'style' },
         image: { content: 'content', fill: 'style' },
-        'image-group': { content: 'content', igLayout: 'layout', typography: 'style', igAvatar: 'style', igCards: 'style', igTextStyle: 'style', fill: 'style' },
+        'image-group': { content: 'content', typography: 'style', fill: 'style' },
         video: { content: 'content', fill: 'style' },
         embed: { content: 'content', fill: 'style' },
         qr: { content: 'content', fill: 'style' },
@@ -946,7 +927,7 @@ try {
     assert.equal(imageChecks.updatedSrc, '/media-b.png', 'Dynamic variable image updates live when set variable changes');
     assert.deepEqual(imageChecks.stripImgs, ['/media-a.png', '/media-b.png'], 'Group Image Strip excludes inGroup:false and blank-image entries');
     assert.deepEqual(imageChecks.stripLabels, ['Alex', 'Casey']);
-    assert.equal(imageChecks.hasGroupSelect, true, 'Group strip inspector exposes Variable Set picker');
+    assert.equal(imageChecks.hasGroupSelect, false, 'Legacy group strips no longer expose a second badge editor');
     assert.equal(imageChecks.hasDeprecatedModeToggle, false, 'Group Image Strip omits confusing Single image mode toggle');
     assert.equal(imageChecks.layoutControlsInLayoutTab, false, 'Group strip layout controls are not duplicated outside the Builder');
     assert.equal(imageChecks.typographyInStyleTab, true, 'Group strip exposes full Typography controls under Style tab');
@@ -972,82 +953,8 @@ try {
     assert.equal(imageChecks.updatedFont, 'monospace', 'Variable changes update inherited fonts live');
     assert.equal(imageChecks.savedFontToken, '{{var.theme_font}}', 'Preview resolution never overwrites saved bindings');
     assert.deepEqual(imageChecks.textOnlyControls, { primaryField: false, missingImage: false, primaryStyle: false, labels: 3 }, 'Text-only stacks include members without images and hide primary image controls');
-    const stripModalChecks = await page.evaluate(() => {
-        const openBtn = document.querySelector('#open-ig-fields-modal');
-        openBtn?.click();
-        const dlg = document.querySelector('#ig-fields-dialog');
-        const beforeRows = dlg ? dlg.querySelectorAll('.ig-field-row').length : 0;
-        dlg?.querySelector('#ig-add-field-btn')?.click();
-        const afterRows = dlg ? dlg.querySelectorAll('.ig-field-row').length : 0;
-        dlg?.querySelector('[data-ig-preset="lower-banners"]')?.click();
-        const { state } = window.fixture;
-        const layoutAfterPreset = state.overlay.elements.find(e => e.id === 'strip-img')?.imageGroup?.layout || '';
-        dlg?.querySelector('#ig-fields-close')?.click();
-        return { isOpen: Boolean(dlg), beforeRows, afterRows, layoutAfterPreset };
-    });
-    assert.equal(stripModalChecks.isOpen, true);
-    assert.equal(stripModalChecks.beforeRows, 3);
-    assert.equal(stripModalChecks.afterRows, 4, 'Fields modal + Add Field appends a fourth configurable field');
-    assert.equal(stripModalChecks.layoutAfterPreset, 'banners', 'Fields modal arrangement preset updates strip layout');
-    await page.evaluate(async () => {
-        const { state } = window.fixture;
-        const canvas = await import('/js/editor/editor-canvas.js');
-        const el = state.overlay.elements.find(e => e.id === 'strip-img');
-        el.width = 1200;
-        el.height = 360;
-        el.imageGroup = { ...el.imageGroup, layout: 'row', cardWidthMode: 'fixed', cardWidth: 880, maxItems: 0, wrap: false, textWrap: 'wrap' };
-        canvas.renderCanvas();
-        window.fixture.openImageGroupFieldsModal('badge');
-    });
-    await page.waitForFunction(() => document.querySelector('#ig-badge-preview').style.transform.startsWith('scale('));
-    const builderGeometry = await page.evaluate(() => {
-        const { state } = window.fixture;
-        const host = document.querySelector('#ig-badge-preview');
-        const memberId = document.querySelector('#ig-preview-member').value;
-        const preview = [...host.querySelectorAll('.sp-image-group-item')].find(node => node.dataset.groupEntryId === memberId);
-        const actual = [...state.nodes.get('strip-img').querySelectorAll('.sp-image-group-item')].find(node => node.dataset.groupEntryId === memberId);
-        const matrix = new window.DOMMatrix(getComputedStyle(host).transform);
-        const result = {
-            previewWidth: preview.offsetWidth, actualWidth: actual.offsetWidth,
-            previewHeight: preview.offsetHeight, actualHeight: actual.offsetHeight,
-            scaleX: matrix.a, scaleY: matrix.d,
-            layerWidth: parseFloat(host.style.width),
-            saved: JSON.stringify(state.overlay)
-        };
-        document.querySelector('[data-ig-builder-tab="strip"]').click();
-        result.stripVisible = !document.querySelector('#ig-strip-panel').hidden;
-        result.badgeHidden = document.querySelector('#ig-badge-panel').hidden;
-        result.stripControls = Boolean(document.querySelector('#ig-strip-panel [data-path="imageGroup.layout"]'));
-        result.stripCount = document.querySelectorAll('#ig-badge-preview .sp-image-group-item').length;
-        result.actualCount = state.nodes.get('strip-img').querySelectorAll('.sp-image-group-item').length;
-        result.tabsDoNotMutate = result.saved === JSON.stringify(state.overlay);
-        return result;
-    });
-    assert.equal(builderGeometry.previewWidth, builderGeometry.actualWidth, 'Badge preview keeps the exact production member width, including flex layout');
-    assert.equal(builderGeometry.previewHeight, builderGeometry.actualHeight, 'Badge preview keeps production wrapping and height');
-    assert.equal(builderGeometry.layerWidth, 1200, 'Preview lays out at the source layer width, not the sidebar width');
-    assert.equal(builderGeometry.scaleX, builderGeometry.scaleY, 'Preview scales uniformly, never squishing horizontally');
-    assert.equal(builderGeometry.stripVisible && builderGeometry.badgeHidden && builderGeometry.stripControls, true);
-    assert.equal(builderGeometry.stripCount, builderGeometry.actualCount, 'Strip tab previews the complete production roster');
-    assert.equal(builderGeometry.tabsDoNotMutate, true, 'Changing Builder tabs does not alter saved overlay settings');
-    const stripEditing = await page.evaluate(() => {
-        const layout = document.querySelector('#ig-strip-panel [data-path="imageGroup.layout"]');
-        layout.value = 'grid';
-        layout.dispatchEvent(new Event('change', { bubbles: true }));
-        const gap = document.querySelector('#ig-strip-panel input[type="number"][data-path="imageGroup.gap"]');
-        gap.value = '24';
-        gap.dispatchEvent(new Event('change', { bubbles: true }));
-        const el = window.fixture.state.overlay.elements.find(e => e.id === 'strip-img');
-        return { layout: el.imageGroup.layout, gap: el.imageGroup.gap, tab: document.querySelector('#ig-fields-dialog').dataset.builderTab };
-    });
-    assert.deepEqual(stripEditing, { layout: 'grid', gap: 24, tab: 'strip' }, 'Builder controls update saved strip settings without switching tabs');
-    await page.evaluate(() => {
-        document.querySelector('[data-ig-builder-tab="badge"]').click();
-        document.querySelector('#ig-fields-close').click();
-    });
-    await page.waitForFunction(() => document.querySelector('#ig-badge-preview')._badgePreviewObserver === null);
-    assert.equal(await page.$eval('#ig-badge-preview', node => node._badgePreviewObserver), null, 'Closing Builder disconnects preview observers');
-    assert.equal(await page.$eval('#ig-badge-preview', node => node._badgePreviewFrame), 0, 'Closing Builder cancels pending visual updates');
+    assert.equal(await page.$('#ig-fields-dialog'), null, 'Badge Builder moved out of the Overlay Editor');
+    assert.ok(await page.$('a[href="/variable-displays.html?kind=badge"]'), 'Legacy strip source points to Display Library');
     const stripNarrowOverflow = await page.evaluate(() => {
         const rail = document.querySelector('.rail.right');
         rail.style.width = '260px';
@@ -1072,7 +979,7 @@ try {
 
     // Direct 1-click Group Image Strip creation helper + Sets drawer + Strip action + Add Menu markup
     const editorHtmlMarkup = await readFile(new URL('../public/editors/custom-overlay-editor.html', import.meta.url), 'utf8');
-    assert.match(editorHtmlMarkup, /id="menu-add-image-group"[^>]*>|data-add="image-group"[^>]*id="menu-add-image-group"/, 'Group Image Strip menu item exists in custom-overlay-editor.html + Add menu');
+    assert.match(editorHtmlMarkup, /href="\/variable-displays.html\?kind=badge"/, 'Add menu opens the reusable Badge Designer');
     const quickStripChecks = await page.evaluate(async () => {
         const setsMod = await import('/js/editor/editor-sets.js');
         const { state, createElementData } = window.fixture;
@@ -1092,7 +999,7 @@ try {
     assert.equal(quickStripChecks.enabled, true);
     assert.equal(quickStripChecks.setId, 'cast');
     assert.equal(quickStripChecks.imageField, 'avatar');
-    assert.equal(quickStripChecks.hasStripBtn, true, 'Sets library offers + Strip quick action for image-capable sets');
+    assert.equal(quickStripChecks.hasStripBtn, false, 'Sets library no longer creates overlay-local badge designs');
 
     // Composable standout border styles, gradients, and animations
     const borderChecks = await page.evaluate(() => {
@@ -1207,7 +1114,7 @@ try {
             'game-list': check('game-list')
         };
     });
-    assert.equal(styleOrderChecks['image-group'], 'igAvatar', 'image-group opens Style with Avatar/Card sections before generic box/presets');
+    assert.equal(styleOrderChecks['image-group'], 'typography', 'legacy image-group omits the migrated Avatar/Card designer');
     assert.equal(styleOrderChecks.alert, 'alert-looks', 'alert opens Style with alert-specific sections before generic presets');
     assert.equal(styleOrderChecks.icon, 'iconEffects', 'icon opens Style with Icon effects before generic presets');
     assert.equal(styleOrderChecks.progress, 'progress', 'progress opens Style with Progress bar styling at top');
@@ -1265,18 +1172,6 @@ try {
             { key: 'tag', role: 'badge', slot: 'corner-tr', inline: false }
         ];
         window.fixture.renderProperties();
-        document.querySelector('.open-ig-fields-trigger')?.click();
-        const dlg = document.getElementById('ig-fields-dialog');
-        const memberPicker = dlg.querySelector('#ig-preview-member');
-        memberPicker.value = '__sample__';
-        memberPicker.dispatchEvent(new Event('change', { bubbles: true }));
-        const visibleBadge = [...dlg.querySelectorAll('#ig-badge-preview .sp-image-group-item')].filter(node => getComputedStyle(node).visibility !== 'hidden');
-        const previewItems = visibleBadge.length;
-        const cornerCount = visibleBadge[0]?.querySelectorAll('.sp-image-group-corner-tr .sp-image-group-field').length || 0;
-        const footerCount = visibleBadge[0]?.querySelectorAll('.sp-image-group-footer .sp-image-group-field').length || 0;
-        dlg?.querySelector('[data-ig-preview-bg="light"]')?.click();
-        const lightStage = document.getElementById('ig-preview-stage')?.classList.contains('is-light') || false;
-
         // Change width mode & border gradient/animation on card & avatar via runtime renderer
         el.imageGroup.cardWidthMode = 'fixed';
         el.imageGroup.cardWidth = 280;
@@ -1290,7 +1185,13 @@ try {
 
         const host = document.createElement('div');
         document.body.append(host);
-        window.OverlayShared.renderImageGroupStrip(host, el, window.fixture.state.liveStatus);
+        window.OverlayShared.renderImageGroupStrip(host, el, {
+            ...window.fixture.state.liveStatus,
+            variableSets: [{ id: el.imageGroup.setId, fields: [], roster: [{
+                id: 'fictional-member', label: 'Fictional member', inGroup: true,
+                values: { name: 'Fictional member', role: 'Host', tag: 'LIVE', [el.imageGroup.imageField || 'image']: '/media-a.png' }
+            }] }]
+        });
         const card = host.querySelector('.sp-image-group-item');
         const av = host.querySelector('.sp-image-group-avatar');
         const hasCardFx = Boolean(card?._borderFxRing);
@@ -1298,25 +1199,20 @@ try {
         const hasWrapClass = card?.classList.contains('is-wrap') || false;
         const widthCss = card?.style.width || '';
         const minHCss = card?.style.minHeight || '';
-        const hasSubFont = Boolean(document.querySelector('[data-path="imageGroup.subFontFamily"]'));
-        const hasCardGradUI = Boolean(document.querySelector('[data-seg-path="imageGroup.cardBorderGradient.enabled"]'));
-        const hasAvGradUI = Boolean(document.querySelector('[data-seg-path="imageGroup.avatarBorderGradient.enabled"]'));
+        const previewItems = host.querySelectorAll('.sp-image-group-item').length;
+        const cornerCount = card?.querySelectorAll('.sp-image-group-corner-tr .sp-image-group-field').length || 0;
+        const footerCount = card?.querySelectorAll('.sp-image-group-footer .sp-image-group-field').length || 0;
         host.remove();
-        dlg?.close();
-        return { previewItems, cornerCount, footerCount, lightStage, hasCardFx, hasAvFx, hasWrapClass, widthCss, minHCss, hasSubFont, hasCardGradUI, hasAvGradUI };
+        return { previewItems, cornerCount, footerCount, hasCardFx, hasAvFx, hasWrapClass, widthCss, minHCss };
+
     });
-    assert.equal(igModalCheck.previewItems, 1, 'Member Badge Builder modal renders a live single-member preview');
     assert.equal(igModalCheck.cornerCount, 1, 'corner-tr slot places field on avatar corner container');
     assert.equal(igModalCheck.footerCount, 1, 'footer slot places field in card footer container');
-    assert.equal(igModalCheck.lightStage, true, 'Modal preview backdrop toggle switches light/dark/checker');
     assert.equal(igModalCheck.hasCardFx, true, 'Group card renders border gradient + animation ring consistently');
     assert.equal(igModalCheck.hasAvFx, true, 'Group avatar renders border gradient + animation ring consistently');
     assert.equal(igModalCheck.hasWrapClass, true, 'textWrap: wrap adds .is-wrap multi-line wrapping class');
     assert.equal(igModalCheck.widthCss, '280px');
     assert.equal(igModalCheck.minHCss, '96px');
-    assert.equal(igModalCheck.hasSubFont, true, 'Typography section exposes quick Subtitle / accent font override');
-    assert.equal(igModalCheck.hasCardGradUI, true, 'Member card border section exposes Solid/Gradient border fill toggle');
-    assert.equal(igModalCheck.hasAvGradUI, true, 'Avatar border section exposes Solid/Gradient border fill toggle');
 
     await page.evaluate(() => {
         const { state, prefs } = window.fixture;
@@ -1553,28 +1449,13 @@ try {
             }
         });
         document.querySelector('[data-inspector-tab="content"]')?.click();
-        document.querySelector('#open-ig-fields-modal')?.click();
-        const dlg = document.getElementById('ig-fields-dialog');
-        const hasMemberSelect = Boolean(dlg?.querySelector('#ig-preview-member option[value="m1"]'));
-        dlg?.querySelector('#ig-add-image-btn')?.click();
-        const hasImageCard = Boolean(dlg?.querySelector('.ig-field-row.is-img-card'));
-        const noClutteredSelects = document.querySelectorAll('.ig-color-var-select').length === 0;
-        const igVarBtn = dlg?.querySelector('[data-ig-var-pick="bgColor"]');
-        let pickedMemberColor = false;
-        if (igVarBtn) {
-            igVarBtn.click();
-            const spDlg = document.getElementById('sp-picker');
-            const teamBtn = spDlg?.querySelector('[data-token="@team_color"]');
-            pickedMemberColor = Boolean(teamBtn);
-            teamBtn?.click();
-        }
-        const hasGroupColorSwatch = noClutteredSelects && pickedMemberColor && grpEl.imageGroup.fields[0].bgColor === '@team_color';
-
+        // Standalone builder controls are covered in test-display-badges.cjs; retain renderer coverage here.
+        grpEl.imageGroup.fields[0].bgColor = '@team_color';
+        grpEl.imageGroup.fields.push({ key: 'crest', kind: 'image', customSrc: '/media-b.png', slot: 'corner-tl', imgSize: 26 });
         // #ig-add-image-btn already placed `crest` at `corner-tl`; add a static secondary image on `avatar-tl` with customSrc
         grpEl.imageGroup.fields.push(
             { key: 'emblem', kind: 'image', customSrc: '/media-b.png', slot: 'avatar-tl', imgSize: 20, imgShape: 'circle', imgBorderW: 1 }
         );
-        dlg?.close();
 
         const container = document.createElement('div');
         container.style.width = '760px';
@@ -1599,9 +1480,6 @@ try {
             clutteredSwatchCount,
             hasVarChip: Boolean(colorPickBtn) && colorPickerColorOnly,
             chipAppliedValue,
-            hasMemberSelect,
-            hasImageCard,
-            hasGroupColorSwatch,
             cornerImgs,
             avatarCornerImgs,
             hiddenTextCount,
@@ -1615,9 +1493,6 @@ try {
     assert.equal(builderAndColorsCheck.clutteredSwatchCount, 0);
     assert.equal(builderAndColorsCheck.hasVarChip, true);
     assert.equal(builderAndColorsCheck.chipAppliedValue, '{{var.accent_color}}');
-    assert.equal(builderAndColorsCheck.hasMemberSelect, true);
-    assert.equal(builderAndColorsCheck.hasImageCard, true);
-    assert.equal(builderAndColorsCheck.hasGroupColorSwatch, true);
     assert.equal(builderAndColorsCheck.cornerImgs, 2);
     assert.equal(builderAndColorsCheck.avatarCornerImgs, 2);
     assert.equal(builderAndColorsCheck.hiddenTextCount, 0);

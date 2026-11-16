@@ -19,15 +19,16 @@ function selectedField(set, fieldKey) {
     return set?.fields?.find(field => field.key === fieldKey && field.type === 'ref');
 }
 
-export function displaySourceFields(binding = {}, sets = [], catalogId = '') {
-    const sourceOptions = [['', 'Whole catalog (no tracker)'], ...sets.map(set => [set.id, set.name || 'Unnamed set'])];
+export function displaySourceFields(binding = {}, sets = [], catalogId = '', kind = 'inventory') {
+    const inventory = kind === 'inventory';
+    const sourceOptions = [['', inventory ? 'Whole catalog (no tracker)' : 'Design catalog'], ...sets.map(set => [set.id, set.name || 'Unnamed set'])];
     const fields = [{
-        path: 'setId', label: 'Tracker owner set', value: binding.setId || '', options: sourceOptions
+        path: 'setId', label: inventory ? 'Tracker owner set' : 'Source set', value: binding.setId || '', options: sourceOptions
     }];
     const sourceSet = sets.find(set => set.id === binding.setId);
     if (sourceSet) {
         fields.push({
-            path: 'selector', label: 'Owner entry', value: binding.selector || 'active',
+            path: 'selector', label: inventory ? 'Tracker owner entry' : 'Source entry', value: binding.selector || 'active',
             options: selectorOptions(sourceSet, binding)
         });
         let current = sourceSet;
@@ -50,35 +51,28 @@ export function displaySourceFields(binding = {}, sets = [], catalogId = '') {
             current = sets.find(set => set.id === reference?.targetSet);
             if (!current) break;
         }
-        if (binding.path?.length >= 4) {
-            const currentSet = sets.find(set => set.id === binding.path.reduce((id, key) => {
-                const parent = sets.find(candidate => candidate.id === id);
-                return selectedField(parent, key)?.targetSet || '';
-            }, sourceSet.id));
-            if (currentSet) {
-                fields.push({
-                    path: 'tracker', label: 'Checklist tracker', value: binding.tracker || '',
-                    options: [['', 'Choose a tracker'], ...(currentSet.fields || [])
-                        .filter(field => field.type === 'checklist' && field.targetSet === catalogId)
-                        .map(field => [field.key, field.label || field.key])]
-                });
-            }
-        } else {
-            let currentSet = sourceSet;
-            for (const key of path) currentSet = sets.find(set => set.id === selectedField(currentSet, key)?.targetSet);
-            if (currentSet) {
-                fields.push({
-                    path: 'tracker', label: 'Checklist tracker', value: binding.tracker || '',
-                    options: [['', 'Choose a tracker'], ...(currentSet.fields || [])
-                        .filter(field => field.type === 'checklist' && field.targetSet === catalogId)
-                        .map(field => [field.key, field.label || field.key])]
-                });
-            }
+        let currentSet = sourceSet;
+        for (const key of path) currentSet = sets.find(set => set.id === selectedField(currentSet, key)?.targetSet);
+        if (!inventory) {
+            fields.push({
+                path: 'listField', label: 'Linked members', value: binding.listField || '',
+                options: [['', 'Use source rows'], ...(currentSet?.fields || []).filter(field => ['ref', 'ref_list'].includes(field.type) && field.targetSet === catalogId).map(field => [field.key, field.label || field.key])]
+            });
+        } else if (currentSet) {
+            fields.push({
+                path: 'tracker', label: 'Checklist tracker', value: binding.tracker || '',
+                options: [['', 'Choose a tracker'], ...(currentSet.fields || [])
+                    .filter(field => field.type === 'checklist' && field.targetSet === catalogId)
+                    .map(field => [field.key, field.label || field.key])]
+            });
         }
     }
-    fields.push({
+    fields.push(inventory ? {
         path: 'showMode', label: 'Untracked items', value: binding.showMode || 'dim',
         options: [['dim', 'Dim inactive items'], ['active', 'Show active items only']]
+    } : {
+        path: 'rows', label: kind === 'table' ? 'Rows' : 'Members', value: binding.rows || 'all',
+        options: [['all', 'All entries'], ['active', 'Active entry'], ['slots', 'Live slots'], ['group', 'In Group entries'], ...(kind === 'table' ? [['ordered', 'Saved row order only']] : [])]
     });
     return fields;
 }
@@ -90,6 +84,9 @@ export function updateDisplaySource(binding, path, value) {
         binding.selector = 'active';
         binding.path = [];
         binding.tracker = '';
+        binding.listField = '';
+        binding.fields = [];
+        delete binding.badgeSource;
         return binding;
     }
     const pathMatch = /^path\.(\d)$/.exec(path);
@@ -99,8 +96,13 @@ export function updateDisplaySource(binding, path, value) {
         if (value) nextPath.push(value);
         binding.path = nextPath.slice(0, 4);
         binding.tracker = '';
+        binding.listField = '';
+        binding.fields = [];
+        delete binding.badgeSource;
         return binding;
     }
+    if (path === 'listField') binding.fields = [];
+    if (path === 'selector' || path === 'listField' || path === 'rows') delete binding.badgeSource;
     binding[path] = value;
     return binding;
 }

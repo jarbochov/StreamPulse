@@ -825,7 +825,7 @@ async function run() {
         } else if (url.includes('/api/chatbot')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyChatbotSnapshot) });
         } else if (new URL(url).pathname === '/api/variable-displays') {
-            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ displays: [inventoryFixture.display], revision: 1 }) });
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ displays: [inventoryFixture.display, inventoryFixture.table, inventoryFixture.badge], revision: 1 }) });
         } else if (page.url().includes('variable-displays.html') && new URL(url).pathname === '/api/variables') {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ variables: [], sets: inventoryFixture.sets, variableSetsEnabled: true }) });
         } else if (new URL(url).pathname === '/api/variables') {
@@ -842,6 +842,31 @@ async function run() {
     });
 
     const targets = [
+        {
+            url: `${baseUrl}/variable-displays.html`,
+            file: 'display-library.png',
+            action: async p => {
+                await p.setViewport({ width: 1366, height: 768, deviceScaleFactor: 2 });
+                await p.waitForSelector('#display-list');
+            }
+        },
+        {
+            url: `${baseUrl}/variable-displays.html?id=fictional-schedule`,
+            file: 'table-builder.png',
+            action: async p => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.waitForSelector('#display-preview .sp-display-table');
+            }
+        },
+        {
+            url: `${baseUrl}/variable-displays.html?id=fictional-badges`,
+            file: 'badge-display-builder.png',
+            action: async p => {
+                await p.setViewport({ width: 1366, height: 768, deviceScaleFactor: 2 });
+                await p.waitForSelector('#display-preview .sp-variable-display .sp-image-group');
+                await p.$eval('#ig-zone-blueprint', node => node.scrollIntoView({ block: 'start' }));
+            }
+        },
         {
             url: `${baseUrl}/variable-displays.html?id=fictional-inventory`,
             file: 'inventory-builder.png',
@@ -1347,54 +1372,14 @@ async function run() {
             }
         },
         {
-            url: `${baseUrl}/custom-overlay-editor.html?id=border-showcase`,
+            url: `${baseUrl}/variable-displays.html?id=fictional-badges`,
             file: 'badge-builder-studio.png',
             wait: 1500,
             action: async (p) => {
-                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
-                await p.evaluate(async () => {
-                    const { state, prefs, createElementData } = await import('/js/editor/editor-state.js');
-                    const { renderProperties } = await import('/js/editor/editor-inspector.js');
-                    const { renderCanvas, fitView } = await import('/js/editor/editor-canvas.js');
-                    const { renderLayers } = await import('/js/editor/editor-layers.js');
-                    const el = createElementData('image-group', {
-                        id: 'fictional-squad-strip',
-                        page: 'page-1',
-                        x: 180,
-                        y: 720,
-                        width: 1120,
-                        height: 220,
-                        imageGroup: {
-                            enabled: true,
-                            setId: 'squad',
-                            imageField: 'avatar',
-                            showAvatar: true,
-                            onlySelected: true,
-                            layout: 'row',
-                            badgePreset: 'esports-card',
-                            cardPaddingX: 16,
-                            cardPaddingY: 12,
-                            cornerInset: 8,
-                            fields: [
-                                { key: 'name', zone: 'bottom', fontSize: 18, fontWeight: '700', color: '#ffffff', padX: 4, padY: 2 },
-                                { key: 'role', zone: 'badge', fontSize: 12, fontWeight: '700', color: '@accent', bg: '#0f172acc', padX: 8, padY: 3 },
-                                { key: 'emblem', type: 'image', kind: 'field', zone: 'corner-tl', imgSize: 24, imgFit: 'contain', imgShape: 'circle', imgBorderW: 1 }
-                            ]
-                        }
-                    });
-                    state.overlay.elements = [el];
-                    state.selectedIds = new Set([el.id]);
-                    prefs.inspectorTabs['image-group'] = 'content';
-                    prefs.inspectorTabs.image = 'content';
-                    renderProperties();
-                    renderCanvas();
-                    renderLayers();
-                    fitView(true);
-                });
-                await p.waitForSelector('#open-ig-fields-modal');
-                await p.click('#open-ig-fields-modal');
-                await p.waitForSelector('#ig-fields-dialog[open]', { timeout: 5000 });
-                await new Promise(r => setTimeout(r, 400));
+                await p.setViewport({ width: 1366, height: 768, deviceScaleFactor: 2 });
+                await p.waitForSelector('#badge-design-controls');
+                await p.waitForSelector('#display-preview .sp-variable-display .sp-image-group');
+                await p.$eval('#ig-zone-blueprint', node => node.scrollIntoView({ block: 'start' }));
             }
         }
     ];

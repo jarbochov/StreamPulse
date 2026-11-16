@@ -458,6 +458,11 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
   }
   function cleanupNode(node) {
     if (!node) return;
+    if (node._igResizeObserver) {
+      node._igResizeObserver.disconnect();
+      node._igResizeObserver = null;
+    }
+    node.querySelectorAll?.(".sp-saved-badge").forEach((child) => cleanupNode(child));
     if (node._alertHandle) {
       const handle = node._alertHandle;
       node._alertHandle = null;
@@ -2744,15 +2749,132 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
   });
 
+  // shared/display-source.cjs
+  var require_display_source = __commonJS({
+    "shared/display-source.cjs"(exports, module) {
+      function resolveDisplayOwner2(sets = [], binding = {}) {
+        let set = sets.find((candidate) => candidate.id === binding.setId);
+        const selector = binding.selector || "active";
+        const id = selector.startsWith("entry:") ? selector.slice(6) : selector.startsWith("slot:") ? set?.slots?.[Number(selector.slice(5)) - 1] : set?.slotsCount > 0 ? set.slots?.[0] : set?.activeEntry;
+        let entry = set?.roster?.find((candidate) => candidate.id === id);
+        for (const fieldKey of binding.path || []) {
+          const field = set?.fields?.find((candidate) => candidate.key === fieldKey && candidate.type === "ref");
+          const nextId = entry?.values?.[fieldKey];
+          set = sets.find((candidate) => candidate.id === field?.targetSet);
+          entry = set?.roster?.find((candidate) => candidate.id === nextId);
+        }
+        return { set, entry };
+      }
+      module.exports = { resolveDisplayOwner: resolveDisplayOwner2 };
+    }
+  });
+
+  // shared/display-table.cjs
+  var require_display_table = __commonJS({
+    "shared/display-table.cjs"(exports, module) {
+      var { resolveDisplayOwner: resolveDisplayOwner2 } = require_display_source();
+      var id = (value) => String(value || "").replace(/[^a-z0-9_-]/gi, "_").slice(0, 60);
+      var fieldPath = (value) => String(value || "").split(".").slice(0, 5).map((part) => part === "$label" ? part : id(part)).filter(Boolean).join(".");
+      var bound = (value, fallback, min, max) => Number.isFinite(Number(value)) && value != null && value !== "" ? Math.min(max, Math.max(min, Number(value))) : fallback;
+      function normalizeDisplayTable(input = {}) {
+        const seen = /* @__PURE__ */ new Set();
+        const columns = (Array.isArray(input.columns) ? input.columns : []).slice(0, 12).map((column) => {
+          const key = fieldPath(column.key);
+          if (!key || seen.has(key)) throw new Error("Choose a unique field for each table column");
+          seen.add(key);
+          return {
+            key,
+            label: String(column.label || key).slice(0, 80),
+            width: bound(column.width, 1, 0.25, 10),
+            type: ["text", "image", "color", "toggle"].includes(column.type) ? column.type : "text",
+            align: ["left", "center", "right"].includes(column.align) ? column.align : "left"
+          };
+        });
+        return {
+          columns: columns.length ? columns : [{ key: "$label", label: "Name", width: 1, type: "text", align: "left" }],
+          showHeader: input.showHeader !== false,
+          rowHeight: bound(input.rowHeight, 44, 20, 200),
+          headerHeight: bound(input.headerHeight, 40, 20, 200),
+          alternateColor: /^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(input.alternateColor || "") ? input.alternateColor : "#ffffff0a",
+          sortKey: fieldPath(input.sortKey),
+          sortDirection: input.sortDirection === "desc" ? "desc" : "asc",
+          rowOrder: [...new Set((Array.isArray(input.rowOrder) ? input.rowOrder : []).slice(0, 200).map(id).filter(Boolean))],
+          maxRows: Math.round(bound(input.maxRows, 60, 1, 200))
+        };
+      }
+      function displayFieldValue2(sets, set, entry, path) {
+        const keys = String(path || "").split(".");
+        for (let index = 0; index < keys.length && index < 5; index++) {
+          const key = keys[index];
+          if (key === "$label") return { value: entry?.label || "", type: "text" };
+          const field = set?.fields?.find((candidate) => candidate.key === key);
+          let value = entry?.values?.[key];
+          if (!field) return { value: "", type: "text" };
+          if (index < keys.length - 1) {
+            if (field.type !== "ref") return { value: "", type: "text" };
+            set = sets.find((candidate) => candidate.id === field.targetSet);
+            entry = set?.roster?.find((candidate) => candidate.id === value);
+            continue;
+          }
+          if (["ref", "ref_list", "checklist"].includes(field.type)) {
+            const target = sets.find((candidate) => candidate.id === field.targetSet);
+            const ids = field.type === "ref" ? [value] : field.type === "ref_list" ? Array.isArray(value) ? value : [] : Object.keys(value || {}).filter((id2) => Number(value[id2]) > 0);
+            value = ids.map((id2) => target?.roster?.find((candidate) => candidate.id === id2)?.label || "").filter(Boolean).join(", ");
+          }
+          return { value: value ?? "", type: field.type };
+        }
+        return { value: "", type: "text" };
+      }
+      function getDisplayRows3(sets = [], definition, binding = {}) {
+        const catalog = sets.find((set) => set.id === definition.catalogId);
+        if (!catalog) return { set: null, entries: [] };
+        const source = binding.setId ? resolveDisplayOwner2(sets, binding) : { set: catalog };
+        let entries;
+        const linkedKeys = binding.listField ? [binding.listField] : binding.fields || [];
+        if (linkedKeys.length) {
+          const ids = linkedKeys.flatMap((key) => {
+            const field = source.set?.fields?.find((field2) => field2.key === key && ["ref", "ref_list"].includes(field2.type) && field2.targetSet === catalog.id);
+            const value = source.entry?.values?.[key];
+            return !field ? [] : field.type === "ref" ? [value] : Array.isArray(value) ? value : [];
+          });
+          entries = [...new Set(ids)].map((id2) => catalog.roster?.find((entry) => entry.id === id2)).filter(Boolean);
+        } else if (source.set?.id !== catalog.id) entries = [];
+        else if (binding.path?.length || binding.rows === "active") {
+          const owner = binding.setId ? source.entry : resolveDisplayOwner2(sets, { ...binding, setId: catalog.id }).entry;
+          entries = owner ? [owner] : [];
+        } else if (binding.rows === "slots") {
+          entries = [...new Set(catalog.slots || [])].map((id2) => catalog.roster?.find((entry) => entry.id === id2)).filter(Boolean);
+        } else if (binding.rows === "group") entries = catalog.roster?.filter((entry) => entry.inGroup) || [];
+        else if (binding.rows === "ordered") entries = (definition.table?.rowOrder || []).map((id2) => catalog.roster?.find((entry) => entry.id === id2)).filter(Boolean);
+        else entries = [...catalog.roster || []];
+        entries = entries.filter((entry) => entry.enabled !== false);
+        const order = new Map((definition.table?.rowOrder || []).map((id2, index) => [id2, index]));
+        if (order.size && !["slots", "ordered"].includes(binding.rows) && !linkedKeys.length) entries.sort((a, b) => (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.id) ?? Number.MAX_SAFE_INTEGER));
+        if (definition.table?.sortKey) {
+          const compare = new Intl.Collator(void 0, { numeric: true, sensitivity: "base" });
+          entries.sort((a, b) => {
+            const av = displayFieldValue2(sets, catalog, a, definition.table.sortKey).value;
+            const bv = displayFieldValue2(sets, catalog, b, definition.table.sortKey).value;
+            return compare.compare(String(av), String(bv)) * (definition.table.sortDirection === "desc" ? -1 : 1);
+          });
+        }
+        return { set: catalog, entries: entries.slice(0, definition.table?.maxRows || 200) };
+      }
+      module.exports = { normalizeDisplayTable, displayFieldValue: displayFieldValue2, getDisplayRows: getDisplayRows3 };
+    }
+  });
+
   // shared/variable-displays.cjs
   var require_variable_displays = __commonJS({
     "shared/variable-displays.cjs"(exports, module) {
+      var { resolveDisplayOwner: resolveDisplayOwner2 } = require_display_source();
+      var { normalizeDisplayTable } = require_display_table();
       var key = (value) => String(value || "").replace(/[^a-z0-9_-]/gi, "_").slice(0, 60);
       var text = (value, limit = 80) => String(value ?? "").trim().slice(0, limit);
       var number = (value, fallback, min, max) => Number.isFinite(Number(value)) && value !== "" && value != null ? Math.max(min, Math.min(max, Number(value))) : fallback;
       var color = (value, fallback) => /^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(value || "") ? value : fallback;
       function normalizeDisplay(input = {}, id = input.id) {
-        if (input.kind && input.kind !== "inventory") throw new Error("Unsupported display kind");
+        if (input.kind && !["inventory", "table", "badge"].includes(input.kind)) throw new Error("Unsupported display kind");
         const seen = /* @__PURE__ */ new Set();
         const sections = (Array.isArray(input.sections) ? input.sections : []).slice(0, 20).map((section, index) => {
           const cells = /* @__PURE__ */ new Set();
@@ -2774,8 +2896,10 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         const style = input.style || {};
         return {
           id: key(id),
-          name: text(input.name) || "Inventory display",
-          kind: "inventory",
+          name: text(input.name) || `${input.kind || "inventory"} display`,
+          kind: input.kind || "inventory",
+          ...input.kind === "table" ? { table: normalizeDisplayTable(input.table) } : {},
+          ...input.kind === "badge" ? { badge: JSON.parse(JSON.stringify(input.badge || {})) } : {},
           catalogId: key(input.catalogId),
           imageField: key(input.imageField) || "image",
           labelField: key(input.labelField) || "name",
@@ -2813,21 +2937,22 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           selector: /^(active|slot:\d{1,2}|entry:[a-z0-9_-]{1,60})$/.test(input.selector || "") ? input.selector : "active",
           path: (Array.isArray(input.path) ? input.path : []).slice(0, 4).map(key).filter(Boolean),
           tracker: key(input.tracker),
-          showMode: input.showMode === "active" ? "active" : "dim"
+          showMode: input.showMode === "active" ? "active" : "dim",
+          rows: ["all", "active", "slots", "group", "ordered"].includes(input.rows) ? input.rows : "all",
+          listField: key(input.listField),
+          fields: (Array.isArray(input.fields) ? input.fields : []).slice(0, 10).map(key).filter(Boolean),
+          ...input.badgeSource ? { badgeSource: {
+            setId: key(input.badgeSource.setId),
+            filterMode: ["all", "inGroup", "linked", "checklist"].includes(input.badgeSource.filterMode) ? input.badgeSource.filterMode : "all",
+            onlySelected: input.badgeSource.onlySelected === true,
+            showMode: input.badgeSource.showMode === "active" ? "active" : "dim",
+            linkedSource: {
+              setId: key(input.badgeSource.linkedSource?.setId),
+              selector: /^(active|slot:\d{1,2}|entry:[a-z0-9_-]{1,60})$/.test(input.badgeSource.linkedSource?.selector || "") ? input.badgeSource.linkedSource.selector : "active",
+              fields: (input.badgeSource.linkedSource?.fields || []).slice(0, 10).map(key)
+            }
+          } } : {}
         };
-      }
-      function resolveDisplayOwner2(sets = [], binding = {}) {
-        let set = sets.find((candidate) => candidate.id === binding.setId);
-        const selector = binding.selector || "active";
-        const id = selector.startsWith("entry:") ? selector.slice(6) : selector.startsWith("slot:") ? set?.slots?.[Number(selector.slice(5)) - 1] : set?.slotsCount > 0 ? set.slots?.[0] : set?.activeEntry;
-        let entry = set?.roster?.find((candidate) => candidate.id === id);
-        for (const fieldKey of binding.path || []) {
-          const field = set?.fields?.find((candidate) => candidate.key === fieldKey && candidate.type === "ref");
-          const nextId = entry?.values?.[fieldKey];
-          set = sets.find((candidate) => candidate.id === field?.targetSet);
-          entry = set?.roster?.find((candidate) => candidate.id === nextId);
-        }
-        return { set, entry };
       }
       module.exports = { normalizeDisplay, normalizeDisplayBinding, resolveDisplayOwner: resolveDisplayOwner2 };
     }
@@ -2854,6 +2979,162 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         return { set, entry, fields };
       }
       module.exports = { trackerMax: trackerMax3, linkedSourceEntry, linkedSourceFields: linkedSourceFields2 };
+    }
+  });
+
+  // public/js/overlay/display-table.js
+  function renderDisplayTable(host, element, status, definition) {
+    const { set, entries } = (0, import_display_table.getDisplayRows)(status.variableSets, definition, element.display);
+    if (!set || !entries.length && (element.display?.setId || ["active", "slots", "group", "ordered"].includes(element.display?.rows))) return false;
+    const config = definition.table;
+    const style = definition.style;
+    const rowHeight = Math.max(config.rowHeight, style.fontSize * 1.25 + style.borderWidth);
+    const headerHeight = Math.max(config.headerHeight, style.fontSize * 1.25 + style.borderWidth);
+    const root2 = document.createElement("div");
+    root2.className = "sp-variable-display sp-display-table";
+    Object.assign(root2.style, { width: "100%", height: "100%", containerType: "size", overflow: "hidden" });
+    const width = Math.max(240, config.columns.reduce((sum, column) => sum + column.width * 160, 0)) + style.padding * 2;
+    const height = Math.max(1, style.padding * 2 + entries.length * rowHeight + (config.showHeader ? headerHeight : 0));
+    root2.style.setProperty("--display-unit", `min(calc(100cqw / ${width}), calc(100cqh / ${height}))`);
+    const px = (value) => `calc(var(--display-unit) * ${value})`;
+    const table = document.createElement("table");
+    Object.assign(table.style, { width: px(width), tableLayout: "fixed", borderCollapse: "separate", borderSpacing: "0", padding: px(style.padding), background: style.background, color: style.color, fontSize: px(style.fontSize), lineHeight: "1.25", fontFamily: style.fontFamily, borderRadius: px(style.radius), overflow: "hidden" });
+    const weights = config.columns.reduce((sum, column) => sum + column.width, 0);
+    const columns = document.createElement("colgroup");
+    for (const column of config.columns) {
+      const col = document.createElement("col");
+      col.style.width = `${column.width / weights * 100}%`;
+      columns.append(col);
+    }
+    table.append(columns);
+    const cellStyle = (cell, column, height2) => Object.assign(cell.style, {
+      height: px(height2),
+      maxHeight: px(height2),
+      boxSizing: "border-box",
+      padding: `0 ${px(8)}`,
+      textAlign: column.align,
+      verticalAlign: "middle",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap",
+      borderBottom: `${px(style.borderWidth)} solid ${style.borderColor}`
+    });
+    if (config.showHeader) {
+      const thead = document.createElement("thead");
+      const tr = document.createElement("tr");
+      tr.style.background = style.cellBackground;
+      for (const column of config.columns) {
+        const th = document.createElement("th");
+        th.scope = "col";
+        th.textContent = column.label;
+        cellStyle(th, column, headerHeight);
+        tr.append(th);
+      }
+      thead.append(tr);
+      table.append(thead);
+    }
+    const tbody = document.createElement("tbody");
+    for (const [index, entry] of entries.entries()) {
+      const tr = document.createElement("tr");
+      tr.dataset.displayRow = entry.id;
+      tr.style.background = index % 2 ? config.alternateColor : "transparent";
+      for (const column of config.columns) {
+        const td = document.createElement("td");
+        td.dataset.displayColumn = column.key;
+        cellStyle(td, column, rowHeight);
+        const result = (0, import_display_table.displayFieldValue)(status.variableSets, set, entry, column.key);
+        const value = String(result.value);
+        if (column.type === "image" && value) {
+          const image = document.createElement("img");
+          image.src = value;
+          image.alt = "";
+          image.referrerPolicy = "no-referrer";
+          Object.assign(image.style, { height: px(rowHeight - 8), maxWidth: "100%", objectFit: "contain", display: "block" });
+          td.append(image);
+        } else if (column.type === "color" && /^#[a-f0-9]{3,8}$/i.test(value)) {
+          const swatch = document.createElement("span");
+          swatch.title = value;
+          Object.assign(swatch.style, { display: "inline-block", width: px(16), height: px(16), borderRadius: px(3), background: value });
+          td.append(swatch);
+        } else {
+          td.textContent = value === "" ? "" : column.type === "toggle" || result.type === "toggle" ? result.value === true || value === "true" || value === "1" ? "Yes" : "No" : result.type === "template" ? expandVariables(value, status, {}, false) : value;
+          td.title = td.textContent;
+        }
+        tr.append(td);
+      }
+      tbody.append(tr);
+    }
+    table.append(tbody);
+    root2.append(table);
+    host.append(root2);
+    return true;
+  }
+  var import_display_table;
+  var init_display_table = __esm({
+    "public/js/overlay/display-table.js"() {
+      import_display_table = __toESM(require_display_table());
+      init_variables();
+    }
+  });
+
+  // public/js/overlay/display-badges.js
+  function renderSavedBadge(host, element, status, definition) {
+    const binding = element.display || {};
+    const badge = definition.badge || {};
+    const signature = JSON.stringify([badge, definition.catalogId, binding, element.style, element.width, element.height, status.variableSets, status.customVars, status.modules]);
+    if (host._badgeSignature === signature && host.querySelector(".sp-variable-display")) return true;
+    host._badgeSignature = signature;
+    const node = document.createElement("div");
+    node.className = "sp-variable-display sp-saved-badge";
+    node.style.cssText = "position:relative;width:100%;height:100%;min-width:0;min-height:0;box-sizing:border-box;";
+    host.replaceChildren(node);
+    if (status.modules?.variableSets === false) return false;
+    let imageGroup = { ...badge.imageGroup, enabled: true, setId: definition.catalogId, filterMode: "all" };
+    let resolvedStatus = status;
+    if (binding.badgeSource) {
+      imageGroup = { ...imageGroup, ...binding.badgeSource };
+    } else {
+      const { set, entries } = (0, import_display_table2.getDisplayRows)(status.variableSets || [], definition, binding);
+      if (!set) return false;
+      const previewSet = { ...set, id: "__saved_badge", roster: entries };
+      imageGroup = { ...imageGroup, setId: previewSet.id, filterMode: "all", onlySelected: false };
+      resolvedStatus = { ...status, variableSets: [...status.variableSets || [], previewSet] };
+    }
+    const visual = import_numeric_bindings.default.resolveNumericElement({
+      ...element,
+      type: "image",
+      imageGroup,
+      style: badge.style || {},
+      mediaFilter: badge.mediaFilter || {}
+    }, resolvedStatus);
+    const style = window.OverlayShared?.resolveStyleVariables?.(visual.style, resolvedStatus, {}) || visual.style;
+    Object.assign(node.style, {
+      background: style.background || "transparent",
+      borderRadius: `${style.borderRadius || 0}px`,
+      padding: `${style.padding || 0}px`,
+      fontFamily: style.fontFamily || "sans-serif",
+      fontSize: `${style.fontSize || 20}px`,
+      fontWeight: style.fontWeight || "600",
+      color: style.color || "#ffffff",
+      opacity: style.opacity ?? 1,
+      lineHeight: style.lineHeight || 1.2,
+      letterSpacing: `${style.letterSpacing || 0}px`
+    });
+    const decoration = decorationStyle(style, "image");
+    if (decoration && typeof decoration === "object") Object.assign(node.style, decoration);
+    window.OverlayShared?.applyBorderEffects?.(node, style, visual);
+    const rendered = renderImageGroupStrip(node, visual, resolvedStatus);
+    applyMediaFilter(node, visual);
+    return rendered;
+  }
+  var import_display_table2, import_numeric_bindings;
+  var init_display_badges = __esm({
+    "public/js/overlay/display-badges.js"() {
+      import_display_table2 = __toESM(require_display_table());
+      import_numeric_bindings = __toESM(require_numeric_bindings());
+      init_media();
+      init_styles();
+      init_filters();
     }
   });
 
@@ -2896,11 +3177,15 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const { set: ownerSet, entry: owner } = (0, import_variable_displays.resolveDisplayOwner)(status.variableSets, binding);
     const tracker = ownerSet?.fields?.find((field) => field.key === binding.tracker && field.type === "checklist" && field.targetSet === definition?.catalogId);
     const tracks = Boolean(binding.setId);
-    const signature = JSON.stringify([definition, catalog?.roster, tracks ? owner : null, tracker, binding, status.modules?.variableSets]);
+    const signature = JSON.stringify([definition, definition?.kind === "inventory" ? catalog?.roster : status.variableSets, tracks ? owner : null, tracker, binding, element.style, element.width, element.height, status.customVars, status.modules?.variableSets]);
     if (host._displaySignature === signature && host.querySelector(".sp-variable-display")) return true;
     host._displaySignature = signature;
+    for (const child of host.querySelectorAll(":scope > .sp-variable-display")) cleanupNode(child);
     host.replaceChildren();
-    if (!definition || !catalog || status.modules?.variableSets === false || tracks && (!owner || !tracker)) return false;
+    if (!definition || !catalog || status.modules?.variableSets === false) return false;
+    if (definition.kind === "table") return renderDisplayTable(host, element, status, definition);
+    if (definition.kind === "badge") return renderSavedBadge(host, element, status, definition);
+    if (tracks && (!owner || !tracker)) return false;
     const { layout, style } = definition;
     const map = owner?.values?.[tracker?.key] || {};
     const members = new Map((catalog.roster || []).map((item) => [item.id, item]));
@@ -2984,6 +3269,9 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     "public/js/overlay/displays.js"() {
       import_variable_displays = __toESM(require_variable_displays());
       import_variable_links = __toESM(require_variable_links());
+      init_display_table();
+      init_display_badges();
+      init_lifecycle();
       library = null;
       revision = null;
       pending = null;
@@ -3753,7 +4041,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
   }
   function resolveStyleVariables(style, status, context, member = null) {
     if (status?.modules?.variableSettings === false) return style;
-    style = import_numeric_bindings.default.resolveNumericConfig(style, "style", status);
+    style = import_numeric_bindings2.default.resolveNumericConfig(style, "style", status);
     if (!style || typeof style !== "object") return style;
     const expandFn = (v) => resolveColorToken(v, status, context, member);
     const hasToken = (v) => typeof v === "string" && (v.includes("{{") || Boolean(member) && v.trim().startsWith("@"));
@@ -3799,10 +4087,10 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
     return out;
   }
-  var import_numeric_bindings, VARIABLE_GROUPS, CLOCK_ITEMS, GAME_ITEMS, WEATHER_ITEMS, PLAN_ITEMS, EVENT_ITEMS, MILESTONE_ITEMS, MATCHUP_ITEMS, TOURNAMENT_ITEMS, TRIVIA_ITEMS, TIER_LIST_ITEMS, SUBATHON_ITEMS, TICKING, isTicking, hasTicking, inPlanList, LIST_FORMAT_PRESETS, FORMAT_PRESETS, isDateKey, ordinal, isListFormat, isListKey, numberFormatters;
+  var import_numeric_bindings2, VARIABLE_GROUPS, CLOCK_ITEMS, GAME_ITEMS, WEATHER_ITEMS, PLAN_ITEMS, EVENT_ITEMS, MILESTONE_ITEMS, MATCHUP_ITEMS, TOURNAMENT_ITEMS, TRIVIA_ITEMS, TIER_LIST_ITEMS, SUBATHON_ITEMS, TICKING, isTicking, hasTicking, inPlanList, LIST_FORMAT_PRESETS, FORMAT_PRESETS, isDateKey, ordinal, isListFormat, isListKey, numberFormatters;
   var init_variables = __esm({
     "public/js/overlay/variables.js"() {
-      import_numeric_bindings = __toESM(require_numeric_bindings());
+      import_numeric_bindings2 = __toESM(require_numeric_bindings());
       init_displays();
       VARIABLE_GROUPS = [
         { label: "Viewers", items: [["viewers.current", "Current viewers"], ["viewers.peak", "Peak viewers"], ["viewers.average", "Average viewers"]] },
@@ -4542,7 +4830,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     return avMedia;
   }
   function renderImageGroupStrip(container, element, status, options = {}) {
-    element = import_numeric_bindings2.default.resolveNumericElement(element, status);
+    element = import_numeric_bindings3.default.resolveNumericElement(element, status);
     cleanupGroupStrip(container);
     const cfg = element?.imageGroup || {};
     const imgField = cfg.imageField || "image";
@@ -5201,14 +5489,14 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
     return true;
   }
-  var import_numeric_bindings2, import_variable_links2, GROUP_POLY_CLIPS, GROUP_POLY_POINTS, IMAGE_GROUP_LAYOUTS, IMAGE_GROUP_SHAPES, IMAGE_GROUP_PLACEMENTS, IMAGE_GROUP_SLOTS, FIELD_ROLE_SCALE;
+  var import_numeric_bindings3, import_variable_links2, GROUP_POLY_CLIPS, GROUP_POLY_POINTS, IMAGE_GROUP_LAYOUTS, IMAGE_GROUP_SHAPES, IMAGE_GROUP_PLACEMENTS, IMAGE_GROUP_SLOTS, FIELD_ROLE_SCALE;
   var init_media = __esm({
     "public/js/overlay/media.js"() {
       init_fonts();
       init_icons();
       init_styles();
       init_variables();
-      import_numeric_bindings2 = __toESM(require_numeric_bindings());
+      import_numeric_bindings3 = __toESM(require_numeric_bindings());
       import_variable_links2 = __toESM(require_variable_links());
       GROUP_POLY_CLIPS = {
         hexagon: "polygon(50% 0%, 96% 25%, 96% 75%, 50% 100%, 4% 75%, 4% 25%)",
@@ -8751,16 +9039,18 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       init_var_rotation();
       init_variables();
       init_widgets();
-      var import_numeric_bindings3 = __toESM(require_numeric_bindings());
+      var import_numeric_bindings4 = __toESM(require_numeric_bindings());
       var import_variable_links3 = __toESM(require_variable_links());
       var import_variable_displays2 = __toESM(require_variable_displays());
+      var import_display_table4 = __toESM(require_display_table());
       init_displays();
       root.OverlayShared = Object.assign(root.OverlayShared || {}, { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, TEXT_ANIM_TYPES, applyBorderGradient, applyTextAnimation, resolveBorderRadius, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, renderSpeakerBadge, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, mountTextCycle, resolveCycleLines, createVarRotationEngine, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, resolveColorToken, resolveStyleVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, renderImageGroupStrip, applyMediaFilter: root.OverlayFilters?.applyMediaFilter || applyMediaFilter, shadowClipStyle });
       root.OverlayShared.borderPlacement = borderPlacement;
       Object.assign(root.OverlayShared, { ALERT_PRESENTATION_KEYS, resolveAlertLook, renderInlineText, sanitizeIconClass });
-      Object.assign(root.OverlayShared, import_numeric_bindings3.default);
+      Object.assign(root.OverlayShared, import_numeric_bindings4.default);
       Object.assign(root.OverlayShared, import_variable_links3.default);
       Object.assign(root.OverlayShared, import_variable_displays2.default, { renderVariableDisplay, setDisplayLibrary });
+      Object.assign(root.OverlayShared, import_display_table4.default);
       Object.defineProperty(root.OverlayShared, Symbol.for("StreamPulse.OverlayShared"), { value: true });
     }
   });

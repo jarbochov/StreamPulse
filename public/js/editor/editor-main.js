@@ -10,7 +10,7 @@ import {
     visualBoxOf, scaleSnapshot, applyScale, uid, createElementData, toast,
     changed, registerRenderAll, registerFitView, registerSelectionChange,
     registerStatusBar, params, initialId, LIMITS, MIN_SIZE, ICON, TEXT_TYPES,
-    liveSignature, displayName, setStyleClipboard, getStyleClipboard,
+    liveSignature, effectiveLiveStatus, displayName, setStyleClipboard, getStyleClipboard,
     serializeOverlayForSave, extractElementState, resetElementPageState, previewAlertElement, alertLookSelection,
     applyEditorVariablesUpdate
 } from './editor-state.js';
@@ -32,7 +32,7 @@ import {
 
 import {
     renderSettings, renderProperties, syncGeometryInputs, refreshNumericControls,
-    initInspectorEvents, registerInspectorCallbacks, loadAssetTags, renderGroupBadgePreview
+    initInspectorEvents, registerInspectorCallbacks, loadAssetTags
 } from './editor-inspector.js';
 import { loadStylePresets } from './editor-style-presets.js';
 import { alignmentOffset } from '../editor-geometry.js';
@@ -962,7 +962,7 @@ export function renderAll() {
 function refreshOpenGroupBuilder() {
     refreshNumericControls();
     const element = primary();
-    if ($('ig-fields-dialog')?.open && element) renderGroupBadgePreview(element);
+
 }
 
 export async function refreshLiveStatus() {
@@ -1038,6 +1038,14 @@ function setupEditorVisibilityIdle() {
 
 export function connectAlertPreview() {
     setupEditorVisibilityIdle();
+    const refreshSavedDisplays = () => {
+        if (!prefs.live) return;
+        for (const element of state.overlay.elements || []) {
+            if (element.type !== 'data-display') continue;
+            const node = state.nodes.get(element.id);
+            if (node) shared.renderVariableDisplay?.(node, element, effectiveLiveStatus());
+        }
+    };
     const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`);
     socket.addEventListener('message', event => {
         if (typeof event.data === 'string' && !event.data.includes('"alert') && !event.data.includes('"poll-update"') && !event.data.includes('"custom-overlay-page"') && !event.data.includes('"obs-status"') && !event.data.includes('"obs-audio-meter"') && !event.data.includes('"variables-update"') && !event.data.includes('"variable-displays-update"')) return;
@@ -1069,7 +1077,7 @@ export function connectAlertPreview() {
             shared.setDisplayLibrary(message.data);
             state.liveStatus.variableDisplays = message.data.displays;
             state.liveStatus.variableDisplaysRevision = message.data.revision;
-            if (document.hidden) { pendingHiddenSync = true; return; }
+            if (document.hidden) { pendingHiddenSync = true; refreshSavedDisplays(); return; }
             renderCanvas();
             renderProperties();
             return;
@@ -1077,6 +1085,7 @@ export function connectAlertPreview() {
         if (message.type === 'variables-update' && message.data) {
             const before = liveSignature();
             const rotated = applyEditorVariablesUpdate(message.data);
+            refreshSavedDisplays();
             const vsEnabled = message.data.variableSetsEnabled !== false;
             const groupStripBtn = $('menu-add-image-group');
             if (groupStripBtn) groupStripBtn.hidden = !vsEnabled;

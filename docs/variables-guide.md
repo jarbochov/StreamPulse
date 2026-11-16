@@ -135,13 +135,13 @@ Variable Sets include a built-in **Timed Rotation** controller (`intervalSeconds
 
 ## 3. Group Roster Mode & Member Badge Builder
 
-Add an **Image Group** element in **Custom Overlay Editor** and bind it to a Variable Set to render a live horizontal or vertical strip of member cards (`Group Strip`).
+Create a **Badge** in **Library → Display Library**, choose its Variable Set, and design the member cards/strip there. Add a **Saved Display** in Custom Overlay Editor and select that design plus its live source. Existing Image Group layers migrate to saved designs; badge design is no longer an overlay dialog.
 
 ![Member Badge Builder Studio](images/badge-builder-studio.png)
 
 ### Linked sources & trackers
 
-In the Image Group Content panel, choose **People / items to display**:
+In the Saved Display's Content panel, choose the source for your saved Badge:
 
 - **All**: Render every entry in the Variable Set.
 - **In Group**: Render only entries toggled **In Group** (default).
@@ -157,8 +157,8 @@ An empty or deleted source entry shows no linked entries, rather than falling ba
 
 1. Create a **People** set (`people`) with Name and Avatar fields and add your reusable people.
 2. Create a **Schedule** set (`schedule`) with Date, Time, Duration, Game, Image and Linked entry fields `player_1`, `player_2`, `host`, each pointing to People. Add Linked entries `guests` if needed. Assign people in the entry editor or Operator table.
-3. Give Schedule one live slot and activate an event. In an Image Group choose **Linked entries**, **Follow links from: Schedule**, **Follow active entry**, and check Player 1 / Player 2 (or Host in a separate strip).
-4. Choose Name / Avatar in the Badge Builder, save, and add the overlay's browser URL to OBS. Activating another event updates its people without touching People's slots.
+3. Give Schedule one live slot and activate an event. Create a Badge using People in Display Library, choose its Name / Avatar fields, and save.
+4. Add a Saved Display in Custom Overlay Editor. Select that Badge, follow Schedule's active entry, and select Player 1 / Player 2 (or Host in a separate placement). Save and add the overlay's browser URL to OBS. Activating another event updates its people without touching People's slots.
 5. For a single Text element, use the placeholder picker: `{{var.schedule_player_1_name}}`. An Image element can use `{{var.schedule_host_avatar}}`. A slot named Main Event also exposes `{{var.schedule_main_event_host_name}}`.
 
 The same model works for a production rundown's presenters, a team's roster, or a project's assigned equipment.
@@ -168,7 +168,7 @@ The same model works for a production rundown's presenters, a team's roster, or 
 1. Create an **Equipment** set with Name and Image. Add Sword, Shield and Badge entries. In Sword's entry editor, add Wood / Steel / Legendary upgrade levels with their own images.
 2. Add a **Tracker** field `gear` to People, linked to Equipment. Default levels `1` makes ordinary items on/off; Sword uses its three custom levels.
 3. Open People's **Tracker** view. Click Alex's Sword cell to advance its level; Sam's Sword remains independent.
-4. In an Image Group choose **Tracker items**, People, a fixed person (or Follow active entry), and Gear. Select **Fixed Grid (Dim Inactive)** for an equipment board, or **Only Active Items** for earned badges.
+4. Create an Inventory in Display Library using Equipment. Arrange items into sections or fixed cells and save. Add it as a Saved Display, follow People, a fixed person (or active entry), and Gear. Choose dimmed inactive items for an equipment board, or earned-only items for unlocked rewards.
 5. Use the per-person Reset before a new run, or Reset everyone. There is deliberately no historical/run record.
 
 ### Linked data & Companion API
@@ -193,9 +193,9 @@ For Companion, use discovered **Tracker** actions or an HTTP GET trigger:
 For an explicit level, POST `/api/variables/sets/people/checklist/set` with `{ "entry": "alex", "field": "gear", "target": "sword", "value": 2 }`.
 Reset everyone with `/api/variables/sets/people/checklist/reset?field=gear&all=true`.
 
-Overlay JSON uses `imageGroup.filterMode: "linked"` or `"checklist"` and `linkedSource: { "setId": "schedule", "selector": "active", "fields": ["player_1", "player_2"] }`. Selectors are `active` (Slot 1 for slotted sets), `slot:N`, or `entry:ID`; tracker sources select exactly one checklist field. `showMode: "active"` hides level zero, while `"dim"` keeps unearned items visible. Other badge, typography, animation and styling options are unchanged.
+Saved Display layers use `type: "data-display"` and a placement-level `display` binding. For a schedule's people, use `{ "displayId": "people-badges", "setId": "schedule", "selector": "active", "fields": ["player_1", "player_2"] }`. An inventory can use `{ "displayId": "equipment-grid", "setId": "people", "selector": "entry:alex", "tracker": "gear", "showMode": "dim" }`. Selectors are `active` (Slot 1 for slotted sets), `slot:N`, or `entry:ID`; `path` follows single linked-entry fields before reading the tracker. `showMode: "active"` hides level zero, while `"dim"` keeps unearned items visible. Badge appearance belongs to the saved definition, not the placement.
 
-Enable **Filter to selected roster entry only** when using `All` or `In Group` to restrict output to slotted/active entries. Overlays wait for hydrated `variableSets` status before rendering filtered strips, preventing unselected entries from flashing on initial load.
+Choose an active-entry or occupied-slots source to restrict the displayed roster. Overlays wait for hydrated `variableSets` status before rendering filtered strips, preventing unselected entries from flashing on initial load.
 
 ### Formatting Group Text & Empty Wrappers
 
@@ -203,11 +203,11 @@ Configure how `{{var.<id>_group}}` renders using `separator`, `lastSeparator`, a
 
 ### Member Badge Builder & Secondary Images
 
-Click **Edit Member Badges & Fields** on an Image Group element to open the **2-column Member Badge Builder**:
+Open the saved **Badge** in **Display Library** to edit its member fields and appearance. The overlay placement's **Edit display** link returns here:
 
-- **Live Preview Canvas (Left)**: Inspect layout, padding, corner icons, and typography against Dark, Light, or Checkerboard backdrops at real-time scale.
-- **Field & Layout Inspector (Right)**:
-  - **12 Placement Zones**: Place text fields or secondary images in `top`, `bottom`, `overlay`, `badge`, `avatar-tl`, `avatar-tr`, `avatar-bl`, `avatar-br`, `corner-tl`, `corner-tr`, `corner-bl`, or `corner-br`.
+- **Live Preview**: Inspect layout, padding, corner icons, and typography against selectable backdrops at real-time scale.
+- **Field & Layout Controls**:
+  - **Placement Zones**: Use `main`, `header`, `footer`, `trailing`, `avatar-top`, `avatar-bottom`, the four `avatar-tl/tr/bl/br` corners, or the four `corner-tl/tr/bl/br` card corners. Main fields follow the selected text placement relative to the avatar. Without an avatar, its top/bottom zones fall back to the card header/footer and its corners to the corresponding card corners.
   - **Secondary Image / Icon Fields**: Click **+ Image / Icon** to attach platform badges, rank emblems, or static assets (`kind`: Variable Set image field vs static asset from the **Asset Picker**), with dedicated `imgSize`, `imgFit`, `imgShape`, and `imgBorderW` controls.
   - **Card & Field Spacing**: Adjust `cardPaddingX` / `cardPaddingY`, `cornerInset` for corner badges, per-field `padX` / `padY`, and explicit `fontSize` (px) and `fontFamily`.
   - **11 Built-in Presets**: Start from curated badge templates (Compact Pill, Esports Card, Corner Crest, Minimal Tag, Podcast Nameplate, and more) and fine-tune from there.

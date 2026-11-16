@@ -6,7 +6,8 @@ const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
 
-const stateSource = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-state.js'), 'utf8').replace(/^export /gm, '');
+const badgeSource = fs.readFileSync(path.join(__dirname, '../public/js/displays/badge-model.js'), 'utf8').replace(/^export /gm, '').replace('function defaultImageGroupConfig(', 'function badgeDefaults(');
+const stateSource = badgeSource + fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-state.js'), 'utf8').replace(/^export \{[^\n]*from[^\n]*\n/gm, '').replace(/^import[^\n]*\n/gm, '').replace(/^export /gm, '');
 const mainSource = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-main.js'), 'utf8');
 const saveSource = mainSource.slice(mainSource.indexOf('function applyServerOverlay('), mainSource.indexOf('// ---- OBS WebSocket Bridge')).replace(/^export /gm, '');
 

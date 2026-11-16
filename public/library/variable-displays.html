@@ -6,6 +6,7 @@
     <title>StreamPulse — Display Library</title>
     <link rel="stylesheet" href="/admin.css">
     <link rel="stylesheet" href="/css/studio-common.css">
+    <link rel="stylesheet" href="/css/display-badges.css">
     <link rel="stylesheet" href="/css/variable-displays.css">
     <script src="/appearance.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -18,20 +19,32 @@
     <main class="display-page">
         <div id="display-alert" class="display-alert" role="status" aria-live="polite" hidden></div>
         <section id="display-library" class="display-library" aria-label="Saved displays">
-            <div class="display-page-heading">
+            <div class="display-page-heading library-heading">
                 <div>
-                    <p class="display-kicker">Reusable display designs</p>
-                    <h2>Inventory displays</h2>
-                    <p class="display-muted">Build the collection layout once, then reuse it in overlay scenes. Player-specific tracker binding happens where you place the display.</p>
+                    <p class="display-kicker">Build once. Place anywhere.</p>
+                    <h2>Display Library</h2>
+                    <p class="display-muted">Create reusable inventories, data tables and member badges. Choose a player or live source wherever you place the design.</p>
                 </div>
-                <button class="btn btn-primary" type="button" id="create-display">Create inventory display</button>
+                <a class="btn library-editor-link" href="/custom-overlay-editor.html"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M7 8h4v6H7zM14 8h3m-3 4h3"/></svg>Open Overlay Editor</a>
             </div>
+            <section class="display-create-section" aria-labelledby="create-heading">
+                <div class="display-section-heading"><h3 id="create-heading">Create a display</h3><span>Choose the presentation. Bind live data later.</span></div>
+                <div class="display-create-grid">
+                    <button class="display-create-card" type="button" data-new-kind="inventory"><span class="display-create-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span><strong>Inventory</strong><small>Collections, checklists &amp; tiered items</small></span><svg class="display-create-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></button>
+                    <button class="display-create-card" type="button" data-new-kind="table"><span class="display-create-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M3 14h18M10 9v11"/></svg></span><span><strong>Table</strong><small>Schedules, lineups &amp; linked data</small></span><svg class="display-create-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></button>
+                    <button class="display-create-card" type="button" data-new-kind="badge"><span class="display-create-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8" cy="10" r="2"/><path d="M5 16c.5-2 1.5-3 3-3s2.5 1 3 3m3-7h4m-4 4h4"/></svg></span><span><strong>Badge</strong><small>Member cards, nameplates &amp; strips</small></span><svg class="display-create-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></button>
+                </div>
+            </section>
+            <div class="display-section-heading saved-displays-heading"><h3>Saved designs</h3><span id="display-count" class="display-muted"></span></div>
             <div class="display-library-tools">
+                <div class="tabs-nav display-kind-tabs" role="tablist" aria-label="Filter display type">
+                    <button class="tab-btn active" type="button" role="tab" data-filter-kind="all" aria-selected="true">All designs</button><button class="tab-btn" type="button" role="tab" data-filter-kind="inventory" aria-selected="false">Inventories</button><button class="tab-btn" type="button" role="tab" data-filter-kind="table" aria-selected="false">Tables</button><button class="tab-btn" type="button" role="tab" data-filter-kind="badge" aria-selected="false">Badges</button>
+                </div>
                 <label class="display-search">
                     <span class="sr-only">Search saved displays</span>
                     <input id="display-library-search" class="input" type="search" placeholder="Search displays">
                 </label>
-                <span id="display-count" class="display-muted"></span>
+                <label class="sr-only" for="display-kind">Display type</label><select id="display-kind" class="input" hidden><option value="inventory">Inventory</option><option value="table">Table</option><option value="badge">Badge</option></select><button class="btn btn-primary" type="button" id="create-display">New display</button>
             </div>
             <div id="display-list" class="display-list" aria-live="polite"></div>
         </section>
@@ -43,7 +56,7 @@
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6M9 12h12"/></svg>
                         Display Library
                     </button>
-                    <p class="display-kicker">Inventory builder</p>
+                    <p class="display-kicker" id="builder-kind-label">Inventory builder</p>
                     <label class="builder-name-label" for="display-name">Display name</label>
                     <input id="display-name" class="input builder-name" type="text" maxlength="80" autocomplete="off" value="Inventory display">
                 </div>
@@ -53,29 +66,30 @@
                     <button id="save-display" class="btn btn-primary" type="button">Save display</button>
                 </div>
             </div>
-            <p class="display-muted builder-intro">Choose a Variable Set as the catalog, select its image and label fields, then arrange catalog items into sections. Layout and order are saved here; player tracker bindings are configured in the Overlay Editor.</p>
+            <p class="display-muted builder-intro" id="builder-intro">Choose a catalog, then design its reusable presentation. Live source bindings belong to each overlay placement.</p>
+            <div class="sub-nav-bar display-builder-nav"><div class="sub-nav-inner"><div class="sub-nav-group" role="tablist" aria-label="Display designer views"><button type="button" class="sub-nav-btn active" data-builder-view="design" role="tab" aria-selected="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/></svg>Design &amp; content</button><button type="button" class="sub-nav-btn" data-builder-view="appearance" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m14 3 7 7-9 9-7-7zM3 21l3-7 4 4z"/></svg>Appearance</button></div></div></div>
             <div class="builder-grid">
                 <div class="builder-workspace">
-                    <section class="builder-card builder-catalog" aria-labelledby="catalog-heading">
+                    <section class="builder-card builder-catalog" aria-labelledby="catalog-heading" data-builder-stage="design">
                         <div class="builder-card-heading">
                             <div>
                                 <h3 id="catalog-heading">1. Choose a catalog</h3>
-                                <p class="display-muted">Catalog entries and explicitly configured tiers are shown as available.</p>
+                                <p id="catalog-intro" class="display-muted"></p>
                             </div>
                         </div>
                         <div id="catalog-controls" class="catalog-controls"></div>
                         <div id="catalog-help" class="catalog-help"></div>
-                        <div class="catalog-search-row">
+                        <div class="catalog-search-row" data-kinds="inventory">
                             <label class="display-search">
                                 <span class="sr-only">Search catalog items</span>
                                 <input id="display-search" class="input" type="search" placeholder="Search items">
                             </label>
                             <span id="catalog-item-count" class="display-muted"></span>
                         </div>
-                        <div id="catalog-items" class="catalog-items"></div>
+                        <div id="catalog-items" class="catalog-items" data-kinds="inventory"></div>
                     </section>
 
-                    <section class="builder-card" aria-labelledby="sections-heading">
+                    <section class="builder-card" aria-labelledby="sections-heading" data-kinds="inventory" data-builder-stage="design">
                         <div class="builder-card-heading">
                             <div>
                                 <h3 id="sections-heading">2. Arrange sections and items</h3>
@@ -86,7 +100,9 @@
                         <div id="section-editor" class="section-editor"></div>
                     </section>
 
-                    <section class="builder-card" aria-labelledby="layout-heading">
+                    <section id="table-design-controls" class="builder-card" data-kinds="table" data-builder-stage="design" hidden></section>
+                    <section id="badge-design-controls" class="builder-card" data-kinds="badge" hidden><div id="badge-designer"></div></section>
+                    <section class="builder-card" aria-labelledby="layout-heading" data-kinds="inventory" data-builder-stage="design">
                         <div class="builder-card-heading">
                             <div>
                                 <h3 id="layout-heading">3. Layout</h3>
@@ -96,11 +112,11 @@
                         <div id="layout-controls" class="control-grid"></div>
                     </section>
 
-                    <details class="builder-card appearance-details">
+                    <details class="builder-card appearance-details" data-kinds="inventory table" data-builder-stage="appearance" open>
                         <summary>
                             <span>
                                 <strong>Appearance</strong>
-                                <small>Background, cells, labels and advanced style</small>
+                                <small id="appearance-description"></small>
                             </span>
                             <span class="display-muted">Optional</span>
                         </summary>
@@ -116,11 +132,12 @@
                                 <p class="display-muted">Preview source stays on this device and is not saved with the design.</p>
                             </div>
                         </div>
-                        <div id="preview-controls" class="preview-controls"></div>
+                        <div class="preview-resolution-bar" role="group" aria-label="Preview resolution"><button type="button" data-preview-resolution="native" aria-pressed="true">Native</button><button type="button" data-preview-resolution="1280x720" aria-pressed="false">720p</button><button type="button" data-preview-resolution="1920x1080" aria-pressed="false">1080p</button><button type="button" data-preview-resolution="1080x1920" aria-pressed="false">9:16</button><span id="preview-dimensions"></span></div>
                         <div id="display-preview" class="preview-stage" aria-label="Display preview"></div>
+                        <details class="preview-source-details"><summary>Preview source &amp; backdrop</summary><div id="preview-controls" class="preview-controls"></div></details>
                         <div class="preview-footer">
                             <span>Place saved displays from the <a href="/custom-overlay-editor.html">Overlay Editor</a>.</span>
-                            <span>Player 1 and Player 2 reuse the same design with separate tracker sources.</span>
+                            <span id="preview-binding-help"></span>
                         </div>
                     </section>
                     <section class="builder-card placement-note">
@@ -128,7 +145,7 @@
                         <ol>
                             <li>Open the <a href="/custom-overlay-editor.html">Custom Overlay Editor</a>.</li>
                             <li>Add a Saved Display and choose this design.</li>
-                            <li>Bind a checklist tracker to a person, role, or player slot at that placement.</li>
+                            <li id="placement-source-step"></li>
                         </ol>
                     </section>
                 </aside>
@@ -137,6 +154,10 @@
     </main>
     <script src="/nav.js"></script>
     <script src="/js/overlay-shared.js"></script>
+    <script src="/overlay-retro.js"></script>
+    <script src="/overlay-filters.js"></script>
+    <script src="/placeholder-picker.js"></script>
+    <script src="/icon-picker.js"></script>
     <script type="module" src="/js/displays/display-library.js"></script>
 </body>
 </html>

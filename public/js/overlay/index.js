@@ -20,6 +20,7 @@ import { matchesPeriodFilter, matchesPeriodToken, renderGameList, renderProgress
 import numericBindings from '../../../shared/numeric-bindings.cjs';
 import variableLinks from '../../../shared/variable-links.cjs';
 import variableDisplays from '../../../shared/variable-displays.cjs';
+import displayTable from '../../../shared/display-table.cjs';
 import { renderVariableDisplay, setDisplayLibrary } from './displays.js';
 
 
@@ -29,4 +30,5 @@ Object.assign(root.OverlayShared, { ALERT_PRESENTATION_KEYS, resolveAlertLook, r
 Object.assign(root.OverlayShared, numericBindings);
 Object.assign(root.OverlayShared, variableLinks);
 Object.assign(root.OverlayShared, variableDisplays, { renderVariableDisplay, setDisplayLibrary });
+Object.assign(root.OverlayShared, displayTable);
 Object.defineProperty(root.OverlayShared, Symbol.for('StreamPulse.OverlayShared'), { value: true });

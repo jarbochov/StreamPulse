@@ -1,4 +1,9 @@
 import { displaySourceFields, updateDisplaySource } from './display-source.js';
+import { createTableDesigner, defaultTable, tableFieldOptions } from './table-designer.js';
+import { createBadgeDesigner } from './badge-designer.js';
+import { defaultImageGroupConfig } from './badge-model.js';
+import { badgeVisualControls, bindBadgeControls, pickBadgeAsset, uploadBadgeAsset } from './badge-controls.js';
+import { setDisplayFormContext, refreshBoundDisplayNumbers } from './display-form.js';
 
 const $ = selector => document.querySelector(selector);
 const libraryView = $('#display-library');
@@ -17,7 +22,8 @@ const defaults = () => ({
 });
 const state = {
     displays: [], sets: [], variables: [], draft: null, baseline: '', previewBinding: null,
-    previewBackdrop: '#111827', dragged: null, previewFrame: 0, loaded: false, busy: false
+    previewBackdrop: '#111827', previewResolution: 'native', dragged: null, previewFrame: 0, loaded: false, busy: false,
+    libraryFilter: 'all', builderView: 'design'
 };
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -29,6 +35,28 @@ const itemName = item => String(item?.values?.[state.draft?.labelField] ?? item?
 const itemImage = item => String(item?.values?.[state.draft?.imageField] ?? '');
 const totalItems = () => state.draft?.sections.reduce((sum, section) => sum + section.items.length, 0) || 0;
 const displayPreviewId = () => state.draft.id || 'display-preview-draft';
+setDisplayFormContext(() => state.draft?.kind === 'badge' ? { badge: state.draft.badge, variables: state.variables } : null);
+const tableDesigner = createTableDesigner($('#table-design-controls'), {
+    getDraft: () => state.draft, getSets: () => state.sets, onChange: () => { markDirty(); schedulePreview(); }
+});
+const badgeDesigner = createBadgeDesigner($('#badge-designer'), {
+    getDraft: () => state.draft, getStatus: () => ({ variableSets: state.sets, customVars: state.variables }),
+    onChange: () => { markDirty(); schedulePreview(); },
+    visualControls: (element, helpers) => badgeVisualControls(element, helpers, state.sets, state.draft.catalogId),
+    bindControls: (root, primary, render) => bindBadgeControls(root, primary, render, () => { markDirty(); schedulePreview(); }, async file => {
+        try { await uploadBadgeAsset(file); } catch (error) { showAlert(error.message); }
+    }, () => ({ customVars: state.variables, variableSets: state.sets }), openBadgeColorPicker),
+    pickAsset: pickBadgeAsset,
+    pickColor: openBadgeColorPicker
+});
+function openBadgeColorPicker({ onSelect, allowMember = true }) {
+    const colors = allowMember ? catalogSet()?.fields?.filter(field => field.type === 'color') || [] : [];
+    window.PlaceholderPicker?.open({
+        filter: 'color', memberColorFields: colors.map(field => ({ key: field.key, label: field.label || field.key })),
+        getStatus: () => ({ customVars: state.variables, variableSets: state.sets }),
+        onPick: (token, meta) => onSelect(meta?.raw ? token : `{{${token}}}`)
+    });
+}
 
 function showAlert(message, kind = 'error') {
     alertBox.textContent = message;
@@ -62,12 +90,16 @@ async function loadLibrary() {
     state.sets = Array.isArray(variables.sets) ? variables.sets : [];
     state.variables = Array.isArray(variables.variables) ? variables.variables : [];
     state.loaded = true;
+    window.OverlayShared?.loadAssetFonts?.();
     renderLibrary();
 }
 
 function displaySummary(display) {
     const set = state.sets.find(candidate => candidate.id === display.catalogId);
     const items = (display.sections || []).reduce((count, section) => count + (section.items || []).length, 0);
+    const columnCount = display.table?.columns?.length || 0, fieldCount = display.badge?.imageGroup?.fields?.length || 0;
+    if (display.kind === 'table') return [set?.name || 'Catalog unavailable', `${columnCount} ${columnCount === 1 ? 'column' : 'columns'}`, 'Table'];
+    if (display.kind === 'badge') return [set?.name || 'Catalog unavailable', `${fieldCount} ${fieldCount === 1 ? 'field' : 'fields'}`, 'Badge / strip'];
     return [
         set?.name || 'Catalog unavailable',
         `${items} ${items === 1 ? 'item' : 'items'}`,
@@ -78,15 +110,20 @@ function displaySummary(display) {
 
 function renderLibrary() {
     const query = $('#display-library-search').value.trim().toLowerCase();
-    const filtered = state.displays.filter(display => !query || `${display.name} ${displaySummary(display).join(' ')}`.toLowerCase().includes(query));
+    const filtered = state.displays.filter(display => (state.libraryFilter === 'all' || (display.kind || 'inventory') === state.libraryFilter) && (!query || `${display.name} ${displaySummary(display).join(' ')}`.toLowerCase().includes(query)));
+    document.querySelectorAll('[data-filter-kind]').forEach(button => {
+        const active = button.dataset.filterKind === state.libraryFilter;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-selected', String(active));
+    });
     $('#display-count').textContent = `${state.displays.length} / 100 saved`;
     $('#create-display').disabled = state.displays.length >= 100;
     if (!state.displays.length) {
         $('#display-list').innerHTML = `
             <div class="display-empty">
-                <h3>Start with your item inventory</h3>
-                <p>Create a reusable inventory layout from a Variable Set. Layout and groups live here; player-specific tracker bindings are added when you place the design in an overlay.</p>
-                <button class="btn btn-primary" type="button" data-action="create">Create inventory display</button>
+                <h3>Create your first reusable display</h3>
+                <p>Your library is ready. Start with one of the display types above, then reuse the design in as many overlays as you need.</p>
+                <button class="btn btn-primary" type="button" data-action="create">Create display</button>
                 <p style="margin-top:14px">Need a catalog first? <a href="/placeholders.html#sets">Create a Variable Set</a>.</p>
             </div>`;
         return;
@@ -96,16 +133,16 @@ function renderLibrary() {
         return;
     }
     $('#display-list').innerHTML = filtered.map(display => `
-        <article class="display-list-card">
+        <article class="display-list-card" data-display-kind="${esc(display.kind || 'inventory')}">
+            <div class="display-card-illustration" aria-hidden="true">${display.kind === 'table' ? '<div class="mini-table"><i></i><i></i><i></i><i></i></div>' : display.kind === 'badge' ? '<div class="mini-badge"><i></i><span><b></b><b></b></span></div>' : '<div class="mini-inventory"><i></i><i></i><i></i><i></i><i></i><i></i></div>'}</div>
             <div class="display-list-head">
                 <h3>${esc(display.name)}</h3>
-                <span class="display-tag">Inventory</span>
+                <span class="display-tag">${esc(display.kind === 'table' ? 'Table' : display.kind === 'badge' ? 'Badge' : 'Inventory')}</span>
             </div>
             <div class="display-list-meta">${displaySummary(display).map(value => `<span class="display-tag">${esc(value)}</span>`).join('')}</div>
             <div class="display-list-actions">
                 <button class="btn btn-sm btn-primary" type="button" data-action="edit" data-id="${esc(display.id)}">Edit</button>
-                <button class="btn btn-sm" type="button" data-action="duplicate" data-id="${esc(display.id)}">Duplicate</button>
-                <button class="btn btn-sm btn-danger" type="button" data-action="delete" data-id="${esc(display.id)}">Delete</button>
+                <details class="display-card-menu"><summary aria-label="More actions for ${esc(display.name)}"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></summary><div><button type="button" data-action="duplicate" data-id="${esc(display.id)}">Duplicate design</button><button type="button" data-action="delete" data-id="${esc(display.id)}">Delete design</button></div></details>
             </div>
         </article>`).join('');
 }
@@ -115,8 +152,9 @@ function loadPreviewPreferences() {
     try { saved = JSON.parse(localStorage.getItem(PREVIEW_KEY) || '{}'); } catch { saved = {}; }
     const perId = saved[displayPreviewId()] || {};
     state.previewBackdrop = perId.backdrop || '#111827';
+    state.previewResolution = perId.resolution || 'native';
     state.previewBinding = {
-        displayId: displayPreviewId(), setId: '', selector: 'active', path: [], tracker: '', showMode: 'dim',
+        displayId: displayPreviewId(), setId: '', selector: 'active', path: [], tracker: '', showMode: 'dim', rows: 'all', listField: '',
         ...(perId.binding || {})
     };
     state.previewBinding.displayId = displayPreviewId();
@@ -125,24 +163,36 @@ function loadPreviewPreferences() {
 function savePreviewPreferences() {
     try {
         const saved = JSON.parse(localStorage.getItem(PREVIEW_KEY) || '{}');
-        saved[displayPreviewId()] = { backdrop: state.previewBackdrop, binding: state.previewBinding };
+        saved[displayPreviewId()] = { backdrop: state.previewBackdrop, binding: state.previewBinding, resolution: state.previewResolution };
         localStorage.setItem(PREVIEW_KEY, JSON.stringify(saved));
     } catch { /* Private browsing can disable localStorage; preview remains available in memory. */ }
 }
 
 function markDirty() {
-    const dirty = JSON.stringify(state.draft) !== state.baseline;
+    const dirty = Boolean(state.draft && (!state.draft.id || JSON.stringify(state.draft) !== state.baseline));
     $('#dirty-state').textContent = dirty ? 'Unsaved changes' : 'Saved';
+    $('#dirty-state').classList.toggle('is-dirty', dirty);
     $('#save-display').disabled = state.busy;
     return dirty;
 }
 
 function confirmDiscard() {
-    return !markDirty() || window.confirm('Discard unsaved display changes?');
+    return !state.draft || !markDirty() || window.confirm('Discard unsaved display changes?');
 }
 
 function beginDraft(display = defaults()) {
-    state.draft = clone(display);
+    state.draft = { ...defaults(), ...clone(display) };
+    if (state.draft.kind === 'table') state.draft.table = { ...defaultTable(), ...state.draft.table };
+    if (state.draft.kind === 'badge') {
+        const set = state.sets.find(set => set.id === state.draft.catalogId);
+        state.draft.badge ||= {
+            width: 640, height: 360,
+            imageGroup: { ...defaultImageGroupConfig(set), fallbackMode: 'initials', showLabels: true, layout: 'cards', cardFrame: true, labelPosition: 'right', cardWidthMode: 'fixed', cardWidth: 280, shape: 'rounded', cardPaddingX: 12, cardPaddingY: 10 },
+            style: { fontFamily: 'sans-serif', fontSize: 20, color: '#ffffff', fontWeight: '600' }, mediaFilter: {}
+        };
+        if (state.draft.badge.imageGroup.showLabels == null) state.draft.badge.imageGroup.showLabels = Boolean(state.draft.badge.imageGroup.fields?.length);
+        for (const key of ['setId', 'filterMode', 'linkedSource', 'onlySelected', 'showMode']) delete state.draft.badge.imageGroup[key];
+    }
     if (!state.draft.sections?.length) state.draft.sections = [{ id: 'section_1', title: '', items: [] }];
     state.baseline = JSON.stringify(state.draft);
     loadPreviewPreferences();
@@ -150,11 +200,13 @@ function beginDraft(display = defaults()) {
     builderView.hidden = false;
     clearAlert();
     renderBuilder();
-    history.replaceState(null, '', display.id ? `/variable-displays.html?id=${encodeURIComponent(display.id)}` : '/variable-displays.html');
+    history.replaceState(null, '', display.id ? `/variable-displays.html?id=${encodeURIComponent(display.id)}` : `/variable-displays.html?kind=${state.draft.kind}`);
     window.scrollTo(0, 0);
 }
 
 function openLibrary() {
+    window.OverlayShared?.cleanupNode?.($('#display-preview'));
+    state.draft = null;
     libraryView.hidden = false;
     builderView.hidden = true;
     history.replaceState(null, '', '/variable-displays.html');
@@ -186,15 +238,21 @@ function availableFields(kind) {
 
 function renderCatalogControls() {
     const currentSet = catalogSet();
+    const kind = state.draft.kind, inventory = kind === 'inventory';
+    $('#catalog-heading').textContent = `1. Choose ${kind === 'badge' ? 'a member' : kind === 'table' ? 'a table' : 'an item'} catalog`;
+    $('#catalog-intro').textContent = inventory ? 'Arrange saved catalog items and explicitly configured tiers.' : kind === 'table' ? 'Choose the entries and linked fields used by your table columns.' : 'Choose the member fields used by badge text, images and icons.';
+    $('#preview-binding-help').textContent = inventory ? 'Reuse this inventory with a separate checklist tracker for each player or placement.' : kind === 'table' ? 'Each placement chooses its own row scope and linked source; the saved columns are shared.' : 'Each placement chooses its own members or linked source; the badge design is shared.';
+    $('#placement-source-step').textContent = inventory ? 'Choose the player or owner entry and its checklist tracker.' : kind === 'table' ? 'Choose the live row scope or linked entries for this table placement.' : 'Choose the live members or linked source for this badge placement.';
+    $('#appearance-description').textContent = inventory ? 'Item cells, labels and unselected states' : 'Column cells, table rows and labels';
     const fields = state.draft.catalogId ? currentSet?.fields || [] : [];
     const catalogs = state.sets.filter(set => Array.isArray(set.roster));
     $('#catalog-controls').innerHTML = `
         <div class="control-field"><label for="catalog-set">Variable Set catalog</label>
             <select id="catalog-set" class="select input" data-bind="catalogId">
-                <option value="">Choose a catalog</option>${catalogs.map(set => `<option value="${esc(set.id)}"${state.draft.catalogId === set.id ? ' selected' : ''}>${esc(set.name || 'Unnamed set')} · ${(set.roster || []).length} items</option>`).join('')}
+                <option value="">Choose a catalog</option>${catalogs.map(set => { const count = (set.roster || []).length; return `<option value="${esc(set.id)}"${state.draft.catalogId === set.id ? ' selected' : ''}>${esc(set.name || 'Unnamed set')} · ${count} ${count === 1 ? (inventory ? 'item' : 'entry') : (inventory ? 'items' : 'entries')}</option>`; }).join('')}
             </select>
         </div>
-        ${state.draft.catalogId ? `
+        ${state.draft.catalogId && state.draft.kind === 'inventory' ? `
         <div class="control-field"><label for="image-field">Item image field</label>
             <select id="image-field" class="select input" data-bind="imageField">${availableFields('image').map(([key, label]) => `<option value="${esc(key)}"${state.draft.imageField === key ? ' selected' : ''}>${esc(label)}</option>`).join('')}</select>
         </div>
@@ -207,9 +265,10 @@ function renderCatalogControls() {
     } else if (currentSet && !currentSet.roster?.length) {
         $('#catalog-help').textContent = 'This catalog has no entries yet. Add entries to its roster before building a display.';
     } else if (currentSet) {
-        $('#catalog-help').textContent = `${(currentSet.roster || []).length} catalog entries. Only saved fields and explicit tier data are used; missing images or labels stay blank.`;
+        const count = currentSet.roster.length;
+        $('#catalog-help').textContent = `${count} ${count === 1 ? 'entry' : 'entries'} available. ${inventory ? 'Only saved fields and explicit tier data are used; missing images or labels stay blank.' : kind === 'table' ? 'Configure columns below; choose live rows independently in each placement.' : 'Configure the badge below; choose live members independently in each placement.'}`;
     } else {
-        $('#catalog-help').textContent = fields.length ? `${fields.length} fields available.` : 'Choose a Variable Set whose roster contains the display items.';
+        $('#catalog-help').textContent = fields.length ? `${fields.length} ${fields.length === 1 ? 'field' : 'fields'} available.` : `Choose a Variable Set containing the ${inventory ? 'items' : kind === 'table' ? 'rows' : 'members'} to display.`;
     }
 }
 
@@ -291,13 +350,12 @@ const layoutFields = [
     ['cellHeight', 'Cell height', 24, 360, 1], ['gap', 'Cell gap', 0, 80, 1], ['sectionGap', 'Section gap', 0, 100, 1]
 ];
 const appearanceNumeric = [
-    ['borderWidth', 'Border width', 0, 12, .5], ['radius', 'Corner radius', 0, 100, 1],
-    ['padding', 'Display padding', 0, 100, 1], ['fontSize', 'Font size', 8, 60, 1],
-    ['inactiveOpacity', 'Inactive opacity', 0, 1, .05]
+    ['borderWidth', 'Cell border width', 0, 12, .5], ['radius', 'Cell corner radius', 0, 100, 1],
+    ['padding', 'Content padding', 0, 100, 1], ['fontSize', 'Label font size', 8, 60, 1],
+    ['inactiveOpacity', 'Unselected item opacity', 0, 1, .05]
 ];
 const appearanceColors = [
-    ['background', 'Display background'], ['cellBackground', 'Cell background'],
-    ['color', 'Text color'], ['borderColor', 'Border color']
+    ['cellBackground', 'Cell background'], ['color', 'Label text color'], ['borderColor', 'Cell border color']
 ];
 
 function numericControl(name, label, value, min, max, step, group = 'layout') {
@@ -311,26 +369,23 @@ function checkboxControl(name, label) {
 function renderLayoutControls() {
     $('#layout-controls').innerHTML = `
         <div class="control-field"><span class="control-label">Layout mode</span>
-            <div class="bar">
-                <button class="btn btn-sm${state.draft.layout.mode === 'flow' ? ' btn-primary' : ''}" type="button" data-action="layout-mode" data-mode="flow">Auto grid</button>
-                <button class="btn btn-sm${state.draft.layout.mode === 'fixed' ? ' btn-primary' : ''}" type="button" data-action="layout-mode" data-mode="fixed">Fixed slots</button>
+            <div class="tabs-nav" role="group" aria-label="Inventory layout">
+                <button class="tab-btn${state.draft.layout.mode === 'flow' ? ' active' : ''}" type="button" data-action="layout-mode" data-mode="flow" aria-pressed="${state.draft.layout.mode === 'flow'}">Auto grid</button>
+                <button class="tab-btn${state.draft.layout.mode === 'fixed' ? ' active' : ''}" type="button" data-action="layout-mode" data-mode="fixed" aria-pressed="${state.draft.layout.mode === 'fixed'}">Fixed slots</button>
             </div>
         </div>
         ${layoutFields.map(([name, label, min, max, step]) => numericControl(name, label, state.draft.layout[name], min, max, step)).join('')}
     `;
     $('#appearance-controls').innerHTML = `
-        ${appearanceColors.map(([name, label]) => `<div class="control-field"><label for="style-${name}">${label}</label><input id="style-${name}" class="input" type="text" maxlength="9" pattern="#[a-fA-F0-9]{6}([a-fA-F0-9]{2})?" placeholder="#RRGGBBAA" value="${esc(state.draft.style[name])}" data-bind="style.${name}"><small>Hex color with optional opacity</small></div>`).join('')}
-        ${appearanceNumeric.map(([name, label, min, max, step]) => numericControl(name, label, state.draft.style[name], min, max, step, 'style')).join('')}
+        ${appearanceColors.map(([name, label]) => `<div class="control-field"><label for="style-${name}">${label}</label><span class="display-color-pair"><input type="color" data-bind="style.${name}" value="${esc(state.draft.style[name].slice(0, 7))}" aria-label="${label} picker"><input id="style-${name}" class="input" type="text" maxlength="9" pattern="#[a-fA-F0-9]{6}([a-fA-F0-9]{2})?" placeholder="#RRGGBBAA" value="${esc(state.draft.style[name])}" data-bind="style.${name}"></span><small>Hex color with optional opacity</small></div>`).join('')}
+        ${appearanceNumeric.filter(([name]) => state.draft.kind === 'inventory' || name !== 'inactiveOpacity').map(([name, label, min, max, step]) => numericControl(name, label, state.draft.style[name], min, max, step, 'style')).join('')}
         <div class="control-field"><label for="style-fontFamily">Font family</label><input id="style-fontFamily" class="input" type="text" maxlength="120" value="${esc(state.draft.style.fontFamily)}" data-bind="style.fontFamily"></div>
-        ${checkboxControl('showLabels', 'Show labels')}
-        ${checkboxControl('showLevels', 'Show tracker levels')}
-        ${checkboxControl('showOwner', 'Show owner name')}
-        ${checkboxControl('showSectionTitles', 'Show section titles')}
+        ${state.draft.kind === 'inventory' ? checkboxControl('showLabels', 'Show labels') + checkboxControl('showLevels', 'Show tracker levels') + checkboxControl('showOwner', 'Show owner name') + checkboxControl('showSectionTitles', 'Show section titles') : ''}
     `;
 }
 
 function renderPreviewControls() {
-    const fields = displaySourceFields(state.previewBinding, state.sets, state.draft.catalogId);
+    const fields = displaySourceFields(state.previewBinding, state.sets, state.draft.catalogId, state.draft.kind);
     $('#preview-controls').innerHTML = `
         ${controlsForFields(fields)}
         <div class="control-field"><label for="preview-backdrop">Preview backdrop</label><input id="preview-backdrop" class="input" type="text" maxlength="9" pattern="#[a-fA-F0-9]{6}([a-fA-F0-9]{2})?" value="${esc(state.previewBackdrop)}" aria-describedby="preview-backdrop-help"><small id="preview-backdrop-help">Local preview only · #RRGGBB or #RRGGBBAA</small></div>
@@ -339,15 +394,31 @@ function renderPreviewControls() {
 }
 
 function renderBuilder() {
+    const kind = state.draft.kind || 'inventory';
+    builderView.dataset.kind = kind;
+    document.querySelectorAll('[data-kinds]').forEach(node => { node.hidden = !node.dataset.kinds.split(' ').includes(kind); });
+    $('#builder-kind-label').textContent = `${kind === 'table' ? 'Table' : kind === 'badge' ? 'Badge' : 'Inventory'} designer`;
+    $('#builder-intro').textContent = kind === 'inventory' ? 'Arrange catalog items into reusable sections. Bind each player’s tracker in the overlay placement.' : kind === 'table' ? 'Choose columns, linked fields and row ordering. The preview source is local to this device; each placement chooses its own live rows.' : 'Design member badges and strips using fields, images, icons, fonts, zones and animated frames. Reuse this design with independent sources in any overlay.';
     $('#display-name').value = state.draft.name || '';
     $('#duplicate-display').disabled = !state.draft.id || state.displays.length >= 100;
     renderCatalogControls();
-    renderCatalogItems();
-    renderSections();
+    if (kind === 'inventory') { renderCatalogItems(); renderSections(); }
+    if (kind === 'table') tableDesigner.render();
+    if (kind === 'badge') badgeDesigner.render();
     renderLayoutControls();
     renderPreviewControls();
+    applyBuilderView();
     markDirty();
     schedulePreview();
+}
+
+function applyBuilderView() {
+    builderView.dataset.builderView = state.builderView;
+    document.querySelectorAll('button[data-builder-view]').forEach(button => {
+        const active = button.dataset.builderView === state.builderView;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-selected', String(active));
+    });
 }
 
 function schedulePreview() {
@@ -355,6 +426,7 @@ function schedulePreview() {
     state.previewFrame = requestAnimationFrame(() => {
         state.previewFrame = 0;
         const stage = $('#display-preview');
+        window.OverlayShared?.cleanupNode?.(stage);
         stage.replaceChildren();
         if (!window.OverlayShared?.renderVariableDisplay) {
             stage.innerHTML = '<div class="preview-empty">The shared overlay renderer is unavailable. Reload the page to try again.</div>';
@@ -362,14 +434,23 @@ function schedulePreview() {
         }
         const host = document.createElement('div');
         host.style.cssText = 'width:100%;height:100%;min-width:0;min-height:0;';
+        const native = state.draft.kind === 'badge' ? [state.draft.badge.width || 640, state.draft.badge.height || 360] : state.draft.kind === 'table' ? [1280, 720] : [640, 360];
+        const [width, height] = state.previewResolution === 'native' ? native : state.previewResolution.split('x').map(Number);
+        stage.classList.add('is-aspect-preview');
+        stage.style.aspectRatio = `${width} / ${height}`;
+        stage.style.setProperty('--display-preview-ratio', width / height);
+        const scale = Math.min((stage.clientWidth - 24) / width, (stage.clientHeight - 24) / height, 1);
+        host.style.cssText = `width:${width}px;height:${height}px;min-width:0;min-height:0;transform:scale(${scale});transform-origin:center;flex:none;`;
+        $('#preview-dimensions').textContent = `${width} × ${height}`;
+        document.querySelectorAll('[data-preview-resolution]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.previewResolution === state.previewResolution)));
         stage.append(host);
         const display = { ...state.draft, id: displayPreviewId() };
         const rendered = window.OverlayShared.renderVariableDisplay(host, {
             type: 'data-display',
             display: { ...state.previewBinding, displayId: display.id }
-        }, { variableDisplays: [display], variableSets: state.sets });
+        }, { variableDisplays: [display], variableSets: state.sets, customVars: state.variables });
         if (!rendered) {
-            stage.innerHTML = `<div class="preview-empty">Choose a catalog and add items to see the design. To preview tracked levels, choose a linked owner set and checklist tracker above.</div>`;
+            stage.innerHTML = `<div class="preview-empty">${state.draft.kind === 'inventory' ? 'Choose a catalog and add items. Choose an owner and checklist tracker to preview levels.' : 'Choose a catalog and source with matching rows to preview the design.'}</div>`;
         }
     });
 }
@@ -399,6 +480,13 @@ function updateBoundInput(input) {
         renderCatalogControls();
         renderCatalogItems();
         renderSections();
+        if (state.draft.kind === 'table') {
+            state.draft.table = defaultTable();
+            const choices = tableFieldOptions(state.sets, catalogSet()).slice(0, 4);
+            state.draft.table.columns = choices.map(([key, label]) => ({ key, label, width: 1, type: catalogSet()?.fields?.find(field => field.key === key)?.type === 'image' ? 'image' : 'text', align: 'left' }));
+            tableDesigner.render();
+        }
+        if (state.draft.kind === 'badge') badgeDesigner.render();
     } else if (path.startsWith('layout.')) {
         const key = path.slice('layout.'.length);
         if (value === '') {
@@ -595,7 +683,19 @@ function addNewDisplay() {
         return;
     }
     const draft = defaults();
+    draft.kind = $('#display-kind').value || 'inventory';
+    draft.name = `${draft.kind === 'table' ? 'Table' : draft.kind === 'badge' ? 'Badge' : 'Inventory'} display`;
     draft.catalogId = state.sets.find(set => set.roster?.length)?.id || '';
+    const requestedCatalog = new URLSearchParams(location.search).get('catalog');
+    if (state.sets.some(set => set.id === requestedCatalog)) draft.catalogId = requestedCatalog;
+    if (draft.kind === 'table') {
+        draft.table = defaultTable();
+        const catalog = state.sets.find(set => set.id === draft.catalogId);
+        const choices = tableFieldOptions(state.sets, catalog).slice(0, 4);
+        if (choices.length) draft.table.columns = choices.map(([key, label]) => ({
+            key, label, width: 1, type: catalog?.fields?.find(field => field.key === key)?.type === 'image' ? 'image' : 'text', align: 'left'
+        }));
+    }
     beginDraft(draft);
 }
 
@@ -623,6 +723,11 @@ async function deleteDisplay(id) {
 function validateDraft() {
     if (!state.draft.name.trim()) throw new Error('Enter a display name.');
     if (!catalogSet()) throw new Error('Choose a Variable Set catalog.');
+    if (state.draft.kind === 'badge') return;
+    if (state.draft.kind === 'table') {
+        if (!state.draft.table.columns.length) throw new Error('Add at least one table column.');
+        return;
+    }
     if (state.draft.sections.length > 20) throw new Error('A display supports up to 20 sections.');
     if (totalItems() > 60) throw new Error('A display supports up to 60 items.');
     const seen = new Set();
@@ -691,6 +796,11 @@ async function saveDisplay() {
 
 function onBuilderInput(event) {
     const input = event.target;
+    const colorPair = input.closest('.display-color-pair');
+    if (colorPair) {
+        if (input.type === 'color') colorPair.querySelector('input[type=text]').value = input.value;
+        else if (/^#[a-f\d]{6}/i.test(input.value)) colorPair.querySelector('input[type=color]').value = input.value.slice(0, 7);
+    }
     if (input.matches('[data-bind]')) updateBoundInput(input);
     else if (input.matches('[data-section-title]')) {
         const section = sectionById(input.dataset.sectionTitle);
@@ -795,7 +905,40 @@ function onDrop(event) {
 }
 
 function installEvents() {
-    $('#display-library-search').addEventListener('input', renderLibrary);
+    document.addEventListener('keydown', event => {
+        const target = event.target.closest('button[data-filter-kind],button[data-builder-view]');
+        if (!target || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        const tabs = [...target.parentElement.querySelectorAll('button[role=tab]')];
+        const index = tabs.indexOf(target);
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+        event.preventDefault();
+        tabs[next].focus();
+        tabs[next].click();
+    });
+    document.querySelectorAll('[data-new-kind]').forEach(button => button.addEventListener('click', () => {
+        $('#display-kind').value = button.dataset.newKind;
+        addNewDisplay();
+    }));
+    document.querySelectorAll('[data-filter-kind]').forEach(button => button.addEventListener('click', () => {
+        state.libraryFilter = button.dataset.filterKind;
+        if (state.libraryFilter !== 'all') $('#display-kind').value = state.libraryFilter;
+        try { localStorage.setItem('streampulse:display-library:filter', state.libraryFilter); } catch { /* Optional preference. */ }
+        renderLibrary();
+    }));
+    document.querySelectorAll('button[data-builder-view]').forEach(button => button.addEventListener('click', () => {
+        state.builderView = button.dataset.builderView;
+        try { localStorage.setItem('streampulse:display-library:view', state.builderView); } catch { /* Optional preference. */ }
+        applyBuilderView();
+    }));
+    document.querySelectorAll('[data-preview-resolution]').forEach(button => button.addEventListener('click', () => {
+        state.previewResolution = button.dataset.previewResolution;
+        savePreviewPreferences();
+        schedulePreview();
+    }));
+    $('#display-library-search').addEventListener('input', () => {
+        try { localStorage.setItem('streampulse:display-library:search', $('#display-library-search').value); } catch { /* Optional preference. */ }
+        renderLibrary();
+    });
     $('#display-search').addEventListener('input', renderCatalogItems);
     $('#create-display').addEventListener('click', addNewDisplay);
     $('#display-list').addEventListener('click', onBuilderClick);
@@ -823,16 +966,54 @@ function installEvents() {
     });
 }
 
+function startLiveSources() {
+    let socket, retry, stopped = false;
+    const connect = () => {
+        if (stopped) return;
+        socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`);
+        socket.addEventListener('message', event => {
+            let message;
+            try { message = JSON.parse(event.data); } catch { return; }
+            if (message.type !== 'variables-update' || !message.data) return;
+            state.sets = message.data.sets || state.sets;
+            state.variables = message.data.variables || state.variables;
+            if (state.draft?.kind === 'badge') refreshBoundDisplayNumbers($('#badge-designer'));
+            if (state.draft && !builderView.hidden) schedulePreview();
+        });
+        socket.addEventListener('close', () => { if (!stopped) retry = setTimeout(connect, 3000); });
+    };
+    connect();
+    window.addEventListener('pagehide', () => {
+        stopped = true;
+        clearTimeout(retry);
+        socket?.close();
+        if (state.previewFrame) cancelAnimationFrame(state.previewFrame);
+        window.OverlayShared?.cleanupNode?.($('#display-preview'));
+    }, { once: true });
+}
+
 async function start() {
     installEvents();
     try {
+        const filter = localStorage.getItem('streampulse:display-library:filter');
+        if (['all', 'inventory', 'table', 'badge'].includes(filter)) state.libraryFilter = filter;
+        state.builderView = localStorage.getItem('streampulse:display-library:view') === 'appearance' ? 'appearance' : 'design';
+        $('#display-library-search').value = localStorage.getItem('streampulse:display-library:search') || '';
+    } catch { /* Optional preferences. */ }
+    try {
         await loadLibrary();
         const requestedId = new URLSearchParams(location.search).get('id');
+        const requestedKind = new URLSearchParams(location.search).get('kind');
+        if (['inventory', 'table', 'badge'].includes(requestedKind)) $('#display-kind').value = requestedKind;
         if (requestedId) {
             const display = state.displays.find(candidate => candidate.id === requestedId);
             if (!display) showAlert('That saved display could not be found.');
             else beginDraft(display);
-        }
+        } else if (requestedKind) addNewDisplay();
+        startLiveSources();
+        const observer = new ResizeObserver(() => { if (state.draft && !builderView.hidden) schedulePreview(); });
+        observer.observe($('#display-preview'));
+        window.addEventListener('pagehide', () => observer.disconnect(), { once: true });
     } catch (error) {
         showAlert(`Could not load the Display Library or Variable Sets: ${error.message}. Check the server connection and retry.`, 'error');
         $('#display-list').innerHTML = '<div class="display-empty"><h3>Library could not be loaded</h3><p>Saved designs and source sets were not changed. Reload this page to retry.</p></div>';
