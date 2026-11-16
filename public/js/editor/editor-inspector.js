@@ -81,7 +81,8 @@ export const RERENDER_PATHS = new Set([
     'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.showStatusBadge',
     'speakerBadge.reaction.visualizer', 'speakerBadge.reaction.highlightBorder', 'speakerBadge.reaction.dimWhenIdle',
     'speakerBadge.autoSize',
-    'imageGroup.setId', 'imageGroup.onlySelected', 'imageGroup.showLabels', 'imageGroup.showAvatar', 'imageGroup.layout',
+    'imageGroup.setId', 'imageGroup.filterMode', 'imageGroup.checklistSource.setId', 'imageGroup.checklistSource.selector', 'imageGroup.checklistSource.field', 'imageGroup.showMode',
+    'imageGroup.onlySelected', 'imageGroup.showLabels', 'imageGroup.showAvatar', 'imageGroup.layout',
     'imageGroup.shape', 'imageGroup.wrap', 'imageGroup.fallbackMode', 'imageGroup.maxItems',
     'imageGroup.avatarBorderWidth', 'imageGroup.cardFrame', 'imageGroup.cardBorderWidth',
     'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta',
@@ -655,7 +656,55 @@ export function mediaSourceBlock(el) {
         } else {
             body += '<p class="hint">Text-only stacks need no primary image field. Additional image/icon fields remain available in the Badge Builder.</p>';
         }
-        body += F.check('imageGroup.onlySelected', 'Filter to selected roster entry only', ig.onlySelected === true);
+        const filterMode = ig.filterMode || (ig.checklistSource?.setId ? 'checklist' : (ig.inGroupOnly === false ? 'all' : 'inGroup'));
+        body += F.select('imageGroup.filterMode', 'Filter / State Source', filterMode, [
+            ['all', 'All'],
+            ['inGroup', 'In Group'],
+            ['checklist', 'Linked Checklist']
+        ]);
+        if (filterMode === 'checklist') {
+            const cs = ig.checklistSource || {};
+            const checklistSets = sets.filter(s => (s.fields || []).some(f => f.type === 'checklist'));
+            const sourceSetChoices = (checklistSets.length ? checklistSets : sets).map(s => [s.id, s.label || s.name || s.id]);
+            const srcSet = sets.find(s => s.id === cs.setId) || null;
+            const checklistFields = (srcSet?.fields || []).filter(f => f.type === 'checklist');
+            const defaultSel = (srcSet?.slotsCount || 0) > 0 ? 'slot:1' : 'active';
+            const selectorOpts = [];
+            if (srcSet) {
+                if ((srcSet.slotsCount || 0) > 0) {
+                    for (let i = 0; i < srcSet.slotsCount; i++) {
+                        const sName = srcSet.slotNames?.[i];
+                        selectorOpts.push([`slot:${i + 1}`, sName ? `Slot ${i + 1}: ${sName}` : `Slot ${i + 1}`]);
+                    }
+                } else {
+                    selectorOpts.push(['active', 'Active Entry']);
+                }
+                for (const r of (srcSet.roster || srcSet.entries || [])) {
+                    selectorOpts.push([`entry:${r.id}`, r.label || r.id]);
+                }
+            } else {
+                selectorOpts.push(['active', 'Active Entry']);
+            }
+            const fieldOpts = checklistFields.length
+                ? checklistFields.map(f => [f.key, f.label ? `${f.label} (${f.key})` : f.key])
+                : [['', 'No checklist fields']];
+            body += sets.length
+                ? F.select('imageGroup.checklistSource.setId', 'Checklist Set', cs.setId || '', [['', 'Choose source set…'], ...sourceSetChoices])
+                : F.text('imageGroup.checklistSource.setId', 'Checklist Set ID', cs.setId || '', 'placeholder="e.g. players"');
+            if (cs.setId || !sets.length) {
+                const selHtml = F.select('imageGroup.checklistSource.selector', 'Slot / Entry', cs.selector || defaultSel, selectorOpts);
+                const fldHtml = checklistFields.length
+                    ? F.select('imageGroup.checklistSource.field', 'Checklist Field', cs.field || checklistFields[0].key, fieldOpts)
+                    : F.text('imageGroup.checklistSource.field', 'Checklist Field Key', cs.field || '', 'placeholder="checklist"');
+                body += `<div class="grid2">${selHtml}${fldHtml}</div>`;
+            }
+            body += F.select('imageGroup.showMode', 'Show Mode', ig.showMode || 'active', [
+                ['active', 'Only Active Items'],
+                ['dim', 'Fixed Grid (Dim Inactive)']
+            ]);
+        } else {
+            body += F.check('imageGroup.onlySelected', 'Filter to selected roster entry only', ig.onlySelected === true);
+        }
         body += `<div class="grid2">${F.select('imageGroup.sortOrder', 'Order', ig.sortOrder || 'roster', [
             ['roster', 'Roster order'],
             ['reverse', 'Reversed'],
@@ -3029,8 +3078,39 @@ export function initInspectorEvents() {
                 changed(true);
                 return;
             }
+            if (path === 'imageGroup.filterMode' || path === 'imageGroup.checklistSource.setId') {
+                const sets = Array.isArray(state.liveStatus?.variableSets) ? state.liveStatus.variableSets : [];
+                for (const targetEl of selectedElements()) {
+                    const ig = targetEl.imageGroup;
+                    if (!ig) continue;
+                    if (ig.filterMode === 'checklist') {
+                        ig.checklistSource = ig.checklistSource || {};
+                        if (path === 'imageGroup.filterMode' && !ig.checklistSource.setId) {
+                            const firstWithChecklist = sets.find(s => (s.fields || []).some(f => f.type === 'checklist'));
+                            if (firstWithChecklist) ig.checklistSource.setId = firstWithChecklist.id;
+                        }
+                        const srcSet = sets.find(s => s.id === ig.checklistSource.setId);
+                        if (srcSet) {
+                            if (path === 'imageGroup.checklistSource.setId' || !ig.checklistSource.selector) {
+                                ig.checklistSource.selector = (srcSet.slotsCount || 0) > 0 ? 'slot:1' : 'active';
+                            }
+                            const firstChecklistField = (srcSet.fields || []).find(f => f.type === 'checklist');
+                            if (path === 'imageGroup.checklistSource.setId' || !ig.checklistSource.field) {
+                                ig.checklistSource.field = firstChecklistField?.key || '';
+                            }
+                            if (!ig.setId && firstChecklistField?.targetSet) {
+                                ig.setId = firstChecklistField.targetSet;
+                            }
+                        }
+                    }
+                }
+                renderCanvas();
+                renderProperties();
+                changed(true);
+                return;
+            }
             if (path === 'imageGroup.delimiter' && event?.type === 'change') renderProperties();
-            if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderRadiusCorners.enabled' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.borderAnimation.mode' || path === 'style.shadow.blur' || path === 'style.innerShadow.blur' || path === 'style.innerShadow.spread' || path === 'style.textAnimation.type' || path === 'imageGroup.setId' || path === 'imageGroup.onlySelected' || path === 'imageGroup.showLabels' || path === 'imageGroup.showAvatar' || path === 'imageGroup.layout' || path === 'imageGroup.shape' || path === 'imageGroup.wrap' || path === 'imageGroup.fallbackMode' || path === 'imageGroup.maxItems' || path === 'imageGroup.avatarBorderWidth' || path === 'imageGroup.avatarBorderGlow.enabled' || path === 'imageGroup.avatarBorderAnimation.type' || path === 'imageGroup.avatarBorderAnimation.mode' || path === 'imageGroup.cardFrame' || path === 'imageGroup.cardWidthMode' || path === 'imageGroup.cardBorderWidth' || path === 'imageGroup.cardBorderGlow.enabled' || path === 'imageGroup.cardBorderAnimation.type' || path === 'imageGroup.cardBorderAnimation.mode') renderProperties();
+            if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderRadiusCorners.enabled' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.borderAnimation.mode' || path === 'style.shadow.blur' || path === 'style.innerShadow.blur' || path === 'style.innerShadow.spread' || path === 'style.textAnimation.type' || path === 'imageGroup.setId' || path === 'imageGroup.filterMode' || path === 'imageGroup.checklistSource.setId' || path === 'imageGroup.checklistSource.selector' || path === 'imageGroup.checklistSource.field' || path === 'imageGroup.showMode' || path === 'imageGroup.onlySelected' || path === 'imageGroup.showLabels' || path === 'imageGroup.showAvatar' || path === 'imageGroup.layout' || path === 'imageGroup.shape' || path === 'imageGroup.wrap' || path === 'imageGroup.fallbackMode' || path === 'imageGroup.maxItems' || path === 'imageGroup.avatarBorderWidth' || path === 'imageGroup.avatarBorderGlow.enabled' || path === 'imageGroup.avatarBorderAnimation.type' || path === 'imageGroup.avatarBorderAnimation.mode' || path === 'imageGroup.cardFrame' || path === 'imageGroup.cardWidthMode' || path === 'imageGroup.cardBorderWidth' || path === 'imageGroup.cardBorderGlow.enabled' || path === 'imageGroup.cardBorderAnimation.type' || path === 'imageGroup.cardBorderAnimation.mode') renderProperties();
             if (path === 'speakerBadge.layout') {
                 const el = primary();
                 if (el?.speakerBadge) {

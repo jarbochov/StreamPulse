@@ -80,6 +80,8 @@ Each Variable Set defines its own custom fields:
 | **font** | Per-member font family override |
 | **list** | Multi-line item list (one entry per line) |
 | **template** | Dynamic text composed from other fields via `@fieldKey` (e.g., `@name (@role)`) |
+| **ref** | Links an entry to an entry in another Variable Set (`targetSet`, optional `syncSlot` 1..N) |
+| **checklist** | Tracks per-item completion/tier state (`{ [entryId]: level }`) against a `targetSet` (`maxTier >= 1`) |
 
 You can import and export Variable Set entries via **CSV** directly from the Variable Sets panel (`GET /api/variables/sets/:setId/export` and `POST /api/variables/sets/:setId/import`).
 
@@ -87,7 +89,8 @@ You can import and export Variable Set entries via **CSV** directly from the Var
 
 For fast live-show updates, open **Operator Grid** on any Variable Set (or navigate to `/variable-set-operator.html#<setId>`) to edit all entries and fields in a dense, spreadsheet-style console with live WebSocket sync:
 
-- **Inline Field Editing**: Update `text`, `number`, `counter` (`-1` / `+1` steppers), `image`, `icon`, `color`, `toggle`, `font`, `list`, and `template` fields directly in the table, plus 1-click slot assignment and **In Group** toggles.
+- **Inline Field Editing**: Update `text`, `number`, `counter` (`-1` / `+1` steppers), `image`, `icon`, `color`, `toggle`, `font`, `list`, `template`, and `ref` (target entry dropdown) fields directly in the table, plus 1-click slot assignment and **In Group** toggles.
+- **Matrix View (`checklist` fields)**: When a set includes a `checklist` field, toggle **Matrix View** to display target-set items as rows against active entries/slots as columns. Left-click cycles `0 -> 1 -> ... -> maxTier -> 0` (`POST /api/variables/sets/:setId/checklist/step`) and right-click decrements (`delta: -1`).
 - **Column Chooser & Reordering**: Click **Columns** to show/hide specific schema fields or built-in columns (Entry, Slots, Group, Enabled) and move columns up or down.
 - **Sorting**: Click any sortable column header to cycle ascending/descending order across entry names, slot assignments, numeric counters, booleans, and text fields.
 - **Saved Layouts**: Save named column visibility, column order, and sort configurations per Variable Set (`localStorage`) and switch between operator presets in one click.
@@ -104,6 +107,7 @@ For a set with ID `squad` and fields `name`, `avatar`, `role`, and `accent`, Str
 - **Numbered Slot Tokens**: `{{var.squad_1_name}}`, `{{var.squad_1_avatar}}`, `{{var.squad_1_slot_name}}`, `{{var.squad_1_active}}`
 - **Slot 1 Shorthand**: `{{var.squad_name}}`, `{{var.squad_avatar}}` (mirrors Slot 1 for quick single-spotlight overlays)
 - **Named Slot Aliases**: If Slot 2 is named `Guest`, you can reference `{{var.squad_guest_name}}` and `{{var.squad_guest_avatar}}`
+- **Linked `ref` Tokens (1-hop)**: For a `ref` field `partner`, StreamPulse materializes `{{var.squad_1_partner_<targetField>}}` and the Slot 1/active shorthand `{{var.squad_partner_<targetField>}}`. Setting `syncSlot` on a `ref` field also syncs the target set's slot when the source slot/active entry changes.
 - **Group Summary Tokens**:
   - `{{var.squad_group}}`: Formatted text list of all entries marked **In Group**
   - `{{var.squad_group_count}}`: Total count of active **In Group** entries
@@ -126,9 +130,18 @@ Add an **Image Group** element in **Custom Overlay Editor** and bind it to a Var
 
 ![Member Badge Builder Studio](images/badge-builder-studio.png)
 
-### Filtering to the Selected Roster
+### Filtering & Linked Checklists
 
-Enable **Only Selected Roster (`inGroup`)** in the Image Group properties when you only want members toggled **In Group** to appear on stream. Overlays wait for hydrated `variableSets` status before rendering filtered strips, preventing unselected entries from flashing on initial load.
+In the Image Group properties, set **Filter / State Source** to:
+
+- **All**: Render every entry in the Variable Set.
+- **In Group**: Render only entries toggled **In Group** (default).
+- **Linked Checklist**: Bind visibility and tier state to a `checklist` field on another Variable Set (`checklistSource: { setId, selector, field }`). Choose **Show Mode**:
+  - **Only Active Items**: Hides items at level `0` (default).
+  - **Fixed Grid (Dim Inactive)**: Keeps level `0` items in place, rendered dimmed/grayscale.
+  - **Tiered Items (`level >= 1`)**: Supports comma/newline-separated tier images, tier-specific `tier-N` image/label fields, and automatically displays a `Lv.N` tier badge when `maxTier > 1` or multiple tier images exist.
+
+Enable **Filter to selected roster entry only** when using `All` or `In Group` to restrict output to slotted/active entries. Overlays wait for hydrated `variableSets` status before rendering filtered strips, preventing unselected entries from flashing on initial load.
 
 ### Formatting Group Text & Empty Wrappers
 
@@ -182,5 +195,6 @@ Every Variable and Variable Set action exposes Companion-friendly `GET` and `POS
   `GET /api/variables/squad/assign?slot=1&entry=alex-rivera`
   `GET /api/variables/squad/rotation/next`
   `GET /api/variables/squad/entry/group-toggle?entry=jordan-kim&inGroup=1`
+  `GET /api/variables/sets/players/checklist/step?slot=1&field=items&target=hookshot` (also `POST .../checklist/set` and `.../checklist/toggle`)
 
 See the [API Reference](api-reference.md#variables-amp-variable-sets-api) for the complete endpoint list and payload schemas.

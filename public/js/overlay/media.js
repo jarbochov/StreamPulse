@@ -123,16 +123,111 @@ function cleanupGroupStrip(container) {
     });
 }
 
-function resolveGroupMembers(setId, status = {}, onlySelected = false) {
+function resolveChecklistState(checklistSource = {}, status = {}) {
+    const cs = checklistSource || {};
+    if (!cs.setId) return { map: {}, maxTier: 1 };
+    const sets = status?.variableSets || [];
+    const srcSet = sets.find(s => s && s.id === cs.setId);
+    if (!srcSet) return { map: {}, maxTier: 1 };
+    const fields = Array.isArray(srcSet.fields) ? srcSet.fields : [];
+    const fieldDef = (cs.field ? fields.find(f => f && f.key === cs.field) : null) || fields.find(f => f && f.type === 'checklist') || null;
+    const fieldKey = cs.field || fieldDef?.key || '';
+    const maxTier = Math.max(1, Number(fieldDef?.maxTier) || 1);
+    if (!fieldKey) return { map: {}, maxTier };
+
+    const selector = String(cs.selector || '').trim();
+    let entryId = '';
+    if (selector.startsWith('slot:')) {
+        const idx = parseInt(selector.slice(5), 10) - 1;
+        const slotVal = Array.isArray(srcSet.slots) && idx >= 0 ? srcSet.slots[idx] : '';
+        entryId = typeof slotVal === 'string' ? slotVal : (slotVal?.entryId || slotVal?.id || '');
+    } else if (selector.startsWith('entry:')) {
+        entryId = selector.slice(6);
+    } else if (!selector || selector === 'active') {
+        if ((srcSet.slotsCount || 0) > 0 && Array.isArray(srcSet.slots)) {
+            const firstSlot = srcSet.slots[0];
+            entryId = typeof firstSlot === 'string' ? firstSlot : (firstSlot?.entryId || firstSlot?.id || '');
+        } else {
+            entryId = srcSet.activeEntry || srcSet.activeEntryId || srcSet.selectedEntryId || '';
+        }
+    } else {
+        entryId = selector;
+    }
+
+    const list = Array.isArray(srcSet.roster) ? srcSet.roster : (Array.isArray(srcSet.entries) ? srcSet.entries : []);
+    const srcEntry = list.find(e => e && e.id === entryId);
+    if (!srcEntry) return { map: {}, maxTier };
+
+    let rawMap = srcEntry.values?.[fieldKey] ?? srcEntry[fieldKey];
+    if (typeof rawMap === 'string') {
+        const trimmed = rawMap.trim();
+        if (trimmed.startsWith('{')) {
+            try { rawMap = JSON.parse(trimmed); } catch { rawMap = {}; }
+        } else {
+            rawMap = {};
+        }
+    }
+    const map = {};
+    if (rawMap && typeof rawMap === 'object' && !Array.isArray(rawMap)) {
+        for (const [k, v] of Object.entries(rawMap)) {
+            const lvl = Math.max(0, Math.floor(Number(v) || 0));
+            if (lvl > 0) map[k] = lvl;
+        }
+    }
+    return { map, maxTier };
+}
+
+function splitTierImages(raw) {
+    const str = String(raw ?? '').trim();
+    if (!str) return [];
+    const lines = str.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    if (lines.length > 1) return lines;
+    if (/^data:image\//i.test(str)) {
+        const parts = str.split(/,(?=\s*(?:https?:\/\/|\/assets\/|\/uploads\/|data:image\/))/i).map(s => s.trim()).filter(Boolean);
+        return parts.length > 1 ? parts : [str];
+    }
+    const parts = str.split(',').map(s => s.trim()).filter(Boolean);
+    return parts.length > 1 ? parts : [str];
+}
+
+function resolveTieredValue(member, baseKey, level, isImage = false) {
+    if (!member || !baseKey) return '';
+    const vals = member.values || {};
+    if (level >= 1) {
+        const candidates = [
+            `${baseKey}_tier_${level}`,
+            `${baseKey}_${level}`,
+            `tier_${level}_${baseKey}`,
+            `tier${level}_${baseKey}`,
+            ...(isImage ? [`tier_${level}_image`, `tier${level}_image`, `tier${level}Image`] : [`tier_${level}_label`, `tier${level}_label`, `tier${level}Label`])
+        ];
+        for (const k of candidates) {
+            const v = String(vals[k] ?? member[k] ?? '').trim();
+            if (v) return v;
+        }
+    }
+    const baseVal = String(vals[baseKey] ?? member[baseKey] ?? '').trim();
+    if (isImage && baseVal) {
+        const imgs = splitTierImages(baseVal);
+        if (imgs.length > 1) {
+            const idx = level >= 1 ? Math.min(level - 1, imgs.length - 1) : 0;
+            return imgs[idx];
+        }
+    }
+    return baseVal;
+}
+
+function resolveGroupMembers(setId, status = {}, onlySelected = false, filterMode = 'inGroup') {
     if (!setId) return [];
     const sets = status?.variableSets || [];
     const setObj = sets.find(s => s && s.id === setId);
     if (onlySelected && !setObj) return [];
     let members = [];
+    const includeAll = filterMode === 'all' || filterMode === 'checklist';
     if (setObj && Array.isArray(setObj.roster)) {
-        members = setObj.roster.filter(r => r && r.inGroup !== false);
+        members = includeAll ? setObj.roster.filter(Boolean) : setObj.roster.filter(r => r && r.inGroup !== false);
     } else if (setObj && Array.isArray(setObj.entries)) {
-        members = setObj.entries.filter(e => e && e.inGroup === true);
+        members = includeAll ? setObj.entries.filter(Boolean) : setObj.entries.filter(e => e && e.inGroup === true);
     } else if (Array.isArray(status?.customVars)) {
         const rawVar = status.customVars.find(v => v && v.name === `${setId}_group_members`);
         if (rawVar?.value) {
@@ -142,7 +237,7 @@ function resolveGroupMembers(setId, status = {}, onlySelected = false) {
             } catch {}
         }
     }
-    if (onlySelected && setObj) {
+    if (onlySelected && filterMode !== 'checklist' && setObj) {
         const activeIds = new Set();
         const usesSlots = typeof setObj.slotsCount === 'number'
             ? setObj.slotsCount > 0
@@ -643,16 +738,26 @@ function renderImageGroupStrip(container, element, status, options = {}) {
     const primarySpec = fieldSpecs[0] || { key: cfg.labelField || '', role: 'title' };
     const subSpec = fieldSpecs.find((f, i) => f.role === 'subtitle' || i === 1) || (cfg.subField ? { key: cfg.subField, role: 'subtitle' } : null);
 
-    const rawMembers = resolveGroupMembers(cfg.setId, status, cfg.onlySelected === true);
+    const filterMode = cfg.filterMode || (cfg.checklistSource?.setId ? 'checklist' : (cfg.inGroupOnly === false ? 'all' : 'inGroup'));
+    const showMode = cfg.showMode === 'dim' ? 'dim' : 'active';
+    const checklistState = filterMode === 'checklist' ? resolveChecklistState(cfg.checklistSource, status) : { map: {}, maxTier: 1 };
+    const rawMembers = resolveGroupMembers(cfg.setId, status, cfg.onlySelected === true, filterMode);
     let items = rawMembers.map(m => {
         const vals = m.values || {};
-        const imgUrl = String(vals[imgField] ?? m[imgField] ?? m.image ?? '').trim();
-        const autoFallbackLabel = String(m.text || m.label || Object.values(vals).find(v => typeof v === 'string' && v.trim() && v.trim() !== imgUrl) || '').trim();
-        const labelText = primarySpec.key ? readMemberFieldValue(m, primarySpec.key, '') : autoFallbackLabel;
+        const level = filterMode === 'checklist' ? Math.max(0, Number(checklistState.map[m.id]) || 0) : 0;
+        const rawImgField = String(vals[imgField] ?? m[imgField] ?? m.image ?? '').trim();
+        const hasTierImages = splitTierImages(rawImgField).length > 1;
+        const imgUrl = (filterMode === 'checklist' ? resolveTieredValue(m, imgField, level, true) : '') || rawImgField;
+        const autoFallbackLabel = String(m.text || m.label || Object.values(vals).find(v => typeof v === 'string' && v.trim() && v.trim() !== imgUrl && v.trim() !== rawImgField) || '').trim();
+        const tieredLabel = (filterMode === 'checklist' && primarySpec.key) ? resolveTieredValue(m, primarySpec.key, level, false) : '';
+        const labelText = primarySpec.key ? (tieredLabel || readMemberFieldValue(m, primarySpec.key, '')) : autoFallbackLabel;
         const subText = subSpec && subSpec.key ? readMemberFieldValue(m, subSpec.key, '') : '';
         const hasAnyText = Boolean(labelText || subText || fieldSpecs.some(s => readMemberFieldValue(m, s.key, '')));
-        return { id: m.id, raw: m, imgUrl, labelText, subText, hasAnyText };
-    }).filter(item => (!showAvatar ? (item.hasAnyText || item.imgUrl !== '') : (fallbackMode === 'initials' ? (item.imgUrl !== '' || item.labelText !== '') : item.imgUrl !== '')));
+        return { id: m.id, raw: m, imgUrl, labelText, subText, hasAnyText, level, hasTierImages, isInactive: filterMode === 'checklist' && level <= 0 };
+    }).filter(item => {
+        if (filterMode === 'checklist' && showMode !== 'dim' && item.level <= 0) return false;
+        return !showAvatar ? (item.hasAnyText || item.imgUrl !== '') : (fallbackMode === 'initials' ? (item.imgUrl !== '' || item.labelText !== '') : item.imgUrl !== '');
+    });
 
     if (sortOrder === 'reverse') items = items.slice().reverse();
     else if (sortOrder === 'alpha') items = items.slice().sort((a, b) => (a.labelText || a.id || '').localeCompare(b.labelText || b.id || ''));
@@ -795,9 +900,14 @@ function renderImageGroupStrip(container, element, status, options = {}) {
 
         const card = document.createElement('div');
         card.dataset.groupEntryId = item.id;
-        card.className = `sp-image-group-item${isFramed && !isChip ? ' sp-image-group-card' : ''}${isChip ? ' sp-image-group-chip' : ''}${isBanner ? ' sp-image-group-banner' : ''}${isSpotlightLead ? ' sp-image-group-lead' : ''}${cfg.textWrap === 'wrap' ? ' is-wrap' : ''}`;
+        if (filterMode === 'checklist') card.dataset.checklistLevel = String(item.level);
+        card.className = `sp-image-group-item${isFramed && !isChip ? ' sp-image-group-card' : ''}${isChip ? ' sp-image-group-chip' : ''}${isBanner ? ' sp-image-group-banner' : ''}${isSpotlightLead ? ' sp-image-group-lead' : ''}${cfg.textWrap === 'wrap' ? ' is-wrap' : ''}${item.isInactive ? ' sp-image-group-inactive' : ''}`;
         card.style.position = 'relative';
         card.style.boxSizing = 'border-box';
+        if (item.isInactive) {
+            card.style.opacity = '0.32';
+            card.style.filter = 'grayscale(100%)';
+        }
         if (layout === 'overlap' && idx > 0) card.style.marginLeft = `-${overlap}px`;
         if (layout === 'stagger' && idx % 2 === 1 && staggerOffset > 0) card.style.marginTop = `${staggerOffset}px`;
         if (widthMode === 'full') card.style.width = '100%';
@@ -1031,6 +1141,15 @@ function renderImageGroupStrip(container, element, status, options = {}) {
         }
         for (const ck of ['corner-tl', 'corner-tr', 'corner-bl', 'corner-br']) {
             if (slotBuckets[ck].length) card.appendChild(buildCornerGroupContainer(ck, slotBuckets[ck], fieldGap, cornerInset));
+        }
+
+        if (filterMode === 'checklist' && item.level >= 1 && (checklistState.maxTier > 1 || item.hasTierImages)) {
+            const tierBadge = document.createElement('span');
+            tierBadge.className = 'sp-image-group-tier-badge';
+            tierBadge.textContent = `Lv.${item.level}`;
+            const badgePx = Math.max(9, Math.round(itemSize * 0.2));
+            tierBadge.style.cssText = `position:absolute;right:2px;${showStatusDot ? 'top:2px;' : 'bottom:2px;'}padding:1px 5px;border-radius:999px;background:rgba(15,23,42,0.88);border:1px solid rgba(56,189,248,0.65);color:#f8fafc;font-size:${badgePx}px;font-weight:700;line-height:1.2;z-index:6;pointer-events:none;font-variant-numeric:tabular-nums;white-space:nowrap;`;
+            (avBox || card).appendChild(tierBadge);
         }
 
         wrap.appendChild(card);
