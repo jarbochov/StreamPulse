@@ -39,7 +39,7 @@ Choose column labels, proportions, alignment and presentation for text, images, 
 
 Choose **Badge** for reusable member cards and strips. Badge fields, images, zones, presets, typography and visual styling live in Display Library rather than an overlay dialog. Place a Saved Display and choose its live source in the overlay inspector; use **Edit display** to return to the designer.
 
-The **Card Zone Blueprint** follows the selected badge layout and avatar visibility. Choose an editing field or click its pill, then click a zone to move it. On laptop screens the blueprint, selected field inspector and live preview use separate columns, so the map does not consume the field editor's height. **Strip** arranges multiple badges; **Appearance** styles the member cards, avatars and field defaults.
+The **Card Zone Blueprint** follows the selected badge layout and avatar visibility. Choose an editing field or click its pill, then click a zone to move it. On laptop screens the blueprint and live preview have wider columns around a compact field inspector, so the map does not consume the field editor's height. Narrower screens stack the panels. **Strip** arranges multiple badges; **Appearance** styles the member cards, avatars and field defaults.
 
 Existing badge/strip layers are migrated to reusable designs while their placement-specific sources and geometry remain with the overlay. Sharing one design between scenes no longer requires separately maintaining every copy's field layout.
 

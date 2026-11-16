@@ -322,23 +322,32 @@ test('badge library uses persistent active navigation and keeps placement effect
     const selectedMode = () => page.evaluate(() => [...document.querySelectorAll('.tabs-nav .tab-btn.active')]
         .filter(button => ['Badge', 'Strip'].includes(button.textContent.trim())).map(button => button.textContent.trim()));
     assert.deepEqual(await selectedMode(), ['Badge'], 'shared segmented navigation visibly identifies the initial mode');
-    await page.$eval('#ig-zone-blueprint', node => node.scrollIntoView({ block: 'start' }));
-    const workspace = await page.evaluate(() => {
-        const blueprint = document.querySelector('#ig-zone-blueprint').getBoundingClientRect();
-        const fields = document.querySelector('#ig-fields-list').getBoundingClientRect();
-        return {
-            sideBySide: blueprint.right <= fields.left + 1,
-            blueprintWidth: blueprint.width,
-            fieldWidth: fields.width,
-            visibleFieldHeight: Math.min(fields.bottom, window.innerHeight) - Math.max(fields.top, 0),
-            controlHeight: document.querySelector('.ig-field-row.is-selected select').getBoundingClientRect().height
-        };
-    });
-    assert.equal(workspace.sideBySide, true, 'the blueprint has its own laptop column instead of sitting above field settings');
-    assert.ok(workspace.blueprintWidth >= 295, `blueprint has room for its zone map (${workspace.blueprintWidth}px)`);
-    assert.ok(workspace.fieldWidth >= 420, `field settings retain a readable width (${workspace.fieldWidth}px)`);
-    assert.ok(workspace.visibleFieldHeight >= 320, `field settings have usable laptop height (${workspace.visibleFieldHeight}px)`);
-    assert.ok(workspace.controlHeight <= 30, `laptop field controls are condensed (${workspace.controlHeight}px)`);
+    for (const width of [1280, 1320, 1366, 1512]) {
+        await page.setViewport({ width, height: 768 });
+        await page.$eval('#ig-zone-blueprint', node => node.scrollIntoView({ block: 'start' }));
+        const workspace = await page.evaluate(() => {
+            const blueprint = document.querySelector('#ig-zone-blueprint').getBoundingClientRect();
+            const fields = document.querySelector('#ig-fields-list').getBoundingClientRect();
+            const preview = document.querySelector('.builder-preview-column').getBoundingClientRect();
+            return {
+                sideBySide: blueprint.right <= fields.left + 1 && fields.right <= preview.left + 1,
+                blueprintWidth: blueprint.width,
+                previewWidth: preview.width,
+                fieldWidth: fields.width,
+                visibleFieldHeight: Math.min(fields.bottom, window.innerHeight) - Math.max(fields.top, 0),
+                controlHeight: document.querySelector('.ig-field-row.is-selected select').getBoundingClientRect().height,
+                fits: document.documentElement.scrollWidth <= window.innerWidth + 1
+            };
+        });
+        assert.equal(workspace.sideBySide, true, `blueprint, fields and preview have separate columns at ${width}px`);
+        assert.ok(workspace.blueprintWidth >= (width >= 1320 ? 345 : 295), `blueprint has room for its zone map (${workspace.blueprintWidth}px)`);
+        assert.ok(workspace.previewWidth >= (width >= 1320 ? 395 : 315), `live preview has a readable laptop column (${workspace.previewWidth}px)`);
+        assert.ok(workspace.fieldWidth >= 420, `field settings retain a readable width (${workspace.fieldWidth}px)`);
+        assert.ok(workspace.visibleFieldHeight >= 320, `field settings have usable laptop height (${workspace.visibleFieldHeight}px)`);
+        assert.ok(workspace.controlHeight <= 30, `laptop field controls are condensed (${workspace.controlHeight}px)`);
+        assert.equal(workspace.fits, true, `badge workspace fits ${width}px without horizontal scrolling`);
+    }
+    await page.setViewport({ width: 1366, height: 768 });
     await page.evaluate(() => [...document.querySelectorAll('.tabs-nav .tab-btn')].find(button => button.textContent.trim() === 'Strip').click());
     assert.deepEqual(await selectedMode(), ['Strip']);
     assert.equal(await page.evaluate(() => {
